@@ -1,0 +1,28 @@
+---
+title: "hashingTest"
+output: html_document
+date: "2024-03-01"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This is a test for hash_text function
+
+
+```{r}
+# Example usage
+strings <- list("one", "two", "three")
+hashes_additive <- hash_text(strings, "additive")
+hashes_polynomial <- hash_text(strings, "polynomial")
+
+print(hashes_additive)
+print(hashes_polynomial)
+```
+
+```{r}
+
+```
+
+

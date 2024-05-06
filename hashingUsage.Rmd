@@ -1,0 +1,135 @@
+---
+title: "dsVert Hashing"
+output:
+  pdf_document: default
+  html_document: default
+date: "2024-05-01"
+---
+
+## Hashing with dsVert
+
+# Analysis and Usage
+
+This document is used as an example of hashing in dsVert as it is currently. The ideas it to take the CNSIM dataset as the most common example and of course create the conditions of Vertically partitioned federated data. I will first look at how to test the function hashIdDS within DSLite. Then, in that same environment look at the time to completion of hashing algorithms withing the digest library. I want to measure latency of calling hashIdDS to see what kind of  impact that will have on the final execution time. 
+
+If used as standalone the function are included at the end of this markdown.
+
+
+```{r}
+library(DSLite)
+library(resourcer)
+library(dsBase)
+library(dsBaseClient)
+library(dsVert)
+```
+
+
+In this part of the code I will split up the complete CNSIM dataset into three vertical partitions. 
+I want to also create the conditions necessary to apply hashing so I will mix up th rows between the vertical partitions.
+
+```{r}
+data("CNSIM1")
+data("CNSIM2")
+data("CNSIM3")
+
+AllCNSIM <- rbind(CNSIM1,CNSIM2,CNSIM3)
+AllCNSIM$id <- 1:9379
+
+
+Partition1 <- AllCNSIM[,c("id", "LAB_TSC","LAB_TRIG","PM_BMI_CONTINUOUS","DIS_CVA")]
+Partition2 <- AllCNSIM[,c("id", "LAB_HDL","LAB_GLUC_ADJUSTED","MEDI_LPD","DIS_DIAB")]
+set.seed(1998)
+Partition2 <- Partition2[sample(nrow(Partition2)), ]
+Partition3 <- AllCNSIM[,c("id", "DIS_AMI","GENDER","PM_BMI_CATEGORICAL")]
+Partition3 <- Partition3[sample(nrow(Partition3)), ]
+
+```
+
+First a demonstration how to use hashIdDS (the original idea behind the name was to hash the row names of a given table but when testing the row names kept getting lost)
+
+```{r}
+dslite.server <- newDSLiteServer(
+    config = DSLite::defaultDSConfiguration(include=c("dsBase", "resourcer", "dsVert")), 
+    tables = list(AllCNSIM = AllCNSIM)
+)
+
+builder <- DSI::newDSLoginBuilder()
+builder$append(server = "server1", url = "dslite.server", table = "AllCNSIM", driver = "DSLiteDriver")
+logindata.dslite <- builder$build()
+conns <- datashield.login(logindata.dslite, assign=T, symbol = "AllCNSIM")
+
+
+dslite.server$aggregateMethod("hashIdDS", function(data_name, id_variable, algo = "sha256") { hashIdDS(data_name, id_variable, algo = "sha256") })
+
+hashes <- datashield.aggregate(conns, quote(hashIdDS(AllCNSIM, "id", "md5")))[[1]]
+head(hashes)
+
+
+#local_data <- DSLite::getDSLiteData(conns, "AllCNSIM")[[1]]
+#head(local_data)
+```
+
+ Now I want to look at the process time for my operations. I call reorderTableDS for the sha256 algorithm and then the two function calls of reorderTableDS for the other two servers. Keep in mind that this process hashes the 9379 id variable for all the three vertical partitions.
+
+```{r}
+dslite.server <- newDSLiteServer(
+    config = DSLite::defaultDSConfiguration(include=c("dsBase", "resourcer", "dsVert")), 
+    tables = list(VertCNSIM1 = Partition1, VertCNSIM2 = Partition2, VertCNSIM3 = Partition3)
+)
+
+builder <- DSI::newDSLoginBuilder()
+builder$append(server = "server1", url = "dslite.server", table = "VertCNSIM1", driver = "DSLiteDriver")
+builder$append(server = "server2", url = "dslite.server", table = "VertCNSIM2", driver = "DSLiteDriver")
+builder$append(server = "server3", url = "dslite.server", table = "VertCNSIM3", driver = "DSLiteDriver")
+logindata.dslite <- builder$build()
+conns <- datashield.login(logindata.dslite, assign=T)
+
+dslite.server$aggregateMethod("hashIdDS", function(data_name, id_variable, algo ) { hashIdDS(data_name, id_variable, algo) })
+dslite.server$aggregateMethod("reorderTableDS", function(table_name, id_var, hash_list, new_table_name) { reorderTableDS(table_name, id_var, hash_list, new_table_name) })
+
+start_time <- proc.time()
+
+all_hashes <- datashield.aggregate(conns[1], quote(hashIdDS(D, "id", "sha256")))[[1]]
+
+datashield.aggregate(conns[2], quote(reorderTableDS(D,"id",all_hashes, "orderedTable")))
+datashield.aggregate(conns[3], quote(reorderTableDS(D,"id",all_hashes, "orderedTable")))
+
+end_time <- proc.time() - start_time
+
+print("Time for the process:")
+print(end_time)
+#local_data <- DSLite::getDSLiteData(conns[3], "orderedTable")[[1]]
+#head(local_data)
+```
+
+
+
+```{r}
+hashIdDS <- function(data_name, id_variable, algo = "sha256") {
+
+  beforeHash <- data_name[[id_variable]]
+  orderHash1 <- vector("character", length(beforeHash))
+  for(i in 1:length(beforeHash)){
+    orderHash1[i] <- digest(beforeHash[i], algo = algo)
+  }
+
+  return(orderHash1)
+}
+
+reorderTableDS <- function(table_name, id_var, hash_list, new_table_name = "orderedTable") {
+
+  # The same strategy as in hashIdDS.R
+  beforeHash <- table_name[[id_var]]
+  orderHash <- vector("character", length(beforeHash))
+  for(i in 1:length(beforeHash)){
+    orderHash[i] <- digest(beforeHash[i], algo = "sha256")
+  }
+
+  # Then match and create new ordered table
+  hash_match <- match(hash_list, orderHash)
+
+  table_name <- table_name[hash_match, ]
+  assign(new_table_name, table_name, envir = .GlobalEnv)
+
+}
+```

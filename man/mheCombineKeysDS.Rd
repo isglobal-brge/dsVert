@@ -4,11 +4,13 @@
 \alias{mheCombineKeysDS}
 \title{MHE Combine Keys (Server-Side)}
 \usage{
-mheCombineKeysDS(public_key_shares, log_n = 14, log_scale = 40)
+mheCombineKeysDS(public_key_shares, crp, log_n = 14, log_scale = 40)
 }
 \arguments{
 \item{public_key_shares}{Character vector or single string. Base64-encoded
 public key share(s) from all parties.}
+
+\item{crp}{Character string. Base64-encoded Common Reference Polynomial from keygen.}
 
 \item{log_n}{Integer. Ring dimension parameter (must match key generation).}
 

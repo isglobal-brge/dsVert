@@ -66,10 +66,17 @@ base64_to_base64url <- function(x) {
 
   bin_path <- ""
 
-  # Look for binary in package installation
+  # Look for binary in package installation (platform-specific)
   tryCatch({
     bin_path <- system.file("bin", subdir, binary_name, package = "dsVert")
   }, error = function(e) {})
+
+  # Fallback: look in mhe-tool directory (cross-platform binary)
+  if (bin_path == "" || !file.exists(bin_path)) {
+    tryCatch({
+      bin_path <- system.file("mhe-tool", binary_name, package = "dsVert")
+    }, error = function(e) {})
+  }
 
   # Fallback: look in development locations
   if (bin_path == "" || !file.exists(bin_path)) {
@@ -122,38 +129,39 @@ base64_to_base64url <- function(x) {
 .callMheTool <- function(command, input_data) {
   bin_path <- .findMheTool()
 
-  # Convert input to JSON
-  input_json <- jsonlite::toJSON(input_data, auto_unbox = TRUE)
-
-  # Create temporary file for input
+  # Create temporary files for input and output
   input_file <- tempfile(fileext = ".json")
+  output_file <- tempfile(fileext = ".json")
+  stderr_file <- tempfile(fileext = ".txt")
 
   on.exit({
     if (file.exists(input_file)) unlink(input_file)
+    if (file.exists(output_file)) unlink(output_file)
+    if (file.exists(stderr_file)) unlink(stderr_file)
   })
 
-  # Write input
-  writeLines(as.character(input_json), input_file)
+  # Write input JSON to file (avoids large string in R memory)
+  jsonlite::write_json(input_data, input_file, auto_unbox = TRUE)
 
-  # Call mhe-tool and capture stdout
-  result <- system2(
+  # Call mhe-tool with file-based I/O (avoids C stack overflow on large output)
+  status <- system2(
     command = bin_path,
     args = command,
     stdin = input_file,
-    stdout = TRUE,
-    stderr = TRUE
+    stdout = output_file,
+    stderr = stderr_file
   )
 
   # Check for errors
-  status <- attr(result, "status")
-  if (!is.null(status) && status != 0) {
+  if (status != 0) {
+    err_msg <- if (file.exists(output_file)) readLines(output_file, warn = FALSE) else ""
+    stderr_msg <- if (file.exists(stderr_file)) readLines(stderr_file, warn = FALSE) else ""
     stop("mhe-tool failed with status ", status, ": ",
-         paste(result, collapse = "\n"), call. = FALSE)
+         paste(c(err_msg, stderr_msg), collapse = "\n"), call. = FALSE)
   }
 
-  # Parse output
-  output_json <- paste(result, collapse = "\n")
-  output <- jsonlite::fromJSON(output_json)
+  # Parse output from file (avoids loading huge string into R)
+  output <- jsonlite::read_json(output_file, simplifyVector = TRUE)
 
   # Check for error in output
   if (!is.null(output$error) && nchar(output$error) > 0) {

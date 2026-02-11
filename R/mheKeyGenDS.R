@@ -11,6 +11,7 @@
 #'   \itemize{
 #'     \item \code{secret_key_share}: Base64-encoded secret key share
 #'     \item \code{public_key_share}: Base64-encoded public key share
+#'     \item \code{evaluation_keys}: Base64-encoded evaluation keys (for single-party mode)
 #'     \item \code{party_id}: The party ID
 #'     \item \code{log_n}: Ring dimension used
 #'     \item \code{log_scale}: Scale parameter used
@@ -55,11 +56,22 @@ mheKeyGenDS <- function(party_id, num_parties, log_n = 14, log_scale = 40) {
 
   # Return keys in base64url format for safe transmission
   # (standard base64 contains "/" and "+" which cause R parser issues on Opal)
-  list(
+  output <- list(
     secret_key_share = base64_to_base64url(result$secret_key_share),
     public_key_share = base64_to_base64url(result$public_key_share),
+    crp = base64_to_base64url(result$crp),
     party_id = result$party_id,
     log_n = log_n,
     log_scale = log_scale
   )
+
+  # Include single-party mode keys if present
+  if (!is.null(result$evaluation_keys) && nzchar(result$evaluation_keys)) {
+    output$evaluation_keys <- base64_to_base64url(result$evaluation_keys)
+  }
+  if (!is.null(result$collective_public_key) && nzchar(result$collective_public_key)) {
+    output$collective_public_key <- base64_to_base64url(result$collective_public_key)
+  }
+
+  output
 }

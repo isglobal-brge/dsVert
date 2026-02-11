@@ -20,6 +20,7 @@ A list containing:
 \itemize{
 \item \code{secret_key_share}: Base64-encoded secret key share
 \item \code{public_key_share}: Base64-encoded public key share
+\item \code{evaluation_keys}: Base64-encoded evaluation keys (for single-party mode)
 \item \code{party_id}: The party ID
 \item \code{log_n}: Ring dimension used
 \item \code{log_scale}: Scale parameter used

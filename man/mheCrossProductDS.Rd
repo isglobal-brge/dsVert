@@ -9,6 +9,7 @@ mheCrossProductDS(
   plaintext_variables,
   encrypted_columns,
   secret_key,
+  evaluation_keys,
   n_obs,
   log_n = 13,
   log_scale = 40
@@ -23,6 +24,9 @@ the plaintext data (Z_A).}
 \item{encrypted_columns}{List. Base64-encoded encrypted columns from the other server.}
 
 \item{secret_key}{Character string. Base64-encoded secret key for decryption.}
+
+\item{evaluation_keys}{Character string. Base64-encoded evaluation keys for
+homomorphic operations (rotations in sum-reduce).}
 
 \item{n_obs}{Integer. Number of observations (for computing correlation).}
 

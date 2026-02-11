@@ -7,6 +7,8 @@
 #' @param plaintext_variables Character vector. Variable names in Z_A.
 #' @param encrypted_columns List. Base64-encoded encrypted columns from the other server.
 #' @param secret_key Character string. Base64-encoded secret key for decryption.
+#' @param evaluation_keys Character string. Base64-encoded evaluation keys for
+#'   homomorphic operations (rotations in sum-reduce).
 #' @param n_obs Integer. Number of observations (for computing correlation).
 #' @param log_n Integer. Ring dimension parameter.
 #' @param log_scale Integer. Scale parameter.
@@ -42,8 +44,8 @@
 #'
 #' @export
 mheCrossProductDS <- function(plaintext_data_name, plaintext_variables,
-                               encrypted_columns, secret_key, n_obs,
-                               log_n = 13, log_scale = 40) {
+                               encrypted_columns, secret_key, evaluation_keys,
+                               n_obs, log_n = 13, log_scale = 40) {
   # Validate inputs
   if (!is.character(plaintext_data_name) || length(plaintext_data_name) != 1) {
     stop("plaintext_data_name must be a single character string", call. = FALSE)
@@ -57,9 +59,13 @@ mheCrossProductDS <- function(plaintext_data_name, plaintext_variables,
   if (!is.character(secret_key) || length(secret_key) != 1) {
     stop("secret_key must be a single character string", call. = FALSE)
   }
+  if (!is.character(evaluation_keys) || length(evaluation_keys) != 1) {
+    stop("evaluation_keys must be a single character string", call. = FALSE)
+  }
 
   # Convert from base64url to standard base64
   secret_key <- .base64url_to_base64(secret_key)
+  evaluation_keys <- .base64url_to_base64(evaluation_keys)
   encrypted_columns <- lapply(encrypted_columns, .base64url_to_base64)
 
   # Get plaintext data
@@ -101,6 +107,7 @@ mheCrossProductDS <- function(plaintext_data_name, plaintext_variables,
   input <- list(
     plaintext_columns = Z_A_cols,
     encrypted_columns = encrypted_columns,
+    evaluation_keys = evaluation_keys,
     secret_key = secret_key,
     log_n = as.integer(log_n),
     log_scale = as.integer(log_scale)

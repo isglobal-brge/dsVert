@@ -4,6 +4,7 @@
 #'
 #' @param public_key_shares Character vector or single string. Base64-encoded
 #'   public key share(s) from all parties.
+#' @param crp Character string. Base64-encoded Common Reference Polynomial from keygen.
 #' @param log_n Integer. Ring dimension parameter (must match key generation).
 #' @param log_scale Integer. Scale parameter (must match key generation).
 #'
@@ -20,15 +21,19 @@
 #' homomorphic operations (multiplication and rotation).
 #'
 #' @export
-mheCombineKeysDS <- function(public_key_shares, log_n = 14, log_scale = 40) {
+mheCombineKeysDS <- function(public_key_shares, crp, log_n = 14, log_scale = 40) {
   # Validate inputs
   if (!is.character(public_key_shares)) {
     stop("public_key_shares must be a character vector", call. = FALSE)
+  }
+  if (missing(crp) || !is.character(crp)) {
+    stop("crp (Common Reference Polynomial) must be provided as character string", call. = FALSE)
   }
 
   # Convert from base64url to standard base64 (needed for Opal/Rock compatibility)
   # The client sends base64url because "/" and "+" cause R parser issues
   public_key_shares <- sapply(public_key_shares, .base64url_to_base64, USE.NAMES = FALSE)
+  crp <- .base64url_to_base64(crp)
 
   # Ensure it's a list for the tool
   if (length(public_key_shares) == 1) {
@@ -40,6 +45,7 @@ mheCombineKeysDS <- function(public_key_shares, log_n = 14, log_scale = 40) {
   # Call mhe-tool
   input <- list(
     public_key_shares = pk_list,
+    crp = crp,
     log_n = as.integer(log_n),
     log_scale = as.integer(log_scale)
   )

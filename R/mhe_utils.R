@@ -2,6 +2,41 @@
 #' @description Internal functions for calling the mhe-tool binary.
 #' @keywords internal
 
+#' Convert base64url to standard base64
+#' @description Converts base64url encoding (URL-safe) to standard base64.
+#'   This is needed because R's parser on Opal/Rock has issues with "/" and "+"
+#'   characters in long strings passed as function parameters.
+#' @param x Character string in base64url encoding
+#' @return Character string in standard base64 encoding
+#' @keywords internal
+.base64url_to_base64 <- function(x) {
+  # Replace URL-safe characters with standard base64
+  x <- gsub("-", "+", x, fixed = TRUE)
+  x <- gsub("_", "/", x, fixed = TRUE)
+
+  # Add padding if needed
+  padding_needed <- (4 - nchar(x) %% 4) %% 4
+  if (padding_needed > 0) {
+    x <- paste0(x, paste(rep("=", padding_needed), collapse = ""))
+  }
+
+  x
+}
+
+#' Convert standard base64 to base64url
+#' @description Converts standard base64 to base64url encoding (URL-safe).
+#' @param x Character string in standard base64 encoding
+#' @return Character string in base64url encoding
+#' @export
+base64_to_base64url <- function(x) {
+  # Replace standard base64 characters with URL-safe ones
+  x <- gsub("+", "-", x, fixed = TRUE)
+  x <- gsub("/", "_", x, fixed = TRUE)
+  # Remove padding
+  x <- gsub("=", "", x, fixed = TRUE)
+  x
+}
+
 #' Find the mhe-tool binary
 #'
 #' @return Path to the mhe-tool binary

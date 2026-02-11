@@ -26,6 +26,10 @@ mheCombineKeysDS <- function(public_key_shares, log_n = 14, log_scale = 40) {
     stop("public_key_shares must be a character vector", call. = FALSE)
   }
 
+  # Convert from base64url to standard base64 (needed for Opal/Rock compatibility)
+  # The client sends base64url because "/" and "+" cause R parser issues
+  public_key_shares <- sapply(public_key_shares, .base64url_to_base64, USE.NAMES = FALSE)
+
   # Ensure it's a list for the tool
   if (length(public_key_shares) == 1) {
     pk_list <- list(public_key_shares)
@@ -42,9 +46,10 @@ mheCombineKeysDS <- function(public_key_shares, log_n = 14, log_scale = 40) {
 
   result <- .callMheTool("combine-keys", input)
 
+  # Convert output to base64url for safe transmission back to client
   list(
-    collective_public_key = result$collective_public_key,
-    relinearization_key = result$relinearization_key,
-    rotation_keys = result$rotation_keys
+    collective_public_key = base64_to_base64url(result$collective_public_key),
+    relinearization_key = if (!is.null(result$relinearization_key)) base64_to_base64url(result$relinearization_key) else NULL,
+    rotation_keys = if (!is.null(result$rotation_keys)) base64_to_base64url(result$rotation_keys) else NULL
   )
 }

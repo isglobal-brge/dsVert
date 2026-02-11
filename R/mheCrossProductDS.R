@@ -58,6 +58,10 @@ mheCrossProductDS <- function(plaintext_data_name, plaintext_variables,
     stop("secret_key must be a single character string", call. = FALSE)
   }
 
+  # Convert from base64url to standard base64
+  secret_key <- .base64url_to_base64(secret_key)
+  encrypted_columns <- lapply(encrypted_columns, .base64url_to_base64)
+
   # Get plaintext data
   data <- eval(parse(text = plaintext_data_name), envir = parent.frame())
 

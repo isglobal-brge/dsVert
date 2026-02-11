@@ -2,7 +2,7 @@
 % Please edit documentation in R/mhe_utils.R
 \name{.findMheTool}
 \alias{.findMheTool}
-\title{MHE Utility Functions}
+\title{Find the mhe-tool binary}
 \usage{
 .findMheTool()
 }
@@ -10,10 +10,6 @@
 Path to the mhe-tool binary
 }
 \description{
-Internal functions for calling the mhe-tool binary.
+Find the mhe-tool binary
 }
-\keyword{Find}
-\keyword{binary}
 \keyword{internal}
-\keyword{mhe-tool}
-\keyword{the}

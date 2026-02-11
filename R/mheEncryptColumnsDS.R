@@ -47,6 +47,9 @@ mheEncryptColumnsDS <- function(data_name, variables, collective_public_key,
     stop("collective_public_key must be a single character string", call. = FALSE)
   }
 
+  # Convert from base64url to standard base64
+  collective_public_key <- .base64url_to_base64(collective_public_key)
+
   # Get data from server environment
   data <- eval(parse(text = data_name), envir = parent.frame())
 
@@ -97,8 +100,11 @@ mheEncryptColumnsDS <- function(data_name, variables, collective_public_key,
 
   result <- .callMheTool("encrypt-columns", input)
 
+  # Convert encrypted columns to base64url for safe transmission
+  encrypted_columns_b64url <- lapply(result$encrypted_columns, base64_to_base64url)
+
   list(
-    encrypted_columns = result$encrypted_columns,
+    encrypted_columns = encrypted_columns_b64url,
     num_rows = result$num_rows,
     num_cols = result$num_cols,
     var_names = variables

@@ -53,10 +53,11 @@ mheKeyGenDS <- function(party_id, num_parties, log_n = 14, log_scale = 40) {
 
   result <- .callMheTool("keygen", input)
 
-  # Return keys directly
+  # Return keys in base64url format for safe transmission
+  # (standard base64 contains "/" and "+" which cause R parser issues on Opal)
   list(
-    secret_key_share = result$secret_key_share,
-    public_key_share = result$public_key_share,
+    secret_key_share = base64_to_base64url(result$secret_key_share),
+    public_key_share = base64_to_base64url(result$public_key_share),
     party_id = result$party_id,
     log_n = log_n,
     log_scale = log_scale

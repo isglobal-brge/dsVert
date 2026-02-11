@@ -2,23 +2,47 @@
 % Please edit documentation in R/hashIdDS.R
 \name{hashIdDS}
 \alias{hashIdDS}
-\title{Serverside function used to has an Id variable of a dataframe, taking full advantage of digest library}
+\title{Hash Identifier Variable}
 \usage{
-hashIdDS(data_name, id_variable, algo = "sha256")
+hashIdDS(data_name, id_col, algo = "sha256")
 }
 \arguments{
-\item{data_name}{The name of the dataframe on the server}
+\item{data_name}{Character string. Name of the data frame in the server
+environment.}
 
-\item{id_variable}{Variable to be hashed}
+\item{id_col}{Character string. Name of the column containing identifiers
+to hash.}
 
-\item{algo}{Which digest algorithm to use, it is set to sha256 is a base}
+\item{algo}{Character string. Hash algorithm to use. Default is "sha256".
+Supported algorithms include "md5", "sha1", "sha256", "sha512".}
 }
 \value{
-vector of hashes
+A list containing:
+\itemize{
+\item \code{hashes}: Character vector of hashed identifiers
+\item \code{n}: Integer count of observations (for validation)
+}
 }
 \description{
-Serverside function used to has an Id variable of a dataframe, taking full advantage of digest library
+Server-side aggregate function that hashes an identifier
+variable using a cryptographic hash function. Used for privacy-preserving
+record matching across vertically partitioned data.
+}
+\details{
+This function is part of the record matching workflow for vertically
+partitioned data. It uses the SHA-256 algorithm by default, which provides
+collision resistance suitable for identifier matching.
+
+The function returns hashes (not raw identifiers) ensuring that sensitive
+information like patient IDs never leave the server in identifiable form.
 }
 \examples{
-hashIdDS(D, "id", "sha256")
+\dontrun{
+# Called from client via datashield.aggregate()
+# result <- datashield.aggregate(conn, "hashIdDS('D', 'patient_id')")
+}
+
+}
+\seealso{
+\code{\link{alignRecordsDS}} for reordering data based on hashes
 }

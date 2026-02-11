@@ -1,22 +1,42 @@
 Package: dsVert
-Title: What the Package Does (One Line, Title Case)
-Version: 0.0.0.9000
-Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+Type: Package
+Title: DataSHIELD Server-Side Functions for Vertically Partitioned Data
+Version: 1.0.0
+Authors@R: c(
+    person("David", "Sarrat González", email = "david.sarrat@isglobal.org",
+           role = c("aut", "cre")),
+    person("Miron", "Banjac", email = "miron.banjac@isglobal.org",
+           role = "ctb"),
+    person("Juan R", "González", email = "juanr.gonzalez@isglobal.org",
+           role = "ctb")
+  )
+Description: Server-side DataSHIELD functions for privacy-preserving analysis
+    of vertically partitioned federated data. Implements record matching via
+    secure hashing, distributed Block SVD for correlation and PCA, and Block
+    Coordinate Descent for Generalized Linear Models. All methods preserve
+    data privacy by ensuring raw data never leaves the server.
+License: MIT + file LICENSE
+URL: https://github.com/isglobal-brge/dsVert
+BugReports: https://github.com/isglobal-brge/dsVert/issues
 Encoding: UTF-8
-Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.3
-Imports: 
+LazyData: true
+Depends: R (>= 4.0.0)
+Imports:
     digest,
-    svdParallel
-Remotes:
-    datashield/dsBase
-AssignMethods:
-    reorderTableDS
+    stats
+Suggests:
+    testthat (>= 3.0.0),
+    DSLite,
+    DSI
+RoxygenNote: 7.3.3
+Roxygen: list(markdown = TRUE)
 AggregateMethods:
-    vertCorDS
-    hashIdDS
+    hashIdDS,
+    blockSvdDS,
+    glmPartialFitDS,
+    getObsCountDS
+AssignMethods:
+    alignRecordsDS,
+    prepareDataDS
+Options:
+    datashield.privacyLevel=5

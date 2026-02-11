@@ -1,0 +1,179 @@
+#' @title GLM Partial Fit via Block Coordinate Descent (Server-Side)
+#' @description Server-side aggregate function that performs one iteration
+#'   of the Block Coordinate Descent algorithm for fitting Generalized Linear
+#'   Models on vertically partitioned data.
+#'
+#' @param data_name Character string. Name of the data frame containing
+#'   predictor variables in the server environment.
+#' @param y_name Character string. Name of the response variable in the
+#'   data frame.
+#' @param x_vars Character vector. Names of predictor variables to use
+#'   from this partition.
+#' @param eta_other Numeric vector. Linear predictor contribution from
+#'   other partitions (sum of X_j * beta_j for j != current partition).
+#' @param beta_current Numeric vector. Current coefficient estimates for
+#'   this partition's variables.
+#' @param family Character string. GLM family: "gaussian", "binomial",
+#'   or "poisson". Default is "gaussian".
+#' @param lambda Numeric. L2 regularization parameter. Default is 1e-4.
+#'
+#' @return A list containing:
+#'   \itemize{
+#'     \item \code{beta}: Updated coefficient estimates for this partition
+#'     \item \code{eta}: Linear predictor contribution from this partition
+#'       (X * beta_new) to share with other partitions
+#'     \item \code{converged}: Logical indicating if update was stable
+#'   }
+#'
+#' @details
+#' This function implements one step of the Block Coordinate Descent (BCD)
+#' algorithm for distributed GLM fitting. The algorithm iteratively updates
+#' coefficients for each partition while holding others fixed.
+#'
+#' For each partition i, the update is:
+#' \deqn{\beta_i^{new} = (X_i^T W X_i + \lambda I)^{-1} X_i^T W (z - \eta_{-i})}
+#'
+#' Where:
+#' \itemize{
+#'   \item W = weight matrix (depends on family)
+#'   \item z = working response (depends on family)
+#'   \item \eqn{\eta_{-i}} = sum of linear predictors from other partitions
+#' }
+#'
+#' The function supports three families:
+#' \itemize{
+#'   \item \strong{Gaussian}: Identity link, W = I, z = y
+#'   \item \strong{Binomial}: Logit link, W = diag(mu*(1-mu)), logistic z
+#'   \item \strong{Poisson}: Log link, W = diag(mu), log-linear z
+#' }
+#'
+#' @references
+#' van Kesteren, E.J. et al. (2019). Privacy-preserving generalized linear
+#' models using distributed block coordinate descent. arXiv:1911.05935.
+#'
+#' @seealso \code{\link[dsVertClient]{ds.vertGLM}} for client-side interface
+#'
+#' @examples
+#' \dontrun{
+#' # Called from client via datashield.aggregate()
+#' # result <- datashield.aggregate(conn,
+#' #   "glmPartialFitDS('D', 'outcome', c('age', 'weight'),
+#' #     eta_other, beta_current, 'gaussian', 1e-4)")
+#' }
+#'
+#' @export
+glmPartialFitDS <- function(data_name, y_name, x_vars, eta_other,
+                             beta_current, family = "gaussian",
+                             lambda = 1e-4) {
+  # Validate inputs
+  if (!is.character(data_name) || length(data_name) != 1) {
+    stop("data_name must be a single character string", call. = FALSE)
+  }
+  if (!is.character(y_name) || length(y_name) != 1) {
+    stop("y_name must be a single character string", call. = FALSE)
+  }
+  if (!is.character(x_vars) || length(x_vars) == 0) {
+    stop("x_vars must be a non-empty character vector", call. = FALSE)
+  }
+  if (!family %in% c("gaussian", "binomial", "poisson")) {
+    stop("family must be 'gaussian', 'binomial', or 'poisson'", call. = FALSE)
+  }
+
+  # Get data from server environment
+  data <- eval(parse(text = data_name), envir = parent.frame())
+
+  if (!is.data.frame(data)) {
+    stop("Object '", data_name, "' is not a data frame", call. = FALSE)
+  }
+
+  # Check variables exist
+  all_vars <- c(y_name, x_vars)
+  missing_vars <- setdiff(all_vars, names(data))
+  if (length(missing_vars) > 0) {
+    stop("Variables not found: ", paste(missing_vars, collapse = ", "),
+         call. = FALSE)
+  }
+
+  # Extract data
+  y <- as.numeric(data[[y_name]])
+  X <- as.matrix(data[, x_vars, drop = FALSE])
+  n <- length(y)
+  p <- ncol(X)
+
+  # Validate dimensions
+  if (length(eta_other) != n) {
+    stop("eta_other length (", length(eta_other), ") must match n_obs (", n, ")",
+         call. = FALSE)
+  }
+  if (length(beta_current) != p) {
+    stop("beta_current length (", length(beta_current),
+         ") must match number of variables (", p, ")", call. = FALSE)
+  }
+
+  # Privacy check
+  privacy_level <- getOption("datashield.privacyLevel", 5)
+  if (n < privacy_level) {
+    stop("Insufficient observations for privacy-preserving analysis",
+         call. = FALSE)
+  }
+
+  # Compute total linear predictor
+  eta <- as.vector(eta_other + X %*% beta_current)
+
+  # Compute mu, W, z based on family
+  if (family == "gaussian") {
+    mu <- eta
+    w <- rep(1, n)
+    z <- y
+  } else if (family == "binomial") {
+    # Clip eta to avoid numerical issues
+    eta <- pmax(pmin(eta, 20), -20)
+    mu <- 1 / (1 + exp(-eta))
+    # Avoid division by zero
+    mu <- pmax(pmin(mu, 1 - 1e-10), 1e-10)
+    w <- mu * (1 - mu)
+    z <- eta + (y - mu) / w
+  } else if (family == "poisson") {
+    # Clip eta to avoid overflow
+    eta <- pmin(eta, 20)
+    mu <- exp(eta)
+    # Avoid division by zero
+    mu <- pmax(mu, 1e-10)
+    w <- mu
+    z <- eta + (y - mu) / mu
+  }
+
+  # IRLS update with L2 regularization
+  # beta_new = (X'WX + lambda*I)^{-1} * X'W(z - eta_other)
+  W <- diag(w)
+  XtWX <- crossprod(X, W %*% X) + diag(lambda, p)
+  XtWz <- crossprod(X, w * (z - eta_other))
+
+  # Solve system
+  beta_new <- tryCatch(
+    as.vector(solve(XtWX, XtWz)),
+    error = function(e) {
+      # If solve fails, use regularized pseudo-inverse
+      warning("Matrix near-singular, using additional regularization")
+      as.vector(solve(XtWX + diag(0.01, p), XtWz))
+    }
+  )
+
+  # Check for extreme updates
+  converged <- TRUE
+  if (any(abs(beta_new) > 1e6)) {
+    # Scale down extreme coefficients
+    beta_new <- beta_new / max(abs(beta_new)) * 1e2
+    converged <- FALSE
+    warning("Large coefficient update detected, scaling applied")
+  }
+
+  # Compute eta for this partition
+  eta_new <- as.vector(X %*% beta_new)
+
+  list(
+    beta = beta_new,
+    eta = eta_new,
+    converged = converged
+  )
+}

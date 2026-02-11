@@ -23,6 +23,7 @@ LazyData: true
 Depends: R (>= 4.0.0)
 Imports:
     digest,
+    jsonlite,
     stats
 Suggests:
     testthat (>= 3.0.0),
@@ -32,11 +33,18 @@ RoxygenNote: 7.3.3
 Roxygen: list(markdown = TRUE)
 AggregateMethods:
     hashIdDS,
-    blockSvdDS,
     glmPartialFitDS,
     glmDevianceDS,
     getObsCountDS,
-    validateIdFormatDS
+    validateIdFormatDS,
+    mheKeyGenDS,
+    mheEncryptDS,
+    mhePartialDecryptDS,
+    mheFuseDecryptDS,
+    mheCombineKeysDS,
+    mheEncryptColumnsDS,
+    mheCrossProductDS,
+    localCorDS
 AssignMethods:
     alignRecordsDS,
     prepareDataDS

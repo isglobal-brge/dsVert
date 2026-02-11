@@ -1,0 +1,50 @@
+#' @title MHE Combine Keys (Server-Side)
+#' @description Server-side aggregate function that combines public key shares
+#'   into a collective public key and generates evaluation keys.
+#'
+#' @param public_key_shares Character vector or single string. Base64-encoded
+#'   public key share(s) from all parties.
+#' @param log_n Integer. Ring dimension parameter (must match key generation).
+#' @param log_scale Integer. Scale parameter (must match key generation).
+#'
+#' @return A list containing:
+#'   \itemize{
+#'     \item \code{collective_public_key}: Combined public key for encryption
+#'     \item \code{relinearization_key}: Key for relinearization after multiplication
+#'     \item \code{rotation_keys}: Keys for slot rotation operations
+#'   }
+#'
+#' @details
+#' This function combines public key shares from all parties into a single
+#' collective public key. It also generates evaluation keys needed for
+#' homomorphic operations (multiplication and rotation).
+#'
+#' @export
+mheCombineKeysDS <- function(public_key_shares, log_n = 14, log_scale = 40) {
+  # Validate inputs
+  if (!is.character(public_key_shares)) {
+    stop("public_key_shares must be a character vector", call. = FALSE)
+  }
+
+  # Ensure it's a list for the tool
+  if (length(public_key_shares) == 1) {
+    pk_list <- list(public_key_shares)
+  } else {
+    pk_list <- as.list(public_key_shares)
+  }
+
+  # Call mhe-tool
+  input <- list(
+    public_key_shares = pk_list,
+    log_n = as.integer(log_n),
+    log_scale = as.integer(log_scale)
+  )
+
+  result <- .callMheTool("combine-keys", input)
+
+  list(
+    collective_public_key = result$collective_public_key,
+    relinearization_key = result$relinearization_key,
+    rotation_keys = result$rotation_keys
+  )
+}

@@ -1,7 +1,41 @@
-#' @title MHE Full Protocol - Server-Side Functions
-#' @description These functions implement the full Multiparty Homomorphic Encryption
-#'   protocol with threshold decryption. The client CANNOT decrypt data without
-#'   cooperation from ALL servers.
+#' @title MHE Threshold Protocol - Server-Side Functions
+#' @description These functions implement the Multiparty Homomorphic Encryption (MHE)
+#'   protocol with threshold decryption using the CKKS approximate homomorphic
+#'   encryption scheme (Lattigo v6). Decryption requires ALL servers to cooperate
+#'   by providing their partial decryption shares.
+#'
+#' @details
+#' The protocol proceeds in 6 phases, orchestrated by the client
+#' (\code{ds.vertCor} in the dsVertClient package):
+#'
+#' \enumerate{
+#'   \item \strong{Key Generation} (\code{mheInitDS}): Each server generates a
+#'     secret key share and a public key share. Party 0 also generates the Common
+#'     Reference Polynomial (CRP).
+#'   \item \strong{Key Combination} (\code{mheCombineDS} + \code{mheStoreCPKDS}):
+#'     Public key shares are aggregated into a Collective Public Key (CPK).
+#'   \item \strong{Encryption} (\code{mheEncryptLocalDS}): Each server standardizes
+#'     its data and encrypts columns under the CPK.
+#'   \item \strong{Local Correlation} (\code{localCorDS}): Within-server correlations
+#'     are computed in plaintext.
+#'   \item \strong{Cross-Server Correlation} (\code{mheCrossProductEncDS} +
+#'     \code{mhePartialDecryptDS}): Encrypted element-wise products are computed,
+#'     then each server provides a partial decryption share.
+#'   \item \strong{Fusion} (client-side \code{mhe-fuse}): The client fuses all
+#'     partial shares to recover the inner products (correlation coefficients).
+#' }
+#'
+#' @section Security:
+#' The secret key is split across K servers: \eqn{sk = sk_1 + sk_2 + ... + sk_K}.
+#' Decryption requires ALL K partial decryption shares. Neither the client nor
+#' any subset of K-1 servers can decrypt individual data.
+#'
+#' @references
+#' Mouchet, C. et al. (2021). "Multiparty Homomorphic Encryption from
+#' Ring-Learning-With-Errors". \emph{Proceedings on Privacy Enhancing Technologies}.
+#'
+#' Cheon, J.H. et al. (2017). "Homomorphic Encryption for Arithmetic of
+#' Approximate Numbers". \emph{ASIACRYPT 2017}.
 #'
 #' @name mhe-full-protocol
 NULL

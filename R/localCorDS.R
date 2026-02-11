@@ -28,6 +28,7 @@
 #' The function enforces a minimum observation count based on the DataSHIELD
 #' privacy level setting.
 #'
+#' @importFrom stats cor
 #' @export
 localCorDS <- function(data_name, variables) {
   # Validate inputs

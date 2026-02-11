@@ -1,7 +1,7 @@
 Package: dsVert
 Type: Package
 Title: DataSHIELD Server-Side Functions for Vertically Partitioned Data
-Version: 1.1.0
+Version: 1.2.0
 Authors@R: c(
     person("David", "Sarrat González", email = "david.sarrat@isglobal.org",
            role = c("aut", "cre")),
@@ -11,10 +11,11 @@ Authors@R: c(
            role = "ctb")
   )
 Description: Server-side DataSHIELD functions for privacy-preserving analysis
-    of vertically partitioned federated data. Implements record matching via
-    secure hashing, distributed Block SVD for correlation and PCA, and Block
-    Coordinate Descent for Generalized Linear Models. All methods preserve
-    data privacy by ensuring raw data never leaves the server.
+    of vertically partitioned federated data. Implements record alignment via
+    secure hashing, Multiparty Homomorphic Encryption (MHE) with threshold
+    decryption for cross-server correlation, and Block Coordinate Descent for
+    Generalized Linear Models. All methods preserve data privacy by ensuring
+    raw data never leaves the server.
 License: MIT + file LICENSE
 URL: https://github.com/isglobal-brge/dsVert
 BugReports: https://github.com/isglobal-brge/dsVert/issues
@@ -27,7 +28,6 @@ Imports:
     stats
 Suggests:
     testthat (>= 3.0.0),
-    DSLite,
     DSI
 RoxygenNote: 7.3.3
 Roxygen: list(markdown = TRUE)
@@ -37,14 +37,6 @@ AggregateMethods:
     glmDevianceDS,
     getObsCountDS,
     validateIdFormatDS,
-    mheKeyGenDS,
-    mheEncryptDS,
-    mhePartialDecryptDS,
-    mheStoreCTChunkDS,
-    mheFuseDecryptDS,
-    mheCombineKeysDS,
-    mheEncryptColumnsDS,
-    mheCrossProductDS,
     localCorDS,
     mheInitDS,
     mheCombineDS,
@@ -53,6 +45,8 @@ AggregateMethods:
     mheCrossProductEncDS,
     mheStoreEncChunkDS,
     mheAssembleEncColumnDS,
+    mhePartialDecryptDS,
+    mheStoreCTChunkDS,
     mheGetObsDS,
     c=base::c,
     list=base::list

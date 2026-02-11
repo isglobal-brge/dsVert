@@ -71,13 +71,6 @@ base64_to_base64url <- function(x) {
     bin_path <- system.file("bin", subdir, binary_name, package = "dsVert")
   }, error = function(e) {})
 
-  # Fallback: look in mhe-tool directory (cross-platform binary)
-  if (bin_path == "" || !file.exists(bin_path)) {
-    tryCatch({
-      bin_path <- system.file("mhe-tool", binary_name, package = "dsVert")
-    }, error = function(e) {})
-  }
-
   # Fallback: look in development locations
   if (bin_path == "" || !file.exists(bin_path)) {
     # Try relative to this file (for development)

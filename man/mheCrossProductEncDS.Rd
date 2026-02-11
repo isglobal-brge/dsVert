@@ -2,17 +2,17 @@
 % Please edit documentation in R/mheFullProtocol.R
 \name{mheCrossProductEncDS}
 \alias{mheCrossProductEncDS}
-\title{Compute encrypted cross-product using STORED evaluation keys
+\title{Compute encrypted cross-product using STORED evaluation keys and STORED encrypted columns
 Returns ENCRYPTED result that requires threshold decryption}
 \usage{
-mheCrossProductEncDS(data_name, variables, encrypted_columns, n_obs)
+mheCrossProductEncDS(data_name, variables, n_enc_cols, n_obs)
 }
 \arguments{
 \item{data_name}{Character. Name of local data frame}
 
 \item{variables}{Character vector. Local variables (plaintext)}
 
-\item{encrypted_columns}{Character vector. Encrypted columns from other server}
+\item{n_enc_cols}{Integer. Number of stored encrypted columns to use}
 
 \item{n_obs}{Integer. Number of observations}
 }
@@ -20,6 +20,6 @@ mheCrossProductEncDS(data_name, variables, encrypted_columns, n_obs)
 List with encrypted_results matrix (base64url encoded ciphertexts)
 }
 \description{
-Compute encrypted cross-product using STORED evaluation keys
+Compute encrypted cross-product using STORED evaluation keys and STORED encrypted columns
 Returns ENCRYPTED result that requires threshold decryption
 }

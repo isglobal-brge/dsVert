@@ -1,4 +1,4 @@
-# Tests for Multiparty Homomorphic Encryption functions
+# Tests for Multiparty Homomorphic Encryption (Threshold) functions
 
 skip_if_not(mheAvailable(), "MHE tool binary not available")
 
@@ -17,97 +17,28 @@ test_that("mheVersion returns version string", {
 })
 
 # =============================================================================
-# Test Key Generation
+# Test mheGetObsDS
 # =============================================================================
 
-test_that("mheKeyGenDS generates keys correctly", {
-  result <- mheKeyGenDS(party_id = 0L, num_parties = 1L, log_n = 13L, log_scale = 40L)
+test_that("mheGetObsDS returns correct observation count", {
+  set.seed(100)
+  test_data <- data.frame(x = rnorm(30), y = rnorm(30))
+  assign("D_obs", test_data, envir = .GlobalEnv)
 
-  expect_type(result, "list")
-  expect_true("secret_key_share" %in% names(result))
-  expect_true("public_key_share" %in% names(result))
+  count <- mheGetObsDS("D_obs", c("x", "y"))
+  expect_equal(count, 30)
 
-  # Keys should be base64 encoded strings
-  expect_type(result$secret_key_share, "character")
-  expect_type(result$public_key_share, "character")
-
-  # Keys should be substantial in size (thousands of base64 chars)
-  expect_gt(nchar(result$secret_key_share), 1000)
-  expect_gt(nchar(result$public_key_share), 1000)
+  rm("D_obs", envir = .GlobalEnv)
 })
 
-test_that("mheKeyGenDS with different parameters produces different keys", {
-  result1 <- mheKeyGenDS(party_id = 0L, num_parties = 1L, log_n = 13L, log_scale = 40L)
-  result2 <- mheKeyGenDS(party_id = 0L, num_parties = 1L, log_n = 13L, log_scale = 40L)
+test_that("mheGetObsDS handles missing values", {
+  test_data <- data.frame(x = c(1, 2, NA, 4, 5), y = c(1, NA, 3, 4, 5))
+  assign("D_na", test_data, envir = .GlobalEnv)
 
-  # Different calls should produce different keys (randomness)
-  expect_false(result1$secret_key_share == result2$secret_key_share)
-})
+  count <- mheGetObsDS("D_na", c("x", "y"))
+  expect_equal(count, 3)
 
-# =============================================================================
-# Test Key Combination
-# =============================================================================
-
-test_that("mheCombineKeysDS combines keys correctly", {
-  # Generate a key
-  keys <- mheKeyGenDS(party_id = 0L, num_parties = 1L, log_n = 13L, log_scale = 40L)
-
-  # Combine (single party case)
-  result <- mheCombineKeysDS(
-    public_key_shares = keys$public_key_share,
-    log_n = 13L,
-    log_scale = 40L
-  )
-
-  expect_type(result, "list")
-  expect_true("collective_public_key" %in% names(result))
-  expect_true("relinearization_key" %in% names(result) || "rotation_keys" %in% names(result))
-
-  # Combined public key should be substantial
-  expect_gt(nchar(result$collective_public_key), 1000)
-})
-
-# =============================================================================
-# Test Column Encryption
-# =============================================================================
-
-test_that("mheEncryptColumnsDS encrypts columns correctly", {
-  # Generate keys
-  keys <- mheKeyGenDS(party_id = 0L, num_parties = 1L, log_n = 13L, log_scale = 40L)
-  combined <- mheCombineKeysDS(
-    public_key_shares = keys$public_key_share,
-    log_n = 13L,
-    log_scale = 40L
-  )
-
-  # Create test data
-  set.seed(456)
-  test_data <- data.frame(
-    x = rnorm(30),
-    y = rnorm(30)
-  )
-  assign("D_cols", test_data, envir = .GlobalEnv)
-
-  # Encrypt columns
-  result <- mheEncryptColumnsDS(
-    data_name = "D_cols",
-    variables = c("x", "y"),
-    collective_public_key = combined$collective_public_key,
-    log_n = 13L,
-    log_scale = 40L
-  )
-
-  expect_type(result, "list")
-  expect_true("encrypted_columns" %in% names(result))
-  expect_true("var_names" %in% names(result))
-  expect_equal(result$var_names, c("x", "y"))
-  expect_equal(length(result$encrypted_columns), 2)
-
-  # Each encrypted column should be a base64 string
-  expect_type(result$encrypted_columns[[1]], "character")
-  expect_type(result$encrypted_columns[[2]], "character")
-
-  rm("D_cols", envir = .GlobalEnv)
+  rm("D_na", envir = .GlobalEnv)
 })
 
 # =============================================================================
@@ -118,8 +49,8 @@ test_that("localCorDS computes correlation correctly", {
   set.seed(789)
   n <- 50
   x <- rnorm(n)
-  y <- 0.5 * x + rnorm(n, 0, 0.5)  # Correlated with x
-  z <- rnorm(n)  # Independent
+  y <- 0.5 * x + rnorm(n, 0, 0.5)
+  z <- rnorm(n)
 
   test_data <- data.frame(x = x, y = y, z = z)
   assign("D_cor", test_data, envir = .GlobalEnv)
@@ -163,147 +94,305 @@ test_that("localCorDS enforces privacy level", {
 })
 
 # =============================================================================
-# Test Cross-Product Computation
+# Test MHE Threshold Protocol (mheInitDS)
 # =============================================================================
 
-test_that("mheCrossProductDS computes correct cross-correlation", {
-  # Generate keys
-  keys <- mheKeyGenDS(party_id = 0L, num_parties = 1L, log_n = 13L, log_scale = 40L)
-  combined <- mheCombineKeysDS(
-    public_key_shares = keys$public_key_share,
-    log_n = 13L,
-    log_scale = 40L
-  )
-
-  # Create test data for two "servers"
-  set.seed(101)
-  n <- 50
-
-  # Server A data
-  data_A <- data.frame(
-    a1 = rnorm(n),
-    a2 = rnorm(n)
-  )
-
-  # Server B data (correlated with A)
-  data_B <- data.frame(
-    b1 = 0.3 * data_A$a1 + 0.7 * rnorm(n),
-    b2 = 0.5 * data_A$a2 + 0.5 * rnorm(n)
-  )
-
-  assign("D_A", data_A, envir = .GlobalEnv)
-  assign("D_B", data_B, envir = .GlobalEnv)
-
-  # Encrypt server B's columns
-  enc_B <- mheEncryptColumnsDS(
-    data_name = "D_B",
-    variables = c("b1", "b2"),
-    collective_public_key = combined$collective_public_key,
-    log_n = 13L,
-    log_scale = 40L
-  )
-
-  # Compute cross-product homomorphically
-  result <- mheCrossProductDS(
-    plaintext_data_name = "D_A",
-    plaintext_variables = c("a1", "a2"),
-    encrypted_columns = enc_B$encrypted_columns,
-    secret_key = keys$secret_key_share,
-    n_obs = n,
-    log_n = 13L,
-    log_scale = 40L
-  )
+test_that("mheInitDS generates keys for party 0 (CRP creator)", {
+  result <- mheInitDS(party_id = 0L, crp = NULL, num_obs = 30L,
+                      log_n = 12L, log_scale = 40L)
 
   expect_type(result, "list")
-  expect_true("cross_correlation" %in% names(result))
-  expect_true("cross_product" %in% names(result))
+  expect_true("public_key_share" %in% names(result))
+  expect_true("crp" %in% names(result))
+  expect_equal(result$party_id, 0L)
 
-  # Compare with ground truth
-  Z_A <- scale(as.matrix(data_A))
-  Z_B <- scale(as.matrix(data_B))
-  expected_G <- t(Z_A) %*% Z_B
-  expected_R <- expected_G / (n - 1)
+  # Public key share and CRP should be base64url strings
 
-  # Should match with reasonable HE approximation error
-  max_error <- max(abs(result$cross_correlation - expected_R))
-  expect_lt(max_error, 0.15)  # Allow up to 15% error for HE approximation
+  expect_type(result$public_key_share, "character")
+  expect_type(result$crp, "character")
+  expect_gt(nchar(result$public_key_share), 100)
+  expect_gt(nchar(result$crp), 100)
 
-  rm("D_A", "D_B", envir = .GlobalEnv)
+  # Secret key should be stored internally, not returned
+  expect_true(!is.null(.mhe_storage$secret_key))
+})
+
+test_that("mheInitDS generates keys for party 1 with CRP", {
+  # First create party 0 to get a CRP
+  result0 <- mheInitDS(party_id = 0L, crp = NULL, num_obs = 30L,
+                       log_n = 12L, log_scale = 40L)
+
+  # Use the CRP for party 1
+  result1 <- mheInitDS(party_id = 1L, crp = result0$crp, num_obs = 30L,
+                       log_n = 12L, log_scale = 40L)
+
+  expect_type(result1, "list")
+  expect_true("public_key_share" %in% names(result1))
+  expect_equal(result1$party_id, 1L)
+
+  # Party 1 should NOT generate a new CRP
+  expect_null(result1$crp)
 })
 
 # =============================================================================
-# Test Full Correlation Workflow
+# Test mheCombineDS
 # =============================================================================
 
-test_that("MHE correlation matches local correlation for combined dataset", {
-  # Generate keys
-  keys <- mheKeyGenDS(party_id = 0L, num_parties = 1L, log_n = 13L, log_scale = 40L)
-  combined <- mheCombineKeysDS(
-    public_key_shares = keys$public_key_share,
-    log_n = 13L,
+test_that("mheCombineDS creates collective public key", {
+  # Setup: 2 parties
+  r0 <- mheInitDS(party_id = 0L, crp = NULL, num_obs = 30L,
+                  log_n = 12L, log_scale = 40L)
+  pk0 <- r0$public_key_share
+  crp <- r0$crp
+
+  r1 <- mheInitDS(party_id = 1L, crp = crp, num_obs = 30L,
+                  log_n = 12L, log_scale = 40L)
+  pk1 <- r1$public_key_share
+
+  # Combine
+  combined <- mheCombineDS(
+    public_key_shares = c(pk0, pk1),
+    crp = crp,
+    num_obs = 30L,
+    log_n = 12L,
     log_scale = 40L
   )
 
-  # Create test data
-  set.seed(202)
-  n <- 60
+  expect_type(combined, "list")
+  expect_true("collective_public_key" %in% names(combined))
+  expect_type(combined$collective_public_key, "character")
+  expect_gt(nchar(combined$collective_public_key), 100)
+})
 
-  # Create correlated data
-  base <- rnorm(n)
-  data_full <- data.frame(
-    x1 = base + rnorm(n, 0, 0.5),
-    x2 = rnorm(n),
-    y1 = 0.5 * base + rnorm(n, 0, 0.7),
-    y2 = rnorm(n)
+# =============================================================================
+# Test mheStoreCPKDS
+# =============================================================================
+
+test_that("mheStoreCPKDS stores CPK correctly", {
+  result <- mheStoreCPKDS(cpk = "dGVzdA")  # "test" in base64url
+  expect_true(result)
+  expect_false(is.null(.mhe_storage$cpk))
+})
+
+# =============================================================================
+# Test mheStoreEncChunkDS / mheAssembleEncColumnDS
+# =============================================================================
+
+test_that("chunk storage and assembly works", {
+  # Store 3 chunks for column 1
+  expect_true(mheStoreEncChunkDS(col_index = 1L, chunk_index = 1L, chunk = "AAA"))
+  expect_true(mheStoreEncChunkDS(col_index = 1L, chunk_index = 2L, chunk = "BBB"))
+  expect_true(mheStoreEncChunkDS(col_index = 1L, chunk_index = 3L, chunk = "CCC"))
+
+  # Assemble
+  expect_true(mheAssembleEncColumnDS(col_index = 1L, n_chunks = 3L))
+
+  # Check assembled result exists
+  expect_false(is.null(.mhe_storage$remote_enc_cols))
+  expect_equal(length(.mhe_storage$remote_enc_cols), 1)
+
+  # Clean up
+  .mhe_storage$remote_enc_cols <- NULL
+})
+
+test_that("mheAssembleEncColumnDS errors with missing chunks", {
+  expect_error(
+    mheAssembleEncColumnDS(col_index = 99L, n_chunks = 5L),
+    "Missing chunks"
+  )
+})
+
+# =============================================================================
+# Test mheStoreCTChunkDS
+# =============================================================================
+
+test_that("mheStoreCTChunkDS stores ciphertext chunks", {
+  .mhe_storage$ct_chunks <- NULL  # Reset
+  expect_true(mheStoreCTChunkDS(chunk_index = 1L, chunk = "chunk1"))
+  expect_true(mheStoreCTChunkDS(chunk_index = 2L, chunk = "chunk2"))
+
+  expect_equal(length(.mhe_storage$ct_chunks), 2)
+
+  # Clean up
+  .mhe_storage$ct_chunks <- NULL
+})
+
+# =============================================================================
+# Test mhePartialDecryptDS error handling
+# =============================================================================
+
+test_that("mhePartialDecryptDS errors without secret key", {
+  .mhe_storage$secret_key <- NULL
+  .mhe_storage$ct_chunks <- NULL
+  expect_error(
+    mhePartialDecryptDS(n_chunks = 1L),
+    "Secret key not stored"
+  )
+})
+
+test_that("mhePartialDecryptDS errors without ciphertext chunks", {
+  .mhe_storage$secret_key <- "dummy"
+  .mhe_storage$ct_chunks <- NULL
+  expect_error(
+    mhePartialDecryptDS(n_chunks = 1L),
+    "Ciphertext chunks not stored"
+  )
+  .mhe_storage$secret_key <- NULL
+})
+
+# =============================================================================
+# Test mheEncryptLocalDS error handling
+# =============================================================================
+
+test_that("mheEncryptLocalDS errors without CPK", {
+  .mhe_storage$cpk <- NULL
+  set.seed(42)
+  test_data <- data.frame(x = rnorm(30))
+  assign("D_enc_test", test_data, envir = .GlobalEnv)
+
+  expect_error(
+    mheEncryptLocalDS("D_enc_test", "x"),
+    "CPK not stored"
   )
 
-  # Split into two "servers"
-  data_A <- data_full[, c("x1", "x2")]
-  data_B <- data_full[, c("y1", "y2")]
+  rm("D_enc_test", envir = .GlobalEnv)
+})
+
+# =============================================================================
+# End-to-End: Full 2-party threshold protocol
+# =============================================================================
+
+test_that("Full 2-party threshold MHE produces correct correlation", {
+  set.seed(42)
+  n <- 30
+
+  # Create correlated data for 2 "servers"
+  base <- rnorm(n)
+  data_A <- data.frame(
+    a1 = base + rnorm(n, 0, 0.5),
+    a2 = rnorm(n)
+  )
+  data_B <- data.frame(
+    b1 = 0.5 * base + rnorm(n, 0, 0.7),
+    b2 = rnorm(n)
+  )
 
   assign("D_A", data_A, envir = .GlobalEnv)
   assign("D_B", data_B, envir = .GlobalEnv)
-  assign("D_full", data_full, envir = .GlobalEnv)
 
-  # Ground truth: local correlation on combined data
-  expected_R <- cor(data_full)
+  # Ground truth
+  full_data <- cbind(data_A, data_B)
+  expected_R <- cor(full_data)
 
-  # Compute via MHE:
-  # 1. Local correlations
-  local_A <- localCorDS("D_A", c("x1", "x2"))
-  local_B <- localCorDS("D_B", c("y1", "y2"))
+  # --- Phase 1: Key generation ---
+  r0 <- mheInitDS(party_id = 0L, crp = NULL, num_obs = as.integer(n),
+                  log_n = 12L, log_scale = 40L)
+  sk0 <- .mhe_storage$secret_key  # Save party 0's secret key
 
-  # 2. Cross-correlation via HE
-  enc_B <- mheEncryptColumnsDS(
-    data_name = "D_B",
-    variables = c("y1", "y2"),
-    collective_public_key = combined$collective_public_key,
-    log_n = 13L,
+  r1 <- mheInitDS(party_id = 1L, crp = r0$crp, num_obs = as.integer(n),
+                  log_n = 12L, log_scale = 40L)
+  sk1 <- .mhe_storage$secret_key  # Save party 1's secret key
+
+  # --- Phase 2: Combine keys ---
+  combined <- mheCombineDS(
+    public_key_shares = c(r0$public_key_share, r1$public_key_share),
+    crp = r0$crp,
+    num_obs = as.integer(n),
+    log_n = 12L,
     log_scale = 40L
   )
+  cpk <- combined$collective_public_key
 
-  cross_AB <- mheCrossProductDS(
-    plaintext_data_name = "D_A",
-    plaintext_variables = c("x1", "x2"),
-    encrypted_columns = enc_B$encrypted_columns,
-    secret_key = keys$secret_key_share,
-    n_obs = n,
-    log_n = 13L,
-    log_scale = 40L
-  )
+  # Store CPK (simulating distribution)
+  mheStoreCPKDS(cpk = cpk)
 
-  # 3. Assemble full matrix
+  # --- Phase 3: Encrypt data ---
+  enc_A <- mheEncryptLocalDS("D_A", c("a1", "a2"))
+  enc_B <- mheEncryptLocalDS("D_B", c("b1", "b2"))
+
+  # --- Phase 4: Local correlations ---
+  local_A <- localCorDS("D_A", c("a1", "a2"))
+  local_B <- localCorDS("D_B", c("b1", "b2"))
+
+  # --- Phase 5: Cross-server correlation ---
+  # Transfer B's encrypted columns to A (simulate chunking)
+  for (k in seq_along(enc_B$encrypted_columns)) {
+    col_str <- enc_B$encrypted_columns[[k]]
+    mheStoreEncChunkDS(col_index = as.integer(k), chunk_index = 1L, chunk = col_str)
+    mheAssembleEncColumnDS(col_index = as.integer(k), n_chunks = 1L)
+  }
+
+  # Compute encrypted cross-product on server A
+  cross_enc <- mheCrossProductEncDS("D_A", c("a1", "a2"),
+                                     n_enc_cols = 2L, n_obs = as.integer(n))
+
+  # Threshold decryption for each element
+  cross_cor <- matrix(NA, 2, 2)
+  for (i in 1:2) {
+    for (j in 1:2) {
+      er <- cross_enc$encrypted_results
+      if (is.matrix(er)) {
+        ct <- er[i, j]
+      } else {
+        ct <- er[[i]][j]
+      }
+
+      # Party 0 partial decrypt
+      .mhe_storage$secret_key <- sk0
+      mheStoreCTChunkDS(chunk_index = 1L, chunk = ct)
+      pd0 <- mhePartialDecryptDS(n_chunks = 1L)
+
+      # Party 1 partial decrypt
+      .mhe_storage$secret_key <- sk1
+      mheStoreCTChunkDS(chunk_index = 1L, chunk = ct)
+      pd1 <- mhePartialDecryptDS(n_chunks = 1L)
+
+      # Client fuse (using mhe-tool binary directly)
+      ct_std <- .base64url_to_base64(ct)
+      shares_std <- c(
+        .base64url_to_base64(pd0$decryption_share),
+        .base64url_to_base64(pd1$decryption_share)
+      )
+
+      input <- list(
+        ciphertext = ct_std,
+        decryption_shares = as.list(shares_std),
+        num_slots = as.integer(n),
+        log_n = 12L,
+        log_scale = 40L
+      )
+
+      input_file <- tempfile(fileext = ".json")
+      output_file <- tempfile(fileext = ".json")
+      jsonlite::write_json(input, input_file, auto_unbox = TRUE)
+
+      bin_path <- .findMheTool()
+      system2(bin_path, "mhe-fuse", stdin = input_file, stdout = output_file)
+
+      output <- jsonlite::read_json(output_file, simplifyVector = TRUE)
+      unlink(c(input_file, output_file))
+
+      cross_cor[i, j] <- output$value / (n - 1)
+    }
+  }
+
+  # --- Phase 6: Assemble ---
   R <- matrix(0, 4, 4)
-  rownames(R) <- colnames(R) <- c("x1", "x2", "y1", "y2")
-
+  rownames(R) <- colnames(R) <- c("a1", "a2", "b1", "b2")
   R[1:2, 1:2] <- local_A$correlation
   R[3:4, 3:4] <- local_B$correlation
-  R[1:2, 3:4] <- cross_AB$cross_correlation
-  R[3:4, 1:2] <- t(cross_AB$cross_correlation)
+  R[1:2, 3:4] <- cross_cor
+  R[3:4, 1:2] <- t(cross_cor)
 
-  # Compare - allow reasonable HE approximation error
+  # Verify: MHE result should match local correlation within CKKS precision
   max_error <- max(abs(R - expected_R))
-  expect_lt(max_error, 0.1)  # Allow up to 10% error for HE approximation
+  expect_lt(max_error, 0.05)  # CKKS approximation error < 5%
 
-  rm("D_A", "D_B", "D_full", envir = .GlobalEnv)
+  # Diagonal should be exactly 1 (from local cors)
+  expect_equal(unname(diag(R)), rep(1, 4), tolerance = 1e-10)
+
+  # Clean up
+  rm("D_A", "D_B", envir = .GlobalEnv)
+  .mhe_storage$secret_key <- NULL
+  .mhe_storage$cpk <- NULL
 })

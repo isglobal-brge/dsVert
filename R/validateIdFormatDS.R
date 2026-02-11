@@ -45,6 +45,7 @@
 #'   call("validateIdFormatDS", "D", "patient_id", "^[A-Z][0-9]+$"))
 #' }
 #'
+#' @importFrom stats median var
 #' @export
 validateIdFormatDS <- function(data_name, id_col, pattern = NULL) {
   # Validate inputs

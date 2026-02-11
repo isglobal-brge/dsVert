@@ -31,7 +31,7 @@ other partitions (sum of X_j * beta_j for j != current partition).}
 this partition's variables.}
 
 \item{family}{Character string. GLM family: "gaussian", "binomial",
-or "poisson". Default is "gaussian".}
+"poisson", "Gamma", or "inverse.gaussian". Default is "gaussian".}
 
 \item{lambda}{Numeric. L2 regularization parameter. Default is 1e-4.}
 }
@@ -64,11 +64,13 @@ Where:
 \item \eqn{\eta_{-i}} = sum of linear predictors from other partitions
 }
 
-The function supports three families:
+The function supports five families:
 \itemize{
 \item \strong{Gaussian}: Identity link, W = I, z = y
-\item \strong{Binomial}: Logit link, W = diag(mu*(1-mu)), logistic z
-\item \strong{Poisson}: Log link, W = diag(mu), log-linear z
+\item \strong{Binomial}: Logit link, W = diag(mu*(1-mu))
+\item \strong{Poisson}: Log link, W = diag(mu)
+\item \strong{Gamma}: Log link, W = I (constant weights)
+\item \strong{Inverse Gaussian}: Log link, W = diag(1/mu)
 }
 }
 \examples{

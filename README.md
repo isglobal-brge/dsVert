@@ -8,8 +8,10 @@
 
 This package implements:
 - **Record Matching**: Secure alignment of records across servers using cryptographic hashing
+- **ID Validation**: Format consistency checks before alignment
 - **Block SVD**: Distributed singular value decomposition for correlation and PCA
 - **Block Coordinate Descent**: Distributed fitting of Generalized Linear Models
+- **Model Diagnostics**: Deviance calculation for model evaluation
 
 ## Installation
 
@@ -23,11 +25,23 @@ devtools::install_github("isglobal-brge/dsVert")
 | Function | Type | Description |
 |----------|------|-------------|
 | `hashIdDS` | Aggregate | Hash identifier column using SHA-256 |
+| `validateIdFormatDS` | Aggregate | Validate identifier format consistency |
 | `alignRecordsDS` | Assign | Reorder/subset data to match reference hashes |
 | `blockSvdDS` | Aggregate | Compute U*D from SVD for Block SVD algorithm |
 | `glmPartialFitDS` | Aggregate | Perform one BCD iteration for GLM fitting |
+| `glmDevianceDS` | Aggregate | Calculate deviance for model evaluation |
 | `getObsCountDS` | Aggregate | Get observation count for validation |
 | `prepareDataDS` | Assign | Prepare data for analysis (subset, standardize) |
+
+## Supported GLM Families
+
+| Family | Link | Use Case |
+|--------|------|----------|
+| `gaussian` | Identity | Continuous outcomes (linear regression) |
+| `binomial` | Logit | Binary outcomes (logistic regression) |
+| `poisson` | Log | Count data |
+| `Gamma` | Log | Positive continuous data (costs, times) |
+| `inverse.gaussian` | Log | Positive continuous with high variance |
 
 ## Requirements
 

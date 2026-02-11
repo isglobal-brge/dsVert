@@ -45,8 +45,8 @@ AggregateMethods:
     mheEncryptColumnsDS,
     mheCrossProductDS,
     localCorDS,
-    base::c,
-    base::list
+    c=base::c,
+    list=base::list
 AssignMethods:
     alignRecordsDS,
     prepareDataDS

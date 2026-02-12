@@ -14,6 +14,9 @@
 //   mhe-cross-product   Compute plaintext * ciphertext element-wise products
 //   mhe-partial-decrypt Compute partial decryption share using this party's secret key
 //   mhe-fuse            Fuse all partial decryption shares to recover plaintext
+//   psi-mask            Hash IDs to P-256 points and multiply by random scalar
+//   psi-double-mask     Multiply received curve points by a stored scalar
+//   psi-match           Find intersection of two sets of double-masked points
 //   version             Print version information
 
 package main
@@ -25,7 +28,7 @@ import (
 	"os"
 )
 
-const VERSION = "1.3.0"
+const VERSION = "1.4.0"
 
 // EncryptColumnsInput: Encrypt a matrix column-by-column
 type EncryptColumnsInput struct {
@@ -72,6 +75,12 @@ func main() {
 		handleMHEFuse()
 	case "mhe-glm-gradient":
 		handleMHEGLMGradient()
+	case "psi-mask":
+		handlePSIMask()
+	case "psi-double-mask":
+		handlePSIDoubleMask()
+	case "psi-match":
+		handlePSIMatch()
 	case "help", "-h", "--help":
 		printUsage()
 	default:
@@ -94,6 +103,9 @@ Commands:
   mhe-glm-gradient    Compute encrypted GLM gradient g_k = X_k^T (v*(ct_y - mu))
   mhe-partial-decrypt Compute partial decryption share using this party's secret key
   mhe-fuse            Fuse all partial decryption shares to recover plaintext
+  psi-mask            Hash IDs to P-256 points and multiply by random scalar
+  psi-double-mask     Multiply received curve points by a stored scalar
+  psi-match           Find intersection of two sets of double-masked points
   version             Print version information
   help                Print this help message
 
@@ -329,6 +341,76 @@ func handleMHEGLMGradient() {
 	output, err := mheGLMGradient(&input)
 	if err != nil {
 		outputError(fmt.Sprintf("GLM gradient failed: %v", err))
+		os.Exit(1)
+	}
+
+	outputJSON(output)
+}
+
+// ============================================================================
+// PSI command handlers
+// ============================================================================
+
+func handlePSIMask() {
+	inputBytes, err := readInput()
+	if err != nil {
+		outputError(fmt.Sprintf("Failed to read input: %v", err))
+		os.Exit(1)
+	}
+
+	var input PSIMaskInput
+	if err := json.Unmarshal(inputBytes, &input); err != nil {
+		outputError(fmt.Sprintf("Failed to parse input: %v", err))
+		os.Exit(1)
+	}
+
+	output, err := psiMask(&input)
+	if err != nil {
+		outputError(fmt.Sprintf("PSI mask failed: %v", err))
+		os.Exit(1)
+	}
+
+	outputJSON(output)
+}
+
+func handlePSIDoubleMask() {
+	inputBytes, err := readInput()
+	if err != nil {
+		outputError(fmt.Sprintf("Failed to read input: %v", err))
+		os.Exit(1)
+	}
+
+	var input PSIDoubleMaskInput
+	if err := json.Unmarshal(inputBytes, &input); err != nil {
+		outputError(fmt.Sprintf("Failed to parse input: %v", err))
+		os.Exit(1)
+	}
+
+	output, err := psiDoubleMask(&input)
+	if err != nil {
+		outputError(fmt.Sprintf("PSI double-mask failed: %v", err))
+		os.Exit(1)
+	}
+
+	outputJSON(output)
+}
+
+func handlePSIMatch() {
+	inputBytes, err := readInput()
+	if err != nil {
+		outputError(fmt.Sprintf("Failed to read input: %v", err))
+		os.Exit(1)
+	}
+
+	var input PSIMatchInput
+	if err := json.Unmarshal(inputBytes, &input); err != nil {
+		outputError(fmt.Sprintf("Failed to parse input: %v", err))
+		os.Exit(1)
+	}
+
+	output, err := psiMatch(&input)
+	if err != nil {
+		outputError(fmt.Sprintf("PSI match failed: %v", err))
 		os.Exit(1)
 	}
 

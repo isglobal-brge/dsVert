@@ -1,7 +1,7 @@
 Package: dsVert
 Type: Package
 Title: DataSHIELD Server-Side Functions for Vertically Partitioned Data
-Version: 1.3.0
+Version: 1.4.0
 Authors@R: c(
     person("David", "Sarrat González", email = "david.sarrat@isglobal.org",
            role = c("aut", "cre")),
@@ -11,11 +11,11 @@ Authors@R: c(
            role = "ctb")
   )
 Description: Server-side DataSHIELD functions for privacy-preserving analysis
-    of vertically partitioned federated data. Implements record alignment via
-    secure hashing, Multiparty Homomorphic Encryption (MHE) with threshold
-    decryption for cross-server correlation, and Block Coordinate Descent for
-    Generalized Linear Models. All methods preserve data privacy by ensuring
-    raw data never leaves the server.
+    of vertically partitioned federated data. Implements ECDH-PSI record alignment
+    (P-256 elliptic curve private set intersection), Multiparty Homomorphic
+    Encryption (MHE) with threshold decryption for cross-server correlation, and
+    Block Coordinate Descent for Generalized Linear Models. All methods preserve
+    data privacy by ensuring raw data never leaves the server.
 License: MIT + file LICENSE
 URL: https://github.com/isglobal-brge/dsVert
 BugReports: https://github.com/isglobal-brge/dsVert/issues
@@ -33,6 +33,10 @@ RoxygenNote: 7.3.3
 Roxygen: list(markdown = TRUE)
 AggregateMethods:
     hashIdDS,
+    psiMaskIdsDS,
+    psiProcessTargetDS,
+    psiDoubleMaskDS,
+    psiGetMatchedIndicesDS,
     glmPartialFitDS,
     glmDevianceDS,
     getObsCountDS,
@@ -57,6 +61,9 @@ AggregateMethods:
     list=base::list
 AssignMethods:
     alignRecordsDS,
+    psiMatchAndAlignDS,
+    psiSelfAlignDS,
+    psiFilterCommonDS,
     prepareDataDS
 Options:
     datashield.privacyLevel=5

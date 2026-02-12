@@ -25,7 +25,7 @@ import (
 	"os"
 )
 
-const VERSION = "1.2.0"
+const VERSION = "1.3.0"
 
 // EncryptColumnsInput: Encrypt a matrix column-by-column
 type EncryptColumnsInput struct {
@@ -70,6 +70,8 @@ func main() {
 		handleMHEPartialDecrypt()
 	case "mhe-fuse":
 		handleMHEFuse()
+	case "mhe-glm-gradient":
+		handleMHEGLMGradient()
 	case "help", "-h", "--help":
 		printUsage()
 	default:
@@ -89,6 +91,7 @@ Commands:
   mhe-combine         Combine public key shares into collective public key (CPK)
   encrypt-columns     Encrypt data column-by-column using the CPK
   mhe-cross-product   Compute plaintext * ciphertext element-wise products (encrypted)
+  mhe-glm-gradient    Compute encrypted GLM gradient g_k = X_k^T (v*(ct_y - mu))
   mhe-partial-decrypt Compute partial decryption share using this party's secret key
   mhe-fuse            Fuse all partial decryption shares to recover plaintext
   version             Print version information
@@ -294,6 +297,38 @@ func handleMHEFuse() {
 	output, err := mheFuse(&input)
 	if err != nil {
 		outputError(fmt.Sprintf("MHE fuse failed: %v", err))
+		os.Exit(1)
+	}
+
+	outputJSON(output)
+}
+
+func handleMHEGLMGradient() {
+	inputBytes, err := readInput()
+	if err != nil {
+		outputError(fmt.Sprintf("Failed to read input: %v", err))
+		os.Exit(1)
+	}
+
+	var input GLMGradientInput
+	if err := json.Unmarshal(inputBytes, &input); err != nil {
+		outputError(fmt.Sprintf("Failed to parse input: %v", err))
+		os.Exit(1)
+	}
+
+	if input.LogN == 0 {
+		input.LogN = 12
+	}
+	if input.LogScale == 0 {
+		input.LogScale = 40
+	}
+	if input.NumObs == 0 {
+		input.NumObs = 100
+	}
+
+	output, err := mheGLMGradient(&input)
+	if err != nil {
+		outputError(fmt.Sprintf("GLM gradient failed: %v", err))
 		os.Exit(1)
 	}
 

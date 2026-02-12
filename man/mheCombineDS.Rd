@@ -4,7 +4,15 @@
 \alias{mheCombineDS}
 \title{Combine public key shares into collective public key}
 \usage{
-mheCombineDS(public_key_shares, crp, num_obs = 100, log_n = 12, log_scale = 40)
+mheCombineDS(
+  public_key_shares,
+  crp,
+  galois_key_shares = NULL,
+  gkg_seed = NULL,
+  num_obs = 100,
+  log_n = 12,
+  log_scale = 40
+)
 }
 \arguments{
 \item{public_key_shares}{Character vector. Public key shares from all servers}

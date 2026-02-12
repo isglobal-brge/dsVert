@@ -2,6 +2,20 @@
 #' @description Internal functions for calling the mhe-tool binary.
 #' @keywords internal
 
+#' Resolve a data frame by name, checking .mhe_storage first
+#' @param data_name Character. Name of the data frame to find.
+#' @param env Environment to search if not found in .mhe_storage (typically parent.frame() of caller).
+#' @return The data frame
+#' @keywords internal
+.resolveData <- function(data_name, env) {
+  if (!is.null(.mhe_storage$std_data_name) &&
+      data_name == .mhe_storage$std_data_name &&
+      !is.null(.mhe_storage$std_data)) {
+    return(.mhe_storage$std_data)
+  }
+  eval(parse(text = data_name), envir = env)
+}
+
 #' Convert base64url to standard base64
 #' @description Converts base64url encoding (URL-safe) to standard base64.
 #'   This is needed because R's parser on Opal/Rock has issues with "/" and "+"
@@ -134,7 +148,7 @@ base64_to_base64url <- function(x) {
   })
 
   # Write input JSON to file (avoids large string in R memory)
-  jsonlite::write_json(input_data, input_file, auto_unbox = TRUE)
+  jsonlite::write_json(input_data, input_file, auto_unbox = TRUE, null = "null")
 
   # Call mhe-tool with file-based I/O (avoids C stack overflow on large output)
   status <- system2(

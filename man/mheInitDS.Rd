@@ -4,7 +4,14 @@
 \alias{mheInitDS}
 \title{Initialize MHE keys for this server}
 \usage{
-mheInitDS(party_id, crp = NULL, num_obs = 100, log_n = 12, log_scale = 40)
+mheInitDS(
+  party_id,
+  crp = NULL,
+  gkg_seed = NULL,
+  num_obs = 100,
+  log_n = 12,
+  log_scale = 40
+)
 }
 \arguments{
 \item{party_id}{Integer. This server's party ID (0-indexed)}

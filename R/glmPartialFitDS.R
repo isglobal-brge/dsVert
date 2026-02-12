@@ -66,7 +66,7 @@
 #' @export
 glmPartialFitDS <- function(data_name, y_name, x_vars, eta_other,
                              beta_current, family = "gaussian",
-                             lambda = 1e-4) {
+                             lambda = 1e-4, intercept = FALSE) {
   # Validate inputs
   if (!is.character(data_name) || length(data_name) != 1) {
     stop("data_name must be a single character string", call. = FALSE)
@@ -82,8 +82,8 @@ glmPartialFitDS <- function(data_name, y_name, x_vars, eta_other,
          call. = FALSE)
   }
 
-  # Get data from server environment
-  data <- eval(parse(text = data_name), envir = parent.frame())
+  # Get data from server environment (checks .mhe_storage for standardized data)
+  data <- .resolveData(data_name, parent.frame())
 
   if (!is.data.frame(data)) {
     stop("Object '", data_name, "' is not a data frame", call. = FALSE)
@@ -100,6 +100,12 @@ glmPartialFitDS <- function(data_name, y_name, x_vars, eta_other,
   # Extract data
   y <- as.numeric(data[[y_name]])
   X <- as.matrix(data[, x_vars, drop = FALSE])
+
+  # Prepend intercept column if requested
+  if (isTRUE(intercept)) {
+    X <- cbind("(Intercept)" = rep(1, nrow(X)), X)
+  }
+
   n <- length(y)
   p <- ncol(X)
 

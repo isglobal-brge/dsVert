@@ -8,9 +8,10 @@
 package main
 
 import (
+	crand "crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"math"
+	"sort"
 
 	"github.com/tuneinsight/lattigo/v6/core/rlwe"
 	"github.com/tuneinsight/lattigo/v6/multiparty"
@@ -24,30 +25,27 @@ import (
 // ============================================================================
 
 type MHESetupInput struct {
-	PartyID   int    `json:"party_id"`
-	CRP       string `json:"crp,omitempty"`        // Base64, empty for party 0
-	GKGCRP    string `json:"gkg_crp,omitempty"`    // Base64, Galois key CRP
-	RKGCRP    string `json:"rkg_crp,omitempty"`    // Base64, Relin key CRP
-	NumObs    int    `json:"num_obs"`              // Number of observations (for minimal galois keys)
-	LogN      int    `json:"log_n"`
-	LogScale  int    `json:"log_scale"`
+	PartyID  int    `json:"party_id"`
+	CRP      string `json:"crp,omitempty"`       // Base64, empty for party 0
+	GKGSeed  string `json:"gkg_seed,omitempty"`  // Base64, shared seed for deterministic GKG CRPs (empty for party 0)
+	NumObs   int    `json:"num_obs"`             // Number of observations (for minimal galois keys)
+	LogN     int    `json:"log_n"`
+	LogScale int    `json:"log_scale"`
 }
 
 type MHESetupOutput struct {
 	// Secret key stays on server (stored in session)
-	SecretKey      string `json:"secret_key"`        // Base64 - NEVER sent to client
-	PublicKeyShare string `json:"public_key_share"`  // Base64 - sent for combining
+	SecretKey      string `json:"secret_key"`       // Base64 - NEVER sent to client
+	PublicKeyShare string `json:"public_key_share"` // Base64 - sent for combining
 
-	// CRPs (only party 0 generates these)
-	CRP    string `json:"crp,omitempty"`     // Base64
-	GKGCRP string `json:"gkg_crp,omitempty"` // Base64
-	RKGCRP string `json:"rkg_crp,omitempty"` // Base64
+	// CRP (only party 0 generates)
+	CRP string `json:"crp,omitempty"` // Base64
 
-	// Galois key shares for collaborative generation
+	// Shared seed for deterministic GKG CRP generation (only party 0 returns this)
+	GKGSeed string `json:"gkg_seed,omitempty"` // Base64
+
+	// Galois key shares for collaborative generation (one per rotation)
 	GaloisKeyShares []string `json:"galois_key_shares"` // Base64 array
-
-	// Relinearization key shares (round 1)
-	RKGShareRound1 string `json:"rkg_share_round1"` // Base64
 
 	PartyID int `json:"party_id"`
 }
@@ -71,10 +69,10 @@ func mheSetup(input *MHESetupInput) (*MHESetupOutput, error) {
 	pkg := multiparty.NewPublicKeyGenProtocol(params)
 
 	var crp multiparty.PublicKeyGenCRP
-	var crpB64, gkgCRPB64, rkgCRPB64 string
+	var crpB64, gkgSeedB64 string
 
 	if input.PartyID == 0 {
-		// Party 0 generates CRPs
+		// Party 0 generates PKG CRP
 		prng, err := sampling.NewPRNG()
 		if err != nil {
 			return nil, fmt.Errorf("failed to create PRNG: %v", err)
@@ -86,9 +84,12 @@ func mheSetup(input *MHESetupInput) (*MHESetupOutput, error) {
 		}
 		crpB64 = base64.StdEncoding.EncodeToString(crpBytes)
 
-		// Generate GKG CRP (we'll use a simple seed for now)
-		gkgCRPB64 = crpB64 // Reuse for simplicity
-		rkgCRPB64 = crpB64
+		// Party 0 generates a random seed for deterministic GKG CRPs
+		gkgSeed := make([]byte, 32)
+		if _, err := crand.Read(gkgSeed); err != nil {
+			return nil, fmt.Errorf("failed to generate GKG seed: %v", err)
+		}
+		gkgSeedB64 = base64.StdEncoding.EncodeToString(gkgSeed)
 	} else {
 		// Other parties use received CRP
 		crpBytes, err := base64.StdEncoding.DecodeString(input.CRP)
@@ -98,8 +99,8 @@ func mheSetup(input *MHESetupInput) (*MHESetupOutput, error) {
 		if err := crp.Value.UnmarshalBinary(crpBytes); err != nil {
 			return nil, fmt.Errorf("failed to deserialize CRP: %v", err)
 		}
-		gkgCRPB64 = input.GKGCRP
-		rkgCRPB64 = input.RKGCRP
+		// Use the shared GKG seed from party 0
+		gkgSeedB64 = input.GKGSeed
 	}
 
 	// Generate public key share
@@ -110,20 +111,26 @@ func mheSetup(input *MHESetupInput) (*MHESetupOutput, error) {
 		return nil, fmt.Errorf("failed to serialize public key share: %v", err)
 	}
 
-	// Generate Galois key shares for rotations needed for sum-reduce
-	// For numObs observations, we need rotations by powers of 2 up to numObs
-	numRotations := int(math.Ceil(math.Log2(float64(input.NumObs)))) + 1
-	galEls := make([]uint64, 0, numRotations)
-	for i := 1; i <= (1 << numRotations); i *= 2 {
-		galEls = append(galEls, params.GaloisElement(i))
+	// Generate Galois key shares using SHARED deterministic PRNG
+	// All parties use the same seed → same CRPs → shares can be aggregated
+	gkgSeed, err := base64.StdEncoding.DecodeString(gkgSeedB64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode GKG seed: %v", err)
+	}
+	gkgPRNG, err := sampling.NewKeyedPRNG(gkgSeed)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create keyed PRNG for GKG: %v", err)
 	}
 
-	gkg := multiparty.NewGaloisKeyGenProtocol(params)
-	prng, _ := sampling.NewPRNG()
+	// Use Lattigo's GaloisElementsForInnerSum to get the exact set of
+	// Galois elements needed for InnerSum(ct, 1, numObs, ctOut)
+	galEls := params.GaloisElementsForInnerSum(1, input.NumObs)
+	sort.Slice(galEls, func(i, j int) bool { return galEls[i] < galEls[j] })
 
+	gkg := multiparty.NewGaloisKeyGenProtocol(params)
 	galoisSharesB64 := make([]string, len(galEls))
 	for i, galEl := range galEls {
-		gkgCRP := gkg.SampleCRP(prng)
+		gkgCRP := gkg.SampleCRP(gkgPRNG)
 		gkgShare := gkg.AllocateShare()
 		gkg.GenShare(sk, galEl, gkgCRP, &gkgShare)
 		shareBytes, err := gkgShare.MarshalBinary()
@@ -133,27 +140,12 @@ func mheSetup(input *MHESetupInput) (*MHESetupOutput, error) {
 		galoisSharesB64[i] = base64.StdEncoding.EncodeToString(shareBytes)
 	}
 
-	// Generate RKG round 1 share
-	rkg := multiparty.NewRelinearizationKeyGenProtocol(params)
-	rkgCRP := rkg.SampleCRP(prng)
-
-	ephSK, rkgShare1, rkgShare2 := rkg.AllocateShare()
-	rkg.GenShareRoundOne(sk, rkgCRP, ephSK, &rkgShare1)
-	_ = rkgShare2 // Will be used in round 2
-
-	rkgShare1Bytes, err := rkgShare1.MarshalBinary()
-	if err != nil {
-		return nil, fmt.Errorf("failed to serialize RKG share round 1: %v", err)
-	}
-
 	return &MHESetupOutput{
 		SecretKey:       base64.StdEncoding.EncodeToString(skBytes),
 		PublicKeyShare:  base64.StdEncoding.EncodeToString(pkShareBytes),
 		CRP:             crpB64,
-		GKGCRP:          gkgCRPB64,
-		RKGCRP:          rkgCRPB64,
+		GKGSeed:         gkgSeedB64,
 		GaloisKeyShares: galoisSharesB64,
-		RKGShareRound1:  base64.StdEncoding.EncodeToString(rkgShare1Bytes),
 		PartyID:         input.PartyID,
 	}, nil
 }
@@ -163,13 +155,13 @@ func mheSetup(input *MHESetupInput) (*MHESetupOutput, error) {
 // ============================================================================
 
 type MHECombineInput struct {
-	PublicKeyShares   []string   `json:"public_key_shares"`    // Base64 array
-	GaloisKeyShares   [][]string `json:"galois_key_shares"`    // Base64 [party][galEl]
-	RKGSharesRound1   []string   `json:"rkg_shares_round1"`    // Base64 array
-	CRP               string     `json:"crp"`                  // Base64
-	NumObs            int        `json:"num_obs"`
-	LogN              int        `json:"log_n"`
-	LogScale          int        `json:"log_scale"`
+	PublicKeyShares []string   `json:"public_key_shares"`         // Base64 array
+	GaloisKeyShares [][]string `json:"galois_key_shares"`         // Base64 [party][galEl]
+	GKGSeed         string     `json:"gkg_seed,omitempty"`        // Shared seed for CRP recreation
+	CRP             string     `json:"crp"`                       // Base64
+	NumObs          int        `json:"num_obs"`
+	LogN            int        `json:"log_n"`
+	LogScale        int        `json:"log_scale"`
 }
 
 type MHECombineOutput struct {
@@ -223,38 +215,75 @@ func mheCombine(input *MHECombineInput) (*MHECombineOutput, error) {
 		return nil, fmt.Errorf("failed to serialize CPK: %v", err)
 	}
 
-	// For simplicity in this version, we'll generate evaluation keys from a temporary key
-	// In production, this should use the full GKG and RKG protocols
-	kgen := rlwe.NewKeyGenerator(params)
-	tmpSK := kgen.GenSecretKeyNew()
+	// Use Lattigo's GaloisElementsForInnerSum (must match mhe-setup exactly)
+	galEls := params.GaloisElementsForInnerSum(1, input.NumObs)
+	sort.Slice(galEls, func(i, j int) bool { return galEls[i] < galEls[j] })
 
-	numRotations := int(math.Ceil(math.Log2(float64(input.NumObs)))) + 1
-	galEls := make([]uint64, 0, numRotations)
-	for i := 1; i <= (1 << numRotations); i *= 2 {
-		galEls = append(galEls, params.GaloisElement(i))
-	}
+	var gksB64 []string
 
-	gks := kgen.GenGaloisKeysNew(galEls, tmpSK)
-	rlk := kgen.GenRelinearizationKeyNew(tmpSK)
-
-	gksB64 := make([]string, len(gks))
-	for i, gk := range gks {
-		gkBytes, err := gk.MarshalBinary()
+	if len(input.GaloisKeyShares) == numParties && len(input.GKGSeed) > 0 {
+		// Proper threshold GKG: recreate deterministic PRNG from shared seed,
+		// aggregate per-party shares, generate correct Galois keys
+		gkgSeed, err := base64.StdEncoding.DecodeString(input.GKGSeed)
 		if err != nil {
-			return nil, fmt.Errorf("failed to serialize galois key %d: %v", i, err)
+			return nil, fmt.Errorf("failed to decode GKG seed: %v", err)
 		}
-		gksB64[i] = base64.StdEncoding.EncodeToString(gkBytes)
-	}
+		gkgPRNG, err := sampling.NewKeyedPRNG(gkgSeed)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create keyed PRNG for GKG: %v", err)
+		}
 
-	rlkBytes, err := rlk.MarshalBinary()
-	if err != nil {
-		return nil, fmt.Errorf("failed to serialize RLK: %v", err)
+		gkg := multiparty.NewGaloisKeyGenProtocol(params)
+		gksB64 = make([]string, len(galEls))
+
+		for elIdx := range galEls {
+			// Recreate the same CRP that all parties used during setup
+			gkgCRP := gkg.SampleCRP(gkgPRNG)
+
+			// Aggregate shares from all parties for this Galois element.
+			// Use first party's share as the initial accumulator (AllocateShare
+			// returns GaloisElement=0 which would cause AggregateShares to fail).
+			var aggregatedGKShare multiparty.GaloisKeyGenShare
+			for partyIdx := 0; partyIdx < numParties; partyIdx++ {
+				if elIdx >= len(input.GaloisKeyShares[partyIdx]) {
+					return nil, fmt.Errorf("party %d has fewer GKG shares than expected", partyIdx)
+				}
+				shareBytes, err := base64.StdEncoding.DecodeString(input.GaloisKeyShares[partyIdx][elIdx])
+				if err != nil {
+					return nil, fmt.Errorf("failed to decode GKG share [party=%d, el=%d]: %v", partyIdx, elIdx, err)
+				}
+				share := gkg.AllocateShare()
+				if err := share.UnmarshalBinary(shareBytes); err != nil {
+					return nil, fmt.Errorf("failed to deserialize GKG share [party=%d, el=%d]: %v", partyIdx, elIdx, err)
+				}
+				if partyIdx == 0 {
+					aggregatedGKShare = share
+				} else {
+					if err := gkg.AggregateShares(share, aggregatedGKShare, &aggregatedGKShare); err != nil {
+						return nil, fmt.Errorf("failed to aggregate GKG shares [party=%d, el=%d]: %v", partyIdx, elIdx, err)
+					}
+				}
+			}
+
+			// Generate final Galois key from aggregated share + CRP
+			gk := rlwe.NewGaloisKey(params)
+			gkg.GenGaloisKey(aggregatedGKShare, gkgCRP, gk)
+
+			gkBytes, err := gk.MarshalBinary()
+			if err != nil {
+				return nil, fmt.Errorf("failed to serialize galois key %d: %v", elIdx, err)
+			}
+			gksB64[elIdx] = base64.StdEncoding.EncodeToString(gkBytes)
+		}
+	} else {
+		// No GKG shares provided — return empty (Galois keys unavailable)
+		gksB64 = make([]string, 0)
 	}
 
 	return &MHECombineOutput{
 		CollectivePublicKey: base64.StdEncoding.EncodeToString(cpkBytes),
 		GaloisKeys:          gksB64,
-		RelinearizationKey:  base64.StdEncoding.EncodeToString(rlkBytes),
+		RelinearizationKey:  "", // Not needed for degree-1 operations
 	}, nil
 }
 

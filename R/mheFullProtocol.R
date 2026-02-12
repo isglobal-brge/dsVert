@@ -53,7 +53,8 @@ NULL
 #'
 #' @return List with public_key_share and crp (if party 0)
 #' @export
-mheInitDS <- function(party_id, crp = NULL, num_obs = 100, log_n = 12, log_scale = 40) {
+mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
+                      num_obs = 100, log_n = 12, log_scale = 40) {
   input <- list(
     party_id = as.integer(party_id),
     num_obs = as.integer(num_obs),
@@ -61,11 +62,12 @@ mheInitDS <- function(party_id, crp = NULL, num_obs = 100, log_n = 12, log_scale
     log_scale = as.integer(log_scale)
   )
 
-  # If not party 0, include CRP
+  # If not party 0, include CRP and shared GKG seed
   if (party_id > 0 && !is.null(crp)) {
     input$crp <- .base64url_to_base64(crp)
-    input$gkg_crp <- input$crp
-    input$rkg_crp <- input$crp
+  }
+  if (!is.null(gkg_seed)) {
+    input$gkg_seed <- .base64url_to_base64(gkg_seed)
   }
 
   result <- .callMheTool("mhe-setup", input)
@@ -76,15 +78,17 @@ mheInitDS <- function(party_id, crp = NULL, num_obs = 100, log_n = 12, log_scale
   .mhe_storage$log_n <- log_n
   .mhe_storage$log_scale <- log_scale
 
-  # Return only public information
+  # Return public information + GKG shares
   output <- list(
     public_key_share = base64_to_base64url(result$public_key_share),
+    galois_key_shares = sapply(result$galois_key_shares, base64_to_base64url, USE.NAMES = FALSE),
     party_id = party_id
   )
 
-  # Party 0 also returns CRP
+  # Party 0 also returns CRP and GKG seed
   if (party_id == 0) {
     output$crp <- base64_to_base64url(result$crp)
+    output$gkg_seed <- base64_to_base64url(result$gkg_seed)
   }
 
   output
@@ -100,15 +104,29 @@ mheInitDS <- function(party_id, crp = NULL, num_obs = 100, log_n = 12, log_scale
 #'
 #' @return List with collective_public_key
 #' @export
-mheCombineDS <- function(public_key_shares, crp, num_obs = 100, log_n = 12, log_scale = 40) {
+mheCombineDS <- function(public_key_shares, crp, galois_key_shares = NULL,
+                         gkg_seed = NULL, num_obs = 100, log_n = 12, log_scale = 40) {
   # Convert from base64url
   pk_shares <- sapply(public_key_shares, .base64url_to_base64, USE.NAMES = FALSE)
   crp_std <- .base64url_to_base64(crp)
 
+  # Convert GKG shares: list of per-party share vectors → list of lists
+  gkg_shares_std <- list()
+  if (!is.null(galois_key_shares) && length(galois_key_shares) > 0) {
+    gkg_shares_std <- lapply(galois_key_shares, function(party_shares) {
+      sapply(party_shares, .base64url_to_base64, USE.NAMES = FALSE)
+    })
+  }
+
+  gkg_seed_std <- ""
+  if (!is.null(gkg_seed)) {
+    gkg_seed_std <- .base64url_to_base64(gkg_seed)
+  }
+
   input <- list(
     public_key_shares = as.list(pk_shares),
-    galois_key_shares = list(),
-    rkg_shares_round1 = list(),
+    galois_key_shares = gkg_shares_std,
+    gkg_seed = gkg_seed_std,
     crp = crp_std,
     num_obs = as.integer(num_obs),
     log_n = as.integer(log_n),
@@ -122,8 +140,15 @@ mheCombineDS <- function(public_key_shares, crp, num_obs = 100, log_n = 12, log_
   .mhe_storage$galois_keys <- result$galois_keys
   .mhe_storage$relin_key <- result$relinearization_key
 
+  # Return CPK and Galois keys (for distribution to other servers)
+  gk_out <- NULL
+  if (!is.null(result$galois_keys) && length(result$galois_keys) > 0) {
+    gk_out <- sapply(result$galois_keys, base64_to_base64url, USE.NAMES = FALSE)
+  }
+
   list(
-    collective_public_key = base64_to_base64url(result$collective_public_key)
+    collective_public_key = base64_to_base64url(result$collective_public_key),
+    galois_keys = gk_out
   )
 }
 

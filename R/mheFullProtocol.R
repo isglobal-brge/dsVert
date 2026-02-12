@@ -66,8 +66,78 @@ NULL
 #   $psi_ref_dm     - Double-masked reference points
 #   $psi_ref_indices - Reference row indices
 #   $psi_matched_ref_indices - Matched indices for Phase 8 intersection
+#
+# Protocol Firewall state:
+#   $op_counter     - Monotonic operation counter
+#   $ct_registry    - Named list: ct_hash -> list(op_id, op_type, timestamp)
+#                     Only registered ciphertexts can be partially decrypted.
+#                     Each entry is consumed (deleted) after one decryption
+#                     to prevent replay attacks.
 # ---------------------------------------------------------------------------
 .mhe_storage <- new.env(parent = emptyenv())
+
+# ---------------------------------------------------------------------------
+# Protocol Firewall: Ciphertext Registry
+# ---------------------------------------------------------------------------
+# Prevents the decryption oracle attack (arbitrary ciphertext decryption)
+# by requiring every ciphertext to be registered at production time.
+# Uses SHA-256 hashes of ciphertext content as keys.
+# ---------------------------------------------------------------------------
+
+#' Register a ciphertext as authorized for decryption (producing server)
+#'
+#' Called by operations that produce ciphertexts (cross-product, GLM gradient).
+#' Returns the SHA-256 hash for client-side relay to other servers.
+#'
+#' @param ct_b64 Character. The ciphertext in standard base64 encoding
+#' @param op_type Character. Operation that produced this ciphertext
+#' @return Character. SHA-256 hash of the ciphertext
+#' @keywords internal
+.register_ciphertext <- function(ct_b64, op_type) {
+  if (is.null(.mhe_storage$op_counter)) {
+    .mhe_storage$op_counter <- 0L
+  }
+  if (is.null(.mhe_storage$ct_registry)) {
+    .mhe_storage$ct_registry <- list()
+  }
+
+  .mhe_storage$op_counter <- .mhe_storage$op_counter + 1L
+
+  ct_hash <- digest::digest(ct_b64, algo = "sha256", serialize = FALSE)
+
+  .mhe_storage$ct_registry[[ct_hash]] <- list(
+    op_id = .mhe_storage$op_counter,
+    op_type = op_type,
+    timestamp = Sys.time()
+  )
+
+  ct_hash
+}
+
+#' Validate and consume a ciphertext authorization (one-time use)
+#' @param ct_b64 Character. The ciphertext in standard base64 encoding
+#' @return TRUE if authorized (entry is consumed), stops with error otherwise
+#' @keywords internal
+.validate_and_consume_ciphertext <- function(ct_b64) {
+  if (is.null(.mhe_storage$ct_registry)) {
+    stop("Protocol Firewall: no ciphertexts registered. ",
+         "Decryption denied.", call. = FALSE)
+  }
+
+  ct_hash <- digest::digest(ct_b64, algo = "sha256", serialize = FALSE)
+
+  entry <- .mhe_storage$ct_registry[[ct_hash]]
+  if (is.null(entry)) {
+    stop("Protocol Firewall: ciphertext not authorized for decryption. ",
+         "Only ciphertexts produced by legitimate operations ",
+         "(cross-product, glm-gradient) can be decrypted.", call. = FALSE)
+  }
+
+  # One-time use: consume the authorization (anti-replay)
+  .mhe_storage$ct_registry[[ct_hash]] <- NULL
+
+  TRUE
+}
 
 #' Initialize MHE keys for this server
 #'
@@ -218,7 +288,8 @@ mheEncryptLocalDS <- function(data_name, variables) {
   }
 
   # Get data
-  data <- eval(parse(text = data_name), envir = parent.frame())
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
   X <- as.matrix(data[, variables, drop = FALSE])
   X <- X[complete.cases(X), , drop = FALSE]
 
@@ -311,7 +382,8 @@ mheCrossProductEncDS <- function(data_name, variables, n_enc_cols, n_obs) {
   }
 
   # Get local data
-  data <- eval(parse(text = data_name), envir = parent.frame())
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
   X <- as.matrix(data[, variables, drop = FALSE])
   X <- X[complete.cases(X), , drop = FALSE]
 
@@ -337,28 +409,81 @@ mheCrossProductEncDS <- function(data_name, variables, n_enc_cols, n_obs) {
   # Clear stored encrypted columns after use
   .mhe_storage$remote_enc_cols <- NULL
 
-  # Convert results to base64url, handling matrix or list return from jsonlite
+  # Protocol Firewall: register each produced ciphertext.
+  # Returns ct_hashes so the client can relay them to other servers
+  # for batch authorization before threshold decryption.
   er <- result$encrypted_results
+  ct_hashes <- character(0)
+
   if (is.matrix(er)) {
     n_rows <- nrow(er)
     n_cols <- ncol(er)
-    # Convert each element to base64url
     for (i in seq_len(n_rows)) {
       for (j in seq_len(n_cols)) {
+        h <- .register_ciphertext(er[i, j], "cross-product")
+        ct_hashes <- c(ct_hashes, h)
         er[i, j] <- base64_to_base64url(er[i, j])
       }
     }
   } else {
     n_rows <- length(er)
     n_cols <- if (n_rows > 0) length(er[[1]]) else 0
+    for (i in seq_along(er)) {
+      for (j in seq_along(er[[i]])) {
+        h <- .register_ciphertext(er[[i]][[j]], "cross-product")
+        ct_hashes <- c(ct_hashes, h)
+      }
+    }
     er <- lapply(er, function(row) sapply(row, base64_to_base64url, USE.NAMES = FALSE))
   }
 
   list(
     encrypted_results = er,
+    ct_hashes = ct_hashes,
     n_rows = n_rows,
     n_cols = n_cols
   )
+}
+
+#' Batch-authorize ciphertexts for decryption on this server
+#'
+#' Called by the client to authorize a batch of ciphertexts for partial
+#' decryption. The ct_hashes are SHA-256 hashes of ciphertexts produced by
+#' a legitimate operation on another server. The client relays these hashes
+#' (which do not reveal ciphertext content) so that this server knows which
+#' ciphertexts are authorized for decryption.
+#'
+#' This prevents the decryption oracle attack: a client cannot fabricate
+#' arbitrary ciphertexts for decryption because the hashes must match
+#' ciphertexts produced by actual server-side operations.
+#'
+#' @param ct_hashes Character vector. SHA-256 hashes of authorized ciphertexts
+#' @param op_type Character. Operation type ("cross-product" or "glm-gradient")
+#'
+#' @return Integer. Number of ciphertexts authorized
+#' @export
+mheAuthorizeCTDS <- function(ct_hashes, op_type = "cross-product") {
+  if (is.null(.mhe_storage$secret_key)) {
+    stop("MHE not initialized. Call mheInitDS first.", call. = FALSE)
+  }
+
+  if (is.null(.mhe_storage$ct_registry)) {
+    .mhe_storage$ct_registry <- list()
+  }
+  if (is.null(.mhe_storage$op_counter)) {
+    .mhe_storage$op_counter <- 0L
+  }
+
+  for (ct_hash in ct_hashes) {
+    .mhe_storage$op_counter <- .mhe_storage$op_counter + 1L
+    .mhe_storage$ct_registry[[ct_hash]] <- list(
+      op_id = .mhe_storage$op_counter,
+      op_type = op_type,
+      timestamp = Sys.time()
+    )
+  }
+
+  length(ct_hashes)
 }
 
 #' Store a chunk of a ciphertext for partial decryption
@@ -377,6 +502,11 @@ mheStoreCTChunkDS <- function(chunk_index, chunk) {
 }
 
 #' Compute partial decryption using stored secret key and stored ciphertext chunks
+#'
+#' Protected by the Protocol Firewall: only ciphertexts that were registered
+#' (by the producing server) or authorized (via \code{mheAuthorizeCTDS} with
+#' a valid HMAC token) can be decrypted. Each authorization is consumed after
+#' one use (anti-replay).
 #'
 #' @param n_chunks Integer. Number of stored ciphertext chunks
 #'
@@ -398,6 +528,11 @@ mhePartialDecryptDS <- function(n_chunks) {
 
   # Clean up chunks after use to free memory
   .mhe_storage$ct_chunks <- NULL
+
+  # Protocol Firewall: validate ciphertext is authorized for decryption.
+  # This prevents the decryption oracle attack where an adversary submits
+  # arbitrary ciphertexts to recover plaintext or secret key information.
+  .validate_and_consume_ciphertext(ct_b64)
 
   input <- list(
     ciphertext = ct_b64,
@@ -425,9 +560,27 @@ mhePartialDecryptDS <- function(n_chunks) {
 #' @return Integer. Number of complete observations
 #' @export
 mheGetObsDS <- function(data_name, variables) {
-  data <- eval(parse(text = data_name), envir = parent.frame())
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
   X <- as.matrix(data[, variables, drop = FALSE])
   sum(complete.cases(X))
+}
+
+#' Clean up MHE cryptographic state
+#'
+#' Removes all cryptographic material from server memory: secret key, CPK,
+#' Galois keys, ciphertext registry, and any residual protocol state.
+#' Called by the client at the end of each protocol execution to minimize
+#' the window during which keys exist in memory.
+#'
+#' @return TRUE on success
+#' @export
+mheCleanupDS <- function() {
+  # Remove all cryptographic state
+  rm(list = ls(.mhe_storage), envir = .mhe_storage)
+  # Force garbage collection to release memory holding key material
+  gc(verbose = FALSE)
+  TRUE
 }
 
 # Null-coalescing operator

@@ -37,7 +37,8 @@ NULL
 #' @return List with masked_points (base64url) and n (count).
 #' @export
 psiMaskIdsDS <- function(data_name, id_col) {
-  data <- eval(parse(text = data_name), envir = parent.frame())
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
 
   if (!is.data.frame(data)) {
     stop("Object '", data_name, "' is not a data frame", call. = FALSE)
@@ -84,7 +85,8 @@ psiMaskIdsDS <- function(data_name, id_col) {
 #' @return List with own_masked_points (base64url) and n (count).
 #' @export
 psiProcessTargetDS <- function(data_name, id_col, ref_masked_points) {
-  data <- eval(parse(text = data_name), envir = parent.frame())
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
 
   if (!is.data.frame(data)) {
     stop("Object '", data_name, "' is not a data frame", call. = FALSE)
@@ -174,7 +176,8 @@ psiDoubleMaskDS <- function(points) {
 #' @return Aligned data frame (assigned to server environment).
 #' @export
 psiMatchAndAlignDS <- function(data_name, own_double_masked) {
-  data <- eval(parse(text = data_name), envir = parent.frame())
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
 
   if (is.null(.mhe_storage$psi_ref_dm)) {
     stop("PSI ref double-masked points not stored. Call psiProcessTargetDS first.", call. = FALSE)
@@ -226,7 +229,8 @@ psiMatchAndAlignDS <- function(data_name, own_double_masked) {
 #' @return Copy of data frame (assigned to server environment).
 #' @export
 psiSelfAlignDS <- function(data_name) {
-  data <- eval(parse(text = data_name), envir = parent.frame())
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
 
   # All ref indices are matched (the ref matches itself)
   .mhe_storage$psi_matched_ref_indices <- as.integer(0:(nrow(data) - 1L))
@@ -265,7 +269,8 @@ psiGetMatchedIndicesDS <- function() {
 #' @return Filtered data frame (assigned to server environment).
 #' @export
 psiFilterCommonDS <- function(data_name, common_indices) {
-  data <- eval(parse(text = data_name), envir = parent.frame())
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
 
   if (is.null(.mhe_storage$psi_matched_ref_indices)) {
     stop("PSI matched indices not available.", call. = FALSE)

@@ -12,7 +12,8 @@
 #' @return List with x_means, x_sds, y_mean (if y_var), y_sd (if y_var)
 #' @export
 glmStandardizeDS <- function(data_name, output_name, x_vars, y_var = NULL) {
-  data <- eval(parse(text = data_name), envir = parent.frame())
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
 
   if (!is.data.frame(data)) {
     stop("Object '", data_name, "' is not a data frame", call. = FALSE)

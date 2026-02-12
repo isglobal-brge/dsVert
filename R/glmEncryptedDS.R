@@ -180,10 +180,16 @@ mheGLMGradientDS <- function(data_name, x_vars, mu, v = NULL, num_obs) {
 
   result <- .callMheTool("mhe-glm-gradient", input)
 
+  # Protocol Firewall: register each gradient ciphertext
+  ct_hashes <- character(length(result$encrypted_gradients))
+  for (j in seq_along(result$encrypted_gradients)) {
+    ct_hashes[j] <- .register_ciphertext(result$encrypted_gradients[[j]], "glm-gradient")
+  }
+
   # Convert to base64url
   enc_grads <- sapply(result$encrypted_gradients, base64_to_base64url, USE.NAMES = FALSE)
 
-  list(encrypted_gradients = enc_grads)
+  list(encrypted_gradients = enc_grads, ct_hashes = ct_hashes)
 }
 
 #' Solve BCD block update given decrypted gradient (non-label server)

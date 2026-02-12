@@ -21,18 +21,38 @@
 #'
 #' @keywords internal
 
+#' Validate that a data_name is a safe R identifier
+#'
+#' Prevents command injection via eval(parse(text = ...)) by ensuring
+#' data_name contains only letters, digits, dots, and underscores.
+#'
+#' @param data_name Character. Name to validate.
+#' @return TRUE if valid, otherwise stops with an error.
+#' @keywords internal
+.validate_data_name <- function(data_name) {
+  if (!is.character(data_name) || length(data_name) != 1) {
+    stop("data_name must be a single character string", call. = FALSE)
+  }
+  if (!grepl("^[a-zA-Z._][a-zA-Z0-9._]*$", data_name)) {
+    stop("Invalid data_name: must be a valid R identifier (letters, digits, dots, underscores)",
+         call. = FALSE)
+  }
+  TRUE
+}
+
 #' Resolve a data frame by name, checking .mhe_storage first
 #' @param data_name Character. Name of the data frame to find.
 #' @param env Environment to search if not found in .mhe_storage (typically parent.frame() of caller).
 #' @return The data frame
 #' @keywords internal
 .resolveData <- function(data_name, env) {
+  .validate_data_name(data_name)
   if (!is.null(.mhe_storage$std_data_name) &&
       data_name == .mhe_storage$std_data_name &&
       !is.null(.mhe_storage$std_data)) {
     return(.mhe_storage$std_data)
   }
-  eval(parse(text = data_name), envir = env)
+  get(data_name, envir = env)
 }
 
 #' Convert base64url to standard base64
@@ -155,15 +175,33 @@ base64_to_base64url <- function(x) {
 .callMheTool <- function(command, input_data) {
   bin_path <- .findMheTool()
 
-  # Create temporary files for input and output
+  # Create temporary files for input and output.
+  # Security: temp files may contain cryptographic keys or ciphertext.
+  # We overwrite file contents before unlinking to prevent recovery from
+  # /tmp by other processes (defense in depth).
   input_file <- tempfile(fileext = ".json")
   output_file <- tempfile(fileext = ".json")
   stderr_file <- tempfile(fileext = ".txt")
 
+  .secure_unlink <- function(path) {
+    if (file.exists(path)) {
+      # Overwrite with zeros before deletion
+      tryCatch({
+        sz <- file.info(path)$size
+        if (!is.na(sz) && sz > 0) {
+          con <- file(path, "wb")
+          writeBin(raw(as.integer(min(sz, 1e7))), con)
+          close(con)
+        }
+      }, error = function(e) NULL)
+      unlink(path)
+    }
+  }
+
   on.exit({
-    if (file.exists(input_file)) unlink(input_file)
-    if (file.exists(output_file)) unlink(output_file)
-    if (file.exists(stderr_file)) unlink(stderr_file)
+    .secure_unlink(input_file)
+    .secure_unlink(output_file)
+    .secure_unlink(stderr_file)
   })
 
   # Write input JSON to file (avoids large string in R memory)

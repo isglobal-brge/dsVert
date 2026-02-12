@@ -28,7 +28,7 @@ import (
 	"os"
 )
 
-const VERSION = "1.4.0"
+const VERSION = "1.5.0"
 
 // EncryptColumnsInput: Encrypt a matrix column-by-column
 type EncryptColumnsInput struct {

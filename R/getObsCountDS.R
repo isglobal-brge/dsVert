@@ -34,7 +34,8 @@ getObsCountDS <- function(data_name, variables = NULL) {
   }
 
   # Get data from server environment
-  data <- eval(parse(text = data_name), envir = parent.frame())
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
 
   if (!is.data.frame(data)) {
     stop("Object '", data_name, "' is not a data frame", call. = FALSE)

@@ -1,7 +1,7 @@
 Package: dsVert
 Type: Package
 Title: DataSHIELD Server-Side Functions for Vertically Partitioned Data
-Version: 1.4.0
+Version: 1.5.0
 Authors@R: c(
     person("David", "Sarrat González", email = "david.sarrat@isglobal.org",
            role = c("aut", "cre")),
@@ -23,6 +23,7 @@ Encoding: UTF-8
 LazyData: true
 Depends: R (>= 4.0.0)
 Imports:
+    digest,
     jsonlite,
     stats
 Suggests:
@@ -31,6 +32,8 @@ Suggests:
 RoxygenNote: 7.3.3
 Roxygen: list(markdown = TRUE)
 AggregateMethods:
+    mheAuthorizeCTDS,
+    mheCleanupDS,
     psiMaskIdsDS,
     psiProcessTargetDS,
     psiDoubleMaskDS,

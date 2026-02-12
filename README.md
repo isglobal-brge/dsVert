@@ -39,16 +39,6 @@ Each R function serializes its input as JSON, calls the `mhe-tool` binary via `s
 | `psiGetMatchedIndicesDS` | Aggregate | Return matched reference indices for intersection |
 | `psiFilterCommonDS` | Assign | Filter to multi-server intersection |
 
-### Legacy Record Alignment (deprecated)
-
-| Function | Type | Description |
-|----------|------|-------------|
-| `hashIdDS` | Aggregate | Hash identifier column using SHA-256 |
-| `validateIdFormatDS` | Aggregate | Validate identifier format consistency |
-| `alignRecordsDS` | Assign | Reorder/subset data to match reference hashes |
-| `getObsCountDS` | Aggregate | Get observation count for validation |
-| `prepareDataDS` | Assign | Prepare data for analysis (subset, standardize) |
-
 ### MHE Threshold Protocol (Correlation)
 
 | Function | Type | Description |

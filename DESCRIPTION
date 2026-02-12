@@ -23,7 +23,6 @@ Encoding: UTF-8
 LazyData: true
 Depends: R (>= 4.0.0)
 Imports:
-    digest,
     jsonlite,
     stats
 Suggests:
@@ -32,7 +31,6 @@ Suggests:
 RoxygenNote: 7.3.3
 Roxygen: list(markdown = TRUE)
 AggregateMethods:
-    hashIdDS,
     psiMaskIdsDS,
     psiProcessTargetDS,
     psiDoubleMaskDS,
@@ -40,7 +38,6 @@ AggregateMethods:
     glmPartialFitDS,
     glmDevianceDS,
     getObsCountDS,
-    validateIdFormatDS,
     localCorDS,
     mheInitDS,
     mheCombineDS,
@@ -60,10 +57,8 @@ AggregateMethods:
     c=base::c,
     list=base::list
 AssignMethods:
-    alignRecordsDS,
     psiMatchAndAlignDS,
     psiSelfAlignDS,
-    psiFilterCommonDS,
-    prepareDataDS
+    psiFilterCommonDS
 Options:
     datashield.privacyLevel=5

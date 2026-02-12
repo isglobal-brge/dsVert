@@ -277,6 +277,34 @@ psiFilterCommonDS <- function(data_name, common_indices) {
   }
 
   common_indices <- as.integer(common_indices)
+  n_common <- length(common_indices)
+  n_original <- nrow(data)
+
+  # Disclosure control: nfilter.subset (dsBase pattern)
+  # Prevents creating subsets so small that individuals become identifiable.
+  settings <- .dsvert_disclosure_settings()
+  if (n_common > 0 && n_common < settings$nfilter.subset) {
+    stop(
+      "Disclosure control: PSI intersection too small (",
+      n_common, " records). Minimum allowed: nfilter.subset = ",
+      settings$nfilter.subset, ".",
+      call. = FALSE
+    )
+  }
+
+  # Differencing check (dsBase dataFrameSubsetDS1 pattern):
+  # if |original - intersection| is small but nonzero, an attacker could
+  # identify the excluded individuals by differencing.
+  n_excluded <- n_original - n_common
+  if (n_excluded > 0 && n_excluded < settings$nfilter.subset) {
+    stop(
+      "Disclosure control: PSI exclusion set too small (",
+      n_excluded, " excluded records). An attacker could identify excluded ",
+      "individuals by differencing. Minimum exclusion: nfilter.subset = ",
+      settings$nfilter.subset, ".",
+      call. = FALSE
+    )
+  }
 
   # After Phase 7, each server has data aligned to the reference order,
   # but different servers may have matched different subsets of ref IDs.

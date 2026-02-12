@@ -21,6 +21,105 @@
 #'
 #' @keywords internal
 
+# ---------------------------------------------------------------------------
+# Disclosure Control Settings (following dsBase pattern)
+# ---------------------------------------------------------------------------
+# dsBase uses listDisclosureSettingsDS() with a two-tier fallback:
+#   getOption("nfilter.glm") -> getOption("default.nfilter.glm")
+# We follow the same pattern so Opal administrators can override per-profile.
+# Defaults are declared in DESCRIPTION (Options section).
+# ---------------------------------------------------------------------------
+
+#' Read dsVert disclosure control settings
+#'
+#' Reads nfilter options using the dsBase two-tier fallback pattern:
+#' first checks \code{getOption("nfilter.X")}, then falls back to
+#' \code{getOption("default.nfilter.X")}. This allows Opal administrators
+#' to override settings per DataSHIELD profile.
+#'
+#' @return Named list with nfilter.tab, nfilter.glm, nfilter.subset,
+#'   and datashield.privacyLevel.
+#' @keywords internal
+.dsvert_disclosure_settings <- function() {
+  .read_nfilter <- function(name, fallback_default) {
+    val <- getOption(name)
+    if (is.null(val)) val <- getOption(paste0("default.", name))
+    if (is.null(val)) val <- fallback_default
+    as.numeric(val)
+  }
+
+  list(
+    nfilter.tab     = .read_nfilter("nfilter.tab", 3),
+    nfilter.glm     = .read_nfilter("nfilter.glm", 0.33),
+    nfilter.subset  = .read_nfilter("nfilter.subset", 3),
+    privacyLevel    = as.numeric(getOption("datashield.privacyLevel", 5))
+  )
+}
+
+#' Check GLM disclosure controls (saturated model + binary variables)
+#'
+#' Checks two disclosure risks following dsBase glmDS1/glmDS2 pattern:
+#' \enumerate{
+#'   \item \strong{Model saturation}: Blocks if \code{p > nfilter.glm * n},
+#'     preventing models where the number of parameters approaches the number
+#'     of observations (risk of individual data reconstruction).
+#'   \item \strong{Binary variable small cells}: For any binary variable
+#'     (response or predictor), blocks if the smaller category has fewer than
+#'     \code{nfilter.tab} observations.
+#' }
+#'
+#' @param X Numeric matrix. Design matrix (n x p).
+#' @param y Numeric vector. Response variable (optional, NULL to skip y check).
+#' @param p_total Integer. Total number of parameters across ALL servers in the
+#'   vertical partition. If NULL, uses ncol(X).
+#' @return TRUE if all checks pass, otherwise stops with error.
+#' @keywords internal
+.check_glm_disclosure <- function(X, y = NULL, p_total = NULL) {
+  settings <- .dsvert_disclosure_settings()
+  n <- nrow(X)
+  p <- if (!is.null(p_total)) p_total else ncol(X)
+
+  # Check 1: Model saturation (dsBase: p > nfilter.glm * N)
+  if (p > settings$nfilter.glm * n) {
+    stop(
+      "Disclosure control: model is oversaturated (too many parameters ",
+      "relative to sample size). With ", p, " total parameters and ",
+      "nfilter.glm = ", round(settings$nfilter.glm, 4), ", you need at least ",
+      ceiling(p / settings$nfilter.glm), " observations (have ", n, ").",
+      call. = FALSE
+    )
+  }
+
+  # Check 2: Binary variable small cells (dsBase: nfilter.tab)
+  .check_binary_cells <- function(vec, label) {
+    vals <- unique(vec[!is.na(vec)])
+    if (length(vals) == 2) {
+      tab <- table(vec[!is.na(vec)])
+      min_cell <- min(tab)
+      if (min_cell < settings$nfilter.tab) {
+        stop(
+          "Disclosure control: ", label, " is binary with one category ",
+          "having only ", min_cell, " observations (minimum: nfilter.tab = ",
+          settings$nfilter.tab, ").",
+          call. = FALSE
+        )
+      }
+    }
+  }
+
+  # Check y if provided
+  if (!is.null(y)) {
+    .check_binary_cells(y, "response variable")
+  }
+
+  # Check each X column
+  for (j in seq_len(ncol(X))) {
+    .check_binary_cells(X[, j], paste0("predictor '", colnames(X)[j], "'"))
+  }
+
+  TRUE
+}
+
 #' Validate that a data_name is a safe R identifier
 #'
 #' Prevents command injection via eval(parse(text = ...)) by ensuring

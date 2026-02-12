@@ -119,12 +119,15 @@ glmPartialFitDS <- function(data_name, y_name, x_vars, eta_other,
          ") must match number of variables (", p, ")", call. = FALSE)
   }
 
-  # Privacy check
+  # Disclosure controls (dsBase pattern)
   privacy_level <- getOption("datashield.privacyLevel", 5)
   if (n < privacy_level) {
     stop("Insufficient observations for privacy-preserving analysis",
          call. = FALSE)
   }
+
+  # GLM disclosure checks: saturation + binary variable small cells
+  .check_glm_disclosure(X, y)
 
   # Compute total linear predictor
   eta <- as.vector(eta_other + X %*% beta_current)

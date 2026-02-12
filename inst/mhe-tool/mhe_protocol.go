@@ -474,8 +474,9 @@ func mheFuse(input *MHEFuseInput) (*MHEFuseOutput, error) {
 		return nil, fmt.Errorf("failed to deserialize ciphertext: %v", err)
 	}
 
-	// Initialize KeySwitch protocol
-	noise := ring.DiscreteGaussian{Sigma: 3.2, Bound: 19.2}
+	// Initialize KeySwitch protocol with noise smudging consistent with
+	// mhePartialDecrypt. σ=128, Bound=6σ≈768 for IND-CPAD security.
+	noise := ring.DiscreteGaussian{Sigma: 128.0, Bound: 768.0}
 	ks, err := multiparty.NewKeySwitchProtocol(params, noise)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create KeySwitch protocol: %v", err)

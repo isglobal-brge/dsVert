@@ -229,11 +229,14 @@ glmBlockSolveDS <- function(data_name, x_vars, w, beta_current, gradient, lambda
   n <- nrow(X)
   p <- ncol(X)
 
-  # Privacy check
+  # Disclosure controls (dsBase pattern)
   privacy_level <- getOption("datashield.privacyLevel", 5)
   if (n < privacy_level) {
     stop("Insufficient observations for privacy-preserving analysis", call. = FALSE)
   }
+
+  # GLM disclosure checks: saturation + binary variable small cells
+  .check_glm_disclosure(X)
 
   # BCD update: beta_new = (X^T W X + lambda*I)^{-1} (X^T W X beta + g_k)
   XtWX <- crossprod(X, w * X) + diag(lambda, p)

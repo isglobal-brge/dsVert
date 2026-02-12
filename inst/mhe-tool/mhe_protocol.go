@@ -540,3 +540,124 @@ func mheFuse(input *MHEFuseInput) (*MHEFuseOutput, error) {
 		Values: slotValues,
 	}, nil
 }
+
+// ============================================================================
+// Phase 5b: Server-side fusion (share-wrapping)
+// ============================================================================
+// The fusion server (party 0) unwraps transport-encrypted shares from other
+// servers, computes its own partial decryption share, aggregates all shares,
+// and applies DecodePublic. The client never sees raw shares or unsanitized
+// plaintext — it only receives the final aggregate statistic.
+
+type MHEFuseServerInput struct {
+	Ciphertext         string   `json:"ciphertext"`           // Base64: the ciphertext to decrypt
+	SecretKey          string   `json:"secret_key"`           // Base64: fusion server's MHE secret key share
+	WrappedShares      []string `json:"wrapped_shares"`       // Base64: transport-encrypted shares from other servers
+	TransportSecretKey string   `json:"transport_secret_key"` // Base64: fusion server's X25519 secret key
+	NumSlots           int      `json:"num_slots"`
+	LogN               int      `json:"log_n"`
+	LogScale           int      `json:"log_scale"`
+}
+
+func mheFuseServer(input *MHEFuseServerInput) (*MHEFuseOutput, error) {
+	params, err := getParams(input.LogN, input.LogScale)
+	if err != nil {
+		return nil, err
+	}
+
+	// Decode ciphertext
+	ctBytes, err := base64.StdEncoding.DecodeString(input.Ciphertext)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode ciphertext: %v", err)
+	}
+	ct := rlwe.NewCiphertext(params, 1, params.MaxLevel())
+	if err := ct.UnmarshalBinary(ctBytes); err != nil {
+		return nil, fmt.Errorf("failed to deserialize ciphertext: %v", err)
+	}
+
+	// Decode fusion server's MHE secret key
+	skBytes, err := base64.StdEncoding.DecodeString(input.SecretKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode secret key: %v", err)
+	}
+	sk := rlwe.NewSecretKey(params)
+	if err := sk.UnmarshalBinary(skBytes); err != nil {
+		return nil, fmt.Errorf("failed to deserialize secret key: %v", err)
+	}
+
+	// Decode transport secret key for unwrapping
+	transportSK, err := base64.StdEncoding.DecodeString(input.TransportSecretKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode transport secret key: %v", err)
+	}
+
+	// Initialize KeySwitch protocol with noise smudging
+	noise := ring.DiscreteGaussian{Sigma: 128.0, Bound: 768.0}
+	ks, err := multiparty.NewKeySwitchProtocol(params, noise)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create KeySwitch protocol: %v", err)
+	}
+
+	// Step 1: Compute fusion server's own partial decryption share
+	zeroSK := rlwe.NewSecretKey(params)
+	ownShare := ks.AllocateShare(ct.Level())
+	ks.GenShare(sk, zeroSK, ct, &ownShare)
+
+	// Step 2: Unwrap and aggregate other servers' shares
+	aggregatedShare := ownShare // Start with own share
+	for i, wrappedB64 := range input.WrappedShares {
+		// Decode the wrapped (transport-encrypted) share
+		wrappedBytes, err := base64.StdEncoding.DecodeString(wrappedB64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode wrapped share %d: %v", i, err)
+		}
+
+		// Transport-decrypt to get raw share bytes
+		rawShareBytes, err := transportDecryptBytes(wrappedBytes, transportSK)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unwrap share %d: %v", i, err)
+		}
+
+		// Deserialize KeySwitch share
+		share := ks.AllocateShare(ct.Level())
+		if err := share.UnmarshalBinary(rawShareBytes); err != nil {
+			return nil, fmt.Errorf("failed to deserialize unwrapped share %d: %v", i, err)
+		}
+
+		if err := ks.AggregateShares(share, aggregatedShare, &aggregatedShare); err != nil {
+			return nil, fmt.Errorf("failed to aggregate share %d: %v", i, err)
+		}
+	}
+
+	// Step 3: KeySwitch to decrypt
+	ctOut := rlwe.NewCiphertext(params, 1, ct.Level())
+	ks.KeySwitch(ct, aggregatedShare, ctOut)
+
+	// Step 4: DecodePublic (noise sanitization for IND-CPAD security)
+	encoder := ckks.NewEncoder(params)
+	pt := ckks.NewPlaintext(params, ctOut.Level())
+	pt.Value = ctOut.Value[0]
+	pt.MetaData = ctOut.MetaData
+
+	values := make([]float64, params.MaxSlots())
+	if err := encoder.DecodePublic(pt, values, 32); err != nil {
+		return nil, fmt.Errorf("failed to decode: %v", err)
+	}
+
+	numSlots := input.NumSlots
+	if numSlots <= 0 {
+		return &MHEFuseOutput{Value: values[0]}, nil
+	}
+
+	sum := 0.0
+	slotValues := make([]float64, numSlots)
+	for i := 0; i < numSlots && i < len(values); i++ {
+		slotValues[i] = values[i]
+		sum += values[i]
+	}
+
+	return &MHEFuseOutput{
+		Value:  sum,
+		Values: slotValues,
+	}, nil
+}

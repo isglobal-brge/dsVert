@@ -1,7 +1,7 @@
 Package: dsVert
 Type: Package
 Title: DataSHIELD Server-Side Functions for Vertically Partitioned Data
-Version: 1.5.0
+Version: 1.6.0
 Authors@R: c(
     person("David", "Sarrat González", email = "david.sarrat@isglobal.org",
            role = c("aut", "cre")),
@@ -57,6 +57,15 @@ AggregateMethods:
     mheGLMGradientDS,
     glmBlockSolveDS,
     glmStandardizeDS,
+    mheStoreBlobDS,
+    mheStoreTransportKeysDS,
+    mhePartialDecryptWrappedDS,
+    mheStoreWrappedShareDS,
+    mheFuseServerDS,
+    glmCoordinatorStepDS,
+    glmSecureGradientDS,
+    glmSecureBlockSolveDS,
+    glmSecureDevianceDS,
     c=base::c,
     list=base::list
 AssignMethods:

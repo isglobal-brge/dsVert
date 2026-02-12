@@ -13,5 +13,8 @@ mhePartialDecryptDS(n_chunks)
 List with decryption_share (chunked as a character vector)
 }
 \description{
-Compute partial decryption using stored secret key and stored ciphertext chunks
+Protected by the Protocol Firewall: only ciphertexts that were registered
+(by the producing server) or authorized (via \code{mheAuthorizeCTDS} with
+a valid HMAC token) can be decrypted. Each authorization is consumed after
+one use (anti-replay).
 }

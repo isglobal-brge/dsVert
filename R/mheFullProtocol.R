@@ -139,15 +139,41 @@ NULL
   TRUE
 }
 
-#' Initialize MHE keys for this server
+#' Initialize MHE keys and transport keypair for this server
 #'
-#' @param party_id Integer. This server's party ID (0-indexed)
-#' @param crp Character. CRP from party 0 (NULL if this is party 0)
-#' @param num_obs Integer. Number of observations (affects galois keys)
-#' @param log_n Integer. Ring dimension parameter
-#' @param log_scale Integer. Scale parameter
+#' Generates a CKKS MHE secret/public key share pair and an X25519
+#' transport keypair. The secret keys (MHE SK share and transport SK) are
+#' stored locally and NEVER returned to the client.
 #'
-#' @return List with public_key_share and crp (if party 0)
+#' Party 0 additionally generates and returns the Common Reference Polynomial
+#' (CRP) and the Galois Key Generation (GKG) seed, which must be relayed
+#' to all other parties.
+#'
+#' @param party_id Integer. This server's party ID (0-indexed). Party 0
+#'   generates the CRP and GKG seed.
+#' @param crp Character or NULL. Common Reference Polynomial from party 0
+#'   (base64url). NULL if this is party 0.
+#' @param gkg_seed Character or NULL. GKG seed from party 0 (base64url).
+#'   NULL if this is party 0.
+#' @param num_obs Integer. Number of observations (determines galois key
+#'   rotation indices). Default 100.
+#' @param log_n Integer. CKKS ring dimension parameter (12, 13, or 14).
+#'   Default 12.
+#' @param log_scale Integer. CKKS scale parameter controlling precision.
+#'   Default 40.
+#'
+#' @return List with:
+#'   \itemize{
+#'     \item \code{public_key_share}: This server's MHE public key share (base64url)
+#'     \item \code{galois_key_shares}: Galois key generation shares (base64url vector)
+#'     \item \code{party_id}: Echo of the party ID
+#'     \item \code{transport_pk}: X25519 transport public key (base64url)
+#'     \item \code{crp}: Common Reference Polynomial (party 0 only, base64url)
+#'     \item \code{gkg_seed}: Galois Key Generation seed (party 0 only, base64url)
+#'   }
+#'
+#' @seealso \code{\link{mheStoreTransportKeysDS}} for distributing transport PKs,
+#'   \code{\link{mheCombineDS}} for combining public key shares
 #' @export
 mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
                       num_obs = 100, log_n = 12, log_scale = 40) {
@@ -176,12 +202,20 @@ mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
   .mhe_storage$log_n <- log_n
   .mhe_storage$log_scale <- log_scale
 
+  # Generate X25519 transport keypair for share-wrapping and GLM secure routing.
+  # The transport SK is stored locally (NEVER returned); the PK is distributed
+  # to all other servers via the client so they can encrypt data for us.
+  transport <- .callMheTool("transport-keygen", list())
+  .mhe_storage$transport_sk <- transport$secret_key
+  .mhe_storage$transport_pk <- transport$public_key
+
   # Return only public information: the public key share (safe to combine)
   # and Galois key generation shares (for enabling ciphertext rotations).
   output <- list(
     public_key_share = base64_to_base64url(result$public_key_share),
     galois_key_shares = sapply(result$galois_key_shares, base64_to_base64url, USE.NAMES = FALSE),
-    party_id = party_id
+    party_id = party_id,
+    transport_pk = base64_to_base64url(transport$public_key)
   )
 
   # Party 0 also returns CRP and GKG seed
@@ -550,6 +584,264 @@ mhePartialDecryptDS <- function(n_chunks) {
     decryption_share = share_b64url,
     party_id = .mhe_storage$party_id
   )
+}
+
+# ============================================================================
+# Share-Wrapping: Transport key distribution + wrapped partial decrypt + fusion
+# ============================================================================
+
+#' Store transport public keys from other servers
+#'
+#' Called by the client after \code{\link{mheInitDS}} to distribute each
+#' server's X25519 transport public key to all other servers. These keys
+#' enable two security features:
+#' \itemize{
+#'   \item \strong{Share-wrapping}: encrypting partial decryption shares
+#'     under the fusion server's transport PK so the client cannot read them
+#'   \item \strong{GLM Secure Routing}: encrypting eta/mu/w/v vectors
+#'     end-to-end between the coordinator and non-label servers
+#' }
+#'
+#' @param transport_keys Named list. Server name -> transport public key
+#'   (base64url). Must include a \code{"fusion"} entry identifying the
+#'   fusion server's (party 0) transport PK.
+#'
+#' @return \code{TRUE} on success
+#'
+#' @seealso \code{\link{mheInitDS}} which generates the transport keypair,
+#'   \code{\link{mhePartialDecryptWrappedDS}} which uses the fusion PK
+#' @export
+mheStoreTransportKeysDS <- function(transport_keys) {
+  if (is.null(.mhe_storage$secret_key)) {
+    stop("MHE not initialized. Call mheInitDS first.", call. = FALSE)
+  }
+
+  # Convert from base64url to standard base64 for internal use
+  .mhe_storage$peer_transport_pks <- lapply(transport_keys, .base64url_to_base64)
+
+  TRUE
+}
+
+#' Compute wrapped partial decryption share
+#'
+#' Same as \code{\link{mhePartialDecryptDS}} but the resulting decryption
+#' share is transport-encrypted (wrapped) under the fusion server's X25519
+#' public key before being returned. The client receives an opaque blob it
+#' cannot read; it relays this blob to the fusion server via
+#' \code{\link{mheStoreWrappedShareDS}} for server-side fusion.
+#'
+#' This eliminates the client's ability to fuse shares locally, preventing
+#' share reuse or manipulation by a malicious client.
+#'
+#' @param n_chunks Integer. Number of stored ciphertext chunks (previously
+#'   sent via \code{\link{mheStoreCTChunkDS}}).
+#'
+#' @return List with:
+#'   \itemize{
+#'     \item \code{wrapped_share}: Transport-encrypted decryption share
+#'       (base64url). Opaque to the client.
+#'     \item \code{party_id}: This server's party ID.
+#'   }
+#'
+#' @seealso \code{\link{mhePartialDecryptDS}} for the unwrapped variant,
+#'   \code{\link{mheFuseServerDS}} for server-side fusion
+#' @export
+mhePartialDecryptWrappedDS <- function(n_chunks) {
+  if (is.null(.mhe_storage$secret_key)) {
+    stop("Secret key not stored. Call mheInitDS first.", call. = FALSE)
+  }
+  if (is.null(.mhe_storage$ct_chunks) || length(.mhe_storage$ct_chunks) < n_chunks) {
+    stop("Ciphertext chunks not stored. Call mheStoreCTChunkDS first.", call. = FALSE)
+  }
+
+  fusion_pk <- .mhe_storage$peer_transport_pks[["fusion"]]
+  if (is.null(fusion_pk)) {
+    stop("Fusion server transport PK not stored. Call mheStoreTransportKeysDS first.",
+         call. = FALSE)
+  }
+
+  # Reassemble ciphertext from chunks
+  ct_b64url <- paste0(.mhe_storage$ct_chunks[1:n_chunks], collapse = "")
+  ct_b64 <- .base64url_to_base64(ct_b64url)
+  .mhe_storage$ct_chunks <- NULL
+
+  # Protocol Firewall: validate ciphertext is authorized
+  .validate_and_consume_ciphertext(ct_b64)
+
+  # Compute raw partial decryption share
+  input <- list(
+    ciphertext = ct_b64,
+    secret_key = .mhe_storage$secret_key,
+    log_n = as.integer(.mhe_storage$log_n %||% 12),
+    log_scale = as.integer(.mhe_storage$log_scale %||% 40)
+  )
+  result <- .callMheTool("mhe-partial-decrypt", input)
+
+  # Transport-encrypt (wrap) the share under the fusion server's PK.
+  # The share is a serialized KeySwitch share in standard base64.
+  # After wrapping, the client sees only ciphertext it cannot decrypt.
+  sealed <- .callMheTool("transport-encrypt", list(
+    data = result$decryption_share,
+    recipient_pk = fusion_pk
+  ))
+
+  list(
+    wrapped_share = base64_to_base64url(sealed$sealed),
+    party_id = .mhe_storage$party_id
+  )
+}
+
+#' Store a wrapped share on the fusion server
+#'
+#' Called by the client to relay a transport-encrypted partial decryption
+#' share to the fusion server (party 0). The client cannot read the share
+#' because it is encrypted under the fusion server's X25519 transport key.
+#'
+#' Supports chunked transfer: multiple calls with the same \code{party_id}
+#' concatenate the data. The full share is assembled when
+#' \code{\link{mheFuseServerDS}} is called.
+#'
+#' @param party_id Integer or character. Party ID of the server that
+#'   produced this share.
+#' @param share_data Character. The wrapped share data (base64url encoded),
+#'   or a chunk of it. Multiple calls with the same \code{party_id}
+#'   concatenate the data.
+#'
+#' @return \code{TRUE} on success
+#'
+#' @seealso \code{\link{mhePartialDecryptWrappedDS}} which produces the
+#'   wrapped share, \code{\link{mheFuseServerDS}} which consumes them
+#' @export
+mheStoreWrappedShareDS <- function(party_id, share_data) {
+  if (is.null(.mhe_storage$wrapped_share_parts)) {
+    .mhe_storage$wrapped_share_parts <- list()
+  }
+  key <- as.character(party_id)
+  # Concatenate chunks: multiple calls with the same party_id append data
+  if (is.null(.mhe_storage$wrapped_share_parts[[key]])) {
+    .mhe_storage$wrapped_share_parts[[key]] <- share_data
+  } else {
+    .mhe_storage$wrapped_share_parts[[key]] <- paste0(
+      .mhe_storage$wrapped_share_parts[[key]], share_data)
+  }
+  TRUE
+}
+
+#' Fuse partial decryption shares server-side (fusion server only)
+#'
+#' Called on the fusion server (party 0) after all wrapped shares have been
+#' relayed via \code{\link{mheStoreWrappedShareDS}} and the ciphertext
+#' stored via \code{\link{mheStoreCTChunkDS}}. This function:
+#' \enumerate{
+#'   \item Reassembles the ciphertext from stored chunks
+#'   \item Validates the ciphertext via the Protocol Firewall (one-time use)
+#'   \item Unwraps (transport-decrypts) each wrapped share using its X25519 SK
+#'   \item Computes its own partial decryption share (with noise smudging)
+#'   \item Aggregates all shares and applies KeySwitch + DecodePublic(logprec=32)
+#'   \item Returns only the final sanitized scalar/vector
+#' }
+#'
+#' The client never sees raw decryption shares or unsanitized plaintext.
+#'
+#' @param n_parties Integer. Total number of MHE parties (including this
+#'   fusion server). Used for validation only.
+#' @param n_ct_chunks Integer. Number of stored ciphertext chunks.
+#' @param num_slots Integer. Number of valid slots to return. Use 0 for a
+#'   single scalar (slot 0 only), or n_obs for a vector. Default 0.
+#'
+#' @return List with:
+#'   \itemize{
+#'     \item \code{value}: Decrypted scalar (first slot)
+#'     \item \code{values}: Numeric vector of length \code{num_slots}
+#'       (present only when \code{num_slots > 0})
+#'   }
+#'
+#' @seealso \code{\link{mheStoreWrappedShareDS}} for storing wrapped shares,
+#'   \code{\link{mhePartialDecryptWrappedDS}} for producing wrapped shares
+#' @export
+mheFuseServerDS <- function(n_parties, n_ct_chunks, num_slots = 0) {
+  if (is.null(.mhe_storage$secret_key)) {
+    stop("Secret key not stored. Call mheInitDS first.", call. = FALSE)
+  }
+  if (is.null(.mhe_storage$transport_sk)) {
+    stop("Transport secret key not stored. Call mheInitDS first.", call. = FALSE)
+  }
+  if (is.null(.mhe_storage$ct_chunks) || length(.mhe_storage$ct_chunks) < n_ct_chunks) {
+    stop("Ciphertext chunks not stored.", call. = FALSE)
+  }
+
+  # Reassemble ciphertext from chunks
+  ct_b64url <- paste0(.mhe_storage$ct_chunks[1:n_ct_chunks], collapse = "")
+  ct_b64 <- .base64url_to_base64(ct_b64url)
+  .mhe_storage$ct_chunks <- NULL
+
+  # Protocol Firewall: validate ciphertext
+  .validate_and_consume_ciphertext(ct_b64)
+
+  # Collect wrapped shares (from other servers, stored via mheStoreWrappedShareDS)
+  parts <- .mhe_storage$wrapped_share_parts
+  if (is.null(parts) || length(parts) == 0) {
+    stop("No wrapped shares stored. Relay shares via mheStoreWrappedShareDS first.",
+         call. = FALSE)
+  }
+  # Convert each assembled share from base64url to base64 (unnamed list for JSON array)
+  wrapped_shares <- unname(lapply(parts, .base64url_to_base64))
+
+  # Call mhe-fuse-server: unwrap + own partial decrypt + aggregate + DecodePublic
+  result <- .callMheTool("mhe-fuse-server", list(
+    ciphertext = ct_b64,
+    secret_key = .mhe_storage$secret_key,
+    wrapped_shares = wrapped_shares,
+    transport_secret_key = .mhe_storage$transport_sk,
+    num_slots = as.integer(num_slots),
+    log_n = as.integer(.mhe_storage$log_n %||% 12),
+    log_scale = as.integer(.mhe_storage$log_scale %||% 40)
+  ))
+
+  # Clean up wrapped shares
+  .mhe_storage$wrapped_share_parts <- NULL
+
+  list(value = result$value, values = result$values)
+}
+
+#' Store a blob in server-side storage (with chunking support)
+#'
+#' Generic function for storing base64url-encoded blobs on the server.
+#' Used by GLM Secure Routing to relay encrypted vectors (eta, mu/w/v)
+#' between servers through the client.
+#'
+#' For large blobs that exceed DataSHIELD's parser limits, call this
+#' function multiple times with chunk_index and n_chunks. The blob is
+#' auto-assembled when the last chunk arrives.
+#'
+#' @param key Character. Storage key (e.g., "mwv", "eta_server1")
+#' @param chunk Character. The blob data (or a chunk of it)
+#' @param chunk_index Integer. Current chunk index (1-based). Default 1.
+#' @param n_chunks Integer. Total number of chunks. Default 1 (no chunking).
+#'
+#' @return TRUE on success
+#' @export
+mheStoreBlobDS <- function(key, chunk, chunk_index = 1L, n_chunks = 1L) {
+  if (n_chunks == 1L) {
+    # Single-call mode (no chunking)
+    if (is.null(.mhe_storage$blobs)) .mhe_storage$blobs <- list()
+    .mhe_storage$blobs[[key]] <- chunk
+  } else {
+    # Chunked mode
+    if (is.null(.mhe_storage$blob_chunks)) .mhe_storage$blob_chunks <- list()
+    if (is.null(.mhe_storage$blob_chunks[[key]])) {
+      .mhe_storage$blob_chunks[[key]] <- character(n_chunks)
+    }
+    .mhe_storage$blob_chunks[[key]][chunk_index] <- chunk
+
+    # Auto-assemble when all chunks are present
+    if (all(nzchar(.mhe_storage$blob_chunks[[key]]))) {
+      if (is.null(.mhe_storage$blobs)) .mhe_storage$blobs <- list()
+      .mhe_storage$blobs[[key]] <- paste0(.mhe_storage$blob_chunks[[key]], collapse = "")
+      .mhe_storage$blob_chunks[[key]] <- NULL
+    }
+  }
+  TRUE
 }
 
 #' Get number of observations for a variable

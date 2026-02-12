@@ -2,7 +2,7 @@
 % Please edit documentation in R/mheFullProtocol.R
 \name{mheInitDS}
 \alias{mheInitDS}
-\title{Initialize MHE keys for this server}
+\title{Initialize MHE keys and transport keypair for this server}
 \usage{
 mheInitDS(
   party_id,
@@ -14,19 +14,46 @@ mheInitDS(
 )
 }
 \arguments{
-\item{party_id}{Integer. This server's party ID (0-indexed)}
+\item{party_id}{Integer. This server's party ID (0-indexed). Party 0
+generates the CRP and GKG seed.}
 
-\item{crp}{Character. CRP from party 0 (NULL if this is party 0)}
+\item{crp}{Character or NULL. Common Reference Polynomial from party 0
+(base64url). NULL if this is party 0.}
 
-\item{num_obs}{Integer. Number of observations (affects galois keys)}
+\item{gkg_seed}{Character or NULL. GKG seed from party 0 (base64url).
+NULL if this is party 0.}
 
-\item{log_n}{Integer. Ring dimension parameter}
+\item{num_obs}{Integer. Number of observations (determines galois key
+rotation indices). Default 100.}
 
-\item{log_scale}{Integer. Scale parameter}
+\item{log_n}{Integer. CKKS ring dimension parameter (12, 13, or 14).
+Default 12.}
+
+\item{log_scale}{Integer. CKKS scale parameter controlling precision.
+Default 40.}
 }
 \value{
-List with public_key_share and crp (if party 0)
+List with:
+\itemize{
+\item \code{public_key_share}: This server's MHE public key share (base64url)
+\item \code{galois_key_shares}: Galois key generation shares (base64url vector)
+\item \code{party_id}: Echo of the party ID
+\item \code{transport_pk}: X25519 transport public key (base64url)
+\item \code{crp}: Common Reference Polynomial (party 0 only, base64url)
+\item \code{gkg_seed}: Galois Key Generation seed (party 0 only, base64url)
+}
 }
 \description{
-Initialize MHE keys for this server
+Generates a CKKS MHE secret/public key share pair and an X25519
+transport keypair. The secret keys (MHE SK share and transport SK) are
+stored locally and NEVER returned to the client.
+}
+\details{
+Party 0 additionally generates and returns the Common Reference Polynomial
+(CRP) and the Galois Key Generation (GKG) seed, which must be relayed
+to all other parties.
+}
+\seealso{
+\code{\link{mheStoreTransportKeysDS}} for distributing transport PKs,
+\code{\link{mheCombineDS}} for combining public key shares
 }

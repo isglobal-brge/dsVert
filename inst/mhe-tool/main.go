@@ -14,6 +14,12 @@
 //   mhe-cross-product   Compute plaintext * ciphertext element-wise products
 //   mhe-partial-decrypt Compute partial decryption share using this party's secret key
 //   mhe-fuse            Fuse all partial decryption shares to recover plaintext
+//   mhe-fuse-server     Unwrap + fuse shares server-side (share-wrapping)
+//   transport-keygen    Generate X25519 transport keypair
+//   transport-encrypt   Encrypt arbitrary bytes (X25519 + AES-256-GCM)
+//   transport-decrypt   Decrypt arbitrary bytes
+//   transport-encrypt-vectors  Encrypt named float64 vectors
+//   transport-decrypt-vectors  Decrypt named float64 vectors
 //   psi-mask            Hash IDs to P-256 points and multiply by random scalar
 //   psi-double-mask     Multiply received curve points by a stored scalar
 //   psi-match           Find intersection of two sets of double-masked points
@@ -28,7 +34,7 @@ import (
 	"os"
 )
 
-const VERSION = "1.5.0"
+const VERSION = "1.6.0"
 
 // EncryptColumnsInput: Encrypt a matrix column-by-column
 type EncryptColumnsInput struct {
@@ -81,6 +87,18 @@ func main() {
 		handlePSIDoubleMask()
 	case "psi-match":
 		handlePSIMatch()
+	case "transport-keygen":
+		handleTransportKeygen()
+	case "transport-encrypt":
+		handleTransportEncrypt()
+	case "transport-decrypt":
+		handleTransportDecrypt()
+	case "transport-encrypt-vectors":
+		handleTransportEncryptVectors()
+	case "transport-decrypt-vectors":
+		handleTransportDecryptVectors()
+	case "mhe-fuse-server":
+		handleMHEFuseServer()
 	case "help", "-h", "--help":
 		printUsage()
 	default:
@@ -96,18 +114,24 @@ Usage:
   mhe-tool <command> < input.json > output.json
 
 Commands:
-  mhe-setup           Generate secret key and public key share for this party
-  mhe-combine         Combine public key shares into collective public key (CPK)
-  encrypt-columns     Encrypt data column-by-column using the CPK
-  mhe-cross-product   Compute plaintext * ciphertext element-wise products (encrypted)
-  mhe-glm-gradient    Compute encrypted GLM gradient g_k = X_k^T (v*(ct_y - mu))
-  mhe-partial-decrypt Compute partial decryption share using this party's secret key
-  mhe-fuse            Fuse all partial decryption shares to recover plaintext
-  psi-mask            Hash IDs to P-256 points and multiply by random scalar
-  psi-double-mask     Multiply received curve points by a stored scalar
-  psi-match           Find intersection of two sets of double-masked points
-  version             Print version information
-  help                Print this help message
+  mhe-setup                  Generate secret key and public key share for this party
+  mhe-combine                Combine public key shares into collective public key (CPK)
+  encrypt-columns            Encrypt data column-by-column using the CPK
+  mhe-cross-product          Compute plaintext * ciphertext element-wise products (encrypted)
+  mhe-glm-gradient           Compute encrypted GLM gradient g_k = X_k^T (v*(ct_y - mu))
+  mhe-partial-decrypt        Compute partial decryption share using this party's secret key
+  mhe-fuse                   Fuse all partial decryption shares to recover plaintext
+  mhe-fuse-server            Unwrap + fuse shares server-side (share-wrapping protocol)
+  transport-keygen           Generate X25519 transport keypair
+  transport-encrypt          Encrypt arbitrary bytes (ECIES: X25519 + AES-256-GCM)
+  transport-decrypt          Decrypt arbitrary bytes
+  transport-encrypt-vectors  Encrypt named float64 vectors for GLM secure routing
+  transport-decrypt-vectors  Decrypt named float64 vectors
+  psi-mask                   Hash IDs to P-256 points and multiply by random scalar
+  psi-double-mask            Multiply received curve points by a stored scalar
+  psi-match                  Find intersection of two sets of double-masked points
+  version                    Print version information
+  help                       Print this help message
 
 All commands read JSON from stdin and write JSON to stdout.
 See package documentation for the JSON schema of each command.`)
@@ -411,6 +435,39 @@ func handlePSIMatch() {
 	output, err := psiMatch(&input)
 	if err != nil {
 		outputError(fmt.Sprintf("PSI match failed: %v", err))
+		os.Exit(1)
+	}
+
+	outputJSON(output)
+}
+
+// ============================================================================
+// MHE Fuse Server command handler
+// ============================================================================
+
+func handleMHEFuseServer() {
+	inputBytes, err := readInput()
+	if err != nil {
+		outputError(fmt.Sprintf("Failed to read input: %v", err))
+		os.Exit(1)
+	}
+
+	var input MHEFuseServerInput
+	if err := json.Unmarshal(inputBytes, &input); err != nil {
+		outputError(fmt.Sprintf("Failed to parse input: %v", err))
+		os.Exit(1)
+	}
+
+	if input.LogN == 0 {
+		input.LogN = 12
+	}
+	if input.LogScale == 0 {
+		input.LogScale = 40
+	}
+
+	output, err := mheFuseServer(&input)
+	if err != nil {
+		outputError(fmt.Sprintf("MHE fuse server failed: %v", err))
 		os.Exit(1)
 	}
 

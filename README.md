@@ -9,18 +9,23 @@
 This package implements:
 - **ECDH-PSI Record Alignment**: Privacy-preserving record matching using Elliptic Curve Diffie-Hellman Private Set Intersection (P-256). Unlike SHA-256 hashing, PSI prevents dictionary attacks on identifiers.
 - **Multiparty Homomorphic Encryption (MHE)**: Threshold-decryption based cross-server correlation and encrypted-label GLM gradients using the CKKS scheme (Lattigo v6)
+- **Share-Wrapping (Transport Encryption)**: X25519 + AES-256-GCM transport encryption for partial decryption shares, eliminating client exposure to raw shares
+- **GLM Secure Routing**: End-to-end transport-encrypted individual-level vector exchange between servers, with the client handling only safe aggregates and opaque blobs
+- **Protocol Firewall**: SHA-256 ciphertext registry with one-time-use authorization to prevent decryption oracle attacks
 - **Block Coordinate Descent**: Distributed fitting of Generalized Linear Models (5 families)
 - **Model Diagnostics**: Deviance calculation for model evaluation
 - **Legacy Record Alignment**: SHA-256 hash-based alignment (deprecated, use PSI)
 
 ## Architecture
 
-The package has a two-layer architecture: R functions handle DataSHIELD protocol logic, and a compiled Go binary (`mhe-tool`) handles all cryptographic operations (CKKS encryption, P-256 elliptic curve math).
+The package has a two-layer architecture: R functions handle DataSHIELD protocol logic, and a compiled Go binary (`mhe-tool`) handles all cryptographic operations (CKKS encryption, P-256 elliptic curve math, X25519 transport encryption).
 
 ```
-R functions (server-side DS methods)  →  Go binary (mhe-tool v1.4.0)
+R functions (server-side DS methods)  →  Go binary (mhe-tool)
        ↓                                         ↓
   JSON file I/O via system2()           Lattigo v6 CKKS + crypto/elliptic
+                                        X25519 + AES-256-GCM transport layer
+                                        SHA-256 ciphertext registry
 ```
 
 Each R function serializes its input as JSON, calls the `mhe-tool` binary via `system2()`, and parses the JSON output. File-based I/O (not pipes) is used because CKKS ciphertexts can be hundreds of KB.
@@ -54,6 +59,18 @@ Each R function serializes its input as JSON, calls the `mhe-tool` binary via `s
 | `mhePartialDecryptDS` | Aggregate | Compute partial decryption share using this server's secret key |
 | `mheGetObsDS` | Aggregate | Get number of complete observations for variables |
 | `localCorDS` | Aggregate | Compute local (within-server) correlation matrix |
+| `mheAuthorizeCTDS` | Aggregate | Protocol Firewall: register ciphertext for decryption |
+| `mheCleanupDS` | Aggregate | Clean up all MHE state (keys, ciphertexts, blobs) |
+
+### Share-Wrapping & Transport Encryption
+
+| Function | Type | Description |
+|----------|------|-------------|
+| `mheStoreTransportKeysDS` | Aggregate | Store X25519 transport PKs from other servers |
+| `mhePartialDecryptWrappedDS` | Aggregate | Compute transport-encrypted partial decryption share |
+| `mheStoreWrappedShareDS` | Aggregate | Relay wrapped share to fusion server (chunked) |
+| `mheFuseServerDS` | Aggregate | Server-side fusion: unwrap shares, aggregate, DecodePublic |
+| `mheStoreBlobDS` | Aggregate | Generic blob storage with chunking support |
 
 ### Encrypted-Label GLM Protocol
 
@@ -66,6 +83,15 @@ Each R function serializes its input as JSON, calls the `mhe-tool` binary via `s
 | `glmPartialFitDS` | Aggregate | Plaintext BCD iteration (label server) |
 | `glmStandardizeDS` | Aggregate | Standardize features for BCD convergence |
 | `glmDevianceDS` | Aggregate | Calculate deviance for model evaluation |
+
+### GLM Secure Routing
+
+| Function | Type | Description |
+|----------|------|-------------|
+| `glmCoordinatorStepDS` | Aggregate | Coordinator (label server) IRLS + encrypted (mu,w,v) distribution |
+| `glmSecureGradientDS` | Aggregate | Compute encrypted gradient from transport-encrypted mu/w/v |
+| `glmSecureBlockSolveDS` | Aggregate | BCD block update with transport-encrypted eta output |
+| `glmSecureDevianceDS` | Aggregate | Server-side deviance computation (no eta leak to client) |
 
 ### Utilities
 
@@ -92,6 +118,32 @@ The MHE protocol uses **threshold decryption**: data encrypted under the Collect
 - **Server privacy**: Each server's raw data never leaves the server. Other servers only see encrypted ciphertexts.
 - **Client privacy**: The client (researcher) cannot decrypt any ciphertext alone. It only sees partial decryption shares (useless individually) and the final aggregate statistic (correlation coefficients).
 - **Collusion resistance**: Even K-1 colluding servers cannot decrypt without the K-th server's key share.
+
+### Transport Encryption (X25519 + AES-256-GCM)
+
+dsVert includes an ECIES-pattern transport encryption layer using X25519 key agreement and AES-256-GCM authenticated encryption. Each server generates an ephemeral X25519 key pair. Sender and recipient derive a shared secret via X25519 Diffie-Hellman, then encrypt the payload with AES-256-GCM. Ephemeral keys provide **forward secrecy**: compromising a long-term key does not reveal past transport-encrypted payloads.
+
+Transport encryption is used in two contexts:
+
+1. **Share-Wrapping** (correlation/decryption protocol)
+2. **GLM Secure Routing** (individual-level vector exchange)
+
+### Share-Wrapping
+
+Non-fusion servers **wrap** their partial decryption shares under the fusion server's X25519 public key before returning them to the client. The client receives only opaque encrypted blobs and relays them to the fusion server. The fusion server unwraps all received shares, computes its own partial decryption share locally, aggregates them, and returns the sanitized plaintext (e.g., correlation coefficients). The client never sees raw partial decryption shares.
+
+### GLM Secure Routing
+
+The label server acts as **coordinator**: it runs the IRLS update to compute mu, w, and v, then transport-encrypts these vectors end-to-end for each destination server using that server's X25519 public key. The client relays the opaque encrypted blobs. Each non-label server decrypts mu/w/v, computes its encrypted gradient and block update locally, and returns transport-encrypted eta contributions back to the coordinator. The client only handles:
+
+- **Beta vectors** (length p_k, the number of features on server k) -- safe aggregate statistics
+- **Opaque encrypted blobs** -- indistinguishable from random bytes without the recipient's X25519 private key
+
+### Protocol Firewall
+
+The Protocol Firewall prevents **decryption oracle attacks**, where a malicious client could submit arbitrary ciphertexts for threshold decryption to extract information beyond the sanctioned protocol.
+
+Each server maintains a **SHA-256 ciphertext registry**. Before any ciphertext can be submitted for partial decryption, it must be explicitly authorized via `mheAuthorizeCTDS`. Authorization is **one-time-use**: once a ciphertext has been decrypted, its registry entry is consumed and the same ciphertext cannot be decrypted again. This ensures the client can only decrypt ciphertexts that were produced as part of the legitimate protocol flow.
 
 ## Building the Go Binary
 

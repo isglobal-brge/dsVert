@@ -39,6 +39,8 @@ glmStandardizeDS <- function(data_name, output_name, x_vars, y_var = NULL) {
     col <- as.numeric(data[[v]])
     x_means[i] <- mean(col)
     x_sds[i] <- sd(col)
+    # If sd is effectively zero (constant column), set to 1 to avoid
+    # division by zero. The standardized column will be all zeros.
     if (x_sds[i] < 1e-10) x_sds[i] <- 1
     new_data[[v]] <- (col - x_means[i]) / x_sds[i]
   }
@@ -54,8 +56,10 @@ glmStandardizeDS <- function(data_name, output_name, x_vars, y_var = NULL) {
     new_data[[y_var]] <- (y - result$y_mean) / result$y_sd
   }
 
-  # Store standardized data frame in persistent storage
-  # (parent.frame() in aggregate methods is discarded after the call)
+  # Store standardized data in .mhe_storage because DataSHIELD aggregate
+  # methods cannot persist objects in the server's R environment (the
+  # parent.frame() is discarded after each call). The .resolveData() utility
+  # in mhe_utils.R looks up data here first, using output_name as the key.
   .mhe_storage$std_data <- new_data
   .mhe_storage$std_data_name <- output_name
 

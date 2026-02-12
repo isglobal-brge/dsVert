@@ -40,7 +40,33 @@
 #' @name mhe-full-protocol
 NULL
 
-# Global storage for MHE keys on each server
+# ---------------------------------------------------------------------------
+# Persistent server-side state: .mhe_storage
+# ---------------------------------------------------------------------------
+# DataSHIELD aggregate/assign calls run in ephemeral environments, so local
+# variables are lost between calls. We use a package-level environment to
+# persist state across the multi-step MHE and PSI protocols.
+#
+# Stored keys during MHE protocol:
+#   $secret_key     - This server's RLWE secret key share (NEVER returned)
+#   $party_id       - Integer party index (0-based)
+#   $cpk            - Collective Public Key (standard base64)
+#   $galois_keys    - Galois rotation keys (standard base64 vector)
+#   $relin_key      - Relinearization key (standard base64)
+#   $log_n, $log_scale - CKKS parameters
+#
+# Stored during GLM protocol:
+#   $enc_y          - Encrypted response ciphertext (non-label servers)
+#   $remote_enc_cols - List of received encrypted columns (correlation)
+#   $std_data       - Standardized data frame
+#   $std_data_name  - Name key for .resolveData() lookup
+#
+# Stored during PSI protocol:
+#   $psi_scalar     - P-256 secret scalar (NEVER returned)
+#   $psi_ref_dm     - Double-masked reference points
+#   $psi_ref_indices - Reference row indices
+#   $psi_matched_ref_indices - Matched indices for Phase 8 intersection
+# ---------------------------------------------------------------------------
 .mhe_storage <- new.env(parent = emptyenv())
 
 #' Initialize MHE keys for this server
@@ -72,13 +98,16 @@ mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
 
   result <- .callMheTool("mhe-setup", input)
 
-  # Store secret key locally (NEVER returned to client)
+  # SECURITY: secret key share is stored locally and NEVER returned to the
+  # client. This is the foundation of the threshold property: the collective
+  # secret key sk = sk_1 + sk_2 + ... + sk_K is never reconstructed.
   .mhe_storage$secret_key <- result$secret_key
   .mhe_storage$party_id <- party_id
   .mhe_storage$log_n <- log_n
   .mhe_storage$log_scale <- log_scale
 
-  # Return public information + GKG shares
+  # Return only public information: the public key share (safe to combine)
+  # and Galois key generation shares (for enabling ciphertext rotations).
   output <- list(
     public_key_share = base64_to_base64url(result$public_key_share),
     galois_key_shares = sapply(result$galois_key_shares, base64_to_base64url, USE.NAMES = FALSE),
@@ -135,12 +164,15 @@ mheCombineDS <- function(public_key_shares, crp, galois_key_shares = NULL,
 
   result <- .callMheTool("mhe-combine", input)
 
-  # Store combined keys locally for use in computations
+  # Store combined keys locally. The CPK is used for encryption;
+  # Galois keys enable ciphertext rotations (needed for inner-product
+  # computation). The combining server stores these directly; other
+  # servers receive them via mheStoreCPKDS.
   .mhe_storage$cpk <- result$collective_public_key
   .mhe_storage$galois_keys <- result$galois_keys
   .mhe_storage$relin_key <- result$relinearization_key
 
-  # Return CPK and Galois keys (for distribution to other servers)
+  # Return CPK and Galois keys to client for distribution to other servers.
   gk_out <- NULL
   if (!is.null(result$galois_keys) && length(result$galois_keys) > 0) {
     gk_out <- sapply(result$galois_keys, base64_to_base64url, USE.NAMES = FALSE)
@@ -190,13 +222,16 @@ mheEncryptLocalDS <- function(data_name, variables) {
   X <- as.matrix(data[, variables, drop = FALSE])
   X <- X[complete.cases(X), , drop = FALSE]
 
-  # Standardize
+  # Standardize to Z-scores (mean=0, sd=1) before encryption.
+  # This is necessary because CKKS has limited multiplicative depth:
+  # operating on values near [-1, 1] minimizes precision loss.
+  # NaN values (from zero-variance columns) are replaced with 0.
   Z <- scale(X, center = TRUE, scale = TRUE)
   Z[is.nan(Z)] <- 0
 
-  # Convert to row-major format: data[row][col] as Go expects
-  # Use as.list() so jsonlite always serializes each row as an array
-  # (auto_unbox would turn length-1 atomic vectors into scalars)
+  # Convert to row-major format: data[row][col] as Go expects.
+  # as.list() is critical: jsonlite's auto_unbox converts length-1 atomic
+  # vectors to JSON scalars, but Go expects arrays even for single-column data.
   data_rows <- lapply(seq_len(nrow(Z)), function(i) as.list(as.numeric(Z[i, ])))
 
   input <- list(
@@ -355,11 +390,13 @@ mhePartialDecryptDS <- function(n_chunks) {
     stop("Ciphertext chunks not stored. Call mheStoreCTChunkDS first.", call. = FALSE)
   }
 
-  # Reassemble ciphertext from chunks
+  # Reassemble ciphertext from chunks. CKKS ciphertexts can be 50-200KB
+  # as base64, exceeding DataSHIELD/R parser limits for single string
+  # arguments. Chunking at ~10KB per chunk avoids these limits.
   ct_b64url <- paste0(.mhe_storage$ct_chunks[1:n_chunks], collapse = "")
   ct_b64 <- .base64url_to_base64(ct_b64url)
 
-  # Clean up chunks
+  # Clean up chunks after use to free memory
   .mhe_storage$ct_chunks <- NULL
 
   input <- list(

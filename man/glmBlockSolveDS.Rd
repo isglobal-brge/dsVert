@@ -7,21 +7,39 @@
 glmBlockSolveDS(data_name, x_vars, w, beta_current, gradient, lambda = 1e-04)
 }
 \arguments{
-\item{data_name}{Character. Name of data frame with local features}
+\item{data_name}{Character. Name of data frame with local features
+(typically the standardized version).}
 
-\item{x_vars}{Character vector. Feature column names}
+\item{x_vars}{Character vector. Feature column names on this server.}
 
-\item{w}{Numeric vector. IRLS weights (length n)}
+\item{w}{Numeric vector. IRLS weights (length n), broadcast by client.
+Family-dependent: gaussian=1, binomial=mu*(1-mu), poisson=mu.}
 
-\item{beta_current}{Numeric vector. Current coefficients (length p_k)}
+\item{beta_current}{Numeric vector. Current coefficients (length p_k).}
 
-\item{gradient}{Numeric vector. Decrypted gradient g_k (length p_k)}
+\item{gradient}{Numeric vector. Decrypted gradient g_k (length p_k)
+from threshold decryption.}
 
-\item{lambda}{Numeric. L2 regularization parameter}
+\item{lambda}{Numeric. L2 regularization parameter. Default 1e-4.
+Prevents singular Hessian and adds mild shrinkage.}
 }
 \value{
-List with beta (updated coefficients) and eta (X_k * beta_new)
+List with:
+\itemize{
+\item \code{beta}: Updated coefficient vector (length p_k)
+\item \code{eta}: Linear predictor contribution X_k * beta_new (length n)
+\item \code{converged}: TRUE unless extreme update scaling was needed
+}
 }
 \description{
-Solve BCD block update given decrypted gradient (non-label server)
+After threshold decryption reveals the p_k-length gradient g_k, this
+function performs the Block Coordinate Descent update for the non-label
+server's coefficient block. The update formula is:
+}
+\details{
+\deqn{\beta_k^{new} = (X_k^T W X_k + \lambda I)^{-1} (X_k^T W X_k \beta_k^{old} + g_k)}
+
+This is a Newton-Raphson step where X_k^T W X_k is the local Hessian
+approximation and g_k is the gradient from the encrypted protocol.
+The L2 penalty lambda*I ensures the Hessian is positive definite.
 }

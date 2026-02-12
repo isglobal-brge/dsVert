@@ -9,3 +9,27 @@ These enable fitting GLMs where the response variable y is only on one
 server (the "label server"), and other servers compute their gradient
 contributions using y encrypted under the collective public key.
 }
+\details{
+In vertically partitioned GLM, the response y lives on a single "label
+server" and must never be revealed to other servers. Non-label servers
+hold feature matrices X_k and need to compute gradient contributions
+X_k^T (y - mu) without seeing y. The solution: the label server encrypts
+y under the collective public key (CPK), and non-label servers compute
+gradients homomorphically on the ciphertext. Threshold decryption then
+reveals only the p_k-length gradient vector (one scalar per feature),
+not individual observations.
+
+The four functions below implement this encrypted gradient protocol:
+\enumerate{
+\item \code{mheEncryptRawDS}: Label server encrypts y under CPK
+\item \code{mheStoreEncYDS}: Non-label servers receive and store ct_y
+\item \code{mheGLMGradientDS}: Non-label servers compute X_k^T (ct_y - mu)
+homomorphically, returning encrypted gradient vectors
+\item \code{glmBlockSolveDS}: After threshold decryption of the gradient,
+non-label servers solve the BCD block update using the plaintext gradient
+}
+}
+\references{
+van Kesteren, E.J. et al. (2019). Privacy-preserving generalized linear
+models using distributed block coordinate descent. arXiv:1911.03183.
+}

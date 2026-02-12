@@ -7,13 +7,31 @@
 mheEncryptRawDS(data_name, y_var)
 }
 \arguments{
-\item{data_name}{Character. Name of data frame}
+\item{data_name}{Character. Name of data frame on the label server.}
 
-\item{y_var}{Character. Name of response variable}
+\item{y_var}{Character. Name of the response variable column.}
 }
 \value{
-List with encrypted_y (base64url) and num_obs
+List with:
+\itemize{
+\item \code{encrypted_y}: base64url-encoded CKKS ciphertext of y
+\item \code{num_obs}: number of observations
+}
 }
 \description{
-Encrypt raw response variable under CPK (label server only)
+Encrypts the response variable y under the Collective Public Key (CPK)
+so it can be distributed to non-label servers for homomorphic gradient
+computation. The encrypted y is a CKKS ciphertext that supports
+addition and multiplication with plaintext vectors.
+}
+\details{
+For Gaussian family, y is standardized before encryption (handled by
+\code{glmStandardizeDS}). For non-Gaussian families, raw y values are
+encrypted because the link function is nonlinear and standardization
+would change the model.
+
+Each observation is packed as a single-element row because the Go
+encrypt-columns command expects row-major input. The \code{I()} wrapper
+prevents \code{jsonlite::auto_unbox} from converting length-1 vectors
+to JSON scalars (Go expects arrays).
 }

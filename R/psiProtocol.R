@@ -48,13 +48,17 @@ psiMaskIdsDS <- function(data_name, id_col) {
 
   ids <- as.character(data[[id_col]])
 
+  # Passing scalar="" tells the Go binary to generate a fresh random scalar.
+  # The binary hashes each ID to a P-256 curve point using try-and-increment
+  # (domain separator "dsVert-PSI-v1"), then multiplies by the scalar.
   result <- .callMheTool("psi-mask", list(
     ids = as.list(ids),
     scalar = ""
   ))
 
-  # Store scalar locally — NEVER returned to client
-
+  # SECURITY: the scalar is the server's secret. If the client knew it,
+  # they could reverse the hash-to-curve and recover patient IDs from the
+  # masked points. Storing it only in .mhe_storage keeps it on-server.
   .mhe_storage$psi_scalar <- result$scalar
 
   list(
@@ -109,7 +113,11 @@ psiProcessTargetDS <- function(data_name, id_col, ref_masked_points) {
     scalar = own_result$scalar
   ))
 
-  # Store double-masked ref points for Phase 7 matching (standard base64)
+  # Store double-masked ref points for Phase 7 matching. These are
+  # β·(α·H(id)) for each ref ID. In Phase 7, the target will receive
+  # α·(β·H(id)) for its own IDs; by commutativity α·β·H(id) = β·α·H(id),
+  # matching points identify common IDs. Ref indices track the reference
+  # server's row ordering so the target can reorder its data to match.
   .mhe_storage$psi_ref_dm <- ref_dm$double_masked_points
   .mhe_storage$psi_ref_indices <- as.integer(0:(length(ref_masked_points) - 1L))
 
@@ -193,8 +201,10 @@ psiMatchAndAlignDS <- function(data_name, own_double_masked) {
     stop("PSI: no matching records found", call. = FALSE)
   }
 
-  # Reorder data by matched_own_rows (+1 for R 1-based indexing)
-  # psi-match returns results sorted by ref_index, so this aligns to ref order
+  # Reorder data by matched_own_rows. The Go psi-match command returns
+  # results sorted by ref_index, so this reordering aligns the target's
+  # rows to the reference server's row order. +1L converts from Go's
+  # 0-based indexing to R's 1-based indexing.
   aligned_data <- data[as.integer(result$matched_own_rows) + 1L, , drop = FALSE]
   rownames(aligned_data) <- NULL
 
@@ -263,12 +273,16 @@ psiFilterCommonDS <- function(data_name, common_indices) {
 
   common_indices <- as.integer(common_indices)
 
-  # Find which rows in the aligned data correspond to common indices
+  # After Phase 7, each server has data aligned to the reference order,
+  # but different servers may have matched different subsets of ref IDs.
+  # Phase 8 intersects these subsets to find IDs present on ALL servers.
+  # Here we filter down to only the common rows.
   keep <- .mhe_storage$psi_matched_ref_indices %in% common_indices
   filtered_data <- data[keep, , drop = FALSE]
   rownames(filtered_data) <- NULL
 
-  # Clean up PSI state
+  # Clean up PSI state — scalars and indices are no longer needed.
+  # This also prevents accidental reuse in a subsequent PSI call.
   .mhe_storage$psi_scalar <- NULL
   .mhe_storage$psi_matched_ref_indices <- NULL
 

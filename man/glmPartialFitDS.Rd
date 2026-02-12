@@ -11,7 +11,8 @@ glmPartialFitDS(
   eta_other,
   beta_current,
   family = "gaussian",
-  lambda = 1e-04
+  lambda = 1e-04,
+  intercept = FALSE
 )
 }
 \arguments{

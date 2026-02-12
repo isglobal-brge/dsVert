@@ -1,5 +1,24 @@
 #' @title MHE Utility Functions
-#' @description Internal functions for calling the mhe-tool binary.
+#' @description Internal utility functions for calling the mhe-tool Go binary
+#'   and handling base64/base64url encoding conversions.
+#'
+#' @details
+#' \subsection{Why base64url?}{
+#' DataSHIELD passes function arguments through R's parser on the Opal/Rock
+#' server. Standard base64 contains \code{+} and \code{/} characters that
+#' R's parser can misinterpret in long strings (particularly in function
+#' call arguments). Base64url replaces these with \code{-} and \code{_},
+#' which are safe. All data is converted to base64url for transit between
+#' client and server, then back to standard base64 before passing to the
+#' Go binary (which uses Go's standard base64 library).
+#' }
+#'
+#' \subsection{File-based I/O}{
+#' The \code{.callMheTool} function uses temporary files (not stdin/stdout
+#' pipes) for JSON I/O because CKKS ciphertexts can be hundreds of KB.
+#' Pipe-based I/O can cause R's C stack to overflow with large outputs.
+#' }
+#'
 #' @keywords internal
 
 #' Resolve a data frame by name, checking .mhe_storage first

@@ -135,18 +135,21 @@ glmPartialFitDS <- function(data_name, y_name, x_vars, eta_other,
     w <- rep(1, n)
     z <- y
   } else if (family == "binomial") {
-    # Clip eta to avoid numerical issues
+    # Clip eta to [-20, 20] to prevent exp() overflow/underflow.
+    # exp(20) ~ 4.9e8, so sigmoid is effectively 0 or 1 beyond this range.
     eta <- pmax(pmin(eta, 20), -20)
     mu <- 1 / (1 + exp(-eta))
-    # Avoid division by zero
+    # Clamp mu away from 0 and 1 to avoid division by zero in IRLS weights
+    # w = mu*(1-mu) and working response z = eta + (y-mu)/w.
     mu <- pmax(pmin(mu, 1 - 1e-10), 1e-10)
     w <- mu * (1 - mu)
     z <- eta + (y - mu) / w
   } else if (family == "poisson") {
-    # Clip eta to avoid overflow
+    # Clip eta at 20 to prevent exp() overflow (exp(20) ~ 4.9e8).
+    # No lower clip needed: exp(-x) approaches 0 gracefully.
     eta <- pmin(eta, 20)
     mu <- exp(eta)
-    # Avoid division by zero
+    # Floor at 1e-10 to avoid log(0) in deviance and 0/0 in working response.
     mu <- pmax(mu, 1e-10)
     w <- mu
     z <- eta + (y - mu) / mu
@@ -188,10 +191,12 @@ glmPartialFitDS <- function(data_name, y_name, x_vars, eta_other,
     }
   )
 
-  # Check for extreme updates
+  # Guard against numerical blow-up. Can happen when X^T W X is
+  # near-singular (collinear features) or early iterations of non-Gaussian
+  # families produce extreme working responses. Scaling preserves the
+  # direction of the update while keeping magnitudes reasonable.
   converged <- TRUE
   if (any(abs(beta_new) > 1e6)) {
-    # Scale down extreme coefficients
     beta_new <- beta_new / max(abs(beta_new)) * 1e2
     converged <- FALSE
     warning("Large coefficient update detected, scaling applied")

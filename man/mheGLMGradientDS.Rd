@@ -7,19 +7,43 @@
 mheGLMGradientDS(data_name, x_vars, mu, v = NULL, num_obs)
 }
 \arguments{
-\item{data_name}{Character. Name of data frame with local features}
+\item{data_name}{Character. Name of data frame with local features
+(typically the standardized version).}
 
-\item{x_vars}{Character vector. Feature column names on this server}
+\item{x_vars}{Character vector. Feature column names on this server.}
 
-\item{mu}{Numeric vector. Plaintext mean vector (length n)}
+\item{mu}{Numeric vector. Current mean predictions (plaintext, length n).
+Broadcast by the client from the label server's IRLS step.}
 
-\item{v}{Numeric vector. Plaintext v vector (length n, NULL for canonical links)}
+\item{v}{Numeric vector or NULL. Variance function factor (length n).
+NULL for canonical links (gaussian, binomial, poisson) where v = 1.
+Non-NULL for Gamma (v = 1/mu) and inverse.gaussian (v = 1/mu^2).}
 
-\item{num_obs}{Integer. Number of observations}
+\item{num_obs}{Integer. Number of observations (for CKKS slot count).}
 }
 \value{
-List with encrypted_gradients (base64url array, one per feature)
+List with \code{encrypted_gradients}: base64url array of p_k
+encrypted gradient components, each requiring threshold decryption.
 }
 \description{
-Compute encrypted GLM gradient using stored ct_y and local X_k
+Core of the encrypted-label protocol. Computes the gradient contribution
+for this server's feature block using homomorphic operations on ct_y:
+}
+\details{
+\deqn{g_k = X_k^T (ct_y - \mu)}
+
+For non-canonical link functions (Gamma, inverse.gaussian), the gradient
+additionally involves a variance function factor v:
+
+\deqn{g_k = X_k^T \cdot v \cdot (ct_y - \mu)}
+
+The result is a vector of p_k encrypted scalars (one per feature). Each
+requires threshold decryption by ALL servers before the gradient is usable.
+This ensures no single server (or the client) learns anything about y beyond
+what the p_k-length gradient reveals.
+
+The Galois keys (stored in \code{.mhe_storage}) are required for the
+inner sum reduction: after element-wise multiplication of x_j with
+(ct_y - mu), the Go binary uses Galois rotations to sum across the n
+slots of the ciphertext, producing a single encrypted scalar per feature.
 }

@@ -7,27 +7,39 @@
 **dsVert** is a server-side DataSHIELD package that enables privacy-preserving statistical analysis on **vertically partitioned federated data**. In vertical partitioning, different data sources hold different variables (columns) for the same set of observations (rows).
 
 This package implements:
-- **Record Alignment**: Secure matching of records across servers via cryptographic hashing
-- **ID Validation**: Format consistency checks before alignment
-- **Multiparty Homomorphic Encryption (MHE)**: Threshold-decryption based cross-server correlation using the CKKS scheme (Lattigo v6)
-- **Block Coordinate Descent**: Distributed fitting of Generalized Linear Models
+- **ECDH-PSI Record Alignment**: Privacy-preserving record matching using Elliptic Curve Diffie-Hellman Private Set Intersection (P-256). Unlike SHA-256 hashing, PSI prevents dictionary attacks on identifiers.
+- **Multiparty Homomorphic Encryption (MHE)**: Threshold-decryption based cross-server correlation and encrypted-label GLM gradients using the CKKS scheme (Lattigo v6)
+- **Block Coordinate Descent**: Distributed fitting of Generalized Linear Models (5 families)
 - **Model Diagnostics**: Deviance calculation for model evaluation
+- **Legacy Record Alignment**: SHA-256 hash-based alignment (deprecated, use PSI)
 
 ## Architecture
 
-The MHE functions follow a two-layer architecture:
+The package has a two-layer architecture: R functions handle DataSHIELD protocol logic, and a compiled Go binary (`mhe-tool`) handles all cryptographic operations (CKKS encryption, P-256 elliptic curve math).
 
 ```
-R wrappers (mheFullProtocol.R)  →  Go binary (mhe-tool)  →  Lattigo v6 CKKS
-       ↓                                    ↓
-  JSON file I/O                     Threshold decryption
+R functions (server-side DS methods)  →  Go binary (mhe-tool v1.4.0)
+       ↓                                         ↓
+  JSON file I/O via system2()           Lattigo v6 CKKS + crypto/elliptic
 ```
 
-Each R function serializes its input as JSON, calls the `mhe-tool` binary via `system2()`, and parses the JSON output. The Go binary uses Lattigo's multiparty module for cryptographic operations.
+Each R function serializes its input as JSON, calls the `mhe-tool` binary via `system2()`, and parses the JSON output. File-based I/O (not pipes) is used because CKKS ciphertexts can be hundreds of KB.
 
 ## Server-Side Functions
 
-### Record Alignment
+### ECDH-PSI Record Alignment
+
+| Function | Type | Description |
+|----------|------|-------------|
+| `psiMaskIdsDS` | Aggregate | Hash IDs to P-256 points, multiply by random scalar |
+| `psiProcessTargetDS` | Aggregate | Double-mask reference points, mask own IDs |
+| `psiDoubleMaskDS` | Aggregate | Double-mask received points with stored scalar |
+| `psiMatchAndAlignDS` | Assign | Match double-masked sets, reorder data |
+| `psiSelfAlignDS` | Assign | Self-align reference server (identity) |
+| `psiGetMatchedIndicesDS` | Aggregate | Return matched reference indices for intersection |
+| `psiFilterCommonDS` | Assign | Filter to multi-server intersection |
+
+### Legacy Record Alignment (deprecated)
 
 | Function | Type | Description |
 |----------|------|-------------|
@@ -37,7 +49,7 @@ Each R function serializes its input as JSON, calls the `mhe-tool` binary via `s
 | `getObsCountDS` | Aggregate | Get observation count for validation |
 | `prepareDataDS` | Assign | Prepare data for analysis (subset, standardize) |
 
-### MHE Threshold Protocol
+### MHE Threshold Protocol (Correlation)
 
 | Function | Type | Description |
 |----------|------|-------------|
@@ -53,11 +65,16 @@ Each R function serializes its input as JSON, calls the `mhe-tool` binary via `s
 | `mheGetObsDS` | Aggregate | Get number of complete observations for variables |
 | `localCorDS` | Aggregate | Compute local (within-server) correlation matrix |
 
-### GLM
+### Encrypted-Label GLM Protocol
 
 | Function | Type | Description |
 |----------|------|-------------|
-| `glmPartialFitDS` | Aggregate | Perform one BCD iteration for GLM fitting |
+| `mheEncryptRawDS` | Aggregate | Encrypt response variable y under CPK (label server) |
+| `mheStoreEncYDS` | Aggregate | Store encrypted y on non-label servers |
+| `mheGLMGradientDS` | Aggregate | Compute encrypted gradient X_k^T(ct_y - mu) |
+| `glmBlockSolveDS` | Aggregate | BCD block update using decrypted gradient |
+| `glmPartialFitDS` | Aggregate | Plaintext BCD iteration (label server) |
+| `glmStandardizeDS` | Aggregate | Standardize features for BCD convergence |
 | `glmDevianceDS` | Aggregate | Calculate deviance for model evaluation |
 
 ### Utilities
@@ -68,7 +85,17 @@ Each R function serializes its input as JSON, calls the `mhe-tool` binary via `s
 | `mheVersion` | Aggregate | Get mhe-tool version |
 | `base64_to_base64url` | Utility | Convert base64 to URL-safe base64 |
 
-## MHE Security Model
+## Security Model
+
+### ECDH-PSI Record Alignment
+
+The PSI protocol uses P-256 elliptic curve scalar multiplication for privacy-preserving record matching. Security properties:
+
+- **Dictionary attack resistance**: Unlike SHA-256 hashing, an attacker cannot pre-compute hashes for plausible IDs. Masked points are indistinguishable from random group elements without the server's secret scalar.
+- **Scalar confidentiality**: Each server's random P-256 scalar never leaves the server.
+- **Unlinkability (DDH assumption)**: The client cannot link single-masked points across servers; it can only determine which double-masked points correspond to the same identifier.
+
+### MHE Threshold Decryption
 
 The MHE protocol uses **threshold decryption**: data encrypted under the Collective Public Key (CPK) can only be decrypted when ALL servers cooperate by providing their partial decryption shares.
 
@@ -130,6 +157,7 @@ Binaries are placed in `inst/bin/<platform>/mhe-tool`.
 
 ## References
 
+- De Cristofaro, E. & Tsudik, G. (2010). "Practical Private Set Intersection Protocols with Linear Complexity". *FC 2010*.
 - Mouchet, C. et al. (2021). "Multiparty Homomorphic Encryption from Ring-Learning-With-Errors". *Proceedings on Privacy Enhancing Technologies (PETS)*.
 - Cheon, J.H. et al. (2017). "Homomorphic Encryption for Arithmetic of Approximate Numbers". *ASIACRYPT 2017*.
 - van Kesteren, E.J. et al. (2019). "Privacy-preserving generalized linear models using distributed block coordinate descent". arXiv:1911.03183.

@@ -2,7 +2,7 @@
 % Please edit documentation in R/mhe_utils.R
 \name{.base64url_to_base64}
 \alias{.base64url_to_base64}
-\title{MHE Utility Functions}
+\title{Convert base64url to standard base64}
 \usage{
 .base64url_to_base64(x)
 }
@@ -13,15 +13,8 @@
 Character string in standard base64 encoding
 }
 \description{
-Internal functions for calling the mhe-tool binary.
-
 Converts base64url encoding (URL-safe) to standard base64.
 This is needed because R's parser on Opal/Rock has issues with "/" and "+"
 characters in long strings passed as function parameters.
 }
-\keyword{Convert}
-\keyword{base64}
-\keyword{base64url}
 \keyword{internal}
-\keyword{standard}
-\keyword{to}

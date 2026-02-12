@@ -15,7 +15,7 @@ the response variable in the server environment.}
 \item{eta}{Numeric vector. Total linear predictor (sum of all partitions).}
 
 \item{family}{Character string. GLM family: "gaussian", "binomial",
-"poisson", "Gamma", or "inverse.gaussian". Default is "gaussian".}
+or "poisson". Default is "gaussian".}
 }
 \value{
 A list containing:
@@ -39,8 +39,6 @@ Deviance formulas by family:
 \item \strong{Gaussian}: \eqn{\sum (y - \mu)^2}
 \item \strong{Binomial}: \eqn{2 \sum [y \log(y/\mu) + (1-y) \log((1-y)/(1-\mu))]}
 \item \strong{Poisson}: \eqn{2 \sum [y \log(y/\mu) - (y - \mu)]}
-\item \strong{Gamma}: \eqn{2 \sum [-\log(y/\mu) + (y - \mu)/\mu]}
-\item \strong{Inverse Gaussian}: \eqn{\sum (y - \mu)^2 / (\mu^2 y)}
 }
 
 Privacy is preserved because only aggregate deviance values are returned,

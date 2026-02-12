@@ -37,7 +37,7 @@ Used when blobs are too large for direct parameter passing.}
 for non-label servers that need (mu, w, v) blobs.}
 
 \item{family}{Character. GLM family: \code{"gaussian"}, \code{"binomial"},
-\code{"poisson"}, or \code{"Gamma"}. Default \code{"gaussian"}.}
+or \code{"poisson"}. Default \code{"gaussian"}.}
 
 \item{beta_current}{Numeric vector or NULL. Current coefficients for the
 label server block. NULL on first iteration.}

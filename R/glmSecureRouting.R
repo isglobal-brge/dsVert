@@ -49,7 +49,7 @@ NULL
 #' @param non_label_pks Named list or NULL. Server name -> transport PK (base64url)
 #'   for non-label servers that need (mu, w, v) blobs.
 #' @param family Character. GLM family: \code{"gaussian"}, \code{"binomial"},
-#'   \code{"poisson"}, or \code{"Gamma"}. Default \code{"gaussian"}.
+#'   or \code{"poisson"}. Default \code{"gaussian"}.
 #' @param beta_current Numeric vector or NULL. Current coefficients for the
 #'   label server block. NULL on first iteration.
 #' @param lambda Numeric. L2 regularization parameter. Default 1e-4.
@@ -161,18 +161,6 @@ glmCoordinatorStepDS <- function(data_name, y_var, x_vars,
     mu <- pmax(mu, 1e-10)
     w <- mu
     z <- eta + (y - mu) / mu
-  } else if (family == "Gamma") {
-    eta <- pmax(pmin(eta, 20), -20)
-    mu <- exp(eta)
-    mu <- pmax(mu, 1e-10)
-    w <- rep(1, n)
-    z <- eta + (y - mu) / mu
-  } else if (family == "inverse.gaussian") {
-    eta <- pmax(pmin(eta, 20), -20)
-    mu <- exp(eta)
-    mu <- pmax(mu, 1e-10)
-    w <- 1 / mu
-    z <- eta + (y - mu) / mu
   }
 
   # IRLS update with L2 regularization
@@ -221,18 +209,6 @@ glmCoordinatorStepDS <- function(data_name, y_var, x_vars,
     mu_total <- pmax(mu_total, 1e-10)
     w_total <- mu_total
     v_total <- NULL
-  } else if (family == "Gamma") {
-    eta_total <- pmax(pmin(eta_total, 20), -20)
-    mu_total <- exp(eta_total)
-    mu_total <- pmax(mu_total, 1e-10)
-    w_total <- rep(1, n)
-    v_total <- 1 / mu_total
-  } else if (family == "inverse.gaussian") {
-    eta_total <- pmax(pmin(eta_total, 20), -20)
-    mu_total <- exp(eta_total)
-    mu_total <- pmax(mu_total, 1e-10)
-    w_total <- 1 / mu_total
-    v_total <- 1 / (mu_total^2)
   }
 
   # Encrypt (mu, w, v) under each non-label server's transport PK
@@ -491,7 +467,7 @@ glmSecureBlockSolveDS <- function(data_name, x_vars, encrypted_mwv = NULL,
 #'   \code{\link{mheStoreBlobDS}} storage from which to read encrypted eta blobs.
 #'   Used when blobs are too large for direct parameter passing.
 #' @param family Character. GLM family: \code{"gaussian"}, \code{"binomial"},
-#'   \code{"poisson"}, or \code{"Gamma"}. Default \code{"gaussian"}.
+#'   or \code{"poisson"}. Default \code{"gaussian"}.
 #' @param y_sd Numeric or NULL. Standard deviation of y, used for Gaussian
 #'   unstandardization: \code{eta_orig = eta_std * y_sd + y_mean}.
 #' @param y_mean Numeric or NULL. Mean of y, used for Gaussian
@@ -588,18 +564,6 @@ glmSecureDevianceDS <- function(data_name, y_var, encrypted_eta_blobs = NULL,
     mu_null <- pmax(mean(y), 1e-10)
     deviance <- 2 * sum(ifelse(y > 0, y * log(y / mu), 0) - (y - mu))
     null_deviance <- 2 * sum(ifelse(y > 0, y * log(y / mu_null), 0) - (y - mu_null))
-  } else if (family == "Gamma") {
-    eta_total <- pmax(pmin(eta_total, 20), -20)
-    mu <- pmax(exp(eta_total), 1e-10)
-    mu_null <- pmax(mean(y), 1e-10)
-    deviance <- 2 * sum(-log(y / mu) + (y - mu) / mu)
-    null_deviance <- 2 * sum(-log(y / mu_null) + (y - mu_null) / mu_null)
-  } else if (family == "inverse.gaussian") {
-    eta_total <- pmax(pmin(eta_total, 20), -20)
-    mu <- pmax(exp(eta_total), 1e-10)
-    mu_null <- pmax(mean(y), 1e-10)
-    deviance <- sum((y - mu)^2 / (mu^2 * y))
-    null_deviance <- sum((y - mu_null)^2 / (mu_null^2 * y))
   }
 
   list(deviance = deviance, null_deviance = null_deviance)

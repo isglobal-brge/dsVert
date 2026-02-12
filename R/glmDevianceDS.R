@@ -8,7 +8,7 @@
 #' @param y_name Character string. Name of the response variable.
 #' @param eta Numeric vector. Total linear predictor (sum of all partitions).
 #' @param family Character string. GLM family: "gaussian", "binomial",
-#'   "poisson", "Gamma", or "inverse.gaussian". Default is "gaussian".
+#'   or "poisson". Default is "gaussian".
 #'
 #' @return A list containing:
 #'   \itemize{
@@ -26,8 +26,6 @@
 #'   \item \strong{Gaussian}: \eqn{\sum (y - \mu)^2}
 #'   \item \strong{Binomial}: \eqn{2 \sum [y \log(y/\mu) + (1-y) \log((1-y)/(1-\mu))]}
 #'   \item \strong{Poisson}: \eqn{2 \sum [y \log(y/\mu) - (y - \mu)]}
-#'   \item \strong{Gamma}: \eqn{2 \sum [-\log(y/\mu) + (y - \mu)/\mu]}
-#'   \item \strong{Inverse Gaussian}: \eqn{\sum (y - \mu)^2 / (\mu^2 y)}
 #' }
 #'
 #' Privacy is preserved because only aggregate deviance values are returned,
@@ -51,8 +49,8 @@ glmDevianceDS <- function(data_name, y_name, eta, family = "gaussian") {
   if (!is.character(y_name) || length(y_name) != 1) {
     stop("y_name must be a single character string", call. = FALSE)
   }
-  if (!family %in% c("gaussian", "binomial", "poisson", "Gamma", "inverse.gaussian")) {
-    stop("family must be 'gaussian', 'binomial', 'poisson', 'Gamma', or 'inverse.gaussian'",
+  if (!family %in% c("gaussian", "binomial", "poisson")) {
+    stop("family must be 'gaussian', 'binomial', or 'poisson'",
          call. = FALSE)
   }
 
@@ -97,18 +95,6 @@ glmDevianceDS <- function(data_name, y_name, eta, family = "gaussian") {
     mu_null <- pmax(pmin(mu_null, 1 - 1e-10), 1e-10)
   } else if (family == "poisson") {
     eta <- pmin(eta, 20)
-    mu <- exp(eta)
-    mu <- pmax(mu, 1e-10)
-    mu_null <- mean(y)
-    mu_null <- pmax(mu_null, 1e-10)
-  } else if (family == "Gamma") {
-    eta <- pmax(pmin(eta, 20), -20)
-    mu <- exp(eta)
-    mu <- pmax(mu, 1e-10)
-    mu_null <- mean(y)
-    mu_null <- pmax(mu_null, 1e-10)
-  } else if (family == "inverse.gaussian") {
-    eta <- pmax(pmin(eta, 20), -20)
     mu <- exp(eta)
     mu <- pmax(mu, 1e-10)
     mu_null <- mean(y)
@@ -163,13 +149,6 @@ glmDevianceDS <- function(data_name, y_name, eta, family = "gaussian") {
     }
     null_deviance <- 2 * null_deviance
 
-  } else if (family == "Gamma") {
-    deviance <- 2 * sum(-log(y / mu) + (y - mu) / mu)
-    null_deviance <- 2 * sum(-log(y / mu_null) + (y - mu_null) / mu_null)
-
-  } else if (family == "inverse.gaussian") {
-    deviance <- sum((y - mu)^2 / (mu^2 * y))
-    null_deviance <- sum((y - mu_null)^2 / (mu_null^2 * y))
   }
 
   list(

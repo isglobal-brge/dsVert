@@ -113,11 +113,6 @@ mheStoreEncYDS <- function(enc_y) {
 #'
 #' \deqn{g_k = X_k^T (ct_y - \mu)}
 #'
-#' For non-canonical link functions (Gamma, inverse.gaussian), the gradient
-#' additionally involves a variance function factor v:
-#'
-#' \deqn{g_k = X_k^T \cdot v \cdot (ct_y - \mu)}
-#'
 #' The result is a vector of p_k encrypted scalars (one per feature). Each
 #' requires threshold decryption by ALL servers before the gradient is usable.
 #' This ensures no single server (or the client) learns anything about y beyond
@@ -130,7 +125,6 @@ mheStoreEncYDS <- function(enc_y) {
 #'   Broadcast by the client from the label server's IRLS step.
 #' @param v Numeric vector or NULL. Variance function factor (length n).
 #'   NULL for canonical links (gaussian, binomial, poisson) where v = 1.
-#'   Non-NULL for Gamma (v = 1/mu) and inverse.gaussian (v = 1/mu^2).
 #' @param num_obs Integer. Number of observations (for CKKS slot count).
 #'
 #' @return List with \code{encrypted_gradients}: base64url array of p_k

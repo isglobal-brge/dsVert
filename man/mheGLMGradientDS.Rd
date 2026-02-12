@@ -16,8 +16,7 @@ mheGLMGradientDS(data_name, x_vars, mu, v = NULL, num_obs)
 Broadcast by the client from the label server's IRLS step.}
 
 \item{v}{Numeric vector or NULL. Variance function factor (length n).
-NULL for canonical links (gaussian, binomial, poisson) where v = 1.
-Non-NULL for Gamma (v = 1/mu) and inverse.gaussian (v = 1/mu^2).}
+NULL for canonical links (gaussian, binomial, poisson) where v = 1.}
 
 \item{num_obs}{Integer. Number of observations (for CKKS slot count).}
 }
@@ -31,11 +30,6 @@ for this server's feature block using homomorphic operations on ct_y:
 }
 \details{
 \deqn{g_k = X_k^T (ct_y - \mu)}
-
-For non-canonical link functions (Gamma, inverse.gaussian), the gradient
-additionally involves a variance function factor v:
-
-\deqn{g_k = X_k^T \cdot v \cdot (ct_y - \mu)}
 
 The result is a vector of p_k encrypted scalars (one per feature). Each
 requires threshold decryption by ALL servers before the gradient is usable.

@@ -29,7 +29,7 @@ non-label servers. Mutually exclusive with \code{eta_blob_keys}.}
 Used when blobs are too large for direct parameter passing.}
 
 \item{family}{Character. GLM family: \code{"gaussian"}, \code{"binomial"},
-\code{"poisson"}, or \code{"Gamma"}. Default \code{"gaussian"}.}
+or \code{"poisson"}. Default \code{"gaussian"}.}
 
 \item{y_sd}{Numeric or NULL. Standard deviation of y, used for Gaussian
 unstandardization: \code{eta_orig = eta_std * y_sd + y_mean}.}

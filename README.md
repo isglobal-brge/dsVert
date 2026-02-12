@@ -12,7 +12,7 @@ This package implements:
 - **Share-Wrapping (Transport Encryption)**: X25519 + AES-256-GCM transport encryption for partial decryption shares, eliminating client exposure to raw shares
 - **GLM Secure Routing**: End-to-end transport-encrypted individual-level vector exchange between servers, with the client handling only safe aggregates and opaque blobs
 - **Protocol Firewall**: SHA-256 ciphertext registry with one-time-use authorization to prevent decryption oracle attacks
-- **Block Coordinate Descent**: Distributed fitting of Generalized Linear Models (5 families)
+- **Block Coordinate Descent**: Distributed fitting of Generalized Linear Models (3 families)
 - **Model Diagnostics**: Deviance calculation for model evaluation
 - **Legacy Record Alignment**: SHA-256 hash-based alignment (deprecated, use PSI)
 
@@ -180,8 +180,6 @@ Binaries are placed in `inst/bin/<platform>/mhe-tool`.
 | `gaussian` | Identity | Continuous outcomes (linear regression) |
 | `binomial` | Logit | Binary outcomes (logistic regression) |
 | `poisson` | Log | Count data |
-| `Gamma` | Log | Positive continuous data (costs, times) |
-| `inverse.gaussian` | Log | Positive continuous with high variance |
 
 ## Requirements
 

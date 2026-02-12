@@ -195,7 +195,9 @@ mheEncryptLocalDS <- function(data_name, variables) {
   Z[is.nan(Z)] <- 0
 
   # Convert to row-major format: data[row][col] as Go expects
-  data_rows <- lapply(seq_len(nrow(Z)), function(i) as.numeric(Z[i, ]))
+  # Use as.list() so jsonlite always serializes each row as an array
+  # (auto_unbox would turn length-1 atomic vectors into scalars)
+  data_rows <- lapply(seq_len(nrow(Z)), function(i) as.list(as.numeric(Z[i, ])))
 
   input <- list(
     data = data_rows,

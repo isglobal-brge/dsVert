@@ -4,30 +4,21 @@
 \alias{psiProcessTargetDS}
 \title{Process reference points on target server (aggregate function)}
 \usage{
-psiProcessTargetDS(
-  data_name,
-  id_col,
-  ref_masked_points = NULL,
-  from_storage = FALSE
-)
+psiProcessTargetDS(data_name, id_col, from_storage = FALSE)
 }
 \arguments{
 \item{data_name}{Character. Name of data frame.}
 
 \item{id_col}{Character. Name of identifier column.}
 
-\item{ref_masked_points}{Character vector. Masked points from reference
-server (base64url encoded). Ignored when \code{from_storage = TRUE}.}
-
-\item{from_storage}{Logical. If \code{TRUE}, read \code{ref_masked_points}
-from server-side blob storage (comma-separated, stored via
-\code{\link{mheStoreBlobDS}}) instead of inline argument.
-Default \code{FALSE}.}
+\item{from_storage}{Logical. If \code{TRUE}, read encrypted blob from
+server-side blob storage. Default \code{FALSE}.}
 }
 \value{
-List with own_masked_points (base64url) and n (count).
+List with encrypted_blob (base64url) and n (count).
 }
 \description{
-Generates own scalar, double-masks reference points (stored locally for
-Phase 7 matching), and returns own masked IDs to the client.
+Decrypts the encrypted ref points blob, generates own scalar, double-masks
+reference points (stored locally for Phase 7 matching), masks own IDs, and
+returns encrypted own masked points under the ref server's transport PK.
 }

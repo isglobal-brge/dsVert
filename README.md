@@ -32,17 +32,20 @@ Each R function serializes its input as JSON, calls the `mhe-tool` binary via `s
 
 ## Server-Side Functions
 
-### ECDH-PSI Record Alignment
+### ECDH-PSI Record Alignment (Blind Relay)
 
 | Function | Type | Description |
 |----------|------|-------------|
-| `psiMaskIdsDS` | Aggregate | Hash IDs to P-256 points, multiply by random scalar |
-| `psiProcessTargetDS` | Aggregate | Double-mask reference points, mask own IDs |
-| `psiDoubleMaskDS` | Aggregate | Double-mask received points with stored scalar |
-| `psiMatchAndAlignDS` | Assign | Match double-masked sets, reorder data |
+| `psiInitDS` | Aggregate | Generate X25519 transport keypair; load pre-shared keys if configured |
+| `psiStoreTransportKeysDS` | Aggregate | Store peer transport PKs; validate against pinned keys if configured |
+| `psiMaskIdsDS` | Aggregate | Hash IDs to P-256 points, multiply by random scalar (points stored locally, NOT returned) |
+| `psiExportMaskedDS` | Aggregate | Encrypt stored masked points under a target server's transport PK |
+| `psiProcessTargetDS` | Aggregate | Decrypt ref points, double-mask them, mask own IDs, encrypt own points under ref's PK |
+| `psiDoubleMaskDS` | Aggregate | Decrypt target points, double-mask with stored scalar, encrypt under target's PK (one-shot per target) |
+| `psiMatchAndAlignDS` | Assign | Decrypt double-masked own points, match against stored ref points, reorder data |
 | `psiSelfAlignDS` | Assign | Self-align reference server (identity) |
 | `psiGetMatchedIndicesDS` | Aggregate | Return matched reference indices for intersection |
-| `psiFilterCommonDS` | Assign | Filter to multi-server intersection |
+| `psiFilterCommonDS` | Assign | Filter to multi-server intersection; clean up all PSI state |
 
 ### MHE Threshold Protocol (Correlation)
 
@@ -103,13 +106,66 @@ Each R function serializes its input as JSON, calls the `mhe-tool` binary via `s
 
 ## Security Model
 
-### ECDH-PSI Record Alignment
+### ECDH-PSI Record Alignment (Blind Relay)
 
-The PSI protocol uses P-256 elliptic curve scalar multiplication for privacy-preserving record matching. Security properties:
+The PSI protocol uses P-256 elliptic curve scalar multiplication for privacy-preserving record matching, with a **blind-relay** architecture that prevents the client from seeing or manipulating raw EC points.
+
+**Core security properties:**
 
 - **Dictionary attack resistance**: Unlike SHA-256 hashing, an attacker cannot pre-compute hashes for plausible IDs. Masked points are indistinguishable from random group elements without the server's secret scalar.
 - **Scalar confidentiality**: Each server's random P-256 scalar never leaves the server.
-- **Unlinkability (DDH assumption)**: The client cannot link single-masked points across servers; it can only determine which double-masked points correspond to the same identifier.
+- **Unlinkability (DDH assumption)**: The client cannot link single-masked points across servers.
+- **Blind relay**: All EC point exchanges between servers are transport-encrypted (X25519 + AES-256-GCM ECIES). The client relays **opaque encrypted blobs** it cannot read, decrypt, or forge.
+- **PSI Firewall (FSM)**: A server-side state machine enforces strict phase ordering. Functions can only be called in the correct sequence, and `psiDoubleMaskDS` is **one-shot per target** — each target server's points can only be double-masked once. This prevents OPRF oracle attacks.
+
+**What the client sees vs. what it cannot see:**
+
+| Data | Client visibility |
+|------|------------------|
+| EC masked points {alpha*H(id)} | Encrypted blob (opaque) |
+| EC double-masked points {alpha*beta*H(id)} | Encrypted blob (opaque) |
+| Target masked points {beta*H(id)} | Encrypted blob (opaque) |
+| Matched reference indices | Integer set (safe aggregate) |
+| Common intersection indices | Integer set (safe aggregate) |
+| Observation counts | Scalar (safe aggregate) |
+
+#### Two Security Modes
+
+dsVert supports two security modes for PSI transport key exchange, configured via DataSHIELD R options:
+
+##### Mode 1: Semi-Honest (default)
+
+- **Ephemeral X25519 keys** are generated per session
+- Client mediates key exchange between servers
+- Protects against **passive eavesdropping** but NOT active MITM by the client
+- Suitable for trusted DataSHIELD deployments where the client application is trusted
+- **No configuration needed** — this is the default behavior
+
+##### Mode 2: Full MITM-Resistant (pre-shared keys)
+
+- **Persistent X25519 keypairs** are pre-configured on each server by the administrator
+- Servers validate client-provided PKs against pre-configured peers during `psiStoreTransportKeysDS`
+- Any PK mismatch triggers a **MITM detection error** — the client may have substituted keys
+- In this mode, the server uses its pre-configured peer PKs (not the client-provided ones), so the client cannot add, remove, or modify peers
+- Suitable for **untrusted or multi-tenant environments**
+
+#### PSI Firewall: Phase Ordering FSM
+
+The server enforces strict phase ordering to prevent protocol abuse:
+
+```
+Reference server:                     Target server:
+  (none) → init:    psiInitDS()         (none) → init:              psiInitDS()
+  init → masked:    psiMaskIdsDS()      init → target_processed:    psiProcessTargetDS()
+  masked → masked:  psiExportMaskedDS() target_processed → matched: psiMatchAndAlignDS()
+  masked → masked:  psiDoubleMaskDS()
+                    (one-shot per target)
+```
+
+Any attempt to call functions out of order is rejected with a firewall error. This prevents a malicious client from:
+- Calling `psiDoubleMaskDS` multiple times for the same target (OPRF oracle)
+- Calling matching functions before masking is complete
+- Skipping the transport key exchange phase
 
 ### MHE Threshold Decryption
 
@@ -168,6 +224,63 @@ Server:  mheStoreBlobDS(key, chunk_1, 1, n)
 ```
 
 All data is base64url-encoded (standard base64 uses `+` and `/`, which the DSOpal expression serializer can misinterpret). This pattern is used uniformly across all protocols (PSI, MHE correlation, GLM) for any data that scales with n, p, or K.
+
+## DataSHIELD Configuration (R Options)
+
+dsVert reads all configuration from R options following the **dsBase two-tier fallback pattern**: `getOption("dsvert.X")` first, then `getOption("default.dsvert.X")`. This allows Opal administrators to override settings per DataSHIELD profile.
+
+### Disclosure Control Options
+
+These options control privacy-preserving disclosure limits. Defaults are set in the package DESCRIPTION and can be overridden per DataSHIELD profile:
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `datashield.privacyLevel` | `5` | Minimum observations for any operation |
+| `default.nfilter.tab` | `3` | Minimum cell count for binary variables |
+| `default.nfilter.glm` | `0.33` | Maximum parameter-to-observation ratio |
+| `default.nfilter.subset` | `3` | Minimum subset size for PSI intersection |
+
+### PSI Key Pinning Options (Full MITM-Resistant Mode)
+
+These options enable pre-shared key pinning for MITM-resistant PSI. They are **not set by default** — when absent, the semi-honest mode with ephemeral keys is used.
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `dsvert.psi_key_pinning` | `FALSE` | Enable pre-shared key mode |
+| `dsvert.psi_sk` | *(not set)* | This server's X25519 secret key (standard base64) |
+| `dsvert.psi_pk` | *(not set)* | This server's X25519 public key (standard base64) |
+| `dsvert.psi_peers` | *(not set)* | JSON string mapping peer server names to their X25519 PKs |
+
+#### Configuration example (Opal/Rock)
+
+The administrator configures these per-server via the Opal DataSHIELD profile settings (web UI) or via `dsadmin.set_option()`:
+
+```r
+# On server1 (e.g., via dsadmin.set_option or Rock .Rprofile):
+options(
+  dsvert.psi_key_pinning = TRUE,
+  dsvert.psi_sk = "W8Jz...base64...==",
+  dsvert.psi_pk = "Kp3R...base64...==",
+  dsvert.psi_peers = '{"server2":"Ax7Q...==","server3":"Bm9K...==","ref":"Kp3R...=="}'
+)
+```
+
+The `dsvert.psi_peers` JSON maps server names (as used in the DataSHIELD login) to their X25519 public keys. Include a `"ref"` alias pointing to the reference server's PK.
+
+#### Security of R options in DataSHIELD
+
+Storing secret keys as R options is safe in DataSHIELD because:
+
+1. **The client cannot call `getOption()` remotely** — the DataSHIELD parser (datashield4j) validates every function call in the AST against the registered methods whitelist. `getOption` is not registered.
+2. **`listDisclosureSettingsDS()` in dsBase** only returns specific nfilter values, not arbitrary options.
+3. **Our registered functions never return the private key** — `psiInitDS()` returns only the public key and a `pinned` boolean.
+4. **The Opal admin REST API** can read DataSHIELD options, but requires administrator credentials — the admin is already trusted (they configure the keys).
+
+### Other Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `dsvert.mhe_tool` | *(not set)* | Path to the mhe-tool binary (fallback: `DSVERT_MHE_TOOL` env var) |
 
 ## Building the Go Binary
 

@@ -2,21 +2,26 @@
 % Please edit documentation in R/psiProtocol.R
 \name{psiDoubleMaskDS}
 \alias{psiDoubleMaskDS}
-\title{Double-mask points using stored scalar (aggregate function)}
+\title{Double-mask target points using stored scalar (aggregate function)}
 \usage{
-psiDoubleMaskDS(points = NULL, from_storage = FALSE)
+psiDoubleMaskDS(target_name, from_storage = FALSE)
 }
 \arguments{
-\item{points}{Character vector. Masked points to double-mask (base64url).
-Ignored when \code{from_storage = TRUE}.}
+\item{target_name}{Character. Name of the target server whose points
+are being double-masked.}
 
-\item{from_storage}{Logical. If \code{TRUE}, read \code{points} from
-server-side blob storage (comma-separated). Default \code{FALSE}.}
+\item{from_storage}{Logical. If \code{TRUE}, read encrypted blob from
+server-side blob storage. Default \code{FALSE}.}
 }
 \value{
-List with double_masked_points (base64url).
+List with encrypted_blob (base64url).
 }
 \description{
-Multiplies received curve points by the scalar generated in Phase 1
-(stored by psiMaskIdsDS).
+Decrypts the encrypted target points blob, multiplies by the scalar
+generated in Phase 1, and re-encrypts the result under the target's
+transport PK. The client never sees raw EC points.
+}
+\details{
+PSI Firewall: one-shot per target — each target can only be double-masked
+once, preventing the OPRF oracle attack.
 }

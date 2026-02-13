@@ -2,22 +2,24 @@
 % Please edit documentation in R/psiProtocol.R
 \name{psi-protocol}
 \alias{psi-protocol}
-\title{ECDH-PSI Record Alignment - Server-Side Functions}
+\title{ECDH-PSI Record Alignment - Server-Side Functions (Blind Relay)}
 \description{
 These functions implement Elliptic Curve Diffie-Hellman Private Set
 Intersection (ECDH-PSI) for privacy-preserving record alignment across vertically
-partitioned data. Unlike SHA-256 hashing, ECDH-PSI ensures the client cannot
-reverse-engineer patient identifiers from the exchanged messages.
+partitioned data. All EC point exchanges are transport-encrypted (X25519 +
+AES-256-GCM ECIES) so the client acts as a blind relay, never seeing raw
+elliptic curve points.
 }
 \details{
 The protocol exploits the commutativity of scalar multiplication on P-256:
 \eqn{\alpha \cdot (\beta \cdot H(id)) = \beta \cdot (\alpha \cdot H(id))}.
 
-Security holds under the DDH assumption on P-256 (semi-honest model):
+Security (DDH assumption on P-256, malicious-client model):
 \itemize{
-\item The client sees only opaque elliptic curve points (not reversible)
-\item Each target server learns only the intersection with the reference
-\item No party can perform dictionary attacks on identifiers
+\item The client sees only opaque encrypted blobs (not reversible)
+\item Each server's scalar never leaves the server
+\item The PSI firewall enforces phase ordering and one-shot semantics
+\item No party can perform dictionary attacks or OPRF oracle attacks
 }
 }
 \references{

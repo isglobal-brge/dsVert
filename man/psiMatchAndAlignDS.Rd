@@ -4,21 +4,19 @@
 \alias{psiMatchAndAlignDS}
 \title{Match and align data using PSI result (assign function)}
 \usage{
-psiMatchAndAlignDS(data_name, own_double_masked = NULL, from_storage = FALSE)
+psiMatchAndAlignDS(data_name, from_storage = FALSE)
 }
 \arguments{
 \item{data_name}{Character. Name of data frame to align.}
 
-\item{own_double_masked}{Character vector. Double-masked own points
-from reference server (base64url). Ignored when \code{from_storage = TRUE}.}
-
-\item{from_storage}{Logical. If \code{TRUE}, read \code{own_double_masked}
-from server-side blob storage (comma-separated). Default \code{FALSE}.}
+\item{from_storage}{Logical. If \code{TRUE}, read encrypted blob from
+server-side blob storage. Default \code{FALSE}.}
 }
 \value{
 Aligned data frame (assigned to server environment).
 }
 \description{
-Matches received double-masked own points against stored double-masked
-reference points. Creates an aligned data frame ordered by reference index.
+Decrypts the encrypted double-masked own points blob, matches against
+stored double-masked reference points, and creates an aligned data frame
+ordered by reference index.
 }

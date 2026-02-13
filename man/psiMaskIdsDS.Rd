@@ -12,9 +12,10 @@ psiMaskIdsDS(data_name, id_col)
 \item{id_col}{Character. Name of identifier column.}
 }
 \value{
-List with masked_points (base64url) and n (count).
+List with n (count only — no points returned).
 }
 \description{
 Hashes identifiers to P-256 curve points and multiplies by a random scalar.
-The scalar is stored locally and NEVER returned to the client.
+The scalar and masked points are stored locally and NEVER returned to the
+client. Points are exported per-target via \code{\link{psiExportMaskedDS}}.
 }

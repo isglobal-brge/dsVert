@@ -237,23 +237,50 @@ mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
 #'
 #' @return List with collective_public_key
 #' @export
-mheCombineDS <- function(public_key_shares, crp, galois_key_shares = NULL,
-                         gkg_seed = NULL, num_obs = 100, log_n = 12, log_scale = 40) {
-  # Convert from base64url
-  pk_shares <- sapply(public_key_shares, .base64url_to_base64, USE.NAMES = FALSE)
-  crp_std <- .base64url_to_base64(crp)
+mheCombineDS <- function(public_key_shares = NULL, crp = NULL, galois_key_shares = NULL,
+                         gkg_seed = NULL, num_obs = 100, log_n = 12, log_scale = 40,
+                         from_storage = FALSE, n_parties = 0, n_gkg_shares = 0) {
+  if (from_storage) {
+    # Read all inputs from blob storage (set via mheStoreBlobDS)
+    blobs <- .mhe_storage$blobs
+    if (is.null(blobs)) stop("No blobs stored for combine", call. = FALSE)
 
-  # Convert GKG shares: list of per-party share vectors → list of lists
-  gkg_shares_std <- list()
-  if (!is.null(galois_key_shares) && length(galois_key_shares) > 0) {
-    gkg_shares_std <- lapply(galois_key_shares, function(party_shares) {
-      sapply(party_shares, .base64url_to_base64, USE.NAMES = FALSE)
-    })
-  }
+    pk_shares <- character(n_parties)
+    for (i in seq_len(n_parties)) {
+      pk_shares[i] <- .base64url_to_base64(blobs[[paste0("pk_", i - 1)]])
+    }
+    crp_std <- .base64url_to_base64(blobs[["crp"]])
+    gkg_seed_std <- if (!is.null(blobs[["gkg_seed"]])) .base64url_to_base64(blobs[["gkg_seed"]]) else ""
 
-  gkg_seed_std <- ""
-  if (!is.null(gkg_seed)) {
-    gkg_seed_std <- .base64url_to_base64(gkg_seed)
+    gkg_shares_std <- list()
+    if (n_gkg_shares > 0) {
+      for (i in seq_len(n_parties)) {
+        party_shares <- character(n_gkg_shares)
+        for (j in seq_len(n_gkg_shares)) {
+          party_shares[j] <- .base64url_to_base64(blobs[[paste0("gkg_", i - 1, "_", j - 1)]])
+        }
+        gkg_shares_std[[i]] <- party_shares
+      }
+    }
+
+    # Clean up blobs
+    .mhe_storage$blobs <- NULL
+  } else {
+    # Direct arguments (backward-compatible, small datasets only)
+    pk_shares <- sapply(public_key_shares, .base64url_to_base64, USE.NAMES = FALSE)
+    crp_std <- .base64url_to_base64(crp)
+
+    gkg_shares_std <- list()
+    if (!is.null(galois_key_shares) && length(galois_key_shares) > 0) {
+      gkg_shares_std <- lapply(galois_key_shares, function(party_shares) {
+        sapply(party_shares, .base64url_to_base64, USE.NAMES = FALSE)
+      })
+    }
+
+    gkg_seed_std <- ""
+    if (!is.null(gkg_seed)) {
+      gkg_seed_std <- .base64url_to_base64(gkg_seed)
+    }
   }
 
   input <- list(
@@ -296,14 +323,36 @@ mheCombineDS <- function(public_key_shares, crp, galois_key_shares = NULL,
 #'
 #' @return TRUE on success
 #' @export
-mheStoreCPKDS <- function(cpk, galois_keys = NULL, relin_key = NULL) {
-  .mhe_storage$cpk <- .base64url_to_base64(cpk)
+mheStoreCPKDS <- function(cpk = NULL, galois_keys = NULL, relin_key = NULL,
+                          from_storage = FALSE) {
+  if (from_storage) {
+    blobs <- .mhe_storage$blobs
+    if (is.null(blobs)) stop("No blobs stored for CPK", call. = FALSE)
 
-  if (!is.null(galois_keys)) {
-    .mhe_storage$galois_keys <- sapply(galois_keys, .base64url_to_base64, USE.NAMES = FALSE)
-  }
-  if (!is.null(relin_key)) {
-    .mhe_storage$relin_key <- .base64url_to_base64(relin_key)
+    .mhe_storage$cpk <- .base64url_to_base64(blobs[["cpk"]])
+
+    # Read Galois keys from blobs gk_0, gk_1, ...
+    gk_keys <- sort(grep("^gk_", names(blobs), value = TRUE))
+    if (length(gk_keys) > 0) {
+      .mhe_storage$galois_keys <- sapply(gk_keys, function(k) {
+        .base64url_to_base64(blobs[[k]])
+      }, USE.NAMES = FALSE)
+    }
+
+    if (!is.null(blobs[["rk"]])) {
+      .mhe_storage$relin_key <- .base64url_to_base64(blobs[["rk"]])
+    }
+
+    .mhe_storage$blobs <- NULL
+  } else {
+    .mhe_storage$cpk <- .base64url_to_base64(cpk)
+
+    if (!is.null(galois_keys)) {
+      .mhe_storage$galois_keys <- sapply(galois_keys, .base64url_to_base64, USE.NAMES = FALSE)
+    }
+    if (!is.null(relin_key)) {
+      .mhe_storage$relin_key <- .base64url_to_base64(relin_key)
+    }
   }
 
   TRUE

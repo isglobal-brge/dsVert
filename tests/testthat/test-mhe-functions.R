@@ -259,10 +259,107 @@ test_that("mheEncryptLocalDS errors without CPK", {
 })
 
 # =============================================================================
-# End-to-End: Full 2-party threshold protocol
+# Test share-wrapping functions (transport keys, wrapped decrypt, fusion)
 # =============================================================================
 
-test_that("Full 2-party threshold MHE produces correct correlation", {
+test_that("mheStoreTransportKeysDS errors without initialization", {
+  .mhe_storage$secret_key <- NULL
+  expect_error(
+    mheStoreTransportKeysDS(list(fusion = "dGVzdA")),
+    "MHE not initialized"
+  )
+})
+
+test_that("mhePartialDecryptWrappedDS errors without fusion transport PK", {
+  .mhe_storage$secret_key <- "dummy"
+  .mhe_storage$ct_chunks <- list("dummy_chunk")
+  .mhe_storage$peer_transport_pks <- NULL
+  expect_error(
+    mhePartialDecryptWrappedDS(n_chunks = 1L),
+    "Fusion server transport PK not stored"
+  )
+  .mhe_storage$secret_key <- NULL
+  .mhe_storage$ct_chunks <- NULL
+})
+
+test_that("mheFuseServerDS errors without transport SK", {
+  .mhe_storage$secret_key <- "dummy"
+  .mhe_storage$transport_sk <- NULL
+  .mhe_storage$ct_chunks <- list("dummy")
+  expect_error(
+    mheFuseServerDS(n_parties = 2L, n_ct_chunks = 1L),
+    "Transport secret key not stored"
+  )
+  .mhe_storage$secret_key <- NULL
+  .mhe_storage$ct_chunks <- NULL
+})
+
+test_that("mheFuseServerDS errors without wrapped shares", {
+  .mhe_storage$secret_key <- "dummy"
+  .mhe_storage$transport_sk <- "dummy"
+  .mhe_storage$ct_chunks <- list("dummy")
+  .mhe_storage$ct_registry <- list()
+  .mhe_storage$wrapped_share_parts <- NULL
+  # Need to register a fake CT hash so the firewall doesn't block first
+  ct_b64 <- .base64url_to_base64("dummy")
+  .register_ciphertext(ct_b64, "test")
+  expect_error(
+    mheFuseServerDS(n_parties = 2L, n_ct_chunks = 1L),
+    "No wrapped shares stored"
+  )
+  .mhe_storage$secret_key <- NULL
+  .mhe_storage$transport_sk <- NULL
+  .mhe_storage$ct_chunks <- NULL
+  .mhe_storage$ct_registry <- NULL
+})
+
+test_that("mheStoreWrappedShareDS stores and concatenates chunks", {
+  .mhe_storage$wrapped_share_parts <- NULL
+  expect_true(mheStoreWrappedShareDS(party_id = 1L, share_data = "AAA"))
+  expect_true(mheStoreWrappedShareDS(party_id = 1L, share_data = "BBB"))
+  expect_equal(.mhe_storage$wrapped_share_parts[["1"]], "AAABBB")
+  .mhe_storage$wrapped_share_parts <- NULL
+})
+
+test_that("mheAuthorizeCTDS registers ciphertext hashes", {
+  .mhe_storage$secret_key <- "dummy"
+  .mhe_storage$ct_registry <- NULL
+  .mhe_storage$op_counter <- NULL
+
+  n_auth <- mheAuthorizeCTDS(c("hash1", "hash2", "hash3"), op_type = "cross-product")
+  expect_equal(n_auth, 3)
+  expect_equal(length(.mhe_storage$ct_registry), 3)
+  expect_true("hash1" %in% names(.mhe_storage$ct_registry))
+
+  .mhe_storage$secret_key <- NULL
+  .mhe_storage$ct_registry <- NULL
+  .mhe_storage$op_counter <- NULL
+})
+
+test_that("mheStoreBlobDS stores and auto-assembles chunks", {
+  .mhe_storage$blobs <- NULL
+  .mhe_storage$blob_chunks <- NULL
+
+  # Single-call mode
+  expect_true(mheStoreBlobDS(key = "test1", chunk = "hello"))
+  expect_equal(.mhe_storage$blobs[["test1"]], "hello")
+
+  # Chunked mode: auto-assembles when all chunks arrive
+  expect_true(mheStoreBlobDS(key = "test2", chunk = "AA", chunk_index = 1L, n_chunks = 3L))
+  expect_true(mheStoreBlobDS(key = "test2", chunk = "BB", chunk_index = 2L, n_chunks = 3L))
+  expect_null(.mhe_storage$blobs[["test2"]])
+  expect_true(mheStoreBlobDS(key = "test2", chunk = "CC", chunk_index = 3L, n_chunks = 3L))
+  expect_equal(.mhe_storage$blobs[["test2"]], "AABBCC")
+
+  .mhe_storage$blobs <- NULL
+  .mhe_storage$blob_chunks <- NULL
+})
+
+# =============================================================================
+# End-to-End: Full 2-party threshold protocol with share-wrapped fusion
+# =============================================================================
+
+test_that("Full 2-party threshold MHE with share-wrapped fusion produces correct correlation", {
   set.seed(42)
   n <- 30
 
@@ -284,99 +381,121 @@ test_that("Full 2-party threshold MHE produces correct correlation", {
   full_data <- cbind(data_A, data_B)
   expected_R <- cor(full_data)
 
+  # Helpers to save/restore party state (single-process simulation)
+  save_state <- function() as.list(.mhe_storage)
+  restore_state <- function(state) {
+    rm(list = ls(.mhe_storage), envir = .mhe_storage)
+    for (nm in names(state)) .mhe_storage[[nm]] <- state[[nm]]
+  }
+
   # --- Phase 1: Key generation ---
-  r0 <- mheInitDS(party_id = 0L, crp = NULL, num_obs = as.integer(n),
-                  log_n = 12L, log_scale = 40L)
-  sk0 <- .mhe_storage$secret_key  # Save party 0's secret key
+  # Party 0 (fusion server): generates CRP and GKG seed
+  r0 <- mheInitDS(party_id = 0L, crp = NULL, gkg_seed = NULL,
+                  num_obs = as.integer(n), log_n = 12L, log_scale = 40L)
+  state0 <- save_state()
 
-  r1 <- mheInitDS(party_id = 1L, crp = r0$crp, num_obs = as.integer(n),
-                  log_n = 12L, log_scale = 40L)
-  sk1 <- .mhe_storage$secret_key  # Save party 1's secret key
+  # Party 1: uses party 0's CRP and GKG seed
+  r1 <- mheInitDS(party_id = 1L, crp = r0$crp, gkg_seed = r0$gkg_seed,
+                  num_obs = as.integer(n), log_n = 12L, log_scale = 40L)
+  state1 <- save_state()
 
-  # --- Phase 2: Combine keys ---
+  # --- Phase 1b: Transport key distribution ---
+  # Party 1 needs the fusion server's (party 0) transport PK for share-wrapping
+  restore_state(state1)
+  mheStoreTransportKeysDS(list(fusion = r0$transport_pk))
+  state1 <- save_state()
+
+  # Party 0 stores party 1's transport PK (needed for GLM routing, optional for correlation)
+  restore_state(state0)
+  mheStoreTransportKeysDS(list(fusion = r0$transport_pk, "1" = r1$transport_pk))
+  state0 <- save_state()
+
+  # --- Phase 2: Combine keys (on party 0) ---
+  restore_state(state0)
   combined <- mheCombineDS(
     public_key_shares = c(r0$public_key_share, r1$public_key_share),
     crp = r0$crp,
+    galois_key_shares = list(r0$galois_key_shares, r1$galois_key_shares),
+    gkg_seed = r0$gkg_seed,
     num_obs = as.integer(n),
     log_n = 12L,
     log_scale = 40L
   )
   cpk <- combined$collective_public_key
+  state0 <- save_state()
 
-  # Store CPK (simulating distribution)
-  mheStoreCPKDS(cpk = cpk)
+  # Distribute CPK + Galois keys to party 1
+  restore_state(state1)
+  mheStoreCPKDS(cpk = cpk, galois_keys = combined$galois_keys)
+  state1 <- save_state()
 
   # --- Phase 3: Encrypt data ---
+  # Party 0 encrypts its columns
+  restore_state(state0)
   enc_A <- mheEncryptLocalDS("D_A", c("a1", "a2"))
+  state0 <- save_state()
+
+  # Party 1 encrypts its columns
+  restore_state(state1)
   enc_B <- mheEncryptLocalDS("D_B", c("b1", "b2"))
+  state1 <- save_state()
 
   # --- Phase 4: Local correlations ---
   local_A <- localCorDS("D_A", c("a1", "a2"))
   local_B <- localCorDS("D_B", c("b1", "b2"))
 
-  # --- Phase 5: Cross-server correlation ---
-  # Transfer B's encrypted columns to A (simulate chunking)
+  # --- Phase 5: Cross-server correlation (share-wrapped fusion) ---
+  # Transfer B's encrypted columns to party 0
+  restore_state(state0)
   for (k in seq_along(enc_B$encrypted_columns)) {
-    col_str <- enc_B$encrypted_columns[[k]]
-    mheStoreEncChunkDS(col_index = as.integer(k), chunk_index = 1L, chunk = col_str)
+    mheStoreEncChunkDS(col_index = as.integer(k), chunk_index = 1L,
+                       chunk = enc_B$encrypted_columns[[k]])
     mheAssembleEncColumnDS(col_index = as.integer(k), n_chunks = 1L)
   }
 
-  # Compute encrypted cross-product on server A
+  # Compute encrypted cross-product on party 0 (registers CTs in protocol firewall)
   cross_enc <- mheCrossProductEncDS("D_A", c("a1", "a2"),
                                      n_enc_cols = 2L, n_obs = as.integer(n))
+  ct_hashes <- cross_enc$ct_hashes
+  state0 <- save_state()
 
-  # Threshold decryption for each element
+  # Authorize CTs on party 1 (relay ct_hashes so party 1's firewall accepts them)
+  restore_state(state1)
+  mheAuthorizeCTDS(ct_hashes, op_type = "cross-product")
+  state1 <- save_state()
+
+  # Threshold decryption with share-wrapping + server-side fusion
   cross_cor <- matrix(NA, 2, 2)
+  er <- cross_enc$encrypted_results
+
   for (i in 1:2) {
     for (j in 1:2) {
-      er <- cross_enc$encrypted_results
       if (is.matrix(er)) {
         ct <- er[i, j]
       } else {
         ct <- er[[i]][j]
       }
 
-      # Party 0 partial decrypt
-      .mhe_storage$secret_key <- sk0
+      # Step 1: Party 1 computes wrapped partial decryption share
+      restore_state(state1)
       mheStoreCTChunkDS(chunk_index = 1L, chunk = ct)
-      pd0 <- mhePartialDecryptDS(n_chunks = 1L)
+      pd1 <- mhePartialDecryptWrappedDS(n_chunks = 1L)
+      state1 <- save_state()
 
-      # Party 1 partial decrypt
-      .mhe_storage$secret_key <- sk1
+      # Step 2: Client relays wrapped share to fusion server (party 0)
+      restore_state(state0)
+      mheStoreWrappedShareDS(party_id = 1L, share_data = pd1$wrapped_share)
+
+      # Step 3: Fusion server unwraps + fuses all shares server-side
       mheStoreCTChunkDS(chunk_index = 1L, chunk = ct)
-      pd1 <- mhePartialDecryptDS(n_chunks = 1L)
+      fused <- mheFuseServerDS(n_parties = 2L, n_ct_chunks = 1L, num_slots = as.integer(n))
+      state0 <- save_state()
 
-      # Client fuse (using mhe-tool binary directly)
-      ct_std <- .base64url_to_base64(ct)
-      shares_std <- c(
-        .base64url_to_base64(pd0$decryption_share),
-        .base64url_to_base64(pd1$decryption_share)
-      )
-
-      input <- list(
-        ciphertext = ct_std,
-        decryption_shares = as.list(shares_std),
-        num_slots = as.integer(n),
-        log_n = 12L,
-        log_scale = 40L
-      )
-
-      input_file <- tempfile(fileext = ".json")
-      output_file <- tempfile(fileext = ".json")
-      jsonlite::write_json(input, input_file, auto_unbox = TRUE)
-
-      bin_path <- .findMheTool()
-      system2(bin_path, "mhe-fuse", stdin = input_file, stdout = output_file)
-
-      output <- jsonlite::read_json(output_file, simplifyVector = TRUE)
-      unlink(c(input_file, output_file))
-
-      cross_cor[i, j] <- output$value / (n - 1)
+      cross_cor[i, j] <- fused$value / (n - 1)
     }
   }
 
-  # --- Phase 6: Assemble ---
+  # --- Phase 6: Assemble full correlation matrix ---
   R <- matrix(0, 4, 4)
   rownames(R) <- colnames(R) <- c("a1", "a2", "b1", "b2")
   R[1:2, 1:2] <- local_A$correlation
@@ -393,6 +512,5 @@ test_that("Full 2-party threshold MHE produces correct correlation", {
 
   # Clean up
   rm("D_A", "D_B", envir = .GlobalEnv)
-  .mhe_storage$secret_key <- NULL
-  .mhe_storage$cpk <- NULL
+  mheCleanupDS()
 })

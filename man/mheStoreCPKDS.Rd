@@ -4,7 +4,12 @@
 \alias{mheStoreCPKDS}
 \title{Store collective public key received from combine step}
 \usage{
-mheStoreCPKDS(cpk, galois_keys = NULL, relin_key = NULL)
+mheStoreCPKDS(
+  cpk = NULL,
+  galois_keys = NULL,
+  relin_key = NULL,
+  from_storage = FALSE
+)
 }
 \arguments{
 \item{cpk}{Character. Collective public key (base64url)}
@@ -12,6 +17,10 @@ mheStoreCPKDS(cpk, galois_keys = NULL, relin_key = NULL)
 \item{galois_keys}{Character vector. Galois keys (base64url)}
 
 \item{relin_key}{Character. Relinearization key (base64url)}
+
+\item{from_storage}{Logical. If \code{TRUE}, read CPK and Galois keys
+from server-side blob storage instead of inline arguments.
+Default \code{FALSE}.}
 }
 \value{
 TRUE on success

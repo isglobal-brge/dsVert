@@ -4,12 +4,21 @@
 \alias{mheAuthorizeCTDS}
 \title{Batch-authorize ciphertexts for decryption on this server}
 \usage{
-mheAuthorizeCTDS(ct_hashes, op_type = "cross-product")
+mheAuthorizeCTDS(
+  ct_hashes = NULL,
+  op_type = "cross-product",
+  from_storage = FALSE
+)
 }
 \arguments{
-\item{ct_hashes}{Character vector. SHA-256 hashes of authorized ciphertexts}
+\item{ct_hashes}{Character vector. SHA-256 hashes of authorized ciphertexts.
+Ignored when \code{from_storage = TRUE}.}
 
 \item{op_type}{Character. Operation type ("cross-product" or "glm-gradient")}
+
+\item{from_storage}{Logical. If \code{TRUE}, read \code{ct_hashes} from
+server-side blob storage (comma-separated) instead of inline argument.
+Default \code{FALSE}.}
 }
 \value{
 Integer. Number of ciphertexts authorized

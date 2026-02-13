@@ -80,7 +80,11 @@ psiMaskIdsDS <- function(data_name, id_col) {
 #' @param data_name Character. Name of data frame.
 #' @param id_col Character. Name of identifier column.
 #' @param ref_masked_points Character vector. Masked points from reference
-#'   server (base64url encoded).
+#'   server (base64url encoded). Ignored when \code{from_storage = TRUE}.
+#' @param from_storage Logical. If \code{TRUE}, read \code{ref_masked_points}
+#'   from server-side blob storage (comma-separated, stored via
+#'   \code{\link{mheStoreBlobDS}}) instead of inline argument.
+#'   Default \code{FALSE}.
 #'
 #' @return List with own_masked_points (base64url) and n (count).
 #' @export
@@ -151,6 +155,9 @@ psiProcessTargetDS <- function(data_name, id_col, ref_masked_points = NULL,
 #' (stored by psiMaskIdsDS).
 #'
 #' @param points Character vector. Masked points to double-mask (base64url).
+#'   Ignored when \code{from_storage = TRUE}.
+#' @param from_storage Logical. If \code{TRUE}, read \code{points} from
+#'   server-side blob storage (comma-separated). Default \code{FALSE}.
 #'
 #' @return List with double_masked_points (base64url).
 #' @export
@@ -192,7 +199,9 @@ psiDoubleMaskDS <- function(points = NULL, from_storage = FALSE) {
 #'
 #' @param data_name Character. Name of data frame to align.
 #' @param own_double_masked Character vector. Double-masked own points
-#'   from reference server (base64url).
+#'   from reference server (base64url). Ignored when \code{from_storage = TRUE}.
+#' @param from_storage Logical. If \code{TRUE}, read \code{own_double_masked}
+#'   from server-side blob storage (comma-separated). Default \code{FALSE}.
 #'
 #' @return Aligned data frame (assigned to server environment).
 #' @export
@@ -296,7 +305,10 @@ psiGetMatchedIndicesDS <- function() {
 #'
 #' @param data_name Character. Name of aligned data frame.
 #' @param common_indices Integer vector. Reference indices common to all
-#'   servers (0-based).
+#'   servers (0-based). Ignored when \code{from_storage = TRUE}.
+#' @param from_storage Logical. If \code{TRUE}, read \code{common_indices}
+#'   from server-side blob storage (comma-separated integers).
+#'   Default \code{FALSE}.
 #'
 #' @return Filtered data frame (assigned to server environment).
 #' @export

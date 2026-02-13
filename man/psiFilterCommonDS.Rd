@@ -4,13 +4,17 @@
 \alias{psiFilterCommonDS}
 \title{Filter aligned data to common intersection (assign function)}
 \usage{
-psiFilterCommonDS(data_name, common_indices)
+psiFilterCommonDS(data_name, common_indices = NULL, from_storage = FALSE)
 }
 \arguments{
 \item{data_name}{Character. Name of aligned data frame.}
 
 \item{common_indices}{Integer vector. Reference indices common to all
-servers (0-based).}
+servers (0-based). Ignored when \code{from_storage = TRUE}.}
+
+\item{from_storage}{Logical. If \code{TRUE}, read \code{common_indices}
+from server-side blob storage (comma-separated integers).
+Default \code{FALSE}.}
 }
 \value{
 Filtered data frame (assigned to server environment).

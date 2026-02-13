@@ -4,7 +4,12 @@
 \alias{psiProcessTargetDS}
 \title{Process reference points on target server (aggregate function)}
 \usage{
-psiProcessTargetDS(data_name, id_col, ref_masked_points)
+psiProcessTargetDS(
+  data_name,
+  id_col,
+  ref_masked_points = NULL,
+  from_storage = FALSE
+)
 }
 \arguments{
 \item{data_name}{Character. Name of data frame.}
@@ -12,7 +17,12 @@ psiProcessTargetDS(data_name, id_col, ref_masked_points)
 \item{id_col}{Character. Name of identifier column.}
 
 \item{ref_masked_points}{Character vector. Masked points from reference
-server (base64url encoded).}
+server (base64url encoded). Ignored when \code{from_storage = TRUE}.}
+
+\item{from_storage}{Logical. If \code{TRUE}, read \code{ref_masked_points}
+from server-side blob storage (comma-separated, stored via
+\code{\link{mheStoreBlobDS}}) instead of inline argument.
+Default \code{FALSE}.}
 }
 \value{
 List with own_masked_points (base64url) and n (count).

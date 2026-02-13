@@ -161,6 +161,11 @@ NULL
 #'   Default 12.
 #' @param log_scale Integer. CKKS scale parameter controlling precision.
 #'   Default 40.
+#' @param from_storage Logical. If \code{TRUE}, read \code{crp} and
+#'   \code{gkg_seed} from server-side blob storage (previously stored
+#'   via \code{\link{mheStoreBlobDS}}) instead of inline arguments.
+#'   Used by the client to avoid exceeding DataSHIELD's expression
+#'   parser limits with large cryptographic objects. Default \code{FALSE}.
 #'
 #' @return List with:
 #'   \itemize{
@@ -243,11 +248,20 @@ mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
 #'
 #' @param public_key_shares Character vector. Public key shares from all servers
 #' @param crp Character. CRP from party 0
+#' @param galois_key_shares List of character vectors. Galois key generation
+#'   shares from each party.
+#' @param gkg_seed Character. Galois key generation seed from party 0.
 #' @param num_obs Integer. Number of observations
 #' @param log_n Integer. Ring dimension
 #' @param log_scale Integer. Scale parameter
+#' @param from_storage Logical. If \code{TRUE}, read all inputs (public key
+#'   shares, CRP, GKG seed, Galois key shares) from server-side blob storage
+#'   instead of inline arguments. Default \code{FALSE}.
+#' @param n_parties Integer. Number of parties (used with \code{from_storage}).
+#' @param n_gkg_shares Integer. Number of Galois key generation shares per
+#'   party (used with \code{from_storage}).
 #'
-#' @return List with collective_public_key
+#' @return List with collective_public_key and galois_keys
 #' @export
 mheCombineDS <- function(public_key_shares = NULL, crp = NULL, galois_key_shares = NULL,
                          gkg_seed = NULL, num_obs = 100, log_n = 12, log_scale = 40,
@@ -332,6 +346,9 @@ mheCombineDS <- function(public_key_shares = NULL, crp = NULL, galois_key_shares
 #' @param cpk Character. Collective public key (base64url)
 #' @param galois_keys Character vector. Galois keys (base64url)
 #' @param relin_key Character. Relinearization key (base64url)
+#' @param from_storage Logical. If \code{TRUE}, read CPK and Galois keys
+#'   from server-side blob storage instead of inline arguments.
+#'   Default \code{FALSE}.
 #'
 #' @return TRUE on success
 #' @export
@@ -552,8 +569,12 @@ mheCrossProductEncDS <- function(data_name, variables, n_enc_cols, n_obs) {
 #' arbitrary ciphertexts for decryption because the hashes must match
 #' ciphertexts produced by actual server-side operations.
 #'
-#' @param ct_hashes Character vector. SHA-256 hashes of authorized ciphertexts
+#' @param ct_hashes Character vector. SHA-256 hashes of authorized ciphertexts.
+#'   Ignored when \code{from_storage = TRUE}.
 #' @param op_type Character. Operation type ("cross-product" or "glm-gradient")
+#' @param from_storage Logical. If \code{TRUE}, read \code{ct_hashes} from
+#'   server-side blob storage (comma-separated) instead of inline argument.
+#'   Default \code{FALSE}.
 #'
 #' @return Integer. Number of ciphertexts authorized
 #' @export
@@ -878,13 +899,35 @@ mheFuseServerDS <- function(n_parties, n_ct_chunks, num_slots = 0) {
 
 #' Store a blob in server-side storage (with chunking support)
 #'
-#' Generic function for storing base64url-encoded blobs on the server.
-#' Used by GLM Secure Routing to relay encrypted vectors (eta, mu/w/v)
-#' between servers through the client.
+#' Generic function for storing large data on the server via chunked
+#' transfer. DataSHIELD's R expression parser imposes a limit on the
+#' size of arguments passed inline in \code{call()} expressions.
+#' Cryptographic objects (CKKS ciphertexts, EC points, key shares,
+#' transport-encrypted blobs) routinely exceed this limit. This
+#' function provides a store-and-assemble pattern: the client splits
+#' large data into chunks (default 10 KB), sends each chunk via a
+#' separate \code{datashield.aggregate} call, and the server
+#' auto-assembles them when the last chunk arrives. Downstream
+#' functions read the assembled blob via \code{from_storage = TRUE}.
 #'
-#' For large blobs that exceed DataSHIELD's parser limits, call this
-#' function multiple times with chunk_index and n_chunks. The blob is
-#' auto-assembled when the last chunk arrives.
+#' All data transferred through this mechanism is base64url-encoded
+#' (standard base64 uses \code{+} and \code{/}, which the DSOpal
+#' expression serializer can misinterpret).
+#'
+#' This pattern is used throughout the dsVert protocol stack:
+#' \itemize{
+#'   \item PSI: EC point vectors (\code{psiProcessTargetDS},
+#'     \code{psiDoubleMaskDS}, \code{psiMatchAndAlignDS},
+#'     \code{psiFilterCommonDS})
+#'   \item MHE key setup: CRP, GKG seed, public key shares, Galois
+#'     keys (\code{mheInitDS}, \code{mheCombineDS},
+#'     \code{mheStoreCPKDS})
+#'   \item Threshold decryption: ciphertext chunks, wrapped shares
+#'   \item GLM Secure Routing: transport-encrypted vectors (eta,
+#'     mu/w/v)
+#'   \item Protocol Firewall: CT hash batches
+#'     (\code{mheAuthorizeCTDS})
+#' }
 #'
 #' @param key Character. Storage key (e.g., "mwv", "eta_server1")
 #' @param chunk Character. The blob data (or a chunk of it)

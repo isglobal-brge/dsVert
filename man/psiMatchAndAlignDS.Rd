@@ -4,13 +4,16 @@
 \alias{psiMatchAndAlignDS}
 \title{Match and align data using PSI result (assign function)}
 \usage{
-psiMatchAndAlignDS(data_name, own_double_masked)
+psiMatchAndAlignDS(data_name, own_double_masked = NULL, from_storage = FALSE)
 }
 \arguments{
 \item{data_name}{Character. Name of data frame to align.}
 
 \item{own_double_masked}{Character vector. Double-masked own points
-from reference server (base64url).}
+from reference server (base64url). Ignored when \code{from_storage = TRUE}.}
+
+\item{from_storage}{Logical. If \code{TRUE}, read \code{own_double_masked}
+from server-side blob storage (comma-separated). Default \code{FALSE}.}
 }
 \value{
 Aligned data frame (assigned to server environment).

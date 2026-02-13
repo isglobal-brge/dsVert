@@ -5,13 +5,16 @@
 \title{Combine public key shares into collective public key}
 \usage{
 mheCombineDS(
-  public_key_shares,
-  crp,
+  public_key_shares = NULL,
+  crp = NULL,
   galois_key_shares = NULL,
   gkg_seed = NULL,
   num_obs = 100,
   log_n = 12,
-  log_scale = 40
+  log_scale = 40,
+  from_storage = FALSE,
+  n_parties = 0,
+  n_gkg_shares = 0
 )
 }
 \arguments{
@@ -19,14 +22,28 @@ mheCombineDS(
 
 \item{crp}{Character. CRP from party 0}
 
+\item{galois_key_shares}{List of character vectors. Galois key generation
+shares from each party.}
+
+\item{gkg_seed}{Character. Galois key generation seed from party 0.}
+
 \item{num_obs}{Integer. Number of observations}
 
 \item{log_n}{Integer. Ring dimension}
 
 \item{log_scale}{Integer. Scale parameter}
+
+\item{from_storage}{Logical. If \code{TRUE}, read all inputs (public key
+shares, CRP, GKG seed, Galois key shares) from server-side blob storage
+instead of inline arguments. Default \code{FALSE}.}
+
+\item{n_parties}{Integer. Number of parties (used with \code{from_storage}).}
+
+\item{n_gkg_shares}{Integer. Number of Galois key generation shares per
+party (used with \code{from_storage}).}
 }
 \value{
-List with collective_public_key
+List with collective_public_key and galois_keys
 }
 \description{
 Combine public key shares into collective public key

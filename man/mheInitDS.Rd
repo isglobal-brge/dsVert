@@ -10,7 +10,8 @@ mheInitDS(
   gkg_seed = NULL,
   num_obs = 100,
   log_n = 12,
-  log_scale = 40
+  log_scale = 40,
+  from_storage = FALSE
 )
 }
 \arguments{
@@ -31,6 +32,12 @@ Default 12.}
 
 \item{log_scale}{Integer. CKKS scale parameter controlling precision.
 Default 40.}
+
+\item{from_storage}{Logical. If \code{TRUE}, read \code{crp} and
+\code{gkg_seed} from server-side blob storage (previously stored
+via \code{\link{mheStoreBlobDS}}) instead of inline arguments.
+Used by the client to avoid exceeding DataSHIELD's expression
+parser limits with large cryptographic objects. Default \code{FALSE}.}
 }
 \value{
 List with:

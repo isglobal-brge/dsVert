@@ -19,12 +19,34 @@ mheStoreBlobDS(key, chunk, chunk_index = 1L, n_chunks = 1L)
 TRUE on success
 }
 \description{
-Generic function for storing base64url-encoded blobs on the server.
-Used by GLM Secure Routing to relay encrypted vectors (eta, mu/w/v)
-between servers through the client.
+Generic function for storing large data on the server via chunked
+transfer. DataSHIELD's R expression parser imposes a limit on the
+size of arguments passed inline in \code{call()} expressions.
+Cryptographic objects (CKKS ciphertexts, EC points, key shares,
+transport-encrypted blobs) routinely exceed this limit. This
+function provides a store-and-assemble pattern: the client splits
+large data into chunks (default 10 KB), sends each chunk via a
+separate \code{datashield.aggregate} call, and the server
+auto-assembles them when the last chunk arrives. Downstream
+functions read the assembled blob via \code{from_storage = TRUE}.
 }
 \details{
-For large blobs that exceed DataSHIELD's parser limits, call this
-function multiple times with chunk_index and n_chunks. The blob is
-auto-assembled when the last chunk arrives.
+All data transferred through this mechanism is base64url-encoded
+(standard base64 uses \code{+} and \code{/}, which the DSOpal
+expression serializer can misinterpret).
+
+This pattern is used throughout the dsVert protocol stack:
+\itemize{
+\item PSI: EC point vectors (\code{psiProcessTargetDS},
+\code{psiDoubleMaskDS}, \code{psiMatchAndAlignDS},
+\code{psiFilterCommonDS})
+\item MHE key setup: CRP, GKG seed, public key shares, Galois
+keys (\code{mheInitDS}, \code{mheCombineDS},
+\code{mheStoreCPKDS})
+\item Threshold decryption: ciphertext chunks, wrapped shares
+\item GLM Secure Routing: transport-encrypted vectors (eta,
+mu/w/v)
+\item Protocol Firewall: CT hash batches
+(\code{mheAuthorizeCTDS})
+}
 }

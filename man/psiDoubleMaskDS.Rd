@@ -4,10 +4,14 @@
 \alias{psiDoubleMaskDS}
 \title{Double-mask points using stored scalar (aggregate function)}
 \usage{
-psiDoubleMaskDS(points)
+psiDoubleMaskDS(points = NULL, from_storage = FALSE)
 }
 \arguments{
-\item{points}{Character vector. Masked points to double-mask (base64url).}
+\item{points}{Character vector. Masked points to double-mask (base64url).
+Ignored when \code{from_storage = TRUE}.}
+
+\item{from_storage}{Logical. If \code{TRUE}, read \code{points} from
+server-side blob storage (comma-separated). Default \code{FALSE}.}
 }
 \value{
 List with double_masked_points (base64url).

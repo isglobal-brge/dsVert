@@ -145,6 +145,30 @@ The Protocol Firewall prevents **decryption oracle attacks**, where a malicious 
 
 Each server maintains a **SHA-256 ciphertext registry**. Before any ciphertext can be submitted for partial decryption, it must be explicitly authorized via `mheAuthorizeCTDS`. Authorization is **one-time-use**: once a ciphertext has been decrypted, its registry entry is consumed and the same ciphertext cannot be decrypted again. This ensures the client can only decrypt ciphertexts that were produced as part of the legitimate protocol flow.
 
+## Chunked Transfer Protocol
+
+DataSHIELD's R expression parser imposes a size limit on arguments passed inline in `call()` expressions. Cryptographic objects routinely exceed this limit:
+
+| Object | Typical size | Exceeds limit at |
+|--------|-------------|------------------|
+| CKKS ciphertexts | 100-300 KB | Always |
+| EC points (PSI) | ~44 bytes/ID | n > 100K IDs |
+| Galois key shares | ~525 KB each | Always |
+| CRP (Common Reference Polynomial) | ~1.6 MB at LogN=14 | LogN >= 14 |
+| CT hash batches | ~64 bytes/hash | p_A * p_B > 350 |
+
+dsVert solves this with a **store-and-assemble** pattern via `mheStoreBlobDS`. The client splits large data into 10 KB chunks and sends each chunk in a separate `datashield.aggregate` call. The server auto-assembles them when the last chunk arrives. Downstream functions read the assembled data via `from_storage = TRUE` instead of inline arguments.
+
+```
+Client:  split(data, 10KB) → chunk_1, chunk_2, ..., chunk_n
+Server:  mheStoreBlobDS(key, chunk_1, 1, n)
+         mheStoreBlobDS(key, chunk_2, 2, n)  → auto-assembled on last chunk
+         ...
+         targetFunction(..., from_storage = TRUE)  ← reads assembled blob
+```
+
+All data is base64url-encoded (standard base64 uses `+` and `/`, which the DSOpal expression serializer can misinterpret). This pattern is used uniformly across all protocols (PSI, MHE correlation, GLM) for any data that scales with n, p, or K.
+
 ## Building the Go Binary
 
 The `mhe-tool` binary must be compiled for each target platform:

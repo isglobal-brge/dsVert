@@ -176,7 +176,8 @@ NULL
 #'   \code{\link{mheCombineDS}} for combining public key shares
 #' @export
 mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
-                      num_obs = 100, log_n = 12, log_scale = 40) {
+                      num_obs = 100, log_n = 12, log_scale = 40,
+                      from_storage = FALSE) {
   input <- list(
     party_id = as.integer(party_id),
     num_obs = as.integer(num_obs),
@@ -185,11 +186,22 @@ mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
   )
 
   # If not party 0, include CRP and shared GKG seed
-  if (party_id > 0 && !is.null(crp)) {
-    input$crp <- .base64url_to_base64(crp)
-  }
-  if (!is.null(gkg_seed)) {
-    input$gkg_seed <- .base64url_to_base64(gkg_seed)
+  if (from_storage) {
+    blobs <- .mhe_storage$blobs
+    if (!is.null(blobs) && !is.null(blobs[["crp"]])) {
+      input$crp <- .base64url_to_base64(blobs[["crp"]])
+    }
+    if (!is.null(blobs) && !is.null(blobs[["gkg_seed"]])) {
+      input$gkg_seed <- .base64url_to_base64(blobs[["gkg_seed"]])
+    }
+    .mhe_storage$blobs <- NULL
+  } else {
+    if (party_id > 0 && !is.null(crp)) {
+      input$crp <- .base64url_to_base64(crp)
+    }
+    if (!is.null(gkg_seed)) {
+      input$gkg_seed <- .base64url_to_base64(gkg_seed)
+    }
   }
 
   result <- .callMheTool("mhe-setup", input)
@@ -545,9 +557,20 @@ mheCrossProductEncDS <- function(data_name, variables, n_enc_cols, n_obs) {
 #'
 #' @return Integer. Number of ciphertexts authorized
 #' @export
-mheAuthorizeCTDS <- function(ct_hashes, op_type = "cross-product") {
+mheAuthorizeCTDS <- function(ct_hashes = NULL, op_type = "cross-product",
+                             from_storage = FALSE) {
   if (is.null(.mhe_storage$secret_key)) {
     stop("MHE not initialized. Call mheInitDS first.", call. = FALSE)
+  }
+
+  # Read ct_hashes from blob storage or inline argument
+  if (from_storage) {
+    blobs <- .mhe_storage$blobs
+    if (is.null(blobs) || is.null(blobs[["ct_hashes"]])) {
+      stop("No ct_hashes blob stored", call. = FALSE)
+    }
+    ct_hashes <- strsplit(blobs[["ct_hashes"]], ",", fixed = TRUE)[[1]]
+    .mhe_storage$blobs <- NULL
   }
 
   if (is.null(.mhe_storage$ct_registry)) {

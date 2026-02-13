@@ -84,7 +84,8 @@ psiMaskIdsDS <- function(data_name, id_col) {
 #'
 #' @return List with own_masked_points (base64url) and n (count).
 #' @export
-psiProcessTargetDS <- function(data_name, id_col, ref_masked_points) {
+psiProcessTargetDS <- function(data_name, id_col, ref_masked_points = NULL,
+                               from_storage = FALSE) {
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
 
@@ -93,6 +94,16 @@ psiProcessTargetDS <- function(data_name, id_col, ref_masked_points) {
   }
   if (!id_col %in% names(data)) {
     stop("Column '", id_col, "' not found in data frame", call. = FALSE)
+  }
+
+  # Read ref_masked_points from blob storage or inline argument
+  if (from_storage) {
+    blobs <- .mhe_storage$blobs
+    if (is.null(blobs) || is.null(blobs[["ref_masked_points"]])) {
+      stop("No ref_masked_points blob stored", call. = FALSE)
+    }
+    ref_masked_points <- strsplit(blobs[["ref_masked_points"]], ",", fixed = TRUE)[[1]]
+    .mhe_storage$blobs <- NULL
   }
 
   ids <- as.character(data[[id_col]])
@@ -143,9 +154,19 @@ psiProcessTargetDS <- function(data_name, id_col, ref_masked_points) {
 #'
 #' @return List with double_masked_points (base64url).
 #' @export
-psiDoubleMaskDS <- function(points) {
+psiDoubleMaskDS <- function(points = NULL, from_storage = FALSE) {
   if (is.null(.mhe_storage$psi_scalar)) {
     stop("PSI scalar not stored. Call psiMaskIdsDS first.", call. = FALSE)
+  }
+
+  # Read points from blob storage or inline argument
+  if (from_storage) {
+    blobs <- .mhe_storage$blobs
+    if (is.null(blobs) || is.null(blobs[["target_masked_points"]])) {
+      stop("No target_masked_points blob stored", call. = FALSE)
+    }
+    points <- strsplit(blobs[["target_masked_points"]], ",", fixed = TRUE)[[1]]
+    .mhe_storage$blobs <- NULL
   }
 
   points_std <- sapply(points, .base64url_to_base64, USE.NAMES = FALSE)
@@ -175,12 +196,23 @@ psiDoubleMaskDS <- function(points) {
 #'
 #' @return Aligned data frame (assigned to server environment).
 #' @export
-psiMatchAndAlignDS <- function(data_name, own_double_masked) {
+psiMatchAndAlignDS <- function(data_name, own_double_masked = NULL,
+                               from_storage = FALSE) {
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
 
   if (is.null(.mhe_storage$psi_ref_dm)) {
     stop("PSI ref double-masked points not stored. Call psiProcessTargetDS first.", call. = FALSE)
+  }
+
+  # Read from blob storage or inline argument
+  if (from_storage) {
+    blobs <- .mhe_storage$blobs
+    if (is.null(blobs) || is.null(blobs[["double_masked_points"]])) {
+      stop("No double_masked_points blob stored", call. = FALSE)
+    }
+    own_double_masked <- strsplit(blobs[["double_masked_points"]], ",", fixed = TRUE)[[1]]
+    .mhe_storage$blobs <- NULL
   }
 
   # Convert received points from base64url to standard base64
@@ -268,7 +300,8 @@ psiGetMatchedIndicesDS <- function() {
 #'
 #' @return Filtered data frame (assigned to server environment).
 #' @export
-psiFilterCommonDS <- function(data_name, common_indices) {
+psiFilterCommonDS <- function(data_name, common_indices = NULL,
+                              from_storage = FALSE) {
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
 
@@ -276,7 +309,17 @@ psiFilterCommonDS <- function(data_name, common_indices) {
     stop("PSI matched indices not available.", call. = FALSE)
   }
 
-  common_indices <- as.integer(common_indices)
+  # Read from blob storage or inline argument
+  if (from_storage) {
+    blobs <- .mhe_storage$blobs
+    if (is.null(blobs) || is.null(blobs[["common_indices"]])) {
+      stop("No common_indices blob stored", call. = FALSE)
+    }
+    common_indices <- as.integer(strsplit(blobs[["common_indices"]], ",", fixed = TRUE)[[1]])
+    .mhe_storage$blobs <- NULL
+  } else {
+    common_indices <- as.integer(common_indices)
+  }
   n_common <- length(common_indices)
   n_original <- nrow(data)
 

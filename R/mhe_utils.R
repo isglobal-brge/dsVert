@@ -239,9 +239,16 @@ base64_to_base64url <- function(x) {
     }
   }
 
-  # Additional fallback: check environment variable
+  # Additional fallback: check R option (dsBase pattern), then env var
   if (bin_path == "" || !file.exists(bin_path)) {
-    env_path <- Sys.getenv("DSVERT_MHE_TOOL")
+    opt_path <- getOption("dsvert.mhe_tool")
+    if (is.null(opt_path)) opt_path <- getOption("default.dsvert.mhe_tool")
+    if (!is.null(opt_path) && opt_path != "" && file.exists(opt_path)) {
+      bin_path <- opt_path
+    }
+  }
+  if (bin_path == "" || !file.exists(bin_path)) {
+    env_path <- Sys.getenv("DSVERT_MHE_TOOL", "")
     if (env_path != "" && file.exists(env_path)) {
       bin_path <- env_path
     }
@@ -252,7 +259,7 @@ base64_to_base64url <- function(x) {
       "mhe-tool binary not found. ",
       "The MHE functionality requires the compiled Go binary.\n",
       "Expected location: inst/bin/", subdir, "/", binary_name, "\n",
-      "Or set DSVERT_MHE_TOOL environment variable to the binary path.",
+      "Or set the dsvert.mhe_tool R option or DSVERT_MHE_TOOL env var.",
       call. = FALSE
     )
   }

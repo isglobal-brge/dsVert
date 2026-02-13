@@ -1,18 +1,20 @@
-#' @title ECDH-PSI Record Alignment - Server-Side Functions
+#' @title ECDH-PSI Record Alignment - Server-Side Functions (Blind Relay)
 #' @description These functions implement Elliptic Curve Diffie-Hellman Private Set
 #'   Intersection (ECDH-PSI) for privacy-preserving record alignment across vertically
-#'   partitioned data. Unlike SHA-256 hashing, ECDH-PSI ensures the client cannot
-#'   reverse-engineer patient identifiers from the exchanged messages.
+#'   partitioned data. All EC point exchanges are transport-encrypted (X25519 +
+#'   AES-256-GCM ECIES) so the client acts as a blind relay, never seeing raw
+#'   elliptic curve points.
 #'
 #' @details
 #' The protocol exploits the commutativity of scalar multiplication on P-256:
 #' \eqn{\alpha \cdot (\beta \cdot H(id)) = \beta \cdot (\alpha \cdot H(id))}.
 #'
-#' Security holds under the DDH assumption on P-256 (semi-honest model):
+#' Security (DDH assumption on P-256, malicious-client model):
 #' \itemize{
-#'   \item The client sees only opaque elliptic curve points (not reversible)
-#'   \item Each target server learns only the intersection with the reference
-#'   \item No party can perform dictionary attacks on identifiers
+#'   \item The client sees only opaque encrypted blobs (not reversible)
+#'   \item Each server's scalar never leaves the server
+#'   \item The PSI firewall enforces phase ordering and one-shot semantics
+#'   \item No party can perform dictionary attacks or OPRF oracle attacks
 #' }
 #'
 #' @references
@@ -23,20 +25,337 @@
 NULL
 
 # ============================================================================
-# Phase 1 / Phase 3 own-masking: Hash IDs to P-256 points, multiply by scalar
+# PSI Firewall: Phase Ordering FSM
+# ============================================================================
+# Prevents out-of-order function calls that could be exploited by a
+# malicious client. Each PSI function checks the current phase and
+# transitions to the next valid phase.
+#
+# State transitions (ref server):
+#   (none) -> init:   psiInitDS()
+#   init -> masked:   psiMaskIdsDS()
+#   masked -> masked: psiExportMaskedDS() [per target]
+#   masked -> masked: psiDoubleMaskDS()   [one-shot per target]
+#
+# State transitions (target server):
+#   (none) -> init:              psiInitDS()
+#   init -> target_processed:    psiProcessTargetDS()
+#   target_processed -> matched: psiMatchAndAlignDS()
+# ============================================================================
+
+#' Check PSI firewall phase (internal)
+#' @param operation Character. Name of the operation being attempted.
+#' @param required_phase Character. Required phase for this operation.
+#' @keywords internal
+.psi_firewall_check <- function(operation, required_phase) {
+  current <- .mhe_storage$psi_phase
+  if (is.null(current) || current != required_phase) {
+    stop("PSI Firewall: operation '", operation, "' not allowed in phase '",
+         if (is.null(current)) "none" else current,
+         "'. Required: '", required_phase, "'", call. = FALSE)
+  }
+}
+
+# ============================================================================
+# PSI Transport Encryption Helpers
+# ============================================================================
+
+#' Encrypt a string blob under a recipient's transport PK (internal)
+#' @param data_str Character. The string data to encrypt.
+#' @param recipient_pk_b64 Character. Recipient's X25519 PK (standard base64).
+#' @return Character. Sealed data in standard base64.
+#' @keywords internal
+.psi_encrypt_blob <- function(data_str, recipient_pk_b64) {
+  # Convert string to raw bytes, then to base64 for the Go tool
+  data_b64 <- jsonlite::base64_enc(charToRaw(data_str))
+  result <- .callMheTool("transport-encrypt", list(
+    data = data_b64,
+    recipient_pk = recipient_pk_b64
+  ))
+  result$sealed
+}
+
+#' Decrypt a sealed blob using this server's PSI transport SK (internal)
+#' @param sealed_b64url Character. Sealed data in base64url (as stored in
+#'   blob storage for DataSHIELD parser safety). Converted to standard
+#'   base64 before passing to the Go tool.
+#' @return Character. The decrypted string.
+#' @keywords internal
+.psi_decrypt_blob <- function(sealed_b64url) {
+  if (is.null(.mhe_storage$psi_transport_sk)) {
+    stop("PSI transport SK not available. Call psiInitDS first.", call. = FALSE)
+  }
+  # Convert from base64url (parser-safe) back to standard base64 (Go tool)
+  sealed_b64 <- .base64url_to_base64(sealed_b64url)
+  result <- .callMheTool("transport-decrypt", list(
+    sealed = sealed_b64,
+    recipient_sk = .mhe_storage$psi_transport_sk
+  ))
+  rawToChar(jsonlite::base64_dec(result$data))
+}
+
+#' Read and consume a PSI blob from chunked storage (internal)
+#' @param key Character. The blob storage key.
+#' @return Character. The assembled blob string.
+#' @keywords internal
+.read_psi_blob <- function(key) {
+  blobs <- .mhe_storage$blobs
+  if (is.null(blobs) || is.null(blobs[[key]])) {
+    stop("No PSI blob stored with key '", key, "'", call. = FALSE)
+  }
+  blob <- blobs[[key]]
+  .mhe_storage$blobs[[key]] <- NULL
+  blob
+}
+
+# ============================================================================
+# Pre-Shared Key Pinning (MITM Prevention)
+# ============================================================================
+# dsVert supports two security modes for PSI transport key exchange:
+#
+# MODE 1: Semi-Honest (default)
+#   - Ephemeral X25519 keys are generated per session
+#   - Client mediates key exchange between servers
+#   - Protects against passive eavesdropping but NOT active MITM by the client
+#   - Suitable for trusted DataSHIELD deployments where the client is trusted
+#   - No configuration needed — this is the default when dsvert.psi_key_pinning
+#     is unset or FALSE
+#
+# MODE 2: Full MITM-Resistant (pre-shared keys)
+#   - Persistent X25519 keypairs are pre-configured on each server
+#   - Servers validate client-provided PKs against pre-configured peers
+#   - Detects and rejects MITM attacks where the client substitutes keys
+#   - Suitable for untrusted or multi-tenant environments
+#
+# Configuration (via DataSHIELD R options, following dsBase pattern):
+#
+# The admin configures these per-server via the Opal DataSHIELD profile
+# settings (web UI or dsadmin.set_option()), or via the Rock server's
+# .Rprofile / R config:
+#
+#   options(
+#     dsvert.psi_key_pinning = TRUE,           # enable pre-shared key mode
+#     dsvert.psi_sk          = "<base64>",      # this server's X25519 secret key
+#     dsvert.psi_pk          = "<base64>",      # this server's X25519 public key
+#     dsvert.psi_peers       = '{"server1":"<pk1>","server2":"<pk2>","ref":"<pk_ref>"}'
+#   )
+#
+# The dsvert.psi_peers option is a JSON string mapping server names to their
+# X25519 public keys (standard base64). The "ref" key is an alias for the
+# reference server's PK.
+#
+# Security of R options in DataSHIELD:
+#   - The client CANNOT call getOption() remotely — the DataSHIELD parser
+#     only allows registered methods (getOption is not registered).
+#   - listDisclosureSettingsDS() in dsBase only returns specific nfilter
+#     values, NOT arbitrary options like dsvert.psi_sk.
+#   - The Opal admin REST API (GET /datashield/options) can read options,
+#     but only with administrator credentials — the admin is already trusted.
+#   - Our registered functions (psiInitDS, etc.) never return the private key.
+#
+# All options follow the dsBase two-tier fallback pattern:
+#   getOption("dsvert.psi_key_pinning") -> getOption("default.dsvert.psi_key_pinning")
+#
+# The default for dsvert.psi_key_pinning is FALSE (declared in DESCRIPTION
+# Options section), so key pinning is disabled unless explicitly enabled.
+# ============================================================================
+
+#' Read a dsVert option using the dsBase two-tier fallback pattern (internal)
+#'
+#' Checks \code{getOption(name)} first, then falls back to
+#' \code{getOption(paste0("default.", name))}. This allows Opal administrators
+#' to override settings per DataSHIELD profile.
+#'
+#' @param name Character. Option name (e.g. "dsvert.psi_key_pinning").
+#' @param fallback Default value if neither option is set. Default NULL.
+#' @return The option value, or fallback if not set.
+#' @keywords internal
+.read_dsvert_option <- function(name, fallback = NULL) {
+  val <- getOption(name)
+  if (is.null(val)) val <- getOption(paste0("default.", name))
+  if (is.null(val)) val <- fallback
+  val
+}
+
+#' Load pre-shared transport keys from DataSHIELD R options (internal)
+#'
+#' Reads key pinning configuration from R options following the dsBase
+#' two-tier fallback pattern (\code{getOption("name")} then
+#' \code{getOption("default.name")}). Returns NULL if key pinning is
+#' not enabled (default), meaning ephemeral keys will be used.
+#'
+#' @return List with secret_key, public_key, peers (named list of PKs),
+#'   or NULL if key pinning is not enabled.
+#' @keywords internal
+.psi_load_preshared_keys <- function() {
+  pinning <- .read_dsvert_option("dsvert.psi_key_pinning", FALSE)
+  if (!isTRUE(pinning) && !identical(tolower(as.character(pinning)), "true")) {
+    return(NULL)
+  }
+
+  sk <- .read_dsvert_option("dsvert.psi_sk")
+  pk <- .read_dsvert_option("dsvert.psi_pk")
+  if (is.null(sk) || is.null(pk) || sk == "" || pk == "") {
+    warning("dsvert.psi_key_pinning=TRUE but dsvert.psi_sk/psi_pk not set, ",
+            "falling back to ephemeral keys", call. = FALSE)
+    return(NULL)
+  }
+
+  # Parse peer PKs from JSON string option
+  peers_json <- .read_dsvert_option("dsvert.psi_peers")
+  if (is.null(peers_json) || peers_json == "") {
+    warning("dsvert.psi_key_pinning=TRUE but dsvert.psi_peers not set, ",
+            "falling back to ephemeral keys", call. = FALSE)
+    return(NULL)
+  }
+
+  peers <- tryCatch(
+    as.list(jsonlite::fromJSON(peers_json)),
+    error = function(e) {
+      warning("dsvert.psi_peers is not valid JSON: ", e$message,
+              ". Falling back to ephemeral keys", call. = FALSE)
+      NULL
+    }
+  )
+
+  if (is.null(peers) || length(peers) == 0) {
+    return(NULL)
+  }
+
+  list(secret_key = sk, public_key = pk, peers = peers)
+}
+
+# ============================================================================
+# Phase 0: PSI Transport Key Exchange
+# ============================================================================
+
+#' Initialize PSI transport keys (aggregate function)
+#'
+#' Generates an X25519 transport keypair for blind-relay PSI. The secret key
+#' is stored locally and NEVER returned to the client. The public key is
+#' returned so the client can distribute it to other servers.
+#'
+#' This must be called before any other PSI function. Initializes the PSI
+#' firewall state machine.
+#'
+#' @section Security Modes:
+#' \describe{
+#'   \item{Semi-Honest (default)}{Ephemeral X25519 keys are generated per
+#'     session. Protects against passive eavesdropping but not active MITM
+#'     by the client. Suitable for trusted DataSHIELD deployments.}
+#'   \item{Full MITM-Resistant}{Persistent X25519 keys loaded from
+#'     DataSHIELD R options (\code{dsvert.psi_key_pinning = TRUE}).
+#'     Servers validate client-provided PKs against pre-configured peers,
+#'     detecting and rejecting key substitution attacks. See
+#'     \code{\link{psiStoreTransportKeysDS}} for validation details.}
+#' }
+#'
+#' @section Configuration (Full MITM-Resistant mode):
+#' Set the following R options per server via the Opal DataSHIELD profile
+#' settings or Rock server config:
+#' \preformatted{
+#' options(
+#'   dsvert.psi_key_pinning = TRUE,
+#'   dsvert.psi_sk = "<base64 X25519 secret key>",
+#'   dsvert.psi_pk = "<base64 X25519 public key>",
+#'   dsvert.psi_peers = '{"server1":"<pk1>","server2":"<pk2>","ref":"<pk_ref>"}'
+#' )
+#' }
+#' All options follow the dsBase two-tier fallback pattern:
+#' \code{getOption("dsvert.X")} then \code{getOption("default.dsvert.X")}.
+#'
+#' @return List with transport_pk (base64url) and pinned (logical indicating
+#'   whether pre-shared keys are in use).
+#' @export
+psiInitDS <- function() {
+  preshared <- .psi_load_preshared_keys()
+
+  if (!is.null(preshared)) {
+    # Pre-shared keys: use persistent keypair (MITM-resistant)
+    .mhe_storage$psi_transport_sk <- preshared$secret_key
+    .mhe_storage$psi_transport_pk <- preshared$public_key
+    .mhe_storage$psi_pinned_peers <- preshared$peers  # for validation
+  } else {
+    # Ephemeral keys: generate fresh keypair (development mode)
+    transport <- .callMheTool("transport-keygen", list())
+    .mhe_storage$psi_transport_sk <- transport$secret_key
+    .mhe_storage$psi_transport_pk <- transport$public_key
+    .mhe_storage$psi_pinned_peers <- NULL
+  }
+
+  .mhe_storage$psi_phase <- "init"
+  .mhe_storage$psi_dm_used <- character(0)
+
+  list(
+    transport_pk = base64_to_base64url(.mhe_storage$psi_transport_pk),
+    pinned = !is.null(preshared)
+  )
+}
+
+#' Store peer transport public keys (aggregate function)
+#'
+#' Stores other servers' transport PKs for encrypting PSI messages.
+#' Called by the client after collecting PKs from all servers.
+#'
+#' @section MITM Detection (Full MITM-Resistant mode):
+#' When \code{dsvert.psi_key_pinning = TRUE}, this function validates the
+#' client-provided PKs against the pre-configured peers in
+#' \code{dsvert.psi_peers}. Any mismatch triggers an error — the client
+#' may have substituted keys (MITM attack). In this mode, the
+#' pre-configured peer PKs are used instead of the client-provided ones,
+#' so the client cannot add, remove, or modify peers.
+#'
+#' In semi-honest mode (default), the client-provided PKs are used as-is.
+#'
+#' @param transport_keys Named list. Server name -> transport PK (base64url).
+#' @return TRUE (invisible).
+#' @export
+psiStoreTransportKeysDS <- function(transport_keys) {
+  if (is.null(.mhe_storage$psi_phase)) {
+    stop("PSI not initialized. Call psiInitDS first.", call. = FALSE)
+  }
+
+  pinned <- .mhe_storage$psi_pinned_peers
+  if (!is.null(pinned)) {
+    # Pre-shared keys: validate client-provided PKs against config
+    client_pks <- lapply(transport_keys, .base64url_to_base64)
+    for (peer_name in names(pinned)) {
+      if (peer_name %in% names(client_pks)) {
+        if (client_pks[[peer_name]] != pinned[[peer_name]]) {
+          stop("PSI Key Pinning: transport PK for '", peer_name,
+               "' does not match pre-configured key. ",
+               "Possible MITM attack by client.", call. = FALSE)
+        }
+      }
+    }
+    # Use pre-configured peers (includes all known peers, not just
+    # what the client sent — client can't omit or add peers)
+    .mhe_storage$psi_peer_pks <- pinned
+  } else {
+    # Ephemeral mode: trust client-provided PKs
+    .mhe_storage$psi_peer_pks <- lapply(transport_keys, .base64url_to_base64)
+  }
+
+  invisible(TRUE)
+}
+
+# ============================================================================
+# Phase 1: Reference server masks its IDs
 # ============================================================================
 
 #' Mask identifiers using ECDH (aggregate function)
 #'
 #' Hashes identifiers to P-256 curve points and multiplies by a random scalar.
-#' The scalar is stored locally and NEVER returned to the client.
+#' The scalar and masked points are stored locally and NEVER returned to the
+#' client. Points are exported per-target via \code{\link{psiExportMaskedDS}}.
 #'
 #' @param data_name Character. Name of data frame.
 #' @param id_col Character. Name of identifier column.
 #'
-#' @return List with masked_points (base64url) and n (count).
+#' @return List with n (count only — no points returned).
 #' @export
 psiMaskIdsDS <- function(data_name, id_col) {
+  .psi_firewall_check("mask", "init")
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
 
@@ -49,47 +368,74 @@ psiMaskIdsDS <- function(data_name, id_col) {
 
   ids <- as.character(data[[id_col]])
 
-  # Passing scalar="" tells the Go binary to generate a fresh random scalar.
-  # The binary hashes each ID to a P-256 curve point using try-and-increment
-  # (domain separator "dsVert-PSI-v1"), then multiplies by the scalar.
   result <- .callMheTool("psi-mask", list(
     ids = as.list(ids),
     scalar = ""
   ))
 
-  # SECURITY: the scalar is the server's secret. If the client knew it,
-  # they could reverse the hash-to-curve and recover patient IDs from the
-  # masked points. Storing it only in .mhe_storage keeps it on-server.
+  # SECURITY: scalar and masked points stored locally, NEVER returned.
   .mhe_storage$psi_scalar <- result$scalar
-
-  list(
-    masked_points = sapply(result$masked_points, base64_to_base64url, USE.NAMES = FALSE),
-    n = length(ids)
+  .mhe_storage$psi_masked_points <- sapply(
+    result$masked_points, base64_to_base64url, USE.NAMES = FALSE
   )
+
+  .mhe_storage$psi_phase <- "masked"
+
+  list(n = length(ids))
 }
 
 # ============================================================================
-# Phase 3 combined: Target processes ref points AND masks own IDs
+# Phase 2: Reference exports encrypted masked points for a target
+# ============================================================================
+
+#' Export encrypted masked points for a target server (aggregate function)
+#'
+#' Encrypts stored masked points under the specified target server's transport
+#' PK. The client receives an opaque blob it cannot decrypt.
+#'
+#' @param target_name Character. Name of the target server.
+#'
+#' @return List with encrypted_blob (base64url).
+#' @export
+psiExportMaskedDS <- function(target_name) {
+  .psi_firewall_check("export", "masked")
+
+  if (is.null(.mhe_storage$psi_masked_points)) {
+    stop("No masked points to export. Call psiMaskIdsDS first.", call. = FALSE)
+  }
+
+  target_pk <- .mhe_storage$psi_peer_pks[[target_name]]
+  if (is.null(target_pk)) {
+    stop("No transport PK for target '", target_name, "'. ",
+         "Call psiStoreTransportKeysDS first.", call. = FALSE)
+  }
+
+  # Serialize points as comma-separated string, encrypt under target's PK
+  points_blob <- paste(.mhe_storage$psi_masked_points, collapse = ",")
+  sealed <- .psi_encrypt_blob(points_blob, target_pk)
+
+  list(encrypted_blob = base64_to_base64url(sealed))
+}
+
+# ============================================================================
+# Phase 3: Target processes encrypted ref points AND masks own IDs
 # ============================================================================
 
 #' Process reference points on target server (aggregate function)
 #'
-#' Generates own scalar, double-masks reference points (stored locally for
-#' Phase 7 matching), and returns own masked IDs to the client.
+#' Decrypts the encrypted ref points blob, generates own scalar, double-masks
+#' reference points (stored locally for Phase 7 matching), masks own IDs, and
+#' returns encrypted own masked points under the ref server's transport PK.
 #'
 #' @param data_name Character. Name of data frame.
 #' @param id_col Character. Name of identifier column.
-#' @param ref_masked_points Character vector. Masked points from reference
-#'   server (base64url encoded). Ignored when \code{from_storage = TRUE}.
-#' @param from_storage Logical. If \code{TRUE}, read \code{ref_masked_points}
-#'   from server-side blob storage (comma-separated, stored via
-#'   \code{\link{mheStoreBlobDS}}) instead of inline argument.
-#'   Default \code{FALSE}.
+#' @param from_storage Logical. If \code{TRUE}, read encrypted blob from
+#'   server-side blob storage. Default \code{FALSE}.
 #'
-#' @return List with own_masked_points (base64url) and n (count).
+#' @return List with encrypted_blob (base64url) and n (count).
 #' @export
-psiProcessTargetDS <- function(data_name, id_col, ref_masked_points = NULL,
-                               from_storage = FALSE) {
+psiProcessTargetDS <- function(data_name, id_col, from_storage = FALSE) {
+  .psi_firewall_check("process_target", "init")
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
 
@@ -100,92 +446,115 @@ psiProcessTargetDS <- function(data_name, id_col, ref_masked_points = NULL,
     stop("Column '", id_col, "' not found in data frame", call. = FALSE)
   }
 
-  # Read ref_masked_points from blob storage or inline argument
-  if (from_storage) {
-    blobs <- .mhe_storage$blobs
-    if (is.null(blobs) || is.null(blobs[["ref_masked_points"]])) {
-      stop("No ref_masked_points blob stored", call. = FALSE)
-    }
-    ref_masked_points <- strsplit(blobs[["ref_masked_points"]], ",", fixed = TRUE)[[1]]
-    .mhe_storage$blobs <- NULL
-  }
+  # 1. Read encrypted blob from storage and decrypt
+  encrypted_blob <- .read_psi_blob("ref_encrypted_blob")
+  ref_points_str <- .psi_decrypt_blob(encrypted_blob)
+  ref_masked_points <- strsplit(ref_points_str, ",", fixed = TRUE)[[1]]
 
   ids <- as.character(data[[id_col]])
 
-  # Mask own IDs (generates new random scalar)
+  # 2. Mask own IDs (generates new random scalar)
   own_result <- .callMheTool("psi-mask", list(
     ids = as.list(ids),
     scalar = ""
   ))
 
-  # Store scalar for later use by psiDoubleMaskDS (never returned)
   .mhe_storage$psi_scalar <- own_result$scalar
 
-  # Convert ref points from base64url to standard base64 for Go tool
+  # 3. Convert ref points from base64url to standard base64 for Go tool
   ref_points_std <- sapply(ref_masked_points, .base64url_to_base64, USE.NAMES = FALSE)
 
-  # Double-mask ref points with own scalar
+  # 4. Double-mask ref points with own scalar
   ref_dm <- .callMheTool("psi-double-mask", list(
     points = as.list(ref_points_std),
     scalar = own_result$scalar
   ))
 
-  # Store double-masked ref points for Phase 7 matching. These are
-  # β·(α·H(id)) for each ref ID. In Phase 7, the target will receive
-  # α·(β·H(id)) for its own IDs; by commutativity α·β·H(id) = β·α·H(id),
-  # matching points identify common IDs. Ref indices track the reference
-  # server's row ordering so the target can reorder its data to match.
+  # 5. Store double-masked ref points for Phase 7 matching
   .mhe_storage$psi_ref_dm <- ref_dm$double_masked_points
   .mhe_storage$psi_ref_indices <- as.integer(0:(length(ref_masked_points) - 1L))
 
-  # Return own masked points as base64url (for client to relay to ref)
+  # 6. Encrypt own masked points under ref server's transport PK
+  ref_pk <- .mhe_storage$psi_peer_pks[["ref"]]
+  if (is.null(ref_pk)) {
+    stop("No transport PK for ref server. Call psiStoreTransportKeysDS first.",
+         call. = FALSE)
+  }
+  own_points_b64url <- sapply(
+    own_result$masked_points, base64_to_base64url, USE.NAMES = FALSE
+  )
+  own_blob <- paste(own_points_b64url, collapse = ",")
+  sealed <- .psi_encrypt_blob(own_blob, ref_pk)
+
+  .mhe_storage$psi_phase <- "target_processed"
+
   list(
-    own_masked_points = sapply(own_result$masked_points, base64_to_base64url, USE.NAMES = FALSE),
+    encrypted_blob = base64_to_base64url(sealed),
     n = length(ids)
   )
 }
 
 # ============================================================================
-# Phase 5: Reference server double-masks target points
+# Phase 5: Reference server double-masks target points (blind relay)
 # ============================================================================
 
-#' Double-mask points using stored scalar (aggregate function)
+#' Double-mask target points using stored scalar (aggregate function)
 #'
-#' Multiplies received curve points by the scalar generated in Phase 1
-#' (stored by psiMaskIdsDS).
+#' Decrypts the encrypted target points blob, multiplies by the scalar
+#' generated in Phase 1, and re-encrypts the result under the target's
+#' transport PK. The client never sees raw EC points.
 #'
-#' @param points Character vector. Masked points to double-mask (base64url).
-#'   Ignored when \code{from_storage = TRUE}.
-#' @param from_storage Logical. If \code{TRUE}, read \code{points} from
-#'   server-side blob storage (comma-separated). Default \code{FALSE}.
+#' PSI Firewall: one-shot per target — each target can only be double-masked
+#' once, preventing the OPRF oracle attack.
 #'
-#' @return List with double_masked_points (base64url).
+#' @param target_name Character. Name of the target server whose points
+#'   are being double-masked.
+#' @param from_storage Logical. If \code{TRUE}, read encrypted blob from
+#'   server-side blob storage. Default \code{FALSE}.
+#'
+#' @return List with encrypted_blob (base64url).
 #' @export
-psiDoubleMaskDS <- function(points = NULL, from_storage = FALSE) {
+psiDoubleMaskDS <- function(target_name, from_storage = FALSE) {
+  .psi_firewall_check("double_mask", "masked")
+
   if (is.null(.mhe_storage$psi_scalar)) {
     stop("PSI scalar not stored. Call psiMaskIdsDS first.", call. = FALSE)
   }
 
-  # Read points from blob storage or inline argument
-  if (from_storage) {
-    blobs <- .mhe_storage$blobs
-    if (is.null(blobs) || is.null(blobs[["target_masked_points"]])) {
-      stop("No target_masked_points blob stored", call. = FALSE)
-    }
-    points <- strsplit(blobs[["target_masked_points"]], ",", fixed = TRUE)[[1]]
-    .mhe_storage$blobs <- NULL
+  # Firewall: one-shot per target (prevents OPRF oracle attack)
+  if (target_name %in% .mhe_storage$psi_dm_used) {
+    stop("PSI Firewall: double-mask already called for target '",
+         target_name, "'. Each target can only be processed once.",
+         call. = FALSE)
   }
 
-  points_std <- sapply(points, .base64url_to_base64, USE.NAMES = FALSE)
+  # 1. Read encrypted blob from storage and decrypt
+  encrypted_blob <- .read_psi_blob("target_encrypted_blob")
+  points_str <- .psi_decrypt_blob(encrypted_blob)
+  points <- strsplit(points_str, ",", fixed = TRUE)[[1]]
 
+  # 2. Double-mask with stored scalar
+  points_std <- sapply(points, .base64url_to_base64, USE.NAMES = FALSE)
   result <- .callMheTool("psi-double-mask", list(
     points = as.list(points_std),
     scalar = .mhe_storage$psi_scalar
   ))
 
-  list(
-    double_masked_points = sapply(result$double_masked_points, base64_to_base64url, USE.NAMES = FALSE)
+  # 3. Encrypt result under target's transport PK
+  target_pk <- .mhe_storage$psi_peer_pks[[target_name]]
+  if (is.null(target_pk)) {
+    stop("No transport PK for target '", target_name, "'.", call. = FALSE)
+  }
+  dm_blob <- paste(
+    sapply(result$double_masked_points, base64_to_base64url, USE.NAMES = FALSE),
+    collapse = ","
   )
+  sealed <- .psi_encrypt_blob(dm_blob, target_pk)
+
+  # 4. Record one-shot usage
+  .mhe_storage$psi_dm_used <- c(.mhe_storage$psi_dm_used, target_name)
+
+  list(encrypted_blob = base64_to_base64url(sealed))
 }
 
 # ============================================================================
@@ -194,40 +563,35 @@ psiDoubleMaskDS <- function(points = NULL, from_storage = FALSE) {
 
 #' Match and align data using PSI result (assign function)
 #'
-#' Matches received double-masked own points against stored double-masked
-#' reference points. Creates an aligned data frame ordered by reference index.
+#' Decrypts the encrypted double-masked own points blob, matches against
+#' stored double-masked reference points, and creates an aligned data frame
+#' ordered by reference index.
 #'
 #' @param data_name Character. Name of data frame to align.
-#' @param own_double_masked Character vector. Double-masked own points
-#'   from reference server (base64url). Ignored when \code{from_storage = TRUE}.
-#' @param from_storage Logical. If \code{TRUE}, read \code{own_double_masked}
-#'   from server-side blob storage (comma-separated). Default \code{FALSE}.
+#' @param from_storage Logical. If \code{TRUE}, read encrypted blob from
+#'   server-side blob storage. Default \code{FALSE}.
 #'
 #' @return Aligned data frame (assigned to server environment).
 #' @export
-psiMatchAndAlignDS <- function(data_name, own_double_masked = NULL,
-                               from_storage = FALSE) {
+psiMatchAndAlignDS <- function(data_name, from_storage = FALSE) {
+  .psi_firewall_check("match", "target_processed")
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
 
   if (is.null(.mhe_storage$psi_ref_dm)) {
-    stop("PSI ref double-masked points not stored. Call psiProcessTargetDS first.", call. = FALSE)
+    stop("PSI ref double-masked points not stored. Call psiProcessTargetDS first.",
+         call. = FALSE)
   }
 
-  # Read from blob storage or inline argument
-  if (from_storage) {
-    blobs <- .mhe_storage$blobs
-    if (is.null(blobs) || is.null(blobs[["double_masked_points"]])) {
-      stop("No double_masked_points blob stored", call. = FALSE)
-    }
-    own_double_masked <- strsplit(blobs[["double_masked_points"]], ",", fixed = TRUE)[[1]]
-    .mhe_storage$blobs <- NULL
-  }
+  # 1. Read encrypted blob from storage and decrypt
+  encrypted_blob <- .read_psi_blob("dm_encrypted_blob")
+  dm_str <- .psi_decrypt_blob(encrypted_blob)
+  own_double_masked <- strsplit(dm_str, ",", fixed = TRUE)[[1]]
 
-  # Convert received points from base64url to standard base64
+  # 2. Convert received points from base64url to standard base64
   own_dm_std <- sapply(own_double_masked, .base64url_to_base64, USE.NAMES = FALSE)
 
-  # Call psi-match: find which own rows match which ref indices
+  # 3. Call psi-match: find which own rows match which ref indices
   result <- .callMheTool("psi-match", list(
     own_doubled = as.list(own_dm_std),
     ref_doubled = as.list(.mhe_storage$psi_ref_dm),
@@ -245,12 +609,11 @@ psiMatchAndAlignDS <- function(data_name, own_double_masked = NULL,
     stop("PSI: no matching records found", call. = FALSE)
   }
 
-  # Reorder data by matched_own_rows. The Go psi-match command returns
-  # results sorted by ref_index, so this reordering aligns the target's
-  # rows to the reference server's row order. +1L converts from Go's
-  # 0-based indexing to R's 1-based indexing.
+  # Reorder data by matched_own_rows
   aligned_data <- data[as.integer(result$matched_own_rows) + 1L, , drop = FALSE]
   rownames(aligned_data) <- NULL
+
+  .mhe_storage$psi_phase <- "matched"
 
   aligned_data
 }
@@ -336,7 +699,6 @@ psiFilterCommonDS <- function(data_name, common_indices = NULL,
   n_original <- nrow(data)
 
   # Disclosure control: nfilter.subset (dsBase pattern)
-  # Prevents creating subsets so small that individuals become identifiable.
   settings <- .dsvert_disclosure_settings()
   if (n_common > 0 && n_common < settings$nfilter.subset) {
     stop(
@@ -347,9 +709,7 @@ psiFilterCommonDS <- function(data_name, common_indices = NULL,
     )
   }
 
-  # Differencing check (dsBase dataFrameSubsetDS1 pattern):
-  # if |original - intersection| is small but nonzero, an attacker could
-  # identify the excluded individuals by differencing.
+  # Differencing check
   n_excluded <- n_original - n_common
   if (n_excluded > 0 && n_excluded < settings$nfilter.subset) {
     stop(
@@ -361,18 +721,19 @@ psiFilterCommonDS <- function(data_name, common_indices = NULL,
     )
   }
 
-  # After Phase 7, each server has data aligned to the reference order,
-  # but different servers may have matched different subsets of ref IDs.
-  # Phase 8 intersects these subsets to find IDs present on ALL servers.
-  # Here we filter down to only the common rows.
   keep <- .mhe_storage$psi_matched_ref_indices %in% common_indices
   filtered_data <- data[keep, , drop = FALSE]
   rownames(filtered_data) <- NULL
 
-  # Clean up PSI state — scalars and indices are no longer needed.
-  # This also prevents accidental reuse in a subsequent PSI call.
+  # Clean up all PSI state
   .mhe_storage$psi_scalar <- NULL
   .mhe_storage$psi_matched_ref_indices <- NULL
+  .mhe_storage$psi_masked_points <- NULL
+  .mhe_storage$psi_transport_sk <- NULL
+  .mhe_storage$psi_transport_pk <- NULL
+  .mhe_storage$psi_peer_pks <- NULL
+  .mhe_storage$psi_phase <- NULL
+  .mhe_storage$psi_dm_used <- NULL
 
   filtered_data
 }

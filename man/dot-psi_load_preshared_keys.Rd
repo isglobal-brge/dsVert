@@ -7,8 +7,8 @@
 .psi_load_preshared_keys()
 }
 \value{
-List with secret_key, public_key, peers (named list of PKs),
-or NULL if key pinning is not enabled.
+List with secret_key, public_key, trusted_pks (character vector of
+trusted peer PKs), or NULL if key pinning is not enabled.
 }
 \description{
 Reads key pinning configuration from R options following the dsBase

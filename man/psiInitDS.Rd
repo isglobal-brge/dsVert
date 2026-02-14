@@ -42,7 +42,7 @@ options(
   dsvert.psi_key_pinning = TRUE,
   dsvert.psi_sk = "<base64 X25519 secret key>",
   dsvert.psi_pk = "<base64 X25519 public key>",
-  dsvert.psi_peers = '{"server1":"<pk1>","server2":"<pk2>","ref":"<pk_ref>"}'
+  dsvert.psi_peers = '["<pk_peer1>","<pk_peer2>"]'
 )
 }
 All options follow the dsBase two-tier fallback pattern:

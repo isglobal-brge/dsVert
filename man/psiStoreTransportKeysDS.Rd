@@ -18,12 +18,11 @@ Called by the client after collecting PKs from all servers.
 }
 \section{MITM Detection (Full MITM-Resistant mode)}{
 
-When \code{dsvert.psi_key_pinning = TRUE}, this function validates the
-client-provided PKs against the pre-configured peers in
-\code{dsvert.psi_peers}. Any mismatch triggers an error — the client
-may have substituted keys (MITM attack). In this mode, the
-pre-configured peer PKs are used instead of the client-provided ones,
-so the client cannot add, remove, or modify peers.
+When \code{dsvert.psi_key_pinning = TRUE}, this function validates every
+client-provided PK against the trusted peer set in \code{dsvert.psi_peers}.
+Validation is by PK value, not by server name — so it works regardless of
+what aliases the client uses. Any unknown PK triggers an error (possible
+key substitution / MITM attack).
 
 In semi-honest mode (default), the client-provided PKs are used as-is.
 }

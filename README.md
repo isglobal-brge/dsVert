@@ -144,9 +144,8 @@ dsVert supports two security modes for PSI transport key exchange, configured vi
 ##### Mode 2: Full MITM-Resistant (pre-shared keys)
 
 - **Persistent X25519 keypairs** are pre-configured on each server by the administrator
-- Servers validate client-provided PKs against pre-configured peers during `psiStoreTransportKeysDS`
-- Any PK mismatch triggers a **MITM detection error** — the client may have substituted keys
-- In this mode, the server uses its pre-configured peer PKs (not the client-provided ones), so the client cannot add, remove, or modify peers
+- Servers validate every client-provided PK against the trusted peer set during `psiStoreTransportKeysDS`
+- Any unknown PK triggers a **MITM detection error** — the client may have substituted keys
 - Suitable for **untrusted or multi-tenant environments**
 
 #### PSI Firewall: Phase Ordering FSM
@@ -249,7 +248,7 @@ These options enable pre-shared key pinning for MITM-resistant PSI. They are **n
 | `dsvert.psi_key_pinning` | `FALSE` | Enable pre-shared key mode |
 | `dsvert.psi_sk` | *(not set)* | This server's X25519 secret key (standard base64) |
 | `dsvert.psi_pk` | *(not set)* | This server's X25519 public key (standard base64) |
-| `dsvert.psi_peers` | *(not set)* | JSON string mapping peer server names to their X25519 PKs |
+| `dsvert.psi_peers` | *(not set)* | Trusted peer X25519 public keys. JSON array `["pk1","pk2"]` or object `{"label1":"pk1","label2":"pk2"}` (labels ignored) |
 
 #### Configuration example (Opal/Rock)
 
@@ -261,11 +260,11 @@ options(
   dsvert.psi_key_pinning = TRUE,
   dsvert.psi_sk = "W8Jz...base64...==",
   dsvert.psi_pk = "Kp3R...base64...==",
-  dsvert.psi_peers = '{"server2":"Ax7Q...==","server3":"Bm9K...==","ref":"Kp3R...=="}'
+  dsvert.psi_peers = '["Ax7Q...==","Bm9K...=="]'
 )
 ```
 
-The `dsvert.psi_peers` JSON maps server names (as used in the DataSHIELD login) to their X25519 public keys. Include a `"ref"` alias pointing to the reference server's PK.
+The `dsvert.psi_peers` value lists the X25519 public keys of all trusted peer servers. Any PK relayed by the client that is not in this set will be rejected.
 
 #### Security of R options in DataSHIELD
 

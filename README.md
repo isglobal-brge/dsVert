@@ -328,14 +328,6 @@ Binaries are placed in `inst/bin/<platform>/mhe-tool`.
 
 ## Authors
 
-- David Sarrat Gonzalez (david.sarrat@isglobal.org)
+- David Sarrat González (david.sarrat@isglobal.org)
 - Miron Banjac (miron.banjac@isglobal.org)
-- Juan R Gonzalez (juanr.gonzalez@isglobal.org)
-
-## References
-
-- De Cristofaro, E. & Tsudik, G. (2010). "Practical Private Set Intersection Protocols with Linear Complexity". *FC 2010*.
-- Mouchet, C. et al. (2021). "Multiparty Homomorphic Encryption from Ring-Learning-With-Errors". *Proceedings on Privacy Enhancing Technologies (PETS)*.
-- Cheon, J.H. et al. (2017). "Homomorphic Encryption for Arithmetic of Approximate Numbers". *ASIACRYPT 2017*.
-- van Kesteren, E.J. et al. (2019). "Privacy-preserving generalized linear models using distributed block coordinate descent". arXiv:1911.03183.
-- Lattigo v6: https://github.com/tuneinsight/lattigo
+- Juan R González (juanr.gonzalez@isglobal.org)

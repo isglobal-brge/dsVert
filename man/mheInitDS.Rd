@@ -11,7 +11,8 @@ mheInitDS(
   num_obs = 100,
   log_n = 12,
   log_scale = 40,
-  from_storage = FALSE
+  from_storage = FALSE,
+  generate_rlk = FALSE
 )
 }
 \arguments{

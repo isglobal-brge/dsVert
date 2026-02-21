@@ -51,9 +51,9 @@ Each R function serializes its input as JSON, calls the `mhe-tool` binary via `s
 
 | Function | Type | Description |
 |----------|------|-------------|
-| `mheInitDS` | Aggregate | Generate secret key and public key share for this party |
-| `mheCombineDS` | Aggregate | Combine public key shares into Collective Public Key (CPK) |
-| `mheStoreCPKDS` | Aggregate | Store CPK received from the combine step |
+| `mheInitDS` | Aggregate | Generate secret key, public key share, and optionally RLK round 1 share |
+| `mheCombineDS` | Aggregate | Combine public key shares into CPK; combine RLK if shares present |
+| `mheStoreCPKDS` | Aggregate | Store CPK, Galois keys, and relinearization key received from combine |
 | `mheEncryptLocalDS` | Aggregate | Encrypt local data columns under the CPK |
 | `mheStoreEncChunkDS` | Aggregate | Store a chunk of an encrypted column (for transfer) |
 | `mheAssembleEncColumnDS` | Aggregate | Reassemble encrypted column from chunks |
@@ -63,6 +63,8 @@ Each R function serializes its input as JSON, calls the `mhe-tool` binary via `s
 | `mheGetObsDS` | Aggregate | Get number of complete observations for variables |
 | `localCorDS` | Aggregate | Compute local (within-server) correlation matrix |
 | `mheAuthorizeCTDS` | Aggregate | Protocol Firewall: register ciphertext for decryption |
+| `mheRLKAggregateR1DS` | Aggregate | Aggregate RLK round 1 shares (coordinator) |
+| `mheRLKRound2DS` | Aggregate | Generate RLK round 2 share using aggregated round 1 |
 | `mheCleanupDS` | Aggregate | Clean up all MHE state (keys, ciphertexts, blobs) |
 
 ### Share-Wrapping & Transport Encryption
@@ -95,6 +97,16 @@ Each R function serializes its input as JSON, calls the `mhe-tool` binary via `s
 | `glmSecureGradientDS` | Aggregate | Compute encrypted gradient from transport-encrypted mu/w/v |
 | `glmSecureBlockSolveDS` | Aggregate | BCD block update with transport-encrypted eta output |
 | `glmSecureDevianceDS` | Aggregate | Server-side deviance computation (no eta leak to client) |
+
+### HE-Link GLM Protocol (K=2 Privacy)
+
+| Function | Type | Description |
+|----------|------|-------------|
+| `glmHEEncryptEtaDS` | Aggregate | Encrypt eta_k = X_k * beta_k under CPK |
+| `glmHELinkStepDS` | Aggregate | Coordinator: aggregate encrypted etas + polynomial sigmoid evaluation |
+| `glmHEGradientEncDS` | Aggregate | Compute encrypted gradient using encrypted mu (ct_y - ct_mu) |
+| `glmHEBlockUpdateDS` | Aggregate | Gradient descent block update with decrypted gradient |
+| `glmHEPrepDevianceDS` | Aggregate | Prepare eta for one-time secure-routing deviance after convergence |
 
 ### Utilities
 
@@ -193,6 +205,20 @@ The label server acts as **coordinator**: it runs the IRLS update to compute mu,
 
 - **Beta vectors** (length p_k, the number of features on server k) -- safe aggregate statistics
 - **Opaque encrypted blobs** -- indistinguishable from random bytes without the recipient's X25519 private key
+
+### HE-Link: Homomorphic Sigmoid for K=2 Privacy
+
+With K=2 servers (label + 1 non-label), standard secure routing leaks `eta_nonlabel` to the label server: since `eta_total = eta_label + eta_nonlabel` and the label server knows `eta_label`, it can reconstruct `eta_nonlabel` exactly. When the non-label server has p=1 predictor, this reveals individual-level data `x = eta / beta`.
+
+The HE-Link protocol fixes this by computing `mu = sigmoid(eta_total)` entirely in the encrypted domain using CKKS polynomial approximation (degree-7 minimax on [-8, 8]):
+
+1. Each server encrypts `eta_k = X_k * beta_k` under the CPK
+2. Coordinator adds ciphertexts homomorphically: `ct_eta_total = ct_eta_label + ct_eta_nonlabel`
+3. Coordinator evaluates degree-7 sigmoid polynomial on `ct_eta_total` → `ct_mu` (requires relinearization key, consumes 3 multiplicative levels)
+4. Both servers compute gradient from `ct_y - ct_mu` (both encrypted)
+5. Gradient scalars are threshold-decrypted; beta updated via gradient descent
+
+The label server **never** sees `eta_nonlabel` in plaintext during the training loop. Requires `logN >= 14` (6 levels available, 4 consumed by gradient computation).
 
 ### Protocol Firewall
 

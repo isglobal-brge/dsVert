@@ -182,12 +182,13 @@ NULL
 #' @export
 mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
                       num_obs = 100, log_n = 12, log_scale = 40,
-                      from_storage = FALSE) {
+                      from_storage = FALSE, generate_rlk = FALSE) {
   input <- list(
     party_id = as.integer(party_id),
     num_obs = as.integer(num_obs),
     log_n = as.integer(log_n),
-    log_scale = as.integer(log_scale)
+    log_scale = as.integer(log_scale),
+    generate_rlk = isTRUE(generate_rlk)
   )
 
   # If not party 0, include CRP and shared GKG seed
@@ -226,6 +227,12 @@ mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
   .mhe_storage$transport_sk <- transport$secret_key
   .mhe_storage$transport_pk <- transport$public_key
 
+  # Store RLK ephemeral SK locally (NEVER returned to client) for round 2
+  if (isTRUE(generate_rlk) && !is.null(result$rlk_ephemeral_sk) &&
+      nzchar(result$rlk_ephemeral_sk)) {
+    .mhe_storage$rlk_ephemeral_sk <- result$rlk_ephemeral_sk
+  }
+
   # Return only public information: the public key share (safe to combine)
   # and Galois key generation shares (for enabling ciphertext rotations).
   output <- list(
@@ -235,6 +242,12 @@ mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
     transport_pk = base64_to_base64url(transport$public_key)
   )
 
+  # RLK round 1 share (sent for aggregation)
+  if (isTRUE(generate_rlk) && !is.null(result$rlk_round1_share) &&
+      nzchar(result$rlk_round1_share)) {
+    output$rlk_round1_share <- base64_to_base64url(result$rlk_round1_share)
+  }
+
   # Party 0 also returns CRP and GKG seed
   if (party_id == 0) {
     output$crp <- base64_to_base64url(result$crp)
@@ -242,6 +255,101 @@ mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
   }
 
   output
+}
+
+#' Aggregate RLK round 1 shares (coordinator only)
+#'
+#' Called on the combining server to aggregate all parties' RLK round 1 shares
+#' into a single aggregated round 1. The aggregated round 1 is then distributed
+#' to all parties for round 2 generation.
+#'
+#' @param from_storage Logical. If TRUE, read round 1 shares from blob storage.
+#' @param n_parties Integer. Number of parties (used with from_storage).
+#'
+#' @return List with aggregated_round1 (base64url)
+#' @export
+mheRLKAggregateR1DS <- function(from_storage = FALSE, n_parties = 0) {
+  if (from_storage) {
+    blobs <- .mhe_storage$blobs
+    if (is.null(blobs)) stop("No blobs stored for RLK R1 aggregation", call. = FALSE)
+
+    r1_shares <- character(n_parties)
+    for (i in seq_len(n_parties)) {
+      r1_shares[i] <- .base64url_to_base64(blobs[[paste0("rlk_r1_", i - 1)]])
+    }
+    .mhe_storage$blobs <- NULL
+  } else {
+    stop("Direct argument mode not supported for RLK aggregation", call. = FALSE)
+  }
+
+  input <- list(
+    rlk_round1_shares = as.list(r1_shares),
+    log_n = as.integer(.mhe_storage$log_n %||% 14),
+    log_scale = as.integer(.mhe_storage$log_scale %||% 40)
+  )
+
+  result <- .callMheTool("mhe-rlk-aggregate-r1", input)
+
+  # Store aggregated round 1 locally for own round 2 generation
+  .mhe_storage$rlk_aggregated_r1 <- result$aggregated_round1
+
+  list(aggregated_round1 = base64_to_base64url(result$aggregated_round1))
+}
+
+#' Generate RLK round 2 share
+#'
+#' Called on each server after receiving the aggregated round 1 share.
+#' Uses this party's stored secret key and ephemeral SK to generate
+#' a round 2 share.
+#'
+#' @param from_storage Logical. If TRUE, read aggregated round 1 from
+#'   blob storage. Default FALSE.
+#' @param aggregated_round1 Character or NULL. Aggregated round 1 (base64url).
+#'   Ignored when from_storage is TRUE.
+#'
+#' @return List with rlk_round2_share (base64url)
+#' @export
+mheRLKRound2DS <- function(from_storage = FALSE, aggregated_round1 = NULL) {
+  if (is.null(.mhe_storage$secret_key)) {
+    stop("Secret key not stored. Call mheInitDS first.", call. = FALSE)
+  }
+  if (is.null(.mhe_storage$rlk_ephemeral_sk)) {
+    stop("RLK ephemeral SK not stored. Call mheInitDS with generate_rlk=TRUE.", call. = FALSE)
+  }
+
+  if (from_storage) {
+    blobs <- .mhe_storage$blobs
+    if (!is.null(blobs) && !is.null(blobs[["rlk_agg_r1"]])) {
+      agg_r1 <- .base64url_to_base64(blobs[["rlk_agg_r1"]])
+      .mhe_storage$blobs <- NULL
+    } else if (!is.null(.mhe_storage$rlk_aggregated_r1)) {
+      # Coordinator already has it from mheRLKAggregateR1DS
+      agg_r1 <- .mhe_storage$rlk_aggregated_r1
+    } else {
+      stop("No aggregated round 1 available", call. = FALSE)
+    }
+  } else if (!is.null(aggregated_round1)) {
+    agg_r1 <- .base64url_to_base64(aggregated_round1)
+  } else if (!is.null(.mhe_storage$rlk_aggregated_r1)) {
+    agg_r1 <- .mhe_storage$rlk_aggregated_r1
+  } else {
+    stop("No aggregated round 1 provided", call. = FALSE)
+  }
+
+  input <- list(
+    secret_key = .mhe_storage$secret_key,
+    rlk_ephemeral_sk = .mhe_storage$rlk_ephemeral_sk,
+    aggregated_round1 = agg_r1,
+    log_n = as.integer(.mhe_storage$log_n %||% 14),
+    log_scale = as.integer(.mhe_storage$log_scale %||% 40)
+  )
+
+  result <- .callMheTool("mhe-rlk-round2", input)
+
+  # Clean up ephemeral SK (no longer needed after round 2)
+  .mhe_storage$rlk_ephemeral_sk <- NULL
+
+  list(rlk_round2_share = base64_to_base64url(result$rlk_round2_share))
 }
 
 #' Combine public key shares into collective public key
@@ -289,6 +397,23 @@ mheCombineDS <- function(public_key_shares = NULL, crp = NULL, galois_key_shares
       }
     }
 
+    # Read RLK round 1 aggregated + round 2 shares from blob storage (if present)
+    rlk_r1_agg_std <- ""
+    if (!is.null(blobs[["rlk_agg_r1"]])) {
+      rlk_r1_agg_std <- .base64url_to_base64(blobs[["rlk_agg_r1"]])
+    } else if (!is.null(.mhe_storage$rlk_aggregated_r1)) {
+      # Coordinator already has it from mheRLKAggregateR1DS
+      rlk_r1_agg_std <- .mhe_storage$rlk_aggregated_r1
+    }
+
+    rlk_r2_shares_std <- list()
+    for (i in seq_len(n_parties)) {
+      key <- paste0("rlk_r2_", i - 1)
+      if (!is.null(blobs[[key]])) {
+        rlk_r2_shares_std[[length(rlk_r2_shares_std) + 1]] <- .base64url_to_base64(blobs[[key]])
+      }
+    }
+
     # Clean up blobs
     .mhe_storage$blobs <- NULL
   } else {
@@ -307,6 +432,9 @@ mheCombineDS <- function(public_key_shares = NULL, crp = NULL, galois_key_shares
     if (!is.null(gkg_seed)) {
       gkg_seed_std <- .base64url_to_base64(gkg_seed)
     }
+
+    rlk_r1_agg_std <- ""
+    rlk_r2_shares_std <- list()
   }
 
   input <- list(
@@ -318,6 +446,12 @@ mheCombineDS <- function(public_key_shares = NULL, crp = NULL, galois_key_shares
     log_n = as.integer(log_n),
     log_scale = as.integer(log_scale)
   )
+
+  # Include RLK data if available
+  if (nzchar(rlk_r1_agg_std) && length(rlk_r2_shares_std) > 0) {
+    input$rlk_round1_aggregated <- rlk_r1_agg_std
+    input$rlk_round2_shares <- rlk_r2_shares_std
+  }
 
   result <- .callMheTool("mhe-combine", input)
 
@@ -335,9 +469,16 @@ mheCombineDS <- function(public_key_shares = NULL, crp = NULL, galois_key_shares
     gk_out <- sapply(result$galois_keys, base64_to_base64url, USE.NAMES = FALSE)
   }
 
+  # Return RLK if generated (non-empty)
+  rk_out <- NULL
+  if (!is.null(result$relinearization_key) && nzchar(result$relinearization_key)) {
+    rk_out <- base64_to_base64url(result$relinearization_key)
+  }
+
   list(
     collective_public_key = base64_to_base64url(result$collective_public_key),
-    galois_keys = gk_out
+    galois_keys = gk_out,
+    relin_key = rk_out
   )
 }
 

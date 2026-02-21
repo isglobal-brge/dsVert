@@ -25,12 +25,13 @@ import (
 // ============================================================================
 
 type MHESetupInput struct {
-	PartyID  int    `json:"party_id"`
-	CRP      string `json:"crp,omitempty"`       // Base64, empty for party 0
-	GKGSeed  string `json:"gkg_seed,omitempty"`  // Base64, shared seed for deterministic GKG CRPs (empty for party 0)
-	NumObs   int    `json:"num_obs"`             // Number of observations (for minimal galois keys)
-	LogN     int    `json:"log_n"`
-	LogScale int    `json:"log_scale"`
+	PartyID     int    `json:"party_id"`
+	CRP         string `json:"crp,omitempty"`          // Base64, empty for party 0
+	GKGSeed     string `json:"gkg_seed,omitempty"`     // Base64, shared seed for deterministic GKG CRPs (empty for party 0)
+	NumObs      int    `json:"num_obs"`                // Number of observations (for minimal galois keys)
+	LogN        int    `json:"log_n"`
+	LogScale    int    `json:"log_scale"`
+	GenerateRLK bool   `json:"generate_rlk,omitempty"` // Generate relinearization key share (for ct×ct multiplication)
 }
 
 type MHESetupOutput struct {
@@ -46,6 +47,12 @@ type MHESetupOutput struct {
 
 	// Galois key shares for collaborative generation (one per rotation)
 	GaloisKeyShares []string `json:"galois_key_shares"` // Base64 array
+
+	// RLK round 1 share (for ct×ct multiplication, only when GenerateRLK=true)
+	// The RLK protocol is two-round: round 1 shares are aggregated, then
+	// each party generates a round 2 share using the aggregated round 1.
+	RLKRound1Share  string `json:"rlk_round1_share,omitempty"`  // Base64
+	RLKEphemeralSK  string `json:"rlk_ephemeral_sk,omitempty"`  // Base64 - stored locally, NEVER sent to client
 
 	PartyID int `json:"party_id"`
 }
@@ -140,12 +147,45 @@ func mheSetup(input *MHESetupInput) (*MHESetupOutput, error) {
 		galoisSharesB64[i] = base64.StdEncoding.EncodeToString(shareBytes)
 	}
 
+	// Generate RLK round 1 share if requested (for ct×ct multiplication in HE-Link mode).
+	// The Lattigo RLK protocol is two-round:
+	//   Round 1: Each party generates ephSk + round1 share, broadcasts round1
+	//   Round 2: After aggregating round1, each party generates round2 share
+	//   Finalize: Aggregate round2, generate RLK from (aggR1, aggR2)
+	var rlkR1B64, rlkEphSkB64 string
+	if input.GenerateRLK {
+		rlkSeedBytes := append(append([]byte{}, gkgSeed...), []byte("rlk")...)
+		rlkPRNG, err := sampling.NewKeyedPRNG(rlkSeedBytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create RLK PRNG: %v", err)
+		}
+
+		rlkGen := multiparty.NewRelinearizationKeyGenProtocol(params)
+		rlkCRP := rlkGen.SampleCRP(rlkPRNG)
+		ephSk, r1Share, _ := rlkGen.AllocateShare()
+		rlkGen.GenShareRoundOne(sk, rlkCRP, ephSk, &r1Share)
+
+		r1Bytes, err := r1Share.MarshalBinary()
+		if err != nil {
+			return nil, fmt.Errorf("failed to serialize RLK round1 share: %v", err)
+		}
+		rlkR1B64 = base64.StdEncoding.EncodeToString(r1Bytes)
+
+		ephSkBytes, err := ephSk.MarshalBinary()
+		if err != nil {
+			return nil, fmt.Errorf("failed to serialize RLK ephemeral SK: %v", err)
+		}
+		rlkEphSkB64 = base64.StdEncoding.EncodeToString(ephSkBytes)
+	}
+
 	return &MHESetupOutput{
 		SecretKey:       base64.StdEncoding.EncodeToString(skBytes),
 		PublicKeyShare:  base64.StdEncoding.EncodeToString(pkShareBytes),
 		CRP:             crpB64,
 		GKGSeed:         gkgSeedB64,
 		GaloisKeyShares: galoisSharesB64,
+		RLKRound1Share:  rlkR1B64,
+		RLKEphemeralSK:  rlkEphSkB64,
 		PartyID:         input.PartyID,
 	}, nil
 }
@@ -155,13 +195,15 @@ func mheSetup(input *MHESetupInput) (*MHESetupOutput, error) {
 // ============================================================================
 
 type MHECombineInput struct {
-	PublicKeyShares []string   `json:"public_key_shares"`         // Base64 array
-	GaloisKeyShares [][]string `json:"galois_key_shares"`         // Base64 [party][galEl]
-	GKGSeed         string     `json:"gkg_seed,omitempty"`        // Shared seed for CRP recreation
-	CRP             string     `json:"crp"`                       // Base64
-	NumObs          int        `json:"num_obs"`
-	LogN            int        `json:"log_n"`
-	LogScale        int        `json:"log_scale"`
+	PublicKeyShares    []string   `json:"public_key_shares"`              // Base64 array
+	GaloisKeyShares    [][]string `json:"galois_key_shares"`              // Base64 [party][galEl]
+	GKGSeed            string     `json:"gkg_seed,omitempty"`             // Shared seed for CRP recreation
+	CRP                string     `json:"crp"`                            // Base64
+	RLKRound1Aggregated string    `json:"rlk_round1_aggregated,omitempty"` // Base64: aggregated round1 shares
+	RLKRound2Shares    []string   `json:"rlk_round2_shares,omitempty"`     // Base64 array: per-party round2 shares
+	NumObs             int        `json:"num_obs"`
+	LogN               int        `json:"log_n"`
+	LogScale           int        `json:"log_scale"`
 }
 
 type MHECombineOutput struct {
@@ -219,15 +261,20 @@ func mheCombine(input *MHECombineInput) (*MHECombineOutput, error) {
 	galEls := params.GaloisElementsForInnerSum(1, input.NumObs)
 	sort.Slice(galEls, func(i, j int) bool { return galEls[i] < galEls[j] })
 
-	var gksB64 []string
-
-	if len(input.GaloisKeyShares) == numParties && len(input.GKGSeed) > 0 {
-		// Proper threshold GKG: recreate deterministic PRNG from shared seed,
-		// aggregate per-party shares, generate correct Galois keys
-		gkgSeed, err := base64.StdEncoding.DecodeString(input.GKGSeed)
+	// Decode GKG seed (shared across Galois key gen and RLK gen)
+	var gkgSeed []byte
+	if len(input.GKGSeed) > 0 {
+		gkgSeed, err = base64.StdEncoding.DecodeString(input.GKGSeed)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode GKG seed: %v", err)
 		}
+	}
+
+	var gksB64 []string
+
+	if len(input.GaloisKeyShares) == numParties && len(gkgSeed) > 0 {
+		// Proper threshold GKG: recreate deterministic PRNG from shared seed,
+		// aggregate per-party shares, generate correct Galois keys
 		gkgPRNG, err := sampling.NewKeyedPRNG(gkgSeed)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create keyed PRNG for GKG: %v", err)
@@ -280,10 +327,167 @@ func mheCombine(input *MHECombineInput) (*MHECombineOutput, error) {
 		gksB64 = make([]string, 0)
 	}
 
+	// Generate collective RLK from aggregated round1 + per-party round2 shares
+	rlkB64 := ""
+	if len(input.RLKRound1Aggregated) > 0 && len(input.RLKRound2Shares) > 0 {
+		rlkGen := multiparty.NewRelinearizationKeyGenProtocol(params)
+
+		// Deserialize aggregated round 1
+		aggR1Bytes, err := base64.StdEncoding.DecodeString(input.RLKRound1Aggregated)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode aggregated RLK round1: %v", err)
+		}
+		_, aggR1, _ := rlkGen.AllocateShare()
+		if err := aggR1.UnmarshalBinary(aggR1Bytes); err != nil {
+			return nil, fmt.Errorf("failed to deserialize aggregated RLK round1: %v", err)
+		}
+
+		// Aggregate round 2 shares
+		var aggR2 multiparty.RelinearizationKeyGenShare
+		for i, shareB64 := range input.RLKRound2Shares {
+			shareBytes, err := base64.StdEncoding.DecodeString(shareB64)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode RLK round2 share %d: %v", i, err)
+			}
+			_, _, r2 := rlkGen.AllocateShare()
+			if err := r2.UnmarshalBinary(shareBytes); err != nil {
+				return nil, fmt.Errorf("failed to deserialize RLK round2 share %d: %v", i, err)
+			}
+			if i == 0 {
+				aggR2 = r2
+			} else {
+				rlkGen.AggregateShares(r2, aggR2, &aggR2)
+			}
+		}
+
+		// Generate collective RLK from (aggregated round1, aggregated round2)
+		rlk := rlwe.NewRelinearizationKey(params)
+		rlkGen.GenRelinearizationKey(aggR1, aggR2, rlk)
+
+		rlkBytes, err := rlk.MarshalBinary()
+		if err != nil {
+			return nil, fmt.Errorf("failed to serialize RLK: %v", err)
+		}
+		rlkB64 = base64.StdEncoding.EncodeToString(rlkBytes)
+	}
+
 	return &MHECombineOutput{
 		CollectivePublicKey: base64.StdEncoding.EncodeToString(cpkBytes),
 		GaloisKeys:          gksB64,
-		RelinearizationKey:  "", // Not needed for degree-1 operations
+		RelinearizationKey:  rlkB64,
+	}, nil
+}
+
+// ============================================================================
+// Phase 2b: RLK Round 1 Aggregation + Round 2 Generation
+// ============================================================================
+
+type RLKAggregateR1Input struct {
+	RLKRound1Shares []string `json:"rlk_round1_shares"` // Base64 array: per-party round 1 shares
+	LogN            int      `json:"log_n"`
+	LogScale        int      `json:"log_scale"`
+}
+
+type RLKAggregateR1Output struct {
+	AggregatedRound1 string `json:"aggregated_round1"` // Base64: aggregated round 1
+}
+
+func mheRLKAggregateR1(input *RLKAggregateR1Input) (*RLKAggregateR1Output, error) {
+	params, err := getParams(input.LogN, input.LogScale)
+	if err != nil {
+		return nil, err
+	}
+
+	rlkGen := multiparty.NewRelinearizationKeyGenProtocol(params)
+
+	var aggR1 multiparty.RelinearizationKeyGenShare
+	for i, shareB64 := range input.RLKRound1Shares {
+		shareBytes, err := base64.StdEncoding.DecodeString(shareB64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode RLK R1 share %d: %v", i, err)
+		}
+		_, r1, _ := rlkGen.AllocateShare()
+		if err := r1.UnmarshalBinary(shareBytes); err != nil {
+			return nil, fmt.Errorf("failed to deserialize RLK R1 share %d: %v", i, err)
+		}
+		if i == 0 {
+			aggR1 = r1
+		} else {
+			rlkGen.AggregateShares(r1, aggR1, &aggR1)
+		}
+	}
+
+	aggR1Bytes, err := aggR1.MarshalBinary()
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize aggregated R1: %v", err)
+	}
+
+	return &RLKAggregateR1Output{
+		AggregatedRound1: base64.StdEncoding.EncodeToString(aggR1Bytes),
+	}, nil
+}
+
+type RLKRound2Input struct {
+	SecretKey        string `json:"secret_key"`         // Base64: this party's secret key
+	RLKEphemeralSK   string `json:"rlk_ephemeral_sk"`   // Base64: ephemeral SK from round 1
+	AggregatedRound1 string `json:"aggregated_round1"`  // Base64: aggregated round 1 shares
+	LogN             int    `json:"log_n"`
+	LogScale         int    `json:"log_scale"`
+}
+
+type RLKRound2Output struct {
+	RLKRound2Share string `json:"rlk_round2_share"` // Base64
+}
+
+func mheRLKRound2(input *RLKRound2Input) (*RLKRound2Output, error) {
+	params, err := getParams(input.LogN, input.LogScale)
+	if err != nil {
+		return nil, err
+	}
+
+	// Deserialize secret key
+	skBytes, err := base64.StdEncoding.DecodeString(input.SecretKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode secret key: %v", err)
+	}
+	sk := rlwe.NewSecretKey(params)
+	if err := sk.UnmarshalBinary(skBytes); err != nil {
+		return nil, fmt.Errorf("failed to deserialize secret key: %v", err)
+	}
+
+	// Deserialize ephemeral SK
+	ephSkBytes, err := base64.StdEncoding.DecodeString(input.RLKEphemeralSK)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode ephemeral SK: %v", err)
+	}
+	ephSk := rlwe.NewSecretKey(params)
+	if err := ephSk.UnmarshalBinary(ephSkBytes); err != nil {
+		return nil, fmt.Errorf("failed to deserialize ephemeral SK: %v", err)
+	}
+
+	// Deserialize aggregated round 1
+	aggR1Bytes, err := base64.StdEncoding.DecodeString(input.AggregatedRound1)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode aggregated round1: %v", err)
+	}
+
+	rlkGen := multiparty.NewRelinearizationKeyGenProtocol(params)
+	_, aggR1, _ := rlkGen.AllocateShare()
+	if err := aggR1.UnmarshalBinary(aggR1Bytes); err != nil {
+		return nil, fmt.Errorf("failed to deserialize aggregated round1: %v", err)
+	}
+
+	// Generate round 2 share
+	_, _, r2Share := rlkGen.AllocateShare()
+	rlkGen.GenShareRoundTwo(ephSk, sk, aggR1, &r2Share)
+
+	r2Bytes, err := r2Share.MarshalBinary()
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize round2 share: %v", err)
+	}
+
+	return &RLKRound2Output{
+		RLKRound2Share: base64.StdEncoding.EncodeToString(r2Bytes),
 	}, nil
 }
 

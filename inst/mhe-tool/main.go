@@ -34,7 +34,7 @@ import (
 	"os"
 )
 
-const VERSION = "1.6.0"
+const VERSION = "1.7.0"
 
 // EncryptColumnsInput: Encrypt a matrix column-by-column
 type EncryptColumnsInput struct {
@@ -99,6 +99,18 @@ func main() {
 		handleTransportDecryptVectors()
 	case "mhe-fuse-server":
 		handleMHEFuseServer()
+	case "mhe-rlk-aggregate-r1":
+		handleMHERLKAggregateR1()
+	case "mhe-rlk-round2":
+		handleMHERLKRound2()
+	case "mhe-ct-add":
+		handleMHECTAdd()
+	case "mhe-eval-poly":
+		handleMHEEvalPoly()
+	case "mhe-he-gradient":
+		handleMHEHEGradient()
+	case "mhe-encrypt-vector":
+		handleMHEEncryptVector()
 	case "help", "-h", "--help":
 		printUsage()
 	default:
@@ -122,6 +134,12 @@ Commands:
   mhe-partial-decrypt        Compute partial decryption share using this party's secret key
   mhe-fuse                   Fuse all partial decryption shares to recover plaintext
   mhe-fuse-server            Unwrap + fuse shares server-side (share-wrapping protocol)
+  mhe-rlk-aggregate-r1       Aggregate RLK round 1 shares
+  mhe-rlk-round2             Generate RLK round 2 share from aggregated round 1
+  mhe-ct-add                 Homomorphic addition of two ciphertexts
+  mhe-eval-poly              Evaluate polynomial on ciphertext (BSGS, degree ≤ 7)
+  mhe-he-gradient            Compute encrypted gradient with encrypted mu (HE-Link)
+  mhe-encrypt-vector         Encrypt a single float64 vector under CPK
   transport-keygen           Generate X25519 transport keypair
   transport-encrypt          Encrypt arbitrary bytes (ECIES: X25519 + AES-256-GCM)
   transport-decrypt          Decrypt arbitrary bytes
@@ -468,6 +486,191 @@ func handleMHEFuseServer() {
 	output, err := mheFuseServer(&input)
 	if err != nil {
 		outputError(fmt.Sprintf("MHE fuse server failed: %v", err))
+		os.Exit(1)
+	}
+
+	outputJSON(output)
+}
+
+// ============================================================================
+// RLK protocol command handlers
+// ============================================================================
+
+func handleMHERLKAggregateR1() {
+	inputBytes, err := readInput()
+	if err != nil {
+		outputError(fmt.Sprintf("Failed to read input: %v", err))
+		os.Exit(1)
+	}
+
+	var input RLKAggregateR1Input
+	if err := json.Unmarshal(inputBytes, &input); err != nil {
+		outputError(fmt.Sprintf("Failed to parse input: %v", err))
+		os.Exit(1)
+	}
+
+	if input.LogN == 0 {
+		input.LogN = 14
+	}
+	if input.LogScale == 0 {
+		input.LogScale = 40
+	}
+
+	output, err := mheRLKAggregateR1(&input)
+	if err != nil {
+		outputError(fmt.Sprintf("RLK aggregate R1 failed: %v", err))
+		os.Exit(1)
+	}
+
+	outputJSON(output)
+}
+
+func handleMHERLKRound2() {
+	inputBytes, err := readInput()
+	if err != nil {
+		outputError(fmt.Sprintf("Failed to read input: %v", err))
+		os.Exit(1)
+	}
+
+	var input RLKRound2Input
+	if err := json.Unmarshal(inputBytes, &input); err != nil {
+		outputError(fmt.Sprintf("Failed to parse input: %v", err))
+		os.Exit(1)
+	}
+
+	if input.LogN == 0 {
+		input.LogN = 14
+	}
+	if input.LogScale == 0 {
+		input.LogScale = 40
+	}
+
+	output, err := mheRLKRound2(&input)
+	if err != nil {
+		outputError(fmt.Sprintf("RLK round2 failed: %v", err))
+		os.Exit(1)
+	}
+
+	outputJSON(output)
+}
+
+// ============================================================================
+// HE-Link command handlers
+// ============================================================================
+
+func handleMHECTAdd() {
+	inputBytes, err := readInput()
+	if err != nil {
+		outputError(fmt.Sprintf("Failed to read input: %v", err))
+		os.Exit(1)
+	}
+
+	var input CTAddInput
+	if err := json.Unmarshal(inputBytes, &input); err != nil {
+		outputError(fmt.Sprintf("Failed to parse input: %v", err))
+		os.Exit(1)
+	}
+
+	if input.LogN == 0 {
+		input.LogN = 12
+	}
+	if input.LogScale == 0 {
+		input.LogScale = 40
+	}
+
+	output, err := mheCTAdd(&input)
+	if err != nil {
+		outputError(fmt.Sprintf("CT add failed: %v", err))
+		os.Exit(1)
+	}
+
+	outputJSON(output)
+}
+
+func handleMHEEvalPoly() {
+	inputBytes, err := readInput()
+	if err != nil {
+		outputError(fmt.Sprintf("Failed to read input: %v", err))
+		os.Exit(1)
+	}
+
+	var input EvalPolyInput
+	if err := json.Unmarshal(inputBytes, &input); err != nil {
+		outputError(fmt.Sprintf("Failed to parse input: %v", err))
+		os.Exit(1)
+	}
+
+	if input.LogN == 0 {
+		input.LogN = 14
+	}
+	if input.LogScale == 0 {
+		input.LogScale = 40
+	}
+
+	output, err := mheEvalPoly(&input)
+	if err != nil {
+		outputError(fmt.Sprintf("Polynomial eval failed: %v", err))
+		os.Exit(1)
+	}
+
+	outputJSON(output)
+}
+
+func handleMHEHEGradient() {
+	inputBytes, err := readInput()
+	if err != nil {
+		outputError(fmt.Sprintf("Failed to read input: %v", err))
+		os.Exit(1)
+	}
+
+	var input HEGradientInput
+	if err := json.Unmarshal(inputBytes, &input); err != nil {
+		outputError(fmt.Sprintf("Failed to parse input: %v", err))
+		os.Exit(1)
+	}
+
+	if input.LogN == 0 {
+		input.LogN = 14
+	}
+	if input.LogScale == 0 {
+		input.LogScale = 40
+	}
+	if input.NumObs == 0 {
+		input.NumObs = 100
+	}
+
+	output, err := mheHEGradient(&input)
+	if err != nil {
+		outputError(fmt.Sprintf("HE gradient failed: %v", err))
+		os.Exit(1)
+	}
+
+	outputJSON(output)
+}
+
+func handleMHEEncryptVector() {
+	inputBytes, err := readInput()
+	if err != nil {
+		outputError(fmt.Sprintf("Failed to read input: %v", err))
+		os.Exit(1)
+	}
+
+	var input EncryptVectorInput
+	if err := json.Unmarshal(inputBytes, &input); err != nil {
+		outputError(fmt.Sprintf("Failed to parse input: %v", err))
+		os.Exit(1)
+	}
+
+	if input.LogN == 0 {
+		input.LogN = 14
+	}
+	if input.LogScale == 0 {
+		input.LogScale = 40
+	}
+
+	output, err := mheEncryptVector(&input)
+	if err != nil {
+		outputError(fmt.Sprintf("Vector encryption failed: %v", err))
 		os.Exit(1)
 	}
 

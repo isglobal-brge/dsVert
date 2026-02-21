@@ -69,6 +69,13 @@ AggregateMethods:
     glmSecureGradientDS,
     glmSecureBlockSolveDS,
     glmSecureDevianceDS,
+    mheRLKAggregateR1DS,
+    mheRLKRound2DS,
+    glmHEEncryptEtaDS,
+    glmHELinkStepDS,
+    glmHEGradientEncDS,
+    glmHEBlockUpdateDS,
+    glmHEPrepDevianceDS,
     c=base::c,
     list=base::list
 AssignMethods:

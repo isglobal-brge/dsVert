@@ -34,7 +34,7 @@ import (
 	"os"
 )
 
-const VERSION = "1.7.0"
+const VERSION = "1.8.0"
 
 // EncryptColumnsInput: Encrypt a matrix column-by-column
 type EncryptColumnsInput struct {
@@ -111,6 +111,14 @@ func main() {
 		handleMHEHEGradient()
 	case "mhe-encrypt-vector":
 		handleMHEEncryptVector()
+	case "derive-shared-seed":
+		handleDeriveSharedSeed()
+	case "prg-mask-vector":
+		handlePRGMaskVector()
+	case "fixed-point-mask-eta":
+		handleFixedPointMaskEta()
+	case "fixed-point-unmask-sum":
+		handleFixedPointUnmaskSum()
 	case "help", "-h", "--help":
 		printUsage()
 	default:
@@ -140,6 +148,10 @@ Commands:
   mhe-eval-poly              Evaluate polynomial on ciphertext (BSGS, degree ≤ 7)
   mhe-he-gradient            Compute encrypted gradient with encrypted mu (HE-Link)
   mhe-encrypt-vector         Encrypt a single float64 vector under CPK
+  derive-shared-seed         Derive pairwise PRG seed (X25519 + HKDF)
+  prg-mask-vector            Generate deterministic ChaCha20 mask vector
+  fixed-point-mask-eta       Mask η with fixed-point + PRG masks
+  fixed-point-unmask-sum     Sum masked vectors → recover aggregate η
   transport-keygen           Generate X25519 transport keypair
   transport-encrypt          Encrypt arbitrary bytes (ECIES: X25519 + AES-256-GCM)
   transport-decrypt          Decrypt arbitrary bytes

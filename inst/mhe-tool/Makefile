@@ -2,7 +2,7 @@
 # Builds binaries for all supported platforms
 
 BINARY_NAME = mhe-tool
-VERSION = 1.2.0
+VERSION = 1.8.0
 
 # Output directories
 BIN_DIR = ../bin

@@ -108,6 +108,22 @@ Each R function serializes its input as JSON, calls the `mhe-tool` binary via `s
 | `glmHEBlockUpdateDS` | Aggregate | Gradient descent block update with decrypted gradient |
 | `glmHEPrepDevianceDS` | Aggregate | Prepare eta for one-time secure-routing deviance after convergence |
 
+### GLM Secure Aggregation (K>=3 Privacy)
+
+| Function | Type | Description |
+|----------|------|-------------|
+| `glmSecureAggInitDS` | Aggregate | Derive pairwise PRG seeds via X25519 ECDH + HKDF for mask generation |
+| `glmSecureAggBlockSolveDS` | Aggregate | BCD block update + mask eta with pairwise PRG masks (fixed-point) |
+| `glmSecureAggCoordinatorStepDS` | Aggregate | Coordinator IRLS: sum masked etas (masks cancel), distribute encrypted (mu, w) |
+| `glmSecureAggPrepDevianceDS` | Aggregate | Prepare eta for one-time deviance after convergence |
+
+### GLM Phase-Ordering FSM Firewall
+
+| Function | Type | Description |
+|----------|------|-------------|
+| `glmFSMInitDS` | Aggregate | Initialize session FSM with session_id, n_nonlabel, mode |
+| `glmFSMCheckDS` | Aggregate | Validate and advance FSM state (anti-replay, phase ordering) |
+
 ### Utilities
 
 | Function | Type | Description |
@@ -219,6 +235,46 @@ The HE-Link protocol fixes this by computing `mu = sigmoid(eta_total)` entirely 
 5. Gradient scalars are threshold-decrypted; beta updated via gradient descent
 
 The label server **never** sees `eta_nonlabel` in plaintext during the training loop. Requires `logN >= 14` (6 levels available, 4 consumed by gradient computation).
+
+### Secure Aggregation: Pairwise PRG Masks for K>=3
+
+With K>=3 servers (>=2 non-label), standard secure routing still leaks individual per-server `eta_k` to the coordinator. Even though no single `eta_k` reveals raw data directly (unlike K=2), a **delta attack** between iterations can isolate the updated block's contribution by differencing `eta_total` before and after the update.
+
+The `eta_privacy = "secure_agg"` mode fixes this using **pairwise PRG masks with fixed-point integer arithmetic**:
+
+1. Each pair of non-label servers derives a shared seed via X25519 ECDH + HKDF (bound to the session ID)
+2. When masking `eta_k`, server `i` adds `+mask` for peers `j > i` and `-mask` for peers `j < i` (canonical name ordering ensures cancellation)
+3. Masks are generated deterministically from the shared seed and iteration number using ChaCha20 PRG
+4. The coordinator sums all masked etas element-wise. Pairwise masks cancel exactly (integer arithmetic), leaving only the true aggregate `eta_other = sum(eta_k)`
+5. Individual `eta_k` values are **never decrypted or stored** on the coordinator
+
+**Why fixed-point integers?** Floating-point addition is not associative. With large PRG masks, rounding error from `(eta + mask) + (eta' - mask)` would be `O(epsilon * mask_magnitude)` — potentially O(1), destroying convergence. Integer arithmetic is exact. With `scale_bits = 20` (scale ~10^6), 6 decimal digits of eta precision are preserved.
+
+#### GLM Phase-Ordering FSM Firewall
+
+The GLM FSM prevents a malicious client from forcing partial schedules that could leak information. Each coordinator server tracks session state with strict phase ordering:
+
+```
+INIT → EXPECT_ETAS → COORD_READY → COORD_DONE → BLOCKS_ACTIVE → EXPECT_ETAS (loop) → TERMINATED
+```
+
+Key enforcement rules:
+- Coordinator MUST receive exactly `n_nonlabel` etas before stepping (rejects partial aggregation)
+- Iteration numbers MUST be strictly increasing (anti-replay)
+- Session IDs must match on every call (prevents cross-session attacks)
+- Duplicate etas from the same server are rejected
+
+#### eta_privacy Mode Selection
+
+| K (servers) | Mode | What coordinator sees | Per-server eta leakage |
+|-------------|------|----------------------|----------------------|
+| >=3 | `secure_agg` | Sum of all eta_k (masks cancel) | None |
+| >=3 | `transport` | Each eta_k individually | Full (opt-in) |
+| 2 | `he_link` | ct_mu = sigmoid(ct_eta_total) | None |
+| 2 | `transport` | eta_nonlabel directly | Full (opt-in for gaussian) |
+| 1 | `transport` | Nothing (no non-label server) | N/A |
+
+The `auto` mode always selects the strongest available protection.
 
 ### Protocol Firewall
 

@@ -76,6 +76,12 @@ AggregateMethods:
     glmHEGradientEncDS,
     glmHEBlockUpdateDS,
     glmHEPrepDevianceDS,
+    glmSecureAggInitDS,
+    glmSecureAggBlockSolveDS,
+    glmSecureAggCoordinatorStepDS,
+    glmSecureAggPrepDevianceDS,
+    glmFSMInitDS,
+    glmFSMCheckDS,
     c=base::c,
     list=base::list
 AssignMethods:

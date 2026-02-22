@@ -4,12 +4,15 @@
 \alias{mheStoreCTChunkDS}
 \title{Store a chunk of a ciphertext for partial decryption}
 \usage{
-mheStoreCTChunkDS(chunk_index, chunk)
+mheStoreCTChunkDS(chunk_index, chunk, session_id = NULL)
 }
 \arguments{
 \item{chunk_index}{Integer. Chunk index (1-based)}
 
 \item{chunk}{Character. Base64url-encoded chunk}
+
+\item{session_id}{Character or NULL. Session identifier for concurrent
+job isolation. When NULL, falls back to legacy global storage.}
 }
 \value{
 TRUE on success

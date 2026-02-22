@@ -4,12 +4,15 @@
 \alias{mheAssembleEncColumnDS}
 \title{Assemble stored chunks into a complete encrypted column}
 \usage{
-mheAssembleEncColumnDS(col_index, n_chunks)
+mheAssembleEncColumnDS(col_index, n_chunks, session_id = NULL)
 }
 \arguments{
 \item{col_index}{Integer. Column index (1-based)}
 
 \item{n_chunks}{Integer. Total number of chunks}
+
+\item{session_id}{Character or NULL. Session identifier for concurrent
+job isolation. When NULL, falls back to legacy global storage.}
 }
 \value{
 TRUE on success

@@ -4,7 +4,13 @@
 \alias{glmSecureGradientDS}
 \title{Compute encrypted GLM gradient with transport-encrypted mu/w/v}
 \usage{
-glmSecureGradientDS(data_name, x_vars, encrypted_mwv = NULL, num_obs)
+glmSecureGradientDS(
+  data_name,
+  x_vars,
+  encrypted_mwv = NULL,
+  num_obs,
+  session_id = NULL
+)
 }
 \arguments{
 \item{data_name}{Character. Name of the data frame with local features.}
@@ -16,6 +22,9 @@ blob (base64url). If NULL, reads from blob storage under key \code{"mwv"}
 (set via \code{\link{mheStoreBlobDS}}).}
 
 \item{num_obs}{Integer. Number of observations.}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with:

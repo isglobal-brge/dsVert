@@ -20,8 +20,8 @@
 #' @name glm-fsm
 NULL
 
-# Dedicated environment for FSM state (separate from .mhe_storage)
-.glm_fsm <- new.env(parent = emptyenv())
+# FSM state is now stored in session-scoped storage with fsm_ prefix
+# (previously used a dedicated .glm_fsm environment)
 
 # ============================================================================
 # FSM Initialization
@@ -47,13 +47,14 @@ glmFSMInitDS <- function(session_id, n_nonlabel, mode = "secure_agg") {
   if (!mode %in% c("secure_agg", "transport", "he_link"))
     stop("mode must be 'secure_agg', 'transport', or 'he_link'", call. = FALSE)
 
-  .glm_fsm$session_id <- session_id
-  .glm_fsm$n_nonlabel <- as.integer(n_nonlabel)
-  .glm_fsm$mode <- mode
-  .glm_fsm$state <- "EXPECT_ETAS"
-  .glm_fsm$iteration <- 0L
-  .glm_fsm$etas_received <- character(0)
-  .glm_fsm$blocks_completed <- 0L
+  ss <- .S(session_id)
+  ss$fsm_session_id <- session_id
+  ss$fsm_n_nonlabel <- as.integer(n_nonlabel)
+  ss$fsm_mode <- mode
+  ss$fsm_state <- "EXPECT_ETAS"
+  ss$fsm_iteration <- 0L
+  ss$fsm_etas_received <- character(0)
+  ss$fsm_blocks_completed <- 0L
 
   invisible(TRUE)
 }
@@ -86,14 +87,15 @@ glmFSMInitDS <- function(session_id, n_nonlabel, mode = "secure_agg") {
 glmFSMCheckDS <- function(session_id, action, iteration = NULL,
                            server_name = NULL) {
   # Session binding
+  ss <- .S(session_id)
 
-  if (is.null(.glm_fsm$session_id))
+  if (is.null(ss$fsm_session_id))
     stop("FSM not initialized. Call glmFSMInitDS first.", call. = FALSE)
-  if (session_id != .glm_fsm$session_id)
-    stop("Session ID mismatch: expected '", .glm_fsm$session_id,
+  if (session_id != ss$fsm_session_id)
+    stop("Session ID mismatch: expected '", ss$fsm_session_id,
          "', got '", session_id, "'", call. = FALSE)
 
-  state <- .glm_fsm$state
+  state <- ss$fsm_state
 
   if (state == "TERMINATED") {
     stop("GLM session already terminated", call. = FALSE)
@@ -106,22 +108,22 @@ glmFSMCheckDS <- function(session_id, action, iteration = NULL,
              "' (expected EXPECT_ETAS)", call. = FALSE)
       if (is.null(server_name) || !is.character(server_name))
         stop("FSM: receive_eta requires server_name", call. = FALSE)
-      if (server_name %in% .glm_fsm$etas_received)
+      if (server_name %in% ss$fsm_etas_received)
         stop("FSM: duplicate eta from '", server_name, "'", call. = FALSE)
 
-      .glm_fsm$etas_received <- c(.glm_fsm$etas_received, server_name)
+      ss$fsm_etas_received <- c(ss$fsm_etas_received, server_name)
 
       # Transition to COORD_READY when all etas received
-      if (length(.glm_fsm$etas_received) == .glm_fsm$n_nonlabel) {
-        .glm_fsm$state <- "COORD_READY"
+      if (length(ss$fsm_etas_received) == ss$fsm_n_nonlabel) {
+        ss$fsm_state <- "COORD_READY"
       }
     },
 
     "coordinator_step" = {
       # On first iteration (iteration=0 stored), EXPECT_ETAS is OK even
       # without receiving etas (first iteration has no etas to receive)
-      if (state == "EXPECT_ETAS" && .glm_fsm$iteration == 0L &&
-          length(.glm_fsm$etas_received) == 0) {
+      if (state == "EXPECT_ETAS" && ss$fsm_iteration == 0L &&
+          length(ss$fsm_etas_received) == 0) {
         # Allow first coordinator step without etas
       } else if (state != "COORD_READY") {
         stop("FSM: cannot coordinator_step in state '", state,
@@ -132,21 +134,21 @@ glmFSMCheckDS <- function(session_id, action, iteration = NULL,
         stop("FSM: coordinator_step requires numeric iteration", call. = FALSE)
 
       # Anti-replay: iteration must be strictly increasing
-      if (as.integer(iteration) <= .glm_fsm$iteration)
+      if (as.integer(iteration) <= ss$fsm_iteration)
         stop("FSM: iteration ", iteration, " <= last iteration ",
-             .glm_fsm$iteration, " (anti-replay violation)", call. = FALSE)
+             ss$fsm_iteration, " (anti-replay violation)", call. = FALSE)
 
-      .glm_fsm$iteration <- as.integer(iteration)
-      .glm_fsm$etas_received <- character(0)  # reset for next round
-      .glm_fsm$state <- "COORD_DONE"
+      ss$fsm_iteration <- as.integer(iteration)
+      ss$fsm_etas_received <- character(0)  # reset for next round
+      ss$fsm_state <- "COORD_DONE"
     },
 
     "distribute_mwv" = {
       if (state != "COORD_DONE")
         stop("FSM: cannot distribute_mwv in state '", state,
              "' (expected COORD_DONE)", call. = FALSE)
-      .glm_fsm$blocks_completed <- 0L
-      .glm_fsm$state <- "BLOCKS_ACTIVE"
+      ss$fsm_blocks_completed <- 0L
+      ss$fsm_state <- "BLOCKS_ACTIVE"
     },
 
     "block_complete" = {
@@ -154,11 +156,11 @@ glmFSMCheckDS <- function(session_id, action, iteration = NULL,
         stop("FSM: cannot block_complete in state '", state,
              "' (expected BLOCKS_ACTIVE)", call. = FALSE)
 
-      .glm_fsm$blocks_completed <- .glm_fsm$blocks_completed + 1L
+      ss$fsm_blocks_completed <- ss$fsm_blocks_completed + 1L
 
       # Transition when all blocks done
-      if (.glm_fsm$blocks_completed == .glm_fsm$n_nonlabel) {
-        .glm_fsm$state <- "EXPECT_ETAS"
+      if (ss$fsm_blocks_completed == ss$fsm_n_nonlabel) {
+        ss$fsm_state <- "EXPECT_ETAS"
       }
     },
 
@@ -167,12 +169,12 @@ glmFSMCheckDS <- function(session_id, action, iteration = NULL,
       if (!state %in% c("EXPECT_ETAS", "COORD_READY"))
         stop("FSM: cannot compute deviance in state '", state, "'",
              call. = FALSE)
-      .glm_fsm$state <- "TERMINATED"
+      ss$fsm_state <- "TERMINATED"
     },
 
     "cleanup" = {
-      .glm_fsm$state <- "TERMINATED"
-      .glm_fsm$session_id <- NULL
+      ss$fsm_state <- "TERMINATED"
+      ss$fsm_session_id <- NULL
     },
 
     stop("FSM: unknown action '", action, "'", call. = FALSE)

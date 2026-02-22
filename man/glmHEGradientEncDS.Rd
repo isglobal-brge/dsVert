@@ -4,7 +4,13 @@
 \alias{glmHEGradientEncDS}
 \title{Compute encrypted gradient using encrypted mu (HE-Link mode)}
 \usage{
-glmHEGradientEncDS(data_name, x_vars, num_obs, from_storage = FALSE)
+glmHEGradientEncDS(
+  data_name,
+  x_vars,
+  num_obs,
+  from_storage = FALSE,
+  session_id = NULL
+)
 }
 \arguments{
 \item{data_name}{Character. Name of the data frame with local features.}
@@ -15,6 +21,9 @@ glmHEGradientEncDS(data_name, x_vars, num_obs, from_storage = FALSE)
 
 \item{from_storage}{Logical. If TRUE, read ct_mu from blob storage
 (key: "ct_mu"). Default FALSE (uses locally stored ct_mu).}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with:

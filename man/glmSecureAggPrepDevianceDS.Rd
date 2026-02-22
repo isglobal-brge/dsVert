@@ -4,7 +4,13 @@
 \alias{glmSecureAggPrepDevianceDS}
 \title{Prepare eta for deviance computation (secure aggregation)}
 \usage{
-glmSecureAggPrepDevianceDS(data_name, x_vars, beta, coordinator_pk = NULL)
+glmSecureAggPrepDevianceDS(
+  data_name,
+  x_vars,
+  beta,
+  coordinator_pk = NULL,
+  session_id = NULL
+)
 }
 \arguments{
 \item{data_name}{Character. Name of the data frame with local features.}
@@ -15,6 +21,9 @@ glmSecureAggPrepDevianceDS(data_name, x_vars, beta, coordinator_pk = NULL)
 
 \item{coordinator_pk}{Character or NULL. Coordinator's transport PK.
 NULL if this IS the coordinator.}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with encrypted_eta (NULL if coordinator).

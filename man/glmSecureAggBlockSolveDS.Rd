@@ -11,7 +11,8 @@ glmSecureAggBlockSolveDS(
   gradient,
   lambda = 1e-04,
   coordinator_pk,
-  iteration = 1L
+  iteration = 1L,
+  session_id = NULL
 )
 }
 \arguments{
@@ -28,6 +29,9 @@ glmSecureAggBlockSolveDS(
 \item{coordinator_pk}{Character. Coordinator's transport PK (base64url).}
 
 \item{iteration}{Integer. Current BCD iteration.}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with:

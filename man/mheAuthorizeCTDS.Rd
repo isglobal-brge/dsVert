@@ -7,7 +7,8 @@
 mheAuthorizeCTDS(
   ct_hashes = NULL,
   op_type = "cross-product",
-  from_storage = FALSE
+  from_storage = FALSE,
+  session_id = NULL
 )
 }
 \arguments{
@@ -19,6 +20,9 @@ Ignored when \code{from_storage = TRUE}.}
 \item{from_storage}{Logical. If \code{TRUE}, read \code{ct_hashes} from
 server-side blob storage (comma-separated) instead of inline argument.
 Default \code{FALSE}.}
+
+\item{session_id}{Character or NULL. Session identifier for concurrent
+job isolation. When NULL, falls back to legacy global storage.}
 }
 \value{
 Integer. Number of ciphertexts authorized

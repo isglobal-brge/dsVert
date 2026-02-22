@@ -4,7 +4,7 @@
 \alias{glmHEEncryptEtaDS}
 \title{Encrypt linear predictor contribution under CPK}
 \usage{
-glmHEEncryptEtaDS(data_name, x_vars, beta)
+glmHEEncryptEtaDS(data_name, x_vars, beta, session_id = NULL)
 }
 \arguments{
 \item{data_name}{Character. Name of the (standardized) data frame.}
@@ -13,6 +13,9 @@ glmHEEncryptEtaDS(data_name, x_vars, beta)
 
 \item{beta}{Numeric vector. Current coefficients for this server's block
 (length p_k).}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with:

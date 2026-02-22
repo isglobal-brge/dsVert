@@ -8,7 +8,8 @@ mheStoreCPKDS(
   cpk = NULL,
   galois_keys = NULL,
   relin_key = NULL,
-  from_storage = FALSE
+  from_storage = FALSE,
+  session_id = NULL
 )
 }
 \arguments{
@@ -21,6 +22,9 @@ mheStoreCPKDS(
 \item{from_storage}{Logical. If \code{TRUE}, read CPK and Galois keys
 from server-side blob storage instead of inline arguments.
 Default \code{FALSE}.}
+
+\item{session_id}{Character or NULL. Session identifier for concurrent
+job isolation. When NULL, falls back to legacy global storage.}
 }
 \value{
 TRUE on success

@@ -4,12 +4,15 @@
 \alias{mheStoreTransportKeysDS}
 \title{Store transport public keys from other servers}
 \usage{
-mheStoreTransportKeysDS(transport_keys)
+mheStoreTransportKeysDS(transport_keys, session_id = NULL)
 }
 \arguments{
 \item{transport_keys}{Named list. Server name -> transport public key
 (base64url). Must include a \code{"fusion"} entry identifying the
 fusion server's (party 0) transport PK.}
+
+\item{session_id}{Character or NULL. Session identifier for concurrent
+job isolation. When NULL, falls back to legacy global storage.}
 }
 \value{
 \code{TRUE} on success

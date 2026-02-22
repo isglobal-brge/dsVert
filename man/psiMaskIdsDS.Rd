@@ -4,12 +4,15 @@
 \alias{psiMaskIdsDS}
 \title{Mask identifiers using ECDH (aggregate function)}
 \usage{
-psiMaskIdsDS(data_name, id_col)
+psiMaskIdsDS(data_name, id_col, session_id = NULL)
 }
 \arguments{
 \item{data_name}{Character. Name of data frame.}
 
 \item{id_col}{Character. Name of identifier column.}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with n (count only — no points returned).

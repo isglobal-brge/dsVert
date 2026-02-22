@@ -4,11 +4,14 @@
 \alias{mhePartialDecryptWrappedDS}
 \title{Compute wrapped partial decryption share}
 \usage{
-mhePartialDecryptWrappedDS(n_chunks)
+mhePartialDecryptWrappedDS(n_chunks, session_id = NULL)
 }
 \arguments{
 \item{n_chunks}{Integer. Number of stored ciphertext chunks (previously
 sent via \code{\link{mheStoreCTChunkDS}}).}
+
+\item{session_id}{Character or NULL. Session identifier for concurrent
+job isolation. When NULL, falls back to legacy global storage.}
 }
 \value{
 List with:

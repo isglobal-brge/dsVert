@@ -282,6 +282,39 @@ The Protocol Firewall prevents **decryption oracle attacks**, where a malicious 
 
 Each server maintains a **SHA-256 ciphertext registry**. Before any ciphertext can be submitted for partial decryption, it must be explicitly authorized via `mheAuthorizeCTDS`. Authorization is **one-time-use**: once a ciphertext has been decrypted, its registry entry is consumed and the same ciphertext cannot be decrypted again. This ensures the client can only decrypt ciphertexts that were produced as part of the legitimate protocol flow.
 
+## Session-Scoped Storage Isolation
+
+All server-side state (secret keys, ciphertexts, PRG seeds, FSM state, PSI scalars, blobs) is stored in **per-session environments** keyed by a UUIDv4 session identifier. This ensures:
+
+- **Parallel job safety**: Multiple concurrent analyses (e.g., two researchers running `ds.vertGLM` at the same time) use completely independent storage — keys, ciphertexts, and protocol state never collide.
+- **DSLite compatibility**: In DSLite (in-process testing), all virtual "servers" share a single R process. Session-scoped storage prevents cross-contamination between simulated servers.
+- **Clean failure recovery**: If a job fails mid-protocol, its session environment can be garbage-collected without affecting other active sessions. A 24-hour TTL reaper automatically cleans up abandoned sessions.
+
+### How It Works
+
+The client generates a UUIDv4 session identifier at the start of each analysis (`ds.vertGLM`, `ds.psiAlign`, `ds.vertCor`) and passes it as the `session_id` parameter to every server-side function call. On the server, the `.S(session_id)` accessor returns the corresponding per-session R environment:
+
+```r
+# Client generates session_id once, passes it to every server call
+session_id <- "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
+
+# Server-side: each function reads/writes to its session environment
+ss <- .S(session_id)
+ss$secret_key <- ...
+ss$secure_agg_seeds <- ...
+```
+
+When `session_id` is `NULL` (backward compatibility), the legacy shared `.mhe_storage` environment is used.
+
+### Session Lifecycle
+
+| Phase | What happens |
+|-------|-------------|
+| **Creation** | `.S(session_id)` auto-creates a new environment on first access |
+| **Active** | All protocol state is stored in the session environment |
+| **Cleanup** | `mheCleanupDS(session_id)` destroys the session and all its state |
+| **Expiry** | Sessions older than 24 hours are automatically reaped |
+
 ## Chunked Transfer Protocol
 
 DataSHIELD's R expression parser imposes a size limit on arguments passed inline in `call()` expressions. Cryptographic objects routinely exceed this limit:

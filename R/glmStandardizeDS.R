@@ -8,10 +8,13 @@
 #' @param output_name Character. Name for the standardized data frame.
 #' @param x_vars Character vector. Feature columns to standardize.
 #' @param y_var Character or NULL. Response variable to standardize (Gaussian only).
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return List with x_means, x_sds, y_mean (if y_var), y_sd (if y_var)
 #' @export
-glmStandardizeDS <- function(data_name, output_name, x_vars, y_var = NULL) {
+glmStandardizeDS <- function(data_name, output_name, x_vars, y_var = NULL, session_id = NULL) {
+  ss <- .S(session_id)
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
 
@@ -57,12 +60,12 @@ glmStandardizeDS <- function(data_name, output_name, x_vars, y_var = NULL) {
     new_data[[y_var]] <- (y - result$y_mean) / result$y_sd
   }
 
-  # Store standardized data in .mhe_storage because DataSHIELD aggregate
+  # Store standardized data in session storage because DataSHIELD aggregate
   # methods cannot persist objects in the server's R environment (the
   # parent.frame() is discarded after each call). The .resolveData() utility
   # in mhe_utils.R looks up data here first, using output_name as the key.
-  .mhe_storage$std_data <- new_data
-  .mhe_storage$std_data_name <- output_name
+  ss$std_data <- new_data
+  ss$std_data_name <- output_name
 
   result
 }

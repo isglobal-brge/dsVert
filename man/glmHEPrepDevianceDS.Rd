@@ -4,7 +4,13 @@
 \alias{glmHEPrepDevianceDS}
 \title{Prepare transport-encrypted eta for deviance computation (HE-Link mode)}
 \usage{
-glmHEPrepDevianceDS(data_name, x_vars, beta, coordinator_pk = NULL)
+glmHEPrepDevianceDS(
+  data_name,
+  x_vars,
+  beta,
+  coordinator_pk = NULL,
+  session_id = NULL
+)
 }
 \arguments{
 \item{data_name}{Character. Name of the (standardized) data frame.}
@@ -15,6 +21,9 @@ glmHEPrepDevianceDS(data_name, x_vars, beta, coordinator_pk = NULL)
 
 \item{coordinator_pk}{Character or NULL. Coordinator's transport PK
 (base64url). If NULL, this IS the coordinator; eta is stored locally.}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with:

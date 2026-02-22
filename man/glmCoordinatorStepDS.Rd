@@ -15,7 +15,8 @@ glmCoordinatorStepDS(
   beta_current = NULL,
   lambda = 1e-04,
   intercept = FALSE,
-  n_obs = NULL
+  n_obs = NULL,
+  session_id = NULL
 )
 }
 \arguments{
@@ -49,6 +50,9 @@ Default \code{FALSE}.}
 
 \item{n_obs}{Integer or NULL. Number of observations. If NULL, inferred
 from the data.}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with:

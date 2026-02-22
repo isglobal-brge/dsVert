@@ -15,7 +15,8 @@ glmSecureAggCoordinatorStepDS(
   lambda = 1e-04,
   intercept = FALSE,
   n_obs = NULL,
-  scale_bits = 20L
+  scale_bits = 20L,
+  session_id = NULL
 )
 }
 \arguments{
@@ -41,6 +42,9 @@ containing encrypted masked eta blobs from non-label servers.}
 \item{n_obs}{Integer. Number of observations.}
 
 \item{scale_bits}{Integer. Fixed-point scale exponent. Default 20.}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with:

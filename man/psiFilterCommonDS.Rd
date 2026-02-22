@@ -4,7 +4,12 @@
 \alias{psiFilterCommonDS}
 \title{Filter aligned data to common intersection (assign function)}
 \usage{
-psiFilterCommonDS(data_name, common_indices = NULL, from_storage = FALSE)
+psiFilterCommonDS(
+  data_name,
+  common_indices = NULL,
+  from_storage = FALSE,
+  session_id = NULL
+)
 }
 \arguments{
 \item{data_name}{Character. Name of aligned data frame.}
@@ -15,6 +20,9 @@ servers (0-based). Ignored when \code{from_storage = TRUE}.}
 \item{from_storage}{Logical. If \code{TRUE}, read \code{common_indices}
 from server-side blob storage (comma-separated integers).
 Default \code{FALSE}.}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 Filtered data frame (assigned to server environment).

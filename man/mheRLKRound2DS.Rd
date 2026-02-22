@@ -4,7 +4,11 @@
 \alias{mheRLKRound2DS}
 \title{Generate RLK round 2 share}
 \usage{
-mheRLKRound2DS(from_storage = FALSE, aggregated_round1 = NULL)
+mheRLKRound2DS(
+  from_storage = FALSE,
+  aggregated_round1 = NULL,
+  session_id = NULL
+)
 }
 \arguments{
 \item{from_storage}{Logical. If TRUE, read aggregated round 1 from
@@ -12,6 +16,9 @@ blob storage. Default FALSE.}
 
 \item{aggregated_round1}{Character or NULL. Aggregated round 1 (base64url).
 Ignored when from_storage is TRUE.}
+
+\item{session_id}{Character or NULL. Session identifier for concurrent
+job isolation. When NULL, falls back to legacy global storage.}
 }
 \value{
 List with rlk_round2_share (base64url)

@@ -39,6 +39,8 @@ NULL
 #' @param x_vars Character vector. Feature column names on this server.
 #' @param beta Numeric vector. Current coefficients for this server's block
 #'   (length p_k).
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return List with:
 #'   \itemize{
@@ -47,12 +49,13 @@ NULL
 #'   }
 #'
 #' @export
-glmHEEncryptEtaDS <- function(data_name, x_vars, beta) {
-  if (is.null(.mhe_storage$cpk)) {
+glmHEEncryptEtaDS <- function(data_name, x_vars, beta, session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$cpk)) {
     stop("CPK not stored. Call mheCombineDS or mheStoreCPKDS first.", call. = FALSE)
   }
 
-  data <- .resolveData(data_name, parent.frame())
+  data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
   n <- nrow(X)
 
@@ -68,9 +71,9 @@ glmHEEncryptEtaDS <- function(data_name, x_vars, beta) {
   # Encrypt under CPK via Go mhe-encrypt-vector
   input <- list(
     vector = eta_k,
-    collective_public_key = .mhe_storage$cpk,
-    log_n = as.integer(.mhe_storage$log_n %||% 14),
-    log_scale = as.integer(.mhe_storage$log_scale %||% 40)
+    collective_public_key = ss$cpk,
+    log_n = as.integer(ss$log_n %||% 14),
+    log_scale = as.integer(ss$log_scale %||% 40)
   )
 
   result <- .callMheTool("mhe-encrypt-vector", input)
@@ -101,6 +104,8 @@ glmHEEncryptEtaDS <- function(data_name, x_vars, beta) {
 #' @param n_parties Integer. Number of parties (for reading from blob storage).
 #' @param poly_coefficients Numeric vector or NULL. Polynomial coefficients in
 #'   monomial basis. If NULL, uses built-in sigmoid approximation.
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return List with:
 #'   \itemize{
@@ -110,14 +115,15 @@ glmHEEncryptEtaDS <- function(data_name, x_vars, beta) {
 #'
 #' @export
 glmHELinkStepDS <- function(from_storage = TRUE, n_parties = 2,
-                             poly_coefficients = NULL) {
-  if (is.null(.mhe_storage$relin_key) || !nzchar(.mhe_storage$relin_key)) {
+                             poly_coefficients = NULL, session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$relin_key) || !nzchar(ss$relin_key)) {
     stop("Relinearization key not stored. Generate RLK during key setup.", call. = FALSE)
   }
 
   # Read encrypted etas from blob storage
   if (from_storage) {
-    blobs <- .mhe_storage$blobs
+    blobs <- ss$blobs
     if (is.null(blobs)) stop("No blobs stored for HE link step", call. = FALSE)
 
     ct_etas <- character(n_parties)
@@ -128,13 +134,13 @@ glmHELinkStepDS <- function(from_storage = TRUE, n_parties = 2,
       }
       ct_etas[i] <- .base64url_to_base64(blobs[[key]])
     }
-    .mhe_storage$blobs <- NULL
+    ss$blobs <- NULL
   } else {
     stop("Direct argument mode not supported for HE link step", call. = FALSE)
   }
 
-  log_n <- as.integer(.mhe_storage$log_n %||% 14)
-  log_scale <- as.integer(.mhe_storage$log_scale %||% 40)
+  log_n <- as.integer(ss$log_n %||% 14)
+  log_scale <- as.integer(ss$log_scale %||% 40)
 
   # Step 1: Aggregate all encrypted etas via homomorphic addition
   ct_total <- ct_etas[1]
@@ -166,7 +172,7 @@ glmHELinkStepDS <- function(from_storage = TRUE, n_parties = 2,
   poly_result <- .callMheTool("mhe-eval-poly", list(
     ciphertext = ct_total,
     coefficients = poly_coefficients,
-    relinearization_key = .mhe_storage$relin_key,
+    relinearization_key = ss$relin_key,
     log_n = log_n,
     log_scale = log_scale
   ))
@@ -175,7 +181,7 @@ glmHELinkStepDS <- function(from_storage = TRUE, n_parties = 2,
   level_out <- poly_result$level_out
 
   # Store ct_mu locally for own gradient computation
-  .mhe_storage$ct_mu <- ct_mu
+  ss$ct_mu <- ct_mu
 
   list(
     ct_mu = base64_to_base64url(ct_mu),
@@ -201,6 +207,8 @@ glmHELinkStepDS <- function(from_storage = TRUE, n_parties = 2,
 #' @param num_obs Integer. Number of observations.
 #' @param from_storage Logical. If TRUE, read ct_mu from blob storage
 #'   (key: "ct_mu"). Default FALSE (uses locally stored ct_mu).
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return List with:
 #'   \itemize{
@@ -211,18 +219,19 @@ glmHELinkStepDS <- function(from_storage = TRUE, n_parties = 2,
 #'
 #' @export
 glmHEGradientEncDS <- function(data_name, x_vars, num_obs,
-                                from_storage = FALSE) {
+                                from_storage = FALSE, session_id = NULL) {
+  ss <- .S(session_id)
   # Resolve ct_mu: from blob storage, or locally stored
   ct_mu <- NULL
   if (from_storage) {
-    blobs <- .mhe_storage$blobs
+    blobs <- ss$blobs
     if (!is.null(blobs) && !is.null(blobs[["ct_mu"]])) {
       ct_mu <- .base64url_to_base64(blobs[["ct_mu"]])
-      .mhe_storage$blobs[["ct_mu"]] <- NULL
+      ss$blobs[["ct_mu"]] <- NULL
     }
   }
   if (is.null(ct_mu)) {
-    ct_mu <- .mhe_storage$ct_mu
+    ct_mu <- ss$ct_mu
   }
   if (is.null(ct_mu)) {
     stop("Encrypted mu not available. Call glmHELinkStepDS or store ct_mu via blob.",
@@ -231,23 +240,23 @@ glmHEGradientEncDS <- function(data_name, x_vars, num_obs,
 
   # Resolve ct_y: same sources as mheGLMGradientDS
   enc_y <- NULL
-  if (!is.null(.mhe_storage$enc_y)) {
-    enc_y <- .mhe_storage$enc_y
-  } else if (!is.null(.mhe_storage$remote_enc_cols) &&
-             length(.mhe_storage$remote_enc_cols) >= 1) {
-    enc_y <- .mhe_storage$remote_enc_cols[[1]]
+  if (!is.null(ss$enc_y)) {
+    enc_y <- ss$enc_y
+  } else if (!is.null(ss$remote_enc_cols) &&
+             length(ss$remote_enc_cols) >= 1) {
+    enc_y <- ss$remote_enc_cols[[1]]
   }
   if (is.null(enc_y)) {
     stop("Encrypted y not stored. Transfer ct_y first.", call. = FALSE)
   }
 
-  if (is.null(.mhe_storage$galois_keys) ||
-      length(.mhe_storage$galois_keys) == 0) {
+  if (is.null(ss$galois_keys) ||
+      length(ss$galois_keys) == 0) {
     stop("Galois keys not available.", call. = FALSE)
   }
 
   # Get local feature matrix
-  data <- .resolveData(data_name, parent.frame())
+  data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
 
   x_cols <- lapply(seq_len(ncol(X)), function(j) as.numeric(X[, j]))
@@ -256,10 +265,10 @@ glmHEGradientEncDS <- function(data_name, x_vars, num_obs,
     encrypted_y = enc_y,
     encrypted_mu = ct_mu,
     x_cols = x_cols,
-    galois_keys = as.list(.mhe_storage$galois_keys),
+    galois_keys = as.list(ss$galois_keys),
     num_obs = as.integer(num_obs),
-    log_n = as.integer(.mhe_storage$log_n %||% 14),
-    log_scale = as.integer(.mhe_storage$log_scale %||% 40)
+    log_n = as.integer(ss$log_n %||% 14),
+    log_scale = as.integer(ss$log_scale %||% 40)
   )
 
   result <- .callMheTool("mhe-he-gradient", input)
@@ -268,7 +277,8 @@ glmHEGradientEncDS <- function(data_name, x_vars, num_obs,
   ct_hashes <- character(length(result$encrypted_gradients))
   for (j in seq_along(result$encrypted_gradients)) {
     ct_hashes[j] <- .register_ciphertext(
-      result$encrypted_gradients[[j]], "he-link-gradient"
+      result$encrypted_gradients[[j]], "he-link-gradient",
+      session_id = session_id
     )
   }
 
@@ -300,6 +310,8 @@ glmHEGradientEncDS <- function(data_name, x_vars, num_obs,
 #' @param alpha Numeric. Learning rate (step size). Default 0.1.
 #' @param lambda Numeric. L2 regularization parameter. Default 1e-4.
 #' @param n_obs Integer. Number of observations (for gradient normalization).
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return List with:
 #'   \itemize{
@@ -308,7 +320,7 @@ glmHEGradientEncDS <- function(data_name, x_vars, num_obs,
 #'
 #' @export
 glmHEBlockUpdateDS <- function(beta_current, gradient, alpha = 0.1,
-                                lambda = 1e-4, n_obs) {
+                                lambda = 1e-4, n_obs, session_id = NULL) {
   beta_current <- as.numeric(beta_current)
   gradient <- as.numeric(gradient)
   n_obs <- as.integer(n_obs)
@@ -347,6 +359,8 @@ glmHEBlockUpdateDS <- function(beta_current, gradient, alpha = 0.1,
 #' @param beta Numeric vector. Final converged coefficients for this block.
 #' @param coordinator_pk Character or NULL. Coordinator's transport PK
 #'   (base64url). If NULL, this IS the coordinator; eta is stored locally.
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return List with:
 #'   \itemize{
@@ -356,16 +370,17 @@ glmHEBlockUpdateDS <- function(beta_current, gradient, alpha = 0.1,
 #'
 #' @export
 glmHEPrepDevianceDS <- function(data_name, x_vars, beta,
-                                 coordinator_pk = NULL) {
-  data <- .resolveData(data_name, parent.frame())
+                                 coordinator_pk = NULL, session_id = NULL) {
+  ss <- .S(session_id)
+  data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
   beta <- as.numeric(beta)
   eta <- as.vector(X %*% beta)
 
   if (is.null(coordinator_pk) || coordinator_pk == "") {
     # This is the coordinator: store eta_label locally for glmSecureDevianceDS
-    .mhe_storage$glm_eta_label <- eta
-    .mhe_storage$glm_eta_other <- rep(0, length(eta))
+    ss$glm_eta_label <- eta
+    ss$glm_eta_other <- rep(0, length(eta))
     return(list(encrypted_eta = NULL))
   }
 

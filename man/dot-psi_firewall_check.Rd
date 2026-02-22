@@ -4,7 +4,7 @@
 \alias{.psi_firewall_check}
 \title{Check PSI firewall phase (internal)}
 \usage{
-.psi_firewall_check(operation, required_phase)
+.psi_firewall_check(operation, required_phase, session_id = NULL)
 }
 \arguments{
 \item{operation}{Character. Name of the operation being attempted.}

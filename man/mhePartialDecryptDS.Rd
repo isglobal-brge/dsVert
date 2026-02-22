@@ -4,10 +4,13 @@
 \alias{mhePartialDecryptDS}
 \title{Compute partial decryption using stored secret key and stored ciphertext chunks}
 \usage{
-mhePartialDecryptDS(n_chunks)
+mhePartialDecryptDS(n_chunks, session_id = NULL)
 }
 \arguments{
 \item{n_chunks}{Integer. Number of stored ciphertext chunks}
+
+\item{session_id}{Character or NULL. Session identifier for concurrent
+job isolation. When NULL, falls back to legacy global storage.}
 }
 \value{
 List with decryption_share (chunked as a character vector)

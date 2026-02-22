@@ -139,17 +139,19 @@
   TRUE
 }
 
-#' Resolve a data frame by name, checking .mhe_storage first
+#' Resolve a data frame by name, checking session storage first
 #' @param data_name Character. Name of the data frame to find.
-#' @param env Environment to search if not found in .mhe_storage (typically parent.frame() of caller).
+#' @param env Environment to search if not found in session storage (typically parent.frame() of caller).
+#' @param session_id Character or NULL. Session identifier for session-scoped storage.
 #' @return The data frame
 #' @keywords internal
-.resolveData <- function(data_name, env) {
+.resolveData <- function(data_name, env, session_id = NULL) {
   .validate_data_name(data_name)
-  if (!is.null(.mhe_storage$std_data_name) &&
-      data_name == .mhe_storage$std_data_name &&
-      !is.null(.mhe_storage$std_data)) {
-    return(.mhe_storage$std_data)
+  ss <- .S(session_id)
+  if (!is.null(ss$std_data_name) &&
+      data_name == ss$std_data_name &&
+      !is.null(ss$std_data)) {
+    return(ss$std_data)
   }
   get(data_name, envir = env)
 }

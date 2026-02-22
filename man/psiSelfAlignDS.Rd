@@ -4,10 +4,13 @@
 \alias{psiSelfAlignDS}
 \title{Self-align reference server data (assign function)}
 \usage{
-psiSelfAlignDS(data_name)
+psiSelfAlignDS(data_name, session_id = NULL)
 }
 \arguments{
 \item{data_name}{Character. Name of data frame.}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 Copy of data frame (assigned to server environment).

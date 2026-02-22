@@ -11,7 +11,8 @@ glmSecureBlockSolveDS(
   beta_current,
   gradient,
   lambda = 1e-04,
-  coordinator_pk = NULL
+  coordinator_pk = NULL,
+  session_id = NULL
 )
 }
 \arguments{
@@ -32,6 +33,9 @@ glmSecureBlockSolveDS(
 
 \item{coordinator_pk}{Character or NULL. Coordinator's transport PK
 (base64url). If NULL, reads from stored peer transport PKs.}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with:

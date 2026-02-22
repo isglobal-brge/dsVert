@@ -4,7 +4,7 @@
 \alias{mheStoreBlobDS}
 \title{Store a blob in server-side storage (with chunking support)}
 \usage{
-mheStoreBlobDS(key, chunk, chunk_index = 1L, n_chunks = 1L)
+mheStoreBlobDS(key, chunk, chunk_index = 1L, n_chunks = 1L, session_id = NULL)
 }
 \arguments{
 \item{key}{Character. Storage key (e.g., "mwv", "eta_server1")}
@@ -14,6 +14,9 @@ mheStoreBlobDS(key, chunk, chunk_index = 1L, n_chunks = 1L)
 \item{chunk_index}{Integer. Current chunk index (1-based). Default 1.}
 
 \item{n_chunks}{Integer. Total number of chunks. Default 1 (no chunking).}
+
+\item{session_id}{Character or NULL. Session identifier for concurrent
+job isolation. When NULL, falls back to legacy global storage.}
 }
 \value{
 TRUE on success

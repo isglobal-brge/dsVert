@@ -4,7 +4,7 @@
 \alias{mheStoreEncChunkDS}
 \title{Store a chunk of an encrypted column (for transferring large ciphertexts)}
 \usage{
-mheStoreEncChunkDS(col_index, chunk_index, chunk)
+mheStoreEncChunkDS(col_index, chunk_index, chunk, session_id = NULL)
 }
 \arguments{
 \item{col_index}{Integer. Column index (1-based)}
@@ -12,6 +12,9 @@ mheStoreEncChunkDS(col_index, chunk_index, chunk)
 \item{chunk_index}{Integer. Chunk index (1-based)}
 
 \item{chunk}{Character. Base64url-encoded chunk of ciphertext}
+
+\item{session_id}{Character or NULL. Session identifier for concurrent
+job isolation. When NULL, falls back to legacy global storage.}
 }
 \value{
 TRUE on success

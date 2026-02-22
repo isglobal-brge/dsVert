@@ -4,7 +4,13 @@
 \alias{glmStandardizeDS}
 \title{Standardize Features for GLM (Server-Side)}
 \usage{
-glmStandardizeDS(data_name, output_name, x_vars, y_var = NULL)
+glmStandardizeDS(
+  data_name,
+  output_name,
+  x_vars,
+  y_var = NULL,
+  session_id = NULL
+)
 }
 \arguments{
 \item{data_name}{Character. Name of the source data frame.}
@@ -14,6 +20,9 @@ glmStandardizeDS(data_name, output_name, x_vars, y_var = NULL)
 \item{x_vars}{Character vector. Feature columns to standardize.}
 
 \item{y_var}{Character or NULL. Response variable to standardize (Gaussian only).}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with x_means, x_sds, y_mean (if y_var), y_sd (if y_var)

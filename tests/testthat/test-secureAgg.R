@@ -9,42 +9,47 @@
 test_that("glmSecureAggInitDS requires transport keys", {
   skip_if_not(mheAvailable())
 
-  # Temporarily clear storage
-  old_sk <- .mhe_storage$transport_sk
-  old_pks <- .mhe_storage$peer_transport_pks
-  .mhe_storage$transport_sk <- NULL
-  .mhe_storage$peer_transport_pks <- NULL
+  sid <- "session-001"
+  ss <- dsVert:::.S(sid)
+
+  # Ensure transport keys are absent
+  ss$transport_sk <- NULL
+  ss$peer_transport_pks <- NULL
 
   expect_error(
-    glmSecureAggInitDS("serverA", "session-001", c("serverA", "serverB", "serverC")),
+    glmSecureAggInitDS("serverA", sid, c("serverA", "serverB", "serverC")),
     "Transport SK not stored"
   )
 
-  .mhe_storage$transport_sk <- old_sk
-  .mhe_storage$peer_transport_pks <- old_pks
+  dsVert:::.cleanup_session(sid)
 })
 
 test_that("glmSecureAggInitDS requires >= 2 non-label servers", {
   skip_if_not(mheAvailable())
 
-  # Setup minimal transport keys
+  sid <- "session-001"
+  ss <- dsVert:::.S(sid)
+
+  # Setup minimal transport keys in session-scoped storage
   result <- .callMheTool("transport-keygen", list())
-  .mhe_storage$transport_sk <- result$secret_key
-  .mhe_storage$peer_transport_pks <- list()
+  ss$transport_sk <- result$secret_key
+  ss$peer_transport_pks <- list()
 
   # Only 1 server name (self) → 0 peers → error
   expect_error(
-    glmSecureAggInitDS("serverA", "session-001", c("serverA")),
+    glmSecureAggInitDS("serverA", sid, c("serverA")),
     "requires >= 2 non-label servers"
   )
 
   # Cleanup
-  .mhe_storage$transport_sk <- NULL
-  .mhe_storage$peer_transport_pks <- NULL
+  dsVert:::.cleanup_session(sid)
 })
 
 test_that("glmSecureAggInitDS derives pairwise seeds with correct signs", {
   skip_if_not(mheAvailable())
+
+  sid <- "session-001"
+  ss <- dsVert:::.S(sid)
 
   # Generate transport keys for 3 servers
   keyA <- .callMheTool("transport-keygen", list())
@@ -52,17 +57,17 @@ test_that("glmSecureAggInitDS derives pairwise seeds with correct signs", {
   keyC <- .callMheTool("transport-keygen", list())
 
   # Setup as serverA
-  .mhe_storage$transport_sk <- keyA$secret_key
-  .mhe_storage$peer_transport_pks <- list(
+  ss$transport_sk <- keyA$secret_key
+  ss$peer_transport_pks <- list(
     serverA = keyA$public_key,
     serverB = keyB$public_key,
     serverC = keyC$public_key
   )
 
-  glmSecureAggInitDS("serverA", "session-001",
+  glmSecureAggInitDS("serverA", sid,
                       c("serverA", "serverB", "serverC"))
 
-  seeds <- .mhe_storage$secure_agg_seeds
+  seeds <- ss$secure_agg_seeds
   expect_true(!is.null(seeds))
   expect_equal(length(seeds), 2)  # 2 peers
 
@@ -76,22 +81,18 @@ test_that("glmSecureAggInitDS derives pairwise seeds with correct signs", {
   expect_true(nchar(seeds[["serverC"]]$seed) > 0)
 
   # Setup as serverB (should get opposite sign for A-B pair)
-  .mhe_storage$transport_sk <- keyB$secret_key
-  glmSecureAggInitDS("serverB", "session-001",
+  ss$transport_sk <- keyB$secret_key
+  glmSecureAggInitDS("serverB", sid,
                       c("serverA", "serverB", "serverC"))
 
-  seedsB <- .mhe_storage$secure_agg_seeds
+  seedsB <- ss$secure_agg_seeds
   # serverB > serverA → B gets -1 for (A,B) pair
   expect_equal(seedsB[["serverA"]]$sign, -1L)
   # serverB < serverC → B gets +1 for (B,C) pair
   expect_equal(seedsB[["serverC"]]$sign, 1L)
 
   # Cleanup
-  .mhe_storage$transport_sk <- NULL
-  .mhe_storage$peer_transport_pks <- NULL
-  .mhe_storage$secure_agg_seeds <- NULL
-  .mhe_storage$secure_agg_scale_bits <- NULL
-  .mhe_storage$secure_agg_session_id <- NULL
+  dsVert:::.cleanup_session(sid)
 })
 
 # =============================================================================
@@ -106,31 +107,41 @@ test_that("Mask cancellation works end-to-end for 3 servers", {
   keyB <- .callMheTool("transport-keygen", list())
   keyC <- .callMheTool("transport-keygen", list())
 
-  session_id <- "test-mask-cancel-001"
+  # Each server has its own session (as on separate Opal nodes)
+  sidA <- "test-mask-cancel-A"
+  sidB <- "test-mask-cancel-B"
+  sidC <- "test-mask-cancel-C"
   nonlabel_names <- c("serverA", "serverB", "serverC")
   iter <- 1L
   scale_bits <- 20L
 
-  # Initialize each server's secure aggregation state
-  # Server A
-  .mhe_storage$transport_sk <- keyA$secret_key
-  .mhe_storage$peer_transport_pks <- list(
+  pks <- list(
     serverA = keyA$public_key,
     serverB = keyB$public_key,
     serverC = keyC$public_key
   )
-  glmSecureAggInitDS("serverA", session_id, nonlabel_names, scale_bits)
-  seedsA <- .mhe_storage$secure_agg_seeds
+
+  # Initialize each server's secure aggregation state
+  # Server A
+  ssA <- dsVert:::.S(sidA)
+  ssA$transport_sk <- keyA$secret_key
+  ssA$peer_transport_pks <- pks
+  glmSecureAggInitDS("serverA", sidA, nonlabel_names, scale_bits)
+  seedsA <- ssA$secure_agg_seeds
 
   # Server B
-  .mhe_storage$transport_sk <- keyB$secret_key
-  glmSecureAggInitDS("serverB", session_id, nonlabel_names, scale_bits)
-  seedsB <- .mhe_storage$secure_agg_seeds
+  ssB <- dsVert:::.S(sidB)
+  ssB$transport_sk <- keyB$secret_key
+  ssB$peer_transport_pks <- pks
+  glmSecureAggInitDS("serverB", sidB, nonlabel_names, scale_bits)
+  seedsB <- ssB$secure_agg_seeds
 
   # Server C
-  .mhe_storage$transport_sk <- keyC$secret_key
-  glmSecureAggInitDS("serverC", session_id, nonlabel_names, scale_bits)
-  seedsC <- .mhe_storage$secure_agg_seeds
+  ssC <- dsVert:::.S(sidC)
+  ssC$transport_sk <- keyC$secret_key
+  ssC$peer_transport_pks <- pks
+  glmSecureAggInitDS("serverC", sidC, nonlabel_names, scale_bits)
+  seedsC <- ssC$secure_agg_seeds
 
   # Test vectors
   n <- 20
@@ -179,11 +190,9 @@ test_that("Mask cancellation works end-to-end for 3 servers", {
   expect_true(all(abs(recovered_sum - true_sum) <= tol))
 
   # Cleanup
-  .mhe_storage$transport_sk <- NULL
-  .mhe_storage$peer_transport_pks <- NULL
-  .mhe_storage$secure_agg_seeds <- NULL
-  .mhe_storage$secure_agg_scale_bits <- NULL
-  .mhe_storage$secure_agg_session_id <- NULL
+  dsVert:::.cleanup_session(sidA)
+  dsVert:::.cleanup_session(sidB)
+  dsVert:::.cleanup_session(sidC)
 })
 
 # =============================================================================

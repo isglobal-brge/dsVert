@@ -4,7 +4,14 @@
 \alias{glmHEBlockUpdateDS}
 \title{GD block update with decrypted gradient (HE-Link mode)}
 \usage{
-glmHEBlockUpdateDS(beta_current, gradient, alpha = 0.1, lambda = 1e-04, n_obs)
+glmHEBlockUpdateDS(
+  beta_current,
+  gradient,
+  alpha = 0.1,
+  lambda = 1e-04,
+  n_obs,
+  session_id = NULL
+)
 }
 \arguments{
 \item{beta_current}{Numeric vector. Current coefficients (length p_k).}
@@ -16,6 +23,9 @@ glmHEBlockUpdateDS(beta_current, gradient, alpha = 0.1, lambda = 1e-04, n_obs)
 \item{lambda}{Numeric. L2 regularization parameter. Default 1e-4.}
 
 \item{n_obs}{Integer. Number of observations (for gradient normalization).}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with:

@@ -41,40 +41,125 @@
 NULL
 
 # ---------------------------------------------------------------------------
-# Persistent server-side state: .mhe_storage
+# Session-Scoped Persistent Storage
 # ---------------------------------------------------------------------------
 # DataSHIELD aggregate/assign calls run in ephemeral environments, so local
 # variables are lost between calls. We use a package-level environment to
-# persist state across the multi-step MHE and PSI protocols.
+# persist state across the multi-step MHE, PSI, and GLM protocols.
 #
-# Stored keys during MHE protocol:
+# SESSION ISOLATION: Each job (identified by session_id) gets its own
+# sub-environment within .mhe_sessions. This prevents concurrent jobs from
+# interfering with each other (critical for DSLite testing and parallel
+# Opal jobs). All server functions receive session_id and access their
+# session via .S(session_id).
+#
+# Stored per-session keys during MHE protocol:
 #   $secret_key     - This server's RLWE secret key share (NEVER returned)
 #   $party_id       - Integer party index (0-based)
 #   $cpk            - Collective Public Key (standard base64)
 #   $galois_keys    - Galois rotation keys (standard base64 vector)
 #   $relin_key      - Relinearization key (standard base64)
 #   $log_n, $log_scale - CKKS parameters
+#   $transport_sk, $transport_pk - X25519 keypair
 #
-# Stored during GLM protocol:
+# Stored per-session during GLM protocol:
 #   $enc_y          - Encrypted response ciphertext (non-label servers)
 #   $remote_enc_cols - List of received encrypted columns (correlation)
 #   $std_data       - Standardized data frame
 #   $std_data_name  - Name key for .resolveData() lookup
+#   $glm_eta_label, $glm_eta_other - Eta vectors for deviance
 #
-# Stored during PSI protocol:
+# Stored per-session during PSI protocol:
 #   $psi_scalar     - P-256 secret scalar (NEVER returned)
 #   $psi_ref_dm     - Double-masked reference points
 #   $psi_ref_indices - Reference row indices
 #   $psi_matched_ref_indices - Matched indices for Phase 8 intersection
 #
-# Protocol Firewall state:
+# Protocol Firewall state (per-session):
 #   $op_counter     - Monotonic operation counter
 #   $ct_registry    - Named list: ct_hash -> list(op_id, op_type, timestamp)
-#                     Only registered ciphertexts can be partially decrypted.
-#                     Each entry is consumed (deleted) after one decryption
-#                     to prevent replay attacks.
+#
+# GLM FSM state (per-session, replaces .glm_fsm):
+#   $fsm_session_id - Session ID for FSM validation
+#   $fsm_state      - Current FSM state
+#   $fsm_iteration  - Current iteration
+#   $fsm_n_nonlabel - Expected non-label count
+#   $fsm_etas_received - Character vector of received etas
+#   $fsm_blocks_completed - Block completion counter
 # ---------------------------------------------------------------------------
+
+# Container for all sessions. Each session_id -> sub-environment.
+.mhe_sessions <- new.env(parent = emptyenv())
+
+# Legacy fallback for backward compatibility (non-session-scoped callers).
+# New code should always use .S(session_id).
 .mhe_storage <- new.env(parent = emptyenv())
+
+# Session TTL: 24 hours (very long to avoid premature cleanup)
+.SESSION_TTL_SECONDS <- 86400L
+
+#' Get or create a session-scoped storage environment
+#'
+#' Returns the sub-environment for the given session_id. Creates it if it
+#' does not exist. Falls back to the legacy .mhe_storage if session_id is
+#' NULL or empty (backward compatibility).
+#'
+#' Opportunistically reaps expired sessions on creation of new ones.
+#'
+#' @param session_id Character or NULL. Session identifier.
+#' @return An environment for storing session state.
+#' @keywords internal
+.S <- function(session_id = NULL) {
+  if (is.null(session_id) || !nzchar(session_id)) {
+    return(.mhe_storage)
+  }
+  s <- .mhe_sessions[[session_id]]
+  if (is.null(s)) {
+    s <- new.env(parent = emptyenv())
+    s$.created_at <- Sys.time()
+    s$.session_id <- session_id
+    .mhe_sessions[[session_id]] <- s
+    # Opportunistic reap of expired sessions
+    .reap_expired_sessions()
+  }
+  s
+}
+
+#' Remove a session and all its state
+#'
+#' @param session_id Character. Session to clean up.
+#' @return TRUE (invisible)
+#' @keywords internal
+.cleanup_session <- function(session_id) {
+  if (!is.null(session_id) && nzchar(session_id)) {
+    s <- .mhe_sessions[[session_id]]
+    if (!is.null(s)) {
+      rm(list = ls(s), envir = s)
+    }
+    rm(list = session_id, envir = .mhe_sessions)
+  }
+  gc(verbose = FALSE)
+  invisible(TRUE)
+}
+
+#' Reap sessions older than TTL
+#'
+#' Called opportunistically when new sessions are created. Removes
+#' sessions whose .created_at timestamp is older than .SESSION_TTL_SECONDS.
+#'
+#' @keywords internal
+.reap_expired_sessions <- function() {
+  now <- Sys.time()
+  for (sid in ls(.mhe_sessions)) {
+    s <- .mhe_sessions[[sid]]
+    if (!is.null(s) && !is.null(s$.created_at)) {
+      age <- as.numeric(difftime(now, s$.created_at, units = "secs"))
+      if (age > .SESSION_TTL_SECONDS) {
+        .cleanup_session(sid)
+      }
+    }
+  }
+}
 
 # ---------------------------------------------------------------------------
 # Protocol Firewall: Ciphertext Registry
@@ -93,20 +178,21 @@ NULL
 #' @param op_type Character. Operation that produced this ciphertext
 #' @return Character. SHA-256 hash of the ciphertext
 #' @keywords internal
-.register_ciphertext <- function(ct_b64, op_type) {
-  if (is.null(.mhe_storage$op_counter)) {
-    .mhe_storage$op_counter <- 0L
+.register_ciphertext <- function(ct_b64, op_type, session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$op_counter)) {
+    ss$op_counter <- 0L
   }
-  if (is.null(.mhe_storage$ct_registry)) {
-    .mhe_storage$ct_registry <- list()
+  if (is.null(ss$ct_registry)) {
+    ss$ct_registry <- list()
   }
 
-  .mhe_storage$op_counter <- .mhe_storage$op_counter + 1L
+  ss$op_counter <- ss$op_counter + 1L
 
   ct_hash <- digest::digest(ct_b64, algo = "sha256", serialize = FALSE)
 
-  .mhe_storage$ct_registry[[ct_hash]] <- list(
-    op_id = .mhe_storage$op_counter,
+  ss$ct_registry[[ct_hash]] <- list(
+    op_id = ss$op_counter,
     op_type = op_type,
     timestamp = Sys.time()
   )
@@ -118,15 +204,16 @@ NULL
 #' @param ct_b64 Character. The ciphertext in standard base64 encoding
 #' @return TRUE if authorized (entry is consumed), stops with error otherwise
 #' @keywords internal
-.validate_and_consume_ciphertext <- function(ct_b64) {
-  if (is.null(.mhe_storage$ct_registry)) {
+.validate_and_consume_ciphertext <- function(ct_b64, session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$ct_registry)) {
     stop("Protocol Firewall: no ciphertexts registered. ",
          "Decryption denied.", call. = FALSE)
   }
 
   ct_hash <- digest::digest(ct_b64, algo = "sha256", serialize = FALSE)
 
-  entry <- .mhe_storage$ct_registry[[ct_hash]]
+  entry <- ss$ct_registry[[ct_hash]]
   if (is.null(entry)) {
     stop("Protocol Firewall: ciphertext not authorized for decryption. ",
          "Only ciphertexts produced by legitimate operations ",
@@ -134,7 +221,7 @@ NULL
   }
 
   # One-time use: consume the authorization (anti-replay)
-  .mhe_storage$ct_registry[[ct_hash]] <- NULL
+  ss$ct_registry[[ct_hash]] <- NULL
 
   TRUE
 }
@@ -166,6 +253,10 @@ NULL
 #'   via \code{\link{mheStoreBlobDS}}) instead of inline arguments.
 #'   Used by the client to avoid exceeding DataSHIELD's expression
 #'   parser limits with large cryptographic objects. Default \code{FALSE}.
+#' @param generate_rlk Logical. Whether to generate relinearization key shares.
+#'   Default FALSE.
+#' @param session_id Character or NULL. Session identifier for concurrent
+#'   job isolation. When NULL, falls back to legacy global storage.
 #'
 #' @return List with:
 #'   \itemize{
@@ -182,7 +273,9 @@ NULL
 #' @export
 mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
                       num_obs = 100, log_n = 12, log_scale = 40,
-                      from_storage = FALSE, generate_rlk = FALSE) {
+                      from_storage = FALSE, generate_rlk = FALSE,
+                      session_id = NULL) {
+  ss <- .S(session_id)
   input <- list(
     party_id = as.integer(party_id),
     num_obs = as.integer(num_obs),
@@ -193,14 +286,14 @@ mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
 
   # If not party 0, include CRP and shared GKG seed
   if (from_storage) {
-    blobs <- .mhe_storage$blobs
+    blobs <- ss$blobs
     if (!is.null(blobs) && !is.null(blobs[["crp"]])) {
       input$crp <- .base64url_to_base64(blobs[["crp"]])
     }
     if (!is.null(blobs) && !is.null(blobs[["gkg_seed"]])) {
       input$gkg_seed <- .base64url_to_base64(blobs[["gkg_seed"]])
     }
-    .mhe_storage$blobs <- NULL
+    ss$blobs <- NULL
   } else {
     if (party_id > 0 && !is.null(crp)) {
       input$crp <- .base64url_to_base64(crp)
@@ -215,22 +308,22 @@ mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
   # SECURITY: secret key share is stored locally and NEVER returned to the
   # client. This is the foundation of the threshold property: the collective
   # secret key sk = sk_1 + sk_2 + ... + sk_K is never reconstructed.
-  .mhe_storage$secret_key <- result$secret_key
-  .mhe_storage$party_id <- party_id
-  .mhe_storage$log_n <- log_n
-  .mhe_storage$log_scale <- log_scale
+  ss$secret_key <- result$secret_key
+  ss$party_id <- party_id
+  ss$log_n <- log_n
+  ss$log_scale <- log_scale
 
   # Generate X25519 transport keypair for share-wrapping and GLM secure routing.
   # The transport SK is stored locally (NEVER returned); the PK is distributed
   # to all other servers via the client so they can encrypt data for us.
   transport <- .callMheTool("transport-keygen", list())
-  .mhe_storage$transport_sk <- transport$secret_key
-  .mhe_storage$transport_pk <- transport$public_key
+  ss$transport_sk <- transport$secret_key
+  ss$transport_pk <- transport$public_key
 
   # Store RLK ephemeral SK locally (NEVER returned to client) for round 2
   if (isTRUE(generate_rlk) && !is.null(result$rlk_ephemeral_sk) &&
       nzchar(result$rlk_ephemeral_sk)) {
-    .mhe_storage$rlk_ephemeral_sk <- result$rlk_ephemeral_sk
+    ss$rlk_ephemeral_sk <- result$rlk_ephemeral_sk
   }
 
   # Return only public information: the public key share (safe to combine)
@@ -265,33 +358,37 @@ mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
 #'
 #' @param from_storage Logical. If TRUE, read round 1 shares from blob storage.
 #' @param n_parties Integer. Number of parties (used with from_storage).
+#' @param session_id Character or NULL. Session identifier for concurrent
+#'   job isolation. When NULL, falls back to legacy global storage.
 #'
 #' @return List with aggregated_round1 (base64url)
 #' @export
-mheRLKAggregateR1DS <- function(from_storage = FALSE, n_parties = 0) {
+mheRLKAggregateR1DS <- function(from_storage = FALSE, n_parties = 0,
+                                session_id = NULL) {
+  ss <- .S(session_id)
   if (from_storage) {
-    blobs <- .mhe_storage$blobs
+    blobs <- ss$blobs
     if (is.null(blobs)) stop("No blobs stored for RLK R1 aggregation", call. = FALSE)
 
     r1_shares <- character(n_parties)
     for (i in seq_len(n_parties)) {
       r1_shares[i] <- .base64url_to_base64(blobs[[paste0("rlk_r1_", i - 1)]])
     }
-    .mhe_storage$blobs <- NULL
+    ss$blobs <- NULL
   } else {
     stop("Direct argument mode not supported for RLK aggregation", call. = FALSE)
   }
 
   input <- list(
     rlk_round1_shares = as.list(r1_shares),
-    log_n = as.integer(.mhe_storage$log_n %||% 14),
-    log_scale = as.integer(.mhe_storage$log_scale %||% 40)
+    log_n = as.integer(ss$log_n %||% 14),
+    log_scale = as.integer(ss$log_scale %||% 40)
   )
 
   result <- .callMheTool("mhe-rlk-aggregate-r1", input)
 
   # Store aggregated round 1 locally for own round 2 generation
-  .mhe_storage$rlk_aggregated_r1 <- result$aggregated_round1
+  ss$rlk_aggregated_r1 <- result$aggregated_round1
 
   list(aggregated_round1 = base64_to_base64url(result$aggregated_round1))
 }
@@ -306,48 +403,52 @@ mheRLKAggregateR1DS <- function(from_storage = FALSE, n_parties = 0) {
 #'   blob storage. Default FALSE.
 #' @param aggregated_round1 Character or NULL. Aggregated round 1 (base64url).
 #'   Ignored when from_storage is TRUE.
+#' @param session_id Character or NULL. Session identifier for concurrent
+#'   job isolation. When NULL, falls back to legacy global storage.
 #'
 #' @return List with rlk_round2_share (base64url)
 #' @export
-mheRLKRound2DS <- function(from_storage = FALSE, aggregated_round1 = NULL) {
-  if (is.null(.mhe_storage$secret_key)) {
+mheRLKRound2DS <- function(from_storage = FALSE, aggregated_round1 = NULL,
+                           session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$secret_key)) {
     stop("Secret key not stored. Call mheInitDS first.", call. = FALSE)
   }
-  if (is.null(.mhe_storage$rlk_ephemeral_sk)) {
+  if (is.null(ss$rlk_ephemeral_sk)) {
     stop("RLK ephemeral SK not stored. Call mheInitDS with generate_rlk=TRUE.", call. = FALSE)
   }
 
   if (from_storage) {
-    blobs <- .mhe_storage$blobs
+    blobs <- ss$blobs
     if (!is.null(blobs) && !is.null(blobs[["rlk_agg_r1"]])) {
       agg_r1 <- .base64url_to_base64(blobs[["rlk_agg_r1"]])
-      .mhe_storage$blobs <- NULL
-    } else if (!is.null(.mhe_storage$rlk_aggregated_r1)) {
+      ss$blobs <- NULL
+    } else if (!is.null(ss$rlk_aggregated_r1)) {
       # Coordinator already has it from mheRLKAggregateR1DS
-      agg_r1 <- .mhe_storage$rlk_aggregated_r1
+      agg_r1 <- ss$rlk_aggregated_r1
     } else {
       stop("No aggregated round 1 available", call. = FALSE)
     }
   } else if (!is.null(aggregated_round1)) {
     agg_r1 <- .base64url_to_base64(aggregated_round1)
-  } else if (!is.null(.mhe_storage$rlk_aggregated_r1)) {
-    agg_r1 <- .mhe_storage$rlk_aggregated_r1
+  } else if (!is.null(ss$rlk_aggregated_r1)) {
+    agg_r1 <- ss$rlk_aggregated_r1
   } else {
     stop("No aggregated round 1 provided", call. = FALSE)
   }
 
   input <- list(
-    secret_key = .mhe_storage$secret_key,
-    rlk_ephemeral_sk = .mhe_storage$rlk_ephemeral_sk,
+    secret_key = ss$secret_key,
+    rlk_ephemeral_sk = ss$rlk_ephemeral_sk,
     aggregated_round1 = agg_r1,
-    log_n = as.integer(.mhe_storage$log_n %||% 14),
-    log_scale = as.integer(.mhe_storage$log_scale %||% 40)
+    log_n = as.integer(ss$log_n %||% 14),
+    log_scale = as.integer(ss$log_scale %||% 40)
   )
 
   result <- .callMheTool("mhe-rlk-round2", input)
 
   # Clean up ephemeral SK (no longer needed after round 2)
-  .mhe_storage$rlk_ephemeral_sk <- NULL
+  ss$rlk_ephemeral_sk <- NULL
 
   list(rlk_round2_share = base64_to_base64url(result$rlk_round2_share))
 }
@@ -368,15 +469,19 @@ mheRLKRound2DS <- function(from_storage = FALSE, aggregated_round1 = NULL) {
 #' @param n_parties Integer. Number of parties (used with \code{from_storage}).
 #' @param n_gkg_shares Integer. Number of Galois key generation shares per
 #'   party (used with \code{from_storage}).
+#' @param session_id Character or NULL. Session identifier for concurrent
+#'   job isolation. When NULL, falls back to legacy global storage.
 #'
 #' @return List with collective_public_key and galois_keys
 #' @export
 mheCombineDS <- function(public_key_shares = NULL, crp = NULL, galois_key_shares = NULL,
                          gkg_seed = NULL, num_obs = 100, log_n = 12, log_scale = 40,
-                         from_storage = FALSE, n_parties = 0, n_gkg_shares = 0) {
+                         from_storage = FALSE, n_parties = 0, n_gkg_shares = 0,
+                         session_id = NULL) {
+  ss <- .S(session_id)
   if (from_storage) {
     # Read all inputs from blob storage (set via mheStoreBlobDS)
-    blobs <- .mhe_storage$blobs
+    blobs <- ss$blobs
     if (is.null(blobs)) stop("No blobs stored for combine", call. = FALSE)
 
     pk_shares <- character(n_parties)
@@ -401,9 +506,9 @@ mheCombineDS <- function(public_key_shares = NULL, crp = NULL, galois_key_shares
     rlk_r1_agg_std <- ""
     if (!is.null(blobs[["rlk_agg_r1"]])) {
       rlk_r1_agg_std <- .base64url_to_base64(blobs[["rlk_agg_r1"]])
-    } else if (!is.null(.mhe_storage$rlk_aggregated_r1)) {
+    } else if (!is.null(ss$rlk_aggregated_r1)) {
       # Coordinator already has it from mheRLKAggregateR1DS
-      rlk_r1_agg_std <- .mhe_storage$rlk_aggregated_r1
+      rlk_r1_agg_std <- ss$rlk_aggregated_r1
     }
 
     rlk_r2_shares_std <- list()
@@ -415,7 +520,7 @@ mheCombineDS <- function(public_key_shares = NULL, crp = NULL, galois_key_shares
     }
 
     # Clean up blobs
-    .mhe_storage$blobs <- NULL
+    ss$blobs <- NULL
   } else {
     # Direct arguments (backward-compatible, small datasets only)
     pk_shares <- sapply(public_key_shares, .base64url_to_base64, USE.NAMES = FALSE)
@@ -459,9 +564,9 @@ mheCombineDS <- function(public_key_shares = NULL, crp = NULL, galois_key_shares
   # Galois keys enable ciphertext rotations (needed for inner-product
   # computation). The combining server stores these directly; other
   # servers receive them via mheStoreCPKDS.
-  .mhe_storage$cpk <- result$collective_public_key
-  .mhe_storage$galois_keys <- result$galois_keys
-  .mhe_storage$relin_key <- result$relinearization_key
+  ss$cpk <- result$collective_public_key
+  ss$galois_keys <- result$galois_keys
+  ss$relin_key <- result$relinearization_key
 
   # Return CPK and Galois keys to client for distribution to other servers.
   gk_out <- NULL
@@ -490,38 +595,41 @@ mheCombineDS <- function(public_key_shares = NULL, crp = NULL, galois_key_shares
 #' @param from_storage Logical. If \code{TRUE}, read CPK and Galois keys
 #'   from server-side blob storage instead of inline arguments.
 #'   Default \code{FALSE}.
+#' @param session_id Character or NULL. Session identifier for concurrent
+#'   job isolation. When NULL, falls back to legacy global storage.
 #'
 #' @return TRUE on success
 #' @export
 mheStoreCPKDS <- function(cpk = NULL, galois_keys = NULL, relin_key = NULL,
-                          from_storage = FALSE) {
+                          from_storage = FALSE, session_id = NULL) {
+  ss <- .S(session_id)
   if (from_storage) {
-    blobs <- .mhe_storage$blobs
+    blobs <- ss$blobs
     if (is.null(blobs)) stop("No blobs stored for CPK", call. = FALSE)
 
-    .mhe_storage$cpk <- .base64url_to_base64(blobs[["cpk"]])
+    ss$cpk <- .base64url_to_base64(blobs[["cpk"]])
 
     # Read Galois keys from blobs gk_0, gk_1, ...
     gk_keys <- sort(grep("^gk_", names(blobs), value = TRUE))
     if (length(gk_keys) > 0) {
-      .mhe_storage$galois_keys <- sapply(gk_keys, function(k) {
+      ss$galois_keys <- sapply(gk_keys, function(k) {
         .base64url_to_base64(blobs[[k]])
       }, USE.NAMES = FALSE)
     }
 
     if (!is.null(blobs[["rk"]])) {
-      .mhe_storage$relin_key <- .base64url_to_base64(blobs[["rk"]])
+      ss$relin_key <- .base64url_to_base64(blobs[["rk"]])
     }
 
-    .mhe_storage$blobs <- NULL
+    ss$blobs <- NULL
   } else {
-    .mhe_storage$cpk <- .base64url_to_base64(cpk)
+    ss$cpk <- .base64url_to_base64(cpk)
 
     if (!is.null(galois_keys)) {
-      .mhe_storage$galois_keys <- sapply(galois_keys, .base64url_to_base64, USE.NAMES = FALSE)
+      ss$galois_keys <- sapply(galois_keys, .base64url_to_base64, USE.NAMES = FALSE)
     }
     if (!is.null(relin_key)) {
-      .mhe_storage$relin_key <- .base64url_to_base64(relin_key)
+      ss$relin_key <- .base64url_to_base64(relin_key)
     }
   }
 
@@ -532,11 +640,14 @@ mheStoreCPKDS <- function(cpk = NULL, galois_keys = NULL, relin_key = NULL,
 #'
 #' @param data_name Character. Name of data frame
 #' @param variables Character vector. Variables to encrypt
+#' @param session_id Character or NULL. Session identifier for concurrent
+#'   job isolation. When NULL, falls back to legacy global storage.
 #'
 #' @return List with encrypted_columns
 #' @export
-mheEncryptLocalDS <- function(data_name, variables) {
-  if (is.null(.mhe_storage$cpk)) {
+mheEncryptLocalDS <- function(data_name, variables, session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$cpk)) {
     stop("CPK not stored. Call mheCombineDS or mheStoreCPKDS first.", call. = FALSE)
   }
 
@@ -560,9 +671,9 @@ mheEncryptLocalDS <- function(data_name, variables) {
 
   input <- list(
     data = data_rows,
-    collective_public_key = .mhe_storage$cpk,
-    log_n = as.integer(.mhe_storage$log_n %||% 12),
-    log_scale = as.integer(.mhe_storage$log_scale %||% 40)
+    collective_public_key = ss$cpk,
+    log_n = as.integer(ss$log_n %||% 12),
+    log_scale = as.integer(ss$log_scale %||% 40)
   )
 
   result <- .callMheTool("encrypt-columns", input)
@@ -579,15 +690,18 @@ mheEncryptLocalDS <- function(data_name, variables) {
 #' @param col_index Integer. Column index (1-based)
 #' @param chunk_index Integer. Chunk index (1-based)
 #' @param chunk Character. Base64url-encoded chunk of ciphertext
+#' @param session_id Character or NULL. Session identifier for concurrent
+#'   job isolation. When NULL, falls back to legacy global storage.
 #'
 #' @return TRUE on success
 #' @export
-mheStoreEncChunkDS <- function(col_index, chunk_index, chunk) {
+mheStoreEncChunkDS <- function(col_index, chunk_index, chunk, session_id = NULL) {
+  ss <- .S(session_id)
   key <- paste0("enc_chunks_", col_index)
-  if (is.null(.mhe_storage[[key]])) {
-    .mhe_storage[[key]] <- list()
+  if (is.null(ss[[key]])) {
+    ss[[key]] <- list()
   }
-  .mhe_storage[[key]][[chunk_index]] <- chunk
+  ss[[key]][[chunk_index]] <- chunk
   TRUE
 }
 
@@ -595,12 +709,15 @@ mheStoreEncChunkDS <- function(col_index, chunk_index, chunk) {
 #'
 #' @param col_index Integer. Column index (1-based)
 #' @param n_chunks Integer. Total number of chunks
+#' @param session_id Character or NULL. Session identifier for concurrent
+#'   job isolation. When NULL, falls back to legacy global storage.
 #'
 #' @return TRUE on success
 #' @export
-mheAssembleEncColumnDS <- function(col_index, n_chunks) {
+mheAssembleEncColumnDS <- function(col_index, n_chunks, session_id = NULL) {
+  ss <- .S(session_id)
   key <- paste0("enc_chunks_", col_index)
-  chunks <- .mhe_storage[[key]]
+  chunks <- ss[[key]]
   if (is.null(chunks) || length(chunks) < n_chunks) {
     stop("Missing chunks for column ", col_index, call. = FALSE)
   }
@@ -609,13 +726,13 @@ mheAssembleEncColumnDS <- function(col_index, n_chunks) {
   full_b64url <- paste0(chunks[1:n_chunks], collapse = "")
   full_b64 <- .base64url_to_base64(full_b64url)
 
-  if (is.null(.mhe_storage$remote_enc_cols)) {
-    .mhe_storage$remote_enc_cols <- list()
+  if (is.null(ss$remote_enc_cols)) {
+    ss$remote_enc_cols <- list()
   }
-  .mhe_storage$remote_enc_cols[[col_index]] <- full_b64
+  ss$remote_enc_cols[[col_index]] <- full_b64
 
   # Clean up chunks
-  .mhe_storage[[key]] <- NULL
+  ss[[key]] <- NULL
   TRUE
 }
 
@@ -626,11 +743,15 @@ mheAssembleEncColumnDS <- function(col_index, n_chunks) {
 #' @param variables Character vector. Local variables (plaintext)
 #' @param n_enc_cols Integer. Number of stored encrypted columns to use
 #' @param n_obs Integer. Number of observations
+#' @param session_id Character or NULL. Session identifier for concurrent
+#'   job isolation. When NULL, falls back to legacy global storage.
 #'
 #' @return List with encrypted_results matrix (base64url encoded ciphertexts)
 #' @export
-mheCrossProductEncDS <- function(data_name, variables, n_enc_cols, n_obs) {
-  if (is.null(.mhe_storage$remote_enc_cols) || length(.mhe_storage$remote_enc_cols) < n_enc_cols) {
+mheCrossProductEncDS <- function(data_name, variables, n_enc_cols, n_obs,
+                                 session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$remote_enc_cols) || length(ss$remote_enc_cols) < n_enc_cols) {
     stop("Encrypted columns not stored. Call mheStoreEncChunkDS/mheAssembleEncColumnDS first.", call. = FALSE)
   }
 
@@ -648,19 +769,19 @@ mheCrossProductEncDS <- function(data_name, variables, n_enc_cols, n_obs) {
   plaintext_cols <- lapply(seq_len(ncol(Z)), function(j) as.numeric(Z[, j]))
 
   # Use stored encrypted columns (no eval keys needed!)
-  enc_cols <- .mhe_storage$remote_enc_cols[1:n_enc_cols]
+  enc_cols <- ss$remote_enc_cols[1:n_enc_cols]
 
   input <- list(
     plaintext_columns = plaintext_cols,
     encrypted_columns = enc_cols,
-    log_n = as.integer(.mhe_storage$log_n %||% 12),
-    log_scale = as.integer(.mhe_storage$log_scale %||% 40)
+    log_n = as.integer(ss$log_n %||% 12),
+    log_scale = as.integer(ss$log_scale %||% 40)
   )
 
   result <- .callMheTool("mhe-cross-product", input)
 
   # Clear stored encrypted columns after use
-  .mhe_storage$remote_enc_cols <- NULL
+  ss$remote_enc_cols <- NULL
 
   # Protocol Firewall: register each produced ciphertext.
   # Returns ct_hashes so the client can relay them to other servers
@@ -673,7 +794,7 @@ mheCrossProductEncDS <- function(data_name, variables, n_enc_cols, n_obs) {
     n_cols <- ncol(er)
     for (i in seq_len(n_rows)) {
       for (j in seq_len(n_cols)) {
-        h <- .register_ciphertext(er[i, j], "cross-product")
+        h <- .register_ciphertext(er[i, j], "cross-product", session_id = session_id)
         ct_hashes <- c(ct_hashes, h)
         er[i, j] <- base64_to_base64url(er[i, j])
       }
@@ -683,7 +804,7 @@ mheCrossProductEncDS <- function(data_name, variables, n_enc_cols, n_obs) {
     n_cols <- if (n_rows > 0) length(er[[1]]) else 0
     for (i in seq_along(er)) {
       for (j in seq_along(er[[i]])) {
-        h <- .register_ciphertext(er[[i]][[j]], "cross-product")
+        h <- .register_ciphertext(er[[i]][[j]], "cross-product", session_id = session_id)
         ct_hashes <- c(ct_hashes, h)
       }
     }
@@ -716,36 +837,39 @@ mheCrossProductEncDS <- function(data_name, variables, n_enc_cols, n_obs) {
 #' @param from_storage Logical. If \code{TRUE}, read \code{ct_hashes} from
 #'   server-side blob storage (comma-separated) instead of inline argument.
 #'   Default \code{FALSE}.
+#' @param session_id Character or NULL. Session identifier for concurrent
+#'   job isolation. When NULL, falls back to legacy global storage.
 #'
 #' @return Integer. Number of ciphertexts authorized
 #' @export
 mheAuthorizeCTDS <- function(ct_hashes = NULL, op_type = "cross-product",
-                             from_storage = FALSE) {
-  if (is.null(.mhe_storage$secret_key)) {
+                             from_storage = FALSE, session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$secret_key)) {
     stop("MHE not initialized. Call mheInitDS first.", call. = FALSE)
   }
 
   # Read ct_hashes from blob storage or inline argument
   if (from_storage) {
-    blobs <- .mhe_storage$blobs
+    blobs <- ss$blobs
     if (is.null(blobs) || is.null(blobs[["ct_hashes"]])) {
       stop("No ct_hashes blob stored", call. = FALSE)
     }
     ct_hashes <- strsplit(blobs[["ct_hashes"]], ",", fixed = TRUE)[[1]]
-    .mhe_storage$blobs <- NULL
+    ss$blobs <- NULL
   }
 
-  if (is.null(.mhe_storage$ct_registry)) {
-    .mhe_storage$ct_registry <- list()
+  if (is.null(ss$ct_registry)) {
+    ss$ct_registry <- list()
   }
-  if (is.null(.mhe_storage$op_counter)) {
-    .mhe_storage$op_counter <- 0L
+  if (is.null(ss$op_counter)) {
+    ss$op_counter <- 0L
   }
 
   for (ct_hash in ct_hashes) {
-    .mhe_storage$op_counter <- .mhe_storage$op_counter + 1L
-    .mhe_storage$ct_registry[[ct_hash]] <- list(
-      op_id = .mhe_storage$op_counter,
+    ss$op_counter <- ss$op_counter + 1L
+    ss$ct_registry[[ct_hash]] <- list(
+      op_id = ss$op_counter,
       op_type = op_type,
       timestamp = Sys.time()
     )
@@ -758,14 +882,17 @@ mheAuthorizeCTDS <- function(ct_hashes = NULL, op_type = "cross-product",
 #'
 #' @param chunk_index Integer. Chunk index (1-based)
 #' @param chunk Character. Base64url-encoded chunk
+#' @param session_id Character or NULL. Session identifier for concurrent
+#'   job isolation. When NULL, falls back to legacy global storage.
 #'
 #' @return TRUE on success
 #' @export
-mheStoreCTChunkDS <- function(chunk_index, chunk) {
-  if (is.null(.mhe_storage$ct_chunks)) {
-    .mhe_storage$ct_chunks <- list()
+mheStoreCTChunkDS <- function(chunk_index, chunk, session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$ct_chunks)) {
+    ss$ct_chunks <- list()
   }
-  .mhe_storage$ct_chunks[[chunk_index]] <- chunk
+  ss$ct_chunks[[chunk_index]] <- chunk
   TRUE
 }
 
@@ -777,36 +904,39 @@ mheStoreCTChunkDS <- function(chunk_index, chunk) {
 #' one use (anti-replay).
 #'
 #' @param n_chunks Integer. Number of stored ciphertext chunks
+#' @param session_id Character or NULL. Session identifier for concurrent
+#'   job isolation. When NULL, falls back to legacy global storage.
 #'
 #' @return List with decryption_share (chunked as a character vector)
 #' @export
-mhePartialDecryptDS <- function(n_chunks) {
-  if (is.null(.mhe_storage$secret_key)) {
+mhePartialDecryptDS <- function(n_chunks, session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$secret_key)) {
     stop("Secret key not stored. Call mheInitDS first.", call. = FALSE)
   }
-  if (is.null(.mhe_storage$ct_chunks) || length(.mhe_storage$ct_chunks) < n_chunks) {
+  if (is.null(ss$ct_chunks) || length(ss$ct_chunks) < n_chunks) {
     stop("Ciphertext chunks not stored. Call mheStoreCTChunkDS first.", call. = FALSE)
   }
 
   # Reassemble ciphertext from chunks. CKKS ciphertexts can be 50-200KB
   # as base64, exceeding DataSHIELD/R parser limits for single string
   # arguments. Chunking at ~10KB per chunk avoids these limits.
-  ct_b64url <- paste0(.mhe_storage$ct_chunks[1:n_chunks], collapse = "")
+  ct_b64url <- paste0(ss$ct_chunks[1:n_chunks], collapse = "")
   ct_b64 <- .base64url_to_base64(ct_b64url)
 
   # Clean up chunks after use to free memory
-  .mhe_storage$ct_chunks <- NULL
+  ss$ct_chunks <- NULL
 
   # Protocol Firewall: validate ciphertext is authorized for decryption.
   # This prevents the decryption oracle attack where an adversary submits
   # arbitrary ciphertexts to recover plaintext or secret key information.
-  .validate_and_consume_ciphertext(ct_b64)
+  .validate_and_consume_ciphertext(ct_b64, session_id = session_id)
 
   input <- list(
     ciphertext = ct_b64,
-    secret_key = .mhe_storage$secret_key,
-    log_n = as.integer(.mhe_storage$log_n %||% 12),
-    log_scale = as.integer(.mhe_storage$log_scale %||% 40)
+    secret_key = ss$secret_key,
+    log_n = as.integer(ss$log_n %||% 12),
+    log_scale = as.integer(ss$log_scale %||% 40)
   )
 
   result <- .callMheTool("mhe-partial-decrypt", input)
@@ -816,7 +946,7 @@ mhePartialDecryptDS <- function(n_chunks) {
 
   list(
     decryption_share = share_b64url,
-    party_id = .mhe_storage$party_id
+    party_id = ss$party_id
   )
 }
 
@@ -839,19 +969,22 @@ mhePartialDecryptDS <- function(n_chunks) {
 #' @param transport_keys Named list. Server name -> transport public key
 #'   (base64url). Must include a \code{"fusion"} entry identifying the
 #'   fusion server's (party 0) transport PK.
+#' @param session_id Character or NULL. Session identifier for concurrent
+#'   job isolation. When NULL, falls back to legacy global storage.
 #'
 #' @return \code{TRUE} on success
 #'
 #' @seealso \code{\link{mheInitDS}} which generates the transport keypair,
 #'   \code{\link{mhePartialDecryptWrappedDS}} which uses the fusion PK
 #' @export
-mheStoreTransportKeysDS <- function(transport_keys) {
-  if (is.null(.mhe_storage$secret_key)) {
+mheStoreTransportKeysDS <- function(transport_keys, session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$secret_key)) {
     stop("MHE not initialized. Call mheInitDS first.", call. = FALSE)
   }
 
   # Convert from base64url to standard base64 for internal use
-  .mhe_storage$peer_transport_pks <- lapply(transport_keys, .base64url_to_base64)
+  ss$peer_transport_pks <- lapply(transport_keys, .base64url_to_base64)
 
   TRUE
 }
@@ -869,6 +1002,8 @@ mheStoreTransportKeysDS <- function(transport_keys) {
 #'
 #' @param n_chunks Integer. Number of stored ciphertext chunks (previously
 #'   sent via \code{\link{mheStoreCTChunkDS}}).
+#' @param session_id Character or NULL. Session identifier for concurrent
+#'   job isolation. When NULL, falls back to legacy global storage.
 #'
 #' @return List with:
 #'   \itemize{
@@ -880,34 +1015,35 @@ mheStoreTransportKeysDS <- function(transport_keys) {
 #' @seealso \code{\link{mhePartialDecryptDS}} for the unwrapped variant,
 #'   \code{\link{mheFuseServerDS}} for server-side fusion
 #' @export
-mhePartialDecryptWrappedDS <- function(n_chunks) {
-  if (is.null(.mhe_storage$secret_key)) {
+mhePartialDecryptWrappedDS <- function(n_chunks, session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$secret_key)) {
     stop("Secret key not stored. Call mheInitDS first.", call. = FALSE)
   }
-  if (is.null(.mhe_storage$ct_chunks) || length(.mhe_storage$ct_chunks) < n_chunks) {
+  if (is.null(ss$ct_chunks) || length(ss$ct_chunks) < n_chunks) {
     stop("Ciphertext chunks not stored. Call mheStoreCTChunkDS first.", call. = FALSE)
   }
 
-  fusion_pk <- .mhe_storage$peer_transport_pks[["fusion"]]
+  fusion_pk <- ss$peer_transport_pks[["fusion"]]
   if (is.null(fusion_pk)) {
     stop("Fusion server transport PK not stored. Call mheStoreTransportKeysDS first.",
          call. = FALSE)
   }
 
   # Reassemble ciphertext from chunks
-  ct_b64url <- paste0(.mhe_storage$ct_chunks[1:n_chunks], collapse = "")
+  ct_b64url <- paste0(ss$ct_chunks[1:n_chunks], collapse = "")
   ct_b64 <- .base64url_to_base64(ct_b64url)
-  .mhe_storage$ct_chunks <- NULL
+  ss$ct_chunks <- NULL
 
   # Protocol Firewall: validate ciphertext is authorized
-  .validate_and_consume_ciphertext(ct_b64)
+  .validate_and_consume_ciphertext(ct_b64, session_id = session_id)
 
   # Compute raw partial decryption share
   input <- list(
     ciphertext = ct_b64,
-    secret_key = .mhe_storage$secret_key,
-    log_n = as.integer(.mhe_storage$log_n %||% 12),
-    log_scale = as.integer(.mhe_storage$log_scale %||% 40)
+    secret_key = ss$secret_key,
+    log_n = as.integer(ss$log_n %||% 12),
+    log_scale = as.integer(ss$log_scale %||% 40)
   )
   result <- .callMheTool("mhe-partial-decrypt", input)
 
@@ -921,7 +1057,7 @@ mhePartialDecryptWrappedDS <- function(n_chunks) {
 
   list(
     wrapped_share = base64_to_base64url(sealed$sealed),
-    party_id = .mhe_storage$party_id
+    party_id = ss$party_id
   )
 }
 
@@ -940,23 +1076,26 @@ mhePartialDecryptWrappedDS <- function(n_chunks) {
 #' @param share_data Character. The wrapped share data (base64url encoded),
 #'   or a chunk of it. Multiple calls with the same \code{party_id}
 #'   concatenate the data.
+#' @param session_id Character or NULL. Session identifier for concurrent
+#'   job isolation. When NULL, falls back to legacy global storage.
 #'
 #' @return \code{TRUE} on success
 #'
 #' @seealso \code{\link{mhePartialDecryptWrappedDS}} which produces the
 #'   wrapped share, \code{\link{mheFuseServerDS}} which consumes them
 #' @export
-mheStoreWrappedShareDS <- function(party_id, share_data) {
-  if (is.null(.mhe_storage$wrapped_share_parts)) {
-    .mhe_storage$wrapped_share_parts <- list()
+mheStoreWrappedShareDS <- function(party_id, share_data, session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$wrapped_share_parts)) {
+    ss$wrapped_share_parts <- list()
   }
   key <- as.character(party_id)
   # Concatenate chunks: multiple calls with the same party_id append data
-  if (is.null(.mhe_storage$wrapped_share_parts[[key]])) {
-    .mhe_storage$wrapped_share_parts[[key]] <- share_data
+  if (is.null(ss$wrapped_share_parts[[key]])) {
+    ss$wrapped_share_parts[[key]] <- share_data
   } else {
-    .mhe_storage$wrapped_share_parts[[key]] <- paste0(
-      .mhe_storage$wrapped_share_parts[[key]], share_data)
+    ss$wrapped_share_parts[[key]] <- paste0(
+      ss$wrapped_share_parts[[key]], share_data)
   }
   TRUE
 }
@@ -982,6 +1121,8 @@ mheStoreWrappedShareDS <- function(party_id, share_data) {
 #' @param n_ct_chunks Integer. Number of stored ciphertext chunks.
 #' @param num_slots Integer. Number of valid slots to return. Use 0 for a
 #'   single scalar (slot 0 only), or n_obs for a vector. Default 0.
+#' @param session_id Character or NULL. Session identifier for concurrent
+#'   job isolation. When NULL, falls back to legacy global storage.
 #'
 #' @return List with:
 #'   \itemize{
@@ -993,27 +1134,29 @@ mheStoreWrappedShareDS <- function(party_id, share_data) {
 #' @seealso \code{\link{mheStoreWrappedShareDS}} for storing wrapped shares,
 #'   \code{\link{mhePartialDecryptWrappedDS}} for producing wrapped shares
 #' @export
-mheFuseServerDS <- function(n_parties, n_ct_chunks, num_slots = 0) {
-  if (is.null(.mhe_storage$secret_key)) {
+mheFuseServerDS <- function(n_parties, n_ct_chunks, num_slots = 0,
+                            session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$secret_key)) {
     stop("Secret key not stored. Call mheInitDS first.", call. = FALSE)
   }
-  if (is.null(.mhe_storage$transport_sk)) {
+  if (is.null(ss$transport_sk)) {
     stop("Transport secret key not stored. Call mheInitDS first.", call. = FALSE)
   }
-  if (is.null(.mhe_storage$ct_chunks) || length(.mhe_storage$ct_chunks) < n_ct_chunks) {
+  if (is.null(ss$ct_chunks) || length(ss$ct_chunks) < n_ct_chunks) {
     stop("Ciphertext chunks not stored.", call. = FALSE)
   }
 
   # Reassemble ciphertext from chunks
-  ct_b64url <- paste0(.mhe_storage$ct_chunks[1:n_ct_chunks], collapse = "")
+  ct_b64url <- paste0(ss$ct_chunks[1:n_ct_chunks], collapse = "")
   ct_b64 <- .base64url_to_base64(ct_b64url)
-  .mhe_storage$ct_chunks <- NULL
+  ss$ct_chunks <- NULL
 
   # Protocol Firewall: validate ciphertext
-  .validate_and_consume_ciphertext(ct_b64)
+  .validate_and_consume_ciphertext(ct_b64, session_id = session_id)
 
   # Collect wrapped shares (from other servers, stored via mheStoreWrappedShareDS)
-  parts <- .mhe_storage$wrapped_share_parts
+  parts <- ss$wrapped_share_parts
   if (is.null(parts) || length(parts) == 0) {
     stop("No wrapped shares stored. Relay shares via mheStoreWrappedShareDS first.",
          call. = FALSE)
@@ -1024,16 +1167,16 @@ mheFuseServerDS <- function(n_parties, n_ct_chunks, num_slots = 0) {
   # Call mhe-fuse-server: unwrap + own partial decrypt + aggregate + DecodePublic
   result <- .callMheTool("mhe-fuse-server", list(
     ciphertext = ct_b64,
-    secret_key = .mhe_storage$secret_key,
+    secret_key = ss$secret_key,
     wrapped_shares = wrapped_shares,
-    transport_secret_key = .mhe_storage$transport_sk,
+    transport_secret_key = ss$transport_sk,
     num_slots = as.integer(num_slots),
-    log_n = as.integer(.mhe_storage$log_n %||% 12),
-    log_scale = as.integer(.mhe_storage$log_scale %||% 40)
+    log_n = as.integer(ss$log_n %||% 12),
+    log_scale = as.integer(ss$log_scale %||% 40)
   ))
 
   # Clean up wrapped shares
-  .mhe_storage$wrapped_share_parts <- NULL
+  ss$wrapped_share_parts <- NULL
 
   list(value = result$value, values = result$values)
 }
@@ -1074,27 +1217,31 @@ mheFuseServerDS <- function(n_parties, n_ct_chunks, num_slots = 0) {
 #' @param chunk Character. The blob data (or a chunk of it)
 #' @param chunk_index Integer. Current chunk index (1-based). Default 1.
 #' @param n_chunks Integer. Total number of chunks. Default 1 (no chunking).
+#' @param session_id Character or NULL. Session identifier for concurrent
+#'   job isolation. When NULL, falls back to legacy global storage.
 #'
 #' @return TRUE on success
 #' @export
-mheStoreBlobDS <- function(key, chunk, chunk_index = 1L, n_chunks = 1L) {
+mheStoreBlobDS <- function(key, chunk, chunk_index = 1L, n_chunks = 1L,
+                           session_id = NULL) {
+  ss <- .S(session_id)
   if (n_chunks == 1L) {
     # Single-call mode (no chunking)
-    if (is.null(.mhe_storage$blobs)) .mhe_storage$blobs <- list()
-    .mhe_storage$blobs[[key]] <- chunk
+    if (is.null(ss$blobs)) ss$blobs <- list()
+    ss$blobs[[key]] <- chunk
   } else {
     # Chunked mode
-    if (is.null(.mhe_storage$blob_chunks)) .mhe_storage$blob_chunks <- list()
-    if (is.null(.mhe_storage$blob_chunks[[key]])) {
-      .mhe_storage$blob_chunks[[key]] <- character(n_chunks)
+    if (is.null(ss$blob_chunks)) ss$blob_chunks <- list()
+    if (is.null(ss$blob_chunks[[key]])) {
+      ss$blob_chunks[[key]] <- character(n_chunks)
     }
-    .mhe_storage$blob_chunks[[key]][chunk_index] <- chunk
+    ss$blob_chunks[[key]][chunk_index] <- chunk
 
     # Auto-assemble when all chunks are present
-    if (all(nzchar(.mhe_storage$blob_chunks[[key]]))) {
-      if (is.null(.mhe_storage$blobs)) .mhe_storage$blobs <- list()
-      .mhe_storage$blobs[[key]] <- paste0(.mhe_storage$blob_chunks[[key]], collapse = "")
-      .mhe_storage$blob_chunks[[key]] <- NULL
+    if (all(nzchar(ss$blob_chunks[[key]]))) {
+      if (is.null(ss$blobs)) ss$blobs <- list()
+      ss$blobs[[key]] <- paste0(ss$blob_chunks[[key]], collapse = "")
+      ss$blob_chunks[[key]] <- NULL
     }
   }
   TRUE
@@ -1104,10 +1251,13 @@ mheStoreBlobDS <- function(key, chunk, chunk_index = 1L, n_chunks = 1L) {
 #'
 #' @param data_name Character. Name of data frame
 #' @param variables Character vector. Variables to check
+#' @param session_id Character or NULL. Session identifier for concurrent
+#'   job isolation. Unused (stateless function) but accepted for API
+#'   consistency.
 #'
 #' @return Integer. Number of complete observations
 #' @export
-mheGetObsDS <- function(data_name, variables) {
+mheGetObsDS <- function(data_name, variables, session_id = NULL) {
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
   X <- as.matrix(data[, variables, drop = FALSE])
@@ -1121,11 +1271,19 @@ mheGetObsDS <- function(data_name, variables) {
 #' Called by the client at the end of each protocol execution to minimize
 #' the window during which keys exist in memory.
 #'
+#' @param session_id Character or NULL. Session identifier for concurrent
+#'   job isolation. When not NULL, cleans up only the specified session.
+#'   When NULL, falls back to clearing the legacy global storage.
+#'
 #' @return TRUE on success
 #' @export
-mheCleanupDS <- function() {
-  # Remove all cryptographic state
-  rm(list = ls(.mhe_storage), envir = .mhe_storage)
+mheCleanupDS <- function(session_id = NULL) {
+  if (!is.null(session_id)) {
+    .cleanup_session(session_id)
+  } else {
+    # Legacy fallback: clear global storage
+    rm(list = ls(.mhe_storage), envir = .mhe_storage)
+  }
   # Force garbage collection to release memory holding key material
   gc(verbose = FALSE)
   TRUE

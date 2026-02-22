@@ -14,7 +14,8 @@ mheCombineDS(
   log_scale = 40,
   from_storage = FALSE,
   n_parties = 0,
-  n_gkg_shares = 0
+  n_gkg_shares = 0,
+  session_id = NULL
 )
 }
 \arguments{
@@ -41,6 +42,9 @@ instead of inline arguments. Default \code{FALSE}.}
 
 \item{n_gkg_shares}{Integer. Number of Galois key generation shares per
 party (used with \code{from_storage}).}
+
+\item{session_id}{Character or NULL. Session identifier for concurrent
+job isolation. When NULL, falls back to legacy global storage.}
 }
 \value{
 List with collective_public_key and galois_keys

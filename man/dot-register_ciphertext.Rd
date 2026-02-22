@@ -4,7 +4,7 @@
 \alias{.register_ciphertext}
 \title{Register a ciphertext as authorized for decryption (producing server)}
 \usage{
-.register_ciphertext(ct_b64, op_type)
+.register_ciphertext(ct_b64, op_type, session_id = NULL)
 }
 \arguments{
 \item{ct_b64}{Character. The ciphertext in standard base64 encoding}

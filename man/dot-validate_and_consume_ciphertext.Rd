@@ -4,7 +4,7 @@
 \alias{.validate_and_consume_ciphertext}
 \title{Validate and consume a ciphertext authorization (one-time use)}
 \usage{
-.validate_and_consume_ciphertext(ct_b64)
+.validate_and_consume_ciphertext(ct_b64, session_id = NULL)
 }
 \arguments{
 \item{ct_b64}{Character. The ciphertext in standard base64 encoding}

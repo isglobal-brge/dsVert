@@ -16,6 +16,9 @@
 #' @param family Character string. GLM family: "gaussian", "binomial",
 #'   or "poisson". Default is "gaussian".
 #' @param lambda Numeric. L2 regularization parameter. Default is 1e-4.
+#' @param intercept Logical. Whether to include an intercept column.
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return A list containing:
 #'   \itemize{
@@ -64,7 +67,8 @@
 #' @export
 glmPartialFitDS <- function(data_name, y_name, x_vars, eta_other,
                              beta_current, family = "gaussian",
-                             lambda = 1e-4, intercept = FALSE) {
+                             lambda = 1e-4, intercept = FALSE,
+                             session_id = NULL) {
   # Validate inputs
   if (!is.character(data_name) || length(data_name) != 1) {
     stop("data_name must be a single character string", call. = FALSE)
@@ -80,8 +84,8 @@ glmPartialFitDS <- function(data_name, y_name, x_vars, eta_other,
          call. = FALSE)
   }
 
-  # Get data from server environment (checks .mhe_storage for standardized data)
-  data <- .resolveData(data_name, parent.frame())
+  # Get data from server environment (checks session storage for standardized data)
+  data <- .resolveData(data_name, parent.frame(), session_id)
 
   if (!is.data.frame(data)) {
     stop("Object '", data_name, "' is not a data frame", call. = FALSE)

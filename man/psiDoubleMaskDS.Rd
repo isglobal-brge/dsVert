@@ -4,7 +4,7 @@
 \alias{psiDoubleMaskDS}
 \title{Double-mask target points using stored scalar (aggregate function)}
 \usage{
-psiDoubleMaskDS(target_name, from_storage = FALSE)
+psiDoubleMaskDS(target_name, from_storage = FALSE, session_id = NULL)
 }
 \arguments{
 \item{target_name}{Character. Name of the target server whose points
@@ -12,6 +12,9 @@ are being double-masked.}
 
 \item{from_storage}{Logical. If \code{TRUE}, read encrypted blob from
 server-side blob storage. Default \code{FALSE}.}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with encrypted_blob (base64url).

@@ -4,10 +4,13 @@
 \alias{psiStoreTransportKeysDS}
 \title{Store peer transport public keys (aggregate function)}
 \usage{
-psiStoreTransportKeysDS(transport_keys)
+psiStoreTransportKeysDS(transport_keys, session_id = NULL)
 }
 \arguments{
 \item{transport_keys}{Named list. Server name -> transport PK (base64url).}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 TRUE (invisible).

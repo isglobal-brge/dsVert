@@ -47,8 +47,8 @@ NULL
 #' @param operation Character. Name of the operation being attempted.
 #' @param required_phase Character. Required phase for this operation.
 #' @keywords internal
-.psi_firewall_check <- function(operation, required_phase) {
-  current <- .mhe_storage$psi_phase
+.psi_firewall_check <- function(operation, required_phase, session_id = NULL) {
+  current <- .S(session_id)$psi_phase
   if (is.null(current) || current != required_phase) {
     stop("PSI Firewall: operation '", operation, "' not allowed in phase '",
          if (is.null(current)) "none" else current,
@@ -81,15 +81,16 @@ NULL
 #'   base64 before passing to the Go tool.
 #' @return Character. The decrypted string.
 #' @keywords internal
-.psi_decrypt_blob <- function(sealed_b64url) {
-  if (is.null(.mhe_storage$psi_transport_sk)) {
+.psi_decrypt_blob <- function(sealed_b64url, session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$psi_transport_sk)) {
     stop("PSI transport SK not available. Call psiInitDS first.", call. = FALSE)
   }
   # Convert from base64url (parser-safe) back to standard base64 (Go tool)
   sealed_b64 <- .base64url_to_base64(sealed_b64url)
   result <- .callMheTool("transport-decrypt", list(
     sealed = sealed_b64,
-    recipient_sk = .mhe_storage$psi_transport_sk
+    recipient_sk = ss$psi_transport_sk
   ))
   rawToChar(jsonlite::base64_dec(result$data))
 }
@@ -98,13 +99,14 @@ NULL
 #' @param key Character. The blob storage key.
 #' @return Character. The assembled blob string.
 #' @keywords internal
-.read_psi_blob <- function(key) {
-  blobs <- .mhe_storage$blobs
+.read_psi_blob <- function(key, session_id = NULL) {
+  ss <- .S(session_id)
+  blobs <- ss$blobs
   if (is.null(blobs) || is.null(blobs[[key]])) {
     stop("No PSI blob stored with key '", key, "'", call. = FALSE)
   }
   blob <- blobs[[key]]
-  .mhe_storage$blobs[[key]] <- NULL
+  ss$blobs[[key]] <- NULL
   blob
 }
 
@@ -268,30 +270,34 @@ NULL
 #' All options follow the dsBase two-tier fallback pattern:
 #' \code{getOption("dsvert.X")} then \code{getOption("default.dsvert.X")}.
 #'
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
+#'
 #' @return List with transport_pk (base64url) and pinned (logical indicating
 #'   whether pre-shared keys are in use).
 #' @export
-psiInitDS <- function() {
+psiInitDS <- function(session_id = NULL) {
+  ss <- .S(session_id)
   preshared <- .psi_load_preshared_keys()
 
   if (!is.null(preshared)) {
     # Pre-shared keys: use persistent keypair (MITM-resistant)
-    .mhe_storage$psi_transport_sk <- preshared$secret_key
-    .mhe_storage$psi_transport_pk <- preshared$public_key
-    .mhe_storage$psi_trusted_pks <- preshared$trusted_pks  # for validation
+    ss$psi_transport_sk <- preshared$secret_key
+    ss$psi_transport_pk <- preshared$public_key
+    ss$psi_trusted_pks <- preshared$trusted_pks  # for validation
   } else {
     # Ephemeral keys: generate fresh keypair (development mode)
     transport <- .callMheTool("transport-keygen", list())
-    .mhe_storage$psi_transport_sk <- transport$secret_key
-    .mhe_storage$psi_transport_pk <- transport$public_key
-    .mhe_storage$psi_trusted_pks <- NULL
+    ss$psi_transport_sk <- transport$secret_key
+    ss$psi_transport_pk <- transport$public_key
+    ss$psi_trusted_pks <- NULL
   }
 
-  .mhe_storage$psi_phase <- "init"
-  .mhe_storage$psi_dm_used <- character(0)
+  ss$psi_phase <- "init"
+  ss$psi_dm_used <- character(0)
 
   list(
-    transport_pk = base64_to_base64url(.mhe_storage$psi_transport_pk),
+    transport_pk = base64_to_base64url(ss$psi_transport_pk),
     pinned = !is.null(preshared)
   )
 }
@@ -311,17 +317,20 @@ psiInitDS <- function() {
 #' In semi-honest mode (default), the client-provided PKs are used as-is.
 #'
 #' @param transport_keys Named list. Server name -> transport PK (base64url).
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #' @return TRUE (invisible).
 #' @export
-psiStoreTransportKeysDS <- function(transport_keys) {
-  if (is.null(.mhe_storage$psi_phase)) {
+psiStoreTransportKeysDS <- function(transport_keys, session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$psi_phase)) {
     stop("PSI not initialized. Call psiInitDS first.", call. = FALSE)
   }
 
-  trusted <- .mhe_storage$psi_trusted_pks
+  trusted <- ss$psi_trusted_pks
   if (!is.null(trusted)) {
     # Pre-shared keys: validate every client-provided PK is in the trusted set
-    own_pk <- .mhe_storage$psi_transport_pk
+    own_pk <- ss$psi_transport_pk
     client_pks <- lapply(transport_keys, .base64url_to_base64)
     for (name in names(client_pks)) {
       pk <- client_pks[[name]]
@@ -336,7 +345,7 @@ psiStoreTransportKeysDS <- function(transport_keys) {
 
   # Store client-provided name -> PK mapping (names are routing labels,
   # PKs are validated above if pinning is enabled)
-  .mhe_storage$psi_peer_pks <- lapply(transport_keys, .base64url_to_base64)
+  ss$psi_peer_pks <- lapply(transport_keys, .base64url_to_base64)
 
   invisible(TRUE)
 }
@@ -353,11 +362,14 @@ psiStoreTransportKeysDS <- function(transport_keys) {
 #'
 #' @param data_name Character. Name of data frame.
 #' @param id_col Character. Name of identifier column.
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return List with n (count only — no points returned).
 #' @export
-psiMaskIdsDS <- function(data_name, id_col) {
-  .psi_firewall_check("mask", "init")
+psiMaskIdsDS <- function(data_name, id_col, session_id = NULL) {
+  ss <- .S(session_id)
+  .psi_firewall_check("mask", "init", session_id)
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
 
@@ -376,12 +388,12 @@ psiMaskIdsDS <- function(data_name, id_col) {
   ))
 
   # SECURITY: scalar and masked points stored locally, NEVER returned.
-  .mhe_storage$psi_scalar <- result$scalar
-  .mhe_storage$psi_masked_points <- sapply(
+  ss$psi_scalar <- result$scalar
+  ss$psi_masked_points <- sapply(
     result$masked_points, base64_to_base64url, USE.NAMES = FALSE
   )
 
-  .mhe_storage$psi_phase <- "masked"
+  ss$psi_phase <- "masked"
 
   list(n = length(ids))
 }
@@ -396,24 +408,27 @@ psiMaskIdsDS <- function(data_name, id_col) {
 #' PK. The client receives an opaque blob it cannot decrypt.
 #'
 #' @param target_name Character. Name of the target server.
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return List with encrypted_blob (base64url).
 #' @export
-psiExportMaskedDS <- function(target_name) {
-  .psi_firewall_check("export", "masked")
+psiExportMaskedDS <- function(target_name, session_id = NULL) {
+  ss <- .S(session_id)
+  .psi_firewall_check("export", "masked", session_id)
 
-  if (is.null(.mhe_storage$psi_masked_points)) {
+  if (is.null(ss$psi_masked_points)) {
     stop("No masked points to export. Call psiMaskIdsDS first.", call. = FALSE)
   }
 
-  target_pk <- .mhe_storage$psi_peer_pks[[target_name]]
+  target_pk <- ss$psi_peer_pks[[target_name]]
   if (is.null(target_pk)) {
     stop("No transport PK for target '", target_name, "'. ",
          "Call psiStoreTransportKeysDS first.", call. = FALSE)
   }
 
   # Serialize points as comma-separated string, encrypt under target's PK
-  points_blob <- paste(.mhe_storage$psi_masked_points, collapse = ",")
+  points_blob <- paste(ss$psi_masked_points, collapse = ",")
   sealed <- .psi_encrypt_blob(points_blob, target_pk)
 
   list(encrypted_blob = base64_to_base64url(sealed))
@@ -433,11 +448,15 @@ psiExportMaskedDS <- function(target_name) {
 #' @param id_col Character. Name of identifier column.
 #' @param from_storage Logical. If \code{TRUE}, read encrypted blob from
 #'   server-side blob storage. Default \code{FALSE}.
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return List with encrypted_blob (base64url) and n (count).
 #' @export
-psiProcessTargetDS <- function(data_name, id_col, from_storage = FALSE) {
-  .psi_firewall_check("process_target", "init")
+psiProcessTargetDS <- function(data_name, id_col, from_storage = FALSE,
+                               session_id = NULL) {
+  ss <- .S(session_id)
+  .psi_firewall_check("process_target", "init", session_id)
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
 
@@ -449,8 +468,8 @@ psiProcessTargetDS <- function(data_name, id_col, from_storage = FALSE) {
   }
 
   # 1. Read encrypted blob from storage and decrypt
-  encrypted_blob <- .read_psi_blob("ref_encrypted_blob")
-  ref_points_str <- .psi_decrypt_blob(encrypted_blob)
+  encrypted_blob <- .read_psi_blob("ref_encrypted_blob", session_id)
+  ref_points_str <- .psi_decrypt_blob(encrypted_blob, session_id)
   ref_masked_points <- strsplit(ref_points_str, ",", fixed = TRUE)[[1]]
 
   ids <- as.character(data[[id_col]])
@@ -461,7 +480,7 @@ psiProcessTargetDS <- function(data_name, id_col, from_storage = FALSE) {
     scalar = ""
   ))
 
-  .mhe_storage$psi_scalar <- own_result$scalar
+  ss$psi_scalar <- own_result$scalar
 
   # 3. Convert ref points from base64url to standard base64 for Go tool
   ref_points_std <- sapply(ref_masked_points, .base64url_to_base64, USE.NAMES = FALSE)
@@ -473,11 +492,11 @@ psiProcessTargetDS <- function(data_name, id_col, from_storage = FALSE) {
   ))
 
   # 5. Store double-masked ref points for Phase 7 matching
-  .mhe_storage$psi_ref_dm <- ref_dm$double_masked_points
-  .mhe_storage$psi_ref_indices <- as.integer(0:(length(ref_masked_points) - 1L))
+  ss$psi_ref_dm <- ref_dm$double_masked_points
+  ss$psi_ref_indices <- as.integer(0:(length(ref_masked_points) - 1L))
 
   # 6. Encrypt own masked points under ref server's transport PK
-  ref_pk <- .mhe_storage$psi_peer_pks[["ref"]]
+  ref_pk <- ss$psi_peer_pks[["ref"]]
   if (is.null(ref_pk)) {
     stop("No transport PK for ref server. Call psiStoreTransportKeysDS first.",
          call. = FALSE)
@@ -488,7 +507,7 @@ psiProcessTargetDS <- function(data_name, id_col, from_storage = FALSE) {
   own_blob <- paste(own_points_b64url, collapse = ",")
   sealed <- .psi_encrypt_blob(own_blob, ref_pk)
 
-  .mhe_storage$psi_phase <- "target_processed"
+  ss$psi_phase <- "target_processed"
 
   list(
     encrypted_blob = base64_to_base64url(sealed),
@@ -513,37 +532,41 @@ psiProcessTargetDS <- function(data_name, id_col, from_storage = FALSE) {
 #'   are being double-masked.
 #' @param from_storage Logical. If \code{TRUE}, read encrypted blob from
 #'   server-side blob storage. Default \code{FALSE}.
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return List with encrypted_blob (base64url).
 #' @export
-psiDoubleMaskDS <- function(target_name, from_storage = FALSE) {
-  .psi_firewall_check("double_mask", "masked")
+psiDoubleMaskDS <- function(target_name, from_storage = FALSE,
+                            session_id = NULL) {
+  ss <- .S(session_id)
+  .psi_firewall_check("double_mask", "masked", session_id)
 
-  if (is.null(.mhe_storage$psi_scalar)) {
+  if (is.null(ss$psi_scalar)) {
     stop("PSI scalar not stored. Call psiMaskIdsDS first.", call. = FALSE)
   }
 
   # Firewall: one-shot per target (prevents OPRF oracle attack)
-  if (target_name %in% .mhe_storage$psi_dm_used) {
+  if (target_name %in% ss$psi_dm_used) {
     stop("PSI Firewall: double-mask already called for target '",
          target_name, "'. Each target can only be processed once.",
          call. = FALSE)
   }
 
   # 1. Read encrypted blob from storage and decrypt
-  encrypted_blob <- .read_psi_blob("target_encrypted_blob")
-  points_str <- .psi_decrypt_blob(encrypted_blob)
+  encrypted_blob <- .read_psi_blob("target_encrypted_blob", session_id)
+  points_str <- .psi_decrypt_blob(encrypted_blob, session_id)
   points <- strsplit(points_str, ",", fixed = TRUE)[[1]]
 
   # 2. Double-mask with stored scalar
   points_std <- sapply(points, .base64url_to_base64, USE.NAMES = FALSE)
   result <- .callMheTool("psi-double-mask", list(
     points = as.list(points_std),
-    scalar = .mhe_storage$psi_scalar
+    scalar = ss$psi_scalar
   ))
 
   # 3. Encrypt result under target's transport PK
-  target_pk <- .mhe_storage$psi_peer_pks[[target_name]]
+  target_pk <- ss$psi_peer_pks[[target_name]]
   if (is.null(target_pk)) {
     stop("No transport PK for target '", target_name, "'.", call. = FALSE)
   }
@@ -554,7 +577,7 @@ psiDoubleMaskDS <- function(target_name, from_storage = FALSE) {
   sealed <- .psi_encrypt_blob(dm_blob, target_pk)
 
   # 4. Record one-shot usage
-  .mhe_storage$psi_dm_used <- c(.mhe_storage$psi_dm_used, target_name)
+  ss$psi_dm_used <- c(ss$psi_dm_used, target_name)
 
   list(encrypted_blob = base64_to_base64url(sealed))
 }
@@ -572,22 +595,26 @@ psiDoubleMaskDS <- function(target_name, from_storage = FALSE) {
 #' @param data_name Character. Name of data frame to align.
 #' @param from_storage Logical. If \code{TRUE}, read encrypted blob from
 #'   server-side blob storage. Default \code{FALSE}.
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return Aligned data frame (assigned to server environment).
 #' @export
-psiMatchAndAlignDS <- function(data_name, from_storage = FALSE) {
-  .psi_firewall_check("match", "target_processed")
+psiMatchAndAlignDS <- function(data_name, from_storage = FALSE,
+                               session_id = NULL) {
+  ss <- .S(session_id)
+  .psi_firewall_check("match", "target_processed", session_id)
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
 
-  if (is.null(.mhe_storage$psi_ref_dm)) {
+  if (is.null(ss$psi_ref_dm)) {
     stop("PSI ref double-masked points not stored. Call psiProcessTargetDS first.",
          call. = FALSE)
   }
 
   # 1. Read encrypted blob from storage and decrypt
-  encrypted_blob <- .read_psi_blob("dm_encrypted_blob")
-  dm_str <- .psi_decrypt_blob(encrypted_blob)
+  encrypted_blob <- .read_psi_blob("dm_encrypted_blob", session_id)
+  dm_str <- .psi_decrypt_blob(encrypted_blob, session_id)
   own_double_masked <- strsplit(dm_str, ",", fixed = TRUE)[[1]]
 
   # 2. Convert received points from base64url to standard base64
@@ -596,16 +623,16 @@ psiMatchAndAlignDS <- function(data_name, from_storage = FALSE) {
   # 3. Call psi-match: find which own rows match which ref indices
   result <- .callMheTool("psi-match", list(
     own_doubled = as.list(own_dm_std),
-    ref_doubled = as.list(.mhe_storage$psi_ref_dm),
-    ref_indices = as.list(.mhe_storage$psi_ref_indices)
+    ref_doubled = as.list(ss$psi_ref_dm),
+    ref_indices = as.list(ss$psi_ref_indices)
   ))
 
   # Store matched ref indices for Phase 8 multi-server intersection
-  .mhe_storage$psi_matched_ref_indices <- as.integer(result$matched_ref_indices)
+  ss$psi_matched_ref_indices <- as.integer(result$matched_ref_indices)
 
   # Clean up Phase 3 state (no longer needed)
-  .mhe_storage$psi_ref_dm <- NULL
-  .mhe_storage$psi_ref_indices <- NULL
+  ss$psi_ref_dm <- NULL
+  ss$psi_ref_indices <- NULL
 
   if (result$n_matched == 0) {
     stop("PSI: no matching records found", call. = FALSE)
@@ -615,7 +642,7 @@ psiMatchAndAlignDS <- function(data_name, from_storage = FALSE) {
   aligned_data <- data[as.integer(result$matched_own_rows) + 1L, , drop = FALSE]
   rownames(aligned_data) <- NULL
 
-  .mhe_storage$psi_phase <- "matched"
+  ss$psi_phase <- "matched"
 
   aligned_data
 }
@@ -631,15 +658,18 @@ psiMatchAndAlignDS <- function(data_name, from_storage = FALSE) {
 #' Stores all row indices as matched for Phase 8.
 #'
 #' @param data_name Character. Name of data frame.
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return Copy of data frame (assigned to server environment).
 #' @export
-psiSelfAlignDS <- function(data_name) {
+psiSelfAlignDS <- function(data_name, session_id = NULL) {
+  ss <- .S(session_id)
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
 
   # All ref indices are matched (the ref matches itself)
-  .mhe_storage$psi_matched_ref_indices <- as.integer(0:(nrow(data) - 1L))
+  ss$psi_matched_ref_indices <- as.integer(0:(nrow(data) - 1L))
 
   # Return copy (same order — ref is the reference)
   data
@@ -654,13 +684,17 @@ psiSelfAlignDS <- function(data_name) {
 #' Returns the set of reference indices that this server matched during
 #' PSI alignment. Used by the client to compute the multi-server intersection.
 #'
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
+#'
 #' @return Integer vector of matched reference indices (0-based).
 #' @export
-psiGetMatchedIndicesDS <- function() {
-  if (is.null(.mhe_storage$psi_matched_ref_indices)) {
+psiGetMatchedIndicesDS <- function(session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$psi_matched_ref_indices)) {
     stop("PSI matched indices not available. Run alignment first.", call. = FALSE)
   }
-  .mhe_storage$psi_matched_ref_indices
+  ss$psi_matched_ref_indices
 }
 
 #' Filter aligned data to common intersection (assign function)
@@ -674,26 +708,29 @@ psiGetMatchedIndicesDS <- function() {
 #' @param from_storage Logical. If \code{TRUE}, read \code{common_indices}
 #'   from server-side blob storage (comma-separated integers).
 #'   Default \code{FALSE}.
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return Filtered data frame (assigned to server environment).
 #' @export
 psiFilterCommonDS <- function(data_name, common_indices = NULL,
-                              from_storage = FALSE) {
+                              from_storage = FALSE, session_id = NULL) {
+  ss <- .S(session_id)
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
 
-  if (is.null(.mhe_storage$psi_matched_ref_indices)) {
+  if (is.null(ss$psi_matched_ref_indices)) {
     stop("PSI matched indices not available.", call. = FALSE)
   }
 
   # Read from blob storage or inline argument
   if (from_storage) {
-    blobs <- .mhe_storage$blobs
+    blobs <- ss$blobs
     if (is.null(blobs) || is.null(blobs[["common_indices"]])) {
       stop("No common_indices blob stored", call. = FALSE)
     }
     common_indices <- as.integer(strsplit(blobs[["common_indices"]], ",", fixed = TRUE)[[1]])
-    .mhe_storage$blobs <- NULL
+    ss$blobs <- NULL
   } else {
     common_indices <- as.integer(common_indices)
   }
@@ -723,20 +760,20 @@ psiFilterCommonDS <- function(data_name, common_indices = NULL,
     )
   }
 
-  keep <- .mhe_storage$psi_matched_ref_indices %in% common_indices
+  keep <- ss$psi_matched_ref_indices %in% common_indices
   filtered_data <- data[keep, , drop = FALSE]
   rownames(filtered_data) <- NULL
 
   # Clean up all PSI state
-  .mhe_storage$psi_scalar <- NULL
-  .mhe_storage$psi_matched_ref_indices <- NULL
-  .mhe_storage$psi_masked_points <- NULL
-  .mhe_storage$psi_transport_sk <- NULL
-  .mhe_storage$psi_transport_pk <- NULL
-  .mhe_storage$psi_peer_pks <- NULL
-  .mhe_storage$psi_trusted_pks <- NULL
-  .mhe_storage$psi_phase <- NULL
-  .mhe_storage$psi_dm_used <- NULL
+  ss$psi_scalar <- NULL
+  ss$psi_matched_ref_indices <- NULL
+  ss$psi_masked_points <- NULL
+  ss$psi_transport_sk <- NULL
+  ss$psi_transport_pk <- NULL
+  ss$psi_peer_pks <- NULL
+  ss$psi_trusted_pks <- NULL
+  ss$psi_phase <- NULL
+  ss$psi_dm_used <- NULL
 
   filtered_data
 }

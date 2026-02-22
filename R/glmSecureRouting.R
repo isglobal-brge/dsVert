@@ -57,6 +57,8 @@ NULL
 #'   Default \code{FALSE}.
 #' @param n_obs Integer or NULL. Number of observations. If NULL, inferred
 #'   from the data.
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return List with:
 #'   \itemize{
@@ -77,7 +79,9 @@ glmCoordinatorStepDS <- function(data_name, y_var, x_vars,
                                   beta_current = NULL,
                                   lambda = 1e-4,
                                   intercept = FALSE,
-                                  n_obs = NULL) {
+                                  n_obs = NULL,
+                                  session_id = NULL) {
+  ss <- .S(session_id)
 
   # Decrypt eta blobs from non-label servers
   eta_other <- rep(0, n_obs)
@@ -86,16 +90,16 @@ glmCoordinatorStepDS <- function(data_name, y_var, x_vars,
   if (is.null(encrypted_eta_blobs) && !is.null(eta_blob_keys)) {
     encrypted_eta_blobs <- list()
     for (key in eta_blob_keys) {
-      blob <- .mhe_storage$blobs[[key]]
+      blob <- ss$blobs[[key]]
       if (!is.null(blob)) {
         encrypted_eta_blobs[[key]] <- blob
-        .mhe_storage$blobs[[key]] <- NULL  # consume
+        ss$blobs[[key]] <- NULL  # consume
       }
     }
   }
 
   if (!is.null(encrypted_eta_blobs) && length(encrypted_eta_blobs) > 0) {
-    if (is.null(.mhe_storage$transport_sk)) {
+    if (is.null(ss$transport_sk)) {
       stop("Transport SK not stored. Call mheInitDS first.", call. = FALSE)
     }
 
@@ -106,7 +110,7 @@ glmCoordinatorStepDS <- function(data_name, y_var, x_vars,
       # Decrypt the eta vector
       decrypted <- .callMheTool("transport-decrypt-vectors", list(
         sealed = .base64url_to_base64(blob),
-        recipient_sk = .mhe_storage$transport_sk
+        recipient_sk = ss$transport_sk
       ))
 
       eta_k <- as.numeric(decrypted$vectors$eta)
@@ -115,7 +119,7 @@ glmCoordinatorStepDS <- function(data_name, y_var, x_vars,
   }
 
   # Run IRLS step (same logic as glmPartialFitDS)
-  data <- .resolveData(data_name, parent.frame())
+  data <- .resolveData(data_name, parent.frame(), session_id)
 
   if (!is.data.frame(data)) {
     stop("Object '", data_name, "' is not a data frame", call. = FALSE)
@@ -189,8 +193,8 @@ glmCoordinatorStepDS <- function(data_name, y_var, x_vars,
   eta_total <- eta_label + eta_other
 
   # Store eta_total for deviance computation after convergence
-  .mhe_storage$glm_eta_label <- eta_label
-  .mhe_storage$glm_eta_other <- eta_other
+  ss$glm_eta_label <- eta_label
+  ss$glm_eta_other <- eta_other
 
   # Recompute mu, w from eta_total (for non-label servers)
   if (family == "gaussian") {
@@ -253,6 +257,8 @@ glmCoordinatorStepDS <- function(data_name, y_var, x_vars,
 #'   blob (base64url). If NULL, reads from blob storage under key \code{"mwv"}
 #'   (set via \code{\link{mheStoreBlobDS}}).
 #' @param num_obs Integer. Number of observations.
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return List with:
 #'   \itemize{
@@ -265,15 +271,18 @@ glmCoordinatorStepDS <- function(data_name, y_var, x_vars,
 #' @seealso \code{\link{glmCoordinatorStepDS}} which produces the (mu, w, v) blob,
 #'   \code{\link{glmSecureBlockSolveDS}} which uses the decrypted gradient
 #' @export
-glmSecureGradientDS <- function(data_name, x_vars, encrypted_mwv = NULL, num_obs) {
-  if (is.null(.mhe_storage$transport_sk)) {
+glmSecureGradientDS <- function(data_name, x_vars, encrypted_mwv = NULL, num_obs,
+                                 session_id = NULL) {
+  ss <- .S(session_id)
+
+  if (is.null(ss$transport_sk)) {
     stop("Transport SK not stored. Call mheInitDS first.", call. = FALSE)
   }
 
   # Read from blob storage if not provided directly (chunked transfer)
   if (is.null(encrypted_mwv) || encrypted_mwv == "") {
-    encrypted_mwv <- .mhe_storage$blobs[["mwv"]]
-    .mhe_storage$blobs[["mwv"]] <- NULL  # consume
+    encrypted_mwv <- ss$blobs[["mwv"]]
+    ss$blobs[["mwv"]] <- NULL  # consume
   }
   if (is.null(encrypted_mwv)) {
     stop("No encrypted (mu, w, v) blob provided or stored.", call. = FALSE)
@@ -282,7 +291,7 @@ glmSecureGradientDS <- function(data_name, x_vars, encrypted_mwv = NULL, num_obs
   # Decrypt (mu, w, v) from coordinator
   decrypted <- .callMheTool("transport-decrypt-vectors", list(
     sealed = .base64url_to_base64(encrypted_mwv),
-    recipient_sk = .mhe_storage$transport_sk
+    recipient_sk = ss$transport_sk
   ))
 
   mu <- as.numeric(decrypted$vectors$mu)
@@ -291,19 +300,19 @@ glmSecureGradientDS <- function(data_name, x_vars, encrypted_mwv = NULL, num_obs
   # Delegate to existing gradient computation logic
   # (same as mheGLMGradientDS but sources mu/v from decrypted blob)
   enc_y <- NULL
-  if (!is.null(.mhe_storage$enc_y)) {
-    enc_y <- .mhe_storage$enc_y
-  } else if (!is.null(.mhe_storage$remote_enc_cols) && length(.mhe_storage$remote_enc_cols) >= 1) {
-    enc_y <- .mhe_storage$remote_enc_cols[[1]]
+  if (!is.null(ss$enc_y)) {
+    enc_y <- ss$enc_y
+  } else if (!is.null(ss$remote_enc_cols) && length(ss$remote_enc_cols) >= 1) {
+    enc_y <- ss$remote_enc_cols[[1]]
   }
   if (is.null(enc_y)) {
     stop("Encrypted y not stored. Transfer ct_y first.", call. = FALSE)
   }
-  if (is.null(.mhe_storage$galois_keys) || length(.mhe_storage$galois_keys) == 0) {
+  if (is.null(ss$galois_keys) || length(ss$galois_keys) == 0) {
     stop("Galois keys not available.", call. = FALSE)
   }
 
-  data <- .resolveData(data_name, parent.frame())
+  data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
 
   x_cols <- lapply(seq_len(ncol(X)), function(j) as.numeric(X[, j]))
@@ -313,10 +322,10 @@ glmSecureGradientDS <- function(data_name, x_vars, encrypted_mwv = NULL, num_obs
     mu = as.numeric(mu),
     v = v,
     x_cols = x_cols,
-    galois_keys = as.list(.mhe_storage$galois_keys),
+    galois_keys = as.list(ss$galois_keys),
     num_obs = as.integer(num_obs),
-    log_n = as.integer(.mhe_storage$log_n %||% 12),
-    log_scale = as.integer(.mhe_storage$log_scale %||% 40)
+    log_n = as.integer(ss$log_n %||% 12),
+    log_scale = as.integer(ss$log_scale %||% 40)
   )
 
   result <- .callMheTool("mhe-glm-gradient", input)
@@ -324,7 +333,7 @@ glmSecureGradientDS <- function(data_name, x_vars, encrypted_mwv = NULL, num_obs
   # Protocol Firewall: register each gradient ciphertext
   ct_hashes <- character(length(result$encrypted_gradients))
   for (j in seq_along(result$encrypted_gradients)) {
-    ct_hashes[j] <- .register_ciphertext(result$encrypted_gradients[[j]], "glm-gradient")
+    ct_hashes[j] <- .register_ciphertext(result$encrypted_gradients[[j]], "glm-gradient", session_id = session_id)
   }
 
   enc_grads <- sapply(result$encrypted_gradients, base64_to_base64url, USE.NAMES = FALSE)
@@ -363,6 +372,8 @@ glmSecureGradientDS <- function(data_name, x_vars, encrypted_mwv = NULL, num_obs
 #' @param lambda Numeric. L2 regularization parameter. Default 1e-4.
 #' @param coordinator_pk Character or NULL. Coordinator's transport PK
 #'   (base64url). If NULL, reads from stored peer transport PKs.
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return List with:
 #'   \itemize{
@@ -375,15 +386,18 @@ glmSecureGradientDS <- function(data_name, x_vars, encrypted_mwv = NULL, num_obs
 #' @export
 glmSecureBlockSolveDS <- function(data_name, x_vars, encrypted_mwv = NULL,
                                    beta_current, gradient,
-                                   lambda = 1e-4, coordinator_pk = NULL) {
-  if (is.null(.mhe_storage$transport_sk)) {
+                                   lambda = 1e-4, coordinator_pk = NULL,
+                                   session_id = NULL) {
+  ss <- .S(session_id)
+
+  if (is.null(ss$transport_sk)) {
     stop("Transport SK not stored. Call mheInitDS first.", call. = FALSE)
   }
 
   # Read from blob storage if not provided directly (chunked transfer)
   if (is.null(encrypted_mwv) || encrypted_mwv == "") {
-    encrypted_mwv <- .mhe_storage$blobs[["mwv"]]
-    .mhe_storage$blobs[["mwv"]] <- NULL  # consume
+    encrypted_mwv <- ss$blobs[["mwv"]]
+    ss$blobs[["mwv"]] <- NULL  # consume
   }
   if (is.null(encrypted_mwv)) {
     stop("No encrypted (mu, w, v) blob provided or stored.", call. = FALSE)
@@ -392,13 +406,13 @@ glmSecureBlockSolveDS <- function(data_name, x_vars, encrypted_mwv = NULL,
   # Decrypt (mu, w, v) to get IRLS weights
   decrypted <- .callMheTool("transport-decrypt-vectors", list(
     sealed = .base64url_to_base64(encrypted_mwv),
-    recipient_sk = .mhe_storage$transport_sk
+    recipient_sk = ss$transport_sk
   ))
 
   w <- as.numeric(decrypted$vectors$w)
 
   # BCD block update (same math as glmBlockSolveDS)
-  data <- .resolveData(data_name, parent.frame())
+  data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
   n <- nrow(X)
   p <- ncol(X)
@@ -472,6 +486,8 @@ glmSecureBlockSolveDS <- function(data_name, x_vars, encrypted_mwv = NULL,
 #'   unstandardization: \code{eta_orig = eta_std * y_sd + y_mean}.
 #' @param y_mean Numeric or NULL. Mean of y, used for Gaussian
 #'   unstandardization.
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return List with:
 #'   \itemize{
@@ -483,7 +499,10 @@ glmSecureBlockSolveDS <- function(data_name, x_vars, encrypted_mwv = NULL,
 #' @export
 glmSecureDevianceDS <- function(data_name, y_var, encrypted_eta_blobs = NULL,
                                  eta_blob_keys = NULL,
-                                 family = "gaussian", y_sd = NULL, y_mean = NULL) {
+                                 family = "gaussian", y_sd = NULL, y_mean = NULL,
+                                 session_id = NULL) {
+  ss <- .S(session_id)
+
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
   y <- as.numeric(data[[y_var]])
@@ -493,21 +512,21 @@ glmSecureDevianceDS <- function(data_name, y_var, encrypted_eta_blobs = NULL,
   eta_total <- rep(0, n)
 
   # Add stored label server eta (from last coordinator step, on standardized scale)
-  if (!is.null(.mhe_storage$glm_eta_label)) {
-    eta_total <- eta_total + .mhe_storage$glm_eta_label
+  if (!is.null(ss$glm_eta_label)) {
+    eta_total <- eta_total + ss$glm_eta_label
   }
-  if (!is.null(.mhe_storage$glm_eta_other)) {
-    eta_total <- eta_total + .mhe_storage$glm_eta_other
+  if (!is.null(ss$glm_eta_other)) {
+    eta_total <- eta_total + ss$glm_eta_other
   }
 
   # Read eta blobs from blob storage if keys provided (chunked transfer)
   if (is.null(encrypted_eta_blobs) && !is.null(eta_blob_keys)) {
     encrypted_eta_blobs <- list()
     for (key in eta_blob_keys) {
-      blob <- .mhe_storage$blobs[[key]]
+      blob <- ss$blobs[[key]]
       if (!is.null(blob)) {
         encrypted_eta_blobs[[key]] <- blob
-        .mhe_storage$blobs[[key]] <- NULL  # consume
+        ss$blobs[[key]] <- NULL  # consume
       }
     }
   }
@@ -520,12 +539,12 @@ glmSecureDevianceDS <- function(data_name, y_var, encrypted_eta_blobs = NULL,
       if (is.null(blob) || blob == "" || blob == "NULL") next
       decrypted <- .callMheTool("transport-decrypt-vectors", list(
         sealed = .base64url_to_base64(blob),
-        recipient_sk = .mhe_storage$transport_sk
+        recipient_sk = ss$transport_sk
       ))
       eta_nonlabel <- eta_nonlabel + as.numeric(decrypted$vectors$eta)
     }
     # Use freshly decrypted etas instead of stored ones
-    eta_total <- .mhe_storage$glm_eta_label + eta_nonlabel
+    eta_total <- ss$glm_eta_label + eta_nonlabel
   }
 
   # Transform back to original scale if Gaussian (standardized)

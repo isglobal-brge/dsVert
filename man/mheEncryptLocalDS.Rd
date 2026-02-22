@@ -4,12 +4,15 @@
 \alias{mheEncryptLocalDS}
 \title{Encrypt local data columns using stored CPK}
 \usage{
-mheEncryptLocalDS(data_name, variables)
+mheEncryptLocalDS(data_name, variables, session_id = NULL)
 }
 \arguments{
 \item{data_name}{Character. Name of data frame}
 
 \item{variables}{Character vector. Variables to encrypt}
+
+\item{session_id}{Character or NULL. Session identifier for concurrent
+job isolation. When NULL, falls back to legacy global storage.}
 }
 \value{
 List with encrypted_columns

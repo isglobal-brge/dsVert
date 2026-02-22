@@ -4,7 +4,12 @@
 \alias{mheCleanupDS}
 \title{Clean up MHE cryptographic state}
 \usage{
-mheCleanupDS()
+mheCleanupDS(session_id = NULL)
+}
+\arguments{
+\item{session_id}{Character or NULL. Session identifier for concurrent
+job isolation. When not NULL, cleans up only the specified session.
+When NULL, falls back to clearing the legacy global storage.}
 }
 \value{
 TRUE on success

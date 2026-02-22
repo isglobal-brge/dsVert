@@ -12,7 +12,8 @@ glmPartialFitDS(
   beta_current,
   family = "gaussian",
   lambda = 1e-04,
-  intercept = FALSE
+  intercept = FALSE,
+  session_id = NULL
 )
 }
 \arguments{
@@ -35,6 +36,11 @@ this partition's variables.}
 or "poisson". Default is "gaussian".}
 
 \item{lambda}{Numeric. L2 regularization parameter. Default is 1e-4.}
+
+\item{intercept}{Logical. Whether to include an intercept column.}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 A list containing:

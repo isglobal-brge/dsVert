@@ -4,10 +4,13 @@
 \alias{psiExportMaskedDS}
 \title{Export encrypted masked points for a target server (aggregate function)}
 \usage{
-psiExportMaskedDS(target_name)
+psiExportMaskedDS(target_name, session_id = NULL)
 }
 \arguments{
 \item{target_name}{Character. Name of the target server.}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with encrypted_blob (base64url).

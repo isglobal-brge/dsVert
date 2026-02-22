@@ -4,7 +4,11 @@
 \alias{psiInitDS}
 \title{Initialize PSI transport keys (aggregate function)}
 \usage{
-psiInitDS()
+psiInitDS(session_id = NULL)
+}
+\arguments{
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with transport_pk (base64url) and pinned (logical indicating

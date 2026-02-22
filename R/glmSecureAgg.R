@@ -38,9 +38,10 @@ NULL
 #' @export
 glmSecureAggInitDS <- function(self_name, session_id,
                                 nonlabel_names, scale_bits = 20L) {
-  if (is.null(.mhe_storage$transport_sk))
+  ss <- .S(session_id)
+  if (is.null(ss$transport_sk))
     stop("Transport SK not stored. Call mheInitDS first.", call. = FALSE)
-  if (is.null(.mhe_storage$peer_transport_pks))
+  if (is.null(ss$peer_transport_pks))
     stop("Peer transport PKs not stored. Call mheStoreTransportKeysDS first.",
          call. = FALSE)
 
@@ -51,13 +52,13 @@ glmSecureAggInitDS <- function(self_name, session_id,
 
   seeds <- list()
   for (peer in peers) {
-    peer_pk <- .mhe_storage$peer_transport_pks[[peer]]
+    peer_pk <- ss$peer_transport_pks[[peer]]
     if (is.null(peer_pk))
       stop("No transport PK stored for peer '", peer, "'", call. = FALSE)
 
     # Derive shared seed via Go binary
     result <- .callMheTool("derive-shared-seed", list(
-      self_sk = .mhe_storage$transport_sk,
+      self_sk = ss$transport_sk,
       peer_pk = peer_pk,
       session_id = session_id,
       self_name = self_name,
@@ -71,9 +72,9 @@ glmSecureAggInitDS <- function(self_name, session_id,
     seeds[[peer]] <- list(seed = result$seed, sign = sign)
   }
 
-  .mhe_storage$secure_agg_seeds <- seeds
-  .mhe_storage$secure_agg_scale_bits <- as.integer(scale_bits)
-  .mhe_storage$secure_agg_session_id <- session_id
+  ss$secure_agg_seeds <- seeds
+  ss$secure_agg_scale_bits <- as.integer(scale_bits)
+  ss$secure_agg_session_id <- session_id
 
   invisible(TRUE)
 }
@@ -103,6 +104,8 @@ glmSecureAggInitDS <- function(self_name, session_id,
 #' @param lambda Numeric. L2 regularization parameter. Default 1e-4.
 #' @param coordinator_pk Character. Coordinator's transport PK (base64url).
 #' @param iteration Integer. Current BCD iteration.
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return List with:
 #'   \itemize{
@@ -116,23 +119,25 @@ glmSecureAggBlockSolveDS <- function(data_name, x_vars,
                                       beta_current, gradient,
                                       lambda = 1e-4,
                                       coordinator_pk,
-                                      iteration = 1L) {
-  if (is.null(.mhe_storage$transport_sk))
+                                      iteration = 1L,
+                                      session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$transport_sk))
     stop("Transport SK not stored. Call mheInitDS first.", call. = FALSE)
-  if (is.null(.mhe_storage$secure_agg_seeds))
+  if (is.null(ss$secure_agg_seeds))
     stop("Secure aggregation not initialized. Call glmSecureAggInitDS first.",
          call. = FALSE)
 
   # Read (mu, w, v) from blob storage (sent by client)
-  encrypted_mwv <- .mhe_storage$blobs[["mwv"]]
-  .mhe_storage$blobs[["mwv"]] <- NULL  # consume
+  encrypted_mwv <- ss$blobs[["mwv"]]
+  ss$blobs[["mwv"]] <- NULL  # consume
   if (is.null(encrypted_mwv))
     stop("No encrypted (mu, w, v) blob stored.", call. = FALSE)
 
   # Decrypt (mu, w, v) to get IRLS weights
   decrypted <- .callMheTool("transport-decrypt-vectors", list(
     sealed = .base64url_to_base64(encrypted_mwv),
-    recipient_sk = .mhe_storage$transport_sk
+    recipient_sk = ss$transport_sk
   ))
   w <- as.numeric(decrypted$vectors$w)
 
@@ -169,10 +174,10 @@ glmSecureAggBlockSolveDS <- function(data_name, x_vars,
   eta_new <- as.vector(X %*% beta_new)
 
   # Mask eta_new using pairwise PRG masks (fixed-point integer arithmetic)
-  seeds_list <- .mhe_storage$secure_agg_seeds
+  seeds_list <- ss$secure_agg_seeds
   seed_values <- vapply(seeds_list, function(s) s$seed, character(1))
   sign_values <- vapply(seeds_list, function(s) s$sign, integer(1))
-  scale_bits <- .mhe_storage$secure_agg_scale_bits
+  scale_bits <- ss$secure_agg_scale_bits
 
   mask_result <- .callMheTool("fixed-point-mask-eta", list(
     eta = as.numeric(eta_new),
@@ -225,6 +230,8 @@ glmSecureAggBlockSolveDS <- function(data_name, x_vars,
 #' @param intercept Logical. Include intercept column. Default FALSE.
 #' @param n_obs Integer. Number of observations.
 #' @param scale_bits Integer. Fixed-point scale exponent. Default 20.
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return List with:
 #'   \itemize{
@@ -243,25 +250,27 @@ glmSecureAggCoordinatorStepDS <- function(data_name, y_var, x_vars,
                                            lambda = 1e-4,
                                            intercept = FALSE,
                                            n_obs = NULL,
-                                           scale_bits = 20L) {
+                                           scale_bits = 20L,
+                                           session_id = NULL) {
+  ss <- .S(session_id)
   # Aggregate masked etas from non-label servers
   eta_other <- rep(0, n_obs)
 
   if (!is.null(eta_blob_keys) && length(eta_blob_keys) > 0) {
-    if (is.null(.mhe_storage$transport_sk))
+    if (is.null(ss$transport_sk))
       stop("Transport SK not stored. Call mheInitDS first.", call. = FALSE)
 
     # Collect all masked vectors, decrypt, sum immediately
     masked_vectors <- list()
     for (key in eta_blob_keys) {
-      blob <- .mhe_storage$blobs[[key]]
+      blob <- ss$blobs[[key]]
       if (is.null(blob)) next
-      .mhe_storage$blobs[[key]] <- NULL  # consume
+      ss$blobs[[key]] <- NULL  # consume
 
       # Decrypt the masked eta vector
       decrypted <- .callMheTool("transport-decrypt-vectors", list(
         sealed = .base64url_to_base64(blob),
-        recipient_sk = .mhe_storage$transport_sk
+        recipient_sk = ss$transport_sk
       ))
 
       masked_vectors[[length(masked_vectors) + 1]] <- as.numeric(decrypted$vectors$masked_eta)
@@ -353,8 +362,8 @@ glmSecureAggCoordinatorStepDS <- function(data_name, y_var, x_vars,
   eta_total <- eta_label + eta_other
 
   # Store for deviance computation
-  .mhe_storage$glm_eta_label <- eta_label
-  .mhe_storage$glm_eta_other <- eta_other
+  ss$glm_eta_label <- eta_label
+  ss$glm_eta_other <- eta_other
 
   # Recompute mu, w from eta_total
   if (family == "gaussian") {
@@ -414,13 +423,17 @@ glmSecureAggCoordinatorStepDS <- function(data_name, y_var, x_vars,
 #' @param beta Numeric vector. Final converged coefficients.
 #' @param coordinator_pk Character or NULL. Coordinator's transport PK.
 #'   NULL if this IS the coordinator.
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return List with encrypted_eta (NULL if coordinator).
 #'
 #' @seealso \code{\link{glmSecureAggCoordinatorStepDS}}
 #' @export
 glmSecureAggPrepDevianceDS <- function(data_name, x_vars, beta,
-                                        coordinator_pk = NULL) {
+                                        coordinator_pk = NULL,
+                                        session_id = NULL) {
+  ss <- .S(session_id)
   data <- .resolveData(data_name, parent.frame())
   X <- as.matrix(data[, x_vars, drop = FALSE])
   beta <- as.numeric(beta)
@@ -428,8 +441,8 @@ glmSecureAggPrepDevianceDS <- function(data_name, x_vars, beta,
 
   if (is.null(coordinator_pk) || coordinator_pk == "") {
     # This is the coordinator: store eta_label locally for glmSecureDevianceDS
-    .mhe_storage$glm_eta_label <- eta
-    .mhe_storage$glm_eta_other <- rep(0, length(eta))
+    ss$glm_eta_label <- eta
+    ss$glm_eta_other <- rep(0, length(eta))
     return(list(encrypted_eta = NULL))
   }
 

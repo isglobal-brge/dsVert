@@ -4,20 +4,23 @@
 \alias{mheStoreEncYDS}
 \title{Store encrypted response variable (non-label servers)}
 \usage{
-mheStoreEncYDS(enc_y)
+mheStoreEncYDS(enc_y, session_id = NULL)
 }
 \arguments{
 \item{enc_y}{Character. Encrypted y ciphertext (base64url encoded). May
 arrive via chunked transfer (\code{mheStoreEncChunkDS} +
 \code{mheAssembleEncColumnDS}) for large ciphertexts, in which case
 this function is not called directly.}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 TRUE on success.
 }
 \description{
 Receives the encrypted response ciphertext ct_y from the client and stores
-it in \code{.mhe_storage} for use by \code{mheGLMGradientDS}. This is a
+it in session-scoped storage for use by \code{mheGLMGradientDS}. This is a
 simple storage function -- the non-label server cannot decrypt ct_y because
 decryption requires ALL servers' secret key shares.
 }

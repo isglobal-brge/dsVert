@@ -11,7 +11,8 @@ glmSecureDevianceDS(
   eta_blob_keys = NULL,
   family = "gaussian",
   y_sd = NULL,
-  y_mean = NULL
+  y_mean = NULL,
+  session_id = NULL
 )
 }
 \arguments{
@@ -36,6 +37,9 @@ unstandardization: \code{eta_orig = eta_std * y_sd + y_mean}.}
 
 \item{y_mean}{Numeric or NULL. Mean of y, used for Gaussian
 unstandardization.}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with:

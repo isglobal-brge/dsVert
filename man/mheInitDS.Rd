@@ -12,7 +12,8 @@ mheInitDS(
   log_n = 12,
   log_scale = 40,
   from_storage = FALSE,
-  generate_rlk = FALSE
+  generate_rlk = FALSE,
+  session_id = NULL
 )
 }
 \arguments{
@@ -39,6 +40,12 @@ Default 40.}
 via \code{\link{mheStoreBlobDS}}) instead of inline arguments.
 Used by the client to avoid exceeding DataSHIELD's expression
 parser limits with large cryptographic objects. Default \code{FALSE}.}
+
+\item{generate_rlk}{Logical. Whether to generate relinearization key shares.
+Default FALSE.}
+
+\item{session_id}{Character or NULL. Session identifier for concurrent
+job isolation. When NULL, falls back to legacy global storage.}
 }
 \value{
 List with:

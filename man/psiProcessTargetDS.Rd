@@ -4,7 +4,7 @@
 \alias{psiProcessTargetDS}
 \title{Process reference points on target server (aggregate function)}
 \usage{
-psiProcessTargetDS(data_name, id_col, from_storage = FALSE)
+psiProcessTargetDS(data_name, id_col, from_storage = FALSE, session_id = NULL)
 }
 \arguments{
 \item{data_name}{Character. Name of data frame.}
@@ -13,6 +13,9 @@ psiProcessTargetDS(data_name, id_col, from_storage = FALSE)
 
 \item{from_storage}{Logical. If \code{TRUE}, read encrypted blob from
 server-side blob storage. Default \code{FALSE}.}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with encrypted_blob (base64url) and n (count).

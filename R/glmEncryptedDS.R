@@ -40,6 +40,8 @@ NULL
 #'
 #' @param data_name Character. Name of data frame on the label server.
 #' @param y_var Character. Name of the response variable column.
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return List with:
 #'   \itemize{
@@ -59,12 +61,13 @@ NULL
 #' to JSON scalars (Go expects arrays).
 #'
 #' @export
-mheEncryptRawDS <- function(data_name, y_var) {
-  if (is.null(.mhe_storage$cpk)) {
+mheEncryptRawDS <- function(data_name, y_var, session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$cpk)) {
     stop("CPK not stored. Call mheCombineDS or mheStoreCPKDS first.", call. = FALSE)
   }
 
-  data <- .resolveData(data_name, parent.frame())
+  data <- .resolveData(data_name, parent.frame(), session_id)
   y <- as.numeric(data[[y_var]])
   n <- length(y)
 
@@ -74,9 +77,9 @@ mheEncryptRawDS <- function(data_name, y_var) {
 
   input <- list(
     data = data_rows,
-    collective_public_key = .mhe_storage$cpk,
-    log_n = as.integer(.mhe_storage$log_n %||% 12),
-    log_scale = as.integer(.mhe_storage$log_scale %||% 40)
+    collective_public_key = ss$cpk,
+    log_n = as.integer(ss$log_n %||% 12),
+    log_scale = as.integer(ss$log_scale %||% 40)
   )
 
   result <- .callMheTool("encrypt-columns", input)
@@ -90,7 +93,7 @@ mheEncryptRawDS <- function(data_name, y_var) {
 #' Store encrypted response variable (non-label servers)
 #'
 #' Receives the encrypted response ciphertext ct_y from the client and stores
-#' it in \code{.mhe_storage} for use by \code{mheGLMGradientDS}. This is a
+#' it in session-scoped storage for use by \code{mheGLMGradientDS}. This is a
 #' simple storage function -- the non-label server cannot decrypt ct_y because
 #' decryption requires ALL servers' secret key shares.
 #'
@@ -98,11 +101,14 @@ mheEncryptRawDS <- function(data_name, y_var) {
 #'   arrive via chunked transfer (\code{mheStoreEncChunkDS} +
 #'   \code{mheAssembleEncColumnDS}) for large ciphertexts, in which case
 #'   this function is not called directly.
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return TRUE on success.
 #' @export
-mheStoreEncYDS <- function(enc_y) {
-  .mhe_storage$enc_y <- .base64url_to_base64(enc_y)
+mheStoreEncYDS <- function(enc_y, session_id = NULL) {
+  ss <- .S(session_id)
+  ss$enc_y <- .base64url_to_base64(enc_y)
   TRUE
 }
 
@@ -126,36 +132,39 @@ mheStoreEncYDS <- function(enc_y) {
 #' @param v Numeric vector or NULL. Variance function factor (length n).
 #'   NULL for canonical links (gaussian, binomial, poisson) where v = 1.
 #' @param num_obs Integer. Number of observations (for CKKS slot count).
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return List with \code{encrypted_gradients}: base64url array of p_k
 #'   encrypted gradient components, each requiring threshold decryption.
 #'
 #' @details
-#' The Galois keys (stored in \code{.mhe_storage}) are required for the
+#' The Galois keys (stored in session-scoped storage) are required for the
 #' inner sum reduction: after element-wise multiplication of x_j with
 #' (ct_y - mu), the Go binary uses Galois rotations to sum across the n
 #' slots of the ciphertext, producing a single encrypted scalar per feature.
 #'
 #' @export
-mheGLMGradientDS <- function(data_name, x_vars, mu, v = NULL, num_obs) {
+mheGLMGradientDS <- function(data_name, x_vars, mu, v = NULL, num_obs, session_id = NULL) {
+  ss <- .S(session_id)
   # ct_y stored via chunk mechanism (mheStoreEncChunkDS + mheAssembleEncColumnDS)
   # or directly via mheStoreEncYDS
   enc_y <- NULL
-  if (!is.null(.mhe_storage$enc_y)) {
-    enc_y <- .mhe_storage$enc_y
-  } else if (!is.null(.mhe_storage$remote_enc_cols) && length(.mhe_storage$remote_enc_cols) >= 1) {
-    enc_y <- .mhe_storage$remote_enc_cols[[1]]
+  if (!is.null(ss$enc_y)) {
+    enc_y <- ss$enc_y
+  } else if (!is.null(ss$remote_enc_cols) && length(ss$remote_enc_cols) >= 1) {
+    enc_y <- ss$remote_enc_cols[[1]]
   }
   if (is.null(enc_y)) {
     stop("Encrypted y not stored. Transfer ct_y first.", call. = FALSE)
   }
-  if (is.null(.mhe_storage$galois_keys) || length(.mhe_storage$galois_keys) == 0) {
+  if (is.null(ss$galois_keys) || length(ss$galois_keys) == 0) {
     stop("Galois keys not available. Ensure mheCombineDS/mheStoreCPKDS was called with galois_keys.",
          call. = FALSE)
   }
 
-  # Get local feature matrix (checks .mhe_storage for standardized data)
-  data <- .resolveData(data_name, parent.frame())
+  # Get local feature matrix (checks session storage for standardized data)
+  data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
 
   # Convert X columns to list format (column-major)
@@ -166,10 +175,10 @@ mheGLMGradientDS <- function(data_name, x_vars, mu, v = NULL, num_obs) {
     mu = as.numeric(mu),
     v = if (!is.null(v)) as.numeric(v) else NULL,
     x_cols = x_cols,
-    galois_keys = as.list(.mhe_storage$galois_keys),
+    galois_keys = as.list(ss$galois_keys),
     num_obs = as.integer(num_obs),
-    log_n = as.integer(.mhe_storage$log_n %||% 12),
-    log_scale = as.integer(.mhe_storage$log_scale %||% 40)
+    log_n = as.integer(ss$log_n %||% 12),
+    log_scale = as.integer(ss$log_scale %||% 40)
   )
 
   result <- .callMheTool("mhe-glm-gradient", input)
@@ -177,7 +186,7 @@ mheGLMGradientDS <- function(data_name, x_vars, mu, v = NULL, num_obs) {
   # Protocol Firewall: register each gradient ciphertext
   ct_hashes <- character(length(result$encrypted_gradients))
   for (j in seq_along(result$encrypted_gradients)) {
-    ct_hashes[j] <- .register_ciphertext(result$encrypted_gradients[[j]], "glm-gradient")
+    ct_hashes[j] <- .register_ciphertext(result$encrypted_gradients[[j]], "glm-gradient", session_id = session_id)
   }
 
   # Convert to base64url
@@ -208,6 +217,8 @@ mheGLMGradientDS <- function(data_name, x_vars, mu, v = NULL, num_obs) {
 #'   from threshold decryption.
 #' @param lambda Numeric. L2 regularization parameter. Default 1e-4.
 #'   Prevents singular Hessian and adds mild shrinkage.
+#' @param session_id Character or NULL. UUID for session-scoped storage
+#'   isolation. Default NULL uses legacy shared storage.
 #'
 #' @return List with:
 #'   \itemize{
@@ -217,8 +228,8 @@ mheGLMGradientDS <- function(data_name, x_vars, mu, v = NULL, num_obs) {
 #'   }
 #'
 #' @export
-glmBlockSolveDS <- function(data_name, x_vars, w, beta_current, gradient, lambda = 1e-4) {
-  data <- .resolveData(data_name, parent.frame())
+glmBlockSolveDS <- function(data_name, x_vars, w, beta_current, gradient, lambda = 1e-4, session_id = NULL) {
+  data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
   n <- nrow(X)
   p <- ncol(X)

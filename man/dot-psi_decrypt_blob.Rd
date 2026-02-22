@@ -4,7 +4,7 @@
 \alias{.psi_decrypt_blob}
 \title{Decrypt a sealed blob using this server's PSI transport SK (internal)}
 \usage{
-.psi_decrypt_blob(sealed_b64url)
+.psi_decrypt_blob(sealed_b64url, session_id = NULL)
 }
 \arguments{
 \item{sealed_b64url}{Character. Sealed data in base64url (as stored in

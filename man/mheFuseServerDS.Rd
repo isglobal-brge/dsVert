@@ -4,7 +4,7 @@
 \alias{mheFuseServerDS}
 \title{Fuse partial decryption shares server-side (fusion server only)}
 \usage{
-mheFuseServerDS(n_parties, n_ct_chunks, num_slots = 0)
+mheFuseServerDS(n_parties, n_ct_chunks, num_slots = 0, session_id = NULL)
 }
 \arguments{
 \item{n_parties}{Integer. Total number of MHE parties (including this
@@ -14,6 +14,9 @@ fusion server). Used for validation only.}
 
 \item{num_slots}{Integer. Number of valid slots to return. Use 0 for a
 single scalar (slot 0 only), or n_obs for a vector. Default 0.}
+
+\item{session_id}{Character or NULL. Session identifier for concurrent
+job isolation. When NULL, falls back to legacy global storage.}
 }
 \value{
 List with:

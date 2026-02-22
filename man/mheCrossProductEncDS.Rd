@@ -5,7 +5,13 @@
 \title{Compute encrypted cross-product using STORED evaluation keys and STORED encrypted columns
 Returns ENCRYPTED result that requires threshold decryption}
 \usage{
-mheCrossProductEncDS(data_name, variables, n_enc_cols, n_obs)
+mheCrossProductEncDS(
+  data_name,
+  variables,
+  n_enc_cols,
+  n_obs,
+  session_id = NULL
+)
 }
 \arguments{
 \item{data_name}{Character. Name of local data frame}
@@ -15,6 +21,9 @@ mheCrossProductEncDS(data_name, variables, n_enc_cols, n_obs)
 \item{n_enc_cols}{Integer. Number of stored encrypted columns to use}
 
 \item{n_obs}{Integer. Number of observations}
+
+\item{session_id}{Character or NULL. Session identifier for concurrent
+job isolation. When NULL, falls back to legacy global storage.}
 }
 \value{
 List with encrypted_results matrix (base64url encoded ciphertexts)

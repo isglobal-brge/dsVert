@@ -4,7 +4,7 @@
 \alias{mheStoreWrappedShareDS}
 \title{Store a wrapped share on the fusion server}
 \usage{
-mheStoreWrappedShareDS(party_id, share_data)
+mheStoreWrappedShareDS(party_id, share_data, session_id = NULL)
 }
 \arguments{
 \item{party_id}{Integer or character. Party ID of the server that
@@ -13,6 +13,9 @@ produced this share.}
 \item{share_data}{Character. The wrapped share data (base64url encoded),
 or a chunk of it. Multiple calls with the same \code{party_id}
 concatenate the data.}
+
+\item{session_id}{Character or NULL. Session identifier for concurrent
+job isolation. When NULL, falls back to legacy global storage.}
 }
 \value{
 \code{TRUE} on success

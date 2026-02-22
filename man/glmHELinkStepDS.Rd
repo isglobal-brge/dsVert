@@ -4,7 +4,12 @@
 \alias{glmHELinkStepDS}
 \title{Compute mu = sigmoid(eta_total) homomorphically (coordinator only)}
 \usage{
-glmHELinkStepDS(from_storage = TRUE, n_parties = 2, poly_coefficients = NULL)
+glmHELinkStepDS(
+  from_storage = TRUE,
+  n_parties = 2,
+  poly_coefficients = NULL,
+  session_id = NULL
+)
 }
 \arguments{
 \item{from_storage}{Logical. If TRUE, read encrypted etas from blob storage
@@ -14,6 +19,9 @@ glmHELinkStepDS(from_storage = TRUE, n_parties = 2, poly_coefficients = NULL)
 
 \item{poly_coefficients}{Numeric vector or NULL. Polynomial coefficients in
 monomial basis. If NULL, uses built-in sigmoid approximation.}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with:

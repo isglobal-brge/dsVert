@@ -4,7 +4,11 @@
 \alias{psiGetMatchedIndicesDS}
 \title{Get matched reference indices (aggregate function)}
 \usage{
-psiGetMatchedIndicesDS()
+psiGetMatchedIndicesDS(session_id = NULL)
+}
+\arguments{
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 Integer vector of matched reference indices (0-based).

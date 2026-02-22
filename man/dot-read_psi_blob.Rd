@@ -4,7 +4,7 @@
 \alias{.read_psi_blob}
 \title{Read and consume a PSI blob from chunked storage (internal)}
 \usage{
-.read_psi_blob(key)
+.read_psi_blob(key, session_id = NULL)
 }
 \arguments{
 \item{key}{Character. The blob storage key.}

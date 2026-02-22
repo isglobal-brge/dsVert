@@ -4,12 +4,15 @@
 \alias{mheEncryptRawDS}
 \title{Encrypt raw response variable under CPK (label server only)}
 \usage{
-mheEncryptRawDS(data_name, y_var)
+mheEncryptRawDS(data_name, y_var, session_id = NULL)
 }
 \arguments{
 \item{data_name}{Character. Name of data frame on the label server.}
 
 \item{y_var}{Character. Name of the response variable column.}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with:

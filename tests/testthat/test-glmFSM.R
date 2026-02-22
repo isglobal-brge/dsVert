@@ -5,15 +5,15 @@
 # =============================================================================
 
 test_that("glmFSMInitDS initializes correctly", {
-  .glm_fsm <- dsVert:::.glm_fsm
-
-  glmFSMInitDS("test-session-001", 2, "secure_agg")
-  expect_equal(.glm_fsm$session_id, "test-session-001")
-  expect_equal(.glm_fsm$n_nonlabel, 2L)
-  expect_equal(.glm_fsm$mode, "secure_agg")
-  expect_equal(.glm_fsm$state, "EXPECT_ETAS")
-  expect_equal(.glm_fsm$iteration, 0L)
-  expect_equal(length(.glm_fsm$etas_received), 0)
+  sid <- "test-session-001"
+  glmFSMInitDS(sid, 2, "secure_agg")
+  ss <- dsVert:::.S(sid)
+  expect_equal(ss$fsm_session_id, sid)
+  expect_equal(ss$fsm_n_nonlabel, 2L)
+  expect_equal(ss$fsm_mode, "secure_agg")
+  expect_equal(ss$fsm_state, "EXPECT_ETAS")
+  expect_equal(ss$fsm_iteration, 0L)
+  expect_equal(length(ss$fsm_etas_received), 0)
 })
 
 test_that("glmFSMInitDS rejects invalid inputs", {
@@ -51,7 +51,7 @@ test_that("glmFSMCheckDS rejects iteration replay", {
 
   # First coordinator step (iter 1) from EXPECT_ETAS is allowed
   glmFSMCheckDS("test-session-replay", "coordinator_step", iteration = 1L)
-  expect_equal(dsVert:::.glm_fsm$state, "COORD_DONE")
+  expect_equal(dsVert:::.S("test-session-replay")$fsm_state, "COORD_DONE")
 
   # Advance to EXPECT_ETAS for next iteration
   glmFSMCheckDS("test-session-replay", "distribute_mwv")
@@ -70,7 +70,7 @@ test_that("glmFSMCheckDS rejects iteration replay", {
 
   # But iter 2 should work
   glmFSMCheckDS("test-session-replay", "coordinator_step", iteration = 2L)
-  expect_equal(dsVert:::.glm_fsm$iteration, 2L)
+  expect_equal(dsVert:::.S("test-session-replay")$fsm_iteration, 2L)
 })
 
 # =============================================================================
@@ -82,7 +82,7 @@ test_that("glmFSMCheckDS rejects wrong session_id", {
 
   expect_error(
     glmFSMCheckDS("wrong-session", "coordinator_step", iteration = 1L),
-    "Session ID mismatch"
+    "not initialized"
   )
 })
 
@@ -91,31 +91,32 @@ test_that("glmFSMCheckDS rejects wrong session_id", {
 # =============================================================================
 
 test_that("glmFSMCheckDS accepts valid full iteration cycle", {
-  glmFSMInitDS("test-session-full", 2, "secure_agg")
+  sid <- "test-session-full"
+  glmFSMInitDS(sid, 2, "secure_agg")
 
   # Iter 1: first iteration, no etas to receive
-  glmFSMCheckDS("test-session-full", "coordinator_step", iteration = 1L)
-  expect_equal(dsVert:::.glm_fsm$state, "COORD_DONE")
+  glmFSMCheckDS(sid, "coordinator_step", iteration = 1L)
+  expect_equal(dsVert:::.S(sid)$fsm_state, "COORD_DONE")
 
-  glmFSMCheckDS("test-session-full", "distribute_mwv")
-  expect_equal(dsVert:::.glm_fsm$state, "BLOCKS_ACTIVE")
+  glmFSMCheckDS(sid, "distribute_mwv")
+  expect_equal(dsVert:::.S(sid)$fsm_state, "BLOCKS_ACTIVE")
 
-  glmFSMCheckDS("test-session-full", "block_complete")
-  expect_equal(dsVert:::.glm_fsm$state, "BLOCKS_ACTIVE")  # still waiting for 2nd
+  glmFSMCheckDS(sid, "block_complete")
+  expect_equal(dsVert:::.S(sid)$fsm_state, "BLOCKS_ACTIVE")  # still waiting for 2nd
 
-  glmFSMCheckDS("test-session-full", "block_complete")
-  expect_equal(dsVert:::.glm_fsm$state, "EXPECT_ETAS")
+  glmFSMCheckDS(sid, "block_complete")
+  expect_equal(dsVert:::.S(sid)$fsm_state, "EXPECT_ETAS")
 
   # Iter 2: receive etas first
-  glmFSMCheckDS("test-session-full", "receive_eta", server_name = "serverB")
-  expect_equal(dsVert:::.glm_fsm$state, "EXPECT_ETAS")  # still waiting
+  glmFSMCheckDS(sid, "receive_eta", server_name = "serverB")
+  expect_equal(dsVert:::.S(sid)$fsm_state, "EXPECT_ETAS")  # still waiting
 
-  glmFSMCheckDS("test-session-full", "receive_eta", server_name = "serverC")
-  expect_equal(dsVert:::.glm_fsm$state, "COORD_READY")
+  glmFSMCheckDS(sid, "receive_eta", server_name = "serverC")
+  expect_equal(dsVert:::.S(sid)$fsm_state, "COORD_READY")
 
-  glmFSMCheckDS("test-session-full", "coordinator_step", iteration = 2L)
-  expect_equal(dsVert:::.glm_fsm$state, "COORD_DONE")
-  expect_equal(dsVert:::.glm_fsm$iteration, 2L)
+  glmFSMCheckDS(sid, "coordinator_step", iteration = 2L)
+  expect_equal(dsVert:::.S(sid)$fsm_state, "COORD_DONE")
+  expect_equal(dsVert:::.S(sid)$fsm_iteration, 2L)
 })
 
 # =============================================================================
@@ -153,7 +154,7 @@ test_that("glmFSMCheckDS transitions to TERMINATED after deviance", {
   # Back to EXPECT_ETAS
 
   glmFSMCheckDS("test-session-term", "deviance")
-  expect_equal(dsVert:::.glm_fsm$state, "TERMINATED")
+  expect_equal(dsVert:::.S("test-session-term")$fsm_state, "TERMINATED")
 
   # Further calls should be rejected
   expect_error(
@@ -167,13 +168,10 @@ test_that("glmFSMCheckDS transitions to TERMINATED after deviance", {
 # =============================================================================
 
 test_that("glmFSMCheckDS rejects calls before init", {
-  # Reset FSM
-  .glm_fsm <- dsVert:::.glm_fsm
-  .glm_fsm$session_id <- NULL
-  .glm_fsm$state <- NULL
-
+  # Use a session_id that has never been initialized.
+  # .S() creates a fresh empty environment, so fsm_session_id will be NULL.
   expect_error(
-    glmFSMCheckDS("any", "coordinator_step", iteration = 1L),
+    glmFSMCheckDS("never-initialized-xyz", "coordinator_step", iteration = 1L),
     "not initialized"
   )
 })

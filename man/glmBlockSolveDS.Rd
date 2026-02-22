@@ -4,7 +4,15 @@
 \alias{glmBlockSolveDS}
 \title{Solve BCD block update given decrypted gradient (non-label server)}
 \usage{
-glmBlockSolveDS(data_name, x_vars, w, beta_current, gradient, lambda = 1e-04)
+glmBlockSolveDS(
+  data_name,
+  x_vars,
+  w,
+  beta_current,
+  gradient,
+  lambda = 1e-04,
+  session_id = NULL
+)
 }
 \arguments{
 \item{data_name}{Character. Name of data frame with local features
@@ -22,6 +30,9 @@ from threshold decryption.}
 
 \item{lambda}{Numeric. L2 regularization parameter. Default 1e-4.
 Prevents singular Hessian and adds mild shrinkage.}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with:

@@ -4,12 +4,15 @@
 \alias{mheRLKAggregateR1DS}
 \title{Aggregate RLK round 1 shares (coordinator only)}
 \usage{
-mheRLKAggregateR1DS(from_storage = FALSE, n_parties = 0)
+mheRLKAggregateR1DS(from_storage = FALSE, n_parties = 0, session_id = NULL)
 }
 \arguments{
 \item{from_storage}{Logical. If TRUE, read round 1 shares from blob storage.}
 
 \item{n_parties}{Integer. Number of parties (used with from_storage).}
+
+\item{session_id}{Character or NULL. Session identifier for concurrent
+job isolation. When NULL, falls back to legacy global storage.}
 }
 \value{
 List with aggregated_round1 (base64url)

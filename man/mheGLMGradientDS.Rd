@@ -4,7 +4,7 @@
 \alias{mheGLMGradientDS}
 \title{Compute encrypted GLM gradient using stored ct_y and local X_k}
 \usage{
-mheGLMGradientDS(data_name, x_vars, mu, v = NULL, num_obs)
+mheGLMGradientDS(data_name, x_vars, mu, v = NULL, num_obs, session_id = NULL)
 }
 \arguments{
 \item{data_name}{Character. Name of data frame with local features
@@ -19,6 +19,9 @@ Broadcast by the client from the label server's IRLS step.}
 NULL for canonical links (gaussian, binomial, poisson) where v = 1.}
 
 \item{num_obs}{Integer. Number of observations (for CKKS slot count).}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 List with \code{encrypted_gradients}: base64url array of p_k
@@ -36,7 +39,7 @@ requires threshold decryption by ALL servers before the gradient is usable.
 This ensures no single server (or the client) learns anything about y beyond
 what the p_k-length gradient reveals.
 
-The Galois keys (stored in \code{.mhe_storage}) are required for the
+The Galois keys (stored in session-scoped storage) are required for the
 inner sum reduction: after element-wise multiplication of x_j with
 (ct_y - mu), the Go binary uses Galois rotations to sum across the n
 slots of the ciphertext, producing a single encrypted scalar per feature.

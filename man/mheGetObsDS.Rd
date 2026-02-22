@@ -4,12 +4,16 @@
 \alias{mheGetObsDS}
 \title{Get number of observations for a variable}
 \usage{
-mheGetObsDS(data_name, variables)
+mheGetObsDS(data_name, variables, session_id = NULL)
 }
 \arguments{
 \item{data_name}{Character. Name of data frame}
 
 \item{variables}{Character vector. Variables to check}
+
+\item{session_id}{Character or NULL. Session identifier for concurrent
+job isolation. Unused (stateless function) but accepted for API
+consistency.}
 }
 \value{
 Integer. Number of complete observations

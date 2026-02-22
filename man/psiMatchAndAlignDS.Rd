@@ -4,13 +4,16 @@
 \alias{psiMatchAndAlignDS}
 \title{Match and align data using PSI result (assign function)}
 \usage{
-psiMatchAndAlignDS(data_name, from_storage = FALSE)
+psiMatchAndAlignDS(data_name, from_storage = FALSE, session_id = NULL)
 }
 \arguments{
 \item{data_name}{Character. Name of data frame to align.}
 
 \item{from_storage}{Logical. If \code{TRUE}, read encrypted blob from
 server-side blob storage. Default \code{FALSE}.}
+
+\item{session_id}{Character or NULL. UUID for session-scoped storage
+isolation. Default NULL uses legacy shared storage.}
 }
 \value{
 Aligned data frame (assigned to server environment).

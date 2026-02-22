@@ -2,19 +2,21 @@
 % Please edit documentation in R/mhe_utils.R
 \name{.resolveData}
 \alias{.resolveData}
-\title{Resolve a data frame by name, checking .mhe_storage first}
+\title{Resolve a data frame by name, checking session storage first}
 \usage{
-.resolveData(data_name, env)
+.resolveData(data_name, env, session_id = NULL)
 }
 \arguments{
 \item{data_name}{Character. Name of the data frame to find.}
 
-\item{env}{Environment to search if not found in .mhe_storage (typically parent.frame() of caller).}
+\item{env}{Environment to search if not found in session storage (typically parent.frame() of caller).}
+
+\item{session_id}{Character or NULL. Session identifier for session-scoped storage.}
 }
 \value{
 The data frame
 }
 \description{
-Resolve a data frame by name, checking .mhe_storage first
+Resolve a data frame by name, checking session storage first
 }
 \keyword{internal}

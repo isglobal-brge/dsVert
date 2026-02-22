@@ -176,8 +176,8 @@ glmSecureAggBlockSolveDS <- function(data_name, x_vars,
 
   mask_result <- .callMheTool("fixed-point-mask-eta", list(
     eta = as.numeric(eta_new),
-    seeds = as.list(seed_values),
-    signs = as.list(sign_values),
+    seeds = as.list(unname(seed_values)),
+    signs = as.list(unname(sign_values)),
     iteration = as.integer(iteration),
     scale_bits = as.integer(scale_bits)
   ))

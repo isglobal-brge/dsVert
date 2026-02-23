@@ -4,7 +4,13 @@
 \alias{glmSecureAggInitDS}
 \title{Initialize secure aggregation on a non-label server}
 \usage{
-glmSecureAggInitDS(self_name, session_id, nonlabel_names, scale_bits = 20L)
+glmSecureAggInitDS(
+  self_name,
+  session_id,
+  nonlabel_names,
+  scale_bits = 20L,
+  topology = "pairwise"
+)
 }
 \arguments{
 \item{self_name}{Character. This server's canonical name.}
@@ -14,6 +20,10 @@ glmSecureAggInitDS(self_name, session_id, nonlabel_names, scale_bits = 20L)
 \item{nonlabel_names}{Character vector. ALL non-label server names (sorted).}
 
 \item{scale_bits}{Integer. Fixed-point scale exponent. Default 20.}
+
+\item{topology}{Character. Seed derivation topology: \code{"pairwise"}
+(default, O(K-1) seeds per server) or \code{"ring"} (O(2) seeds per
+server for K>=4). For K=3, ring and pairwise are identical.}
 }
 \value{
 TRUE (invisible)

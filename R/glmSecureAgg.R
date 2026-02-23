@@ -33,11 +33,15 @@ NULL
 #' @param session_id Character. UUID for this GLM session.
 #' @param nonlabel_names Character vector. ALL non-label server names (sorted).
 #' @param scale_bits Integer. Fixed-point scale exponent. Default 20.
+#' @param topology Character. Seed derivation topology: \code{"pairwise"}
+#'   (default, O(K-1) seeds per server) or \code{"ring"} (O(2) seeds per
+#'   server for K>=4). For K=3, ring and pairwise are identical.
 #'
 #' @return TRUE (invisible)
 #' @export
 glmSecureAggInitDS <- function(self_name, session_id,
-                                nonlabel_names, scale_bits = 20L) {
+                                nonlabel_names, scale_bits = 20L,
+                                topology = "pairwise") {
   ss <- .S(session_id)
   if (is.null(ss$transport_sk))
     stop("Transport SK not stored. Call mheInitDS first.", call. = FALSE)
@@ -45,8 +49,47 @@ glmSecureAggInitDS <- function(self_name, session_id,
     stop("Peer transport PKs not stored. Call mheStoreTransportKeysDS first.",
          call. = FALSE)
 
+  # Manifest consensus gate: when enabled, require all peers to be validated
+  manifest_consensus <- .read_dsvert_option("dsvert.manifest_consensus", FALSE)
+  if (isTRUE(manifest_consensus) || identical(tolower(as.character(manifest_consensus)), "true")) {
+    if (is.null(ss$validated_peers) || length(ss$validated_peers) == 0) {
+      stop("Manifest consensus required but no peers validated. ",
+           "Run peerManifestStoreDS + peerManifestValidateDS first.",
+           call. = FALSE)
+    }
+    expected_peers <- setdiff(sort(nonlabel_names), self_name)
+    missing <- setdiff(expected_peers, ss$validated_peers)
+    if (length(missing) > 0) {
+      stop("Manifest consensus incomplete: peers not validated: ",
+           paste(missing, collapse = ", "), call. = FALSE)
+    }
+  } else if (!is.null(ss$manifest_hash) &&
+             (is.null(ss$validated_peers) || length(ss$validated_peers) == 0)) {
+    warning("Manifest exists but peers not validated. ",
+            "Set dsvert.manifest_consensus=TRUE to enforce.", call. = FALSE)
+  }
+
   nonlabel_names <- sort(nonlabel_names)
-  peers <- setdiff(nonlabel_names, self_name)
+
+  # Determine peers based on topology
+  if (topology == "ring") {
+    sorted <- nonlabel_names
+    self_idx <- which(sorted == self_name)
+    K <- length(sorted)
+    if (K < 3) {
+      # For K<3, ring and pairwise are identical
+      topology <- "pairwise"
+    }
+  }
+
+  if (topology == "ring") {
+    prev_idx <- if (self_idx == 1) K else self_idx - 1
+    next_idx <- if (self_idx == K) 1 else self_idx + 1
+    peers <- unique(c(sorted[prev_idx], sorted[next_idx]))
+  } else {
+    peers <- setdiff(nonlabel_names, self_name)
+  }
+
   if (length(peers) < 1)
     stop("Secure aggregation requires >= 2 non-label servers", call. = FALSE)
 

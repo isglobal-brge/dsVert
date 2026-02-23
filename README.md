@@ -112,10 +112,17 @@ Each R function serializes its input as JSON, calls the `mhe-tool` binary via `s
 
 | Function | Type | Description |
 |----------|------|-------------|
-| `glmSecureAggInitDS` | Aggregate | Derive pairwise PRG seeds via X25519 ECDH + HKDF for mask generation |
+| `glmSecureAggInitDS` | Aggregate | Derive pairwise or ring PRG seeds via X25519 ECDH + HKDF for mask generation |
 | `glmSecureAggBlockSolveDS` | Aggregate | BCD block update + mask eta with pairwise PRG masks (fixed-point) |
 | `glmSecureAggCoordinatorStepDS` | Aggregate | Coordinator IRLS: sum masked etas (masks cancel), distribute encrypted (mu, w) |
 | `glmSecureAggPrepDevianceDS` | Aggregate | Prepare eta for one-time deviance after convergence |
+
+### Peer Manifest Consensus
+
+| Function | Type | Description |
+|----------|------|-------------|
+| `peerManifestStoreDS` | Aggregate | Store canonical manifest + compute SHA-256 hash; return transport-encrypted hashes for each peer |
+| `peerManifestValidateDS` | Aggregate | Decrypt peer's hash from blob storage, compare against own hash, track validated peers |
 
 ### GLM Phase-Ordering FSM Firewall
 
@@ -249,6 +256,22 @@ The `eta_privacy = "secure_agg"` mode fixes this using **pairwise PRG masks with
 5. Individual `eta_k` values are **never decrypted or stored** on the coordinator
 
 **Why fixed-point integers?** Floating-point addition is not associative. With large PRG masks, rounding error from `(eta + mask) + (eta' - mask)` would be `O(epsilon * mask_magnitude)` — potentially O(1), destroying convergence. Integer arithmetic is exact. With `scale_bits = 20` (scale ~10^6), 6 decimal digits of eta precision are preserved.
+
+#### Ring Topology Option
+
+By default, secure aggregation uses **all-pairs** (pairwise) topology: each server derives O(K-1) shared seeds with every other non-label server. For K>=4, this can be reduced to O(2) seeds per server using the `topology = "ring"` option. In ring topology, servers are arranged in a sorted circular order, and each server only derives seeds with its two immediate neighbors (previous and next). Mask cancellation still holds because each ring edge appears as `+mask` on one side and `-mask` on the other, and the sum around the cycle is zero.
+
+For K=3, ring and pairwise topologies are identical (each server always has exactly 2 peers).
+
+#### Peer Manifest Consensus
+
+To prevent a malicious client from injecting phantom peers (telling server A the peer set is {A, B, C} while telling server B it is {A, B, D}), dsVert supports **peer manifest consensus**. After transport key distribution, each server computes `SHA-256(canonical_manifest_json)` and transport-encrypts its hash to every other server. Each server decrypts and compares the peer hashes against its own. Any mismatch triggers an immediate stop with a consensus error.
+
+Manifest consensus is enabled via the `dsvert.manifest_consensus` option (default `FALSE` for backward compatibility). When enabled, `glmSecureAggInitDS` requires all peers to be validated before proceeding with seed derivation.
+
+#### MHE Transport Key Pinning
+
+PSI has `dsvert.psi_key_pinning` to validate client-provided PKs against a pre-configured allowlist. The same pattern is now available for MHE via `dsvert.mhe_key_pinning`. When enabled, `mheStoreTransportKeysDS` validates every client-provided transport PK against the trusted set in `dsvert.mhe_peers`. Any unknown PK triggers a MITM detection error.
 
 #### GLM Phase-Ordering FSM Firewall
 
@@ -389,6 +412,21 @@ Storing secret keys as R options is safe in DataSHIELD because:
 2. **`listDisclosureSettingsDS()` in dsBase** only returns specific nfilter values, not arbitrary options.
 3. **Our registered functions never return the private key** — `psiInitDS()` returns only the public key and a `pinned` boolean.
 4. **The Opal admin REST API** can read DataSHIELD options, but requires administrator credentials — the admin is already trusted (they configure the keys).
+
+### MHE Transport Key Pinning Options
+
+These options enable transport key pinning for MHE (GLM/correlation protocols), mirroring the PSI key pinning pattern. Not set by default — when absent, any client-provided PK is accepted.
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `dsvert.mhe_key_pinning` | `FALSE` | Enable MHE transport key pinning |
+| `dsvert.mhe_peers` | *(not set)* | JSON array of trusted MHE transport PKs (standard base64) |
+
+### Manifest Consensus Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `dsvert.manifest_consensus` | `FALSE` | Require peer manifest consensus before secure aggregation |
 
 ### Other Options
 

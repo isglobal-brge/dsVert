@@ -196,6 +196,179 @@ test_that("Mask cancellation works end-to-end for 3 servers", {
 })
 
 # =============================================================================
+# Ring topology: K=4 derives only 2 seeds per server
+# =============================================================================
+
+test_that("Ring topology derives exactly 2 seeds per server for K=4", {
+  skip_if_not(mheAvailable())
+
+  keyA <- .callMheTool("transport-keygen", list())
+  keyB <- .callMheTool("transport-keygen", list())
+  keyC <- .callMheTool("transport-keygen", list())
+  keyD <- .callMheTool("transport-keygen", list())
+
+  pks <- list(
+    serverA = keyA$public_key,
+    serverB = keyB$public_key,
+    serverC = keyC$public_key,
+    serverD = keyD$public_key
+  )
+  nonlabel_names <- c("serverA", "serverB", "serverC", "serverD")
+
+  # Test each server with ring topology
+  for (info in list(
+    list(name = "serverA", sk = keyA$secret_key),
+    list(name = "serverB", sk = keyB$secret_key),
+    list(name = "serverC", sk = keyC$secret_key),
+    list(name = "serverD", sk = keyD$secret_key)
+  )) {
+    sid <- paste0("test-ring-", info$name)
+    ss <- dsVert:::.S(sid)
+    ss$transport_sk <- info$sk
+    ss$peer_transport_pks <- pks
+
+    glmSecureAggInitDS(info$name, sid, nonlabel_names,
+                        scale_bits = 20L, topology = "ring")
+
+    seeds <- ss$secure_agg_seeds
+    # Ring topology: exactly 2 peers (prev + next in sorted circular order)
+    expect_equal(length(seeds), 2,
+                 label = paste("seed count for", info$name))
+
+    dsVert:::.cleanup_session(sid)
+  }
+})
+
+test_that("Ring topology mask cancellation works for K=4", {
+  skip_if_not(mheAvailable())
+
+  keyA <- .callMheTool("transport-keygen", list())
+  keyB <- .callMheTool("transport-keygen", list())
+  keyC <- .callMheTool("transport-keygen", list())
+  keyD <- .callMheTool("transport-keygen", list())
+
+  pks <- list(
+    serverA = keyA$public_key,
+    serverB = keyB$public_key,
+    serverC = keyC$public_key,
+    serverD = keyD$public_key
+  )
+  nonlabel_names <- c("serverA", "serverB", "serverC", "serverD")
+  iter <- 1L
+  scale_bits <- 20L
+  n <- 15
+
+  # Initialize all 4 servers with ring topology
+  sessions <- list()
+  seeds_all <- list()
+  keys <- list(serverA = keyA, serverB = keyB, serverC = keyC, serverD = keyD)
+
+  for (name in nonlabel_names) {
+    sid <- paste0("test-ring-cancel-", name)
+    sessions[[name]] <- sid
+    ss <- dsVert:::.S(sid)
+    ss$transport_sk <- keys[[name]]$secret_key
+    ss$peer_transport_pks <- pks
+    glmSecureAggInitDS(name, sid, nonlabel_names, scale_bits, topology = "ring")
+    seeds_all[[name]] <- ss$secure_agg_seeds
+  }
+
+  # Test vectors
+  etas <- list(
+    serverA = seq(0.1, 1.5, length.out = n),
+    serverB = seq(-1.0, 0.5, length.out = n),
+    serverC = seq(0.2, 2.0, length.out = n),
+    serverD = seq(-0.5, 1.0, length.out = n)
+  )
+
+  # Mask each server's eta
+  masked_all <- list()
+  for (name in nonlabel_names) {
+    seeds <- seeds_all[[name]]
+    masked <- .callMheTool("fixed-point-mask-eta", list(
+      eta = as.numeric(etas[[name]]),
+      seeds = lapply(seeds, function(s) s$seed),
+      signs = lapply(seeds, function(s) s$sign),
+      iteration = iter,
+      scale_bits = scale_bits
+    ))
+    masked_all[[name]] <- masked$masked_scaled
+  }
+
+  # Sum all masked vectors
+  sum_masked <- Reduce("+", masked_all)
+  recovered_sum <- sum_masked / 2^scale_bits
+  true_sum <- Reduce("+", etas)
+
+  # Tolerance: K / 2^scale_bits
+  tol <- 4 / 2^scale_bits
+  expect_true(all(abs(recovered_sum - true_sum) <= tol))
+
+  # Cleanup
+  for (sid in sessions) dsVert:::.cleanup_session(sid)
+})
+
+test_that("Ring topology falls back to pairwise for K=3", {
+  skip_if_not(mheAvailable())
+
+  keyA <- .callMheTool("transport-keygen", list())
+  keyB <- .callMheTool("transport-keygen", list())
+  keyC <- .callMheTool("transport-keygen", list())
+
+  pks <- list(
+    serverA = keyA$public_key,
+    serverB = keyB$public_key,
+    serverC = keyC$public_key
+  )
+
+  sid <- "test-ring-k3"
+  ss <- dsVert:::.S(sid)
+  ss$transport_sk <- keyA$secret_key
+  ss$peer_transport_pks <- pks
+
+  # Ring with K=3: ring and pairwise are identical (each server has 2 peers)
+  glmSecureAggInitDS("serverA", sid, c("serverA", "serverB", "serverC"),
+                      scale_bits = 20L, topology = "ring")
+
+  seeds <- ss$secure_agg_seeds
+  # K=3: each server always has 2 peers regardless of topology
+  expect_equal(length(seeds), 2)
+
+  dsVert:::.cleanup_session(sid)
+})
+
+test_that("Pairwise topology K=4 derives 3 seeds per server", {
+  skip_if_not(mheAvailable())
+
+  keyA <- .callMheTool("transport-keygen", list())
+  keyB <- .callMheTool("transport-keygen", list())
+  keyC <- .callMheTool("transport-keygen", list())
+  keyD <- .callMheTool("transport-keygen", list())
+
+  pks <- list(
+    serverA = keyA$public_key,
+    serverB = keyB$public_key,
+    serverC = keyC$public_key,
+    serverD = keyD$public_key
+  )
+
+  sid <- "test-pairwise-k4"
+  ss <- dsVert:::.S(sid)
+  ss$transport_sk <- keyA$secret_key
+  ss$peer_transport_pks <- pks
+
+  glmSecureAggInitDS("serverA", sid,
+                      c("serverA", "serverB", "serverC", "serverD"),
+                      scale_bits = 20L, topology = "pairwise")
+
+  seeds <- ss$secure_agg_seeds
+  # Pairwise K=4: 3 peers per server
+  expect_equal(length(seeds), 3)
+
+  dsVert:::.cleanup_session(sid)
+})
+
+# =============================================================================
 # glmSecureAggCoordinatorStepDS: never stores individual per-server eta
 # =============================================================================
 

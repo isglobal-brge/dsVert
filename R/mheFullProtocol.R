@@ -983,6 +983,34 @@ mheStoreTransportKeysDS <- function(transport_keys, session_id = NULL) {
     stop("MHE not initialized. Call mheInitDS first.", call. = FALSE)
   }
 
+  # MHE Key Pinning: validate client-provided PKs against trusted set
+  # (mirrors PSI key pinning pattern from psiStoreTransportKeysDS)
+  pinning <- .read_dsvert_option("dsvert.mhe_key_pinning", FALSE)
+  if (isTRUE(pinning) || identical(tolower(as.character(pinning)), "true")) {
+    peers_json <- .read_dsvert_option("dsvert.mhe_peers")
+    if (is.null(peers_json) || peers_json == "") {
+      stop("dsvert.mhe_key_pinning=TRUE but dsvert.mhe_peers not set. ",
+           "Provide a JSON array of trusted MHE transport PKs.", call. = FALSE)
+    }
+    trusted_pks <- tryCatch(
+      jsonlite::fromJSON(peers_json),
+      error = function(e) {
+        stop("dsvert.mhe_peers is not valid JSON: ", e$message, call. = FALSE)
+      }
+    )
+
+    own_pk <- ss$transport_pk
+    for (name in names(transport_keys)) {
+      pk <- .base64url_to_base64(transport_keys[[name]])
+      if (pk == own_pk) next  # skip our own PK
+      if (!(pk %in% trusted_pks)) {
+        stop("MHE Key Pinning: unknown transport PK received for '", name,
+             "'. Not in trusted peer set. ",
+             "Possible MITM attack.", call. = FALSE)
+      }
+    }
+  }
+
   # Convert from base64url to standard base64 for internal use
   ss$peer_transport_pks <- lapply(transport_keys, .base64url_to_base64)
 

@@ -23,6 +23,8 @@
 //   psi-mask            Hash IDs to P-256 points and multiply by random scalar
 //   psi-double-mask     Multiply received curve points by a stored scalar
 //   psi-match           Find intersection of two sets of double-masked points
+//   psi-pack-points     Pack base64 EC points into compact binary blob
+//   psi-unpack-points   Unpack binary blob back to base64 EC points
 //   version             Print version information
 
 package main
@@ -87,6 +89,10 @@ func main() {
 		handlePSIDoubleMask()
 	case "psi-match":
 		handlePSIMatch()
+	case "psi-pack-points":
+		handlePSIPackPoints()
+	case "psi-unpack-points":
+		handlePSIUnpackPoints()
 	case "transport-keygen":
 		handleTransportKeygen()
 	case "transport-encrypt":
@@ -160,6 +166,8 @@ Commands:
   psi-mask                   Hash IDs to P-256 points and multiply by random scalar
   psi-double-mask            Multiply received curve points by a stored scalar
   psi-match                  Find intersection of two sets of double-masked points
+  psi-pack-points            Pack base64 EC points into compact binary blob
+  psi-unpack-points          Unpack binary blob back to base64 EC points
   version                    Print version information
   help                       Print this help message
 

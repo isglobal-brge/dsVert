@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/base64"
+	"fmt"
 	"testing"
 )
 
@@ -183,5 +185,173 @@ func TestPSISingleElement(t *testing.T) {
 
 	if result.NMatched != 1 {
 		t.Errorf("expected 1 match, got %d", result.NMatched)
+	}
+}
+
+// ============================================================================
+// Binary EC Point Pack/Unpack Tests
+// ============================================================================
+
+func TestPackUnpackRoundTrip(t *testing.T) {
+	// Generate 100 random points via PSI mask
+	ids := make([]string, 100)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("PACK_TEST_%d", i)
+	}
+
+	result, err := psiMask(&PSIMaskInput{IDs: ids})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	packed, err := marshalECPointsBinary(result.MaskedPoints)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	unpacked, err := unmarshalECPointsBinary(packed)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(unpacked) != len(result.MaskedPoints) {
+		t.Fatalf("expected %d points, got %d", len(result.MaskedPoints), len(unpacked))
+	}
+	for i, pt := range result.MaskedPoints {
+		if unpacked[i] != pt {
+			t.Errorf("point %d mismatch: expected %s, got %s", i, pt, unpacked[i])
+		}
+	}
+}
+
+func TestPackUnpackEmpty(t *testing.T) {
+	packed, err := marshalECPointsBinary([]string{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(packed) != 4 {
+		t.Fatalf("expected 4 bytes for empty pack, got %d", len(packed))
+	}
+
+	unpacked, err := unmarshalECPointsBinary(packed)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(unpacked) != 0 {
+		t.Fatalf("expected 0 points, got %d", len(unpacked))
+	}
+}
+
+func TestPackUnpackSinglePoint(t *testing.T) {
+	result, err := psiMask(&PSIMaskInput{IDs: []string{"SINGLE"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	packed, err := marshalECPointsBinary(result.MaskedPoints)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(packed) != 4+33 {
+		t.Fatalf("expected %d bytes, got %d", 4+33, len(packed))
+	}
+
+	unpacked, err := unmarshalECPointsBinary(packed)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(unpacked) != 1 || unpacked[0] != result.MaskedPoints[0] {
+		t.Errorf("single point round-trip failed")
+	}
+}
+
+func TestPackInvalidPointLength(t *testing.T) {
+	// A point that decodes to wrong length
+	shortPoint := base64.StdEncoding.EncodeToString([]byte{0x02, 0x01, 0x02})
+	_, err := marshalECPointsBinary([]string{shortPoint})
+	if err == nil {
+		t.Error("expected error for short point, got nil")
+	}
+}
+
+func TestPackInvalidPointPrefix(t *testing.T) {
+	// 33 bytes but wrong prefix
+	bad := make([]byte, 33)
+	bad[0] = 0x04 // uncompressed prefix (wrong)
+	badB64 := base64.StdEncoding.EncodeToString(bad)
+	_, err := marshalECPointsBinary([]string{badB64})
+	if err == nil {
+		t.Error("expected error for invalid prefix, got nil")
+	}
+}
+
+func TestUnpackTruncatedData(t *testing.T) {
+	// Claim 5 points but only provide 2 points of data
+	result, err := psiMask(&PSIMaskInput{IDs: []string{"A", "B"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	packed, err := marshalECPointsBinary(result.MaskedPoints)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Truncate to just 1 point worth of data but leave count as 2
+	truncated := packed[:4+33]
+	// Tamper the count to 5
+	truncated[0] = 5
+	truncated[1] = 0
+	truncated[2] = 0
+	truncated[3] = 0
+
+	_, err = unmarshalECPointsBinary(truncated)
+	if err == nil {
+		t.Error("expected error for truncated data, got nil")
+	}
+}
+
+func TestPackUnpackSizeSavings(t *testing.T) {
+	// Verify binary packing is smaller than comma-separated base64 strings
+	// Compare raw byte sizes (what goes into AES-GCM plaintext)
+	ids := make([]string, 500)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("SIZE_TEST_%d", i)
+	}
+
+	result, err := psiMask(&PSIMaskInput{IDs: ids})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	packed, err := marshalECPointsBinary(result.MaskedPoints)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Old format: comma-separated base64 strings converted to raw bytes
+	// (as charToRaw would do in R before transport-encrypt)
+	oldFormat := ""
+	for i, pt := range result.MaskedPoints {
+		if i > 0 {
+			oldFormat += ","
+		}
+		oldFormat += pt
+	}
+	oldRawSize := len([]byte(oldFormat))
+
+	// New format: binary packed raw bytes (before base64 for transport-encrypt)
+	newRawSize := len(packed)
+
+	ratio := float64(oldRawSize) / float64(newRawSize)
+	t.Logf("Old raw: %d bytes, Packed raw: %d bytes, ratio: %.2fx", oldRawSize, newRawSize, ratio)
+
+	// Binary packing: 4 + 500*33 = 16504 vs ~22500 chars → ~1.36x
+	if ratio < 1.3 {
+		t.Errorf("expected at least 1.3x raw size reduction, got %.2fx", ratio)
 	}
 }

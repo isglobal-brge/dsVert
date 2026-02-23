@@ -18,6 +18,8 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"sort"
@@ -397,4 +399,121 @@ func psiMatch(input *PSIMatchInput) (*PSIMatchOutput, error) {
 		MatchedRefIndices: matchedRefIndices,
 		NMatched:          len(matches),
 	}, nil
+}
+
+// ============================================================================
+// Binary EC Point Packing (transport optimization)
+// ============================================================================
+
+const compressedPointSize = 33 // P-256 compressed point: 1 prefix + 32 x-coordinate
+
+// marshalECPointsBinary packs base64-encoded compressed P-256 points into a binary blob.
+// Wire format: count (uint32 LE) || point[0] (33 bytes) || point[1] (33 bytes) || ...
+func marshalECPointsBinary(points []string) ([]byte, error) {
+	buf := make([]byte, 4+len(points)*compressedPointSize)
+	binary.LittleEndian.PutUint32(buf[0:4], uint32(len(points)))
+	for i, pt := range points {
+		raw, err := base64.StdEncoding.DecodeString(pt)
+		if err != nil {
+			return nil, fmt.Errorf("point %d: base64 decode: %w", i, err)
+		}
+		if len(raw) != compressedPointSize {
+			return nil, fmt.Errorf("point %d: invalid length %d (expected %d)", i, len(raw), compressedPointSize)
+		}
+		if raw[0] != 0x02 && raw[0] != 0x03 {
+			return nil, fmt.Errorf("point %d: invalid prefix 0x%02x", i, raw[0])
+		}
+		copy(buf[4+i*compressedPointSize:], raw)
+	}
+	return buf, nil
+}
+
+// unmarshalECPointsBinary unpacks a binary blob back to base64-encoded compressed P-256 points.
+func unmarshalECPointsBinary(data []byte) ([]string, error) {
+	if len(data) < 4 {
+		return nil, fmt.Errorf("packed data too short: %d bytes", len(data))
+	}
+	count := int(binary.LittleEndian.Uint32(data[0:4]))
+	expected := 4 + count*compressedPointSize
+	if len(data) != expected {
+		return nil, fmt.Errorf("packed data size mismatch: have %d, expected %d (count=%d)", len(data), expected, count)
+	}
+	points := make([]string, count)
+	for i := 0; i < count; i++ {
+		raw := data[4+i*compressedPointSize : 4+(i+1)*compressedPointSize]
+		points[i] = base64.StdEncoding.EncodeToString(raw)
+	}
+	return points, nil
+}
+
+// --- PSI Pack/Unpack command I/O types ---
+
+type PSIPackInput struct {
+	Points []string `json:"points"` // Base64 compressed P-256 points
+}
+
+type PSIPackOutput struct {
+	Packed string `json:"packed"` // Base64 binary blob
+}
+
+type PSIUnpackInput struct {
+	Packed string `json:"packed"` // Base64 binary blob
+}
+
+type PSIUnpackOutput struct {
+	Points []string `json:"points"` // Base64 compressed P-256 points
+}
+
+func handlePSIPackPoints() {
+	inputBytes, err := readInput()
+	if err != nil {
+		outputError(fmt.Sprintf("Failed to read input: %v", err))
+		return
+	}
+
+	var input PSIPackInput
+	if err := json.Unmarshal(inputBytes, &input); err != nil {
+		outputError(fmt.Sprintf("Failed to parse input: %v", err))
+		return
+	}
+
+	packed, err := marshalECPointsBinary(input.Points)
+	if err != nil {
+		outputError(fmt.Sprintf("PSI pack failed: %v", err))
+		return
+	}
+
+	outputJSON(PSIPackOutput{
+		Packed: base64.StdEncoding.EncodeToString(packed),
+	})
+}
+
+func handlePSIUnpackPoints() {
+	inputBytes, err := readInput()
+	if err != nil {
+		outputError(fmt.Sprintf("Failed to read input: %v", err))
+		return
+	}
+
+	var input PSIUnpackInput
+	if err := json.Unmarshal(inputBytes, &input); err != nil {
+		outputError(fmt.Sprintf("Failed to parse input: %v", err))
+		return
+	}
+
+	packed, err := base64.StdEncoding.DecodeString(input.Packed)
+	if err != nil {
+		outputError(fmt.Sprintf("Failed to decode packed data: %v", err))
+		return
+	}
+
+	points, err := unmarshalECPointsBinary(packed)
+	if err != nil {
+		outputError(fmt.Sprintf("PSI unpack failed: %v", err))
+		return
+	}
+
+	outputJSON(PSIUnpackOutput{
+		Points: points,
+	})
 }

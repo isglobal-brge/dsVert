@@ -95,6 +95,46 @@ NULL
   rawToChar(jsonlite::base64_dec(result$data))
 }
 
+#' Encrypt already-base64-encoded binary data under a recipient's transport PK (internal)
+#'
+#' Unlike \code{.psi_encrypt_blob} which takes a string and converts it to raw,
+#' this takes data that is already base64-encoded (e.g. from psi-pack-points output)
+#' and passes it directly to transport-encrypt.
+#'
+#' @param data_b64 Character. Already base64-encoded data.
+#' @param recipient_pk_b64 Character. Recipient's X25519 PK (standard base64).
+#' @return Character. Sealed data in standard base64.
+#' @keywords internal
+.psi_encrypt_b64data <- function(data_b64, recipient_pk_b64) {
+  result <- .callMheTool("transport-encrypt", list(
+    data = data_b64,
+    recipient_pk = recipient_pk_b64
+  ))
+  result$sealed
+}
+
+#' Decrypt a sealed blob and return as base64-encoded data (internal)
+#'
+#' Unlike \code{.psi_decrypt_blob} which returns a character string,
+#' this returns the raw base64-encoded payload (for binary packed data).
+#'
+#' @param sealed_b64url Character. Sealed data in base64url.
+#' @param session_id Character or NULL.
+#' @return Character. Base64-encoded decrypted data.
+#' @keywords internal
+.psi_decrypt_to_b64data <- function(sealed_b64url, session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$psi_transport_sk)) {
+    stop("PSI transport SK not available. Call psiInitDS first.", call. = FALSE)
+  }
+  sealed_b64 <- .base64url_to_base64(sealed_b64url)
+  result <- .callMheTool("transport-decrypt", list(
+    sealed = sealed_b64,
+    recipient_sk = ss$psi_transport_sk
+  ))
+  result$data
+}
+
 #' Read and consume a PSI blob from chunked storage (internal)
 #' @param key Character. The blob storage key.
 #' @return Character. The assembled blob string.
@@ -427,9 +467,13 @@ psiExportMaskedDS <- function(target_name, session_id = NULL) {
          "Call psiStoreTransportKeysDS first.", call. = FALSE)
   }
 
-  # Serialize points as comma-separated string, encrypt under target's PK
-  points_blob <- paste(ss$psi_masked_points, collapse = ",")
-  sealed <- .psi_encrypt_blob(points_blob, target_pk)
+  # Pack points into binary format, encrypt under target's PK
+  # Points are stored as base64url, convert to standard base64 for Go tool
+  points_std <- sapply(ss$psi_masked_points, .base64url_to_base64, USE.NAMES = FALSE)
+  packed <- .callMheTool("psi-pack-points", list(
+    points = as.list(points_std)
+  ))
+  sealed <- .psi_encrypt_b64data(packed$packed, target_pk)
 
   list(encrypted_blob = base64_to_base64url(sealed))
 }
@@ -467,10 +511,11 @@ psiProcessTargetDS <- function(data_name, id_col, from_storage = FALSE,
     stop("Column '", id_col, "' not found in data frame", call. = FALSE)
   }
 
-  # 1. Read encrypted blob from storage and decrypt
+  # 1. Read encrypted blob from storage and decrypt to binary packed data
   encrypted_blob <- .read_psi_blob("ref_encrypted_blob", session_id)
-  ref_points_str <- .psi_decrypt_blob(encrypted_blob, session_id)
-  ref_masked_points <- strsplit(ref_points_str, ",", fixed = TRUE)[[1]]
+  packed_b64 <- .psi_decrypt_to_b64data(encrypted_blob, session_id)
+  unpacked <- .callMheTool("psi-unpack-points", list(packed = packed_b64))
+  ref_masked_points <- unpacked$points  # already standard base64
 
   ids <- as.character(data[[id_col]])
 
@@ -482,30 +527,26 @@ psiProcessTargetDS <- function(data_name, id_col, from_storage = FALSE,
 
   ss$psi_scalar <- own_result$scalar
 
-  # 3. Convert ref points from base64url to standard base64 for Go tool
-  ref_points_std <- sapply(ref_masked_points, .base64url_to_base64, USE.NAMES = FALSE)
-
-  # 4. Double-mask ref points with own scalar
+  # 3. Double-mask ref points with own scalar (points already standard base64)
   ref_dm <- .callMheTool("psi-double-mask", list(
-    points = as.list(ref_points_std),
+    points = as.list(ref_masked_points),
     scalar = own_result$scalar
   ))
 
-  # 5. Store double-masked ref points for Phase 7 matching
+  # 4. Store double-masked ref points for Phase 7 matching
   ss$psi_ref_dm <- ref_dm$double_masked_points
   ss$psi_ref_indices <- as.integer(0:(length(ref_masked_points) - 1L))
 
-  # 6. Encrypt own masked points under ref server's transport PK
+  # 5. Pack and encrypt own masked points under ref server's transport PK
   ref_pk <- ss$psi_peer_pks[["ref"]]
   if (is.null(ref_pk)) {
     stop("No transport PK for ref server. Call psiStoreTransportKeysDS first.",
          call. = FALSE)
   }
-  own_points_b64url <- sapply(
-    own_result$masked_points, base64_to_base64url, USE.NAMES = FALSE
-  )
-  own_blob <- paste(own_points_b64url, collapse = ",")
-  sealed <- .psi_encrypt_blob(own_blob, ref_pk)
+  packed_own <- .callMheTool("psi-pack-points", list(
+    points = as.list(own_result$masked_points)
+  ))
+  sealed <- .psi_encrypt_b64data(packed_own$packed, ref_pk)
 
   ss$psi_phase <- "target_processed"
 
@@ -553,28 +594,27 @@ psiDoubleMaskDS <- function(target_name, from_storage = FALSE,
          call. = FALSE)
   }
 
-  # 1. Read encrypted blob from storage and decrypt
+  # 1. Read encrypted blob from storage and decrypt to binary packed data
   encrypted_blob <- .read_psi_blob("target_encrypted_blob", session_id)
-  points_str <- .psi_decrypt_blob(encrypted_blob, session_id)
-  points <- strsplit(points_str, ",", fixed = TRUE)[[1]]
+  packed_b64 <- .psi_decrypt_to_b64data(encrypted_blob, session_id)
+  unpacked <- .callMheTool("psi-unpack-points", list(packed = packed_b64))
+  points <- unpacked$points  # already standard base64
 
   # 2. Double-mask with stored scalar
-  points_std <- sapply(points, .base64url_to_base64, USE.NAMES = FALSE)
   result <- .callMheTool("psi-double-mask", list(
-    points = as.list(points_std),
+    points = as.list(points),
     scalar = ss$psi_scalar
   ))
 
-  # 3. Encrypt result under target's transport PK
+  # 3. Pack and encrypt result under target's transport PK
   target_pk <- ss$psi_peer_pks[[target_name]]
   if (is.null(target_pk)) {
     stop("No transport PK for target '", target_name, "'.", call. = FALSE)
   }
-  dm_blob <- paste(
-    sapply(result$double_masked_points, base64_to_base64url, USE.NAMES = FALSE),
-    collapse = ","
-  )
-  sealed <- .psi_encrypt_blob(dm_blob, target_pk)
+  packed_dm <- .callMheTool("psi-pack-points", list(
+    points = as.list(result$double_masked_points)
+  ))
+  sealed <- .psi_encrypt_b64data(packed_dm$packed, target_pk)
 
   # 4. Record one-shot usage
   ss$psi_dm_used <- c(ss$psi_dm_used, target_name)
@@ -612,15 +652,13 @@ psiMatchAndAlignDS <- function(data_name, from_storage = FALSE,
          call. = FALSE)
   }
 
-  # 1. Read encrypted blob from storage and decrypt
+  # 1. Read encrypted blob from storage and decrypt to binary packed data
   encrypted_blob <- .read_psi_blob("dm_encrypted_blob", session_id)
-  dm_str <- .psi_decrypt_blob(encrypted_blob, session_id)
-  own_double_masked <- strsplit(dm_str, ",", fixed = TRUE)[[1]]
+  packed_b64 <- .psi_decrypt_to_b64data(encrypted_blob, session_id)
+  unpacked <- .callMheTool("psi-unpack-points", list(packed = packed_b64))
+  own_dm_std <- unpacked$points  # already standard base64
 
-  # 2. Convert received points from base64url to standard base64
-  own_dm_std <- sapply(own_double_masked, .base64url_to_base64, USE.NAMES = FALSE)
-
-  # 3. Call psi-match: find which own rows match which ref indices
+  # 2. Call psi-match: find which own rows match which ref indices
   result <- .callMheTool("psi-match", list(
     own_doubled = as.list(own_dm_std),
     ref_doubled = as.list(ss$psi_ref_dm),

@@ -20,12 +20,20 @@ import (
 	crand "crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"sort"
 
 	"golang.org/x/crypto/hkdf"
+)
+
+// Binary Vector Format v1 constants
+const (
+	bvfMagic   = 0xBF
+	bvfVersion = 0x01
 )
 
 const transportInfoString = "dsVert-transport-v1"
@@ -180,27 +188,155 @@ func deriveAESKey(sharedSecret []byte) ([]byte, error) {
 // ============================================================================
 
 // transportEncryptVectors encrypts a named map of float64 vectors.
-// The vectors are JSON-serialized, then encrypted with ECIES.
+// Uses Binary Vector Format v1 (compact float64 LE) for ~2x size reduction vs JSON.
 func transportEncryptVectors(vectors map[string][]float64, recipientPKBytes []byte) ([]byte, error) {
-	// Serialize vectors to JSON
-	jsonBytes, err := json.Marshal(vectors)
+	binaryBytes, err := marshalBinaryVectors(vectors)
 	if err != nil {
-		return nil, fmt.Errorf("vector serialization failed: %v", err)
+		return nil, fmt.Errorf("binary vector marshal failed: %v", err)
 	}
-
-	return transportEncryptBytes(jsonBytes, recipientPKBytes)
+	return transportEncryptBytes(binaryBytes, recipientPKBytes)
 }
 
 // transportDecryptVectors decrypts and deserializes a named map of float64 vectors.
+// Auto-detects format: 0xBF = Binary Vector Format v1, 0x7B ('{') = legacy JSON.
 func transportDecryptVectors(sealed []byte, recipientSKBytes []byte) (map[string][]float64, error) {
-	jsonBytes, err := transportDecryptBytes(sealed, recipientSKBytes)
+	plaintext, err := transportDecryptBytes(sealed, recipientSKBytes)
 	if err != nil {
 		return nil, err
 	}
 
+	// Auto-detect: 0xBF = binary v1, 0x7B ('{') = JSON legacy
+	if len(plaintext) >= 2 && plaintext[0] == bvfMagic && plaintext[1] == bvfVersion {
+		return unmarshalBinaryVectors(plaintext)
+	}
+
+	// Fallback: JSON (for in-flight messages during rolling upgrade)
 	var vectors map[string][]float64
-	if err := json.Unmarshal(jsonBytes, &vectors); err != nil {
+	if err := json.Unmarshal(plaintext, &vectors); err != nil {
 		return nil, fmt.Errorf("vector deserialization failed: %v", err)
+	}
+	return vectors, nil
+}
+
+// marshalBinaryVectors encodes a map of named float64 vectors into Binary Vector Format v1.
+//
+// Wire format:
+//
+//	Offset  Size     Field
+//	0       1        Magic: 0xBF
+//	1       1        Version: 0x01
+//	2       1        Flags: 0x00 (reserved)
+//	3       1        K: number of named vectors (uint8, max 255)
+//	4       ...      Descriptor table: K entries, each:
+//	                   - name_len (uint8)
+//	                   - name (name_len bytes, UTF-8)
+//	                   - vec_len (uint32 LE, number of float64 elements)
+//	...     ...      Data blocks: K contiguous blocks of vec_len×8 bytes (float64 LE)
+func marshalBinaryVectors(vectors map[string][]float64) ([]byte, error) {
+	if len(vectors) > 255 {
+		return nil, fmt.Errorf("too many vectors: %d (max 255)", len(vectors))
+	}
+
+	// Sort keys for deterministic output
+	keys := make([]string, 0, len(vectors))
+	for k := range vectors {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	// Calculate total size
+	totalSize := 4 // header
+	totalDataSize := 0
+	for _, k := range keys {
+		if len(k) > 255 {
+			return nil, fmt.Errorf("vector name too long: %d bytes (max 255)", len(k))
+		}
+		totalSize += 1 + len(k) + 4 // name_len + name + vec_len
+		totalDataSize += len(vectors[k]) * 8
+	}
+	totalSize += totalDataSize
+
+	buf := make([]byte, totalSize)
+	offset := 0
+
+	// Header
+	buf[offset] = bvfMagic
+	buf[offset+1] = bvfVersion
+	buf[offset+2] = 0x00 // flags
+	buf[offset+3] = byte(len(keys))
+	offset += 4
+
+	// Descriptor table
+	for _, k := range keys {
+		buf[offset] = byte(len(k))
+		offset++
+		copy(buf[offset:], k)
+		offset += len(k)
+		binary.LittleEndian.PutUint32(buf[offset:], uint32(len(vectors[k])))
+		offset += 4
+	}
+
+	// Data blocks
+	for _, k := range keys {
+		for _, v := range vectors[k] {
+			binary.LittleEndian.PutUint64(buf[offset:], math.Float64bits(v))
+			offset += 8
+		}
+	}
+
+	return buf, nil
+}
+
+// unmarshalBinaryVectors decodes Binary Vector Format v1 back to a map of named float64 vectors.
+func unmarshalBinaryVectors(data []byte) (map[string][]float64, error) {
+	if len(data) < 4 {
+		return nil, fmt.Errorf("binary vector data too short: %d bytes", len(data))
+	}
+	if data[0] != bvfMagic || data[1] != bvfVersion {
+		return nil, fmt.Errorf("invalid binary vector magic/version: 0x%02x 0x%02x", data[0], data[1])
+	}
+
+	k := int(data[3])
+	offset := 4
+
+	// Read descriptor table
+	type vecDesc struct {
+		name   string
+		vecLen uint32
+	}
+	descs := make([]vecDesc, k)
+
+	for i := 0; i < k; i++ {
+		if offset >= len(data) {
+			return nil, fmt.Errorf("truncated descriptor table at vector %d", i)
+		}
+		nameLen := int(data[offset])
+		offset++
+		if offset+nameLen+4 > len(data) {
+			return nil, fmt.Errorf("truncated descriptor for vector %d", i)
+		}
+		name := string(data[offset : offset+nameLen])
+		offset += nameLen
+		vecLen := binary.LittleEndian.Uint32(data[offset:])
+		offset += 4
+		descs[i] = vecDesc{name: name, vecLen: vecLen}
+	}
+
+	// Read data blocks
+	vectors := make(map[string][]float64, k)
+	for _, d := range descs {
+		n := int(d.vecLen)
+		needed := n * 8
+		if offset+needed > len(data) {
+			return nil, fmt.Errorf("truncated data block for vector %q: need %d bytes, have %d",
+				d.name, needed, len(data)-offset)
+		}
+		vec := make([]float64, n)
+		for j := 0; j < n; j++ {
+			vec[j] = math.Float64frombits(binary.LittleEndian.Uint64(data[offset:]))
+			offset += 8
+		}
+		vectors[d.name] = vec
 	}
 
 	return vectors, nil

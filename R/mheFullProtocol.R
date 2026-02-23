@@ -920,7 +920,7 @@ mhePartialDecryptDS <- function(n_chunks, session_id = NULL) {
 
   # Reassemble ciphertext from chunks. CKKS ciphertexts can be 50-200KB
   # as base64, exceeding DataSHIELD/R parser limits for single string
-  # arguments. The client uses adaptive chunking (default 500KB, auto-reduced
+  # arguments. The client uses adaptive chunking (default 200KB, auto-reduced
   # on failure) to stay within these limits.
   ct_b64url <- paste0(ss$ct_chunks[1:n_chunks], collapse = "")
   ct_b64 <- .base64url_to_base64(ct_b64url)
@@ -1218,7 +1218,7 @@ mheFuseServerDS <- function(n_parties, n_ct_chunks, num_slots = 0,
 #' Cryptographic objects (CKKS ciphertexts, EC points, key shares,
 #' transport-encrypted blobs) routinely exceed this limit. This
 #' function provides a store-and-assemble pattern: the client splits
-#' large data into chunks (adaptive size, starting at 500 KB), sends each chunk via a
+#' large data into chunks (adaptive size, starting at 200 KB), sends each chunk via a
 #' separate \code{datashield.aggregate} call, and the server
 #' auto-assembles them when the last chunk arrives. Downstream
 #' functions read the assembled blob via \code{from_storage = TRUE}.

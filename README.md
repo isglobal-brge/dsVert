@@ -350,11 +350,11 @@ DataSHIELD's R expression parser imposes a size limit on arguments passed inline
 | CRP (Common Reference Polynomial) | ~1.6 MB at LogN=14 | LogN >= 14 |
 | CT hash batches | ~64 bytes/hash | p_A * p_B > 350 |
 
-dsVert solves this with a **store-and-assemble** pattern via `mheStoreBlobDS`. The client uses **adaptive chunking** (starting at 500 KB, configurable via `options(dsvert.chunk_size = N)`) that automatically detects the server's expression size limit and reduces chunk size on failure. The server auto-assembles chunks when the last one arrives. Downstream functions read the assembled data via `from_storage = TRUE` instead of inline arguments.
+dsVert solves this with a **store-and-assemble** pattern via `mheStoreBlobDS`. The client uses **adaptive chunking** (starting at 200 KB, configurable via `options(dsvert.chunk_size = N)`) that automatically detects the server's expression size limit and reduces chunk size on failure. The server auto-assembles chunks when the last one arrives. Downstream functions read the assembled data via `from_storage = TRUE` instead of inline arguments.
 
 ```
 Client:  split(data, adaptive_chunk_size) → chunk_1, chunk_2, ..., chunk_n
-         (probe first chunk → if rejected, halve size and retry)
+         (probe first chunk → if rejected, reduce 25% and retry)
 Server:  mheStoreBlobDS(key, chunk_1, 1, n)
          mheStoreBlobDS(key, chunk_2, 2, n)  → auto-assembled on last chunk
          ...

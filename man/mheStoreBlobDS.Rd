@@ -28,7 +28,7 @@ size of arguments passed inline in \code{call()} expressions.
 Cryptographic objects (CKKS ciphertexts, EC points, key shares,
 transport-encrypted blobs) routinely exceed this limit. This
 function provides a store-and-assemble pattern: the client splits
-large data into chunks (adaptive size, starting at 500 KB), sends each chunk via a
+large data into chunks (adaptive size, starting at 200 KB), sends each chunk via a
 separate \code{datashield.aggregate} call, and the server
 auto-assembles them when the last chunk arrives. Downstream
 functions read the assembled blob via \code{from_storage = TRUE}.

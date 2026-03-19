@@ -98,6 +98,17 @@ NULL
 # Session TTL: 24 hours (very long to avoid premature cleanup)
 .SESSION_TTL_SECONDS <- 86400L
 
+# ---------------------------------------------------------------------------
+# MHE Context Cache: maps context_id -> session_id for key reuse
+# ---------------------------------------------------------------------------
+# When the peer set and CKKS parameters haven't changed between analyses,
+# the expensive key generation + combination steps can be skipped by reusing
+# cryptographic keys from a previous session. The context_id is a canonical
+# string encoding the peer set, parameters, and RLK flag. Fresh transport
+# keys are always generated (forward secrecy per job).
+# ---------------------------------------------------------------------------
+.mhe_context_cache <- new.env(parent = emptyenv())
+
 #' Get or create a session-scoped storage environment
 #'
 #' Returns the sub-environment for the given session_id. Creates it if it
@@ -159,6 +170,97 @@ NULL
       }
     }
   }
+}
+
+# ---------------------------------------------------------------------------
+# MHE Context Reuse Functions
+# ---------------------------------------------------------------------------
+# Skip expensive key generation + combination when the same peer set and
+# CKKS parameters are used across consecutive analyses. The context_id is
+# a canonical string encoding sorted peer names, log_n, log_scale, num_obs,
+# and generate_rlk. Fresh X25519 transport keys are always generated to
+# maintain forward secrecy per job.
+# ---------------------------------------------------------------------------
+
+#' Check for reusable MHE context and copy keys to a new session
+#'
+#' Looks up the context cache for a previous session with the same
+#' cryptographic configuration (peer set, CKKS parameters, RLK flag).
+#' If found and the old session's keys are still valid, copies them
+#' to the new session. Fresh transport keys are always generated.
+#'
+#' @param context_id Character. Canonical string identifying the MHE
+#'   configuration (computed by the client from sorted peer names and params).
+#' @param session_id Character. New session ID to copy keys into.
+#'
+#' @return List with:
+#'   \itemize{
+#'     \item \code{reusable}: Logical. TRUE if keys were successfully reused.
+#'     \item \code{party_id}: Integer. This server's party ID (only if reusable).
+#'     \item \code{transport_pk}: Character. Fresh X25519 public key (only if reusable).
+#'   }
+#' @export
+mheReuseContextDS <- function(context_id, session_id) {
+  old_sid <- .mhe_context_cache[[context_id]]
+
+  if (is.null(old_sid)) {
+    return(list(reusable = FALSE))
+  }
+
+  # Check that the old session still exists and has keys
+  old_ss <- .mhe_sessions[[old_sid]]
+  if (is.null(old_ss) || is.null(old_ss$secret_key) || is.null(old_ss$cpk)) {
+    # Old session expired or incomplete - remove stale cache entry
+    if (exists(context_id, envir = .mhe_context_cache)) {
+      rm(list = context_id, envir = .mhe_context_cache)
+    }
+    return(list(reusable = FALSE))
+  }
+
+  # Create new session and copy MHE keys
+  ss <- .S(session_id)
+  ss$secret_key  <- old_ss$secret_key
+  ss$party_id    <- old_ss$party_id
+  ss$cpk         <- old_ss$cpk
+  ss$galois_keys <- old_ss$galois_keys
+  ss$relin_key   <- old_ss$relin_key
+  ss$log_n       <- old_ss$log_n
+  ss$log_scale   <- old_ss$log_scale
+
+  # Generate FRESH transport keys (forward secrecy for each job)
+  transport <- .callMheTool("transport-keygen", list())
+  ss$transport_sk <- transport$secret_key
+  ss$transport_pk <- transport$public_key
+
+  # Update cache to point to the new session
+  .mhe_context_cache[[context_id]] <- session_id
+
+  list(
+    reusable     = TRUE,
+    party_id     = ss$party_id,
+    transport_pk = base64_to_base64url(transport$public_key)
+  )
+}
+
+#' Register the current session's MHE context for future reuse
+#'
+#' Called after a successful \code{mheCombineDS} to register the context
+#' in the cache. Subsequent analyses with the same peer set and parameters
+#' can skip key generation by calling \code{mheReuseContextDS}.
+#'
+#' @param context_id Character. Canonical string identifying the MHE
+#'   configuration.
+#' @param session_id Character. Session ID that completed key combination.
+#'
+#' @return TRUE (invisible)
+#' @export
+mheRegisterContextDS <- function(context_id, session_id) {
+  ss <- .S(session_id)
+  if (is.null(ss$cpk)) {
+    stop("Cannot register context: MHE keys not yet combined", call. = FALSE)
+  }
+  .mhe_context_cache[[context_id]] <- session_id
+  invisible(TRUE)
 }
 
 # ---------------------------------------------------------------------------

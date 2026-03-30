@@ -90,6 +90,17 @@ peerManifestStoreDS <- function(manifest_json, session_id = NULL) {
          call. = FALSE)
   }
 
+
+  # Decode B64url if the client encoded it (to avoid Opal parser issues
+  # with special characters like '{', '}', '+', '/', '=' in strings).
+  if (!grepl("^\\{", manifest_json)) {
+    b64 <- gsub("-", "+", manifest_json, fixed = TRUE)
+    b64 <- gsub("_", "/", b64, fixed = TRUE)
+    pad <- (4 - nchar(b64) %% 4) %% 4
+    if (pad > 0) b64 <- paste0(b64, strrep("=", pad))
+    manifest_json <- rawToChar(jsonlite::base64_dec(b64))
+  }
+
   # Store manifest and its hash
   ss$manifest_json <- manifest_json
   ss$manifest_hash <- .compute_manifest_hash(manifest_json)

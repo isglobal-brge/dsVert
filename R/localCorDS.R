@@ -30,7 +30,7 @@
 #'
 #' @importFrom stats cor
 #' @export
-localCorDS <- function(data_name, variables) {
+localCorDS <- function(data_name, variables, session_id = NULL) {
   # Validate inputs
   if (!is.character(data_name) || length(data_name) != 1) {
     stop("data_name must be a single character string", call. = FALSE)

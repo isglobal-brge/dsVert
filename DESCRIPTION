@@ -34,6 +34,8 @@ Roxygen: list(markdown = TRUE)
 AggregateMethods:
     mheAuthorizeCTDS,
     mheCleanupDS,
+    mheRegisterContextDS,
+    mheReuseContextDS,
     psiInitDS,
     psiStoreTransportKeysDS,
     psiMaskIdsDS,

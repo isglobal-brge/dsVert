@@ -185,7 +185,7 @@ glmSecureAggBlockSolveDS <- function(data_name, x_vars,
   w <- as.numeric(decrypted$vectors$w)
 
   # BCD block update (same math as glmSecureBlockSolveDS)
-  data <- .resolveData(data_name, parent.frame())
+  data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
   n <- nrow(X)
   p <- ncol(X)
@@ -334,7 +334,7 @@ glmSecureAggCoordinatorStepDS <- function(data_name, y_var, x_vars,
   # ---- Remainder is identical to glmCoordinatorStepDS ----
 
   # Run IRLS step
-  data <- .resolveData(data_name, parent.frame())
+  data <- .resolveData(data_name, parent.frame(), session_id)
 
   if (!is.data.frame(data))
     stop("Object '", data_name, "' is not a data frame", call. = FALSE)
@@ -477,7 +477,7 @@ glmSecureAggPrepDevianceDS <- function(data_name, x_vars, beta,
                                         coordinator_pk = NULL,
                                         session_id = NULL) {
   ss <- .S(session_id)
-  data <- .resolveData(data_name, parent.frame())
+  data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
   beta <- as.numeric(beta)
   eta <- as.vector(X %*% beta)

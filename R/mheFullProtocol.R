@@ -1404,6 +1404,126 @@ mheGetObsDS <- function(data_name, variables, session_id = NULL) {
   sum(complete.cases(X))
 }
 
+#' Batch partial decryption with share-wrapping
+#'
+#' Processes multiple ciphertexts stored in blob storage in a single call,
+#' returning all wrapped partial decryption shares concatenated. This reduces
+#' client-server round-trips from O(n_cts * K) to O(K) for the threshold
+#' decryption phase.
+#'
+#' @param n_cts Integer. Number of ciphertexts stored as blobs with keys
+#'   \code{"ct_batch_1"}, \code{"ct_batch_2"}, ..., \code{"ct_batch_N"}.
+#' @param session_id Character or NULL. Session identifier.
+#'
+#' @return List with:
+#'   \itemize{
+#'     \item \code{wrapped_shares}: Character vector of length \code{n_cts},
+#'       each element a transport-encrypted partial decryption share (base64url).
+#'     \item \code{party_id}: This server's party ID.
+#'   }
+#' @export
+mhePartialDecryptBatchWrappedDS <- function(n_cts, session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$secret_key))
+    stop("Secret key not stored. Call mheInitDS first.", call. = FALSE)
+
+  fusion_pk <- ss$peer_transport_pks[["fusion"]]
+  if (is.null(fusion_pk))
+    stop("Fusion server transport PK not stored.", call. = FALSE)
+
+  wrapped <- character(n_cts)
+
+  for (i in seq_len(n_cts)) {
+    key <- paste0("ct_batch_", i)
+    ct_b64url <- ss$blobs[[key]]
+    if (is.null(ct_b64url))
+      stop("Ciphertext batch blob '", key, "' not found.", call. = FALSE)
+    ct_b64 <- .base64url_to_base64(ct_b64url)
+    ss$blobs[[key]] <- NULL  # free memory immediately
+
+    .validate_and_consume_ciphertext(ct_b64, session_id = session_id)
+
+    result <- .callMheTool("mhe-partial-decrypt", list(
+      ciphertext = ct_b64,
+      secret_key = ss$secret_key,
+      log_n = as.integer(ss$log_n %||% 12),
+      log_scale = as.integer(ss$log_scale %||% 40)
+    ))
+
+    sealed <- .callMheTool("transport-encrypt", list(
+      data = result$decryption_share,
+      recipient_pk = fusion_pk
+    ))
+    wrapped[i] <- base64_to_base64url(sealed$sealed)
+  }
+
+  list(wrapped_shares = wrapped, party_id = ss$party_id)
+}
+
+#' Batch fusion of wrapped partial decryption shares
+#'
+#' Unwraps and fuses partial decryption shares for multiple ciphertexts
+#' in a single call. Each ciphertext has shares from all non-fusion parties
+#' stored via blob storage, plus the fusion server's own ciphertext.
+#'
+#' @param n_cts Integer. Number of ciphertexts to fuse.
+#' @param n_parties Integer. Total number of parties (K).
+#' @param num_slots Integer. Number of CKKS slots (observations).
+#' @param session_id Character or NULL. Session identifier.
+#'
+#' @return List with:
+#'   \itemize{
+#'     \item \code{values}: Numeric vector of length \code{n_cts}, the
+#'       decrypted and sanitized scalar values.
+#'   }
+#' @export
+mheFuseBatchDS <- function(n_cts, n_parties, num_slots, session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$secret_key))
+    stop("Secret key not stored. Call mheInitDS first.", call. = FALSE)
+  if (is.null(ss$transport_sk))
+    stop("Transport SK not stored.", call. = FALSE)
+
+  values <- numeric(n_cts)
+
+  for (i in seq_len(n_cts)) {
+    ct_key <- paste0("ct_batch_", i)
+    ct_b64url <- ss$blobs[[ct_key]]
+    if (is.null(ct_b64url))
+      stop("Ciphertext '", ct_key, "' not found.", call. = FALSE)
+    ct_b64 <- .base64url_to_base64(ct_b64url)
+    ss$blobs[[ct_key]] <- NULL
+
+    .validate_and_consume_ciphertext(ct_b64, session_id = session_id)
+
+    # Collect wrapped shares from all non-fusion parties
+    shares <- list()
+    for (pid in seq_len(n_parties - 1)) {
+      share_key <- paste0("wrapped_share_", pid, "_ct_", i)
+      share_data <- ss$blobs[[share_key]]
+      if (is.null(share_data))
+        stop("Wrapped share for party ", pid, " CT ", i, " not found.", call. = FALSE)
+      shares[[length(shares) + 1]] <- .base64url_to_base64(share_data)
+      ss$blobs[[share_key]] <- NULL
+    }
+
+    # Fuse: unwrap all shares, compute own share, aggregate
+    fuse_input <- list(
+      ciphertext = ct_b64,
+      secret_key = ss$secret_key,
+      transport_secret_key = ss$transport_sk,
+      wrapped_shares = shares,
+      num_slots = as.integer(num_slots),
+      log_n = as.integer(ss$log_n %||% 12),
+      log_scale = as.integer(ss$log_scale %||% 40)
+    )
+    fuse_result <- .callMheTool("mhe-fuse-server", fuse_input)
+    values[i] <- fuse_result$value
+  }
+
+  list(values = values)
+}
+
 #' Clean up MHE cryptographic state
 #'
 #' Removes all cryptographic material from server memory: secret key, CPK,

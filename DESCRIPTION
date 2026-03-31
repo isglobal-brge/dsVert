@@ -67,6 +67,8 @@ AggregateMethods:
     mhePartialDecryptWrappedDS,
     mheStoreWrappedShareDS,
     mheFuseServerDS,
+    mhePartialDecryptBatchWrappedDS,
+    mheFuseBatchDS,
     glmCoordinatorStepDS,
     glmSecureGradientDS,
     glmSecureBlockSolveDS,

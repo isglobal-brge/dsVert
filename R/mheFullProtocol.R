@@ -389,6 +389,10 @@ mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
   # If not party 0, include CRP and shared GKG seed
   if (from_storage) {
     blobs <- ss$blobs
+    # Allow party_id to be stored in blobs for parallel init
+    if (!is.null(blobs) && !is.null(blobs[["party_id"]])) {
+      input$party_id <- as.integer(blobs[["party_id"]])
+    }
     if (!is.null(blobs) && !is.null(blobs[["crp"]])) {
       input$crp <- .base64url_to_base64(blobs[["crp"]])
     }
@@ -411,7 +415,7 @@ mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
   # client. This is the foundation of the threshold property: the collective
   # secret key sk = sk_1 + sk_2 + ... + sk_K is never reconstructed.
   ss$secret_key <- result$secret_key
-  ss$party_id <- party_id
+  ss$party_id <- input$party_id
   ss$log_n <- log_n
   ss$log_scale <- log_scale
 

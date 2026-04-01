@@ -141,12 +141,10 @@ NULL
 #' @keywords internal
 .read_psi_blob <- function(key, session_id = NULL) {
   ss <- .S(session_id)
-  blobs <- ss$blobs
-  if (is.null(blobs) || is.null(blobs[[key]])) {
+  blob <- .blob_consume(key, ss)
+  if (is.null(blob)) {
     stop("No PSI blob stored with key '", key, "'", call. = FALSE)
   }
-  blob <- blobs[[key]]
-  ss$blobs[[key]] <- NULL
   blob
 }
 
@@ -763,12 +761,12 @@ psiFilterCommonDS <- function(data_name, common_indices = NULL,
 
   # Read from blob storage or inline argument
   if (from_storage) {
-    blobs <- ss$blobs
-    if (is.null(blobs) || is.null(blobs[["common_indices"]])) {
+    blobs <- .blob_snapshot(ss)
+    if (length(blobs) == 0L || is.null(blobs[["common_indices"]])) {
       stop("No common_indices blob stored", call. = FALSE)
     }
     common_indices <- as.integer(strsplit(blobs[["common_indices"]], ",", fixed = TRUE)[[1]])
-    ss$blobs <- NULL
+    .blob_nuke(ss)
   } else {
     common_indices <- as.integer(common_indices)
   }

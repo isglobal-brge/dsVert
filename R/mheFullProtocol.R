@@ -145,6 +145,7 @@ NULL
   if (!is.null(session_id) && nzchar(session_id)) {
     s <- .mhe_sessions[[session_id]]
     if (!is.null(s)) {
+      tryCatch(.session_dir_cleanup(s), error = function(e) NULL)
       rm(list = ls(s), envir = s)
     }
     rm(list = session_id, envir = .mhe_sessions)
@@ -388,7 +389,7 @@ mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
 
   # If not party 0, include CRP and shared GKG seed
   if (from_storage) {
-    blobs <- ss$blobs
+    blobs <- .blob_snapshot(ss)
     # Allow party_id to be stored in blobs for parallel init
     if (!is.null(blobs) && !is.null(blobs[["party_id"]])) {
       input$party_id <- as.integer(blobs[["party_id"]])
@@ -399,7 +400,7 @@ mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
     if (!is.null(blobs) && !is.null(blobs[["gkg_seed"]])) {
       input$gkg_seed <- .base64url_to_base64(blobs[["gkg_seed"]])
     }
-    ss$blobs <- NULL
+    .blob_nuke(ss)
   } else {
     if (party_id > 0 && !is.null(crp)) {
       input$crp <- .base64url_to_base64(crp)
@@ -473,14 +474,14 @@ mheRLKAggregateR1DS <- function(from_storage = FALSE, n_parties = 0,
                                 session_id = NULL) {
   ss <- .S(session_id)
   if (from_storage) {
-    blobs <- ss$blobs
-    if (is.null(blobs)) stop("No blobs stored for RLK R1 aggregation", call. = FALSE)
+    blobs <- .blob_snapshot(ss)
+    if (length(blobs) == 0L) stop("No blobs stored for RLK R1 aggregation", call. = FALSE)
 
     r1_shares <- character(n_parties)
     for (i in seq_len(n_parties)) {
       r1_shares[i] <- .base64url_to_base64(blobs[[paste0("rlk_r1_", i - 1)]])
     }
-    ss$blobs <- NULL
+    .blob_nuke(ss)
   } else {
     stop("Direct argument mode not supported for RLK aggregation", call. = FALSE)
   }
@@ -525,10 +526,10 @@ mheRLKRound2DS <- function(from_storage = FALSE, aggregated_round1 = NULL,
   }
 
   if (from_storage) {
-    blobs <- ss$blobs
-    if (!is.null(blobs) && !is.null(blobs[["rlk_agg_r1"]])) {
+    blobs <- .blob_snapshot(ss)
+    if (length(blobs) > 0L && !is.null(blobs[["rlk_agg_r1"]])) {
       agg_r1 <- .base64url_to_base64(blobs[["rlk_agg_r1"]])
-      ss$blobs <- NULL
+      .blob_nuke(ss)
     } else if (!is.null(ss$rlk_aggregated_r1)) {
       # Coordinator already has it from mheRLKAggregateR1DS
       agg_r1 <- ss$rlk_aggregated_r1
@@ -587,8 +588,8 @@ mheCombineDS <- function(public_key_shares = NULL, crp = NULL, galois_key_shares
   ss <- .S(session_id)
   if (from_storage) {
     # Read all inputs from blob storage (set via mheStoreBlobDS)
-    blobs <- ss$blobs
-    if (is.null(blobs)) stop("No blobs stored for combine", call. = FALSE)
+    blobs <- .blob_snapshot(ss)
+    if (length(blobs) == 0L) stop("No blobs stored for combine", call. = FALSE)
 
     pk_shares <- character(n_parties)
     for (i in seq_len(n_parties)) {
@@ -626,7 +627,7 @@ mheCombineDS <- function(public_key_shares = NULL, crp = NULL, galois_key_shares
     }
 
     # Clean up blobs
-    ss$blobs <- NULL
+    .blob_nuke(ss)
   } else {
     # Direct arguments (backward-compatible, small datasets only)
     pk_shares <- sapply(public_key_shares, .base64url_to_base64, USE.NAMES = FALSE)
@@ -710,8 +711,8 @@ mheStoreCPKDS <- function(cpk = NULL, galois_keys = NULL, relin_key = NULL,
                           from_storage = FALSE, session_id = NULL) {
   ss <- .S(session_id)
   if (from_storage) {
-    blobs <- ss$blobs
-    if (is.null(blobs)) stop("No blobs stored for CPK", call. = FALSE)
+    blobs <- .blob_snapshot(ss)
+    if (length(blobs) == 0L) stop("No blobs stored for CPK", call. = FALSE)
 
     ss$cpk <- .base64url_to_base64(blobs[["cpk"]])
 
@@ -727,7 +728,7 @@ mheStoreCPKDS <- function(cpk = NULL, galois_keys = NULL, relin_key = NULL,
       ss$relin_key <- .base64url_to_base64(blobs[["rk"]])
     }
 
-    ss$blobs <- NULL
+    .blob_nuke(ss)
   } else {
     ss$cpk <- .base64url_to_base64(cpk)
 
@@ -957,12 +958,12 @@ mheAuthorizeCTDS <- function(ct_hashes = NULL, op_type = "cross-product",
 
   # Read ct_hashes from blob storage or inline argument
   if (from_storage) {
-    blobs <- ss$blobs
-    if (is.null(blobs) || is.null(blobs[["ct_hashes"]])) {
+    blobs <- .blob_snapshot(ss)
+    if (length(blobs) == 0L || is.null(blobs[["ct_hashes"]])) {
       stop("No ct_hashes blob stored", call. = FALSE)
     }
     ct_hashes <- strsplit(blobs[["ct_hashes"]], ",", fixed = TRUE)[[1]]
-    ss$blobs <- NULL
+    .blob_nuke(ss)
   }
 
   if (is.null(ss$ct_registry)) {
@@ -1361,13 +1362,9 @@ mheStoreBlobDS <- function(key, chunk, chunk_index = 1L, n_chunks = 1L,
                            session_id = NULL) {
   ss <- .S(session_id)
   if (n_chunks == 1L) {
-    # Single-call mode (no chunking)
-    if (is.null(ss$blobs)) ss$blobs <- list()
-    ss$blobs[[key]] <- chunk
+    .blob_put(key, chunk, ss)
   } else {
-    # Chunked mode
     if (is.null(ss$blob_chunks)) ss$blob_chunks <- list()
-    # Reset if n_chunks changed (adaptive retry with different chunk size)
     if (!is.null(ss$blob_chunks[[key]]) &&
         length(ss$blob_chunks[[key]]) != n_chunks) {
       ss$blob_chunks[[key]] <- NULL
@@ -1376,11 +1373,8 @@ mheStoreBlobDS <- function(key, chunk, chunk_index = 1L, n_chunks = 1L,
       ss$blob_chunks[[key]] <- character(n_chunks)
     }
     ss$blob_chunks[[key]][chunk_index] <- chunk
-
-    # Auto-assemble when all chunks are present
     if (all(nzchar(ss$blob_chunks[[key]]))) {
-      if (is.null(ss$blobs)) ss$blobs <- list()
-      ss$blobs[[key]] <- paste0(ss$blob_chunks[[key]], collapse = "")
+      .blob_put(key, paste0(ss$blob_chunks[[key]], collapse = ""), ss)
       ss$blob_chunks[[key]] <- NULL
     }
   }
@@ -1435,11 +1429,10 @@ mhePartialDecryptBatchWrappedDS <- function(n_cts, session_id = NULL) {
 
   for (i in seq_len(n_cts)) {
     key <- paste0("ct_batch_", i)
-    ct_b64url <- ss$blobs[[key]]
+    ct_b64url <- .blob_consume(key, ss)
     if (is.null(ct_b64url))
       stop("Ciphertext batch blob '", key, "' not found.", call. = FALSE)
     ct_b64 <- .base64url_to_base64(ct_b64url)
-    ss$blobs[[key]] <- NULL  # free memory immediately
 
     .validate_and_consume_ciphertext(ct_b64, session_id = session_id)
 
@@ -1488,11 +1481,10 @@ mheFuseBatchDS <- function(n_cts, n_parties, num_slots, session_id = NULL) {
 
   for (i in seq_len(n_cts)) {
     ct_key <- paste0("ct_batch_", i)
-    ct_b64url <- ss$blobs[[ct_key]]
+    ct_b64url <- .blob_consume(ct_key, ss)
     if (is.null(ct_b64url))
       stop("Ciphertext '", ct_key, "' not found.", call. = FALSE)
     ct_b64 <- .base64url_to_base64(ct_b64url)
-    ss$blobs[[ct_key]] <- NULL
 
     .validate_and_consume_ciphertext(ct_b64, session_id = session_id)
 
@@ -1500,11 +1492,10 @@ mheFuseBatchDS <- function(n_cts, n_parties, num_slots, session_id = NULL) {
     shares <- list()
     for (pid in seq_len(n_parties - 1)) {
       share_key <- paste0("wrapped_share_", pid, "_ct_", i)
-      share_data <- ss$blobs[[share_key]]
+      share_data <- .blob_consume(share_key, ss)
       if (is.null(share_data))
         stop("Wrapped share for party ", pid, " CT ", i, " not found.", call. = FALSE)
       shares[[length(shares) + 1]] <- .base64url_to_base64(share_data)
-      ss$blobs[[share_key]] <- NULL
     }
 
     # Fuse: unwrap all shares, compute own share, aggregate

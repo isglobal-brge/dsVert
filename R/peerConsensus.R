@@ -148,14 +148,11 @@ peerManifestValidateDS <- function(peer_name, session_id = NULL) {
 
   # Read the encrypted hash blob from blob storage
   blob_key <- paste0("manifest_hash_", peer_name)
-  blobs <- ss$blobs
-  if (is.null(blobs) || is.null(blobs[[blob_key]])) {
+  sealed_b64url <- .blob_consume(blob_key, ss)
+  if (is.null(sealed_b64url)) {
     stop("No manifest hash blob stored for peer '", peer_name, "'",
          call. = FALSE)
   }
-
-  sealed_b64url <- blobs[[blob_key]]
-  ss$blobs[[blob_key]] <- NULL  # consume
 
   # Decrypt the peer's hash using our transport SK
   sealed_b64 <- .base64url_to_base64(sealed_b64url)

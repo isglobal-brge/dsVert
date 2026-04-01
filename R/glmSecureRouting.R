@@ -90,10 +90,9 @@ glmCoordinatorStepDS <- function(data_name, y_var, x_vars,
   if (is.null(encrypted_eta_blobs) && !is.null(eta_blob_keys)) {
     encrypted_eta_blobs <- list()
     for (key in eta_blob_keys) {
-      blob <- ss$blobs[[key]]
+      blob <- .blob_consume(key, ss)
       if (!is.null(blob)) {
         encrypted_eta_blobs[[key]] <- blob
-        ss$blobs[[key]] <- NULL  # consume
       }
     }
   }
@@ -281,8 +280,7 @@ glmSecureGradientDS <- function(data_name, x_vars, encrypted_mwv = NULL, num_obs
 
   # Read from blob storage if not provided directly (chunked transfer)
   if (is.null(encrypted_mwv) || encrypted_mwv == "") {
-    encrypted_mwv <- ss$blobs[["mwv"]]
-    ss$blobs[["mwv"]] <- NULL  # consume
+    encrypted_mwv <- .blob_consume("mwv", ss)
   }
   if (is.null(encrypted_mwv)) {
     stop("No encrypted (mu, w, v) blob provided or stored.", call. = FALSE)
@@ -396,8 +394,7 @@ glmSecureBlockSolveDS <- function(data_name, x_vars, encrypted_mwv = NULL,
 
   # Read from blob storage if not provided directly (chunked transfer)
   if (is.null(encrypted_mwv) || encrypted_mwv == "") {
-    encrypted_mwv <- ss$blobs[["mwv"]]
-    ss$blobs[["mwv"]] <- NULL  # consume
+    encrypted_mwv <- .blob_consume("mwv", ss)
   }
   if (is.null(encrypted_mwv)) {
     stop("No encrypted (mu, w, v) blob provided or stored.", call. = FALSE)
@@ -523,10 +520,9 @@ glmSecureDevianceDS <- function(data_name, y_var, encrypted_eta_blobs = NULL,
   if (is.null(encrypted_eta_blobs) && !is.null(eta_blob_keys)) {
     encrypted_eta_blobs <- list()
     for (key in eta_blob_keys) {
-      blob <- ss$blobs[[key]]
+      blob <- .blob_consume(key, ss)
       if (!is.null(blob)) {
         encrypted_eta_blobs[[key]] <- blob
-        ss$blobs[[key]] <- NULL  # consume
       }
     }
   }

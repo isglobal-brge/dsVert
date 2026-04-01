@@ -123,8 +123,8 @@ glmHELinkStepDS <- function(from_storage = TRUE, n_parties = 2,
 
   # Read encrypted etas from blob storage
   if (from_storage) {
-    blobs <- ss$blobs
-    if (is.null(blobs)) stop("No blobs stored for HE link step", call. = FALSE)
+    blobs <- .blob_snapshot(ss)
+    if (length(blobs) == 0L) stop("No blobs stored for HE link step", call. = FALSE)
 
     ct_etas <- character(n_parties)
     for (i in seq_len(n_parties)) {
@@ -134,7 +134,7 @@ glmHELinkStepDS <- function(from_storage = TRUE, n_parties = 2,
       }
       ct_etas[i] <- .base64url_to_base64(blobs[[key]])
     }
-    ss$blobs <- NULL
+    .blob_nuke(ss)
   } else {
     stop("Direct argument mode not supported for HE link step", call. = FALSE)
   }
@@ -224,10 +224,9 @@ glmHEGradientEncDS <- function(data_name, x_vars, num_obs,
   # Resolve ct_mu: from blob storage, or locally stored
   ct_mu <- NULL
   if (from_storage) {
-    blobs <- ss$blobs
-    if (!is.null(blobs) && !is.null(blobs[["ct_mu"]])) {
-      ct_mu <- .base64url_to_base64(blobs[["ct_mu"]])
-      ss$blobs[["ct_mu"]] <- NULL
+    val <- .blob_consume("ct_mu", ss)
+    if (!is.null(val)) {
+      ct_mu <- .base64url_to_base64(val)
     }
   }
   if (is.null(ct_mu)) {

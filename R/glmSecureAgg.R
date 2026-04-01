@@ -172,8 +172,7 @@ glmSecureAggBlockSolveDS <- function(data_name, x_vars,
          call. = FALSE)
 
   # Read (mu, w, v) from blob storage (sent by client)
-  encrypted_mwv <- ss$blobs[["mwv"]]
-  ss$blobs[["mwv"]] <- NULL  # consume
+  encrypted_mwv <- .blob_consume("mwv", ss)
   if (is.null(encrypted_mwv))
     stop("No encrypted (mu, w, v) blob stored.", call. = FALSE)
 
@@ -306,9 +305,8 @@ glmSecureAggCoordinatorStepDS <- function(data_name, y_var, x_vars,
     # Collect all masked vectors, decrypt, sum immediately
     masked_vectors <- list()
     for (key in eta_blob_keys) {
-      blob <- ss$blobs[[key]]
+      blob <- .blob_consume(key, ss)
       if (is.null(blob)) next
-      ss$blobs[[key]] <- NULL  # consume
 
       # Decrypt the masked eta vector
       decrypted <- .callMheTool("transport-decrypt-vectors", list(

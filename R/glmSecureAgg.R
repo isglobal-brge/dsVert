@@ -43,7 +43,7 @@ glmSecureAggInitDS <- function(self_name, session_id,
                                 nonlabel_names, scale_bits = 20L,
                                 topology = "pairwise") {
   ss <- .S(session_id)
-  if (is.null(ss$transport_sk))
+  if (!.key_exists("transport_sk", ss))
     stop("Transport SK not stored. Call mheInitDS first.", call. = FALSE)
   if (is.null(ss$peer_transport_pks))
     stop("Peer transport PKs not stored. Call mheStoreTransportKeysDS first.",
@@ -101,7 +101,7 @@ glmSecureAggInitDS <- function(self_name, session_id,
 
     # Derive shared seed via Go binary
     result <- .callMheTool("derive-shared-seed", list(
-      self_sk = ss$transport_sk,
+      self_sk = .key_get("transport_sk", ss),
       peer_pk = peer_pk,
       session_id = session_id,
       self_name = self_name,
@@ -165,7 +165,7 @@ glmSecureAggBlockSolveDS <- function(data_name, x_vars,
                                       iteration = 1L,
                                       session_id = NULL) {
   ss <- .S(session_id)
-  if (is.null(ss$transport_sk))
+  if (!.key_exists("transport_sk", ss))
     stop("Transport SK not stored. Call mheInitDS first.", call. = FALSE)
   if (is.null(ss$secure_agg_seeds))
     stop("Secure aggregation not initialized. Call glmSecureAggInitDS first.",
@@ -179,7 +179,7 @@ glmSecureAggBlockSolveDS <- function(data_name, x_vars,
   # Decrypt (mu, w, v) to get IRLS weights
   decrypted <- .callMheTool("transport-decrypt-vectors", list(
     sealed = .base64url_to_base64(encrypted_mwv),
-    recipient_sk = ss$transport_sk
+    recipient_sk = .key_get("transport_sk", ss)
   ))
   w <- as.numeric(decrypted$vectors$w)
 
@@ -299,9 +299,10 @@ glmSecureAggCoordinatorStepDS <- function(data_name, y_var, x_vars,
   eta_other <- rep(0, n_obs)
 
   if (!is.null(eta_blob_keys) && length(eta_blob_keys) > 0) {
-    if (is.null(ss$transport_sk))
+    if (!.key_exists("transport_sk", ss))
       stop("Transport SK not stored. Call mheInitDS first.", call. = FALSE)
 
+    tsk <- .key_get("transport_sk", ss)
     # Collect all masked vectors, decrypt, sum immediately
     masked_vectors <- list()
     for (key in eta_blob_keys) {
@@ -311,7 +312,7 @@ glmSecureAggCoordinatorStepDS <- function(data_name, y_var, x_vars,
       # Decrypt the masked eta vector
       decrypted <- .callMheTool("transport-decrypt-vectors", list(
         sealed = .base64url_to_base64(blob),
-        recipient_sk = ss$transport_sk
+        recipient_sk = tsk
       ))
 
       masked_vectors[[length(masked_vectors) + 1]] <- as.numeric(decrypted$vectors$masked_eta)

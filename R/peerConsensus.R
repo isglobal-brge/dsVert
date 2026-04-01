@@ -82,7 +82,7 @@ NULL
 #' @export
 peerManifestStoreDS <- function(manifest_json, session_id = NULL) {
   ss <- .S(session_id)
-  if (is.null(ss$transport_sk)) {
+  if (!.key_exists("transport_sk", ss)) {
     stop("Transport SK not stored. Call mheInitDS first.", call. = FALSE)
   }
   if (is.null(ss$peer_transport_pks)) {
@@ -142,7 +142,7 @@ peerManifestValidateDS <- function(peer_name, session_id = NULL) {
   if (is.null(ss$manifest_hash)) {
     stop("Manifest not stored. Call peerManifestStoreDS first.", call. = FALSE)
   }
-  if (is.null(ss$transport_sk)) {
+  if (!.key_exists("transport_sk", ss)) {
     stop("Transport SK not stored. Call mheInitDS first.", call. = FALSE)
   }
 
@@ -158,7 +158,7 @@ peerManifestValidateDS <- function(peer_name, session_id = NULL) {
   sealed_b64 <- .base64url_to_base64(sealed_b64url)
   result <- .callMheTool("transport-decrypt", list(
     sealed = sealed_b64,
-    recipient_sk = ss$transport_sk
+    recipient_sk = .key_get("transport_sk", ss)
   ))
   peer_hash <- rawToChar(jsonlite::base64_dec(result$data))
 

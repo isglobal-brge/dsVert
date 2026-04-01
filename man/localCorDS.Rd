@@ -4,7 +4,7 @@
 \alias{localCorDS}
 \title{Local Correlation (Server-Side)}
 \usage{
-localCorDS(data_name, variables)
+localCorDS(data_name, variables, session_id = NULL)
 }
 \arguments{
 \item{data_name}{Character string. Name of the data frame in the server environment.}

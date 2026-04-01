@@ -63,7 +63,7 @@ NULL
 #' @export
 mheEncryptRawDS <- function(data_name, y_var, session_id = NULL) {
   ss <- .S(session_id)
-  if (is.null(ss$cpk)) {
+  if (!.key_exists("cpk", ss)) {
     stop("CPK not stored. Call mheCombineDS or mheStoreCPKDS first.", call. = FALSE)
   }
 
@@ -77,7 +77,7 @@ mheEncryptRawDS <- function(data_name, y_var, session_id = NULL) {
 
   input <- list(
     data = data_rows,
-    collective_public_key = ss$cpk,
+    collective_public_key = .key_get("cpk", ss),
     log_n = as.integer(ss$log_n %||% 12),
     log_scale = as.integer(ss$log_scale %||% 40)
   )
@@ -158,7 +158,8 @@ mheGLMGradientDS <- function(data_name, x_vars, mu, v = NULL, num_obs, session_i
   if (is.null(enc_y)) {
     stop("Encrypted y not stored. Transfer ct_y first.", call. = FALSE)
   }
-  if (is.null(ss$galois_keys) || length(ss$galois_keys) == 0) {
+  gk <- .key_get("galois_keys", ss)
+  if (is.null(gk) || length(gk) == 0) {
     stop("Galois keys not available. Ensure mheCombineDS/mheStoreCPKDS was called with galois_keys.",
          call. = FALSE)
   }
@@ -175,7 +176,7 @@ mheGLMGradientDS <- function(data_name, x_vars, mu, v = NULL, num_obs, session_i
     mu = as.numeric(mu),
     v = if (!is.null(v)) as.numeric(v) else NULL,
     x_cols = x_cols,
-    galois_keys = as.list(ss$galois_keys),
+    galois_keys = as.list(gk),
     num_obs = as.integer(num_obs),
     log_n = as.integer(ss$log_n %||% 12),
     log_scale = as.integer(ss$log_scale %||% 40)

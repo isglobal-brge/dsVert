@@ -51,7 +51,7 @@ NULL
 #' @export
 glmHEEncryptEtaDS <- function(data_name, x_vars, beta, session_id = NULL) {
   ss <- .S(session_id)
-  if (is.null(ss$cpk)) {
+  if (!.key_exists("cpk", ss)) {
     stop("CPK not stored. Call mheCombineDS or mheStoreCPKDS first.", call. = FALSE)
   }
 
@@ -71,7 +71,7 @@ glmHEEncryptEtaDS <- function(data_name, x_vars, beta, session_id = NULL) {
   # Encrypt under CPK via Go mhe-encrypt-vector
   input <- list(
     vector = eta_k,
-    collective_public_key = ss$cpk,
+    collective_public_key = .key_get("cpk", ss),
     log_n = as.integer(ss$log_n %||% 14),
     log_scale = as.integer(ss$log_scale %||% 40)
   )
@@ -117,7 +117,8 @@ glmHEEncryptEtaDS <- function(data_name, x_vars, beta, session_id = NULL) {
 glmHELinkStepDS <- function(from_storage = TRUE, n_parties = 2,
                              poly_coefficients = NULL, session_id = NULL) {
   ss <- .S(session_id)
-  if (is.null(ss$relin_key) || !nzchar(ss$relin_key)) {
+  rk <- .key_get("relin_key", ss)
+  if (is.null(rk) || !nzchar(rk)) {
     stop("Relinearization key not stored. Generate RLK during key setup.", call. = FALSE)
   }
 
@@ -172,7 +173,7 @@ glmHELinkStepDS <- function(from_storage = TRUE, n_parties = 2,
   poly_result <- .callMheTool("mhe-eval-poly", list(
     ciphertext = ct_total,
     coefficients = poly_coefficients,
-    relinearization_key = ss$relin_key,
+    relinearization_key = rk,
     log_n = log_n,
     log_scale = log_scale
   ))
@@ -249,8 +250,8 @@ glmHEGradientEncDS <- function(data_name, x_vars, num_obs,
     stop("Encrypted y not stored. Transfer ct_y first.", call. = FALSE)
   }
 
-  if (is.null(ss$galois_keys) ||
-      length(ss$galois_keys) == 0) {
+  gk <- .key_get("galois_keys", ss)
+  if (is.null(gk) || length(gk) == 0) {
     stop("Galois keys not available.", call. = FALSE)
   }
 
@@ -264,7 +265,7 @@ glmHEGradientEncDS <- function(data_name, x_vars, num_obs,
     encrypted_y = enc_y,
     encrypted_mu = ct_mu,
     x_cols = x_cols,
-    galois_keys = as.list(ss$galois_keys),
+    galois_keys = as.list(gk),
     num_obs = as.integer(num_obs),
     log_n = as.integer(ss$log_n %||% 14),
     log_scale = as.integer(ss$log_scale %||% 40)

@@ -210,7 +210,7 @@ mheReuseContextDS <- function(context_id, session_id) {
 
   # Check that the old session still exists and has keys
   old_ss <- .mhe_sessions[[old_sid]]
-  if (is.null(old_ss) || is.null(old_ss$secret_key) || is.null(old_ss$cpk)) {
+  if (is.null(old_ss) || !.key_exists("secret_key", old_ss) || !.key_exists("cpk", old_ss)) {
     # Old session expired or incomplete - remove stale cache entry
     if (exists(context_id, envir = .mhe_context_cache)) {
       rm(list = context_id, envir = .mhe_context_cache)
@@ -220,18 +220,20 @@ mheReuseContextDS <- function(context_id, session_id) {
 
   # Create new session and copy MHE keys
   ss <- .S(session_id)
-  ss$secret_key  <- old_ss$secret_key
+  .key_put("secret_key", .key_get("secret_key", old_ss), ss)
   ss$party_id    <- old_ss$party_id
-  ss$cpk         <- old_ss$cpk
-  ss$galois_keys <- old_ss$galois_keys
-  ss$relin_key   <- old_ss$relin_key
+  .key_put("cpk", .key_get("cpk", old_ss), ss)
+  old_gk <- .key_get("galois_keys", old_ss)
+  if (!is.null(old_gk)) .key_put("galois_keys", old_gk, ss)
+  old_rk <- .key_get("relin_key", old_ss)
+  if (!is.null(old_rk)) .key_put("relin_key", old_rk, ss)
   ss$log_n       <- old_ss$log_n
   ss$log_scale   <- old_ss$log_scale
 
   # Generate FRESH transport keys (forward secrecy for each job)
   transport <- .callMheTool("transport-keygen", list())
-  ss$transport_sk <- transport$secret_key
-  ss$transport_pk <- transport$public_key
+  .key_put("transport_sk", transport$secret_key, ss)
+  .key_put("transport_pk", transport$public_key, ss)
 
   # Update cache to point to the new session
   .mhe_context_cache[[context_id]] <- session_id
@@ -257,7 +259,7 @@ mheReuseContextDS <- function(context_id, session_id) {
 #' @export
 mheRegisterContextDS <- function(context_id, session_id) {
   ss <- .S(session_id)
-  if (is.null(ss$cpk)) {
+  if (!.key_exists("cpk", ss)) {
     stop("Cannot register context: MHE keys not yet combined", call. = FALSE)
   }
   .mhe_context_cache[[context_id]] <- session_id
@@ -415,7 +417,7 @@ mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
   # SECURITY: secret key share is stored locally and NEVER returned to the
   # client. This is the foundation of the threshold property: the collective
   # secret key sk = sk_1 + sk_2 + ... + sk_K is never reconstructed.
-  ss$secret_key <- result$secret_key
+  .key_put("secret_key", result$secret_key, ss)
   ss$party_id <- input$party_id
   ss$log_n <- log_n
   ss$log_scale <- log_scale
@@ -424,8 +426,8 @@ mheInitDS <- function(party_id, crp = NULL, gkg_seed = NULL,
   # The transport SK is stored locally (NEVER returned); the PK is distributed
   # to all other servers via the client so they can encrypt data for us.
   transport <- .callMheTool("transport-keygen", list())
-  ss$transport_sk <- transport$secret_key
-  ss$transport_pk <- transport$public_key
+  .key_put("transport_sk", transport$secret_key, ss)
+  .key_put("transport_pk", transport$public_key, ss)
 
   # Store RLK ephemeral SK locally (NEVER returned to client) for round 2
   if (isTRUE(generate_rlk) && !is.null(result$rlk_ephemeral_sk) &&
@@ -518,7 +520,7 @@ mheRLKAggregateR1DS <- function(from_storage = FALSE, n_parties = 0,
 mheRLKRound2DS <- function(from_storage = FALSE, aggregated_round1 = NULL,
                            session_id = NULL) {
   ss <- .S(session_id)
-  if (is.null(ss$secret_key)) {
+  if (!.key_exists("secret_key", ss)) {
     stop("Secret key not stored. Call mheInitDS first.", call. = FALSE)
   }
   if (is.null(ss$rlk_ephemeral_sk)) {
@@ -545,7 +547,7 @@ mheRLKRound2DS <- function(from_storage = FALSE, aggregated_round1 = NULL,
   }
 
   input <- list(
-    secret_key = ss$secret_key,
+    secret_key = .key_get("secret_key", ss),
     rlk_ephemeral_sk = ss$rlk_ephemeral_sk,
     aggregated_round1 = agg_r1,
     log_n = as.integer(ss$log_n %||% 14),
@@ -671,9 +673,9 @@ mheCombineDS <- function(public_key_shares = NULL, crp = NULL, galois_key_shares
   # Galois keys enable ciphertext rotations (needed for inner-product
   # computation). The combining server stores these directly; other
   # servers receive them via mheStoreCPKDS.
-  ss$cpk <- result$collective_public_key
-  ss$galois_keys <- result$galois_keys
-  ss$relin_key <- result$relinearization_key
+  .key_put("cpk", result$collective_public_key, ss)
+  .key_put("galois_keys", result$galois_keys, ss)
+  .key_put("relin_key", result$relinearization_key, ss)
 
   # Return CPK and Galois keys to client for distribution to other servers.
   gk_out <- NULL
@@ -714,29 +716,29 @@ mheStoreCPKDS <- function(cpk = NULL, galois_keys = NULL, relin_key = NULL,
     blobs <- .blob_snapshot(ss)
     if (length(blobs) == 0L) stop("No blobs stored for CPK", call. = FALSE)
 
-    ss$cpk <- .base64url_to_base64(blobs[["cpk"]])
+    .key_put("cpk", .base64url_to_base64(blobs[["cpk"]]), ss)
 
     # Read Galois keys from blobs gk_0, gk_1, ...
     gk_keys <- sort(grep("^gk_", names(blobs), value = TRUE))
     if (length(gk_keys) > 0) {
-      ss$galois_keys <- sapply(gk_keys, function(k) {
+      .key_put("galois_keys", sapply(gk_keys, function(k) {
         .base64url_to_base64(blobs[[k]])
-      }, USE.NAMES = FALSE)
+      }, USE.NAMES = FALSE), ss)
     }
 
     if (!is.null(blobs[["rk"]])) {
-      ss$relin_key <- .base64url_to_base64(blobs[["rk"]])
+      .key_put("relin_key", .base64url_to_base64(blobs[["rk"]]), ss)
     }
 
     .blob_nuke(ss)
   } else {
-    ss$cpk <- .base64url_to_base64(cpk)
+    .key_put("cpk", .base64url_to_base64(cpk), ss)
 
     if (!is.null(galois_keys)) {
-      ss$galois_keys <- sapply(galois_keys, .base64url_to_base64, USE.NAMES = FALSE)
+      .key_put("galois_keys", sapply(galois_keys, .base64url_to_base64, USE.NAMES = FALSE), ss)
     }
     if (!is.null(relin_key)) {
-      ss$relin_key <- .base64url_to_base64(relin_key)
+      .key_put("relin_key", .base64url_to_base64(relin_key), ss)
     }
   }
 
@@ -754,7 +756,7 @@ mheStoreCPKDS <- function(cpk = NULL, galois_keys = NULL, relin_key = NULL,
 #' @export
 mheEncryptLocalDS <- function(data_name, variables, session_id = NULL) {
   ss <- .S(session_id)
-  if (is.null(ss$cpk)) {
+  if (!.key_exists("cpk", ss)) {
     stop("CPK not stored. Call mheCombineDS or mheStoreCPKDS first.", call. = FALSE)
   }
 
@@ -778,7 +780,7 @@ mheEncryptLocalDS <- function(data_name, variables, session_id = NULL) {
 
   input <- list(
     data = data_rows,
-    collective_public_key = ss$cpk,
+    collective_public_key = .key_get("cpk", ss),
     log_n = as.integer(ss$log_n %||% 12),
     log_scale = as.integer(ss$log_scale %||% 40)
   )
@@ -952,7 +954,7 @@ mheCrossProductEncDS <- function(data_name, variables, n_enc_cols, n_obs,
 mheAuthorizeCTDS <- function(ct_hashes = NULL, op_type = "cross-product",
                              from_storage = FALSE, session_id = NULL) {
   ss <- .S(session_id)
-  if (is.null(ss$secret_key)) {
+  if (!.key_exists("secret_key", ss)) {
     stop("MHE not initialized. Call mheInitDS first.", call. = FALSE)
   }
 
@@ -1018,7 +1020,7 @@ mheStoreCTChunkDS <- function(chunk_index, chunk, session_id = NULL) {
 #' @export
 mhePartialDecryptDS <- function(n_chunks, session_id = NULL) {
   ss <- .S(session_id)
-  if (is.null(ss$secret_key)) {
+  if (!.key_exists("secret_key", ss)) {
     stop("Secret key not stored. Call mheInitDS first.", call. = FALSE)
   }
   if (is.null(ss$ct_chunks) || length(ss$ct_chunks) < n_chunks) {
@@ -1042,7 +1044,7 @@ mhePartialDecryptDS <- function(n_chunks, session_id = NULL) {
 
   input <- list(
     ciphertext = ct_b64,
-    secret_key = ss$secret_key,
+    secret_key = .key_get("secret_key", ss),
     log_n = as.integer(ss$log_n %||% 12),
     log_scale = as.integer(ss$log_scale %||% 40)
   )
@@ -1087,7 +1089,7 @@ mhePartialDecryptDS <- function(n_chunks, session_id = NULL) {
 #' @export
 mheStoreTransportKeysDS <- function(transport_keys, session_id = NULL) {
   ss <- .S(session_id)
-  if (is.null(ss$secret_key)) {
+  if (!.key_exists("secret_key", ss)) {
     stop("MHE not initialized. Call mheInitDS first.", call. = FALSE)
   }
 
@@ -1107,7 +1109,7 @@ mheStoreTransportKeysDS <- function(transport_keys, session_id = NULL) {
       }
     )
 
-    own_pk <- ss$transport_pk
+    own_pk <- .key_get("transport_pk", ss)
     for (name in names(transport_keys)) {
       pk <- .base64url_to_base64(transport_keys[[name]])
       if (pk == own_pk) next  # skip our own PK
@@ -1153,7 +1155,7 @@ mheStoreTransportKeysDS <- function(transport_keys, session_id = NULL) {
 #' @export
 mhePartialDecryptWrappedDS <- function(n_chunks, session_id = NULL) {
   ss <- .S(session_id)
-  if (is.null(ss$secret_key)) {
+  if (!.key_exists("secret_key", ss)) {
     stop("Secret key not stored. Call mheInitDS first.", call. = FALSE)
   }
   if (is.null(ss$ct_chunks) || length(ss$ct_chunks) < n_chunks) {
@@ -1177,7 +1179,7 @@ mhePartialDecryptWrappedDS <- function(n_chunks, session_id = NULL) {
   # Compute raw partial decryption share
   input <- list(
     ciphertext = ct_b64,
-    secret_key = ss$secret_key,
+    secret_key = .key_get("secret_key", ss),
     log_n = as.integer(ss$log_n %||% 12),
     log_scale = as.integer(ss$log_scale %||% 40)
   )
@@ -1273,10 +1275,10 @@ mheStoreWrappedShareDS <- function(party_id, share_data, session_id = NULL) {
 mheFuseServerDS <- function(n_parties, n_ct_chunks, num_slots = 0,
                             session_id = NULL) {
   ss <- .S(session_id)
-  if (is.null(ss$secret_key)) {
+  if (!.key_exists("secret_key", ss)) {
     stop("Secret key not stored. Call mheInitDS first.", call. = FALSE)
   }
-  if (is.null(ss$transport_sk)) {
+  if (!.key_exists("transport_sk", ss)) {
     stop("Transport secret key not stored. Call mheInitDS first.", call. = FALSE)
   }
   if (is.null(ss$ct_chunks) || length(ss$ct_chunks) < n_ct_chunks) {
@@ -1303,9 +1305,9 @@ mheFuseServerDS <- function(n_parties, n_ct_chunks, num_slots = 0,
   # Call mhe-fuse-server: unwrap + own partial decrypt + aggregate + DecodePublic
   result <- .callMheTool("mhe-fuse-server", list(
     ciphertext = ct_b64,
-    secret_key = ss$secret_key,
+    secret_key = .key_get("secret_key", ss),
     wrapped_shares = wrapped_shares,
-    transport_secret_key = ss$transport_sk,
+    transport_secret_key = .key_get("transport_sk", ss),
     num_slots = as.integer(num_slots),
     log_n = as.integer(ss$log_n %||% 12),
     log_scale = as.integer(ss$log_scale %||% 40)
@@ -1418,13 +1420,14 @@ mheGetObsDS <- function(data_name, variables, session_id = NULL) {
 #' @export
 mhePartialDecryptBatchWrappedDS <- function(n_cts, session_id = NULL) {
   ss <- .S(session_id)
-  if (is.null(ss$secret_key))
+  if (!.key_exists("secret_key", ss))
     stop("Secret key not stored. Call mheInitDS first.", call. = FALSE)
 
   fusion_pk <- ss$peer_transport_pks[["fusion"]]
   if (is.null(fusion_pk))
     stop("Fusion server transport PK not stored.", call. = FALSE)
 
+  sk <- .key_get("secret_key", ss)
   wrapped <- character(n_cts)
 
   for (i in seq_len(n_cts)) {
@@ -1438,7 +1441,7 @@ mhePartialDecryptBatchWrappedDS <- function(n_cts, session_id = NULL) {
 
     result <- .callMheTool("mhe-partial-decrypt", list(
       ciphertext = ct_b64,
-      secret_key = ss$secret_key,
+      secret_key = sk,
       log_n = as.integer(ss$log_n %||% 12),
       log_scale = as.integer(ss$log_scale %||% 40)
     ))
@@ -1472,11 +1475,13 @@ mhePartialDecryptBatchWrappedDS <- function(n_cts, session_id = NULL) {
 #' @export
 mheFuseBatchDS <- function(n_cts, n_parties, num_slots, session_id = NULL) {
   ss <- .S(session_id)
-  if (is.null(ss$secret_key))
+  if (!.key_exists("secret_key", ss))
     stop("Secret key not stored. Call mheInitDS first.", call. = FALSE)
-  if (is.null(ss$transport_sk))
+  if (!.key_exists("transport_sk", ss))
     stop("Transport SK not stored.", call. = FALSE)
 
+  sk <- .key_get("secret_key", ss)
+  tsk <- .key_get("transport_sk", ss)
   values <- numeric(n_cts)
 
   for (i in seq_len(n_cts)) {
@@ -1501,8 +1506,8 @@ mheFuseBatchDS <- function(n_cts, n_parties, num_slots, session_id = NULL) {
     # Fuse: unwrap all shares, compute own share, aggregate
     fuse_input <- list(
       ciphertext = ct_b64,
-      secret_key = ss$secret_key,
-      transport_secret_key = ss$transport_sk,
+      secret_key = sk,
+      transport_secret_key = tsk,
       wrapped_shares = shares,
       num_slots = as.integer(num_slots),
       log_n = as.integer(ss$log_n %||% 12),

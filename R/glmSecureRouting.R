@@ -98,10 +98,11 @@ glmCoordinatorStepDS <- function(data_name, y_var, x_vars,
   }
 
   if (!is.null(encrypted_eta_blobs) && length(encrypted_eta_blobs) > 0) {
-    if (is.null(ss$transport_sk)) {
+    if (!.key_exists("transport_sk", ss)) {
       stop("Transport SK not stored. Call mheInitDS first.", call. = FALSE)
     }
 
+    tsk <- .key_get("transport_sk", ss)
     for (server_name in names(encrypted_eta_blobs)) {
       blob <- encrypted_eta_blobs[[server_name]]
       if (is.null(blob) || blob == "" || blob == "NULL") next
@@ -109,7 +110,7 @@ glmCoordinatorStepDS <- function(data_name, y_var, x_vars,
       # Decrypt the eta vector
       decrypted <- .callMheTool("transport-decrypt-vectors", list(
         sealed = .base64url_to_base64(blob),
-        recipient_sk = ss$transport_sk
+        recipient_sk = tsk
       ))
 
       eta_k <- as.numeric(decrypted$vectors$eta)
@@ -274,7 +275,7 @@ glmSecureGradientDS <- function(data_name, x_vars, encrypted_mwv = NULL, num_obs
                                  session_id = NULL) {
   ss <- .S(session_id)
 
-  if (is.null(ss$transport_sk)) {
+  if (!.key_exists("transport_sk", ss)) {
     stop("Transport SK not stored. Call mheInitDS first.", call. = FALSE)
   }
 
@@ -289,7 +290,7 @@ glmSecureGradientDS <- function(data_name, x_vars, encrypted_mwv = NULL, num_obs
   # Decrypt (mu, w, v) from coordinator
   decrypted <- .callMheTool("transport-decrypt-vectors", list(
     sealed = .base64url_to_base64(encrypted_mwv),
-    recipient_sk = ss$transport_sk
+    recipient_sk = .key_get("transport_sk", ss)
   ))
 
   mu <- as.numeric(decrypted$vectors$mu)
@@ -306,7 +307,8 @@ glmSecureGradientDS <- function(data_name, x_vars, encrypted_mwv = NULL, num_obs
   if (is.null(enc_y)) {
     stop("Encrypted y not stored. Transfer ct_y first.", call. = FALSE)
   }
-  if (is.null(ss$galois_keys) || length(ss$galois_keys) == 0) {
+  gk <- .key_get("galois_keys", ss)
+  if (is.null(gk) || length(gk) == 0) {
     stop("Galois keys not available.", call. = FALSE)
   }
 
@@ -320,7 +322,7 @@ glmSecureGradientDS <- function(data_name, x_vars, encrypted_mwv = NULL, num_obs
     mu = as.numeric(mu),
     v = v,
     x_cols = x_cols,
-    galois_keys = as.list(ss$galois_keys),
+    galois_keys = as.list(gk),
     num_obs = as.integer(num_obs),
     log_n = as.integer(ss$log_n %||% 12),
     log_scale = as.integer(ss$log_scale %||% 40)
@@ -388,7 +390,7 @@ glmSecureBlockSolveDS <- function(data_name, x_vars, encrypted_mwv = NULL,
                                    session_id = NULL) {
   ss <- .S(session_id)
 
-  if (is.null(ss$transport_sk)) {
+  if (!.key_exists("transport_sk", ss)) {
     stop("Transport SK not stored. Call mheInitDS first.", call. = FALSE)
   }
 
@@ -403,7 +405,7 @@ glmSecureBlockSolveDS <- function(data_name, x_vars, encrypted_mwv = NULL,
   # Decrypt (mu, w, v) to get IRLS weights
   decrypted <- .callMheTool("transport-decrypt-vectors", list(
     sealed = .base64url_to_base64(encrypted_mwv),
-    recipient_sk = ss$transport_sk
+    recipient_sk = .key_get("transport_sk", ss)
   ))
 
   w <- as.numeric(decrypted$vectors$w)
@@ -535,7 +537,7 @@ glmSecureDevianceDS <- function(data_name, y_var, encrypted_eta_blobs = NULL,
       if (is.null(blob) || blob == "" || blob == "NULL") next
       decrypted <- .callMheTool("transport-decrypt-vectors", list(
         sealed = .base64url_to_base64(blob),
-        recipient_sk = ss$transport_sk
+        recipient_sk = .key_get("transport_sk", ss)
       ))
       eta_nonlabel <- eta_nonlabel + as.numeric(decrypted$vectors$eta)
     }

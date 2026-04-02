@@ -7,7 +7,7 @@
 glmBlockSolveDS(
   data_name,
   x_vars,
-  w,
+  w = NULL,
   beta_current,
   gradient,
   lambda = 1e-04,
@@ -20,8 +20,9 @@ glmBlockSolveDS(
 
 \item{x_vars}{Character vector. Feature column names on this server.}
 
-\item{w}{Numeric vector. IRLS weights (length n), broadcast by client.
-Family-dependent: gaussian=1, binomial=mu*(1-mu), poisson=mu.}
+\item{w}{Numeric vector or NULL. IRLS weights (length n), broadcast by
+client. Family-dependent: gaussian=1, binomial=mu*(1-mu), poisson=mu.
+If NULL, unit weights are used (Gaussian identity link).}
 
 \item{beta_current}{Numeric vector. Current coefficients (length p_k).}
 

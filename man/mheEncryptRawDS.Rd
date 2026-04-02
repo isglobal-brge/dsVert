@@ -4,12 +4,17 @@
 \alias{mheEncryptRawDS}
 \title{Encrypt raw response variable under CPK (label server only)}
 \usage{
-mheEncryptRawDS(data_name, y_var, session_id = NULL)
+mheEncryptRawDS(data_name, y_var, store_local = FALSE, session_id = NULL)
 }
 \arguments{
 \item{data_name}{Character. Name of data frame on the label server.}
 
 \item{y_var}{Character. Name of the response variable column.}
+
+\item{store_local}{Logical. If TRUE, also store the encrypted y in the
+session for use by \code{glmHEGradientEncDS}. Used in HE-Link mode
+where the label server needs ct_y for encrypted gradient computation.
+Avoids a costly round-trip of the large ciphertext. Default FALSE.}
 
 \item{session_id}{Character or NULL. UUID for session-scoped storage
 isolation. Default NULL uses legacy shared storage.}

@@ -40,6 +40,10 @@ NULL
 #'
 #' @param data_name Character. Name of data frame on the label server.
 #' @param y_var Character. Name of the response variable column.
+#' @param store_local Logical. If TRUE, also store the encrypted y in the
+#'   session for use by \code{glmHEGradientEncDS}. Used in HE-Link mode
+#'   where the label server needs ct_y for encrypted gradient computation.
+#'   Avoids a costly round-trip of the large ciphertext. Default FALSE.
 #' @param session_id Character or NULL. UUID for session-scoped storage
 #'   isolation. Default NULL uses legacy shared storage.
 #'
@@ -61,7 +65,8 @@ NULL
 #' to JSON scalars (Go expects arrays).
 #'
 #' @export
-mheEncryptRawDS <- function(data_name, y_var, session_id = NULL) {
+mheEncryptRawDS <- function(data_name, y_var, store_local = FALSE,
+                             session_id = NULL) {
   ss <- .S(session_id)
   if (!.key_exists("cpk", ss)) {
     stop("CPK not stored. Call mheCombineDS or mheStoreCPKDS first.", call. = FALSE)
@@ -84,8 +89,15 @@ mheEncryptRawDS <- function(data_name, y_var, session_id = NULL) {
 
   result <- .callMheTool("encrypt-columns", input)
 
+  ct_y <- result$encrypted_columns[[1]]
+
+  # Store locally for HE-Link gradient computation (avoids round-trip)
+  if (isTRUE(store_local)) {
+    ss$enc_y <- ct_y
+  }
+
   list(
-    encrypted_y = base64_to_base64url(result$encrypted_columns[[1]]),
+    encrypted_y = base64_to_base64url(ct_y),
     num_obs = n
   )
 }
@@ -211,8 +223,9 @@ mheGLMGradientDS <- function(data_name, x_vars, mu, v = NULL, num_obs, session_i
 #' @param data_name Character. Name of data frame with local features
 #'   (typically the standardized version).
 #' @param x_vars Character vector. Feature column names on this server.
-#' @param w Numeric vector. IRLS weights (length n), broadcast by client.
-#'   Family-dependent: gaussian=1, binomial=mu*(1-mu), poisson=mu.
+#' @param w Numeric vector or NULL. IRLS weights (length n), broadcast by
+#'   client. Family-dependent: gaussian=1, binomial=mu*(1-mu), poisson=mu.
+#'   If NULL, unit weights are used (Gaussian identity link).
 #' @param beta_current Numeric vector. Current coefficients (length p_k).
 #' @param gradient Numeric vector. Decrypted gradient g_k (length p_k)
 #'   from threshold decryption.
@@ -229,7 +242,7 @@ mheGLMGradientDS <- function(data_name, x_vars, mu, v = NULL, num_obs, session_i
 #'   }
 #'
 #' @export
-glmBlockSolveDS <- function(data_name, x_vars, w, beta_current, gradient, lambda = 1e-4, session_id = NULL) {
+glmBlockSolveDS <- function(data_name, x_vars, w = NULL, beta_current, gradient, lambda = 1e-4, session_id = NULL) {
   data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
   n <- nrow(X)
@@ -243,6 +256,9 @@ glmBlockSolveDS <- function(data_name, x_vars, w, beta_current, gradient, lambda
 
   # GLM disclosure checks: saturation + binary variable small cells
   .check_glm_disclosure(X)
+
+  # Unit weights when w is NULL (Gaussian identity link)
+  if (is.null(w)) w <- rep(1.0, n)
 
   # BCD update: beta_new = (X^T W X + lambda*I)^{-1} (X^T W X beta + g_k)
   XtWX <- crossprod(X, w * X) + diag(lambda, p)

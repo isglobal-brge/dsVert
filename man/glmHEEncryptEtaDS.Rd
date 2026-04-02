@@ -4,7 +4,13 @@
 \alias{glmHEEncryptEtaDS}
 \title{Encrypt linear predictor contribution under CPK}
 \usage{
-glmHEEncryptEtaDS(data_name, x_vars, beta, session_id = NULL)
+glmHEEncryptEtaDS(
+  data_name,
+  x_vars,
+  beta,
+  clip_radius = NULL,
+  session_id = NULL
+)
 }
 \arguments{
 \item{data_name}{Character. Name of the (standardized) data frame.}
@@ -13,6 +19,11 @@ glmHEEncryptEtaDS(data_name, x_vars, beta, session_id = NULL)
 
 \item{beta}{Numeric vector. Current coefficients for this server's block
 (length p_k).}
+
+\item{clip_radius}{Numeric or NULL. If non-NULL, eta_k values are clipped
+to \code{[-clip_radius, clip_radius]} before encryption. Used for Poisson
+GLMs to keep the total linear predictor within the polynomial approximation
+domain (e.g., clip_radius = 1.5 per server yields total in \link{-3, 3}).}
 
 \item{session_id}{Character or NULL. UUID for session-scoped storage
 isolation. Default NULL uses legacy shared storage.}

@@ -8,6 +8,7 @@ glmHELinkStepDS(
   from_storage = TRUE,
   n_parties = 2,
   poly_coefficients = NULL,
+  skip_poly = FALSE,
   session_id = NULL
 )
 }
@@ -18,7 +19,13 @@ glmHELinkStepDS(
 \item{n_parties}{Integer. Number of parties (for reading from blob storage).}
 
 \item{poly_coefficients}{Numeric vector or NULL. Polynomial coefficients in
-monomial basis. If NULL, uses built-in sigmoid approximation.}
+monomial basis. If NULL, uses built-in sigmoid approximation. Ignored when
+\code{skip_poly = TRUE}.}
+
+\item{skip_poly}{Logical. If TRUE, skip polynomial evaluation and return
+ct_eta_total directly as ct_mu. Used for Gaussian GLMs where the identity
+link means mu = eta, so no non-linear transformation is needed. This also
+avoids requiring a relinearization key. Default FALSE.}
 
 \item{session_id}{Character or NULL. UUID for session-scoped storage
 isolation. Default NULL uses legacy shared storage.}
@@ -28,6 +35,7 @@ List with:
 \itemize{
 \item \code{ct_mu}: base64url-encoded encrypted mu ciphertext
 \item \code{level_out}: remaining ciphertext level after polynomial eval
+(-1 when \code{skip_poly = TRUE})
 }
 }
 \description{

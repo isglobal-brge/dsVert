@@ -39,6 +39,10 @@ NULL
 #' @param x_vars Character vector. Feature column names on this server.
 #' @param beta Numeric vector. Current coefficients for this server's block
 #'   (length p_k).
+#' @param clip_radius Numeric or NULL. If non-NULL, eta_k values are clipped
+#'   to \code{[-clip_radius, clip_radius]} before encryption. Used for Poisson
+#'   GLMs to keep the total linear predictor within the polynomial approximation
+#'   domain (e.g., clip_radius = 1.5 per server yields total in [-3, 3]).
 #' @param session_id Character or NULL. UUID for session-scoped storage
 #'   isolation. Default NULL uses legacy shared storage.
 #'
@@ -49,7 +53,8 @@ NULL
 #'   }
 #'
 #' @export
-glmHEEncryptEtaDS <- function(data_name, x_vars, beta, session_id = NULL) {
+glmHEEncryptEtaDS <- function(data_name, x_vars, beta, clip_radius = NULL,
+                               session_id = NULL) {
   ss <- .S(session_id)
   if (!.key_exists("cpk", ss)) {
     stop("CPK not stored. Call mheCombineDS or mheStoreCPKDS first.", call. = FALSE)
@@ -67,6 +72,12 @@ glmHEEncryptEtaDS <- function(data_name, x_vars, beta, session_id = NULL) {
 
   # Compute eta_k = X_k * beta_k in plaintext
   eta_k <- as.numeric(X %*% beta)
+
+  # Optional clipping for Poisson (keeps eta in polynomial domain)
+  if (!is.null(clip_radius)) {
+    clip_radius <- as.numeric(clip_radius)
+    eta_k <- pmin(pmax(eta_k, -clip_radius), clip_radius)
+  }
 
   # Encrypt under CPK via Go mhe-encrypt-vector
   input <- list(
@@ -103,7 +114,12 @@ glmHEEncryptEtaDS <- function(data_name, x_vars, beta, session_id = NULL) {
 #'   (keys: "ct_eta_0", "ct_eta_1", ...). Default TRUE.
 #' @param n_parties Integer. Number of parties (for reading from blob storage).
 #' @param poly_coefficients Numeric vector or NULL. Polynomial coefficients in
-#'   monomial basis. If NULL, uses built-in sigmoid approximation.
+#'   monomial basis. If NULL, uses built-in sigmoid approximation. Ignored when
+#'   \code{skip_poly = TRUE}.
+#' @param skip_poly Logical. If TRUE, skip polynomial evaluation and return
+#'   ct_eta_total directly as ct_mu. Used for Gaussian GLMs where the identity
+#'   link means mu = eta, so no non-linear transformation is needed. This also
+#'   avoids requiring a relinearization key. Default FALSE.
 #' @param session_id Character or NULL. UUID for session-scoped storage
 #'   isolation. Default NULL uses legacy shared storage.
 #'
@@ -111,15 +127,21 @@ glmHEEncryptEtaDS <- function(data_name, x_vars, beta, session_id = NULL) {
 #'   \itemize{
 #'     \item \code{ct_mu}: base64url-encoded encrypted mu ciphertext
 #'     \item \code{level_out}: remaining ciphertext level after polynomial eval
+#'       (-1 when \code{skip_poly = TRUE})
 #'   }
 #'
 #' @export
 glmHELinkStepDS <- function(from_storage = TRUE, n_parties = 2,
-                             poly_coefficients = NULL, session_id = NULL) {
+                             poly_coefficients = NULL, skip_poly = FALSE,
+                             session_id = NULL) {
   ss <- .S(session_id)
-  rk <- .key_get("relin_key", ss)
-  if (is.null(rk) || !nzchar(rk)) {
-    stop("Relinearization key not stored. Generate RLK during key setup.", call. = FALSE)
+
+  # Only need RLK for polynomial evaluation
+  if (!isTRUE(skip_poly)) {
+    rk <- .key_get("relin_key", ss)
+    if (is.null(rk) || !nzchar(rk)) {
+      stop("Relinearization key not stored. Generate RLK during key setup.", call. = FALSE)
+    }
   }
 
   # Read encrypted etas from blob storage
@@ -155,31 +177,37 @@ glmHELinkStepDS <- function(from_storage = TRUE, n_parties = 2,
     ct_total <- add_result$ciphertext
   }
 
-  # Step 2: Evaluate sigmoid polynomial on ct_eta_total
-  if (is.null(poly_coefficients)) {
-    # Default: degree-7 sigmoid approximation on [-8, 8]
-    poly_coefficients <- c(
-      0.5,
-      2.205572459845886e-01,
-      0.0,
-      -8.555529945829476e-03,
-      0.0,
-      1.743706748783766e-04,
-      0.0,
-      -1.247898376981334e-06
-    )
+  if (isTRUE(skip_poly)) {
+    # Gaussian identity link: mu = eta, no polynomial needed
+    ct_mu <- ct_total
+    level_out <- -1L
+  } else {
+    # Step 2: Evaluate link-function polynomial on ct_eta_total
+    if (is.null(poly_coefficients)) {
+      # Default: degree-7 sigmoid approximation on [-8, 8]
+      poly_coefficients <- c(
+        0.5,
+        2.205572459845886e-01,
+        0.0,
+        -8.555529945829476e-03,
+        0.0,
+        1.743706748783766e-04,
+        0.0,
+        -1.247898376981334e-06
+      )
+    }
+
+    poly_result <- .callMheTool("mhe-eval-poly", list(
+      ciphertext = ct_total,
+      coefficients = poly_coefficients,
+      relinearization_key = rk,
+      log_n = log_n,
+      log_scale = log_scale
+    ))
+
+    ct_mu <- poly_result$ciphertext
+    level_out <- poly_result$level_out
   }
-
-  poly_result <- .callMheTool("mhe-eval-poly", list(
-    ciphertext = ct_total,
-    coefficients = poly_coefficients,
-    relinearization_key = rk,
-    log_n = log_n,
-    log_scale = log_scale
-  ))
-
-  ct_mu <- poly_result$ciphertext
-  level_out <- poly_result$level_out
 
   # Store ct_mu locally for own gradient computation
   ss$ct_mu <- ct_mu

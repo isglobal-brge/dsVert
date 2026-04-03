@@ -33,6 +33,7 @@ RoxygenNote: 7.3.3
 Roxygen: list(markdown = TRUE)
 AggregateMethods:
     mheAuthorizeCTDS,
+    mheGcDS,
     mheCleanupDS,
     mheRegisterContextDS,
     mheReuseContextDS,

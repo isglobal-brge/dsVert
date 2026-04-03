@@ -184,16 +184,18 @@ glmHELinkStepDS <- function(from_storage = TRUE, n_parties = 2,
   } else {
     # Step 2: Evaluate link-function polynomial on ct_eta_total
     if (is.null(poly_coefficients)) {
-      # Default: degree-7 sigmoid approximation on [-8, 8]
+      # Default: degree-7 sigmoid approximation on [-4, 4]
+      # Optimised for standardised data where eta is typically in [-3, 3].
+      # Max approximation error ~2.8e-3 (7x better than the [-8,8] variant).
       poly_coefficients <- c(
-        0.5,
-        2.205572459845886e-01,
+        5.000000000e-01,
+        2.469136920e-01,
         0.0,
-        -8.555529945829476e-03,
+        -1.744054538e-02,
         0.0,
-        1.743706748783766e-04,
+        9.465354915e-04,
         0.0,
-        -1.247898376981334e-06
+        -2.206647447e-05
       )
     }
 

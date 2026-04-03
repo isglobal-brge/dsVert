@@ -1533,6 +1533,19 @@ mheFuseBatchDS <- function(n_cts, n_parties, num_slots, session_id = NULL) {
 #'
 #' @return TRUE on success
 #' @export
+#' Force garbage collection on the server
+#'
+#' Lightweight function that triggers R garbage collection without removing
+#' any session state. Used periodically during long-running HE-Link loops
+#' to prevent memory accumulation from intermediate CKKS objects.
+#'
+#' @return TRUE
+#' @export
+mheGcDS <- function() {
+  gc(verbose = FALSE)
+  TRUE
+}
+
 mheCleanupDS <- function(session_id = NULL) {
   if (!is.null(session_id)) {
     .cleanup_session(session_id)

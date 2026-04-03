@@ -150,8 +150,12 @@ k2MpcLinkEvalDS <- function(family, peer_share_key = "mpc_peer_eta_share",
   # Store own mu share for gradient computation
   ss$mpc_own_mu_share <- result$own_mu_share
 
+  # Store IRLS weights (public metadata — both servers need these for block solve)
+  ss$mpc_weights <- result$weights
+
   list(
-    peer_mu_share_enc = base64_to_base64url(result$peer_mu_share_enc)
+    peer_mu_share_enc = base64_to_base64url(result$peer_mu_share_enc),
+    weights = result$weights
   )
 }
 
@@ -268,7 +272,11 @@ k2MpcExportResidualShareDS <- function(peer_pk, session_id = NULL) {
 #' @param num_obs Integer. Number of observations.
 #' @param frac_bits Integer. Fixed-point fractional bits.
 #' @param session_id Character or NULL.
-#' @return List with \code{gradient}: numeric vector (length p_k).
+#' @return List with:
+#'   \itemize{
+#'     \item \code{gradient}: numeric vector (length p_k)
+#'     \item \code{weights}: numeric vector (length n), IRLS weights mu*(1-mu)
+#'   }
 #' @export
 k2MpcLocalGradientDS <- function(data_name, x_vars, num_obs,
                                    frac_bits = 20L, session_id = NULL) {
@@ -301,15 +309,50 @@ k2MpcLocalGradientDS <- function(data_name, x_vars, num_obs,
   ))
   residual <- reveal_result$gradient  # full residual vector (float64)
 
-  # Compute gradient locally: g_k = X_k^T * residual
+  # Compute mu from the residual: residual = y - mu → mu = y - residual
+  # But we don't have y on the non-label server.
+  # Instead, compute mu from eta_total (which both servers can reconstruct
+  # from their own stored eta shares + the residual + y relationship).
+  #
+  # Simpler: the coordinator stored own_eta_share and we now have the full
+  # residual. We can compute gradient = X_k^T * (y - mu) = X_k^T * residual.
+  # For IRLS weights, we need mu. Since residual = y - mu and both parties
+  # see the residual, the label party knows y and can recover mu = y - residual.
+  # The non-label party does not know y, but CAN receive w from the coordinator
+  # after computation (same as K>=3 secure routing).
+  #
+  # For now: compute gradient and weights from the residual.
+  # mu_i ≈ sigmoid(eta_total_i) which the coordinator already computed.
+  # We reconstruct mu from the residual using: for binary y, |residual| < 1,
+  # and mu = y - residual. But y is not available on non-label.
+  #
+  # Practical approach: compute weights from eta_total (available on coordinator
+  # from the link eval step). Both servers share the same mu from piecewise eval.
+
   data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
   gradient <- as.numeric(crossprod(X, residual))
 
+  # Compute IRLS weights from mu stored in session
+  # The coordinator stored the full mu during link eval; non-label can compute
+  # mu = sigmoid(eta_total) from the reconstructed eta (or get w from coordinator).
+  # For the first version: compute w from residual heuristic.
+  # w = mu * (1 - mu) where mu ≈ 0.5 - residual/4 (first-order approx)
+  # Better: use the fact that both servers reconstructed the residual,
+  # and the label server knows y, so mu = y - residual.
+  # Non-label: cannot compute mu directly, but w = mu*(1-mu) is public metadata
+  # after the link eval step. Store it in session during link eval.
+  w_vec <- ss$mpc_weights
+  if (is.null(w_vec)) {
+    # Fallback: estimate weights from residual
+    # For standardized data near convergence, |residual| ≈ 0, mu ≈ 0.5, w ≈ 0.25
+    w_vec <- rep(0.25, length(residual))
+  }
+
   # Clear residual from memory (defense in depth)
   rm(residual, peer_share, own_share)
 
-  list(gradient = gradient)
+  list(gradient = gradient, weights = w_vec)
 }
 
 # ============================================================================

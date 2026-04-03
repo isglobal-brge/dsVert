@@ -92,8 +92,9 @@ type MpcLinkEvalInput struct {
 }
 
 type MpcLinkEvalOutput struct {
-	OwnMuShare      string `json:"own_mu_share"`       // base64, own share of mu
-	PeerMuShareEnc  string `json:"peer_mu_share_enc"`  // base64, peer's mu share (transport-encrypted)
+	OwnMuShare      string    `json:"own_mu_share"`       // base64, own share of mu
+	PeerMuShareEnc  string    `json:"peer_mu_share_enc"`  // base64, peer's mu share (transport-encrypted)
+	Weights         []float64 `json:"weights"`            // IRLS weights mu*(1-mu) for binomial
 }
 
 func handleMpcLinkEval() {
@@ -144,6 +145,24 @@ func handleMpcLinkEval() {
 		mu[i] = FromFloat64(muVal, input.FracBits)
 	}
 
+	// Compute IRLS weights: w = mu*(1-mu) for binomial, w = mu for Poisson
+	weights := make([]float64, n)
+	for i := 0; i < n; i++ {
+		muVal := mu[i].ToFloat64(input.FracBits)
+		switch input.Family {
+		case "binomial":
+			weights[i] = muVal * (1 - muVal)
+			if weights[i] < 1e-10 {
+				weights[i] = 1e-10 // prevent division by zero
+			}
+		case "poisson":
+			weights[i] = muVal
+			if weights[i] < 1e-10 {
+				weights[i] = 1e-10
+			}
+		}
+	}
+
 	// Split mu into shares for both parties
 	ownMu, peerMu := SplitVec(mu)
 
@@ -162,6 +181,7 @@ func handleMpcLinkEval() {
 	mpcWriteOutput(MpcLinkEvalOutput{
 		OwnMuShare:     ownB64,
 		PeerMuShareEnc: bytesToBase64(sealed),
+		Weights:        weights,
 	})
 }
 

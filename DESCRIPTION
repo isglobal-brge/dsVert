@@ -85,6 +85,8 @@ AggregateMethods:
     k2MpcLinkEvalDS,
     k2MpcResidualDS,
     k2MpcGradientDS,
+    k2MpcExportResidualShareDS,
+    k2MpcLocalGradientDS,
     k2MpcRevealGradientDS,
     glmSecureAggInitDS,
     glmSecureAggBlockSolveDS,

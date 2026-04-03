@@ -223,7 +223,97 @@ k2MpcResidualDS <- function(data_name = NULL, y_var = NULL, role = "nonlabel",
 }
 
 # ============================================================================
-# Step 4: Compute gradient share (X_k^T * residual_share)
+# Step 4a: Export residual share (transport-encrypted for peer)
+# ============================================================================
+
+#' Export own residual share for peer reconstruction
+#'
+#' Transport-encrypts this party's residual share under the peer's PK
+#' so both parties can reconstruct the full residual vector.
+#'
+#' @param peer_pk Character. Peer's transport PK (base64url).
+#' @param session_id Character or NULL.
+#' @return List with \code{residual_share_enc}: base64url transport-encrypted share.
+#' @export
+k2MpcExportResidualShareDS <- function(peer_pk, session_id = NULL) {
+  ss <- .S(session_id)
+  residual_share <- ss$mpc_residual_share
+  if (is.null(residual_share)) {
+    stop("Residual share not stored.", call. = FALSE)
+  }
+
+  enc_result <- .callMheTool("transport-encrypt", list(
+    data = residual_share,
+    recipient_pk = .base64url_to_base64(peer_pk)
+  ))
+
+  list(residual_share_enc = base64_to_base64url(enc_result$sealed))
+}
+
+# ============================================================================
+# Step 4b: Reconstruct residual + compute local gradient
+# ============================================================================
+
+#' Reconstruct full residual and compute own gradient
+#'
+#' Receives the peer's residual share (from blob storage), reconstructs the
+#' full residual vector, and computes the local gradient g_k = X_k^T * r / n.
+#' The residual is discarded after gradient computation.
+#'
+#' Security: the residual (mu - y) does not reveal eta_nonlabel because
+#' mu = link^{-1}(eta_total) is a non-invertible transformation.
+#'
+#' @param data_name Character. Name of the data frame.
+#' @param x_vars Character vector. Feature column names.
+#' @param num_obs Integer. Number of observations.
+#' @param frac_bits Integer. Fixed-point fractional bits.
+#' @param session_id Character or NULL.
+#' @return List with \code{gradient}: numeric vector (length p_k).
+#' @export
+k2MpcLocalGradientDS <- function(data_name, x_vars, num_obs,
+                                   frac_bits = 20L, session_id = NULL) {
+  ss <- .S(session_id)
+
+  # Get own residual share
+  own_share <- ss$mpc_residual_share
+  if (is.null(own_share)) {
+    stop("Own residual share not stored.", call. = FALSE)
+  }
+
+  # Get peer's residual share (transport-encrypted)
+  peer_enc <- .blob_consume("mpc_peer_residual_share", ss)
+  if (is.null(peer_enc)) {
+    stop("Peer residual share not found.", call. = FALSE)
+  }
+  my_sk <- .key_get("transport_sk", ss)
+  decrypt_result <- .callMheTool("transport-decrypt", list(
+    sealed = .base64url_to_base64(peer_enc),
+    recipient_sk = my_sk
+  ))
+  peer_share <- decrypt_result$data
+
+  # Reconstruct full residual via Go
+  reveal_result <- .callMheTool("mpc-reveal-gradient", list(
+    own_gradient_share = own_share,
+    peer_gradient_share = peer_share,
+    n_obs = as.integer(num_obs),
+    frac_bits = as.integer(frac_bits)
+  ))
+  residual <- reveal_result$gradient  # full residual vector (float64)
+
+  # Compute gradient locally: g_k = X_k^T * residual
+  data <- .resolveData(data_name, parent.frame(), session_id)
+  X <- as.matrix(data[, x_vars, drop = FALSE])
+  gradient <- as.numeric(crossprod(X, residual))
+
+  # Clear residual from memory (defense in depth)
+  rm(residual, peer_share, own_share)
+
+  list(gradient = gradient)
+}
+
+# ============================================================================
+# (Old Step 4: kept for reference but no longer used in the MPC path)
 # ============================================================================
 
 #' Compute gradient share from local features and shared residual

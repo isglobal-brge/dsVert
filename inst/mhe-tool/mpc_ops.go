@@ -247,13 +247,18 @@ func handleMpcResidual() {
 	muShare := bytesToFPVec(base64ToBytes(input.MuShare))
 
 	if input.Role == "label" && len(input.Y) > 0 {
-		// Label party: subtract y from own mu share
+		// Label party: compute y - mu (not mu - y) to match HE gradient convention
+		// HE gradient is X^T(Enc(y) - Enc(mu)), so MPC must match: residual = y - mu
 		yFP := FloatVecToFP(input.Y, input.FracBits)
 		for i := range muShare {
-			muShare[i] = FPSub(muShare[i], yFP[i])
+			muShare[i] = FPSub(yFP[i], muShare[i])
+		}
+	} else {
+		// Nonlabel: negate mu_share (since residual = y - mu = -mu for nonlabel's share)
+		for i := range muShare {
+			muShare[i] = FPNeg(muShare[i])
 		}
 	}
-	// Nonlabel: residual_share = mu_share (y contribution is 0 for this party)
 
 	mpcWriteOutput(MpcResidualOutput{
 		ResidualShare: bytesToBase64(fpVecToBytes(muShare)),

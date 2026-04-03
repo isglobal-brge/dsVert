@@ -258,7 +258,8 @@ k2MpcGradientDS <- function(data_name, x_vars, num_obs, peer_pk,
 
   data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
-  x_list <- lapply(seq_len(nrow(X)), function(i) as.numeric(X[i, ]))
+  # I() prevents jsonlite from collapsing single-column rows to scalars
+  x_list <- lapply(seq_len(nrow(X)), function(i) I(as.numeric(X[i, ])))
 
   input <- list(
     x = x_list,

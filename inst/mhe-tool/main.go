@@ -125,6 +125,17 @@ func main() {
 		handleFixedPointMaskEta()
 	case "fixed-point-unmask-sum":
 		handleFixedPointUnmaskSum()
+	// K=2 MPC commands (piecewise exact sigmoid/exp via secret sharing)
+	case "mpc-split-eta":
+		handleMpcSplitEta()
+	case "mpc-link-eval":
+		handleMpcLinkEval()
+	case "mpc-residual":
+		handleMpcResidual()
+	case "mpc-gradient":
+		handleMpcGradient()
+	case "mpc-reveal-gradient":
+		handleMpcRevealGradient()
 	case "help", "-h", "--help":
 		printUsage()
 	default:

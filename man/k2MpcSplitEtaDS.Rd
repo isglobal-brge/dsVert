@@ -10,6 +10,7 @@ k2MpcSplitEtaDS(
   beta,
   peer_pk,
   frac_bits = 20L,
+  intercept = FALSE,
   session_id = NULL
 )
 }

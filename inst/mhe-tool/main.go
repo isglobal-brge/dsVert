@@ -136,6 +136,27 @@ func main() {
 		handleMpcGradient()
 	case "mpc-reveal-gradient":
 		handleMpcRevealGradient()
+	// K=2 secure Beaver-triple commands (polynomial eval on shares)
+	case "mpc-beaver-open":
+		handleMpcBeaverOpen()
+	case "mpc-beaver-close":
+		handleMpcBeaverClose()
+	case "mpc-secure-poly-eval":
+		handleMpcSecurePolyEval()
+	case "mpc-residual-share":
+		handleMpcResidualShare()
+	case "mpc-share-private-input":
+		handleMpcSharePrivateInput()
+	case "mpc-local-gradient-share":
+		handleMpcLocalGradientShare()
+	case "mpc-sum-beaver-products":
+		handleMpcSumBeaverProducts()
+	case "mpc-vec-add":
+		handleMpcVecAdd()
+	case "mpc-fp-to-float":
+		handleMpcFPToFloat()
+	case "mpc-get-poly-coeffs":
+		handleMpcGetPolyCoeffs()
 	case "help", "-h", "--help":
 		printUsage()
 	default:

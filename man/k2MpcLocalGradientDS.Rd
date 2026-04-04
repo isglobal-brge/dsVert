@@ -24,7 +24,11 @@ k2MpcLocalGradientDS(
 \item{session_id}{Character or NULL.}
 }
 \value{
-List with \code{gradient}: numeric vector (length p_k).
+List with:
+\itemize{
+\item \code{gradient}: numeric vector (length p_k)
+\item \code{weights}: numeric vector (length n), IRLS weights mu*(1-mu)
+}
 }
 \description{
 Receives the peer's residual share (from blob storage), reconstructs the

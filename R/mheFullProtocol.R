@@ -1546,6 +1546,7 @@ mheGcDS <- function() {
   TRUE
 }
 
+#' @export
 mheCleanupDS <- function(session_id = NULL) {
   if (!is.null(session_id)) {
     .cleanup_session(session_id)

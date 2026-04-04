@@ -50,11 +50,16 @@ NULL
 #'
 #' @export
 k2MpcSplitEtaDS <- function(data_name, x_vars, beta, peer_pk,
-                              frac_bits = 20L, session_id = NULL) {
+                              frac_bits = 20L, intercept = FALSE,
+                              session_id = NULL) {
   ss <- .S(session_id)
   data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
   n <- nrow(X)
+
+  if (isTRUE(intercept)) {
+    X <- cbind("(Intercept)" = rep(1, n), X)
+  }
 
   beta <- as.numeric(beta)
   if (length(beta) != ncol(X)) {
@@ -472,4 +477,599 @@ k2MpcRevealGradientDS <- function(from_storage = TRUE, num_obs = 1L,
   result <- .callMheTool("mpc-reveal-gradient", input)
 
   list(gradient = result$gradient)
+}
+
+# ============================================================================
+# Gauss-Seidel BCD-IRLS for K=2 (replaces Jacobi GD above)
+# ============================================================================
+
+#' Coordinator (label server) Gauss-Seidel IRLS step for K=2
+#'
+#' Performs the coordinator's IRLS block update using fresh eta from the
+#' non-label server. After updating beta_label, recomputes mu/w/residual
+#' with the NEW beta (the Gauss-Seidel key step) and transport-encrypts
+#' (w, residual) for the non-label server.
+#'
+#' This mirrors \code{\link{glmCoordinatorStepDS}} for K>=3 but uses
+#' transport encryption instead of CKKS+threshold decryption.
+#'
+#' @param data_name Character. Name of the (standardized) data frame.
+#' @param y_var Character. Response variable name.
+#' @param x_vars Character vector. Feature column names on this server.
+#' @param beta_current Numeric vector. Current label-server coefficients.
+#' @param non_label_pk Character. Non-label server's transport PK (base64url).
+#' @param family Character. "binomial" or "poisson".
+#' @param lambda Numeric. L2 regularization parameter.
+#' @param n_obs Integer or NULL. Number of observations (unused, kept for API compat).
+#' @param session_id Character or NULL.
+#'
+#' @return List with:
+#'   \itemize{
+#'     \item \code{beta}: updated coefficient vector
+#'     \item \code{encrypted_wr}: base64url transport-encrypted (w, residual) blob
+#'   }
+#'
+#' @export
+k2MpcCoordinatorIrlsDS <- function(data_name, y_var, x_vars, beta_current,
+                                    non_label_pk, family = "binomial",
+                                    lambda = 1e-4, n_obs = NULL,
+                                    intercept = FALSE,
+                                    session_id = NULL) {
+  ss <- .S(session_id)
+
+  data <- .resolveData(data_name, parent.frame(), session_id)
+  y <- as.numeric(data[[y_var]])
+  X <- as.matrix(data[, x_vars, drop = FALSE])
+
+  if (isTRUE(intercept)) {
+    X <- cbind("(Intercept)" = rep(1, nrow(X)), X)
+  }
+
+  n <- length(y)
+  p <- ncol(X)
+
+  if (is.null(beta_current) || length(beta_current) == 0) {
+    beta_current <- rep(0, p)
+  }
+
+  # Disclosure controls
+  privacy_level <- getOption("datashield.privacyLevel", 5)
+  if (n < privacy_level) {
+    stop("Insufficient observations for privacy-preserving analysis", call. = FALSE)
+  }
+  .check_glm_disclosure(X, y)
+
+  # Get eta_nonlabel from blob storage (transport-encrypted by non-label)
+  eta_other <- rep(0, n)
+  eta_blob <- .blob_consume("k2_eta_nonlabel", ss)
+  if (!is.null(eta_blob)) {
+    tsk <- .key_get("transport_sk", ss)
+    decrypted <- .callMheTool("transport-decrypt-vectors", list(
+      sealed = .base64url_to_base64(eta_blob),
+      recipient_sk = tsk
+    ))
+    eta_other <- as.numeric(decrypted$vectors$eta)
+  }
+
+  # Compute total linear predictor
+  eta <- as.vector(eta_other + X %*% beta_current)
+
+  # IRLS quantities based on family
+  if (family == "binomial") {
+    eta <- pmax(pmin(eta, 20), -20)
+    mu <- 1 / (1 + exp(-eta))
+    mu <- pmax(pmin(mu, 1 - 1e-10), 1e-10)
+    w <- mu * (1 - mu)
+    z <- eta + (y - mu) / w
+  } else if (family == "poisson") {
+    eta <- pmin(eta, 20)
+    mu <- exp(eta)
+    mu <- pmax(mu, 1e-10)
+    w <- mu
+    z <- eta + (y - mu) / mu
+  } else {
+    stop("Unsupported family for K=2 MPC: ", family, call. = FALSE)
+  }
+
+  # IRLS update: beta_new = (X^TWX + λI)^{-1} X^T W (z - eta_other)
+  XtWX <- crossprod(X, w * X) + diag(lambda, p)
+  XtWz <- crossprod(X, w * (z - eta_other))
+
+  beta_new <- tryCatch(
+    as.vector(solve(XtWX, XtWz)),
+    error = function(e) {
+      warning("Matrix near-singular, using additional regularization")
+      as.vector(solve(XtWX + diag(0.01, p), XtWz))
+    }
+  )
+
+  if (any(abs(beta_new) > 1e6)) {
+    beta_new <- beta_new / max(abs(beta_new)) * 1e2
+    warning("Large coefficient update detected, scaling applied")
+  }
+
+  # --- Gauss-Seidel key step: recompute mu/w/residual with NEW beta ---
+  eta_label_new <- as.vector(X %*% beta_new)
+  eta_total_new <- eta_label_new + eta_other
+
+  if (family == "binomial") {
+    eta_total_new <- pmax(pmin(eta_total_new, 20), -20)
+    mu_new <- 1 / (1 + exp(-eta_total_new))
+    mu_new <- pmax(pmin(mu_new, 1 - 1e-10), 1e-10)
+    w_new <- mu_new * (1 - mu_new)
+  } else if (family == "poisson") {
+    eta_total_new <- pmin(eta_total_new, 20)
+    mu_new <- exp(eta_total_new)
+    mu_new <- pmax(mu_new, 1e-10)
+    w_new <- mu_new
+  }
+
+  residual_new <- y - mu_new
+
+  # Store for deviance computation after convergence
+  ss$glm_eta_label <- eta_label_new
+  ss$glm_eta_other <- eta_other
+
+  # Transport-encrypt (w, residual) for non-label server
+  pk <- .base64url_to_base64(non_label_pk)
+  sealed <- .callMheTool("transport-encrypt-vectors", list(
+    vectors = list(w = as.numeric(w_new), residual = as.numeric(residual_new)),
+    recipient_pk = pk
+  ))
+
+  list(
+    beta = beta_new,
+    encrypted_wr = base64_to_base64url(sealed$sealed)
+  )
+}
+
+#' Non-label server Gauss-Seidel IRLS block solve for K=2
+#'
+#' Receives transport-encrypted (w, residual) from the coordinator (who has
+#' already updated its own block), computes the local gradient and IRLS
+#' block update, then transport-encrypts the new eta for the coordinator.
+#'
+#' This mirrors \code{\link{glmSecureBlockSolveDS}} for K>=3.
+#'
+#' @param data_name Character. Name of the (standardized) data frame.
+#' @param x_vars Character vector. Feature column names on this server.
+#' @param beta_current Numeric vector. Current coefficients for this block.
+#' @param lambda Numeric. L2 regularization parameter.
+#' @param coordinator_pk Character. Coordinator's transport PK (base64url).
+#' @param session_id Character or NULL.
+#'
+#' @return List with:
+#'   \itemize{
+#'     \item \code{beta}: updated coefficient vector
+#'     \item \code{encrypted_eta}: base64url transport-encrypted eta blob
+#'   }
+#'
+#' @export
+k2MpcNonlabelBlockSolveDS <- function(data_name, x_vars, beta_current,
+                                       lambda = 1e-4, coordinator_pk,
+                                       session_id = NULL) {
+  ss <- .S(session_id)
+
+  data <- .resolveData(data_name, parent.frame(), session_id)
+  X <- as.matrix(data[, x_vars, drop = FALSE])
+  n <- nrow(X)
+  p <- ncol(X)
+
+  if (is.null(beta_current) || length(beta_current) == 0) {
+    beta_current <- rep(0, p)
+  }
+
+  # Disclosure controls
+  privacy_level <- getOption("datashield.privacyLevel", 5)
+  if (n < privacy_level) {
+    stop("Insufficient observations for privacy-preserving analysis", call. = FALSE)
+  }
+  .check_glm_disclosure(X)
+
+  # Decrypt (w, residual) from coordinator
+  wr_blob <- .blob_consume("k2_wr", ss)
+  if (is.null(wr_blob)) {
+    stop("No (w, residual) blob from coordinator.", call. = FALSE)
+  }
+
+  tsk <- .key_get("transport_sk", ss)
+  decrypted <- .callMheTool("transport-decrypt-vectors", list(
+    sealed = .base64url_to_base64(wr_blob),
+    recipient_sk = tsk
+  ))
+
+  w <- as.numeric(decrypted$vectors$w)
+  residual <- as.numeric(decrypted$vectors$residual)
+
+  # Compute gradient from full residual: g = X^T * (y - mu)
+  gradient <- as.numeric(crossprod(X, residual))
+
+  # IRLS block solve: beta_new = (X^TWX + λI)^{-1}(X^TWX * beta_old + gradient)
+  XtWX <- crossprod(X, w * X) + diag(lambda, p)
+  rhs <- as.vector(XtWX %*% beta_current) + gradient
+
+  beta_new <- tryCatch(
+    as.vector(solve(XtWX, rhs)),
+    error = function(e) {
+      warning("Matrix near-singular, using additional regularization")
+      as.vector(solve(XtWX + diag(0.01, p), rhs))
+    }
+  )
+
+  if (any(abs(beta_new) > 1e6)) {
+    beta_new <- beta_new / max(abs(beta_new)) * 1e2
+    warning("Large coefficient update detected, scaling applied")
+  }
+
+  # Compute new eta and transport-encrypt for coordinator
+  eta_new <- as.vector(X %*% beta_new)
+
+  pk <- .base64url_to_base64(coordinator_pk)
+  sealed <- .callMheTool("transport-encrypt-vectors", list(
+    vectors = list(eta = as.numeric(eta_new)),
+    recipient_pk = pk
+  ))
+
+  list(
+    beta = beta_new,
+    encrypted_eta = base64_to_base64url(sealed$sealed)
+  )
+}
+
+# ============================================================================
+# Secure Beaver-triple protocol for K=2 (eta never revealed)
+# ============================================================================
+
+#' Beaver-triple polynomial step for K=2 secure protocol
+#'
+#' Multipurpose server function for the Beaver-triple secure polynomial
+#' evaluation protocol. The client calls different \code{step} values in
+#' sequence to orchestrate the multi-round protocol. Neither party ever
+#' sees \code{eta_total} or \code{mu} in plaintext; only p_k gradient
+#' scalars are revealed per iteration.
+#'
+#' @param step Character. One of: \code{"beaver_open"}, \code{"beaver_close"},
+#'   \code{"poly_eval"}, \code{"gradient"}, \code{"reveal_gradient"}.
+#' @param a_share_key Character. Session key for input a shares (beaver_open).
+#' @param b_share_key Character. Session key for input b shares (beaver_open).
+#' @param result_key Character. Session key to store result (beaver_close).
+#' @param u_vals,v_vals,w_vals Numeric vectors. Beaver triple float64 shares.
+#' @param party_id Integer. 0 = coordinator, 1 = non-label.
+#' @param peer_pk Character. Peer's transport PK (base64url).
+#' @param coefficients Numeric vector. Polynomial coefficients (poly_eval).
+#' @param power_keys Character vector. Session keys for power shares (poly_eval).
+#' @param data_name,x_vars,y_var Character. Data access (gradient step).
+#' @param role Character. "label" or "nonlabel" (gradient step).
+#' @param frac_bits Integer. Fixed-point fractional bits.
+#' @param session_id Character or NULL.
+#' @return Depends on step.
+#' @export
+k2MpcSecureStepDS <- function(step, a_share_key = NULL, b_share_key = NULL,
+                               result_key = NULL,
+                               u_vals = NULL, v_vals = NULL, w_vals = NULL,
+                               party_id = 0L, peer_pk = NULL,
+                               coefficients = NULL, power_keys = NULL,
+                               data_name = NULL, x_vars = NULL,
+                               y_var = NULL, role = "label",
+                               frac_bits = 20L, session_id = NULL) {
+  ss <- .S(session_id)
+
+  switch(step,
+
+    # --- Store Beaver triple shares from client blob ---
+    "store_triples" = {
+      blob <- .blob_consume("beaver_triples", ss)
+      if (is.null(blob)) stop("No beaver_triples blob found.", call. = FALSE)
+      tsk <- .key_get("transport_sk", ss)
+      decrypted <- .callMheTool("transport-decrypt-vectors", list(
+        sealed = .base64url_to_base64(blob),
+        recipient_sk = tsk
+      ))
+      ss$beaver_u <- as.numeric(decrypted$vectors$u)
+      ss$beaver_v <- as.numeric(decrypted$vectors$v)
+      ss$beaver_w <- as.numeric(decrypted$vectors$w)
+      list(stored = TRUE)
+    },
+
+    # --- Combine own eta share + peer's decrypted eta share ---
+    "combine_eta" = {
+      own_share <- ss$mpc_own_eta_share
+      if (is.null(own_share)) stop("Own eta share not found.", call. = FALSE)
+      peer_enc <- .blob_consume("mpc_peer_eta_share", ss)
+      if (is.null(peer_enc)) stop("Peer eta share not found.", call. = FALSE)
+      tsk <- .key_get("transport_sk", ss)
+      peer_dec <- .callMheTool("transport-decrypt", list(
+        sealed = .base64url_to_base64(peer_enc),
+        recipient_sk = tsk
+      ))
+      # Add shares: total_share = own + peer (stays as share, NOT reconstructed)
+      combined <- .callMheTool("mpc-vec-add", list(
+        a = own_share,
+        b = peer_dec$data
+      ))
+      ss$secure_eta_share <- combined$result
+      list(stored = TRUE)
+    },
+
+    # --- Beaver open: uses triples from session at given offset ---
+    "beaver_open" = {
+      # triple_offset and triple_count are passed as u_vals[1] and v_vals[1]
+      # (reusing params to avoid adding new ones)
+      tri_off <- as.integer(u_vals[1])
+      tri_cnt <- as.integer(v_vals[1])
+      u_slice <- ss$beaver_u[(tri_off + 1):(tri_off + tri_cnt)]
+      v_slice <- ss$beaver_v[(tri_off + 1):(tri_off + tri_cnt)]
+
+      result <- .callMheTool("mpc-beaver-open", list(
+        a_shares = ss[[a_share_key]],
+        b_shares = ss[[b_share_key]],
+        u_values = u_slice,
+        v_values = v_slice,
+        peer_pk  = .base64url_to_base64(peer_pk),
+        frac_bits = as.integer(frac_bits)
+      ))
+      ss$beaver_own_de <- result$own_de
+      list(peer_de_enc = base64_to_base64url(result$peer_de_enc))
+    },
+
+    # --- Beaver close: uses triples from session at given offset ---
+    "beaver_close" = {
+      tri_off <- as.integer(u_vals[1])
+      tri_cnt <- as.integer(v_vals[1])
+      u_slice <- ss$beaver_u[(tri_off + 1):(tri_off + tri_cnt)]
+      v_slice <- ss$beaver_v[(tri_off + 1):(tri_off + tri_cnt)]
+      w_slice <- ss$beaver_w[(tri_off + 1):(tri_off + tri_cnt)]
+
+      peer_de_enc <- .blob_consume("beaver_peer_de", ss)
+      if (is.null(peer_de_enc)) stop("No peer DE blob found.", call. = FALSE)
+      my_sk <- .key_get("transport_sk", ss)
+      decrypted <- .callMheTool("transport-decrypt", list(
+        sealed = .base64url_to_base64(peer_de_enc),
+        recipient_sk = my_sk
+      ))
+
+      result <- .callMheTool("mpc-beaver-close", list(
+        own_de   = ss$beaver_own_de,
+        peer_de  = decrypted$data,
+        w_values = w_slice,
+        u_values = u_slice,
+        v_values = v_slice,
+        party_id = as.integer(party_id),
+        frac_bits = as.integer(frac_bits)
+      ))
+      ss[[result_key]] <- result$result_shares
+      list(stored = result_key)
+    },
+
+    # --- Polynomial evaluation: local linear combination of power shares ---
+    "poly_eval" = {
+      power_share_b64 <- lapply(power_keys, function(k) ss[[k]])
+      result <- .callMheTool("mpc-secure-poly-eval", list(
+        power_shares = power_share_b64,
+        coefficients = as.numeric(coefficients),
+        party_id     = as.integer(party_id),
+        frac_bits    = as.integer(frac_bits)
+      ))
+      ss$secure_mu_share <- result$result_share
+      list(stored = "secure_mu_share")
+    },
+
+    # --- Compute residual share + local gradient + share private inputs ---
+    "prepare_gradient" = {
+      data <- .resolveData(data_name, parent.frame(), session_id)
+      X <- as.matrix(data[, x_vars, drop = FALSE])
+      n_obs_local <- nrow(X)
+      p_k <- ncol(X)
+
+      # Compute residual share from mu share
+      y_vals <- if (role == "label" && !is.null(y_var)) as.numeric(data[[y_var]]) else NULL
+      resid <- .callMheTool("mpc-residual-share", list(
+        mu_share = ss$secure_mu_share,
+        y = y_vals, role = role, frac_bits = as.integer(frac_bits)
+      ))
+      ss$secure_residual_share <- resid$residual_share
+
+      # Local gradient share: X_k^T * own_residual_share (plaintext × own share)
+      x_list <- lapply(seq_len(n_obs_local), function(i) I(as.numeric(X[i, ])))
+      local_grad <- .callMheTool("mpc-local-gradient-share", list(
+        x = x_list, residual_share = resid$residual_share,
+        frac_bits = as.integer(frac_bits)
+      ))
+      ss$secure_local_grad <- local_grad$gradient_share
+
+      # ALL sharing in FixedPoint (exact mod 2^64, no float64 rounding).
+      # Converting to float64 and back introduces ±1 ULP rounding that gets
+      # amplified by ~2^43 when multiplied with random FixedPoint shares.
+      pk_b64 <- .base64url_to_base64(peer_pk)
+
+      # Convert X to FixedPoint, then split (exact in mod 2^64 arithmetic)
+      x_flat <- as.numeric(X)  # col-major
+      x_shared <- .callMheTool("mpc-share-private-input", list(
+        values = x_flat,
+        peer_pk = pk_b64,
+        frac_bits = as.integer(frac_bits)
+      ))
+
+      # Residual: already FixedPoint, split directly
+      r_shared <- .callMheTool("mpc-share-private-input", list(
+        fp_values = resid$residual_share,
+        peer_pk = pk_b64,
+        frac_bits = as.integer(frac_bits)
+      ))
+
+      ss$secure_x_own_share_fp <- x_shared$own_share       # base64 FixedPoint
+      ss$secure_resid_own_share_fp <- r_shared$own_share    # base64 FixedPoint
+      ss$secure_n_obs <- n_obs_local
+      ss$secure_p_k <- p_k
+
+      list(
+        x_share_for_peer_enc = base64_to_base64url(x_shared$peer_share_enc),
+        r_share_for_peer_enc = base64_to_base64url(r_shared$peer_share_enc),
+        n_obs = n_obs_local,
+        p_k = p_k
+      )
+    },
+
+    # --- Store peer's shared inputs (from blob) for cross-gradient ---
+    "receive_peer_shares" = {
+      my_sk <- .key_get("transport_sk", ss)
+
+      # Both X and residual are raw FixedPoint (from mpc-share-private-input)
+      x_enc <- .blob_consume("peer_x_share", ss)
+      if (!is.null(x_enc)) {
+        x_dec <- .callMheTool("transport-decrypt", list(
+          sealed = .base64url_to_base64(x_enc), recipient_sk = my_sk
+        ))
+        ss$peer_x_share_fp <- x_dec$data  # base64 FixedPoint
+      }
+
+      r_enc <- .blob_consume("peer_r_share", ss)
+      if (!is.null(r_enc)) {
+        r_dec <- .callMheTool("transport-decrypt", list(
+          sealed = .base64url_to_base64(r_enc), recipient_sk = my_sk
+        ))
+        ss$peer_resid_share_fp <- r_dec$data  # base64 FixedPoint
+      }
+
+      list(stored = TRUE)
+    },
+
+    # --- Cross-gradient Beaver open (uses float64 shares + session triples) ---
+    # role parameter (passed via 'role') indicates:
+    #   "target": this server IS the gradient target → use own X mask + peer's resid share
+    #   "peer": this server is NOT the target → use target's X share + own resid mask
+    "cross_gradient_open" = {
+      tri_off <- as.integer(u_vals[1])
+      tri_cnt <- as.integer(v_vals[1])
+      u_slice <- ss$beaver_u[(tri_off + 1):(tri_off + tri_cnt)]
+      v_slice <- ss$beaver_v[(tri_off + 1):(tri_off + tri_cnt)]
+
+      n_obs_local <- ss$secure_n_obs
+      p_target <- as.integer(tri_cnt / n_obs_local)
+
+      # Choose correct FixedPoint shares based on role
+      if (role == "target") {
+        a_fp <- ss$secure_x_own_share_fp   # my X sub-share (FixedPoint)
+        b_fp_raw <- ss$peer_resid_share_fp # peer's residual sub-share (FixedPoint)
+      } else {
+        a_fp <- ss$peer_x_share_fp         # target's X sub-share (FixedPoint)
+        b_fp_raw <- ss$secure_resid_own_share_fp  # my residual sub-share
+      }
+
+      # Expand residual sub-share for p_target columns
+      b_bytes <- jsonlite::base64_dec(b_fp_raw)
+      b_expanded <- jsonlite::base64_enc(rep(b_bytes, p_target))
+
+      # ALL FixedPoint Beaver open (a_shares + b_shares, no float64)
+      result <- .callMheTool("mpc-beaver-open", list(
+        a_shares = a_fp,
+        b_shares = b_expanded,
+        u_values = u_slice,
+        v_values = v_slice,
+        peer_pk  = .base64url_to_base64(peer_pk),
+        frac_bits = as.integer(frac_bits)
+      ))
+      ss$cross_beaver_own_de <- result$own_de  # separate from polynomial DE
+      list(peer_de_enc = base64_to_base64url(result$peer_de_enc))
+    },
+
+    # --- Cross-gradient Beaver close ---
+    "cross_gradient_close" = {
+      tri_off <- as.integer(u_vals[1])
+      tri_cnt <- as.integer(v_vals[1])
+      u_slice <- ss$beaver_u[(tri_off + 1):(tri_off + tri_cnt)]
+      v_slice <- ss$beaver_v[(tri_off + 1):(tri_off + tri_cnt)]
+      w_slice <- ss$beaver_w[(tri_off + 1):(tri_off + tri_cnt)]
+
+      peer_de_enc <- .blob_consume("cross_beaver_peer_de", ss)
+      if (is.null(peer_de_enc)) stop("No cross peer DE blob.", call. = FALSE)
+      my_sk <- .key_get("transport_sk", ss)
+      dec <- .callMheTool("transport-decrypt", list(
+        sealed = .base64url_to_base64(peer_de_enc), recipient_sk = my_sk
+      ))
+
+      close_result <- .callMheTool("mpc-beaver-close", list(
+        own_de = ss$cross_beaver_own_de, peer_de = dec$data,
+        w_values = w_slice, u_values = u_slice, v_values = v_slice,
+        party_id = as.integer(party_id),
+        frac_bits = as.integer(frac_bits)
+      ))
+
+      n_obs_local <- ss$secure_n_obs
+      p_peer <- as.integer(tri_cnt / n_obs_local)
+      sum_result <- .callMheTool("mpc-sum-beaver-products", list(
+        product_shares = close_result$result_shares,
+        n_obs = as.integer(n_obs_local),
+        n_pred = p_peer
+      ))
+
+      # Store and/or send based on role:
+      # If role="target": this is MY own Beaver share of MY cross-gradient. Store it.
+      # If role="peer": this is MY share of the PEER's cross-gradient. Encrypt for peer.
+      if (role == "target") {
+        # Target's own Beaver share of its cross-gradient
+        ss$secure_own_cross_share <- sum_result$gradient_share
+        list(cross_for_peer_enc = NULL)
+      } else {
+        # Peer's share → encrypt and send to target
+        enc <- .callMheTool("transport-encrypt", list(
+          data = sum_result$gradient_share,
+          recipient_pk = .base64url_to_base64(peer_pk)
+        ))
+        list(cross_for_peer_enc = base64_to_base64url(enc$sealed))
+      }
+    },
+
+    # --- Combine all gradient parts: local + own_cross_share + peer_cross_share ---
+    "combine_gradient" = {
+      # Read peer's cross-gradient Beaver share for MY gradient
+      cross_enc <- .blob_consume("cross_gradient_from_peer", ss)
+      if (is.null(cross_enc)) stop("No cross gradient from peer.", call. = FALSE)
+      my_sk <- .key_get("transport_sk", ss)
+      dec <- .callMheTool("transport-decrypt", list(
+        sealed = .base64url_to_base64(cross_enc), recipient_sk = my_sk
+      ))
+
+      # Total gradient = local_grad + own_cross_beaver_share + peer_cross_beaver_share
+      # Step 1: own_cross + peer_cross = full cross-gradient (X_k^T * peer_residual)
+      cross_total <- .callMheTool("mpc-vec-add", list(
+        a = ss$secure_own_cross_share,
+        b = dec$data
+      ))
+      # Step 2: local + cross = full gradient
+      full_grad <- .callMheTool("mpc-vec-add", list(
+        a = ss$secure_local_grad,
+        b = cross_total$result
+      ))
+
+      # Convert from FixedPoint to float64
+      gradient <- .callMheTool("mpc-fp-to-float", list(
+        fp_data = full_grad$result,
+        frac_bits = as.integer(frac_bits)
+      ))$values
+
+      list(gradient = gradient)
+    },
+
+    # --- Reveal own gradient from peer's share ---
+    "reveal_gradient" = {
+      peer_enc <- .blob_consume("secure_peer_gradient", ss)
+      if (is.null(peer_enc)) stop("No peer gradient blob.", call. = FALSE)
+      my_sk <- .key_get("transport_sk", ss)
+      decrypted <- .callMheTool("transport-decrypt", list(
+        sealed = .base64url_to_base64(peer_enc),
+        recipient_sk = my_sk
+      ))
+
+      result <- .callMheTool("mpc-reveal-gradient", list(
+        own_gradient_share  = ss$secure_own_grad_share,
+        peer_gradient_share = decrypted$data,
+        n_obs    = 1L,
+        frac_bits = as.integer(frac_bits)
+      ))
+      list(gradient = result$gradient)
+    },
+
+    stop("Unknown step: ", step, call. = FALSE)
+  )
 }

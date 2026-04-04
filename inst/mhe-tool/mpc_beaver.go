@@ -601,3 +601,38 @@ func handleMpcFPToFloat() {
 	fp := bytesToFPVec(base64ToBytes(input.FPData))
 	mpcWriteOutput(FPToFloatOutput{Values: FPVecToFloat(fp, input.FracBits)})
 }
+
+// ============================================================================
+// Command: mpc-sum-share
+// Sums a FixedPoint share vector to produce a single scalar share.
+// Used for secure aggregation: sum(w_i) or sum(mu_i - y_i).
+// ============================================================================
+
+type SumShareInput struct {
+	Share    string `json:"share"`     // base64 FixedPoint vector
+	FracBits int    `json:"frac_bits"`
+}
+
+type SumShareOutput struct {
+	SumShare string  `json:"sum_share"` // base64 FixedPoint (1 element)
+	SumFloat float64 `json:"sum_float"` // float64 for convenience
+}
+
+func handleMpcSumShare() {
+	var input SumShareInput
+	mpcReadInput(&input)
+	if input.FracBits <= 0 {
+		input.FracBits = 20
+	}
+	shares := bytesToFPVec(base64ToBytes(input.Share))
+	var sum FixedPoint
+	for _, s := range shares {
+		sum = FPAdd(sum, s)
+	}
+	result := make([]FixedPoint, 1)
+	result[0] = sum
+	mpcWriteOutput(SumShareOutput{
+		SumShare: bytesToBase64(fpVecToBytes(result)),
+		SumFloat: sum.ToFloat64(input.FracBits),
+	})
+}

@@ -1,6 +1,9 @@
+//go:build ignore
+
 package main
 
-// k2_sidecar.go: Direct TCP/TLS communication for K=2 MPC sidecar.
+// k2_sidecar.go: DEPRECATED — Direct TCP/TLS sidecar abandoned in favour of
+// client-relayed GS-IRLS (pragmatic mode) and HE-Link (strict mode).
 // The two participating servers communicate directly without client relay.
 // This eliminates the ~500ms/round DataSHIELD RPC overhead.
 

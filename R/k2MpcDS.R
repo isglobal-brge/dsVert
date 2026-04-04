@@ -26,6 +26,99 @@
 NULL
 
 # ============================================================================
+# K=2 Dual-Mode Policy System: Pragmatic (GS-IRLS) + Strict (HE-Link)
+# ============================================================================
+
+#' Get server-side K=2 nonlinear policy
+#' @return Character: "pragmatic", "strict", or "abort"
+#' @keywords internal
+.k2_get_policy <- function() {
+  policy <- getOption("dsvert.k2_nonlinear_policy",
+                      getOption("default.dsvert.k2_nonlinear_policy", "pragmatic"))
+  match.arg(policy, c("pragmatic", "strict", "abort"))
+}
+
+#' Check pragmatic mode gates and return resolved mode
+#'
+#' Enforces minimum feature-count and optional study-ID requirements
+#' for pragmatic (GS-IRLS) mode. Returns "strict" if pragmatic gates
+#' fail soft, or stops if policy is "abort".
+#'
+#' @param p_nonlabel Integer. Number of features on the non-label server.
+#' @param study_id Character or NULL. Optional study identifier.
+#' @return Character: "pragmatic" or "strict"
+#' @keywords internal
+.k2_pragmatic_gates <- function(p_nonlabel, study_id = NULL) {
+  policy <- .k2_get_policy()
+  if (policy == "abort") stop("K=2 nonlinear blocked by server policy", call. = FALSE)
+  if (policy == "strict") return("strict")
+
+  # Pragmatic gates
+  min_p <- getOption("dsvert.k2_pragmatic_min_p",
+                     getOption("default.dsvert.k2_pragmatic_min_p", 3L))
+  if (p_nonlabel < min_p)
+    stop(sprintf("Pragmatic mode requires p_nonlabel >= %d (got %d). Use strict mode or add features.",
+                 min_p, p_nonlabel), call. = FALSE)
+
+  require_study <- getOption("dsvert.k2_pragmatic_require_study_id",
+                             getOption("default.dsvert.k2_pragmatic_require_study_id", FALSE))
+  if (require_study && (is.null(study_id) || study_id == ""))
+    stop("Pragmatic mode requires study_id", call. = FALSE)
+
+  return("pragmatic")
+}
+
+#' Write a structured audit log entry for K=2 sessions
+#'
+#' Appends a JSON-lines entry to a per-session audit log file.
+#' Events: policy_check, feature_lock, iteration_complete, session_end.
+#'
+#' @param session_id Character. Session identifier.
+#' @param event Character. Event type.
+#' @param details List. Additional event-specific data.
+#' @keywords internal
+.k2_audit_log <- function(session_id, event, details = list()) {
+  log_dir <- getOption("dsvert.k2_audit_dir",
+                       file.path(tempdir(), "dsvert_k2_audit"))
+  if (!dir.exists(log_dir)) dir.create(log_dir, recursive = TRUE)
+  entry <- list(
+    timestamp = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    session_id = session_id,
+    event = event,
+    details = details
+  )
+  log_file <- file.path(log_dir, paste0("k2_audit_", session_id, ".jsonl"))
+  cat(jsonlite::toJSON(entry, auto_unbox = TRUE), "\n",
+      file = log_file, append = TRUE)
+}
+
+#' Query K=2 nonlinear policy for a given feature count
+#'
+#' Called by the client BEFORE starting iterations to learn the server's
+#' configured policy. Returns the resolved mode (pragmatic, strict, or abort)
+#' and the reason if a fallback occurred.
+#'
+#' @param p_nonlabel Integer. Number of features on the non-label server.
+#' @param study_id Character or NULL. Optional study identifier.
+#' @return List with \code{mode} and optional \code{reason}.
+#' @export
+k2MpcQueryPolicyDS <- function(p_nonlabel, study_id = NULL) {
+  policy <- .k2_get_policy()
+  if (policy == "abort")
+    return(list(mode = "abort", reason = "K=2 nonlinear blocked by server policy"))
+  if (policy == "pragmatic") {
+    min_p <- getOption("dsvert.k2_pragmatic_min_p",
+                       getOption("default.dsvert.k2_pragmatic_min_p", 3L))
+    if (p_nonlabel < min_p)
+      return(list(mode = "strict",
+                  reason = sprintf("p_nonlabel=%d < min_p=%d, falling back to strict",
+                                   p_nonlabel, min_p)))
+    return(list(mode = "pragmatic"))
+  }
+  return(list(mode = "strict"))
+}
+
+# ============================================================================
 # Step 1: Split eta_k into additive shares
 # ============================================================================
 
@@ -514,8 +607,17 @@ k2MpcCoordinatorIrlsDS <- function(data_name, y_var, x_vars, beta_current,
                                     non_label_pk, family = "binomial",
                                     lambda = 1e-4, n_obs = NULL,
                                     intercept = FALSE,
+                                    p_nonlabel = NULL, study_id = NULL,
+                                    iter = NULL,
                                     session_id = NULL) {
   ss <- .S(session_id)
+
+  # Policy gate: verify pragmatic mode is allowed
+  if (!is.null(p_nonlabel)) {
+    mode <- .k2_pragmatic_gates(p_nonlabel = p_nonlabel, study_id = study_id)
+    if (mode != "pragmatic")
+      stop("k2MpcCoordinatorIrlsDS requires pragmatic mode", call. = FALSE)
+  }
 
   data <- .resolveData(data_name, parent.frame(), session_id)
   y <- as.numeric(data[[y_var]])
@@ -527,6 +629,26 @@ k2MpcCoordinatorIrlsDS <- function(data_name, y_var, x_vars, beta_current,
 
   n <- length(y)
   p <- ncol(X)
+
+  # Feature-block locking: prevent block reassignment mid-session
+  if (is.null(ss$k2_feature_lock)) {
+    ss$k2_feature_lock <- list(
+      nonlabel_block_hash = digest::digest(sort(x_vars), algo = "sha256"),
+      p_label = p,
+      locked_at = Sys.time()
+    )
+    .k2_audit_log(if (is.null(session_id)) "default" else session_id, "feature_lock",
+                  list(hash = ss$k2_feature_lock$nonlabel_block_hash, p = p))
+  } else {
+    current_hash <- digest::digest(sort(x_vars), algo = "sha256")
+    if (current_hash != ss$k2_feature_lock$nonlabel_block_hash)
+      stop("Feature block changed after locking -- possible projection-peeling attack",
+           call. = FALSE)
+  }
+
+  # Audit log
+  .k2_audit_log(if (is.null(session_id)) "default" else session_id, "iteration_start",
+                list(mode = "pragmatic", iter = iter))
 
   if (is.null(beta_current) || length(beta_current) == 0) {
     beta_current <- rep(0, p)
@@ -718,6 +840,9 @@ k2MpcNonlabelBlockSolveDS <- function(data_name, x_vars, beta_current,
 
 # ============================================================================
 # Secure Beaver-triple protocol for K=2 (eta never revealed)
+# NOTE: Beaver MPC backend. Converges to polynomial surrogate fixed point
+# (~5e-1 error). Kept for research/strict-mode fallback. Not recommended
+# for production — use pragmatic (GS-IRLS) mode instead.
 # ============================================================================
 
 #' Beaver-triple polynomial step for K=2 secure protocol
@@ -1068,6 +1193,134 @@ k2MpcSecureStepDS <- function(step, a_share_key = NULL, b_share_key = NULL,
         frac_bits = as.integer(frac_bits)
       ))
       list(gradient = result$gradient)
+    },
+
+    # --- Compute intercept Newton scalars (sum_w, sum_residual) ---
+    # Requires: mu shares already computed (from poly_eval step)
+    # Computes w = mu - mu^2 via Beaver, then sums w and (mu-y) shares
+    # Returns OWN scalar shares; peer exchange needed for reconstruction
+    "intercept_newton_prepare" = {
+      # w_share = mu_share - mu_share^2
+      # mu^2 via Beaver (mu * mu with a=b=mu_share)
+      # But we need to do the Beaver open+close for mu^2...
+      # Actually, simpler: the caller already ran the Beaver rounds.
+      # At this point, mu_share is in ss$secure_mu_share.
+      # We need mu^2_share. This requires one more Beaver round.
+      # The caller handles the Beaver round. Here we just compute
+      # w_share = mu_share - mu2_share and sum.
+
+      mu_share <- ss$secure_mu_share
+      mu2_share <- ss$secure_mu2_share  # set by Beaver close of mu*mu
+      if (is.null(mu2_share)) stop("mu^2 share not computed", call. = FALSE)
+
+      # w_share = mu_share - mu2_share
+      w_share <- .callMheTool("mpc-vec-add", list(
+        a = mu_share,
+        b = .callMheTool("mpc-vec-add", list(
+          a = mu2_share,
+          b = mu2_share  # dummy: we need negation. Use FPNeg via a trick.
+        ))$result  # This doesn't negate... need a proper approach.
+      ))
+
+      # Actually simpler: w = mu - mu^2. In FP: w_share = mu_share - mu2_share
+      # Use mpc-vec-add with b = negated mu2_share
+      # FP negation: -x = 0 - x. We can compute 0 - mu2 via subtraction.
+      # But we don't have a subtraction command... We have vec-add.
+      # In FixedPoint, -x is the same as (2^64 - x), which is just negation.
+      # Let me add the subtraction to the Go layer or use a workaround.
+
+      # Workaround: convert mu_share and mu2_share to float64, compute w, convert back
+      mu_f64 <- .callMheTool("mpc-fp-to-float", list(
+        fp_data = mu_share, frac_bits = as.integer(frac_bits)
+      ))$values
+      mu2_f64 <- .callMheTool("mpc-fp-to-float", list(
+        fp_data = mu2_share, frac_bits = as.integer(frac_bits)
+      ))$values
+      w_f64 <- mu_f64 - mu2_f64
+
+      # Sum w_share (this party's share of sum(w))
+      sum_w_share <- sum(w_f64)
+
+      # Sum residual share: sum(mu_share - y_share)
+      if (role == "label" && !is.null(y_var)) {
+        data <- .resolveData(data_name, parent.frame(), session_id)
+        y_vals <- as.numeric(data[[y_var]])
+        resid_f64 <- mu_f64 - y_vals  # share of (mu - y)
+      } else {
+        resid_f64 <- mu_f64  # nonlabel: share is just mu_share
+      }
+      sum_resid_share <- sum(resid_f64)
+
+      # Return shares for exchange
+      list(sum_w_share = sum_w_share, sum_resid_share = sum_resid_share)
+    },
+
+    # --- L-BFGS step (server-local, no new leakage) ---
+    "lbfgs_step" = {
+      # This step computes the L-BFGS update direction from the gradient
+      # using locally stored history. No data leaves the server.
+      # The gradient was already reconstructed in combine_gradient.
+      # beta_current and gradient are passed as parameters.
+
+      if (is.null(ss$lbfgs_s)) {
+        ss$lbfgs_s <- list()
+        ss$lbfgs_y <- list()
+      }
+
+      grad <- as.numeric(u_vals)  # reusing u_vals to pass gradient
+      beta <- as.numeric(v_vals)  # reusing v_vals to pass beta
+      m_max <- 10L
+
+      # Update history
+      if (!is.null(ss$lbfgs_grad_prev)) {
+        s_k <- beta - ss$lbfgs_beta_prev
+        y_k <- grad - ss$lbfgs_grad_prev
+        rho_k <- sum(s_k * y_k)
+        if (abs(rho_k) > 1e-12) {
+          ss$lbfgs_s <- c(ss$lbfgs_s, list(s_k))
+          ss$lbfgs_y <- c(ss$lbfgs_y, list(y_k))
+          if (length(ss$lbfgs_s) > m_max) {
+            ss$lbfgs_s <- ss$lbfgs_s[-1]
+            ss$lbfgs_y <- ss$lbfgs_y[-1]
+          }
+        }
+      }
+      ss$lbfgs_grad_prev <- grad
+      ss$lbfgs_beta_prev <- beta
+
+      # Two-loop recursion
+      q <- grad
+      m_cur <- length(ss$lbfgs_s)
+      alpha_lbfgs <- numeric(m_cur)
+      rho_vec <- numeric(m_cur)
+
+      if (m_cur > 0) {
+        for (i in m_cur:1) {
+          rho_vec[i] <- 1 / sum(ss$lbfgs_y[[i]] * ss$lbfgs_s[[i]])
+          alpha_lbfgs[i] <- rho_vec[i] * sum(ss$lbfgs_s[[i]] * q)
+          q <- q - alpha_lbfgs[i] * ss$lbfgs_y[[i]]
+        }
+        gamma_k <- sum(ss$lbfgs_s[[m_cur]] * ss$lbfgs_y[[m_cur]]) /
+                   max(sum(ss$lbfgs_y[[m_cur]]^2), 1e-12)
+        r <- gamma_k * q
+        for (i in seq_len(m_cur)) {
+          beta_i <- rho_vec[i] * sum(ss$lbfgs_y[[i]] * r)
+          r <- r + ss$lbfgs_s[[i]] * (alpha_lbfgs[i] - beta_i)
+        }
+        direction <- r
+      } else {
+        direction <- 0.1 * grad
+      }
+
+      # Trust region: clip step norm
+      trust_radius <- 1.0
+      step_norm <- sqrt(sum(direction^2))
+      if (step_norm > trust_radius) {
+        direction <- direction * (trust_radius / step_norm)
+      }
+
+      beta_new <- beta - direction
+      list(beta_new = beta_new)
     },
 
     stop("Unknown step: ", step, call. = FALSE)

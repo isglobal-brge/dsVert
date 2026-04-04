@@ -153,6 +153,8 @@ func main() {
 		handleMpcSumBeaverProducts()
 	case "mpc-vec-add":
 		handleMpcVecAdd()
+	case "mpc-sum-share":
+		handleMpcSumShare()
 	case "mpc-fp-to-float":
 		handleMpcFPToFloat()
 	case "mpc-get-poly-coeffs":

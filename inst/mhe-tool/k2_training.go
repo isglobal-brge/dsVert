@@ -1,6 +1,9 @@
+//go:build ignore
+
 package main
 
-// k2_training.go: Secure 2-party training sidecar for K=2 binomial/Poisson.
+// k2_training.go: DEPRECATED — Sidecar training loop abandoned in favour of
+// client-relayed GS-IRLS (pragmatic mode) and HE-Link (strict mode).
 //
 // SECURITY MODEL: Both servers run the sidecar binary. They communicate
 // directly over TCP/TLS. Intermediate values (eta, mu, residual, gradients)

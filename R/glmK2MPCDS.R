@@ -91,8 +91,8 @@ k2MpcPrepareDS <- function(data_name, y_var = NULL, x_vars, family, role,
   }
   close(con)
 
-  # Find k2-mpc-tool binary
-  k2_binary <- .findK2MpcTool()
+  # Use the existing mhe-tool binary (fit subcommand)
+  k2_binary <- .findMheTool()
 
   # Allocate port for sidecar
   base_port <- getOption("dsvert.k2_mpc_base_port", 9100L)
@@ -156,30 +156,19 @@ k2MpcPrepareDS <- function(data_name, y_var = NULL, x_vars, family, role,
 #'
 #' @return List with validated = TRUE.
 #' @export
-k2MpcStorePeerDS <- function(job_id, peer_info, session_id = NULL) {
+k2MpcStorePeerDS <- function(job_id, peer_host, peer_port, peer_role,
+                              peer_manifest, session_id = NULL) {
   ss <- .S(session_id)
 
-  # Validate job_id
   if (is.null(ss$k2mpc_job_id) || ss$k2mpc_job_id != job_id)
     stop("Job ID mismatch or no job prepared", call. = FALSE)
-
-  # Validate manifest
-  if (peer_info$manifest_hash != ss$k2mpc_manifest)
-    stop("Manifest hash mismatch — possible data integrity issue", call. = FALSE)
-
-  # Validate role pairing (must be complementary)
-  if (peer_info$role == ss$k2mpc_role)
+  if (peer_manifest != ss$k2mpc_manifest)
+    stop("Manifest hash mismatch", call. = FALSE)
+  if (peer_role == ss$k2mpc_role)
     stop("Role conflict: both servers claim the same role", call. = FALSE)
 
-  # Optional: validate peer fingerprint against pinned peers
-  if (isTRUE(getOption("dsvert.k2_mpc_require_pinned_peers", FALSE))) {
-    # TODO: check peer_info$cert_fingerprint against allowlist
-  }
-
-  # Store peer info
-  ss$k2mpc_peer_host <- peer_info$host
-  ss$k2mpc_peer_port <- peer_info$port
-  ss$k2mpc_peer_fingerprint <- peer_info$cert_fingerprint
+  ss$k2mpc_peer_host <- peer_host
+  ss$k2mpc_peer_port <- as.integer(peer_port)
 
   list(validated = TRUE)
 }
@@ -243,17 +232,33 @@ k2MpcRunDS <- function(job_id, session_id = NULL) {
   args <- c(args, "--manifest-hash", ss$k2mpc_manifest)
 
   # Launch sidecar
-  t0 <- proc.time()
   stderr_file <- file.path(ss$k2mpc_job_dir, "stderr.log")
 
+  if (ss$k2mpc_role == "label") {
+    # Label (server/listener): launch in BACKGROUND to avoid deadlock.
+    # The nonlabel will connect; once protocol completes, read output.
+    system2(
+      command = ss$k2mpc_binary,
+      args = args,
+      stdout = FALSE,
+      stderr = stderr_file,
+      wait = FALSE  # non-blocking!
+    )
+    # Wait briefly for the sidecar to start listening
+    Sys.sleep(2)
+    # Return immediately — client will call k2MpcResultDS later
+    ss$k2mpc_output_file <- output_file
+    return(list(launched = TRUE, role = "label"))
+  }
+
+  # Nonlabel (client/connector): run SYNCHRONOUSLY (connects to label)
+  t0 <- proc.time()
   status <- system2(
     command = ss$k2mpc_binary,
     args = args,
-    stdout = "",  # stdout unused, results go to output_file
-    stderr = stderr_file,
-    timeout = ss$k2mpc_max_iter * 60  # generous timeout
+    stdout = FALSE,
+    stderr = stderr_file
   )
-
   elapsed <- (proc.time() - t0)[["elapsed"]]
 
   if (status != 0) {
@@ -264,7 +269,6 @@ k2MpcRunDS <- function(job_id, session_id = NULL) {
          call. = FALSE)
   }
 
-  # Read result
   if (!file.exists(output_file))
     stop("k2-mpc-tool did not produce output file", call. = FALSE)
 
@@ -289,6 +293,43 @@ k2MpcRunDS <- function(job_id, session_id = NULL) {
   }
 
   safe_output
+}
+
+# ============================================================================
+# Step 3b: Poll label's sidecar result
+# ============================================================================
+
+#' Poll for K=2 MPC sidecar result (label party)
+#'
+#' Called after the nonlabel's k2MpcRunDS returns. Reads the label's
+#' output file (the sidecar ran in background).
+#'
+#' @param job_id Character.
+#' @param session_id Character or NULL.
+#' @return Same as k2MpcRunDS return for nonlabel.
+#' @export
+k2MpcResultDS <- function(job_id, session_id = NULL) {
+  ss <- .S(session_id)
+  output_file <- ss$k2mpc_output_file
+
+  # Wait for output file (sidecar runs in background)
+  for (attempt in 1:120) {  # up to 2 minutes
+    if (!is.null(output_file) && file.exists(output_file)) break
+    Sys.sleep(1)
+  }
+
+  if (is.null(output_file) || !file.exists(output_file))
+    stop("Sidecar did not produce output", call. = FALSE)
+
+  result <- jsonlite::fromJSON(readLines(output_file, warn = FALSE))
+
+  list(
+    beta = as.numeric(result$beta),
+    intercept = as.numeric(result$intercept),
+    iterations = as.integer(result$iterations),
+    converged = isTRUE(result$converged),
+    runtime_seconds = 0
+  )
 }
 
 # ============================================================================

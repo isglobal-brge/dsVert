@@ -94,6 +94,7 @@ AggregateMethods:
     k2MpcPrepareDS,
     k2MpcStorePeerDS,
     k2MpcRunDS,
+    k2MpcResultDS,
     k2MpcCleanupDS,
     glmSecureAggInitDS,
     glmSecureAggBlockSolveDS,

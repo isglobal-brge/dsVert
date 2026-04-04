@@ -157,6 +157,9 @@ func main() {
 		handleMpcFPToFloat()
 	case "mpc-get-poly-coeffs":
 		handleMpcGetPolyCoeffs()
+	// K=2 MPC sidecar: full secure training loop
+	case "fit":
+		handleFit()
 	case "help", "-h", "--help":
 		printUsage()
 	default:

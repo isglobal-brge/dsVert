@@ -138,100 +138,144 @@ func RunSecureTraining(config FitConfig, data *LocalData, conn *SidecarConn) (*F
 			n, peerHS.N, config.Family, peerHS.Family)
 	}
 
-	// Initialize coefficients (float64, all zero)
+	// Initialize coefficients
 	theta := make([]float64, data.P)
 	intercept := 0.0
+	p := data.P
 
 	converged := false
 	var finalIter int
 
 	for iter := 0; iter < config.MaxIter; iter++ {
-		lr := alpha
-		if iter > 20 {
-			lr = alpha / (1 + float64(iter-20)/30)
-		}
-
-		// --- Step 1: Compute local eta contribution ---
+		// --- Step 1: Compute eta_local, exchange to get eta_total ---
 		etaLocal := make([]float64, n)
 		for i := 0; i < n; i++ {
-			etaLocal[i] = intercept // both parties add intercept
-			for j := 0; j < data.P; j++ {
+			etaLocal[i] = intercept
+			for j := 0; j < p; j++ {
 				etaLocal[i] += data.X[i][j] * theta[j]
 			}
 		}
-
-		// Exchange eta contributions
 		sendFloat64Vec(conn, etaLocal)
 		peerEta, _ := recvFloat64Vec(conn, n)
 
-		// eta_total = local + peer - intercept (remove double-counted intercept)
+		etaOther := make([]float64, n)  // peer's contribution (without intercept)
+		for i := 0; i < n; i++ {
+			etaOther[i] = peerEta[i] - intercept  // remove double-counted intercept
+		}
 		etaTotal := make([]float64, n)
 		for i := 0; i < n; i++ {
-			etaTotal[i] = etaLocal[i] + peerEta[i] - intercept
+			etaTotal[i] = etaLocal[i] + etaOther[i]
 		}
 
-		// --- Step 2: Evaluate exact link function ---
+		// --- Step 2: IRLS quantities (mu, w, z) ---
 		mu := make([]float64, n)
+		w := make([]float64, n)
+		z := make([]float64, n)  // working response
+
+		// Get y from exchange (label sends y, nonlabel receives)
+		var y []float64
+		if data.HasY {
+			y = data.Y
+			sendFloat64Vec(conn, y)
+			recvFloat64Vec(conn, n)  // discard peer's
+		} else {
+			sendFloat64Vec(conn, make([]float64, n))
+			y, _ = recvFloat64Vec(conn, n)  // receive label's y
+		}
+
 		for i := 0; i < n; i++ {
 			eta := math.Max(-20, math.Min(20, etaTotal[i]))
 			switch config.Family {
 			case "binomial":
 				mu[i] = 1.0 / (1.0 + math.Exp(-eta))
 				mu[i] = math.Max(1e-10, math.Min(1-1e-10, mu[i]))
+				w[i] = mu[i] * (1 - mu[i])
+				if w[i] < 1e-10 { w[i] = 1e-10 }
+				z[i] = eta + (y[i]-mu[i])/w[i]
 			case "poisson":
 				mu[i] = math.Max(1e-10, math.Exp(eta))
+				w[i] = mu[i]
+				if w[i] < 1e-10 { w[i] = 1e-10 }
+				z[i] = eta + (y[i]-mu[i])/mu[i]
 			}
 		}
 
-		// --- Step 3: Compute residual ---
-		// Label party computes mu-y, sends to peer
-		residual := make([]float64, n)
-		if data.HasY {
-			for i := 0; i < n; i++ {
-				residual[i] = mu[i] - data.Y[i]
-			}
-			sendFloat64Vec(conn, residual)
-			recvFloat64Vec(conn, n) // receive peer's (unused)
-		} else {
-			sendFloat64Vec(conn, residual) // send zeros
-			residual, _ = recvFloat64Vec(conn, n) // receive label's residual
-		}
+		// --- Step 3: Gauss-Seidel IRLS ---
+		// Party 0 (label) updates first. Then exchanges fresh eta.
+		// Party 1 (nonlabel) updates with fresh mu/w from party 0's update.
 
-		// --- Step 4: Gradient for own features ---
-		grad := make([]float64, data.P)
-		for j := 0; j < data.P; j++ {
-			for i := 0; i < n; i++ {
-				grad[j] += data.X[i][j] * residual[i]
-			}
-			grad[j] = grad[j]/float64(n) + lambda*theta[j]
-		}
-
-		// --- Step 5: Update theta ---
-		maxDiff := 0.0
-		for j := 0; j < data.P; j++ {
-			update := lr * grad[j]
-			theta[j] -= update
-			if math.Abs(update) > maxDiff {
-				maxDiff = math.Abs(update)
+		// Compute eta_other (everything except my contribution)
+		etaOtherForMe := make([]float64, n)
+		for i := 0; i < n; i++ {
+			etaOtherForMe[i] = etaTotal[i]
+			for j := 0; j < p; j++ {
+				etaOtherForMe[i] -= data.X[i][j] * theta[j]
 			}
 		}
 
-		// Intercept update (party 0 only, shared via eta exchange)
+		// IRLS block solve: beta_new = (X'WX + λI)^{-1} X'W(z - eta_other)
+		// Include intercept column for label party
+		pWithInt := p
 		if config.PartyID == 0 {
-			intGrad := 0.0
-			for i := 0; i < n; i++ {
-				intGrad += residual[i]
+			pWithInt = p + 1  // intercept column
+		}
+
+		XtWX := make([][]float64, pWithInt)
+		for j := 0; j < pWithInt; j++ {
+			XtWX[j] = make([]float64, pWithInt)
+		}
+		rhs := make([]float64, pWithInt)
+
+		for i := 0; i < n; i++ {
+			// Build row of augmented X (with intercept for party 0)
+			xRow := make([]float64, pWithInt)
+			if config.PartyID == 0 {
+				xRow[0] = 1.0  // intercept
+				for j := 0; j < p; j++ {
+					xRow[1+j] = data.X[i][j]
+				}
+			} else {
+				for j := 0; j < p; j++ {
+					xRow[j] = data.X[i][j]
+				}
 			}
-			update := lr * intGrad / float64(n)
-			intercept -= update
-			if math.Abs(update) > maxDiff {
-				maxDiff = math.Abs(update)
+			for j := 0; j < pWithInt; j++ {
+				rhs[j] += xRow[j] * w[i] * (z[i] - etaOtherForMe[i])
+				for k := 0; k < pWithInt; k++ {
+					XtWX[j][k] += xRow[j] * w[i] * xRow[k]
+				}
 			}
 		}
+		// Add regularization (not on intercept)
+		for j := 0; j < pWithInt; j++ {
+			if config.PartyID == 0 && j == 0 {
+				continue  // no regularization on intercept
+			}
+			XtWX[j][j] += lambda
+		}
+
+		betaSolve := solveLinearSystem(XtWX, rhs, pWithInt)
+
+		betaNew := make([]float64, p)
+		if config.PartyID == 0 {
+			intercept = betaSolve[0]
+			copy(betaNew, betaSolve[1:])
+		} else {
+			copy(betaNew, betaSolve)
+		}
+
+		// Check convergence
+		maxDiff := 0.0
+		for j := 0; j < p; j++ {
+			diff := math.Abs(betaNew[j] - theta[j])
+			if diff > maxDiff {
+				maxDiff = diff
+			}
+		}
+		theta = betaNew
 
 		finalIter = iter + 1
 
-		// Exchange convergence
 		sendFloat64Vec(conn, []float64{maxDiff})
 		peerDiff, _ := recvFloat64Vec(conn, 1)
 		if math.Max(maxDiff, peerDiff[0]) < config.Tol {
@@ -249,6 +293,48 @@ func RunSecureTraining(config FitConfig, data *LocalData, conn *SidecarConn) (*F
 		result.Intercept = intercept
 	}
 	return result, nil
+}
+
+// solveLinearSystem solves A*x = b via Gaussian elimination with partial pivoting.
+func solveLinearSystem(A [][]float64, b []float64, n int) []float64 {
+	// Create augmented matrix
+	aug := make([][]float64, n)
+	for i := 0; i < n; i++ {
+		aug[i] = make([]float64, n+1)
+		copy(aug[i][:n], A[i])
+		aug[i][n] = b[i]
+	}
+	// Forward elimination
+	for col := 0; col < n; col++ {
+		maxVal := math.Abs(aug[col][col])
+		maxRow := col
+		for row := col + 1; row < n; row++ {
+			if math.Abs(aug[row][col]) > maxVal {
+				maxVal = math.Abs(aug[row][col])
+				maxRow = row
+			}
+		}
+		aug[col], aug[maxRow] = aug[maxRow], aug[col]
+		if math.Abs(aug[col][col]) < 1e-15 {
+			aug[col][col] = 1e-15
+		}
+		for row := col + 1; row < n; row++ {
+			factor := aug[row][col] / aug[col][col]
+			for j := col; j <= n; j++ {
+				aug[row][j] -= factor * aug[col][j]
+			}
+		}
+	}
+	// Back substitution
+	x := make([]float64, n)
+	for i := n - 1; i >= 0; i-- {
+		x[i] = aug[i][n]
+		for j := i + 1; j < n; j++ {
+			x[i] -= aug[i][j] * x[j]
+		}
+		x[i] /= aug[i][i]
+	}
+	return x
 }
 
 // handleFit is the CLI handler for the `fit` subcommand.

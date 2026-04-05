@@ -335,3 +335,119 @@ func handleK2GenBeaverTriples() {
 		Party1W: bytesToBase64(fpVecToBytes(c1)),
 	})
 }
+
+// ============================================================================
+// Command: k2-beaver-matvec-round1
+// Round 1 of Beaver matrix-vector multiply: X^T * r.
+// Each party computes [X-A] and [r-B] to send to peer.
+// ============================================================================
+
+type K2BeaverMatvecR1Input struct {
+	XShare    []float64 `json:"x_share"`     // n*p (row-major) — this party's share of X
+	RShare    []float64 `json:"r_share"`     // n — this party's share of r
+	AShare    []float64 `json:"a_share"`     // n*p — Beaver triple A share
+	BShare    []float64 `json:"b_share"`     // n — Beaver triple B share
+	N         int       `json:"n"`
+	P         int       `json:"p"`
+	FracBits  int       `json:"frac_bits"`
+}
+
+type K2BeaverMatvecR1Output struct {
+	XMinusA []float64 `json:"x_minus_a"` // n*p
+	RMinusB []float64 `json:"r_minus_b"` // n
+}
+
+func handleK2BeaverMatvecR1() {
+	var input K2BeaverMatvecR1Input
+	mpcReadInput(&input)
+
+	n := input.N
+	p := input.P
+	xMinusA := make([]float64, n*p)
+	rMinusB := make([]float64, n)
+
+	for i := range xMinusA {
+		xMinusA[i] = input.XShare[i] - input.AShare[i]
+	}
+	for i := range rMinusB {
+		rMinusB[i] = input.RShare[i] - input.BShare[i]
+	}
+
+	mpcWriteOutput(K2BeaverMatvecR1Output{XMinusA: xMinusA, RMinusB: rMinusB})
+}
+
+// ============================================================================
+// Command: k2-beaver-matvec-round2
+// Round 2: compute this party's share of Z = X^T * r.
+// Uses the Beaver formula with truncation.
+// ============================================================================
+
+type K2BeaverMatvecR2Input struct {
+	// Own round-1 message
+	OwnXMinusA []float64 `json:"own_x_minus_a"` // n*p
+	OwnRMinusB []float64 `json:"own_r_minus_b"` // n
+	// Peer's round-1 message
+	PeerXMinusA []float64 `json:"peer_x_minus_a"` // n*p
+	PeerRMinusB []float64 `json:"peer_r_minus_b"` // n
+	// Beaver triple shares
+	AShare []float64 `json:"a_share"` // n*p
+	BShare []float64 `json:"b_share"` // n
+	CShare []float64 `json:"c_share"` // p (C = sum_i A[i,:] * B[i])
+	// Protocol
+	N       int `json:"n"`
+	P       int `json:"p"`
+	PartyID int `json:"party_id"` // 0 or 1
+}
+
+type K2BeaverMatvecR2Output struct {
+	GradientShare []float64 `json:"gradient_share"` // p scalars
+}
+
+func handleK2BeaverMatvecR2() {
+	var input K2BeaverMatvecR2Input
+	mpcReadInput(&input)
+
+	n := input.N
+	p := input.P
+
+	// Reconstruct full (X-A) and (r-B)
+	fullXMinusA := make([]float64, n*p)
+	fullRMinusB := make([]float64, n)
+	for i := range fullXMinusA {
+		fullXMinusA[i] = input.OwnXMinusA[i] + input.PeerXMinusA[i]
+	}
+	for i := range fullRMinusB {
+		fullRMinusB[i] = input.OwnRMinusB[i] + input.PeerRMinusB[i]
+	}
+
+	// Z_i = C_i + A_i^T * (r-B) + (X-A)^T * B_i + [party0] * (X-A)^T * (r-B)
+	gradient := make([]float64, p)
+
+	// Start with C share
+	copy(gradient, input.CShare)
+
+	// A_i^T * (r-B): for each feature j, sum_i A[i,j] * (r-B)[i]
+	for j := 0; j < p; j++ {
+		for i := 0; i < n; i++ {
+			gradient[j] += input.AShare[i*p+j] * fullRMinusB[i]
+		}
+	}
+
+	// (X-A)^T * B_i: for each feature j, sum_i (X-A)[i,j] * B[i]
+	for j := 0; j < p; j++ {
+		for i := 0; i < n; i++ {
+			gradient[j] += fullXMinusA[i*p+j] * input.BShare[i]
+		}
+	}
+
+	// Party 0 only: (X-A)^T * (r-B)
+	if input.PartyID == 0 {
+		for j := 0; j < p; j++ {
+			for i := 0; i < n; i++ {
+				gradient[j] += fullXMinusA[i*p+j] * fullRMinusB[i]
+			}
+		}
+	}
+
+	mpcWriteOutput(K2BeaverMatvecR2Output{GradientShare: gradient})
+}

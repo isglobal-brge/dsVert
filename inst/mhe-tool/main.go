@@ -159,6 +159,13 @@ func main() {
 		handleMpcFPToFloat()
 	case "mpc-get-poly-coeffs":
 		handleMpcGetPolyCoeffs()
+	// K=2 strict mode v2: Chebyshev polynomial + Beaver with asymmetric truncation
+	case "k2-chebyshev-coeffs":
+		handleK2ChebyshevCoeffs()
+	case "k2-beaver-mul":
+		handleK2BeaverMul()
+	case "k2-poly-eval-local":
+		handleK2PolyEvalLocal()
 	case "help", "-h", "--help":
 		printUsage()
 	default:

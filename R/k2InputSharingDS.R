@@ -219,3 +219,23 @@ k2StoreGradTripleDS <- function(session_id = NULL) {
   ss$k2_grad_c_fp <- msg$c
   list(stored = TRUE)
 }
+
+#' Diagnostic: check session state for K=2 gradient
+#' @export
+k2DiagnosticDS <- function(session_id = NULL) {
+  ss <- .S(session_id)
+  list(
+    has_x_full = !is.null(ss$k2_x_full_fp),
+    has_mu = !is.null(ss$secure_mu_share),
+    has_y = !is.null(ss$k2_y_share_fp),
+    has_grad_a = !is.null(ss$k2_grad_a_fp),
+    has_grad_b = !is.null(ss$k2_grad_b_fp),
+    has_grad_c = !is.null(ss$k2_grad_c_fp),
+    x_full_len = if(!is.null(ss$k2_x_full_fp)) nchar(ss$k2_x_full_fp) else 0,
+    mu_len = if(!is.null(ss$secure_mu_share)) nchar(ss$secure_mu_share) else 0,
+    y_len = if(!is.null(ss$k2_y_share_fp)) nchar(ss$k2_y_share_fp) else 0,
+    n = ss$k2_x_n,
+    p_own = ss$k2_x_p,
+    p_peer = ss$k2_peer_p
+  )
+}

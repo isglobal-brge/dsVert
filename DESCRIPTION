@@ -107,6 +107,7 @@ AggregateMethods:
     k2GradientR1DS,
     k2GradientR2DS,
     k2StoreGradTripleDS,
+    k2DiagnosticDS,
     glmSecureAggInitDS,
     glmSecureAggBlockSolveDS,
     glmSecureAggCoordinatorStepDS,

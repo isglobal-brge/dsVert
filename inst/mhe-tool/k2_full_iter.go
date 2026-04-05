@@ -54,10 +54,13 @@ func handleK2FullIterR3() {
 		residualShare[i] = FPSub(muShare[i], yShare[i])
 	}
 
-	sumResidual := 0.0
+	// Sum residual shares IN THE RING first, then convert to float ONCE.
+	// Individual ToFloat64 of random shares gives wrong results due to wrapping.
+	var sumResidualFP FixedPoint
 	for i := 0; i < n; i++ {
-		sumResidual += residualShare[i].ToFloat64(fracBits)
+		sumResidualFP += residualShare[i]
 	}
+	sumResidual := sumResidualFP.ToFloat64(fracBits)
 
 	if input.Phase == 1 {
 		aShare := bytesToFPVec(base64ToBytes(input.AShareFP))

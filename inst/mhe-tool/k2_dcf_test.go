@@ -169,3 +169,29 @@ func TestDCF16Bit(t *testing.T) {
 	}
 	t.Log("DCF 16-bit sample test passed")
 }
+
+func TestDCFExhaustive4Bit(t *testing.T) {
+	numBits := 4
+	totalErrors := 0
+	for alpha := uint64(0); alpha < 16; alpha++ {
+		key0, key1 := DCFGen(alpha, 1, numBits)
+		for x := uint64(0); x < 16; x++ {
+			v0 := DCFEval(0, key0, x)
+			v1 := DCFEval(1, key1, x)
+			result := v0 + v1
+			expected := int64(0)
+			if x < alpha { expected = 1 }
+			if result != expected {
+				totalErrors++
+				if totalErrors <= 10 {
+					t.Errorf("DCF(alpha=%d, x=%d): got %d, want %d", alpha, x, result, expected)
+				}
+			}
+		}
+	}
+	if totalErrors > 0 {
+		t.Errorf("Total DCF errors: %d/%d", totalErrors, 16*16)
+	} else {
+		t.Log("DCF exhaustive 4-bit: 256/256 correct")
+	}
+}

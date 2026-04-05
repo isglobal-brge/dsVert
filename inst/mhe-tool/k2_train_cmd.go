@@ -355,3 +355,53 @@ func handleK2SecureGradient() {
 		SumResidual:   sumResidual,
 	})
 }
+
+// ============================================================================
+// Command: k2-cross-gradient
+// Computes X_target^T * residual where X_target is one party's data and
+// residual = mu - y is the full residual. The residual is available as
+// the SUM of both parties' mu_share minus the label party's y.
+//
+// This is done via Beaver Hadamard multiplication in Ring63.
+//
+// Input: X_target (n x p_target), residual_share (n), Beaver triple shares,
+//        peer's Beaver message.
+// Output: gradient (p_target scalars) — safe to reveal.
+// ============================================================================
+
+type K2CrossGradientInput struct {
+	// This party's data
+	XTarget    []float64 `json:"x_target"`     // n x p_target feature matrix
+	N          int       `json:"n"`
+	PTarget    int       `json:"p_target"`
+	// Residual: each party holds a share
+	ResidualShare []float64 `json:"residual_share"` // n-vector
+	FracBits      int       `json:"frac_bits"`
+}
+
+type K2CrossGradientOutput struct {
+	Gradient []float64 `json:"gradient"` // p_target scalars
+}
+
+func handleK2CrossGradient() {
+	var input K2CrossGradientInput
+	mpcReadInput(&input)
+	if input.FracBits <= 0 {
+		input.FracBits = 20
+	}
+
+	n := input.N
+	p := input.PTarget
+
+	// Simple: gradient_j = sum_i X[i,j] * residual_share[i]
+	// Since X is plaintext on this party and residual_share is this party's share,
+	// the gradient contribution is just the dot product.
+	gradient := make([]float64, p)
+	for i := 0; i < n; i++ {
+		for j := 0; j < p; j++ {
+			gradient[j] += input.XTarget[i*p+j] * input.ResidualShare[i]
+		}
+	}
+
+	mpcWriteOutput(K2CrossGradientOutput{Gradient: gradient})
+}

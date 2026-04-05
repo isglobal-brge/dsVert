@@ -204,14 +204,27 @@ func handleK2ComputeEtaFP() {
 	xPeer := bytesToFPVec(base64ToBytes(input.XPeerFP))
 	beta := bytesToFPVec(base64ToBytes(input.BetaFP))
 
+	// Compute eta in CANONICAL order [coord | nl]
+	// beta is ALWAYS in canonical order: [coord_features | nl_features]
 	eta := make([]FixedPoint, n)
 	for i := 0; i < n; i++ {
 		var val FixedPoint
-		for j := 0; j < pOwn; j++ {
-			val = FPAdd(val, FPMulLocal(xOwn[i*pOwn+j], beta[j], input.FracBits))
-		}
-		for j := 0; j < pPeer; j++ {
-			val = FPAdd(val, FPMulLocal(xPeer[i*pPeer+j], beta[pOwn+j], input.FracBits))
+		if input.IsPartyZero {
+			// Coordinator: own=coord (beta[0:pOwn]), peer=nl (beta[pOwn:])
+			for j := 0; j < pOwn; j++ {
+				val = FPAdd(val, FPMulLocal(xOwn[i*pOwn+j], beta[j], input.FracBits))
+			}
+			for j := 0; j < pPeer; j++ {
+				val = FPAdd(val, FPMulLocal(xPeer[i*pPeer+j], beta[pOwn+j], input.FracBits))
+			}
+		} else {
+			// Nonlabel: peer=coord (beta[0:pPeer]), own=nl (beta[pPeer:])
+			for j := 0; j < pPeer; j++ {
+				val = FPAdd(val, FPMulLocal(xPeer[i*pPeer+j], beta[j], input.FracBits))
+			}
+			for j := 0; j < pOwn; j++ {
+				val = FPAdd(val, FPMulLocal(xOwn[i*pOwn+j], beta[pPeer+j], input.FracBits))
+			}
 		}
 		eta[i] = val
 	}
@@ -223,11 +236,19 @@ func handleK2ComputeEtaFP() {
 		}
 	}
 
-	// Build full X share (own+peer interleaved)
+	// Build full X share in CANONICAL order: [coord features | nonlabel features]
+	// This must be the SAME order for both parties!
 	xFull := make([]FixedPoint, n*pTotal)
 	for i := 0; i < n; i++ {
-		for j := 0; j < pOwn; j++ { xFull[i*pTotal+j] = xOwn[i*pOwn+j] }
-		for j := 0; j < pPeer; j++ { xFull[i*pTotal+pOwn+j] = xPeer[i*pPeer+j] }
+		if input.IsPartyZero {
+			// Coordinator: own=coord, peer=nl → [own | peer] = [coord | nl] ✓
+			for j := 0; j < pOwn; j++ { xFull[i*pTotal+j] = xOwn[i*pOwn+j] }
+			for j := 0; j < pPeer; j++ { xFull[i*pTotal+pOwn+j] = xPeer[i*pPeer+j] }
+		} else {
+			// Nonlabel: own=nl, peer=coord → [peer | own] = [coord | nl] ✓
+			for j := 0; j < pPeer; j++ { xFull[i*pTotal+j] = xPeer[i*pPeer+j] }
+			for j := 0; j < pOwn; j++ { xFull[i*pTotal+pPeer+j] = xOwn[i*pOwn+j] }
+		}
 	}
 
 	mpcWriteOutput(struct {

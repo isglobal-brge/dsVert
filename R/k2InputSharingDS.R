@@ -91,12 +91,10 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
   p_peer <- ss$k2_peer_p
   p_total <- p_own + p_peer
 
-  # Build full beta vector in the correct order
-  if (is_coordinator) {
-    beta_full <- c(as.numeric(beta_coord), as.numeric(beta_nl))
-  } else {
-    beta_full <- c(as.numeric(beta_nl), as.numeric(beta_coord))
-  }
+  # Beta is ALWAYS in canonical order: [coord features | nonlabel features]
+  # Both parties use the SAME order — this is the canonical feature ordering
+  # from the specification.
+  beta_full <- c(as.numeric(beta_coord), as.numeric(beta_nl))
 
   # Convert beta to FP
   fp_beta <- .callMheTool("k2-float-to-fp", list(

@@ -447,3 +447,137 @@ k2StrictGradientDS <- function(data_name, x_vars, y_var = NULL,
     ))
   }
 }
+
+# ============================================================================
+# Step 5b: IRLS coordinator step using reconstructed mu from polynomial shares
+# ============================================================================
+
+#' K=2 Strict IRLS coordinator step
+#'
+#' Like k2MpcCoordinatorIrlsDS but uses mu reconstructed from Chebyshev
+#' polynomial shares instead of plaintext sigmoid. The label sees mu
+#' (the polynomial sigmoid output) but NOT eta_nonlabel.
+#'
+#' @param data_name Character. Standardized data frame name.
+#' @param y_var Character. Response variable name.
+#' @param x_vars Character vector. Feature column names.
+#' @param beta_current Numeric vector. Current label-server coefficients.
+#' @param non_label_pk Character. Non-label server's transport PK.
+#' @param family Character. "binomial" or "poisson".
+#' @param lambda Numeric. L2 regularization.
+#' @param frac_bits Integer.
+#' @param session_id Character or NULL.
+#' @return List with beta (updated coefficients) and encrypted_wr.
+#' @export
+k2StrictIrlsCoordinatorDS <- function(data_name, y_var, x_vars, beta_current,
+                                        non_label_pk, family = "binomial",
+                                        lambda = 1e-4, frac_bits = 20L,
+                                        session_id = NULL) {
+  ss <- .S(session_id)
+
+  data <- .resolveData(data_name, parent.frame(), session_id)
+  y <- as.numeric(data[[y_var]])
+  X <- as.matrix(data[, x_vars, drop = FALSE])
+  n <- length(y)
+  p <- ncol(X)
+
+  # Disclosure controls
+  privacy_level <- getOption("datashield.privacyLevel", 5)
+  if (n < privacy_level)
+    stop("Insufficient observations", call. = FALSE)
+  .check_glm_disclosure(X, y)
+
+  if (is.null(beta_current) || length(beta_current) == 0) {
+    beta_current <- rep(0, p)
+  }
+
+  # Reconstruct mu from POLYNOMIAL SHARES (not from plaintext sigmoid)
+  # Own mu share (base64 FixedPoint)
+  own_mu_b64 <- ss$k2_mu_share
+  if (is.null(own_mu_b64))
+    stop("No mu share found", call. = FALSE)
+
+  # Peer's mu share (transport-encrypted blob)
+  peer_mu_blob <- .blob_consume("k2_peer_mu_share", ss)
+  if (!is.null(peer_mu_blob)) {
+    tsk <- .key_get("transport_sk", ss)
+    peer_mu_dec <- .callMheTool("transport-decrypt", list(
+      sealed = .base64url_to_base64(peer_mu_blob),
+      recipient_sk = tsk
+    ))
+    peer_mu_b64 <- rawToChar(jsonlite::base64_dec(peer_mu_dec$data))
+
+    # Ring-add shares, then convert to float
+    mu_total_b64 <- .callMheTool("mpc-vec-add", list(
+      a = own_mu_b64, b = peer_mu_b64))$result
+    mu <- .callMheTool("mpc-fp-to-float", list(
+      fp_data = mu_total_b64, frac_bits = as.integer(frac_bits)))$values
+  } else {
+    # No peer share — use own share only (first iteration)
+    mu <- .callMheTool("mpc-fp-to-float", list(
+      fp_data = own_mu_b64, frac_bits = as.integer(frac_bits)))$values
+  }
+
+  # Clamp mu to valid range
+  if (family == "binomial") {
+    mu <- pmax(pmin(mu, 1 - 1e-10), 1e-10)
+  } else if (family == "poisson") {
+    mu <- pmax(mu, 1e-10)
+  }
+
+  # IRLS quantities (same as k2MpcCoordinatorIrlsDS)
+  if (family == "binomial") {
+    w <- mu * (1 - mu)
+    eta_total <- log(mu / (1 - mu))  # logit back-transform
+    z <- eta_total + (y - mu) / w
+  } else if (family == "poisson") {
+    w <- mu
+    eta_total <- log(mu)  # log back-transform
+    z <- eta_total + (y - mu) / mu
+  }
+
+  # Compute eta_label from current beta
+  eta_label <- as.vector(X %*% beta_current)
+  eta_other <- eta_total - eta_label
+
+  # IRLS update: beta_new = (X^TWX + λI)^{-1} X^T W (z - eta_other)
+  XtWX <- crossprod(X, w * X) + diag(lambda, p)
+  XtWz <- crossprod(X, w * (z - eta_other))
+
+  beta_new <- tryCatch(
+    as.vector(solve(XtWX, XtWz)),
+    error = function(e) {
+      warning("Near-singular, adding regularization")
+      as.vector(solve(XtWX + diag(0.01, p), XtWz))
+    }
+  )
+
+  # Recompute with new beta for Gauss-Seidel step
+  eta_label_new <- as.vector(X %*% beta_new)
+  eta_total_new <- eta_label_new + eta_other
+
+  if (family == "binomial") {
+    eta_total_new <- pmax(pmin(eta_total_new, 20), -20)
+    mu_new <- 1 / (1 + exp(-eta_total_new))
+    mu_new <- pmax(pmin(mu_new, 1 - 1e-10), 1e-10)
+    w_new <- mu_new * (1 - mu_new)
+  } else if (family == "poisson") {
+    eta_total_new <- pmin(eta_total_new, 20)
+    mu_new <- exp(eta_total_new)
+    mu_new <- pmax(mu_new, 1e-10)
+    w_new <- mu_new
+  }
+  residual_new <- y - mu_new
+
+  # Transport-encrypt (w, residual) for non-label server
+  pk <- .base64url_to_base64(non_label_pk)
+  sealed <- .callMheTool("transport-encrypt-vectors", list(
+    vectors = list(w = as.numeric(w_new), residual = as.numeric(residual_new)),
+    recipient_pk = pk
+  ))
+
+  list(
+    beta = beta_new,
+    encrypted_wr = base64_to_base64url(sealed$sealed)
+  )
+}

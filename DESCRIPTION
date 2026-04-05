@@ -99,6 +99,7 @@ AggregateMethods:
     k2StrictPolyEvalDS,
     k2StrictGradientDS,
     k2StrictInitOneShareDS,
+    k2StrictIrlsCoordinatorDS,
     glmSecureAggInitDS,
     glmSecureAggBlockSolveDS,
     glmSecureAggCoordinatorStepDS,

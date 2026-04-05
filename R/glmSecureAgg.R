@@ -478,6 +478,15 @@ glmSecureAggPrepDevianceDS <- function(data_name, x_vars, beta,
   ss <- .S(session_id)
   data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
+  n <- nrow(X)
+
+  # Disclosure controls
+  privacy_level <- getOption("datashield.privacyLevel", 5)
+  if (n < privacy_level) {
+    stop("Insufficient observations for privacy-preserving analysis", call. = FALSE)
+  }
+  .check_glm_disclosure(X)
+
   beta <- as.numeric(beta)
   eta <- as.vector(X %*% beta)
 

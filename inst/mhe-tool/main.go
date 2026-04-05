@@ -166,6 +166,8 @@ func main() {
 		handleK2BeaverMul()
 	case "k2-poly-eval-local":
 		handleK2PolyEvalLocal()
+	case "k2-float-to-fp":
+		handleK2FloatToFP()
 	case "help", "-h", "--help":
 		printUsage()
 	default:

@@ -64,6 +64,13 @@ glmHEEncryptEtaDS <- function(data_name, x_vars, beta, clip_radius = NULL,
   X <- as.matrix(data[, x_vars, drop = FALSE])
   n <- nrow(X)
 
+  # Disclosure controls
+  privacy_level <- getOption("datashield.privacyLevel", 5)
+  if (n < privacy_level) {
+    stop("Insufficient observations for privacy-preserving analysis", call. = FALSE)
+  }
+  .check_glm_disclosure(X)
+
   beta <- as.numeric(beta)
   if (length(beta) != ncol(X)) {
     stop("beta length (", length(beta), ") does not match number of variables (",
@@ -292,6 +299,14 @@ glmHEGradientEncDS <- function(data_name, x_vars, num_obs,
   # Get local feature matrix
   data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
+  n <- nrow(X)
+
+  # Disclosure controls
+  privacy_level <- getOption("datashield.privacyLevel", 5)
+  if (n < privacy_level) {
+    stop("Insufficient observations for privacy-preserving analysis", call. = FALSE)
+  }
+  .check_glm_disclosure(X)
 
   x_cols <- lapply(seq_len(ncol(X)), function(j) as.numeric(X[, j]))
 
@@ -408,6 +423,15 @@ glmHEPrepDevianceDS <- function(data_name, x_vars, beta,
   ss <- .S(session_id)
   data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
+  n <- nrow(X)
+
+  # Disclosure controls
+  privacy_level <- getOption("datashield.privacyLevel", 5)
+  if (n < privacy_level) {
+    stop("Insufficient observations for privacy-preserving analysis", call. = FALSE)
+  }
+  .check_glm_disclosure(X)
+
   beta <- as.numeric(beta)
   eta <- as.vector(X %*% beta)
 

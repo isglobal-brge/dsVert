@@ -1198,36 +1198,14 @@ k2MpcSecureStepDS <- function(step, a_share_key = NULL, b_share_key = NULL,
     # Computes w = mu - mu^2 via Beaver, then sums w and (mu-y) shares
     # Returns OWN scalar shares; peer exchange needed for reconstruction
     "intercept_newton_prepare" = {
-      # w_share = mu_share - mu_share^2
-      # mu^2 via Beaver (mu * mu with a=b=mu_share)
-      # But we need to do the Beaver open+close for mu^2...
-      # Actually, simpler: the caller already ran the Beaver rounds.
-      # At this point, mu_share is in ss$secure_mu_share.
-      # We need mu^2_share. This requires one more Beaver round.
-      # The caller handles the Beaver round. Here we just compute
-      # w_share = mu_share - mu2_share and sum.
+      # Compute w = mu - mu^2 and residuals for intercept Newton update.
+      # mu2_share was set by the Beaver multiplication round (mu * mu).
 
       mu_share <- ss$secure_mu_share
-      mu2_share <- ss$secure_mu2_share  # set by Beaver close of mu*mu
+      mu2_share <- ss$secure_mu2_share
       if (is.null(mu2_share)) stop("mu^2 share not computed", call. = FALSE)
 
-      # w_share = mu_share - mu2_share
-      w_share <- .callMheTool("mpc-vec-add", list(
-        a = mu_share,
-        b = .callMheTool("mpc-vec-add", list(
-          a = mu2_share,
-          b = mu2_share  # dummy: we need negation. Use FPNeg via a trick.
-        ))$result  # This doesn't negate... need a proper approach.
-      ))
-
-      # Actually simpler: w = mu - mu^2. In FP: w_share = mu_share - mu2_share
-      # Use mpc-vec-add with b = negated mu2_share
-      # FP negation: -x = 0 - x. We can compute 0 - mu2 via subtraction.
-      # But we don't have a subtraction command... We have vec-add.
-      # In FixedPoint, -x is the same as (2^64 - x), which is just negation.
-      # Let me add the subtraction to the Go layer or use a workaround.
-
-      # Workaround: convert mu_share and mu2_share to float64, compute w, convert back
+      # Float64 fallback: FixedPoint negation not yet implemented in mhe-tool
       mu_f64 <- .callMheTool("mpc-fp-to-float", list(
         fp_data = mu_share, frac_bits = as.integer(frac_bits)
       ))$values

@@ -374,6 +374,32 @@ func k2BinomialExpansion(k int, a, b float64) []float64 {
 	return coeffs
 }
 
+// ============================================================================
+// Command: k2-float-to-fp
+// Converts float64 array to base64 FixedPoint vector (no splitting).
+// ============================================================================
+
+type K2FloatToFPInput struct {
+	Values   []float64 `json:"values"`
+	FracBits int       `json:"frac_bits"`
+}
+
+type K2FloatToFPOutput struct {
+	FPData string `json:"fp_data"` // base64 FixedPoint
+}
+
+func handleK2FloatToFP() {
+	var input K2FloatToFPInput
+	mpcReadInput(&input)
+	if input.FracBits <= 0 {
+		input.FracBits = 20
+	}
+	fp := float64sToFP(input.Values, input.FracBits)
+	mpcWriteOutput(K2FloatToFPOutput{
+		FPData: bytesToBase64(fpVecToBytes(fp)),
+	})
+}
+
 // float64sToFP converts a float64 slice to FixedPoint vector.
 func float64sToFP(vals []float64, fracBits int) []FixedPoint {
 	mod := uint64(1) << 63

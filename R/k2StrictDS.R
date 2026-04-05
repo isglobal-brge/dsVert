@@ -121,6 +121,46 @@ k2StrictCombineEtaDS <- function(session_id = NULL) {
 }
 
 # ============================================================================
+# Step 2b: Initialize x^0 = 1 constant share
+# ============================================================================
+
+#' Initialize the constant x^0 = 1 share for polynomial evaluation
+#'
+#' Party 0 holds vector of 1.0 (in FixedPoint), Party 1 holds vector of 0.
+#' Stored as session key "k2_one_share".
+#'
+#' @param party_id Integer. 0 or 1.
+#' @param n_obs Integer. Number of observations.
+#' @param frac_bits Integer. Fixed-point fractional bits.
+#' @param session_id Character or NULL.
+#' @return List with stored = TRUE.
+#' @export
+k2StrictInitOneShareDS <- function(party_id = 0L, n_obs, frac_bits = 20L,
+                                     session_id = NULL) {
+  ss <- .S(session_id)
+
+  n <- as.integer(n_obs)
+
+  # Party 0 holds 1.0 in FixedPoint for each observation.
+  # Party 1 holds 0 for each observation.
+  # Together: share0 + share1 = 1.0 (in fixed-point ring).
+  if (as.integer(party_id) == 0L) {
+    vals <- rep(1.0, n)
+  } else {
+    vals <- rep(0.0, n)
+  }
+
+  # Convert float64 values to base64 FixedPoint (no secret sharing — direct encoding)
+  result <- .callMheTool("k2-float-to-fp", list(
+    values = vals,
+    frac_bits = as.integer(frac_bits)
+  ))
+  ss$k2_one_share <- result$fp_data
+
+  list(stored = TRUE)
+}
+
+# ============================================================================
 # Step 3: Beaver power chain + polynomial evaluation
 # ============================================================================
 

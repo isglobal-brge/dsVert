@@ -405,3 +405,153 @@ func handleK2CrossGradient() {
 
 	mpcWriteOutput(K2CrossGradientOutput{Gradient: gradient})
 }
+
+// ============================================================================
+// Command: k2-gradient-in-ring
+// Computes the gradient X^T * (mu - y) entirely in Ring63.
+// Input: FP base64 shares of X, mu, y + Beaver triple FP shares.
+// Output: float64 gradient scalars (the ONLY float conversion).
+//
+// This avoids the float64 conversion of individual shares which breaks
+// due to int64 wrapping non-additivity.
+// ============================================================================
+
+type K2GradientInRingInput struct {
+	// Party's shares (all base64 FixedPoint)
+	XShareFP    string `json:"x_share_fp"`    // n*p matrix share
+	MuShareFP   string `json:"mu_share_fp"`   // n-vector mu share
+	YShareFP    string `json:"y_share_fp"`    // n-vector y share
+	// Beaver triple shares (base64 FixedPoint)
+	AShareFP    string `json:"a_share_fp"`    // n*p
+	BShareFP    string `json:"b_share_fp"`    // n
+	CShareFP    string `json:"c_share_fp"`    // p
+	// Peer's round-1 message (base64 FixedPoint)
+	PeerXMinusA string `json:"peer_xma_fp"`   // n*p (empty for round 1)
+	PeerRMinusB string `json:"peer_rmb_fp"`   // n (empty for round 1)
+	// Parameters
+	N        int `json:"n"`
+	P        int `json:"p"`
+	FracBits int `json:"frac_bits"`
+	PartyID  int `json:"party_id"`
+	Round    int `json:"round"` // 1 or 2
+}
+
+type K2GradientInRingR1Output struct {
+	XMinusAFP   string  `json:"xma_fp"`      // base64 FP: X_share - A_share
+	RMinusBFP   string  `json:"rmb_fp"`      // base64 FP: residual_share - B_share
+	SumResidual float64 `json:"sum_residual"` // scalar (for intercept)
+}
+
+type K2GradientInRingR2Output struct {
+	Gradient    []float64 `json:"gradient"`     // p float64 scalars
+	SumResidual float64   `json:"sum_residual"`
+}
+
+func handleK2GradientInRing() {
+	var input K2GradientInRingInput
+	mpcReadInput(&input)
+	if input.FracBits <= 0 {
+		input.FracBits = 20
+	}
+
+	n := input.N
+	p := input.P
+
+	// Decode FP shares
+	xShare := bytesToFPVec(base64ToBytes(input.XShareFP))
+	muShare := bytesToFPVec(base64ToBytes(input.MuShareFP))
+	yShare := bytesToFPVec(base64ToBytes(input.YShareFP))
+
+	// Compute residual share in the ring: r = mu - y
+	residualShare := make([]FixedPoint, n)
+	for i := 0; i < n; i++ {
+		residualShare[i] = FPSub(muShare[i], yShare[i])
+	}
+
+	// Sum of residual shares (convert to float for intercept update)
+	sumResidual := 0.0
+	for i := 0; i < n; i++ {
+		sumResidual += residualShare[i].ToFloat64(input.FracBits)
+	}
+
+	if input.Round == 1 {
+		// Round 1: compute (X_share - A) and (residual_share - B) in the ring
+		aShare := bytesToFPVec(base64ToBytes(input.AShareFP))
+		bShare := bytesToFPVec(base64ToBytes(input.BShareFP))
+
+		xMinusA := make([]FixedPoint, n*p)
+		rMinusB := make([]FixedPoint, n)
+		for i := range xMinusA {
+			xMinusA[i] = FPSub(xShare[i], aShare[i])
+		}
+		for i := range rMinusB {
+			rMinusB[i] = FPSub(residualShare[i], bShare[i])
+		}
+
+		mpcWriteOutput(K2GradientInRingR1Output{
+			XMinusAFP:   bytesToBase64(fpVecToBytes(xMinusA)),
+			RMinusBFP:   bytesToBase64(fpVecToBytes(rMinusB)),
+			SumResidual: sumResidual,
+		})
+		return
+	}
+
+	// Round 2: compute gradient share using Beaver formula
+	aShare := bytesToFPVec(base64ToBytes(input.AShareFP))
+	bShare := bytesToFPVec(base64ToBytes(input.BShareFP))
+	cShare := bytesToFPVec(base64ToBytes(input.CShareFP))
+	peerXMA := bytesToFPVec(base64ToBytes(input.PeerXMinusA))
+	peerRMB := bytesToFPVec(base64ToBytes(input.PeerRMinusB))
+
+	// Reconstruct full (X-A) and (r-B) in the ring
+	ownXMA := make([]FixedPoint, n*p)
+	ownRMB := make([]FixedPoint, n)
+	for i := range ownXMA {
+		ownXMA[i] = FPSub(xShare[i], aShare[i])
+	}
+	for i := range ownRMB {
+		ownRMB[i] = FPSub(residualShare[i], bShare[i])
+	}
+
+	fullXMA := make([]FixedPoint, n*p)
+	fullRMB := make([]FixedPoint, n)
+	for i := range fullXMA {
+		fullXMA[i] = FPAdd(ownXMA[i], peerXMA[i])
+	}
+	for i := range fullRMB {
+		fullRMB[i] = FPAdd(ownRMB[i], peerRMB[i])
+	}
+
+	// Beaver formula: Z_i = C_i + A_i^T * (r-B) + (X-A)^T * B_i + [P0]*(X-A)^T*(r-B)
+	// All multiplications truncated by fracBits
+	gradient := make([]FixedPoint, p)
+	copy(gradient, cShare)
+
+	for j := 0; j < p; j++ {
+		for i := 0; i < n; i++ {
+			// A_i[j] * (r-B)[i]
+			gradient[j] = FPAdd(gradient[j], FPMulLocal(aShare[i*p+j], fullRMB[i], input.FracBits))
+			// (X-A)[i,j] * B_i[i]
+			gradient[j] = FPAdd(gradient[j], FPMulLocal(fullXMA[i*p+j], bShare[i], input.FracBits))
+		}
+	}
+
+	if input.PartyID == 0 {
+		for j := 0; j < p; j++ {
+			for i := 0; i < n; i++ {
+				gradient[j] = FPAdd(gradient[j], FPMulLocal(fullXMA[i*p+j], fullRMB[i], input.FracBits))
+			}
+		}
+	}
+
+	// Convert gradient to float64 (the ONLY float conversion in the entire pipeline)
+	gradFloat := make([]float64, p)
+	for j := 0; j < p; j++ {
+		gradFloat[j] = gradient[j].ToFloat64(input.FracBits)
+	}
+
+	mpcWriteOutput(K2GradientInRingR2Output{
+		Gradient:    gradFloat,
+		SumResidual: sumResidual,
+	})
+}

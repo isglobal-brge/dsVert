@@ -244,3 +244,150 @@ func TestBeaverMatvecLocal(t *testing.T) {
 		t.Errorf("Beaver matvec error %.2e exceeds 0.01", maxErr)
 	}
 }
+
+func TestGradientInRing(t *testing.T) {
+	// Test: gradient = X^T * (mu - y) where X is 3x2, mu and y are 3x1
+	// X = [[1, 2], [3, 4], [5, 6]], mu = [0.5, 0.3, 0.7], y = [1, 0, 1]
+	// residual = mu - y = [-0.5, 0.3, -0.3]
+	// gradient = X^T * r = [1*(-0.5)+3*0.3+5*(-0.3), 2*(-0.5)+4*0.3+6*(-0.3)]
+	//          = [-0.5+0.9-1.5, -1+1.2-1.8] = [-1.1, -1.6]
+
+	n := 3
+	p := 2
+	fracBits := 20
+
+	X := []float64{1, 2, 3, 4, 5, 6}
+	mu := []float64{0.5, 0.3, 0.7}
+	y := []float64{1, 0, 1}
+	expected := []float64{-1.1, -1.6}
+
+	// Convert to FP and split into shares
+	xFP := FloatVecToFP(X, fracBits)
+	muFP := FloatVecToFP(mu, fracBits)
+	yFP := FloatVecToFP(y, fracBits)
+
+	x0 := make([]FixedPoint, len(xFP))
+	x1 := make([]FixedPoint, len(xFP))
+	mu0 := make([]FixedPoint, len(muFP))
+	mu1 := make([]FixedPoint, len(muFP))
+	y0 := make([]FixedPoint, len(yFP))
+	y1 := make([]FixedPoint, len(yFP))
+
+	for i := range xFP {
+		r := FixedPoint(int64(cryptoRandUint64K2()))
+		x0[i] = r; x1[i] = xFP[i] - r
+	}
+	for i := range muFP {
+		r := FixedPoint(int64(cryptoRandUint64K2()))
+		mu0[i] = r; mu1[i] = muFP[i] - r
+	}
+	for i := range yFP {
+		r := FixedPoint(int64(cryptoRandUint64K2()))
+		y0[i] = r; y1[i] = yFP[i] - r
+	}
+
+	// Compute residual shares in ring
+	r0 := make([]FixedPoint, n)
+	r1 := make([]FixedPoint, n)
+	for i := 0; i < n; i++ {
+		r0[i] = FPSub(mu0[i], y0[i])
+		r1[i] = FPSub(mu1[i], y1[i])
+	}
+
+	// Generate Beaver triple: A (n*p), B (n), C (p) where C[j] = sum_i A[i,j]*B[i] / fracMul
+	A := make([]FixedPoint, n*p)
+	B := make([]FixedPoint, n)
+	for i := range A { A[i] = FixedPoint(int64(cryptoRandUint64K2())) }
+	for i := range B { B[i] = FixedPoint(int64(cryptoRandUint64K2())) }
+	// C = A^T * B using RING multiply (matching C++ ModMul, no truncation)
+	r63tmp := NewRing63(fracBits)
+	C := make([]FixedPoint, p)
+	for j := 0; j < p; j++ {
+		var cj uint64
+		for i := 0; i < n; i++ {
+			cj = r63tmp.Add(cj, modMulBig63(uint64(A[i*p+j])%r63tmp.Modulus, uint64(B[i])%r63tmp.Modulus, r63tmp.Modulus))
+		}
+		C[j] = FixedPoint(int64(cj))
+	}
+
+	// Split triples
+	a0 := make([]FixedPoint, n*p); a1 := make([]FixedPoint, n*p)
+	b0 := make([]FixedPoint, n); b1 := make([]FixedPoint, n)
+	c0 := make([]FixedPoint, p); c1 := make([]FixedPoint, p)
+	for i := range A { s := FixedPoint(int64(cryptoRandUint64K2())); a0[i] = s; a1[i] = A[i]-s }
+	for i := range B { s := FixedPoint(int64(cryptoRandUint64K2())); b0[i] = s; b1[i] = B[i]-s }
+	for i := range C { s := FixedPoint(int64(cryptoRandUint64K2())); c0[i] = s; c1[i] = C[i]-s }
+
+	// Round 1: (X-A, r-B) for each party
+	xma0 := make([]FixedPoint, n*p); rmb0 := make([]FixedPoint, n)
+	xma1 := make([]FixedPoint, n*p); rmb1 := make([]FixedPoint, n)
+	for i := range x0 { xma0[i] = FPSub(x0[i], a0[i]) }
+	for i := range r0 { rmb0[i] = FPSub(r0[i], b0[i]) }
+	for i := range x1 { xma1[i] = FPSub(x1[i], a1[i]) }
+	for i := range r1 { rmb1[i] = FPSub(r1[i], b1[i]) }
+
+	// Round 2: each party computes gradient share
+	fullXMA := make([]FixedPoint, n*p)
+	fullRMB := make([]FixedPoint, n)
+	for i := range fullXMA { fullXMA[i] = FPAdd(xma0[i], xma1[i]) }
+	for i := range fullRMB { fullRMB[i] = FPAdd(rmb0[i], rmb1[i]) }
+
+	// Use Ring63 with RING multiply (no per-term truncation) + final truncation.
+	// This matches the C++ GenerateBatchedMultiplicationOutputPartyZero/One + TruncateShare.
+	r63 := NewRing63(fracBits)
+
+	// Convert all FP values to Ring63 uint64
+	toU := func(fp []FixedPoint) []uint64 {
+		u := make([]uint64, len(fp))
+		for i, v := range fp { u[i] = uint64(v) % r63.Modulus }
+		return u
+	}
+
+	ua0 := toU(a0); ua1 := toU(a1)
+	ub0 := toU(b0); ub1 := toU(b1)
+	uc0 := toU(c0); uc1 := toU(c1)
+	uXMA := toU(fullXMA); uRMB := toU(fullRMB)
+
+	// Party 0: ring multiply, no truncation
+	g0_raw := make([]uint64, p)
+	for j := 0; j < p; j++ { g0_raw[j] = uc0[j] }
+	for j := 0; j < p; j++ {
+		for i := 0; i < n; i++ {
+			g0_raw[j] = r63.Add(g0_raw[j], modMulBig63(ua0[i*p+j], uRMB[i], r63.Modulus))
+			g0_raw[j] = r63.Add(g0_raw[j], modMulBig63(uXMA[i*p+j], ub0[i], r63.Modulus))
+			g0_raw[j] = r63.Add(g0_raw[j], modMulBig63(uXMA[i*p+j], uRMB[i], r63.Modulus)) // P0 only
+		}
+	}
+	g0_trunc := TruncateSharePartyZero(g0_raw, uint64(1)<<fracBits, r63.Modulus)
+
+	// Party 1: ring multiply, no truncation, NO (X-A)*(r-B)
+	g1_raw := make([]uint64, p)
+	for j := 0; j < p; j++ { g1_raw[j] = uc1[j] }
+	for j := 0; j < p; j++ {
+		for i := 0; i < n; i++ {
+			g1_raw[j] = r63.Add(g1_raw[j], modMulBig63(ua1[i*p+j], uRMB[i], r63.Modulus))
+			g1_raw[j] = r63.Add(g1_raw[j], modMulBig63(uXMA[i*p+j], ub1[i], r63.Modulus))
+		}
+	}
+	g1_trunc := TruncateSharePartyOne(g1_raw, uint64(1)<<fracBits, r63.Modulus)
+
+	// Reconstruct
+	gradient := make([]float64, p)
+	for j := 0; j < p; j++ {
+		gradient[j] = r63.ToDouble(r63.Add(g0_trunc[j], g1_trunc[j]))
+	}
+
+	t.Logf("Expected: %v", expected)
+	t.Logf("Got:      %v", gradient)
+
+	maxErr := 0.0
+	for j := 0; j < p; j++ {
+		err := math.Abs(gradient[j] - expected[j])
+		if err > maxErr { maxErr = err }
+	}
+	t.Logf("Max error: %.2e", maxErr)
+
+	if maxErr > 0.01 {
+		t.Errorf("Ring63 gradient error %.2e exceeds 0.01", maxErr)
+	}
+}

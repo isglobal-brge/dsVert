@@ -170,6 +170,8 @@ func main() {
 		handleK2FloatToFP()
 	case "k2-gen-beaver-triples":
 		handleK2GenBeaverTriples()
+	case "k2-gradient-in-ring":
+		handleK2GradientInRing()
 	case "k2-beaver-matvec-r1":
 		handleK2BeaverMatvecR1()
 	case "k2-beaver-matvec-r2":

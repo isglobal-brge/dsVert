@@ -244,3 +244,145 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
 
   list(stored = TRUE, n = n)
 }
+
+#' Beaver matrix-vector gradient: Round 1
+#'
+#' Computes (X_share - A) and (r_share - B) for the Beaver protocol.
+#' The residual share is computed from mu_share (from poly_eval) minus y_share.
+#'
+#' @param peer_pk Character. Peer's transport PK.
+#' @param session_id Character or NULL.
+#' @return List with encrypted_round1_msg (for relay to peer).
+#' @export
+k2BeaverGradientR1DS <- function(peer_pk, session_id = NULL) {
+  ss <- .S(session_id)
+
+  n <- ss$k2_x_n
+  p_own <- ss$k2_x_p
+  p_peer <- ss$k2_peer_p
+  p_total <- p_own + p_peer
+
+  # Assemble full X share (own block + peer's shared block)
+  x_own <- ss$k2_x_share
+  x_peer <- ss$k2_peer_x_share
+
+  # Get mu_share from polynomial eval (FP -> float)
+  mu_fp <- ss$secure_mu_share
+  if (is.null(mu_fp)) stop("No mu share found", call. = FALSE)
+  mu_share <- .callMheTool("mpc-fp-to-float", list(
+    fp_data = mu_fp, frac_bits = 20L))$values
+
+  # Residual share = mu_share - y_share
+  y_share <- ss$k2_y_share
+  if (is.null(y_share)) y_share <- rep(0, n)
+  residual_share <- mu_share - y_share
+
+  # Full X share (row-major, p_total columns)
+  x_full <- numeric(n * p_total)
+  for (i in seq_len(n)) {
+    for (j in seq_len(p_own)) {
+      x_full[(i - 1) * p_total + j] <- x_own[(i - 1) * p_own + j]
+    }
+    for (j in seq_len(p_peer)) {
+      x_full[(i - 1) * p_total + p_own + j] <- x_peer[(i - 1) * p_peer + j]
+    }
+  }
+
+  # Get Beaver triple from blob (float64 format)
+  triple_blob <- .blob_consume("k2_grad_triple", ss)
+  if (is.null(triple_blob)) stop("No gradient Beaver triple", call. = FALSE)
+  tsk <- .key_get("transport_sk", ss)
+  dec <- .callMheTool("transport-decrypt-vectors", list(
+    sealed = .base64url_to_base64(triple_blob),
+    recipient_sk = tsk
+  ))
+  a_share <- as.numeric(dec$vectors$a)
+  b_share <- as.numeric(dec$vectors$b)
+
+  # Store for round 2
+  ss$k2_grad_a <- a_share
+  ss$k2_grad_b <- b_share
+  ss$k2_grad_x_full <- x_full
+  ss$k2_grad_residual <- residual_share
+
+  # Compute round 1: (X - A) and (r - B)
+  result <- .callMheTool("k2-beaver-matvec-r1", list(
+    x_share = x_full,
+    r_share = residual_share,
+    a_share = a_share,
+    b_share = b_share,
+    n = as.integer(n),
+    p = as.integer(p_total),
+    frac_bits = 20L
+  ))
+
+  # Transport-encrypt for peer
+  pk <- .base64url_to_base64(peer_pk)
+  sealed <- .callMheTool("transport-encrypt-vectors", list(
+    vectors = list(xma = result$x_minus_a, rmb = result$r_minus_b),
+    recipient_pk = pk
+  ))
+
+  list(
+    encrypted_round1 = base64_to_base64url(sealed$sealed),
+    sum_residual = sum(residual_share)
+  )
+}
+
+#' Beaver matrix-vector gradient: Round 2
+#'
+#' Receives peer's round-1 message, computes gradient share.
+#'
+#' @param party_id Integer. 0 or 1.
+#' @param session_id Character or NULL.
+#' @return List with gradient_share (p_total scalars).
+#' @export
+k2BeaverGradientR2DS <- function(party_id = 0L, session_id = NULL) {
+  ss <- .S(session_id)
+
+  n <- ss$k2_x_n
+  p_total <- ss$k2_x_p + ss$k2_peer_p
+
+  # Decrypt peer's round-1 message
+  blob <- .blob_consume("k2_grad_peer_r1", ss)
+  if (is.null(blob)) stop("No peer round-1 message", call. = FALSE)
+  tsk <- .key_get("transport_sk", ss)
+  dec <- .callMheTool("transport-decrypt-vectors", list(
+    sealed = .base64url_to_base64(blob),
+    recipient_sk = tsk
+  ))
+
+  # Get C share from blob
+  c_blob <- .blob_consume("k2_grad_c", ss)
+  if (is.null(c_blob)) stop("No C triple share", call. = FALSE)
+  c_dec <- .callMheTool("transport-decrypt-vectors", list(
+    sealed = .base64url_to_base64(c_blob),
+    recipient_sk = tsk
+  ))
+  c_share <- as.numeric(c_dec$vectors$c)
+
+  # Own round-1 values
+  x_full <- ss$k2_grad_x_full
+  residual <- ss$k2_grad_residual
+  a_share <- ss$k2_grad_a
+  b_share <- ss$k2_grad_b
+
+  own_xma <- x_full - a_share
+  own_rmb <- residual - b_share
+
+  # Compute round 2
+  result <- .callMheTool("k2-beaver-matvec-r2", list(
+    own_x_minus_a = own_xma,
+    own_r_minus_b = own_rmb,
+    peer_x_minus_a = as.numeric(dec$vectors$xma),
+    peer_r_minus_b = as.numeric(dec$vectors$rmb),
+    a_share = a_share,
+    b_share = b_share,
+    c_share = c_share,
+    n = as.integer(n),
+    p = as.integer(p_total),
+    party_id = as.integer(party_id)
+  ))
+
+  list(gradient_share = result$gradient_share)
+}

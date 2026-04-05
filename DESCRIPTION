@@ -105,6 +105,8 @@ AggregateMethods:
     k2ReceiveShareDS,
     k2ComputeGradientShareDS,
     k2ComputeEtaShareDS,
+    k2BeaverGradientR1DS,
+    k2BeaverGradientR2DS,
     glmSecureAggInitDS,
     glmSecureAggBlockSolveDS,
     glmSecureAggCoordinatorStepDS,

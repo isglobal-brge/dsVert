@@ -76,13 +76,16 @@ func handleK2ChebyshevCoeffs() {
 // ============================================================================
 
 type K2BeaverMulInput struct {
-	// Party's own shares of X and Y
-	XShare string `json:"x_share"` // base64 FixedPoint vector
-	YShare string `json:"y_share"` // base64 FixedPoint vector
-	// Beaver triple shares for this party
-	AShare string `json:"a_share"` // base64
-	BShare string `json:"b_share"` // base64
-	CShare string `json:"c_share"` // base64
+	// Party's own shares of X and Y (base64 FixedPoint)
+	XShare string `json:"x_share"`
+	YShare string `json:"y_share"`
+	// Beaver triple shares — accept EITHER base64 FixedPoint OR float64 arrays
+	AShare    string    `json:"a_share"`     // base64 FixedPoint
+	BShare    string    `json:"b_share"`     // base64 FixedPoint
+	CShare    string    `json:"c_share"`     // base64 FixedPoint
+	AShareF64 []float64 `json:"a_share_f64"` // float64 array (alternative)
+	BShareF64 []float64 `json:"b_share_f64"` // float64 array (alternative)
+	CShareF64 []float64 `json:"c_share_f64"` // float64 array (alternative)
 	// Peer's round-1 message (after relay)
 	PeerXMinusA string `json:"peer_x_minus_a"` // base64
 	PeerYMinusB string `json:"peer_y_minus_b"` // base64
@@ -115,8 +118,19 @@ func handleK2BeaverMul() {
 
 	xShare := bytesToFPVec(base64ToBytes(input.XShare))
 	yShare := bytesToFPVec(base64ToBytes(input.YShare))
-	aShare := bytesToFPVec(base64ToBytes(input.AShare))
-	bShare := bytesToFPVec(base64ToBytes(input.BShare))
+
+	// Accept triples as either base64 FixedPoint or float64 arrays
+	var aShare, bShare []FixedPoint
+	if input.AShare != "" {
+		aShare = bytesToFPVec(base64ToBytes(input.AShare))
+		bShare = bytesToFPVec(base64ToBytes(input.BShare))
+	} else if len(input.AShareF64) > 0 {
+		aShare = float64sToFP(input.AShareF64, input.FracBits)
+		bShare = float64sToFP(input.BShareF64, input.FracBits)
+	} else {
+		outputError("no Beaver triple shares provided")
+		return
+	}
 
 	n := len(xShare)
 
@@ -137,7 +151,12 @@ func handleK2BeaverMul() {
 	}
 
 	// Round 2: compute result share with asymmetric truncation
-	cShare := bytesToFPVec(base64ToBytes(input.CShare))
+	var cShare []FixedPoint
+	if input.CShare != "" {
+		cShare = bytesToFPVec(base64ToBytes(input.CShare))
+	} else if len(input.CShareF64) > 0 {
+		cShare = float64sToFP(input.CShareF64, input.FracBits)
+	}
 	peerXMinusA := bytesToFPVec(base64ToBytes(input.PeerXMinusA))
 	peerYMinusB := bytesToFPVec(base64ToBytes(input.PeerYMinusB))
 
@@ -353,6 +372,22 @@ func k2BinomialExpansion(k int, a, b float64) []float64 {
 		}
 	}
 	return coeffs
+}
+
+// float64sToFP converts a float64 slice to FixedPoint vector.
+func float64sToFP(vals []float64, fracBits int) []FixedPoint {
+	mod := uint64(1) << 63
+	fracMul := float64(uint64(1) << fracBits)
+	result := make([]FixedPoint, len(vals))
+	for i, v := range vals {
+		if v >= 0 {
+			result[i] = FixedPoint(uint64(v*fracMul+0.5) % mod)
+		} else {
+			abs := uint64(-v*fracMul + 0.5)
+			result[i] = FixedPoint((mod - (abs % mod)) % mod)
+		}
+	}
+	return result
 }
 
 func k2MeasureMaxError(coeffs []float64, f func(float64) float64,

@@ -315,61 +315,135 @@ k2StrictPolyEvalDS <- function(power_keys, coefficients,
 # Step 5: Compute residual and gradient shares
 # ============================================================================
 
-#' Compute gradient from residual shares for K=2 strict mode
+#' Compute gradient for K=2 strict mode (label step)
 #'
-#' Computes [r] = [mu] - [y] (local subtraction on shares), then
-#' gradient = X^T * [r] (local on owning party since X is not shared).
+#' Label party: receives non-label's mu_share (from blob), reconstructs
+#' mu = mu_share_label + mu_share_nonlabel, computes residual = mu - y,
+#' computes own gradient X_label^T * residual, and transport-encrypts
+#' the residual for the non-label party.
+#'
+#' Non-label party: decrypts the residual from the label and computes
+#' X_nonlabel^T * residual.
+#'
+#' Security: the label sees mu (the sigmoid/exp output), NOT eta or
+#' individual features. mu = sigmoid(eta_total) is a lossy function —
+#' individual feature contributions cannot be recovered.
 #'
 #' @param data_name Character. Standardized data frame name.
 #' @param x_vars Character vector. Feature column names.
 #' @param y_var Character or NULL. Response variable (label party only).
 #' @param role Character. "label" or "nonlabel".
-#' @param party_id Integer. 0 or 1.
+#' @param peer_pk Character or NULL. Peer's transport PK (label sends residual to nonlabel).
 #' @param frac_bits Integer.
 #' @param session_id Character or NULL.
-#' @return List with gradient (numeric vector of p_k scalars).
+#' @return List with gradient (p_k scalars), sum_residual (1 scalar),
+#'   and encrypted_residual (label only, for relay to nonlabel).
 #' @export
 k2StrictGradientDS <- function(data_name, x_vars, y_var = NULL,
-                                 role = "label", party_id = 0L,
+                                 role = "label", peer_pk = NULL,
                                  frac_bits = 20L, session_id = NULL) {
   ss <- .S(session_id)
 
   data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
   n <- nrow(X)
-  p <- ncol(X)
 
-  # Get mu share
-  mu_share_b64 <- ss$k2_mu_share
-  if (is.null(mu_share_b64))
-    stop("No mu share found — run poly eval first", call. = FALSE)
+  if (role == "label") {
+    # Label: reconstruct mu from both FixedPoint shares (ring add first, then float)
 
-  # Convert mu share to float for gradient computation
-  mu_float <- .callMheTool("mpc-fp-to-float", list(
-    fp_data = mu_share_b64,
-    frac_bits = as.integer(frac_bits)
-  ))$values
+    # Own mu share (base64 FixedPoint)
+    own_mu_b64 <- ss$k2_mu_share
+    if (is.null(own_mu_b64))
+      stop("No mu share found", call. = FALSE)
 
-  # Get y share (label party has y, nonlabel has share of y)
-  # For simplicity in this version: label party subtracts y directly
-  # from its mu share, nonlabel keeps its mu share as residual share.
-  if (role == "label" && !is.null(y_var)) {
+    # Peer's mu share (transport-encrypted, contains base64-encoded FP string)
+    peer_mu_blob <- .blob_consume("k2_peer_mu_share", ss)
+    if (!is.null(peer_mu_blob)) {
+      tsk <- .key_get("transport_sk", ss)
+      peer_mu_dec <- .callMheTool("transport-decrypt", list(
+        sealed = .base64url_to_base64(peer_mu_blob),
+        recipient_sk = tsk
+      ))
+      # Decode: the decrypted data is a base64-encoded string of the FP base64
+      peer_mu_b64 <- rawToChar(jsonlite::base64_dec(peer_mu_dec$data))
+    } else {
+      peer_mu_b64 <- NULL
+    }
+
+    # Reconstruct mu by RING ADD of FixedPoint shares, THEN convert to float
+    if (!is.null(peer_mu_b64)) {
+      mu_total_b64 <- .callMheTool("mpc-vec-add", list(
+        a = own_mu_b64, b = peer_mu_b64))$result
+    } else {
+      mu_total_b64 <- own_mu_b64
+    }
+    mu <- .callMheTool("mpc-fp-to-float", list(
+      fp_data = mu_total_b64, frac_bits = as.integer(frac_bits)))$values
+
+    # Compute residual
     y <- as.numeric(data[[y_var]])
-    # residual_share = mu_share - y (label subtracts full y from its share)
-    residual <- mu_float - y
+    residual <- mu - y
+
+    # Gradient: X_label^T * residual
+    gradient <- as.numeric(crossprod(X, residual))
+    sum_residual <- sum(residual)
+
+    # Transport-encrypt residual for non-label (so it can compute its gradient)
+    encrypted_residual <- NULL
+    if (!is.null(peer_pk)) {
+      pk <- .base64url_to_base64(peer_pk)
+      sealed <- .callMheTool("transport-encrypt-vectors", list(
+        vectors = list(residual = as.numeric(residual)),
+        recipient_pk = pk
+      ))
+      encrypted_residual <- base64_to_base64url(sealed$sealed)
+    }
+
+    return(list(
+      gradient = gradient,
+      sum_residual = sum_residual,
+      encrypted_residual = encrypted_residual
+    ))
+
   } else {
-    # nonlabel: residual_share = mu_share (peer holds -y share)
-    residual <- mu_float
+    # Non-label: send mu_share to label, then decrypt residual and compute gradient
+
+    # Send raw base64 FixedPoint mu_share to label (transport-encrypted)
+    own_mu_b64 <- ss$k2_mu_share
+    if (is.null(own_mu_b64))
+      stop("No mu share found", call. = FALSE)
+
+    encrypted_mu <- NULL
+    if (!is.null(peer_pk)) {
+      pk <- .base64url_to_base64(peer_pk)
+      # Encrypt the base64 FixedPoint string directly
+      sealed <- .callMheTool("transport-encrypt", list(
+        data = jsonlite::base64_enc(charToRaw(own_mu_b64)),
+        recipient_pk = pk
+      ))
+      encrypted_mu <- base64_to_base64url(sealed$sealed)
+    }
+
+    # Decrypt residual from label (from blob, may not be available yet)
+    residual_blob <- .blob_consume("k2_residual", ss)
+    if (!is.null(residual_blob)) {
+      tsk <- .key_get("transport_sk", ss)
+      dec <- .callMheTool("transport-decrypt-vectors", list(
+        sealed = .base64url_to_base64(residual_blob),
+        recipient_sk = tsk
+      ))
+      residual <- as.numeric(dec$vectors$residual)
+      gradient <- as.numeric(crossprod(X, residual))
+      sum_residual <- sum(residual)
+    } else {
+      gradient <- rep(0, ncol(X))
+      sum_residual <- 0
+    }
+
+    return(list(
+      gradient = gradient,
+      sum_residual = sum_residual,
+      encrypted_mu = encrypted_mu
+    ))
   }
-
-  # Gradient: X^T * residual (local computation — X is plaintext on this party)
-  gradient <- as.numeric(crossprod(X, residual))
-
-  # Also compute sum of residuals for intercept update
-  sum_residual <- sum(residual)
-
-  list(
-    gradient = gradient,
-    sum_residual = sum_residual
-  )
 }

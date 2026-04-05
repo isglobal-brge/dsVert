@@ -180,7 +180,7 @@ func ExpParty0Round1(cfg ExpConfig, share0 []uint64, mta MultToAddTuple) (betaMu
 
 	for i := 0; i < n; i++ {
 		// Step 1: Convert to base-2 exponent (truncated FP multiply)
-		base2 := r.TruncMulSigned(share0[i], log2eFP)
+		base2 := r.TruncMul(share0[i], log2eFP)
 
 		// Step 2: Add offset to ensure positive
 		posBase2 := r.Add(base2, adderFP)
@@ -234,29 +234,17 @@ func ExpParty1Round1(cfg ExpConfig, share1 []uint64, mta MultToAddTuple) (alphaM
 
 	for i := 0; i < n; i++ {
 		// Step 1: base2 = share1 * log2(e) - correction
-		firstTerm := r.TruncMulSigned(share1[i], log2eFP)
+		// Matches C++ exactly: both TruncMul and Sub are unsigned ring operations
+		firstTerm := r.TruncMul(share1[i], log2eFP)
 		base2 := r.Sub(firstTerm, correction)
 
-		// Step 3: Split into integer and fractional
-		// For P1, the value may represent a negative number
-		var intPart uint64
-		var fracPart float64
+		// Step 3: Split into integer and fractional (UNSIGNED, same as C++)
+		// C++ SplitIntoIntegerAndFractionalParts: value / fracMul, value % fracMul / fracMul
+		intPart := base2 / r.FracMul
+		fracPart := float64(base2%r.FracMul) / float64(r.FracMul)
 
-		if r.IsNeg(base2) {
-			// Negative: base2 represents a negative value
-			absBase2 := r.Neg(base2)
-			intPart = r.Modulus - (absBase2/r.FracMul + 1) // wrap around to large uint
-			fracPart = float64(r.FracMul-(absBase2%r.FracMul)) / float64(r.FracMul)
-			if absBase2%r.FracMul == 0 {
-				intPart = r.Modulus - absBase2/r.FracMul
-				fracPart = 0
-			}
-		} else {
-			intPart = base2 / r.FracMul
-			fracPart = float64(base2%r.FracMul) / float64(r.FracMul)
-		}
-
-		// Step 4: P1's integer is already in the ring, use as Z_{q-1} directly
+		// Step 4: P1's integer is already a share in Z_{q-1}
+		// C++ comment: "For P_1, split_pair.first is already a share in Z_{prime_q - 1}"
 		intInQMinus1 := intPart % (q - 1)
 
 		// Step 5: 2^{integer} mod q

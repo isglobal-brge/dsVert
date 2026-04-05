@@ -2,6 +2,7 @@ package main
 
 import (
 	"math"
+	"math/big"
 	"testing"
 )
 
@@ -113,4 +114,36 @@ func TestSecureExpKelkarDebug(t *testing.T) {
 	t.Logf("P1 output: %d (%.6f)", exp1[0], r.ToDouble(exp1[0]))
 	t.Logf("Sum: %d (%.6f)", r.Add(exp0[0], exp1[0]), r.ToDouble(r.Add(exp0[0], exp1[0])))
 	t.Logf("Expected: %.6f", math.Exp(x))
+}
+
+func TestP1CorrectionTerm(t *testing.T) {
+	r := NewRing63(20)
+	log2eFP := r.FromDouble(log2e_const)
+	t.Logf("log2e_FP = %d (%.10f back)", log2eFP, r.ToDouble(log2eFP))
+	t.Logf("modulus = %d", r.Modulus)
+	t.Logf("fracMul = %d", r.FracMul)
+
+	// C++ computation: (log2eFP * modulus) / fracMul % modulus
+	prod := new(big.Int).Mul(
+		new(big.Int).SetUint64(log2eFP),
+		new(big.Int).SetUint64(r.Modulus),
+	)
+	div := new(big.Int).Div(prod, new(big.Int).SetUint64(r.FracMul))
+	correction := new(big.Int).Mod(div, new(big.Int).SetUint64(r.Modulus)).Uint64()
+	t.Logf("C++ correction = %d (%.6f in FP)", correction, r.ToDouble(correction))
+
+	// What I compute:
+	myCorrection := new(big.Int).Mul(
+		new(big.Int).SetUint64(log2eFP),
+		new(big.Int).SetUint64(r.Modulus),
+	)
+	myCorrection.Div(myCorrection, new(big.Int).SetUint64(r.FracMul))
+	myCorrection.Mod(myCorrection, new(big.Int).SetUint64(r.Modulus))
+	t.Logf("My correction  = %d", myCorrection.Uint64())
+
+	if correction != myCorrection.Uint64() {
+		t.Error("Corrections differ!")
+	} else {
+		t.Log("Corrections match")
+	}
 }

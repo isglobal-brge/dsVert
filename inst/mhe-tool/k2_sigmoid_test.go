@@ -172,3 +172,105 @@ func TestSigmoidTrainingLoop(t *testing.T) {
 		t.Errorf("Coefficient error %.2e exceeds 0.01", maxErr)
 	}
 }
+
+// TestPoissonTrainingLoop tests Poisson regression with secure exp (Kelkar).
+func TestPoissonTrainingLoop(t *testing.T) {
+	r := NewRing63(20)
+	cfg := DefaultExpConfig()
+
+	n := 100
+	p := 4
+	
+	seed := uint64(42)
+	next := func() float64 {
+		seed = seed*6364136223846793005 + 1442695040888963407
+		return float64(int64(seed>>33)-int64(1<<30)) / float64(1 << 30)
+	}
+	
+	X := make([]float64, n*p)
+	for i := range X { X[i] = next() * 1.0 }
+	
+	y := make([]float64, n)
+	for i := 0; i < n; i++ {
+		eta := 0.3 + 0.5*X[i*p+0] - 0.3*X[i*p+1]
+		mu := math.Exp(eta)
+		y[i] = math.Round(mu + next()*0.5)
+		if y[i] < 0 { y[i] = 0 }
+	}
+
+	// Train with Kelkar secure exp
+	beta := make([]float64, p+1)
+	alpha := 0.1
+	lambda := 1e-4
+
+	for iter := 0; iter < 500; iter++ {
+		grad := make([]float64, p+1)
+		for i := 0; i < n; i++ {
+			eta := beta[0]
+			for j := 0; j < p; j++ { eta += X[i*p+j] * beta[j+1] }
+			
+			// Clamp eta for exp safety
+			if eta > 5 { eta = 5 }
+			if eta < -5 { eta = -5 }
+			
+			// Use Kelkar secure exp (secret-shared simulation)
+			etaFP := r.FromDouble(eta)
+			e0, e1 := r.SplitShare(etaFP)
+			exp0, exp1 := SecureExpKelkar(cfg, []uint64{e0}, []uint64{e1})
+			mu := r.ToDouble(r.Add(exp0[0], exp1[0]))
+			if mu < 1e-10 { mu = 1e-10 }
+			
+			res := mu - y[i]
+			grad[0] += res / float64(n)
+			for j := 0; j < p; j++ {
+				grad[j+1] += X[i*p+j] * res / float64(n)
+			}
+		}
+		for j := 1; j <= p; j++ { grad[j] += lambda * beta[j] }
+		
+		gnorm := 0.0
+		for _, g := range grad { gnorm += g * g }
+		gnorm = math.Sqrt(gnorm)
+		scale := 1.0
+		if gnorm > 5.0 { scale = 5.0 / gnorm }
+		for j := range beta { beta[j] -= alpha * grad[j] * scale }
+	}
+
+	// Plaintext reference
+	betaRef := make([]float64, p+1)
+	for iter := 0; iter < 500; iter++ {
+		grad := make([]float64, p+1)
+		for i := 0; i < n; i++ {
+			eta := betaRef[0]
+			for j := 0; j < p; j++ { eta += X[i*p+j] * betaRef[j+1] }
+			if eta > 5 { eta = 5 }
+			if eta < -5 { eta = -5 }
+			mu := math.Exp(eta)
+			if mu < 1e-10 { mu = 1e-10 }
+			res := mu - y[i]
+			grad[0] += res / float64(n)
+			for j := 0; j < p; j++ { grad[j+1] += X[i*p+j] * res / float64(n) }
+		}
+		for j := 1; j <= p; j++ { grad[j] += lambda * betaRef[j] }
+		gnorm := 0.0
+		for _, g := range grad { gnorm += g * g }
+		gnorm = math.Sqrt(gnorm)
+		scale := 1.0
+		if gnorm > 5.0 { scale = 5.0 / gnorm }
+		for j := range betaRef { betaRef[j] -= alpha * grad[j] * scale }
+	}
+
+	t.Logf("Kelkar secure exp: intercept=%.4f beta=%v", beta[0], beta[1:])
+	t.Logf("Plaintext exp:     intercept=%.4f beta=%v", betaRef[0], betaRef[1:])
+
+	maxErr := 0.0
+	for j := range beta {
+		err := math.Abs(beta[j] - betaRef[j])
+		if err > maxErr { maxErr = err }
+	}
+	t.Logf("Max coefficient error: %.2e", maxErr)
+
+	if maxErr > 0.01 {
+		t.Errorf("Poisson coefficient error %.2e exceeds 0.01", maxErr)
+	}
+}

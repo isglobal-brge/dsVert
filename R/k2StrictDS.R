@@ -557,13 +557,22 @@ k2StrictIrlsCoordinatorDS <- function(data_name, y_var, x_vars, beta_current,
   eta_total_new <- eta_label_new + eta_other
 
   if (family == "binomial") {
-    eta_total_new <- pmax(pmin(eta_total_new, 20), -20)
-    mu_new <- 1 / (1 + exp(-eta_total_new))
+    # Use piecewise sigmoid (1:1 with Google C++ — spline + exp + Taylor)
+    # This gives ~1e-5 sigmoid accuracy vs ~7e-3 for Chebyshev degree-7
+    mu_result <- .callMheTool("k2-piecewise-sigmoid", list(
+      values = as.numeric(eta_total_new),
+      frac_bits = as.integer(frac_bits)
+    ))
+    mu_new <- mu_result$results
     mu_new <- pmax(pmin(mu_new, 1 - 1e-10), 1e-10)
     w_new <- mu_new * (1 - mu_new)
   } else if (family == "poisson") {
-    eta_total_new <- pmin(eta_total_new, 20)
-    mu_new <- exp(eta_total_new)
+    # Use piecewise exp (with clamping)
+    mu_result <- .callMheTool("k2-piecewise-exp", list(
+      values = as.numeric(eta_total_new),
+      frac_bits = as.integer(frac_bits)
+    ))
+    mu_new <- mu_result$results
     mu_new <- pmax(mu_new, 1e-10)
     w_new <- mu_new
   }
@@ -579,5 +588,98 @@ k2StrictIrlsCoordinatorDS <- function(data_name, y_var, x_vars, beta_current,
   list(
     beta = beta_new,
     encrypted_wr = base64_to_base64url(sealed$sealed)
+  )
+}
+
+# ============================================================================
+# K=2 Secure Training: coordinator runs full IRLS loop inside mhe-tool
+# ============================================================================
+
+#' K=2 coordinator full IRLS training step via mhe-tool
+#'
+#' Runs the complete IRLS loop inside the Go binary using the piecewise
+#' sigmoid (1:1 with Google C++) or secure exp. R calls this ONCE and
+#' gets final coefficients, weights, and residuals back.
+#'
+#' @param data_name Character. Standardized data frame name.
+#' @param y_var Character. Response variable name.
+#' @param x_vars Character vector. Feature column names.
+#' @param beta_current Numeric vector. Current coefficients (for warm start).
+#' @param eta_other Numeric vector. Non-label's linear predictor (decrypted).
+#' @param family Character. "binomial" or "poisson".
+#' @param lambda Numeric. L2 regularization.
+#' @param max_iter Integer. Max IRLS iterations.
+#' @param tol Numeric. Convergence tolerance.
+#' @param non_label_pk Character. Non-label's transport PK for encrypting (w, residual).
+#' @param session_id Character or NULL.
+#' @return List with beta, encrypted_wr, iterations, converged.
+#' @export
+k2TrainCoordinatorDS <- function(data_name, y_var, x_vars, beta_current = NULL,
+                                   eta_other = NULL, family = "binomial",
+                                   lambda = 1e-4, max_iter = 20L, tol = 1e-4,
+                                   non_label_pk = NULL, session_id = NULL) {
+  ss <- .S(session_id)
+
+  data <- .resolveData(data_name, parent.frame(), session_id)
+  y <- as.numeric(data[[y_var]])
+  X <- as.matrix(data[, x_vars, drop = FALSE])
+  n <- nrow(X)
+  p <- ncol(X)
+
+  # Disclosure controls
+  privacy_level <- getOption("datashield.privacyLevel", 5)
+  if (n < privacy_level)
+    stop("Insufficient observations", call. = FALSE)
+  .check_glm_disclosure(X, y)
+
+  # Get eta_other from blob if not passed directly
+  if (is.null(eta_other)) {
+    eta_blob <- .blob_consume("k2_eta_nonlabel", ss)
+    if (!is.null(eta_blob)) {
+      tsk <- .key_get("transport_sk", ss)
+      decrypted <- .callMheTool("transport-decrypt-vectors", list(
+        sealed = .base64url_to_base64(eta_blob),
+        recipient_sk = tsk
+      ))
+      eta_other <- as.numeric(decrypted$vectors$eta)
+    } else {
+      eta_other <- rep(0, n)
+    }
+  }
+
+  # Run full IRLS loop inside Go binary
+  result <- .callMheTool("k2-train", list(
+    x = as.numeric(t(X)),  # row-major
+    y = as.numeric(y),
+    n = as.integer(n),
+    p = as.integer(p),
+    family = family,
+    lambda = lambda,
+    max_iter = as.integer(max_iter),
+    tol = tol,
+    intercept = FALSE,  # intercept handled by standardization
+    eta_other = as.numeric(eta_other)
+  ))
+
+  beta_new <- result$beta
+
+  # Transport-encrypt (w, residual) for non-label server
+  if (!is.null(non_label_pk)) {
+    pk <- .base64url_to_base64(non_label_pk)
+    sealed <- .callMheTool("transport-encrypt-vectors", list(
+      vectors = list(w = result$w, residual = result$residual),
+      recipient_pk = pk
+    ))
+    encrypted_wr <- base64_to_base64url(sealed$sealed)
+  } else {
+    encrypted_wr <- NULL
+  }
+
+  list(
+    beta = beta_new,
+    encrypted_wr = encrypted_wr,
+    iterations = result$iterations,
+    converged = result$converged,
+    max_diff = result$max_diff
   )
 }

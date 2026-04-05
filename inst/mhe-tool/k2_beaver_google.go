@@ -268,3 +268,70 @@ func ScalarVectorProductPartyOne(scalarA float64, vectorB []uint64, r Ring63) []
 
 	return result
 }
+
+// ============================================================================
+// Command: k2-gen-beaver-triples
+// Generates Beaver triples ENTIRELY in the FixedPoint ring (no float64).
+// Returns base64 FP shares for both parties.
+// ============================================================================
+
+type K2GenBeaverTriplesInput struct {
+	N        int `json:"n"`         // number of triples
+	FracBits int `json:"frac_bits"` // fractional bits
+}
+
+type K2GenBeaverTriplesOutput struct {
+	Party0U string `json:"party0_u"` // base64 FP
+	Party0V string `json:"party0_v"`
+	Party0W string `json:"party0_w"`
+	Party1U string `json:"party1_u"`
+	Party1V string `json:"party1_v"`
+	Party1W string `json:"party1_w"`
+}
+
+func handleK2GenBeaverTriples() {
+	var input K2GenBeaverTriplesInput
+	mpcReadInput(&input)
+	if input.FracBits <= 0 {
+		input.FracBits = 20
+	}
+
+	n := input.N
+	r := NewRing63(input.FracBits)
+
+	// Generate ALL in the FP ring
+	a := make([]FixedPoint, n)
+	b := make([]FixedPoint, n)
+	c := make([]FixedPoint, n)
+	a0 := make([]FixedPoint, n)
+	a1 := make([]FixedPoint, n)
+	b0 := make([]FixedPoint, n)
+	b1 := make([]FixedPoint, n)
+	c0 := make([]FixedPoint, n)
+	c1 := make([]FixedPoint, n)
+
+	for i := 0; i < n; i++ {
+		// Random A, B in the ring
+		a[i] = FixedPoint(int64(cryptoRandUint64K2() % r.Modulus))
+		b[i] = FixedPoint(int64(cryptoRandUint64K2() % r.Modulus))
+		// C = A * B (truncated FP multiply in the ring)
+		c[i] = FPMulLocal(a[i], b[i], input.FracBits)
+
+		// Random split in the ring
+		a0[i] = FixedPoint(int64(cryptoRandUint64K2() % r.Modulus))
+		a1[i] = a[i] - a0[i] // wrapping subtraction (int64)
+		b0[i] = FixedPoint(int64(cryptoRandUint64K2() % r.Modulus))
+		b1[i] = b[i] - b0[i]
+		c0[i] = FixedPoint(int64(cryptoRandUint64K2() % r.Modulus))
+		c1[i] = c[i] - c0[i]
+	}
+
+	mpcWriteOutput(K2GenBeaverTriplesOutput{
+		Party0U: bytesToBase64(fpVecToBytes(a0)),
+		Party0V: bytesToBase64(fpVecToBytes(b0)),
+		Party0W: bytesToBase64(fpVecToBytes(c0)),
+		Party1U: bytesToBase64(fpVecToBytes(a1)),
+		Party1V: bytesToBase64(fpVecToBytes(b1)),
+		Party1W: bytesToBase64(fpVecToBytes(c1)),
+	})
+}

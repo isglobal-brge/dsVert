@@ -168,6 +168,14 @@ func main() {
 		handleK2PolyEvalLocal()
 	case "k2-float-to-fp":
 		handleK2FloatToFP()
+	case "k2-gen-beaver-triples":
+		handleK2GenBeaverTriples()
+	case "k2-train":
+		handleK2Train()
+	case "k2-piecewise-sigmoid":
+		handleK2PiecewiseSigmoid()
+	case "k2-piecewise-exp":
+		handleK2PiecewiseExp()
 	case "k2-fp-mul":
 		handleK2FPMul()
 	case "help", "-h", "--help":

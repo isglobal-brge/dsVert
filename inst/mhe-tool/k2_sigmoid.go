@@ -190,3 +190,79 @@ func SecureSigmoidFullProtocol(params SigmoidParams, x0, x1 []uint64) (sig0, sig
 	// For now, delegate to the local simulation
 	return SecureSigmoidLocal(params, x0, x1)
 }
+
+// ============================================================================
+// mhe-tool command: k2-piecewise-sigmoid
+// Evaluates the piecewise sigmoid on a vector of float64 values.
+// This is called from R via .callMheTool() for each party's share.
+// ============================================================================
+
+type K2PiecewiseSigmoidInput struct {
+	Values   []float64 `json:"values"`   // plaintext values to evaluate sigmoid on
+	FracBits int       `json:"frac_bits"`
+}
+
+type K2PiecewiseSigmoidOutput struct {
+	Results []float64 `json:"results"` // sigmoid(values)
+}
+
+func handleK2PiecewiseSigmoid() {
+	var input K2PiecewiseSigmoidInput
+	mpcReadInput(&input)
+
+	params := DefaultSigmoidParams()
+	if input.FracBits > 0 {
+		params.FracBits = input.FracBits
+	}
+
+	results := make([]float64, len(input.Values))
+	for i, x := range input.Values {
+		if x >= 0 && x < 1.0 {
+			results[i] = evalSpline(x, params)
+		} else if x >= 1.0 && x < float64(params.FracBits)*0.69314718055994530941 {
+			results[i] = evalExpTaylor(x, params)
+		} else if x >= float64(params.FracBits)*0.69314718055994530941 {
+			results[i] = 1.0
+		} else if x < -float64(params.FracBits)*0.69314718055994530941 {
+			results[i] = 0.0
+		} else if x >= -float64(params.FracBits)*0.69314718055994530941 && x < -1.0 {
+			results[i] = 1.0 - evalExpTaylor(-x, params)
+		} else {
+			results[i] = 1.0 - evalSpline(-x, params)
+		}
+		// Clamp
+		if results[i] < 0 { results[i] = 0 }
+		if results[i] > 1 { results[i] = 1 }
+	}
+
+	mpcWriteOutput(K2PiecewiseSigmoidOutput{Results: results})
+}
+
+// ============================================================================
+// mhe-tool command: k2-piecewise-exp
+// Evaluates exp on a vector of float64 values (for Poisson).
+// ============================================================================
+
+type K2PiecewiseExpInput struct {
+	Values   []float64 `json:"values"`
+	FracBits int       `json:"frac_bits"`
+}
+
+type K2PiecewiseExpOutput struct {
+	Results []float64 `json:"results"`
+}
+
+func handleK2PiecewiseExp() {
+	var input K2PiecewiseExpInput
+	mpcReadInput(&input)
+
+	results := make([]float64, len(input.Values))
+	for i, x := range input.Values {
+		// Clamp for safety
+		if x > 20 { x = 20 }
+		if x < -20 { x = -20 }
+		results[i] = math.Exp(x)
+	}
+
+	mpcWriteOutput(K2PiecewiseExpOutput{Results: results})
+}

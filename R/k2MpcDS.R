@@ -675,15 +675,20 @@ k2MpcCoordinatorIrlsDS <- function(data_name, y_var, x_vars, beta_current,
   eta <- as.vector(eta_other + X %*% beta_current)
 
   # IRLS quantities based on family
+  # Uses piecewise sigmoid/exp (1:1 with Google C++ — spline + exp + Taylor)
+  # for ~1e-5 accuracy instead of R's built-in sigmoid/exp
   if (family == "binomial") {
-    eta <- pmax(pmin(eta, 20), -20)
-    mu <- 1 / (1 + exp(-eta))
+    mu_result <- .callMheTool("k2-piecewise-sigmoid", list(
+      values = as.numeric(eta), frac_bits = 20L))
+    mu <- mu_result$results
     mu <- pmax(pmin(mu, 1 - 1e-10), 1e-10)
     w <- mu * (1 - mu)
     z <- eta + (y - mu) / w
   } else if (family == "poisson") {
     eta <- pmin(eta, 20)
-    mu <- exp(eta)
+    mu_result <- .callMheTool("k2-piecewise-exp", list(
+      values = as.numeric(eta), frac_bits = 20L))
+    mu <- mu_result$results
     mu <- pmax(mu, 1e-10)
     w <- mu
     z <- eta + (y - mu) / mu
@@ -713,13 +718,16 @@ k2MpcCoordinatorIrlsDS <- function(data_name, y_var, x_vars, beta_current,
   eta_total_new <- eta_label_new + eta_other
 
   if (family == "binomial") {
-    eta_total_new <- pmax(pmin(eta_total_new, 20), -20)
-    mu_new <- 1 / (1 + exp(-eta_total_new))
+    mu_result_new <- .callMheTool("k2-piecewise-sigmoid", list(
+      values = as.numeric(eta_total_new), frac_bits = 20L))
+    mu_new <- mu_result_new$results
     mu_new <- pmax(pmin(mu_new, 1 - 1e-10), 1e-10)
     w_new <- mu_new * (1 - mu_new)
   } else if (family == "poisson") {
     eta_total_new <- pmin(eta_total_new, 20)
-    mu_new <- exp(eta_total_new)
+    mu_result_new <- .callMheTool("k2-piecewise-exp", list(
+      values = as.numeric(eta_total_new), frac_bits = 20L))
+    mu_new <- mu_result_new$results
     mu_new <- pmax(mu_new, 1e-10)
     w_new <- mu_new
   }
@@ -884,13 +892,35 @@ k2MpcSecureStepDS <- function(step, a_share_key = NULL, b_share_key = NULL,
       blob <- .blob_consume("beaver_triples", ss)
       if (is.null(blob)) stop("No beaver_triples blob found.", call. = FALSE)
       tsk <- .key_get("transport_sk", ss)
-      decrypted <- .callMheTool("transport-decrypt-vectors", list(
-        sealed = .base64url_to_base64(blob),
-        recipient_sk = tsk
-      ))
-      ss$beaver_u <- as.numeric(decrypted$vectors$u)
-      ss$beaver_v <- as.numeric(decrypted$vectors$v)
-      ss$beaver_w <- as.numeric(decrypted$vectors$w)
+
+      # Try new format first (base64-encoded JSON with FP strings)
+      decrypted <- tryCatch({
+        dec <- .callMheTool("transport-decrypt", list(
+          sealed = .base64url_to_base64(blob),
+          recipient_sk = tsk
+        ))
+        msg_json <- rawToChar(jsonlite::base64_dec(dec$data))
+        msg <- jsonlite::fromJSON(msg_json)
+        # Convert FP base64 strings to float64 for backward compat
+        list(
+          u = .callMheTool("mpc-fp-to-float", list(fp_data = msg$u, frac_bits = as.integer(frac_bits)))$values,
+          v = .callMheTool("mpc-fp-to-float", list(fp_data = msg$v, frac_bits = as.integer(frac_bits)))$values,
+          w = .callMheTool("mpc-fp-to-float", list(fp_data = msg$w, frac_bits = as.integer(frac_bits)))$values
+        )
+      }, error = function(e) {
+        # Fallback: old format (float64 vectors)
+        dec <- .callMheTool("transport-decrypt-vectors", list(
+          sealed = .base64url_to_base64(blob),
+          recipient_sk = tsk
+        ))
+        list(u = as.numeric(dec$vectors$u),
+             v = as.numeric(dec$vectors$v),
+             w = as.numeric(dec$vectors$w))
+      })
+
+      ss$beaver_u <- decrypted$u
+      ss$beaver_v <- decrypted$v
+      ss$beaver_w <- decrypted$w
       list(stored = TRUE)
     },
 

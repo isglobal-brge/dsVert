@@ -274,3 +274,128 @@ func TestPoissonTrainingLoop(t *testing.T) {
 		t.Errorf("Poisson coefficient error %.2e exceeds 0.01", maxErr)
 	}
 }
+
+// TestLogisticGoogleCppReference replicates the EXACT test from the C++ code:
+// logistic_regression/gradient_descent_test.cc, OneIterationNoRegularization
+func TestLogisticGoogleCppReference(t *testing.T) {
+	params := DefaultSigmoidParams()
+	r := params.Ring
+
+	// C++ test data: 20 examples, 5 features (binary 0/1)
+	XRaw := []float64{
+		1,0,0,0,1, 1,0,0,0,1, 1,0,0,0,0, 1,0,0,1,1,
+		1,0,0,1,0, 1,0,1,0,1, 1,0,1,0,1, 1,0,1,0,0,
+		1,0,1,1,1, 1,0,1,1,0, 1,1,0,0,1, 1,1,0,0,1,
+		1,1,0,0,0, 1,1,0,1,1, 1,1,0,1,0, 1,1,1,0,1,
+		1,1,1,0,1, 1,1,1,0,0, 1,1,1,1,1, 1,1,1,1,0,
+	}
+	yRaw := []float64{1,1,0,0,0,1,1,0,0,0,1,1,0,0,0,1,1,0,0,0}
+
+	n := 20
+	p := 5
+
+	// C++ params: alpha = 18 (as double), 1 iteration, no regularization
+	alphaGD := 18.0 / float64(n) // 0.9
+
+	// Train 1 iteration with piecewise sigmoid
+	beta := make([]float64, p)
+	grad := make([]float64, p)
+	for i := 0; i < n; i++ {
+		etaVal := 0.0
+		for j := 0; j < p; j++ { etaVal += XRaw[i*p+j] * beta[j] }
+
+		// Piecewise sigmoid (secret-shared simulation)
+		etaFP := r.FromDouble(etaVal)
+		e0, e1 := r.SplitShare(etaFP)
+		s0, s1 := SecureSigmoidLocal(params, []uint64{e0}, []uint64{e1})
+		mu := r.ToDouble(r.Add(s0[0], s1[0]))
+
+		d := mu - yRaw[i]
+		for j := 0; j < p; j++ {
+			grad[j] += XRaw[i*p+j] * d
+		}
+	}
+	// Update: theta = theta - (alpha/n) * grad
+	for j := 0; j < p; j++ {
+		beta[j] -= alphaGD * grad[j]
+	}
+
+	// C++ expected after 1 iteration with theta=0, alpha=18:
+	// theta = {-1.8, -0.9, -0.9, -3.6, 1.8}
+	expected := []float64{-1.8, -0.9, -0.9, -3.6, 1.8}
+
+	t.Logf("Our theta:      %v", beta)
+	t.Logf("C++ expected:   %v", expected)
+
+	maxErr := 0.0
+	for j := 0; j < p; j++ {
+		err := math.Abs(beta[j] - expected[j])
+		if err > maxErr { maxErr = err }
+	}
+	t.Logf("Max error vs C++ expected: %.4e (C++ tolerance: 0.02)", maxErr)
+
+	if maxErr > 0.02 {
+		t.Errorf("Error %.4e exceeds C++ tolerance 0.02", maxErr)
+	}
+}
+
+// TestLogistic5IterGoogleReference replicates the C++ 5-iteration test.
+func TestLogistic5IterGoogleReference(t *testing.T) {
+	params := DefaultSigmoidParams()
+	r := params.Ring
+
+	XRaw := []float64{
+		1,0,0,0,1, 1,0,0,0,1, 1,0,0,0,0, 1,0,0,1,1,
+		1,0,0,1,0, 1,0,1,0,1, 1,0,1,0,1, 1,0,1,0,0,
+		1,0,1,1,1, 1,0,1,1,0, 1,1,0,0,1, 1,1,0,0,1,
+		1,1,0,0,0, 1,1,0,1,1, 1,1,0,1,0, 1,1,1,0,1,
+		1,1,1,0,1, 1,1,1,0,0, 1,1,1,1,1, 1,1,1,1,0,
+	}
+	yRaw := []float64{1,1,0,0,0,1,1,0,0,0,1,1,0,0,0,1,1,0,0,0}
+
+	n := 20
+	p := 5
+	alphaScalar := 18.0
+	lambda := 0.1
+
+	beta := make([]float64, p)
+
+	for iter := 0; iter < 5; iter++ {
+		grad := make([]float64, p)
+		for i := 0; i < n; i++ {
+			etaVal := 0.0
+			for j := 0; j < p; j++ { etaVal += XRaw[i*p+j] * beta[j] }
+
+			etaFP := r.FromDouble(etaVal)
+			e0, e1 := r.SplitShare(etaFP)
+			s0, s1 := SecureSigmoidLocal(params, []uint64{e0}, []uint64{e1})
+			mu := r.ToDouble(r.Add(s0[0], s1[0]))
+
+			d := mu - yRaw[i]
+			for j := 0; j < p; j++ {
+				grad[j] += XRaw[i*p+j] * d
+			}
+		}
+		// Update: theta = theta - (alpha/n)*grad - (alpha*lambda/n)*theta
+		for j := 0; j < p; j++ {
+			beta[j] -= (alphaScalar/float64(n))*grad[j] + (alphaScalar*lambda/float64(n))*beta[j]
+		}
+	}
+
+	// C++ expected after 5 iterations:
+	expected := []float64{-5.209011173974926, -2.6407028538582202, -2.64070285385822, -10.915857622419917, 5.392025544439257}
+
+	t.Logf("Our theta (5 iters):  %v", beta)
+	t.Logf("C++ expected:         %v", expected)
+
+	maxErr := 0.0
+	for j := 0; j < p; j++ {
+		err := math.Abs(beta[j] - expected[j])
+		if err > maxErr { maxErr = err }
+	}
+	t.Logf("Max error vs C++: %.4e (C++ tolerance: 0.5)", maxErr)
+
+	if maxErr > 0.5 {
+		t.Errorf("Error %.4e exceeds C++ tolerance 0.5", maxErr)
+	}
+}

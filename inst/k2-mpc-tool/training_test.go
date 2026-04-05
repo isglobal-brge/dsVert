@@ -299,3 +299,132 @@ func TestSecureTrainBinomialRealistic(t *testing.T) {
 	}
 	t.Logf("Max coefficient error vs plaintext GD: %.2e", maxErr)
 }
+
+func TestSecureTrainBinomialDeg13(t *testing.T) {
+	rp := DefaultRingParams()
+
+	// Same realistic data
+	n := 20
+	p := 3
+	X := []float64{
+		-0.5, 0.3, 1.2, 0.8, -0.4, -0.3, -1.1, 0.9, 0.5, 0.3, -0.7, 0.1,
+		1.5, 0.2, -0.8, -0.2, 1.1, 0.4, 0.7, -0.3, -0.6, -0.9, 0.5, 0.9,
+		0.1, -0.8, 0.2, 1.3, 0.4, -1.0, -0.6, 0.7, 0.3, 0.4, -0.5, -0.1,
+		-1.0, 0.8, 0.7, 0.2, -0.6, 0.0, 1.1, 0.1, -0.5, -0.3, 1.0, 0.6,
+		0.6, -0.2, -0.4, -0.8, 0.6, 0.8, 0.0, -0.9, 0.1, 1.2, 0.3, -0.7,
+	}
+	y := []float64{0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1}
+
+	// Test with degree 13 on [-3, 3] for higher sigmoid accuracy
+	params := DefaultBinomialParams()
+	params.MaxIter = 200
+	params.Alpha = 0.5
+	params.PolyDeg = 13
+	params.PolyLow = -3.0
+	params.PolyHigh = 3.0
+
+	result := SecureTrainLocal(rp, X, y, n, p, params)
+	plainBeta := plaintextLogisticGD(X, y, n, p, params.Lambda, params.Alpha, 200)
+
+	t.Logf("Deg-13 [-3,3] Secure:    intercept=%.4f beta=%v", result.Intercept, result.Beta)
+	t.Logf("Deg-13 [-3,3] Plaintext: intercept=%.4f beta=%v", plainBeta[0], plainBeta[1:])
+	t.Logf("Converged=%v, Iters=%d, MaxDiff=%.2e", result.Converged, result.Iterations, result.MaxDiff)
+
+	maxErr := math.Abs(result.Intercept - plainBeta[0])
+	for j := 0; j < p; j++ {
+		err := math.Abs(result.Beta[j] - plainBeta[j+1])
+		if err > maxErr { maxErr = err }
+	}
+	t.Logf("Max coef error vs plaintext GD: %.2e", maxErr)
+
+	// Also test with degree 7 for comparison
+	params7 := DefaultBinomialParams()
+	params7.MaxIter = 200
+	params7.Alpha = 0.5
+	result7 := SecureTrainLocal(rp, X, y, n, p, params7)
+	maxErr7 := math.Abs(result7.Intercept - plainBeta[0])
+	for j := 0; j < p; j++ {
+		err := math.Abs(result7.Beta[j] - plainBeta[j+1])
+		if err > maxErr7 { maxErr7 = err }
+	}
+	t.Logf("Deg-7  [-5,5] coef error: %.2e", maxErr7)
+	t.Logf("Deg-13 [-3,3] coef error: %.2e (improvement: %.1fx)", maxErr, maxErr7/maxErr)
+}
+
+func TestSecureVsPlaintextConvergence(t *testing.T) {
+	rp := DefaultRingParams()
+	n := 20
+	p := 3
+	X := []float64{
+		-0.5, 0.3, 1.2, 0.8, -0.4, -0.3, -1.1, 0.9, 0.5, 0.3, -0.7, 0.1,
+		1.5, 0.2, -0.8, -0.2, 1.1, 0.4, 0.7, -0.3, -0.6, -0.9, 0.5, 0.9,
+		0.1, -0.8, 0.2, 1.3, 0.4, -1.0, -0.6, 0.7, 0.3, 0.4, -0.5, -0.1,
+		-1.0, 0.8, 0.7, 0.2, -0.6, 0.0, 1.1, 0.1, -0.5, -0.3, 1.0, 0.6,
+		0.6, -0.2, -0.4, -0.8, 0.6, 0.8, 0.0, -0.9, 0.1, 1.2, 0.3, -0.7,
+	}
+	y := []float64{0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1}
+
+	for _, iters := range []int{100, 500, 2000, 5000} {
+		params := DefaultBinomialParams()
+		params.MaxIter = iters
+		params.Alpha = 0.5
+
+		secureResult := SecureTrainLocal(rp, X, y, n, p, params)
+		plainBeta := plaintextLogisticGD(X, y, n, p, params.Lambda, params.Alpha, iters)
+
+		maxErr := math.Abs(secureResult.Intercept - plainBeta[0])
+		for j := 0; j < p; j++ {
+			err := math.Abs(secureResult.Beta[j] - plainBeta[j+1])
+			if err > maxErr { maxErr = err }
+		}
+		t.Logf("Iters=%5d: secure_diff=%.2e  plaintext_beta0=%.4f  secure_beta0=%.4f",
+			iters, maxErr, plainBeta[0], secureResult.Intercept)
+	}
+}
+
+func TestSecureTrainLargerData(t *testing.T) {
+	rp := DefaultRingParams()
+	
+	// Generate 100 observations, 4 features (standardized)
+	n := 100
+	p := 4
+	
+	// Deterministic "random" data via simple PRNG
+	seed := uint64(42)
+	next := func() float64 {
+		seed = seed*6364136223846793005 + 1442695040888963407
+		return float64(int64(seed>>33)-int64(1<<30)) / float64(1 << 30) // [-1, 1)
+	}
+	
+	X := make([]float64, n*p)
+	for i := range X { X[i] = next() * 1.5 } // standardized-ish: range [-1.5, 1.5]
+	
+	y := make([]float64, n)
+	// Generate y based on a true logistic model: P(y=1) = sigmoid(0.5 + x1 - 0.5*x2)
+	for i := 0; i < n; i++ {
+		eta := 0.5 + X[i*p+0] - 0.5*X[i*p+1]
+		prob := 1.0 / (1.0 + math.Exp(-eta))
+		if next() < prob*2-1 { // pseudo-random threshold
+			y[i] = 1
+		}
+	}
+
+	params := DefaultBinomialParams()
+	params.MaxIter = 500
+	params.Alpha = 0.3
+
+	secureResult := SecureTrainLocal(rp, X, y, n, p, params)
+	plainBeta := plaintextLogisticGD(X, y, n, p, params.Lambda, params.Alpha, 500)
+
+	t.Logf("n=%d, p=%d, 500 iterations, alpha=0.3:", n, p)
+	t.Logf("  Secure:    intercept=%.4f beta=%v", secureResult.Intercept, secureResult.Beta)
+	t.Logf("  Plaintext: intercept=%.4f beta=%v", plainBeta[0], plainBeta[1:])
+	t.Logf("  Converged: %v, MaxDiff: %.2e", secureResult.Converged, secureResult.MaxDiff)
+
+	maxErr := math.Abs(secureResult.Intercept - plainBeta[0])
+	for j := 0; j < p; j++ {
+		err := math.Abs(secureResult.Beta[j] - plainBeta[j+1])
+		if err > maxErr { maxErr = err }
+	}
+	t.Logf("  Max coef error vs plaintext GD: %.2e", maxErr)
+}

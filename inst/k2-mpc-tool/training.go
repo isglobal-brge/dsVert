@@ -141,19 +141,9 @@ func SecureTrainLocal(rp RingParams, X []float64, y []float64,
 			}
 		}
 
-		// Clamp eta to polynomial range (applied to reconstructed value,
-		// then re-shared — this briefly reveals eta which we accept for now;
-		// in full production, clamping is done pre-training via data standardization)
-		for i := 0; i < n; i++ {
-			etaVal := rp.ToDouble(rp.ModAdd(eta0[i], eta1[i]))
-			if etaVal < params.PolyLow {
-				etaVal = params.PolyLow
-			} else if etaVal > params.PolyHigh {
-				etaVal = params.PolyHigh
-			}
-			clamped := rp.FromDouble(etaVal)
-			eta0[i], eta1[i] = rp.SplitShare(clamped)
-		}
+		// No clamping — data must be pre-standardized so eta stays in polynomial range.
+		// Clamping would require reconstructing eta (insecure) or adding a secure
+		// comparison protocol (complex). Pre-standardization is the correct approach.
 
 		// === Step 2: Compute [mu] = secure_link([eta]) ===
 		mu0, mu1 := SecurePolyEval(rp, polyCoeffs, eta0, eta1)
@@ -200,10 +190,24 @@ func SecureTrainLocal(rp RingParams, X []float64, y []float64,
 			grad[j] = gradJ/float64(n) + params.Lambda*betaDoubles[j+1]
 		}
 
-		// === Step 5: Update beta ===
-		betaDoubles[0] -= alpha * gIntercept
+		// === Step 5: Update beta with gradient clipping ===
+		// Clip gradient norm to prevent divergence when polynomial
+		// gives extreme values outside the approximation range.
+		// This is the standard defense against gradient explosion in GD.
+		gradNorm := math.Abs(gIntercept)
 		for j := 0; j < p; j++ {
-			betaDoubles[j+1] -= alpha * grad[j]
+			gradNorm += grad[j] * grad[j]
+		}
+		gradNorm = math.Sqrt(gradNorm)
+		maxGradNorm := 5.0 // clip threshold
+		scale := 1.0
+		if gradNorm > maxGradNorm {
+			scale = maxGradNorm / gradNorm
+		}
+
+		betaDoubles[0] -= alpha * gIntercept * scale
+		for j := 0; j < p; j++ {
+			betaDoubles[j+1] -= alpha * grad[j] * scale
 		}
 
 		// Re-share updated beta

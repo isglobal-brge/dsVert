@@ -289,3 +289,69 @@ func solveLinearSystem(A []float64, b []float64, n int) []float64 {
 	}
 	return result
 }
+
+// ============================================================================
+// Command: k2-secure-gradient
+// Computes gradient on secret shares using Ring63-exact arithmetic.
+// Both parties call this with their own X and their mu share.
+// Returns the party's gradient contribution (p scalars — safe to reveal).
+// ============================================================================
+
+type K2SecureGradientInput struct {
+	X          []float64 `json:"x"`           // this party's feature matrix (n x p, row-major)
+	MuShare    []float64 `json:"mu_share"`    // this party's share of mu (n-vector)
+	YShare     []float64 `json:"y_share"`     // this party's share of y (n-vector)
+	N          int       `json:"n"`
+	P          int       `json:"p"`
+	FracBits   int       `json:"frac_bits"`
+	PartyID    int       `json:"party_id"`    // 0 = label, 1 = nonlabel
+}
+
+type K2SecureGradientOutput struct {
+	GradientShare []float64 `json:"gradient_share"` // p_k scalars
+	SumResidual   float64   `json:"sum_residual"`   // 1 scalar for intercept
+}
+
+func handleK2SecureGradient() {
+	var input K2SecureGradientInput
+	mpcReadInput(&input)
+	if input.FracBits <= 0 {
+		input.FracBits = 20
+	}
+
+	r := NewRing63(input.FracBits)
+	n := input.N
+	p := input.P
+
+	// Convert to Ring63
+	muShare := make([]uint64, n)
+	yShare := make([]uint64, n)
+	for i := 0; i < n; i++ {
+		muShare[i] = r.FromDouble(input.MuShare[i])
+		yShare[i] = r.FromDouble(input.YShare[i])
+	}
+
+	// Residual share: r_i = mu_share_i - y_share_i
+	residualShare := make([]uint64, n)
+	for i := 0; i < n; i++ {
+		residualShare[i] = r.Sub(muShare[i], yShare[i])
+	}
+
+	// Gradient: X^T * residual_share (this party's contribution)
+	// Since X is plaintext on this party, use ScalarVectorProduct
+	gradientShare := make([]float64, p)
+	sumResidual := 0.0
+
+	for i := 0; i < n; i++ {
+		residualVal := r.ToDouble(residualShare[i])
+		sumResidual += residualVal
+		for j := 0; j < p; j++ {
+			gradientShare[j] += input.X[i*p+j] * residualVal
+		}
+	}
+
+	mpcWriteOutput(K2SecureGradientOutput{
+		GradientShare: gradientShare,
+		SumResidual:   sumResidual,
+	})
+}

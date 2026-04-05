@@ -170,6 +170,8 @@ func main() {
 		handleK2FloatToFP()
 	case "k2-gen-beaver-triples":
 		handleK2GenBeaverTriples()
+	case "k2-secure-gradient":
+		handleK2SecureGradient()
 	case "k2-train":
 		handleK2Train()
 	case "k2-piecewise-sigmoid":

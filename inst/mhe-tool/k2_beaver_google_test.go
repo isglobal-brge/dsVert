@@ -88,3 +88,64 @@ func TestHadamardProductRandomLarge(t *testing.T) {
 		t.Errorf("Max error %.2e exceeds 0.01", maxErr)
 	}
 }
+
+func TestScalarVectorProductGoogle(t *testing.T) {
+	r := NewRing63(20)
+
+	// Test: multiply scalar 2.5 by shared vector [1.0, -1.0, 0.5, -0.3]
+	scalar := 2.5
+	vals := []float64{1.0, -1.0, 0.5, -0.3}
+	expected := []float64{2.5, -2.5, 1.25, -0.75}
+
+	n := len(vals)
+	x := make([]uint64, n)
+	x0 := make([]uint64, n)
+	x1 := make([]uint64, n)
+	for i, v := range vals {
+		x[i] = r.FromDouble(v)
+		x0[i], x1[i] = r.SplitShare(x[i])
+	}
+
+	res0 := ScalarVectorProductPartyZero(scalar, x0, r)
+	res1 := ScalarVectorProductPartyOne(scalar, x1, r)
+
+	for i := range expected {
+		result := r.ToDouble(r.Add(res0[i], res1[i]))
+		err := math.Abs(result - expected[i])
+		if err > 0.001 {
+			t.Errorf("SVP[%d]: %.1f * %.1f = %.4f, want %.4f (err %.2e)",
+				i, scalar, vals[i], result, expected[i], err)
+		}
+	}
+	t.Log("ScalarVectorProduct: PASS")
+}
+
+func TestScalarVectorProductNegativeScalar(t *testing.T) {
+	r := NewRing63(20)
+
+	scalar := -0.5
+	vals := []float64{2.0, -3.0, 0.0, 1.5}
+	expected := []float64{-1.0, 1.5, 0.0, -0.75}
+
+	n := len(vals)
+	x := make([]uint64, n)
+	x0 := make([]uint64, n)
+	x1 := make([]uint64, n)
+	for i, v := range vals {
+		x[i] = r.FromDouble(v)
+		x0[i], x1[i] = r.SplitShare(x[i])
+	}
+
+	res0 := ScalarVectorProductPartyZero(scalar, x0, r)
+	res1 := ScalarVectorProductPartyOne(scalar, x1, r)
+
+	for i := range expected {
+		result := r.ToDouble(r.Add(res0[i], res1[i]))
+		err := math.Abs(result - expected[i])
+		if err > 0.001 {
+			t.Errorf("SVP[%d]: %.1f * %.1f = %.4f, want %.4f",
+				i, scalar, vals[i], result, expected[i])
+		}
+	}
+	t.Log("ScalarVectorProduct (negative scalar): PASS")
+}

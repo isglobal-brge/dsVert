@@ -428,3 +428,48 @@ func TestSecureTrainLargerData(t *testing.T) {
 	}
 	t.Logf("  Max coef error vs plaintext GD: %.2e", maxErr)
 }
+
+func TestSecureTrainPoissonLargerData(t *testing.T) {
+	rp := DefaultRingParams()
+	
+	n := 100
+	p := 4
+	
+	seed := uint64(42)
+	next := func() float64 {
+		seed = seed*6364136223846793005 + 1442695040888963407
+		return float64(int64(seed>>33)-int64(1<<30)) / float64(1 << 30)
+	}
+	
+	X := make([]float64, n*p)
+	for i := range X { X[i] = next() * 1.0 } // standardized range [-1, 1]
+	
+	y := make([]float64, n)
+	// Generate counts based on Poisson model: mu = exp(0.3 + 0.5*x1 - 0.3*x2)
+	for i := 0; i < n; i++ {
+		eta := 0.3 + 0.5*X[i*p+0] - 0.3*X[i*p+1]
+		mu := math.Exp(eta)
+		// Simple deterministic count generation
+		y[i] = math.Round(mu + next()*0.5)
+		if y[i] < 0 { y[i] = 0 }
+	}
+
+	params := DefaultPoissonParams()
+	params.MaxIter = 500
+	params.Alpha = 0.1
+
+	secureResult := SecureTrainLocal(rp, X, y, n, p, params)
+	plainBeta := plaintextPoissonGD(X, y, n, p, params.Lambda, params.Alpha, 500)
+
+	t.Logf("Poisson n=%d, p=%d, 500 iters:", n, p)
+	t.Logf("  Secure:    intercept=%.4f beta=%v", secureResult.Intercept, secureResult.Beta)
+	t.Logf("  Plaintext: intercept=%.4f beta=%v", plainBeta[0], plainBeta[1:])
+	t.Logf("  Converged: %v, MaxDiff: %.2e", secureResult.Converged, secureResult.MaxDiff)
+
+	maxErr := math.Abs(secureResult.Intercept - plainBeta[0])
+	for j := 0; j < p; j++ {
+		err := math.Abs(secureResult.Beta[j] - plainBeta[j+1])
+		if err > maxErr { maxErr = err }
+	}
+	t.Logf("  Max coef error vs plaintext GD: %.2e", maxErr)
+}

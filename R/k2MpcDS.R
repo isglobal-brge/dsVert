@@ -30,19 +30,20 @@ NULL
 # ============================================================================
 
 #' Get server-side K=2 nonlinear policy
-#' @return Character: "pragmatic", "strict", or "abort"
+#' @return Character: "pragmatic" or "strict"
 #' @keywords internal
 .k2_get_policy <- function() {
   policy <- getOption("dsvert.k2_nonlinear_policy",
-                      getOption("default.dsvert.k2_nonlinear_policy", "pragmatic"))
-  match.arg(policy, c("pragmatic", "strict", "abort"))
+                      getOption("default.dsvert.k2_nonlinear_policy", "strict"))
+  match.arg(policy, c("strict", "pragmatic"))
 }
 
 #' Check pragmatic mode gates and return resolved mode
 #'
 #' Enforces minimum feature-count and optional study-ID requirements
-#' for pragmatic (GS-IRLS) mode. Returns "strict" if pragmatic gates
-#' fail soft, or stops if policy is "abort".
+#' for pragmatic (GS-IRLS) mode. Returns "strict" if any gate fails.
+#' Default is strict — pragmatic must be explicitly opted into by the
+#' server administrator.
 #'
 #' @param p_nonlabel Integer. Number of features on the non-label server.
 #' @param study_id Character or NULL. Optional study identifier.
@@ -50,10 +51,9 @@ NULL
 #' @keywords internal
 .k2_pragmatic_gates <- function(p_nonlabel, study_id = NULL) {
   policy <- .k2_get_policy()
-  if (policy == "abort") stop("K=2 nonlinear blocked by server policy", call. = FALSE)
   if (policy == "strict") return("strict")
 
-  # Pragmatic gates
+  # Pragmatic gates — admin has explicitly opted in, enforce minimum safeguards
   min_p <- getOption("dsvert.k2_pragmatic_min_p",
                      getOption("default.dsvert.k2_pragmatic_min_p", 3L))
   if (p_nonlabel < min_p)
@@ -95,8 +95,8 @@ NULL
 #' Query K=2 nonlinear policy for a given feature count
 #'
 #' Called by the client BEFORE starting iterations to learn the server's
-#' configured policy. Returns the resolved mode (pragmatic, strict, or abort)
-#' and the reason if a fallback occurred.
+#' configured policy. Default is strict (HE-Link). Pragmatic (GS-IRLS)
+#' requires explicit opt-in by the server administrator.
 #'
 #' @param p_nonlabel Integer. Number of features on the non-label server.
 #' @param study_id Character or NULL. Optional study identifier.
@@ -104,8 +104,6 @@ NULL
 #' @export
 k2MpcQueryPolicyDS <- function(p_nonlabel, study_id = NULL) {
   policy <- .k2_get_policy()
-  if (policy == "abort")
-    return(list(mode = "abort", reason = "K=2 nonlinear blocked by server policy"))
   if (policy == "pragmatic") {
     min_p <- getOption("dsvert.k2_pragmatic_min_p",
                        getOption("default.dsvert.k2_pragmatic_min_p", 3L))

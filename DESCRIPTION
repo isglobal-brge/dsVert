@@ -114,6 +114,6 @@ Options:
     default.dsvert.psi_key_pinning=FALSE,
     default.dsvert.mhe_key_pinning=FALSE,
     default.dsvert.manifest_consensus=FALSE,
-    default.dsvert.k2_nonlinear_policy=pragmatic,
+    default.dsvert.k2_nonlinear_policy=strict,
     default.dsvert.k2_pragmatic_min_p=3,
     default.dsvert.k2_pragmatic_require_study_id=FALSE

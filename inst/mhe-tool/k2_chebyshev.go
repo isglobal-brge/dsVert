@@ -375,6 +375,40 @@ func handleK2FloatToFP() {
 	})
 }
 
+// ============================================================================
+// Command: k2-fp-mul
+// Element-wise FixedPoint multiplication of two vectors.
+// Used by the client to generate exact Beaver triples.
+// ============================================================================
+
+type K2FPMulInput struct {
+	A        string `json:"a"`         // base64 FixedPoint vector
+	B        string `json:"b"`         // base64 FixedPoint vector
+	FracBits int    `json:"frac_bits"`
+}
+
+type K2FPMulOutput struct {
+	Result string `json:"result"` // base64 FixedPoint vector (a * b truncated)
+}
+
+func handleK2FPMul() {
+	var input K2FPMulInput
+	mpcReadInput(&input)
+	if input.FracBits <= 0 {
+		input.FracBits = 20
+	}
+	a := bytesToFPVec(base64ToBytes(input.A))
+	b := bytesToFPVec(base64ToBytes(input.B))
+	n := len(a)
+	result := make([]FixedPoint, n)
+	for i := 0; i < n; i++ {
+		result[i] = FPMulLocal(a[i], b[i], input.FracBits)
+	}
+	mpcWriteOutput(K2FPMulOutput{
+		Result: bytesToBase64(fpVecToBytes(result)),
+	})
+}
+
 // float64sToFP converts a float64 slice to FixedPoint vector.
 // Uses the existing FromFloat64 which handles int64 two's complement correctly.
 func float64sToFP(vals []float64, fracBits int) []FixedPoint {

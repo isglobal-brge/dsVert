@@ -168,6 +168,8 @@ func main() {
 		handleK2PolyEvalLocal()
 	case "k2-float-to-fp":
 		handleK2FloatToFP()
+	case "k2-fp-mul":
+		handleK2FPMul()
 	case "help", "-h", "--help":
 		printUsage()
 	default:

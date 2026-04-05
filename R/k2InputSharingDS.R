@@ -47,16 +47,16 @@ k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
   # Flatten X to vector (row-major)
   x_flat <- as.numeric(t(X))
 
-  # Generate random share (own) and complement (peer)
-  # Use mhe-tool to generate in FixedPoint-exact, then convert to float
-  # Actually: for the gradient computation, we work in float64 (not FP shares)
-  # because the gradient dot-product is done in float64 arithmetic.
-  # The shares just need to be random and sum to the original.
-  own_share_x <- runif(length(x_flat), -100, 100)
-  peer_share_x <- x_flat - own_share_x
+  # Convert to FixedPoint and split in the ring (ALL computation stays in FP)
+  fp_x <- .callMheTool("k2-float-to-fp", list(values = x_flat, frac_bits = 20L))$fp_data
 
-  # Store own share
-  ss$k2_x_share <- own_share_x
+  # Split in FP: own_share + peer_share = x (in FixedPoint ring)
+  # Generate random FP share, compute complement
+  x_split <- .callMheTool("k2-split-fp-share", list(
+    data_fp = fp_x, n = length(x_flat)))
+
+  # Store own FP share (base64 string)
+  ss$k2_x_share_fp <- x_split$own_share
   ss$k2_x_n <- n
   ss$k2_x_p <- p
 

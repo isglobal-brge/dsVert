@@ -170,6 +170,12 @@ func main() {
 		handleK2FloatToFP()
 	case "k2-gen-beaver-triples":
 		handleK2GenBeaverTriples()
+	case "k2-split-fp-share":
+		handleK2SplitFPShare()
+	case "k2-gen-matvec-triples":
+		handleK2GenMatvecTriples()
+	case "k2-full-iter-r3":
+		handleK2FullIterR3()
 	case "k2-gradient-in-ring":
 		handleK2GradientInRing()
 	case "k2-beaver-matvec-r1":

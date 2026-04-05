@@ -1,19 +1,10 @@
-// secure_exp_kelkar.go: Secure exponentiation protocol (Kelkar et al.)
+// k2_secure_exp.go: Secure exponentiation protocol (Kelkar et al.)
 //
-// Port of Google fss_machine_learning: poisson_regression/secure_exponentiation.cc
+// 1:1 port of Google fss_machine_learning: poisson_regression/secure_exponentiation.cc
 //
-// Computes e^x on secret shares via base-2 decomposition:
-//   1. Convert to base-2: x_base2 = x * log2(e) (truncated FP multiply)
-//   2. P0 adds constant to ensure non-negative
-//   3. Split into integer + fractional parts
-//   4. Integer part: 2^k via modular exponentiation in Z_q (multiplicative share)
-//   5. Fractional part: 2^f via plaintext pow() (each party on its own share)
-//   6. Combine int * frac = multiplicative share of 2^x
-//   7. Multiplicative-to-additive conversion via (alpha, beta) tuple
-//   8. Convert from Z_q to Z_{2^l} and divide by scaling factors
-//
-// Security: neither party sees x, x_base2, the integer part, or the final exp.
-// Only the mult-to-add message (a single scalar per element) is exchanged.
+// Uses uint64 with EXPLICIT modulus (2^63) to match the C++ exactly.
+// The C++ uses num_ring_bits=63, so modulus = 2^63 = 9223372036854775808.
+// All arithmetic is done with explicit % modulus, not int64 wrapping.
 
 package main
 
@@ -24,294 +15,330 @@ import (
 	"math/big"
 )
 
-const log2e = 1.4426950408889634073599 // log_2(e)
+const (
+	log2e_const     = 1.4426950408889634073599
+	kDefaultFracBits = 20
+	kDefaultRingBits = 63
+)
 
-// cryptoRandUint64K2 returns a cryptographically secure random uint64.
+// Ring63 holds parameters for the 2^63 ring used by the C++ code.
+type Ring63 struct {
+	Modulus      uint64 // 2^63
+	FracMul      uint64 // 2^fracBits
+	IntRingMod   uint64 // 2^(63-fracBits)
+	FracBits     int
+	SignThreshold uint64 // modulus / 2
+}
+
+func NewRing63(fracBits int) Ring63 {
+	mod := uint64(1) << 63
+	return Ring63{
+		Modulus:      mod,
+		FracMul:      uint64(1) << fracBits,
+		IntRingMod:   uint64(1) << (63 - fracBits),
+		FracBits:     fracBits,
+		SignThreshold: mod >> 1,
+	}
+}
+
+// Ring63 arithmetic — ALL explicit % modulus, matching C++ exactly.
+func (r Ring63) Add(a, b uint64) uint64  { return (a + b) % r.Modulus }
+func (r Ring63) Sub(a, b uint64) uint64  { return (r.Modulus + a - b) % r.Modulus }
+func (r Ring63) Neg(a uint64) uint64     { return (r.Modulus - a) % r.Modulus }
+func (r Ring63) IsNeg(a uint64) bool     { return a >= r.SignThreshold }
+
+func (r Ring63) FromDouble(x float64) uint64 {
+	if x >= 0 {
+		return uint64(x*float64(r.FracMul)+0.5) % r.Modulus
+	}
+	abs := uint64(-x*float64(r.FracMul) + 0.5)
+	return r.Neg(abs % r.Modulus)
+}
+
+func (r Ring63) ToDouble(a uint64) float64 {
+	a = a % r.Modulus
+	if r.IsNeg(a) {
+		return -float64(r.Neg(a)) / float64(r.FracMul)
+	}
+	return float64(a) / float64(r.FracMul)
+}
+
+// TruncMul: (a * b) >> fracBits, mod modulus.
+// Matches C++ FixedPointElement::TruncMul.
+func (r Ring63) TruncMul(a, b uint64) uint64 {
+	// 128-bit multiply
+	aBig := new(big.Int).SetUint64(a)
+	bBig := new(big.Int).SetUint64(b)
+	product := new(big.Int).Mul(aBig, bBig)
+	// Right shift by fracBits
+	product.Rsh(product, uint(r.FracBits))
+	// Mod modulus
+	product.Mod(product, new(big.Int).SetUint64(r.Modulus))
+	return product.Uint64()
+}
+
+// TruncMulSigned: sign-aware truncated multiply (C++ TruncMulFP).
+func (r Ring63) TruncMulSigned(a, b uint64) uint64 {
+	aNeg := r.IsNeg(a)
+	bNeg := r.IsNeg(b)
+	aa, bb := a, b
+	if aNeg { aa = r.Neg(a) }
+	if bNeg { bb = r.Neg(b) }
+	result := r.TruncMul(aa, bb)
+	if aNeg != bNeg { result = r.Neg(result) }
+	return result
+}
+
+func (r Ring63) SplitShare(value uint64) (s0, s1 uint64) {
+	s0 = cryptoRandUint64K2() % r.Modulus
+	s1 = r.Sub(value, s0)
+	return
+}
+
+// --- Multiplicative-to-additive conversion ---
+
+type MultToAddTuple struct {
+	Alpha0, Beta0 uint64
+	Alpha1, Beta1 uint64
+}
+
+func GenerateMultToAddTuple(q uint64) MultToAddTuple {
+	qBig := new(big.Int).SetUint64(q)
+	alpha0 := randModQ63(q)
+	alpha1 := randModQ63(q)
+	beta0 := randModQ63(q)
+
+	aa := modMulBig63(alpha0, alpha1, q)
+	target := (q + 1 - aa) % q
+	beta0Inv := new(big.Int).ModInverse(new(big.Int).SetUint64(beta0), qBig)
+	beta1 := new(big.Int).Mul(new(big.Int).SetUint64(target), beta0Inv)
+	beta1.Mod(beta1, qBig)
+
+	return MultToAddTuple{
+		Alpha0: alpha0, Beta0: beta0,
+		Alpha1: alpha1, Beta1: beta1.Uint64(),
+	}
+}
+
 func cryptoRandUint64K2() uint64 {
 	var buf [8]byte
 	rand.Read(buf[:])
 	return binary.LittleEndian.Uint64(buf[:])
 }
 
-// ExpConfig holds parameters for the secure exponentiation protocol.
-type ExpConfig struct {
-	FracBits       int    // Number of fractional bits (e.g., 20)
-	RingBits       int    // Ring size in bits (e.g., 63)
-	ExponentBound  int    // Max absolute exponent (e.g., 10)
-	PrimeQ         uint64 // Prime for multiplicative arithmetic
+func randModQ63(q uint64) uint64 {
+	for {
+		v := cryptoRandUint64K2() % q
+		if v != 0 { return v }
+	}
 }
 
-// DefaultExpConfig returns sensible defaults for the exponentiation protocol.
+func modMulBig63(a, b, m uint64) uint64 {
+	return new(big.Int).Mod(
+		new(big.Int).Mul(new(big.Int).SetUint64(a), new(big.Int).SetUint64(b)),
+		new(big.Int).SetUint64(m),
+	).Uint64()
+}
+
+func modExpBig63(base, exp, mod uint64) uint64 {
+	return new(big.Int).Exp(
+		new(big.Int).SetUint64(base),
+		new(big.Int).SetUint64(exp),
+		new(big.Int).SetUint64(mod),
+	).Uint64()
+}
+
+// --- Secure Exponentiation Protocol ---
+
+type ExpConfig struct {
+	Ring          Ring63
+	ExponentBound int
+	PrimeQ        uint64
+}
+
 func DefaultExpConfig() ExpConfig {
 	return ExpConfig{
-		FracBits:      20,
-		RingBits:      63,
+		Ring:          NewRing63(kDefaultFracBits),
 		ExponentBound: 10,
 		PrimeQ:        2305843009213693951, // 2^61 - 1 (Mersenne prime)
 	}
 }
 
-// MultToAddTuple holds the correlated randomness for mult-to-add conversion.
-// Satisfies: alpha0 * alpha1 + beta0 * beta1 = 1 mod q
-type MultToAddTuple struct {
-	Alpha0, Beta0 uint64 // Party 0's values
-	Alpha1, Beta1 uint64 // Party 1's values
-}
-
-// GenerateMultToAddTuple generates a correlated tuple for the given prime q.
-func GenerateMultToAddTuple(q uint64) MultToAddTuple {
-	qBig := new(big.Int).SetUint64(q)
-
-	// Sample random non-zero alpha0, alpha1, beta0
-	alpha0 := randModQ(q)
-	alpha1 := randModQ(q)
-	beta0 := randModQ(q)
-
-	// Compute beta1 = (1 - alpha0*alpha1) * beta0^{-1} mod q
-	aa := modMulBig(alpha0, alpha1, q)
-	target := (q + 1 - aa) % q // (1 - aa) mod q
-	beta0Inv := new(big.Int).ModInverse(new(big.Int).SetUint64(beta0), qBig)
-	beta1 := new(big.Int).Mul(new(big.Int).SetUint64(target), beta0Inv)
-	beta1.Mod(beta1, qBig)
-
-	return MultToAddTuple{
-		Alpha0: alpha0,
-		Beta0:  beta0,
-		Alpha1: alpha1,
-		Beta1:  beta1.Uint64(),
-	}
-}
-
-// randModQ returns a random non-zero value in [1, q-1].
-func randModQ(q uint64) uint64 {
-	for {
-		v := cryptoRandUint64K2() % q
-		if v != 0 {
-			return v
-		}
-	}
-}
-
-// modMulBig computes (a * b) mod m using big.Int.
-func modMulBig(a, b, m uint64) uint64 {
-	result := new(big.Int).Mul(
-		new(big.Int).SetUint64(a),
-		new(big.Int).SetUint64(b),
-	)
-	result.Mod(result, new(big.Int).SetUint64(m))
-	return result.Uint64()
-}
-
-// modExpBigLocal computes base^exp mod modulus using big.Int.
-func modExpBigLocal(base, exp, modulus uint64) uint64 {
-	return new(big.Int).Exp(
-		new(big.Int).SetUint64(base),
-		new(big.Int).SetUint64(exp),
-		new(big.Int).SetUint64(modulus),
-	).Uint64()
-}
-
-// --- Protocol messages ---
-
-// ExpRound1MessageP0 is what party 0 sends in round 1.
-type ExpRound1MessageP0 struct {
-	BetaMultShare []uint64 // beta0 * mult_share_0 mod q, per element
-}
-
-// ExpRound1MessageP1 is what party 1 sends in round 1.
-type ExpRound1MessageP1 struct {
-	AlphaMultShare []uint64 // alpha1 * mult_share_1 mod q, per element
-}
-
-// --- Party 0 protocol ---
-
-// ExpParty0Round1 computes party 0's round-1 message for secure exponentiation.
-// share0 is P0's additive share of x (in FixedPoint).
-func ExpParty0Round1(cfg ExpConfig, share0 []FixedPoint, mta MultToAddTuple) (
-	msg ExpRound1MessageP0, multShares []uint64) {
-
-	n := len(share0)
-	fracMul := int64(1) << cfg.FracBits
+// ExpParty0Round1 computes P0's message for secure exponentiation.
+// Matches C++ SecureExponentiationPartyZero::GenerateMultToAddMessage.
+func ExpParty0Round1(cfg ExpConfig, share0 []uint64, mta MultToAddTuple) (betaMultShares []uint64, ownMultShares []uint64) {
+	r := cfg.Ring
 	q := cfg.PrimeQ
-	intRingMod := int64(1) << (cfg.RingBits - cfg.FracBits)
+	n := len(share0)
+	base2Bound := int(math.Ceil(log2e_const*float64(cfg.ExponentBound))) + 1
 
-	// exp_bound_adder = ceil(log2(e) * exponent_bound) + 1
-	base2Bound := int(math.Ceil(log2e*float64(cfg.ExponentBound))) + 1
+	log2eFP := r.FromDouble(log2e_const)
+	adderFP := uint64(base2Bound) * r.FracMul // base2Bound in integer = base2Bound * 2^fracBits
 
-	msg.BetaMultShare = make([]uint64, n)
-	multShares = make([]uint64, n)
+	betaMultShares = make([]uint64, n)
+	ownMultShares = make([]uint64, n)
 
 	for i := 0; i < n; i++ {
-		// Step 1: Convert to base-2 exponent
-		// base2_fpe = share0 * log2(e) (truncated FP multiply)
-		log2eFP := FromFloat64(log2e, cfg.FracBits)
-		base2FPE := FPMulLocal(FixedPoint(share0[i]), log2eFP, cfg.FracBits)
+		// Step 1: Convert to base-2 exponent (truncated FP multiply)
+		base2 := r.TruncMulSigned(share0[i], log2eFP)
 
-		// Step 2: P0 adds exp_bound_adder to ensure positive
-		// The adder is base2Bound in integer part = base2Bound * fracMul in FP
-		adder := FixedPoint(int64(base2Bound) * fracMul)
-		posBase2 := base2FPE + adder
+		// Step 2: Add offset to ensure positive
+		posBase2 := r.Add(base2, adderFP)
 
 		// Step 3: Split into integer and fractional
-		value := int64(posBase2)
-		if value < 0 {
-			value += int64(1) << cfg.RingBits // ensure positive
-		}
-		intPart := value / fracMul
-		fracPart := float64(value%fracMul) / float64(fracMul)
+		intPart := posBase2 / r.FracMul
+		fracPart := float64(posBase2%r.FracMul) / float64(r.FracMul) // in [0, 1)
 
 		// Step 4: Convert integer to Z_{q-1}
-		intInQMinus1 := uint64((intPart + int64(q-1) - intRingMod) % int64(q-1))
-		if intInQMinus1 == 0 {
-			intInQMinus1 = uint64(q - 1) // 0 maps to q-1 (since 2^0 = 1 = 2^{q-1} mod q by FLT)
-		}
+		// P0: int_in_q_minus_1 = intPart + (q-1) - intRingMod  mod (q-1)
+		intInQMinus1 := (intPart + (q - 1) - r.IntRingMod) % (q - 1)
 
-		// Step 5: 2^{integer} mod q (via Fermat's little theorem)
-		intExp := modExpBigLocal(2, intInQMinus1, q)
+		// Step 5: 2^{integer} mod q
+		intExp := modExpBig63(2, intInQMinus1, q)
 
-		// Step 6: 2^{fractional} (plaintext, since each party sees only its own share's fraction)
-		fracExp := math.Pow(2, fracPart)
-		fracExpFP := uint64(fracExp * float64(fracMul))
+		// Step 6: 2^{fractional} as real, then scale to FP
+		fracExp := math.Pow(2.0, fracPart)
+		fracExpFP := uint64(fracExp*float64(r.FracMul) + 0.5)
 
-		// Step 7: Combine: mult_share = intExp * fracExpFP mod q
-		multShare := modMulBig(intExp, fracExpFP, q)
-		multShares[i] = multShare
+		// Step 7: mult_share = intExp * fracExpFP mod q
+		multShare := modMulBig63(intExp, fracExpFP, q)
+		ownMultShares[i] = multShare
 
 		// Step 8: Send beta0 * mult_share mod q
-		msg.BetaMultShare[i] = modMulBig(mta.Beta0, multShare, q)
+		betaMultShares[i] = modMulBig63(mta.Beta0, multShare, q)
 	}
 	return
 }
 
-// ExpParty1Round1 computes party 1's round-1 message for secure exponentiation.
-func ExpParty1Round1(cfg ExpConfig, share1 []FixedPoint, mta MultToAddTuple) (
-	msg ExpRound1MessageP1, multShares []uint64) {
-
-	n := len(share1)
-	fracMul := int64(1) << cfg.FracBits
+// ExpParty1Round1 computes P1's message.
+// Matches C++ SecureExponentiationPartyOne::GenerateMultToAddMessage.
+func ExpParty1Round1(cfg ExpConfig, share1 []uint64, mta MultToAddTuple) (alphaMultShares []uint64, ownMultShares []uint64) {
+	r := cfg.Ring
 	q := cfg.PrimeQ
-	primaryRingMod := int64(1) << cfg.RingBits
+	n := len(share1)
 
-	msg.AlphaMultShare = make([]uint64, n)
-	multShares = make([]uint64, n)
+	log2eFP := r.FromDouble(log2e_const)
 
-	// P1's correction: log2(e) * primaryRingModulus / fracMul
-	// This accounts for the ring wrap-around in the shared value
-	log2eFP := FromFloat64(log2e, cfg.FracBits)
-	correctionTerm := FPMulLocal(FixedPoint(primaryRingMod), log2eFP, cfg.FracBits)
+	// P1's correction: log2(e) * modulus / fracMul  (mod modulus)
+	// This is the C++ second_term computation
+	correctionBig := new(big.Int).Mul(
+		new(big.Int).SetUint64(log2eFP),
+		new(big.Int).SetUint64(r.Modulus),
+	)
+	correctionBig.Div(correctionBig, new(big.Int).SetUint64(r.FracMul))
+	correctionBig.Mod(correctionBig, new(big.Int).SetUint64(r.Modulus))
+	correction := correctionBig.Uint64()
+
+	alphaMultShares = make([]uint64, n)
+	ownMultShares = make([]uint64, n)
 
 	for i := 0; i < n; i++ {
 		// Step 1: base2 = share1 * log2(e) - correction
-		base2FPE := FPMulLocal(share1[i], log2eFP, cfg.FracBits)
-		base2FPE -= correctionTerm
+		firstTerm := r.TruncMulSigned(share1[i], log2eFP)
+		base2 := r.Sub(firstTerm, correction)
 
 		// Step 3: Split into integer and fractional
-		value := int64(base2FPE)
-		intPart := value / fracMul
-		fracPart := float64(value%fracMul) / float64(fracMul)
-		if fracPart < 0 {
-			fracPart += 1.0
-			intPart--
+		// For P1, the value may represent a negative number
+		var intPart uint64
+		var fracPart float64
+
+		if r.IsNeg(base2) {
+			// Negative: base2 represents a negative value
+			absBase2 := r.Neg(base2)
+			intPart = r.Modulus - (absBase2/r.FracMul + 1) // wrap around to large uint
+			fracPart = float64(r.FracMul-(absBase2%r.FracMul)) / float64(r.FracMul)
+			if absBase2%r.FracMul == 0 {
+				intPart = r.Modulus - absBase2/r.FracMul
+				fracPart = 0
+			}
+		} else {
+			intPart = base2 / r.FracMul
+			fracPart = float64(base2%r.FracMul) / float64(r.FracMul)
 		}
 
-		// Step 4: Integer is already in Z_{q-1} range for P1
-		// (P1's integer part is naturally in the right range after correction)
-		intInQMinus1 := uint64(intPart % int64(q-1))
-		if intPart < 0 {
-			intInQMinus1 = uint64(int64(q-1) + (intPart % int64(q-1)))
-		}
+		// Step 4: P1's integer is already in the ring, use as Z_{q-1} directly
+		intInQMinus1 := intPart % (q - 1)
 
 		// Step 5: 2^{integer} mod q
-		intExp := modExpBigLocal(2, intInQMinus1, q)
+		intExp := modExpBig63(2, intInQMinus1, q)
 
 		// Step 6: 2^{fractional}
-		fracExp := math.Pow(2, fracPart)
-		fracExpFP := uint64(fracExp * float64(fracMul))
+		fracExp := math.Pow(2.0, fracPart)
+		fracExpFP := uint64(fracExp*float64(r.FracMul) + 0.5)
 
-		// Step 7: mult_share = intExp * fracExpFP mod q
-		multShare := modMulBig(intExp, fracExpFP, q)
-		multShares[i] = multShare
+		// Step 7: mult_share
+		multShare := modMulBig63(intExp, fracExpFP, q)
+		ownMultShares[i] = multShare
 
 		// Step 8: Send alpha1 * mult_share mod q
-		msg.AlphaMultShare[i] = modMulBig(mta.Alpha1, multShare, q)
+		alphaMultShares[i] = modMulBig63(mta.Alpha1, multShare, q)
 	}
 	return
 }
 
-// ExpParty0Output computes party 0's final additive share of e^x.
-func ExpParty0Output(cfg ExpConfig, ownMultShares []uint64, peerMsg ExpRound1MessageP1, mta MultToAddTuple) []FixedPoint {
-	n := len(ownMultShares)
+// ExpParty0Output computes P0's additive share of e^x.
+// Matches C++ SecureExponentiationPartyZero::OutputResult.
+func ExpParty0Output(cfg ExpConfig, ownMultShares, peerAlphaMultShares []uint64, mta MultToAddTuple) []uint64 {
+	r := cfg.Ring
 	q := cfg.PrimeQ
-	fracMul := uint64(1) << cfg.FracBits
-	base2Bound := int(math.Ceil(log2e*float64(cfg.ExponentBound))) + 1
-	twoPowerBase2Bound := modExpBigLocal(2, uint64(base2Bound), q) // Not needed for division? Actually it's frac_mult * 2^base2Bound
-	scaleDivisor := fracMul * modExpBigLocal(2, uint64(base2Bound), q)
-	_ = twoPowerBase2Bound
+	n := len(ownMultShares)
+	base2Bound := int(math.Ceil(log2e_const*float64(cfg.ExponentBound))) + 1
+	twoPowBase2Bound := modExpBig63(2, uint64(base2Bound), q)
+	scaleDivisor := modMulBig63(r.FracMul, twoPowBase2Bound, q) // Not for ring division! For integer division.
 
-	primaryRingMod := uint64(1) << cfg.RingBits
-
-	result := make([]FixedPoint, n)
+	result := make([]uint64, n)
 	for i := 0; i < n; i++ {
-		// result = mult_share_0 * alpha_0 * (alpha_1 * mult_share_1) mod q
-		// = alpha_0 * alpha_1 * mult_share_0 * mult_share_1 mod q
-		r := modMulBig(modMulBig(ownMultShares[i], mta.Alpha0, q), peerMsg.AlphaMultShare[i], q)
+		// P0: result = (alpha0 * own_mult) * (alpha1 * peer_mult) mod q
+		// = alpha0*alpha1 * mult0*mult1 mod q
+		r0 := modMulBig63(modMulBig63(ownMultShares[i], mta.Alpha0, q), peerAlphaMultShares[i], q)
 
-		// Convert from Z_q to Z_{primaryRingMod}
-		// additive_share_q = q - (q - r) / scaleDivisor
-		negR := (q - r) % q
-		divided := negR / scaleDivisor
+		// additive_share_q = q - (q - r0) / scaleDivisor
+		negR0 := (q - r0) % q
+		// Integer division in Z_q
+		divided := negR0 / (r.FracMul * twoPowBase2Bound)
 		additiveShareQ := (q - divided) % q
 
-		// final = additiveShareQ + primaryRingMod - q mod primaryRingMod
-		final := (additiveShareQ + primaryRingMod - q) % primaryRingMod
-		result[i] = FixedPoint(int64(final))
+		// Convert from Z_q to Z_{modulus}: final = share + modulus - q  mod modulus
+		result[i] = (additiveShareQ + r.Modulus - q) % r.Modulus
 	}
+	_ = scaleDivisor
 	return result
 }
 
-// ExpParty1Output computes party 1's final additive share of e^x.
-func ExpParty1Output(cfg ExpConfig, ownMultShares []uint64, peerMsg ExpRound1MessageP0, mta MultToAddTuple) []FixedPoint {
-	n := len(ownMultShares)
+// ExpParty1Output computes P1's additive share of e^x.
+func ExpParty1Output(cfg ExpConfig, ownMultShares, peerBetaMultShares []uint64, mta MultToAddTuple) []uint64 {
+	r := cfg.Ring
 	q := cfg.PrimeQ
-	fracMul := uint64(1) << cfg.FracBits
-	base2Bound := int(math.Ceil(log2e*float64(cfg.ExponentBound))) + 1
-	scaleDivisor := fracMul * modExpBigLocal(2, uint64(base2Bound), q)
+	n := len(ownMultShares)
+	base2Bound := int(math.Ceil(log2e_const*float64(cfg.ExponentBound))) + 1
+	twoPowBase2Bound := modExpBig63(2, uint64(base2Bound), q)
 
-	result := make([]FixedPoint, n)
+	result := make([]uint64, n)
 	for i := 0; i < n; i++ {
-		// result = mult_share_1 * beta_1 * (beta_0 * mult_share_0) mod q
-		r := modMulBig(modMulBig(ownMultShares[i], mta.Beta1, q), peerMsg.BetaMultShare[i], q)
+		// P1: result = (beta1 * own_mult) * (beta0 * peer_mult) mod q
+		r1 := modMulBig63(modMulBig63(ownMultShares[i], mta.Beta1, q), peerBetaMultShares[i], q)
 
-		// final = r / scaleDivisor
-		final := r / scaleDivisor
-		result[i] = FixedPoint(int64(final))
+		// final = r1 / (fracMul * twoPowBase2Bound)
+		result[i] = r1 / (r.FracMul * twoPowBase2Bound)
 	}
 	return result
 }
 
-// SecureExpKelkar computes e^x on secret shares using the full Kelkar protocol.
-// This simulates both parties locally for testing.
-func SecureExpKelkar(cfg ExpConfig, x0, x1 []FixedPoint) (exp0, exp1 []FixedPoint) {
-	n := len(x0)
-
-	// Generate MultToAdd tuple
+// SecureExpKelkar simulates the full protocol locally for testing.
+func SecureExpKelkar(cfg ExpConfig, x0, x1 []uint64) (exp0, exp1 []uint64) {
 	mta := GenerateMultToAddTuple(cfg.PrimeQ)
 
-	// Verify tuple: alpha0*alpha1 + beta0*beta1 = 1 mod q
-	check := (modMulBig(mta.Alpha0, mta.Alpha1, cfg.PrimeQ) +
-		modMulBig(mta.Beta0, mta.Beta1, cfg.PrimeQ)) % cfg.PrimeQ
+	// Verify tuple
+	check := (modMulBig63(mta.Alpha0, mta.Alpha1, cfg.PrimeQ) +
+		modMulBig63(mta.Beta0, mta.Beta1, cfg.PrimeQ)) % cfg.PrimeQ
 	if check != 1 {
 		panic("MultToAdd tuple verification failed")
 	}
 
-	// Round 1
-	msg0, mult0 := ExpParty0Round1(cfg, x0, mta)
-	msg1, mult1 := ExpParty1Round1(cfg, x1, mta)
+	beta0Mult0, mult0 := ExpParty0Round1(cfg, x0, mta)
+	alpha1Mult1, mult1 := ExpParty1Round1(cfg, x1, mta)
 
-	// Round 2 (output)
-	exp0 = ExpParty0Output(cfg, mult0, msg1, mta)
-	exp1 = ExpParty1Output(cfg, mult1, msg0, mta)
-
-	_ = n
+	exp0 = ExpParty0Output(cfg, mult0, alpha1Mult1, mta)
+	exp1 = ExpParty1Output(cfg, mult1, beta0Mult0, mta)
 	return
 }

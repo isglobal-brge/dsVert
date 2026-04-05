@@ -391,3 +391,100 @@ func TestGradientInRing(t *testing.T) {
 		t.Errorf("Ring63 gradient error %.2e exceeds 0.01", maxErr)
 	}
 }
+
+func TestGradientInt64Ring(t *testing.T) {
+	// Same test as TestGradientInRing but using ONLY int64 FixedPoint
+	fracBits := 20
+
+	n := 3
+	p := 2
+	X := []float64{1, 2, 3, 4, 5, 6}
+	mu := []float64{0.5, 0.3, 0.7}
+	y := []float64{1, 0, 1}
+	expected := []float64{-1.1, -1.6}
+
+	xFP := FloatVecToFP(X, fracBits)
+	muFP := FloatVecToFP(mu, fracBits)
+	yFP := FloatVecToFP(y, fracBits)
+
+	// Split into shares (int64 wrapping)
+	x0 := make([]FixedPoint, len(xFP)); x1 := make([]FixedPoint, len(xFP))
+	mu0 := make([]FixedPoint, len(muFP)); mu1 := make([]FixedPoint, len(muFP))
+	y0 := make([]FixedPoint, len(yFP)); y1 := make([]FixedPoint, len(yFP))
+	for i := range xFP { r := FixedPoint(int64(cryptoRandUint64K2())); x0[i]=r; x1[i]=xFP[i]-r }
+	for i := range muFP { r := FixedPoint(int64(cryptoRandUint64K2())); mu0[i]=r; mu1[i]=muFP[i]-r }
+	for i := range yFP { r := FixedPoint(int64(cryptoRandUint64K2())); y0[i]=r; y1[i]=yFP[i]-r }
+
+	// Residual shares
+	r0 := make([]FixedPoint, n); r1 := make([]FixedPoint, n)
+	for i := 0; i < n; i++ { r0[i] = FPSub(mu0[i], y0[i]); r1[i] = FPSub(mu1[i], y1[i]) }
+
+	// Beaver triples (int64 ring multiply)
+	A := make([]FixedPoint, n*p); B := make([]FixedPoint, n)
+	for i := range A { A[i] = FixedPoint(int64(cryptoRandUint64K2())) }
+	for i := range B { B[i] = FixedPoint(int64(cryptoRandUint64K2())) }
+	C := make([]FixedPoint, p)
+	for j := 0; j < p; j++ {
+		for i := 0; i < n; i++ {
+			_, lo := mul64(int64(A[i*p+j]), int64(B[i]))
+			C[j] += FixedPoint(lo) // low 64 bits = int64 ring product
+		}
+	}
+
+	a0 := make([]FixedPoint, n*p); a1 := make([]FixedPoint, n*p)
+	b0 := make([]FixedPoint, n); b1 := make([]FixedPoint, n)
+	c0 := make([]FixedPoint, p); c1 := make([]FixedPoint, p)
+	for i := range A { s := FixedPoint(int64(cryptoRandUint64K2())); a0[i]=s; a1[i]=A[i]-s }
+	for i := range B { s := FixedPoint(int64(cryptoRandUint64K2())); b0[i]=s; b1[i]=B[i]-s }
+	for i := range C { s := FixedPoint(int64(cryptoRandUint64K2())); c0[i]=s; c1[i]=C[i]-s }
+
+	// Round 1
+	xma0 := make([]FixedPoint, n*p); rmb0 := make([]FixedPoint, n)
+	xma1 := make([]FixedPoint, n*p); rmb1 := make([]FixedPoint, n)
+	for i := range x0 { xma0[i]=FPSub(x0[i],a0[i]) }
+	for i := range r0 { rmb0[i]=FPSub(r0[i],b0[i]) }
+	for i := range x1 { xma1[i]=FPSub(x1[i],a1[i]) }
+	for i := range r1 { rmb1[i]=FPSub(r1[i],b1[i]) }
+
+	fullXMA := make([]FixedPoint, n*p); fullRMB := make([]FixedPoint, n)
+	for i := range fullXMA { fullXMA[i]=FPAdd(xma0[i],xma1[i]) }
+	for i := range fullRMB { fullRMB[i]=FPAdd(rmb0[i],rmb1[i]) }
+
+	// Round 2: int64 ring multiply
+	g0 := make([]FixedPoint, p); copy(g0, c0)
+	g1 := make([]FixedPoint, p); copy(g1, c1)
+
+	for j := 0; j < p; j++ {
+		for i := 0; i < n; i++ {
+			_, lo1 := mul64(int64(a0[i*p+j]), int64(fullRMB[i])); g0[j] += FixedPoint(lo1)
+			_, lo2 := mul64(int64(fullXMA[i*p+j]), int64(b0[i])); g0[j] += FixedPoint(lo2)
+			_, lo3 := mul64(int64(fullXMA[i*p+j]), int64(fullRMB[i])); g0[j] += FixedPoint(lo3) // P0 only
+			_, lo4 := mul64(int64(a1[i*p+j]), int64(fullRMB[i])); g1[j] += FixedPoint(lo4)
+			_, lo5 := mul64(int64(fullXMA[i*p+j]), int64(b1[i])); g1[j] += FixedPoint(lo5)
+		}
+	}
+
+	// Truncate and reconstruct
+	gradient := make([]float64, p)
+	for j := 0; j < p; j++ {
+		// P0: arithmetic right-shift
+		t0 := FixedPoint(int64(g0[j]) >> fracBits)
+		// P1: -((-g1) >> fracBits)
+		t1 := -FixedPoint(int64(-g1[j]) >> fracBits)
+		gradient[j] = (t0 + t1).ToFloat64(fracBits)
+	}
+
+	t.Logf("Expected: %v", expected)
+	t.Logf("Got:      %v", gradient)
+
+	maxErr := 0.0
+	for j := 0; j < p; j++ {
+		err := math.Abs(gradient[j] - expected[j])
+		if err > maxErr { maxErr = err }
+	}
+	t.Logf("Max error: %.2e", maxErr)
+
+	if maxErr > 0.01 {
+		t.Errorf("Int64 ring gradient error %.2e exceeds 0.01", maxErr)
+	}
+}

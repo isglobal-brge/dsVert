@@ -170,6 +170,8 @@ func main() {
 		handleK2FloatToFP()
 	case "k2-gen-beaver-triples":
 		handleK2GenBeaverTriples()
+	case "k2-compute-eta-fp":
+		handleK2ComputeEtaFP()
 	case "k2-split-fp-share":
 		handleK2SplitFPShare()
 	case "k2-gen-matvec-triples":

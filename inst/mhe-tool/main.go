@@ -211,6 +211,8 @@ func main() {
 		handleK2SplineIndicators()
 	case "k2-spline-assemble":
 		handleK2SplineAssemble()
+	case "k2-fp-add":
+		handleK2FPAdd()
 	case "help", "-h", "--help":
 		printUsage()
 	default:

@@ -452,6 +452,40 @@ func deserializeDcfBatch(buf []byte, n, numThresh int) []CmpPreprocessPerParty {
 }
 
 // ============================================================================
+// Command: k2-fp-add
+// Element-wise Ring63 addition of two FP vectors. LOCAL, no communication.
+// Used to add intercept shares to slope*x shares: spline = slope*x + intercept.
+// ============================================================================
+
+type K2FPAddInput struct {
+	A        string `json:"a"`         // base64 FP
+	B        string `json:"b"`         // base64 FP
+	FracBits int    `json:"frac_bits"`
+}
+
+type K2FPAddOutput struct {
+	Result string `json:"result"` // base64 FP
+}
+
+func handleK2FPAdd() {
+	var input K2FPAddInput
+	mpcReadInput(&input)
+	if input.FracBits <= 0 {
+		input.FracBits = K2DefaultFracBits
+	}
+	r := NewRing63(input.FracBits)
+	a := fpToRing63(bytesToFPVec(base64ToBytes(input.A)))
+	b := fpToRing63(bytesToFPVec(base64ToBytes(input.B)))
+	result := make([]uint64, len(a))
+	for i := range a {
+		result[i] = r.Add(a[i], b[i])
+	}
+	mpcWriteOutput(K2FPAddOutput{
+		Result: bytesToBase64(fpVecToBytes(ring63ToFP(result))),
+	})
+}
+
+// ============================================================================
 // Helpers
 // ============================================================================
 

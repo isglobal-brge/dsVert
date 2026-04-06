@@ -116,6 +116,7 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
 
   # Store for Beaver polynomial eval AND gradient computation
   ss$k2_eta_share <- result$eta_fp
+  ss$k2_eta_share_fp <- result$eta_fp  # wide spline DCF reads this key
   ss$secure_eta_share <- result$eta_fp
   ss$k2_x_full_fp <- result$x_full_fp  # full X share for gradient
 

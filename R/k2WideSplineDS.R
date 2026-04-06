@@ -163,6 +163,7 @@ k2SplineAssembleDS <- function(party_id = 0L, family = "binomial",
 
   # Store mu share in session (used by gradient computation)
   ss$k2_mu_share_fp <- base64_to_base64url(result$mu_share_fp)
+  ss$secure_mu_share <- result$mu_share_fp  # gradient functions read this key
 
   # Clean up intermediates
   ss$k2_slope_share_fp <- NULL
@@ -173,6 +174,51 @@ k2SplineAssembleDS <- function(party_id = 0L, family = "binomial",
   ss$k2_mid_spline_share_fp <- NULL
 
   return(list(status = "ok", mu_computed = TRUE))
+}
+
+# ============================================================================
+# k2FPAddDS: element-wise Ring63 addition of two session FP vectors.
+# Used for: spline_value = slope*x + intercept
+# ============================================================================
+k2FPAddDS <- function(a_key, b_key, result_key, frac_bits = 20L,
+                       session_id = NULL) {
+  ss <- .S(session_id)
+  a_fp <- ss[[a_key]]
+  b_fp <- ss[[b_key]]
+  if (is.null(a_fp)) stop("Session key '", a_key, "' not found")
+  if (is.null(b_fp)) stop("Session key '", b_key, "' not found")
+
+  result <- .callMheTool("k2-fp-add", list(
+    a = .base64url_to_base64(a_fp),
+    b = .base64url_to_base64(b_fp),
+    frac_bits = frac_bits
+  ))
+
+  ss[[result_key]] <- base64_to_base64url(result$result)
+  return(list(status = "ok", stored = result_key))
+}
+
+# ============================================================================
+# k2ScaleIndicatorFPDS: scale I_mid (integer share from Beaver AND) to FP.
+# I_mid from Beaver AND is in Ring63 integer domain. For Hadamard with
+# spline_value (which is FP), we need I_mid scaled: I_mid_fp = I_mid * FracMul.
+# This is done via modMulBig63 in Go.
+# ============================================================================
+k2ScaleIndicatorFPDS <- function(src_key, result_key, frac_bits = 20L,
+                                  session_id = NULL) {
+  ss <- .S(session_id)
+  src_fp <- ss[[src_key]]
+  if (is.null(src_fp)) stop("Session key '", src_key, "' not found")
+
+  # Use k2-fp-mul which scales by FracMul (handles the modMulBig63)
+  result <- .callMheTool("k2-fp-mul", list(
+    data_fp = .base64url_to_base64(src_fp),
+    scalar_fp = as.character(2^frac_bits),  # FracMul as string
+    frac_bits = frac_bits
+  ))
+
+  ss[[result_key]] <- base64_to_base64url(result$result_fp)
+  return(list(status = "ok", stored = result_key))
 }
 
 # Helper: estimate FP vector length from base64url string

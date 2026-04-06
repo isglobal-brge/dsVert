@@ -395,10 +395,20 @@ k2BeaverRoundFPDS <- function(x_key, y_key,
     stop("JSON round-trip corrupted x_share_fp! orig_nchar=", nchar(x_share_fp),
          " rt_nchar=", nchar(test_rt$test))
 
+  # Normalize all base64 inputs to standard format (with padding)
+  .ensure_b64 <- function(x) {
+    if (is.null(x) || x == "") return(x)
+    x <- gsub("-", "+", gsub("_", "/", x, fixed = TRUE), fixed = TRUE)
+    pad <- nchar(x) %% 4
+    if (pad == 2) x <- paste0(x, "==")
+    if (pad == 3) x <- paste0(x, "=")
+    x
+  }
+
   result <- tryCatch(
     .callMheTool("k2-beaver-round", list(
-      x_share_fp = x_share_fp,
-      y_share_fp = y_share_fp,
+      x_share_fp = .ensure_b64(x_share_fp),
+      y_share_fp = .ensure_b64(y_share_fp),
       a_share_fp = a_b64,
       b_share_fp = b_b64,
       c_share_fp = c_b64,

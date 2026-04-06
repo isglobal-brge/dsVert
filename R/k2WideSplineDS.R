@@ -211,15 +211,25 @@ k2ScaleIndicatorFPDS <- function(src_key, result_key, frac_bits = 20L,
   src_fp <- ss[[src_key]]
   if (is.null(src_fp)) stop("Session key '", src_key, "' not found")
 
-  # Use k2-fp-mul which scales by FracMul (handles the modMulBig63)
-  result <- .callMheTool("k2-fp-mul", list(
-    data_fp = .base64url_to_base64(src_fp),
-    scalar_fp = as.character(2^frac_bits),  # FracMul as string
+  # Scale integer indicator shares to FP by multiplying each element by FracMul.
+  # Uses k2-fp-scale-indicator Go command (modMulBig63 per element).
+  result <- .callMheTool("k2-fp-scale-indicator", list(
+    data_fp = .ensure_b64(src_fp),
     frac_bits = frac_bits
   ))
 
-  ss[[result_key]] <- base64_to_base64url(result$result_fp)
+  ss[[result_key]] <- result$result
   return(list(status = "ok", stored = result_key))
+}
+
+# Helper to normalize base64url to standard base64
+.ensure_b64 <- function(x) {
+  if (is.null(x) || x == "") return(x)
+  x <- gsub("-", "+", gsub("_", "/", x, fixed = TRUE), fixed = TRUE)
+  pad <- nchar(x) %% 4
+  if (pad == 2) x <- paste0(x, "==")
+  if (pad == 3) x <- paste0(x, "=")
+  x
 }
 
 # Helper: compute n elements from base64(url) FP string (8 bytes per element)

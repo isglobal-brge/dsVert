@@ -213,6 +213,10 @@ func main() {
 		handleK2SplineAssemble()
 	case "k2-fp-add":
 		handleK2FPAdd()
+	case "k2-fp-scale-indicator":
+		handleK2FPScaleIndicator()
+	case "k2-wide-spline-full":
+		handleK2WideSplineFullEval()
 	case "help", "-h", "--help":
 		printUsage()
 	default:

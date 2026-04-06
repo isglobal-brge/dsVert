@@ -124,10 +124,11 @@ type K2BeaverRoundInput struct {
 	BShareFP string `json:"b_share_fp"` // base64 FP, n-vector (Beaver B share)
 	CShareFP string `json:"c_share_fp"` // base64 FP, n-vector (Beaver C share)
 	// Peer's round-1 message (empty for generating own message)
-	PeerXmaFP string `json:"peer_xma_fp"` // base64 FP
-	PeerYmbFP string `json:"peer_ymb_fp"` // base64 FP
-	PartyID   int    `json:"party_id"`
-	Phase     int    `json:"phase"` // 1 = compute own message, 2 = compute result
+	PeerXmaFP   string `json:"peer_xma_fp"` // base64 FP
+	PeerYmbFP   string `json:"peer_ymb_fp"` // base64 FP
+	PartyID     int    `json:"party_id"`
+	Phase       int    `json:"phase"`        // 1 = compute own message, 2 = compute result
+	NoTruncate  int    `json:"no_truncate"`  // 1 = integer AND (no truncation), 0 = FP Hadamard (with truncation)
 }
 
 type K2BeaverRoundPhase1Output struct {
@@ -236,12 +237,22 @@ func handleK2BeaverRound() {
 		YMinusBShares: fpToRing63(peerYMB),
 	}
 
-	// Use validated Hadamard product (Beaver close + truncation) from k2_beaver_google.go
+	// Use validated Beaver operations from k2_beaver_google.go
 	var resultR63 []uint64
-	if input.PartyID == 0 {
-		resultR63 = HadamardProductPartyZero(ownState, beaver, peerMsg, fracBits, ring)
+	if input.NoTruncate == 1 {
+		// Integer AND: no truncation (for binary indicator multiplication)
+		if input.PartyID == 0 {
+			resultR63 = GenerateBatchedMultiplicationOutputPartyZero(ownState, beaver, peerMsg, ring)
+		} else {
+			resultR63 = GenerateBatchedMultiplicationOutputPartyOne(ownState, beaver, peerMsg, ring)
+		}
 	} else {
-		resultR63 = HadamardProductPartyOne(ownState, beaver, peerMsg, fracBits, ring)
+		// FP Hadamard: with truncation (for fixed-point value multiplication)
+		if input.PartyID == 0 {
+			resultR63 = HadamardProductPartyZero(ownState, beaver, peerMsg, fracBits, ring)
+		} else {
+			resultR63 = HadamardProductPartyOne(ownState, beaver, peerMsg, fracBits, ring)
+		}
 	}
 
 	mpcWriteOutput(K2BeaverRoundPhase2Output{

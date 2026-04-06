@@ -335,6 +335,7 @@ k2BeaverRoundFPDS <- function(x_key, y_key,
                                 party_id = 0L, phase = 1L,
                                 use_session_triple = 0L,
                                 peer_blob_key = "",
+                                no_truncate = 0L,
                                 session_id = NULL) {
   ss <- .S(session_id)
 
@@ -409,6 +410,7 @@ k2BeaverRoundFPDS <- function(x_key, y_key,
     .callMheTool("k2-beaver-round", list(
       x_share_fp = .ensure_b64(x_share_fp),
       y_share_fp = .ensure_b64(y_share_fp),
+      no_truncate = as.integer(no_truncate),
       a_share_fp = a_b64,
       b_share_fp = b_b64,
       c_share_fp = c_b64,

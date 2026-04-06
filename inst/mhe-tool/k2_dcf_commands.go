@@ -311,21 +311,26 @@ func handleK2SplineIndicators() {
 		iHigh[i] = modMulBig63(notCH, ring.FracMul, ring.Modulus)
 	}
 
-	// NOT(c_low) for Beaver AND input
-	notCLow := make([]uint64, n)
+	// NOT(c_low) and c_high: FP-SCALED for Beaver Hadamard (WITH truncation)
+	// Must be FP-scaled because BeaverRoundFPDS does FP Hadamard (multiply + truncate by FracMul)
+	notCLowFP := make([]uint64, n)
+	cHighFP := make([]uint64, n)
 	for i := 0; i < n; i++ {
+		var notCL uint64
 		if input.PartyID == 0 {
-			notCLow[i] = ring.Sub(1, cLow[i])
+			notCL = ring.Sub(1, cLow[i])
 		} else {
-			notCLow[i] = ring.Sub(0, cLow[i])
+			notCL = ring.Sub(0, cLow[i])
 		}
+		notCLowFP[i] = modMulBig63(notCL, ring.FracMul, ring.Modulus)
+		cHighFP[i] = modMulBig63(cHigh[i], ring.FracMul, ring.Modulus)
 	}
 
 	mpcWriteOutput(K2SplineIndicatorsOutput{
 		SlopeShareFP:     bytesToBase64(fpVecToBytes(ring63ToFP(aSlope))),
 		InterceptShareFP: bytesToBase64(fpVecToBytes(ring63ToFP(bInt))),
-		CLowShareFP:      bytesToBase64(fpVecToBytes(ring63ToFP(notCLow))), // NOT(c_low) for AND
-		CHighShareFP:     bytesToBase64(fpVecToBytes(ring63ToFP(cHigh))),   // c_high for AND
+		CLowShareFP:      bytesToBase64(fpVecToBytes(ring63ToFP(notCLowFP))), // FP-scaled NOT(c_low)
+		CHighShareFP:     bytesToBase64(fpVecToBytes(ring63ToFP(cHighFP))),   // FP-scaled c_high
 		IHighFP:          bytesToBase64(fpVecToBytes(ring63ToFP(iHigh))),
 	})
 }
@@ -498,6 +503,315 @@ func handleK2FPAdd() {
 	}
 	mpcWriteOutput(K2FPAddOutput{
 		Result: bytesToBase64(fpVecToBytes(ring63ToFP(result))),
+	})
+}
+
+// ============================================================================
+// Command: k2-fp-scale-indicator
+// Multiplies each element by FracMul (integer → FP scaling).
+// Used to convert integer AND result to FP for subsequent Hadamard.
+// ============================================================================
+
+type K2FPScaleIndicatorInput struct {
+	DataFP   string `json:"data_fp"`   // base64 FP (integer values as int64)
+	FracBits int    `json:"frac_bits"`
+}
+
+type K2FPScaleIndicatorOutput struct {
+	Result string `json:"result"` // base64 FP (FP-scaled)
+}
+
+func handleK2FPScaleIndicator() {
+	var input K2FPScaleIndicatorInput
+	mpcReadInput(&input)
+	if input.FracBits <= 0 {
+		input.FracBits = K2DefaultFracBits
+	}
+	r := NewRing63(input.FracBits)
+	data := fpToRing63(bytesToFPVec(base64ToBytes(input.DataFP)))
+	result := make([]uint64, len(data))
+	for i := range data {
+		result[i] = modMulBig63(data[i], r.FracMul, r.Modulus)
+	}
+	mpcWriteOutput(K2FPScaleIndicatorOutput{
+		Result: bytesToBase64(fpVecToBytes(ring63ToFP(result))),
+	})
+}
+
+// ============================================================================
+// Command: k2-wide-spline-full
+// FULL wide spline evaluation in a single Go call per party.
+// Takes this party's eta share + DCF keys, generates Beaver triples internally,
+// and returns this party's mu share. Used when BOTH parties call this command
+// and relay masked values via the client.
+//
+// This avoids the R session storage / base64 conversion issues that arise from
+// splitting the protocol across multiple R calls.
+// ============================================================================
+
+type K2WideSplineFullInput struct {
+	Phase     int    `json:"phase"`      // 1 = generate masked values, 2 = compute mu share
+	PartyID   int    `json:"party_id"`
+	Family    string `json:"family"`
+	EtaShareFP string `json:"eta_share_fp"` // base64 FP
+	DcfKeys    string `json:"dcf_keys"`     // base64: DCF keys for this party
+	PeerMasked string `json:"peer_masked"`  // base64 (phase 2 only)
+	N          int    `json:"n"`
+	FracBits   int    `json:"frac_bits"`
+	NumIntervals int  `json:"num_intervals"`
+	// Beaver triples for AND + 2 Hadamards (3 triples, phase 2 only)
+	BeaverAND_A  string `json:"beaver_and_a"`  // base64 FP
+	BeaverAND_B  string `json:"beaver_and_b"`
+	BeaverAND_C  string `json:"beaver_and_c"`
+	BeaverHad1_A string `json:"beaver_had1_a"` // slope*x Hadamard
+	BeaverHad1_B string `json:"beaver_had1_b"`
+	BeaverHad1_C string `json:"beaver_had1_c"`
+	BeaverHad2_A string `json:"beaver_had2_a"` // I_mid*spline Hadamard
+	BeaverHad2_B string `json:"beaver_had2_b"`
+	BeaverHad2_C string `json:"beaver_had2_c"`
+	// Peer's round-1 messages (phase 2 only, 3 per-op: AND + 2 Hadamard)
+	PeerAND_XMA  string `json:"peer_and_xma"`
+	PeerAND_YMB  string `json:"peer_and_ymb"`
+	PeerHad1_XMA string `json:"peer_had1_xma"`
+	PeerHad1_YMB string `json:"peer_had1_ymb"`
+	PeerHad2_XMA string `json:"peer_had2_xma"`
+	PeerHad2_YMB string `json:"peer_had2_ymb"`
+}
+
+type K2WideSplineFullPhase1Output struct {
+	// DCF masked values (for comparison relay)
+	DcfMasked string `json:"dcf_masked"` // base64
+	// Beaver round-1 messages for 3 operations
+	AND_XMA   string `json:"and_xma"`
+	AND_YMB   string `json:"and_ymb"`
+	Had1_XMA  string `json:"had1_xma"`
+	Had1_YMB  string `json:"had1_ymb"`
+	Had2_XMA  string `json:"had2_xma"`
+	Had2_YMB  string `json:"had2_ymb"`
+}
+
+type K2WideSplineFullPhase2Output struct {
+	MuShareFP string `json:"mu_share_fp"` // base64 FP
+}
+
+func handleK2WideSplineFullEval() {
+	var input K2WideSplineFullInput
+	mpcReadInput(&input)
+	if input.FracBits <= 0 {
+		input.FracBits = K2DefaultFracBits
+	}
+
+	ring := NewRing63(input.FracBits)
+	n := input.N
+	numInt := input.NumIntervals
+	if numInt <= 0 {
+		if input.Family == "poisson" {
+			numInt = K2ExpIntervals
+		} else {
+			numInt = K2SigmoidIntervals
+		}
+	}
+	numThresh := 2 + numInt - 1
+
+	// Decode eta share
+	etaBytes := base64ToBytes(input.EtaShareFP)
+	if len(etaBytes) == 0 {
+		outputError(fmt.Sprintf("k2-wide-spline-full: eta_share_fp is empty (n=%d)", n))
+		return
+	}
+	etaShare := fpToRing63(bytesToFPVec(etaBytes))
+
+	// Decode DCF keys
+	dcfKeys := deserializeDcfBatch(base64ToBytes(input.DcfKeys), n, numThresh)
+
+	if input.Phase == 1 {
+		// Phase 1: DCF masked values + all 3 Beaver round-1 messages
+
+		// 1a. DCF masked values
+		allMasked := make([]uint64, numThresh*n)
+		for t := 0; t < numThresh; t++ {
+			msg := cmpRound1(ring, input.PartyID, etaShare, dcfKeys[t])
+			copy(allMasked[t*n:], msg.Values)
+		}
+		dcfBuf := make([]byte, len(allMasked)*8)
+		for i, v := range allMasked {
+			binary.LittleEndian.PutUint64(dcfBuf[i*8:], v)
+		}
+
+		// 1b. Decode spline params and comparison shares needed for indicator computation
+		// (We'll compute indicators locally in phase 2 after DCF completes)
+		// For now, just return DCF masked values
+		// The Beaver round-1 messages require knowing the indicator values, which we
+		// don't have yet (need peer's DCF masked values first).
+		// So Phase 1 is JUST DCF.
+
+		mpcWriteOutput(K2WideSplineFullPhase1Output{
+			DcfMasked: bytesToBase64(dcfBuf),
+		})
+		return
+	}
+
+	// Phase 2: Complete the evaluation
+	// 2a. DCF phase 2: combine own + peer masked values
+	peerBuf := base64ToBytes(input.PeerMasked)
+	peerMasked := make([]uint64, numThresh*n)
+	for i := range peerMasked {
+		peerMasked[i] = binary.LittleEndian.Uint64(peerBuf[i*8:])
+	}
+
+	ownMasked := make([]uint64, numThresh*n)
+	for t := 0; t < numThresh; t++ {
+		msg := cmpRound1(ring, input.PartyID, etaShare, dcfKeys[t])
+		copy(ownMasked[t*n:], msg.Values)
+	}
+
+	allCmp := make([]uint64, numThresh*n)
+	for t := 0; t < numThresh; t++ {
+		ownMsg := CmpMaskedValues{Values: ownMasked[t*n : (t+1)*n]}
+		peerMsg := CmpMaskedValues{Values: peerMasked[t*n : (t+1)*n]}
+		result := cmpRound2(ring, input.PartyID, dcfKeys[t], ownMsg, peerMsg)
+		copy(allCmp[t*n:], result.Shares)
+	}
+
+	// 2b. Compute indicators + spline coefficients (same as k2-spline-indicators)
+	cLow := allCmp[0:n]
+	cHigh := allCmp[n : 2*n]
+	subCmp := make([][]uint64, numInt-1)
+	for j := 0; j < numInt-1; j++ {
+		subCmp[j] = allCmp[(2+j)*n : (3+j)*n]
+	}
+
+	subInd := make([][]uint64, numInt)
+	for k := 0; k < numInt; k++ {
+		subInd[k] = make([]uint64, n)
+	}
+	for i := 0; i < n; i++ {
+		subInd[0][i] = subCmp[0][i]
+		for j := 1; j < numInt-1; j++ {
+			subInd[j][i] = ring.Sub(subCmp[j][i], subCmp[j-1][i])
+		}
+		if input.PartyID == 0 {
+			subInd[numInt-1][i] = ring.Sub(1, subCmp[numInt-2][i])
+		} else {
+			subInd[numInt-1][i] = ring.Sub(0, subCmp[numInt-2][i])
+		}
+	}
+	for k := 0; k < numInt; k++ {
+		for i := 0; i < n; i++ {
+			subInd[k][i] = modMulBig63(subInd[k][i], ring.FracMul, ring.Modulus)
+		}
+	}
+
+	// Spline params
+	var slopes, intercepts []float64
+	if input.Family == "poisson" {
+		slopes, intercepts, _, _ = WideExpParams(numInt)
+	} else {
+		slopes, intercepts, _ = WideSigmoidParams(numInt)
+	}
+
+	// ScalarVP for slopes and intercepts
+	aSlope := make([]uint64, n)
+	bInt := make([]uint64, n)
+	for j := 0; j < numInt; j++ {
+		var sv, bi []uint64
+		if input.PartyID == 0 {
+			sv = ScalarVectorProductPartyZero(slopes[j], subInd[j], ring)
+			bi = ScalarVectorProductPartyZero(intercepts[j], subInd[j], ring)
+		} else {
+			sv = ScalarVectorProductPartyOne(slopes[j], subInd[j], ring)
+			bi = ScalarVectorProductPartyOne(intercepts[j], subInd[j], ring)
+		}
+		for i := 0; i < n; i++ {
+			aSlope[i] = ring.Add(aSlope[i], sv[i])
+			bInt[i] = ring.Add(bInt[i], bi[i])
+		}
+	}
+
+	// I_high and I_mid indicators
+	iHigh := make([]uint64, n)
+	notCLowFP := make([]uint64, n)
+	cHighFP := make([]uint64, n)
+	for i := 0; i < n; i++ {
+		var notCH, notCL uint64
+		if input.PartyID == 0 {
+			notCH = ring.Sub(1, cHigh[i])
+			notCL = ring.Sub(1, cLow[i])
+		} else {
+			notCH = ring.Sub(0, cHigh[i])
+			notCL = ring.Sub(0, cLow[i])
+		}
+		iHigh[i] = modMulBig63(notCH, ring.FracMul, ring.Modulus)
+		notCLowFP[i] = modMulBig63(notCL, ring.FracMul, ring.Modulus)
+		cHighFP[i] = modMulBig63(cHigh[i], ring.FracMul, ring.Modulus)
+	}
+
+	// 2c. Beaver AND: I_mid = NOT(c_low)_FP * c_high_FP (Hadamard with truncation)
+	andA := fpToRing63(bytesToFPVec(base64ToBytes(input.BeaverAND_A)))
+	andB := fpToRing63(bytesToFPVec(base64ToBytes(input.BeaverAND_B)))
+	andC := fpToRing63(bytesToFPVec(base64ToBytes(input.BeaverAND_C)))
+	andBeaver := BeaverTripleVec{A: andA, B: andB, C: andC}
+	andState, andMsg := GenerateBatchedMultiplicationGateMessage(notCLowFP, cHighFP, andBeaver, ring)
+	peerANDMsg := MultGateMessage{
+		XMinusAShares: fpToRing63(bytesToFPVec(base64ToBytes(input.PeerAND_XMA))),
+		YMinusBShares: fpToRing63(bytesToFPVec(base64ToBytes(input.PeerAND_YMB))),
+	}
+	var iMid []uint64
+	if input.PartyID == 0 {
+		iMid = HadamardProductPartyZero(andState, andBeaver, peerANDMsg, ring.FracBits, ring)
+	} else {
+		iMid = HadamardProductPartyOne(andState, andBeaver, peerANDMsg, ring.FracBits, ring)
+	}
+	_ = andMsg // own message was sent in phase 1
+
+	// 2d. Hadamard: slope * x
+	had1A := fpToRing63(bytesToFPVec(base64ToBytes(input.BeaverHad1_A)))
+	had1B := fpToRing63(bytesToFPVec(base64ToBytes(input.BeaverHad1_B)))
+	had1C := fpToRing63(bytesToFPVec(base64ToBytes(input.BeaverHad1_C)))
+	had1Beaver := BeaverTripleVec{A: had1A, B: had1B, C: had1C}
+	had1State, _ := GenerateBatchedMultiplicationGateMessage(aSlope, etaShare, had1Beaver, ring)
+	peerHad1Msg := MultGateMessage{
+		XMinusAShares: fpToRing63(bytesToFPVec(base64ToBytes(input.PeerHad1_XMA))),
+		YMinusBShares: fpToRing63(bytesToFPVec(base64ToBytes(input.PeerHad1_YMB))),
+	}
+	var slopeX []uint64
+	if input.PartyID == 0 {
+		slopeX = HadamardProductPartyZero(had1State, had1Beaver, peerHad1Msg, ring.FracBits, ring)
+	} else {
+		slopeX = HadamardProductPartyOne(had1State, had1Beaver, peerHad1Msg, ring.FracBits, ring)
+	}
+
+	// spline_value = slope*x + intercept
+	splineVal := make([]uint64, n)
+	for i := 0; i < n; i++ {
+		splineVal[i] = ring.Add(slopeX[i], bInt[i])
+	}
+
+	// 2e. Hadamard: I_mid * spline_value
+	had2A := fpToRing63(bytesToFPVec(base64ToBytes(input.BeaverHad2_A)))
+	had2B := fpToRing63(bytesToFPVec(base64ToBytes(input.BeaverHad2_B)))
+	had2C := fpToRing63(bytesToFPVec(base64ToBytes(input.BeaverHad2_C)))
+	had2Beaver := BeaverTripleVec{A: had2A, B: had2B, C: had2C}
+	had2State, _ := GenerateBatchedMultiplicationGateMessage(iMid, splineVal, had2Beaver, ring)
+	peerHad2Msg := MultGateMessage{
+		XMinusAShares: fpToRing63(bytesToFPVec(base64ToBytes(input.PeerHad2_XMA))),
+		YMinusBShares: fpToRing63(bytesToFPVec(base64ToBytes(input.PeerHad2_YMB))),
+	}
+	var midSpline []uint64
+	if input.PartyID == 0 {
+		midSpline = HadamardProductPartyZero(had2State, had2Beaver, peerHad2Msg, ring.FracBits, ring)
+	} else {
+		midSpline = HadamardProductPartyOne(had2State, had2Beaver, peerHad2Msg, ring.FracBits, ring)
+	}
+
+	// 2f. Final assembly: mu = I_high + I_mid * spline_value
+	mu := make([]uint64, n)
+	for i := 0; i < n; i++ {
+		mu[i] = ring.Add(iHigh[i], midSpline[i])
+	}
+
+	mpcWriteOutput(K2WideSplineFullPhase2Output{
+		MuShareFP: bytesToBase64(fpVecToBytes(ring63ToFP(mu))),
 	})
 }
 

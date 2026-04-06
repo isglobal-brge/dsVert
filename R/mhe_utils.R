@@ -312,8 +312,11 @@ base64_to_base64url <- function(x) {
     .secure_unlink(stderr_file)
   })
 
-  # Write input JSON to file (avoids large string in R memory)
-  jsonlite::write_json(input_data, input_file, auto_unbox = TRUE, null = "null")
+  # Write input JSON to file using writeLines to avoid jsonlite::write_json
+
+  # encoding quirks that can corrupt base64 strings in multi-round chains
+  json_str <- jsonlite::toJSON(input_data, auto_unbox = TRUE, null = "null")
+  writeLines(as.character(json_str), input_file, useBytes = TRUE)
 
   # Call mhe-tool with file-based I/O (avoids C stack overflow on large output)
   status <- system2(
@@ -334,6 +337,15 @@ base64_to_base64url <- function(x) {
 
   # Parse output from file (avoids loading huge string into R)
   output <- jsonlite::read_json(output_file, simplifyVector = TRUE)
+
+  # Normalize base64 strings: strip whitespace/encoding artifacts that
+  # accumulate across chained Beaver rounds (round k output → round k+1 input)
+  for (nm in names(output)) {
+    if (is.character(output[[nm]]) && length(output[[nm]]) == 1) {
+      output[[nm]] <- trimws(output[[nm]])
+      Encoding(output[[nm]]) <- "unknown"
+    }
+  }
 
   # Check for error in output
   if (!is.null(output$error) && nchar(output$error) > 0) {

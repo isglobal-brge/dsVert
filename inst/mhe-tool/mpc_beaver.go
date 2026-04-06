@@ -172,37 +172,49 @@ func handleMpcSecurePolyEval() {
 		input.FracBits = 20
 	}
 
+	ring := NewRing63(input.FracBits)
+
 	degree := len(input.Coefficients) - 1
 	if degree < 1 || len(input.PowerShares) < degree {
 		outputError("need at least degree power shares")
 		os.Exit(1)
 	}
 
-	powers := make([][]FixedPoint, degree)
+	// Decode power shares (FP) and convert to Ring63
+	powersR63 := make([][]uint64, degree)
 	for k := 0; k < degree; k++ {
-		powers[k] = bytesToFPVec(base64ToBytes(input.PowerShares[k]))
+		powersR63[k] = fpToRing63(bytesToFPVec(base64ToBytes(input.PowerShares[k])))
 	}
-	n := len(powers[0])
+	n := len(powersR63[0])
 
-	result := make([]FixedPoint, n)
+	// Initialize result in Ring63
+	resultR63 := make([]uint64, n)
 
 	// Party 0 adds the constant term c0
 	if input.PartyID == 0 {
-		c0FP := FromFloat64(input.Coefficients[0], input.FracBits)
+		c0R63 := ring.FromDouble(input.Coefficients[0])
 		for i := 0; i < n; i++ {
-			result[i] = c0FP
+			resultR63[i] = c0R63
 		}
 	}
 
+	// Multiply public coefficients by secret-shared power values using
+	// validated Ring63 ScalarVectorProduct from k2_beaver_google.go.
+	// This correctly handles asymmetric P0/P1 truncation with explicit modulus.
 	for k := 1; k <= degree; k++ {
-		ckFP := FromFloat64(input.Coefficients[k], input.FracBits)
+		var termR63 []uint64
+		if input.PartyID == 0 {
+			termR63 = ScalarVectorProductPartyZero(input.Coefficients[k], powersR63[k-1], ring)
+		} else {
+			termR63 = ScalarVectorProductPartyOne(input.Coefficients[k], powersR63[k-1], ring)
+		}
 		for i := 0; i < n; i++ {
-			result[i] = FPAdd(result[i], FPMulLocal(ckFP, powers[k-1][i], input.FracBits))
+			resultR63[i] = ring.Add(resultR63[i], termR63[i])
 		}
 	}
 
 	mpcWriteOutput(SecurePolyEvalOutput{
-		ResultShare: bytesToBase64(fpVecToBytes(result)),
+		ResultShare: bytesToBase64(fpVecToBytes(ring63ToFP(resultR63))),
 	})
 }
 

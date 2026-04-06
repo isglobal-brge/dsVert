@@ -369,9 +369,14 @@ func handleK2FloatToFP() {
 	if input.FracBits <= 0 {
 		input.FracBits = 20
 	}
-	fp := float64sToFP(input.Values, input.FracBits)
+	// Encode in Ring63 for the K=2 Beaver pipeline
+	ring := NewRing63(input.FracBits)
+	r63 := make([]uint64, len(input.Values))
+	for i, v := range input.Values {
+		r63[i] = ring.FromDouble(v)
+	}
 	mpcWriteOutput(K2FloatToFPOutput{
-		FPData: bytesToBase64(fpVecToBytes(fp)),
+		FPData: bytesToBase64(fpVecToBytes(ring63ToFP(r63))),
 	})
 }
 

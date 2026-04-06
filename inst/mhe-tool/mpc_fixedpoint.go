@@ -152,3 +152,38 @@ func FPDotProduct(a, b []FixedPoint, fracBits int) FixedPoint {
 	}
 	return sum
 }
+
+// ============================================================================
+// FP <-> Ring63 conversions
+//
+// FixedPoint is int64 (wrapping at 2^64).
+// Ring63 is uint64 with explicit modulus 2^63.
+// Conversion: interpret the int64 bit pattern as uint64, then reduce mod 2^63.
+// ============================================================================
+
+// fpToRing63 converts a FixedPoint (int64) vector to Ring63 (uint64 mod 2^63).
+func fpToRing63(fp []FixedPoint) []uint64 {
+	mod := uint64(1) << 63
+	result := make([]uint64, len(fp))
+	for i, v := range fp {
+		result[i] = uint64(v) % mod
+	}
+	return result
+}
+
+// ring63ToFP converts Ring63 (uint64 mod 2^63) values back to FixedPoint (int64).
+// Values >= modulus/2 are interpreted as negative.
+func ring63ToFP(r63 []uint64) []FixedPoint {
+	mod := uint64(1) << 63
+	half := mod >> 1 // 2^62
+	result := make([]FixedPoint, len(r63))
+	for i, v := range r63 {
+		v = v % mod
+		if v >= half {
+			result[i] = FixedPoint(int64(v) - int64(mod))
+		} else {
+			result[i] = FixedPoint(int64(v))
+		}
+	}
+	return result
+}

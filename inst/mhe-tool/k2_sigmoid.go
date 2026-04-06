@@ -32,10 +32,12 @@ type SigmoidParams struct {
 
 // DefaultSigmoidParams returns parameters matching the C++ defaults.
 func DefaultSigmoidParams() SigmoidParams {
-	r := NewRing63(20)
+	r := NewRing63(kDefaultFracBits)
 	return SigmoidParams{
 		Ring:     r,
-		FracBits: 20,
+		FracBits: kDefaultFracBits,
+		// 10-interval piecewise linear spline on [0, 1).
+		// Matching Google C++ secure_sigmoid_test.cc exactly.
 		SplineSlopes: []float64{
 			0.24979187478940013, 0.24854809833537939, 0.24608519499181072,
 			0.24245143300792976, 0.23771671089402596, 0.23196975023940808,
@@ -49,12 +51,8 @@ func DefaultSigmoidParams() SigmoidParams {
 			0.5299678185799949,
 		},
 		SplineNumIntervals: 10,
-		TaylorDegree: 10,
-		ExpConfig: ExpConfig{
-			Ring:          r,
-			ExponentBound: 13,
-			PrimeQ:        2305843009213693951,
-		},
+		TaylorDegree:       10,
+		ExpConfig:          DefaultExpConfig(),
 	}
 }
 
@@ -135,14 +133,15 @@ func SecureSigmoidLocal(params SigmoidParams, x0, x1 []uint64) (sig0, sig1 []uin
 
 // evalSpline evaluates the piecewise linear spline on x in [0, 1).
 func evalSpline(x float64, params SigmoidParams) float64 {
+	width := 1.0 / float64(params.SplineNumIntervals)
 	for j := 0; j < params.SplineNumIntervals; j++ {
-		lower := float64(j) * 0.1
-		upper := float64(j+1) * 0.1
+		lower := float64(j) * width
+		upper := float64(j+1) * width
 		if x >= lower && x < upper {
 			return params.SplineSlopes[j]*x + params.SplineIntercepts[j]
 		}
 	}
-	// Edge case: x == 1.0
+	// Edge case: x >= 1.0
 	j := params.SplineNumIntervals - 1
 	return params.SplineSlopes[j]*x + params.SplineIntercepts[j]
 }

@@ -217,6 +217,8 @@ func main() {
 		handleK2FPScaleIndicator()
 	case "k2-wide-spline-full":
 		handleK2WideSplineFullEval()
+	case "k2-newton-fisher":
+		handleK2NewtonFisher()
 	case "help", "-h", "--help":
 		printUsage()
 	default:

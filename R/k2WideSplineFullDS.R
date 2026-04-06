@@ -1,4 +1,65 @@
-# k2WideSplineFullDS.R: 4-phase wide spline sigmoid + Newton-IRLS support.
+# k2WideSplineFullDS.R: 4-phase wide spline sigmoid + Newton-IRLS diagonal Fisher.
+
+#' Newton Fisher Phase 1: Beaver R1 for w = mu*(1-mu)
+#' @export
+k2NewtonFisherPhase1DS <- function(party_id = 0L, frac_bits = 20L,
+                                    session_id = NULL) {
+  ss <- .S(session_id)
+  mu_fp <- ss$secure_mu_share
+  if (is.null(mu_fp)) stop("No mu share. Run sigmoid first.")
+
+  # Consume Beaver triple for w
+  w_blob <- .blob_consume("k2_fisher_triple", ss)
+  if (is.null(w_blob)) stop("No Fisher Beaver triple blob")
+  tsk <- .key_get("transport_sk", ss)
+  dec <- .callMheTool("transport-decrypt", list(
+    sealed = .base64url_to_base64(w_blob), recipient_sk = tsk))
+  triple <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
+
+  n <- as.integer(nchar(.base64url_to_base64(mu_fp)) * 3 / 4 / 8)
+
+  result <- .callMheTool("k2-newton-fisher", list(
+    phase = 1L, party_id = party_id, frac_bits = frac_bits,
+    mu_share_fp = .base64url_to_base64(mu_fp),
+    x_full_fp = "", n = n, p = 0L,
+    beaver_w_a = triple$a, beaver_w_b = triple$b, beaver_w_c = triple$c))
+
+  # Store triple for phase 2
+  ss$k2_fisher_triple <- triple
+
+  list(w_xma = result$w_xma, w_ymb = result$w_ymb)
+}
+
+#' Newton Fisher Phase 2: compute d_j = sum(w) shares (disclosed aggregate)
+#' @export
+k2NewtonFisherPhase2DS <- function(party_id = 0L, frac_bits = 20L,
+                                    p_total = 6L, session_id = NULL) {
+  ss <- .S(session_id)
+  mu_fp <- ss$secure_mu_share
+  triple <- ss$k2_fisher_triple
+  x_fp <- ss$k2_x_full_fp
+
+  # Consume peer's Beaver R1 from blob
+  peer_blob <- .blob_consume("k2_fisher_peer_r1", ss)
+  if (is.null(peer_blob)) stop("No Fisher peer R1 blob")
+  tsk <- .key_get("transport_sk", ss)
+  dec <- .callMheTool("transport-decrypt", list(
+    sealed = .base64url_to_base64(peer_blob), recipient_sk = tsk))
+  peer_r1 <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
+
+  n <- as.integer(nchar(.base64url_to_base64(mu_fp)) * 3 / 4 / 8)
+
+  result <- .callMheTool("k2-newton-fisher", list(
+    phase = 2L, party_id = party_id, frac_bits = frac_bits,
+    mu_share_fp = .base64url_to_base64(mu_fp),
+    x_full_fp = .base64url_to_base64(x_fp),
+    n = n, p = as.integer(p_total),
+    beaver_w_a = triple$a, beaver_w_b = triple$b, beaver_w_c = triple$c,
+    peer_w_xma = peer_r1$w_xma, peer_w_ymb = peer_r1$w_ymb))
+
+  ss$k2_fisher_triple <- NULL
+  list(fisher_diag_fp = result$fisher_diag_fp)
+}
 
 #' Store DCF keys persistently (not consumed after first use)
 #' @export

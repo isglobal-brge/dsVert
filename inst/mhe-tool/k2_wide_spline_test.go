@@ -308,3 +308,8 @@ func TestWideSpline22(t *testing.T) {
 func TestWideSpline25(t *testing.T) {
 	pimaTrainWideSpline(t, 25, 100, 5.0, floorTruncBoth)
 }
+
+// Test fewer intervals — critical for scalability
+func TestWideSpline20_50int(t *testing.T)  { pimaTrainWideSpline(t, 20, 50, 5.0, floorTruncBoth) }
+func TestWideSpline20_30int(t *testing.T)  { pimaTrainWideSpline(t, 20, 30, 5.0, floorTruncBoth) }
+func TestWideSpline20_20int(t *testing.T)  { pimaTrainWideSpline(t, 20, 20, 5.0, floorTruncBoth) }

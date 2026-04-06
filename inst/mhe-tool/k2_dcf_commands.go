@@ -15,6 +15,7 @@ package main
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
 )
 
@@ -133,10 +134,25 @@ func handleK2DcfEval() {
 	numThresh := input.NumThresh
 
 	// Decode eta share
-	etaShare := fpToRing63(bytesToFPVec(base64ToBytes(input.EtaShareFP)))
+	etaBytes := base64ToBytes(input.EtaShareFP)
+	if len(etaBytes) == 0 {
+		outputError(fmt.Sprintf("k2-dcf-eval: eta_share_fp is empty (n=%d, len_b64=%d)", n, len(input.EtaShareFP)))
+		return
+	}
+	etaFP := bytesToFPVec(etaBytes)
+	if len(etaFP) != n {
+		outputError(fmt.Sprintf("k2-dcf-eval: eta has %d elements, expected %d (b64_len=%d, bytes=%d)", len(etaFP), n, len(input.EtaShareFP), len(etaBytes)))
+		return
+	}
+	etaShare := fpToRing63(etaFP)
 
 	// Decode DCF keys
-	dcfKeys := deserializeDcfBatch(base64ToBytes(input.DcfKeys), n, numThresh)
+	dcfBytes := base64ToBytes(input.DcfKeys)
+	if len(dcfBytes) == 0 {
+		outputError(fmt.Sprintf("k2-dcf-eval: dcf_keys is empty (n=%d, numThresh=%d)", n, numThresh))
+		return
+	}
+	dcfKeys := deserializeDcfBatch(dcfBytes, n, numThresh)
 
 	if input.Phase == 1 {
 		// Phase 1: compute masked values for each threshold

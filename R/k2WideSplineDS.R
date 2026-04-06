@@ -46,7 +46,8 @@ k2DcfEvalDS <- function(phase = 1L, party_id = 0L, family = "binomial",
   # Get eta share from session (stored by k2ComputeEtaShareDS)
   eta_fp <- ss$k2_eta_share_fp
   if (is.null(eta_fp)) stop("No eta share in session. Call k2ComputeEtaShareDS first.")
-  n <- length(eta_fp) %/% 8  # FP is 8 bytes per element
+  # eta_fp is a base64 string. Each FP element = 8 bytes. base64: 4 chars = 3 bytes.
+  n <- as.integer(nchar(eta_fp) * 3 / 4 / 8)
 
   # Get DCF keys from session
   dcf_keys_b64 <- ss$k2_dcf_keys
@@ -112,7 +113,7 @@ k2SplineIndicatorsDS <- function(party_id = 0L, family = "binomial",
   eta_fp <- ss$k2_eta_share_fp
   if (is.null(cmp_fp)) stop("No comparison shares. Call k2DcfEvalDS phase=2 first.")
 
-  n <- length(bytesToFPVec_len(eta_fp))
+  n <- .fp_n_from_b64(eta_fp)
 
   result <- .callMheTool("k2-spline-indicators", list(
     comparison_shares_fp = .base64url_to_base64(cmp_fp),
@@ -150,7 +151,7 @@ k2SplineAssembleDS <- function(party_id = 0L, family = "binomial",
 
   if (is.null(mid_spline_fp)) stop("No I_mid*spline share. Run Hadamard first.")
 
-  n <- length(bytesToFPVec_len(i_high_fp))
+  n <- .fp_n_from_b64(i_high_fp)
 
   result <- .callMheTool("k2-spline-assemble", list(
     family = family,
@@ -221,8 +222,7 @@ k2ScaleIndicatorFPDS <- function(src_key, result_key, frac_bits = 20L,
   return(list(status = "ok", stored = result_key))
 }
 
-# Helper: estimate FP vector length from base64url string
-bytesToFPVec_len <- function(b64url) {
-  raw_len <- nchar(b64url) * 3 / 4  # approximate
-  return(seq_len(raw_len %/% 8))
+# Helper: compute n elements from base64(url) FP string (8 bytes per element)
+.fp_n_from_b64 <- function(b64str) {
+  as.integer(nchar(b64str) * 3 / 4 / 8)
 }

@@ -1,3 +1,18 @@
+# k2WideSplineFullDS.R: 4-phase wide spline sigmoid + Newton-IRLS support.
+
+#' Store DCF keys persistently (not consumed after first use)
+#' @export
+k2StoreDcfKeysPersistentDS <- function(session_id = NULL) {
+  ss <- .S(session_id)
+  blob <- .blob_consume("k2_dcf_keys_persistent", ss)
+  if (is.null(blob)) stop("No persistent DCF keys blob")
+  tsk <- .key_get("transport_sk", ss)
+  dec <- .callMheTool("transport-decrypt", list(
+    sealed = .base64url_to_base64(blob), recipient_sk = tsk))
+  ss$k2_dcf_keys_persistent <- dec$data  # base64 standard, reused across iterations
+  list(status = "ok")
+}
+
 # k2WideSplineFullDS.R: 4-phase wide spline sigmoid via k2-wide-spline-full Go command.
 # All spline logic runs in Go — R only handles blob I/O and session management.
 
@@ -12,13 +27,17 @@ k2WideSplinePhase1DS <- function(party_id = 0L, family = "binomial",
   if (is.null(eta_fp)) eta_fp <- ss$secure_eta_share
   if (is.null(eta_fp)) stop("No eta share in session")
 
-  dcf_blob <- .blob_consume("k2_dcf_keys", ss)
-  if (is.null(dcf_blob)) stop("No DCF keys blob")
-  # Decrypt DCF keys
-  tsk <- .key_get("transport_sk", ss)
-  dcf_dec <- .callMheTool("transport-decrypt", list(
-    sealed = .base64url_to_base64(dcf_blob), recipient_sk = tsk))
-  dcf_keys <- dcf_dec$data  # base64 standard
+  # Use persistent DCF keys (pre-generated, reused across iterations)
+  dcf_keys <- ss$k2_dcf_keys_persistent
+  if (is.null(dcf_keys)) {
+    # Fallback: consume from blob (single-use)
+    dcf_blob <- .blob_consume("k2_dcf_keys", ss)
+    if (is.null(dcf_blob)) stop("No DCF keys (persistent or blob)")
+    tsk <- .key_get("transport_sk", ss)
+    dcf_dec <- .callMheTool("transport-decrypt", list(
+      sealed = .base64url_to_base64(dcf_blob), recipient_sk = tsk))
+    dcf_keys <- dcf_dec$data
+  }
 
   n <- as.integer(nchar(.base64url_to_base64(eta_fp)) * 3 / 4 / 8)
 

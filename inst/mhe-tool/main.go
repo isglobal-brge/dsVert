@@ -202,6 +202,15 @@ func main() {
 		handleK2PiecewiseExp()
 	case "k2-fp-mul":
 		handleK2FPMul()
+	// Wide spline DCF commands (K=2 distributed sigmoid/exp)
+	case "k2-dcf-gen-batch":
+		handleK2DcfGenBatch()
+	case "k2-dcf-eval":
+		handleK2DcfEval()
+	case "k2-spline-indicators":
+		handleK2SplineIndicators()
+	case "k2-spline-assemble":
+		handleK2SplineAssemble()
 	case "help", "-h", "--help":
 		printUsage()
 	default:

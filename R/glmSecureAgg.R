@@ -158,6 +158,99 @@ glmSecureAggInitDS <- function(self_name, session_id,
 #'
 #' @seealso \code{\link{glmSecureAggInitDS}}, \code{\link{glmSecureAggCoordinatorStepDS}}
 #' @export
+#' Gaussian one-shot: compute local X_k^T X_k (and X_k^T y for label server)
+#' @export
+glmGaussianLocalXtXDS <- function(data_name, x_vars, y_var = NULL,
+                                    session_id = NULL) {
+  ss <- .S(session_id)
+  data <- .resolveData(data_name, parent.frame(), session_id)
+  X <- as.matrix(data[, x_vars, drop = FALSE])
+  n <- nrow(X); p <- ncol(X)
+
+  XtX_local <- as.numeric(crossprod(X))
+
+  Xty_local <- NULL
+  if (!is.null(y_var) && y_var %in% names(data)) {
+    y <- as.numeric(data[[y_var]])
+    Xty_local <- as.numeric(crossprod(X, y))
+  }
+
+  list(xtx_local = XtX_local, xty_local = Xty_local, n = n, p = p)
+}
+
+#' Pairwise Beaver cross-product: compute X_j^T X_k between two servers
+#' Each server provides its own columns. The Beaver product computes
+#' the element-wise product, summed over rows.
+#' @export
+glmPairwiseCrossProductDS <- function(data_name, x_vars, peer_p,
+                                        party_id = 0L, phase = 1L,
+                                        y_var = NULL, frac_bits = 20L,
+                                        session_id = NULL) {
+  ss <- .S(session_id)
+  data <- .resolveData(data_name, parent.frame(), session_id)
+  X <- as.matrix(data[, x_vars, drop = FALSE])
+  n <- nrow(X); p_my <- ncol(X)
+
+  if (phase == 1L) {
+    # Phase 1: Beaver R1 for pairwise cross-product
+    blob <- .blob_consume("pairwise_cross_triples", ss)
+    if (is.null(blob)) stop("No pairwise cross triple blob")
+    tsk <- .key_get("transport_sk", ss)
+    dec <- .callMheTool("transport-decrypt", list(
+      sealed = .base64url_to_base64(blob), recipient_sk = tsk))
+    triple <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
+
+    # Create operands: my_cols as one operand, zeros as the other
+    # party_id=0 → my columns go first, party_id=1 → my columns go second
+    # y_var: if provided, include y as the y_share operand (for X^T y computation)
+    y_vals <- rep(0, n)
+    if (!is.null(y_var) && y_var %in% names(data))
+      y_vals <- as.numeric(data[[y_var]])
+
+    result <- .callMheTool("k2-gaussian-oneshot", list(
+      phase = 1L, party_id = as.integer(party_id), frac_bits = frac_bits,
+      n = as.integer(n), p = as.integer(p_my + peer_p),
+      x_full_fp = .callMheTool("k2-float-to-fp", list(
+        values = if (party_id == 0L) c(as.numeric(t(cbind(X, matrix(0, n, peer_p)))))
+                 else c(as.numeric(t(cbind(matrix(0, n, peer_p), X)))),
+        frac_bits = frac_bits))$fp_data,
+      y_share_fp = .callMheTool("k2-float-to-fp", list(
+        values = y_vals, frac_bits = frac_bits))$fp_data,
+      triple_a = triple$a, triple_b = triple$b))
+
+    ss$pairwise_cross_triple <- triple
+    list(xma = result$xma, ymb = result$ymb)
+  } else {
+    # Phase 2: Beaver close → cross-product shares
+    triple <- ss$pairwise_cross_triple
+    blob <- .blob_consume("pairwise_cross_peer_r1", ss)
+    if (is.null(blob)) stop("No peer cross R1 blob")
+    tsk <- .key_get("transport_sk", ss)
+    dec <- .callMheTool("transport-decrypt", list(
+      sealed = .base64url_to_base64(blob), recipient_sk = tsk))
+    peer_r1 <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
+
+    y_vals <- rep(0, n)
+    if (!is.null(y_var) && y_var %in% names(data))
+      y_vals <- as.numeric(data[[y_var]])
+
+    result <- .callMheTool("k2-gaussian-oneshot", list(
+      phase = 2L, party_id = as.integer(party_id), frac_bits = frac_bits,
+      n = as.integer(n), p = as.integer(p_my + peer_p),
+      x_full_fp = .callMheTool("k2-float-to-fp", list(
+        values = if (party_id == 0L) c(as.numeric(t(cbind(X, matrix(0, n, peer_p)))))
+                 else c(as.numeric(t(cbind(matrix(0, n, peer_p), X)))),
+        frac_bits = frac_bits))$fp_data,
+      y_share_fp = .callMheTool("k2-float-to-fp", list(
+        values = y_vals, frac_bits = frac_bits))$fp_data,
+      triple_a = triple$a, triple_b = triple$b, triple_c = triple$c,
+      peer_xma = peer_r1$xma, peer_ymb = peer_r1$ymb))
+
+    ss$pairwise_cross_triple <- NULL
+    list(cross_xtx_fp = result$cross_xtx_fp, cross_xty_fp = result$cross_xty_fp)
+  }
+}
+
 glmSecureAggBlockSolveDS <- function(data_name, x_vars,
                                       beta_current, gradient,
                                       lambda = 1e-4,
@@ -450,13 +543,16 @@ glmSecureAggCoordinatorStepDS <- function(data_name, y_var, x_vars,
   residual <- as.numeric(y - mu_total)
   encrypted_residual <- NULL
   if (.key_exists("cpk", ss)) {
-    enc_r_result <- .callMheTool("mhe-encrypt-vector", list(
-      vector = residual,
-      collective_public_key = .key_get("cpk", ss),
-      log_n = as.integer(ss$log_n %||% 12),
-      log_scale = as.integer(ss$log_scale %||% 40)
-    ))
-    encrypted_residual <- base64_to_base64url(enc_r_result$ciphertext)
+    tryCatch({
+      enc_r_result <- .callMheTool("mhe-encrypt-vector", list(
+        vector = residual,
+        collective_public_key = .key_get("cpk", ss),
+        log_n = as.integer(ss$log_n %||% 12),
+        log_scale = as.integer(ss$log_scale %||% 40)
+      ))
+      if (!is.null(enc_r_result$ciphertext))
+        encrypted_residual <- base64_to_base64url(enc_r_result$ciphertext)
+    }, error = function(e) NULL)
   }
 
   # Gradient for L-BFGS (client-side optimizer)

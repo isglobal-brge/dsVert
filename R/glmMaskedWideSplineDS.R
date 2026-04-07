@@ -25,7 +25,7 @@ NULL
 #' @param session_id Character or NULL.
 #' @return List with \code{ct_masked} (base64url encrypted masked eta).
 #' @export
-glmMWSMaskEtaDS <- function(n_obs, frac_bits = 20L, session_id = NULL) {
+glmMWSMaskEtaDS <- function(n_obs, intercept = 0, frac_bits = 20L, session_id = NULL) {
   ss <- .S(session_id)
 
   # ct_eta_total was stored by glmHELinkStepDS(skip_poly=TRUE) as ss$ct_mu
@@ -34,13 +34,22 @@ glmMWSMaskEtaDS <- function(n_obs, frac_bits = 20L, session_id = NULL) {
     stop("No aggregated eta. Call glmHELinkStepDS(skip_poly=TRUE) first.", call. = FALSE)
 
   n <- as.integer(n_obs)
+  intercept <- as.numeric(intercept)
 
   # Generate random mask r (uniform in [-5, 5] to cover eta range)
+  # Include intercept in the mask: r_effective = r - intercept
+  # So share_A = eta_total + intercept + r, share_B = -(r + intercept) ...
+  # Actually: share_B = -r, and we add intercept to the encrypted sum:
+  # Enc(eta_total + intercept + r) = Enc(eta_total) + Enc(intercept_vec) + Enc(r)
   r <- runif(n, -5, 5)
 
-  # Encrypt r under CPK
+  # Encrypt (r + intercept) — so share_A gets eta_total + intercept + r
+  # and share_B = -(r + intercept)
+  r_plus_intercept <- r + intercept
+
+  # Encrypt under CPK
   enc_r <- .callMheTool("mhe-encrypt-vector", list(
-    vector = r,
+    vector = r_plus_intercept,
     collective_public_key = .key_get("cpk", ss),
     log_n = as.integer(ss$log_n %||% 12),
     log_scale = as.integer(ss$log_scale %||% 40)
@@ -54,16 +63,20 @@ glmMWSMaskEtaDS <- function(n_obs, frac_bits = 20L, session_id = NULL) {
     log_scale = as.integer(ss$log_scale %||% 40)
   ))
 
-  # Store -r as coordinator's share (convert to Ring63 FP for wide spline)
+  # Store -(r + intercept) as coordinator's share
   neg_r_fp <- .callMheTool("k2-float-to-fp", list(
-    values = -r, frac_bits = as.integer(frac_bits)
+    values = -r_plus_intercept, frac_bits = as.integer(frac_bits)
   ))
   ss$k2_eta_share_fp <- neg_r_fp$fp_data
   ss$k2_eta_share <- neg_r_fp$fp_data
   ss$mws_n_obs <- n
 
-  # Store ct_masked for threshold decryption distribution
-  list(ct_masked = base64_to_base64url(ct_masked$ciphertext))
+  # Register ct_masked in Protocol Firewall for threshold decryption
+  ct_hash <- .register_ciphertext(ct_masked$ciphertext, "mws-masked-eta",
+                                   session_id = session_id)
+
+  list(ct_masked = base64_to_base64url(ct_masked$ciphertext),
+       ct_hash = ct_hash)
 }
 
 #' Set eta share from plaintext float (for MWS threshold-decrypted share)

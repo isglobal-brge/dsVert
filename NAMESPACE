@@ -48,9 +48,11 @@ export(k2NewtonFisherPhase2DS)
 export(k2RealFisherPhase1DS)
 export(k2RealFisherPhase2DS)
 export(k2RealFisherPhase3DS)
-# K=2 MPC: Gaussian identity link + constant Fisher
+# K=2 MPC: Gaussian identity link + constant Fisher + one-shot
 export(k2IdentityLinkDS)
 export(k2GaussianFisherDS)
+export(k2GaussianOneshotPhase1DS)
+export(k2GaussianOneshotPhase2DS)
 # K=2 MPC: Beaver operations (reused for AND + Hadamard)
 export(k2StorePowerTripleDS)
 export(k2BeaverRoundFPDS)

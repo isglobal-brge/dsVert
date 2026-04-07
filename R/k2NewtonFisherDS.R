@@ -25,6 +25,68 @@ k2GaussianFisherDS <- function(p_total = 6L, frac_bits = 20L, session_id = NULL)
   list(fisher_diag_fp = result$fisher_diag_fp)
 }
 
+#' Gaussian one-shot Phase 1: local X^T X + X^T y + Beaver R1 for cross terms
+#' @export
+k2GaussianOneshotPhase1DS <- function(party_id = 0L, p_total = 6L,
+                                       frac_bits = 20L, session_id = NULL) {
+  ss <- .S(session_id)
+  x_fp <- ss$k2_x_full_fp
+  y_fp <- ss$k2_y_share_fp
+  if (is.null(x_fp)) stop("No X_full share")
+  if (is.null(y_fp)) stop("No y share")
+  n <- ss$k2_x_n
+
+  # Consume Beaver triple from blob
+  blob <- .blob_consume("k2_oneshot_triples", ss)
+  if (is.null(blob)) stop("No oneshot triple blob")
+  tsk <- .key_get("transport_sk", ss)
+  dec <- .callMheTool("transport-decrypt", list(
+    sealed = .base64url_to_base64(blob), recipient_sk = tsk))
+  triple <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
+
+  result <- .callMheTool("k2-gaussian-oneshot", list(
+    phase = 1L, party_id = party_id, frac_bits = frac_bits,
+    n = as.integer(n), p = as.integer(p_total),
+    x_full_fp = x_fp, y_share_fp = y_fp,
+    triple_a = triple$a, triple_b = triple$b))
+
+  # Store triple for phase 2
+  ss$k2_oneshot_triple <- triple
+  list(local_xtx_fp = result$local_xtx_fp,
+       local_xty_fp = result$local_xty_fp,
+       xma = result$xma, ymb = result$ymb)
+}
+
+#' Gaussian one-shot Phase 2: Beaver close → cross X^T X and X^T y shares
+#' @export
+k2GaussianOneshotPhase2DS <- function(party_id = 0L, p_total = 6L,
+                                       frac_bits = 20L, session_id = NULL) {
+  ss <- .S(session_id)
+  x_fp <- ss$k2_x_full_fp
+  y_fp <- ss$k2_y_share_fp
+  triple <- ss$k2_oneshot_triple
+  n <- ss$k2_x_n
+
+  # Consume peer R1
+  peer_blob <- .blob_consume("k2_oneshot_peer_r1", ss)
+  if (is.null(peer_blob)) stop("No peer oneshot R1 blob")
+  tsk <- .key_get("transport_sk", ss)
+  dec <- .callMheTool("transport-decrypt", list(
+    sealed = .base64url_to_base64(peer_blob), recipient_sk = tsk))
+  peer_r1 <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
+
+  result <- .callMheTool("k2-gaussian-oneshot", list(
+    phase = 2L, party_id = party_id, frac_bits = frac_bits,
+    n = as.integer(n), p = as.integer(p_total),
+    x_full_fp = x_fp, y_share_fp = y_fp,
+    triple_a = triple$a, triple_b = triple$b, triple_c = triple$c,
+    peer_xma = peer_r1$xma, peer_ymb = peer_r1$ymb))
+
+  ss$k2_oneshot_triple <- NULL
+  list(cross_xtx_fp = result$cross_xtx_fp,
+       cross_xty_fp = result$cross_xty_fp)
+}
+
 #' Fisher Phase 1: Beaver R1 for w = mu*(1-mu)
 #' @export
 k2RealFisherPhase1DS <- function(party_id = 0L, family = "binomial", frac_bits = 20L,

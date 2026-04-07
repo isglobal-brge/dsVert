@@ -225,6 +225,8 @@ func main() {
 		handleK2PrecomputeXSq()
 	case "k2-gaussian-fisher":
 		handleK2GaussianFisher()
+	case "k2-gaussian-oneshot":
+		handleK2GaussianOneshot()
 	case "help", "-h", "--help":
 		printUsage()
 	default:

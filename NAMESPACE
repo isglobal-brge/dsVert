@@ -94,8 +94,6 @@ export(mheStoreTransportKeysDS)
 export(mheStoreWrappedShareDS)
 export(mheVersion)
 # PSI
-export(peerManifestStoreDS)
-export(peerManifestValidateDS)
 export(psiDoubleMaskDS)
 export(psiExportMaskedDS)
 export(psiFilterCommonDS)

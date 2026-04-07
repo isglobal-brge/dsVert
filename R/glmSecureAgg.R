@@ -49,26 +49,6 @@ glmSecureAggInitDS <- function(self_name, session_id,
     stop("Peer transport PKs not stored. Call mheStoreTransportKeysDS first.",
          call. = FALSE)
 
-  # Manifest consensus gate: when enabled, require all peers to be validated
-  manifest_consensus <- .read_dsvert_option("dsvert.manifest_consensus", FALSE)
-  if (isTRUE(manifest_consensus) || identical(tolower(as.character(manifest_consensus)), "true")) {
-    if (is.null(ss$validated_peers) || length(ss$validated_peers) == 0) {
-      stop("Manifest consensus required but no peers validated. ",
-           "Run peerManifestStoreDS + peerManifestValidateDS first.",
-           call. = FALSE)
-    }
-    expected_peers <- setdiff(sort(nonlabel_names), self_name)
-    missing <- setdiff(expected_peers, ss$validated_peers)
-    if (length(missing) > 0) {
-      stop("Manifest consensus incomplete: peers not validated: ",
-           paste(missing, collapse = ", "), call. = FALSE)
-    }
-  } else if (!is.null(ss$manifest_hash) &&
-             (is.null(ss$validated_peers) || length(ss$validated_peers) == 0)) {
-    warning("Manifest exists but peers not validated. ",
-            "Set dsvert.manifest_consensus=TRUE to enforce.", call. = FALSE)
-  }
-
   nonlabel_names <- sort(nonlabel_names)
 
   # Determine peers based on topology

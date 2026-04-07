@@ -90,9 +90,18 @@ glmMWSMaskEtaDS <- function(n_obs, intercept = 0, frac_bits = 20L, session_id = 
 #' @param session_id Character or NULL.
 #' @return TRUE.
 #' @export
-glmMWSSetEtaShareDS <- function(eta_float, frac_bits = 20L, session_id = NULL) {
+glmMWSSetEtaShareDS <- function(eta_float = NULL, from_storage = FALSE,
+                                 frac_bits = 20L, session_id = NULL) {
   ss <- .S(session_id)
-  eta_float <- as.numeric(eta_float)
+
+  if (from_storage) {
+    blob <- .blob_consume("mws_eta_share", ss)
+    if (is.null(blob)) stop("No mws_eta_share blob", call. = FALSE)
+    raw <- jsonlite::base64_dec(blob)
+    eta_float <- as.numeric(jsonlite::fromJSON(rawToChar(raw)))
+  } else {
+    eta_float <- as.numeric(eta_float)
+  }
 
   # Disclosure check
   privacy_level <- getOption("datashield.privacyLevel", 5)

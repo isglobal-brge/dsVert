@@ -111,5 +111,4 @@ Options:
     datashield.privacyLevel=5,
     default.nfilter.tab=3,
     default.nfilter.glm=0.33,
-    default.nfilter.subset=3,
-    default.dsvert.psi_key_pinning=FALSE
+    default.nfilter.subset=3

@@ -217,58 +217,6 @@ NULL
   val
 }
 
-#' Load pre-shared transport keys from DataSHIELD R options (internal)
-#'
-#' Reads key pinning configuration from R options following the dsBase
-#' two-tier fallback pattern (\code{getOption("name")} then
-#' \code{getOption("default.name")}). Returns NULL if key pinning is
-#' not enabled (default), meaning ephemeral keys will be used.
-#'
-#' @return List with secret_key, public_key, trusted_pks (character vector of
-#'   trusted peer PKs), or NULL if key pinning is not enabled.
-#' @keywords internal
-.psi_load_preshared_keys <- function() {
-  pinning <- .read_dsvert_option("dsvert.psi_key_pinning", FALSE)
-  if (!isTRUE(pinning) && !identical(tolower(as.character(pinning)), "true")) {
-    return(NULL)
-  }
-
-  sk <- .read_dsvert_option("dsvert.psi_sk")
-  pk <- .read_dsvert_option("dsvert.psi_pk")
-  if (is.null(sk) || is.null(pk) || sk == "" || pk == "") {
-    warning("dsvert.psi_key_pinning=TRUE but dsvert.psi_sk/psi_pk not set, ",
-            "falling back to ephemeral keys", call. = FALSE)
-    return(NULL)
-  }
-
-  # Parse peer PKs from JSON string option
-  peers_json <- .read_dsvert_option("dsvert.psi_peers")
-  if (is.null(peers_json) || peers_json == "") {
-    warning("dsvert.psi_key_pinning=TRUE but dsvert.psi_peers not set, ",
-            "falling back to ephemeral keys", call. = FALSE)
-    return(NULL)
-  }
-
-  peers <- tryCatch(
-    jsonlite::fromJSON(peers_json),
-    error = function(e) {
-      warning("dsvert.psi_peers is not valid JSON: ", e$message,
-              ". Falling back to ephemeral keys", call. = FALSE)
-      NULL
-    }
-  )
-
-  if (is.null(peers) || length(peers) == 0) {
-    return(NULL)
-  }
-
-  # Normalize: accept both JSON array ["pk1","pk2"] and object {"a":"pk1","b":"pk2"}
-  # In both cases, we store only the PK values as a character vector (set)
-  trusted_pks <- as.character(unname(unlist(peers)))
-
-  list(secret_key = sk, public_key = pk, trusted_pks = trusted_pks)
-}
-
 # ============================================================================
 # Phase 0: PSI Transport Key Exchange
 # ============================================================================
@@ -316,28 +264,16 @@ NULL
 #' @export
 psiInitDS <- function(session_id = NULL) {
   ss <- .S(session_id)
-  preshared <- .psi_load_preshared_keys()
 
-  if (!is.null(preshared)) {
-    # Pre-shared keys: use persistent keypair (MITM-resistant)
-    ss$psi_transport_sk <- preshared$secret_key
-    ss$psi_transport_pk <- preshared$public_key
-    ss$psi_trusted_pks <- preshared$trusted_pks  # for validation
-  } else {
-    # Ephemeral keys: generate fresh keypair (development mode)
-    transport <- .callMheTool("transport-keygen", list())
-    ss$psi_transport_sk <- transport$secret_key
-    ss$psi_transport_pk <- transport$public_key
-    ss$psi_trusted_pks <- NULL
-  }
+  # Generate fresh ephemeral keypair for this session
+  transport <- .callMheTool("transport-keygen", list())
+  ss$psi_transport_sk <- transport$secret_key
+  ss$psi_transport_pk <- transport$public_key
 
   ss$psi_phase <- "init"
   ss$psi_dm_used <- character(0)
 
-  list(
-    transport_pk = base64_to_base64url(ss$psi_transport_pk),
-    pinned = !is.null(preshared)
-  )
+  list(transport_pk = base64_to_base64url(ss$psi_transport_pk))
 }
 
 #' Store peer transport public keys (aggregate function)
@@ -365,24 +301,6 @@ psiStoreTransportKeysDS <- function(transport_keys, session_id = NULL) {
     stop("PSI not initialized. Call psiInitDS first.", call. = FALSE)
   }
 
-  trusted <- ss$psi_trusted_pks
-  if (!is.null(trusted)) {
-    # Pre-shared keys: validate every client-provided PK is in the trusted set
-    own_pk <- ss$psi_transport_pk
-    client_pks <- lapply(transport_keys, .base64url_to_base64)
-    for (name in names(client_pks)) {
-      pk <- client_pks[[name]]
-      if (pk == own_pk) next  # skip our own PK
-      if (!(pk %in% trusted)) {
-        stop("PSI Key Pinning: unknown transport PK received for '", name,
-             "'. Not in trusted peer set. ",
-             "Possible MITM attack by client.", call. = FALSE)
-      }
-    }
-  }
-
-  # Store client-provided name -> PK mapping (names are routing labels,
-  # PKs are validated above if pinning is enabled)
   ss$psi_peer_pks <- lapply(transport_keys, .base64url_to_base64)
 
   invisible(TRUE)

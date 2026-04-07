@@ -228,3 +228,35 @@ func handleK2NewtonFisherReal() {
 		})
 	}
 }
+
+// handleK2GaussianFisher: d_j = sum(x²_j) for Gaussian (w=1, no Beaver needed).
+// Each server sums its x² share per column → client reconstructs d_j = share_0 + share_1.
+func handleK2GaussianFisher() {
+	var input struct {
+		P        int    `json:"p"`
+		N        int    `json:"n"`
+		FracBits int    `json:"frac_bits"`
+		XSqFP    string `json:"xsq_fp"`
+	}
+	mpcReadInput(&input)
+	if input.FracBits <= 0 {
+		input.FracBits = K2DefaultFracBits
+	}
+
+	ring := NewRing63(input.FracBits)
+	xsq := fpToRing63(bytesToFPVec(base64ToBytes(input.XSqFP)))
+
+	// xsq is stored row-major: xsq[i*p + j] = x²_share for obs i, feature j
+	fisherDiag := make([]uint64, input.P)
+	for j := 0; j < input.P; j++ {
+		var sum uint64
+		for i := 0; i < input.N; i++ {
+			sum = ring.Add(sum, xsq[i*input.P+j])
+		}
+		fisherDiag[j] = sum
+	}
+
+	mpcWriteOutput(K2FisherPhase3Out{
+		FisherDiagFP: bytesToBase64(fpVecToBytes(ring63ToFP(fisherDiag))),
+	})
+}

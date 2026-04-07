@@ -1,5 +1,29 @@
 # k2NewtonFisherDS.R: Server-side functions for real diagonal Fisher Newton-IRLS.
 # 3-phase protocol: w R1 → w close + w*x² R1 → w*x² close + d_j
+# Gaussian: single-phase d_j = sum(x²_j), no Beaver needed (w=1 constant)
+
+#' Identity link: set mu = eta (for Gaussian GLM)
+#' @export
+k2IdentityLinkDS <- function(session_id = NULL) {
+  ss <- .S(session_id)
+  eta_fp <- ss$k2_eta_share_fp
+  if (is.null(eta_fp)) stop("No eta share")
+  ss$secure_mu_share <- eta_fp
+  list(ok = TRUE)
+}
+
+#' Gaussian Fisher: d_j = sum(x²_j) — no Beaver, w=1 constant
+#' @export
+k2GaussianFisherDS <- function(p_total = 6L, frac_bits = 20L, session_id = NULL) {
+  ss <- .S(session_id)
+  xsq_fp <- ss$k2_xsq_fp
+  if (is.null(xsq_fp)) stop("No x² shares. Run k2PrecomputeXSqPhase2DS first.")
+  n <- ss$k2_x_n
+  result <- .callMheTool("k2-gaussian-fisher", list(
+    p = as.integer(p_total), n = as.integer(n), frac_bits = as.integer(frac_bits),
+    xsq_fp = xsq_fp))
+  list(fisher_diag_fp = result$fisher_diag_fp)
+}
 
 #' Fisher Phase 1: Beaver R1 for w = mu*(1-mu)
 #' @export

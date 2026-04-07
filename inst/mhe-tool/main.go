@@ -223,6 +223,8 @@ func main() {
 		handleK2NewtonFisherReal()
 	case "k2-precompute-xsq":
 		handleK2PrecomputeXSq()
+	case "k2-gaussian-fisher":
+		handleK2GaussianFisher()
 	case "help", "-h", "--help":
 		printUsage()
 	default:

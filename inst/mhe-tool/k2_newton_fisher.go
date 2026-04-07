@@ -14,6 +14,7 @@ type K2NewtonFisherRealInput struct {
 	Phase    int    `json:"phase"`    // 1, 2, or 3
 	PartyID  int    `json:"party_id"`
 	FracBits int    `json:"frac_bits"`
+	Family   string `json:"family"`   // "binomial" or "poisson"
 	N        int    `json:"n"`
 	P        int    `json:"p"`
 	// mu share (all phases — recomputes 1-mu internally)
@@ -68,14 +69,32 @@ func handleK2NewtonFisherReal() {
 	// Decode mu share
 	muShare := fpToRing63(bytesToFPVec(base64ToBytes(input.MuShareFP)))
 
-	// Compute 1 - mu
-	oneFP := ring.FromDouble(1.0)
-	oneMinusMu := make([]uint64, n)
-	for i := 0; i < n; i++ {
-		if input.PartyID == 0 {
-			oneMinusMu[i] = ring.Sub(oneFP, muShare[i])
-		} else {
-			oneMinusMu[i] = ring.Sub(0, muShare[i])
+	// Compute second factor for w based on family:
+	// Binomial: w = mu*(1-mu), second factor = (1-mu)
+	// Poisson: w = mu, second factor = 1 (constant) → w = mu*1 = mu
+	var wSecondFactor []uint64
+	if input.Family == "poisson" {
+		// w = mu. For Beaver: compute mu * 1 = mu (no Hadamard needed)
+		// But the protocol EXPECTS a Beaver product. So we compute mu * one_FP.
+		wSecondFactor = make([]uint64, n)
+		oneFP := ring.FromDouble(1.0)
+		for i := 0; i < n; i++ {
+			if input.PartyID == 0 {
+				wSecondFactor[i] = oneFP
+			} else {
+				wSecondFactor[i] = 0
+			}
+		}
+	} else {
+		// Binomial: 1 - mu
+		oneFP := ring.FromDouble(1.0)
+		wSecondFactor = make([]uint64, n)
+		for i := 0; i < n; i++ {
+			if input.PartyID == 0 {
+				wSecondFactor[i] = ring.Sub(oneFP, muShare[i])
+			} else {
+				wSecondFactor[i] = ring.Sub(0, muShare[i])
+			}
 		}
 	}
 
@@ -87,7 +106,7 @@ func handleK2NewtonFisherReal() {
 	case 1:
 		// Phase 1: Beaver R1 for w = mu * (1-mu)
 		wBeaver := BeaverTripleVec{A: wA, B: wB}
-		_, wMsg := GenerateBatchedMultiplicationGateMessage(muShare, oneMinusMu, wBeaver, ring)
+		_, wMsg := GenerateBatchedMultiplicationGateMessage(muShare, wSecondFactor, wBeaver, ring)
 		mpcWriteOutput(K2FisherPhase1Out{
 			W_XMA: bytesToBase64(fpVecToBytes(ring63ToFP(wMsg.XMinusAShares))),
 			W_YMB: bytesToBase64(fpVecToBytes(ring63ToFP(wMsg.YMinusBShares))),
@@ -99,7 +118,7 @@ func handleK2NewtonFisherReal() {
 		// Close w Beaver
 		wC := fpToRing63(bytesToFPVec(base64ToBytes(input.WTripleC)))
 		wBeaver := BeaverTripleVec{A: wA, B: wB, C: wC}
-		wState, _ := GenerateBatchedMultiplicationGateMessage(muShare, oneMinusMu, wBeaver, ring)
+		wState, _ := GenerateBatchedMultiplicationGateMessage(muShare, wSecondFactor, wBeaver, ring)
 		peerWMsg := MultGateMessage{
 			XMinusAShares: fpToRing63(bytesToFPVec(base64ToBytes(input.PeerW_XMA))),
 			YMinusBShares: fpToRing63(bytesToFPVec(base64ToBytes(input.PeerW_YMB))),
@@ -147,7 +166,7 @@ func handleK2NewtonFisherReal() {
 		// Recompute w (same as phase 2)
 		wC := fpToRing63(bytesToFPVec(base64ToBytes(input.WTripleC)))
 		wBeaver := BeaverTripleVec{A: wA, B: wB, C: wC}
-		wState, _ := GenerateBatchedMultiplicationGateMessage(muShare, oneMinusMu, wBeaver, ring)
+		wState, _ := GenerateBatchedMultiplicationGateMessage(muShare, wSecondFactor, wBeaver, ring)
 		peerWMsg := MultGateMessage{
 			XMinusAShares: fpToRing63(bytesToFPVec(base64ToBytes(input.PeerW_XMA))),
 			YMinusBShares: fpToRing63(bytesToFPVec(base64ToBytes(input.PeerW_YMB))),

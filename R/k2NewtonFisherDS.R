@@ -3,7 +3,7 @@
 
 #' Fisher Phase 1: Beaver R1 for w = mu*(1-mu)
 #' @export
-k2RealFisherPhase1DS <- function(party_id = 0L, frac_bits = 20L,
+k2RealFisherPhase1DS <- function(party_id = 0L, family = "binomial", frac_bits = 20L,
                                   session_id = NULL) {
   ss <- .S(session_id)
   mu_fp <- ss$secure_mu_share
@@ -19,7 +19,7 @@ k2RealFisherPhase1DS <- function(party_id = 0L, frac_bits = 20L,
 
   n <- as.integer(nchar(.base64url_to_base64(mu_fp)) * 3 / 4 / 8)
   result <- .callMheTool("k2-newton-fisher-real", list(
-    phase = 1L, party_id = party_id, frac_bits = frac_bits,
+    phase = 1L, party_id = party_id, family = family, frac_bits = frac_bits,
     n = n, p = 0L,
     mu_share_fp = .base64url_to_base64(mu_fp),
     w_a = triple$a, w_b = triple$b))
@@ -31,7 +31,7 @@ k2RealFisherPhase1DS <- function(party_id = 0L, frac_bits = 20L,
 
 #' Fisher Phase 2: w close + Beaver R1 for w*x²_j
 #' @export
-k2RealFisherPhase2DS <- function(party_id = 0L, frac_bits = 20L,
+k2RealFisherPhase2DS <- function(party_id = 0L, family = "binomial", frac_bits = 20L,
                                   p_total = 6L, session_id = NULL) {
   ss <- .S(session_id)
   mu_fp <- ss$secure_mu_share
@@ -57,7 +57,7 @@ k2RealFisherPhase2DS <- function(party_id = 0L, frac_bits = 20L,
 
   n <- as.integer(nchar(.base64url_to_base64(mu_fp)) * 3 / 4 / 8)
   result <- .callMheTool("k2-newton-fisher-real", list(
-    phase = 2L, party_id = party_id, frac_bits = frac_bits,
+    phase = 2L, party_id = party_id, family = family, frac_bits = frac_bits,
     n = n, p = as.integer(p_total),
     mu_share_fp = .base64url_to_base64(mu_fp),
     xsq_fp = xsq_fp,
@@ -73,7 +73,7 @@ k2RealFisherPhase2DS <- function(party_id = 0L, frac_bits = 20L,
 
 #' Fisher Phase 3: w*x² close → d_j = sum(w*x²_j)
 #' @export
-k2RealFisherPhase3DS <- function(party_id = 0L, frac_bits = 20L,
+k2RealFisherPhase3DS <- function(party_id = 0L, family = "binomial", frac_bits = 20L,
                                   p_total = 6L, session_id = NULL) {
   ss <- .S(session_id)
   mu_fp <- ss$secure_mu_share
@@ -92,7 +92,7 @@ k2RealFisherPhase3DS <- function(party_id = 0L, frac_bits = 20L,
 
   n <- as.integer(nchar(.base64url_to_base64(mu_fp)) * 3 / 4 / 8)
   result <- .callMheTool("k2-newton-fisher-real", list(
-    phase = 3L, party_id = party_id, frac_bits = frac_bits,
+    phase = 3L, party_id = party_id, family = family, frac_bits = frac_bits,
     n = n, p = as.integer(p_total),
     mu_share_fp = .base64url_to_base64(mu_fp),
     xsq_fp = xsq_fp,

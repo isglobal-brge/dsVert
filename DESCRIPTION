@@ -88,8 +88,6 @@ AggregateMethods:
     k2GradientR2DS,
     k2StorePowerTripleDS,
     k2StoreGradTripleDS,
-    k2DiagnosticDS,
-    k2ReadSessionKeyDS,
     k2BeaverRoundFPDS,
     k2StoreDcfKeysDS,
     k2DcfEvalDS,
@@ -103,8 +101,6 @@ AggregateMethods:
     glmSecureAggPrepDevianceDS,
     glmFSMInitDS,
     glmFSMCheckDS,
-    peerManifestStoreDS,
-    peerManifestValidateDS,
     c=base::c,
     list=base::list
 AssignMethods:

@@ -1,5 +1,61 @@
 # k2WideSplineFullDS.R: 4-phase wide spline sigmoid + Newton-IRLS diagonal Fisher.
 
+#' Pre-compute x² Phase 1: Beaver R1 for x_j*x_j
+#' @export
+k2PrecomputeXSqPhase1DS <- function(party_id = 0L, frac_bits = 20L,
+                                     p_total = 6L, session_id = NULL) {
+  ss <- .S(session_id)
+  x_fp <- ss$k2_x_full_fp
+  if (is.null(x_fp)) stop("No X shares in session")
+
+  # Consume Beaver triples for x² (p features)
+  xsq_blob <- .blob_consume("k2_xsq_triples", ss)
+  if (is.null(xsq_blob)) stop("No x² triples blob")
+  tsk <- .key_get("transport_sk", ss)
+  dec <- .callMheTool("transport-decrypt", list(
+    sealed = .base64url_to_base64(xsq_blob), recipient_sk = tsk))
+  triple <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
+
+  n <- ss$k2_x_n
+  result <- .callMheTool("k2-precompute-xsq", list(
+    phase = 1L, party_id = party_id, frac_bits = frac_bits,
+    x_full_fp = .base64url_to_base64(x_fp),
+    n = as.integer(n), p = as.integer(p_total),
+    triple_a = triple$a, triple_b = triple$b, triple_c = ""))
+
+  ss$k2_xsq_triple <- triple
+  list(xma = result$xma, ymb = result$ymb)
+}
+
+#' Pre-compute x² Phase 2: Beaver close → x² shares stored
+#' @export
+k2PrecomputeXSqPhase2DS <- function(party_id = 0L, frac_bits = 20L,
+                                     p_total = 6L, session_id = NULL) {
+  ss <- .S(session_id)
+  x_fp <- ss$k2_x_full_fp
+  triple <- ss$k2_xsq_triple
+
+  peer_blob <- .blob_consume("k2_xsq_peer_r1", ss)
+  if (is.null(peer_blob)) stop("No x² peer R1 blob")
+  tsk <- .key_get("transport_sk", ss)
+  dec <- .callMheTool("transport-decrypt", list(
+    sealed = .base64url_to_base64(peer_blob), recipient_sk = tsk))
+  peer_r1 <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
+
+  n <- ss$k2_x_n
+  result <- .callMheTool("k2-precompute-xsq", list(
+    phase = 2L, party_id = party_id, frac_bits = frac_bits,
+    x_full_fp = .base64url_to_base64(x_fp),
+    n = as.integer(n), p = as.integer(p_total),
+    triple_a = triple$a, triple_b = triple$b, triple_c = triple$c,
+    peer_xma = peer_r1$xma, peer_ymb = peer_r1$ymb))
+
+  # Store x² shares persistently (reused every iteration)
+  ss$k2_xsq_fp <- result$xsq_fp
+  ss$k2_xsq_triple <- NULL
+  list(status = "ok")
+}
+
 #' Newton Fisher Phase 1: Beaver R1 for w = mu*(1-mu)
 #' @export
 k2NewtonFisherPhase1DS <- function(party_id = 0L, frac_bits = 20L,
@@ -30,7 +86,7 @@ k2NewtonFisherPhase1DS <- function(party_id = 0L, frac_bits = 20L,
   list(w_xma = result$w_xma, w_ymb = result$w_ymb)
 }
 
-#' Newton Fisher Phase 2: compute d_j = sum(w) shares (disclosed aggregate)
+#' Newton Fisher Phase 2: compute d_j = sum(w*x²_j) shares (disclosed aggregate)
 #' @export
 k2NewtonFisherPhase2DS <- function(party_id = 0L, frac_bits = 20L,
                                     p_total = 6L, session_id = NULL) {
@@ -39,7 +95,7 @@ k2NewtonFisherPhase2DS <- function(party_id = 0L, frac_bits = 20L,
   triple <- ss$k2_fisher_triple
   x_fp <- ss$k2_x_full_fp
 
-  # Consume peer's Beaver R1 from blob
+  # Consume peer's Beaver R1 for w from blob
   peer_blob <- .blob_consume("k2_fisher_peer_r1", ss)
   if (is.null(peer_blob)) stop("No Fisher peer R1 blob")
   tsk <- .key_get("transport_sk", ss)
@@ -49,13 +105,39 @@ k2NewtonFisherPhase2DS <- function(party_id = 0L, frac_bits = 20L,
 
   n <- as.integer(nchar(.base64url_to_base64(mu_fp)) * 3 / 4 / 8)
 
+  # Check if x² shares are available (real Fisher) or fallback to scalar
+  xsq_fp <- ss$k2_xsq_fp  # pre-computed x² shares
+
+  # Consume w*x² triples + peer messages (if doing real Fisher)
+  wxsq_blob <- .blob_consume("k2_wxsq_triples", ss)
+  wxsq_peer_blob <- .blob_consume("k2_wxsq_peer_r1", ss)
+
+  # Prepare w*x² triple data
+  wxsq_a <- ""; wxsq_b <- ""; wxsq_c <- ""
+  peer_wxsq_xma <- ""; peer_wxsq_ymb <- ""
+  if (!is.null(wxsq_blob)) {
+    dec2 <- .callMheTool("transport-decrypt", list(
+      sealed = .base64url_to_base64(wxsq_blob), recipient_sk = tsk))
+    wxsq_triple <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec2$data)))
+    wxsq_a <- wxsq_triple$a; wxsq_b <- wxsq_triple$b; wxsq_c <- wxsq_triple$c
+  }
+  if (!is.null(wxsq_peer_blob)) {
+    dec3 <- .callMheTool("transport-decrypt", list(
+      sealed = .base64url_to_base64(wxsq_peer_blob), recipient_sk = tsk))
+    wxsq_peer <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec3$data)))
+    peer_wxsq_xma <- wxsq_peer$xma; peer_wxsq_ymb <- wxsq_peer$ymb
+  }
+
   result <- .callMheTool("k2-newton-fisher", list(
     phase = 2L, party_id = party_id, frac_bits = frac_bits,
     mu_share_fp = .base64url_to_base64(mu_fp),
     x_full_fp = .base64url_to_base64(x_fp),
     n = n, p = as.integer(p_total),
     beaver_w_a = triple$a, beaver_w_b = triple$b, beaver_w_c = triple$c,
-    peer_w_xma = peer_r1$w_xma, peer_w_ymb = peer_r1$w_ymb))
+    peer_w_xma = peer_r1$w_xma, peer_w_ymb = peer_r1$w_ymb,
+    xsq_fp = if (!is.null(xsq_fp)) xsq_fp else "",
+    wxsq_triple_a = wxsq_a, wxsq_triple_b = wxsq_b, wxsq_triple_c = wxsq_c,
+    peer_wxsq_xma = peer_wxsq_xma, peer_wxsq_ymb = peer_wxsq_ymb))
 
   ss$k2_fisher_triple <- NULL
   list(fisher_diag_fp = result$fisher_diag_fp)

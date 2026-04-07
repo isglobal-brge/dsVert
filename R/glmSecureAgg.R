@@ -500,6 +500,10 @@ glmSecureAggPrepDevianceDS <- function(data_name, x_vars, beta,
   .check_glm_disclosure(X)
 
   beta <- as.numeric(beta)
+  # If beta includes an intercept (p+1 elements for p columns), add intercept column
+  if (length(beta) == ncol(X) + 1) {
+    X <- cbind(1, X)
+  }
   eta <- as.vector(X %*% beta)
 
   if (is.null(coordinator_pk) || coordinator_pk == "") {

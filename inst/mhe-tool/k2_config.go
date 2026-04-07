@@ -26,8 +26,10 @@ const (
 	// 100 intervals (width=0.11) gives max relative error 0.15% and MPC error 3.55e-3.
 	K2ExpIntervals = 100
 
-	// K2MaxGDIterations is the default number of gradient descent iterations.
-	K2MaxGDIterations = 500
+	// K2MaxNewtonIterations is the default number of Newton-IRLS iterations.
+	// With diagonal Fisher preconditioning, 50 iterations is sufficient for convergence.
+	// Local tests converge in 30 iter (3.3e-3 error). Opal converges in 40 iter (1.6e-3 error).
+	K2MaxNewtonIterations = 50
 
 	// K2DefaultAlphaBinomial is the learning rate for binomial gradient descent.
 	K2DefaultAlphaBinomial = 0.3

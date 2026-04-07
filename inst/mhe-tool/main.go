@@ -225,6 +225,11 @@ func main() {
 		handleK2PrecomputeXSq()
 	case "k2-gaussian-fisher":
 		handleK2GaussianFisher()
+	// Coin-tossing CRP (distributed randomness for CKKS key setup)
+	case "mhe-coin-toss-commit":
+		handleMHECoinTossCommit()
+	case "mhe-coin-toss-derive-crp":
+		handleMHECoinTossDeriveCRP()
 	case "k2-gaussian-oneshot":
 		handleK2GaussianOneshot()
 	case "help", "-h", "--help":
@@ -796,5 +801,33 @@ func handleMHEEncryptVector() {
 		os.Exit(1)
 	}
 
+	outputJSON(output)
+}
+
+func handleMHECoinTossCommit() {
+	output, err := mheCoinTossCommit()
+	if err != nil {
+		outputError(fmt.Sprintf("Coin-toss commit failed: %v", err))
+		os.Exit(1)
+	}
+	outputJSON(output)
+}
+
+func handleMHECoinTossDeriveCRP() {
+	inputBytes, err := readInput()
+	if err != nil {
+		outputError(fmt.Sprintf("Failed to read input: %v", err))
+		os.Exit(1)
+	}
+	var input CoinTossDeriveCRPInput
+	if err := json.Unmarshal(inputBytes, &input); err != nil {
+		outputError(fmt.Sprintf("Failed to parse input: %v", err))
+		os.Exit(1)
+	}
+	output, err := mheCoinTossDeriveCRP(&input)
+	if err != nil {
+		outputError(fmt.Sprintf("Coin-toss derive CRP failed: %v", err))
+		os.Exit(1)
+	}
 	outputJSON(output)
 }

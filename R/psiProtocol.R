@@ -338,6 +338,15 @@ psiMaskIdsDS <- function(data_name, id_col, session_id = NULL) {
 
   ids <- as.character(data[[id_col]])
 
+  # Anti-dictionary-attack: require minimum dataset size
+  # A phantom server with a small ID list (< privacyLevel * 10) is suspicious
+  privacy_level <- getOption("datashield.privacyLevel", 5)
+  min_records <- privacy_level * 10L  # default: 50 records minimum
+  if (length(ids) < min_records) {
+    stop("Dataset has ", length(ids), " records, minimum ", min_records,
+         " required for PSI (anti-dictionary protection)", call. = FALSE)
+  }
+
   result <- .callMheTool("psi-mask", list(
     ids = as.list(ids),
     scalar = ""
@@ -434,6 +443,14 @@ psiProcessTargetDS <- function(data_name, id_col, from_storage = FALSE,
   ref_masked_points <- unpacked$points  # already standard base64
 
   ids <- as.character(data[[id_col]])
+
+  # Anti-dictionary-attack: require minimum dataset size
+  privacy_level <- getOption("datashield.privacyLevel", 5)
+  min_records <- privacy_level * 10L
+  if (length(ids) < min_records) {
+    stop("Dataset has ", length(ids), " records, minimum ", min_records,
+         " required for PSI (anti-dictionary protection)", call. = FALSE)
+  }
 
   # 2. Mask own IDs (generates new random scalar)
   own_result <- .callMheTool("psi-mask", list(

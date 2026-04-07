@@ -78,8 +78,19 @@ func mheSetup(input *MHESetupInput) (*MHESetupOutput, error) {
 	var crp multiparty.PublicKeyGenCRP
 	var crpB64, gkgSeedB64 string
 
-	if input.PartyID == 0 {
-		// Party 0 generates PKG CRP
+	if input.CRP != "" {
+		// CRP provided (from coin-tossing or relay) — use for any party
+		crpBytes, err := base64.StdEncoding.DecodeString(input.CRP)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode CRP: %v", err)
+		}
+		if err := crp.Value.UnmarshalBinary(crpBytes); err != nil {
+			return nil, fmt.Errorf("failed to deserialize CRP: %v", err)
+		}
+		crpB64 = input.CRP // echo back for combine step
+		gkgSeedB64 = input.GKGSeed
+	} else if input.PartyID == 0 {
+		// Party 0 without coin-tossing: generate fresh CRP (backward compat)
 		prng, err := sampling.NewPRNG()
 		if err != nil {
 			return nil, fmt.Errorf("failed to create PRNG: %v", err)
@@ -91,23 +102,13 @@ func mheSetup(input *MHESetupInput) (*MHESetupOutput, error) {
 		}
 		crpB64 = base64.StdEncoding.EncodeToString(crpBytes)
 
-		// Party 0 generates a random seed for deterministic GKG CRPs
 		gkgSeed := make([]byte, 32)
 		if _, err := crand.Read(gkgSeed); err != nil {
 			return nil, fmt.Errorf("failed to generate GKG seed: %v", err)
 		}
 		gkgSeedB64 = base64.StdEncoding.EncodeToString(gkgSeed)
 	} else {
-		// Other parties use received CRP
-		crpBytes, err := base64.StdEncoding.DecodeString(input.CRP)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode CRP: %v", err)
-		}
-		if err := crp.Value.UnmarshalBinary(crpBytes); err != nil {
-			return nil, fmt.Errorf("failed to deserialize CRP: %v", err)
-		}
-		// Use the shared GKG seed from party 0
-		gkgSeedB64 = input.GKGSeed
+		return nil, fmt.Errorf("non-party-0 must receive CRP (via coin-tossing or relay)")
 	}
 
 	// Generate public key share

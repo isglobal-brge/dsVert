@@ -163,6 +163,7 @@ glmSecureAggBlockSolveDS <- function(data_name, x_vars,
                                       lambda = 1e-4,
                                       coordinator_pk,
                                       iteration = 1L,
+                                      skip_solve = FALSE,
                                       session_id = NULL) {
   ss <- .S(session_id)
   if (!.key_exists("transport_sk", ss))
@@ -196,20 +197,25 @@ glmSecureAggBlockSolveDS <- function(data_name, x_vars,
          call. = FALSE)
   .check_glm_disclosure(X)
 
-  XtWX <- crossprod(X, w * X) + diag(lambda, p)
-  rhs <- as.vector(XtWX %*% beta_current) + gradient
+  if (isTRUE(skip_solve)) {
+    # L-BFGS mode: client provides beta directly, skip block solve
+    beta_new <- as.numeric(beta_current)
+  } else {
+    XtWX <- crossprod(X, w * X) + diag(lambda, p)
+    rhs <- as.vector(XtWX %*% beta_current) + gradient
 
-  beta_new <- tryCatch(
-    as.vector(solve(XtWX, rhs)),
-    error = function(e) {
-      warning("Matrix near-singular, using additional regularization")
-      as.vector(solve(XtWX + diag(0.01, p), rhs))
+    beta_new <- tryCatch(
+      as.vector(solve(XtWX, rhs)),
+      error = function(e) {
+        warning("Matrix near-singular, using additional regularization")
+        as.vector(solve(XtWX + diag(0.01, p), rhs))
+      }
+    )
+
+    if (any(abs(beta_new) > 1e6)) {
+      beta_new <- beta_new / max(abs(beta_new)) * 1e2
+      warning("Large coefficient update detected, scaling applied")
     }
-  )
-
-  if (any(abs(beta_new) > 1e6)) {
-    beta_new <- beta_new / max(abs(beta_new)) * 1e2
-    warning("Large coefficient update detected, scaling applied")
   }
 
   # Compute eta_new = X * beta_new (plaintext, n-length)
@@ -438,10 +444,16 @@ glmSecureAggCoordinatorStepDS <- function(data_name, y_var, x_vars,
     }
   }
 
+  # Gradient for L-BFGS (client-side optimizer)
+  # NOT divided by n — consistent with CKKS gradient (unnormalized)
+  residual <- as.numeric(y - mu_total)
+  gradient_label <- as.numeric(crossprod(X, residual))
+
   list(
     beta = beta_new,
     encrypted_blobs = encrypted_blobs,
-    converged = converged
+    converged = converged,
+    gradient_label = gradient_label
   )
 }
 

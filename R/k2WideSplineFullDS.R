@@ -105,8 +105,10 @@ k2NewtonFisherPhase2DS <- function(party_id = 0L, frac_bits = 20L,
 
   n <- as.integer(nchar(.base64url_to_base64(mu_fp)) * 3 / 4 / 8)
 
-  # Check if x² shares are available (real Fisher) or fallback to scalar
-  xsq_fp <- ss$k2_xsq_fp  # pre-computed x² shares
+  # For now, use scalar curvature proxy (sum(w)) until w*x² 3-phase protocol is implemented.
+  # The x² shares are pre-computed and ready in session, but the w*x² Beaver relay
+  # requires additional communication rounds not yet implemented.
+  xsq_fp <- NULL  # TODO: enable real Fisher when w*x² relay is implemented
 
   # Consume w*x² triples + peer messages (if doing real Fisher)
   wxsq_blob <- .blob_consume("k2_wxsq_triples", ss)

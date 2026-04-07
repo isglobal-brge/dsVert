@@ -219,6 +219,8 @@ func main() {
 		handleK2WideSplineFullEval()
 	case "k2-newton-fisher":
 		handleK2NewtonFisher()
+	case "k2-newton-fisher-real":
+		handleK2NewtonFisherReal()
 	case "k2-precompute-xsq":
 		handleK2PrecomputeXSq()
 	case "help", "-h", "--help":

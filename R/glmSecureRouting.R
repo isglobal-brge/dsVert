@@ -272,40 +272,48 @@ glmCoordinatorStepDS <- function(data_name, y_var, x_vars,
 #'   \code{\link{glmSecureBlockSolveDS}} which uses the decrypted gradient
 #' @export
 glmSecureGradientDS <- function(data_name, x_vars, encrypted_mwv = NULL, num_obs,
-                                 session_id = NULL) {
+                                 use_enc_residual = FALSE, session_id = NULL) {
   ss <- .S(session_id)
 
   if (!.key_exists("transport_sk", ss)) {
     stop("Transport SK not stored. Call mheInitDS first.", call. = FALSE)
   }
 
-  # Read from blob storage if not provided directly (chunked transfer)
-  if (is.null(encrypted_mwv) || encrypted_mwv == "") {
-    encrypted_mwv <- .blob_consume("mwv", ss)
-  }
-  if (is.null(encrypted_mwv)) {
-    stop("No encrypted (mu, w, v) blob provided or stored.", call. = FALSE)
-  }
+  if (isTRUE(use_enc_residual)) {
+    # L-BFGS mode: use pre-encrypted residual Enc(r) from coordinator
+    # Non-label server never sees mu or w — only encrypted residual
+    # Enc(r) stored as remote_enc_cols[[2]] via chunked transfer
+    enc_y <- NULL
+    if (!is.null(ss$remote_enc_cols) && length(ss$remote_enc_cols) >= 2) {
+      enc_y <- ss$remote_enc_cols[[2]]
+    }
+    if (is.null(enc_y)) stop("No encrypted residual stored. Transfer Enc(r) first.", call. = FALSE)
+    mu <- rep(0, num_obs)  # mu=0 → ct_r = Enc(r) - 0 = Enc(r)
+    v <- NULL
+  } else {
+    # BCD mode: decrypt (mu, w, v) from coordinator
+    if (is.null(encrypted_mwv) || encrypted_mwv == "") {
+      encrypted_mwv <- .blob_consume("mwv", ss)
+    }
+    if (is.null(encrypted_mwv)) {
+      stop("No encrypted (mu, w, v) blob provided or stored.", call. = FALSE)
+    }
+    decrypted <- .callMheTool("transport-decrypt-vectors", list(
+      sealed = .base64url_to_base64(encrypted_mwv),
+      recipient_sk = .key_get("transport_sk", ss)
+    ))
+    mu <- as.numeric(decrypted$vectors$mu)
+    v <- if (!is.null(decrypted$vectors$v)) as.numeric(decrypted$vectors$v) else NULL
 
-  # Decrypt (mu, w, v) from coordinator
-  decrypted <- .callMheTool("transport-decrypt-vectors", list(
-    sealed = .base64url_to_base64(encrypted_mwv),
-    recipient_sk = .key_get("transport_sk", ss)
-  ))
-
-  mu <- as.numeric(decrypted$vectors$mu)
-  v <- if (!is.null(decrypted$vectors$v)) as.numeric(decrypted$vectors$v) else NULL
-
-  # Delegate to existing gradient computation logic
-  # (same as mheGLMGradientDS but sources mu/v from decrypted blob)
-  enc_y <- NULL
-  if (!is.null(ss$enc_y)) {
-    enc_y <- ss$enc_y
-  } else if (!is.null(ss$remote_enc_cols) && length(ss$remote_enc_cols) >= 1) {
-    enc_y <- ss$remote_enc_cols[[1]]
-  }
-  if (is.null(enc_y)) {
-    stop("Encrypted y not stored. Transfer ct_y first.", call. = FALSE)
+    enc_y <- NULL
+    if (!is.null(ss$enc_y)) {
+      enc_y <- ss$enc_y
+    } else if (!is.null(ss$remote_enc_cols) && length(ss$remote_enc_cols) >= 1) {
+      enc_y <- ss$remote_enc_cols[[1]]
+    }
+    if (is.null(enc_y)) {
+      stop("Encrypted y not stored. Transfer ct_y first.", call. = FALSE)
+    }
   }
   gk <- .key_get("galois_keys", ss)
   if (is.null(gk) || length(gk) == 0) {

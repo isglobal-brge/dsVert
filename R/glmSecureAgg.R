@@ -172,18 +172,6 @@ glmSecureAggBlockSolveDS <- function(data_name, x_vars,
     stop("Secure aggregation not initialized. Call glmSecureAggInitDS first.",
          call. = FALSE)
 
-  # Read (mu, w, v) from blob storage (sent by client)
-  encrypted_mwv <- .blob_consume("mwv", ss)
-  if (is.null(encrypted_mwv))
-    stop("No encrypted (mu, w, v) blob stored.", call. = FALSE)
-
-  # Decrypt (mu, w, v) to get IRLS weights
-  decrypted <- .callMheTool("transport-decrypt-vectors", list(
-    sealed = .base64url_to_base64(encrypted_mwv),
-    recipient_sk = .key_get("transport_sk", ss)
-  ))
-  w <- as.numeric(decrypted$vectors$w)
-
   # BCD block update (same math as glmSecureBlockSolveDS)
   data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
@@ -198,9 +186,21 @@ glmSecureAggBlockSolveDS <- function(data_name, x_vars,
   .check_glm_disclosure(X)
 
   if (isTRUE(skip_solve)) {
-    # L-BFGS mode: client provides beta directly, skip block solve
+    # L-BFGS mode: client provides beta directly, skip block solve + mwv
+    # Consume mwv blob if present (to clean up) but don't use it
+    tryCatch(.blob_consume("mwv", ss), error = function(e) NULL)
     beta_new <- as.numeric(beta_current)
   } else {
+    # Read (mu, w, v) from blob storage (sent by client)
+    encrypted_mwv <- .blob_consume("mwv", ss)
+    if (is.null(encrypted_mwv))
+      stop("No encrypted (mu, w, v) blob stored.", call. = FALSE)
+    decrypted <- .callMheTool("transport-decrypt-vectors", list(
+      sealed = .base64url_to_base64(encrypted_mwv),
+      recipient_sk = .key_get("transport_sk", ss)
+    ))
+    w <- as.numeric(decrypted$vectors$w)
+
     XtWX <- crossprod(X, w * X) + diag(lambda, p)
     rhs <- as.vector(XtWX %*% beta_current) + gradient
 
@@ -430,6 +430,7 @@ glmSecureAggCoordinatorStepDS <- function(data_name, y_var, x_vars,
   }
 
   # Encrypt (mu, w) under each non-label server's transport PK
+  # (kept for BCD mode compatibility)
   encrypted_blobs <- list()
   if (!is.null(non_label_pks) && length(non_label_pks) > 0) {
     vectors_to_encrypt <- list(mu = as.numeric(mu_total), w = as.numeric(w_total))

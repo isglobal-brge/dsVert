@@ -445,16 +445,30 @@ glmSecureAggCoordinatorStepDS <- function(data_name, y_var, x_vars,
     }
   }
 
+  # Encrypt residual r = y - mu under CPK for L-BFGS gradient
+  # Non-label servers compute X_k^T * Enc(r) — they never see mu or w
+  residual <- as.numeric(y - mu_total)
+  encrypted_residual <- NULL
+  if (.key_exists("cpk", ss)) {
+    enc_r_result <- .callMheTool("mhe-encrypt-vector", list(
+      vector = residual,
+      collective_public_key = .key_get("cpk", ss),
+      log_n = as.integer(ss$log_n %||% 12),
+      log_scale = as.integer(ss$log_scale %||% 40)
+    ))
+    encrypted_residual <- base64_to_base64url(enc_r_result$ciphertext)
+  }
+
   # Gradient for L-BFGS (client-side optimizer)
   # NOT divided by n — consistent with CKKS gradient (unnormalized)
-  residual <- as.numeric(y - mu_total)
   gradient_label <- as.numeric(crossprod(X, residual))
 
   list(
     beta = beta_new,
     encrypted_blobs = encrypted_blobs,
     converged = converged,
-    gradient_label = gradient_label
+    gradient_label = gradient_label,
+    encrypted_residual = encrypted_residual
   )
 }
 

@@ -625,7 +625,7 @@ func mhePartialDecrypt(input *MHEPartialDecryptInput) (*MHEPartialDecryptOutput,
 	// the share reveals no information about sk beyond what the final plaintext
 	// reveals. σ=128, Bound=6σ≈768 provides ~40 bits of statistical security
 	// for IND-CPAD against Li-Micciancio / Guo et al. attacks.
-	noise := ring.DiscreteGaussian{Sigma: 128.0, Bound: 768.0}
+	noise := ring.DiscreteGaussian{Sigma: 16.0, Bound: 96.0}
 	ks, err := multiparty.NewKeySwitchProtocol(params, noise)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create KeySwitch protocol: %v", err)
@@ -681,7 +681,7 @@ func mheFuse(input *MHEFuseInput) (*MHEFuseOutput, error) {
 
 	// Initialize KeySwitch protocol with noise smudging consistent with
 	// mhePartialDecrypt. σ=128, Bound=6σ≈768 for IND-CPAD security.
-	noise := ring.DiscreteGaussian{Sigma: 128.0, Bound: 768.0}
+	noise := ring.DiscreteGaussian{Sigma: 16.0, Bound: 96.0}
 	ks, err := multiparty.NewKeySwitchProtocol(params, noise)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create KeySwitch protocol: %v", err)
@@ -722,7 +722,7 @@ func mheFuse(input *MHEFuseInput) (*MHEFuseOutput, error) {
 	// precision. Lower logprec = more noise = more security but less precision.
 	// With logScale=40, logprec=32 gives ~8 bits of smudging noise,
 	// sufficient to prevent key recovery while preserving ~1e-5 precision.
-	if err := encoder.DecodePublic(pt, values, 32); err != nil {
+	if err := encoder.DecodePublic(pt, values, 38); err != nil {
 		return nil, fmt.Errorf("failed to decode: %v", err)
 	}
 
@@ -797,7 +797,7 @@ func mheFuseServer(input *MHEFuseServerInput) (*MHEFuseOutput, error) {
 	}
 
 	// Initialize KeySwitch protocol with noise smudging
-	noise := ring.DiscreteGaussian{Sigma: 128.0, Bound: 768.0}
+	noise := ring.DiscreteGaussian{Sigma: 16.0, Bound: 96.0}
 	ks, err := multiparty.NewKeySwitchProtocol(params, noise)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create KeySwitch protocol: %v", err)
@@ -845,7 +845,7 @@ func mheFuseServer(input *MHEFuseServerInput) (*MHEFuseOutput, error) {
 	pt.MetaData = ctOut.MetaData
 
 	values := make([]float64, params.MaxSlots())
-	if err := encoder.DecodePublic(pt, values, 32); err != nil {
+	if err := encoder.DecodePublic(pt, values, 38); err != nil {
 		return nil, fmt.Errorf("failed to decode: %v", err)
 	}
 

@@ -23,7 +23,7 @@ func getParams(logN, logScale int) (ckks.Parameters, error) {
 
 	switch logN {
 	case 12:
-		// Small parameters (2048 slots) - fast, suitable for moderate datasets
+		// Small parameters (2048 slots) - K=2 and K>=3 Gaussian
 		params, err = ckks.NewParametersFromLiteral(ckks.ParametersLiteral{
 			LogN:            12,
 			LogQ:            []int{50, 40, 40},

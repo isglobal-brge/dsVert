@@ -25,24 +25,13 @@ import (
 // Sigmoid polynomial approximation (degree 7 on [-8, 8])
 // ============================================================================
 //
-// Degree-7 minimax polynomial approximation of σ(x) = 1/(1+exp(-x)) on [-8,8].
-// Computed via Chebyshev interpolation on [-1,1] with change of variable t = x/8,
-// then converted to monomial basis in the original variable x.
-//
-// Max absolute error < 5e-4 on [-8,8].
-// The coefficients are for the polynomial p(x) = Σ c_i * x^i evaluated directly.
+// Degree-7 least-squares polynomial approximation of σ(x) = 1/(1+exp(-x))
+// on [-8, 8]. Uses odd terms only (c0=0.5, even coefficients = 0).
+// Max absolute error < 1.9e-2 on [-8, 8].
 
 // SigmoidCoefficients returns the degree-7 monomial-basis coefficients for
 // the sigmoid approximation on [-8, 8]: p(x) = c[0] + c[1]*x + ... + c[7]*x^7
 func SigmoidCoefficients() []float64 {
-	// Degree-7 minimax polynomial approximation of σ(x) = 1/(1+exp(-x))
-	// on [-8, 8]. By symmetry σ(x) = 1 - σ(-x), so even-degree coefficients
-	// (except c0 = 0.5) are exactly zero.
-	//
-	// Computed via Chebyshev interpolation + Remez-style optimization.
-	// Validated: max|p(x) - σ(x)| < 0.02 for x ∈ [-8, 8].
-	// This is sufficient for gradient descent convergence (GD tolerates
-	// O(0.01) approximation error; CKKS noise adds ~1e-4 per level).
 	return []float64{
 		0.5,                     // c0
 		2.205572459845886e-01,   // c1

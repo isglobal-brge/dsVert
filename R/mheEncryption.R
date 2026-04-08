@@ -251,6 +251,24 @@ mheStoreBlobDS <- function(key, chunk, chunk_index = 1L, n_chunks = 1L,
   TRUE
 }
 
+#' Store multiple blobs in a single call (batch transfer)
+#'
+#' Accepts a JSON-encoded string of key-value pairs. Reduces HTTP roundtrips
+#' for small blobs (CRP, GKG seed, party_id) from N calls to 1.
+#'
+#' @param batch_json Character. JSON string: {"key1":"val1","key2":"val2",...}
+#' @param session_id Character or NULL.
+#' @return Integer: number of blobs stored.
+#' @export
+mheStoreBlobBatchDS <- function(batch_json, session_id = NULL) {
+  ss <- .S(session_id)
+  pairs <- jsonlite::fromJSON(batch_json)
+  for (key in names(pairs)) {
+    .blob_put(key, pairs[[key]], ss)
+  }
+  length(pairs)
+}
+
 #' Store a chunk of a ciphertext for partial decryption
 #'
 #' @param chunk_index Integer. Chunk index (1-based)

@@ -53,12 +53,28 @@ NULL
 #'   }
 #'
 #' @export
-glmHEEncryptEtaDS <- function(data_name, x_vars, beta, clip_radius = NULL,
+glmHEEncryptEtaDS <- function(data_name = NULL, x_vars = NULL, beta = NULL,
+                               clip_radius = NULL, from_storage = FALSE,
                                session_id = NULL) {
   ss <- .S(session_id)
   if (!.key_exists("cpk", ss)) {
     stop("CPK not stored. Call mheCombineDS or mheStoreCPKDS first.", call. = FALSE)
   }
+
+  # from_storage: read beta + x_vars + clip_radius from session (enables parallel calls)
+  if (isTRUE(from_storage)) {
+    beta_blob <- .blob_consume("current_beta", ss)
+    if (!is.null(beta_blob)) {
+      beta_data <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(
+        .base64url_to_base64(beta_blob))))
+      beta <- as.numeric(beta_data$beta)
+      if (!is.null(beta_data$clip_radius)) clip_radius <- as.numeric(beta_data$clip_radius)
+      if (!is.null(beta_data$x_vars)) x_vars <- as.character(beta_data$x_vars)
+      if (!is.null(beta_data$data_name)) data_name <- as.character(beta_data$data_name)
+    }
+  }
+  if (is.null(data_name) || is.null(x_vars) || is.null(beta))
+    stop("data_name, x_vars, and beta are required", call. = FALSE)
 
   data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
@@ -276,11 +292,20 @@ glmHELinkStepDS <- function(from_storage = TRUE, n_parties = 2,
 #'   }
 #'
 #' @export
-glmHEGradientEncDS <- function(data_name, x_vars, num_obs,
+glmHEGradientEncDS <- function(data_name = NULL, x_vars = NULL, num_obs = NULL,
                                 from_storage = FALSE,
                                 include_intercept = FALSE,
                                 session_id = NULL) {
   ss <- .S(session_id)
+
+  # from_storage: read x_vars, data_name, include_intercept from session
+  if (from_storage) {
+    if (is.null(data_name) && !is.null(ss$std_data_name)) data_name <- ss$std_data_name
+    if (is.null(x_vars) && !is.null(ss$glm_x_vars)) x_vars <- ss$glm_x_vars
+    if (is.null(num_obs) && !is.null(ss$mws_n_obs)) num_obs <- ss$mws_n_obs
+    if (!is.null(ss$glm_include_intercept)) include_intercept <- ss$glm_include_intercept
+  }
+
   # Resolve ct_mu: from blob storage, or locally stored
   ct_mu <- NULL
   if (from_storage) {

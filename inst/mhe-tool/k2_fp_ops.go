@@ -70,6 +70,69 @@ func handleK2FPScaleIndicator() {
 }
 
 // ============================================================================
+// Command: k2-fp-permute
+// Permute elements of an FP vector by given indices.
+// Used to align gradient column orders between DCF parties in K>=3.
+// ============================================================================
+
+type K2FPPermuteInput struct {
+	FPData string `json:"fp_data"` // base64 FP
+	Perm   []int  `json:"perm"`    // permutation: result[i] = input[perm[i]]
+}
+
+func handleK2FPPermute() {
+	var input K2FPPermuteInput
+	mpcReadInput(&input)
+	data := bytesToFPVec(base64ToBytes(input.FPData))
+	result := make([]FixedPoint, len(input.Perm))
+	for i, p := range input.Perm {
+		result[i] = data[p]
+	}
+	mpcWriteOutput(map[string]string{
+		"fp_data": bytesToBase64(fpVecToBytes(result)),
+	})
+}
+
+// ============================================================================
+// Command: k2-fp-column-concat
+// Concatenate column blocks of row-major FP matrices.
+// Used for K>=3 input sharing: append extra servers' features to the peer share.
+// ============================================================================
+
+type K2FPColumnConcatInput struct {
+	A    string `json:"a"`     // base64 FP (n × p_a, row-major)
+	B    string `json:"b"`     // base64 FP (n × p_b, row-major)
+	N    int    `json:"n"`     // number of rows
+	PA   int    `json:"p_a"`   // columns in A
+	PB   int    `json:"p_b"`   // columns in B
+}
+
+type K2FPColumnConcatOutput struct {
+	Result string `json:"result"` // base64 FP (n × (p_a + p_b), row-major)
+}
+
+func handleK2FPColumnConcat() {
+	var input K2FPColumnConcatInput
+	mpcReadInput(&input)
+	a := bytesToFPVec(base64ToBytes(input.A))
+	b := bytesToFPVec(base64ToBytes(input.B))
+	n, pa, pb := input.N, input.PA, input.PB
+	ptotal := pa + pb
+	result := make([]FixedPoint, n*ptotal)
+	for i := 0; i < n; i++ {
+		for j := 0; j < pa; j++ {
+			result[i*ptotal+j] = a[i*pa+j]
+		}
+		for j := 0; j < pb; j++ {
+			result[i*ptotal+pa+j] = b[i*pb+j]
+		}
+	}
+	mpcWriteOutput(K2FPColumnConcatOutput{
+		Result: bytesToBase64(fpVecToBytes(result)),
+	})
+}
+
+// ============================================================================
 // Helpers
 // ============================================================================
 

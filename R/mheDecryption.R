@@ -29,14 +29,25 @@ NULL
 #' @return Integer. Number of ciphertexts authorized
 #' @export
 mheAuthorizeCTDS <- function(ct_hashes = NULL, op_type = "cross-product",
-                             from_storage = FALSE, session_id = NULL) {
+                             from_storage = FALSE, auto_from_ct = FALSE,
+                             session_id = NULL) {
   ss <- .S(session_id)
   if (!.key_exists("secret_key", ss)) {
     stop("MHE not initialized. Call mheInitDS first.", call. = FALSE)
   }
 
-  # Read ct_hashes from blob storage or inline argument
-  if (from_storage) {
+  # Auto-register: compute hashes directly from stored ct_batch blobs
+  # Used for masked eta decryption (avoids sending hashes via DataSHIELD parser)
+  if (isTRUE(auto_from_ct)) {
+    blobs <- .blob_snapshot(ss)
+    ct_keys <- sort(grep("^ct_batch_", names(blobs), value = TRUE))
+    ct_hashes <- character(0)
+    for (key in ct_keys) {
+      ct_b64 <- .base64url_to_base64(blobs[[key]])
+      ct_hashes <- c(ct_hashes, digest::digest(ct_b64, algo = "sha256", serialize = FALSE))
+    }
+    if (length(ct_hashes) == 0) stop("No ct_batch blobs for auto-authorization", call. = FALSE)
+  } else if (from_storage) {
     blobs <- .blob_snapshot(ss)
     if (length(blobs) == 0L || is.null(blobs[["ct_hashes"]])) {
       stop("No ct_hashes blob stored", call. = FALSE)

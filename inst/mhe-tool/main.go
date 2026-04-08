@@ -209,6 +209,10 @@ func main() {
 		handleK2SplineAssemble()
 	case "k2-fp-add":
 		handleK2FPAdd()
+	case "k2-fp-permute":
+		handleK2FPPermute()
+	case "k2-fp-column-concat":
+		handleK2FPColumnConcat()
 	case "k2-fp-scale-indicator":
 		handleK2FPScaleIndicator()
 	case "k2-wide-spline-full":

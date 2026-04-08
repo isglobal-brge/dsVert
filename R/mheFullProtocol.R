@@ -1023,7 +1023,7 @@ mheAuthorizeCTDS <- function(ct_hashes = NULL, op_type = "cross-product",
       stop("No ct_hashes blob stored", call. = FALSE)
     }
     ct_hashes <- strsplit(blobs[["ct_hashes"]], ",", fixed = TRUE)[[1]]
-    .blob_nuke(ss)
+    .blob_consume("ct_hashes", ss)  # Only remove ct_hashes, not all blobs
   }
 
   if (is.null(ss$ct_registry)) {
@@ -1513,6 +1513,7 @@ mheFuseBatchDS <- function(n_cts, n_parties, num_slots, session_id = NULL) {
   sk <- .key_get("secret_key", ss)
   tsk <- .key_get("transport_sk", ss)
   values <- numeric(n_cts)
+  slot_values <- if (num_slots > 0) vector("list", n_cts) else NULL
 
   for (i in seq_len(n_cts)) {
     ct_key <- paste0("ct_batch_", i)
@@ -1545,9 +1546,14 @@ mheFuseBatchDS <- function(n_cts, n_parties, num_slots, session_id = NULL) {
     )
     fuse_result <- .callMheTool("mhe-fuse-server", fuse_input)
     values[i] <- fuse_result$value
+    # When num_slots > 0, Go returns individual slot values in $values
+    if (!is.null(slot_values) && !is.null(fuse_result$values))
+      slot_values[[i]] <- fuse_result$values
   }
 
-  list(values = values)
+  result <- list(values = values)
+  if (!is.null(slot_values)) result$slot_values <- slot_values
+  result
 }
 
 #' Clean up MHE cryptographic state

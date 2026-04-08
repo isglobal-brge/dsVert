@@ -70,6 +70,7 @@ glmMWSMaskEtaDS <- function(n_obs, intercept = 0, frac_bits = 20L, session_id = 
   ss$k2_eta_share_fp <- neg_r_fp$fp_data
   ss$k2_eta_share <- neg_r_fp$fp_data
   ss$mws_n_obs <- n
+  ss$mws_frac_bits <- as.integer(frac_bits)
 
   # Register ct_masked in Protocol Firewall for threshold decryption
   ct_hash <- .register_ciphertext(ct_masked$ciphertext, "mws-masked-eta",
@@ -95,12 +96,11 @@ glmMWSSetEtaShareDS <- function(eta_float = NULL, from_storage = FALSE,
   ss <- .S(session_id)
 
   if (from_storage) {
-    # Read from chunked transfer (col_index=4, already standard base64 after assembly)
-    blob_b64 <- NULL
-    if (!is.null(ss$remote_enc_cols) && length(ss$remote_enc_cols) >= 4)
-      blob_b64 <- ss$remote_enc_cols[[4]]
-    if (is.null(blob_b64)) stop("No mws_eta_share data (col_index=4)", call. = FALSE)
-    raw <- jsonlite::base64_dec(blob_b64)
+    # Read eta share from blob storage (dedicated key, avoids remote_enc_cols lifecycle)
+    blob_b64url <- .blob_consume("mws_eta_share", ss)
+    if (is.null(blob_b64url))
+      stop("No mws_eta_share blob. Send via mheStoreBlobDS first.", call. = FALSE)
+    raw <- jsonlite::base64_dec(.base64url_to_base64(blob_b64url))
     eta_float <- as.numeric(jsonlite::fromJSON(rawToChar(raw)))
   } else {
     eta_float <- as.numeric(eta_float)
@@ -117,42 +117,27 @@ glmMWSSetEtaShareDS <- function(eta_float = NULL, from_storage = FALSE,
   ss$k2_eta_share_fp <- fp_result$fp_data
   ss$k2_eta_share <- fp_result$fp_data
   ss$mws_n_obs <- length(eta_float)
+  ss$mws_frac_bits <- as.integer(frac_bits)
   TRUE
 }
 
-#' Get mu share as encrypted ciphertext (after wide spline phases)
+#' Get Ring63 mu share (after wide spline phases)
 #'
-#' After the wide spline phases compute mu shares in Ring63, this function:
-#' 1. Reads the mu share from session (stored by k2WideSplinePhase4DS)
-#' 2. Converts from Ring63 FP to float
-#' 3. Encrypts under CPK
-#' Returns the encrypted mu share for homomorphic summation.
+#' After the wide spline phases compute mu shares in Ring63, this function
+#' returns the raw Ring63 FP data for client-side reconstruction.
+#' Ring63 shares cannot be converted to float independently (modular wrapping
+#' makes individual share floats enormous). The client sums them modularly
+#' (via mpc-add-fp-shares) to get the correct mu_total.
 #'
 #' @param session_id Character or NULL.
-#' @return List with \code{encrypted_mu_share} (base64url ciphertext).
+#' @return List with \code{mu_share_fp} (base64 Ring63 FP data).
 #' @export
 glmMWSGetMuShareDS <- function(session_id = NULL) {
   ss <- .S(session_id)
 
-  # Read mu share (stored by k2WideSplinePhase4DS as ss$k2_mu_share_fp)
-  mu_fp <- ss$k2_mu_share_fp
+  mu_fp <- ss$secure_mu_share
   if (is.null(mu_fp))
     stop("No mu share. Run wide spline phases 1-4 first.", call. = FALSE)
 
-  # Convert Ring63 FP to float
-  mu_float <- .callMheTool("mpc-fp-to-float", list(
-    fp_data = mu_fp,
-    n = as.integer(ss$mws_n_obs %||% 0),
-    frac_bits = 20L
-  ))
-
-  # Encrypt under CPK
-  enc_mu <- .callMheTool("mhe-encrypt-vector", list(
-    vector = mu_float$values,
-    collective_public_key = .key_get("cpk", ss),
-    log_n = as.integer(ss$log_n %||% 12),
-    log_scale = as.integer(ss$log_scale %||% 40)
-  ))
-
-  list(encrypted_mu_share = base64_to_base64url(enc_mu$ciphertext))
+  list(mu_share_fp = mu_fp)
 }

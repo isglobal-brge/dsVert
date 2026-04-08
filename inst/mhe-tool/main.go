@@ -155,6 +155,8 @@ func main() {
 		handleMpcVecAdd()
 	case "mpc-sum-share":
 		handleMpcSumShare()
+	case "mpc-add-fp-shares":
+		handleMpcAddFPShares()
 	case "mpc-fp-to-float":
 		handleMpcFPToFloat()
 	case "mpc-get-poly-coeffs":

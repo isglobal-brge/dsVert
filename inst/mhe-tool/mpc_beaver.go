@@ -648,3 +648,59 @@ func handleMpcSumShare() {
 		SumFloat: sum.ToFloat64(input.FracBits),
 	})
 }
+
+// ============================================================================
+// Command: mpc-add-fp-shares
+// Adds two FixedPoint share vectors element-wise (modular int64 addition)
+// and converts the result to float. Used for reconstructing mu from Ring63
+// shares: mu_total = share_A + share_B (mod 2^63) → float.
+// ============================================================================
+
+type AddFPSharesInput struct {
+	ShareA   string `json:"share_a"`   // base64 FixedPoint vector
+	ShareB   string `json:"share_b"`   // base64 FixedPoint vector
+	FracBits int    `json:"frac_bits"`
+}
+
+type AddFPSharesOutput struct {
+	Values []float64 `json:"values"` // float64 array of reconstructed values
+	N      int       `json:"n"`      // number of values
+	SumA   float64   `json:"sum_a"`  // debug: sum of share A as float (before Ring63 sum)
+	SumB   float64   `json:"sum_b"`  // debug: sum of share B as float (before Ring63 sum)
+}
+
+func handleMpcAddFPShares() {
+	var input AddFPSharesInput
+	mpcReadInput(&input)
+	if input.FracBits <= 0 {
+		input.FracBits = 20
+	}
+	// Convert FP (int64) back to Ring63 (uint64 mod 2^63) for correct modular addition
+	a := bytesToFPVec(base64ToBytes(input.ShareA))
+	b := bytesToFPVec(base64ToBytes(input.ShareB))
+	ring := NewRing63(input.FracBits)
+	n := len(a)
+	if len(b) < n {
+		n = len(b)
+	}
+	sumR63 := make([]uint64, n)
+	for i := 0; i < n; i++ {
+		ar63 := fpToRing63([]FixedPoint{a[i]})[0]
+		br63 := fpToRing63([]FixedPoint{b[i]})[0]
+		sumR63[i] = ring.Add(ar63, br63)
+	}
+	// Convert Ring63 sum back to float
+	sumFP := ring63ToFP(sumR63)
+	// Debug sums
+	var sumAf, sumBf float64
+	for i := 0; i < n; i++ {
+		sumAf += a[i].ToFloat64(input.FracBits)
+		sumBf += b[i].ToFloat64(input.FracBits)
+	}
+	mpcWriteOutput(AddFPSharesOutput{
+		Values: FPVecToFloat(sumFP, input.FracBits),
+		N:      n,
+		SumA:   sumAf,
+		SumB:   sumBf,
+	})
+}

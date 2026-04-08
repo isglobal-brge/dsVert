@@ -389,23 +389,26 @@ mheStoreCPKDS <- function(cpk = NULL, galois_keys = NULL, relin_key = NULL,
     blobs <- .blob_snapshot(ss)
     if (length(blobs) == 0L) stop("No blobs stored for CPK", call. = FALSE)
 
-    .key_put("cpk", .base64url_to_base64(blobs[["cpk"]]), ss)
-
-    # Read Galois keys: bundled (gk_bundle) or individual (gk_0, gk_1, ...)
-    if (!is.null(blobs[["gk_bundle"]])) {
-      gk_parts <- strsplit(blobs[["gk_bundle"]], "|", fixed = TRUE)[[1]]
-      .key_put("galois_keys", sapply(gk_parts, .base64url_to_base64, USE.NAMES = FALSE), ss)
-    } else {
-      gk_keys <- sort(grep("^gk_", names(blobs), value = TRUE))
-      if (length(gk_keys) > 0) {
-        .key_put("galois_keys", sapply(gk_keys, function(k) {
-          .base64url_to_base64(blobs[[k]])
-        }, USE.NAMES = FALSE), ss)
+    # Parse mega-blob (key_bundle = cpk||gk_0|gk_1|...|gk_N||rk) or individual blobs
+    if (!is.null(blobs[["key_bundle"]])) {
+      parts <- strsplit(blobs[["key_bundle"]], "||", fixed = TRUE)[[1]]
+      .key_put("cpk", .base64url_to_base64(parts[1]), ss)
+      if (length(parts) >= 2 && nzchar(parts[2])) {
+        gk_parts <- strsplit(parts[2], "|", fixed = TRUE)[[1]]
+        .key_put("galois_keys", sapply(gk_parts, .base64url_to_base64, USE.NAMES = FALSE), ss)
       }
-    }
-
-    if (!is.null(blobs[["rk"]])) {
-      .key_put("relin_key", .base64url_to_base64(blobs[["rk"]]), ss)
+      if (length(parts) >= 3 && nzchar(parts[3])) {
+        .key_put("relin_key", .base64url_to_base64(parts[3]), ss)
+      }
+    } else {
+      # Fallback: individual blobs (backward compatible)
+      .key_put("cpk", .base64url_to_base64(blobs[["cpk"]]), ss)
+      gk_keys <- sort(grep("^gk_", names(blobs), value = TRUE))
+      if (length(gk_keys) > 0)
+        .key_put("galois_keys", sapply(gk_keys, function(k)
+          .base64url_to_base64(blobs[[k]]), USE.NAMES = FALSE), ss)
+      if (!is.null(blobs[["rk"]]))
+        .key_put("relin_key", .base64url_to_base64(blobs[["rk"]]), ss)
     }
 
     .blob_nuke(ss)

@@ -95,15 +95,11 @@ glmMWSSetEtaShareDS <- function(eta_float = NULL, from_storage = FALSE,
   ss <- .S(session_id)
 
   if (from_storage) {
-    # Read from chunked transfer (col_index=4)
-    blob <- NULL
+    # Read from chunked transfer (col_index=4, already standard base64 after assembly)
+    blob_b64 <- NULL
     if (!is.null(ss$remote_enc_cols) && length(ss$remote_enc_cols) >= 4)
-      blob <- ss$remote_enc_cols[[4]]
-    if (is.null(blob)) {
-      blob <- .blob_consume("mws_eta_share", ss)
-    }
-    if (is.null(blob)) stop("No mws_eta_share data", call. = FALSE)
-    blob_b64 <- .base64url_to_base64(blob)
+      blob_b64 <- ss$remote_enc_cols[[4]]
+    if (is.null(blob_b64)) stop("No mws_eta_share data (col_index=4)", call. = FALSE)
     raw <- jsonlite::base64_dec(blob_b64)
     eta_float <- as.numeric(jsonlite::fromJSON(rawToChar(raw)))
   } else {

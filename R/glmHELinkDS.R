@@ -261,7 +261,9 @@ glmHELinkStepDS <- function(from_storage = TRUE, n_parties = 2,
 #'
 #' @export
 glmHEGradientEncDS <- function(data_name, x_vars, num_obs,
-                                from_storage = FALSE, session_id = NULL) {
+                                from_storage = FALSE,
+                                include_intercept = FALSE,
+                                session_id = NULL) {
   ss <- .S(session_id)
   # Resolve ct_mu: from blob storage, or locally stored
   ct_mu <- NULL
@@ -312,6 +314,10 @@ glmHEGradientEncDS <- function(data_name, x_vars, num_obs,
   }
   .check_glm_disclosure(X)
 
+  # Optionally prepend intercept column (1s) for intercept gradient
+  if (isTRUE(include_intercept)) {
+    X <- cbind(rep(1, n), X)
+  }
   x_cols <- lapply(seq_len(ncol(X)), function(j) as.numeric(X[, j]))
 
   input <- list(

@@ -527,7 +527,7 @@ glmSecureAggCoordinatorStepDS <- function(data_name, y_var, x_vars,
       enc_r_result <- .callMheTool("mhe-encrypt-vector", list(
         vector = residual,
         collective_public_key = .key_get("cpk", ss),
-        log_n = as.integer(ss$log_n %||% 12),
+        log_n = as.integer(ss$log_n %||% 13),
         log_scale = as.integer(ss$log_scale %||% 40)
       ))
       if (!is.null(enc_r_result$ciphertext))

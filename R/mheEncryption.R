@@ -40,7 +40,7 @@ mheEncryptLocalDS <- function(data_name, variables, session_id = NULL) {
   input <- list(
     data = data_rows,
     collective_public_key = .key_get("cpk", ss),
-    log_n = as.integer(ss$log_n %||% 12),
+    log_n = as.integer(ss$log_n %||% 13),
     log_scale = as.integer(ss$log_scale %||% 40)
   )
 
@@ -142,7 +142,7 @@ mheCrossProductEncDS <- function(data_name, variables, n_enc_cols, n_obs,
   input <- list(
     plaintext_columns = plaintext_cols,
     encrypted_columns = enc_cols,
-    log_n = as.integer(ss$log_n %||% 12),
+    log_n = as.integer(ss$log_n %||% 13),
     log_scale = as.integer(ss$log_scale %||% 40)
   )
 

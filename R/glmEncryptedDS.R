@@ -83,7 +83,7 @@ mheEncryptRawDS <- function(data_name, y_var, store_local = FALSE,
   input <- list(
     data = data_rows,
     collective_public_key = .key_get("cpk", ss),
-    log_n = as.integer(ss$log_n %||% 12),
+    log_n = as.integer(ss$log_n %||% 13),
     log_scale = as.integer(ss$log_scale %||% 40)
   )
 
@@ -190,7 +190,7 @@ mheGLMGradientDS <- function(data_name, x_vars, mu, v = NULL, num_obs, session_i
     x_cols = x_cols,
     galois_keys = as.list(gk),
     num_obs = as.integer(num_obs),
-    log_n = as.integer(ss$log_n %||% 12),
+    log_n = as.integer(ss$log_n %||% 13),
     log_scale = as.integer(ss$log_scale %||% 40)
   )
 

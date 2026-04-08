@@ -90,7 +90,7 @@ glmHEEncryptEtaDS <- function(data_name, x_vars, beta, clip_radius = NULL,
   input <- list(
     vector = eta_k,
     collective_public_key = .key_get("cpk", ss),
-    log_n = as.integer(ss$log_n %||% 14),
+    log_n = as.integer(ss$log_n %||% 13),
     log_scale = as.integer(ss$log_scale %||% 40)
   )
 
@@ -164,12 +164,14 @@ glmHELinkStepDS <- function(from_storage = TRUE, n_parties = 2,
       }
       ct_etas[i] <- .base64url_to_base64(blobs[[key]])
     }
-    .blob_nuke(ss)
+    # Clean up only the consumed eta blobs (NOT all blobs — others may be needed)
+    for (i in seq_len(n_parties))
+      .blob_consume(paste0("ct_eta_", i - 1), ss)
   } else {
     stop("Direct argument mode not supported for HE link step", call. = FALSE)
   }
 
-  log_n <- as.integer(ss$log_n %||% 14)
+  log_n <- as.integer(ss$log_n %||% 13)
   log_scale <- as.integer(ss$log_scale %||% 40)
 
   # Step 1: Aggregate all encrypted etas via homomorphic addition
@@ -326,7 +328,7 @@ glmHEGradientEncDS <- function(data_name, x_vars, num_obs,
     x_cols = x_cols,
     galois_keys = as.list(gk),
     num_obs = as.integer(num_obs),
-    log_n = as.integer(ss$log_n %||% 14),
+    log_n = as.integer(ss$log_n %||% 13),
     log_scale = as.integer(ss$log_scale %||% 40)
   )
 

@@ -104,7 +104,7 @@ mhePartialDecryptDS <- function(n_chunks, session_id = NULL) {
   input <- list(
     ciphertext = ct_b64,
     secret_key = .key_get("secret_key", ss),
-    log_n = as.integer(ss$log_n %||% 12),
+    log_n = as.integer(ss$log_n %||% 13),
     log_scale = as.integer(ss$log_scale %||% 40)
   )
 
@@ -211,7 +211,7 @@ mhePartialDecryptWrappedDS <- function(n_chunks, session_id = NULL) {
   input <- list(
     ciphertext = ct_b64,
     secret_key = .key_get("secret_key", ss),
-    log_n = as.integer(ss$log_n %||% 12),
+    log_n = as.integer(ss$log_n %||% 13),
     log_scale = as.integer(ss$log_scale %||% 40)
   )
   result <- .callMheTool("mhe-partial-decrypt", input)
@@ -340,7 +340,7 @@ mheFuseServerDS <- function(n_parties, n_ct_chunks, num_slots = 0,
     wrapped_shares = wrapped_shares,
     transport_secret_key = .key_get("transport_sk", ss),
     num_slots = as.integer(num_slots),
-    log_n = as.integer(ss$log_n %||% 12),
+    log_n = as.integer(ss$log_n %||% 13),
     log_scale = as.integer(ss$log_scale %||% 40)
   ))
 
@@ -392,7 +392,7 @@ mhePartialDecryptBatchWrappedDS <- function(n_cts, session_id = NULL) {
     result <- .callMheTool("mhe-partial-decrypt", list(
       ciphertext = ct_b64,
       secret_key = sk,
-      log_n = as.integer(ss$log_n %||% 12),
+      log_n = as.integer(ss$log_n %||% 13),
       log_scale = as.integer(ss$log_scale %||% 40)
     ))
 
@@ -461,7 +461,7 @@ mheFuseBatchDS <- function(n_cts, n_parties, num_slots, session_id = NULL) {
       transport_secret_key = tsk,
       wrapped_shares = shares,
       num_slots = as.integer(num_slots),
-      log_n = as.integer(ss$log_n %||% 12),
+      log_n = as.integer(ss$log_n %||% 13),
       log_scale = as.integer(ss$log_scale %||% 40)
     )
     fuse_result <- .callMheTool("mhe-fuse-server", fuse_input)

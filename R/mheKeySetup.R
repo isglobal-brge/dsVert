@@ -163,7 +163,7 @@ mheRLKAggregateR1DS <- function(from_storage = FALSE, n_parties = 0,
 
   input <- list(
     rlk_round1_shares = as.list(r1_shares),
-    log_n = as.integer(ss$log_n %||% 14),
+    log_n = as.integer(ss$log_n %||% 13),
     log_scale = as.integer(ss$log_scale %||% 40)
   )
 
@@ -223,7 +223,7 @@ mheRLKRound2DS <- function(from_storage = FALSE, aggregated_round1 = NULL,
     secret_key = .key_get("secret_key", ss),
     rlk_ephemeral_sk = ss$rlk_ephemeral_sk,
     aggregated_round1 = agg_r1,
-    log_n = as.integer(ss$log_n %||% 14),
+    log_n = as.integer(ss$log_n %||% 13),
     log_scale = as.integer(ss$log_scale %||% 40)
   )
 

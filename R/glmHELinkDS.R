@@ -140,6 +140,7 @@ glmHEEncryptEtaDS <- function(data_name, x_vars, beta, clip_radius = NULL,
 #' @export
 glmHELinkStepDS <- function(from_storage = TRUE, n_parties = 2,
                              poly_coefficients = NULL, skip_poly = FALSE,
+                             intercept = 0,
                              session_id = NULL) {
   ss <- .S(session_id)
 
@@ -184,6 +185,23 @@ glmHELinkStepDS <- function(from_storage = TRUE, n_parties = 2,
       log_scale = log_scale
     ))
     ct_total <- add_result$ciphertext
+  }
+
+  # Add intercept to the encrypted sum (coordinator encrypts constant vector)
+  intercept <- as.numeric(intercept)
+  if (abs(intercept) > 1e-12) {
+    n_slots <- 2^(log_n - 1)  # max slots for this log_n
+    enc_int <- .callMheTool("mhe-encrypt-vector", list(
+      vector = rep(intercept, n_slots),
+      collective_public_key = .key_get("cpk", ss),
+      log_n = log_n, log_scale = log_scale
+    ))
+    add_int <- .callMheTool("mhe-ct-add", list(
+      ciphertext_a = ct_total,
+      ciphertext_b = enc_int$ciphertext,
+      log_n = log_n, log_scale = log_scale
+    ))
+    ct_total <- add_int$ciphertext
   }
 
   if (isTRUE(skip_poly)) {

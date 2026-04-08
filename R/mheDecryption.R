@@ -159,8 +159,8 @@ mhePartialDecryptDS <- function(n_chunks, session_id = NULL) {
 #' @export
 mheStoreTransportKeysDS <- function(transport_keys, session_id = NULL) {
   ss <- .S(session_id)
-  if (!.key_exists("secret_key", ss)) {
-    stop("MHE not initialized. Call mheInitDS first.", call. = FALSE)
+  if (!.key_exists("secret_key", ss) && !.key_exists("transport_sk", ss)) {
+    stop("Not initialized. Call mheInitDS or glmRing63TransportInitDS first.", call. = FALSE)
   }
 
   # Convert from base64url to standard base64 for internal use

@@ -13,6 +13,23 @@ NULL
   gsub("\n", "", jsonlite::base64_enc(raw_data))
 }
 
+#' Initialize transport keys only (no CKKS)
+#'
+#' Lightweight alternative to mheInitDS for Ring63 protocols.
+#' Only generates X25519 transport keypair. No CKCS secret key,
+#' no CRP, no Galois key generation.
+#'
+#' @param session_id Character or NULL.
+#' @return List with transport_pk (base64url).
+#' @export
+glmRing63TransportInitDS <- function(session_id = NULL) {
+  ss <- .S(session_id)
+  transport <- .callMheTool("transport-keygen", list())
+  .key_put("transport_sk", transport$secret_key, ss)
+  .key_put("transport_pk", transport$public_key, ss)
+  list(transport_pk = base64_to_base64url(transport$public_key))
+}
+
 #' Export own share (complement) to second DCF party
 #'
 #' After k2ShareInputDS splits features into (own_share, peer_share),
@@ -77,6 +94,126 @@ glmRing63ReorderXFullDS <- function(p_coord, p_fusion, p_extras, session_id = NU
 
   ss$k2_x_full_fp <- result$fp_data
   list(status = "ok")
+}
+
+#' Generate DCF keys on server and distribute to DCF parties
+#'
+#' Called on a NON-DCF server to generate DCF keys securely.
+#' The client never sees the key values — only opaque transport-encrypted blobs.
+#' This prevents a malicious client from crafting DCF keys to leak information.
+#'
+#' @param dcf0_pk,dcf1_pk Character. Transport PKs of DCF parties (base64url).
+#' @param family Character. "sigmoid" or "poisson".
+#' @param n Integer. Number of observations.
+#' @param frac_bits Integer. Fractional bits for Ring63 FP.
+#' @param num_intervals Integer. Number of spline intervals.
+#' @param session_id Character or NULL.
+#' @return List with encrypted blobs for each DCF party.
+#' @export
+glmRing63GenDcfKeysDS <- function(dcf0_pk, dcf1_pk, family, n, frac_bits,
+                                   num_intervals, session_id = NULL) {
+  dcf <- .callMheTool("k2-dcf-gen-batch", list(
+    family = family, n = as.integer(n),
+    frac_bits = as.integer(frac_bits),
+    num_intervals = as.integer(num_intervals)))
+
+  pk0 <- .base64url_to_base64(dcf0_pk)
+  pk1 <- .base64url_to_base64(dcf1_pk)
+
+  sealed0 <- .callMheTool("transport-encrypt", list(
+    data = dcf$party0_keys, recipient_pk = pk0))
+  sealed1 <- .callMheTool("transport-encrypt", list(
+    data = dcf$party1_keys, recipient_pk = pk1))
+
+  list(
+    dcf_blob_0 = base64_to_base64url(sealed0$sealed),
+    dcf_blob_1 = base64_to_base64url(sealed1$sealed)
+  )
+}
+
+#' Generate spline Beaver triples on server and distribute to DCF parties
+#'
+#' Generates 3 sets of Beaver triples (AND, Hadamard1, Hadamard2) for the
+#' DCF wide spline protocol. Transport-encrypts each party's shares.
+#' The client never sees the triple values.
+#'
+#' @param dcf0_pk,dcf1_pk Character. Transport PKs of DCF parties (base64url).
+#' @param n Integer. Number of observations.
+#' @param frac_bits Integer. Fractional bits.
+#' @param session_id Character or NULL.
+#' @return List with encrypted blobs for each DCF party.
+#' @export
+glmRing63GenSplineTriplesDS <- function(dcf0_pk, dcf1_pk, n, frac_bits,
+                                         session_id = NULL) {
+  triples <- lapply(1:3, function(i)
+    .callMheTool("k2-gen-beaver-triples",
+      list(n = as.integer(n), frac_bits = as.integer(frac_bits))))
+
+  pk0 <- .base64url_to_base64(dcf0_pk)
+  pk1 <- .base64url_to_base64(dcf1_pk)
+
+  # Pack party 0's shares
+  td0 <- list()
+  td1 <- list()
+  for (op in c("and", "had1", "had2")) {
+    ti <- switch(op, and = 1, had1 = 2, had2 = 3)
+    td0[[paste0(op, "_a")]] <- triples[[ti]]$party0_u
+    td0[[paste0(op, "_b")]] <- triples[[ti]]$party0_v
+    td0[[paste0(op, "_c")]] <- triples[[ti]]$party0_w
+    td1[[paste0(op, "_a")]] <- triples[[ti]]$party1_u
+    td1[[paste0(op, "_b")]] <- triples[[ti]]$party1_v
+    td1[[paste0(op, "_c")]] <- triples[[ti]]$party1_w
+  }
+
+  sealed0 <- .callMheTool("transport-encrypt", list(
+    data = jsonlite::base64_enc(charToRaw(
+      jsonlite::toJSON(td0, auto_unbox = TRUE))),
+    recipient_pk = pk0))
+  sealed1 <- .callMheTool("transport-encrypt", list(
+    data = jsonlite::base64_enc(charToRaw(
+      jsonlite::toJSON(td1, auto_unbox = TRUE))),
+    recipient_pk = pk1))
+
+  list(
+    spline_blob_0 = base64_to_base64url(sealed0$sealed),
+    spline_blob_1 = base64_to_base64url(sealed1$sealed)
+  )
+}
+
+#' Generate gradient matvec Beaver triples on server and distribute
+#'
+#' Generates Beaver triples for the gradient matrix-vector multiplication.
+#' Transport-encrypts each party's shares. Client never sees the values.
+#'
+#' @param dcf0_pk,dcf1_pk Character. Transport PKs of DCF parties (base64url).
+#' @param n Integer. Number of observations.
+#' @param p Integer. Total number of features.
+#' @param session_id Character or NULL.
+#' @return List with encrypted blobs for each DCF party.
+#' @export
+glmRing63GenGradTriplesDS <- function(dcf0_pk, dcf1_pk, n, p,
+                                       session_id = NULL) {
+  mvt <- .callMheTool("k2-gen-matvec-triples", list(
+    n = as.integer(n), p = as.integer(p)))
+
+  pk0 <- .base64url_to_base64(dcf0_pk)
+  pk1 <- .base64url_to_base64(dcf1_pk)
+
+  sealed0 <- .callMheTool("transport-encrypt", list(
+    data = jsonlite::base64_enc(charToRaw(jsonlite::toJSON(list(
+      a = mvt$party0_a, b = mvt$party0_b, c = mvt$party0_c),
+      auto_unbox = TRUE))),
+    recipient_pk = pk0))
+  sealed1 <- .callMheTool("transport-encrypt", list(
+    data = jsonlite::base64_enc(charToRaw(jsonlite::toJSON(list(
+      a = mvt$party1_a, b = mvt$party1_b, c = mvt$party1_c),
+      auto_unbox = TRUE))),
+    recipient_pk = pk1))
+
+  list(
+    grad_blob_0 = base64_to_base64url(sealed0$sealed),
+    grad_blob_1 = base64_to_base64url(sealed1$sealed)
+  )
 }
 
 #' Receive and assemble extra feature shares from non-DCF servers

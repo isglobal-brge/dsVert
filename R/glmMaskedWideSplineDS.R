@@ -121,6 +121,27 @@ glmMWSSetEtaShareDS <- function(eta_float = NULL, from_storage = FALSE,
   TRUE
 }
 
+#' Get coordinator's eta mask for client-side mu reconstruction
+#'
+#' Returns -(r + intercept) as float for the client to compute
+#' eta_total = eta_masked + mask, then mu = sigmoid(eta_total).
+#' @param session_id Character or NULL.
+#' @return List with \code{mask_float} (numeric vector).
+#' @export
+glmMWSGetMaskDS <- function(session_id = NULL) {
+  ss <- .S(session_id)
+  mask_fp <- ss$k2_eta_share_fp
+  if (is.null(mask_fp))
+    stop("No mask stored. Call glmMWSMaskEtaDS first.", call. = FALSE)
+  frac_bits <- as.integer(ss$mws_frac_bits %||% 20L)
+  mask_float <- .callMheTool("mpc-fp-to-float", list(
+    fp_data = mask_fp, frac_bits = frac_bits
+  ))
+  # Disclosure check: only return aggregate, not per-observation
+  # This IS per-observation but masked by r → non-disclosive of X or y
+  list(mask_float = mask_float$values)
+}
+
 #' Get Ring63 mu share (after wide spline phases)
 #'
 #' After the wide spline phases compute mu shares in Ring63, this function

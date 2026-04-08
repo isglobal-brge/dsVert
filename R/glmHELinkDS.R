@@ -275,7 +275,11 @@ glmHEGradientEncDS <- function(data_name, x_vars, num_obs,
     ct_mu <- ss$ct_mu
   }
   if (is.null(ct_mu)) {
-    stop("Encrypted mu not available. Call glmHELinkStepDS or store ct_mu via blob.",
+    # Diagnostic: list all blob keys to help debug
+    all_keys <- tryCatch(ls(.blob_snapshot(ss)), error = function(e) "snapshot_error")
+    stop("Encrypted mu not available (from_storage=", from_storage,
+         ", blob_keys=", paste(all_keys, collapse=","),
+         ", has_ct_mu_session=", !is.null(ss$ct_mu), ")",
          call. = FALSE)
   }
 

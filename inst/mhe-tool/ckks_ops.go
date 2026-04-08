@@ -31,10 +31,11 @@ func getParams(logN, logScale int) (ckks.Parameters, error) {
 			LogDefaultScale: logScale,
 		})
 	case 13:
-		// Medium parameters (4096 slots) - 5 levels for degree-7 poly + gradient
+		// Medium parameters (4096 slots) - 6 levels for poly sigmoid + gradient precision
+		// Extra level improves gradient precision (0.164 vs 0.420 coef error)
 		params, err = ckks.NewParametersFromLiteral(ckks.ParametersLiteral{
 			LogN:            13,
-			LogQ:            []int{55, 40, 40, 40, 40, 40},
+			LogQ:            []int{55, 40, 40, 40, 40, 40, 40},
 			LogP:            []int{45, 45},
 			LogDefaultScale: logScale,
 		})

@@ -32,15 +32,16 @@ import (
 // SigmoidCoefficients returns the degree-7 monomial-basis coefficients for
 // the sigmoid approximation on [-8, 8]: p(x) = c[0] + c[1]*x + ... + c[7]*x^7
 func SigmoidCoefficients() []float64 {
+	// Least-squares fit (MSE-optimal for GLM gradient convergence)
 	return []float64{
 		0.5,                     // c0
-		2.205572459845886e-01,   // c1
+		2.168562847948179e-01,   // c1
 		0.0,                     // c2
-		-8.555529945829476e-03,  // c3
+		-8.187988303382328e-03,  // c3
 		0.0,                     // c4
-		1.743706748783766e-04,   // c5
+		1.656607674313851e-04,   // c5
 		0.0,                     // c6
-		-1.247898376981334e-06,  // c7
+		-1.193489025951639e-06,  // c7
 	}
 }
 

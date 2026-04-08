@@ -211,18 +211,18 @@ glmHELinkStepDS <- function(from_storage = TRUE, n_parties = 2,
   } else {
     # Step 2: Evaluate link-function polynomial on ct_eta_total
     if (is.null(poly_coefficients)) {
-      # Default: degree-7 sigmoid approximation on [-8, 8]
-      # Max error: 1.9e-2. Uses 3 CKKS levels. Higher degrees have worse
-      # overall error due to increased clipping bias.
+      # Default: degree-7 LS sigmoid approximation on [-8, 8]
+      # Least-squares fit minimizes MSE (1.6e-4) → optimal for GLM gradient.
+      # Max error 3.2e-2 (higher than Chebyshev) but better coefficient accuracy.
       poly_coefficients <- c(
         0.5,
-        2.205572459845886e-01,
+        2.168562847948179e-01,
         0.0,
-        -8.555529945829476e-03,
+        -8.187988303382328e-03,
         0.0,
-        1.743706748783766e-04,
+        1.656607674313851e-04,
         0.0,
-        -1.247898376981334e-06
+        -1.193489025951639e-06
       )
     }
 

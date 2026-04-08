@@ -157,6 +157,8 @@ func main() {
 		handleMpcSumShare()
 	case "mpc-add-fp-shares":
 		handleMpcAddFPShares()
+	case "ckks-local-test":
+		handleCKKSLocalTest()
 	case "mpc-fp-to-float":
 		handleMpcFPToFloat()
 	case "mpc-get-poly-coeffs":
@@ -186,18 +188,10 @@ func main() {
 		handleK2Ring63Aggregate()
 	case "k2-ring63-sum":
 		handleK2Ring63Sum()
-	case "k2-gradient-in-ring":
-		handleK2GradientInRing()
 	case "k2-beaver-matvec-r1":
 		handleK2BeaverMatvecR1()
 	case "k2-beaver-matvec-r2":
 		handleK2BeaverMatvecR2()
-	case "k2-cross-gradient":
-		handleK2CrossGradient()
-	case "k2-secure-gradient":
-		handleK2SecureGradient()
-	case "k2-train":
-		handleK2Train()
 	case "k2-piecewise-sigmoid":
 		handleK2PiecewiseSigmoid()
 	case "k2-piecewise-exp":
@@ -219,8 +213,6 @@ func main() {
 		handleK2FPScaleIndicator()
 	case "k2-wide-spline-full":
 		handleK2WideSplineFullEval()
-	case "k2-newton-fisher":
-		handleK2NewtonFisher()
 	case "k2-newton-fisher-real":
 		handleK2NewtonFisherReal()
 	case "k2-precompute-xsq":

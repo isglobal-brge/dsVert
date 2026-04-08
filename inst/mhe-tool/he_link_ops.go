@@ -139,12 +139,19 @@ func mheEvalPoly(input *EvalPolyInput) (*EvalPolyOutput, error) {
 	if len(coeffs) < 2 {
 		return nil, fmt.Errorf("polynomial must have at least 2 coefficients")
 	}
-	if len(coeffs) > 8 {
-		return nil, fmt.Errorf("polynomial degree > 7 not supported (got %d coefficients)", len(coeffs))
+	if len(coeffs) > 16 {
+		return nil, fmt.Errorf("polynomial degree > 15 not supported (got %d coefficients)", len(coeffs))
 	}
-	// Pad to 8 coefficients
-	for len(coeffs) < 8 {
+	// Pad to 16 coefficients
+	for len(coeffs) < 16 {
 		coeffs = append(coeffs, 0.0)
+	}
+	useDeg15 := false
+	for i := 8; i < 16; i++ {
+		if coeffs[i] != 0 {
+			useDeg15 = true
+			break
+		}
 	}
 
 	// Deserialize input ciphertext
@@ -355,9 +362,98 @@ func mheEvalPoly(input *EvalPolyInput) (*EvalPolyOutput, error) {
 		eval.DropLevel(ctX4QHigh, ctX4QHigh.Level()-ctQLow.Level())
 	}
 
-	ctResult, err := eval.AddNew(ctQLow, ctX4QHigh)
+	ctDeg7Result, err := eval.AddNew(ctQLow, ctX4QHigh)
 	if err != nil {
 		return nil, fmt.Errorf("failed result = q_low + x⁴*q_high: %v", err)
+	}
+
+	ctResult := ctDeg7Result
+
+	// Degree-15 extension: result = deg7_low + x⁸ * deg7_high
+	if useDeg15 {
+		// x⁸ = x⁴ * x⁴ (1 more ct×ct mul, 1 level)
+		ctX8, err := eval.MulRelinNew(ctX4, ctX4)
+		if err != nil {
+			return nil, fmt.Errorf("failed x⁸: %v", err)
+		}
+		if err := eval.Rescale(ctX8, ctX8); err != nil {
+			return nil, fmt.Errorf("failed rescale x⁸: %v", err)
+		}
+
+		// Upper half coefficients [8..15] → evaluate as degree-7 polynomial
+		// q_upper(x) = c8 + c9*x + c10*x² + ... + c15*x⁷
+		upperCoeffs := coeffs[8:16]
+
+		// Evaluate upper half using same baby-step structure
+		// q_upper_even = c8 + c10*x²
+		babyLvl := ctX2.Level()
+		ctUEven, err := eval.MulNew(ctX2, constPt(upperCoeffs[2], babyLvl))
+		if err != nil { return nil, fmt.Errorf("d15 c10*x²: %v", err) }
+		if err := eval.Rescale(ctUEven, ctUEven); err != nil { return nil, fmt.Errorf("d15 rescale c10*x²: %v", err) }
+		if err := eval.Add(ctUEven, constPt(upperCoeffs[0], ctUEven.Level()), ctUEven); err != nil { return nil, fmt.Errorf("d15 c8+c10*x²: %v", err) }
+
+		// q_upper_odd = c9 + c11*x²
+		ctUOdd, err := eval.MulNew(ctX2, constPt(upperCoeffs[3], babyLvl))
+		if err != nil { return nil, fmt.Errorf("d15 c11*x²: %v", err) }
+		if err := eval.Rescale(ctUOdd, ctUOdd); err != nil { return nil, fmt.Errorf("d15 rescale c11*x²: %v", err) }
+		if err := eval.Add(ctUOdd, constPt(upperCoeffs[1], ctUOdd.Level()), ctUOdd); err != nil { return nil, fmt.Errorf("d15 c9+c11*x²: %v", err) }
+
+		// q_upper_low = q_upper_even + x * q_upper_odd
+		ctXU := ctX.CopyNew()
+		if ctXU.Level() > ctUOdd.Level() { eval.DropLevel(ctXU, ctXU.Level()-ctUOdd.Level()) }
+		ctXUOdd, err := eval.MulRelinNew(ctXU, ctUOdd)
+		if err != nil { return nil, fmt.Errorf("d15 x*q_upper_odd: %v", err) }
+		if err := eval.Rescale(ctXUOdd, ctXUOdd); err != nil { return nil, fmt.Errorf("d15 rescale x*q_upper_odd: %v", err) }
+		if ctUEven.Level() > ctXUOdd.Level() { eval.DropLevel(ctUEven, ctUEven.Level()-ctXUOdd.Level()) }
+		if ctXUOdd.Level() > ctUEven.Level() { eval.DropLevel(ctXUOdd, ctXUOdd.Level()-ctUEven.Level()) }
+		ctQLowUpper, err := eval.AddNew(ctUEven, ctXUOdd)
+		if err != nil { return nil, fmt.Errorf("d15 q_upper_low: %v", err) }
+
+		// q_upper_high_even = c12 + c14*x²
+		ctUHEven, err := eval.MulNew(ctX2, constPt(upperCoeffs[6], babyLvl))
+		if err != nil { return nil, fmt.Errorf("d15 c14*x²: %v", err) }
+		if err := eval.Rescale(ctUHEven, ctUHEven); err != nil { return nil, fmt.Errorf("d15 rescale c14*x²: %v", err) }
+		if err := eval.Add(ctUHEven, constPt(upperCoeffs[4], ctUHEven.Level()), ctUHEven); err != nil { return nil, fmt.Errorf("d15 c12+c14*x²: %v", err) }
+
+		// q_upper_high_odd = c13 + c15*x²
+		ctUHOdd, err := eval.MulNew(ctX2, constPt(upperCoeffs[7], babyLvl))
+		if err != nil { return nil, fmt.Errorf("d15 c15*x²: %v", err) }
+		if err := eval.Rescale(ctUHOdd, ctUHOdd); err != nil { return nil, fmt.Errorf("d15 rescale c15*x²: %v", err) }
+		if err := eval.Add(ctUHOdd, constPt(upperCoeffs[5], ctUHOdd.Level()), ctUHOdd); err != nil { return nil, fmt.Errorf("d15 c13+c15*x²: %v", err) }
+
+		// q_upper_high = q_upper_high_even + x * q_upper_high_odd
+		ctXU2 := ctX.CopyNew()
+		if ctXU2.Level() > ctUHOdd.Level() { eval.DropLevel(ctXU2, ctXU2.Level()-ctUHOdd.Level()) }
+		ctXUHOdd, err := eval.MulRelinNew(ctXU2, ctUHOdd)
+		if err != nil { return nil, fmt.Errorf("d15 x*q_upper_high_odd: %v", err) }
+		if err := eval.Rescale(ctXUHOdd, ctXUHOdd); err != nil { return nil, fmt.Errorf("d15 rescale x*q_upper_high_odd: %v", err) }
+		if ctUHEven.Level() > ctXUHOdd.Level() { eval.DropLevel(ctUHEven, ctUHEven.Level()-ctXUHOdd.Level()) }
+		if ctXUHOdd.Level() > ctUHEven.Level() { eval.DropLevel(ctXUHOdd, ctXUHOdd.Level()-ctUHEven.Level()) }
+		ctQHighUpper, err := eval.AddNew(ctUHEven, ctXUHOdd)
+		if err != nil { return nil, fmt.Errorf("d15 q_upper_high: %v", err) }
+
+		// q_upper = q_upper_low + x⁴ * q_upper_high
+		if ctX4.Level() > ctQHighUpper.Level() { eval.DropLevel(ctX4, ctX4.Level()-ctQHighUpper.Level()) }
+		if ctQHighUpper.Level() > ctX4.Level() { eval.DropLevel(ctQHighUpper, ctQHighUpper.Level()-ctX4.Level()) }
+		ctX4QHU, err := eval.MulRelinNew(ctX4, ctQHighUpper)
+		if err != nil { return nil, fmt.Errorf("d15 x⁴*q_upper_high: %v", err) }
+		if err := eval.Rescale(ctX4QHU, ctX4QHU); err != nil { return nil, fmt.Errorf("d15 rescale x⁴*q_upper_high: %v", err) }
+		if ctQLowUpper.Level() > ctX4QHU.Level() { eval.DropLevel(ctQLowUpper, ctQLowUpper.Level()-ctX4QHU.Level()) }
+		if ctX4QHU.Level() > ctQLowUpper.Level() { eval.DropLevel(ctX4QHU, ctX4QHU.Level()-ctQLowUpper.Level()) }
+		ctQUpper, err := eval.AddNew(ctQLowUpper, ctX4QHU)
+		if err != nil { return nil, fmt.Errorf("d15 q_upper: %v", err) }
+
+		// Final: result = deg7_low + x⁸ * q_upper
+		if ctX8.Level() > ctQUpper.Level() { eval.DropLevel(ctX8, ctX8.Level()-ctQUpper.Level()) }
+		if ctQUpper.Level() > ctX8.Level() { eval.DropLevel(ctQUpper, ctQUpper.Level()-ctX8.Level()) }
+		ctX8QU, err := eval.MulRelinNew(ctX8, ctQUpper)
+		if err != nil { return nil, fmt.Errorf("d15 x⁸*q_upper: %v", err) }
+		if err := eval.Rescale(ctX8QU, ctX8QU); err != nil { return nil, fmt.Errorf("d15 rescale x⁸*q_upper: %v", err) }
+
+		if ctDeg7Result.Level() > ctX8QU.Level() { eval.DropLevel(ctDeg7Result, ctDeg7Result.Level()-ctX8QU.Level()) }
+		if ctX8QU.Level() > ctDeg7Result.Level() { eval.DropLevel(ctX8QU, ctX8QU.Level()-ctDeg7Result.Level()) }
+		ctResult, err = eval.AddNew(ctDeg7Result, ctX8QU)
+		if err != nil { return nil, fmt.Errorf("d15 final: %v", err) }
 	}
 
 	// Serialize result

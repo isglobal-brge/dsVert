@@ -212,7 +212,8 @@ glmHELinkStepDS <- function(from_storage = TRUE, n_parties = 2,
     # Step 2: Evaluate link-function polynomial on ct_eta_total
     if (is.null(poly_coefficients)) {
       # Default: degree-7 sigmoid approximation on [-8, 8]
-      # Max error: 1.9e-2. clip_radius=2.5 per server keeps total eta in range.
+      # Max error: 1.9e-2. Uses 3 CKKS levels. Higher degrees have worse
+      # overall error due to increased clipping bias.
       poly_coefficients <- c(
         0.5,
         2.205572459845886e-01,

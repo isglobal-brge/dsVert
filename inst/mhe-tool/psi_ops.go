@@ -465,7 +465,7 @@ type PSIUnpackOutput struct {
 }
 
 func handlePSIPackPoints() {
-	inputBytes, err := readInput()
+	inputBytes, err := readInputBytes()
 	if err != nil {
 		outputError(fmt.Sprintf("Failed to read input: %v", err))
 		return
@@ -489,7 +489,7 @@ func handlePSIPackPoints() {
 }
 
 func handlePSIUnpackPoints() {
-	inputBytes, err := readInput()
+	inputBytes, err := readInputBytes()
 	if err != nil {
 		outputError(fmt.Sprintf("Failed to read input: %v", err))
 		return

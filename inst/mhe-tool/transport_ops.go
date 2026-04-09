@@ -367,7 +367,7 @@ type TransportEncryptOutput struct {
 }
 
 func handleTransportEncrypt() {
-	inputBytes, err := readInput()
+	inputBytes, err := readInputBytes()
 	if err != nil {
 		outputError(fmt.Sprintf("Failed to read input: %v", err))
 		return
@@ -414,7 +414,7 @@ type TransportDecryptOutput struct {
 }
 
 func handleTransportDecrypt() {
-	inputBytes, err := readInput()
+	inputBytes, err := readInputBytes()
 	if err != nil {
 		outputError(fmt.Sprintf("Failed to read input: %v", err))
 		return
@@ -461,7 +461,7 @@ type TransportEncryptVectorsOutput struct {
 }
 
 func handleTransportEncryptVectors() {
-	inputBytes, err := readInput()
+	inputBytes, err := readInputBytes()
 	if err != nil {
 		outputError(fmt.Sprintf("Failed to read input: %v", err))
 		return
@@ -502,7 +502,7 @@ type TransportDecryptVectorsOutput struct {
 }
 
 func handleTransportDecryptVectors() {
-	inputBytes, err := readInput()
+	inputBytes, err := readInputBytes()
 	if err != nil {
 		outputError(fmt.Sprintf("Failed to read input: %v", err))
 		return

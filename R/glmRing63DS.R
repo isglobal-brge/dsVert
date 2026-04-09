@@ -304,6 +304,48 @@ glmRing63DevianceR2DS <- function(party_id = 0L, session_id = NULL) {
   list(cross_sum_fp = result$cross_sum_fp)
 }
 
+#' Set y_share to zeros (for correlation: no response variable)
+#' @param session_id Character or NULL.
+#' @return List with status.
+#' @export
+glmRing63CorSetZeroYDS <- function(session_id = NULL) {
+  ss <- .S(session_id)
+  n <- ss$k2_x_n
+  zero <- .callMheTool("k2-float-to-fp", list(values = rep(0, n), frac_bits = 20L))
+  ss$k2_y_share_fp <- zero$fp_data
+  list(status = "ok")
+}
+
+#' Set column j of X_full as "mu" for Beaver correlation
+#' Extracts column col_idx from k2_x_full_fp, stores as secure_mu_share.
+#' Combined with zero y, the "residual" = col_j, and Beaver computes X^T × col_j.
+#' @param col_idx Integer (0-indexed). Column to extract.
+#' @param p_total Integer. Total number of columns.
+#' @param session_id Character or NULL.
+#' @return List with status.
+#' @export
+glmRing63CorSetColDS <- function(col_idx = NULL, p_total = NULL,
+                                  from_storage = FALSE, session_id = NULL) {
+  ss <- .S(session_id)
+  if (isTRUE(from_storage)) {
+    params <- .blob_consume("cor_col_params", ss)
+    if (!is.null(params)) {
+      parts <- strsplit(params, ",")[[1]]
+      col_idx <- as.integer(parts[1])
+      p_total <- as.integer(parts[2])
+    }
+  }
+  n <- ss$k2_x_n
+  x_full <- ss$k2_x_full_fp
+  if (is.null(x_full)) stop("No X_full in session", call. = FALSE)
+
+  col_perm <- as.integer(seq(col_idx, n * p_total - 1L, by = p_total))
+  col_fp <- .callMheTool("k2-fp-permute", list(fp_data = x_full, perm = col_perm))
+
+  ss$secure_mu_share <- col_fp$fp_data
+  list(status = "ok")
+}
+
 #' Receive and assemble extra feature shares from non-DCF servers
 #'
 #' Called on DCF parties to receive feature shares from non-DCF servers.

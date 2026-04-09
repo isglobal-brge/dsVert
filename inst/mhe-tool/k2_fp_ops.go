@@ -70,6 +70,30 @@ func handleK2FPScaleIndicator() {
 }
 
 // ============================================================================
+// Command: k2-fp-sub
+// Element-wise Ring63 subtraction: result = a - b.
+// Used for computing residual = mu_share - y_share for deviance.
+// ============================================================================
+
+func handleK2FPSub() {
+	var input K2FPAddInput
+	mpcReadInput(&input)
+	if input.FracBits <= 0 {
+		input.FracBits = K2DefaultFracBits
+	}
+	r := NewRing63(input.FracBits)
+	a := fpToRing63(bytesToFPVec(base64ToBytes(input.A)))
+	b := fpToRing63(bytesToFPVec(base64ToBytes(input.B)))
+	result := make([]uint64, len(a))
+	for i := range a {
+		result[i] = r.Sub(a[i], b[i])
+	}
+	mpcWriteOutput(K2FPAddOutput{
+		Result: bytesToBase64(fpVecToBytes(ring63ToFP(result))),
+	})
+}
+
+// ============================================================================
 // Command: k2-fp-permute
 // Permute elements of an FP vector by given indices.
 // Used to align gradient column orders between DCF parties in K>=3.

@@ -216,6 +216,33 @@ glmRing63GenGradTriplesDS <- function(dcf0_pk, dcf1_pk, n, p,
   )
 }
 
+#' Prepare deviance: store residual as 1-column X matrix for Beaver Σr²
+#'
+#' After convergence, computes r = mu_share - y_share in Ring63 and stores
+#' as k2_x_full_fp (n×1 "matrix"). Then the standard k2GradientR1DS/R2DS
+#' with p=1 triples computes "gradient" = r^T × r = Σ r_i² (deviance).
+#'
+#' @param session_id Character or NULL.
+#' @return List with status.
+#' @export
+glmRing63PrepDevianceDS <- function(session_id = NULL) {
+  ss <- .S(session_id)
+  mu_fp <- .base64url_to_base64(ss$secure_mu_share)
+  y_fp <- .base64url_to_base64(ss$k2_y_share_fp)
+  if (is.null(mu_fp) || is.null(y_fp))
+    stop("No mu/y shares for deviance", call. = FALSE)
+
+  # Residual = mu - y in Ring63
+  r <- .callMheTool("k2-fp-sub", list(a = mu_fp, b = y_fp, frac_bits = 20L))
+
+  # Store as 1-column X matrix for Beaver dot-product
+  ss$k2_x_full_fp <- r$result
+  ss$k2_x_p <- 1L
+  ss$k2_peer_p <- 0L
+
+  list(status = "ok")
+}
+
 #' Secure deviance Phase 1: compute Beaver-masked residual
 #'
 #' Computes d = r_share - a (masked residual for Beaver dot-product)

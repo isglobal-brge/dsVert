@@ -211,6 +211,8 @@ func main() {
 		handleK2SplineAssemble()
 	case "k2-fp-add":
 		handleK2FPAdd()
+	case "k2-fp-sub":
+		handleK2FPSub()
 	case "k2-fp-permute":
 		handleK2FPPermute()
 	case "k2-fp-column-concat":

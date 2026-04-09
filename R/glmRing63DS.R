@@ -388,3 +388,52 @@ glmRing63ReceiveExtraShareDS <- function(extra_key, extra_p, session_id = NULL) 
 
   list(stored = TRUE, total_peer_p = ss$k2_peer_p)
 }
+
+# ===========================================================================
+# Core storage functions (moved from mheEncryption.R / mheDecryption.R)
+# ===========================================================================
+
+#' Store a blob on server (adaptive chunking support)
+#' @param key Character. Blob key.
+#' @param chunk Character. Blob data (or chunk if multi-part).
+#' @param chunk_index Integer. Chunk index (1-based).
+#' @param n_chunks Integer. Total chunks.
+#' @param session_id Character or NULL.
+#' @return TRUE on success.
+#' @export
+mheStoreBlobDS <- function(key, chunk, chunk_index = 1L, n_chunks = 1L,
+                           session_id = NULL) {
+  ss <- .S(session_id)
+  if (n_chunks == 1L) {
+    .blob_put(key, chunk, ss)
+  } else {
+    if (is.null(ss$blob_chunks)) ss$blob_chunks <- list()
+    if (!is.null(ss$blob_chunks[[key]]) &&
+        length(ss$blob_chunks[[key]]) != n_chunks) {
+      ss$blob_chunks[[key]] <- NULL
+    }
+    if (is.null(ss$blob_chunks[[key]])) {
+      ss$blob_chunks[[key]] <- character(n_chunks)
+    }
+    ss$blob_chunks[[key]][chunk_index] <- chunk
+    if (all(nzchar(ss$blob_chunks[[key]]))) {
+      .blob_put(key, paste0(ss$blob_chunks[[key]], collapse = ""), ss)
+      ss$blob_chunks[[key]] <- NULL
+    }
+  }
+  TRUE
+}
+
+#' Store peer transport public keys
+#' @param transport_keys Named list of base64url transport PKs.
+#' @param session_id Character or NULL.
+#' @return TRUE on success.
+#' @export
+mheStoreTransportKeysDS <- function(transport_keys, session_id = NULL) {
+  ss <- .S(session_id)
+  if (!.key_exists("transport_sk", ss)) {
+    stop("Not initialized. Call glmRing63TransportInitDS first.", call. = FALSE)
+  }
+  ss$peer_transport_pks <- lapply(transport_keys, .base64url_to_base64)
+  TRUE
+}

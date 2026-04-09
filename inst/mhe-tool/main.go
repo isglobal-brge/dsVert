@@ -184,6 +184,8 @@ func main() {
 		handleK2GenMatvecTriples()
 	case "k2-full-iter-r3":
 		handleK2FullIterR3()
+	case "k2-secure-deviance":
+		handleK2SecureDeviance()
 	case "k2-ring63-aggregate":
 		handleK2Ring63Aggregate()
 	case "k2-ring63-sum":

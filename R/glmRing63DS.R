@@ -216,6 +216,67 @@ glmRing63GenGradTriplesDS <- function(dcf0_pk, dcf1_pk, n, p,
   )
 }
 
+#' Secure deviance Phase 1: compute Beaver-masked residual
+#'
+#' Computes d = r_share - a (masked residual for Beaver dot-product)
+#' and local sum Σ r_share_i². The cross-term is computed in Phase 2.
+#' Total deviance D = Σ r² = Σ r_0² + 2·cross + Σ r_1² (1 scalar).
+#'
+#' @param party_id Integer. 0 or 1.
+#' @param session_id Character or NULL.
+#' @return List with dma_fp and local_sum_fp.
+#' @export
+glmRing63DevianceR1DS <- function(party_id = 0L, session_id = NULL) {
+  ss <- .S(session_id)
+  mu_fp <- .base64url_to_base64(ss$secure_mu_share)
+  y_fp <- .base64url_to_base64(ss$k2_y_share_fp)
+  if (is.null(mu_fp) || is.null(y_fp)) stop("No mu/y shares for deviance", call. = FALSE)
+
+  blob <- .blob_consume("k2_deviance_triple", ss)
+  if (is.null(blob)) stop("No deviance triple", call. = FALSE)
+  tsk <- .key_get("transport_sk", ss)
+  dec <- .callMheTool("transport-decrypt", list(
+    sealed = .base64url_to_base64(blob), recipient_sk = tsk))
+  triple <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
+
+  result <- .callMheTool("k2-secure-deviance", list(
+    mu_share_fp = mu_fp, y_share_fp = y_fp,
+    a_share_fp = triple$a, b_share_fp = triple$b,
+    c_share_fp = "", peer_dma_fp = "",
+    party_id = as.integer(party_id), phase = 1L))
+
+  ss$k2_dev_triple <- triple  # store for phase 2
+  list(dma_fp = result$dma_fp, local_sum_fp = result$local_sum_fp)
+}
+
+#' Secure deviance Phase 2: Beaver close for cross-term
+#' @param party_id Integer. 0 or 1.
+#' @param session_id Character or NULL.
+#' @return List with cross_sum_fp.
+#' @export
+glmRing63DevianceR2DS <- function(party_id = 0L, session_id = NULL) {
+  ss <- .S(session_id)
+  mu_fp <- .base64url_to_base64(ss$secure_mu_share)
+  y_fp <- .base64url_to_base64(ss$k2_y_share_fp)
+  triple <- ss$k2_dev_triple
+
+  peer_blob <- .blob_consume("k2_dev_peer_dma", ss)
+  if (is.null(peer_blob)) stop("No peer deviance R1", call. = FALSE)
+  tsk <- .key_get("transport_sk", ss)
+  dec <- .callMheTool("transport-decrypt", list(
+    sealed = .base64url_to_base64(peer_blob), recipient_sk = tsk))
+  peer_dma <- dec$data  # base64 FP data (not string — binary)
+
+  result <- .callMheTool("k2-secure-deviance", list(
+    mu_share_fp = mu_fp, y_share_fp = y_fp,
+    a_share_fp = triple$a, b_share_fp = triple$b,
+    c_share_fp = triple$c, peer_dma_fp = peer_dma,
+    party_id = as.integer(party_id), phase = 2L))
+
+  ss$k2_dev_triple <- NULL
+  list(cross_sum_fp = result$cross_sum_fp)
+}
+
 #' Receive and assemble extra feature shares from non-DCF servers
 #'
 #' Called on DCF parties to receive feature shares from non-DCF servers.

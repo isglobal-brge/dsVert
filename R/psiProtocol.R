@@ -257,7 +257,7 @@ NULL
 #' \code{getOption("dsvert.X")} then \code{getOption("default.dsvert.X")}.
 #'
 #' @param session_id Character or NULL. UUID for session-scoped storage
-#'   isolation. Default NULL uses legacy shared storage.
+#'   isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).
 #'
 #' @return List with transport_pk (base64url) and pinned (logical indicating
 #'   whether pre-shared keys are in use).
@@ -292,7 +292,7 @@ psiInitDS <- function(session_id = NULL) {
 #'
 #' @param transport_keys Named list. Server name -> transport PK (base64url).
 #' @param session_id Character or NULL. UUID for session-scoped storage
-#'   isolation. Default NULL uses legacy shared storage.
+#'   isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).
 #' @return TRUE (invisible).
 #' @export
 psiStoreTransportKeysDS <- function(transport_keys, session_id = NULL) {
@@ -319,7 +319,7 @@ psiStoreTransportKeysDS <- function(transport_keys, session_id = NULL) {
 #' @param data_name Character. Name of data frame.
 #' @param id_col Character. Name of identifier column.
 #' @param session_id Character or NULL. UUID for session-scoped storage
-#'   isolation. Default NULL uses legacy shared storage.
+#'   isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).
 #'
 #' @return List with n (count only — no points returned).
 #' @export
@@ -374,7 +374,7 @@ psiMaskIdsDS <- function(data_name, id_col, session_id = NULL) {
 #'
 #' @param target_name Character. Name of the target server.
 #' @param session_id Character or NULL. UUID for session-scoped storage
-#'   isolation. Default NULL uses legacy shared storage.
+#'   isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).
 #'
 #' @return List with encrypted_blob (base64url).
 #' @export
@@ -418,7 +418,7 @@ psiExportMaskedDS <- function(target_name, session_id = NULL) {
 #' @param from_storage Logical. If \code{TRUE}, read encrypted blob from
 #'   server-side blob storage. Default \code{FALSE}.
 #' @param session_id Character or NULL. UUID for session-scoped storage
-#'   isolation. Default NULL uses legacy shared storage.
+#'   isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).
 #'
 #' @return List with encrypted_blob (base64url) and n (count).
 #' @export
@@ -507,7 +507,7 @@ psiProcessTargetDS <- function(data_name, id_col, from_storage = FALSE,
 #' @param from_storage Logical. If \code{TRUE}, read encrypted blob from
 #'   server-side blob storage. Default \code{FALSE}.
 #' @param session_id Character or NULL. UUID for session-scoped storage
-#'   isolation. Default NULL uses legacy shared storage.
+#'   isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).
 #'
 #' @return List with encrypted_blob (base64url).
 #' @export
@@ -569,7 +569,7 @@ psiDoubleMaskDS <- function(target_name, from_storage = FALSE,
 #' @param from_storage Logical. If \code{TRUE}, read encrypted blob from
 #'   server-side blob storage. Default \code{FALSE}.
 #' @param session_id Character or NULL. UUID for session-scoped storage
-#'   isolation. Default NULL uses legacy shared storage.
+#'   isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).
 #'
 #' @return Aligned data frame (assigned to server environment).
 #' @export
@@ -630,7 +630,7 @@ psiMatchAndAlignDS <- function(data_name, from_storage = FALSE,
 #'
 #' @param data_name Character. Name of data frame.
 #' @param session_id Character or NULL. UUID for session-scoped storage
-#'   isolation. Default NULL uses legacy shared storage.
+#'   isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).
 #'
 #' @return Copy of data frame (assigned to server environment).
 #' @export
@@ -656,7 +656,7 @@ psiSelfAlignDS <- function(data_name, session_id = NULL) {
 #' PSI alignment. Used by the client to compute the multi-server intersection.
 #'
 #' @param session_id Character or NULL. UUID for session-scoped storage
-#'   isolation. Default NULL uses legacy shared storage.
+#'   isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).
 #'
 #' @return Integer vector of matched reference indices (0-based).
 #' @export
@@ -680,7 +680,7 @@ psiGetMatchedIndicesDS <- function(session_id = NULL) {
 #'   from server-side blob storage (comma-separated integers).
 #'   Default \code{FALSE}.
 #' @param session_id Character or NULL. UUID for session-scoped storage
-#'   isolation. Default NULL uses legacy shared storage.
+#'   isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).
 #'
 #' @return Filtered data frame (assigned to server environment).
 #' @export

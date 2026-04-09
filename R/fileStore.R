@@ -6,8 +6,8 @@
 #
 # Threshold: 50KB (nchar > 50000). This means:
 #   - Small blobs (transport keys, party_id, ct_hashes): memory (~instant)
-#   - Large blobs (CRP, ciphertexts, Galois keys, wrapped shares): disk
-#   - Persistent keys: CPK/Galois/relin → disk; transport SK/PK → memory
+#   - Large blobs (encrypted shares, DCF keys, Beaver triples): disk
+#   - Persistent keys: transport SK/PK → memory (small)
 #
 # Directory structure (created lazily, only when first large blob arrives):
 #   <tempdir()>/dsvert_<session_id>/
@@ -24,7 +24,7 @@
 #' @keywords internal
 .ensure_session_dir <- function(ss) {
   if (is.null(ss$.session_dir)) {
-    sid <- ss$.session_id %||% "legacy"
+    sid <- ss$.session_id %||% "default"
     ss$.session_dir <- file.path(tempdir(), paste0("dsvert_", sid))
     dir.create(file.path(ss$.session_dir, "blobs"), recursive = TRUE,
                showWarnings = FALSE)

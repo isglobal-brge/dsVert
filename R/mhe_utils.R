@@ -15,7 +15,7 @@
 #'
 #' \subsection{File-based I/O}{
 #' The \code{.callMheTool} function uses temporary files (not stdin/stdout
-#' pipes) for JSON I/O because CKKS ciphertexts can be hundreds of KB.
+#' pipes) for JSON I/O because encrypted data can be hundreds of KB.
 #' Pipe-based I/O can cause R's C stack to overflow with large outputs.
 #' }
 #'

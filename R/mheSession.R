@@ -1,7 +1,7 @@
-#' @title MHE Session Management
-#' @description Session-scoped persistent storage, context reuse, and lifecycle
-#'   management for the Multiparty Homomorphic Encryption protocol.
-#' @name mhe-session
+#' @title Session Management
+#' @description Session-scoped persistent storage and lifecycle management
+#'   for Ring63 MPC, PSI, and vertCor protocols.
+#' @name session-management
 NULL
 
 # ---------------------------------------------------------------------------
@@ -9,22 +9,19 @@ NULL
 # ---------------------------------------------------------------------------
 # DataSHIELD aggregate/assign calls run in ephemeral environments, so local
 # variables are lost between calls. We use a package-level environment to
-# persist state across the multi-step MHE, PSI, and GLM protocols.
+# persist state across the multi-step GLM, PSI, and vertCor protocols.
 #
 # SESSION ISOLATION: Each job (identified by session_id) gets its own
 # sub-environment within .mhe_sessions. This prevents concurrent jobs from
-# interfering with each other (critical for DSLite testing and parallel
-# Opal jobs). All server functions receive session_id and access their
-# session via .S(session_id).
+# interfering with each other. All server functions receive session_id and
+# access their session via .S(session_id).
 #
-# Stored per-session keys during MHE protocol:
-#   $secret_key     - This server's RLWE secret key share (NEVER returned)
-#   $party_id       - Integer party index (0-based)
-#   $cpk            - Collective Public Key (standard base64)
-#   $galois_keys    - Galois rotation keys (standard base64 vector)
-#   $relin_key      - Relinearization key (standard base64)
-#   $log_n, $log_scale - CKKS parameters
-#   $transport_sk, $transport_pk - X25519 keypair
+# Stored per-session:
+#   $transport_sk, $transport_pk - X25519 keypair (NEVER returned)
+#   $peer_transport_pks          - Peer public keys
+#   $k2_x_share_fp, $k2_y_share_fp - Ring63 FP data shares
+#   $secure_mu_share             - Link function output (Ring63 FP)
+#   $k2_dcf_keys_persistent      - DCF comparison keys
 #
 # Stored per-session during GLM protocol:
 #   $enc_y          - Encrypted response ciphertext (non-label servers)
@@ -55,7 +52,7 @@ NULL
 # Container for all sessions. Each session_id -> sub-environment.
 .mhe_sessions <- new.env(parent = emptyenv())
 
-# Legacy fallback for backward compatibility (non-session-scoped callers).
+# Global fallback when session_id is NULL (single-job mode).
 # New code should always use .S(session_id).
 .mhe_storage <- new.env(parent = emptyenv())
 
@@ -65,7 +62,7 @@ NULL
 # ---------------------------------------------------------------------------
 # MHE Context Cache: maps context_id -> session_id for key reuse
 # ---------------------------------------------------------------------------
-# When the peer set and CKKS parameters haven't changed between analyses,
+# When the peer set and protocol parameters haven't changed between analyses,
 # the expensive key generation + combination steps can be skipped by reusing
 # cryptographic keys from a previous session. The context_id is a canonical
 # string encoding the peer set, parameters, and RLK flag. Fresh transport
@@ -76,8 +73,8 @@ NULL
 #' Get or create a session-scoped storage environment
 #'
 #' Returns the sub-environment for the given session_id. Creates it if it
-#' does not exist. Falls back to the legacy .mhe_storage if session_id is
-#' NULL or empty (backward compatibility).
+#' does not exist. Falls back to global .mhe_storage if session_id is
+#' NULL or empty (uses global shared storage).
 #'
 #' Opportunistically reaps expired sessions on creation of new ones.
 #'
@@ -141,7 +138,7 @@ NULL
 # MHE Context Reuse Functions
 # ---------------------------------------------------------------------------
 # Skip expensive key generation + combination when the same peer set and
-# CKKS parameters are used across consecutive analyses. The context_id is
+# protocol parameters are reused across consecutive analyses. The context_id is
 # a canonical string encoding sorted peer names, log_n, log_scale, num_obs,
 # and generate_rlk. Fresh X25519 transport keys are always generated to
 # maintain forward secrecy per job.
@@ -150,7 +147,7 @@ NULL
 #' Check for reusable MHE context and copy keys to a new session
 #'
 #' Looks up the context cache for a previous session with the same
-#' cryptographic configuration (peer set, CKKS parameters, RLK flag).
+#' cryptographic configuration (peer set, protocol parameters).
 #' If found and the old session's keys are still valid, copies them
 #' to the new session. Fresh transport keys are always generated.
 #'
@@ -316,7 +313,7 @@ mheGetObsDS <- function(data_name, variables, session_id = NULL) {
 #'
 #' Lightweight function that triggers R garbage collection without removing
 #' any session state. Used periodically during long-running protocol loops
-#' to prevent memory accumulation from intermediate CKKS objects.
+#' to prevent memory accumulation from intermediate protocol state.
 #'
 #' @return TRUE
 #' @export
@@ -334,7 +331,7 @@ mheGcDS <- function() {
 #'
 #' @param session_id Character or NULL. Session identifier for concurrent
 #'   job isolation. When not NULL, cleans up only the specified session.
-#'   When NULL, falls back to clearing the legacy global storage.
+#'   When NULL, clears the global shared storage.
 #'
 #' @return TRUE on success
 #' @export
@@ -342,7 +339,7 @@ mheCleanupDS <- function(session_id = NULL) {
   if (!is.null(session_id)) {
     .cleanup_session(session_id)
   } else {
-    # Legacy fallback: clear global storage
+    # Global fallback: clear shared storage
     rm(list = ls(.mhe_storage), envir = .mhe_storage)
   }
   # Force garbage collection to release memory holding key material

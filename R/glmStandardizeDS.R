@@ -9,7 +9,7 @@
 #' @param x_vars Character vector. Feature columns to standardize.
 #' @param y_var Character or NULL. Response variable to standardize (Gaussian only).
 #' @param session_id Character or NULL. UUID for session-scoped storage
-#'   isolation. Default NULL uses legacy shared storage.
+#'   isolation. Default NULL uses global shared storage.
 #'
 #' @return List with x_means, x_sds, y_mean (if y_var), y_sd (if y_var)
 #' @export

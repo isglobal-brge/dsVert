@@ -315,7 +315,7 @@ mheGetObsDS <- function(data_name, variables, session_id = NULL) {
 #' Force garbage collection on the server
 #'
 #' Lightweight function that triggers R garbage collection without removing
-#' any session state. Used periodically during long-running HE-Link loops
+#' any session state. Used periodically during long-running protocol loops
 #' to prevent memory accumulation from intermediate CKKS objects.
 #'
 #' @return TRUE

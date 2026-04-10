@@ -50,6 +50,7 @@ AggregateMethods:
     k2WideSplinePhase2DS,
     k2WideSplinePhase3DS,
     k2WideSplinePhase4DS,
+    dsvertIdentityPkDS,
     glmRing63TransportInitDS,
     glmRing63GenDcfKeysDS,
     glmRing63GenSplineTriplesDS,
@@ -78,4 +79,7 @@ Options:
     default.nfilter.tab=3,
     default.nfilter.glm=0.33,
     default.nfilter.subset=3,
-    default.dsvert.mpc_binary=""
+    default.dsvert.mpc_binary="",
+    default.dsvert.identity_seed="",
+    default.dsvert.require_trusted_peers=TRUE,
+    default.dsvert.trusted_peers=""

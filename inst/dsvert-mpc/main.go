@@ -100,6 +100,14 @@ func main() {
 	case "k2-ring63-aggregate":
 		handleK2Ring63Aggregate()
 
+	// Ed25519 identity (pinned peers)
+	case "derive-identity":
+		handleDeriveIdentity()
+	case "sign-transport":
+		handleSignTransport()
+	case "verify-transport":
+		handleVerifyTransport()
+
 	// Version
 	case "version":
 		output(map[string]string{"version": VERSION})

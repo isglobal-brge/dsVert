@@ -4,20 +4,30 @@
 #' @name glm-ring63-protocol
 NULL
 
-#' Initialize transport keys
+#' Initialize transport keys with Ed25519 identity
 #'
-#' Transport-only key setup for Ring63 protocols.
-#' Generates X25519 transport keypair for inter-server encryption.
+#' Generates X25519 transport keypair + signs it with the server's
+#' persistent Ed25519 identity key for pinned peer verification.
 #'
 #' @param session_id Character or NULL.
-#' @return List with transport_pk (base64url).
+#' @return List with transport_pk, identity_pk, signature (all base64url).
 #' @export
 glmRing63TransportInitDS <- function(session_id = NULL) {
   ss <- .S(session_id)
   transport <- .callMpcTool("transport-keygen", list())
   .key_put("transport_sk", transport$secret_key, ss)
   .key_put("transport_pk", transport$public_key, ss)
-  list(transport_pk = base64_to_base64url(transport$public_key))
+
+  # Ed25519 identity: derive keypair, sign transport PK
+  identity <- .get_identity_keypair()
+  .key_put("identity_pk", identity$identity_pk, ss)
+  signature <- .sign_transport_pk(transport$public_key, identity$identity_sk)
+
+  list(
+    transport_pk = base64_to_base64url(transport$public_key),
+    identity_pk  = base64_to_base64url(identity$identity_pk),
+    signature    = base64_to_base64url(signature)
+  )
 }
 
 #' Export own share (complement) to second DCF party
@@ -353,16 +363,31 @@ mpcStoreBlobDS <- function(key, chunk, chunk_index = 1L, n_chunks = 1L,
   TRUE
 }
 
-#' Store peer transport public keys
+#' Store peer transport public keys (with identity verification)
 #' @param transport_keys Named list of base64url transport PKs.
+#' @param identity_info Named list: server -> list(identity_pk, signature). NULL to skip.
 #' @param session_id Character or NULL.
 #' @return TRUE on success.
 #' @export
-mpcStoreTransportKeysDS <- function(transport_keys, session_id = NULL) {
+mpcStoreTransportKeysDS <- function(transport_keys, identity_info = NULL,
+                                     session_id = NULL) {
   ss <- .S(session_id)
   if (!.key_exists("transport_sk", ss)) {
     stop("Not initialized. Call glmRing63TransportInitDS first.", call. = FALSE)
   }
+
+  if (!is.null(identity_info)) {
+    own_pk <- .key_get("identity_pk", ss)
+    .verify_all_peer_identities(identity_info, transport_keys, own_pk)
+  } else {
+    require_tp <- getOption("dsvert.require_trusted_peers")
+    if (is.null(require_tp)) require_tp <- getOption("default.dsvert.require_trusted_peers")
+    if (is.null(require_tp)) require_tp <- TRUE
+    if (isTRUE(as.logical(require_tp)))
+      stop("Trusted peers required but no identity_info provided by client.",
+           call. = FALSE)
+  }
+
   ss$peer_transport_pks <- lapply(transport_keys, .base64url_to_base64)
   TRUE
 }

@@ -138,10 +138,19 @@ psiInitDS <- function(session_id = NULL) {
   ss$psi_transport_sk <- transport$secret_key
   ss$psi_transport_pk <- transport$public_key
 
+  # Ed25519 identity: derive keypair, sign transport PK
+  identity <- .get_identity_keypair()
+  ss$psi_identity_pk <- identity$identity_pk
+  signature <- .sign_transport_pk(transport$public_key, identity$identity_sk)
+
   ss$psi_phase <- "init"
   ss$psi_dm_used <- character(0)
 
-  list(transport_pk = base64_to_base64url(ss$psi_transport_pk))
+  list(
+    transport_pk = base64_to_base64url(ss$psi_transport_pk),
+    identity_pk  = base64_to_base64url(identity$identity_pk),
+    signature    = base64_to_base64url(signature)
+  )
 }
 
 #' Store peer transport public keys (aggregate function)
@@ -153,14 +162,26 @@ psiInitDS <- function(session_id = NULL) {
 #' @param session_id Character or NULL. UUID for session-scoped storage.
 #' @return TRUE (invisible).
 #' @export
-psiStoreTransportKeysDS <- function(transport_keys, session_id = NULL) {
+psiStoreTransportKeysDS <- function(transport_keys, identity_info = NULL,
+                                     session_id = NULL) {
   ss <- .S(session_id)
   if (is.null(ss$psi_phase)) {
     stop("PSI not initialized. Call psiInitDS first.", call. = FALSE)
   }
 
-  ss$psi_peer_pks <- lapply(transport_keys, .base64url_to_base64)
+  if (!is.null(identity_info)) {
+    .verify_all_peer_identities(identity_info, transport_keys,
+                                 ss$psi_identity_pk)
+  } else {
+    require_tp <- getOption("dsvert.require_trusted_peers")
+    if (is.null(require_tp)) require_tp <- getOption("default.dsvert.require_trusted_peers")
+    if (is.null(require_tp)) require_tp <- TRUE
+    if (isTRUE(as.logical(require_tp)))
+      stop("Trusted peers required but no identity_info provided by client.",
+           call. = FALSE)
+  }
 
+  ss$psi_peer_pks <- lapply(transport_keys, .base64url_to_base64)
   invisible(TRUE)
 }
 

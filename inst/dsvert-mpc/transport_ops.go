@@ -17,6 +17,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdh"
+	"crypto/ed25519"
 	crand "crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -279,4 +280,126 @@ func handleTransportDecrypt() {
 	outputJSON(TransportDecryptOutput{
 		Data: base64.StdEncoding.EncodeToString(data),
 	})
+}
+
+// ============================================================================
+// Ed25519 Identity Commands (pinned peers)
+// ============================================================================
+
+// --- derive-identity ---
+// Derives a deterministic Ed25519 keypair from a base64-encoded seed.
+// seed → SHA-256 → 32-byte Ed25519 seed → keypair
+
+type DeriveIdentityInput struct {
+	Seed string `json:"seed"` // Base64-encoded seed (any length)
+}
+
+type DeriveIdentityOutput struct {
+	IdentityPK string `json:"identity_pk"` // Base64 Ed25519 public key (32 bytes)
+	IdentitySK string `json:"identity_sk"` // Base64 Ed25519 private key (64 bytes)
+}
+
+func handleDeriveIdentity() {
+	var input DeriveIdentityInput
+	mpcReadInput(&input)
+
+	seedBytes, err := base64.StdEncoding.DecodeString(input.Seed)
+	if err != nil {
+		outputError("Failed to decode seed: " + err.Error())
+		return
+	}
+
+	// SHA-256 of seed → 32-byte Ed25519 seed
+	hash := sha256.Sum256(seedBytes)
+	sk := ed25519.NewKeyFromSeed(hash[:])
+	pk := sk.Public().(ed25519.PublicKey)
+
+	mpcWriteOutput(DeriveIdentityOutput{
+		IdentityPK: base64.StdEncoding.EncodeToString(pk),
+		IdentitySK: base64.StdEncoding.EncodeToString(sk),
+	})
+}
+
+// --- sign-transport ---
+// Signs an X25519 transport PK with the Ed25519 identity SK.
+
+type SignTransportInput struct {
+	TransportPK string `json:"transport_pk"` // Base64 X25519 public key
+	IdentitySK  string `json:"identity_sk"`  // Base64 Ed25519 private key
+}
+
+type SignTransportOutput struct {
+	Signature string `json:"signature"` // Base64 Ed25519 signature (64 bytes)
+}
+
+func handleSignTransport() {
+	var input SignTransportInput
+	mpcReadInput(&input)
+
+	transportPK, err := base64.StdEncoding.DecodeString(input.TransportPK)
+	if err != nil {
+		outputError("Failed to decode transport PK: " + err.Error())
+		return
+	}
+
+	identitySK, err := base64.StdEncoding.DecodeString(input.IdentitySK)
+	if err != nil {
+		outputError("Failed to decode identity SK: " + err.Error())
+		return
+	}
+
+	if len(identitySK) != ed25519.PrivateKeySize {
+		outputError(fmt.Sprintf("Invalid identity SK size: %d (expected %d)", len(identitySK), ed25519.PrivateKeySize))
+		return
+	}
+
+	sig := ed25519.Sign(ed25519.PrivateKey(identitySK), transportPK)
+
+	mpcWriteOutput(SignTransportOutput{
+		Signature: base64.StdEncoding.EncodeToString(sig),
+	})
+}
+
+// --- verify-transport ---
+// Verifies an Ed25519 signature on an X25519 transport PK.
+
+type VerifyTransportInput struct {
+	TransportPK string `json:"transport_pk"` // Base64 X25519 public key
+	IdentityPK  string `json:"identity_pk"`  // Base64 Ed25519 public key
+	Signature   string `json:"signature"`    // Base64 Ed25519 signature
+}
+
+type VerifyTransportOutput struct {
+	Valid bool `json:"valid"`
+}
+
+func handleVerifyTransport() {
+	var input VerifyTransportInput
+	mpcReadInput(&input)
+
+	transportPK, err := base64.StdEncoding.DecodeString(input.TransportPK)
+	if err != nil {
+		mpcWriteOutput(VerifyTransportOutput{Valid: false})
+		return
+	}
+
+	identityPK, err := base64.StdEncoding.DecodeString(input.IdentityPK)
+	if err != nil {
+		mpcWriteOutput(VerifyTransportOutput{Valid: false})
+		return
+	}
+
+	sig, err := base64.StdEncoding.DecodeString(input.Signature)
+	if err != nil {
+		mpcWriteOutput(VerifyTransportOutput{Valid: false})
+		return
+	}
+
+	if len(identityPK) != ed25519.PublicKeySize || len(sig) != ed25519.SignatureSize {
+		mpcWriteOutput(VerifyTransportOutput{Valid: false})
+		return
+	}
+
+	valid := ed25519.Verify(ed25519.PublicKey(identityPK), transportPK, sig)
+	mpcWriteOutput(VerifyTransportOutput{Valid: valid})
 }

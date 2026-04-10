@@ -1,0 +1,18 @@
+#!/bin/sh
+# Generate Ed25519 identity seed on package install if not exists
+SEED_DIR="$HOME/.dsvert"
+SEED_FILE="$SEED_DIR/identity.seed"
+
+if [ ! -f "$SEED_FILE" ]; then
+  mkdir -p "$SEED_DIR"
+  chmod 700 "$SEED_DIR"
+  # 32 bytes from /dev/urandom → base64
+  if [ -r /dev/urandom ]; then
+    dd if=/dev/urandom bs=32 count=1 2>/dev/null | base64 | tr -d '\n' > "$SEED_FILE"
+  else
+    # Fallback: use R
+    R --vanilla -e "writeLines(jsonlite::base64_enc(as.raw(sample.int(256L,32L,replace=TRUE)-1L)),'$SEED_FILE')" 2>/dev/null
+  fi
+  chmod 600 "$SEED_FILE"
+  echo "dsVert: Identity seed generated at $SEED_FILE"
+fi

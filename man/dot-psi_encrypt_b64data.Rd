@@ -15,8 +15,7 @@
 Character. Sealed data in standard base64.
 }
 \description{
-Unlike \code{.psi_encrypt_blob} which takes a string and converts it to raw,
-this takes data that is already base64-encoded (e.g. from psi-pack-points output)
+Takes data that is already base64-encoded (e.g. from psi-pack-points output)
 and passes it directly to transport-encrypt.
 }
 \keyword{internal}

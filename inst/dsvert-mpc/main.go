@@ -11,7 +11,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 )
 
@@ -33,18 +32,6 @@ func output(v interface{}) {
 		os.Exit(1)
 	}
 	fmt.Println(string(j))
-}
-
-func readInput(v interface{}) {
-	data, err := io.ReadAll(os.Stdin)
-	if err != nil {
-		outputError("Failed to read input: " + err.Error())
-		os.Exit(1)
-	}
-	if err := json.Unmarshal(data, v); err != nil {
-		outputError("failed to parse input: " + err.Error())
-		os.Exit(1)
-	}
 }
 
 func main() {

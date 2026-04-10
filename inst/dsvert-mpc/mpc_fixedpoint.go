@@ -1,6 +1,8 @@
 package main
 
-import "math"
+import (
+	"math"
+)
 
 // FixedPoint represents a fixed-point number on Z_{2^64} with configurable
 // fractional bits. Arithmetic wraps naturally via int64 overflow, which is
@@ -27,11 +29,6 @@ func FPSub(a, b FixedPoint) FixedPoint {
 	return a - b
 }
 
-// FPNeg returns -a (wrapping mod 2^64).
-func FPNeg(a FixedPoint) FixedPoint {
-	return -a
-}
-
 // FPMulLocal multiplies two fixed-point values locally and truncates.
 // This is for LOCAL multiplication only (both values known to one party).
 // For multiplication of secret-shared values, use Beaver triples.
@@ -41,11 +38,6 @@ func FPMulLocal(a, b FixedPoint, fracBits int) FixedPoint {
 	// Use 128-bit multiplication to avoid overflow
 	hi, lo := mul64(int64(a), int64(b))
 	return FixedPoint(rshift128(hi, lo, fracBits))
-}
-
-// FPFromInt converts an integer to fixed-point.
-func FPFromInt(n int64, fracBits int) FixedPoint {
-	return FixedPoint(n << fracBits)
 }
 
 // mul64 performs 64x64 -> 128-bit signed multiplication.
@@ -103,54 +95,6 @@ func rshift128(hi int64, lo uint64, shift int) int64 {
 		return hi >> (shift - 64)
 	}
 	return (hi << (64 - shift)) | int64(lo>>shift)
-}
-
-// FloatVecToFP converts a slice of float64 to fixed-point.
-func FloatVecToFP(v []float64, fracBits int) []FixedPoint {
-	fp := make([]FixedPoint, len(v))
-	for i, x := range v {
-		fp[i] = FromFloat64(x, fracBits)
-	}
-	return fp
-}
-
-// FPVecToFloat converts a slice of fixed-point to float64.
-func FPVecToFloat(v []FixedPoint, fracBits int) []float64 {
-	f := make([]float64, len(v))
-	for i, x := range v {
-		f[i] = x.ToFloat64(fracBits)
-	}
-	return f
-}
-
-// FPVecAdd adds two fixed-point vectors element-wise.
-func FPVecAdd(a, b []FixedPoint) []FixedPoint {
-	n := len(a)
-	result := make([]FixedPoint, n)
-	for i := 0; i < n; i++ {
-		result[i] = FPAdd(a[i], b[i])
-	}
-	return result
-}
-
-// FPVecSub subtracts two fixed-point vectors element-wise.
-func FPVecSub(a, b []FixedPoint) []FixedPoint {
-	n := len(a)
-	result := make([]FixedPoint, n)
-	for i := 0; i < n; i++ {
-		result[i] = FPSub(a[i], b[i])
-	}
-	return result
-}
-
-// FPDotProduct computes the dot product of two fixed-point vectors.
-// Each element multiplication is truncated by fracBits.
-func FPDotProduct(a, b []FixedPoint, fracBits int) FixedPoint {
-	var sum FixedPoint
-	for i := range a {
-		sum = FPAdd(sum, FPMulLocal(a[i], b[i], fracBits))
-	}
-	return sum
 }
 
 // ============================================================================

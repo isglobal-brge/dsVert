@@ -55,8 +55,6 @@ AggregateMethods:
     glmRing63GenSplineTriplesDS,
     glmRing63GenGradTriplesDS,
     glmRing63PrepDevianceDS,
-    glmRing63DevianceR1DS,
-    glmRing63DevianceR2DS,
     glmRing63CorSetZeroYDS,
     glmRing63CorSetColDS,
     glmRing63ExportOwnShareDS,

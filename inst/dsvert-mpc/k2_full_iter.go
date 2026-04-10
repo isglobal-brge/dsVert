@@ -174,92 +174,6 @@ func handleK2FullIterR3() {
 	})
 }
 
-// --- Secure deviance: Beaver dot-product for Σ r² ---
-
-type K2SecureDevianceInput struct {
-	MuShareFP string `json:"mu_share_fp"` // mu share (n-vector, FP)
-	YShareFP  string `json:"y_share_fp"`  // y share (n-vector, FP)
-	AShareFP  string `json:"a_share_fp"`  // Beaver triple A share (n-vector)
-	BShareFP  string `json:"b_share_fp"`  // Beaver triple B share (n-vector)
-	CShareFP  string `json:"c_share_fp"`  // Beaver triple C share (1-element)
-	PeerDmaFP string `json:"peer_dma_fp"` // peer's (r-A) masked value (phase 2 only)
-	PartyID   int    `json:"party_id"`
-	Phase     int    `json:"phase"` // 1 = R1, 2 = R2 close
-}
-
-func handleK2SecureDeviance() {
-	var input K2SecureDevianceInput
-	mpcReadInput(&input)
-	ring := NewRing63(20)
-
-	muR63 := fpToRing63(bytesToFPVec(base64ToBytes(input.MuShareFP)))
-	yR63 := fpToRing63(bytesToFPVec(base64ToBytes(input.YShareFP)))
-	n := len(muR63)
-
-	// Residual share: r = mu - y (same convention as gradient)
-	rR63 := make([]uint64, n)
-	for i := 0; i < n; i++ {
-		rR63[i] = ring.Sub(muR63[i], yR63[i])
-	}
-
-	aR63 := fpToRing63(bytesToFPVec(base64ToBytes(input.AShareFP)))
-
-	if input.Phase == 1 {
-		// Phase 1: d = r - a (masked residual)
-		dma := make([]uint64, n)
-		for i := 0; i < n; i++ {
-			dma[i] = ring.Sub(rR63[i], aR63[i])
-		}
-		// Local sum: Σ r_share_i² (in FP², truncated to FP)
-		var localSq uint64
-		for i := 0; i < n; i++ {
-			sq := modMulBig63(rR63[i], rR63[i], ring.Modulus)
-			localSq = ring.Add(localSq, sq)
-		}
-		localSq = TruncateSharePartyZero([]uint64{localSq}, ring.FracMul, ring.Modulus)[0]
-
-		mpcWriteOutput(map[string]interface{}{
-			"dma_fp":       bytesToBase64(fpVecToBytes(ring63ToFP(dma))),
-			"local_sum_fp": bytesToBase64(fpVecToBytes(ring63ToFP([]uint64{localSq}))),
-		})
-	} else {
-		// Phase 2: Beaver close → cross sum
-		bR63 := fpToRing63(bytesToFPVec(base64ToBytes(input.BShareFP)))
-		cR63 := fpToRing63(bytesToFPVec(base64ToBytes(input.CShareFP)))
-		peerDma := fpToRing63(bytesToFPVec(base64ToBytes(input.PeerDmaFP)))
-
-		ownDma := make([]uint64, n)
-		for i := 0; i < n; i++ {
-			ownDma[i] = ring.Sub(rR63[i], aR63[i])
-		}
-		fullD := make([]uint64, n)
-		for i := 0; i < n; i++ {
-			fullD[i] = ring.Add(ownDma[i], peerDma[i])
-		}
-
-		// Beaver dot-product: Σ r_i² = Σ (r_0+r_1)² share
-		var z uint64 = cR63[0]
-		for i := 0; i < n; i++ {
-			z = ring.Add(z, modMulBig63(fullD[i], bR63[i], ring.Modulus))
-			z = ring.Add(z, modMulBig63(aR63[i], fullD[i], ring.Modulus))
-		}
-		if input.PartyID == 0 {
-			for i := 0; i < n; i++ {
-				z = ring.Add(z, modMulBig63(fullD[i], fullD[i], ring.Modulus))
-			}
-		}
-		if input.PartyID == 0 {
-			z = TruncateSharePartyZero([]uint64{z}, ring.FracMul, ring.Modulus)[0]
-		} else {
-			z = TruncateSharePartyOne([]uint64{z}, ring.FracMul, ring.Modulus)[0]
-		}
-
-		mpcWriteOutput(map[string]interface{}{
-			"cross_sum_fp": bytesToBase64(fpVecToBytes(ring63ToFP([]uint64{z}))),
-		})
-	}
-}
-
 // --- Ring63 aggregation (client-side) ---
 
 type K2Ring63AggregateInput struct {
@@ -290,32 +204,6 @@ func handleK2Ring63Aggregate() {
 		values[i] = ring.ToDouble(sum)
 	}
 	mpcWriteOutput(K2Ring63AggregateOutput{Values: values})
-}
-
-// --- Ring63 sum (server-side diagnostic) ---
-
-type K2Ring63SumInput struct {
-	DataFP   string `json:"data_fp"`
-	FracBits int    `json:"frac_bits"`
-}
-
-type K2Ring63SumOutput struct {
-	SumFP string `json:"sum_fp"` // Ring63 sum as single-element base64 FP
-}
-
-func handleK2Ring63Sum() {
-	var input K2Ring63SumInput
-	mpcReadInput(&input)
-	if input.FracBits <= 0 { input.FracBits = 20 }
-	ring := NewRing63(input.FracBits)
-	data := fpToRing63(bytesToFPVec(base64ToBytes(input.DataFP)))
-	var sum uint64
-	for _, v := range data {
-		sum = ring.Add(sum, v)
-	}
-	mpcWriteOutput(K2Ring63SumOutput{
-		SumFP: bytesToBase64(fpVecToBytes(ring63ToFP([]uint64{sum}))),
-	})
 }
 
 // --- Utility commands ---

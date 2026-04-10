@@ -60,45 +60,9 @@ NULL
 # PSI Transport Encryption Helpers
 # ============================================================================
 
-#' Encrypt a string blob under a recipient's transport PK (internal)
-#' @param data_str Character. The string data to encrypt.
-#' @param recipient_pk_b64 Character. Recipient's X25519 PK (standard base64).
-#' @return Character. Sealed data in standard base64.
-#' @keywords internal
-.psi_encrypt_blob <- function(data_str, recipient_pk_b64) {
-  # Convert string to raw bytes, then to base64 for the Go tool
-  data_b64 <- jsonlite::base64_enc(charToRaw(data_str))
-  result <- .callMpcTool("transport-encrypt", list(
-    data = data_b64,
-    recipient_pk = recipient_pk_b64
-  ))
-  result$sealed
-}
-
-#' Decrypt a sealed blob using this server's PSI transport SK (internal)
-#' @param sealed_b64url Character. Sealed data in base64url (as stored in
-#'   blob storage for DataSHIELD parser safety). Converted to standard
-#'   base64 before passing to the Go tool.
-#' @return Character. The decrypted string.
-#' @keywords internal
-.psi_decrypt_blob <- function(sealed_b64url, session_id = NULL) {
-  ss <- .S(session_id)
-  if (is.null(ss$psi_transport_sk)) {
-    stop("PSI transport SK not available. Call psiInitDS first.", call. = FALSE)
-  }
-  # Convert from base64url (parser-safe) back to standard base64 (Go tool)
-  sealed_b64 <- .base64url_to_base64(sealed_b64url)
-  result <- .callMpcTool("transport-decrypt", list(
-    sealed = sealed_b64,
-    recipient_sk = ss$psi_transport_sk
-  ))
-  rawToChar(jsonlite::base64_dec(result$data))
-}
-
 #' Encrypt already-base64-encoded binary data under a recipient's transport PK (internal)
 #'
-#' Unlike \code{.psi_encrypt_blob} which takes a string and converts it to raw,
-#' this takes data that is already base64-encoded (e.g. from psi-pack-points output)
+#' Takes data that is already base64-encoded (e.g. from psi-pack-points output)
 #' and passes it directly to transport-encrypt.
 #'
 #' @param data_b64 Character. Already base64-encoded data.
@@ -115,8 +79,8 @@ NULL
 
 #' Decrypt a sealed blob and return as base64-encoded data (internal)
 #'
-#' Unlike \code{.psi_decrypt_blob} which returns a character string,
-#' this returns the raw base64-encoded payload (for binary packed data).
+#' Decrypts a sealed blob and returns the raw base64-encoded payload
+#' (for binary packed data).
 #'
 #' @param sealed_b64url Character. Sealed data in base64url.
 #' @param session_id Character or NULL.
@@ -199,23 +163,6 @@ NULL
 # The default for dsvert.psi_key_pinning is FALSE (declared in DESCRIPTION
 # Options section), so key pinning is disabled unless explicitly enabled.
 # ============================================================================
-
-#' Read a dsVert option using the dsBase two-tier fallback pattern (internal)
-#'
-#' Checks \code{getOption(name)} first, then falls back to
-#' \code{getOption(paste0("default.", name))}. This allows Opal administrators
-#' to override settings per DataSHIELD profile.
-#'
-#' @param name Character. Option name (e.g. "dsvert.psi_key_pinning").
-#' @param fallback Default value if neither option is set. Default NULL.
-#' @return The option value, or fallback if not set.
-#' @keywords internal
-.read_dsvert_option <- function(name, fallback = NULL) {
-  val <- getOption(name)
-  if (is.null(val)) val <- getOption(paste0("default.", name))
-  if (is.null(val)) val <- fallback
-  val
-}
 
 # ============================================================================
 # Phase 0: PSI Transport Key Exchange

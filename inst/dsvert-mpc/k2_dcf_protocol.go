@@ -15,7 +15,6 @@ package main
 
 import (
 	"encoding/binary"
-	"fmt"
 )
 
 // ============================================================================
@@ -96,105 +95,6 @@ func handleK2DcfGenBatch() {
 		Thresholds: thresholds,
 		NumBroad:   2,
 	})
-}
-
-// ============================================================================
-// Command: k2-dcf-eval
-// Evaluates DCF on one party's eta share. Two phases:
-//   Phase 1: compute masked values (to relay via client)
-//   Phase 2: combine with peer's masked values → comparison shares
-// ============================================================================
-
-type K2DcfEvalInput struct {
-	Phase        int    `json:"phase"`          // 1 or 2
-	PartyID      int    `json:"party_id"`       // 0 or 1
-	EtaShareFP   string `json:"eta_share_fp"`   // base64 FP: this party's eta share
-	DcfKeys      string `json:"dcf_keys"`       // base64: this party's DCF keys
-	PeerMasked   string `json:"peer_masked"`    // base64 (phase 2 only): peer's masked values
-	N            int    `json:"n"`
-	FracBits     int    `json:"frac_bits"`
-	NumThresh    int    `json:"num_thresh"`     // total thresholds
-}
-
-type K2DcfEvalOutput struct {
-	MaskedValues     string `json:"masked_values"`      // base64 (phase 1): to relay
-	ComparisonShares string `json:"comparison_shares"`   // base64 FP (phase 2): result
-}
-
-func handleK2DcfEval() {
-	var input K2DcfEvalInput
-	mpcReadInput(&input)
-	if input.FracBits <= 0 {
-		input.FracBits = K2DefaultFracBits
-	}
-
-	ring := NewRing63(input.FracBits)
-	n := input.N
-	numThresh := input.NumThresh
-
-	// Decode eta share
-	etaBytes := base64ToBytes(input.EtaShareFP)
-	if len(etaBytes) == 0 {
-		outputError(fmt.Sprintf("k2-dcf-eval: eta_share_fp is empty (n=%d, len_b64=%d)", n, len(input.EtaShareFP)))
-		return
-	}
-	etaFP := bytesToFPVec(etaBytes)
-	if len(etaFP) != n {
-		outputError(fmt.Sprintf("k2-dcf-eval: eta has %d elements, expected %d (b64_len=%d, bytes=%d)", len(etaFP), n, len(input.EtaShareFP), len(etaBytes)))
-		return
-	}
-	etaShare := fpToRing63(etaFP)
-
-	// Decode DCF keys
-	dcfBytes := base64ToBytes(input.DcfKeys)
-	if len(dcfBytes) == 0 {
-		outputError(fmt.Sprintf("k2-dcf-eval: dcf_keys is empty (n=%d, numThresh=%d)", n, numThresh))
-		return
-	}
-	dcfKeys := deserializeDcfBatch(dcfBytes, n, numThresh)
-
-	if input.Phase == 1 {
-		// Phase 1: compute masked values for each threshold
-		allMasked := make([]uint64, numThresh*n)
-		for t := 0; t < numThresh; t++ {
-			msg := cmpRound1(ring, input.PartyID, etaShare, dcfKeys[t])
-			copy(allMasked[t*n:], msg.Values)
-		}
-		// Serialize as raw uint64 bytes
-		buf := make([]byte, len(allMasked)*8)
-		for i, v := range allMasked {
-			binary.LittleEndian.PutUint64(buf[i*8:], v)
-		}
-		mpcWriteOutput(K2DcfEvalOutput{MaskedValues: bytesToBase64(buf)})
-
-	} else {
-		// Phase 2: combine own + peer masked values → comparison shares
-		peerBuf := base64ToBytes(input.PeerMasked)
-		peerMasked := make([]uint64, numThresh*n)
-		for i := range peerMasked {
-			peerMasked[i] = binary.LittleEndian.Uint64(peerBuf[i*8:])
-		}
-
-		// Also need own masked values — recompute (cheaper than storing)
-		ownMasked := make([]uint64, numThresh*n)
-		for t := 0; t < numThresh; t++ {
-			msg := cmpRound1(ring, input.PartyID, etaShare, dcfKeys[t])
-			copy(ownMasked[t*n:], msg.Values)
-		}
-
-		// Evaluate DCF for each threshold
-		allShares := make([]uint64, numThresh*n)
-		for t := 0; t < numThresh; t++ {
-			ownMsg := CmpMaskedValues{Values: ownMasked[t*n : (t+1)*n]}
-			peerMsg := CmpMaskedValues{Values: peerMasked[t*n : (t+1)*n]}
-			result := cmpRound2(ring, input.PartyID, dcfKeys[t], ownMsg, peerMsg)
-			copy(allShares[t*n:], result.Shares)
-		}
-
-		mpcWriteOutput(K2DcfEvalOutput{
-			ComparisonShares: bytesToBase64(fpVecToBytes(ring63ToFP(allShares))),
-		})
-	}
 }
 
 // ============================================================================

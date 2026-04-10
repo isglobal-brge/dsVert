@@ -52,23 +52,6 @@
   invisible(NULL)
 }
 
-#' Read a blob (checks memory first, then disk)
-#' @param key Character. Blob key
-#' @param ss Session environment
-#' @return Character string or NULL
-#' @keywords internal
-.blob_get <- function(key, ss) {
-  # Memory first (fast path)
-  val <- ss$blobs[[key]]
-  if (!is.null(val)) return(val)
-  # Disk fallback
-  d <- ss$.session_dir
-  if (is.null(d)) return(NULL)
-  path <- file.path(d, "blobs", key)
-  if (!file.exists(path)) return(NULL)
-  paste0(readLines(path, warn = FALSE), collapse = "")
-}
-
 #' Read a blob and delete it (one-shot consumption)
 #' @param key Character. Blob key
 #' @param ss Session environment
@@ -177,26 +160,6 @@
   d <- ss$.session_dir
   if (is.null(d)) return(FALSE)
   file.exists(file.path(d, "keys", name))
-}
-
-#' Delete a persistent key (memory + disk with secure overwrite)
-#' @param name Character. Key name
-#' @param ss Session environment
-#' @keywords internal
-.key_delete <- function(name, ss) {
-  ss$keys[[name]] <- NULL
-  d <- ss$.session_dir
-  if (!is.null(d)) {
-    path <- file.path(d, "keys", name)
-    if (file.exists(path)) {
-      size <- file.info(path)$size
-      if (!is.na(size) && size > 0L) {
-        tryCatch(writeBin(raw(min(size, 1048576L)), path),
-                 error = function(e) NULL)
-      }
-      unlink(path)
-    }
-  }
 }
 
 # --- Session Cleanup ---

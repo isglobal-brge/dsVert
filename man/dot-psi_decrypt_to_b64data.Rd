@@ -15,7 +15,7 @@
 Character. Base64-encoded decrypted data.
 }
 \description{
-Unlike \code{.psi_decrypt_blob} which returns a character string,
-this returns the raw base64-encoded payload (for binary packed data).
+Decrypts a sealed blob and returns the raw base64-encoded payload
+(for binary packed data).
 }
 \keyword{internal}

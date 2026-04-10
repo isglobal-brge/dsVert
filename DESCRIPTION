@@ -11,16 +11,16 @@ Authors@R: c(
            role = "ctb")
   )
 Description: Server-side DataSHIELD functions for privacy-preserving analysis
-    of vertically partitioned federated data. Implements ECDH-PSI record alignment
-    (P-256 elliptic curve private set intersection), Multiparty Homomorphic
-    Encryption (MHE) with threshold decryption for cross-server correlation, and
-    Block Coordinate Descent for Generalized Linear Models. All methods preserve
-    data privacy by ensuring raw data never leaves the server.
+    of vertically partitioned federated data. Implements ECDH-PSI record
+    alignment (P-256), Ring63 Beaver MPC for GLM (Gaussian, Binomial, Poisson)
+    with DCF wide spline link functions, and Ring63 Beaver cross-products for
+    correlation and PCA. All computation uses additive secret sharing in Ring63
+    fixed-point arithmetic. No homomorphic encryption. No observation-level
+    data is ever disclosed.
 License: MIT + file LICENSE
 URL: https://github.com/isglobal-brge/dsVert
 BugReports: https://github.com/isglobal-brge/dsVert/issues
 Encoding: UTF-8
-LazyData: true
 Depends: R (>= 4.0.0)
 Imports:
     digest,
@@ -32,14 +32,37 @@ Suggests:
 RoxygenNote: 7.3.3
 Roxygen: list(markdown = TRUE)
 AggregateMethods:
-    mheAuthorizeCTDS,
-    mheGcDS,
-    mheCoinTossCommitDS,
-    mheCoinTossDeriveCRPDS,
-    mheCoinTossRevealDS,
+    getObsCountDS,
+    glmStandardizeDS,
+    localCorDS,
     mheCleanupDS,
-    mheRegisterContextDS,
-    mheReuseContextDS,
+    mheGcDS,
+    mheStoreBlobDS,
+    mheStoreTransportKeysDS,
+    k2ShareInputDS,
+    k2ReceiveShareDS,
+    k2ComputeEtaShareDS,
+    k2GradientR1DS,
+    k2GradientR2DS,
+    k2StoreGradTripleDS,
+    k2IdentityLinkDS,
+    k2StoreDcfKeysPersistentDS,
+    k2WideSplinePhase1DS,
+    k2WideSplinePhase2DS,
+    k2WideSplinePhase3DS,
+    k2WideSplinePhase4DS,
+    glmRing63TransportInitDS,
+    glmRing63GenDcfKeysDS,
+    glmRing63GenSplineTriplesDS,
+    glmRing63GenGradTriplesDS,
+    glmRing63PrepDevianceDS,
+    glmRing63DevianceR1DS,
+    glmRing63DevianceR2DS,
+    glmRing63CorSetZeroYDS,
+    glmRing63CorSetColDS,
+    glmRing63ExportOwnShareDS,
+    glmRing63ReceiveExtraShareDS,
+    glmRing63ReorderXFullDS,
     psiInitDS,
     psiStoreTransportKeysDS,
     psiMaskIdsDS,
@@ -47,66 +70,6 @@ AggregateMethods:
     psiProcessTargetDS,
     psiDoubleMaskDS,
     psiGetMatchedIndicesDS,
-    glmPartialFitDS,
-    glmDevianceDS,
-    getObsCountDS,
-    localCorDS,
-    mheInitDS,
-    mheCombineDS,
-    mheStoreCPKDS,
-    mheEncryptLocalDS,
-    mheCrossProductEncDS,
-    mheStoreEncChunkDS,
-    mheAssembleEncColumnDS,
-    mhePartialDecryptDS,
-    mheStoreCTChunkDS,
-    mheGetObsDS,
-    mheEncryptRawDS,
-    mheStoreEncYDS,
-    mheGLMGradientDS,
-    glmBlockSolveDS,
-    glmStandardizeDS,
-    mheStoreBlobDS,
-    mheStoreTransportKeysDS,
-    mhePartialDecryptWrappedDS,
-    mheStoreWrappedShareDS,
-    mheFuseServerDS,
-    mhePartialDecryptBatchWrappedDS,
-    mheFuseBatchDS,
-    glmCoordinatorStepDS,
-    glmSecureGradientDS,
-    glmSecureBlockSolveDS,
-    glmSecureDevianceDS,
-    mheRLKAggregateR1DS,
-    mheRLKRound2DS,
-    glmHEEncryptEtaDS,
-    glmHELinkStepDS,
-    glmHEGradientEncDS,
-    glmHEBlockUpdateDS,
-    glmHEPrepDevianceDS,
-    k2ShareInputDS,
-    k2ReceiveShareDS,
-    k2ComputeEtaShareDS,
-    k2GradientR1DS,
-    k2GradientR2DS,
-    k2StorePowerTripleDS,
-    k2StoreGradTripleDS,
-    k2BeaverRoundFPDS,
-    k2StoreDcfKeysDS,
-    k2DcfEvalDS,
-    k2SplineIndicatorsDS,
-    k2SplineAssembleDS,
-    k2FPAddDS,
-    k2ScaleIndicatorFPDS,
-    glmSecureAggInitDS,
-    glmSecureAggBlockSolveDS,
-    glmSecureAggCoordinatorStepDS,
-    glmMWSMaskEtaDS,
-    glmMWSSetEtaShareDS,
-    glmMWSGetMuShareDS,
-    glmSecureAggPrepDevianceDS,
-    glmFSMInitDS,
-    glmFSMCheckDS,
     c=base::c,
     list=base::list
 AssignMethods:

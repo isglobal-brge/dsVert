@@ -68,7 +68,7 @@ NULL
 .psi_encrypt_blob <- function(data_str, recipient_pk_b64) {
   # Convert string to raw bytes, then to base64 for the Go tool
   data_b64 <- jsonlite::base64_enc(charToRaw(data_str))
-  result <- .callMheTool("transport-encrypt", list(
+  result <- .callMpcTool("transport-encrypt", list(
     data = data_b64,
     recipient_pk = recipient_pk_b64
   ))
@@ -88,7 +88,7 @@ NULL
   }
   # Convert from base64url (parser-safe) back to standard base64 (Go tool)
   sealed_b64 <- .base64url_to_base64(sealed_b64url)
-  result <- .callMheTool("transport-decrypt", list(
+  result <- .callMpcTool("transport-decrypt", list(
     sealed = sealed_b64,
     recipient_sk = ss$psi_transport_sk
   ))
@@ -106,7 +106,7 @@ NULL
 #' @return Character. Sealed data in standard base64.
 #' @keywords internal
 .psi_encrypt_b64data <- function(data_b64, recipient_pk_b64) {
-  result <- .callMheTool("transport-encrypt", list(
+  result <- .callMpcTool("transport-encrypt", list(
     data = data_b64,
     recipient_pk = recipient_pk_b64
   ))
@@ -128,7 +128,7 @@ NULL
     stop("PSI transport SK not available. Call psiInitDS first.", call. = FALSE)
   }
   sealed_b64 <- .base64url_to_base64(sealed_b64url)
-  result <- .callMheTool("transport-decrypt", list(
+  result <- .callMpcTool("transport-decrypt", list(
     sealed = sealed_b64,
     recipient_sk = ss$psi_transport_sk
   ))
@@ -266,7 +266,7 @@ psiInitDS <- function(session_id = NULL) {
   ss <- .S(session_id)
 
   # Generate fresh ephemeral keypair for this session
-  transport <- .callMheTool("transport-keygen", list())
+  transport <- .callMpcTool("transport-keygen", list())
   ss$psi_transport_sk <- transport$secret_key
   ss$psi_transport_pk <- transport$public_key
 
@@ -347,7 +347,7 @@ psiMaskIdsDS <- function(data_name, id_col, session_id = NULL) {
          " required for PSI (anti-dictionary protection)", call. = FALSE)
   }
 
-  result <- .callMheTool("psi-mask", list(
+  result <- .callMpcTool("psi-mask", list(
     ids = as.list(ids),
     scalar = ""
   ))
@@ -395,7 +395,7 @@ psiExportMaskedDS <- function(target_name, session_id = NULL) {
   # Pack points into binary format, encrypt under target's PK
   # Points are stored as base64url, convert to standard base64 for Go tool
   points_std <- sapply(ss$psi_masked_points, .base64url_to_base64, USE.NAMES = FALSE)
-  packed <- .callMheTool("psi-pack-points", list(
+  packed <- .callMpcTool("psi-pack-points", list(
     points = as.list(points_std)
   ))
   sealed <- .psi_encrypt_b64data(packed$packed, target_pk)
@@ -439,7 +439,7 @@ psiProcessTargetDS <- function(data_name, id_col, from_storage = FALSE,
   # 1. Read encrypted blob from storage and decrypt to binary packed data
   encrypted_blob <- .read_psi_blob("ref_encrypted_blob", session_id)
   packed_b64 <- .psi_decrypt_to_b64data(encrypted_blob, session_id)
-  unpacked <- .callMheTool("psi-unpack-points", list(packed = packed_b64))
+  unpacked <- .callMpcTool("psi-unpack-points", list(packed = packed_b64))
   ref_masked_points <- unpacked$points  # already standard base64
 
   ids <- as.character(data[[id_col]])
@@ -453,7 +453,7 @@ psiProcessTargetDS <- function(data_name, id_col, from_storage = FALSE,
   }
 
   # 2. Mask own IDs (generates new random scalar)
-  own_result <- .callMheTool("psi-mask", list(
+  own_result <- .callMpcTool("psi-mask", list(
     ids = as.list(ids),
     scalar = ""
   ))
@@ -461,7 +461,7 @@ psiProcessTargetDS <- function(data_name, id_col, from_storage = FALSE,
   ss$psi_scalar <- own_result$scalar
 
   # 3. Double-mask ref points with own scalar (points already standard base64)
-  ref_dm <- .callMheTool("psi-double-mask", list(
+  ref_dm <- .callMpcTool("psi-double-mask", list(
     points = as.list(ref_masked_points),
     scalar = own_result$scalar
   ))
@@ -476,7 +476,7 @@ psiProcessTargetDS <- function(data_name, id_col, from_storage = FALSE,
     stop("No transport PK for ref server. Call psiStoreTransportKeysDS first.",
          call. = FALSE)
   }
-  packed_own <- .callMheTool("psi-pack-points", list(
+  packed_own <- .callMpcTool("psi-pack-points", list(
     points = as.list(own_result$masked_points)
   ))
   sealed <- .psi_encrypt_b64data(packed_own$packed, ref_pk)
@@ -530,11 +530,11 @@ psiDoubleMaskDS <- function(target_name, from_storage = FALSE,
   # 1. Read encrypted blob from storage and decrypt to binary packed data
   encrypted_blob <- .read_psi_blob("target_encrypted_blob", session_id)
   packed_b64 <- .psi_decrypt_to_b64data(encrypted_blob, session_id)
-  unpacked <- .callMheTool("psi-unpack-points", list(packed = packed_b64))
+  unpacked <- .callMpcTool("psi-unpack-points", list(packed = packed_b64))
   points <- unpacked$points  # already standard base64
 
   # 2. Double-mask with stored scalar
-  result <- .callMheTool("psi-double-mask", list(
+  result <- .callMpcTool("psi-double-mask", list(
     points = as.list(points),
     scalar = ss$psi_scalar
   ))
@@ -544,7 +544,7 @@ psiDoubleMaskDS <- function(target_name, from_storage = FALSE,
   if (is.null(target_pk)) {
     stop("No transport PK for target '", target_name, "'.", call. = FALSE)
   }
-  packed_dm <- .callMheTool("psi-pack-points", list(
+  packed_dm <- .callMpcTool("psi-pack-points", list(
     points = as.list(result$double_masked_points)
   ))
   sealed <- .psi_encrypt_b64data(packed_dm$packed, target_pk)
@@ -588,11 +588,11 @@ psiMatchAndAlignDS <- function(data_name, from_storage = FALSE,
   # 1. Read encrypted blob from storage and decrypt to binary packed data
   encrypted_blob <- .read_psi_blob("dm_encrypted_blob", session_id)
   packed_b64 <- .psi_decrypt_to_b64data(encrypted_blob, session_id)
-  unpacked <- .callMheTool("psi-unpack-points", list(packed = packed_b64))
+  unpacked <- .callMpcTool("psi-unpack-points", list(packed = packed_b64))
   own_dm_std <- unpacked$points  # already standard base64
 
   # 2. Call psi-match: find which own rows match which ref indices
-  result <- .callMheTool("psi-match", list(
+  result <- .callMpcTool("psi-match", list(
     own_doubled = as.list(own_dm_std),
     ref_doubled = as.list(ss$psi_ref_dm),
     ref_indices = as.list(ss$psi_ref_indices)

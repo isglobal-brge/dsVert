@@ -63,7 +63,7 @@ glmStandardizeDS <- function(data_name, output_name, x_vars, y_var = NULL, sessi
   # Store standardized data in session storage because DataSHIELD aggregate
   # methods cannot persist objects in the server's R environment (the
   # parent.frame() is discarded after each call). The .resolveData() utility
-  # in mhe_utils.R looks up data here first, using output_name as the key.
+  # in mpcUtils.R looks up data here first, using output_name as the key.
   ss$std_data <- new_data
   ss$std_data_name <- output_name
 

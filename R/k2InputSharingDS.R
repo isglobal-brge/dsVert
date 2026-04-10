@@ -21,8 +21,8 @@ k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
 
   # Convert X to FP and split into shares
   x_flat <- as.numeric(t(X)) # row-major
-  fp_x <- .callMheTool("k2-float-to-fp", list(values = x_flat, frac_bits = 20L))$fp_data
-  x_split <- .callMheTool("k2-split-fp-share", list(data_fp = fp_x, n = length(x_flat)))
+  fp_x <- .callMpcTool("k2-float-to-fp", list(values = x_flat, frac_bits = 20L))$fp_data
+  x_split <- .callMpcTool("k2-split-fp-share", list(data_fp = fp_x, n = length(x_flat)))
 
   ss$k2_x_share_fp <- x_split$own_share
   ss$k2_x_n <- n
@@ -32,13 +32,13 @@ k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
   encrypted_y <- NULL
   if (!is.null(y_var)) {
     y <- as.numeric(data[[y_var]])
-    fp_y <- .callMheTool("k2-float-to-fp", list(values = y, frac_bits = 20L))$fp_data
-    y_split <- .callMheTool("k2-split-fp-share", list(data_fp = fp_y, n = length(y)))
+    fp_y <- .callMpcTool("k2-float-to-fp", list(values = y, frac_bits = 20L))$fp_data
+    y_split <- .callMpcTool("k2-split-fp-share", list(data_fp = fp_y, n = length(y)))
     ss$k2_y_share_fp <- y_split$own_share
 
     # Transport-encrypt peer's y share
     pk <- .base64url_to_base64(peer_pk)
-    sealed_y <- .callMheTool("transport-encrypt", list(
+    sealed_y <- .callMpcTool("transport-encrypt", list(
       data = jsonlite::base64_enc(charToRaw(y_split$peer_share)),
       recipient_pk = pk))
     encrypted_y <- base64_to_base64url(sealed_y$sealed)
@@ -46,7 +46,7 @@ k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
 
   # Transport-encrypt peer's X share
   pk <- .base64url_to_base64(peer_pk)
-  sealed_x <- .callMheTool("transport-encrypt", list(
+  sealed_x <- .callMpcTool("transport-encrypt", list(
     data = jsonlite::base64_enc(charToRaw(x_split$peer_share)),
     recipient_pk = pk))
 
@@ -65,7 +65,7 @@ k2ReceiveShareDS <- function(peer_p = NULL, session_id = NULL) {
 
   x_blob <- .blob_consume("k2_peer_x_share", ss)
   if (!is.null(x_blob)) {
-    dec <- .callMheTool("transport-decrypt", list(
+    dec <- .callMpcTool("transport-decrypt", list(
       sealed = .base64url_to_base64(x_blob), recipient_sk = tsk))
     ss$k2_peer_x_share_fp <- rawToChar(jsonlite::base64_dec(dec$data))
     ss$k2_peer_p <- as.integer(peer_p)
@@ -73,7 +73,7 @@ k2ReceiveShareDS <- function(peer_p = NULL, session_id = NULL) {
 
   y_blob <- .blob_consume("k2_peer_y_share", ss)
   if (!is.null(y_blob)) {
-    dec <- .callMheTool("transport-decrypt", list(
+    dec <- .callMpcTool("transport-decrypt", list(
       sealed = .base64url_to_base64(y_blob), recipient_sk = tsk))
     ss$k2_y_share_fp <- rawToChar(jsonlite::base64_dec(dec$data))
   }
@@ -97,12 +97,12 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
   beta_full <- c(as.numeric(beta_coord), as.numeric(beta_nl))
 
   # Convert beta to FP
-  fp_beta <- .callMheTool("k2-float-to-fp", list(
+  fp_beta <- .callMpcTool("k2-float-to-fp", list(
     values = beta_full, frac_bits = 20L))$fp_data
 
   # Compute eta_share = X_full_share * beta in FP ring
   # Uses k2-compute-eta-fp command
-  result <- .callMheTool("k2-compute-eta-fp", list(
+  result <- .callMpcTool("k2-compute-eta-fp", list(
     x_own_fp = ss$k2_x_share_fp,
     x_peer_fp = ss$k2_peer_x_share_fp,
     beta_fp = fp_beta,
@@ -123,7 +123,7 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
   # Ensure y_share_fp exists (nonlabel gets it from input sharing, label creates it)
   if (is.null(ss$k2_y_share_fp)) {
     # Nonlabel: y_share is all zeros (since we subtract label's y_share from both)
-    zero_y <- .callMheTool("k2-float-to-fp", list(
+    zero_y <- .callMpcTool("k2-float-to-fp", list(
       values = rep(0, n), frac_bits = 20L))$fp_data
     ss$k2_y_share_fp <- zero_y
   }
@@ -142,7 +142,7 @@ k2GradientR1DS <- function(peer_pk, session_id = NULL) {
 
   # Assemble full X share FP: concatenate own + peer columns per row
   # This is done by the Go command
-  result <- .callMheTool("k2-full-iter-r3", list(
+  result <- .callMpcTool("k2-full-iter-r3", list(
     x_share_fp = ss$k2_x_full_fp,
     mu_share_fp = ss$secure_mu_share,
     y_share_fp = ss$k2_y_share_fp,
@@ -161,7 +161,7 @@ k2GradientR1DS <- function(peer_pk, session_id = NULL) {
   pk <- .base64url_to_base64(peer_pk)
   msg_json <- jsonlite::toJSON(list(
     xma = result$xma_fp, rmb = result$rmb_fp), auto_unbox = TRUE)
-  sealed <- .callMheTool("transport-encrypt", list(
+  sealed <- .callMpcTool("transport-encrypt", list(
     data = jsonlite::base64_enc(charToRaw(msg_json)),
     recipient_pk = pk))
 
@@ -182,11 +182,11 @@ k2GradientR2DS <- function(party_id = 0L, session_id = NULL) {
   # Decrypt peer's round-1 message
   blob <- .blob_consume("k2_grad_peer_r1", ss)
   tsk <- .key_get("transport_sk", ss)
-  dec <- .callMheTool("transport-decrypt", list(
+  dec <- .callMpcTool("transport-decrypt", list(
     sealed = .base64url_to_base64(blob), recipient_sk = tsk))
   peer_msg <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
 
-  result <- .callMheTool("k2-full-iter-r3", list(
+  result <- .callMpcTool("k2-full-iter-r3", list(
     x_share_fp = ss$k2_x_full_fp,
     mu_share_fp = ss$secure_mu_share,
     y_share_fp = ss$k2_y_share_fp,
@@ -212,7 +212,7 @@ k2StoreGradTripleDS <- function(session_id = NULL) {
   blob <- .blob_consume("k2_grad_triple_fp", ss)
   if (is.null(blob)) stop("No gradient triple blob", call. = FALSE)
   tsk <- .key_get("transport_sk", ss)
-  dec <- .callMheTool("transport-decrypt", list(
+  dec <- .callMpcTool("transport-decrypt", list(
     sealed = .base64url_to_base64(blob), recipient_sk = tsk))
   msg <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
   ss$k2_grad_a_fp <- msg$a

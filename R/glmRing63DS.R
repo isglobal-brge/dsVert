@@ -1,6 +1,6 @@
 #' @title Ring63 DCF + Beaver Gradient Server Functions for K>=3
 #' @description Server-side functions for K>=3 pure Ring63 protocol.
-#'   All computation in Ring63 fixed-point with DCF and Beaver. No CKKS.
+#'   All computation in Ring63 fixed-point with DCF and Beaver.
 #' @name glm-ring63-protocol
 NULL
 
@@ -13,18 +13,17 @@ NULL
   gsub("\n", "", jsonlite::base64_enc(raw_data))
 }
 
-#' Initialize transport keys only (no CKKS)
+#' Initialize transport keys
 #'
-#' Lightweight alternative to mheInitDS for Ring63 protocols.
-#' Only generates X25519 transport keypair. No CKCS secret key,
-#' no CRP, no Galois key generation.
+#' Transport-only key setup for Ring63 protocols.
+#' Generates X25519 transport keypair for inter-server encryption.
 #'
 #' @param session_id Character or NULL.
 #' @return List with transport_pk (base64url).
 #' @export
 glmRing63TransportInitDS <- function(session_id = NULL) {
   ss <- .S(session_id)
-  transport <- .callMheTool("transport-keygen", list())
+  transport <- .callMpcTool("transport-keygen", list())
   .key_put("transport_sk", transport$secret_key, ss)
   .key_put("transport_pk", transport$public_key, ss)
   list(transport_pk = base64_to_base64url(transport$public_key))
@@ -47,7 +46,7 @@ glmRing63ExportOwnShareDS <- function(peer_pk, session_id = NULL) {
   if (is.null(own_fp)) stop("No own share in session. Call k2ShareInputDS first.", call. = FALSE)
 
   pk <- .base64url_to_base64(peer_pk)
-  sealed <- .callMheTool("transport-encrypt", list(
+  sealed <- .callMpcTool("transport-encrypt", list(
     data = jsonlite::base64_enc(charToRaw(own_fp)),
     recipient_pk = pk))
 
@@ -89,7 +88,7 @@ glmRing63ReorderXFullDS <- function(p_coord, p_fusion, p_extras, session_id = NU
       perm <- c(perm, row_offset + p_coord + (0:(p_extras - 1)))
   }
 
-  result <- .callMheTool("k2-fp-permute", list(
+  result <- .callMpcTool("k2-fp-permute", list(
     fp_data = x_full_fp, perm = as.integer(perm)))
 
   ss$k2_x_full_fp <- result$fp_data
@@ -112,7 +111,7 @@ glmRing63ReorderXFullDS <- function(p_coord, p_fusion, p_extras, session_id = NU
 #' @export
 glmRing63GenDcfKeysDS <- function(dcf0_pk, dcf1_pk, family, n, frac_bits,
                                    num_intervals, session_id = NULL) {
-  dcf <- .callMheTool("k2-dcf-gen-batch", list(
+  dcf <- .callMpcTool("k2-dcf-gen-batch", list(
     family = family, n = as.integer(n),
     frac_bits = as.integer(frac_bits),
     num_intervals = as.integer(num_intervals)))
@@ -120,9 +119,9 @@ glmRing63GenDcfKeysDS <- function(dcf0_pk, dcf1_pk, family, n, frac_bits,
   pk0 <- .base64url_to_base64(dcf0_pk)
   pk1 <- .base64url_to_base64(dcf1_pk)
 
-  sealed0 <- .callMheTool("transport-encrypt", list(
+  sealed0 <- .callMpcTool("transport-encrypt", list(
     data = dcf$party0_keys, recipient_pk = pk0))
-  sealed1 <- .callMheTool("transport-encrypt", list(
+  sealed1 <- .callMpcTool("transport-encrypt", list(
     data = dcf$party1_keys, recipient_pk = pk1))
 
   list(
@@ -146,7 +145,7 @@ glmRing63GenDcfKeysDS <- function(dcf0_pk, dcf1_pk, family, n, frac_bits,
 glmRing63GenSplineTriplesDS <- function(dcf0_pk, dcf1_pk, n, frac_bits,
                                          session_id = NULL) {
   triples <- lapply(1:3, function(i)
-    .callMheTool("k2-gen-beaver-triples",
+    .callMpcTool("k2-gen-beaver-triples",
       list(n = as.integer(n), frac_bits = as.integer(frac_bits))))
 
   pk0 <- .base64url_to_base64(dcf0_pk)
@@ -165,11 +164,11 @@ glmRing63GenSplineTriplesDS <- function(dcf0_pk, dcf1_pk, n, frac_bits,
     td1[[paste0(op, "_c")]] <- triples[[ti]]$party1_w
   }
 
-  sealed0 <- .callMheTool("transport-encrypt", list(
+  sealed0 <- .callMpcTool("transport-encrypt", list(
     data = jsonlite::base64_enc(charToRaw(
       jsonlite::toJSON(td0, auto_unbox = TRUE))),
     recipient_pk = pk0))
-  sealed1 <- .callMheTool("transport-encrypt", list(
+  sealed1 <- .callMpcTool("transport-encrypt", list(
     data = jsonlite::base64_enc(charToRaw(
       jsonlite::toJSON(td1, auto_unbox = TRUE))),
     recipient_pk = pk1))
@@ -193,18 +192,18 @@ glmRing63GenSplineTriplesDS <- function(dcf0_pk, dcf1_pk, n, frac_bits,
 #' @export
 glmRing63GenGradTriplesDS <- function(dcf0_pk, dcf1_pk, n, p,
                                        session_id = NULL) {
-  mvt <- .callMheTool("k2-gen-matvec-triples", list(
+  mvt <- .callMpcTool("k2-gen-matvec-triples", list(
     n = as.integer(n), p = as.integer(p)))
 
   pk0 <- .base64url_to_base64(dcf0_pk)
   pk1 <- .base64url_to_base64(dcf1_pk)
 
-  sealed0 <- .callMheTool("transport-encrypt", list(
+  sealed0 <- .callMpcTool("transport-encrypt", list(
     data = jsonlite::base64_enc(charToRaw(jsonlite::toJSON(list(
       a = mvt$party0_a, b = mvt$party0_b, c = mvt$party0_c),
       auto_unbox = TRUE))),
     recipient_pk = pk0))
-  sealed1 <- .callMheTool("transport-encrypt", list(
+  sealed1 <- .callMpcTool("transport-encrypt", list(
     data = jsonlite::base64_enc(charToRaw(jsonlite::toJSON(list(
       a = mvt$party1_a, b = mvt$party1_b, c = mvt$party1_c),
       auto_unbox = TRUE))),
@@ -233,7 +232,7 @@ glmRing63PrepDevianceDS <- function(session_id = NULL) {
     stop("No mu/y shares for deviance", call. = FALSE)
 
   # Residual = mu - y in Ring63
-  r <- .callMheTool("k2-fp-sub", list(a = mu_fp, b = y_fp, frac_bits = 20L))
+  r <- .callMpcTool("k2-fp-sub", list(a = mu_fp, b = y_fp, frac_bits = 20L))
 
   # Store as 1-column X matrix for Beaver dot-product
   ss$k2_x_full_fp <- r$result
@@ -262,11 +261,11 @@ glmRing63DevianceR1DS <- function(party_id = 0L, session_id = NULL) {
   blob <- .blob_consume("k2_deviance_triple", ss)
   if (is.null(blob)) stop("No deviance triple", call. = FALSE)
   tsk <- .key_get("transport_sk", ss)
-  dec <- .callMheTool("transport-decrypt", list(
+  dec <- .callMpcTool("transport-decrypt", list(
     sealed = .base64url_to_base64(blob), recipient_sk = tsk))
   triple <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
 
-  result <- .callMheTool("k2-secure-deviance", list(
+  result <- .callMpcTool("k2-secure-deviance", list(
     mu_share_fp = mu_fp, y_share_fp = y_fp,
     a_share_fp = triple$a, b_share_fp = triple$b,
     c_share_fp = "", peer_dma_fp = "",
@@ -290,11 +289,11 @@ glmRing63DevianceR2DS <- function(party_id = 0L, session_id = NULL) {
   peer_blob <- .blob_consume("k2_dev_peer_dma", ss)
   if (is.null(peer_blob)) stop("No peer deviance R1", call. = FALSE)
   tsk <- .key_get("transport_sk", ss)
-  dec <- .callMheTool("transport-decrypt", list(
+  dec <- .callMpcTool("transport-decrypt", list(
     sealed = .base64url_to_base64(peer_blob), recipient_sk = tsk))
   peer_dma <- dec$data  # base64 FP data (not string — binary)
 
-  result <- .callMheTool("k2-secure-deviance", list(
+  result <- .callMpcTool("k2-secure-deviance", list(
     mu_share_fp = mu_fp, y_share_fp = y_fp,
     a_share_fp = triple$a, b_share_fp = triple$b,
     c_share_fp = triple$c, peer_dma_fp = peer_dma,
@@ -311,7 +310,7 @@ glmRing63DevianceR2DS <- function(party_id = 0L, session_id = NULL) {
 glmRing63CorSetZeroYDS <- function(session_id = NULL) {
   ss <- .S(session_id)
   n <- ss$k2_x_n
-  zero <- .callMheTool("k2-float-to-fp", list(values = rep(0, n), frac_bits = 20L))
+  zero <- .callMpcTool("k2-float-to-fp", list(values = rep(0, n), frac_bits = 20L))
   ss$k2_y_share_fp <- zero$fp_data
   list(status = "ok")
 }
@@ -340,7 +339,7 @@ glmRing63CorSetColDS <- function(col_idx = NULL, p_total = NULL,
   if (is.null(x_full)) stop("No X_full in session", call. = FALSE)
 
   col_perm <- as.integer(seq(col_idx, n * p_total - 1L, by = p_total))
-  col_fp <- .callMheTool("k2-fp-permute", list(fp_data = x_full, perm = col_perm))
+  col_fp <- .callMpcTool("k2-fp-permute", list(fp_data = x_full, perm = col_perm))
 
   ss$secure_mu_share <- col_fp$fp_data
   list(status = "ok")
@@ -364,14 +363,14 @@ glmRing63ReceiveExtraShareDS <- function(extra_key, extra_p, session_id = NULL) 
   blob <- .blob_consume(extra_key, ss)
   if (is.null(blob)) stop("No blob for key: ", extra_key, call. = FALSE)
 
-  dec <- .callMheTool("transport-decrypt", list(
+  dec <- .callMpcTool("transport-decrypt", list(
     sealed = .base64url_to_base64(blob), recipient_sk = tsk))
   extra_fp <- rawToChar(jsonlite::base64_dec(dec$data))
 
   # Column-concatenate: interleave extra features into peer FP matrix (row-major)
   n <- ss$k2_x_n
   if (!is.null(ss$k2_peer_x_share_fp) && !is.null(ss$k2_peer_p) && ss$k2_peer_p > 0) {
-    result <- .callMheTool("k2-fp-column-concat", list(
+    result <- .callMpcTool("k2-fp-column-concat", list(
       a = ss$k2_peer_x_share_fp,
       b = extra_fp,
       n = as.integer(n),
@@ -390,7 +389,7 @@ glmRing63ReceiveExtraShareDS <- function(extra_key, extra_p, session_id = NULL) 
 }
 
 # ===========================================================================
-# Core storage functions (moved from mheEncryption.R / mheDecryption.R)
+# Core storage functions
 # ===========================================================================
 
 #' Store a blob on server (adaptive chunking support)
@@ -401,7 +400,7 @@ glmRing63ReceiveExtraShareDS <- function(extra_key, extra_p, session_id = NULL) 
 #' @param session_id Character or NULL.
 #' @return TRUE on success.
 #' @export
-mheStoreBlobDS <- function(key, chunk, chunk_index = 1L, n_chunks = 1L,
+mpcStoreBlobDS <- function(key, chunk, chunk_index = 1L, n_chunks = 1L,
                            session_id = NULL) {
   ss <- .S(session_id)
   if (n_chunks == 1L) {
@@ -429,7 +428,7 @@ mheStoreBlobDS <- function(key, chunk, chunk_index = 1L, n_chunks = 1L,
 #' @param session_id Character or NULL.
 #' @return TRUE on success.
 #' @export
-mheStoreTransportKeysDS <- function(transport_keys, session_id = NULL) {
+mpcStoreTransportKeysDS <- function(transport_keys, session_id = NULL) {
   ss <- .S(session_id)
   if (!.key_exists("transport_sk", ss)) {
     stop("Not initialized. Call glmRing63TransportInitDS first.", call. = FALSE)

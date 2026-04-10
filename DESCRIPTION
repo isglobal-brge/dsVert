@@ -15,8 +15,7 @@ Description: Server-side DataSHIELD functions for privacy-preserving analysis
     alignment (P-256), Ring63 Beaver MPC for GLM (Gaussian, Binomial, Poisson)
     with DCF wide spline link functions, and Ring63 Beaver cross-products for
     correlation and PCA. All computation uses additive secret sharing in Ring63
-    fixed-point arithmetic. No homomorphic encryption. No observation-level
-    data is ever disclosed.
+    fixed-point arithmetic. No observation-level data is ever disclosed.
 License: MIT + file LICENSE
 URL: https://github.com/isglobal-brge/dsVert
 BugReports: https://github.com/isglobal-brge/dsVert/issues
@@ -35,10 +34,10 @@ AggregateMethods:
     getObsCountDS,
     glmStandardizeDS,
     localCorDS,
-    mheCleanupDS,
-    mheGcDS,
-    mheStoreBlobDS,
-    mheStoreTransportKeysDS,
+    mpcCleanupDS,
+    mpcGcDS,
+    mpcStoreBlobDS,
+    mpcStoreTransportKeysDS,
     k2ShareInputDS,
     k2ReceiveShareDS,
     k2ComputeEtaShareDS,

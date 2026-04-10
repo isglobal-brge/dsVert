@@ -6,7 +6,7 @@
 
 **dsVert** is a server-side DataSHIELD package for privacy-preserving statistical analysis on **vertically partitioned federated data**. Each server holds different features (columns) for the same observations (rows). No server sees another's raw data.
 
-All computation uses **Ring63 Beaver MPC** — pure fixed-point arithmetic with additive secret sharing. No homomorphic encryption. No observation-level data is ever disclosed.
+All computation uses **Ring63 Beaver MPC** — pure fixed-point arithmetic with additive secret sharing. No observation-level data is ever disclosed.
 
 ## Protocols
 
@@ -43,16 +43,16 @@ Client (analyst)                    Servers (data holders)
 | Dealer rotation | Different dealer each iteration (K>=4) |
 | Collusion threshold | (K-1)/K servers needed |
 
-## Go Binary (mhe-tool)
+## Go Binary (dsvert-mpc)
 
 Standalone 4.1 MB binary with 21 commands for Ring63 MPC, DCF, Beaver, PSI, and transport encryption. Pure Go, no external crypto libraries.
 
 ## Installation
 
 ```bash
-cd inst/mhe-tool
-go build -o mhe-tool .
-GOOS=linux GOARCH=amd64 go build -o ../bin/linux-amd64/mhe-tool .
+cd inst/dsvert-mpc
+go build -o dsvert-mpc .
+GOOS=linux GOARCH=amd64 go build -o ../bin/linux-amd64/dsvert-mpc .
 cd ../..
 R CMD build --no-build-vignettes .
 R CMD INSTALL dsVert_2.1.0.tar.gz

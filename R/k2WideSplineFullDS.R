@@ -1,7 +1,7 @@
 #' @title K=2 DCF Wide Spline (4-Phase Sigmoid/Exp)
 #' @description Piecewise-linear sigmoid/exp evaluation using Distributed
 #'   Comparison Functions (DCF) and Beaver triples. All computation in
-#'   Ring63 fixed-point. No CKKS.
+#'   Ring63 fixed-point.
 #' @name k2-wide-spline
 NULL
 
@@ -18,7 +18,7 @@ k2StoreDcfKeysPersistentDS <- function(session_id = NULL) {
   blob <- .blob_consume("k2_dcf_keys_persistent", ss)
   if (is.null(blob)) stop("No persistent DCF keys blob", call. = FALSE)
   tsk <- .key_get("transport_sk", ss)
-  dec <- .callMheTool("transport-decrypt", list(
+  dec <- .callMpcTool("transport-decrypt", list(
     sealed = .base64url_to_base64(blob), recipient_sk = tsk))
   ss$k2_dcf_keys_persistent <- dec$data
   list(status = "ok")
@@ -51,7 +51,7 @@ k2WideSplinePhase1DS <- function(party_id = 0L, family = "binomial",
 
   n <- as.integer(nchar(.base64url_to_base64(eta_fp)) * 3 / 4 / 8)
 
-  result <- .callMheTool("k2-wide-spline-full", list(
+  result <- .callMpcTool("k2-wide-spline-full", list(
     phase = 1L, party_id = party_id, family = family,
     eta_share_fp = .base64url_to_base64(eta_fp),
     dcf_keys = dcf_keys, n = n, frac_bits = frac_bits,
@@ -80,11 +80,11 @@ k2WideSplinePhase2DS <- function(party_id = 0L, family = "binomial",
   triple_blob <- .blob_consume("k2_spline_triples", ss)
   if (is.null(triple_blob)) stop("No spline triples blob", call. = FALSE)
   tsk <- .key_get("transport_sk", ss)
-  dec <- .callMheTool("transport-decrypt", list(
+  dec <- .callMpcTool("transport-decrypt", list(
     sealed = .base64url_to_base64(triple_blob), recipient_sk = tsk))
   triples <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
 
-  result <- .callMheTool("k2-wide-spline-full", list(
+  result <- .callMpcTool("k2-wide-spline-full", list(
     phase = 2L, party_id = party_id, family = family,
     eta_share_fp = ss$k2_ws_eta_fp, dcf_keys = ss$k2_ws_dcf_keys,
     peer_dcf_masked = .base64url_to_base64(peer_dcf),
@@ -113,12 +113,12 @@ k2WideSplinePhase3DS <- function(party_id = 0L, family = "binomial",
   peer_blob <- .blob_consume("k2_peer_beaver_r1", ss)
   if (is.null(peer_blob)) stop("No peer Beaver R1 blob", call. = FALSE)
   tsk <- .key_get("transport_sk", ss)
-  dec <- .callMheTool("transport-decrypt", list(
+  dec <- .callMpcTool("transport-decrypt", list(
     sealed = .base64url_to_base64(peer_blob), recipient_sk = tsk))
   peer_r1 <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
 
   tr <- ss$k2_ws_triples
-  result <- .callMheTool("k2-wide-spline-full", list(
+  result <- .callMpcTool("k2-wide-spline-full", list(
     phase = 3L, party_id = party_id, family = family,
     eta_share_fp = ss$k2_ws_eta_fp, dcf_keys = ss$k2_ws_dcf_keys,
     peer_dcf_masked = ss$k2_ws_peer_dcf,
@@ -147,7 +147,7 @@ k2WideSplinePhase4DS <- function(party_id = 0L, family = "binomial",
   peer_blob <- .blob_consume("k2_peer_had2_r1", ss)
   if (is.null(peer_blob)) stop("No peer Had2 R1 blob", call. = FALSE)
   tsk <- .key_get("transport_sk", ss)
-  dec <- .callMheTool("transport-decrypt", list(
+  dec <- .callMpcTool("transport-decrypt", list(
     sealed = .base64url_to_base64(peer_blob), recipient_sk = tsk))
   peer_r1 <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
 
@@ -155,7 +155,7 @@ k2WideSplinePhase4DS <- function(party_id = 0L, family = "binomial",
   if (is.null(ph3_peer)) stop("No stored peer AND/Had1 R1 from phase 3", call. = FALSE)
 
   tr <- ss$k2_ws_triples
-  result <- .callMheTool("k2-wide-spline-full", list(
+  result <- .callMpcTool("k2-wide-spline-full", list(
     phase = 4L, party_id = party_id, family = family,
     eta_share_fp = ss$k2_ws_eta_fp, dcf_keys = ss$k2_ws_dcf_keys,
     peer_dcf_masked = ss$k2_ws_peer_dcf,

@@ -3,11 +3,11 @@ export(getObsCountDS)
 export(glmStandardizeDS)
 export(localCorDS)
 # Session lifecycle
-export(mheCleanupDS)
-export(mheGcDS)
+export(mpcCleanupDS)
+export(mpcGcDS)
 # Storage
-export(mheStoreBlobDS)
-export(mheStoreTransportKeysDS)
+export(mpcStoreBlobDS)
+export(mpcStoreTransportKeysDS)
 # K=2 MPC: input sharing + gradient
 export(k2ShareInputDS)
 export(k2ReceiveShareDS)

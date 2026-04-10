@@ -250,18 +250,11 @@ base64_to_base64url <- function(x) {
     }
   }
   if (bin_path == "" || !file.exists(bin_path)) {
-    env_path <- Sys.getenv("DSVERT_MPC_BINARY", "")
-    if (env_path != "" && file.exists(env_path)) {
-      bin_path <- env_path
-    }
-  }
-
-  if (bin_path == "" || !file.exists(bin_path)) {
     stop(
       "dsvert-mpc binary not found. ",
       "The MPC functionality requires the compiled Go binary.\n",
       "Expected location: inst/bin/", subdir, "/", binary_name, "\n",
-      "Or set the dsvert.mpc_binary R option or DSVERT_MPC_BINARY env var.",
+      "Or set the dsvert.mpc_binary R option in the DataSHIELD profile.",
       call. = FALSE
     )
   }

@@ -77,4 +77,5 @@ Options:
     datashield.privacyLevel=5,
     default.nfilter.tab=3,
     default.nfilter.glm=0.33,
-    default.nfilter.subset=3
+    default.nfilter.subset=3,
+    default.dsvert.mpc_binary=""

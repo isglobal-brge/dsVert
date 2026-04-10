@@ -113,58 +113,6 @@ NULL
 }
 
 # ============================================================================
-# Pre-Shared Key Pinning (MITM Prevention)
-# ============================================================================
-# dsVert supports two security modes for PSI transport key exchange:
-#
-# MODE 1: Semi-Honest (default)
-#   - Ephemeral X25519 keys are generated per session
-#   - Client mediates key exchange between servers
-#   - Protects against passive eavesdropping but NOT active MITM by the client
-#   - Suitable for trusted DataSHIELD deployments where the client is trusted
-#   - No configuration needed — this is the default when dsvert.psi_key_pinning
-#     is unset or FALSE
-#
-# MODE 2: Full MITM-Resistant (pre-shared keys)
-#   - Persistent X25519 keypairs are pre-configured on each server
-#   - Servers validate client-provided PKs against pre-configured peers
-#   - Detects and rejects MITM attacks where the client substitutes keys
-#   - Suitable for untrusted or multi-tenant environments
-#
-# Configuration (via DataSHIELD R options, following dsBase pattern):
-#
-# The admin configures these per-server via the Opal DataSHIELD profile
-# settings (web UI or dsadmin.set_option()), or via the Rock server's
-# .Rprofile / R config:
-#
-#   options(
-#     dsvert.psi_key_pinning = TRUE,           # enable pre-shared key mode
-#     dsvert.psi_sk          = "<base64>",      # this server's X25519 secret key
-#     dsvert.psi_pk          = "<base64>",      # this server's X25519 public key
-#     dsvert.psi_peers       = '["<pk_peer1>","<pk_peer2>"]'
-#   )
-#
-# The dsvert.psi_peers option is a JSON array of trusted peer X25519 public
-# keys (standard base64). Validation is by PK value, not by name — so it
-# works regardless of what server names the client uses.
-#
-# Security of R options in DataSHIELD:
-#   - The client CANNOT call getOption() remotely — the DataSHIELD parser
-#     only allows registered methods (getOption is not registered).
-#   - listDisclosureSettingsDS() in dsBase only returns specific nfilter
-#     values, NOT arbitrary options like dsvert.psi_sk.
-#   - The Opal admin REST API (GET /datashield/options) can read options,
-#     but only with administrator credentials — the admin is already trusted.
-#   - Our registered functions (psiInitDS, etc.) never return the private key.
-#
-# All options follow the dsBase two-tier fallback pattern:
-#   getOption("dsvert.psi_key_pinning") -> getOption("default.dsvert.psi_key_pinning")
-#
-# The default for dsvert.psi_key_pinning is FALSE (declared in DESCRIPTION
-# Options section), so key pinning is disabled unless explicitly enabled.
-# ============================================================================
-
-# ============================================================================
 # Phase 0: PSI Transport Key Exchange
 # ============================================================================
 
@@ -177,37 +125,10 @@ NULL
 #' This must be called before any other PSI function. Initializes the PSI
 #' firewall state machine.
 #'
-#' @section Security Modes:
-#' \describe{
-#'   \item{Semi-Honest (default)}{Ephemeral X25519 keys are generated per
-#'     session. Protects against passive eavesdropping but not active MITM
-#'     by the client. Suitable for trusted DataSHIELD deployments.}
-#'   \item{Full MITM-Resistant}{Persistent X25519 keys loaded from
-#'     DataSHIELD R options (\code{dsvert.psi_key_pinning = TRUE}).
-#'     Servers validate client-provided PKs against pre-configured peers,
-#'     detecting and rejecting key substitution attacks. See
-#'     \code{\link{psiStoreTransportKeysDS}} for validation details.}
-#' }
-#'
-#' @section Configuration (Full MITM-Resistant mode):
-#' Set the following R options per server via the Opal DataSHIELD profile
-#' settings or Rock server config:
-#' \preformatted{
-#' options(
-#'   dsvert.psi_key_pinning = TRUE,
-#'   dsvert.psi_sk = "<base64 X25519 secret key>",
-#'   dsvert.psi_pk = "<base64 X25519 public key>",
-#'   dsvert.psi_peers = '["<pk_peer1>","<pk_peer2>"]'
-#' )
-#' }
-#' All options follow the dsBase two-tier fallback pattern:
-#' \code{getOption("dsvert.X")} then \code{getOption("default.dsvert.X")}.
-#'
 #' @param session_id Character or NULL. UUID for session-scoped storage
-#'   isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).
+#'   isolation.
 #'
-#' @return List with transport_pk (base64url) and pinned (logical indicating
-#'   whether pre-shared keys are in use).
+#' @return List with transport_pk (base64url).
 #' @export
 psiInitDS <- function(session_id = NULL) {
   ss <- .S(session_id)
@@ -228,18 +149,8 @@ psiInitDS <- function(session_id = NULL) {
 #' Stores other servers' transport PKs for encrypting PSI messages.
 #' Called by the client after collecting PKs from all servers.
 #'
-#' @section MITM Detection (Full MITM-Resistant mode):
-#' When \code{dsvert.psi_key_pinning = TRUE}, this function validates every
-#' client-provided PK against the trusted peer set in \code{dsvert.psi_peers}.
-#' Validation is by PK value, not by server name — so it works regardless of
-#' what aliases the client uses. Any unknown PK triggers an error (possible
-#' key substitution / MITM attack).
-#'
-#' In semi-honest mode (default), the client-provided PKs are used as-is.
-#'
 #' @param transport_keys Named list. Server name -> transport PK (base64url).
-#' @param session_id Character or NULL. UUID for session-scoped storage
-#'   isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).
+#' @param session_id Character or NULL. UUID for session-scoped storage.
 #' @return TRUE (invisible).
 #' @export
 psiStoreTransportKeysDS <- function(transport_keys, session_id = NULL) {

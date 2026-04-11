@@ -45,7 +45,7 @@ Client (analyst)                    Servers (data holders)
 
 ## Go Binary (dsvert-mpc)
 
-Standalone 4.1 MB binary with 21 commands for Ring63 MPC, DCF, Beaver, PSI, and transport encryption. Pure Go, no external crypto libraries.
+Standalone binary with 27 commands for Ring63 MPC, DCF, Beaver, PSI, transport encryption (X25519+AES-256-GCM), and Ed25519 identity verification. Pure Go, no external crypto libraries.
 
 ## Installation
 

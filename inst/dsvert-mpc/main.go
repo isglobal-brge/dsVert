@@ -110,10 +110,6 @@ func main() {
 	case "verify-transport":
 		handleVerifyTransport()
 
-	// Test
-	case "test-softplus":
-		handleTestSoftplus()
-
 	// Version
 	case "version":
 		output(map[string]string{"version": VERSION})

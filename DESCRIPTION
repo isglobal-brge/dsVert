@@ -51,6 +51,8 @@ AggregateMethods:
     k2WideSplinePhase3DS,
     k2WideSplinePhase4DS,
     dsvertColNamesDS,
+    dsvertDropRowsDS,
+    dsvertNaCheckDS,
     dsvertIdentityPkDS,
     getObsCountDS,
     glmRing63TransportInitDS,

@@ -228,6 +228,142 @@ func WideSplineSigmoid(ring Ring63, x0, x1 []uint64, numIntervals int) (mu0, mu1
 	return
 }
 
+// WideSplineSoftplus evaluates softplus(x) = log(1+exp(x)) on secret shares
+// using a wide piecewise-linear spline with numIntervals intervals on [-8, 8].
+// Same pattern as WideSplineSigmoid but with softplus coefficients and
+// saturation value softplus(8) ≈ 8.0003 instead of 1.0.
+func WideSplineSoftplus(ring Ring63, x0, x1 []uint64, numIntervals int) (mu0, mu1 []uint64) {
+	n := len(x0)
+	slopes, intercepts, halfRange := WideSoftplusParams(numIntervals)
+	width := 2.0 * halfRange / float64(numIntervals)
+	satHighFP := ring.FromDouble(math.Log(1.0 + math.Exp(halfRange))) // softplus(8) ≈ 8.0003
+
+	// Broad thresholds
+	threshLow := ring.FromDouble(-halfRange)
+	threshHigh := ring.FromDouble(halfRange)
+
+	p0PreL, p1PreL := cmpGeneratePreprocess(ring, n, threshLow)
+	p0R1L := cmpRound1(ring, 0, x0, p0PreL)
+	p1R1L := cmpRound1(ring, 1, x1, p1PreL)
+	cmpLow0 := cmpRound2(ring, 0, p0PreL, p0R1L, p1R1L)
+	cmpLow1 := cmpRound2(ring, 1, p1PreL, p1R1L, p0R1L)
+
+	p0PreH, p1PreH := cmpGeneratePreprocess(ring, n, threshHigh)
+	p0R1H := cmpRound1(ring, 0, x0, p0PreH)
+	p1R1H := cmpRound1(ring, 1, x1, p1PreH)
+	cmpHigh0 := cmpRound2(ring, 0, p0PreH, p0R1H, p1R1H)
+	cmpHigh1 := cmpRound2(ring, 1, p1PreH, p1R1H, p0R1H)
+
+	// I_mid = NOT(c_low) * c_high
+	notLow0 := make([]uint64, n)
+	notLow1 := make([]uint64, n)
+	for i := 0; i < n; i++ {
+		notLow0[i] = ring.Sub(1, cmpLow0.Shares[i])
+		notLow1[i] = ring.Sub(0, cmpLow1.Shares[i])
+	}
+	bt0, bt1 := SampleBeaverTripleVector(n, ring)
+	st0, msg0 := GenerateBatchedMultiplicationGateMessage(notLow0, cmpHigh0.Shares, bt0, ring)
+	st1, msg1 := GenerateBatchedMultiplicationGateMessage(notLow1, cmpHigh1.Shares, bt1, ring)
+	midInd0 := GenerateBatchedMultiplicationOutputPartyZero(st0, bt0, msg1, ring)
+	midInd1 := GenerateBatchedMultiplicationOutputPartyOne(st1, bt1, msg0, ring)
+
+	// Saturation: I_high * satHigh (not 1.0!)
+	iHigh0 := make([]uint64, n)
+	iHigh1 := make([]uint64, n)
+	iMid0 := make([]uint64, n)
+	iMid1 := make([]uint64, n)
+	for i := 0; i < n; i++ {
+		iHigh0[i] = modMulBig63(ring.Sub(1, cmpHigh0.Shares[i]), satHighFP, ring.Modulus)
+		iHigh1[i] = modMulBig63(ring.Sub(0, cmpHigh1.Shares[i]), satHighFP, ring.Modulus)
+		iMid0[i] = modMulBig63(midInd0[i], ring.FracMul, ring.Modulus)
+		iMid1[i] = modMulBig63(midInd1[i], ring.FracMul, ring.Modulus)
+	}
+
+	// Sub-interval comparisons
+	numCmp := numIntervals - 1
+	subCmp0 := make([]CmpArithResult, numCmp)
+	subCmp1 := make([]CmpArithResult, numCmp)
+	for j := 0; j < numCmp; j++ {
+		thresh := -halfRange + float64(j+1)*width
+		threshFP := ring.FromDouble(thresh)
+		p0Pre, p1Pre := cmpGeneratePreprocess(ring, n, threshFP)
+		p0R1 := cmpRound1(ring, 0, x0, p0Pre)
+		p1R1 := cmpRound1(ring, 1, x1, p1Pre)
+		subCmp0[j] = cmpRound2(ring, 0, p0Pre, p0R1, p1R1)
+		subCmp1[j] = cmpRound2(ring, 1, p1Pre, p1R1, p0R1)
+	}
+
+	subInd0 := make([][]uint64, numIntervals)
+	subInd1 := make([][]uint64, numIntervals)
+	for k := 0; k < numIntervals; k++ {
+		subInd0[k] = make([]uint64, n)
+		subInd1[k] = make([]uint64, n)
+	}
+	for i := 0; i < n; i++ {
+		subInd0[0][i] = subCmp0[0].Shares[i]
+		subInd1[0][i] = subCmp1[0].Shares[i]
+		for j := 1; j < numCmp; j++ {
+			subInd0[j][i] = ring.Sub(subCmp0[j].Shares[i], subCmp0[j-1].Shares[i])
+			subInd1[j][i] = ring.Sub(subCmp1[j].Shares[i], subCmp1[j-1].Shares[i])
+		}
+		subInd0[numIntervals-1][i] = ring.Sub(1, subCmp0[numCmp-1].Shares[i])
+		subInd1[numIntervals-1][i] = ring.Sub(0, subCmp1[numCmp-1].Shares[i])
+	}
+	for k := 0; k < numIntervals; k++ {
+		for i := 0; i < n; i++ {
+			subInd0[k][i] = modMulBig63(subInd0[k][i], ring.FracMul, ring.Modulus)
+			subInd1[k][i] = modMulBig63(subInd1[k][i], ring.FracMul, ring.Modulus)
+		}
+	}
+
+	// ScalarVP per interval
+	aSlope0 := make([]uint64, n)
+	aSlope1 := make([]uint64, n)
+	bInt0 := make([]uint64, n)
+	bInt1 := make([]uint64, n)
+	for j := 0; j < numIntervals; j++ {
+		sv0 := ScalarVectorProductPartyZero(slopes[j], subInd0[j], ring)
+		sv1 := ScalarVectorProductPartyOne(slopes[j], subInd1[j], ring)
+		bi0 := ScalarVectorProductPartyZero(intercepts[j], subInd0[j], ring)
+		bi1 := ScalarVectorProductPartyOne(intercepts[j], subInd1[j], ring)
+		for i := 0; i < n; i++ {
+			aSlope0[i] = ring.Add(aSlope0[i], sv0[i])
+			aSlope1[i] = ring.Add(aSlope1[i], sv1[i])
+			bInt0[i] = ring.Add(bInt0[i], bi0[i])
+			bInt1[i] = ring.Add(bInt1[i], bi1[i])
+		}
+	}
+
+	// Hadamard: slope * x
+	btA0, btA1 := SampleBeaverTripleVector(n, ring)
+	stA0, msgA0 := GenerateBatchedMultiplicationGateMessage(aSlope0, x0, btA0, ring)
+	stA1, msgA1 := GenerateBatchedMultiplicationGateMessage(aSlope1, x1, btA1, ring)
+	atx0, atx1 := StochasticHadamardProduct(stA0, btA0, msgA1, stA1, btA1, msgA0, ring.FracBits, ring)
+
+	// spline = slope*x + intercept
+	spline0 := make([]uint64, n)
+	spline1 := make([]uint64, n)
+	for i := 0; i < n; i++ {
+		spline0[i] = ring.Add(atx0[i], bInt0[i])
+		spline1[i] = ring.Add(atx1[i], bInt1[i])
+	}
+
+	// I_mid * spline
+	btM0, btM1 := SampleBeaverTripleVector(n, ring)
+	stM0, msgM0 := GenerateBatchedMultiplicationGateMessage(iMid0, spline0, btM0, ring)
+	stM1, msgM1 := GenerateBatchedMultiplicationGateMessage(iMid1, spline1, btM1, ring)
+	midSpline0, midSpline1 := StochasticHadamardProduct(stM0, btM0, msgM1, stM1, btM1, msgM0, ring.FracBits, ring)
+
+	// result = iHigh + I_mid * spline
+	mu0 = make([]uint64, n)
+	mu1 = make([]uint64, n)
+	for i := 0; i < n; i++ {
+		mu0[i] = ring.Add(iHigh0[i], midSpline0[i])
+		mu1[i] = ring.Add(iHigh1[i], midSpline1[i])
+	}
+	return
+}
+
 // WideSplineExp evaluates exp(x) on secret shares using a wide piecewise-
 // linear spline with numIntervals intervals on [-3, 8].
 //

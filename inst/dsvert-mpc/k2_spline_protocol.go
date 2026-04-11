@@ -184,9 +184,12 @@ func handleK2WideSplineFullEval() {
 	n := input.N
 	numInt := input.NumIntervals
 	if numInt <= 0 {
-		if input.Family == "poisson" {
+		switch input.Family {
+		case "poisson":
 			numInt = K2ExpIntervals
-		} else {
+		case "softplus":
+			numInt = 80
+		default:
 			numInt = K2SigmoidIntervals
 		}
 	}

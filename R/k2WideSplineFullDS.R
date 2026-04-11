@@ -40,7 +40,7 @@ k2WideSplinePhase1DS <- function(party_id = 0L, family = "binomial",
                                   num_intervals = NULL, frac_bits = 20L,
                                   session_id = NULL) {
   ss <- .S(session_id)
-  if (is.null(num_intervals)) num_intervals <- if (family == "poisson") 100L else 50L
+  if (is.null(num_intervals)) num_intervals <- if (family == "poisson") 100L else if (family == "softplus") 80L else 50L
 
   eta_fp <- ss$k2_eta_share_fp
   if (is.null(eta_fp)) eta_fp <- ss$secure_eta_share
@@ -72,7 +72,7 @@ k2WideSplinePhase2DS <- function(party_id = 0L, family = "binomial",
                                   num_intervals = NULL, frac_bits = 20L,
                                   session_id = NULL) {
   ss <- .S(session_id)
-  if (is.null(num_intervals)) num_intervals <- if (family == "poisson") 100L else 50L
+  if (is.null(num_intervals)) num_intervals <- if (family == "poisson") 100L else if (family == "softplus") 80L else 50L
 
   peer_dcf <- .blob_consume("k2_peer_dcf_masked", ss)
   if (is.null(peer_dcf)) stop("No peer DCF masked blob", call. = FALSE)
@@ -108,7 +108,7 @@ k2WideSplinePhase3DS <- function(party_id = 0L, family = "binomial",
                                   num_intervals = NULL, frac_bits = 20L,
                                   session_id = NULL) {
   ss <- .S(session_id)
-  if (is.null(num_intervals)) num_intervals <- if (family == "poisson") 100L else 50L
+  if (is.null(num_intervals)) num_intervals <- if (family == "poisson") 100L else if (family == "softplus") 80L else 50L
 
   peer_blob <- .blob_consume("k2_peer_beaver_r1", ss)
   if (is.null(peer_blob)) stop("No peer Beaver R1 blob", call. = FALSE)
@@ -142,7 +142,7 @@ k2WideSplinePhase4DS <- function(party_id = 0L, family = "binomial",
                                   num_intervals = NULL, frac_bits = 20L,
                                   session_id = NULL) {
   ss <- .S(session_id)
-  if (is.null(num_intervals)) num_intervals <- if (family == "poisson") 100L else 50L
+  if (is.null(num_intervals)) num_intervals <- if (family == "poisson") 100L else if (family == "softplus") 80L else 50L
 
   peer_blob <- .blob_consume("k2_peer_had2_r1", ss)
   if (is.null(peer_blob)) stop("No peer Had2 R1 blob", call. = FALSE)

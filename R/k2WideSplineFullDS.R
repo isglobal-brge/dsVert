@@ -167,8 +167,12 @@ k2WideSplinePhase4DS <- function(party_id = 0L, family = "binomial",
     p_had1_xma = ph3_peer$had1_xma, p_had1_ymb = ph3_peer$had1_ymb,
     p_had2_xma = peer_r1$had2_xma, p_had2_ymb = peer_r1$had2_ymb))
 
-  # Store mu share for gradient computation
-  ss$secure_mu_share <- result$mu_share_fp
+  # Store result: mu share for gradient, or softplus share for deviance
+  if (family == "softplus") {
+    ss$softplus_share_fp <- result$mu_share_fp
+  } else {
+    ss$secure_mu_share <- result$mu_share_fp
+  }
 
   # Cleanup intermediate state
   ss$k2_ws_dcf_keys <- NULL; ss$k2_ws_eta_fp <- NULL

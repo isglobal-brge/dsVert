@@ -54,6 +54,16 @@ func WideExpParams(numIntervals int) (slopes, intercepts []float64, lower, upper
 	return
 }
 
+// WideSoftplusParams returns the piecewise linear spline parameters for
+// softplus(x) = log(1 + exp(x)) on [-8, 8) with numIntervals intervals.
+// Used for binomial canonical deviance: D = 2·Σ[softplus(η) - y·η].
+func WideSoftplusParams(numIntervals int) (slopes, intercepts []float64, halfRange float64) {
+	halfRange = 8.0
+	softplus := func(x float64) float64 { return math.Log(1.0 + math.Exp(x)) }
+	slopes, intercepts = computeWideSpline(softplus, numIntervals, -halfRange, halfRange)
+	return
+}
+
 // WideSplineSigmoid evaluates sigmoid on secret shares using a wide piecewise-
 // linear spline with numIntervals intervals on [-5, 5).
 //

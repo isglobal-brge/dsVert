@@ -81,9 +81,11 @@ glmRing63ReorderXFullDS <- function(p_coord, p_fusion, p_extras, session_id = NU
   for (i in 0:(n - 1)) {
     row_offset <- i * p_total
     # coord columns: stay
-    perm <- c(perm, row_offset + (0:(p_coord - 1)))
+    if (p_coord > 0)
+      perm <- c(perm, row_offset + (0:(p_coord - 1)))
     # fusion columns: from end of row
-    perm <- c(perm, row_offset + (p_coord + p_extras) + (0:(p_fusion - 1)))
+    if (p_fusion > 0)
+      perm <- c(perm, row_offset + (p_coord + p_extras) + (0:(p_fusion - 1)))
     # extras columns: from middle
     if (p_extras > 0)
       perm <- c(perm, row_offset + p_coord + (0:(p_extras - 1)))
@@ -225,22 +227,76 @@ glmRing63GenGradTriplesDS <- function(dcf0_pk, dcf1_pk, n, p,
 #' @param session_id Character or NULL.
 #' @return List with status.
 #' @export
-glmRing63PrepDevianceDS <- function(session_id = NULL) {
+glmRing63PrepDevianceDS <- function(mode = "rss", session_id = NULL) {
   ss <- .S(session_id)
-  mu_fp <- .base64url_to_base64(ss$secure_mu_share)
-  y_fp <- .base64url_to_base64(ss$k2_y_share_fp)
-  if (is.null(mu_fp) || is.null(y_fp))
-    stop("No mu/y shares for deviance", call. = FALSE)
 
-  # Residual = mu - y in Ring63
-  r <- .callMpcTool("k2-fp-sub", list(a = mu_fp, b = y_fp, frac_bits = 20L))
+  if (mode == "canonical") {
+    # Canonical deviance: Beaver computes eta^T * y
+    # gradient uses residual = mu_share - y_share
+    # We set: x_full = eta, mu_share = y, y_share = 0 → residual = y - 0 = y
+    eta_fp <- ss$k2_eta_share_fp
+    if (is.null(eta_fp)) stop("No eta shares for canonical deviance", call. = FALSE)
+    ss$k2_x_full_fp <- eta_fp
+    ss$k2_x_p <- 1L
+    ss$k2_peer_p <- 0L
+    # Save and replace: mu = y, y = 0
+    n <- ss$k2_x_n
+    zero <- .callMpcTool("k2-float-to-fp", list(values = rep(0, n), frac_bits = 20L))
+    ss$secure_mu_share <- ss$k2_y_share_fp  # mu = y
+    ss$k2_y_share_fp <- zero$fp_data        # y = 0
+    list(status = "ok")
+  } else {
+    # RSS deviance (default): store r = mu - y as x_full
+    mu_fp <- .base64url_to_base64(ss$secure_mu_share)
+    y_fp <- .base64url_to_base64(ss$k2_y_share_fp)
+    if (is.null(mu_fp) || is.null(y_fp))
+      stop("No mu/y shares for deviance", call. = FALSE)
+    r <- .callMpcTool("k2-fp-sub", list(a = mu_fp, b = y_fp, frac_bits = 20L))
+    ss$k2_x_full_fp <- r$result
+    ss$k2_x_p <- 1L
+    ss$k2_peer_p <- 0L
+    list(status = "ok")
+  }
+}
 
-  # Store as 1-column X matrix for Beaver dot-product
-  ss$k2_x_full_fp <- r$result
-  ss$k2_x_p <- 1L
-  ss$k2_peer_p <- 0L
+#' Compute scalar sums for canonical deviance
+#'
+#' Returns Ring63 scalar sums needed by the client to assemble canonical deviance.
+#' Uses the Go binary for Ring63 summation (avoids R integer overflow).
+#'
+#' @param family Character. "binomial" or "poisson".
+#' @param session_id Character or NULL.
+#' @return List with sum_fp (Ring63 scalar as base64) and optionally
+#'   null_term (plaintext constant for Poisson).
+#' @export
+glmRing63DevianceSumsDS <- function(family, session_id = NULL) {
+  ss <- .S(session_id)
 
-  list(status = "ok")
+  if (family == "binomial") {
+    # Sum of softplus(eta) shares — spline must have been evaluated already
+    sp_fp <- ss$softplus_share_fp
+    if (is.null(sp_fp))
+      stop("Softplus shares not computed. Run softplus spline first.", call. = FALSE)
+    r <- .callMpcTool("k2-fp-sum", list(fp_data = sp_fp))
+    list(sum_fp = r$sum_fp)
+
+  } else if (family == "poisson") {
+    # Sum of mu shares (from last exp spline evaluation)
+    mu_fp <- .base64url_to_base64(ss$secure_mu_share)
+    r <- .callMpcTool("k2-fp-sum", list(fp_data = mu_fp))
+
+    # Null term: label server computes Σ(y*log(y) - y) in plaintext
+    null_term <- 0
+    if (!is.null(ss$k2_y_raw)) {
+      y <- ss$k2_y_raw
+      valid <- y > 0
+      null_term <- sum(y[valid] * log(y[valid])) - sum(y)
+    }
+    list(sum_fp = r$sum_fp, null_term = null_term)
+
+  } else {
+    list(sum_fp = NULL)
+  }
 }
 
 #' Set y_share to zeros (for correlation: no response variable)
@@ -369,12 +425,25 @@ mpcStoreBlobDS <- function(key, chunk, chunk_index = 1L, n_chunks = 1L,
 #' @param session_id Character or NULL.
 #' @return TRUE on success.
 #' @export
-mpcStoreTransportKeysDS <- function(transport_keys, identity_info = NULL,
+mpcStoreTransportKeysDS <- function(transport_keys = NULL,
+                                     transport_keys_b64 = NULL,
+                                     identity_info = NULL,
+                                     identity_info_b64 = NULL,
                                      session_id = NULL) {
   ss <- .S(session_id)
   if (!.key_exists("transport_sk", ss)) {
     stop("Not initialized. Call glmRing63TransportInitDS first.", call. = FALSE)
   }
+
+  # Accept list args as base64url-encoded JSON (avoids Opal parser issues)
+  .from_b64url <- function(x) {
+    x <- gsub("-","+",gsub("_","/",x,fixed=TRUE),fixed=TRUE)
+    pad <- nchar(x)%%4; if(pad==2) x<-paste0(x,"=="); if(pad==3) x<-paste0(x,"="); x
+  }
+  if (is.null(transport_keys) && !is.null(transport_keys_b64) && nzchar(transport_keys_b64))
+    transport_keys <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(.from_b64url(transport_keys_b64))), simplifyVector = FALSE)
+  if (is.null(identity_info) && !is.null(identity_info_b64) && nzchar(identity_info_b64))
+    identity_info <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(.from_b64url(identity_info_b64))), simplifyVector = FALSE)
 
   if (!is.null(identity_info)) {
     own_pk <- .key_get("identity_pk", ss)

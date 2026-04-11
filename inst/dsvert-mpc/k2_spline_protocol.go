@@ -4,6 +4,7 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 )
 
 // ============================================================================
@@ -119,12 +120,18 @@ func wsComputeIndicators(ring Ring63, n, numInt, numThresh int, partyID int,
 		}
 	}
 
-	// Spline params
+	// Spline params + saturation value for upper bound
 	var slopes, intercepts []float64
+	var satHigh float64 = 1.0 // default: sigmoid saturates at 1
 	if family == "poisson" {
 		slopes, intercepts, _, _ = WideExpParams(numInt)
+		satHigh = math.Exp(8.0) // exp(upper)
+	} else if family == "softplus" {
+		slopes, intercepts, _ = WideSoftplusParams(numInt)
+		satHigh = math.Log(1.0 + math.Exp(8.0)) // softplus(upper) ≈ 8.0003
 	} else {
 		slopes, intercepts, _ = WideSigmoidParams(numInt)
+		satHigh = 1.0
 	}
 
 	// ScalarVP for slopes and intercepts
@@ -158,7 +165,7 @@ func wsComputeIndicators(ring Ring63, n, numInt, numThresh int, partyID int,
 			notCH = ring.Sub(0, cHigh[i])
 			notCL = ring.Sub(0, cLow[i])
 		}
-		iHigh[i] = modMulBig63(notCH, ring.FracMul, ring.Modulus)
+		iHigh[i] = modMulBig63(notCH, ring.FromDouble(satHigh), ring.Modulus)
 		notCLowFP[i] = modMulBig63(notCL, ring.FracMul, ring.Modulus)
 		cHighFP[i] = modMulBig63(cHigh[i], ring.FracMul, ring.Modulus)
 	}

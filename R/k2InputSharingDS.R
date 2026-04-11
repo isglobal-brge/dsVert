@@ -32,6 +32,7 @@ k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
   encrypted_y <- NULL
   if (!is.null(y_var)) {
     y <- as.numeric(data[[y_var]])
+    ss$k2_y_raw <- y  # Store raw y for canonical deviance constants
     fp_y <- .callMpcTool("k2-float-to-fp", list(values = y, frac_bits = 20L))$fp_data
     y_split <- .callMpcTool("k2-split-fp-share", list(data_fp = fp_y, n = length(y)))
     ss$k2_y_share_fp <- y_split$own_share

@@ -162,12 +162,25 @@ psiInitDS <- function(session_id = NULL) {
 #' @param session_id Character or NULL. UUID for session-scoped storage.
 #' @return TRUE (invisible).
 #' @export
-psiStoreTransportKeysDS <- function(transport_keys, identity_info = NULL,
+psiStoreTransportKeysDS <- function(transport_keys = NULL,
+                                     transport_keys_b64 = NULL,
+                                     identity_info = NULL,
+                                     identity_info_b64 = NULL,
                                      session_id = NULL) {
   ss <- .S(session_id)
   if (is.null(ss$psi_phase)) {
     stop("PSI not initialized. Call psiInitDS first.", call. = FALSE)
   }
+
+  # Accept list args as base64url-encoded JSON (avoids Opal parser issues)
+  .from_b64url <- function(x) {
+    x <- gsub("-","+",gsub("_","/",x,fixed=TRUE),fixed=TRUE)
+    pad <- nchar(x)%%4; if(pad==2) x<-paste0(x,"=="); if(pad==3) x<-paste0(x,"="); x
+  }
+  if (is.null(transport_keys) && !is.null(transport_keys_b64) && nzchar(transport_keys_b64))
+    transport_keys <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(.from_b64url(transport_keys_b64))), simplifyVector = FALSE)
+  if (is.null(identity_info) && !is.null(identity_info_b64) && nzchar(identity_info_b64))
+    identity_info <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(.from_b64url(identity_info_b64))), simplifyVector = FALSE)
 
   if (!is.null(identity_info)) {
     .verify_all_peer_identities(identity_info, transport_keys,

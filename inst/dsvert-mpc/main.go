@@ -71,6 +71,8 @@ func main() {
 		handleK2FPAdd()
 	case "k2-fp-sub":
 		handleK2FPSub()
+	case "k2-fp-sum":
+		handleK2FPSum()
 	case "k2-fp-permute":
 		handleK2FPPermute()
 	case "k2-fp-column-concat":

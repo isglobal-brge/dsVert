@@ -60,6 +60,36 @@ func handleK2FPSub() {
 }
 
 // ============================================================================
+// Command: k2-fp-sum
+// Sum all elements of a Ring63 FP vector, returning a single scalar.
+// Used for deviance computation: Σμ or Σsoftplus(η).
+// ============================================================================
+
+type K2FPSumInput struct {
+	FPData string `json:"fp_data"` // base64 FP vector
+}
+
+type K2FPSumOutput struct {
+	SumFP string `json:"sum_fp"` // base64 FP single scalar (8 bytes)
+}
+
+func handleK2FPSum() {
+	var input K2FPSumInput
+	mpcReadInput(&input)
+	data := bytesToFPVec(base64ToBytes(input.FPData))
+	ring := NewRing63(20) // frac_bits doesn't matter for addition
+	var total uint64
+	for _, v := range data {
+		total = ring.Add(total, uint64(v))
+	}
+	result := make([]FixedPoint, 1)
+	result[0] = FixedPoint(total)
+	mpcWriteOutput(K2FPSumOutput{
+		SumFP: bytesToBase64(fpVecToBytes(result)),
+	})
+}
+
+// ============================================================================
 // Command: k2-fp-permute
 // Permute elements of an FP vector by given indices.
 // Used to align gradient column orders between DCF parties in K>=3.

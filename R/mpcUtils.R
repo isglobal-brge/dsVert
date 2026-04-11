@@ -381,6 +381,24 @@ mpcVersion <- function() {
 }
 
 # ============================================================================
+# Column Discovery (Smart UX)
+# ============================================================================
+
+#' List column names of a server-side data frame
+#'
+#' Returns the column names available on this server for the given data frame.
+#' Used by the client for automatic variable-to-server mapping.
+#'
+#' @param data_name Character. Name of the data frame in the DataSHIELD session.
+#' @return List with columns (character vector of column names).
+#' @export
+dsvertColNamesDS <- function(data_name) {
+  d <- eval(parse(text = data_name), envir = parent.frame())
+  if (!is.data.frame(d)) stop(paste0("'", data_name, "' is not a data frame"), call. = FALSE)
+  list(columns = names(d))
+}
+
+# ============================================================================
 # Ed25519 Identity (Pinned Peers)
 # ============================================================================
 

@@ -56,6 +56,11 @@ func handleK2DcfGenBatch() {
 		if numInt <= 0 {
 			numInt = K2ExpIntervals
 		}
+	case "softplus":
+		lower, upper = -8.0, 8.0
+		if numInt <= 0 {
+			numInt = 80
+		}
 	default: // binomial
 		lower, upper = -5.0, 5.0
 		if numInt <= 0 {

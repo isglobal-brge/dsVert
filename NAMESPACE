@@ -1,4 +1,5 @@
 # Core
+export(dsvertColNamesDS)
 export(dsvertIdentityPkDS)
 export(getObsCountDS)
 export(glmStandardizeDS)
@@ -29,6 +30,7 @@ export(glmRing63GenDcfKeysDS)
 export(glmRing63GenSplineTriplesDS)
 export(glmRing63GenGradTriplesDS)
 export(glmRing63PrepDevianceDS)
+export(glmRing63DevianceSumsDS)
 export(glmRing63CorSetZeroYDS)
 export(glmRing63CorSetColDS)
 export(glmRing63ExportOwnShareDS)

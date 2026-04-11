@@ -72,7 +72,9 @@ AggregateMethods:
     psiDoubleMaskDS,
     psiGetMatchedIndicesDS,
     c=base::c,
-    list=base::list
+    list=base::list,
+    numeric=base::numeric,
+    character=base::character
 AssignMethods:
     psiMatchAndAlignDS,
     psiSelfAlignDS,

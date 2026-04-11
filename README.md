@@ -55,5 +55,5 @@ go build -o dsvert-mpc .
 GOOS=linux GOARCH=amd64 go build -o ../bin/linux-amd64/dsvert-mpc .
 cd ../..
 R CMD build --no-build-vignettes .
-R CMD INSTALL dsVert_2.1.0.tar.gz
+R CMD INSTALL dsVert_1.0.0.tar.gz
 ```

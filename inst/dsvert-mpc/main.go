@@ -14,7 +14,7 @@ import (
 	"os"
 )
 
-const VERSION = "2.0.0"
+const VERSION = "1.0.0"
 
 type ErrorOutput struct {
 	Error string `json:"error"`

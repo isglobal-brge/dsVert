@@ -1,8 +1,7 @@
 # Core
 export(dsvertColNamesDS)
-export(dsvertDropRowsDS)
 export(dsvertIdentityPkDS)
-export(dsvertNaCheckDS)
+export(dsvertNaOmitDS)
 export(getObsCountDS)
 export(glmStandardizeDS)
 export(localCorDS)

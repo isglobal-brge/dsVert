@@ -398,42 +398,32 @@ dsvertColNamesDS <- function(data_name) {
   list(columns = names(d), n_rows = nrow(d))
 }
 
-#' Report rows with NAs in specified columns
+#' Remove rows with NAs in specified columns (per-server, non-disclosive)
 #'
-#' Returns a logical vector indicating which rows have complete data
-#' for the specified columns. Used for coordinated NA exclusion.
+#' Performs complete.cases() on the specified columns and removes incomplete
+#' rows from the data frame. This is done per-server BEFORE PSI alignment,
+#' so no observation-level information is disclosed. The PSI intersection
+#' naturally excludes patients removed by any server.
+#'
+#' Equivalent to R's na.action = na.omit in glm().
 #'
 #' @param data_name Character. Name of the data frame.
 #' @param vars Character vector. Column names to check for NAs.
-#' @return List with n_complete (count) and na_rows (indices of rows with NAs).
+#'   If NULL, checks all columns except id/patient_id.
+#' @return List with n_before, n_after, n_dropped.
 #' @export
-dsvertNaCheckDS <- function(data_name, vars) {
+dsvertNaOmitDS <- function(data_name, vars = NULL) {
   d <- eval(parse(text = data_name), envir = parent.frame())
   if (!is.data.frame(d)) stop(paste0("'", data_name, "' is not a data frame"), call. = FALSE)
-  # Only check columns that exist on this server
-  check_vars <- intersect(vars, names(d))
-  if (length(check_vars) == 0)
-    return(list(n_complete = nrow(d), na_rows = integer(0)))
-  subset <- d[, check_vars, drop = FALSE]
-  complete <- complete.cases(subset)
-  na_rows <- which(!complete)
-  list(n_complete = sum(complete), na_rows = as.integer(na_rows))
-}
-
-#' Drop specified rows from a data frame
-#'
-#' Removes rows by index. Used for coordinated NA exclusion across servers.
-#'
-#' @param data_name Character. Name of the data frame.
-#' @param output_name Character. Name for the filtered data frame.
-#' @param drop_rows Integer vector. Row indices to remove.
-#' @return List with n_remaining (row count after filtering).
-#' @export
-dsvertDropRowsDS <- function(data_name, output_name, drop_rows) {
-  d <- eval(parse(text = data_name), envir = parent.frame())
-  if (length(drop_rows) > 0) d <- d[-drop_rows, , drop = FALSE]
-  assign(output_name, d, envir = parent.frame())
-  list(n_remaining = nrow(d))
+  n_before <- nrow(d)
+  check_vars <- if (!is.null(vars)) intersect(vars, names(d))
+                else setdiff(names(d), c("id", "patient_id"))
+  if (length(check_vars) > 0) {
+    complete <- complete.cases(d[, check_vars, drop = FALSE])
+    d <- d[complete, , drop = FALSE]
+  }
+  assign(data_name, d, envir = parent.frame())
+  list(n_before = n_before, n_after = nrow(d), n_dropped = n_before - nrow(d))
 }
 
 # ============================================================================

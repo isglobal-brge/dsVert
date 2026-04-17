@@ -83,6 +83,15 @@ k2ReceiveShareDS <- function(peer_p = NULL, session_id = NULL) {
 }
 
 #' Compute eta share in FixedPoint from full data shares and public beta
+#'
+#' If an offset has been registered for this session via k2SetOffsetDS(),
+#' the stored log-offset FP vector is added to THIS server's eta share
+#' after the X * beta computation. Mathematically this gives
+#'   eta = X beta + offset
+#' because the offset is plaintext on exactly one server, so adding it to
+#' that server's share is equivalent to adding it to the reconstructed
+#' eta. The other server's share is unchanged. No cross-server round trip
+#' is required; the offset values never leave their home server.
 #' @export
 k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
                                   is_coordinator = TRUE, session_id = NULL) {
@@ -115,10 +124,23 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
     frac_bits = 20L
   ))
 
+  eta_fp <- result$eta_fp
+
+  # If this server holds an offset, add it into its share in-place.
+  # Ring63 additive shares are linear, so adding a plaintext value to
+  # one party's share is equivalent to adding it to the reconstructed
+  # value. The peer's share is unchanged (they have no offset).
+  if (!is.null(ss$k2_offset_fp)) {
+    eta_fp <- .callMpcTool("k2-fp-add", list(
+      a_fp = eta_fp, b_fp = ss$k2_offset_fp,
+      n = as.integer(n)
+    ))$sum_fp
+  }
+
   # Store for Beaver polynomial eval AND gradient computation
-  ss$k2_eta_share <- result$eta_fp
-  ss$k2_eta_share_fp <- result$eta_fp  # wide spline DCF reads this key
-  ss$secure_eta_share <- result$eta_fp
+  ss$k2_eta_share <- eta_fp
+  ss$k2_eta_share_fp <- eta_fp  # wide spline DCF reads this key
+  ss$secure_eta_share <- eta_fp
   ss$k2_x_full_fp <- result$x_full_fp  # full X share for gradient
 
   # Ensure y_share_fp exists (nonlabel gets it from input sharing, label creates it)

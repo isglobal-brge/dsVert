@@ -41,6 +41,8 @@ AggregateMethods:
     k2ShareInputDS,
     k2ReceiveShareDS,
     k2ComputeEtaShareDS,
+    k2SetOffsetDS,
+    k2ClearOffsetDS,
     k2GradientR1DS,
     k2GradientR2DS,
     k2StoreGradTripleDS,

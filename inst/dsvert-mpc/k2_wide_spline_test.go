@@ -367,6 +367,58 @@ func TestWideSplineLog_EndToEnd(t *testing.T) {
 	}
 }
 
+// TestGoldschmidtReciprocalStep verifies that one Newton--Raphson step on
+// top of the piecewise-linear reciprocal delivers the expected quadratic
+// convergence: initial ~0.05% rel err drops to ~1e-6 (Ring63 floor).
+func TestGoldschmidtReciprocalStep(t *testing.T) {
+	ring := NewRing63(K2DefaultFracBits)
+	numIntervals := 50
+	lower := 0.5
+	upper := 5.0
+
+	n := 30
+	truth := make([]float64, n)
+	for i := 0; i < n; i++ {
+		logL := math.Log(lower)
+		logU := math.Log(upper)
+		truth[i] = math.Exp(logL + (logU-logL)*float64(i)/float64(n-1))
+	}
+
+	x0, x1 := splitFPShares(ring, truth)
+
+	// Baseline: no refinement
+	mu0, mu1 := WideSplineReciprocal(ring, x0, x1, numIntervals, lower, upper)
+	baseline := reconstructFromShares(ring, mu0, mu1)
+
+	// Refined: one Goldschmidt step
+	muR0, muR1 := WideSplineReciprocalRefined(ring, x0, x1, numIntervals, lower, upper, 1)
+	refined := reconstructFromShares(ring, muR0, muR1)
+
+	maxRelBaseline, maxRelRefined := 0.0, 0.0
+	for i, tv := range truth {
+		exact := 1.0 / tv
+		errBase := math.Abs(baseline[i]-exact) / math.Abs(exact)
+		errRef := math.Abs(refined[i]-exact) / math.Abs(exact)
+		if errBase > maxRelBaseline {
+			maxRelBaseline = errBase
+		}
+		if errRef > maxRelRefined {
+			maxRelRefined = errRef
+		}
+	}
+	improvement := maxRelBaseline / maxRelRefined
+	t.Logf("Goldschmidt refinement: baseline max rel err=%.4f%%, refined=%.6f%% (%.0fx improvement)",
+		maxRelBaseline*100, maxRelRefined*100, improvement)
+	// Theory says ~(0.05%)^2 = 2.5e-7 plus one Ring63 rounding ~ 1e-6.
+	// Tolerance 5e-5 to cover DCF + FP truncation noise.
+	if maxRelRefined > 5e-5 {
+		t.Errorf("refined max rel err %.6e exceeds 5e-5 target", maxRelRefined)
+	}
+	if improvement < 10 {
+		t.Errorf("expected >=10x improvement from Goldschmidt, got %.1fx", improvement)
+	}
+}
+
 // TestWideSplineReciprocal_Clamps verifies clamping behaviour.
 func TestWideSplineReciprocal_Clamps(t *testing.T) {
 	ring := NewRing63(K2DefaultFracBits)

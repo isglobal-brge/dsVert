@@ -15,6 +15,7 @@ package main
 
 import (
 	"encoding/binary"
+	"math"
 )
 
 // ============================================================================
@@ -24,10 +25,15 @@ import (
 // ============================================================================
 
 type K2DcfGenBatchInput struct {
-	Family       string `json:"family"`        // "binomial" or "poisson"
-	N            int    `json:"n"`             // number of elements
-	FracBits     int    `json:"frac_bits"`
-	NumIntervals int    `json:"num_intervals"` // 0 = use default from K2Config
+	Family       string  `json:"family"`        // "binomial" | "poisson" | "softplus" | "reciprocal" | "log"
+	N            int     `json:"n"`             // number of elements
+	FracBits     int     `json:"frac_bits"`
+	NumIntervals int     `json:"num_intervals"` // 0 = use default from K2Config
+	// Optional domain override for "reciprocal" / "log". If zero,
+	// defaults to K2ReciprocalLower / K2ReciprocalUpper or K2LogLower /
+	// K2LogUpper. Ignored for other families which have fixed domains.
+	Lower float64 `json:"lower"`
+	Upper float64 `json:"upper"`
 }
 
 type K2DcfGenBatchOutput struct {
@@ -50,6 +56,7 @@ func handleK2DcfGenBatch() {
 	// Determine thresholds based on family
 	var lower, upper float64
 	numInt := input.NumIntervals
+	logSpaced := false
 	switch input.Family {
 	case "poisson":
 		lower, upper = -3.0, 8.0
@@ -61,6 +68,30 @@ func handleK2DcfGenBatch() {
 		if numInt <= 0 {
 			numInt = 80
 		}
+	case "reciprocal":
+		lower, upper = K2ReciprocalLower, K2ReciprocalUpper
+		if input.Lower > 0 {
+			lower = input.Lower
+		}
+		if input.Upper > 0 {
+			upper = input.Upper
+		}
+		if numInt <= 0 {
+			numInt = K2ReciprocalIntervals
+		}
+		logSpaced = true
+	case "log":
+		lower, upper = K2LogLower, K2LogUpper
+		if input.Lower > 0 {
+			lower = input.Lower
+		}
+		if input.Upper > 0 {
+			upper = input.Upper
+		}
+		if numInt <= 0 {
+			numInt = K2LogIntervals
+		}
+		logSpaced = true
 	default: // binomial
 		lower, upper = -5.0, 5.0
 		if numInt <= 0 {
@@ -68,16 +99,28 @@ func handleK2DcfGenBatch() {
 		}
 	}
 
-	width := (upper - lower) / float64(numInt)
-
 	// Build ALL thresholds: 2 broad + (numInt-1) sub-interval
 	thresholds := make([]float64, 0, numInt+1)
-	// Broad thresholds
+	// Broad thresholds (always lower, upper)
 	thresholds = append(thresholds, lower) // c_low: x < lower
 	thresholds = append(thresholds, upper) // c_high: x < upper
-	// Sub-interval thresholds
-	for j := 0; j < numInt-1; j++ {
-		thresholds = append(thresholds, lower+float64(j+1)*width)
+
+	if logSpaced {
+		// Log-spaced sub-interval breakpoints for 1/x and log(x): gives
+		// uniform relative (reciprocal) / absolute (log) error across
+		// the domain, matching the sigmoid baseline at equal K.
+		logL := math.Log(lower)
+		logU := math.Log(upper)
+		for j := 0; j < numInt-1; j++ {
+			thresholds = append(thresholds,
+				math.Exp(logL+(logU-logL)*float64(j+1)/float64(numInt)))
+		}
+	} else {
+		// Uniform sub-interval breakpoints for sigmoid / softplus / exp
+		width := (upper - lower) / float64(numInt)
+		for j := 0; j < numInt-1; j++ {
+			thresholds = append(thresholds, lower+float64(j+1)*width)
+		}
 	}
 
 	numThresh := len(thresholds)

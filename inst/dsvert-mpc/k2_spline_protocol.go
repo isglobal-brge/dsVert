@@ -19,14 +19,18 @@ import (
 // ============================================================================
 
 type K2WideSplineFullInput struct {
-	Phase        int    `json:"phase"`          // 1, 2, or 3
-	PartyID      int    `json:"party_id"`
-	Family       string `json:"family"`
-	EtaShareFP   string `json:"eta_share_fp"`   // base64 FP (all phases)
-	DcfKeys      string `json:"dcf_keys"`       // base64 (all phases)
-	N            int    `json:"n"`
-	FracBits     int    `json:"frac_bits"`
-	NumIntervals int    `json:"num_intervals"`
+	Phase        int     `json:"phase"`          // 1, 2, 3 or 4
+	PartyID      int     `json:"party_id"`
+	Family       string  `json:"family"`         // binomial|poisson|softplus|reciprocal|log
+	EtaShareFP   string  `json:"eta_share_fp"`   // base64 FP (all phases)
+	DcfKeys      string  `json:"dcf_keys"`       // base64 (all phases)
+	N            int     `json:"n"`
+	FracBits     int     `json:"frac_bits"`
+	NumIntervals int     `json:"num_intervals"`
+	// Optional domain override for dual-clamp families (reciprocal / log).
+	// If zero, family defaults apply (K2Reciprocal* / K2Log*).
+	Lower        float64 `json:"lower"`
+	Upper        float64 `json:"upper"`
 	// Phase 2+3: peer DCF masked values (needed to recompute comparisons)
 	PeerDcfMasked string `json:"peer_dcf_masked"` // base64
 	// Phase 2+3: Beaver triples (3 ops: AND, Had1=slope*x, Had2=I_mid*spline)
@@ -66,10 +70,17 @@ type K2WSPhase3Out struct {
 }
 
 // wsComputeIndicators recomputes DCF close + indicator shares from DCF keys,
-// eta share, and peer's DCF masked values. Used by phases 2 and 3.
+// eta share, and peer's DCF masked values. Used by phases 2, 3 and 4.
+// Returns an additional iLow share (zero for families without a
+// non-trivial low clamp: sigmoid / softplus / poisson). For dual-clamp
+// families (reciprocal, log) iLow = c_low * satLow (FP-scaled); callers
+// must add it into the final mu assembly in phase 4.
+//
+// lower/upper are consulted only for dual-clamp families; sigmoid/
+// softplus/poisson keep their hardcoded domains.
 func wsComputeIndicators(ring Ring63, n, numInt, numThresh int, partyID int,
 	etaShare []uint64, dcfKeys []CmpPreprocessPerParty, peerMaskedBuf []byte,
-	family string) (notCLowFP, cHighFP, iHigh, aSlope, bInt []uint64, etaR63 []uint64) {
+	family string, lower, upper float64) (notCLowFP, cHighFP, iLow, iHigh, aSlope, bInt []uint64, etaR63 []uint64) {
 
 	// DCF close: recompute own masked + combine with peer
 	peerMasked := make([]uint64, numThresh*n)
@@ -120,16 +131,41 @@ func wsComputeIndicators(ring Ring63, n, numInt, numThresh int, partyID int,
 		}
 	}
 
-	// Spline params + saturation value for upper bound
+	// Spline params + saturation values for low and high bounds.
+	// satLow is zero for families that saturate to 0 at the low end
+	// (sigmoid, softplus, poisson); dual-clamp families (reciprocal,
+	// log) override it. For those, lower/upper come from the caller.
 	var slopes, intercepts []float64
+	var satLow float64 = 0.0
 	var satHigh float64 = 1.0 // default: sigmoid saturates at 1
-	if family == "poisson" {
+	switch family {
+	case "poisson":
 		slopes, intercepts, _, _ = WideExpParams(numInt)
 		satHigh = math.Exp(8.0) // exp(upper)
-	} else if family == "softplus" {
+	case "softplus":
 		slopes, intercepts, _ = WideSoftplusParams(numInt)
 		satHigh = math.Log(1.0 + math.Exp(8.0)) // softplus(upper) ≈ 8.0003
-	} else {
+	case "reciprocal":
+		if lower <= 0 {
+			lower = K2ReciprocalLower
+		}
+		if upper <= 0 {
+			upper = K2ReciprocalUpper
+		}
+		slopes, intercepts, _ = WideReciprocalParamsWithRange(numInt, lower, upper)
+		satLow = 1.0 / lower
+		satHigh = 1.0 / upper
+	case "log":
+		if lower <= 0 {
+			lower = K2LogLower
+		}
+		if upper <= 0 {
+			upper = K2LogUpper
+		}
+		slopes, intercepts, _ = WideLogParamsWithRange(numInt, lower, upper)
+		satLow = math.Log(lower)
+		satHigh = math.Log(upper)
+	default:
 		slopes, intercepts, _ = WideSigmoidParams(numInt)
 		satHigh = 1.0
 	}
@@ -154,8 +190,11 @@ func wsComputeIndicators(ring Ring63, n, numInt, numThresh int, partyID int,
 
 	// Indicators: FP-scaled for Beaver Hadamard
 	iHigh = make([]uint64, n)
+	iLow = make([]uint64, n)
 	notCLowFP = make([]uint64, n)
 	cHighFP = make([]uint64, n)
+	satLowFP := ring.FromDouble(satLow)
+	satHighFP := ring.FromDouble(satHigh)
 	for i := 0; i < n; i++ {
 		var notCH, notCL uint64
 		if partyID == 0 {
@@ -165,7 +204,10 @@ func wsComputeIndicators(ring Ring63, n, numInt, numThresh int, partyID int,
 			notCH = ring.Sub(0, cHigh[i])
 			notCL = ring.Sub(0, cLow[i])
 		}
-		iHigh[i] = modMulBig63(notCH, ring.FromDouble(satHigh), ring.Modulus)
+		iHigh[i] = modMulBig63(notCH, satHighFP, ring.Modulus)
+		// iLow = c_low * satLow. Zero for sigmoid/softplus/poisson
+		// (satLow = 0); for reciprocal/log satLow is 1/lower or log(lower).
+		iLow[i] = modMulBig63(cLow[i], satLowFP, ring.Modulus)
 		notCLowFP[i] = modMulBig63(notCL, ring.FracMul, ring.Modulus)
 		cHighFP[i] = modMulBig63(cHigh[i], ring.FracMul, ring.Modulus)
 	}
@@ -219,10 +261,10 @@ func handleK2WideSplineFullEval() {
 
 	case 2:
 		// Phase 2: DCF close + indicators + Beaver R1 for all 3 ops
-		notCLowFP, cHighFP, _, aSlope, _, eta := wsComputeIndicators(
+		notCLowFP, cHighFP, _, _, aSlope, _, eta := wsComputeIndicators(
 			ring, n, numInt, numThresh, input.PartyID,
 			etaShare, dcfKeys, base64ToBytes(input.PeerDcfMasked),
-			input.Family)
+			input.Family, input.Lower, input.Upper)
 
 		// Beaver R1 for AND: NOT(c_low)_FP * c_high_FP
 		andA := fpToRing63(bytesToFPVec(base64ToBytes(input.TripleAND_A)))
@@ -268,10 +310,10 @@ func handleK2WideSplineFullEval() {
 
 	case 3:
 		// Phase 3: AND+Had1 close → compute I_mid, spline_value → Had2 R1
-		notCLowFP, cHighFP, _, aSlope, bInt, eta := wsComputeIndicators(
+		notCLowFP, cHighFP, _, _, aSlope, bInt, eta := wsComputeIndicators(
 			ring, n, numInt, numThresh, input.PartyID,
 			etaShare, dcfKeys, base64ToBytes(input.PeerDcfMasked),
-			input.Family)
+			input.Family, input.Lower, input.Upper)
 
 		// AND close
 		andA := fpToRing63(bytesToFPVec(base64ToBytes(input.TripleAND_A)))
@@ -328,10 +370,10 @@ func handleK2WideSplineFullEval() {
 
 	case 4:
 		// Phase 4: Had2 close + assembly → mu
-		notCLowFP, cHighFP, iHigh, aSlope, bInt, eta := wsComputeIndicators(
+		notCLowFP, cHighFP, iLow, iHigh, aSlope, bInt, eta := wsComputeIndicators(
 			ring, n, numInt, numThresh, input.PartyID,
 			etaShare, dcfKeys, base64ToBytes(input.PeerDcfMasked),
-			input.Family)
+			input.Family, input.Lower, input.Upper)
 
 		// Recompute AND + Had1 to get I_mid and spline_value
 		andA := fpToRing63(bytesToFPVec(base64ToBytes(input.TripleAND_A)))
@@ -388,10 +430,13 @@ func handleK2WideSplineFullEval() {
 			midSpline = HadamardProductPartyOne(h2State, h2Beaver, peerH2, ring.FracBits, ring)
 		}
 
-		// Final: mu = I_high + I_mid * spline_value
+		// Final: mu = I_low * satLow + I_high * satHigh + I_mid * spline_value
+		// For dual-clamp families (reciprocal, log) iLow carries
+		// c_low * satLow; for sigmoid/softplus/poisson it is all zeros
+		// and the formula collapses to the previous iHigh + mid*spline.
 		mu := make([]uint64, n)
 		for i := 0; i < n; i++ {
-			mu[i] = ring.Add(iHigh[i], midSpline[i])
+			mu[i] = ring.Add(ring.Add(iLow[i], iHigh[i]), midSpline[i])
 		}
 		_ = iMid
 

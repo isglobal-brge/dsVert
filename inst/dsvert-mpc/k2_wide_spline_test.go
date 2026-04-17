@@ -224,3 +224,142 @@ func TestWideLogParamsDefault(t *testing.T) {
 		t.Errorf("len(intercepts) = %d, want %d", len(intercepts), K2LogIntervals)
 	}
 }
+
+// splitFPShares converts a vector of real values to Ring63 FP and returns
+// an additive split between two parties.
+func splitFPShares(ring Ring63, values []float64) (x0, x1 []uint64) {
+	n := len(values)
+	x0 = make([]uint64, n)
+	x1 = make([]uint64, n)
+	for i, v := range values {
+		fp := ring.FromDouble(v)
+		s0, s1 := ring.SplitShare(fp)
+		x0[i] = s0
+		x1[i] = s1
+	}
+	return
+}
+
+// reconstructFromShares sums per-party shares into float64 outputs.
+func reconstructFromShares(ring Ring63, y0, y1 []uint64) []float64 {
+	n := len(y0)
+	out := make([]float64, n)
+	for i := 0; i < n; i++ {
+		out[i] = ring.ToDouble(ring.Add(y0[i], y1[i]))
+	}
+	return out
+}
+
+// TestWideSplineReciprocal_EndToEnd exercises the full MPC evaluation of
+// 1/x on secret shares (not just the piecewise-linear parameter layer).
+// It samples in-domain values, splits them into shares, runs the Go
+// protocol end-to-end, and reconstructs the output to verify the MPC
+// pipeline matches the pure-function reference up to Ring63 truncation
+// and piecewise-linear approximation error.
+func TestWideSplineReciprocal_EndToEnd(t *testing.T) {
+	ring := NewRing63(K2DefaultFracBits)
+	numIntervals := 50
+	lower := 0.5
+	upper := 5.0
+
+	// Evenly-spaced in-domain test points, avoiding exact interval boundaries
+	n := 20
+	truth := make([]float64, n)
+	for i := 0; i < n; i++ {
+		t := lower + (upper-lower)*float64(i)+0.5/float64(n)
+		if t >= upper {
+			t = upper - 1e-6
+		}
+		truth[i] = t
+	}
+
+	x0, x1 := splitFPShares(ring, truth)
+	mu0, mu1 := WideSplineReciprocal(ring, x0, x1, numIntervals, lower, upper)
+
+	got := reconstructFromShares(ring, mu0, mu1)
+	maxRelErr := 0.0
+	worstX := 0.0
+	for i, tv := range truth {
+		exact := 1.0 / tv
+		relErr := math.Abs(got[i]-exact) / math.Abs(exact)
+		if relErr > maxRelErr {
+			maxRelErr = relErr
+			worstX = tv
+		}
+	}
+	t.Logf("WideSplineReciprocal end-to-end on [%.2f, %.2f] with %d intervals, n=%d: max rel err=%.4f%% at x=%.3f",
+		lower, upper, numIntervals, n, maxRelErr*100, worstX)
+	if maxRelErr > 0.02 {
+		t.Errorf("end-to-end reciprocal max rel err %.4f%% exceeds 2%% tolerance",
+			maxRelErr*100)
+	}
+}
+
+// TestWideSplineLog_EndToEnd exercises the full MPC evaluation of log(x)
+// on secret shares, mirroring the reciprocal test above.
+func TestWideSplineLog_EndToEnd(t *testing.T) {
+	ring := NewRing63(K2DefaultFracBits)
+	numIntervals := 50
+	lower := 0.5
+	upper := 5.0
+
+	n := 20
+	truth := make([]float64, n)
+	for i := 0; i < n; i++ {
+		t := lower + (upper-lower)*float64(i)+0.5/float64(n)
+		if t >= upper {
+			t = upper - 1e-6
+		}
+		truth[i] = t
+	}
+
+	x0, x1 := splitFPShares(ring, truth)
+	y0, y1 := WideSplineLog(ring, x0, x1, numIntervals, lower, upper)
+
+	got := reconstructFromShares(ring, y0, y1)
+	maxAbsErr := 0.0
+	worstX := 0.0
+	for i, tv := range truth {
+		exact := math.Log(tv)
+		absErr := math.Abs(got[i] - exact)
+		if absErr > maxAbsErr {
+			maxAbsErr = absErr
+			worstX = tv
+		}
+	}
+	t.Logf("WideSplineLog end-to-end on [%.2f, %.2f] with %d intervals, n=%d: max abs err=%.6f at x=%.3f",
+		lower, upper, numIntervals, n, maxAbsErr, worstX)
+	if maxAbsErr > 0.02 {
+		t.Errorf("end-to-end log max abs err %.6f exceeds 0.02 tolerance",
+			maxAbsErr)
+	}
+}
+
+// TestWideSplineReciprocal_Clamps verifies that values outside the domain
+// are clamped to 1/lower and 1/upper rather than extrapolating the
+// piecewise-linear fit unbounded.
+func TestWideSplineReciprocal_Clamps(t *testing.T) {
+	ring := NewRing63(K2DefaultFracBits)
+	lower := 0.5
+	upper := 5.0
+	truth := []float64{0.1, 0.2, 10.0, 20.0}  // 2 below, 2 above
+	x0, x1 := splitFPShares(ring, truth)
+	mu0, mu1 := WideSplineReciprocal(ring, x0, x1, 50, lower, upper)
+	got := reconstructFromShares(ring, mu0, mu1)
+
+	// Below clamp -> 1/lower = 2.0
+	// Above clamp -> 1/upper = 0.2
+	for i, tv := range truth {
+		var expected float64
+		if tv < lower {
+			expected = 1.0 / lower
+		} else if tv > upper {
+			expected = 1.0 / upper
+		} else {
+			expected = 1.0 / tv
+		}
+		if math.Abs(got[i]-expected) > 0.05 {
+			t.Errorf("x=%.2f: got %.4f, expected ~%.4f (clamp)", tv, got[i], expected)
+		}
+	}
+}

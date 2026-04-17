@@ -419,6 +419,60 @@ func TestGoldschmidtReciprocalStep(t *testing.T) {
 	}
 }
 
+// TestNewtonLogStep_DocumentsTradeoff records an important finding:
+// Newton refinement for log is NOT beneficial in practice at current
+// default precisions. The theoretical quadratic convergence is
+// bottlenecked by the accuracy of the internal WideSplineExp call
+// (~3.5e-3 relative error at default K2ExpIntervals=100), which
+// dominates the (2.65e-4)^2 = 7e-8 quadratic term. Net: refined log
+// is WORSE than piecewise-linear log alone.
+//
+// Conclusion: keep WideSplineLog (log-spaced, no Newton) as the
+// canonical log primitive. Newton-for-log would require a far more
+// accurate (log-spaced or >500-interval) WideSplineExp, which is not
+// worth the extra Beaver rounds given log is already 7x better than
+// the sigmoid baseline without refinement.
+//
+// This test is informational (t.Logf, no assertions) so future
+// experiments with a higher-precision exp can be measured against
+// the recorded baseline.
+func TestNewtonLogStep_DocumentsTradeoff(t *testing.T) {
+	ring := NewRing63(K2DefaultFracBits)
+	numIntervals := 50
+	lower := 0.5
+	upper := 5.0
+
+	n := 25
+	truth := make([]float64, n)
+	for i := 0; i < n; i++ {
+		logL := math.Log(lower)
+		logU := math.Log(upper)
+		truth[i] = math.Exp(logL + (logU-logL)*float64(i)/float64(n-1))
+	}
+	x0, x1 := splitFPShares(ring, truth)
+
+	y0, y1 := WideSplineLog(ring, x0, x1, numIntervals, lower, upper)
+	baseline := reconstructFromShares(ring, y0, y1)
+
+	yR0, yR1 := WideSplineLogRefined(ring, x0, x1, numIntervals, lower, upper, 1, K2ExpIntervals)
+	refined := reconstructFromShares(ring, yR0, yR1)
+
+	maxBase, maxRef := 0.0, 0.0
+	for i, tv := range truth {
+		exact := math.Log(tv)
+		errBase := math.Abs(baseline[i] - exact)
+		errRef := math.Abs(refined[i] - exact)
+		if errBase > maxBase {
+			maxBase = errBase
+		}
+		if errRef > maxRef {
+			maxRef = errRef
+		}
+	}
+	t.Logf("log baseline max abs err=%.6f, with 1 Newton step=%.6g -- Newton worsens because WideSplineExp's ~3.5e-3 error floor dominates the (baseline)^2 theoretical convergence",
+		maxBase, maxRef)
+}
+
 // TestWideSplineReciprocal_Clamps verifies clamping behaviour.
 func TestWideSplineReciprocal_Clamps(t *testing.T) {
 	ring := NewRing63(K2DefaultFracBits)

@@ -331,6 +331,66 @@ func WideSplineLog(ring Ring63, x0, x1 []uint64, numIntervals int, lower, upper 
 	return
 }
 
+// NewtonLogStep applies one Newton--Raphson refinement
+// y_new = y + x * exp(-y) - 1  on secret shares to tighten an
+// approximate y ≈ log(x). Uses f(y) = exp(y) - x and f'(y) = exp(y),
+// so Newton step y - f/f' = y - 1 + x * exp(-y). Quadratic
+// convergence: initial relative error eps -> new absolute error
+// approximately eps^2 in the log output.
+//
+// Domain constraint: requires -y to fit in the default WideSplineExp
+// domain [-3, 8], i.e., log(upper) <= 3 AND log(lower) >= -8 for the
+// calling log spline, equivalently upper <= e^3 ~ 20 and
+// lower >= e^{-8} ~ 3.4e-4. Narrow log domains used by multinomial /
+// LMM / NB deviance satisfy this; wider domains would need a
+// parameterised exp (future work).
+//
+// Cost: 1 WideSplineExp evaluation (3 Beaver rounds internally) + 1
+// Beaver Hadamard for x * exp(-y) = 4 total Beaver rounds per step.
+// More expensive than Goldschmidt for 1/x (2 rounds) but gives the
+// same quadratic convergence on log.
+func NewtonLogStep(ring Ring63, x0, x1, y0, y1 []uint64, expNumIntervals int) (yNew0, yNew1 []uint64) {
+	n := len(x0)
+	// Negate y (linear on shares)
+	negY0 := make([]uint64, n)
+	negY1 := make([]uint64, n)
+	for i := 0; i < n; i++ {
+		negY0[i] = ring.Sub(0, y0[i])
+		negY1[i] = ring.Sub(0, y1[i])
+	}
+	// exp(-y) via WideSplineExp (domain [-3, 8])
+	expNegY0, expNegY1 := WideSplineExp(ring, negY0, negY1, expNumIntervals)
+	// x * exp(-y) via Beaver Hadamard
+	btT0, btT1 := SampleBeaverTripleVector(n, ring)
+	stT0, msgT0 := GenerateBatchedMultiplicationGateMessage(x0, expNegY0, btT0, ring)
+	stT1, msgT1 := GenerateBatchedMultiplicationGateMessage(x1, expNegY1, btT1, ring)
+	t0, t1 := StochasticHadamardProduct(stT0, btT0, msgT1, stT1, btT1, msgT0, ring.FracBits, ring)
+	// y_new = y + (t - 1). Only party 0 subtracts the constant 1 FP.
+	oneFP := ring.FromDouble(1.0)
+	yNew0 = make([]uint64, n)
+	yNew1 = make([]uint64, n)
+	for i := 0; i < n; i++ {
+		yNew0[i] = ring.Sub(ring.Add(y0[i], t0[i]), oneFP)
+		yNew1[i] = ring.Add(y1[i], t1[i])
+	}
+	return
+}
+
+// WideSplineLogRefined is WideSplineLog followed by refinementSteps
+// applications of NewtonLogStep on the spline output. See
+// NewtonLogStep for the domain constraint (narrow log domain required
+// for the built-in exp to cover -y).
+func WideSplineLogRefined(ring Ring63, x0, x1 []uint64, numIntervals int, lower, upper float64, refinementSteps int, expNumIntervals int) (y0, y1 []uint64) {
+	y0, y1 = WideSplineLog(ring, x0, x1, numIntervals, lower, upper)
+	if expNumIntervals <= 0 {
+		expNumIntervals = K2ExpIntervals
+	}
+	for step := 0; step < refinementSteps; step++ {
+		y0, y1 = NewtonLogStep(ring, x0, x1, y0, y1, expNumIntervals)
+	}
+	return
+}
+
 // GoldschmidtReciprocalStep applies one Newton--Raphson refinement
 // y_new = y * (2 - x * y) on secret shares to tighten an approximate
 // reciprocal. Given an initial approximation with relative error eps,

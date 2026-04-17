@@ -73,6 +73,10 @@ func main() {
 		handleK2FPSub()
 	case "k2-fp-vec-mul":
 		handleK2FPVecMul()
+	case "k2-fp-cumsum":
+		handleK2FPCumsum()
+	case "k2-fp-permute-share":
+		handleK2FPPermuteShare()
 	case "k2-fp-sum":
 		handleK2FPSum()
 	case "k2-fp-permute":

@@ -85,6 +85,143 @@ func handleK2FPVecMul() {
 }
 
 // ============================================================================
+// Command: k2-fp-cumsum
+// Cumulative sum of a Ring63 FP vector (forward or reverse). LOCAL on
+// shares, no communication. Correctness under additive sharing:
+//   Given shares a_A + a_B = a (element-wise), both parties compute
+//   their local cumsum. Summed: cumsum(a_A) + cumsum(a_B) = cumsum(a),
+//   because cumsum distributes over addition.
+//
+// Used as the kernel for Cox partial-likelihood gradient reverse-cumsum:
+//     S(t_i) = sum_{k: t_k >= t_i} exp(eta_k)
+// With patients pre-sorted in ascending time order, S(t_i) is the
+// REVERSE cumulative sum of exp(eta) at position i. The forward
+// cumulative sum is used for the G_j accumulator in the reformulated
+// Cox gradient.
+//
+// Optional mask input: if provided, each element is multiplied by its
+// mask bit before accumulation, so the caller can restrict the sum to
+// events (delta_i == 1) in-place without a separate Beaver step.
+// Because the mask is a plaintext vector known on each party (usually
+// derived from event indicators held by the outcome server and shared
+// to peer via the usual transport), the element-wise pre-multiply is a
+// TruncMulSigned LOCAL operation per party.
+// ============================================================================
+
+type K2FPCumsumInput struct {
+	A        string `json:"a"`        // base64 FP input vector (share)
+	Mask     string `json:"mask"`     // optional base64 FP mask (plaintext)
+	Reverse  bool   `json:"reverse"`  // true = right-to-left cumulative sum
+	N        int    `json:"n"`
+	FracBits int    `json:"frac_bits"`
+}
+
+type K2FPCumsumOutput struct {
+	Result string `json:"result"` // base64 FP cumulative-sum vector (share)
+}
+
+func handleK2FPCumsum() {
+	var input K2FPCumsumInput
+	mpcReadInput(&input)
+	if input.FracBits <= 0 {
+		input.FracBits = K2DefaultFracBits
+	}
+	r := NewRing63(input.FracBits)
+	a := fpToRing63(bytesToFPVec(base64ToBytes(input.A)))
+	n := len(a)
+	if input.N > 0 && input.N != n {
+		outputError("k2-fp-cumsum: length mismatch")
+		return
+	}
+
+	// Apply optional mask (element-wise TruncMulSigned)
+	if input.Mask != "" {
+		mask := fpToRing63(bytesToFPVec(base64ToBytes(input.Mask)))
+		if len(mask) != n {
+			outputError("k2-fp-cumsum: mask length mismatch")
+			return
+		}
+		for i := 0; i < n; i++ {
+			a[i] = r.TruncMulSigned(a[i], mask[i])
+		}
+	}
+
+	out := make([]uint64, n)
+	if input.Reverse {
+		acc := uint64(0)
+		for i := n - 1; i >= 0; i-- {
+			acc = r.Add(acc, a[i])
+			out[i] = acc
+		}
+	} else {
+		acc := uint64(0)
+		for i := 0; i < n; i++ {
+			acc = r.Add(acc, a[i])
+			out[i] = acc
+		}
+	}
+
+	mpcWriteOutput(K2FPCumsumOutput{
+		Result: bytesToBase64(fpVecToBytes(ring63ToFP(out))),
+	})
+}
+
+// ============================================================================
+// Command: k2-fp-permute
+// Apply a public permutation to an FP vector share. LOCAL op: each
+// party independently reorders its share, and the sum of shares after
+// reordering equals the reordered sum.
+// ============================================================================
+
+type K2FPPermuteShareInput struct {
+	A    string `json:"a"`    // base64 FP input vector
+	Perm []int  `json:"perm"` // 1-indexed permutation (R convention) or 0-indexed
+	N    int    `json:"n"`
+	FracBits int `json:"frac_bits"`
+}
+
+type K2FPPermuteShareOutput struct {
+	Result string `json:"result"`
+}
+
+func handleK2FPPermuteShare() {
+	var input K2FPPermuteShareInput
+	mpcReadInput(&input)
+	if input.FracBits <= 0 {
+		input.FracBits = K2DefaultFracBits
+	}
+	a := fpToRing63(bytesToFPVec(base64ToBytes(input.A)))
+	n := len(a)
+	if len(input.Perm) != n {
+		outputError("k2-fp-permute-share: permutation length mismatch")
+		return
+	}
+	// Detect 1-indexed (R) vs 0-indexed and normalise to 0.
+	maxIdx := 0
+	for _, p := range input.Perm {
+		if p > maxIdx {
+			maxIdx = p
+		}
+	}
+	base := 0
+	if maxIdx == n {
+		base = 1
+	}
+	out := make([]uint64, n)
+	for i := 0; i < n; i++ {
+		src := input.Perm[i] - base
+		if src < 0 || src >= n {
+			outputError("k2-fp-permute-share: index out of range")
+			return
+		}
+		out[i] = a[src]
+	}
+	mpcWriteOutput(K2FPPermuteShareOutput{
+		Result: bytesToBase64(fpVecToBytes(ring63ToFP(out))),
+	})
+}
+
+// ============================================================================
 // Command: k2-fp-sub
 // Element-wise Ring63 subtraction: result = a - b.
 // Used for computing residual = mu_share - y_share for deviance.

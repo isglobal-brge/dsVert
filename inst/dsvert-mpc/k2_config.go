@@ -26,4 +26,18 @@ const (
 	// 100 intervals (width=0.11) gives max relative error 0.15% and MPC error 3.55e-3.
 	K2ExpIntervals = 100
 
+	// K2ReciprocalIntervals is the number of piecewise-linear spline intervals
+	// for the 1/x reciprocal function. Used as a primitive for Cox 1/S(t_i),
+	// mixed-effects variance ratios, and IPW weights 1/p_hat.
+	// On the default domain [K2ReciprocalLower, K2ReciprocalUpper] uniform
+	// intervals are used; for extreme lower/upper ratios callers should override
+	// via WideReciprocalParamsWithRange.
+	K2ReciprocalIntervals = 100
+
+	// K2ReciprocalLower is the default lower bound of the 1/x spline domain.
+	// Must be strictly positive (> 0) to avoid the pole at x = 0.
+	K2ReciprocalLower = 0.01
+
+	// K2ReciprocalUpper is the default upper bound of the 1/x spline domain.
+	K2ReciprocalUpper = 10.0
 )

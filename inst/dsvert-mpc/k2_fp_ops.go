@@ -36,6 +36,55 @@ func handleK2FPAdd() {
 }
 
 // ============================================================================
+// Command: k2-fp-vec-mul
+// Element-wise Ring63 FP multiplication with truncation:
+//   result[i] = (a[i] * b[i]) >> fracBits   (signed, mod 2^63).
+//
+// This is LOCAL (no communication): it is intended for the case where
+// one operand is a secret share held by this party and the other is a
+// public or server-to-server-broadcast plaintext vector known to this
+// party -- e.g., element-wise scaling of a residual share by a
+// per-patient weights vector in weighted GLM / IPW.
+//
+// Correctness of additive sharing under per-element scaling:
+//   Given shares r_A + r_B = r, both parties locally compute
+//   r'_A[i] = r_A[i] * w[i] and r'_B[i] = r_B[i] * w[i].
+//   Then r'_A + r'_B = w * r element-wise. No Beaver round required.
+// ============================================================================
+
+type K2FPVecMulInput struct {
+	A        string `json:"a"`         // base64 FP
+	B        string `json:"b"`         // base64 FP
+	FracBits int    `json:"frac_bits"`
+}
+
+type K2FPVecMulOutput struct {
+	Result string `json:"result"` // base64 FP
+}
+
+func handleK2FPVecMul() {
+	var input K2FPVecMulInput
+	mpcReadInput(&input)
+	if input.FracBits <= 0 {
+		input.FracBits = K2DefaultFracBits
+	}
+	r := NewRing63(input.FracBits)
+	a := fpToRing63(bytesToFPVec(base64ToBytes(input.A)))
+	b := fpToRing63(bytesToFPVec(base64ToBytes(input.B)))
+	if len(a) != len(b) {
+		outputError("k2-fp-vec-mul: length mismatch")
+		return
+	}
+	result := make([]uint64, len(a))
+	for i := range a {
+		result[i] = r.TruncMulSigned(a[i], b[i])
+	}
+	mpcWriteOutput(K2FPVecMulOutput{
+		Result: bytesToBase64(fpVecToBytes(ring63ToFP(result))),
+	})
+}
+
+// ============================================================================
 // Command: k2-fp-sub
 // Element-wise Ring63 subtraction: result = a - b.
 // Used for computing residual = mu_share - y_share for deviance.

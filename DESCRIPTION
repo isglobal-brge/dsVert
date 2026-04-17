@@ -55,6 +55,7 @@ AggregateMethods:
     dsvertIdentityPkDS,
     dsvertHistogramDS,
     dsvertLocalMomentsDS,
+    dsvertContingencyDS,
     getObsCountDS,
     glmRing63TransportInitDS,
     glmRing63GenDcfKeysDS,

@@ -1,5 +1,6 @@
 # Core
 export(dsvertColNamesDS)
+export(dsvertContingencyDS)
 export(dsvertHistogramDS)
 export(dsvertIdentityPkDS)
 export(dsvertLocalMomentsDS)

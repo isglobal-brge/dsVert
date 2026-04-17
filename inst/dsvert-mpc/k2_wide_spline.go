@@ -35,6 +35,51 @@ func computeWideSpline(f func(float64) float64, numIntervals int, lower, upper f
 	return
 }
 
+// computeWideSplineLogSpaced computes a piecewise linear approximation of
+// f over [lower, upper] with numIntervals geometrically-spaced intervals.
+// Requires lower > 0. Returns slopes, intercepts, AND the explicit
+// threshold breakpoints (length numIntervals+1) so callers can drive the
+// DCF sub-interval comparisons with non-uniform thresholds.
+//
+// Why log spacing: for functions whose derivative grows like x^{-k} near
+// zero (such as 1/x with k=2 and log(x) with k=1), uniform spacing makes
+// the linear-approximation error near x -> 0 diverge, so the headline
+// relative or absolute error is dominated by one or two small-x buckets.
+// Log spacing matches the function's natural scale:
+//
+//   - For f(x) = 1/x: relative error is uniformly (r-1)^2/4 across the
+//     whole domain, where r = (upper/lower)^(1/K).
+//   - For f(x) = log(x): absolute error is uniformly (r-1)^2/8.
+//
+// In both cases K = ceil(log(upper/lower) / log(r)) intervals suffice to
+// reach a prescribed error bound, independent of the absolute location.
+// With r = 1.063 (K ~= 113 on a 1000x domain) we hit ~0.1% relative error
+// for 1/x -- matching the sigmoid primitive baseline -- whereas uniform
+// spacing on the same domain gave 100%+ error near x -> 0.
+func computeWideSplineLogSpaced(f func(float64) float64, numIntervals int, lower, upper float64) (slopes, intercepts, thresholds []float64) {
+	thresholds = make([]float64, numIntervals+1)
+	logL := math.Log(lower)
+	logU := math.Log(upper)
+	for j := 0; j <= numIntervals; j++ {
+		thresholds[j] = math.Exp(logL + (logU-logL)*float64(j)/float64(numIntervals))
+	}
+	// Pin the endpoints exactly to avoid floating-point drift at the clamps.
+	thresholds[0] = lower
+	thresholds[numIntervals] = upper
+
+	slopes = make([]float64, numIntervals)
+	intercepts = make([]float64, numIntervals)
+	for j := 0; j < numIntervals; j++ {
+		left := thresholds[j]
+		right := thresholds[j+1]
+		fLeft := f(left)
+		fRight := f(right)
+		slopes[j] = (fRight - fLeft) / (right - left)
+		intercepts[j] = fLeft - slopes[j]*left
+	}
+	return
+}
+
 // WideSigmoidParams returns the piecewise linear spline parameters for sigmoid
 // on [-5, 5) with numIntervals intervals.
 func WideSigmoidParams(numIntervals int) (slopes, intercepts []float64, halfRange float64) {
@@ -64,59 +109,64 @@ func WideSoftplusParams(numIntervals int) (slopes, intercepts []float64, halfRan
 	return
 }
 
-// WideReciprocalParams returns piecewise-linear spline parameters for 1/x on
-// [K2ReciprocalLower, K2ReciprocalUpper] with numIntervals uniform intervals.
-// Used as the primitive for Cox 1/S(t_i) in the reverse-cumsum gradient
-// reformulation, mixed-effects variance ratios, IPW weights 1/p_hat, and
-// multinomial softmax normalisation via log-sum-exp.
+// WideReciprocalParams returns piecewise-linear spline parameters for 1/x
+// on [K2ReciprocalLower, K2ReciprocalUpper] with numIntervals LOG-SPACED
+// intervals. Used as the primitive for Cox 1/S(t_i) in the reverse-cumsum
+// gradient reformulation, mixed-effects variance ratios, IPW weights
+// 1/p_hat, and multinomial softmax normalisation.
 //
-// The domain bound K2ReciprocalLower MUST be strictly positive (> 0) because
-// 1/x has a pole at 0. Uniform spacing is used; for very wide ratios
-// (upper/lower >> 100) callers should prefer WideReciprocalParamsWithRange
-// with a narrower domain to preserve accuracy near the small-x end.
-func WideReciprocalParams(numIntervals int) (slopes, intercepts []float64, lower, upper float64) {
+// The domain bound K2ReciprocalLower MUST be strictly positive (> 0)
+// because 1/x has a pole at 0. Log spacing gives uniform relative error
+// (r-1)^2/4 across the whole domain where r = (upper/lower)^(1/numIntervals),
+// eliminating the near-pole blow-up of uniform spacing. Returns slopes,
+// intercepts, and the explicit threshold breakpoints (length numIntervals+1)
+// consumed by the MPC evaluator's sub-interval DCF comparisons.
+func WideReciprocalParams(numIntervals int) (slopes, intercepts, thresholds []float64, lower, upper float64) {
 	lower = K2ReciprocalLower
 	upper = K2ReciprocalUpper
-	slopes, intercepts = WideReciprocalParamsWithRange(numIntervals, lower, upper)
+	slopes, intercepts, thresholds = WideReciprocalParamsWithRange(numIntervals, lower, upper)
 	return
 }
 
 // WideReciprocalParamsWithRange is the caller-parameterised variant of
 // WideReciprocalParams with explicit domain bounds. Useful when the caller
-// has prior knowledge of the expected range of 1/x inputs (e.g., Cox S(t_i)
-// is bounded by the sum of exp(eta) over the risk set, which depends on n
-// and the coefficient scale).
-func WideReciprocalParamsWithRange(numIntervals int, lower, upper float64) (slopes, intercepts []float64) {
+// has prior knowledge of the expected range of 1/x inputs (e.g., Cox
+// S(t_i) is bounded by the sum of exp(eta) over the risk set, which
+// depends on n and the coefficient scale). Uses log-spaced intervals
+// unconditionally.
+func WideReciprocalParamsWithRange(numIntervals int, lower, upper float64) (slopes, intercepts, thresholds []float64) {
 	recip := func(x float64) float64 { return 1.0 / x }
-	slopes, intercepts = computeWideSpline(recip, numIntervals, lower, upper)
+	slopes, intercepts, thresholds = computeWideSplineLogSpaced(recip, numIntervals, lower, upper)
 	return
 }
 
 // WideLogParams returns piecewise-linear spline parameters for log(x) on
-// [K2LogLower, K2LogUpper] with numIntervals uniform intervals. Used as the
-// primitive for:
+// [K2LogLower, K2LogUpper] with numIntervals LOG-SPACED intervals. Used
+// as the primitive for:
 //   - negative binomial canonical deviance: D involves log(μ_i + θ^{-1})
 //   - mixed-effects log-determinant: log|V_i| in the REML / ML objective
 //   - Cox log S(t_i): the partial log-likelihood term
 //   - multinomial log-sum-exp: log(Σ e^{η_k}) for softmax normalisation
 //
 // The lower bound MUST be strictly positive because log has a singularity
-// at 0. Uniform spacing is used; log(x) is "tamer" than 1/x so uniform
-// spacing is acceptable on moderate domains (up to ~10^4 ratio) though a
-// log-spaced variant may still improve accuracy near the small-x end.
-func WideLogParams(numIntervals int) (slopes, intercepts []float64, lower, upper float64) {
+// at 0. Log spacing gives uniform absolute error (r-1)^2/8 across the
+// whole domain where r = (upper/lower)^(1/numIntervals), eliminating the
+// small-x blow-up of uniform spacing. Returns slopes, intercepts, and
+// the explicit threshold breakpoints (length numIntervals+1) consumed by
+// the MPC evaluator's sub-interval DCF comparisons.
+func WideLogParams(numIntervals int) (slopes, intercepts, thresholds []float64, lower, upper float64) {
 	lower = K2LogLower
 	upper = K2LogUpper
-	slopes, intercepts = WideLogParamsWithRange(numIntervals, lower, upper)
+	slopes, intercepts, thresholds = WideLogParamsWithRange(numIntervals, lower, upper)
 	return
 }
 
 // WideLogParamsWithRange is the caller-parameterised variant of
-// WideLogParams. Prefer narrow domains (lower/upper ratio ≤ 100) where
-// uniform spacing gives sub-percent accuracy; widen only when the caller
-// has no control over the input distribution.
-func WideLogParamsWithRange(numIntervals int, lower, upper float64) (slopes, intercepts []float64) {
-	slopes, intercepts = computeWideSpline(math.Log, numIntervals, lower, upper)
+// WideLogParams. Uses log-spaced intervals unconditionally; for narrow
+// domains log spacing degenerates to near-uniform and still gives
+// sub-percent accuracy matching the sigmoid primitive baseline.
+func WideLogParamsWithRange(numIntervals int, lower, upper float64) (slopes, intercepts, thresholds []float64) {
+	slopes, intercepts, thresholds = computeWideSplineLogSpaced(math.Log, numIntervals, lower, upper)
 	return
 }
 
@@ -139,8 +189,7 @@ func WideLogParamsWithRange(numIntervals int, lower, upper float64) (slopes, int
 //   - Addition: y = I_low*log(lower) + I_high*log(upper) + I_mid * spline
 func WideSplineLog(ring Ring63, x0, x1 []uint64, numIntervals int, lower, upper float64) (y0, y1 []uint64) {
 	n := len(x0)
-	slopes, intercepts := WideLogParamsWithRange(numIntervals, lower, upper)
-	width := (upper - lower) / float64(numIntervals)
+	slopes, intercepts, thresholds := WideLogParamsWithRange(numIntervals, lower, upper)
 
 	// Finite clamp values: log is negative on (0, 1) and positive on (1, ∞)
 	clampLowVal := math.Log(lower)  // e.g., log(0.01) = -4.605
@@ -200,13 +249,15 @@ func WideSplineLog(ring Ring63, x0, x1 []uint64, numIntervals int, lower, upper 
 	highVal0 := ScalarVectorProductPartyZero(clampHighVal, iHighFP0, ring)
 	highVal1 := ScalarVectorProductPartyOne(clampHighVal, iHighFP1, ring)
 
-	// Sub-interval comparisons within [lower, upper)
+	// Sub-interval comparisons within [lower, upper) using log-spaced
+	// thresholds from computeWideSplineLogSpaced. thresholds[0] = lower and
+	// thresholds[numIntervals] = upper are already handled by the broad
+	// comparisons above, so the sub-interval cuts consume thresholds[1..K-1].
 	numCmp := numIntervals - 1
 	subCmp0 := make([]CmpArithResult, numCmp)
 	subCmp1 := make([]CmpArithResult, numCmp)
 	for j := 0; j < numCmp; j++ {
-		thresh := lower + float64(j+1)*width
-		threshFP := ring.FromDouble(thresh)
+		threshFP := ring.FromDouble(thresholds[j+1])
 		p0Pre, p1Pre := cmpGeneratePreprocess(ring, n, threshFP)
 		p0R1 := cmpRound1(ring, 0, x0, p0Pre)
 		p1R1 := cmpRound1(ring, 1, x1, p1Pre)
@@ -300,8 +351,7 @@ func WideSplineLog(ring Ring63, x0, x1 []uint64, numIntervals int, lower, upper 
 //   - Addition: mu = I_low*clampLow + I_high*clampHigh + I_mid * spline
 func WideSplineReciprocal(ring Ring63, x0, x1 []uint64, numIntervals int, lower, upper float64) (mu0, mu1 []uint64) {
 	n := len(x0)
-	slopes, intercepts := WideReciprocalParamsWithRange(numIntervals, lower, upper)
-	width := (upper - lower) / float64(numIntervals)
+	slopes, intercepts, thresholds := WideReciprocalParamsWithRange(numIntervals, lower, upper)
 
 	// Saturation values: reciprocal has LARGE low-clamp, small high-clamp
 	clampLowVal := 1.0 / lower  // e.g., 1/0.01 = 100
@@ -371,12 +421,14 @@ func WideSplineReciprocal(ring Ring63, x0, x1 []uint64, numIntervals int, lower,
 	highVal1 := ScalarVectorProductPartyOne(clampHighVal, iHighFP1, ring)
 
 	// === Sub-interval comparisons within [lower, upper) ===
+	// Thresholds come from computeWideSplineLogSpaced so the DCF cut
+	// points are geometrically spaced; this yields uniform RELATIVE error
+	// across the whole domain for 1/x (see computeWideSplineLogSpaced doc).
 	numCmp := numIntervals - 1
 	subCmp0 := make([]CmpArithResult, numCmp)
 	subCmp1 := make([]CmpArithResult, numCmp)
 	for j := 0; j < numCmp; j++ {
-		thresh := lower + float64(j+1)*width
-		threshFP := ring.FromDouble(thresh)
+		threshFP := ring.FromDouble(thresholds[j+1])
 		p0Pre, p1Pre := cmpGeneratePreprocess(ring, n, threshFP)
 		p0R1 := cmpRound1(ring, 0, x0, p0Pre)
 		p1R1 := cmpRound1(ring, 1, x1, p1Pre)

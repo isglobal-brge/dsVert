@@ -40,4 +40,21 @@ const (
 
 	// K2ReciprocalUpper is the default upper bound of the 1/x spline domain.
 	K2ReciprocalUpper = 10.0
+
+	// K2LogIntervals is the number of piecewise-linear spline intervals for
+	// the log(x) function. log(x) grows slowly so uniform spacing works well
+	// over moderate domains; future log-spaced variant will cover extreme
+	// ranges needed by Cox log S(t_i) when the risk-set sum spans many
+	// orders of magnitude.
+	K2LogIntervals = 200
+
+	// K2LogLower is the default lower bound of the log(x) spline domain.
+	// Must be strictly positive.
+	K2LogLower = 0.01
+
+	// K2LogUpper is the default upper bound of the log(x) spline domain.
+	// The default [0.01, 100] covers four orders of magnitude: enough for
+	// negative binomial deviance terms (μ + θ^{-1} with realistic θ) and
+	// multinomial log-sum-exp over η ∈ [-5, 5] with up to K ~ 100 classes.
+	K2LogUpper = 100.0
 )

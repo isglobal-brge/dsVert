@@ -140,3 +140,87 @@ func TestWideReciprocalParamsDefault(t *testing.T) {
 		t.Errorf("len(intercepts) = %d, want %d", len(intercepts), K2ReciprocalIntervals)
 	}
 }
+
+// TestWideLogParamsNarrow tests log(x) on [0.5, 5.0] — one order of
+// magnitude, the regime where uniform intervals give tight accuracy
+// (derivative 1/x ≤ 2 across the domain). Representative of multinomial
+// log-sum-exp input ranges when η is already standardised or bounded by
+// design. Expected max abs error < 0.01 with 50 intervals.
+func TestWideLogParamsNarrow(t *testing.T) {
+	numIntervals := 50
+	lower := 0.5
+	upper := 5.0
+	slopes, intercepts := WideLogParamsWithRange(numIntervals, lower, upper)
+
+	nSamples := 500
+	maxAbsErr := 0.0
+	worstX := 0.0
+	for k := 0; k < nSamples; k++ {
+		// Log-sample the input so small-x region is represented (this is
+		// where linear approximation of log degrades).
+		logL := math.Log(lower)
+		logU := math.Log(upper)
+		x := math.Exp(logL + (logU-logL)*float64(k)/float64(nSamples-1))
+		approx := evalSpline(slopes, intercepts, x, lower, upper)
+		exact := math.Log(x)
+		absErr := math.Abs(approx - exact)
+		if absErr > maxAbsErr {
+			maxAbsErr = absErr
+			worstX = x
+		}
+	}
+	t.Logf("log narrow: %d intervals on [%.2f, %.1f], max abs err=%.6f at x=%.4f (log range ~%.2f units)",
+		numIntervals, lower, upper, maxAbsErr, worstX, math.Log(upper)-math.Log(lower))
+	if maxAbsErr > 0.01 {
+		t.Errorf("log narrow max abs err %.6f exceeds 0.01 tolerance", maxAbsErr)
+	}
+}
+
+// TestWideLogParamsMediumDocumentsLimitation exercises the 4-decade default
+// domain [0.01, 100] with 200 uniform intervals. log(x) degrades near the
+// small-x end where the derivative 1/x is large; uniform spacing amplifies
+// the error there. This test records the measured ceiling without
+// asserting, analogous to TestWideReciprocalParamsWideDocumentsLimitation.
+// Future log-spaced variant (shared implementation with 1/x) will improve
+// this.
+func TestWideLogParamsMediumDocumentsLimitation(t *testing.T) {
+	numIntervals := 200
+	lower := 0.01
+	upper := 100.0
+	slopes, intercepts := WideLogParamsWithRange(numIntervals, lower, upper)
+
+	nSamples := 1000
+	maxAbsErr := 0.0
+	worstX := 0.0
+	for k := 0; k < nSamples; k++ {
+		logL := math.Log(lower)
+		logU := math.Log(upper)
+		x := math.Exp(logL + (logU-logL)*float64(k)/float64(nSamples-1))
+		approx := evalSpline(slopes, intercepts, x, lower, upper)
+		exact := math.Log(x)
+		absErr := math.Abs(approx - exact)
+		if absErr > maxAbsErr {
+			maxAbsErr = absErr
+			worstX = x
+		}
+	}
+	t.Logf("log medium (uniform) %d intervals on [%.3f, %.1f]: max abs err=%.4f at x=%.4f over ~%.1f unit log range -- uniform spacing degrades near x->0; log-spaced variant is planned",
+		numIntervals, lower, upper, maxAbsErr, worstX, math.Log(upper)-math.Log(lower))
+}
+
+// TestWideLogParamsDefault sanity-checks the default-domain log params.
+func TestWideLogParamsDefault(t *testing.T) {
+	slopes, intercepts, lower, upper := WideLogParams(K2LogIntervals)
+	if lower != K2LogLower {
+		t.Errorf("lower = %v, want %v", lower, K2LogLower)
+	}
+	if upper != K2LogUpper {
+		t.Errorf("upper = %v, want %v", upper, K2LogUpper)
+	}
+	if len(slopes) != K2LogIntervals {
+		t.Errorf("len(slopes) = %d, want %d", len(slopes), K2LogIntervals)
+	}
+	if len(intercepts) != K2LogIntervals {
+		t.Errorf("len(intercepts) = %d, want %d", len(intercepts), K2LogIntervals)
+	}
+}

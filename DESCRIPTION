@@ -53,6 +53,8 @@ AggregateMethods:
     dsvertColNamesDS,
     dsvertNaOmitDS,
     dsvertIdentityPkDS,
+    dsvertHistogramDS,
+    dsvertLocalMomentsDS,
     getObsCountDS,
     glmRing63TransportInitDS,
     glmRing63GenDcfKeysDS,

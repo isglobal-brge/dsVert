@@ -1,6 +1,8 @@
 # Core
 export(dsvertColNamesDS)
+export(dsvertHistogramDS)
 export(dsvertIdentityPkDS)
+export(dsvertLocalMomentsDS)
 export(dsvertNaOmitDS)
 export(getObsCountDS)
 export(glmStandardizeDS)
@@ -50,3 +52,4 @@ export(psiSelfAlignDS)
 export(psiStoreTransportKeysDS)
 importFrom(stats,complete.cases)
 importFrom(stats,cor)
+importFrom(stats,sd)

@@ -72,9 +72,13 @@ k2SetWeightsDS <- function(data_name, weights_column, peer_pk,
   ss$k2_weights_column <- weights_column
 
   # Encrypt FP blob to peer. We send the base64 FP bytes; the peer will
-  # decrypt and store as its own ss$k2_weights_fp.
+  # decrypt and store as its own ss$k2_weights_fp. The peer_pk arrives
+  # in base64url format (how glmRing63TransportInitDS emits it), so
+  # convert back to standard base64 before calling the Go tool which
+  # uses standard base64 decoding.
   seal <- .callMpcTool("transport-encrypt", list(
-    data = fp_res$fp_data, recipient_pk = peer_pk))
+    data = fp_res$fp_data,
+    recipient_pk = .base64url_to_base64(peer_pk)))
 
   list(peer_blob = base64_to_base64url(seal$sealed),
        n = length(w))
@@ -99,12 +103,12 @@ k2ReceiveWeightsDS <- function(session_id = NULL) {
   if (is.null(blob)) {
     stop("No peer weights blob found for session", call. = FALSE)
   }
-  tsk <- ss$k2_transport_sk
+  tsk <- .key_get("transport_sk", ss)
   if (is.null(tsk)) {
     stop("Transport secret key missing for session", call. = FALSE)
   }
   dec <- .callMpcTool("transport-decrypt", list(
-    sealed = base64url_to_base64(blob),
+    sealed = .base64url_to_base64(blob),
     recipient_sk = tsk))
   # dec$data is the base64 FP bytes sent by the peer
   ss$k2_weights_fp <- dec$data

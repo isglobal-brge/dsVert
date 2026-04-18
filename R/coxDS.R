@@ -94,8 +94,11 @@ k2SetCoxTimesDS <- function(data_name, time_column, event_column,
   payload_json <- jsonlite::toJSON(payload, auto_unbox = TRUE)
   payload_b64 <- jsonlite::base64_enc(charToRaw(payload_json))
 
+  # peer_pk arrives base64url (how glmRing63TransportInitDS emits it);
+  # transport-encrypt expects standard base64 for recipient_pk.
   seal <- .callMpcTool("transport-encrypt", list(
-    data = payload_b64, recipient_pk = peer_pk))
+    data = payload_b64,
+    recipient_pk = .base64url_to_base64(peer_pk)))
 
   list(peer_blob = base64_to_base64url(seal$sealed),
        n = length(t_vec),
@@ -119,12 +122,12 @@ k2ReceiveCoxMetaDS <- function(session_id = NULL) {
   if (is.null(blob)) {
     stop("No Cox metadata blob in session", call. = FALSE)
   }
-  tsk <- ss$k2_transport_sk
+  tsk <- .key_get("transport_sk", ss)
   if (is.null(tsk)) {
     stop("Transport secret key missing", call. = FALSE)
   }
   dec <- .callMpcTool("transport-decrypt", list(
-    sealed = base64url_to_base64(blob),
+    sealed = .base64url_to_base64(blob),
     recipient_sk = tsk))
   payload_raw <- jsonlite::base64_dec(dec$data)
   payload <- jsonlite::fromJSON(rawToChar(payload_raw))
@@ -421,10 +424,10 @@ k2CrossOneHotCountsDS <- function(var1, var2,
          "'; client must relay dsvertOneHotDS output from peer server",
          call. = FALSE)
   }
-  tsk <- ss$k2_transport_sk
+  tsk <- .key_get("transport_sk", ss)
   if (is.null(tsk)) stop("transport secret key missing", call. = FALSE)
   dec <- .callMpcTool("transport-decrypt", list(
-    sealed = base64url_to_base64(blob),
+    sealed = .base64url_to_base64(blob),
     recipient_sk = tsk))
   payload <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
   Y_fp <- payload$Y_fp

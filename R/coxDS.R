@@ -304,6 +304,73 @@ k2CoxPrepareRecipPhaseDS <- function(session_id = NULL) {
   list(prepared = TRUE, length = ss$k2_x_n)
 }
 
+#' @title Prepare the DCF log phase for the Cox S -> logS step
+#' @description Copies \code{ss$k2_cox_S_share_fp} into
+#'   \code{ss$k2_eta_share_fp} so a subsequent 4-phase wide-spline
+#'   pass with \code{family = "log"} produces the share of \eqn{\log S(t_j)}
+#'   in \code{ss$secure_mu_share}. Used by \code{ds.vertCox}'s
+#'   post-convergence partial-log-likelihood aggregate.
+#' @param session_id GLM session id.
+#' @return list(prepared = TRUE, length).
+#' @export
+k2CoxPrepareLogSPhaseDS <- function(session_id = NULL) {
+  if (is.null(session_id) || !nzchar(session_id)) {
+    stop("session_id required", call. = FALSE)
+  }
+  ss <- .S(session_id)
+  if (is.null(ss$k2_cox_S_share_fp)) {
+    stop("k2_cox_S_share_fp not set; run k2CoxReverseCumsumSDS first",
+         call. = FALSE)
+  }
+  ss$k2_eta_share_fp <- ss$k2_cox_S_share_fp
+  list(prepared = TRUE, length = ss$k2_x_n)
+}
+
+#' @title Cox partial-log-likelihood aggregate
+#' @description Return per-party scalar shares of the two summands of
+#'   the Cox partial log-likelihood evaluated at the current
+#'   \eqn{\hat\beta}:
+#'     \eqn{T_1 = \sum_{j:\delta_j=1} \eta_j}
+#'     \eqn{T_2 = \sum_{j:\delta_j=1} \log S(t_j)}
+#'   where \code{eta} = \code{ss$k2_eta_share_fp} (cached from the last
+#'   \code{k2ComputeEtaShareDS} call at \eqn{\hat\beta}) and
+#'   \code{logS} = \code{ss$secure_mu_share} after the DCF log pass. The
+#'   client reconstructs
+#'     \eqn{\ell(\hat\beta) = (T_1^{(0)} + T_1^{(1)}) - (T_2^{(0)} + T_2^{(1)})}.
+#' @param session_id GLM session id.
+#' @return list(sum_delta_eta, sum_delta_logS).
+#' @export
+k2CoxPartialLogLikAggregateDS <- function(session_id = NULL) {
+  if (is.null(session_id) || !nzchar(session_id)) {
+    stop("session_id required", call. = FALSE)
+  }
+  ss <- .S(session_id)
+  if (is.null(ss$k2_cox_delta_fp)) {
+    stop("delta indicator missing", call. = FALSE)
+  }
+  if (is.null(ss$k2_eta_share_fp)) {
+    stop("eta share missing", call. = FALSE)
+  }
+  if (is.null(ss$secure_mu_share)) {
+    stop("log S share missing (run DCF log pass first)", call. = FALSE)
+  }
+  # Mask eta by delta and sum -> share of T_1.
+  t1 <- .callMpcTool("k2-fp-vec-mul", list(
+    a = ss$k2_eta_share_fp, b = ss$k2_cox_delta_fp, frac_bits = 20L))
+  t1_sum <- .callMpcTool("k2-fp-sum", list(fp_data = t1$result))
+  # Mask logS by delta and sum -> share of T_2.
+  t2 <- .callMpcTool("k2-fp-vec-mul", list(
+    a = ss$secure_mu_share, b = ss$k2_cox_delta_fp, frac_bits = 20L))
+  t2_sum <- .callMpcTool("k2-fp-sum", list(fp_data = t2$result))
+  # Decode the scalar FP shares (single-element vectors) into doubles.
+  t1_val <- .callMpcTool("k2-fp-to-float", list(
+    fp_data = t1_sum$sum_fp, frac_bits = 20L))$values
+  t2_val <- .callMpcTool("k2-fp-to-float", list(
+    fp_data = t2_sum$sum_fp, frac_bits = 20L))$values
+  list(sum_delta_eta = as.numeric(t1_val[1L]),
+       sum_delta_logS = as.numeric(t2_val[1L]))
+}
+
 #' @title Cox residual share (DEPRECATED - use the 4-step Beaver orchestration)
 #' @description Kept for backward compatibility. The single-call helper
 #'   has been superseded by the proper 2-round Beaver protocol

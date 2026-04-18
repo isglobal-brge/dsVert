@@ -83,6 +83,8 @@ func main() {
 		handleK2FPPermute()
 	case "k2-fp-column-concat":
 		handleK2FPColumnConcat()
+	case "k2-fp-extract-column":
+		handleK2FPExtractColumn()
 
 	// Element-wise Beaver vector multiplication (mu*G in Cox, generic 2-share product)
 	case "k2-beaver-vecmul-gen-triples":

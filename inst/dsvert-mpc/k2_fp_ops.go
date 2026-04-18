@@ -1,6 +1,8 @@
 // k2_fp_ops.go: Fixed-point arithmetic helper commands.
 package main
 
+import "fmt"
+
 // ============================================================================
 // Command: k2-fp-add
 // Element-wise Ring63 addition of two FP vectors. LOCAL, no communication.
@@ -329,6 +331,53 @@ type K2FPColumnConcatInput struct {
 
 type K2FPColumnConcatOutput struct {
 	Result string `json:"result"` // base64 FP (n × (p_a + p_b), row-major)
+}
+
+// ============================================================================
+// Command: k2-fp-extract-column
+// Extract a single column from a row-major n*K FP vector (works on
+// additively shared input because extraction is a linear operation).
+// Used by the cross-server chi-square Beaver bilinear to extract
+// individual one-hot indicator columns from the n*K one-hot matrix
+// share.
+// ============================================================================
+
+type K2FPExtractColumnInput struct {
+	FPData   string `json:"fp_data"`
+	N        int    `json:"n"`
+	K        int    `json:"k"`
+	Col      int    `json:"col"` // 0-based
+	FracBits int    `json:"frac_bits"`
+}
+
+type K2FPExtractColumnOutput struct {
+	Result string `json:"result"`
+}
+
+func handleK2FPExtractColumn() {
+	var input K2FPExtractColumnInput
+	mpcReadInput(&input)
+	if input.FracBits <= 0 {
+		input.FracBits = K2DefaultFracBits
+	}
+	if input.N <= 0 || input.K <= 0 || input.Col < 0 || input.Col >= input.K {
+		outputError("k2-fp-extract-column: bad n/k/col")
+		return
+	}
+	a := fpToRing63(bytesToFPVec(base64ToBytes(input.FPData)))
+	if len(a) != input.N*input.K {
+		outputError(fmt.Sprintf(
+			"k2-fp-extract-column: length mismatch (got %d, expected n*k=%d*%d=%d)",
+			len(a), input.N, input.K, input.N*input.K))
+		return
+	}
+	out := make([]uint64, input.N)
+	for i := 0; i < input.N; i++ {
+		out[i] = a[i*input.K+input.Col]
+	}
+	mpcWriteOutput(K2FPExtractColumnOutput{
+		Result: bytesToBase64(fpVecToBytes(ring63ToFP(out))),
+	})
 }
 
 func handleK2FPColumnConcat() {

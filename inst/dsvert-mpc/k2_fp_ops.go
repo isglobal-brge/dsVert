@@ -174,9 +174,13 @@ func handleK2FPCumsum() {
 // ============================================================================
 
 type K2FPPermuteShareInput struct {
-	A    string `json:"a"`    // base64 FP input vector
+	A    string `json:"a"`    // base64 FP input vector (flat or row-major matrix)
 	Perm []int  `json:"perm"` // 1-indexed permutation (R convention) or 0-indexed
 	N    int    `json:"n"`
+	// Cols: if >1, treat the share as a row-major n-by-cols matrix and
+	// permute whole rows (output[i*cols+j] = input[perm[i]*cols+j]).
+	// Zero or 1 means flat-vector permutation (legacy behaviour).
+	Cols     int `json:"cols"`
 	FracBits int `json:"frac_bits"`
 }
 
@@ -191,7 +195,16 @@ func handleK2FPPermuteShare() {
 		input.FracBits = K2DefaultFracBits
 	}
 	a := fpToRing63(bytesToFPVec(base64ToBytes(input.A)))
-	n := len(a)
+	cols := input.Cols
+	if cols <= 0 {
+		cols = 1
+	}
+	total := len(a)
+	if total%cols != 0 {
+		outputError("k2-fp-permute-share: vector length not divisible by cols")
+		return
+	}
+	n := total / cols
 	if len(input.Perm) != n {
 		outputError("k2-fp-permute-share: permutation length mismatch")
 		return
@@ -207,14 +220,15 @@ func handleK2FPPermuteShare() {
 	if maxIdx == n {
 		base = 1
 	}
-	out := make([]uint64, n)
+	out := make([]uint64, total)
 	for i := 0; i < n; i++ {
 		src := input.Perm[i] - base
 		if src < 0 || src >= n {
 			outputError("k2-fp-permute-share: index out of range")
 			return
 		}
-		out[i] = a[src]
+		// Copy the whole row (cols = 1 for flat vectors).
+		copy(out[i*cols:(i+1)*cols], a[src*cols:(src+1)*cols])
 	}
 	mpcWriteOutput(K2FPPermuteShareOutput{
 		Result: bytesToBase64(fpVecToBytes(ring63ToFP(out))),

@@ -155,34 +155,39 @@ k2ApplyCoxPermutationDS <- function(session_id = NULL) {
   p_own <- ss$k2_x_p
   p_peer <- ss$k2_peer_p
 
-  # The stored X share is stored row-major: we need to reorder rows
-  # according to perm. Go command k2-fp-permute-share reshapes a flat
-  # n-vector; X is n*p so we apply per-column. Easier: the existing
-  # flat stored share is actually (n * p) flattened in column-major
-  # order (column-wise rows). Let me treat conservatively by permuting
-  # each column separately via helper.
-  permute_flat <- function(flat_b64, p) {
-    # Caller unpacks into n rows of p cols and applies perm to rows.
-    if (p == 0L) return(flat_b64)
+  # X is stored row-major (see k2InputSharingDS.R:23), so permuting
+  # rows uses the cols= extension of k2-fp-permute-share: each output
+  # row i is row perm[i] of the input. Shares are permuted
+  # independently on each party; correctness follows because a public
+  # permutation commutes with additive sharing.
+  permute_rows <- function(flat_b64, p) {
+    if (is.null(flat_b64) || !nzchar(flat_b64) || p <= 0L) return(flat_b64)
     .callMpcTool("k2-fp-permute-share", list(
-      a = flat_b64, perm = as.integer(perm), n = as.integer(n * p),
+      a = flat_b64, perm = as.integer(perm),
+      n = as.integer(n), cols = as.integer(p),
       frac_bits = 20L
     ))$result
   }
-  # NB: the exact layout of k2_x_share_fp depends on the Go encoding
-  # used in k2-compute-eta-fp / k2-full-iter. For now we apply the
-  # permutation as a single flat reorder of length n, which is
-  # correct only for a length-n eta-like vector. Full row-level
-  # permutation of a matrix share requires per-row batch in Go;
-  # flagged as a Month 2 follow-on for Cox integration.
-  #
-  # We DO successfully permute the delta_fp vector (length n) here,
-  # which is enough for the gradient's second term under the reverse-
-  # cumsum reformulation that operates on n-vectors.
+  if (!is.null(ss$k2_x_share_fp) && p_own > 0L) {
+    ss$k2_x_share_fp <- permute_rows(ss$k2_x_share_fp, p_own)
+  }
+  if (!is.null(ss$k2_peer_x_share_fp) && !is.null(p_peer) && p_peer > 0L) {
+    ss$k2_peer_x_share_fp <- permute_rows(ss$k2_peer_x_share_fp, p_peer)
+  }
+  # Also permute any pre-existing eta / mu / residual shares in case
+  # the caller regenerates them without re-running the full pipeline.
+  for (nm in c("k2_eta_share_fp", "secure_mu_share",
+               "k2_y_share_fp", "k2_peer_y_share_fp",
+               "k2_weights_share_fp")) {
+    v <- ss[[nm]]
+    if (!is.null(v) && is.character(v) && nzchar(v)) {
+      ss[[nm]] <- permute_rows(v, 1L)
+    }
+  }
   ss$k2_cox_permuted <- TRUE
   list(applied = TRUE,
        perm_length = length(perm),
-       note = "X-matrix row permutation pending Go matrix helper; eta-level vectors already permute correctly via k2-fp-permute-share")
+       n = n, p_own = p_own, p_peer = p_peer)
 }
 
 #' @title Cox-gradient second-term computation using reverse/forward cumsums

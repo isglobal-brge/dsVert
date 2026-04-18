@@ -71,6 +71,58 @@ func TestFPCumsumShares(t *testing.T) {
 	}
 }
 
+// TestFPPermuteMatrixRows verifies the row-major matrix permutation
+// path used by the Cox client loop when the whole X share must be
+// reordered by ascending event time.
+func TestFPPermuteMatrixRows(t *testing.T) {
+	ring := NewRing63(K2DefaultFracBits)
+	n, cols := 5, 3
+	truth := make([][]float64, n)
+	for i := 0; i < n; i++ {
+		row := make([]float64, cols)
+		for j := 0; j < cols; j++ {
+			row[j] = float64(i*cols+j) + 0.5
+		}
+		truth[i] = row
+	}
+	// Flatten row-major and split into two shares.
+	flat := make([]float64, n*cols)
+	for i := 0; i < n; i++ {
+		copy(flat[i*cols:(i+1)*cols], truth[i])
+	}
+	a0 := make([]uint64, n*cols)
+	a1 := make([]uint64, n*cols)
+	for i, v := range flat {
+		fp := ring.FromDouble(v)
+		s0, s1 := ring.SplitShare(fp)
+		a0[i] = s0
+		a1[i] = s1
+	}
+
+	// Permutation (0-indexed) that reverses rows then rotates.
+	perm := []int{3, 0, 4, 1, 2}
+
+	permuteShareRows := func(src []uint64) []uint64 {
+		out := make([]uint64, n*cols)
+		for i := 0; i < n; i++ {
+			copy(out[i*cols:(i+1)*cols], src[perm[i]*cols:(perm[i]+1)*cols])
+		}
+		return out
+	}
+	p0 := permuteShareRows(a0)
+	p1 := permuteShareRows(a1)
+
+	for i := 0; i < n; i++ {
+		for j := 0; j < cols; j++ {
+			got := ring.ToDouble(ring.Add(p0[i*cols+j], p1[i*cols+j]))
+			want := truth[perm[i]][j]
+			if math.Abs(got-want) > 1e-5 {
+				t.Errorf("permute[%d][%d] = %f, want %f", i, j, got, want)
+			}
+		}
+	}
+}
+
 // TestFPVecMulPlaintextShare verifies element-wise FP multiplication
 // of a share by a plaintext vector preserves additive sharing:
 // (a0 + a1) * w element-wise == a0*w + a1*w, reconstructed.

@@ -92,38 +92,98 @@ dsvertImputeColumnDS <- function(data_name, impute_column,
   } else {
     yf <- as.factor(y)
     lvls <- levels(yf)
-    if (length(lvls) != 2L) {
-      stop("multinomial imputation (>2 levels) scheduled for Month 4",
-           call. = FALSE)
+    if (length(lvls) < 2L) {
+      stop("impute_column has <2 levels", call. = FALSE)
     }
-    y01 <- as.integer(yf) - 1L
     X_obs <- as.matrix(data[!miss, keep, drop = FALSE])
-    y_obs <- y01[!miss]
-    alpha <- 1
-    # IRLS Newton step for Bayesian logit posterior mode
-    beta <- rep(0, ncol(X_obs))
-    for (it in seq_len(25L)) {
-      eta <- X_obs %*% beta
-      p <- 1 / (1 + exp(-eta))
-      W <- as.numeric(p * (1 - p)); W <- pmax(W, 1e-6)
-      H <- crossprod(X_obs * W, X_obs) + alpha * diag(ncol(X_obs))
-      g <- crossprod(X_obs, y_obs - p) - alpha * beta
-      step <- tryCatch(solve(H, g), error = function(e) {
-        solve(H + 1e-6 * diag(ncol(X_obs)), g) })
-      beta <- beta + drop(step)
-      if (max(abs(step)) < 1e-6) break
-    }
-    Sigma <- tryCatch(solve(H), error = function(e) {
-      solve(H + 1e-6 * diag(ncol(X_obs))) })
-    L <- chol(Sigma + 1e-12 * diag(ncol(X_obs)))
-    beta_draw <- beta + drop(t(L) %*% stats::rnorm(ncol(X_obs)))
     X_miss <- as.matrix(data[miss, keep, drop = FALSE])
-    p_miss <- 1 / (1 + exp(-drop(X_miss %*% beta_draw)))
-    draws <- stats::rbinom(n_missing, 1L, p_miss)
-    y_out <- y
-    y_out[miss] <- lvls[draws + 1L]
-    y_out <- factor(y_out, levels = lvls)
-    method <- "bayesian_logit"
+    alpha <- 1
+    if (length(lvls) == 2L) {
+      y01 <- as.integer(yf) - 1L
+      y_obs <- y01[!miss]
+      beta <- rep(0, ncol(X_obs))
+      H <- diag(ncol(X_obs)) * alpha
+      for (it in seq_len(25L)) {
+        eta <- X_obs %*% beta
+        p <- 1 / (1 + exp(-eta))
+        W <- as.numeric(p * (1 - p)); W <- pmax(W, 1e-6)
+        H <- crossprod(X_obs * W, X_obs) + alpha * diag(ncol(X_obs))
+        g <- crossprod(X_obs, y_obs - p) - alpha * beta
+        step <- tryCatch(solve(H, g),
+          error = function(e) solve(H + 1e-6 * diag(ncol(X_obs)), g))
+        beta <- beta + drop(step)
+        if (max(abs(step)) < 1e-6) break
+      }
+      Sigma <- tryCatch(solve(H), error = function(e)
+        solve(H + 1e-6 * diag(ncol(X_obs))))
+      L <- chol(Sigma + 1e-12 * diag(ncol(X_obs)))
+      beta_draw <- beta + drop(t(L) %*% stats::rnorm(ncol(X_obs)))
+      p_miss <- 1 / (1 + exp(-drop(X_miss %*% beta_draw)))
+      draws <- stats::rbinom(n_missing, 1L, p_miss)
+      y_out <- y
+      y_out[miss] <- lvls[draws + 1L]
+      y_out <- factor(y_out, levels = lvls)
+      method <- "bayesian_logit"
+    } else {
+      # Multinomial Bayesian ridge: K-1 linear predictors vs reference
+      # (first level). IRLS-Newton on the joint softmax objective,
+      # then posterior draw per class and categorical sample.
+      K <- length(lvls)
+      y_int <- as.integer(yf)
+      y_obs <- y_int[!miss]
+      p_d <- ncol(X_obs)
+      # Flatten beta into a (p_d * (K-1)) vector; design block-diagonal.
+      beta <- matrix(0, nrow = p_d, ncol = K - 1L)
+      softmax_probs <- function(eta_mat) {
+        # eta_mat n x (K-1); prepend 0 column for reference
+        full <- cbind(0, eta_mat)
+        m <- apply(full, 1L, max)
+        e <- exp(full - m)
+        e / rowSums(e)
+      }
+      for (it in seq_len(30L)) {
+        eta <- X_obs %*% beta
+        P <- softmax_probs(eta)          # n x K probs
+        # Gradient: X^T (Y - P[, 2:K]) for each non-ref class.
+        # Build indicator matrix Y_nonref (n x (K-1)).
+        Y_nonref <- matrix(0, nrow = nrow(X_obs), ncol = K - 1L)
+        for (k in 2:K) Y_nonref[y_obs == k, k - 1L] <- 1
+        grad <- crossprod(X_obs, Y_nonref - P[, 2:K, drop = FALSE]) -
+                 alpha * beta
+        # Hessian is a (p_d(K-1)) square matrix; approximate per-class
+        # diagonal blocks using P_k(1 - P_k) weights (standard
+        # block-Newton for multinomial logistic).
+        step <- matrix(0, nrow = p_d, ncol = K - 1L)
+        for (k in 2:K) {
+          w <- as.numeric(P[, k] * (1 - P[, k])); w <- pmax(w, 1e-6)
+          Hk <- crossprod(X_obs * w, X_obs) + alpha * diag(p_d)
+          step[, k - 1L] <- solve(Hk, grad[, k - 1L])
+        }
+        beta <- beta + step
+        if (max(abs(step)) < 1e-6) break
+      }
+      # Posterior draw per class (independent across classes for the
+      # diagonal-block approximation).
+      beta_draw <- matrix(0, nrow = p_d, ncol = K - 1L)
+      for (k in 2:K) {
+        w <- as.numeric(softmax_probs(X_obs %*% beta)[, k] *
+                         (1 - softmax_probs(X_obs %*% beta)[, k]))
+        w <- pmax(w, 1e-6)
+        Hk <- crossprod(X_obs * w, X_obs) + alpha * diag(p_d)
+        Sig_k <- tryCatch(solve(Hk), error = function(e)
+          solve(Hk + 1e-6 * diag(p_d)))
+        Lk <- chol(Sig_k + 1e-12 * diag(p_d))
+        beta_draw[, k - 1L] <- beta[, k - 1L] +
+                                drop(t(Lk) %*% stats::rnorm(p_d))
+      }
+      p_miss <- softmax_probs(X_miss %*% beta_draw)  # n_miss x K
+      draws <- apply(p_miss, 1L, function(pr)
+        sample.int(K, 1L, prob = pr))
+      y_out <- y
+      y_out[miss] <- lvls[draws]
+      y_out <- factor(y_out, levels = lvls)
+      method <- "bayesian_multinomial_ridge"
+    }
   }
 
   data[[output_column]] <- y_out

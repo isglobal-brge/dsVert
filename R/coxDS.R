@@ -393,13 +393,10 @@ k2CoxPartialLogLikAggregateDS <- function(session_id = NULL) {
   t2 <- .callMpcTool("k2-fp-vec-mul", list(
     a = ss$secure_mu_share, b = ss$k2_cox_delta_fp, frac_bits = 20L))
   t2_sum <- .callMpcTool("k2-fp-sum", list(fp_data = t2$result))
-  # Decode the scalar FP shares (single-element vectors) into doubles.
-  t1_val <- .callMpcTool("k2-fp-to-float", list(
-    fp_data = t1_sum$sum_fp, frac_bits = 20L))$values
-  t2_val <- .callMpcTool("k2-fp-to-float", list(
-    fp_data = t2_sum$sum_fp, frac_bits = 20L))$values
-  list(sum_delta_eta = as.numeric(t1_val[1L]),
-       sum_delta_logS = as.numeric(t2_val[1L]))
+  # Return the raw scalar FP shares (one 8-byte base64 per party); the
+  # client aggregates the two parties' shares via k2-ring63-aggregate.
+  list(sum_delta_eta_fp = t1_sum$sum_fp,
+       sum_delta_logS_fp = t2_sum$sum_fp)
 }
 
 #' @title Cox residual share (DEPRECATED - use the 4-step Beaver orchestration)

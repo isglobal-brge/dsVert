@@ -131,6 +131,39 @@ dsvertOutcomeLevelsDS <- function(data_name, y_var) {
   list(levels = lv, counts = counts, n = sum(counts))
 }
 
+#' @title Build a combined stratum column from tstart + optional base strata
+#' @description For Cox time-varying via Andersen-Gill counting-process
+#'   form, we encode each distinct \code{tstart} value as its own
+#'   stratum break so the reverse-cumsum risk-set reset happens at
+#'   entry times. When a \code{base_strata_column} is provided the
+#'   combined stratum is the interaction (base × tstart).
+#'
+#'   Correct for the common case of one interval per patient with a
+#'   fixed left-truncation time; conservative otherwise.
+#' @export
+dsvertCoxTVStrataDS <- function(data_name, tstart_column,
+                                 base_strata_column = NULL,
+                                 output_column = "__dsvert_tv_strata") {
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
+  if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
+  if (!tstart_column %in% names(data))
+    stop("tstart_column not found", call. = FALSE)
+  tstart <- data[[tstart_column]]
+  if (!is.numeric(tstart)) stop("tstart must be numeric", call. = FALSE)
+  tv_s <- match(tstart, sort(unique(tstart)))
+  if (!is.null(base_strata_column) && nzchar(base_strata_column)) {
+    if (!base_strata_column %in% names(data))
+      stop("base_strata_column not found", call. = FALSE)
+    base_s <- as.integer(as.factor(data[[base_strata_column]]))
+    tv_s <- as.integer(factor(paste(base_s, tv_s, sep = "_")))
+  }
+  data[[output_column]] <- as.integer(tv_s)
+  assign(data_name, data, envir = parent.frame())
+  list(n = nrow(data), n_strata = length(unique(tv_s)),
+       output_column = output_column)
+}
+
 #' @title Copy a data frame to a new name (test helper)
 #' @export
 dsvertCopyDfDS <- function(data_name, output_name) {

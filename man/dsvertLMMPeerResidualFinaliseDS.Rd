@@ -4,7 +4,14 @@
 \alias{dsvertLMMPeerResidualFinaliseDS}
 \title{LMM cross-server exact: peer-side residual slot finaliser}
 \usage{
-dsvertLMMPeerResidualFinaliseDS(session_id = NULL, frac_bits = 20L)
+dsvertLMMPeerResidualFinaliseDS(n = NULL, session_id = NULL, frac_bits = 20L)
+}
+\arguments{
+\item{n}{Optional integer — the vector length. If omitted, we try
+\code{ss\$k2_x_n} (populated by k2ShareInputDS in the full GLM
+pipeline) and then fall back to decoding the peer-share byte
+length. Pass explicitly from the client orchestration whenever
+the session wasn't initialised by k2ShareInputDS.}
 }
 \description{
 On the peer (non-outcome) server, the residual share is

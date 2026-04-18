@@ -104,6 +104,7 @@ AggregateMethods:
     dsvertAddSyntheticSurvivalDS,
     dsvertAddQuartileColumnDS,
     dsvertCopyDfDS,
+    dsvertResetDataFrameDS,
     dsvertCoxTVStrataDS,
     getObsCountDS,
     glmRing63TransportInitDS,

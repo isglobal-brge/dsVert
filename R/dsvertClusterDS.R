@@ -145,13 +145,25 @@ dsvertExpandClusterWeightsDS <- function(data_name, cluster_col,
     stop("cluster_col not found", call. = FALSE)
   id <- data[[cluster_col]]
   lvls <- sort(unique(id))
-  if (length(weights_per_cluster) != length(lvls)) {
-    stop("weights_per_cluster length (", length(weights_per_cluster),
-         ") does not match n_clusters (", length(lvls), ")",
-         call. = FALSE)
+  # Robust to length mismatch (caller may pass weights from a
+  # privacy-suppressed cluster tabulation where small clusters were
+  # omitted). If lengths differ, assume weights_per_cluster corresponds
+  # to the FIRST length(weights_per_cluster) clusters and default the
+  # remainder to 1 (no shrinkage) so we never produce NA rows.
+  w <- as.numeric(weights_per_cluster)
+  if (length(w) != length(lvls)) {
+    if (length(w) < length(lvls)) {
+      w <- c(w, rep(1, length(lvls) - length(w)))
+    } else {
+      w <- w[seq_along(lvls)]
+    }
   }
-  map <- stats::setNames(as.numeric(weights_per_cluster), as.character(lvls))
-  data[[output_column]] <- as.numeric(map[as.character(id)])
+  map <- stats::setNames(w, as.character(lvls))
+  out <- as.numeric(map[as.character(id)])
+  # Fill any residual NAs with 1 (default shrinkage = identity).
+  out[is.na(out)] <- 1
+  data[[output_column]] <- out
   assign(data_name, data, envir = parent.frame())
-  list(n_expanded = nrow(data), output_column = output_column)
+  list(n_expanded = nrow(data), n_filled_na = sum(is.na(map[as.character(id)])),
+       output_column = output_column)
 }

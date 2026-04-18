@@ -41,11 +41,15 @@ glmStandardizeDS <- function(data_name, output_name, x_vars, y_var = NULL, sessi
   for (i in seq_along(x_vars)) {
     v <- x_vars[i]
     col <- as.numeric(data[[v]])
-    x_means[i] <- mean(col)
-    x_sds[i] <- sd(col)
-    # If sd is effectively zero (constant column), set to 1 to avoid
-    # division by zero. The standardized column will be all zeros.
-    if (x_sds[i] < 1e-10) x_sds[i] <- 1
+    # Robust to NAs: use na.rm=TRUE for mean/sd computation. If the
+    # caller cares about NAs they should do explicit na.omit + PSI
+    # realign before calling -- this just prevents NaN poisoning of
+    # the standardise step when, e.g., a sibling method dropped a
+    # cluster-expansion weight column with a couple of NAs.
+    x_means[i] <- mean(col, na.rm = TRUE)
+    x_sds[i] <- stats::sd(col, na.rm = TRUE)
+    if (!is.finite(x_sds[i]) || x_sds[i] < 1e-10) x_sds[i] <- 1
+    if (!is.finite(x_means[i])) x_means[i] <- 0
     new_data[[v]] <- (col - x_means[i]) / x_sds[i]
   }
   result$x_means <- as.numeric(x_means)
@@ -54,9 +58,10 @@ glmStandardizeDS <- function(data_name, output_name, x_vars, y_var = NULL, sessi
   # Standardize y if requested
   if (!is.null(y_var) && y_var %in% names(data)) {
     y <- as.numeric(data[[y_var]])
-    result$y_mean <- mean(y)
-    result$y_sd <- sd(y)
-    if (result$y_sd < 1e-10) result$y_sd <- 1
+    result$y_mean <- mean(y, na.rm = TRUE)
+    result$y_sd <- stats::sd(y, na.rm = TRUE)
+    if (!is.finite(result$y_sd) || result$y_sd < 1e-10) result$y_sd <- 1
+    if (!is.finite(result$y_mean)) result$y_mean <- 0
     new_data[[y_var]] <- (y - result$y_mean) / result$y_sd
   }
 

@@ -12,7 +12,8 @@ dsvertAddSyntheticSurvivalDS(
   event_rate = 0.6,
   time_column = "time",
   event_column = "event",
-  seed = 13L
+  seed = 13L,
+  id_column = "patient_id"
 )
 }
 \description{

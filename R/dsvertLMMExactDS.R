@@ -129,8 +129,13 @@ dsvertLMMCoordResidualShareDS <- function(data_name, y_var, x_names,
 #'   contributes -f^peer_share_kept to the sum). This helper moves the
 #'   negated value into the canonical \code{k2_lmm_exact_r_share} slot
 #'   so the subsequent Beaver vecmul picks it up automatically.
+#' @param n Optional integer — the vector length. If omitted, we try
+#'   \code{ss\$k2_x_n} (populated by k2ShareInputDS in the full GLM
+#'   pipeline) and then fall back to decoding the peer-share byte
+#'   length. Pass explicitly from the client orchestration whenever
+#'   the session wasn't initialised by k2ShareInputDS.
 #' @export
-dsvertLMMPeerResidualFinaliseDS <- function(session_id = NULL,
+dsvertLMMPeerResidualFinaliseDS <- function(n = NULL, session_id = NULL,
                                              frac_bits = 20L) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
@@ -140,23 +145,28 @@ dsvertLMMPeerResidualFinaliseDS <- function(session_id = NULL,
     stop("peer share not registered; run dsvertLMMPeerFittedShareDS first",
          call. = FALSE)
   }
-  # r^1 = 0 - f_peer_share
-  zero_fp <- .callMpcTool("k2-float-to-fp",
-    list(values = rep(0, ss$k2_x_n %||% length(
-      bytesToFPVec <- NULL)), frac_bits = as.integer(frac_bits)))$fp_data
-  # Simpler: use k2-fp-sub with a to be a zero vector of matching size.
-  # We derive the length from the share itself by decoding + re-encoding
-  # zeros. Use the same-length zero vector trick:
-  n_rep <- nchar(ss$k2_lmm_exact_peer_share)  # approx; keep simple
-  # Fallback: use k2-float-to-fp with rep(0, n) where n read from cache.
-  n <- if (!is.null(ss$k2_x_n)) ss$k2_x_n else NA_integer_
-  if (is.na(n)) stop("session k2_x_n missing", call. = FALSE)
+  # Determine length n: explicit arg wins, then session k2_x_n, then
+  # infer from the base64-decoded byte length of the peer share.
+  if (is.null(n) || !is.finite(n) || n <= 0) {
+    n <- if (!is.null(ss$k2_x_n)) ss$k2_x_n else NULL
+  }
+  if (is.null(n) || !is.finite(n) || n <= 0) {
+    raw_len <- length(jsonlite::base64_dec(ss$k2_lmm_exact_peer_share))
+    n <- as.integer(raw_len / 8L)
+  }
+  if (is.null(n) || !is.finite(n) || n <= 0) {
+    stop("peer-share length undetectable; pass n= explicitly",
+         call. = FALSE)
+  }
+  n <- as.integer(n)
   zeros_fp <- .callMpcTool("k2-float-to-fp",
     list(values = rep(0, n), frac_bits = as.integer(frac_bits)))$fp_data
   neg <- .callMpcTool("k2-fp-sub", list(
     a = zeros_fp, b = ss$k2_lmm_exact_peer_share,
     frac_bits = as.integer(frac_bits)))
   ss$k2_lmm_exact_r_share <- neg$result
+  # Cache n for subsequent helpers.
+  ss$k2_x_n <- n
   list(stored = TRUE, n = n)
 }
 

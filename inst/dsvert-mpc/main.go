@@ -84,6 +84,14 @@ func main() {
 	case "k2-fp-column-concat":
 		handleK2FPColumnConcat()
 
+	// Element-wise Beaver vector multiplication (mu*G in Cox, generic 2-share product)
+	case "k2-beaver-vecmul-gen-triples":
+		handleK2BeaverVecmulGenTriples()
+	case "k2-beaver-vecmul-round1":
+		handleK2BeaverVecmulR1()
+	case "k2-beaver-vecmul-round2":
+		handleK2BeaverVecmulR2()
+
 	// Beaver triple generation
 	case "k2-gen-beaver-triples":
 		handleK2GenBeaverTriples()

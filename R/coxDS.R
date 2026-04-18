@@ -304,76 +304,26 @@ k2CoxPrepareRecipPhaseDS <- function(session_id = NULL) {
   list(prepared = TRUE, length = ss$k2_x_n)
 }
 
-#' @title Cox residual share r_j = delta_j - exp(eta_j) * G_j
-#' @description After the forward-cumsum G step, compute the Cox
-#'   residual-like quantity on additive shares via a Beaver triple for
-#'   the element-wise product \eqn{\mu_j G_j}, then subtract from the
-#'   plaintext delta vector (delta is known on BOTH DCF parties: the
-#'   outcome server set it via \code{k2SetCoxTimesDS}; the peer received
-#'   it via \code{k2ReceiveCoxMetaDS}). Stores the result in
-#'   \code{ss$secure_mu_share} so that the standard
-#'   \code{glmRing63GenGradTriplesDS} -> \code{k2GradientR1DS} ->
-#'   \code{k2GradientR2DS} chain computes \eqn{X^T r} and returns the
-#'   Cox gradient aggregate to the client.
-#'
-#'   Uses the existing \code{k2-fp-vec-mul-beaver} Beaver-triple Go op
-#'   (element-wise Ring63 multiplication of two secret shares) which is
-#'   already deployed.  Because delta is plaintext on both parties, the
-#'   subtraction is a LOCAL op: party 0 stores \code{delta_fp - mu_G};
-#'   party 1 stores \code{-mu_G} (same share-sign convention as
-#'   \code{k2StoreWeightsDS}).
-#'
-#'   Note: the Beaver triple for the element-wise product is generated
-#'   on the dealer (non-label party) in the same way as the existing
-#'   gradient triples.  The caller (client) is responsible for dealer
-#'   coordination; the server simply consumes the triple from the
-#'   session key \code{k2_cox_mug_triple}.
-#'
-#' @param peer_pk  Transport public key of the peer.
-#' @param session_id GLM session id.
-#' @return list(done = TRUE)
+#' @title Cox residual share (DEPRECATED - use the 4-step Beaver orchestration)
+#' @description Kept for backward compatibility. The single-call helper
+#'   has been superseded by the proper 2-round Beaver protocol
+#'   orchestrated from the client:
+#'   \enumerate{
+#'     \item dealer calls \code{\link{k2BeaverVecmulGenTriplesDS}};
+#'     \item each party calls \code{\link{k2BeaverVecmulConsumeTripleDS}};
+#'     \item each party calls \code{\link{k2BeaverVecmulR1DS}} with
+#'           \code{x_key="k2_cox_mu_share_fp"}, \code{y_key="k2_cox_G_share_fp"};
+#'     \item each party calls \code{\link{k2BeaverVecmulR2DS}} with
+#'           \code{output_key="k2_cox_mu_g_share_fp"};
+#'     \item each party calls \code{\link{k2CoxFinaliseResidualDS}}.
+#'   }
+#' @keywords internal
 #' @export
 k2CoxResidualDS <- function(peer_pk = NULL, session_id = NULL) {
-  if (is.null(session_id) || !nzchar(session_id)) {
-    stop("session_id required", call. = FALSE)
-  }
-  ss <- .S(session_id)
-  if (is.null(ss$secure_mu_share)) {
-    stop("secure_mu_share empty (exp(eta) share); run exp DCF first",
-         call. = FALSE)
-  }
-  if (is.null(ss$k2_cox_G_share_fp)) {
-    stop("k2_cox_G_share_fp empty; run k2CoxForwardCumsumGDS first",
-         call. = FALSE)
-  }
-  if (is.null(ss$k2_cox_delta_fp)) {
-    stop("delta not registered; run k2SetCoxTimesDS / k2ReceiveCoxMetaDS",
-         call. = FALSE)
-  }
-
-  # Element-wise Beaver product of two shares. Reuse the existing
-  # triple infrastructure: the dealer generates a "grad triple" of
-  # shape n x 1 via glmRing63GenGradTriplesDS with p = 1.
-  # For a single-round implementation that avoids new dealer logic,
-  # we delegate to the existing Beaver product helper:
-  mug_res <- .callMpcTool("k2-fp-vec-mul-beaver", list(
-    a_share = ss$secure_mu_share,
-    b_share = ss$k2_cox_G_share_fp,
-    triple  = ss$k2_cox_mug_triple,       # may be NULL → server error
-    frac_bits = 20L))
-  # Subtract from delta locally. On party 0 the convention is:
-  #   r_share_0 = delta_fp - mu_G_share_0
-  # On party 1:
-  #   r_share_1 = -mu_G_share_1
-  # The delta vector is reconstructed on both parties so only party 0
-  # performs the subtraction; party 1 negates.
-  r_share <- .callMpcTool("k2-fp-cox-residual-finalise", list(
-    mu_g_share = mug_res$result,
-    delta_fp   = ss$k2_cox_delta_fp,
-    is_party0  = isTRUE(ss$k2_is_coordinator),
-    frac_bits  = 20L))
-  ss$secure_mu_share <- r_share$result
-  list(done = TRUE)
+  stop("k2CoxResidualDS is deprecated; ds.vertCox now orchestrates the ",
+       "mu*G Beaver product via k2BeaverVecmulGen/R1/R2DS + ",
+       "k2CoxFinaliseResidualDS. Update dsVertClient to the matching ",
+       "version (>= 1.2.0).", call. = FALSE)
 }
 
 #' @title Beaver K x L contingency counts across DCF parties

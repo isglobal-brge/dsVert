@@ -115,6 +115,11 @@ type K2FPCumsumInput struct {
 	Mask     string `json:"mask"`     // optional base64 FP mask (plaintext)
 	Reverse  bool   `json:"reverse"`  // true = right-to-left cumulative sum
 	N        int    `json:"n"`
+	// Strata: optional 1-based stratum id per element (same length as A).
+	// If provided, the running accumulator RESETS to 0 at every stratum
+	// boundary, so the cumsum is computed WITHIN each stratum. Used by
+	// stratified Cox (one risk-set per stratum).
+	Strata   []int  `json:"strata"`
 	FracBits int    `json:"frac_bits"`
 }
 
@@ -148,16 +153,27 @@ func handleK2FPCumsum() {
 		}
 	}
 
+	useStrata := len(input.Strata) == n
 	out := make([]uint64, n)
 	if input.Reverse {
 		acc := uint64(0)
 		for i := n - 1; i >= 0; i-- {
+			// Reset accumulator at the END of each stratum segment (i.e.
+			// when strata[i+1] differs from strata[i]): since we iterate
+			// right-to-left, detect when we're about to step into a new
+			// stratum.
+			if useStrata && i+1 < n && input.Strata[i+1] != input.Strata[i] {
+				acc = 0
+			}
 			acc = r.Add(acc, a[i])
 			out[i] = acc
 		}
 	} else {
 		acc := uint64(0)
 		for i := 0; i < n; i++ {
+			if useStrata && i > 0 && input.Strata[i] != input.Strata[i-1] {
+				acc = 0
+			}
 			acc = r.Add(acc, a[i])
 			out[i] = acc
 		}

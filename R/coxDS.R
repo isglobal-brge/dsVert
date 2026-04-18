@@ -1,4 +1,4 @@
-#' @title Register Cox survival times and sort the cohort (outcome server)
+#' @title Register Cox survival times and sort the cohort (outcome server, stratified)
 #' @description Read the time and event columns from the outcome server,
 #'   determine the ascending-time sort permutation locally, store the
 #'   event indicator delta as a plaintext FP vector for subsequent
@@ -29,7 +29,8 @@
 #' @return list(peer_blob = <encrypted permutation + delta>, n = length)
 #' @export
 k2SetCoxTimesDS <- function(data_name, time_column, event_column,
-                            peer_pk, session_id = NULL) {
+                            peer_pk, session_id = NULL,
+                            strata_column = NULL) {
   if (!is.character(data_name) || length(data_name) != 1L ||
       !is.character(time_column) || length(time_column) != 1L ||
       !is.character(event_column) || length(event_column) != 1L) {
@@ -74,10 +75,25 @@ k2SetCoxTimesDS <- function(data_name, time_column, event_column,
          ") does not match aligned cohort size (", n, ")", call. = FALSE)
   }
 
-  # Sort ascending by event time; break ties by placing events before
-  # censored (standard convention for Breslow).
-  ord <- order(t_vec, -d_vec)  # 1-indexed permutation
+  # Stratum handling: sort first by stratum id, then by ascending
+  # event time within stratum, then events before censored on ties.
+  strata_vec <- NULL
+  if (!is.null(strata_column) && nzchar(strata_column)) {
+    if (!strata_column %in% names(data)) {
+      stop("strata_column '", strata_column, "' not found", call. = FALSE)
+    }
+    strata_vec <- as.integer(as.factor(data[[strata_column]]))
+    if (anyNA(strata_vec)) {
+      stop("strata column contains NA", call. = FALSE)
+    }
+  }
+  if (is.null(strata_vec)) {
+    ord <- order(t_vec, -d_vec)
+  } else {
+    ord <- order(strata_vec, t_vec, -d_vec)
+  }
   d_sorted <- d_vec[ord]
+  strata_sorted <- if (!is.null(strata_vec)) strata_vec[ord] else NULL
 
   # Encode delta_sorted as FP share-compatible vector (plaintext here,
   # peer will also hold it plaintext after decrypt).
@@ -86,10 +102,12 @@ k2SetCoxTimesDS <- function(data_name, time_column, event_column,
   ss$k2_cox_perm <- as.integer(ord)
   ss$k2_cox_delta_fp <- delta_fp
   ss$k2_cox_n_events <- sum(d_vec)
+  ss$k2_cox_strata <- if (!is.null(strata_sorted)) as.integer(strata_sorted) else NULL
 
   # Build peer blob: a small JSON payload with perm (ints) + delta_fp
-  # (base64 FP vector), then encrypt via transport.
+  # (base64 FP vector) + optional strata, then encrypt via transport.
   payload <- list(perm = as.integer(ord), delta_fp = delta_fp,
+                   strata = ss$k2_cox_strata,
                    n = length(t_vec))
   payload_json <- jsonlite::toJSON(payload, auto_unbox = TRUE)
   payload_b64 <- jsonlite::base64_enc(charToRaw(payload_json))
@@ -134,7 +152,9 @@ k2ReceiveCoxMetaDS <- function(session_id = NULL) {
 
   ss$k2_cox_perm <- as.integer(payload$perm)
   ss$k2_cox_delta_fp <- payload$delta_fp
-  list(stored = TRUE, n = length(ss$k2_cox_perm))
+  ss$k2_cox_strata <- if (!is.null(payload$strata)) as.integer(payload$strata) else NULL
+  list(stored = TRUE, n = length(ss$k2_cox_perm),
+       stratified = !is.null(ss$k2_cox_strata))
 }
 
 #' @title Apply the Cox sort permutation to this server's X share
@@ -221,11 +241,16 @@ k2CoxReverseCumsumSDS <- function(session_id = NULL) {
     stop("secure_mu_share not populated; run DCF exp pass first",
          call. = FALSE)
   }
-  res <- .callMpcTool("k2-fp-cumsum", list(
+  args <- list(
     a = ss$secure_mu_share, reverse = TRUE,
-    n = as.integer(ss$k2_x_n), frac_bits = 20L))
+    n = as.integer(ss$k2_x_n), frac_bits = 20L)
+  if (!is.null(ss$k2_cox_strata)) {
+    args$strata <- as.integer(ss$k2_cox_strata)
+  }
+  res <- .callMpcTool("k2-fp-cumsum", args)
   ss$k2_cox_S_share_fp <- res$result
-  list(S_length = ss$k2_x_n)
+  list(S_length = ss$k2_x_n,
+       stratified = !is.null(ss$k2_cox_strata))
 }
 
 #' @title Compute the forward cumsum G_j = sum_{i<=j, delta=1} recip[i]
@@ -246,14 +271,20 @@ k2CoxForwardCumsumGDS <- function(session_id = NULL) {
     stop("delta indicator not registered", call. = FALSE)
   }
   # Multiply delta element-wise into 1/S share (mask), then forward
-  # cumsum. Both kernels in one call via the mask argument.
-  res <- .callMpcTool("k2-fp-cumsum", list(
+  # cumsum. Both kernels in one call via the mask argument; strata
+  # reset the accumulator at each boundary when stratified.
+  args <- list(
     a = ss$k2_cox_recip_S_share_fp,
     mask = ss$k2_cox_delta_fp,
     reverse = FALSE,
-    n = as.integer(ss$k2_x_n), frac_bits = 20L))
+    n = as.integer(ss$k2_x_n), frac_bits = 20L)
+  if (!is.null(ss$k2_cox_strata)) {
+    args$strata <- as.integer(ss$k2_cox_strata)
+  }
+  res <- .callMpcTool("k2-fp-cumsum", args)
   ss$k2_cox_G_share_fp <- res$result
-  list(G_length = ss$k2_x_n)
+  list(G_length = ss$k2_x_n,
+       stratified = !is.null(ss$k2_cox_strata))
 }
 
 #' @title Cache the reciprocal-of-S share returned by the DCF-reciprocal pass

@@ -81,17 +81,21 @@ dsvertAddSyntheticSurvivalDS <- function(data_name,
   # test framework pulled the data.
   if (id_column %in% names(data)) {
     ids <- as.character(data[[id_column]])
+    # R's strtoi returns NA for values > 2^31-1 (signed int 32 max).
+    # Take 7 hex chars (max 2^28 ≈ 268M) so the result fits and
+    # divide by 2^28 for a uniform in [0, 1).
+    hex2u <- function(h) {
+      as.numeric(strtoi(substr(h, 1L, 7L), 16L)) / (2^28 - 1)
+    }
     u <- vapply(ids, function(idv) {
       h <- digest::digest(paste(idv, seed, sep = "_"),
                            algo = "xxhash64", serialize = FALSE)
-      # Convert 16-hex xxhash to a uniform in (0, 1).
-      as.numeric(strtoi(substr(h, 1L, 8L), 16L)) / 2^32
+      hex2u(h)
     }, numeric(1L))
-    # Independent event uniform from a second salt.
     v <- vapply(ids, function(idv) {
       h <- digest::digest(paste(idv, seed + 1L, sep = "_"),
                            algo = "xxhash64", serialize = FALSE)
-      as.numeric(strtoi(substr(h, 1L, 8L), 16L)) / 2^32
+      hex2u(h)
     }, numeric(1L))
     # Exponential via inverse-CDF: -log(1-u)/lambda
     data[[time_column]] <- -log(pmax(1 - as.numeric(u), 1e-12)) / lambda

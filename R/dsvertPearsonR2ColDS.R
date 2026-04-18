@@ -22,12 +22,15 @@
 #' @param betahat Numeric vector of coefficients matching \code{x_names}
 #'   (plaintext; the client broadcasts these).
 #' @param intercept Scalar intercept (default 0).
+#' @param family "gaussian" (default), "binomial", or "poisson".
+#'   Controls the link + variance function used to form the Pearson
+#'   residual.
 #' @param r2_column Name of the new column (default "__dsvert_r2").
-#' @return list(n_observed, n_missing, method, scale) -- no per-patient
-#'   values returned.
+#' @return list(n_observed, n_missing, method) -- no per-patient values.
 #' @export
 dsvertPearsonR2ColDS <- function(data_name, y_var, x_names,
                                   betahat, intercept = 0,
+                                  family = "gaussian",
                                   r2_column = "__dsvert_r2") {
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
@@ -43,14 +46,34 @@ dsvertPearsonR2ColDS <- function(data_name, y_var, x_names,
   if (length(x_names) != length(betahat)) {
     stop("length(x_names) must equal length(betahat)", call. = FALSE)
   }
+  if (!family %in% c("gaussian", "binomial", "poisson")) {
+    stop("family must be 'gaussian', 'binomial' or 'poisson'",
+         call. = FALSE)
+  }
   y <- data[[y_var]]
   X <- as.matrix(data[, x_names, drop = FALSE])
-  fit <- as.numeric(intercept) + drop(X %*% as.numeric(betahat))
-  r <- y - fit
-  r2 <- r * r
+  eta <- as.numeric(intercept) + drop(X %*% as.numeric(betahat))
+  # Pearson residual = (y - mu) / sqrt(V(mu)). For the sandwich meat
+  # matrix we want r^2, i.e. the SQUARE of this, so family drives the
+  # variance function.
+  r2 <- switch(family,
+    gaussian = {
+      r <- y - eta
+      r * r
+    },
+    binomial = {
+      mu <- 1 / (1 + exp(-eta))
+      mu <- pmin(pmax(mu, 1e-8), 1 - 1e-8)
+      (y - mu)^2 / (mu * (1 - mu))
+    },
+    poisson = {
+      mu <- exp(pmin(eta, 50))
+      mu <- pmax(mu, 1e-8)
+      (y - mu)^2 / mu
+    })
   data[[r2_column]] <- as.numeric(r2)
   assign(data_name, data, envir = parent.frame())
   list(n_observed = sum(!is.na(y)),
        n_missing = sum(is.na(y)),
-       method = "gaussian_plain_residual_squared")
+       method = sprintf("%s_pearson_residual_squared", family))
 }

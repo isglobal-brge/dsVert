@@ -10,6 +10,7 @@ dsvertPearsonR2ColDS(
   x_names,
   betahat,
   intercept = 0,
+  family = "gaussian",
   r2_column = "__dsvert_r2"
 )
 }
@@ -26,11 +27,14 @@ server.}
 
 \item{intercept}{Scalar intercept (default 0).}
 
+\item{family}{"gaussian" (default), "binomial", or "poisson".
+Controls the link + variance function used to form the Pearson
+residual.}
+
 \item{r2_column}{Name of the new column (default "__dsvert_r2").}
 }
 \value{
-list(n_observed, n_missing, method, scale) -- no per-patient
-values returned.
+list(n_observed, n_missing, method) -- no per-patient values.
 }
 \description{
 On the outcome server (which holds \code{y} plaintext),

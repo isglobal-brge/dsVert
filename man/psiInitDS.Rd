@@ -8,11 +8,10 @@ psiInitDS(session_id = NULL)
 }
 \arguments{
 \item{session_id}{Character or NULL. UUID for session-scoped storage
-isolation. Default NULL uses legacy shared storage.}
+isolation.}
 }
 \value{
-List with transport_pk (base64url) and pinned (logical indicating
-whether pre-shared keys are in use).
+List with transport_pk (base64url).
 }
 \description{
 Generates an X25519 transport keypair for blind-relay PSI. The secret key
@@ -23,33 +22,3 @@ returned so the client can distribute it to other servers.
 This must be called before any other PSI function. Initializes the PSI
 firewall state machine.
 }
-\section{Security Modes}{
-
-\describe{
-\item{Semi-Honest (default)}{Ephemeral X25519 keys are generated per
-session. Protects against passive eavesdropping but not active MITM
-by the client. Suitable for trusted DataSHIELD deployments.}
-\item{Full MITM-Resistant}{Persistent X25519 keys loaded from
-DataSHIELD R options (\code{dsvert.psi_key_pinning = TRUE}).
-Servers validate client-provided PKs against pre-configured peers,
-detecting and rejecting key substitution attacks. See
-\code{\link{psiStoreTransportKeysDS}} for validation details.}
-}
-}
-
-\section{Configuration (Full MITM-Resistant mode)}{
-
-Set the following R options per server via the Opal DataSHIELD profile
-settings or Rock server config:
-\preformatted{
-options(
-  dsvert.psi_key_pinning = TRUE,
-  dsvert.psi_sk = "<base64 X25519 secret key>",
-  dsvert.psi_pk = "<base64 X25519 public key>",
-  dsvert.psi_peers = '["<pk_peer1>","<pk_peer2>"]'
-)
-}
-All options follow the dsBase two-tier fallback pattern:
-\code{getOption("dsvert.X")} then \code{getOption("default.dsvert.X")}.
-}
-

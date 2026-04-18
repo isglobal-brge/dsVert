@@ -254,15 +254,188 @@ k2CoxForwardCumsumGDS <- function(session_id = NULL) {
 }
 
 #' @title Cache the reciprocal-of-S share returned by the DCF-reciprocal pass
-#' @param recip_S_share_fp base64 FP vector (1/S share).
+#' @description If \code{recip_S_share_fp} is NULL, copy the current
+#'   \code{ss$secure_mu_share} (which holds the 1/S share left over by
+#'   the most recent wide-spline reciprocal pass) into
+#'   \code{ss$k2_cox_recip_S_share_fp}. This is the usual in-session
+#'   callers' path; passing an explicit vector is supported for tests.
+#' @param recip_S_share_fp base64 FP vector (1/S share) or NULL.
 #' @param session_id GLM session id.
 #' @return list(stored = TRUE)
 #' @export
-k2StoreCoxRecipDS <- function(recip_S_share_fp, session_id = NULL) {
+k2StoreCoxRecipDS <- function(recip_S_share_fp = NULL, session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
+  if (is.null(recip_S_share_fp) || !nzchar(recip_S_share_fp)) {
+    if (is.null(ss$secure_mu_share)) {
+      stop("no recip S share available (secure_mu_share empty)",
+           call. = FALSE)
+    }
+    recip_S_share_fp <- ss$secure_mu_share
+  }
   ss$k2_cox_recip_S_share_fp <- recip_S_share_fp
   list(stored = TRUE)
+}
+
+#' @title Prepare the DCF reciprocal phase for the Cox 1/S step
+#' @description Copy \code{ss$k2_cox_S_share_fp} (the reverse cumsum of
+#'   exp(eta) produced by \code{k2CoxReverseCumsumSDS}) into
+#'   \code{ss$k2_eta_share_fp} so the standard 4-phase wide-spline
+#'   pipeline (family = "reciprocal") operates on \eqn{S(t_i)} and
+#'   produces shares of \eqn{1/S(t_i)} in \code{ss$secure_mu_share}.
+#' @param session_id GLM session id.
+#' @return list(prepared = TRUE, length = n)
+#' @export
+k2CoxPrepareRecipPhaseDS <- function(session_id = NULL) {
+  if (is.null(session_id) || !nzchar(session_id)) {
+    stop("session_id required", call. = FALSE)
+  }
+  ss <- .S(session_id)
+  if (is.null(ss$k2_cox_S_share_fp)) {
+    stop("k2_cox_S_share_fp not set; run k2CoxReverseCumsumSDS first",
+         call. = FALSE)
+  }
+  ss$k2_eta_share_fp <- ss$k2_cox_S_share_fp
+  list(prepared = TRUE, length = ss$k2_x_n)
+}
+
+#' @title Cox residual share r_j = delta_j - exp(eta_j) * G_j
+#' @description After the forward-cumsum G step, compute the Cox
+#'   residual-like quantity on additive shares via a Beaver triple for
+#'   the element-wise product \eqn{\mu_j G_j}, then subtract from the
+#'   plaintext delta vector (delta is known on BOTH DCF parties: the
+#'   outcome server set it via \code{k2SetCoxTimesDS}; the peer received
+#'   it via \code{k2ReceiveCoxMetaDS}). Stores the result in
+#'   \code{ss$secure_mu_share} so that the standard
+#'   \code{glmRing63GenGradTriplesDS} -> \code{k2GradientR1DS} ->
+#'   \code{k2GradientR2DS} chain computes \eqn{X^T r} and returns the
+#'   Cox gradient aggregate to the client.
+#'
+#'   Uses the existing \code{k2-fp-vec-mul-beaver} Beaver-triple Go op
+#'   (element-wise Ring63 multiplication of two secret shares) which is
+#'   already deployed.  Because delta is plaintext on both parties, the
+#'   subtraction is a LOCAL op: party 0 stores \code{delta_fp - mu_G};
+#'   party 1 stores \code{-mu_G} (same share-sign convention as
+#'   \code{k2StoreWeightsDS}).
+#'
+#'   Note: the Beaver triple for the element-wise product is generated
+#'   on the dealer (non-label party) in the same way as the existing
+#'   gradient triples.  The caller (client) is responsible for dealer
+#'   coordination; the server simply consumes the triple from the
+#'   session key \code{k2_cox_mug_triple}.
+#'
+#' @param peer_pk  Transport public key of the peer.
+#' @param session_id GLM session id.
+#' @return list(done = TRUE)
+#' @export
+k2CoxResidualDS <- function(peer_pk = NULL, session_id = NULL) {
+  if (is.null(session_id) || !nzchar(session_id)) {
+    stop("session_id required", call. = FALSE)
+  }
+  ss <- .S(session_id)
+  if (is.null(ss$secure_mu_share)) {
+    stop("secure_mu_share empty (exp(eta) share); run exp DCF first",
+         call. = FALSE)
+  }
+  if (is.null(ss$k2_cox_G_share_fp)) {
+    stop("k2_cox_G_share_fp empty; run k2CoxForwardCumsumGDS first",
+         call. = FALSE)
+  }
+  if (is.null(ss$k2_cox_delta_fp)) {
+    stop("delta not registered; run k2SetCoxTimesDS / k2ReceiveCoxMetaDS",
+         call. = FALSE)
+  }
+
+  # Element-wise Beaver product of two shares. Reuse the existing
+  # triple infrastructure: the dealer generates a "grad triple" of
+  # shape n x 1 via glmRing63GenGradTriplesDS with p = 1.
+  # For a single-round implementation that avoids new dealer logic,
+  # we delegate to the existing Beaver product helper:
+  mug_res <- .callMpcTool("k2-fp-vec-mul-beaver", list(
+    a_share = ss$secure_mu_share,
+    b_share = ss$k2_cox_G_share_fp,
+    triple  = ss$k2_cox_mug_triple,       # may be NULL → server error
+    frac_bits = 20L))
+  # Subtract from delta locally. On party 0 the convention is:
+  #   r_share_0 = delta_fp - mu_G_share_0
+  # On party 1:
+  #   r_share_1 = -mu_G_share_1
+  # The delta vector is reconstructed on both parties so only party 0
+  # performs the subtraction; party 1 negates.
+  r_share <- .callMpcTool("k2-fp-cox-residual-finalise", list(
+    mu_g_share = mug_res$result,
+    delta_fp   = ss$k2_cox_delta_fp,
+    is_party0  = isTRUE(ss$k2_is_coordinator),
+    frac_bits  = 20L))
+  ss$secure_mu_share <- r_share$result
+  list(done = TRUE)
+}
+
+#' @title Beaver K x L contingency counts across DCF parties
+#' @description Computes the joint contingency counts
+#'   \eqn{n_{kl} = \sum_i X_{ik} Y_{il}} where \eqn{X} is the one-hot
+#'   encoding of \code{var1} on this server (held by the caller) and
+#'   \eqn{Y} is the one-hot encoding of \code{var2} on the peer server
+#'   (retrieved from the peer's session via a transport-encrypted blob
+#'   relay). Both matrices are FP-encoded in the session store under
+#'   \code{k2_onehot_<var>_fp} (see \code{dsvertOneHotDS}). Returns the
+#'   K*L cells as a single aggregate vector; the analyst client never
+#'   sees any \eqn{n}-length indicator vector.
+#'
+#'   Delegates the bilinear form to the Go binary via
+#'   \code{k2-beaver-matrix-bilinear} which generates a single
+#'   \eqn{K \times L} Beaver triple batch and returns the reconstructed
+#'   counts as non-negative integers rounded from the Ring63 result.
+#'
+#' @param var1 character — the variable held on this server.
+#' @param var2 character — the variable on the peer.
+#' @param peer_name character — server name of the peer (used for
+#'   session blob key disambiguation).
+#' @param peer_pk base64 X25519 pk of the peer.
+#' @param session_id MPC session.
+#' @return list(counts = integer K*L vector row-major,
+#'              K, L, row_levels, col_levels).
+#' @export
+k2CrossOneHotCountsDS <- function(var1, var2,
+                                   peer_name = NULL,
+                                   peer_pk = NULL,
+                                   session_id = NULL) {
+  if (is.null(session_id) || !nzchar(session_id)) {
+    stop("session_id required", call. = FALSE)
+  }
+  ss <- .S(session_id)
+  X_key <- paste0("k2_onehot_", var1, "_fp")
+  if (is.null(ss[[X_key]])) {
+    stop("one-hot matrix for var1='", var1,
+         "' not in session (call dsvertOneHotDS first)", call. = FALSE)
+  }
+  K <- ss[[paste0("k2_onehot_", var1, "_K")]]
+  n <- ss[[paste0("k2_onehot_", var1, "_n")]]
+  row_levels <- ss[[paste0("k2_onehot_", var1, "_levels")]]
+  peer_blob_key <- paste0("k2_peer_onehot_", var2)
+  blob <- .blob_consume(peer_blob_key, ss)
+  if (is.null(blob)) {
+    stop("peer one-hot blob not relayed for var2='", var2,
+         "'; client must relay dsvertOneHotDS output from peer server",
+         call. = FALSE)
+  }
+  tsk <- ss$k2_transport_sk
+  if (is.null(tsk)) stop("transport secret key missing", call. = FALSE)
+  dec <- .callMpcTool("transport-decrypt", list(
+    sealed = base64url_to_base64(blob),
+    recipient_sk = tsk))
+  payload <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
+  Y_fp <- payload$Y_fp
+  L <- payload$L
+  col_levels <- payload$levels
+  # Bilinear form: Ring63 Beaver product.
+  res <- .callMpcTool("k2-beaver-matrix-bilinear", list(
+    x_fp = ss[[X_key]], y_fp = Y_fp,
+    n = as.integer(n), k = as.integer(K), l = as.integer(L),
+    frac_bits = 20L))
+  counts <- as.integer(round(res$counts))
+  list(counts = counts, K = K, L = L,
+       row_levels = row_levels, col_levels = col_levels)
 }

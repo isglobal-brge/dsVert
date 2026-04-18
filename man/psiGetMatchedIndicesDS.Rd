@@ -8,7 +8,7 @@ psiGetMatchedIndicesDS(session_id = NULL)
 }
 \arguments{
 \item{session_id}{Character or NULL. UUID for session-scoped storage
-isolation. Default NULL uses legacy shared storage.}
+isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).}
 }
 \value{
 Integer vector of matched reference indices (0-based).

@@ -14,7 +14,7 @@ are being double-masked.}
 server-side blob storage. Default \code{FALSE}.}
 
 \item{session_id}{Character or NULL. UUID for session-scoped storage
-isolation. Default NULL uses legacy shared storage.}
+isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).}
 }
 \value{
 List with encrypted_blob (base64url).

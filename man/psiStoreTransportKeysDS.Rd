@@ -4,13 +4,18 @@
 \alias{psiStoreTransportKeysDS}
 \title{Store peer transport public keys (aggregate function)}
 \usage{
-psiStoreTransportKeysDS(transport_keys, session_id = NULL)
+psiStoreTransportKeysDS(
+  transport_keys = NULL,
+  transport_keys_b64 = NULL,
+  identity_info = NULL,
+  identity_info_b64 = NULL,
+  session_id = NULL
+)
 }
 \arguments{
 \item{transport_keys}{Named list. Server name -> transport PK (base64url).}
 
-\item{session_id}{Character or NULL. UUID for session-scoped storage
-isolation. Default NULL uses legacy shared storage.}
+\item{session_id}{Character or NULL. UUID for session-scoped storage.}
 }
 \value{
 TRUE (invisible).
@@ -19,14 +24,3 @@ TRUE (invisible).
 Stores other servers' transport PKs for encrypting PSI messages.
 Called by the client after collecting PKs from all servers.
 }
-\section{MITM Detection (Full MITM-Resistant mode)}{
-
-When \code{dsvert.psi_key_pinning = TRUE}, this function validates every
-client-provided PK against the trusted peer set in \code{dsvert.psi_peers}.
-Validation is by PK value, not by server name — so it works regardless of
-what aliases the client uses. Any unknown PK triggers an error (possible
-key substitution / MITM attack).
-
-In semi-honest mode (default), the client-provided PKs are used as-is.
-}
-

@@ -10,7 +10,7 @@ psiExportMaskedDS(target_name, session_id = NULL)
 \item{target_name}{Character. Name of the target server.}
 
 \item{session_id}{Character or NULL. UUID for session-scoped storage
-isolation. Default NULL uses legacy shared storage.}
+isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).}
 }
 \value{
 List with encrypted_blob (base64url).

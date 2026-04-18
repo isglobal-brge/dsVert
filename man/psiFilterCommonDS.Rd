@@ -22,7 +22,7 @@ from server-side blob storage (comma-separated integers).
 Default \code{FALSE}.}
 
 \item{session_id}{Character or NULL. UUID for session-scoped storage
-isolation. Default NULL uses legacy shared storage.}
+isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).}
 }
 \value{
 Filtered data frame (assigned to server environment).

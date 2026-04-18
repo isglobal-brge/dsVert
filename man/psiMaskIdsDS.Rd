@@ -12,7 +12,7 @@ psiMaskIdsDS(data_name, id_col, session_id = NULL)
 \item{id_col}{Character. Name of identifier column.}
 
 \item{session_id}{Character or NULL. UUID for session-scoped storage
-isolation. Default NULL uses legacy shared storage.}
+isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).}
 }
 \value{
 List with n (count only — no points returned).

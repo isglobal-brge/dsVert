@@ -10,7 +10,7 @@ psiSelfAlignDS(data_name, session_id = NULL)
 \item{data_name}{Character. Name of data frame.}
 
 \item{session_id}{Character or NULL. UUID for session-scoped storage
-isolation. Default NULL uses legacy shared storage.}
+isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).}
 }
 \value{
 Copy of data frame (assigned to server environment).

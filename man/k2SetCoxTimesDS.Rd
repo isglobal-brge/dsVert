@@ -2,14 +2,15 @@
 % Please edit documentation in R/coxDS.R
 \name{k2SetCoxTimesDS}
 \alias{k2SetCoxTimesDS}
-\title{Register Cox survival times and sort the cohort (outcome server)}
+\title{Register Cox survival times and sort the cohort (outcome server, stratified)}
 \usage{
 k2SetCoxTimesDS(
   data_name,
   time_column,
   event_column,
   peer_pk,
-  session_id = NULL
+  session_id = NULL,
+  strata_column = NULL
 )
 }
 \arguments{

@@ -73,6 +73,54 @@ dsvertClusterResidualsDS <- function(data_name, y_var, x_names,
        n_per_cluster    = as.integer(npc))
 }
 
+#' @title Per-cluster Z^T Z matrices for LMM random slopes
+#' @description For each cluster in the outcome server, return the q*q
+#'   matrix \eqn{Z_i^T Z_i} where \eqn{Z_i} is the per-patient random-
+#'   effects design \eqn{[1, z_{1,ij}, z_{2,ij}, \ldots]}. Used by
+#'   \code{ds.vertLMM} to compute per-cluster Woodbury inverses under
+#'   a random intercept + slopes model.
+#'
+#'   Only aggregates return to the client: one q*q matrix per cluster
+#'   (no per-patient information).
+#' @param data_name Character.
+#' @param cluster_col Cluster-id column.
+#' @param slope_columns Character vector of slope-variable columns on
+#'   this server. The random-effects design has q = 1 + length(slope_columns)
+#'   (intercept + slopes).
+#' @return list(n_clusters, q, ZtZ (n_clusters * q * q array),
+#'   cluster_sizes, Zty optional).
+#' @export
+dsvertClusterZtZDS <- function(data_name, cluster_col,
+                                slope_columns = character(0)) {
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
+  if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
+  if (!cluster_col %in% names(data))
+    stop("cluster_col not found", call. = FALSE)
+  missing_s <- setdiff(slope_columns, names(data))
+  if (length(missing_s) > 0L) {
+    stop("slope_columns not local: ",
+         paste(missing_s, collapse = ","), call. = FALSE)
+  }
+  id <- data[[cluster_col]]
+  q <- 1L + length(slope_columns)
+  lvls <- sort(unique(id))
+  n_clusters <- length(lvls)
+  ZtZ <- array(0, dim = c(n_clusters, q, q))
+  sizes <- integer(n_clusters)
+  for (ci in seq_along(lvls)) {
+    idx <- which(id == lvls[ci])
+    sizes[ci] <- length(idx)
+    Z_i <- cbind(1, if (length(slope_columns) > 0L)
+                     as.matrix(data[idx, slope_columns, drop = FALSE])
+                   else NULL)
+    ZtZ[ci, , ] <- crossprod(Z_i)
+  }
+  list(n_clusters = n_clusters, q = q,
+       ZtZ = ZtZ, cluster_sizes = sizes,
+       cluster_levels = as.character(lvls))
+}
+
 #' @title Expand a per-cluster weights vector into a per-patient column
 #' @description Given a vector of weights indexed by cluster in the
 #'   order returned by \code{dsvertClusterSizesDS}, write a per-patient

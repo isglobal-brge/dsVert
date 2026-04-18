@@ -89,6 +89,8 @@ AggregateMethods:
     k2CoxPrepareLogSPhaseDS,
     k2CoxPartialLogLikAggregateDS,
     k2CrossOneHotCountsDS,
+    dsvertClusterZtZDS,
+    dsvertOutcomeLevelsDS,
     dsvertInjectNADS,
     dsvertAddClusterColumnDS,
     dsvertAddSyntheticSurvivalDS,

@@ -104,6 +104,33 @@ dsvertAddQuartileColumnDS <- function(data_name, column = "age",
        output_column = output_column)
 }
 
+#' @title List ordered factor levels of an outcome column
+#' @description Aggregate. Returns the levels (sorted) of a factor or
+#'   character column, with the same privacy-threshold suppression as
+#'   the rest of dsVert: levels whose count is below the threshold are
+#'   emitted as a single "<redacted>" level.
+#' @export
+dsvertOutcomeLevelsDS <- function(data_name, y_var) {
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
+  if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
+  if (!y_var %in% names(data)) stop("y_var not found", call. = FALSE)
+  y <- data[[y_var]]
+  y <- y[!is.na(y)]
+  tbl <- table(y)
+  lv <- names(sort(tbl, decreasing = FALSE))
+  counts <- as.integer(tbl[lv])
+  privacy_min <- getOption("datashield.privacyLevel", 5L)
+  if (is.numeric(privacy_min) && privacy_min > 0L) {
+    suppress <- counts < privacy_min
+    lv[suppress] <- "<redacted>"
+    counts[suppress] <- 0L
+    keep <- !duplicated(lv)
+    lv <- lv[keep]; counts <- counts[keep]
+  }
+  list(levels = lv, counts = counts, n = sum(counts))
+}
+
 #' @title Copy a data frame to a new name (test helper)
 #' @export
 dsvertCopyDfDS <- function(data_name, output_name) {

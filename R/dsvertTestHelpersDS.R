@@ -61,24 +61,52 @@ dsvertAddSyntheticSurvivalDS <- function(data_name,
                                           event_rate = 0.6,
                                           time_column = "time",
                                           event_column = "event",
-                                          seed = 13L) {
+                                          seed = 13L,
+                                          id_column = "patient_id") {
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
   if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
   if (!covariate_column %in% names(data))
     stop("covariate_column not found", call. = FALSE)
-  set.seed(as.integer(seed))
+  n <- nrow(data)
   x <- data[[covariate_column]]
   x[is.na(x)] <- mean(x, na.rm = TRUE)
   lambda <- pmax(1e-3, 1 / (as.numeric(base_scale) *
                              (1 + as.numeric(beta) * x)))
-  n <- nrow(data)
-  data[[time_column]] <- stats::rexp(n, lambda)
-  data[[event_column]] <- as.integer(stats::rbinom(n, 1L,
-                                                    as.numeric(event_rate)))
+  # Per-patient deterministic RNG: seed from hash(patient_id, seed) so
+  # the synthetic survival outcome is INVARIANT to row order between
+  # the Opal-aligned cohort and any external pooled baseline. Without
+  # this the centralised validation against survival::coxph can be
+  # computed on identical time/event vectors regardless of how the
+  # test framework pulled the data.
+  if (id_column %in% names(data)) {
+    ids <- as.character(data[[id_column]])
+    u <- vapply(ids, function(idv) {
+      h <- digest::digest(paste(idv, seed, sep = "_"),
+                           algo = "xxhash64", serialize = FALSE)
+      # Convert 16-hex xxhash to a uniform in (0, 1).
+      as.numeric(strtoi(substr(h, 1L, 8L), 16L)) / 2^32
+    }, numeric(1L))
+    # Independent event uniform from a second salt.
+    v <- vapply(ids, function(idv) {
+      h <- digest::digest(paste(idv, seed + 1L, sep = "_"),
+                           algo = "xxhash64", serialize = FALSE)
+      as.numeric(strtoi(substr(h, 1L, 8L), 16L)) / 2^32
+    }, numeric(1L))
+    # Exponential via inverse-CDF: -log(1-u)/lambda
+    data[[time_column]] <- -log(pmax(1 - as.numeric(u), 1e-12)) / lambda
+    data[[event_column]] <- as.integer(as.numeric(v) < event_rate)
+  } else {
+    # Fallback: legacy positional RNG.
+    set.seed(as.integer(seed))
+    data[[time_column]] <- stats::rexp(n, lambda)
+    data[[event_column]] <- as.integer(stats::rbinom(
+      n, 1L, as.numeric(event_rate)))
+  }
   assign(data_name, data, envir = parent.frame())
   list(n = n, n_events = sum(data[[event_column]]),
-       time_column = time_column, event_column = event_column)
+       time_column = time_column, event_column = event_column,
+       deterministic_by_id = id_column %in% names(data))
 }
 
 #' @title Append an age-quartile factor column (test helper)

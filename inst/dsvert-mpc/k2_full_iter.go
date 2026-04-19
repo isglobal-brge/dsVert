@@ -45,7 +45,7 @@ func handleK2FullIterR3() {
 
 	n := input.N
 	p := input.P
-	fracBits := 20
+	fracBits := K2DefaultFracBits
 
 	ring := NewRing63(fracBits)
 
@@ -190,7 +190,7 @@ func handleK2Ring63Aggregate() {
 	var input K2Ring63AggregateInput
 	mpcReadInput(&input)
 	if input.FracBits <= 0 {
-		input.FracBits = 20
+		input.FracBits = K2DefaultFracBits
 	}
 	ring := NewRing63(input.FracBits)
 
@@ -222,7 +222,7 @@ func handleK2SplitFPShare() {
 	var input K2SplitFPInput
 	mpcReadInput(&input)
 	data := bytesToFPVec(base64ToBytes(input.DataFP))
-	ring := NewRing63(20)
+	ring := NewRing63(K2DefaultFracBits)
 
 	// Convert data to Ring63 and split using Ring63 arithmetic
 	// This ensures shares are valid Ring63 values that sum to the original mod 2^63
@@ -254,7 +254,7 @@ type K2ComputeEtaFPInput struct {
 func handleK2ComputeEtaFP() {
 	var input K2ComputeEtaFPInput
 	mpcReadInput(&input)
-	if input.FracBits <= 0 { input.FracBits = 20 }
+	if input.FracBits <= 0 { input.FracBits = K2DefaultFracBits }
 
 	ring := NewRing63(input.FracBits)
 	n := input.N
@@ -347,7 +347,7 @@ func handleK2GenMatvecTriples() {
 
 	n := input.N
 	p := input.P
-	ring := NewRing63(20)
+	ring := NewRing63(K2DefaultFracBits)
 
 	// Generate A (n*p) and B (n) in Ring63
 	A := make([]uint64, n*p)

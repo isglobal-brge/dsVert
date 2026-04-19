@@ -295,7 +295,7 @@ func handleK2FPSum() {
 	var input K2FPSumInput
 	mpcReadInput(&input)
 	data := bytesToFPVec(base64ToBytes(input.FPData))
-	ring := NewRing63(20) // frac_bits doesn't matter for addition
+	ring := NewRing63(K2DefaultFracBits) // frac_bits doesn't matter for addition; use default for consistency
 	var total uint64
 	for _, v := range data {
 		total = ring.Add(total, uint64(v))

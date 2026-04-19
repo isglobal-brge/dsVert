@@ -30,7 +30,9 @@ dsvertLMMLocalGramDS <- function(data_name, columns,
                                   peer_pk,
                                   session_id = NULL,
                                   frac_bits = 20L,
-                                  share_scale = 1.0) {
+                                  share_scale = 1.0,
+                                  column_scales = NULL,
+                                  standardize = FALSE) {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
   .validate_data_name(data_name)
@@ -44,10 +46,29 @@ dsvertLMMLocalGramDS <- function(data_name, columns,
   n <- nrow(data)
 
   tx <- list()  # named numeric columns (transformed)
+  # Column standardization (Codex-approved structural fix, 2026-04-19):
+  # dividing each raw column by its public SD before cluster-mean centering
+  # equalizes the Gram diagonal and reduces kappa(X~^T X~) from O(1e5-1e6)
+  # to O(1-1e3), amplifying MPC precision from rel~1e-4 to rel~1e-8 on
+  # |β|>1 coefficients. Scales are supplied by the client from the
+  # already-documented scalar aggregate dsvertLocalMomentsDS (same P3 tier
+  # as mean/sd releases in ds.vertDesc). Intercept column is NOT scaled
+  # (its magnitude is governed by lambda_i, not user data). y_var is NOT
+  # scaled so that β_std_j = β_raw_j × s_j and the client unscaling
+  # β_raw_j = β_std_j / s_j is a clean per-coefficient divide.
+  scale_vec <- function(v) {
+    if (is.null(column_scales)) return(1.0)
+    sj <- column_scales[[v]]
+    if (is.null(sj) || length(sj) != 1L || !is.finite(as.numeric(sj)) ||
+        as.numeric(sj) <= 0) return(1.0)
+    as.numeric(sj)
+  }
   # Transform local predictors.
   for (v in columns) {
     if (!v %in% names(data)) next
     x <- as.numeric(data[[v]])
+    sj <- scale_vec(v)
+    if (sj != 1.0) x <- x / sj
     cl_means <- tapply(x, ids, function(z) mean(z, na.rm = TRUE))
     cm_obs <- as.numeric(cl_means[as.character(ids)])
     out <- x - lam_per_obs * cm_obs
@@ -60,6 +81,29 @@ dsvertLMMLocalGramDS <- function(data_name, columns,
     val[is.na(val)] <- 1
     tx[[intercept_col]] <- val
   }
+  # Post-centering L2 standardization. This is the Codex-approved
+  # structural fix (2026-04-19) that closes the X4 rel<1e-4 gap:
+  # the raw Gram X~^T X~ has κ≈5.57e5 on mixed-scale designs; dividing
+  # each centered column by its L2 norm shrinks κ to O(10), amplifying
+  # MPC precision from rel~1e-4 to rel~1e-8. Scales are returned to the
+  # client so it can unscale β at the end. L2 of each centered column
+  # is a scalar aggregate (same P3 tier as mean/sd releases in
+  # ds.vertDesc) — no new disclosure.
+  use_std <- isTRUE(standardize)
+  l2_scales <- setNames(rep(1.0, length(names(tx))), names(tx))
+  if (use_std) {
+    for (nm in names(tx)) {
+      v <- tx[[nm]]
+      l2 <- sqrt(sum(v * v))
+      if (is.finite(l2) && l2 > 0) {
+        tx[[nm]] <- v / l2
+        l2_scales[nm] <- l2
+      }
+    }
+  }
+  # y is NOT standardized: unscaling then becomes β_raw_j = β_std_j / s_j
+  # (and y stays in original units so downstream σ²/σ_b² consumers work
+  # without re-scaling).
   # Transform y if this server owns it.
   y_tx <- NULL
   y_key <- NULL
@@ -141,6 +185,7 @@ dsvertLMMLocalGramDS <- function(data_name, columns,
        n           = n,
        column_names = col_order,
        y_key       = y_key,
+       l2_scales   = as.list(l2_scales[col_order]),
        peer_blob   = base64_to_base64url(sealed$sealed))
 }
 

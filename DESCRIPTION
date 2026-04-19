@@ -24,10 +24,17 @@ Depends: R (>= 4.0.0)
 Imports:
     digest,
     jsonlite,
-    stats
+    stats,
+    utils
 Suggests:
     testthat (>= 3.0.0),
-    DSI
+    DSI,
+    survival,
+    lme4,
+    mice,
+    MASS,
+    nnet,
+    glmnet
 RoxygenNote: 7.3.3
 Roxygen: list(markdown = TRUE)
 AggregateMethods:
@@ -99,6 +106,19 @@ AggregateMethods:
     dsvertLMMReceiveClusterIDsDS,
     dsvertLMMPerClusterSumDS,
     dsvertLMMGlobalSumDS,
+    dsvertLMMGLSTransformDS,
+    dsvertLMMGLSAggregatesDS,
+    dsvertLMMLocalGramDS,
+    dsvertLMMReceiveGramSharesDS,
+    dsvertLMMGramR1DS,
+    dsvertLMMGramR2DS,
+    dsvertCoxNewtonPrepDS,
+    dsvertCoxNewtonGradDS,
+    dsvertCoxNewtonLoadPairDS,
+    dsvertCoxNewtonFisherScalarDS,
+    dsvertCoxPathBCumsumDS,
+    dsvertCoxPathBScalarDS,
+    dsvertCoxPathBCopyDS,
     dsvertInjectNADS,
     dsvertAddClusterColumnDS,
     dsvertAddSyntheticSurvivalDS,

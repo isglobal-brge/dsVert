@@ -11,8 +11,15 @@ package main
 const (
 	// K2DefaultFracBits is the number of fractional bits for fixed-point arithmetic.
 	// Ring63 with 20 fractional bits gives 2^{-20} ≈ 1e-6 per-element precision.
-	// Higher values (e.g., 25) would give more precision but risk Ring63 overflow
-	// in Hadamard products (2*fracBits must be << 63).
+	// Higher values (e.g., 25) would give more precision but break Hadamard-
+	// product and StochasticHadamardProduct protocols that carry the
+	// implicit 2*fracBits < 63 constraint through uint64 intermediates
+	// (not all ops use big.Int). Attempted upgrade to 25 on 2026-04-19
+	// broke TestSoftmax_Composition (|err|=3508) and LMM synth (intercept
+	// collapsed to 0 vs 99.45 expected). Ring63 25 is NOT a drop-in
+	// config change; it requires a per-protocol audit of FP-scale
+	// assumptions and migration of uint64 intermediates to big.Int /
+	// uint128 wherever 2*fracBits > 63 constraints apply. Kept at 20.
 	K2DefaultFracBits = 20
 
 	// K2SigmoidIntervals is the number of piecewise-linear spline intervals

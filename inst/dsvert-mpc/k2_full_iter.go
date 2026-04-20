@@ -23,6 +23,10 @@ type K2FullIterR3Input struct {
 	P         int    `json:"p"`
 	PartyID   int    `json:"party_id"`
 	Phase     int    `json:"phase"`
+	FracBits  int    `json:"frac_bits"`
+	// Ring selector. "" or "ring63" (default, 8-byte per element) /
+	// "ring127" (16-byte Uint128 records). Task #116 Cox/LMM plumbing 5c(D).
+	Ring string `json:"ring"`
 }
 
 type K2FullIterR3Phase1Output struct {
@@ -42,6 +46,14 @@ type K2FullIterR3Phase2Output struct {
 func handleK2FullIterR3() {
 	var input K2FullIterR3Input
 	mpcReadInput(&input)
+
+	if input.Ring == "ring127" {
+		handleK2FullIterR3_127(input)
+		return
+	}
+	if input.Ring != "" && input.Ring != "ring63" {
+		panic("k2-full-iter-r3: unknown ring='" + input.Ring + "'")
+	}
 
 	n := input.N
 	p := input.P
@@ -300,11 +312,21 @@ type K2ComputeEtaFPInput struct {
 	POwn      int     `json:"p_own"`
 	PPeer     int     `json:"p_peer"`
 	FracBits  int     `json:"frac_bits"`
+	// Ring selector. "" or "ring63" (default, 8-byte per element) /
+	// "ring127" (16-byte Uint128 records). Task #116 Cox/LMM plumbing 5c(D).
+	Ring string `json:"ring"`
 }
 
 func handleK2ComputeEtaFP() {
 	var input K2ComputeEtaFPInput
 	mpcReadInput(&input)
+	if input.Ring == "ring127" {
+		handleK2ComputeEtaFP127(input)
+		return
+	}
+	if input.Ring != "" && input.Ring != "ring63" {
+		panic("k2-compute-eta-fp: unknown ring='" + input.Ring + "'")
+	}
 	if input.FracBits <= 0 { input.FracBits = K2DefaultFracBits }
 
 	ring := NewRing63(input.FracBits)

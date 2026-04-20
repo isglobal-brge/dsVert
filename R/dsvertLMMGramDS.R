@@ -32,7 +32,8 @@ dsvertLMMLocalGramDS <- function(data_name, columns,
                                   frac_bits = 20L,
                                   share_scale = 1.0,
                                   column_scales = NULL,
-                                  standardize = FALSE) {
+                                  standardize = FALSE,
+                                  ring = "ring63") {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
   .validate_data_name(data_name)
@@ -145,18 +146,32 @@ dsvertLMMLocalGramDS <- function(data_name, columns,
   # so the client-side assembly is consistent.
   sc <- as.numeric(share_scale)
   if (!is.finite(sc) || sc <= 0) sc <- 1.0
+  # Ring dispatch (task #121 LMM Ring127 migration). Ring127 path uses
+  # fracBits=50 (Uint128 shares) for a ~2^30 reduction in per-Beaver
+  # truncation noise vs the Ring63 fracBits=20 baseline. Server storage
+  # is base64-wrapped so R is agnostic to the 8-byte vs 16-byte layout.
+  ring_tag <- if (is.character(ring)) ring else "ring63"
+  if (!(ring_tag %in% c("ring63", "ring127"))) {
+    stop("dsvertLMMLocalGramDS: ring must be 'ring63' or 'ring127'",
+         call. = FALSE)
+  }
+  fp_frac <- if (ring_tag == "ring127") 50L else as.integer(frac_bits)
   peer_shares <- list()
   share_col <- function(name, vec) {
     fp <- .callMpcTool("k2-float-to-fp",
       list(values = as.numeric(sc * vec),
-           frac_bits = as.integer(frac_bits)))$fp_data
+           frac_bits = fp_frac,
+           ring = ring_tag))$fp_data
     split_res <- .callMpcTool("k2-split-fp-share",
-      list(data_fp = fp, n = length(vec)))
+      list(data_fp = fp, n = length(vec), ring = ring_tag))
     ss[[paste0("lmm_gram_col_", name)]] <- split_res$own_share
     peer_shares[[name]] <<- split_res$peer_share
   }
   for (nm in col_order) share_col(nm, tx[[nm]])
   if (!is.null(y_tx)) share_col(y_key, y_tx)
+  # Record the ring / frac_bits for R1/R2 callers that bind to the session.
+  ss$lmm_gram_ring <- ring_tag
+  ss$lmm_gram_frac_bits <- as.integer(fp_frac)
   # Scale the within-server XtX and Xty blocks to match the share-scale
   # applied to the Beaver cross blocks above; these are computed in
   # double precision (no FP floor) but their magnitudes must match the
@@ -231,7 +246,8 @@ dsvertLMMReceiveGramSharesDS <- function(session_id = NULL) {
 #'   share, then reduces to a scalar via \code{k2-fp-sum}.
 #' @export
 dsvertLMMGramR1DS <- function(peer_pk, x_col, y_col,
-                               session_id = NULL, frac_bits = 20L) {
+                               session_id = NULL, frac_bits = 20L,
+                               ring = NULL) {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
   ss <- .S(session_id)
@@ -240,10 +256,15 @@ dsvertLMMGramR1DS <- function(peer_pk, x_col, y_col,
   if (is.null(ss[[x_key]]) || is.null(ss[[y_key]]))
     stop("column shares missing: ", x_col, " / ", y_col, call. = FALSE)
   n <- as.integer(ss$lmm_gram_n)
+  # Ring inherits from the LocalGram call that installed the shares,
+  # unless the caller overrides. Task #121: Ring127 threading.
+  ring_tag <- if (!is.null(ring) && nzchar(ring)) ring else
+                if (!is.null(ss$lmm_gram_ring)) ss$lmm_gram_ring else "ring63"
+  fb <- if (ring_tag == "ring127") 50L else as.integer(frac_bits)
   r1 <- .callMpcTool("k2-beaver-vecmul-round1", list(
     x_fp = ss[[x_key]], y_fp = ss[[y_key]],
     triple_blob = ss$k2_beaver_vecmul_triple,
-    n = n, frac_bits = as.integer(frac_bits)))
+    n = n, frac_bits = fb, ring = ring_tag))
   payload <- jsonlite::toJSON(list(d_fp = r1$d_fp, e_fp = r1$e_fp),
                               auto_unbox = TRUE)
   payload_b64 <- jsonlite::base64_enc(charToRaw(as.character(payload)))
@@ -255,7 +276,8 @@ dsvertLMMGramR1DS <- function(peer_pk, x_col, y_col,
 
 #' @export
 dsvertLMMGramR2DS <- function(is_party0, x_col, y_col,
-                               session_id = NULL, frac_bits = 20L) {
+                               session_id = NULL, frac_bits = 20L,
+                               ring = NULL) {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
   ss <- .S(session_id)
@@ -270,14 +292,18 @@ dsvertLMMGramR2DS <- function(is_party0, x_col, y_col,
     list(sealed = .base64url_to_base64(blob), recipient_sk = tsk))
   payload <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
   n <- as.integer(ss$lmm_gram_n)
+  ring_tag <- if (!is.null(ring) && nzchar(ring)) ring else
+                if (!is.null(ss$lmm_gram_ring)) ss$lmm_gram_ring else "ring63"
+  fb <- if (ring_tag == "ring127") 50L else as.integer(frac_bits)
   res <- .callMpcTool("k2-beaver-vecmul-round2", list(
     x_fp = ss[[x_key]], y_fp = ss[[y_key]],
     triple_blob = ss$k2_beaver_vecmul_triple,
     peer_d_fp = payload$d_fp, peer_e_fp = payload$e_fp,
     is_party0 = isTRUE(is_party0),
-    n = n, frac_bits = as.integer(frac_bits)))
+    n = n, frac_bits = fb, ring = ring_tag))
   # Reduce to scalar: sum the element-wise product share.
-  sc <- .callMpcTool("k2-fp-sum", list(fp_data = res$z_fp))
+  sc <- .callMpcTool("k2-fp-sum",
+                      list(fp_data = res$z_fp, ring = ring_tag))
   list(scalar_share = sc$sum_fp,
        x_col = x_col, y_col = y_col)
 }

@@ -27,6 +27,12 @@ type K2WideSplineFullInput struct {
 	N            int     `json:"n"`
 	FracBits     int     `json:"frac_bits"`
 	NumIntervals int     `json:"num_intervals"`
+	// Ring selects the secret-share ring. "ring63" (default, empty) uses
+	// uint64 Ring63. "ring127" uses Uint128 Ring127 (task #116 migration
+	// for Cox/LMM STRICT closure). Ring127 is NOT YET FULLY WIRED in the
+	// spline protocol — setting it here is currently a no-op fallthrough
+	// to Ring63; the R client may pass it for forward-compatibility.
+	Ring         string  `json:"ring"`
 	// Optional domain override for dual-clamp families (reciprocal / log).
 	// If zero, family defaults apply (K2Reciprocal* / K2Log*).
 	Lower        float64 `json:"lower"`

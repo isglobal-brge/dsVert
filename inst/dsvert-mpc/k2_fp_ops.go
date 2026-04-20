@@ -13,6 +13,7 @@ type K2FPAddInput struct {
 	A        string `json:"a"`         // base64 FP
 	B        string `json:"b"`         // base64 FP
 	FracBits int    `json:"frac_bits"`
+	Ring     string `json:"ring"`      // "" or "ring63" or "ring127"
 }
 
 type K2FPAddOutput struct {
@@ -22,6 +23,10 @@ type K2FPAddOutput struct {
 func handleK2FPAdd() {
 	var input K2FPAddInput
 	mpcReadInput(&input)
+	if input.Ring == "ring127" {
+		handleK2FPAdd127(input)
+		return
+	}
 	if input.FracBits <= 0 {
 		input.FracBits = K2DefaultFracBits
 	}
@@ -58,6 +63,7 @@ type K2FPVecMulInput struct {
 	A        string `json:"a"`         // base64 FP
 	B        string `json:"b"`         // base64 FP
 	FracBits int    `json:"frac_bits"`
+	Ring     string `json:"ring"`      // "" or "ring63" or "ring127"
 }
 
 type K2FPVecMulOutput struct {
@@ -67,6 +73,10 @@ type K2FPVecMulOutput struct {
 func handleK2FPVecMul() {
 	var input K2FPVecMulInput
 	mpcReadInput(&input)
+	if input.Ring == "ring127" {
+		handleK2FPVecMul127(input)
+		return
+	}
 	if input.FracBits <= 0 {
 		input.FracBits = K2DefaultFracBits
 	}
@@ -121,6 +131,7 @@ type K2FPCumsumInput struct {
 	// stratified Cox (one risk-set per stratum).
 	Strata   []int  `json:"strata"`
 	FracBits int    `json:"frac_bits"`
+	Ring     string `json:"ring"` // "" or "ring63" or "ring127"
 }
 
 type K2FPCumsumOutput struct {
@@ -130,6 +141,10 @@ type K2FPCumsumOutput struct {
 func handleK2FPCumsum() {
 	var input K2FPCumsumInput
 	mpcReadInput(&input)
+	if input.Ring == "ring127" {
+		handleK2FPCumsum127(input)
+		return
+	}
 	if input.FracBits <= 0 {
 		input.FracBits = K2DefaultFracBits
 	}
@@ -198,8 +213,9 @@ type K2FPPermuteShareInput struct {
 	// Cols: if >1, treat the share as a row-major n-by-cols matrix and
 	// permute whole rows (output[i*cols+j] = input[perm[i]*cols+j]).
 	// Zero or 1 means flat-vector permutation (legacy behaviour).
-	Cols     int `json:"cols"`
-	FracBits int `json:"frac_bits"`
+	Cols     int    `json:"cols"`
+	FracBits int    `json:"frac_bits"`
+	Ring     string `json:"ring"` // "" or "ring63" or "ring127"
 }
 
 type K2FPPermuteShareOutput struct {
@@ -209,6 +225,10 @@ type K2FPPermuteShareOutput struct {
 func handleK2FPPermuteShare() {
 	var input K2FPPermuteShareInput
 	mpcReadInput(&input)
+	if input.Ring == "ring127" {
+		handleK2FPPermuteShare127(input)
+		return
+	}
 	if input.FracBits <= 0 {
 		input.FracBits = K2DefaultFracBits
 	}
@@ -262,6 +282,10 @@ func handleK2FPPermuteShare() {
 func handleK2FPSub() {
 	var input K2FPAddInput
 	mpcReadInput(&input)
+	if input.Ring == "ring127" {
+		handleK2FPSub127(input)
+		return
+	}
 	if input.FracBits <= 0 {
 		input.FracBits = K2DefaultFracBits
 	}
@@ -285,6 +309,7 @@ func handleK2FPSub() {
 
 type K2FPSumInput struct {
 	FPData string `json:"fp_data"` // base64 FP vector
+	Ring   string `json:"ring"`    // "" or "ring63" or "ring127"
 }
 
 type K2FPSumOutput struct {
@@ -294,6 +319,10 @@ type K2FPSumOutput struct {
 func handleK2FPSum() {
 	var input K2FPSumInput
 	mpcReadInput(&input)
+	if input.Ring == "ring127" {
+		handleK2FPSum127(input)
+		return
+	}
 	data := bytesToFPVec(base64ToBytes(input.FPData))
 	ring := NewRing63(K2DefaultFracBits) // frac_bits doesn't matter for addition; use default for consistency
 	var total uint64
@@ -364,6 +393,7 @@ type K2FPExtractColumnInput struct {
 	K        int    `json:"k"`
 	Col      int    `json:"col"` // 0-based
 	FracBits int    `json:"frac_bits"`
+	Ring     string `json:"ring"` // "" or "ring63" or "ring127"
 }
 
 type K2FPExtractColumnOutput struct {
@@ -373,6 +403,10 @@ type K2FPExtractColumnOutput struct {
 func handleK2FPExtractColumn() {
 	var input K2FPExtractColumnInput
 	mpcReadInput(&input)
+	if input.Ring == "ring127" {
+		handleK2FPExtractColumn127(input)
+		return
+	}
 	if input.FracBits <= 0 {
 		input.FracBits = K2DefaultFracBits
 	}

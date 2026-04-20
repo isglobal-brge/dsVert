@@ -244,3 +244,66 @@ func handleK2FullIterR3_127(input K2FullIterR3Input) {
 		GradientFP:    Uint128VecToB64(truncated),
 	})
 }
+
+// ============================================================================
+// k2-gen-matvec-triples (Ring127)
+// ============================================================================
+// Parity with handleK2GenMatvecTriples: samples A (n*p), B (n) random
+// Uint128 in Ring127, computes C[j] = sum_i A[i,j]*B[i] UNtruncated
+// (ModPow127) — Beaver matvec triples at 2*fracBits FP scale. Triples are
+// then additively split into {party0, party1} shares via SplitShare. The
+// consumer (k2-full-iter-r3 Phase 2) applies the single truncation.
+//
+// Ring127 triple blob is 16 bytes/element (A: 16·n·p, B: 16·n, C: 16·p),
+// compared to 8 bytes/element in Ring63 → 2× larger transport payload.
+
+func handleK2GenMatvecTriples127(input K2GenMatvecTriplesInput) {
+	n := input.N
+	p := input.P
+	ring := NewRing127(K2DefaultFracBits127)
+
+	A := make([]Uint128, n*p)
+	B := make([]Uint128, n)
+	for i := range A {
+		A[i] = cryptoRandUint128().ModPow127()
+	}
+	for i := range B {
+		B[i] = cryptoRandUint128().ModPow127()
+	}
+
+	// C[j] = sum_i A[i,j] * B[i] UNtruncated in Ring127 (ModPow127 per
+	// product, matching Ring63 modMulBig63 semantics).
+	C := make([]Uint128, p)
+	for j := 0; j < p; j++ {
+		for i := 0; i < n; i++ {
+			prod := A[i*p+j].Mul(B[i]).ModPow127()
+			C[j] = ring.Add(C[j], prod)
+		}
+	}
+
+	// Additively split.
+	a0 := make([]Uint128, n*p)
+	a1 := make([]Uint128, n*p)
+	b0 := make([]Uint128, n)
+	b1 := make([]Uint128, n)
+	c0 := make([]Uint128, p)
+	c1 := make([]Uint128, p)
+	for i := range A {
+		a0[i], a1[i] = ring.SplitShare(A[i])
+	}
+	for i := range B {
+		b0[i], b1[i] = ring.SplitShare(B[i])
+	}
+	for i := range C {
+		c0[i], c1[i] = ring.SplitShare(C[i])
+	}
+
+	mpcWriteOutput(K2GenMatvecTriplesOutput{
+		Party0A: Uint128VecToB64(a0),
+		Party0B: Uint128VecToB64(b0),
+		Party0C: Uint128VecToB64(c0),
+		Party1A: Uint128VecToB64(a1),
+		Party1B: Uint128VecToB64(b1),
+		Party1C: Uint128VecToB64(c1),
+	})
+}

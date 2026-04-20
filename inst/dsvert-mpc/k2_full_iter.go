@@ -403,6 +403,9 @@ func handleK2ComputeEtaFP() {
 type K2GenMatvecTriplesInput struct {
 	N int `json:"n"`
 	P int `json:"p"`
+	// Ring selector. "" or "ring63" (default, 8-byte records) /
+	// "ring127" (16-byte Uint128 records). Task #116 Cox/LMM plumbing 5c(D).
+	Ring string `json:"ring"`
 }
 
 type K2GenMatvecTriplesOutput struct {
@@ -417,6 +420,14 @@ type K2GenMatvecTriplesOutput struct {
 func handleK2GenMatvecTriples() {
 	var input K2GenMatvecTriplesInput
 	mpcReadInput(&input)
+
+	if input.Ring == "ring127" {
+		handleK2GenMatvecTriples127(input)
+		return
+	}
+	if input.Ring != "" && input.Ring != "ring63" {
+		panic("k2-gen-matvec-triples: unknown ring='" + input.Ring + "'")
+	}
 
 	n := input.N
 	p := input.P

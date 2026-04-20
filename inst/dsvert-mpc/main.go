@@ -114,6 +114,10 @@ func main() {
 	case "k2-full-iter-r3":
 		handleK2FullIterR3()
 
+	// Ring127 Chebyshev-exp coefficients (public)
+	case "k2-exp127-get-coeffs":
+		handleK2Exp127GetCoeffs()
+
 	// Ring63 aggregation (client-side)
 	case "k2-ring63-aggregate":
 		handleK2Ring63Aggregate()

@@ -264,8 +264,11 @@ func ScalarVectorProductPartyOne(scalarA float64, vectorB []uint64, r Ring63) []
 // ============================================================================
 
 type K2GenBeaverTriplesInput struct {
-	N        int `json:"n"`         // number of triples
-	FracBits int `json:"frac_bits"` // fractional bits
+	N        int    `json:"n"`         // number of triples
+	FracBits int    `json:"frac_bits"` // fractional bits
+	// Ring selector. "" or "ring63" (default, 8-byte shares) / "ring127"
+	// (16-byte Uint128 shares). Ring127 selected by Cox/LMM plumbing.
+	Ring string `json:"ring"`
 }
 
 type K2GenBeaverTriplesOutput struct {
@@ -281,7 +284,26 @@ func handleK2GenBeaverTriples() {
 	var input K2GenBeaverTriplesInput
 	mpcReadInput(&input)
 	if input.FracBits <= 0 {
-		input.FracBits = 20
+		input.FracBits = K2DefaultFracBits
+	}
+
+	// Ring127 dispatch — triples serialized as 16-byte Uint128 records
+	// (Ring63 default path remains exactly as before).
+	if input.Ring == "ring127" {
+		ring127 := NewRing127(input.FracBits)
+		p0, p1 := SampleBeaverTripleVector127(input.N, ring127)
+		mpcWriteOutput(K2GenBeaverTriplesOutput{
+			Party0U: bytesToBase64(uint128VecToBytes(p0.A)),
+			Party0V: bytesToBase64(uint128VecToBytes(p0.B)),
+			Party0W: bytesToBase64(uint128VecToBytes(p0.C)),
+			Party1U: bytesToBase64(uint128VecToBytes(p1.A)),
+			Party1V: bytesToBase64(uint128VecToBytes(p1.B)),
+			Party1W: bytesToBase64(uint128VecToBytes(p1.C)),
+		})
+		return
+	}
+	if input.Ring != "" && input.Ring != "ring63" {
+		panic("k2-gen-beaver-triples: unknown ring='" + input.Ring + "'")
 	}
 
 	n := input.N

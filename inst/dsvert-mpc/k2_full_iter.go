@@ -180,6 +180,12 @@ type K2Ring63AggregateInput struct {
 	ShareA   string `json:"share_a"`   // base64 FP (Ring63 share from party 0)
 	ShareB   string `json:"share_b"`   // base64 FP (Ring63 share from party 1)
 	FracBits int    `json:"frac_bits"`
+	// Ring selector. "" or "ring63" (default, 8-byte input records) /
+	// "ring127" (16-byte Uint128 input records). Output is []float64 either
+	// way — the aggregate op is what converts shares back to plaintext
+	// floats for the client. Despite the name, the handler supports both
+	// rings since step 5a (task #116 Cox/LMM plumbing).
+	Ring string `json:"ring"`
 }
 
 type K2Ring63AggregateOutput struct {
@@ -192,8 +198,25 @@ func handleK2Ring63Aggregate() {
 	if input.FracBits <= 0 {
 		input.FracBits = K2DefaultFracBits
 	}
-	ring := NewRing63(input.FracBits)
 
+	// Ring127 dispatch — parse 16-byte input records, add in Ring127, decode.
+	if input.Ring == "ring127" {
+		ring127 := NewRing127(input.FracBits)
+		a127 := bytesToUint128Vec(base64ToBytes(input.ShareA))
+		b127 := bytesToUint128Vec(base64ToBytes(input.ShareB))
+		n := len(a127)
+		values := make([]float64, n)
+		for i := 0; i < n; i++ {
+			values[i] = ring127.ToDouble(ring127.Add(a127[i], b127[i]))
+		}
+		mpcWriteOutput(K2Ring63AggregateOutput{Values: values})
+		return
+	}
+	if input.Ring != "" && input.Ring != "ring63" {
+		panic("k2-ring63-aggregate: unknown ring='" + input.Ring + "'")
+	}
+
+	ring := NewRing63(input.FracBits)
 	aR63 := fpToRing63(bytesToFPVec(base64ToBytes(input.ShareA)))
 	bR63 := fpToRing63(bytesToFPVec(base64ToBytes(input.ShareB)))
 

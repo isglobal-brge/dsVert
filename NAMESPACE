@@ -1,6 +1,8 @@
 # Core
 export(dsvertColNamesDS)
 export(dsvertContingencyDS)
+export(dsvertDebugRevealDS)
+export(dsvertDebugSnapshotDS)
 export(dsvertHistogramDS)
 export(dsvertIdentityPkDS)
 export(dsvertLocalMomentsDS)

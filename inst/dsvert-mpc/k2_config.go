@@ -46,7 +46,12 @@ const (
 	K2ReciprocalLower = 0.01
 
 	// K2ReciprocalUpper is the default upper bound of the 1/x spline domain.
-	K2ReciprocalUpper = 10.0
+	// Widened 10→500 (task #116) to cover Cox S(t_i) range [1, n×max_μ].
+	// Without widening, S > 10 clips to saturation 1/S=0.1; this is the
+	// bug that (together with the Cox "exp"→"poisson" string-dispatch
+	// fix) closes Path B accuracy. IPW 1/p ranges stay inside [1, ≤100]
+	// for clinical propensity scores so widening is safe.
+	K2ReciprocalUpper = 500.0
 
 	// K2LogIntervals is the number of piecewise-linear spline intervals for
 	// the log(x) function. log(x) grows slowly so uniform spacing works well

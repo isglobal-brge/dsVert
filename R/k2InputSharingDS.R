@@ -6,9 +6,14 @@
 NULL
 
 #' Share local data with peer (FixedPoint shares)
+#'
+#' @param ring Integer 63 (default) or 127. Selects secret-share ring
+#'   (task #116 Cox/LMM STRICT migration). Ring127 routes through 16-byte
+#'   Uint128 records via k2-float-to-fp + k2-split-fp-share with
+#'   ring="ring127"; Ring63 keeps the 8-byte pipeline.
 #' @export
 k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
-                             peer_pk, session_id = NULL) {
+                             peer_pk, ring = 63L, session_id = NULL) {
   ss <- .S(session_id)
   data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
@@ -19,22 +24,36 @@ k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
   if (n < privacy_level) stop("Insufficient observations", call. = FALSE)
   .check_glm_disclosure(X)
 
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  # Ring127 uses fracBits=50 (Beaver sign-boundary safe zone). Ring63 keeps
+  # the existing 20.
+  frac_bits <- if (ring == 127L) 50L else 20L
+
   # Convert X to FP and split into shares
   x_flat <- as.numeric(t(X)) # row-major
-  fp_x <- .callMpcTool("k2-float-to-fp", list(values = x_flat, frac_bits = 20L))$fp_data
-  x_split <- .callMpcTool("k2-split-fp-share", list(data_fp = fp_x, n = length(x_flat)))
+  fp_x <- .callMpcTool("k2-float-to-fp", list(
+    values = x_flat, frac_bits = frac_bits, ring = ring_tag))$fp_data
+  x_split <- .callMpcTool("k2-split-fp-share", list(
+    data_fp = fp_x, n = length(x_flat), frac_bits = frac_bits,
+    ring = ring_tag))
 
   ss$k2_x_share_fp <- x_split$own_share
   ss$k2_x_n <- n
   ss$k2_x_p <- p
+  ss$k2_ring <- ring  # Remember choice for downstream ops.
 
   # y (label only)
   encrypted_y <- NULL
   if (!is.null(y_var)) {
     y <- as.numeric(data[[y_var]])
     ss$k2_y_raw <- y  # Store raw y for canonical deviance constants
-    fp_y <- .callMpcTool("k2-float-to-fp", list(values = y, frac_bits = 20L))$fp_data
-    y_split <- .callMpcTool("k2-split-fp-share", list(data_fp = fp_y, n = length(y)))
+    fp_y <- .callMpcTool("k2-float-to-fp", list(
+      values = y, frac_bits = frac_bits, ring = ring_tag))$fp_data
+    y_split <- .callMpcTool("k2-split-fp-share", list(
+      data_fp = fp_y, n = length(y), frac_bits = frac_bits,
+      ring = ring_tag))
     ss$k2_y_share_fp <- y_split$own_share
 
     # Transport-encrypt peer's y share

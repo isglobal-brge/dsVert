@@ -109,15 +109,24 @@ glmRing63ReorderXFullDS <- function(p_coord, p_fusion, p_extras, session_id = NU
 #' @param n Integer. Number of observations.
 #' @param frac_bits Integer. Fractional bits for Ring63 FP.
 #' @param num_intervals Integer. Number of spline intervals.
+#' @param ring Integer 63 (default) or 127. Selects secret-share ring
+#'   (task #116 Cox/LMM STRICT migration). Ring127 emits 16-byte DCF
+#'   key records for the Uint128 pipeline; Ring63 keeps the 8-byte records.
 #' @param session_id Character or NULL.
 #' @return List with encrypted blobs for each DCF party.
 #' @export
 glmRing63GenDcfKeysDS <- function(dcf0_pk, dcf1_pk, family, n, frac_bits,
-                                   num_intervals, session_id = NULL) {
+                                   num_intervals, ring = 63L,
+                                   session_id = NULL) {
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+
   dcf <- .callMpcTool("k2-dcf-gen-batch", list(
     family = family, n = as.integer(n),
     frac_bits = as.integer(frac_bits),
-    num_intervals = as.integer(num_intervals)))
+    num_intervals = as.integer(num_intervals),
+    ring = ring_tag))
 
   pk0 <- .base64url_to_base64(dcf0_pk)
   pk1 <- .base64url_to_base64(dcf1_pk)
@@ -142,14 +151,21 @@ glmRing63GenDcfKeysDS <- function(dcf0_pk, dcf1_pk, family, n, frac_bits,
 #' @param dcf0_pk,dcf1_pk Character. Transport PKs of DCF parties (base64url).
 #' @param n Integer. Number of observations.
 #' @param frac_bits Integer. Fractional bits.
+#' @param ring Integer 63 (default) or 127. Ring127 emits 16-byte Uint128
+#'   triple shares (task #116 Cox/LMM).
 #' @param session_id Character or NULL.
 #' @return List with encrypted blobs for each DCF party.
 #' @export
 glmRing63GenSplineTriplesDS <- function(dcf0_pk, dcf1_pk, n, frac_bits,
-                                         session_id = NULL) {
+                                         ring = 63L, session_id = NULL) {
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+
   triples <- lapply(1:3, function(i)
     .callMpcTool("k2-gen-beaver-triples",
-      list(n = as.integer(n), frac_bits = as.integer(frac_bits))))
+      list(n = as.integer(n), frac_bits = as.integer(frac_bits),
+           ring = ring_tag)))
 
   pk0 <- .base64url_to_base64(dcf0_pk)
   pk1 <- .base64url_to_base64(dcf1_pk)

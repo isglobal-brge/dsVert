@@ -232,8 +232,12 @@ func handleK2Ring63Aggregate() {
 // --- Utility commands ---
 
 type K2SplitFPInput struct {
-	DataFP string `json:"data_fp"`
-	N      int    `json:"n"`
+	DataFP   string `json:"data_fp"`
+	N        int    `json:"n"`
+	FracBits int    `json:"frac_bits"`
+	// Ring selector. "" or "ring63" (default, 8-byte records) /
+	// "ring127" (16-byte Uint128 records). Task #116 Cox/LMM plumbing.
+	Ring string `json:"ring"`
 }
 
 type K2SplitFPOutput struct {
@@ -244,8 +248,32 @@ type K2SplitFPOutput struct {
 func handleK2SplitFPShare() {
 	var input K2SplitFPInput
 	mpcReadInput(&input)
+	fracBits := input.FracBits
+	if fracBits <= 0 {
+		fracBits = K2DefaultFracBits
+	}
+
+	// Ring127 dispatch — 16-byte input / 16-byte output per share.
+	if input.Ring == "ring127" {
+		ring127 := NewRing127(fracBits)
+		data127 := bytesToUint128Vec(base64ToBytes(input.DataFP))
+		own127 := make([]Uint128, len(data127))
+		peer127 := make([]Uint128, len(data127))
+		for i := range data127 {
+			own127[i], peer127[i] = ring127.SplitShare(data127[i])
+		}
+		mpcWriteOutput(K2SplitFPOutput{
+			OwnShare:  bytesToBase64(uint128VecToBytes(own127)),
+			PeerShare: bytesToBase64(uint128VecToBytes(peer127)),
+		})
+		return
+	}
+	if input.Ring != "" && input.Ring != "ring63" {
+		panic("k2-split-fp-share: unknown ring='" + input.Ring + "'")
+	}
+
 	data := bytesToFPVec(base64ToBytes(input.DataFP))
-	ring := NewRing63(K2DefaultFracBits)
+	ring := NewRing63(fracBits)
 
 	// Convert data to Ring63 and split using Ring63 arithmetic
 	// This ensures shares are valid Ring63 values that sum to the original mod 2^63

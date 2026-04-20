@@ -210,9 +210,13 @@ glmRing63GenSplineTriplesDS <- function(dcf0_pk, dcf1_pk, n, frac_bits,
 #' @return List with encrypted blobs for each DCF party.
 #' @export
 glmRing63GenGradTriplesDS <- function(dcf0_pk, dcf1_pk, n, p,
-                                       session_id = NULL) {
+                                       ring = 63L, session_id = NULL) {
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
   mvt <- .callMpcTool("k2-gen-matvec-triples", list(
-    n = as.integer(n), p = as.integer(p)))
+    n = as.integer(n), p = as.integer(p),
+    ring = ring_tag))
 
   pk0 <- .base64url_to_base64(dcf0_pk)
   pk1 <- .base64url_to_base64(dcf1_pk)

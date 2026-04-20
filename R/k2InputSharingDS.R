@@ -120,14 +120,23 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
   p_peer <- ss$k2_peer_p
   p_total <- p_own + p_peer
 
+  # Ring selection — read from session (pinned by upstream Cox/LMM setup
+  # via k2SetCoxTimesDS or similar). Default Ring63.
+  ring <- as.integer(ss$k2_ring %||% 63L)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  frac_bits <- if (ring == 127L) 50L else 20L
+
   # Beta is ALWAYS in canonical order: [coord features | nonlabel features]
   # Both parties use the SAME order — this is the canonical feature ordering
   # from the specification.
   beta_full <- c(as.numeric(beta_coord), as.numeric(beta_nl))
 
-  # Convert beta to FP
+  # Convert beta to FP (in the selected ring — 8 B/elem for ring63, 16 B
+  # Uint128/elem for ring127). Ring127 handler parses 16 B records.
   fp_beta <- .callMpcTool("k2-float-to-fp", list(
-    values = beta_full, frac_bits = 20L))$fp_data
+    values = beta_full, frac_bits = frac_bits,
+    ring = ring_tag))$fp_data
 
   # Compute eta_share = X_full_share * beta in FP ring
   # Uses k2-compute-eta-fp command
@@ -140,19 +149,22 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
     n = as.integer(n),
     p_own = as.integer(p_own),
     p_peer = as.integer(p_peer),
-    frac_bits = 20L
+    frac_bits = frac_bits,
+    ring = ring_tag
   ))
 
   eta_fp <- result$eta_fp
 
   # If this server holds an offset, add it into its share in-place.
-  # Ring63 additive shares are linear, so adding a plaintext value to
+  # Ring additive shares are linear, so adding a plaintext value to
   # one party's share is equivalent to adding it to the reconstructed
   # value. The peer's share is unchanged (they have no offset).
   if (!is.null(ss$k2_offset_fp)) {
     eta_fp <- .callMpcTool("k2-fp-add", list(
       a_fp = eta_fp, b_fp = ss$k2_offset_fp,
-      n = as.integer(n)
+      n = as.integer(n),
+      frac_bits = frac_bits,
+      ring = ring_tag
     ))$sum_fp
   }
 
@@ -166,14 +178,15 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
   if (is.null(ss$k2_y_share_fp)) {
     # Nonlabel: y_share is all zeros (since we subtract label's y_share from both)
     zero_y <- .callMpcTool("k2-float-to-fp", list(
-      values = rep(0, n), frac_bits = 20L))$fp_data
+      values = rep(0, n), frac_bits = frac_bits,
+      ring = ring_tag))$fp_data
     ss$k2_y_share_fp <- zero_y
   }
 
   list(stored = TRUE, n = n)
 }
 
-#' Gradient round 1: compute (X-A, r-B) in Ring63
+#' Gradient round 1: compute (X-A, r-B) in selected ring (Ring63 / Ring127)
 #' @export
 k2GradientR1DS <- function(peer_pk, session_id = NULL) {
   ss <- .S(session_id)
@@ -181,6 +194,12 @@ k2GradientR1DS <- function(peer_pk, session_id = NULL) {
   p_own <- ss$k2_x_p
   p_peer <- ss$k2_peer_p
   p_total <- p_own + p_peer
+
+  # Ring selection — session-pinned by upstream setup. Default Ring63.
+  ring <- as.integer(ss$k2_ring %||% 63L)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  frac_bits <- if (ring == 127L) 50L else 20L
 
   # Assemble full X share FP: concatenate own + peer columns per row
   # This is done by the Go command
@@ -196,7 +215,9 @@ k2GradientR1DS <- function(peer_pk, session_id = NULL) {
     n = as.integer(n),
     p = as.integer(p_total),
     party_id = 0L,
-    phase = 1L
+    phase = 1L,
+    frac_bits = frac_bits,
+    ring = ring_tag
   ))
 
   # Transport-encrypt for peer
@@ -221,6 +242,12 @@ k2GradientR2DS <- function(party_id = 0L, session_id = NULL) {
   n <- ss$k2_x_n
   p_total <- ss$k2_x_p + ss$k2_peer_p
 
+  # Ring selection — session-pinned by upstream setup. Default Ring63.
+  ring <- as.integer(ss$k2_ring %||% 63L)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  frac_bits <- if (ring == 127L) 50L else 20L
+
   # Decrypt peer's round-1 message
   blob <- .blob_consume("k2_grad_peer_r1", ss)
   tsk <- .key_get("transport_sk", ss)
@@ -240,7 +267,9 @@ k2GradientR2DS <- function(party_id = 0L, session_id = NULL) {
     n = as.integer(n),
     p = as.integer(p_total),
     party_id = as.integer(party_id),
-    phase = 2L
+    phase = 2L,
+    frac_bits = frac_bits,
+    ring = ring_tag
   ))
 
   list(gradient_share = result$gradient, sum_residual = result$sum_residual,

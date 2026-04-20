@@ -30,7 +30,7 @@
 #' @export
 k2SetCoxTimesDS <- function(data_name, time_column, event_column,
                             peer_pk, session_id = NULL,
-                            strata_column = NULL) {
+                            strata_column = NULL, ring = NULL) {
   if (!is.character(data_name) || length(data_name) != 1L ||
       !is.character(time_column) || length(time_column) != 1L ||
       !is.character(event_column) || length(event_column) != 1L) {
@@ -95,11 +95,20 @@ k2SetCoxTimesDS <- function(data_name, time_column, event_column,
   d_sorted <- d_vec[ord]
   strata_sorted <- if (!is.null(strata_vec)) strata_vec[ord] else NULL
 
+  # Ring selection (falls back to session-stored ring set by
+  # k2ShareInputDS; defaults to 63 if neither caller nor session supplies).
+  if (is.null(ring)) ring <- ss$k2_ring %||% 63L
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  frac_bits <- if (ring == 127L) 50L else 20L
   # Encode delta_sorted as FP share-compatible vector (plaintext here,
   # peer will also hold it plaintext after decrypt).
   delta_fp <- .callMpcTool("k2-float-to-fp", list(
-    values = as.numeric(d_sorted), frac_bits = 20L))$fp_data
+    values = as.numeric(d_sorted), frac_bits = frac_bits,
+    ring = ring_tag))$fp_data
   ss$k2_cox_perm <- as.integer(ord)
+  ss$k2_ring <- ring  # pin for downstream Cox ops
   ss$k2_cox_delta_fp <- delta_fp
   ss$k2_cox_n_events <- sum(d_vec)
   ss$k2_cox_strata <- if (!is.null(strata_sorted)) as.integer(strata_sorted) else NULL
@@ -183,12 +192,15 @@ k2ApplyCoxPermutationDS <- function(session_id = NULL) {
   # row i is row perm[i] of the input. Shares are permuted
   # independently on each party; correctness follows because a public
   # permutation commutes with additive sharing.
+  ring <- as.integer(ss$k2_ring %||% 63L)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  frac_bits <- if (ring == 127L) 50L else 20L
   permute_rows <- function(flat_b64, p) {
     if (is.null(flat_b64) || !nzchar(flat_b64) || p <= 0L) return(flat_b64)
     .callMpcTool("k2-fp-permute-share", list(
       a = flat_b64, perm = as.integer(perm),
       n = as.integer(n), cols = as.integer(p),
-      frac_bits = 20L
+      frac_bits = frac_bits, ring = ring_tag
     ))$result
   }
   if (!is.null(ss$k2_x_share_fp) && p_own > 0L) {
@@ -241,9 +253,13 @@ k2CoxReverseCumsumSDS <- function(session_id = NULL) {
     stop("secure_mu_share not populated; run DCF exp pass first",
          call. = FALSE)
   }
+  ring <- as.integer(ss$k2_ring %||% 63L)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  frac_bits <- if (ring == 127L) 50L else 20L
   args <- list(
     a = ss$secure_mu_share, reverse = TRUE,
-    n = as.integer(ss$k2_x_n), frac_bits = 20L)
+    n = as.integer(ss$k2_x_n), frac_bits = frac_bits,
+    ring = ring_tag)
   if (!is.null(ss$k2_cox_strata)) {
     args$strata <- as.integer(ss$k2_cox_strata)
   }
@@ -270,6 +286,9 @@ k2CoxForwardCumsumGDS <- function(session_id = NULL) {
   if (is.null(ss$k2_cox_delta_fp)) {
     stop("delta indicator not registered", call. = FALSE)
   }
+  ring <- as.integer(ss$k2_ring %||% 63L)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  frac_bits <- if (ring == 127L) 50L else 20L
   # Multiply delta element-wise into 1/S share (mask), then forward
   # cumsum. Both kernels in one call via the mask argument; strata
   # reset the accumulator at each boundary when stratified.
@@ -277,7 +296,8 @@ k2CoxForwardCumsumGDS <- function(session_id = NULL) {
     a = ss$k2_cox_recip_S_share_fp,
     mask = ss$k2_cox_delta_fp,
     reverse = FALSE,
-    n = as.integer(ss$k2_x_n), frac_bits = 20L)
+    n = as.integer(ss$k2_x_n), frac_bits = frac_bits,
+    ring = ring_tag)
   if (!is.null(ss$k2_cox_strata)) {
     args$strata <- as.integer(ss$k2_cox_strata)
   }
@@ -385,14 +405,21 @@ k2CoxPartialLogLikAggregateDS <- function(session_id = NULL) {
   if (is.null(ss$secure_mu_share)) {
     stop("log S share missing (run DCF log pass first)", call. = FALSE)
   }
+  ring <- as.integer(ss$k2_ring %||% 63L)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  frac_bits <- if (ring == 127L) 50L else 20L
   # Mask eta by delta and sum -> share of T_1.
   t1 <- .callMpcTool("k2-fp-vec-mul", list(
-    a = ss$k2_eta_share_fp, b = ss$k2_cox_delta_fp, frac_bits = 20L))
-  t1_sum <- .callMpcTool("k2-fp-sum", list(fp_data = t1$result))
+    a = ss$k2_eta_share_fp, b = ss$k2_cox_delta_fp,
+    frac_bits = frac_bits, ring = ring_tag))
+  t1_sum <- .callMpcTool("k2-fp-sum", list(
+    fp_data = t1$result, ring = ring_tag))
   # Mask logS by delta and sum -> share of T_2.
   t2 <- .callMpcTool("k2-fp-vec-mul", list(
-    a = ss$secure_mu_share, b = ss$k2_cox_delta_fp, frac_bits = 20L))
-  t2_sum <- .callMpcTool("k2-fp-sum", list(fp_data = t2$result))
+    a = ss$secure_mu_share, b = ss$k2_cox_delta_fp,
+    frac_bits = frac_bits, ring = ring_tag))
+  t2_sum <- .callMpcTool("k2-fp-sum", list(
+    fp_data = t2$result, ring = ring_tag))
   # Return the raw scalar FP shares (one 8-byte base64 per party); the
   # client aggregates the two parties' shares via k2-ring63-aggregate.
   list(sum_delta_eta_fp = t1_sum$sum_fp,

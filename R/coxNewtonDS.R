@@ -136,6 +136,9 @@ dsvertCoxNewtonPrepDS <- function(session_id = NULL,
     }
   }
   strata_vec <- ss$k2_cox_strata  # may be NULL
+  ring <- as.integer(ss$k2_ring %||% 63L)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  frac_bits <- if (ring == 127L) 50L else 20L
 
   # ---- 1. Extract + reverse cumsum every canonical column.
   # canonical idx `j` maps to src[j] ("own" or "peer") and position idx_in_src[j].
@@ -144,11 +147,12 @@ dsvertCoxNewtonPrepDS <- function(session_id = NULL,
     src_k   <- if (src[j] == "own") p_own else p_peer
     col_res <- .callMpcTool("k2-fp-extract-column", list(
       fp_data = src_mat, n = n, k = as.integer(src_k),
-      col = as.integer(idx_in_src[j] - 1L), frac_bits = 20L))
+      col = as.integer(idx_in_src[j] - 1L),
+      frac_bits = frac_bits, ring = ring_tag))
     Xkey <- sprintf("cox_n_Xc_%d_fp", j)
     ss[[Xkey]] <- col_res$result
     args <- list(a = ss[[Xkey]], reverse = TRUE,
-                 n = n, frac_bits = 20L)
+                 n = n, frac_bits = frac_bits, ring = ring_tag)
     if (!is.null(strata_vec) && length(strata_vec) > 0L) {
       args$strata <- as.integer(strata_vec)
     }
@@ -163,10 +167,11 @@ dsvertCoxNewtonPrepDS <- function(session_id = NULL,
   # Decode plaintext FP delta via k2-ring63-aggregate with a zero second
   # share (standard trick to reinterpret plaintext FP as float).
   zero_fp <- .callMpcTool("k2-float-to-fp", list(
-    values = as.numeric(rep(0, n)), frac_bits = 20L))$fp_data
+    values = as.numeric(rep(0, n)), frac_bits = frac_bits,
+    ring = ring_tag))$fp_data
   delta_vals <- as.numeric(.callMpcTool("k2-ring63-aggregate", list(
     share_a = ss$k2_cox_delta_fp, share_b = zero_fp,
-    frac_bits = 20L))$values)
+    frac_bits = frac_bits, ring = ring_tag))$values)
   if (length(delta_vals) != n) {
     stop(sprintf("delta length %d != n=%d", length(delta_vals), n),
          call. = FALSE)
@@ -204,11 +209,12 @@ dsvertCoxNewtonPrepDS <- function(session_id = NULL,
     W1cum <- cumsum(W1)
   }
   ss$cox_n_W1_fp <- .callMpcTool("k2-float-to-fp", list(
-    values = W1, frac_bits = 20L))$fp_data
+    values = W1, frac_bits = frac_bits, ring = ring_tag))$fp_data
   ss$cox_n_W1cum_fp <- .callMpcTool("k2-float-to-fp", list(
-    values = as.numeric(W1cum), frac_bits = 20L))$fp_data
+    values = as.numeric(W1cum), frac_bits = frac_bits,
+    ring = ring_tag))$fp_data
   ss$cox_n_W2_fp <- .callMpcTool("k2-float-to-fp", list(
-    values = W2, frac_bits = 20L))$fp_data
+    values = W2, frac_bits = frac_bits, ring = ring_tag))$fp_data
   ss$cox_n_p_own <- p_own
   ss$cox_n_p_peer <- p_peer
   ss$cox_n_p_total <- p_total
@@ -243,6 +249,9 @@ dsvertCoxNewtonGradDS <- function(session_id = NULL) {
   if (is.null(delta_fp) || is.null(W1_fp)) {
     stop("cox-newton prep missing weights", call. = FALSE)
   }
+  ring <- as.integer(ss$k2_ring %||% 63L)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  frac_bits <- if (ring == 127L) 50L else 20L
   # Return each scalar FP share as its own named field. The client
   # aggregates each one individually via k2-ring63-aggregate — avoids
   # any concat / endianness subtlety that can corrupt a packed p-vector.
@@ -252,15 +261,20 @@ dsvertCoxNewtonGradDS <- function(session_id = NULL) {
     Skey <- sprintf("cox_n_Sc_%d_fp", cc)
     # t1_share = fp-sum( X_c_share .* delta_fp )
     t1vec <- .callMpcTool("k2-fp-vec-mul", list(
-      a = ss[[Xkey]], b = delta_fp, frac_bits = 20L))
-    t1 <- .callMpcTool("k2-fp-sum", list(fp_data = t1vec$result))
+      a = ss[[Xkey]], b = delta_fp,
+      frac_bits = frac_bits, ring = ring_tag))
+    t1 <- .callMpcTool("k2-fp-sum", list(
+      fp_data = t1vec$result, ring = ring_tag))
     # t2_share = fp-sum( S_c_share .* W1_fp )
     t2vec <- .callMpcTool("k2-fp-vec-mul", list(
-      a = ss[[Skey]], b = W1_fp, frac_bits = 20L))
-    t2 <- .callMpcTool("k2-fp-sum", list(fp_data = t2vec$result))
+      a = ss[[Skey]], b = W1_fp,
+      frac_bits = frac_bits, ring = ring_tag))
+    t2 <- .callMpcTool("k2-fp-sum", list(
+      fp_data = t2vec$result, ring = ring_tag))
     # grad_c_share = t1_share - t2_share   (scalar FP)
     diff <- .callMpcTool("k2-fp-sub", list(
-      a = t1$sum_fp, b = t2$sum_fp, frac_bits = 20L))
+      a = t1$sum_fp, b = t2$sum_fp,
+      frac_bits = frac_bits, ring = ring_tag))
     scalar_fps[[cc]] <- diff$result
   }
   names(scalar_fps) <- sprintf("grad_%d", seq_len(p_total))
@@ -323,9 +337,13 @@ dsvertCoxNewtonFisherScalarDS <- function(weight_key = c("W1cum", "W2"),
   # W2    weights Beaver Z = S_j*S_k elementwise for Fisher term 2.
   w <- if (weight_key == "W1cum") ss$cox_n_W1cum_fp else ss$cox_n_W2_fp
   if (is.null(w)) stop("weight ", weight_key, " missing", call. = FALSE)
+  ring <- as.integer(ss$k2_ring %||% 63L)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  frac_bits <- if (ring == 127L) 50L else 20L
   zw <- .callMpcTool("k2-fp-vec-mul", list(
-    a = z, b = w, frac_bits = 20L))
-  s <- .callMpcTool("k2-fp-sum", list(fp_data = zw$result))
+    a = z, b = w, frac_bits = frac_bits, ring = ring_tag))
+  s <- .callMpcTool("k2-fp-sum", list(
+    fp_data = zw$result, ring = ring_tag))
   list(scalar_share_fp = s$sum_fp)
 }
 

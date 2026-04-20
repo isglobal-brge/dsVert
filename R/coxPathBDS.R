@@ -44,10 +44,13 @@ NULL
 #' @param reverse Logical. TRUE = right-to-left cumulative sum (used for
 #'   risk-set weighted averages in Cox); FALSE = left-to-right.
 #' @param session_id MPC session id.
+#' @param ring Integer 63 (default) or 127. Falls back to the session-
+#'   stored \code{ss$k2_ring} if not supplied.
 #' @return list(stored = TRUE, output_key).
 #' @export
 dsvertCoxPathBCumsumDS <- function(input_key, output_key,
-                                    reverse = TRUE, session_id = NULL) {
+                                    reverse = TRUE, session_id = NULL,
+                                    ring = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
@@ -57,8 +60,13 @@ dsvertCoxPathBCumsumDS <- function(input_key, output_key,
     stop("input_key '", input_key, "' not in session", call. = FALSE)
   }
   n <- as.integer(ss$k2_x_n)
+  if (is.null(ring)) ring <- ss$k2_ring %||% 63L
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  frac_bits <- if (ring == 127L) 50L else 20L
   args <- list(a = input_share, reverse = isTRUE(reverse),
-               n = n, frac_bits = 20L)
+               n = n, frac_bits = frac_bits, ring = ring_tag)
   if (!is.null(ss$k2_cox_strata) && length(ss$k2_cox_strata) > 0L) {
     args$strata <- as.integer(ss$k2_cox_strata)
   }
@@ -79,10 +87,12 @@ dsvertCoxPathBCumsumDS <- function(input_key, output_key,
 #' @param weight_key Session slot with plaintext FP weight vector
 #'   (e.g. "k2_cox_delta_fp"). Pass NULL to skip the weight step.
 #' @param session_id MPC session id.
-#' @return list(scalar_share_fp = 8-byte base64).
+#' @param ring Integer 63 (default) or 127. Falls back to the session-
+#'   stored \code{ss$k2_ring} if not supplied.
+#' @return list(scalar_share_fp = 8/16-byte base64).
 #' @export
 dsvertCoxPathBScalarDS <- function(input_key, weight_key = NULL,
-                                    session_id = NULL) {
+                                    session_id = NULL, ring = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
@@ -91,6 +101,11 @@ dsvertCoxPathBScalarDS <- function(input_key, weight_key = NULL,
   if (is.null(x)) {
     stop("input_key '", input_key, "' not in session", call. = FALSE)
   }
+  if (is.null(ring)) ring <- ss$k2_ring %||% 63L
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  frac_bits <- if (ring == 127L) 50L else 20L
   z <- x
   if (!is.null(weight_key) && nzchar(weight_key)) {
     w <- ss[[weight_key]]
@@ -98,9 +113,9 @@ dsvertCoxPathBScalarDS <- function(input_key, weight_key = NULL,
       stop("weight_key '", weight_key, "' not in session", call. = FALSE)
     }
     z <- .callMpcTool("k2-fp-vec-mul", list(
-      a = x, b = w, frac_bits = 20L))$result
+      a = x, b = w, frac_bits = frac_bits, ring = ring_tag))$result
   }
-  s <- .callMpcTool("k2-fp-sum", list(fp_data = z))
+  s <- .callMpcTool("k2-fp-sum", list(fp_data = z, ring = ring_tag))
   list(scalar_share_fp = s$sum_fp)
 }
 

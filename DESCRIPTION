@@ -96,6 +96,7 @@ AggregateMethods:
     k2BeaverExtractColumnDS,
     k2BeaverSumShareDS,
     k2Ring127AffineCombineDS,
+    k2Ring127LocalScaleDS,
     k2CoxPrepareLogSPhaseDS,
     k2CoxPartialLogLikAggregateDS,
     k2CrossOneHotCountsDS,

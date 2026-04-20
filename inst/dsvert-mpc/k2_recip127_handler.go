@@ -29,6 +29,9 @@ type K2Recip127GetCoeffsInput struct {
 //	                        applied to x via LocalScale.
 //	NegMidOverHalfRange  : single Uint128, the affine offset -mid/halfRange
 //	                        added as party-0 public constant.
+//	TwoFp                : single Uint128, FP encoding of the constant 2.0.
+//	                        Used as the `const` of the NR AffineCombine step
+//	                        `twoMinusXy = 2 − x·y` (sign_a=0, sign_b=-1).
 //	Coeffs               : (degree+1) Uint128 values, c_0..c_N in degree order.
 //	Degree               : polynomial degree (30).
 //	NRSteps              : number of Newton-Raphson refinement iters (6).
@@ -36,6 +39,7 @@ type K2Recip127GetCoeffsInput struct {
 type K2Recip127GetCoeffsOutput struct {
 	OneOverHalfRange    string `json:"one_over_half_range"`
 	NegMidOverHalfRange string `json:"neg_mid_over_half_range"`
+	TwoFp               string `json:"two_fp"`
 	Coeffs              string `json:"coeffs"`
 	Degree              int    `json:"degree"`
 	NRSteps             int    `json:"nr_steps"`
@@ -55,10 +59,12 @@ func handleK2Recip127GetCoeffs() {
 	r := NewRing127(fb)
 	coeffs, oneOverHalfRange, negMidOverHalfRange, degree :=
 		Ring127RecipChebCoeffsFP(r)
+	twoFp := r.FromDouble(2.0)
 
 	mpcWriteOutput(K2Recip127GetCoeffsOutput{
 		OneOverHalfRange:    Uint128VecToB64([]Uint128{oneOverHalfRange}),
 		NegMidOverHalfRange: Uint128VecToB64([]Uint128{negMidOverHalfRange}),
+		TwoFp:               Uint128VecToB64([]Uint128{twoFp}),
 		Coeffs:              Uint128VecToB64(coeffs),
 		Degree:              degree,
 		NRSteps:             Ring127RecipChebNRSteps,

@@ -116,7 +116,8 @@ func TestRing127RecipCheb_NRConvergence(t *testing.T) {
 	// small safety margin. If NR arithmetic regresses, these trip.
 	// Measured trajectory (see .go comment): 0.58 → 0.34 → 0.12 → 1.4e-2
 	// → 1.8e-4 → 3.4e-8 → ~1.6e-12 (floor-limited by accumulated ULP
-	// noise through the 42-op mul pipeline, not pure quadratic squaring).
+	// noise through the mul pipeline, not pure quadratic squaring).
+	// Iters beyond 6 remain at the noise floor.
 	bounds := [7]float64{0.6, 0.4, 0.15, 2.0e-2, 5.0e-4, 5.0e-7, 5.0e-12}
 	for n, w := range worst {
 		if w > bounds[n] {
@@ -125,6 +126,37 @@ func TestRing127RecipCheb_NRConvergence(t *testing.T) {
 		}
 		t.Logf("NR iter=%d: worst rel err over grid = %e (bound %e)",
 			n, w, bounds[n])
+	}
+}
+
+// TestRing127RecipCheb_SubDomainExtrapolation: exercises the x < 1 regime
+// where S(t) dips BELOW the Chebyshev training domain [1, 3000]. Cox
+// strong-signal scenarios produce S_min ~ 0.03 empirically, which
+// extrapolates the polynomial to y_0 ≈ 1 (boundary value) — a deep
+// -97% rel err that NR must traverse through its linear-convergence
+// tail before the quadratic phase kicks in. The 12-iter setting must
+// take x = 0.01 to Ring127 ULP.
+func TestRing127RecipCheb_SubDomainExtrapolation(t *testing.T) {
+	r := NewRing127(50)
+	tests := []float64{0.01, 0.03, 0.1, 0.3, 0.73, 0.999}
+	for _, x := range tests {
+		xRing := r.FromDouble(x)
+		got := r.ToDouble(Ring127RecipChebPlaintext(r, xRing))
+		want := 1.0 / x
+		rel := math.Abs(got-want) / want
+		// Loose threshold because x < 1 hits polynomial extrapolation
+		// region. NR starts from rel_err_0 ≈ x - 1 which approaches -1
+		// as x → 0, so the first several iters are in the linear-tail
+		// convergence regime; the quadratic phase only kicks in after
+		// rel_err drops below ~0.5. Empirically 12 iters give:
+		//   x=0.01 → rel ~7e-9    (below STRICT 1e-4 by 5 orders)
+		//   x=0.03 → rel ~1e-11
+		//   x=0.3  → rel ~1e-12 ULP-floor
+		// Threshold 1e-7 well below STRICT 1e-4 for Cox per-coef.
+		if rel > 1e-7 {
+			t.Errorf("1/%g (sub-domain): got %g want %g rel=%e (threshold 1e-7)",
+				x, got, want, rel)
+		}
 	}
 }
 

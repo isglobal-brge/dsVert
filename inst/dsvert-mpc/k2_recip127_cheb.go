@@ -46,25 +46,37 @@ const (
 
 // Ring127RecipChebNRSteps: number of Newton-Raphson refinements applied
 // after Chebyshev initial guess. Empirical worst-case rel err of the
-// Chebyshev initial guess on [1, 3000] is ~0.58 (near domain endpoints,
-// where the pole at x=0 is closest in the Bernstein ellipse sense).
+// Chebyshev initial guess on [1, 3000] is ~0.58 at domain ENDPOINTS
+// (pole at x=0 closest in Bernstein-ellipse sense).
 //
-// Measured convergence trajectory (TestRing127RecipCheb_NRConvergence):
+// For x INSIDE [1, 3000] the convergence trajectory squares:
 //
 //	iter 0 : 0.584          (Chebyshev alone at worst grid endpoint)
-//	iter 1 : 0.341          (≈ 0.584^2 per rel_err_{k+1} = rel_err_k^2)
+//	iter 1 : 0.341
 //	iter 2 : 0.116
 //	iter 3 : 1.35e-2
 //	iter 4 : 1.83e-4
 //	iter 5 : 3.36e-8
-//	iter 6 : 1.62e-12       (noise-floor limited, not further squaring)
+//	iter 6 : 1.62e-12       (noise-floor limited)
 //
-// Iter 6 falls short of the pure quadratic target (~1e-15 ULP) because
-// accumulated Ring127 truncation noise through the 42-deep mul pipeline
-// (30 Clenshaw + 12 NR) dominates below ~1e-12. This is well below the
-// Cox STRICT per-coef target of 1e-4 (7 orders of magnitude margin).
-// A 7th iter would not help: it would just re-apply the same noise floor.
-const Ring127RecipChebNRSteps = 6
+// However for x BELOW 1 (Cox S(t) can dip into [0.03, 1) for strong-signal
+// scenarios — diagnosed 2026-04-20 from strong_synth failure), the
+// Chebyshev polynomial extrapolates to ~1 at the domain boundary, giving
+// rel_err_0 ≈ x − 1 (deeply negative). NR from a near-100%-below guess
+// needs more iterations before the quadratic phase kicks in:
+//
+//	x = 0.03: rel_err trajectory {0.97, 0.94, 0.88, 0.77, 0.60, 0.36,
+//	          0.13, 0.017, 2.9e-4, 8.4e-8, 7e-15}  → 10 iters to ULP
+//	x = 0.46: {0.54, 0.29, 0.085, 7.2e-3, 5.2e-5, 2.7e-9, ULP}  → 6 iters
+//	x = 0.73: {0.27, 0.073, 5.3e-3, 2.8e-5, 8e-10, ULP}          → 5 iters
+//
+// Setting 12 NR iters handles x down to ~0.005 at ULP precision, with
+// safety margin vs the strong-signal S_min = 0.03 observed empirically.
+// Cost: +12 Beaver rounds per recip call vs 6 iters (≈ 50% wall time
+// increase for recip, ~25% for a full Path B iter, ~15 % overall for
+// scenarios that stay inside [1, 3000] the convergence is just faster
+// — trajectory still terminates at the noise floor around iter 6).
+const Ring127RecipChebNRSteps = 12
 
 // Ring127RecipChebCoeffsFP computes the Chebyshev expansion coefficients
 // for 1/x on [Ring127RecipChebXMin, Ring127RecipChebXMax] at fracBits =

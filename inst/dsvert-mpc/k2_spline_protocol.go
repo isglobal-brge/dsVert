@@ -227,6 +227,15 @@ func handleK2WideSplineFullEval() {
 	if input.FracBits <= 0 {
 		input.FracBits = K2DefaultFracBits
 	}
+	// Ring127 dispatch — Cox/LMM STRICT migration (task #116). Ring63 path
+	// stays the default and is unchanged. Unknown ring values reject loudly.
+	if input.Ring == "ring127" {
+		handleK2WideSplineFullEval127(input)
+		return
+	}
+	if input.Ring != "" && input.Ring != "ring63" {
+		panic("k2-wide-spline-full: unknown ring='" + input.Ring + "'")
+	}
 
 	ring := NewRing63(input.FracBits)
 	n := input.N

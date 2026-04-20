@@ -118,6 +118,10 @@ func main() {
 	case "k2-exp127-get-coeffs":
 		handleK2Exp127GetCoeffs()
 
+	// Ring127 Chebyshev-recip coefficients + NR constants (public)
+	case "k2-recip127-get-coeffs":
+		handleK2Recip127GetCoeffs()
+
 	// Ring127 local affine combine — used by Horner / NR R-orchestration
 	case "k2-ring127-affine-combine":
 		handleK2Ring127AffineCombine()

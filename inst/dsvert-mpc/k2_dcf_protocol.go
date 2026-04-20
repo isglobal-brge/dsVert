@@ -34,6 +34,14 @@ type K2DcfGenBatchInput struct {
 	// K2LogUpper. Ignored for other families which have fixed domains.
 	Lower float64 `json:"lower"`
 	Upper float64 `json:"upper"`
+	// Ring selects the secret-share ring for DCF preprocessing.
+	// "" or "ring63" (default): uses the Ring63 path (uint64 shares, 63-bit
+	// DCF domain, 8-byte VCW) — the only path currently wired into
+	// handleK2DcfGenBatch. "ring127": reserved for the Cox/LMM selective
+	// migration; accepted as a forward-compat stub but NOT dispatched in
+	// step 2 (handler panics if used). Dispatch + uint128 share blob
+	// serialization land in P1 step 3.
+	Ring string `json:"ring"`
 }
 
 type K2DcfGenBatchOutput struct {
@@ -48,6 +56,12 @@ func handleK2DcfGenBatch() {
 	mpcReadInput(&input)
 	if input.FracBits <= 0 {
 		input.FracBits = K2DefaultFracBits
+	}
+	// Ring selector — step 2 accepts the field as forward-compat but only
+	// the Ring63 path is wired into this handler. Ring127 dispatch (with
+	// 16-byte share blob serialization) lands in P1 step 3.
+	if input.Ring != "" && input.Ring != "ring63" {
+		panic("k2-dcf-gen-batch: ring='" + input.Ring + "' not yet dispatched (P1 step 3)")
 	}
 
 	ring := NewRing63(input.FracBits)

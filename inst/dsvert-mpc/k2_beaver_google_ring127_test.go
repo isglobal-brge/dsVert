@@ -6,15 +6,13 @@ import (
 	"testing"
 )
 
-// TestBeaverRing127_RoundTrip: end-to-end 2-party Beaver multiplication
-// at Ring127. NOTE: currently fails at the ~1e0 abs err level due to a
-// sign/truncation boundary bug in Uint128.Mul or Ring127.Neg under the
-// 2*fracBits=126 convention when products cross the 2^126 sign threshold.
-// Left as WIP marker — full Beaver integration is pending debug of the
-// signed-product wrap boundary at fracBits=63.
+// TestBeaverRing127_RoundTrip: end-to-end 2-party Beaver multiplication at
+// Ring127. fracBits=50 gives 2*fracBits=100 worth of product bits — well
+// below the signed threshold 2^126, avoiding wrap-around of positive
+// products into the "negative" range. ULP 2^-50 ≈ 1e-15, still 10 orders
+// of magnitude better than Ring63's 2^-20.
 func TestBeaverRing127_RoundTrip(t *testing.T) {
-	t.Skip("WIP: Ring127 Beaver signed-product boundary bug needs debug")
-	r := NewRing127(63)
+	r := NewRing127(50)
 	n := 100
 
 	// Plaintext x, y
@@ -84,11 +82,11 @@ func TestBeaverRing127_RoundTrip(t *testing.T) {
 }
 
 // TestBeaverRing127_VsRing63: compare Beaver accuracy Ring127 vs Ring63.
-// Same WIP status as TestBeaverRing127_RoundTrip.
+// Ring127 uses fracBits=50 (2*fracBits=100, safe below 2^126 sign
+// threshold), Ring63 uses fracBits=20 (standard).
 func TestBeaverRing127_VsRing63(t *testing.T) {
-	t.Skip("WIP: Ring127 Beaver signed-product boundary bug needs debug")
 	n := 100
-	r127 := NewRing127(63)
+	r127 := NewRing127(50)
 	r63 := NewRing63(20)
 
 	// Same random-ish plaintext

@@ -23,7 +23,7 @@
 #'   + \code{k2ReceiveWeightsDS}.
 #' @export
 k2SetWeightsDS <- function(data_name, weights_column, peer_pk,
-                           session_id = NULL) {
+                           ring = NULL, session_id = NULL) {
   if (!is.character(data_name) || length(data_name) != 1L) {
     stop("data_name must be a single character string", call. = FALSE)
   }
@@ -66,10 +66,22 @@ k2SetWeightsDS <- function(data_name, weights_column, peer_pk,
          call. = FALSE)
   }
 
+  # Ring-aware: if caller supplies `ring` (63 or 127), use the
+  # corresponding frac_bits (20 or 50). Otherwise fall back to the
+  # session-pinned ring from k2ShareInputDS (ss$k2_ring), defaulting
+  # to Ring63 frac_bits=20 for back-compat.
+  if (is.null(ring)) ring <- ss$k2_ring %||% 63L
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  frac_bits_w <- if (ring == 127L) 50L else 20L
+
   fp_res <- .callMpcTool("k2-float-to-fp", list(
-    values = as.numeric(w), frac_bits = 20L))
+    values = as.numeric(w), frac_bits = frac_bits_w,
+    ring = ring_tag))
   ss$k2_weights_fp <- fp_res$fp_data
   ss$k2_weights_column <- weights_column
+  ss$k2_weights_ring <- ring
 
   # Encrypt FP blob to peer. We send the base64 FP bytes; the peer will
   # decrypt and store as its own ss$k2_weights_fp. The peer_pk arrives
@@ -159,17 +171,22 @@ k2ApplyWeightsDS <- function(session_id = NULL) {
   if (is.null(ss$k2_y_share_fp_original)) {
     ss$k2_y_share_fp_original <- ss$k2_y_share_fp
   }
+  # Ring-aware mul: use the ring pinned by k2SetWeightsDS (which
+  # matches k2ShareInputDS). Ring127 uses 16-byte Uint128 records
+  # with frac_bits=50; Ring63 uses 8-byte records with frac_bits=20.
+  ring_w <- as.integer(ss$k2_weights_ring %||% ss$k2_ring %||% 63L)
+  ring_tag <- if (ring_w == 127L) "ring127" else "ring63"
+  frac_bits_w <- if (ring_w == 127L) 50L else 20L
   # Scale mu share by w (element-wise, local, no Beaver).
   mu_w <- .callMpcTool("k2-fp-vec-mul", list(
-    a = ss$secure_mu_share, b = ss$k2_weights_fp, n = as.integer(n)))
+    a = ss$secure_mu_share, b = ss$k2_weights_fp,
+    n = as.integer(n), frac_bits = frac_bits_w, ring = ring_tag))
   ss$secure_mu_share <- mu_w$result
-  ss$k2_eta_share_fp  <- mu_w$result  # wide spline reads this key
+  ss$k2_eta_share_fp  <- mu_w$result
   ss$k2_eta_share     <- mu_w$result
-  # Scale y share by w FROM THE CACHED ORIGINAL (not the possibly-
-  # already-weighted current value).
   y_w <- .callMpcTool("k2-fp-vec-mul", list(
     a = ss$k2_y_share_fp_original, b = ss$k2_weights_fp,
-    n = as.integer(n)))
+    n = as.integer(n), frac_bits = frac_bits_w, ring = ring_tag))
   ss$k2_y_share_fp <- y_w$result
   list(applied = TRUE)
 }

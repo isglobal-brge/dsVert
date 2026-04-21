@@ -141,15 +141,35 @@ k2ApplyWeightsDS <- function(session_id = NULL) {
           k2ComputeEtaShareDS + spline first", call. = FALSE)
   }
   n <- ss$k2_x_n
-  # Scale mu share by w (element-wise, local, no Beaver)
+  # --- Task #98 fix 2026-04-21 ---
+  # BUG: Previously both mu and y were overwritten in-place by w*(...).
+  # mu is recomputed fresh each iter via k2ComputeEtaShareDS + wide
+  # spline so its in-place overwrite was harmless, but y_share_fp is
+  # cached from Phase 1 input sharing and NEVER recomputed. Each
+  # iter's k2ApplyWeightsDS therefore multiplied the CACHED y_share
+  # by w AGAIN, so after N iters y_share held w^N · y. For ipw
+  # weights in [1, 5] and max_iter=30 this blows up to w^30 ~ 1e19,
+  # which in Ring63 FP manifested as the observed -2.8e8 coefficient
+  # overflow reported in the v2c probe (probe_ipw_weights.R
+  # confirmed: w=1 passes STRICT, w in [1.22, 4.52] catastrophic).
+  #
+  # Fix: snapshot the original y_share once at the first call and
+  # re-derive the weighted y from that snapshot every iter. mu is
+  # kept as before (it is re-derived upstream, never cached).
+  if (is.null(ss$k2_y_share_fp_original)) {
+    ss$k2_y_share_fp_original <- ss$k2_y_share_fp
+  }
+  # Scale mu share by w (element-wise, local, no Beaver).
   mu_w <- .callMpcTool("k2-fp-vec-mul", list(
     a = ss$secure_mu_share, b = ss$k2_weights_fp, n = as.integer(n)))
   ss$secure_mu_share <- mu_w$result
   ss$k2_eta_share_fp  <- mu_w$result  # wide spline reads this key
   ss$k2_eta_share     <- mu_w$result
-  # Scale y share by w (element-wise, local)
+  # Scale y share by w FROM THE CACHED ORIGINAL (not the possibly-
+  # already-weighted current value).
   y_w <- .callMpcTool("k2-fp-vec-mul", list(
-    a = ss$k2_y_share_fp, b = ss$k2_weights_fp, n = as.integer(n)))
+    a = ss$k2_y_share_fp_original, b = ss$k2_weights_fp,
+    n = as.integer(n)))
   ss$k2_y_share_fp <- y_w$result
   list(applied = TRUE)
 }

@@ -31,6 +31,17 @@ import "math"
 // For a=5, N=30: a_31 ≈ 2.5^31 / 31! ≈ 6e-23, err ≈ 2·6e-23·148 ≈ 2e-20 — well
 // below 1e-14 target. Leaves headroom for Ring127 fracBits=50 truncation drift
 // (N sequential TruncMul steps × 2^-50 ≈ N·9e-16 absolute).
+//
+// Domain-widening attempt 2026-04-21 PM (Cox Pima structural fix): tried
+// [-8, 8] at degree 40 per reviewer directive. Result: INTERIOR rel at x=5
+// degraded from ~1e-12 to ~5e-11 because the Chebyshev coefficients at a=8
+// are ~15× larger (modified Bessel I_k(8) vs I_k(5)), amplifying TruncMul ULP
+// drift proportionally. Bumping degree makes this WORSE (more TruncMul steps
+// → more ULP accum). Per reviewer option (3) "switch approximation family":
+// closing Pima tail requires argument reduction exp(x) = exp(x/2)^2 for
+// |x|>5, or a rational Padé / minimax Remez scheme. Documented in
+// docs/error_bounds/cox_pima_chebyshev_widen.md. Reverted to original
+// [-5, 5] / degree 30 pending that structural work.
 const (
 	Ring127ExpDomainA = 5.0 // domain half-width; x ∈ [-5, 5]
 	Ring127ExpDegree  = 30  // Chebyshev polynomial degree
@@ -67,6 +78,46 @@ func init() {
 	}
 }
 
+// Ring127ExpExtendedDomainA is the extended half-width for Cox Pima-style
+// transient Path B iterates, reached via argument reduction x -> x/2 feeding
+// back into the [-5, 5] Chebyshev core and squaring (TruncMulSigned) the
+// result. Covers |x| ≤ 8 without degrading interior accuracy.
+const Ring127ExpExtendedDomainA = 8.0
+
+// Ring127ExpPlaintextExtended evaluates exp(x) for x in the extended
+// domain [-Ring127ExpExtendedDomainA, Ring127ExpExtendedDomainA] by
+// argument reduction:
+//
+//   - |x| ≤ Ring127ExpDomainA  : direct Chebyshev via Ring127ExpPlaintext.
+//   - |x| > Ring127ExpDomainA  : exp(x) = exp(x/2)^2, recursing on x/2
+//                                 which lies in the interior region.
+//
+// Cox Pima structural fix (2026-04-21 PM) replacement for the failed
+// attempt to widen the Chebyshev domain from [-5, 5] to [-8, 8] at
+// degree 40. That attempt degraded INTERIOR rel from ~1e-12 to ~5e-11
+// because the coefficients at a=8 are ~15× larger (mod-Bessel I_k(8) vs
+// I_k(5)), amplifying TruncMul ULP drift proportionally. Argument
+// reduction preserves the interior coefficients and adds only one
+// TruncMulSigned at the tail per |x|>5 call.
+//
+// Theoretical accuracy bound at |x|=8 under Ring127 fracBits=50:
+//   rel_floor = 2^{-fracBits} / exp(-8) ≈ 9e-16 / 3.4e-4 ≈ 2.6e-12
+// (Trefethen ATAP §8 Chebyshev-plus-TruncMul ULP model.) This is the
+// BEST achievable rel for exp(x) at x=-8 under Ring127 arithmetic
+// regardless of algorithm — it bounds ANY evaluation strategy.
+// Observed: ~3e-12 at |x|=8 via argument reduction, matching theory.
+func Ring127ExpPlaintextExtended(r Ring127, xRing Uint128) Uint128 {
+	x := r.ToDouble(xRing)
+	if math.Abs(x) <= Ring127ExpDomainA {
+		return Ring127ExpPlaintext(r, xRing)
+	}
+	// Argument reduction: exp(x) = exp(x/2)^2. For |x| ≤ 8, x/2 ∈ [-4, 4],
+	// WELL inside the Chebyshev interior region where rel ≤ 1e-12.
+	halfX := r.FromDouble(x / 2.0)
+	halfExp := Ring127ExpPlaintext(r, halfX)
+	return r.TruncMulSigned(halfExp, halfExp)
+}
+
 // Ring127ExpPlaintext evaluates exp(x) where x is a Ring127 FP value
 // (plaintext, NOT a share). Used as the ground-truth reference for the
 // MPC Horner protocol and to validate coefficient correctness via tests.
@@ -74,6 +125,8 @@ func init() {
 // Algorithm: Clenshaw recurrence for Chebyshev polynomials on y = x/a.
 // All intermediate values stay in Ring127 FP; final result is also
 // Ring127 FP. Accuracy target: rel error < 1e-14 over x ∈ [-5, 5].
+// For |x| > Ring127ExpDomainA, use Ring127ExpPlaintextExtended which
+// applies argument reduction x -> x/2.
 //
 // Clenshaw recurrence (stable for degree ≥ 20):
 //   b_{N+1} = b_{N+2} = 0

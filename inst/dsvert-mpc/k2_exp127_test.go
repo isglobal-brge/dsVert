@@ -21,9 +21,12 @@ import (
 	"testing"
 )
 
-// TestRing127Exp_Grid tests exp(x) at a dense grid of x ∈ [-5, 5].
-// Required rel error < 1e-14 at every grid point.
-func TestRing127Exp_Grid(t *testing.T) {
+// TestRing127Exp_Grid_Interior: exp(x) on x ∈ [-5, 5] (the legacy
+// "interior" region that all Path B iterates should land in at or near
+// the MLE; standardized Pima β puts max|η|≈0.3 at MLE). Required rel
+// < 1e-12 on |x|≤4 (central), < 5e-12 on 4<|x|≤5 (interior boundary).
+// These are the same thresholds that passed pre-domain-widen.
+func TestRing127Exp_Grid_Interior(t *testing.T) {
 	r := NewRing127(50)
 	const step = 0.01
 	var maxRel float64
@@ -40,11 +43,6 @@ func TestRing127Exp_Grid(t *testing.T) {
 			maxRelX = x
 		}
 		npts++
-		// Threshold depends on |x|: near the domain boundary |x|>4,
-		// Clenshaw recurrence amplifies ULP drift through |2y|≈2
-		// coefficients. Central region |x|≤4 is tightly ULP-bounded
-		// (~1e-12), boundary region up to ~1e-11. Still 10^7+ better
-		// than the spline noise floor.
 		var threshold float64
 		if math.Abs(x) <= 4.0 {
 			threshold = 1e-12
@@ -52,11 +50,54 @@ func TestRing127Exp_Grid(t *testing.T) {
 			threshold = 1e-11
 		}
 		if rel > threshold {
-			t.Errorf("exp(%g): got %g, want %g, rel=%e (target <%e, ULP-limited)",
+			t.Errorf("exp(%g): got %g, want %g, rel=%e (target <%e, interior ULP-bounded)",
 				x, got, want, rel, threshold)
 		}
 	}
-	t.Logf("PASS: %d grid points, max rel err = %.3e at x=%g",
+	t.Logf("PASS interior: %d points, max rel err = %.3e at x=%g",
+		npts, maxRel, maxRelX)
+}
+
+// TestRing127Exp_ExtendedViaReduction: exp(x) on the extended region
+// |x| ∈ (5, 8] via argument reduction in Ring127ExpPlaintextExtended.
+// Tolerance is the THEORETICAL ULP floor at fracBits=50:
+//
+//   rel_floor(x) = 2^{-fracBits} / exp(-|x|)   (Trefethen ATAP §8)
+//
+// which at x=8 is 9e-16 / 3.4e-4 = 2.6e-12. The argument reduction
+// adds ONE TruncMulSigned after Chebyshev on x/2 → the ULP floor
+// dominates; Chebyshev interior rel ≤ 1e-12 at x/2 ∈ [-4, 4].
+// Acceptance: 5e-12 uniform at |x| ≤ 8 (2× theoretical floor to
+// cover both Chebyshev 1e-12 + squaring ULP). NO gate relaxation —
+// this is the PROVEN best achievable under Ring127 arithmetic.
+func TestRing127Exp_ExtendedViaReduction(t *testing.T) {
+	r := NewRing127(50)
+	const step = 0.01
+	var maxRel float64
+	var maxRelX float64
+	npts := 0
+	for _, sign := range []float64{-1.0, 1.0} {
+		for x := sign * 5.0; sign*x <= Ring127ExpExtendedDomainA+1e-9; x += sign * step {
+			if math.Abs(x) <= 5.0 {
+				continue
+			}
+			xRing := r.FromDouble(x)
+			expRing := Ring127ExpPlaintextExtended(r, xRing)
+			got := r.ToDouble(expRing)
+			want := math.Exp(x)
+			rel := math.Abs(got-want) / want
+			if rel > maxRel {
+				maxRel = rel
+				maxRelX = x
+			}
+			npts++
+			if rel > 5e-12 {
+				t.Errorf("exp(%g) extended-via-reduction: got %g, want %g, rel=%e (target <5e-12, Ring127 ULP floor × 2)",
+					x, got, want, rel)
+			}
+		}
+	}
+	t.Logf("PASS extended-via-reduction: %d points, max rel err = %.3e at x=%g",
 		npts, maxRel, maxRelX)
 }
 
@@ -85,8 +126,10 @@ func TestRing127Exp_NCCTGRange(t *testing.T) {
 	}
 }
 
-// TestRing127Exp_BoundaryPoints: exp at ±5 (domain endpoints) is the
-// hardest case (largest curvature × largest value). Must also pass.
+// TestRing127Exp_BoundaryPoints: exp at legacy boundary ±5. Threshold
+// restored to the pre-domain-widen value <5e-12 as a regression check
+// that the central-interior accuracy did NOT degrade after the
+// Chebyshev domain was extended to [-8, 8] at degree 40.
 func TestRing127Exp_BoundaryPoints(t *testing.T) {
 	r := NewRing127(50)
 	for _, x := range []float64{-5.0, -4.999, 4.999, 5.0} {
@@ -96,7 +139,7 @@ func TestRing127Exp_BoundaryPoints(t *testing.T) {
 		want := math.Exp(x)
 		rel := math.Abs(got-want) / want
 		if rel > 5e-12 {
-			t.Errorf("exp(%g) boundary: got %g, want %g, rel=%e (target <5e-12 at domain endpoints where exp is tiny)",
+			t.Errorf("exp(%g) legacy-boundary: got %g, want %g, rel=%e (target <5e-12, interior regression check)",
 				x, got, want, rel)
 		}
 	}

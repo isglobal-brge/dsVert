@@ -157,7 +157,9 @@ func TestExp127EndToEnd_Orchestration(t *testing.T) {
 		got := r.ToDouble(muRing)
 		want := math.Exp(eta)
 		rel := math.Abs(got-want) / want
-		// Same threshold structure as TestRing127Exp_Grid: |eta|<=4 → 1e-12.
+		// Same threshold structure as TestRing127Exp_Grid_Interior:
+		// |eta|<=4 → 1e-12 interior, 4<|eta|<=5 → 1e-11 interior boundary.
+		// E2E etas are all in [-5, 5] — no extended-boundary case here.
 		threshold := 1e-12
 		if math.Abs(eta) > 4.0 {
 			threshold = 1e-11

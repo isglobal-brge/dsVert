@@ -76,6 +76,7 @@ AggregateMethods:
     dsvertIdentityPkDS,
     dsvertHistogramDS,
     dsvertLocalMomentsDS,
+    dsvertNBProfileSumsDS,
     dsvertContingencyDS,
     dsvertOneHotDS,
     dsvertImputeColumnDS,

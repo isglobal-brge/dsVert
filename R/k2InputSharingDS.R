@@ -134,8 +134,14 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
 
   # Convert beta to FP (in the selected ring — 8 B/elem for ring63, 16 B
   # Uint128/elem for ring127). Ring127 handler parses 16 B records.
+  # Conditionally wrap length-1 beta in I() to force jsonlite array
+  # encoding (auto_unbox would otherwise emit a scalar, failing Go's
+  # []float64 unmarshal). For length ≥ 2, leave vanilla numeric to
+  # avoid any stochastic-regression risk from jsonlite's AsIs path
+  # (observed in Cox Pima L2 determinism 2026-04-20).
+  values_arg <- if (length(beta_full) == 1L) I(beta_full) else beta_full
   fp_beta <- .callMpcTool("k2-float-to-fp", list(
-    values = beta_full, frac_bits = frac_bits,
+    values = values_arg, frac_bits = frac_bits,
     ring = ring_tag))$fp_data
 
   # Compute eta_share = X_full_share * beta in FP ring

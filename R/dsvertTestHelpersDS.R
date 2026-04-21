@@ -25,21 +25,48 @@ dsvertInjectNADS <- function(data_name, column,
   list(n = n, n_na_injected = k, output_column = output_column)
 }
 
-#' @title Append a contiguous-block cluster column (aggregate, test helper)
-#' @description Append a cluster id column where each block of
-#'   \code{block_size} consecutive rows shares a cluster. Used to
-#'   validate \code{ds.vertLMM} on datasets that do not ship with a
-#'   natural cluster variable.
+#' @title Append a deterministic cluster column (aggregate, test helper)
+#' @description Append a cluster id column derived from a
+#'   patient-level identifier. When \code{id_column} (default
+#'   \code{patient_id}) is present, the cluster id is
+#'   \code{(xxhash32(patient_id) \%\% K) + 1}, where
+#'   \eqn{K = \lceil n / \text{block\_size} \rceil}. This is
+#'   row-order-INVARIANT: the same patient receives the same cluster
+#'   whether the data is PSI-aligned, rbind'd locally, or shuffled.
+#'   Empirically essential for LMM validation, where row-order-based
+#'   cluster assignments cause the estimated \eqn{\sigma_b^2} to vary
+#'   by orders of magnitude across arbitrary permutations of the same
+#'   dataset (see \code{scripts/bench_row_order_sensitivity.R}).
+#'
+#'   Falls back to legacy positional-block assignment
+#'   (\code{floor((i-1)/block_size)+1}) when no \code{id_column} is
+#'   present on the server.
 #' @export
 dsvertAddClusterColumnDS <- function(data_name, block_size = 13L,
-                                      output_column = "cluster") {
+                                      output_column = "cluster",
+                                      id_column = "patient_id") {
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
   if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
   n <- nrow(data)
   bs <- as.integer(block_size)
   if (bs <= 0L) stop("block_size must be positive", call. = FALSE)
-  data[[output_column]] <- as.integer((seq_len(n) - 1L) %/% bs) + 1L
+  K <- max(1L, as.integer(ceiling(n / bs)))
+  if (!is.null(id_column) && nzchar(id_column) &&
+      id_column %in% names(data)) {
+    ids <- as.character(data[[id_column]])
+    # Seven hex chars (max 2^28-1) fits signed int32, so strtoi
+    # doesn't overflow. Same pattern used in
+    # dsvertAddSyntheticSurvivalDS for deterministic survival seeds.
+    hv <- vapply(ids, function(x) {
+      h <- digest::digest(x, algo = "xxhash32", serialize = FALSE)
+      as.integer(strtoi(substr(h, 1L, 7L), 16L))
+    }, integer(1L))
+    data[[output_column]] <- as.integer((hv %% K) + 1L)
+  } else {
+    # Fallback: positional blocks (legacy behaviour).
+    data[[output_column]] <- as.integer((seq_len(n) - 1L) %/% bs) + 1L
+  }
   assign(data_name, data, envir = parent.frame())
   list(n = n, n_clusters = length(unique(data[[output_column]])),
        output_column = output_column)

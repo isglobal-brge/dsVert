@@ -13,7 +13,17 @@
 #'
 #' @return List with x_means, x_sds, y_mean (if y_var), y_sd (if y_var)
 #' @export
-glmStandardizeDS <- function(data_name, output_name, x_vars, y_var = NULL, session_id = NULL) {
+glmStandardizeDS <- function(data_name, output_name, x_vars, y_var = NULL,
+                              session_id = NULL, skip_standardize = FALSE,
+                              mode = "full") {
+  # mode controls standardization:
+  #   "full": (default) subtract mean, divide by sd (current behaviour)
+  #   "scale_only": divide by sd, do NOT subtract mean (preserves
+  #                 column mean structure while making L-BFGS well-
+  #                 conditioned; required for ds.vertLMM's no-const
+  #                 GLS fit, where subtracting the mean would shift
+  #                 the no-intercept regression)
+  #   "none": identical to skip_standardize = TRUE
   ss <- .S(session_id)
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
@@ -38,19 +48,35 @@ glmStandardizeDS <- function(data_name, output_name, x_vars, y_var = NULL, sessi
   names(x_means) <- x_vars
   names(x_sds) <- x_vars
 
+  effective_mode <- if (isTRUE(skip_standardize)) "none" else mode
   for (i in seq_along(x_vars)) {
     v <- x_vars[i]
     col <- as.numeric(data[[v]])
-    # Robust to NAs: use na.rm=TRUE for mean/sd computation. If the
-    # caller cares about NAs they should do explicit na.omit + PSI
-    # realign before calling -- this just prevents NaN poisoning of
-    # the standardise step when, e.g., a sibling method dropped a
-    # cluster-expansion weight column with a couple of NAs.
-    x_means[i] <- mean(col, na.rm = TRUE)
-    x_sds[i] <- stats::sd(col, na.rm = TRUE)
-    if (!is.finite(x_sds[i]) || x_sds[i] < 1e-10) x_sds[i] <- 1
-    if (!is.finite(x_means[i])) x_means[i] <- 0
-    new_data[[v]] <- (col - x_means[i]) / x_sds[i]
+    if (effective_mode == "none") {
+      x_means[i] <- 0; x_sds[i] <- 1
+      new_data[[v]] <- col
+      new_data[[v]][is.na(col)] <- 0
+    } else if (effective_mode == "scale_only") {
+      # Keep the column's original mean but rescale by its SD so L-BFGS
+      # in the inner loop sees a well-conditioned design. No-op for
+      # the implicit constant: x_means[i] is stored as 0 so
+      # back-transform (which uses sum(beta * x_means)) doesn't apply
+      # a spurious shift.
+      sd_v <- stats::sd(col, na.rm = TRUE)
+      if (!is.finite(sd_v) || sd_v < 1e-10) sd_v <- 1
+      x_means[i] <- 0
+      x_sds[i] <- sd_v
+      scaled <- col / sd_v
+      scaled[is.na(scaled)] <- 0
+      new_data[[v]] <- scaled
+    } else {
+      # "full" (default): center + scale.
+      x_means[i] <- mean(col, na.rm = TRUE)
+      x_sds[i] <- stats::sd(col, na.rm = TRUE)
+      if (!is.finite(x_sds[i]) || x_sds[i] < 1e-10) x_sds[i] <- 1
+      if (!is.finite(x_means[i])) x_means[i] <- 0
+      new_data[[v]] <- (col - x_means[i]) / x_sds[i]
+    }
   }
   result$x_means <- as.numeric(x_means)
   result$x_sds <- as.numeric(x_sds)
@@ -58,11 +84,23 @@ glmStandardizeDS <- function(data_name, output_name, x_vars, y_var = NULL, sessi
   # Standardize y if requested
   if (!is.null(y_var) && y_var %in% names(data)) {
     y <- as.numeric(data[[y_var]])
-    result$y_mean <- mean(y, na.rm = TRUE)
-    result$y_sd <- stats::sd(y, na.rm = TRUE)
-    if (!is.finite(result$y_sd) || result$y_sd < 1e-10) result$y_sd <- 1
-    if (!is.finite(result$y_mean)) result$y_mean <- 0
-    new_data[[y_var]] <- (y - result$y_mean) / result$y_sd
+    if (effective_mode == "none") {
+      result$y_mean <- 0
+      result$y_sd   <- 1
+      new_data[[y_var]] <- y
+    } else if (effective_mode == "scale_only") {
+      sd_y <- stats::sd(y, na.rm = TRUE)
+      if (!is.finite(sd_y) || sd_y < 1e-10) sd_y <- 1
+      result$y_mean <- 0
+      result$y_sd   <- sd_y
+      new_data[[y_var]] <- y / sd_y
+    } else {
+      result$y_mean <- mean(y, na.rm = TRUE)
+      result$y_sd <- stats::sd(y, na.rm = TRUE)
+      if (!is.finite(result$y_sd) || result$y_sd < 1e-10) result$y_sd <- 1
+      if (!is.finite(result$y_mean)) result$y_mean <- 0
+      new_data[[y_var]] <- (y - result$y_mean) / result$y_sd
+    }
   }
 
   # Store standardized data in session storage because DataSHIELD aggregate

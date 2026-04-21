@@ -24,13 +24,22 @@ Depends: R (>= 4.0.0)
 Imports:
     digest,
     jsonlite,
-    stats
+    stats,
+    utils
 Suggests:
     testthat (>= 3.0.0),
-    DSI
+    DSI,
+    survival,
+    lme4,
+    mice,
+    MASS,
+    nnet,
+    glmnet
 RoxygenNote: 7.3.3
 Roxygen: list(markdown = TRUE)
 AggregateMethods:
+    dsvertDebugRevealDS,
+    dsvertDebugSnapshotDS,
     getObsCountDS,
     glmStandardizeDS,
     localCorDS,
@@ -67,6 +76,7 @@ AggregateMethods:
     dsvertIdentityPkDS,
     dsvertHistogramDS,
     dsvertLocalMomentsDS,
+    dsvertNBProfileSumsDS,
     dsvertContingencyDS,
     dsvertOneHotDS,
     dsvertImputeColumnDS,
@@ -86,6 +96,8 @@ AggregateMethods:
     k2BeaverReceiveVectorDS,
     k2BeaverExtractColumnDS,
     k2BeaverSumShareDS,
+    k2Ring127AffineCombineDS,
+    k2Ring127LocalScaleDS,
     k2CoxPrepareLogSPhaseDS,
     k2CoxPartialLogLikAggregateDS,
     k2CrossOneHotCountsDS,
@@ -99,6 +111,19 @@ AggregateMethods:
     dsvertLMMReceiveClusterIDsDS,
     dsvertLMMPerClusterSumDS,
     dsvertLMMGlobalSumDS,
+    dsvertLMMGLSTransformDS,
+    dsvertLMMGLSAggregatesDS,
+    dsvertLMMLocalGramDS,
+    dsvertLMMReceiveGramSharesDS,
+    dsvertLMMGramR1DS,
+    dsvertLMMGramR2DS,
+    dsvertCoxNewtonPrepDS,
+    dsvertCoxNewtonGradDS,
+    dsvertCoxNewtonLoadPairDS,
+    dsvertCoxNewtonFisherScalarDS,
+    dsvertCoxPathBCumsumDS,
+    dsvertCoxPathBScalarDS,
+    dsvertCoxPathBCopyDS,
     dsvertInjectNADS,
     dsvertAddClusterColumnDS,
     dsvertAddSyntheticSurvivalDS,

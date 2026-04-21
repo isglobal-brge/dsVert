@@ -34,6 +34,14 @@ type K2DcfGenBatchInput struct {
 	// K2LogUpper. Ignored for other families which have fixed domains.
 	Lower float64 `json:"lower"`
 	Upper float64 `json:"upper"`
+	// Ring selects the secret-share ring for DCF preprocessing.
+	// "" or "ring63" (default): uses the Ring63 path (uint64 shares, 63-bit
+	// DCF domain, 8-byte VCW) — the only path currently wired into
+	// handleK2DcfGenBatch. "ring127": reserved for the Cox/LMM selective
+	// migration; accepted as a forward-compat stub but NOT dispatched in
+	// step 2 (handler panics if used). Dispatch + uint128 share blob
+	// serialization land in P1 step 3.
+	Ring string `json:"ring"`
 }
 
 type K2DcfGenBatchOutput struct {
@@ -48,6 +56,12 @@ func handleK2DcfGenBatch() {
 	mpcReadInput(&input)
 	if input.FracBits <= 0 {
 		input.FracBits = K2DefaultFracBits
+	}
+	// Ring selector. "" or "ring63" → uint64 Ring63 path. "ring127" → Uint128
+	// Ring127 path (task #116 Cox/LMM STRICT migration). Reject anything else
+	// loud rather than silently defaulting to Ring63.
+	if input.Ring != "" && input.Ring != "ring63" && input.Ring != "ring127" {
+		panic("k2-dcf-gen-batch: unknown ring='" + input.Ring + "'")
 	}
 
 	ring := NewRing63(input.FracBits)
@@ -125,17 +139,36 @@ func handleK2DcfGenBatch() {
 
 	numThresh := len(thresholds)
 
-	// Generate DCF preprocessing for each threshold
-	allP0Keys := make([]CmpPreprocessPerParty, numThresh)
-	allP1Keys := make([]CmpPreprocessPerParty, numThresh)
-	for t := 0; t < numThresh; t++ {
-		threshFP := ring.FromDouble(thresholds[t])
-		allP0Keys[t], allP1Keys[t] = cmpGeneratePreprocess(ring, n, threshFP)
-	}
+	var p0Bytes, p1Bytes []byte
 
-	// Serialize all keys into compact binary blobs
-	p0Bytes := serializeDcfBatch(allP0Keys, n, numThresh)
-	p1Bytes := serializeDcfBatch(allP1Keys, n, numThresh)
+	if input.Ring == "ring127" {
+		// Ring127 path: cmpGeneratePreprocess127 (Uint128 arithmetic, 127-bit
+		// DCF domain, Z_{2^128} output group) + 16-byte share-blob layout.
+		// Serialization format documented in k2_dcf_ring127_serialize.go.
+		// NOTE (P1 step 4 scope): the downstream spline-eval phase handlers
+		// (handleK2WideSplineFullEval phases 1..4) are not yet Ring127-aware.
+		// Callers requesting ring="ring127" from k2-dcf-gen-batch cannot yet
+		// consume these keys through the spline pipeline.
+		ring127 := NewRing127(input.FracBits)
+		allP0Keys := make([]CmpPreprocessPerParty127, numThresh)
+		allP1Keys := make([]CmpPreprocessPerParty127, numThresh)
+		for t := 0; t < numThresh; t++ {
+			threshFP := ring127.FromDouble(thresholds[t])
+			allP0Keys[t], allP1Keys[t] = cmpGeneratePreprocess127(ring127, n, threshFP)
+		}
+		p0Bytes = serializeDcfBatch127(allP0Keys, n, numThresh)
+		p1Bytes = serializeDcfBatch127(allP1Keys, n, numThresh)
+	} else {
+		// Ring63 path (default).
+		allP0Keys := make([]CmpPreprocessPerParty, numThresh)
+		allP1Keys := make([]CmpPreprocessPerParty, numThresh)
+		for t := 0; t < numThresh; t++ {
+			threshFP := ring.FromDouble(thresholds[t])
+			allP0Keys[t], allP1Keys[t] = cmpGeneratePreprocess(ring, n, threshFP)
+		}
+		p0Bytes = serializeDcfBatch(allP0Keys, n, numThresh)
+		p1Bytes = serializeDcfBatch(allP1Keys, n, numThresh)
+	}
 
 	mpcWriteOutput(K2DcfGenBatchOutput{
 		Party0Keys: bytesToBase64(p0Bytes),

@@ -15,21 +15,30 @@
 #'   parties.
 #' @param n Vector length.
 #' @param session_id MPC session id (used only to drive the RNG seed).
-#' @param frac_bits Ring63 fractional bits (default 20).
+#' @param frac_bits Ring63 fractional bits (default 20). At ring=127 the
+#'   handler defaults to fracBits=50 regardless of this argument.
+#' @param ring Integer 63 (default) or 127. Routes through the Uint128
+#'   Ring127 handler when 127 (task #116 Cox/LMM STRICT migration).
 #' @return list(triple_blob_0, triple_blob_1) — both base64url sealed
 #'   payloads for relay to party 0 and party 1.
 #' @export
 k2BeaverVecmulGenTriplesDS <- function(dcf0_pk, dcf1_pk, n,
                                        session_id = NULL,
-                                       frac_bits = 20L) {
+                                       frac_bits = 20L,
+                                       ring = 63L) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
   if (!is.numeric(n) || length(n) != 1L || n < 1) {
     stop("n must be a positive scalar", call. = FALSE)
   }
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  if (ring == 127L) frac_bits <- 50L
   res <- .callMpcTool("k2-beaver-vecmul-gen-triples",
-    list(n = as.integer(n), frac_bits = as.integer(frac_bits)))
+    list(n = as.integer(n), frac_bits = as.integer(frac_bits),
+         ring = ring_tag))
   # Seal each triple blob to the target party's transport pk.
   seal0 <- .callMpcTool("transport-encrypt",
     list(data = res$triple_0,
@@ -85,11 +94,14 @@ k2BeaverVecmulConsumeTripleDS <- function(session_id = NULL) {
 #' @param x_key,y_key Session keys containing this party's FP shares.
 #' @param n Vector length.
 #' @param session_id MPC session id.
-#' @param frac_bits Ring63 fractional bits (default 20).
+#' @param frac_bits Ring63 fractional bits (default 20). At ring=127 the
+#'   handler defaults to fracBits=50 regardless of this argument.
+#' @param ring Integer 63 (default) or 127.
 #' @return list(peer_blob) — base64url sealed payload for peer relay.
 #' @export
 k2BeaverVecmulR1DS <- function(peer_pk, x_key, y_key, n,
-                               session_id = NULL, frac_bits = 20L) {
+                               session_id = NULL, frac_bits = 20L,
+                               ring = 63L) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
@@ -104,10 +116,15 @@ k2BeaverVecmulR1DS <- function(peer_pk, x_key, y_key, n,
     stop("Beaver vecmul triple not consumed; call ",
          "k2BeaverVecmulConsumeTripleDS first.", call. = FALSE)
   }
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  if (ring == 127L) frac_bits <- 50L
   r1 <- .callMpcTool("k2-beaver-vecmul-round1", list(
     x_fp = x_share, y_fp = y_share,
     triple_blob = ss$k2_beaver_vecmul_triple,
-    n = as.integer(n), frac_bits = as.integer(frac_bits)))
+    n = as.integer(n), frac_bits = as.integer(frac_bits),
+    ring = ring_tag))
   # Stash own state for round 2 (we just need to pass x, y, triple, and
   # peer d/e back into the round-2 handler; the handler reconstructs
   # state internally).
@@ -133,11 +150,14 @@ k2BeaverVecmulR1DS <- function(peer_pk, x_key, y_key, n,
 #' @param output_key Session key to receive the FP share of z.
 #' @param n Vector length.
 #' @param session_id MPC session id.
-#' @param frac_bits Ring63 fractional bits (default 20).
+#' @param frac_bits Ring63 fractional bits (default 20). At ring=127 the
+#'   handler defaults to fracBits=50 regardless of this argument.
+#' @param ring Integer 63 (default) or 127.
 #' @return list(stored = TRUE, output_key).
 #' @export
 k2BeaverVecmulR2DS <- function(is_party0, x_key, y_key, output_key, n,
-                               session_id = NULL, frac_bits = 20L) {
+                               session_id = NULL, frac_bits = 20L,
+                               ring = 63L) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
@@ -161,12 +181,17 @@ k2BeaverVecmulR2DS <- function(is_party0, x_key, y_key, output_key, n,
   dec <- .callMpcTool("transport-decrypt",
     list(sealed = .base64url_to_base64(blob), recipient_sk = tsk))
   payload <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  if (ring == 127L) frac_bits <- 50L
   res <- .callMpcTool("k2-beaver-vecmul-round2", list(
     x_fp = x_share, y_fp = y_share,
     triple_blob = ss$k2_beaver_vecmul_triple,
     peer_d_fp = payload$d_fp, peer_e_fp = payload$e_fp,
     is_party0 = isTRUE(is_party0),
-    n = as.integer(n), frac_bits = as.integer(frac_bits)))
+    n = as.integer(n), frac_bits = as.integer(frac_bits),
+    ring = ring_tag))
   ss[[output_key]] <- res$z_fp
   list(stored = TRUE, output_key = output_key)
 }
@@ -203,11 +228,12 @@ k2CoxSaveMuDS <- function(session_id = NULL) {
 #'   machinery can consume it without modification.
 #' @param is_party0 Logical.
 #' @param session_id MPC session id.
-#' @param frac_bits Ring63 fractional bits.
+#' @param frac_bits Ring63 fractional bits. At ring=127 forced to 50.
+#' @param ring Integer 63 (default) or 127.
 #' @return list(done = TRUE).
 #' @export
 k2CoxFinaliseResidualDS <- function(is_party0, session_id = NULL,
-                                     frac_bits = 20L) {
+                                     frac_bits = 20L, ring = 63L) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
@@ -219,19 +245,26 @@ k2CoxFinaliseResidualDS <- function(is_party0, session_id = NULL,
   if (is.null(ss$k2_cox_delta_fp)) {
     stop("delta indicator missing", call. = FALSE)
   }
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  if (ring == 127L) frac_bits <- 50L
   if (isTRUE(is_party0)) {
     # r^0 = delta_fp - mu_g_share
     out <- .callMpcTool("k2-fp-sub", list(
       a = ss$k2_cox_delta_fp, b = ss$k2_cox_mu_g_share_fp,
-      frac_bits = as.integer(frac_bits)))
+      frac_bits = as.integer(frac_bits),
+      ring = ring_tag))
     ss$secure_mu_share <- out$result
   } else {
     # r^1 = 0 - mu_g_share  (use zeros FP vector)
     zeros <- .callMpcTool("k2-float-to-fp", list(
-      values = rep(0, ss$k2_x_n), frac_bits = as.integer(frac_bits)))
+      values = rep(0, ss$k2_x_n), frac_bits = as.integer(frac_bits),
+      ring = ring_tag))
     out <- .callMpcTool("k2-fp-sub", list(
       a = zeros$fp_data, b = ss$k2_cox_mu_g_share_fp,
-      frac_bits = as.integer(frac_bits)))
+      frac_bits = as.integer(frac_bits),
+      ring = ring_tag))
     ss$secure_mu_share <- out$result
   }
   list(done = TRUE)

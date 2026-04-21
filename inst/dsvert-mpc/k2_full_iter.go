@@ -23,6 +23,10 @@ type K2FullIterR3Input struct {
 	P         int    `json:"p"`
 	PartyID   int    `json:"party_id"`
 	Phase     int    `json:"phase"`
+	FracBits  int    `json:"frac_bits"`
+	// Ring selector. "" or "ring63" (default, 8-byte per element) /
+	// "ring127" (16-byte Uint128 records). Task #116 Cox/LMM plumbing 5c(D).
+	Ring string `json:"ring"`
 }
 
 type K2FullIterR3Phase1Output struct {
@@ -43,9 +47,17 @@ func handleK2FullIterR3() {
 	var input K2FullIterR3Input
 	mpcReadInput(&input)
 
+	if input.Ring == "ring127" {
+		handleK2FullIterR3_127(input)
+		return
+	}
+	if input.Ring != "" && input.Ring != "ring63" {
+		panic("k2-full-iter-r3: unknown ring='" + input.Ring + "'")
+	}
+
 	n := input.N
 	p := input.P
-	fracBits := 20
+	fracBits := K2DefaultFracBits
 
 	ring := NewRing63(fracBits)
 
@@ -180,6 +192,12 @@ type K2Ring63AggregateInput struct {
 	ShareA   string `json:"share_a"`   // base64 FP (Ring63 share from party 0)
 	ShareB   string `json:"share_b"`   // base64 FP (Ring63 share from party 1)
 	FracBits int    `json:"frac_bits"`
+	// Ring selector. "" or "ring63" (default, 8-byte input records) /
+	// "ring127" (16-byte Uint128 input records). Output is []float64 either
+	// way — the aggregate op is what converts shares back to plaintext
+	// floats for the client. Despite the name, the handler supports both
+	// rings since step 5a (task #116 Cox/LMM plumbing).
+	Ring string `json:"ring"`
 }
 
 type K2Ring63AggregateOutput struct {
@@ -190,10 +208,27 @@ func handleK2Ring63Aggregate() {
 	var input K2Ring63AggregateInput
 	mpcReadInput(&input)
 	if input.FracBits <= 0 {
-		input.FracBits = 20
+		input.FracBits = K2DefaultFracBits
 	}
-	ring := NewRing63(input.FracBits)
 
+	// Ring127 dispatch — parse 16-byte input records, add in Ring127, decode.
+	if input.Ring == "ring127" {
+		ring127 := NewRing127(input.FracBits)
+		a127 := bytesToUint128Vec(base64ToBytes(input.ShareA))
+		b127 := bytesToUint128Vec(base64ToBytes(input.ShareB))
+		n := len(a127)
+		values := make([]float64, n)
+		for i := 0; i < n; i++ {
+			values[i] = ring127.ToDouble(ring127.Add(a127[i], b127[i]))
+		}
+		mpcWriteOutput(K2Ring63AggregateOutput{Values: values})
+		return
+	}
+	if input.Ring != "" && input.Ring != "ring63" {
+		panic("k2-ring63-aggregate: unknown ring='" + input.Ring + "'")
+	}
+
+	ring := NewRing63(input.FracBits)
 	aR63 := fpToRing63(bytesToFPVec(base64ToBytes(input.ShareA)))
 	bR63 := fpToRing63(bytesToFPVec(base64ToBytes(input.ShareB)))
 
@@ -209,8 +244,12 @@ func handleK2Ring63Aggregate() {
 // --- Utility commands ---
 
 type K2SplitFPInput struct {
-	DataFP string `json:"data_fp"`
-	N      int    `json:"n"`
+	DataFP   string `json:"data_fp"`
+	N        int    `json:"n"`
+	FracBits int    `json:"frac_bits"`
+	// Ring selector. "" or "ring63" (default, 8-byte records) /
+	// "ring127" (16-byte Uint128 records). Task #116 Cox/LMM plumbing.
+	Ring string `json:"ring"`
 }
 
 type K2SplitFPOutput struct {
@@ -221,8 +260,32 @@ type K2SplitFPOutput struct {
 func handleK2SplitFPShare() {
 	var input K2SplitFPInput
 	mpcReadInput(&input)
+	fracBits := input.FracBits
+	if fracBits <= 0 {
+		fracBits = K2DefaultFracBits
+	}
+
+	// Ring127 dispatch — 16-byte input / 16-byte output per share.
+	if input.Ring == "ring127" {
+		ring127 := NewRing127(fracBits)
+		data127 := bytesToUint128Vec(base64ToBytes(input.DataFP))
+		own127 := make([]Uint128, len(data127))
+		peer127 := make([]Uint128, len(data127))
+		for i := range data127 {
+			own127[i], peer127[i] = ring127.SplitShare(data127[i])
+		}
+		mpcWriteOutput(K2SplitFPOutput{
+			OwnShare:  bytesToBase64(uint128VecToBytes(own127)),
+			PeerShare: bytesToBase64(uint128VecToBytes(peer127)),
+		})
+		return
+	}
+	if input.Ring != "" && input.Ring != "ring63" {
+		panic("k2-split-fp-share: unknown ring='" + input.Ring + "'")
+	}
+
 	data := bytesToFPVec(base64ToBytes(input.DataFP))
-	ring := NewRing63(20)
+	ring := NewRing63(fracBits)
 
 	// Convert data to Ring63 and split using Ring63 arithmetic
 	// This ensures shares are valid Ring63 values that sum to the original mod 2^63
@@ -249,12 +312,22 @@ type K2ComputeEtaFPInput struct {
 	POwn      int     `json:"p_own"`
 	PPeer     int     `json:"p_peer"`
 	FracBits  int     `json:"frac_bits"`
+	// Ring selector. "" or "ring63" (default, 8-byte per element) /
+	// "ring127" (16-byte Uint128 records). Task #116 Cox/LMM plumbing 5c(D).
+	Ring string `json:"ring"`
 }
 
 func handleK2ComputeEtaFP() {
 	var input K2ComputeEtaFPInput
 	mpcReadInput(&input)
-	if input.FracBits <= 0 { input.FracBits = 20 }
+	if input.Ring == "ring127" {
+		handleK2ComputeEtaFP127(input)
+		return
+	}
+	if input.Ring != "" && input.Ring != "ring63" {
+		panic("k2-compute-eta-fp: unknown ring='" + input.Ring + "'")
+	}
+	if input.FracBits <= 0 { input.FracBits = K2DefaultFracBits }
 
 	ring := NewRing63(input.FracBits)
 	n := input.N
@@ -330,6 +403,9 @@ func handleK2ComputeEtaFP() {
 type K2GenMatvecTriplesInput struct {
 	N int `json:"n"`
 	P int `json:"p"`
+	// Ring selector. "" or "ring63" (default, 8-byte records) /
+	// "ring127" (16-byte Uint128 records). Task #116 Cox/LMM plumbing 5c(D).
+	Ring string `json:"ring"`
 }
 
 type K2GenMatvecTriplesOutput struct {
@@ -345,9 +421,17 @@ func handleK2GenMatvecTriples() {
 	var input K2GenMatvecTriplesInput
 	mpcReadInput(&input)
 
+	if input.Ring == "ring127" {
+		handleK2GenMatvecTriples127(input)
+		return
+	}
+	if input.Ring != "" && input.Ring != "ring63" {
+		panic("k2-gen-matvec-triples: unknown ring='" + input.Ring + "'")
+	}
+
 	n := input.N
 	p := input.P
-	ring := NewRing63(20)
+	ring := NewRing63(K2DefaultFracBits)
 
 	// Generate A (n*p) and B (n) in Ring63
 	A := make([]uint64, n*p)

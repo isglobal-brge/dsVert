@@ -84,8 +84,9 @@ func base64ToRing63Vec(s string, n int) ([]uint64, error) {
 // ============================================================================
 
 type K2BeaverVecmulGenInput struct {
-	N        int `json:"n"`
-	FracBits int `json:"frac_bits"`
+	N        int    `json:"n"`
+	FracBits int    `json:"frac_bits"`
+	Ring     string `json:"ring"` // "" or "ring63" or "ring127"
 }
 
 type tripleWire struct {
@@ -136,6 +137,10 @@ func decodeTripleBlob(blob string, n int) (BeaverTripleVec, error) {
 func handleK2BeaverVecmulGenTriples() {
 	var input K2BeaverVecmulGenInput
 	mpcReadInput(&input)
+	if input.Ring == "ring127" {
+		handleK2BeaverVecmulGenTriples127(input)
+		return
+	}
 	if input.FracBits <= 0 {
 		input.FracBits = K2DefaultFracBits
 	}
@@ -174,6 +179,7 @@ type K2BeaverVecmulR1Input struct {
 	TripleBlob string `json:"triple_blob"`
 	N          int    `json:"n"`
 	FracBits   int    `json:"frac_bits"`
+	Ring       string `json:"ring"` // "" or "ring63" or "ring127"
 }
 
 type K2BeaverVecmulR1Output struct {
@@ -184,6 +190,10 @@ type K2BeaverVecmulR1Output struct {
 func handleK2BeaverVecmulR1() {
 	var input K2BeaverVecmulR1Input
 	mpcReadInput(&input)
+	if input.Ring == "ring127" {
+		handleK2BeaverVecmulR1127(input)
+		return
+	}
 	if input.FracBits <= 0 {
 		input.FracBits = K2DefaultFracBits
 	}
@@ -241,6 +251,7 @@ type K2BeaverVecmulR2Input struct {
 	IsParty0   bool   `json:"is_party0"`
 	N          int    `json:"n"`
 	FracBits   int    `json:"frac_bits"`
+	Ring       string `json:"ring"` // "" or "ring63" or "ring127"
 }
 
 type K2BeaverVecmulR2Output struct {
@@ -250,6 +261,10 @@ type K2BeaverVecmulR2Output struct {
 func handleK2BeaverVecmulR2() {
 	var input K2BeaverVecmulR2Input
 	mpcReadInput(&input)
+	if input.Ring == "ring127" {
+		handleK2BeaverVecmulR2127(input)
+		return
+	}
 	if input.FracBits <= 0 {
 		input.FracBits = K2DefaultFracBits
 	}

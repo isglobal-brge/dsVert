@@ -114,6 +114,18 @@ func main() {
 	case "k2-full-iter-r3":
 		handleK2FullIterR3()
 
+	// Ring127 Chebyshev-exp coefficients (public)
+	case "k2-exp127-get-coeffs":
+		handleK2Exp127GetCoeffs()
+
+	// Ring127 Chebyshev-recip coefficients + NR constants (public)
+	case "k2-recip127-get-coeffs":
+		handleK2Recip127GetCoeffs()
+
+	// Ring127 local affine combine — used by Horner / NR R-orchestration
+	case "k2-ring127-affine-combine":
+		handleK2Ring127AffineCombine()
+
 	// Ring63 aggregation (client-side)
 	case "k2-ring63-aggregate":
 		handleK2Ring63Aggregate()

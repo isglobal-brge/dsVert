@@ -27,6 +27,12 @@ type K2WideSplineFullInput struct {
 	N            int     `json:"n"`
 	FracBits     int     `json:"frac_bits"`
 	NumIntervals int     `json:"num_intervals"`
+	// Ring selects the secret-share ring. "ring63" (default, empty) uses
+	// uint64 Ring63. "ring127" uses Uint128 Ring127 (task #116 migration
+	// for Cox/LMM STRICT closure). Ring127 is NOT YET FULLY WIRED in the
+	// spline protocol — setting it here is currently a no-op fallthrough
+	// to Ring63; the R client may pass it for forward-compatibility.
+	Ring         string  `json:"ring"`
 	// Optional domain override for dual-clamp families (reciprocal / log).
 	// If zero, family defaults apply (K2Reciprocal* / K2Log*).
 	Lower        float64 `json:"lower"`
@@ -220,6 +226,15 @@ func handleK2WideSplineFullEval() {
 	mpcReadInput(&input)
 	if input.FracBits <= 0 {
 		input.FracBits = K2DefaultFracBits
+	}
+	// Ring127 dispatch — Cox/LMM STRICT migration (task #116). Ring63 path
+	// stays the default and is unchanged. Unknown ring values reject loudly.
+	if input.Ring == "ring127" {
+		handleK2WideSplineFullEval127(input)
+		return
+	}
+	if input.Ring != "" && input.Ring != "ring63" {
+		panic("k2-wide-spline-full: unknown ring='" + input.Ring + "'")
 	}
 
 	ring := NewRing63(input.FracBits)

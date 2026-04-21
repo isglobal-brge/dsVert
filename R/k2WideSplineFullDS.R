@@ -32,15 +32,25 @@ k2StoreDcfKeysPersistentDS <- function(session_id = NULL) {
 #' @param party_id Integer. 0 (fusion) or 1 (coordinator).
 #' @param family Character. "binomial" or "poisson".
 #' @param num_intervals Integer. Spline intervals (50 sigmoid, 100 exp).
-#' @param frac_bits Integer. Ring63 fractional bits (default 20).
+#' @param frac_bits Integer. Fractional bits (default 20 for Ring63;
+#'   up to 126 for Ring127, though typically 50).
+#' @param ring Integer 63 (default) or 127. Selects the MPC secret-share
+#'   ring. Ring127 is selected by the Cox/LMM STRICT closure path (task
+#'   #116). When ring == 127, per-element records are 16 bytes (Uint128)
+#'   instead of 8 bytes (int64); the downstream Go handler branches on
+#'   `ring = "ring127"` in the JSON input.
 #' @param session_id Character or NULL.
 #' @return List with dcf_masked (base64url).
 #' @export
 k2WideSplinePhase1DS <- function(party_id = 0L, family = "binomial",
                                   num_intervals = NULL, frac_bits = 20L,
-                                  session_id = NULL) {
+                                  ring = 63L, session_id = NULL) {
   ss <- .S(session_id)
   if (is.null(num_intervals)) num_intervals <- if (family == "poisson") 100L else if (family == "softplus") 80L else 50L
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  bytes_per_elem <- if (ring == 127L) 16L else 8L
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
 
   eta_fp <- ss$k2_eta_share_fp
   if (is.null(eta_fp)) eta_fp <- ss$secure_eta_share
@@ -49,17 +59,18 @@ k2WideSplinePhase1DS <- function(party_id = 0L, family = "binomial",
   dcf_keys <- ss$k2_dcf_keys_persistent
   if (is.null(dcf_keys)) stop("No DCF keys in session", call. = FALSE)
 
-  n <- as.integer(nchar(.base64url_to_base64(eta_fp)) * 3 / 4 / 8)
+  n <- as.integer(nchar(.base64url_to_base64(eta_fp)) * 3 / 4 / bytes_per_elem)
 
   result <- .callMpcTool("k2-wide-spline-full", list(
     phase = 1L, party_id = party_id, family = family,
     eta_share_fp = .base64url_to_base64(eta_fp),
     dcf_keys = dcf_keys, n = n, frac_bits = frac_bits,
-    num_intervals = num_intervals))
+    num_intervals = num_intervals, ring = ring_tag))
 
   ss$k2_ws_dcf_keys <- dcf_keys
   ss$k2_ws_eta_fp <- .base64url_to_base64(eta_fp)
   ss$k2_ws_n <- n
+  ss$k2_ws_ring <- ring
 
   list(dcf_masked = base64_to_base64url(result$dcf_masked))
 }
@@ -70,9 +81,14 @@ k2WideSplinePhase1DS <- function(party_id = 0L, family = "binomial",
 #' @export
 k2WideSplinePhase2DS <- function(party_id = 0L, family = "binomial",
                                   num_intervals = NULL, frac_bits = 20L,
-                                  session_id = NULL) {
+                                  ring = 63L, session_id = NULL) {
   ss <- .S(session_id)
   if (is.null(num_intervals)) num_intervals <- if (family == "poisson") 100L else if (family == "softplus") 80L else 50L
+  # Ring defaults to session ring (set by Phase 1); explicit arg overrides.
+  if (missing(ring) && !is.null(ss$k2_ws_ring)) ring <- ss$k2_ws_ring
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
 
   peer_dcf <- .blob_consume("k2_peer_dcf_masked", ss)
   if (is.null(peer_dcf)) stop("No peer DCF masked blob", call. = FALSE)
@@ -89,6 +105,7 @@ k2WideSplinePhase2DS <- function(party_id = 0L, family = "binomial",
     eta_share_fp = ss$k2_ws_eta_fp, dcf_keys = ss$k2_ws_dcf_keys,
     peer_dcf_masked = .base64url_to_base64(peer_dcf),
     n = ss$k2_ws_n, frac_bits = frac_bits, num_intervals = num_intervals,
+    ring = ring_tag,
     t_and_a = triples$and_a, t_and_b = triples$and_b, t_and_c = triples$and_c,
     t_had1_a = triples$had1_a, t_had1_b = triples$had1_b, t_had1_c = triples$had1_c,
     t_had2_a = triples$had2_a, t_had2_b = triples$had2_b, t_had2_c = triples$had2_c))
@@ -106,9 +123,13 @@ k2WideSplinePhase2DS <- function(party_id = 0L, family = "binomial",
 #' @export
 k2WideSplinePhase3DS <- function(party_id = 0L, family = "binomial",
                                   num_intervals = NULL, frac_bits = 20L,
-                                  session_id = NULL) {
+                                  ring = 63L, session_id = NULL) {
   ss <- .S(session_id)
   if (is.null(num_intervals)) num_intervals <- if (family == "poisson") 100L else if (family == "softplus") 80L else 50L
+  if (missing(ring) && !is.null(ss$k2_ws_ring)) ring <- ss$k2_ws_ring
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
 
   peer_blob <- .blob_consume("k2_peer_beaver_r1", ss)
   if (is.null(peer_blob)) stop("No peer Beaver R1 blob", call. = FALSE)
@@ -123,6 +144,7 @@ k2WideSplinePhase3DS <- function(party_id = 0L, family = "binomial",
     eta_share_fp = ss$k2_ws_eta_fp, dcf_keys = ss$k2_ws_dcf_keys,
     peer_dcf_masked = ss$k2_ws_peer_dcf,
     n = ss$k2_ws_n, frac_bits = frac_bits, num_intervals = num_intervals,
+    ring = ring_tag,
     t_and_a = tr$and_a, t_and_b = tr$and_b, t_and_c = tr$and_c,
     t_had1_a = tr$had1_a, t_had1_b = tr$had1_b, t_had1_c = tr$had1_c,
     t_had2_a = tr$had2_a, t_had2_b = tr$had2_b, t_had2_c = tr$had2_c,
@@ -140,9 +162,13 @@ k2WideSplinePhase3DS <- function(party_id = 0L, family = "binomial",
 #' @export
 k2WideSplinePhase4DS <- function(party_id = 0L, family = "binomial",
                                   num_intervals = NULL, frac_bits = 20L,
-                                  session_id = NULL) {
+                                  ring = 63L, session_id = NULL) {
   ss <- .S(session_id)
   if (is.null(num_intervals)) num_intervals <- if (family == "poisson") 100L else if (family == "softplus") 80L else 50L
+  if (missing(ring) && !is.null(ss$k2_ws_ring)) ring <- ss$k2_ws_ring
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
 
   peer_blob <- .blob_consume("k2_peer_had2_r1", ss)
   if (is.null(peer_blob)) stop("No peer Had2 R1 blob", call. = FALSE)
@@ -160,6 +186,7 @@ k2WideSplinePhase4DS <- function(party_id = 0L, family = "binomial",
     eta_share_fp = ss$k2_ws_eta_fp, dcf_keys = ss$k2_ws_dcf_keys,
     peer_dcf_masked = ss$k2_ws_peer_dcf,
     n = ss$k2_ws_n, frac_bits = frac_bits, num_intervals = num_intervals,
+    ring = ring_tag,
     t_and_a = tr$and_a, t_and_b = tr$and_b, t_and_c = tr$and_c,
     t_had1_a = tr$had1_a, t_had1_b = tr$had1_b, t_had1_c = tr$had1_c,
     t_had2_a = tr$had2_a, t_had2_b = tr$had2_b, t_had2_c = tr$had2_c,

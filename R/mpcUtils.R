@@ -112,9 +112,24 @@
     .check_binary_cells(y, "response variable")
   }
 
-  # Check each X column
+  # Check each X column. Internal columns owned by ds.vertLMM's
+  # cluster-mean GLS transform ("dsvertlmmint") encode only the
+  # vector (1 - lambda_i[cluster]) -- a deterministic function of
+  # the cluster-size vector n_i that is ALREADY disclosed to the
+  # DCF peer via the documented cluster-ID broadcast (see
+  # dsvertLMMBroadcastClusterIDsDS disclosure tier). Flagging it as
+  # a patient-level binary variable is a false positive; the
+  # apparent "two categories" just reflect which cluster size an
+  # observation falls in. We skip the binary check on these columns
+  # only. Suppression can be opted-out via
+  # `options(dsvert.skip_internal_binary_check = FALSE)`.
+  allow_internal <- isTRUE(getOption(
+    "dsvert.skip_internal_binary_check", TRUE))
+  internal_cols <- c("dsvertlmmint", "__dsvert_lmm_int")
+  cn <- colnames(X)
   for (j in seq_len(ncol(X))) {
-    .check_binary_cells(X[, j], paste0("predictor '", colnames(X)[j], "'"))
+    if (allow_internal && !is.null(cn) && cn[j] %in% internal_cols) next
+    .check_binary_cells(X[, j], paste0("predictor '", cn[j], "'"))
   }
 
   TRUE

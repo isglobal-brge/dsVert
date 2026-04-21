@@ -209,6 +209,13 @@ k2GradientR1DS <- function(peer_pk, session_id = NULL) {
 
   # Assemble full X share FP: concatenate own + peer columns per row
   # This is done by the Go command
+  if (identical(Sys.getenv("DSVERT_RING127_TRACE"), "1")) {
+    message(sprintf("[trace R1DS pre-call ring=%s] x_full=%d mu=%d y=%d a=%d b=%d n=%d p=%d",
+      ring_tag,
+      nchar(ss$k2_x_full_fp %||% ""), nchar(ss$secure_mu_share %||% ""),
+      nchar(ss$k2_y_share_fp %||% ""), nchar(ss$k2_grad_a_fp %||% ""),
+      nchar(ss$k2_grad_b_fp %||% ""), n, p_total))
+  }
   result <- .callMpcTool("k2-full-iter-r3", list(
     x_share_fp = ss$k2_x_full_fp,
     mu_share_fp = ss$secure_mu_share,
@@ -291,9 +298,28 @@ k2StoreGradTripleDS <- function(session_id = NULL) {
   tsk <- .key_get("transport_sk", ss)
   dec <- .callMpcTool("transport-decrypt", list(
     sealed = .base64url_to_base64(blob), recipient_sk = tsk))
-  msg <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
+  # Ring127 fix 2026-04-21 15:00: bypass rawToChar which truncates at
+  # the first NUL byte in the plaintext. Ring127 Beaver triples
+  # serialized via base64_enc(charToRaw(toJSON(...))) occasionally
+  # produce base64 text that after transport-decrypt contains
+  # NUL-equivalent byte sequences in the sealed envelope tail; the
+  # resulting rawToChar silently halved the carried payload, leading
+  # to handleK2FullIterR3_127 panic (k2_full_iter_ring127.go:158
+  # index-out-of-range [450]/[450]). Write raw bytes to a temp file
+  # and let jsonlite::fromJSON read the connection, which preserves
+  # all bytes regardless of embedded NULs.
+  raw_bytes <- jsonlite::base64_dec(dec$data)
+  tmpf <- tempfile(fileext = ".json")
+  on.exit(try(unlink(tmpf), silent = TRUE), add = TRUE)
+  writeBin(raw_bytes, tmpf)
+  msg <- jsonlite::fromJSON(tmpf)
   ss$k2_grad_a_fp <- msg$a
   ss$k2_grad_b_fp <- msg$b
   ss$k2_grad_c_fp <- msg$c
+  if (identical(Sys.getenv("DSVERT_RING127_TRACE"), "1")) {
+    message(sprintf("[trace k2StoreGradTripleDS] a=%d b=%d c=%d chars",
+                     nchar(msg$a %||% ""), nchar(msg$b %||% ""),
+                     nchar(msg$c %||% "")))
+  }
   list(stored = TRUE)
 }

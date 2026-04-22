@@ -32,14 +32,13 @@
 #' @keywords internal
 #' @export
 # Opal DSL parser chokes on `=`, `+` and `/` inside double-quoted
-# string literals (observed 2026-04-22 on k2Ring127{LocalScale,AffineCombine}DS).
-# Callers convert base64 → base64url (`+→-`, `/→_`, strip `=`); this
-# helper restores standard base64 before delegating to the Go tool.
+# string literals. Client converts base64 → base64url; we restore
+# standard base64 via the already-existing .base64url_to_base64
+# helper in mpcUtils.R (documented since pre-session as the
+# canonical "Opal/Rock string parameter" workaround).
 .b64_pad <- function(x) {
   if (is.null(x) || !nzchar(x)) return(x)
-  x <- chartr("-_", "+/", x)  # base64url → standard base64
-  pad <- (4L - (nchar(x) %% 4L)) %% 4L
-  if (pad == 0L) x else paste0(x, strrep("=", pad))
+  .base64url_to_base64(x)
 }
 
 k2Ring127AffineCombineDS <- function(a_key = NULL, b_key = NULL,

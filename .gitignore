@@ -1,1 +1,14 @@
-.Rproj.user
+# R build artifacts
+*.Rcheck/
+..Rcheck/
+*.tar.gz
+
+# Go binary copies outside inst/bin/
+inst/dsvert-mpc/dsvert-mpc
+inst/dsvert-mpc/mhe-tool
+
+# Editor + OS
+.DS_Store
+.Rhistory
+.RData
+.Rproj.user/

@@ -71,7 +71,7 @@ dsvertSoftmaxDenominatorDS <- function(exp_eta_keys, output_key,
 
   # FP(1.0) constant
   one_fp <- .callMpcTool("k2-float-to-fp", list(
-    values = 1.0, frac_bits = 50L, ring = "ring127"))$fp_data
+    values = array(1.0, dim = 1L), frac_bits = 50L, ring = "ring127"))$fp_data
 
   # Start: tmp_sum = first exp(eta) share + (constant 1 on party 0)
   first_share <- ss[[exp_eta_keys[1L]]]

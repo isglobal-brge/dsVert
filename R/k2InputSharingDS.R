@@ -111,9 +111,16 @@ k2ReceiveShareDS <- function(peer_p = NULL, session_id = NULL) {
 #' that server's share is equivalent to adding it to the reconstructed
 #' eta. The other server's share is unchanged. No cross-server round trip
 #' is required; the offset values never leave their home server.
+#' @param output_key Optional character. When set, the computed eta share
+#'   is additionally stored under this session key (in addition to the
+#'   standard slots \code{k2_eta_share_fp}, \code{k2_eta_share},
+#'   \code{secure_eta_share}). Used by \code{ds.vertMultinomJointNewton}
+#'   to maintain K−1 parallel eta shares (one per non-reference class)
+#'   across the same session without overwrite.
 #' @export
 k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
-                                  is_coordinator = TRUE, session_id = NULL) {
+                                  is_coordinator = TRUE, session_id = NULL,
+                                  output_key = NULL) {
   ss <- .S(session_id)
   n <- ss$k2_x_n
   p_own <- ss$k2_x_p
@@ -179,6 +186,10 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
   ss$k2_eta_share_fp <- eta_fp  # wide spline DCF reads this key
   ss$secure_eta_share <- eta_fp
   ss$k2_x_full_fp <- result$x_full_fp  # full X share for gradient
+  # Optional per-class eta slot for joint-softmax / joint-PO orchestration
+  if (!is.null(output_key) && nzchar(output_key)) {
+    ss[[output_key]] <- eta_fp
+  }
 
   # Ensure y_share_fp exists (nonlabel gets it from input sharing, label creates it)
   if (is.null(ss$k2_y_share_fp)) {

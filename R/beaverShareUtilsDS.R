@@ -99,18 +99,24 @@ k2BeaverExtractColumnDS <- function(source_key, n, K, col_index,
 #'   representation of \eqn{\sum_i v_i^{share}} as a double.
 #' @export
 k2BeaverSumShareDS <- function(source_key, session_id = NULL,
-                                frac_bits = 20L) {
+                                frac_bits = 20L, ring = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
   fp <- ss[[source_key]]
   if (is.null(fp)) stop("source_key missing", call. = FALSE)
-  # Sum all elements of the share to one scalar FP share.
-  s <- .callMpcTool("k2-fp-sum", list(fp_data = fp))
-  # We return the raw scalar FP share (single 8-byte value in base64)
-  # so the caller can aggregate the two parties' shares client-side
-  # via k2-ring63-aggregate. Returning a double directly would leak
-  # the party's individual share (it's random noise but anyway).
-  list(sum_share_fp = s$sum_fp)
+  # Determine ring from session (set by k2ShareInputDS) if caller didn't
+  # pass one. k2-fp-sum expects "ring127" for 16-byte Uint128 records;
+  # Ring63 is the 8-byte default. Getting this wrong silently truncates
+  # the per-element parse and returns garbage (see multinom joint bug #9
+  # intercept-grad NA: Ring127 residual shares were being parsed as
+  # Ring63 → 8-byte scalar out → subsequent Ring127 aggregate saw 0
+  # Uint128 values → list() with empty $values).
+  if (is.null(ring) || !nzchar(ring)) {
+    ss_ring <- as.integer(ss$k2_ring %||% 63L)
+    ring <- if (ss_ring == 127L) "ring127" else "ring63"
+  }
+  s <- .callMpcTool("k2-fp-sum", list(fp_data = fp, ring = ring))
+  list(sum_share_fp = s$sum_fp, ring = ring)
 }

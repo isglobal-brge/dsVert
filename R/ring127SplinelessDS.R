@@ -31,6 +31,17 @@
 #' @return list(stored = TRUE, output_key, n).
 #' @keywords internal
 #' @export
+# Opal DSL parser chokes on `=`, `+` and `/` inside double-quoted
+# string literals (observed 2026-04-22 on k2Ring127{LocalScale,AffineCombine}DS).
+# Callers convert base64 → base64url (`+→-`, `/→_`, strip `=`); this
+# helper restores standard base64 before delegating to the Go tool.
+.b64_pad <- function(x) {
+  if (is.null(x) || !nzchar(x)) return(x)
+  x <- chartr("-_", "+/", x)  # base64url → standard base64
+  pad <- (4L - (nchar(x) %% 4L)) %% 4L
+  if (pad == 0L) x else paste0(x, strrep("=", pad))
+}
+
 k2Ring127AffineCombineDS <- function(a_key = NULL, b_key = NULL,
                                      sign_a = 0L, sign_b = 0L,
                                      public_const_fp = NULL,
@@ -38,6 +49,7 @@ k2Ring127AffineCombineDS <- function(a_key = NULL, b_key = NULL,
                                      output_key,
                                      n,
                                      session_id = NULL) {
+  public_const_fp <- .b64_pad(public_const_fp)
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
@@ -119,6 +131,7 @@ k2Ring127LocalScaleDS <- function(in_key,
                                   output_key,
                                   n,
                                   session_id = NULL) {
+  scalar_fp <- .b64_pad(scalar_fp)
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }

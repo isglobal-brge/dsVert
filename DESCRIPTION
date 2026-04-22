@@ -77,6 +77,8 @@ AggregateMethods:
     dsvertHistogramDS,
     dsvertLocalMomentsDS,
     dsvertNBProfileSumsDS,
+    dsvertNBEtaSealDS,
+    dsvertNBFullScoreDS,
     dsvertComputeResidualShareDS,
     dsvertPrepareMultinomGradDS,
     dsvertSoftmaxDenominatorDS,

@@ -156,16 +156,33 @@ dsvertNBFullScoreDS <- function(data_name, y_var,
   eta <- pmin(pmax(eta, -23), 23)
   mu <- exp(eta)
 
+  # Complete NB profile score per Venables-Ripley 2002 §7.4 +
+  # Lawless 1987 Can J Stat 15 (AUDITORIA correction — prior score
+  # omitted the +n and -Σ(y+θ)/(θ+μ) terms → biased 5.87% fixed point):
+  #   ℓ'(θ) = Σψ(yᵢ+θ) - n·ψ(θ) + n·log(θ) - Σlog(θ+μᵢ)
+  #           + n - Σ(yᵢ+θ)/(θ+μᵢ)
+  #   ℓ''(θ) = Σψ₁(yᵢ+θ) - n·ψ₁(θ) + n/θ - 2·Σ1/(θ+μᵢ)
+  #            + Σ(yᵢ+θ)/(θ+μᵢ)²
   sum_psi <- sum(digamma(y + theta))
   sum_tri <- sum(trigamma(y + theta))
-  # Σ log(θ / (θ + μᵢ))
+  # Σ log(θ / (θ + μᵢ)) = n·log(θ) - Σlog(θ+μᵢ)
   sum_log_theta_ratio <- sum(log(theta) - log(theta + mu))
-  # Σ μᵢ / (θ·(θ+μᵢ))  (d/dθ of log(θ/(θ+μ)))
+  # Σ μᵢ/(θ·(θ+μᵢ)) = n/θ - Σ1/(θ+μᵢ)  (d/dθ of log(θ/(θ+μ)))
   sum_mu_ratio <- sum(mu / (theta * (theta + mu)))
+  # Full-score completion sums:
+  inv_theta_plus_mu      <- 1 / (theta + mu)
+  y_plus_theta_over_tmu  <- (y + theta) / (theta + mu)
+  y_plus_theta_over_tmu2 <- y_plus_theta_over_tmu / (theta + mu)
+  sum_inv_tmu       <- sum(inv_theta_plus_mu)        # Σ 1/(θ+μ)
+  sum_ypt_over_tmu  <- sum(y_plus_theta_over_tmu)    # Σ (y+θ)/(θ+μ)
+  sum_ypt_over_tmu2 <- sum(y_plus_theta_over_tmu2)   # Σ (y+θ)/(θ+μ)²
 
   list(sum_psi = sum_psi,
        sum_tri = sum_tri,
        sum_log_theta_ratio = sum_log_theta_ratio,
        sum_mu_ratio = sum_mu_ratio,
+       sum_inv_tmu = sum_inv_tmu,
+       sum_ypt_over_tmu = sum_ypt_over_tmu,
+       sum_ypt_over_tmu2 = sum_ypt_over_tmu2,
        n = n)
 }

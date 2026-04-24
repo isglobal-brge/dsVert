@@ -90,7 +90,7 @@ dsvertOrdinalSealFkSharesDS <- function(F_keys, target_pk,
 
 
 dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
-                                         indicator_template = "%s_leq",
+                                         indicator_cols = NULL,
                                          level_names = NULL,
                                          F_plaintext_b64 = NULL,
                                          peer_F_blob_key = NULL,
@@ -145,10 +145,17 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
   K_minus_1 <- K - 1L
   n_k <- n_int  # alias
 
-  # Read each cumulative indicator column.
+  # Read each cumulative indicator column. indicator_cols is a
+  # character vector of length K-1 passed by the client — avoids
+  # sprintf templates with "%" that hit the Opal DSL parser lexer
+  # (observed 2026-04-24: "Lexical error Encountered '%' after '\"'"
+  # on the "%s_leq" template literal).
+  if (!is.character(indicator_cols) || length(indicator_cols) != K_minus_1)
+    stop("indicator_cols must be a character vector of length K-1 = ",
+         K_minus_1, call. = FALSE)
   ind_mat <- matrix(0L, nrow = n_int, ncol = K_minus_1)
   for (ki in seq_along(thresh_levels)) {
-    col <- sprintf(indicator_template, thresh_levels[ki])
+    col <- indicator_cols[ki]
     if (!(col %in% names(data)))
       stop("indicator column '", col, "' not found in '", data_name, "'",
            call. = FALSE)

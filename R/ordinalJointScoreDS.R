@@ -61,8 +61,9 @@
 #' @export
 dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
                                          indicator_template = "%s_leq",
-                                         f_keys = NULL,
-                                         recipP_keys = NULL,
+                                         level_names = NULL,
+                                         F_plaintext_b64 = NULL,
+                                         theta_values = NULL,
                                          output_key = NULL,
                                          n = NULL,
                                          is_outcome_server = FALSE,
@@ -74,29 +75,122 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
   n_int <- as.integer(n)
   if (!is.finite(n_int) || n_int <= 0L)
     stop("n must be a positive integer", call. = FALSE)
-
   ss <- .S(session_id)
 
-  # ===== STUB BODY =====
-  # Piece (1)-(5) TODO: read indicator columns, route per-patient
-  # shares, compute T_i via affine combines of f_k and recipP_k shares.
-  # Placeholder: write a zero-valued share (all servers contribute
-  # zero → downstream Beaver matvec X^T T yields zero gradient,
-  # making the joint Newton step a no-op — exactly the current
-  # warm-Fisher fallback behaviour). Safe, green, auditable baseline.
-  #
-  # Share format: Ring127 Uint128 (16 bytes per FP value) to match
-  # the existing f_keys / recipP_keys pipeline (fracBits=50).
-  zero_flat <- rep(0, n_int)
-  fp <- .callMpcTool("k2-float-to-fp",
-                      list(values = zero_flat, frac_bits = 50L,
-                           ring = "ring127"))$fp_data
-  # Both parties get the same "zero share" — sum is zero on reveal;
-  # for a true random-split share we'd use k2-split-fp-share, but for
-  # a no-op stub a deterministic zero-share is fine and keeps the slot
-  # type compatible with vecmul/matvec consumers.
-  ss[[output_key]] <- fp
-  # ===== END STUB =====
+  # Piece (5) — default "no-op" output: both parties write a zero
+  # Ring127 share. Required for the case where the caller only wants
+  # to stage the slot (e.g., downstream matvec on a non-outcome
+  # server that doesn't need to contribute).
+  write_zero_share <- function() {
+    zero_flat <- rep(0, n_int)
+    fp <- .callMpcTool("k2-float-to-fp",
+                        list(values = zero_flat, frac_bits = 50L,
+                             ring = "ring127"))$fp_data
+    ss[[output_key]] <- fp
+  }
 
-  list(stored = TRUE, stub = TRUE, n = n_int)
+  if (!isTRUE(is_outcome_server)) {
+    # Non-outcome path (piece 5): this server contributes zero T_i
+    # locally. Any non-zero T_i share on this side arrives via the
+    # reveal-blob pattern from the outcome server (separate DS fn
+    # `dsvertOrdinalStoreTShareDS`, piece 6, future commit).
+    write_zero_share()
+    return(list(stored = TRUE, role = "nl", n = n_int))
+  }
+
+  # ===== OUTCOME-SERVER PATH (pieces 1-4) =====
+  # Piece 1 — read indicator columns. Uses cumulative encoding
+  # (indicator_template = "%s_leq" gives I(y ≤ k) per threshold k).
+  # From cumulative indicators we derive per-patient class j(i).
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
+  if (!is.data.frame(data))
+    stop("Object '", data_name, "' is not a data frame", call. = FALSE)
+  if (!is.character(level_names) || length(level_names) < 3L)
+    stop("level_names must be >= 3 ordered level strings", call. = FALSE)
+  thresh_levels <- head(level_names, -1L)
+  K <- length(level_names)
+  K_minus_1 <- K - 1L
+  n_k <- n_int  # alias
+
+  # Read each cumulative indicator column.
+  ind_mat <- matrix(0L, nrow = n_int, ncol = K_minus_1)
+  for (ki in seq_along(thresh_levels)) {
+    col <- sprintf(indicator_template, thresh_levels[ki])
+    if (!(col %in% names(data)))
+      stop("indicator column '", col, "' not found in '", data_name, "'",
+           call. = FALSE)
+    v <- as.integer(data[[col]])
+    if (length(v) != n_int)
+      stop("indicator column '", col, "' length ", length(v), " != n=",
+           n_int, call. = FALSE)
+    ind_mat[, ki] <- v
+  }
+
+  # Piece 2 — derive per-patient class j(i) in {1, ..., K} from
+  # cumulative indicators. y ≤ k for all k ≥ j(i) and y > k for k < j(i).
+  # So j(i) = (K - rowSums(ind_mat)) if ind_mat is I(y ≤ k)... actually:
+  # I(y ≤ k) = 1 iff y ≤ k. rowSums counts how many thresholds y is
+  # below-or-equal. If y = 1: all K-1 indicators are 1 → rowSums = K-1.
+  # If y = K: all 0 → rowSums = 0. So j(i) = K - rowSums(ind_mat).
+  j_of_i <- K - rowSums(ind_mat)
+  if (any(j_of_i < 1 | j_of_i > K))
+    stop("invalid class derivation from indicators: out of range [1, K]",
+         call. = FALSE)
+
+  # Piece 3 — build per-patient T_i using plaintext F_k values that
+  # the client has passed in via `F_plaintext_b64` (base64 numeric
+  # array n × K_minus_1 row-major, revealed to outcome server only
+  # via Cox-class inter-server disclosure per memory
+  # feedback_mpc_validation_gotchas).
+  if (is.null(F_plaintext_b64) || !nzchar(F_plaintext_b64))
+    stop("F_plaintext_b64 required on outcome server", call. = FALSE)
+  F_raw <- jsonlite::base64_dec(.base64url_to_base64(F_plaintext_b64))
+  F_nums <- readBin(F_raw, what = "double", n = n_int * K_minus_1,
+                     size = 8L, endian = "little")
+  if (length(F_nums) != n_int * K_minus_1)
+    stop("F_plaintext length mismatch: got ", length(F_nums),
+         " expected ", n_int * K_minus_1, call. = FALSE)
+  F_mat <- matrix(F_nums, nrow = n_int, ncol = K_minus_1, byrow = TRUE)
+  # Ensure F in (eps, 1-eps) for numerical safety
+  eps <- 1e-10
+  F_mat <- pmin(pmax(F_mat, eps), 1 - eps)
+  # Augmented: F_0 ≡ 0, F_K ≡ 1. Columns 0..K of cumulative Fs.
+  F_aug <- cbind(0, F_mat, 1)   # n × (K+1)
+  # P_{i,j} = F_j - F_{j-1} for j ∈ 1..K
+  P_mat <- F_aug[, 2:(K + 1L), drop = FALSE] -
+           F_aug[, 1:K,         drop = FALSE]
+  P_mat <- pmax(P_mat, eps)     # safety against underflow
+  # f_k = F_k (1 - F_k)  for interior thresholds k ∈ 1..K-1; boundary
+  # f_0 = f_K = 0.
+  f_interior <- F_mat * (1 - F_mat)  # n × K_minus_1
+  f_aug <- cbind(0, f_interior, 0)   # n × (K+1)  i.e., f_0, f_1..f_{K-1}, f_K
+  # Piece 4 — per-patient T_i = f_{j-1}/P_j − f_j/P_{j+1}
+  # (with f_0 = f_K = 0 absorbing the boundaries)
+  T_i <- numeric(n_int)
+  for (i in seq_len(n_int)) {
+    j <- j_of_i[i]
+    num_lower <- f_aug[i, j] / P_mat[i, j]           # f_{j-1} / P_{i,j}
+    num_upper <- if (j < K) f_aug[i, j + 1L] / P_mat[i, j + 1L] else 0
+    T_i[i] <- num_lower - num_upper
+  }
+  if (any(!is.finite(T_i))) {
+    T_i[!is.finite(T_i)] <- 0
+  }
+
+  # Piece 5 (outcome side) — split T_i into additive Ring127 share:
+  # OS keeps (T_i − r), blob sends r to NL. For a generous baseline
+  # without an NL round-trip yet, store T_i as the outcome's OWN
+  # share and zero on NL (per dsvertComputeResidualShareDS pattern):
+  # the non-outcome call sets zero above, outcome-sum = T_i locally.
+  fp_T <- .callMpcTool("k2-float-to-fp",
+                        list(values = as.numeric(T_i), frac_bits = 50L,
+                             ring = "ring127"))$fp_data
+  ss[[output_key]] <- fp_T
+
+  # Plaintext θ passed back to client for diagnostic parity.
+  list(stored = TRUE, role = "os", n = n_int,
+       class_counts = as.integer(table(factor(j_of_i, levels = seq_len(K)))),
+       T_norm_L2 = sqrt(sum(T_i^2)),
+       T_max = max(abs(T_i)))
 }

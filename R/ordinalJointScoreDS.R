@@ -268,9 +268,19 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
                              ring = "ring127"))$fp_data
   ss[[output_key]] <- fp_T
 
-  # Plaintext θ passed back to client for diagnostic parity.
+  # AUDITORIA F saturation diagnostic: report F quantiles + saturation
+  # fraction. max|F − 0.5| ≥ 0.49 indicates Chebyshev sigmoid domain
+  # saturation → F_j and F_{j-1} both near 0 or 1 → P small → T clamp.
+  F_abs_dev <- abs(F_mat - 0.5)
+  F_q <- unname(quantile(as.numeric(F_mat), c(0.01, 0.25, 0.5, 0.75, 0.99)))
+  P_q <- unname(quantile(as.numeric(P_mat), c(0.01, 0.25, 0.5, 0.75, 0.99)))
+  sat_frac <- mean(F_abs_dev > 0.49)
+
   list(stored = TRUE, role = "os", n = n_int,
        class_counts = as.integer(table(factor(j_of_i, levels = seq_len(K)))),
        T_norm_L2 = sqrt(sum(T_i^2)),
-       T_max = max(abs(T_i)))
+       T_max = max(abs(T_i)),
+       F_q01_q99 = F_q,
+       P_q01_q99 = P_q,
+       F_sat_frac = sat_frac)
 }

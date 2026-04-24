@@ -240,18 +240,23 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
   # f_0 = f_K = 0.
   f_interior <- F_mat * (1 - F_mat)  # n × K_minus_1
   f_aug <- cbind(0, f_interior, 0)   # n × (K+1)  i.e., f_0, f_1..f_{K-1}, f_K
-  # Piece 4 — per-patient T_i = f_{j-1}/P_j − f_j/P_{j+1}
-  # (with f_0 = f_K = 0 absorbing the boundaries)
+  # Piece 4 — per-patient T_i = (f_{j-1} − f_j) / P_{i,j}
+  # per McCullagh 1980 JRSS B 42:109-142 §2.5 eq (2.5) score form.
+  # Derivation: ρ_j = F(θ_j − η), dρ_j/dβ = −f_j · x → score x-weight
+  # u_i = (f_{j-1} − f_j) / (ρ_j − ρ_{j-1}).
+  # Boundaries: f_0 = f_K = 0 absorb automatically via f_aug.
   T_i <- numeric(n_int)
   for (i in seq_len(n_int)) {
     j <- j_of_i[i]
-    num_lower <- f_aug[i, j] / P_mat[i, j]           # f_{j-1} / P_{i,j}
-    num_upper <- if (j < K) f_aug[i, j + 1L] / P_mat[i, j + 1L] else 0
-    T_i[i] <- num_lower - num_upper
+    T_i[i] <- (f_aug[i, j] - f_aug[i, j + 1L]) / P_mat[i, j]
   }
   if (any(!is.finite(T_i))) {
     T_i[!is.finite(T_i)] <- 0
   }
+  # Clamp to sanity range; true |T_i| ≤ 1 for bounded η (since
+  # f_k ≤ 1/4 always, and P_{i,j} ≥ eps). Clamp at ±10 as a safety
+  # net against near-zero P (from P-floor 1e-10 scaling).
+  T_i <- pmin(pmax(T_i, -10), 10)
 
   # Piece 5 (outcome side) — split T_i into additive Ring127 share:
   # OS keeps (T_i − r), blob sends r to NL. For a generous baseline

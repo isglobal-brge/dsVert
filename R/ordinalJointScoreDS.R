@@ -59,10 +59,42 @@
 #' @param session_id MPC session id.
 #' @return \code{list(stored = TRUE, stub = TRUE, n = <integer>)}.
 #' @export
+#' @title Seal F_k shares for inter-server reveal to outcome server
+#' @description Non-outcome server transport-encrypts its Ring127 F_k
+#'   shares to the outcome server's PK so the outcome server can
+#'   assemble plaintext F per patient. Cox-class inter-server reveal.
+#' @param F_keys character vector of session slot keys holding F_k shares.
+#' @param target_pk outcome server transport PK (base64url).
+#' @param session_id MPC session id.
+#' @return list(sealed = base64url blob).
+#' @export
+dsvertOrdinalSealFkSharesDS <- function(F_keys, target_pk,
+                                         session_id = NULL) {
+  if (is.null(session_id) || !nzchar(session_id))
+    stop("session_id required", call. = FALSE)
+  if (!is.character(F_keys) || length(F_keys) < 1L)
+    stop("F_keys required", call. = FALSE)
+  ss <- .S(session_id)
+  shares_b64 <- lapply(F_keys, function(k) {
+    v <- ss[[k]]
+    if (is.null(v)) stop("F share slot '", k, "' empty", call. = FALSE)
+    v  # already base64-encoded FP data
+  })
+  payload <- jsonlite::base64_enc(charToRaw(
+    jsonlite::toJSON(list(F_keys = F_keys, shares = shares_b64))))
+  pk_std <- .base64url_to_base64(target_pk)
+  sealed <- .callMpcTool("transport-encrypt",
+                          list(data = payload, recipient_pk = pk_std))
+  list(sealed = base64_to_base64url(sealed$sealed))
+}
+
+
 dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
                                          indicator_template = "%s_leq",
                                          level_names = NULL,
                                          F_plaintext_b64 = NULL,
+                                         peer_F_blob_key = NULL,
+                                         F_keys = NULL,
                                          theta_values = NULL,
                                          output_key = NULL,
                                          n = NULL,
@@ -138,20 +170,56 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
     stop("invalid class derivation from indicators: out of range [1, K]",
          call. = FALSE)
 
-  # Piece 3 — build per-patient T_i using plaintext F_k values that
-  # the client has passed in via `F_plaintext_b64` (base64 numeric
-  # array n × K_minus_1 row-major, revealed to outcome server only
-  # via Cox-class inter-server disclosure per memory
-  # feedback_mpc_validation_gotchas).
-  if (is.null(F_plaintext_b64) || !nzchar(F_plaintext_b64))
-    stop("F_plaintext_b64 required on outcome server", call. = FALSE)
-  F_raw <- jsonlite::base64_dec(.base64url_to_base64(F_plaintext_b64))
-  F_nums <- readBin(F_raw, what = "double", n = n_int * K_minus_1,
-                     size = 8L, endian = "little")
-  if (length(F_nums) != n_int * K_minus_1)
-    stop("F_plaintext length mismatch: got ", length(F_nums),
-         " expected ", n_int * K_minus_1, call. = FALSE)
-  F_mat <- matrix(F_nums, nrow = n_int, ncol = K_minus_1, byrow = TRUE)
+  # Piece 3 — assemble plaintext F on the OUTCOME SERVER ONLY.
+  # Two supported input modes:
+  #   (a) F_plaintext_b64 : row-major double[n × K-1] directly (used
+  #       for unit tests / simple paths)
+  #   (b) peer_F_blob_key + F_keys : production MPC path. Outcome
+  #       decrypts peer shares (sealed via dsvertOrdinalSealFkSharesDS),
+  #       adds its own session-slot shares, decodes Ring127 → double.
+  #       Plaintext F never leaves OS; client sees only scalar T stats.
+  F_mat <- NULL
+  if (!is.null(peer_F_blob_key) && nzchar(peer_F_blob_key)) {
+    if (!is.character(F_keys) || length(F_keys) != K_minus_1)
+      stop("F_keys length must equal K_minus_1=", K_minus_1, call. = FALSE)
+    blob <- .blob_consume(peer_F_blob_key, ss)
+    if (is.null(blob))
+      stop("peer F blob missing at '", peer_F_blob_key, "'", call. = FALSE)
+    tsk <- .key_get("transport_sk", ss)
+    if (is.null(tsk))
+      stop("transport_sk missing — call glmRing63TransportInitDS first",
+           call. = FALSE)
+    dec <- .callMpcTool("transport-decrypt",
+      list(sealed = .base64url_to_base64(blob), recipient_sk = tsk))
+    peer <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
+    peer_shares_b64 <- peer$shares
+    if (length(peer_shares_b64) != K_minus_1)
+      stop("peer F shares count ", length(peer_shares_b64),
+           " != K_minus_1 ", K_minus_1, call. = FALSE)
+    # Sum own + peer share per threshold → plaintext F_k Ring127
+    F_mat <- matrix(0, nrow = n_int, ncol = K_minus_1)
+    for (ki in seq_len(K_minus_1)) {
+      own_b64 <- ss[[F_keys[ki]]]
+      if (is.null(own_b64))
+        stop("own F share slot '", F_keys[ki], "' empty", call. = FALSE)
+      # aggregate two Ring127 shares → plaintext double vector
+      agg <- .callMpcTool("k2-ring63-aggregate",
+        list(share_a = own_b64, share_b = peer_shares_b64[[ki]],
+             frac_bits = 50L, ring = "ring127"))
+      F_mat[, ki] <- as.numeric(agg$values)[seq_len(n_int)]
+    }
+  } else if (!is.null(F_plaintext_b64) && nzchar(F_plaintext_b64)) {
+    F_raw <- jsonlite::base64_dec(.base64url_to_base64(F_plaintext_b64))
+    F_nums <- readBin(F_raw, what = "double", n = n_int * K_minus_1,
+                       size = 8L, endian = "little")
+    if (length(F_nums) != n_int * K_minus_1)
+      stop("F_plaintext length mismatch: got ", length(F_nums),
+           " expected ", n_int * K_minus_1, call. = FALSE)
+    F_mat <- matrix(F_nums, nrow = n_int, ncol = K_minus_1, byrow = TRUE)
+  } else {
+    stop("outcome server needs either peer_F_blob_key + F_keys OR F_plaintext_b64",
+         call. = FALSE)
+  }
   # Ensure F in (eps, 1-eps) for numerical safety
   eps <- 1e-10
   F_mat <- pmin(pmax(F_mat, eps), 1 - eps)

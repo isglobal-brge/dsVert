@@ -81,6 +81,7 @@ AggregateMethods:
     dsvertNBFullScoreDS,
     dsvertOrdinalPatientDiffsDS,
     dsvertOrdinalSealFkSharesDS,
+    dsvertOrdinalSealEtaDS,
     dsvertComputeResidualShareDS,
     dsvertPrepareMultinomGradDS,
     dsvertSoftmaxDenominatorDS,

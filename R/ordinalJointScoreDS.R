@@ -89,12 +89,49 @@ dsvertOrdinalSealFkSharesDS <- function(F_keys, target_pk,
 }
 
 
+#' @title Seal non-label eta^nl vector for outcome-server reveal
+#' @description Computes eta^nl = X^nl * beta^nl locally and transport-
+#'   seals to outcome server's PK. Bypasses the F-reveal Ring127 ULP
+#'   cancellation path; OS assembles full eta and computes F_k, P_k, T_i
+#'   via Mächler-stable log1mexp plaintext formulas.
+#' @export
+dsvertOrdinalSealEtaDS <- function(data_name, x_vars, beta_values,
+                                    target_pk, session_id = NULL) {
+  if (is.null(session_id) || !nzchar(session_id))
+    stop("session_id required", call. = FALSE)
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
+  if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
+  if (length(x_vars) == 0L) {
+    eta_nl <- rep(0, nrow(data))
+  } else {
+    missing_cols <- setdiff(x_vars, names(data))
+    if (length(missing_cols) > 0L)
+      stop("cols not found: ", paste(missing_cols, collapse=","), call. = FALSE)
+    X <- as.matrix(data[, x_vars, drop = FALSE])
+    beta_values <- as.numeric(beta_values)
+    if (length(beta_values) != length(x_vars))
+      stop("beta_values length mismatch", call. = FALSE)
+    eta_nl <- as.numeric(X %*% beta_values)
+  }
+  payload <- jsonlite::base64_enc(charToRaw(jsonlite::toJSON(eta_nl)))
+  pk_std <- .base64url_to_base64(target_pk)
+  sealed <- .callMpcTool("transport-encrypt",
+                          list(data = payload, recipient_pk = pk_std))
+  list(sealed = base64_to_base64url(sealed$sealed))
+}
+
+
 dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
                                          indicator_cols = NULL,
                                          level_names = NULL,
                                          F_plaintext_b64 = NULL,
                                          peer_F_blob_key = NULL,
                                          F_keys = NULL,
+                                         x_vars_label = NULL,
+                                         beta_values_label = NULL,
+                                         beta_intercept = 0,
+                                         peer_eta_blob_key = NULL,
                                          theta_values = NULL,
                                          output_key = NULL,
                                          n = NULL,
@@ -178,15 +215,67 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
          call. = FALSE)
 
   # Piece 3 — assemble plaintext F on the OUTCOME SERVER ONLY.
-  # Two supported input modes:
-  #   (a) F_plaintext_b64 : row-major double[n × K-1] directly (used
-  #       for unit tests / simple paths)
-  #   (b) peer_F_blob_key + F_keys : production MPC path. Outcome
-  #       decrypts peer shares (sealed via dsvertOrdinalSealFkSharesDS),
-  #       adds its own session-slot shares, decodes Ring127 → double.
-  #       Plaintext F never leaves OS; client sees only scalar T stats.
+  # Three supported input modes (listed in priority order):
+  #   (a) peer_eta_blob_key : PRODUCTION path — OS assembles eta_i
+  #       plaintext from own eta_label + peer eta_nl, computes F_k
+  #       and P_k via Mächler log1mexp stable form (avoids F_k-F_{k-1}
+  #       cancellation that the Ring127 F-reveal path suffers when both
+  #       sigmoids saturate, observed 100% sat_frac on NHANES warm).
+  #   (b) peer_F_blob_key + F_keys : ring127 F-reveal (LEGACY, kept for
+  #       unit tests). See diag(#2b) 3e54582 for saturation analysis.
+  #   (c) F_plaintext_b64 : row-major double[n × K-1] directly (tests).
   F_mat <- NULL
-  if (!is.null(peer_F_blob_key) && nzchar(peer_F_blob_key)) {
+  if (!is.null(peer_eta_blob_key) && nzchar(peer_eta_blob_key)) {
+    # --- Production path: assemble eta, compute F stably ---
+    if (is.null(theta_values))
+      stop("theta_values required for eta-reveal path", call. = FALSE)
+    thresholds <- as.numeric(theta_values)
+    if (length(thresholds) != K_minus_1)
+      stop("theta_values length ", length(thresholds),
+           " != K-1 ", K_minus_1, call. = FALSE)
+    # Own label-side eta contribution
+    if (length(x_vars_label) == 0L) {
+      eta_lab <- rep(0, n_int)
+    } else {
+      Xl <- as.matrix(data[, x_vars_label, drop = FALSE])
+      beta_lbl <- as.numeric(beta_values_label)
+      if (length(beta_lbl) != length(x_vars_label))
+        stop("beta_values_label length mismatch", call. = FALSE)
+      eta_lab <- as.numeric(Xl %*% beta_lbl)
+    }
+    if (length(eta_lab) != n_int)
+      stop("eta_label length != n", call. = FALSE)
+    # Decrypt peer eta_nl blob
+    eta_blob <- .blob_consume(peer_eta_blob_key, ss)
+    if (is.null(eta_blob))
+      stop("peer eta blob missing at '", peer_eta_blob_key, "'",
+           call. = FALSE)
+    tsk <- .key_get("transport_sk", ss)
+    if (is.null(tsk))
+      stop("transport_sk missing", call. = FALSE)
+    dec <- .callMpcTool("transport-decrypt",
+      list(sealed = .base64url_to_base64(eta_blob), recipient_sk = tsk))
+    eta_nl <- as.numeric(jsonlite::fromJSON(rawToChar(
+      jsonlite::base64_dec(dec$data))))
+    if (length(eta_nl) != n_int)
+      stop("peer eta_nl length ", length(eta_nl), " != n ", n_int,
+           call. = FALSE)
+    # Full per-patient eta (plaintext on OS only)
+    eta_i <- as.numeric(beta_intercept) + eta_lab + eta_nl
+    # Clamp for numerical safety (eta inside [-30, 30] covers all
+    # realistic cases; sigmoid saturates completely by |x|>30 anyway)
+    eta_i <- pmin(pmax(eta_i, -30), 30)
+    # Per-threshold u_k = theta_k - eta_i
+    U_mat <- matrix(0, nrow = n_int, ncol = K_minus_1)
+    for (ki in seq_len(K_minus_1)) {
+      U_mat[, ki] <- thresholds[ki] - eta_i
+    }
+    # F_k = sigmoid(u_k) computed via plogis (numerically stable)
+    F_mat <- matrix(plogis(as.numeric(U_mat)),
+                     nrow = n_int, ncol = K_minus_1)
+    # Store U for later Mächler stable P computation
+    U_for_P <- U_mat
+  } else if (!is.null(peer_F_blob_key) && nzchar(peer_F_blob_key)) {
     if (!is.character(F_keys) || length(F_keys) != K_minus_1)
       stop("F_keys length must equal K_minus_1=", K_minus_1, call. = FALSE)
     blob <- .blob_consume(peer_F_blob_key, ss)
@@ -233,8 +322,40 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
   # Augmented: F_0 ≡ 0, F_K ≡ 1. Columns 0..K of cumulative Fs.
   F_aug <- cbind(0, F_mat, 1)   # n × (K+1)
   # P_{i,j} = F_j - F_{j-1} for j ∈ 1..K
-  P_mat <- F_aug[, 2:(K + 1L), drop = FALSE] -
-           F_aug[, 1:K,         drop = FALSE]
+  # Naive form suffers cancellation when both F saturate (Mächler 2012
+  # Rmpfr log1mexp vignette). Stable form when available: compute
+  # directly from U_for_P when the eta-reveal path supplies it.
+  if (exists("U_for_P", inherits = FALSE) && !is.null(U_for_P)) {
+    # Mächler stable: P_{i,k} = sigma(u_k) - sigma(u_{k-1}) where
+    # u_k = theta_k - eta, so u_1 > u_2 > ... > u_{K-1} (not
+    # necessarily ordered; use absolute diff form).
+    # Equivalent: -diff(plogis(U)) per row. plogis handles saturation
+    # via logsumexp internals in R (>=3.5). For |u|<30 this is stable.
+    P_mat <- matrix(0, nrow = n_int, ncol = K)
+    # P_{i,1} = F_1 = plogis(u_1)
+    P_mat[, 1L] <- F_mat[, 1L]
+    # P_{i,k} for 1 < k < K: F_k - F_{k-1}
+    # Use log-space stable: log P = log(F_k - F_{k-1}).
+    # When both F near 1: use 1-F = plogis(-u), then
+    # F_k - F_{k-1} = (1 - F_{k-1}) - (1 - F_k) = plogis(-u_{k-1}) - plogis(-u_k)
+    # When both F near 0: naive F_k - F_{k-1} is fine.
+    # Switch: if F_{k-1} > 0.5, use upper-tail form.
+    if (K_minus_1 >= 2L) {
+      for (kj in 2L:K_minus_1) {
+        upper_flag <- F_mat[, kj - 1L] > 0.5
+        # naive
+        P_naive <- F_mat[, kj] - F_mat[, kj - 1L]
+        # upper-tail stable: plogis(-u_{kj-1}) - plogis(-u_kj)
+        P_upper <- plogis(-U_for_P[, kj - 1L]) - plogis(-U_for_P[, kj])
+        P_mat[, kj] <- ifelse(upper_flag, P_upper, P_naive)
+      }
+    }
+    # P_{i,K} = 1 - F_{K-1} via plogis(-u_{K-1}) (stable for F near 1)
+    P_mat[, K] <- plogis(-U_for_P[, K_minus_1])
+  } else {
+    P_mat <- F_aug[, 2:(K + 1L), drop = FALSE] -
+             F_aug[, 1:K,         drop = FALSE]
+  }
   P_mat <- pmax(P_mat, eps)     # safety against underflow
   # f_k = F_k (1 - F_k)  for interior thresholds k ∈ 1..K-1; boundary
   # f_0 = f_K = 0.

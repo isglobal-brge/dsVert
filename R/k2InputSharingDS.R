@@ -301,11 +301,25 @@ k2GradientR2DS <- function(party_id = 0L, session_id = NULL) {
 }
 
 #' Store gradient Beaver triple (Ring63 FP format)
+#'
+#' @param grad_triple_key Blob-store key under which the encrypted Beaver
+#'   triple was deposited. Defaults to "k2_grad_triple_fp" for backwards
+#'   compatibility with single-shot GLM. Multi-round consumers (multinom-
+#'   joint, ordinal-joint) MUST pass a per-class / per-iter key
+#'   (e.g. paste0("k2_grad_triple_fp_class_", ki)) to avoid blob-key
+#'   collision across the K-1 classes within an outer Newton iter and
+#'   between consecutive outer iters. This eliminates a race-prone
+#'   pattern documented in ABY3 §IV.D (Mohassel-Rindal 2018 CCS) and
+#'   MP-SPDZ Programs/Source/Multiplications.hpp where pool isolation
+#'   is per-multiplication, not per-pool.
 #' @export
-k2StoreGradTripleDS <- function(session_id = NULL) {
+k2StoreGradTripleDS <- function(session_id = NULL,
+                                grad_triple_key = "k2_grad_triple_fp") {
   ss <- .S(session_id)
-  blob <- .blob_consume("k2_grad_triple_fp", ss)
-  if (is.null(blob)) stop("No gradient triple blob", call. = FALSE)
+  blob <- .blob_consume(grad_triple_key, ss)
+  if (is.null(blob))
+    stop(sprintf("No gradient triple blob at key '%s'", grad_triple_key),
+         call. = FALSE)
   tsk <- .key_get("transport_sk", ss)
   dec <- .callMpcTool("transport-decrypt", list(
     sealed = .base64url_to_base64(blob), recipient_sk = tsk))

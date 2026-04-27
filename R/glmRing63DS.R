@@ -477,6 +477,15 @@ mpcStoreTransportKeysDS <- function(transport_keys = NULL,
            call. = FALSE)
   }
 
-  ss$peer_transport_pks <- lapply(transport_keys, .base64url_to_base64)
+  # The client builds `transport_keys` by iterating every server in the
+  # federation (ds.vertGLM.setup.R Phase 0), so the dict received here
+  # also contains this server's own transport_pk. Filter self out so
+  # `peer_transport_pks` truly contains peers only — required by
+  # `.k2_enforce_K` whose contract is `length + 1 == K`.
+  own_tp_plain <- .key_get("transport_pk", ss)
+  is_self <- vapply(transport_keys, function(v) {
+    identical(.base64url_to_base64(v), own_tp_plain)
+  }, logical(1))
+  ss$peer_transport_pks <- lapply(transport_keys[!is_self], .base64url_to_base64)
   TRUE
 }

@@ -73,7 +73,7 @@ k2BeaverReceiveVectorDS <- function(blob_key, output_key,
 #' @export
 k2BeaverExtractColumnDS <- function(source_key, n, K, col_index,
                                     output_key, session_id = NULL,
-                                    frac_bits = 20L) {
+                                    frac_bits = 20L, ring = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
@@ -87,9 +87,19 @@ k2BeaverExtractColumnDS <- function(source_key, n, K, col_index,
   if (ci < 0L || ci >= K) {
     stop("col_index out of range", call. = FALSE)
   }
+  # Ring inference: caller may pass "ring63"/"ring127" explicitly; else
+  # fall back to session-state ring tag set by k2ShareInputDS. Without
+  # this, Ring127 16-byte Uint128 records get mis-parsed as Ring63
+  # 8-byte FixedPoint → length mismatch (silent in extract output if
+  # lengths happen to align modulo 2; loud when they don't).
+  if (is.null(ring) || !nzchar(ring)) {
+    ss_ring <- as.integer(ss$k2_ring %||% 63L)
+    ring <- if (ss_ring == 127L) "ring127" else "ring63"
+  }
   res <- .callMpcTool("k2-fp-extract-column", list(
     fp_data = fp, n = as.integer(n), k = as.integer(K),
-    col = as.integer(ci), frac_bits = as.integer(frac_bits)))
+    col = as.integer(ci), frac_bits = as.integer(frac_bits),
+    ring = ring))
   ss[[output_key]] <- res$result
   list(stored = TRUE, output_key = output_key)
 }

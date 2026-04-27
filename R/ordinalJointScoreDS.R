@@ -227,6 +227,8 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
                                          output_key = NULL,
                                          weight_output_key = NULL,
                                          weight_target_pk = NULL,
+                                         cross_output_keys = NULL,
+                                         cross_target_pk = NULL,
                                          n = NULL,
                                          is_outcome_server = FALSE,
                                          session_id = NULL) {
@@ -634,6 +636,63 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
     out$W_share_emitted <- TRUE
   } else {
     out$W_share_emitted <- FALSE
+  }
+
+  # === Cross-block H_βθ weights M_k (#A joint Newton, Tutz 1990 §3.2) ===
+  # Per-threshold k ∈ 1..K-1 cross-Hessian weight (closed-form derivative
+  # of the β-score equation w.r.t. θ_k):
+  #   M_k_i =  +f_k[(1-2F_k)/P_k + (f_{k-1}-f_k)/P_k²]   if y_i = k
+  #         =  -f_k(1-2F_k)/P_{k+1} - f_k(f_k-f_{k+1})/P_{k+1}²  if y_i = k+1
+  #         =   0                                              otherwise
+  # (negative log-lik convention; signs flipped from raw ∂T_i/∂θ_k).
+  # Provides the X^T M_k = H[β, θ_k] cross-column needed for the full
+  # joint (β, θ) Newton step, without which BCD alternation oscillates
+  # (observed 2026-04-27: iter 9 |g_β|=0.009 + iter 10 |g_β|=1.45).
+  # Cite: McCullagh 1980 JRSS B 42:109-142 §2.5; Tutz 1990 Statistics &
+  # Decisions 7:21-37 §3.2; Pratt 1981 (PO log-lik strict concavity).
+  if (!is.null(cross_output_keys) && length(cross_output_keys) == K_minus_1 &&
+      !is.null(cross_target_pk) && nzchar(cross_target_pk)) {
+    F_aug_for_M <- F_aug
+    cross_blobs <- character(K_minus_1)
+    for (kk in seq_len(K_minus_1)) {
+      M_k <- numeric(n_int)
+      Fk_v <- F_mat[, kk]
+      fk_v <- f_interior[, kk]
+      Pk_v <- pmax(P_mat[, kk    ], eps)
+      Pkp1_v <- pmax(P_mat[, kk + 1L], eps)
+      f_km1_v <- f_aug[, kk]      # f_{k-1}, length n_int
+      f_kp1_v <- f_aug[, kk + 2L] # f_{k+1}
+      # y_i = k contribution (+ direction)
+      mask_k <- which(j_of_i == kk)
+      if (length(mask_k))
+        M_k[mask_k] <- +fk_v[mask_k] * ((1 - 2*Fk_v[mask_k]) / Pk_v[mask_k] +
+                                         (f_km1_v[mask_k] - fk_v[mask_k]) / Pk_v[mask_k]^2)
+      # y_i = k+1 contribution (- direction)
+      mask_kp1 <- which(j_of_i == kk + 1L)
+      if (length(mask_kp1))
+        M_k[mask_kp1] <- -fk_v[mask_kp1] * (1 - 2*Fk_v[mask_kp1]) / Pkp1_v[mask_kp1] -
+                          fk_v[mask_kp1] * (fk_v[mask_kp1] - f_kp1_v[mask_kp1]) / Pkp1_v[mask_kp1]^2
+      if (any(!is.finite(M_k))) M_k[!is.finite(M_k)] <- 0
+      # Split + transport-encrypt to NL
+      fp_M <- .callMpcTool("k2-float-to-fp",
+                            list(values = as.numeric(M_k), frac_bits = 50L,
+                                 ring = "ring127"))$fp_data
+      split_M <- .callMpcTool("k2-split-fp-share",
+                               list(data_fp = fp_M, n = n_int,
+                                    frac_bits = 50L, ring = "ring127"))
+      ss[[cross_output_keys[kk]]] <- split_M$own_share
+      pk_std <- .base64url_to_base64(cross_target_pk)
+      sealed <- .callMpcTool("transport-encrypt",
+                              list(data = jsonlite::base64_enc(
+                                     charToRaw(split_M$peer_share)),
+                                   recipient_pk = pk_std))
+      cross_blobs[kk] <- base64_to_base64url(sealed$sealed)
+    }
+    out$cross_sealed_blobs <- cross_blobs
+    out$cross_share_keys   <- cross_output_keys
+    out$cross_share_emitted <- TRUE
+  } else {
+    out$cross_share_emitted <- FALSE
   }
 
   out

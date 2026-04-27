@@ -89,6 +89,97 @@ dsvertOrdinalSealFkSharesDS <- function(F_keys, target_pk,
 }
 
 
+#' @title Receive transport-encrypted W (β-Hessian weight) share
+#' @description Counterpart to the W-sharing emitted by
+#'   \code{dsvertOrdinalPatientDiffsDS} (when called with
+#'   \code{weight_output_key} + \code{weight_target_pk}). NL transport-
+#'   decrypts the sealed peer share and stores it as a Ring127 share
+#'   in \code{output_key}. The two slots — own at OS, peer at NL —
+#'   form an additive Ring127 share of the per-patient W vector for
+#'   downstream `.ring127_vecmul` in the client's X^T diag(W) X
+#'   assembly (#A empirical β-Hessian path, McCullagh 1980 §2.5).
+#' @param W_blob_key character. Session blob slot holding the sealed
+#'   blob produced by `dsvertOrdinalPatientDiffsDS$W_sealed_blob`.
+#' @param output_key character. Session slot to write the NL-side
+#'   Ring127 share of W into.
+#' @param n integer. Length of W vector (= n_obs).
+#' @param session_id MPC session id.
+#' @return list(stored = TRUE, n = <int>, output_key = <chr>).
+#' @export
+dsvertOrdinalReceiveBetaWeightsDS <- function(W_blob_key, output_key, n,
+                                                session_id) {
+  if (is.null(session_id) || !nzchar(session_id))
+    stop("session_id required", call. = FALSE)
+  if (is.null(output_key) || !nzchar(output_key))
+    stop("output_key required", call. = FALSE)
+  ss <- .S(session_id)
+  blob <- .blob_consume(W_blob_key, ss)
+  if (is.null(blob))
+    stop("W blob missing at '", W_blob_key, "'", call. = FALSE)
+  tsk <- .key_get("transport_sk", ss)
+  if (is.null(tsk))
+    stop("transport_sk missing — call glmRing63TransportInitDS first",
+         call. = FALSE)
+  dec <- .callMpcTool("transport-decrypt",
+                       list(sealed = .base64url_to_base64(blob),
+                            recipient_sk = tsk))
+  peer_share <- rawToChar(jsonlite::base64_dec(dec$data))
+  ss[[output_key]] <- peer_share
+  list(stored = TRUE, n = as.integer(n), output_key = output_key)
+}
+
+
+#' @title Extract column j of an n×p Ring127 share matrix into n-vector slot
+#' @description The K=2 X share is stored as a single n*p flat row-major
+#'   Ring127 share (16 bytes per entry). For `.ring127_vecmul` operations
+#'   on per-column X slices, we need length-n session slots. This
+#'   primitive gathers row-major indices `[col_idx, p+col_idx,
+#'   2p+col_idx, ...]` from the flat share into a new slot.
+#'   ZERO MPC cost — pure local share rearrangement (gather indices on
+#'   raw bytes; the additive-share property is preserved row-by-row).
+#' @param matrix_key character. Source flat n*p Ring127 share slot.
+#' @param n integer. Number of rows.
+#' @param p integer. Number of columns.
+#' @param col_idx integer. 1-indexed column to extract.
+#' @param output_key character. Destination length-n share slot.
+#' @param session_id MPC session id.
+#' @return list(stored = TRUE, n, output_key).
+#' @export
+dsvertOrdinalExtractXColumnDS <- function(matrix_key, n, p, col_idx,
+                                            output_key, session_id) {
+  if (is.null(session_id) || !nzchar(session_id))
+    stop("session_id required", call. = FALSE)
+  if (is.null(output_key) || !nzchar(output_key))
+    stop("output_key required", call. = FALSE)
+  ss <- .S(session_id)
+  flat <- ss[[matrix_key]]
+  if (is.null(flat))
+    stop("matrix slot '", matrix_key, "' empty", call. = FALSE)
+  n_int <- as.integer(n)
+  p_int <- as.integer(p)
+  col_int <- as.integer(col_idx)
+  if (col_int < 1L || col_int > p_int)
+    stop("col_idx must be in [1, p]", call. = FALSE)
+  raw_all <- jsonlite::base64_dec(flat)
+  expected <- as.integer(n_int * p_int * 16L)
+  if (length(raw_all) != expected)
+    stop(sprintf("matrix slot expected %d bytes (n=%d, p=%d, 16/elem), got %d",
+                  expected, n_int, p_int, length(raw_all)), call. = FALSE)
+  # Gather column col_int (1-indexed): bytes for entry (i, col_int)
+  # at row-major offset ((i-1)*p + (col_int-1)) * 16.
+  col_raw <- raw(n_int * 16L)
+  base <- (col_int - 1L) * 16L
+  step <- p_int * 16L
+  for (i in seq_len(n_int)) {
+    src <- base + (i - 1L) * step
+    dst <- (i - 1L) * 16L
+    col_raw[(dst + 1L):(dst + 16L)] <- raw_all[(src + 1L):(src + 16L)]
+  }
+  ss[[output_key]] <- jsonlite::base64_enc(col_raw)
+  list(stored = TRUE, n = n_int, output_key = output_key)
+}
+
+
 #' @title Seal non-label eta^nl vector for outcome-server reveal
 #' @description Computes eta^nl = X^nl * beta^nl locally and transport-
 #'   seals to outcome server's PK. Bypasses the F-reveal Ring127 ULP
@@ -134,6 +225,8 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
                                          peer_eta_blob_key = NULL,
                                          theta_values = NULL,
                                          output_key = NULL,
+                                         weight_output_key = NULL,
+                                         weight_target_pk = NULL,
                                          n = NULL,
                                          is_outcome_server = FALSE,
                                          session_id = NULL) {
@@ -397,11 +490,151 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
   P_q <- unname(quantile(as.numeric(P_mat), c(0.01, 0.25, 0.5, 0.75, 0.99)))
   sat_frac <- mean(F_abs_dev > 0.49)
 
-  list(stored = TRUE, role = "os", n = n_int,
-       class_counts = as.integer(table(factor(j_of_i, levels = seq_len(K)))),
-       T_norm_L2 = sqrt(sum(T_i^2)),
-       T_max = max(abs(T_i)),
-       F_q01_q99 = F_q,
-       P_q01_q99 = P_q,
-       F_sat_frac = sat_frac)
+  # Per-threshold score_θ_k for the Bohning H*_θ Newton step (Tutz 1990
+  # §3.2; Agresti 2010 §8.1). PO gradient w.r.t. θ_k:
+  #   ∂L/∂θ_k = Σ_{i: y_i = k}   f_k(η_i) / P_{i,k}
+  #           − Σ_{i: y_i = k+1} f_k(η_i) / P_{i,k+1}
+  # where f_k(η_i) = F_k(1 − F_k). Computable plaintext on OS once F is
+  # aggregated (we already pay that disclosure under mode b). H*_θ_k =
+  # n_k / 4 is the Bohning majorant; client applies θ_k ← θ_k + (4/n_k) g_k.
+  score_theta <- numeric(K_minus_1)
+  class_counts_int <- as.integer(table(factor(j_of_i, levels = seq_len(K))))
+  for (kk in seq_len(K_minus_1)) {
+    in_k     <- which(j_of_i == kk)        # y_i = k
+    in_kp1   <- which(j_of_i == kk + 1L)   # y_i = k + 1
+    fk_vec   <- f_interior[, kk]
+    g_pos <- if (length(in_k))   sum(fk_vec[in_k]   / pmax(P_mat[in_k,   kk    ], eps)) else 0
+    g_neg <- if (length(in_kp1)) sum(fk_vec[in_kp1] / pmax(P_mat[in_kp1, kk + 1L], eps)) else 0
+    score_theta[kk] <- g_pos - g_neg
+  }
+
+  # Empirical PO θθ-Hessian (negative log-lik, descent direction) via
+  # McCullagh 1980 *JRSS B* 42:109-142 §2.5 closed-form derivative of the
+  # score equations. Tridiagonal symmetric (only adjacent thresholds
+  # couple). Diagonal:
+  #   H_θθ[k,k] = − Σ_{y=k}   f_k(1−2F_k)/P_k
+  #              + Σ_{y=k+1} f_k(1−2F_k)/P_{k+1}
+  #              + Σ_{y=k}   f_k²/P_k²
+  #              + Σ_{y=k+1} f_k²/P_{k+1}²
+  # Off-diagonal:
+  #   H_θθ[k,k+1] = − Σ_{y=k+1} f_k · f_{k+1} / P_{k+1}²
+  # Available plaintext on OS once F is aggregated (mode b disclosure
+  # already paid). Replaces the loose Bohning majorant H*_k = n_k/4
+  # whose looseness under saturation was the root of the period-2 θ
+  # oscillation in the 2026-04-26 30-min relaxation experiment.
+  # Auto-regulates at saturation: when P_k → eps, entries grow → solve
+  # gives tiny Newton step (Bertsekas 1999 §2.7 block coord descent).
+  H_theta_theta <- matrix(0, nrow = K_minus_1, ncol = K_minus_1)
+  if (K_minus_1 >= 1L) {
+    for (kk in seq_len(K_minus_1)) {
+      in_k   <- which(j_of_i == kk)
+      in_kp1 <- which(j_of_i == kk + 1L)
+      fk_vec <- f_interior[, kk]
+      Fk_vec <- F_mat[, kk]
+      d_k   <- 0
+      if (length(in_k))
+        d_k <- d_k - sum(fk_vec[in_k]   * (1 - 2*Fk_vec[in_k])   / pmax(P_mat[in_k,   kk     ], eps)) +
+                     sum(fk_vec[in_k]^2                          / pmax(P_mat[in_k,   kk     ], eps)^2)
+      if (length(in_kp1))
+        d_k <- d_k + sum(fk_vec[in_kp1] * (1 - 2*Fk_vec[in_kp1]) / pmax(P_mat[in_kp1, kk + 1L], eps)) +
+                     sum(fk_vec[in_kp1]^2                        / pmax(P_mat[in_kp1, kk + 1L], eps)^2)
+      H_theta_theta[kk, kk] <- d_k
+    }
+    if (K_minus_1 >= 2L) {
+      for (kk in seq_len(K_minus_1 - 1L)) {
+        in_kp1 <- which(j_of_i == kk + 1L)   # patients y=k+1 couple θ_k & θ_{k+1}
+        if (length(in_kp1)) {
+          fk_v   <- f_interior[in_kp1, kk]
+          fkp1_v <- f_interior[in_kp1, kk + 1L]
+          Pkp1_v <- pmax(P_mat[in_kp1, kk + 1L], eps)
+          off    <- -sum(fk_v * fkp1_v / Pkp1_v^2)
+          H_theta_theta[kk,     kk + 1L] <- off
+          H_theta_theta[kk + 1L, kk    ] <- off
+        }
+      }
+    }
+  }
+
+  # === Per-patient empirical β-Hessian weight W_i for #A ===
+  # Negative log-lik PO Hessian wrt β: H_ββ = X^T diag(W_i) X with
+  #   W_i = [f_{j-1}(1-2F_{j-1}) - f_j(1-2F_j)] / P_j
+  #         + (f_{j-1} - f_j)² / P_j²        (j = y_i)
+  # per McCullagh 1980 *JRSS B* 42:109-142 §2.5 second derivative of the
+  # PO log-likelihood; the form used by ordinal::clm.fit (Christensen
+  # 2019 §A.3 modified Newton with diagonal eigenvalue inflation).
+  # Replaces the Bohning B_PO=(1/4)X^TX bound (provably loose per
+  # Anceschi 2024 arXiv:2410.10309) with the empirical second-derivative
+  # for quadratic local convergence (Pratt 1981; Burridge 1981).
+  # Computable plaintext at OS in mode b — F/P/f already revealed under
+  # current K=2 disclosure budget; ZERO new disclosure beyond mode b.
+  W_i <- numeric(n_int)
+  if (n_int > 0L) {
+    F_aug_for_W <- cbind(0, F_mat, 1)   # n × (K+1) augmented
+    for (i in seq_len(n_int)) {
+      j     <- j_of_i[i]
+      fjm1  <- f_aug[i, j]                  # f_{j-1}
+      fj    <- f_aug[i, j + 1L]             # f_j
+      Fjm1  <- F_aug_for_W[i, j]            # F_{j-1}
+      Fj    <- F_aug_for_W[i, j + 1L]       # F_j
+      Pj    <- max(P_mat[i, j], eps)
+      curv  <- (fjm1 * (1 - 2 * Fjm1) - fj * (1 - 2 * Fj)) / Pj
+      sqsc  <- (fjm1 - fj)^2 / Pj^2
+      W_i[i] <- curv + sqsc
+    }
+    if (any(!is.finite(W_i))) W_i[!is.finite(W_i)] <- 0
+    # Christensen 2019 ordinal::clm.fit §A.3 diagonal eigenvalue
+    # inflation: when local Hessian has tiny / negative weights from
+    # numerical instability (saturation, near-boundary η), clamp the
+    # weight to a small positive ε. Prevents H_ββ from becoming
+    # singular / non-PD; the client applies a Tikhonov ridge on the
+    # assembled p×p matrix as a second-line safety.
+    W_i <- pmax(W_i, 1e-8)
+  }
+
+  out <- list(stored = TRUE, role = "os", n = n_int,
+              class_counts = class_counts_int,
+              T_norm_L2 = sqrt(sum(T_i^2)),
+              T_max = max(abs(T_i)),
+              F_q01_q99 = F_q,
+              P_q01_q99 = P_q,
+              F_sat_frac = sat_frac,
+              score_theta = score_theta,
+              H_theta_theta = H_theta_theta,
+              W_q01_q99 = unname(quantile(W_i, c(0.01, 0.25, 0.5, 0.75, 0.99))))
+
+  # PO log-likelihood at current (β, θ) for Armijo step-halving
+  # (Nocedal-Wright 2006 §3.5 backtracking line search). Required for
+  # the empirical-Hessian Newton path: Bohning's monotone-descent
+  # guarantee (Th 2) does NOT hold for empirical-H Newton, so we add
+  # explicit Armijo to ensure log-lik increases per accepted step.
+  out$loglik <- sum(log(pmax(P_mat[cbind(seq_len(n_int), j_of_i)], eps)))
+
+  # === Optional W secret-share (#A empirical β-Hessian path) ===
+  # When the client requests `weight_output_key` + `weight_target_pk`,
+  # we split W into Ring127 additive shares: own at OS (slot
+  # weight_output_key), peer transport-encrypted to NL_pk for downstream
+  # `.ring127_vecmul(W_key, X_:j_key, DX_:j_key)` in client-side
+  # X^T diag(W) X assembly.
+  if (!is.null(weight_output_key) && nzchar(weight_output_key) &&
+      !is.null(weight_target_pk) && nzchar(weight_target_pk)) {
+    fp_W <- .callMpcTool("k2-float-to-fp",
+                          list(values = as.numeric(W_i), frac_bits = 50L,
+                               ring = "ring127"))$fp_data
+    split_W <- .callMpcTool("k2-split-fp-share",
+                             list(data_fp = fp_W, n = n_int,
+                                  frac_bits = 50L, ring = "ring127"))
+    ss[[weight_output_key]] <- split_W$own_share
+    pk_std <- .base64url_to_base64(weight_target_pk)
+    sealed <- .callMpcTool("transport-encrypt",
+                            list(data = jsonlite::base64_enc(
+                                   charToRaw(split_W$peer_share)),
+                                 recipient_pk = pk_std))
+    out$W_sealed_blob   <- base64_to_base64url(sealed$sealed)
+    out$W_share_key     <- weight_output_key
+    out$W_share_emitted <- TRUE
+  } else {
+    out$W_share_emitted <- FALSE
+  }
+
+  out
 }

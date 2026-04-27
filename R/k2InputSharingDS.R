@@ -15,6 +15,7 @@ NULL
 k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
                              peer_pk, ring = 63L, session_id = NULL) {
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "k2ShareInputDS")
   data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
   n <- nrow(X)
@@ -122,6 +123,7 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
                                   is_coordinator = TRUE, session_id = NULL,
                                   output_key = NULL) {
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "k2ComputeEtaShareDS")
   n <- ss$k2_x_n
   p_own <- ss$k2_x_p
   p_peer <- ss$k2_peer_p
@@ -207,6 +209,7 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
 #' @export
 k2GradientR1DS <- function(peer_pk, session_id = NULL) {
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "k2GradientR1DS")
   n <- ss$k2_x_n
   p_own <- ss$k2_x_p
   p_peer <- ss$k2_peer_p
@@ -263,6 +266,7 @@ k2GradientR1DS <- function(peer_pk, session_id = NULL) {
 #' @export
 k2GradientR2DS <- function(party_id = 0L, session_id = NULL) {
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "k2GradientR2DS")
   n <- ss$k2_x_n
   p_total <- ss$k2_x_p + ss$k2_peer_p
 

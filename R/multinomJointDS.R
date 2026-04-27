@@ -27,6 +27,7 @@ dsvertPrepareMultinomGradDS <- function(residual_key, is_outcome_server,
   if (is.null(residual_key) || !nzchar(residual_key))
     stop("residual_key required", call. = FALSE)
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "dsvertPrepareMultinomGradDS")
   r_share <- ss[[residual_key]]
   if (is.null(r_share) || !nzchar(r_share))
     stop("residual slot '", residual_key, "' is empty", call. = FALSE)
@@ -67,6 +68,7 @@ dsvertSoftmaxDenominatorDS <- function(exp_eta_keys, output_key,
   if (!is.character(exp_eta_keys) || length(exp_eta_keys) < 1L)
     stop("exp_eta_keys must be a non-empty character vector", call. = FALSE)
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "dsvertSoftmaxDenominatorDS")
   n_int <- as.integer(n)
 
   # FP(1.0) constant

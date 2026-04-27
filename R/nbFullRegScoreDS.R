@@ -26,6 +26,7 @@ dsvertNBEtaSealDS <- function(data_name, x_vars, beta_values,
                               target_pk, session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
+  .k2_enforce_K(.S(session_id), 2L, "dsvertNBEtaSealDS")
   if (!is.character(x_vars) || length(x_vars) < 1L)
     stop("x_vars must be a non-empty character vector", call. = FALSE)
   beta_values <- as.numeric(beta_values)
@@ -104,6 +105,7 @@ dsvertNBFullScoreDS <- function(data_name, y_var,
     stop("theta must be finite positive", call. = FALSE)
 
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "dsvertNBFullScoreDS")
 
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())

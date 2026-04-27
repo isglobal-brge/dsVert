@@ -555,6 +555,43 @@ dsvertNaOmitDS <- function(data_name, vars = NULL) {
   invisible(TRUE)
 }
 
+#' Enforce K-arity at server side (defense-in-depth)
+#'
+#' Refuses calls into a K-specific MPC primitive when the calling
+#' deployment's K does not match `expected_K`. The K value is derived
+#' from `ss$peer_transport_pks`, populated by `mpcStoreTransportKeysDS`
+#' AFTER Ed25519 signature verification + trusted-peers list check
+#' performed by `.verify_all_peer_identities` (mpcUtils.R:530-556).
+#' `length(peer_transport_pks) + 1L` therefore equals the
+#' cryptographically verified party count (this server + verified
+#' peers); a malicious or misconfigured client cannot forge it.
+#'
+#' Pattern: each K-specific *DS function calls
+#' `.k2_enforce_K(ss, expected_K = 2L, "fnName")` immediately after
+#' resolving its session state. The check is silent when
+#' `peer_transport_pks` is unset (e.g., the function is invoked before
+#' the transport-key handshake — that path is already guarded by
+#' `mpcStoreTransportKeysDS` and the `dsvert.require_trusted_peers`
+#' default; this helper is defense-in-depth, not the first line).
+#'
+#' @param ss MPC session state (output of `.S(session_id)`).
+#' @param expected_K Integer expected K (e.g. 2L for K=2-only paths).
+#' @param fn_name Optional function name embedded in the error message
+#'   to aid log-trace attribution.
+#' @return `TRUE` invisibly on success; `stop(...)` on K mismatch.
+#' @keywords internal
+.k2_enforce_K <- function(ss, expected_K, fn_name = NULL) {
+  if (!is.null(ss$peer_transport_pks) &&
+      length(ss$peer_transport_pks) + 1L != as.integer(expected_K)) {
+    stop("K mismatch \u2014 server refuses cross-K primitive (",
+         if (!is.null(fn_name)) paste0(fn_name, ": ") else "",
+         "expected K=", as.integer(expected_K),
+         ", got K=", length(ss$peer_transport_pks) + 1L, ")",
+         call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
 #' Query this server's identity public key
 #'
 #' Returns the Ed25519 identity PK. Used by admins to discover PKs

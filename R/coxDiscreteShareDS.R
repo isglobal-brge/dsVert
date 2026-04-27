@@ -49,6 +49,7 @@ dsvertCoxDiscreteShareMaskDS <- function(data_name, time_var, status_var,
                                           target_pk, session_id) {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
+  .k2_enforce_K(.S(session_id), 2L, "dsvertCoxDiscreteShareMaskDS")
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
   if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
@@ -145,6 +146,7 @@ dsvertCoxDiscreteReceiveSharesDS <- function(mask_blob_key, y_blob_key,
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "dsvertCoxDiscreteReceiveSharesDS")
   tsk <- .key_get("transport_sk", ss)
   if (is.null(tsk))
     stop("transport_sk missing — call glmRing63TransportInitDS first",
@@ -190,6 +192,7 @@ dsvertCoxDiscreteExpandXDS <- function(data_name, new_data_name,
                                         x_vars, J, session_id) {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
+  .k2_enforce_K(.S(session_id), 2L, "dsvertCoxDiscreteExpandXDS")
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
   if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)

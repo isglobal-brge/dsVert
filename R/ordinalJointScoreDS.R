@@ -75,6 +75,7 @@ dsvertOrdinalSealFkSharesDS <- function(F_keys, target_pk,
   if (!is.character(F_keys) || length(F_keys) < 1L)
     stop("F_keys required", call. = FALSE)
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "dsvertOrdinalSealFkSharesDS")
   shares_b64 <- lapply(F_keys, function(k) {
     v <- ss[[k]]
     if (is.null(v)) stop("F share slot '", k, "' empty", call. = FALSE)
@@ -113,6 +114,7 @@ dsvertOrdinalReceiveBetaWeightsDS <- function(W_blob_key, output_key, n,
   if (is.null(output_key) || !nzchar(output_key))
     stop("output_key required", call. = FALSE)
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "dsvertOrdinalReceiveBetaWeightsDS")
   blob <- .blob_consume(W_blob_key, ss)
   if (is.null(blob))
     stop("W blob missing at '", W_blob_key, "'", call. = FALSE)
@@ -152,6 +154,7 @@ dsvertOrdinalExtractXColumnDS <- function(matrix_key, n, p, col_idx,
   if (is.null(output_key) || !nzchar(output_key))
     stop("output_key required", call. = FALSE)
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "dsvertOrdinalExtractXColumnDS")
   flat <- ss[[matrix_key]]
   if (is.null(flat))
     stop("matrix slot '", matrix_key, "' empty", call. = FALSE)
@@ -190,6 +193,7 @@ dsvertOrdinalSealEtaDS <- function(data_name, x_vars, beta_values,
                                     target_pk, session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
+  .k2_enforce_K(.S(session_id), 2L, "dsvertOrdinalSealEtaDS")
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
   if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
@@ -240,6 +244,7 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
   if (!is.finite(n_int) || n_int <= 0L)
     stop("n must be a positive integer", call. = FALSE)
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "dsvertOrdinalPatientDiffsDS")
 
   # Piece (5) — default "no-op" output: both parties write a zero
   # Ring127 share. Required for the case where the caller only wants

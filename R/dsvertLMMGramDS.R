@@ -36,6 +36,7 @@ dsvertLMMLocalGramDS <- function(data_name, columns,
                                   ring = "ring63") {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
+  .k2_enforce_K(.S(session_id), 2L, "dsvertLMMLocalGramDS")
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
   if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
@@ -215,6 +216,7 @@ dsvertLMMReceiveGramSharesDS <- function(session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "dsvertLMMReceiveGramSharesDS")
   blob <- .blob_consume("k2_lmm_gram_peer_shares", ss)
   if (is.null(blob))
     stop("LMM gram peer-shares blob missing; relay after LocalGram",
@@ -251,6 +253,7 @@ dsvertLMMGramR1DS <- function(peer_pk, x_col, y_col,
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "dsvertLMMGramR1DS")
   x_key <- paste0("lmm_gram_col_", x_col)
   y_key <- paste0("lmm_gram_col_", y_col)
   if (is.null(ss[[x_key]]) || is.null(ss[[y_key]]))
@@ -281,6 +284,7 @@ dsvertLMMGramR2DS <- function(is_party0, x_col, y_col,
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "dsvertLMMGramR2DS")
   x_key <- paste0("lmm_gram_col_", x_col)
   y_key <- paste0("lmm_gram_col_", y_col)
   blob <- .blob_consume("k2_beaver_vecmul_peer_masked", ss)

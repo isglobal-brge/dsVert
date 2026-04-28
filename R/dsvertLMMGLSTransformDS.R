@@ -38,6 +38,7 @@ dsvertLMMGLSTransformDS <- function(data_name, columns,
                                      session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
+  .k2_enforce_K(.S(session_id), 2L, "dsvertLMMGLSTransformDS")
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
   if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
@@ -108,6 +109,7 @@ dsvertLMMGLSAggregatesDS <- function(data_name, columns,
                                       session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
+  .k2_enforce_K(.S(session_id), 2L, "dsvertLMMGLSAggregatesDS")
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
   if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)

@@ -158,6 +158,11 @@ AggregateMethods:
     psiProcessTargetDS,
     psiDoubleMaskDS,
     psiGetMatchedIndicesDS,
+    dsvertCoxDiscreteReceiveSharesDS,
+    dsvertCoxDiscreteShareMaskDS,
+    dsvertNBMomentSumsDS,
+    dsvertOrdinalExtractXColumnDS,
+    dsvertOrdinalReceiveBetaWeightsDS,
     c=base::c,
     list=base::list,
     numeric=base::numeric,
@@ -165,7 +170,8 @@ AggregateMethods:
 AssignMethods:
     psiMatchAndAlignDS,
     psiSelfAlignDS,
-    psiFilterCommonDS
+    psiFilterCommonDS,
+    dsvertCoxDiscreteExpandXDS
 Options:
     datashield.privacyLevel=5,
     default.nfilter.tab=3,

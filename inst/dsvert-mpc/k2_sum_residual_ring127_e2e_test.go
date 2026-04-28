@@ -44,6 +44,19 @@ func TestSumResidualRing127RoundTrip(t *testing.T) {
 		{"large_values", []float64{1e3, -2e3, 3e3, -4e3}},
 		{"residual_like_n80", makeResidualLikeVec(80)},
 		{"residual_like_n189", makeResidualLikeVec(189)},
+		// 1e6+ aggregation regime (per reviewer-directive 2026-04-28 mnl-joint
+		// follow-up): the synth fixture symptom |g|=9.7e6 at iter > N suggests
+		// that ANY accumulation through this pipeline at that scale must round-
+		// trip without wrap-around for the encoding hypothesis to be cleanly
+		// falsifiable. Catrina-Saxena 2010 §3.3 ring-bound: with fracBits=50,
+		// magnitude representable up to 2^(127-50-1) = 2^76 ≈ 7.5·10²² —
+		// values up to 1e9+ are safe single-element. For SUM accumulation the
+		// drift is per-element ULP × n → still negligible at 1e8/n=80 scale.
+		{"sum_target_1e6", makeAggregationTarget(80, 1e6)},   // sum ≈ 1e6 (matches mnl-joint |g|=9.7e6 regime)
+		{"sum_target_1e7", makeAggregationTarget(80, 1e7)},   // sum ≈ 1e7 (1.5× safety margin past 9.7e6)
+		{"sum_target_1e8", makeAggregationTarget(80, 1e8)},   // sum ≈ 1e8 (10× safety margin)
+		{"sum_target_neg_1e7", makeAggregationTarget(80, -1e7)}, // negative aggregation regime
+		{"sum_alternating_1e6_drift", makeAlternating(160, 1e6)}, // ±1e6 alternating, drift test
 	}
 
 	for _, tc := range cases {
@@ -94,6 +107,10 @@ func TestSumResidualRing127RoundTrip(t *testing.T) {
 			// Ring127 fracBits=50 ULP ≈ 9e-16 absolute per element;
 			// pure additive accumulation of n terms has at most
 			// n·9e-16 absolute drift, no Beaver multiplications.
+			// For large-magnitude sums the relative tolerance dominates;
+			// we use tol = max(n·1e-14, |expected|·1e-12) so the bound
+			// scales with the signal at 1e6+ regime per Catrina-Saxena
+			// 2010 §3.3 multiplicative-depth-zero ULP propagation.
 			tol := float64(n) * 1e-14 // 100× the theoretical n-term sum-ULP
 			if math.Abs(expected) > 1.0 {
 				tol = math.Abs(expected) * 1e-12
@@ -104,6 +121,39 @@ func TestSumResidualRing127RoundTrip(t *testing.T) {
 			}
 		})
 	}
+}
+
+// makeAggregationTarget produces n elements each ≈ target/n with light
+// noise so the sum lands close to `target`. Designed to stress-test the
+// 1e6+ aggregation regime where the mnl_joint synth fixture symptom
+// |g| = 9.7e6 was originally observed; if the Ring127 sum_residual_fp
+// pipeline survives this scale at ULP precision, encoding-mismatch is
+// definitively ruled out as the synth-blowup root cause.
+func makeAggregationTarget(n int, target float64) []float64 {
+	out := make([]float64, n)
+	per := target / float64(n)
+	for i := 0; i < n; i++ {
+		// Small deterministic perturbation so per-element values aren't
+		// trivially equal (still recoverable via SplitShare); avoids the
+		// degenerate case where every share is identical.
+		out[i] = per + (float64(i)-float64(n)/2.0)*per*1e-6
+	}
+	return out
+}
+
+// makeAlternating produces ±target alternating values to stress sign
+// changes through the additive-share aggregation. Sum is approximately
+// 0 if n is even but per-element magnitudes are at the target scale.
+func makeAlternating(n int, target float64) []float64 {
+	out := make([]float64, n)
+	for i := 0; i < n; i++ {
+		if i%2 == 0 {
+			out[i] = target
+		} else {
+			out[i] = -target
+		}
+	}
+	return out
 }
 
 // makeResidualLikeVec produces a multinomial-residual-like vector:

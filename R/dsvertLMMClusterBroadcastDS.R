@@ -20,6 +20,7 @@ dsvertLMMBroadcastClusterIDsDS <- function(data_name, cluster_col,
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
+  .k2_enforce_K(.S(session_id), 2L, "dsvertLMMBroadcastClusterIDsDS")
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
   if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
@@ -51,6 +52,7 @@ dsvertLMMReceiveClusterIDsDS <- function(session_id = NULL) {
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "dsvertLMMReceiveClusterIDsDS")
   blob <- .blob_consume("k2_lmm_cluster_ids_blob", ss)
   if (is.null(blob)) stop("cluster-ID blob missing", call. = FALSE)
   tsk <- .key_get("transport_sk", ss)
@@ -83,6 +85,7 @@ dsvertLMMPerClusterSumDS <- function(share_key, session_id = NULL,
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "dsvertLMMPerClusterSumDS")
   share <- ss[[share_key]]
   if (is.null(share)) {
     stop("share slot '", share_key, "' missing", call. = FALSE)
@@ -126,6 +129,7 @@ dsvertLMMGlobalSumDS <- function(share_key, session_id = NULL,
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "dsvertLMMGlobalSumDS")
   share <- ss[[share_key]]
   if (is.null(share)) stop("share slot missing", call. = FALSE)
   s <- .callMpcTool("k2-fp-sum", list(fp_data = share))

@@ -30,6 +30,7 @@ dsvertLMMPeerFittedShareDS <- function(data_name, x_names, betahat,
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
+  .k2_enforce_K(.S(session_id), 2L, "dsvertLMMPeerFittedShareDS")
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
   if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
@@ -86,6 +87,7 @@ dsvertLMMCoordResidualShareDS <- function(data_name, y_var, x_names,
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "dsvertLMMCoordResidualShareDS")
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
   if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
@@ -141,6 +143,7 @@ dsvertLMMPeerResidualFinaliseDS <- function(n = NULL, session_id = NULL,
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "dsvertLMMPeerResidualFinaliseDS")
   if (is.null(ss$k2_lmm_exact_peer_share)) {
     stop("peer share not registered; run dsvertLMMPeerFittedShareDS first",
          call. = FALSE)
@@ -201,6 +204,7 @@ dsvertLMMExactClusterR2DS <- function(data_name, cluster_col,
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "dsvertLMMExactClusterR2DS")
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
   if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)

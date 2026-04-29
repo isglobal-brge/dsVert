@@ -79,12 +79,13 @@ dsvertNBEtaShareDS <- function(data_name, x_vars, beta_values,
   if (is.numeric(privacy_min) && n < privacy_min)
     stop("Insufficient observations", call. = FALSE)
 
-  # Clamp η to a Ring127-FP-safe band: max FP value at fracBits=50 is
-  # ~2^76 ≈ 7.5e22, but the downstream .ring127_exp_round_keyed_extended
-  # was Chebyshev-fit on |η| ≤ 10. Beyond that the wide-Chebyshev rel
-  # error grows. Clamp keeps μ = exp(η) ∈ [exp(-23), exp(23)] which is
-  # within the FP-safe range for the log-shift core after rescale.
-  eta_nl_clipped <- pmin(pmax(eta_nl, -23), 23)
+  # Clamp η to keep μ = exp(η) and (μ + θ) within the NR-LOG wide
+  # Chebyshev seed domain [0.1, 1000]. With η ∈ [-5, 5], μ ∈
+  # [0.0067, 148] giving (μ+θ) ∈ [0.5, 153] for θ ∈ [0.5, 5] — well
+  # inside [0.1, 1000]. Tighter than the prior ±23 clamp, which was
+  # safe for the single-Chebyshev-core path but would carry NR-LOG
+  # outside its convergence basin.
+  eta_nl_clipped <- pmin(pmax(eta_nl, -5), 5)
 
   # FP-encode in Ring127 fracBits=50 (consistent with downstream
   # Chebyshev exp/log/recip primitives).
@@ -182,8 +183,9 @@ dsvertNBEtaTotalReceiveDS <- function(data_name, y_var,
     eta_label_plus_int <- as.numeric(Xl %*% beta_values_label) +
                           as.numeric(beta_intercept)
   }
-  # Same clamp as NL side for consistency.
-  eta_label_plus_int <- pmin(pmax(eta_label_plus_int, -23), 23)
+  # Same clamp as NL side for consistency (η ∈ [-5, 5] keeps NR-LOG
+  # input in [0.5, 153] ⊂ [0.1, 1000] wide-Chebyshev seed domain).
+  eta_label_plus_int <- pmin(pmax(eta_label_plus_int, -5), 5)
 
   fp_label_part <- .callMpcTool("k2-float-to-fp", list(
     values = eta_label_plus_int, frac_bits = 50L, ring = "ring127"))$fp_data

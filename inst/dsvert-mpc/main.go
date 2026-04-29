@@ -122,6 +122,11 @@ func main() {
 	case "k2-recip127-get-coeffs":
 		handleK2Recip127GetCoeffs()
 
+	// Ring127 Chebyshev-log-shift coefficients on [1, 10] core (public).
+	// Used by NB full-regression θ MLE for share-space log(μ + θ).
+	case "k2-log-shift-coeffs":
+		handleK2LogShiftGetCoeffs()
+
 	// Ring127 local affine combine — used by Horner / NR R-orchestration
 	case "k2-ring127-affine-combine":
 		handleK2Ring127AffineCombine()

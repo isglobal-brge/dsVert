@@ -127,6 +127,11 @@ func main() {
 	case "k2-log-shift-coeffs":
 		handleK2LogShiftGetCoeffs()
 
+	// Ring127 wide-Chebyshev log coefficients on [0.1, 1000] (public).
+	// NR-LOG seed: 30% rel initial → 5 NR iters drive to ULP precision.
+	case "k2-log-shift-coeffs-wide":
+		handleK2LogShiftWideGetCoeffs()
+
 	// Ring127 local affine combine — used by Horner / NR R-orchestration
 	case "k2-ring127-affine-combine":
 		handleK2Ring127AffineCombine()

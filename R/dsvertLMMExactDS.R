@@ -136,8 +136,8 @@ dsvertLMMCoordResidualShareDS <- function(data_name, y_var, x_names,
 #'   pipeline) and then fall back to decoding the peer-share byte
 #'   length. Pass explicitly from the client orchestration whenever
 #'   the session wasn't initialised by k2ShareInputDS.
-#' @param session_id (auto-doc) Argument \code{session_id}.
-#' @param frac_bits (auto-doc) Argument \code{frac_bits}.
+#' @param session_id Character. Active MPC session identifier.
+#' @param frac_bits Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).
 #' @export
 dsvertLMMPeerResidualFinaliseDS <- function(n = NULL, session_id = NULL,
                                              frac_bits = 20L) {
@@ -195,7 +195,7 @@ dsvertLMMPeerResidualFinaliseDS <- function(n = NULL, session_id = NULL,
 #' @param r2_key Session slot holding the r^2 share (default
 #'   \code{"k2_lmm_exact_r2_share"}).
 #' @param session_id MPC session id.
-#' @param frac_bits (auto-doc) Argument \code{frac_bits}.
+#' @param frac_bits Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).
 #' @return list(per_cluster_fp -- K vector of base64 FP scalars,
 #'              cluster_sizes, n_clusters).
 #' @export

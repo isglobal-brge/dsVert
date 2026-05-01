@@ -167,3 +167,67 @@ dsvertExpandClusterWeightsDS <- function(data_name, cluster_col,
   list(n_expanded = nrow(data), n_filled_na = sum(is.na(map[as.character(id)])),
        output_column = output_column)
 }
+
+#' @title Cluster ANOVA moments for LMM K=3 variance-component recovery
+#' @description Computes the within-cluster (SSW) and between-cluster
+#'   (SSB) sums of squares of the outcome y on the outcome server,
+#'   plus per-cluster sizes. Aggregate-only output: only the two
+#'   scalars SSW + SSB plus the per-cluster size vector (the latter
+#'   already disclosed by \code{dsvertClusterSizesDS}). No per-row
+#'   data leaves the server.
+#'
+#'   Used by \code{ds.vertLMM.k3} to recover the random-intercept and
+#'   residual variance components after the federated weighted-GLM
+#'   fixed-effects fit converges (Pinheiro & Bates 2000 \emph{Mixed-
+#'   Effects Models in S/S-PLUS} §2.4.2 within-between ANOVA estimator).
+#'
+#'   For balanced designs (constant n_i = n) the standard ANOVA
+#'   estimator on raw y gives:
+#'   \preformatted{
+#'   E(MSW) = sigma^2 + Var_within(X beta) ; MSW = SSW / (N - K)
+#'   E(MSB) = sigma^2 + n sigma_b^2 + Var_between(X beta) ; MSB = SSB / (K - 1)
+#'   }
+#'   For covariates X with no within-cluster correlation (iid within
+#'   cluster), Var_within(X beta) ≈ n · Var_between(X beta), and
+#'   sigma_b^2 = (MSB - MSW) / n is approximately unbiased. The
+#'   sigma^2 estimate inherits a Var_within(X beta) bias from the X
+#'   contribution; flag this honestly in the wrapper.
+#'
+#' @param data_name Character. Aligned data-frame name on the
+#'   outcome server.
+#' @param y_var Character. Outcome column name.
+#' @param cluster_col Character. Cluster id column.
+#' @return list(SSW, SSB, n_per_cluster, K, N, ybar, ssw_per_cluster).
+#' @export
+dsvertLMMVarianceComponentsDS <- function(data_name, y_var, cluster_col) {
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
+  if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
+  if (!y_var %in% names(data)) stop("y_var not found", call. = FALSE)
+  if (!cluster_col %in% names(data))
+    stop("cluster_col not found", call. = FALSE)
+  y <- as.numeric(data[[y_var]])
+  id <- data[[cluster_col]]
+  n <- length(y)
+  privacy_min <- getOption("datashield.privacyLevel", 5L)
+  if (is.numeric(privacy_min) && n < privacy_min)
+    stop("Insufficient observations", call. = FALSE)
+  by <- split(seq_len(n), id)
+  n_i <- vapply(by, length, integer(1L))
+  ybar_i <- vapply(by, function(ix) mean(y[ix]), numeric(1L))
+  ssw_i <- vapply(by, function(ix) {
+    yi <- y[ix]; sum((yi - mean(yi))^2)
+  }, numeric(1L))
+  K <- length(by)
+  N <- sum(n_i)
+  ybar <- sum(n_i * ybar_i) / N
+  ssw <- sum(ssw_i)
+  ssb <- sum(n_i * (ybar_i - ybar)^2)
+  list(SSW = as.numeric(ssw),
+       SSB = as.numeric(ssb),
+       ssw_per_cluster = as.numeric(ssw_i),
+       n_per_cluster = as.integer(n_i),
+       K = as.integer(K),
+       N = as.integer(N),
+       ybar = as.numeric(ybar))
+}

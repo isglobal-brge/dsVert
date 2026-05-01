@@ -20,7 +20,7 @@ glmRing63GenGradTriplesDS(
 
 \item{p}{Integer. Total number of features.}
 
-\item{ring}{(auto-doc) Argument \code{ring}.}
+\item{ring}{Integer (63 or 127). MPC ring selector; controls fixed-point precision.}
 
 \item{session_id}{Character or NULL.}
 }

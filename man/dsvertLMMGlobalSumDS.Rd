@@ -7,11 +7,11 @@
 dsvertLMMGlobalSumDS(share_key, session_id = NULL, frac_bits = 20L)
 }
 \arguments{
-\item{share_key}{(auto-doc) Argument \code{share_key}.}
+\item{share_key}{Character. Session-state key under which the input share is stored.}
 
-\item{session_id}{(auto-doc) Argument \code{session_id}.}
+\item{session_id}{Character. Active MPC session identifier.}
 
-\item{frac_bits}{(auto-doc) Argument \code{frac_bits}.}
+\item{frac_bits}{Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).}
 }
 \description{
 Sum ALL elements of \code{ss[[share_key]]}, returning

@@ -18,7 +18,7 @@ glmRing63CorSetColDS(
 
 \item{p_total}{Integer. Total number of columns.}
 
-\item{from_storage}{(auto-doc) Argument \code{from_storage}.}
+\item{from_storage}{Logical. If TRUE, recover parameters from the chunked-blob session store.}
 
 \item{session_id}{Character or NULL.}
 }

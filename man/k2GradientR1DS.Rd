@@ -7,9 +7,9 @@
 k2GradientR1DS(peer_pk, session_id = NULL)
 }
 \arguments{
-\item{peer_pk}{(auto-doc) Argument \code{peer_pk}.}
+\item{peer_pk}{Character (base64url). Peer party's transport public key for sealed shares.}
 
-\item{session_id}{(auto-doc) Argument \code{session_id}.}
+\item{session_id}{Character. Active MPC session identifier.}
 }
 \description{
 Gradient round 1: compute (X-A, r-B) in selected ring (Ring63 / Ring127)

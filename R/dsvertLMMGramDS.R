@@ -23,19 +23,19 @@
 #'   computable from existing GLM pipeline) and transport-sealed FP
 #'   share blobs (random to the peer until combined).
 #'
-#' @param data_name (auto-doc) Argument \code{data_name}.
-#' @param columns (auto-doc) Argument \code{columns}.
-#' @param y_var (auto-doc) Argument \code{y_var}.
-#' @param lambda_per_cluster (auto-doc) Argument \code{lambda_per_cluster}.
-#' @param create_intercept (auto-doc) Argument \code{create_intercept}.
-#' @param intercept_col (auto-doc) Argument \code{intercept_col}.
-#' @param peer_pk (auto-doc) Argument \code{peer_pk}.
-#' @param session_id (auto-doc) Argument \code{session_id}.
-#' @param frac_bits (auto-doc) Argument \code{frac_bits}.
-#' @param share_scale (auto-doc) Argument \code{share_scale}.
-#' @param column_scales (auto-doc) Argument \code{column_scales}.
-#' @param standardize (auto-doc) Argument \code{standardize}.
-#' @param ring (auto-doc) Argument \code{ring}.
+#' @param data_name Character. Name of the data frame symbol on the server.
+#' @param columns Character vector. Column names to include in the local Gram block.
+#' @param y_var Character. Name of the outcome column on the label server.
+#' @param lambda_per_cluster Numeric vector. Cluster-mean shrinkage factor per cluster (Laird-Ware).
+#' @param create_intercept Logical. If TRUE, prepend a synthetic intercept column.
+#' @param intercept_col Character. Name of the synthetic intercept column when \code{create_intercept = TRUE}.
+#' @param peer_pk Character (base64url). Peer party's transport public key for sealed shares.
+#' @param session_id Character. Active MPC session identifier.
+#' @param frac_bits Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).
+#' @param share_scale Numeric. Optional scaling factor applied to the FP shares before sealing.
+#' @param column_scales Numeric vector. Per-column scaling factors used during standardisation.
+#' @param standardize Logical. If TRUE, standardise columns to unit SD before computing the Gram block.
+#' @param ring Integer (63 or 127). MPC ring selector; controls fixed-point precision.
 #' @export
 dsvertLMMLocalGramDS <- function(data_name, columns,
                                   y_var = NULL,
@@ -226,7 +226,7 @@ dsvertLMMLocalGramDS <- function(data_name, columns,
 #'   \code{"k2_lmm_gram_peer_shares"}), decrypts it, and stores each
 #'   column's FP share under \code{ss$lmm_gram_col_<name>} so the
 #'   subsequent Beaver vecmul rounds can dereference it by name.
-#' @param session_id (auto-doc) Argument \code{session_id}.
+#' @param session_id Character. Active MPC session identifier.
 #' @export
 dsvertLMMReceiveGramSharesDS <- function(session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id))
@@ -262,12 +262,12 @@ dsvertLMMReceiveGramSharesDS <- function(session_id = NULL) {
 #'   The R1 variant produces masked outputs for the peer; the R2
 #'   variant consumes the peer's masks and reveals the party's output
 #'   share, then reduces to a scalar via \code{k2-fp-sum}.
-#' @param peer_pk (auto-doc) Argument \code{peer_pk}.
-#' @param x_col (auto-doc) Argument \code{x_col}.
-#' @param y_col (auto-doc) Argument \code{y_col}.
-#' @param session_id (auto-doc) Argument \code{session_id}.
-#' @param frac_bits (auto-doc) Argument \code{frac_bits}.
-#' @param ring (auto-doc) Argument \code{ring}.
+#' @param peer_pk Character (base64url). Peer party's transport public key for sealed shares.
+#' @param x_col Character. Name of the X column (or share key) to use in the Beaver vecmul.
+#' @param y_col Character. Name of the Y column (or share key) to use in the Beaver vecmul.
+#' @param session_id Character. Active MPC session identifier.
+#' @param frac_bits Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).
+#' @param ring Integer (63 or 127). MPC ring selector; controls fixed-point precision.
 #' @export
 dsvertLMMGramR1DS <- function(peer_pk, x_col, y_col,
                                session_id = NULL, frac_bits = 20L,

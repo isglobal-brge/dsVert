@@ -7,9 +7,9 @@
 dsvertOutcomeLevelsDS(data_name, y_var)
 }
 \arguments{
-\item{data_name}{(auto-doc) Argument \code{data_name}.}
+\item{data_name}{Character. Name of the data frame symbol on the server.}
 
-\item{y_var}{(auto-doc) Argument \code{y_var}.}
+\item{y_var}{Character. Name of the outcome column on the label server.}
 }
 \description{
 Aggregate. Returns the levels (sorted) of a factor or

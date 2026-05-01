@@ -22,7 +22,7 @@ dsvertLMMExactClusterR2DS(
 
 \item{session_id}{MPC session id.}
 
-\item{frac_bits}{(auto-doc) Argument \code{frac_bits}.}
+\item{frac_bits}{Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).}
 }
 \value{
 list(per_cluster_fp -- K vector of base64 FP scalars,

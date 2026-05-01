@@ -46,7 +46,7 @@ dsvertLMMBroadcastClusterIDsDS <- function(data_name, cluster_col,
 #' @description Per-party aggregate. Consume the relayed blob, decrypt,
 #'   and store the integer cluster ID vector under
 #'   \code{ss$k2_lmm_cluster_ids}.
-#' @param session_id (auto-doc) Argument \code{session_id}.
+#' @param session_id Character. Active MPC session identifier.
 #' @export
 dsvertLMMReceiveClusterIDsDS <- function(session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
@@ -123,9 +123,9 @@ dsvertLMMPerClusterSumDS <- function(share_key, session_id = NULL,
 #' @title Global FP sum of a session share vector (LMM exact)
 #' @description Sum ALL elements of \code{ss[[share_key]]}, returning
 #'   one base64 FP scalar share. Used for total \eqn{\sum r^2}.
-#' @param share_key (auto-doc) Argument \code{share_key}.
-#' @param session_id (auto-doc) Argument \code{session_id}.
-#' @param frac_bits (auto-doc) Argument \code{frac_bits}.
+#' @param share_key Character. Session-state key under which the input share is stored.
+#' @param session_id Character. Active MPC session identifier.
+#' @param frac_bits Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).
 #' @export
 dsvertLMMGlobalSumDS <- function(share_key, session_id = NULL,
                                   frac_bits = 20L) {

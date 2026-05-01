@@ -7,7 +7,7 @@
 glmRing63PrepDevianceDS(mode = "rss", session_id = NULL)
 }
 \arguments{
-\item{mode}{(auto-doc) Argument \code{mode}.}
+\item{mode}{Character. Operation mode (e.g. \code{"rss"} or \code{"canonical"}).}
 
 \item{session_id}{Character or NULL.}
 }

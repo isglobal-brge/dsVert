@@ -21,31 +21,31 @@ dsvertLMMLocalGramDS(
 )
 }
 \arguments{
-\item{data_name}{(auto-doc) Argument \code{data_name}.}
+\item{data_name}{Character. Name of the data frame symbol on the server.}
 
-\item{columns}{(auto-doc) Argument \code{columns}.}
+\item{columns}{Character vector. Column names to include in the local Gram block.}
 
-\item{y_var}{(auto-doc) Argument \code{y_var}.}
+\item{y_var}{Character. Name of the outcome column on the label server.}
 
-\item{lambda_per_cluster}{(auto-doc) Argument \code{lambda_per_cluster}.}
+\item{lambda_per_cluster}{Numeric vector. Cluster-mean shrinkage factor per cluster (Laird-Ware).}
 
-\item{create_intercept}{(auto-doc) Argument \code{create_intercept}.}
+\item{create_intercept}{Logical. If TRUE, prepend a synthetic intercept column.}
 
-\item{intercept_col}{(auto-doc) Argument \code{intercept_col}.}
+\item{intercept_col}{Character. Name of the synthetic intercept column when \code{create_intercept = TRUE}.}
 
-\item{peer_pk}{(auto-doc) Argument \code{peer_pk}.}
+\item{peer_pk}{Character (base64url). Peer party's transport public key for sealed shares.}
 
-\item{session_id}{(auto-doc) Argument \code{session_id}.}
+\item{session_id}{Character. Active MPC session identifier.}
 
-\item{frac_bits}{(auto-doc) Argument \code{frac_bits}.}
+\item{frac_bits}{Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).}
 
-\item{share_scale}{(auto-doc) Argument \code{share_scale}.}
+\item{share_scale}{Numeric. Optional scaling factor applied to the FP shares before sealing.}
 
-\item{column_scales}{(auto-doc) Argument \code{column_scales}.}
+\item{column_scales}{Numeric vector. Per-column scaling factors used during standardisation.}
 
-\item{standardize}{(auto-doc) Argument \code{standardize}.}
+\item{standardize}{Logical. If TRUE, standardise columns to unit SD before computing the Gram block.}
 
-\item{ring}{(auto-doc) Argument \code{ring}.}
+\item{ring}{Integer (63 or 127). MPC ring selector; controls fixed-point precision.}
 }
 \description{
 Per-server aggregate. Computes the Laird-Ware cluster-mean-

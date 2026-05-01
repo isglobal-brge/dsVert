@@ -7,11 +7,11 @@
 k2BeaverReceiveVectorDS(blob_key, output_key, session_id = NULL)
 }
 \arguments{
-\item{blob_key}{(auto-doc) Argument \code{blob_key}.}
+\item{blob_key}{Character. Session blob slot to consume the sealed share from.}
 
-\item{output_key}{(auto-doc) Argument \code{output_key}.}
+\item{output_key}{Character. Session-state key under which the output share is written.}
 
-\item{session_id}{(auto-doc) Argument \code{session_id}.}
+\item{session_id}{Character. Active MPC session identifier.}
 }
 \description{
 Consume the peer-relayed blob previously delivered via

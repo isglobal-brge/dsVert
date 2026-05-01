@@ -11,8 +11,8 @@
 #' @param session_id Character or NULL. UUID for session-scoped storage
 #'   isolation. Default NULL uses global shared storage.
 #'
-#' @param skip_standardize (auto-doc) Argument \code{skip_standardize}.
-#' @param mode (auto-doc) Argument \code{mode}.
+#' @param skip_standardize Logical. If TRUE, skip server-side standardisation (used by callers that pre-standardised).
+#' @param mode Character. Operation mode (e.g. \code{"rss"} or \code{"canonical"}).
 #' @return List with x_means, x_sds, y_mean (if y_var), y_sd (if y_var)
 #' @export
 glmStandardizeDS <- function(data_name, output_name, x_vars, y_var = NULL,

@@ -40,9 +40,9 @@ k2BeaverShareVectorDS <- function(source_key, peer_pk,
 #' @description Consume the peer-relayed blob previously delivered via
 #'   \code{mpcStoreBlobDS} under \code{blob_key}, decrypt with this
 #'   party's transport secret key, and store under \code{output_key}.
-#' @param blob_key (auto-doc) Argument \code{blob_key}.
-#' @param output_key (auto-doc) Argument \code{output_key}.
-#' @param session_id (auto-doc) Argument \code{session_id}.
+#' @param blob_key Character. Session blob slot to consume the sealed share from.
+#' @param output_key Character. Session-state key under which the output share is written.
+#' @param session_id Character. Active MPC session identifier.
 #' @export
 k2BeaverReceiveVectorDS <- function(blob_key, output_key,
                                      session_id = NULL) {
@@ -73,9 +73,9 @@ k2BeaverReceiveVectorDS <- function(blob_key, output_key,
 #' @param n,K Matrix dimensions.
 #' @param col_index 1-based column index (R convention) or 0-based.
 #' @param output_key Destination session slot for the n-length column share.
-#' @param session_id (auto-doc) Argument \code{session_id}.
-#' @param frac_bits (auto-doc) Argument \code{frac_bits}.
-#' @param ring (auto-doc) Argument \code{ring}.
+#' @param session_id Character. Active MPC session identifier.
+#' @param frac_bits Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).
+#' @param ring Integer (63 or 127). MPC ring selector; controls fixed-point precision.
 #' @export
 k2BeaverExtractColumnDS <- function(source_key, n, K, col_index,
                                     output_key, session_id = NULL,
@@ -113,10 +113,10 @@ k2BeaverExtractColumnDS <- function(source_key, n, K, col_index,
 #' @title Sum an FP share vector to a scalar share
 #' @description Local sum (shares are linear): returns the scalar FP
 #'   representation of \eqn{\sum_i v_i^{share}} as a double.
-#' @param source_key (auto-doc) Argument \code{source_key}.
-#' @param session_id (auto-doc) Argument \code{session_id}.
-#' @param frac_bits (auto-doc) Argument \code{frac_bits}.
-#' @param ring (auto-doc) Argument \code{ring}.
+#' @param source_key Character. Session-state key under which the source share is stored.
+#' @param session_id Character. Active MPC session identifier.
+#' @param frac_bits Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).
+#' @param ring Integer (63 or 127). MPC ring selector; controls fixed-point precision.
 #' @export
 k2BeaverSumShareDS <- function(source_key, session_id = NULL,
                                 frac_bits = 20L, ring = NULL) {

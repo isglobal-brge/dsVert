@@ -15,11 +15,11 @@ psiStoreTransportKeysDS(
 \arguments{
 \item{transport_keys}{Named list. Server name -> transport PK (base64url).}
 
-\item{transport_keys_b64}{(auto-doc) Argument \code{transport_keys_b64}.}
+\item{transport_keys_b64}{Character (base64url). JSON-encoded peer transport public keys.}
 
-\item{identity_info}{(auto-doc) Argument \code{identity_info}.}
+\item{identity_info}{Named list. Per-server identity public keys and signatures (NULL to skip).}
 
-\item{identity_info_b64}{(auto-doc) Argument \code{identity_info_b64}.}
+\item{identity_info_b64}{Character (base64url). JSON-encoded identity info / Ed25519 signatures.}
 
 \item{session_id}{Character or NULL. UUID for session-scoped storage.}
 }

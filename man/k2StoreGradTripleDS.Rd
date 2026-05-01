@@ -7,7 +7,7 @@
 k2StoreGradTripleDS(session_id = NULL, grad_triple_key = "k2_grad_triple_fp")
 }
 \arguments{
-\item{session_id}{(auto-doc) Argument \code{session_id}.}
+\item{session_id}{Character. Active MPC session identifier.}
 
 \item{grad_triple_key}{Blob-store key under which the encrypted Beaver
 triple was deposited. Defaults to "k2_grad_triple_fp" for backwards

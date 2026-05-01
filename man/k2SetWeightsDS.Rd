@@ -19,7 +19,7 @@ k2SetWeightsDS(
 
 \item{peer_pk}{Character. Transport (X25519) public key of the DCF peer.}
 
-\item{ring}{(auto-doc) Argument \code{ring}.}
+\item{ring}{Integer (63 or 127). MPC ring selector; controls fixed-point precision.}
 
 \item{session_id}{Character. GLM session identifier.}
 }

@@ -7,9 +7,9 @@
 dsvertCopyDfDS(data_name, output_name)
 }
 \arguments{
-\item{data_name}{(auto-doc) Argument \code{data_name}.}
+\item{data_name}{Character. Name of the data frame symbol on the server.}
 
-\item{output_name}{(auto-doc) Argument \code{output_name}.}
+\item{output_name}{Character. Name to bind the output object to in the server-side environment.}
 }
 \description{
 Copy a data frame to a new name (test helper)

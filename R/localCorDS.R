@@ -5,7 +5,7 @@
 #' @param data_name Character string. Name of the data frame in the server environment.
 #' @param variables Character vector. Names of numeric columns to include.
 #'
-#' @param session_id (auto-doc) Argument \code{session_id}.
+#' @param session_id Character. Active MPC session identifier.
 #' @return A list containing:
 #'   \itemize{
 #'     \item \code{correlation}: The correlation matrix (p x p)

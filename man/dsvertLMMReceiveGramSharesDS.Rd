@@ -7,7 +7,7 @@
 dsvertLMMReceiveGramSharesDS(session_id = NULL)
 }
 \arguments{
-\item{session_id}{(auto-doc) Argument \code{session_id}.}
+\item{session_id}{Character. Active MPC session identifier.}
 }
 \description{
 Per-party aggregate. Consumes the peer's sealed share

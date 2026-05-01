@@ -29,8 +29,8 @@
 #' @param event_column Binary event indicator (1 = event, 0 = censored).
 #' @param peer_pk      Transport X25519 public key of the DCF peer.
 #' @param session_id   GLM session id.
-#' @param strata_column (auto-doc) Argument \code{strata_column}.
-#' @param ring (auto-doc) Argument \code{ring}.
+#' @param strata_column Character. Name of the stratification column for stratified Cox.
+#' @param ring Integer (63 or 127). MPC ring selector; controls fixed-point precision.
 #' @return list(peer_blob = <encrypted permutation + delta>, n = length)
 #' @export
 k2SetCoxTimesDS <- function(data_name, time_column, event_column,

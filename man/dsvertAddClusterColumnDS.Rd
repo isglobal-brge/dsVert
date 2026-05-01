@@ -12,13 +12,13 @@ dsvertAddClusterColumnDS(
 )
 }
 \arguments{
-\item{data_name}{(auto-doc) Argument \code{data_name}.}
+\item{data_name}{Character. Name of the data frame symbol on the server.}
 
-\item{block_size}{(auto-doc) Argument \code{block_size}.}
+\item{block_size}{Integer. Cluster block size for synthetic cluster columns.}
 
-\item{output_column}{(auto-doc) Argument \code{output_column}.}
+\item{output_column}{Character. Name of the new column to add to the data frame.}
 
-\item{id_column}{(auto-doc) Argument \code{id_column}.}
+\item{id_column}{Character. Name of the row-id column.}
 }
 \description{
 Append a cluster id column derived from a

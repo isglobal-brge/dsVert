@@ -25,9 +25,9 @@ k2SetCoxTimesDS(
 
 \item{session_id}{GLM session id.}
 
-\item{strata_column}{(auto-doc) Argument \code{strata_column}.}
+\item{strata_column}{Character. Name of the stratification column for stratified Cox.}
 
-\item{ring}{(auto-doc) Argument \code{ring}.}
+\item{ring}{Integer (63 or 127). MPC ring selector; controls fixed-point precision.}
 }
 \value{
 list(peer_blob = <encrypted permutation + delta>, n = length)

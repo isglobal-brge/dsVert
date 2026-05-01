@@ -13,15 +13,15 @@ dsvertOrdinalSealEtaDS(
 )
 }
 \arguments{
-\item{data_name}{(auto-doc) Argument \code{data_name}.}
+\item{data_name}{Character. Name of the data frame symbol on the server.}
 
-\item{x_vars}{(auto-doc) Argument \code{x_vars}.}
+\item{x_vars}{Character vector. Non-label feature names on this server.}
 
-\item{beta_values}{(auto-doc) Argument \code{beta_values}.}
+\item{beta_values}{Numeric vector. Coefficient slice corresponding to \code{x_vars}.}
 
-\item{target_pk}{(auto-doc) Argument \code{target_pk}.}
+\item{target_pk}{Character (base64url). Transport public key of the recipient server.}
 
-\item{session_id}{(auto-doc) Argument \code{session_id}.}
+\item{session_id}{Character. Active MPC session identifier.}
 }
 \description{
 Computes eta^nl = X^nl * beta^nl locally and transport-

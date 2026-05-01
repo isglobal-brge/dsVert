@@ -141,11 +141,11 @@ dsvertOrdinalExtractXColumnDS <- function(matrix_key, n, p, col_idx,
 #'   seals to outcome server's PK. Bypasses the F-reveal Ring127 ULP
 #'   cancellation path; OS assembles full eta and computes F_k, P_k, T_i
 #'   via Machler-stable log1mexp plaintext formulas.
-#' @param data_name (auto-doc) Argument \code{data_name}.
-#' @param x_vars (auto-doc) Argument \code{x_vars}.
-#' @param beta_values (auto-doc) Argument \code{beta_values}.
-#' @param target_pk (auto-doc) Argument \code{target_pk}.
-#' @param session_id (auto-doc) Argument \code{session_id}.
+#' @param data_name Character. Name of the data frame symbol on the server.
+#' @param x_vars Character vector. Non-label feature names on this server.
+#' @param beta_values Numeric vector. Coefficient slice corresponding to \code{x_vars}.
+#' @param target_pk Character (base64url). Transport public key of the recipient server.
+#' @param session_id Character. Active MPC session identifier.
 #' @export
 dsvertOrdinalSealEtaDS <- function(data_name, x_vars, beta_values,
                                     target_pk, session_id = NULL) {

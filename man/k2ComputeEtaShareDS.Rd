@@ -14,15 +14,15 @@ k2ComputeEtaShareDS(
 )
 }
 \arguments{
-\item{beta_coord}{(auto-doc) Argument \code{beta_coord}.}
+\item{beta_coord}{Numeric vector. Coordinator-side coefficient slice used to compute eta share.}
 
-\item{beta_nl}{(auto-doc) Argument \code{beta_nl}.}
+\item{beta_nl}{Numeric vector. Non-label-side coefficient slice used to compute eta share.}
 
-\item{intercept}{(auto-doc) Argument \code{intercept}.}
+\item{intercept}{Numeric scalar. Intercept term added to the linear predictor.}
 
-\item{is_coordinator}{(auto-doc) Argument \code{is_coordinator}.}
+\item{is_coordinator}{Logical. TRUE if this server is acting as the coordinator (label) party.}
 
-\item{session_id}{(auto-doc) Argument \code{session_id}.}
+\item{session_id}{Character. Active MPC session identifier.}
 
 \item{output_key}{Optional character. When set, the computed eta share
 is additionally stored under this session key (in addition to the

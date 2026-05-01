@@ -14,17 +14,17 @@ dsvertLMMGramR1DS(
 )
 }
 \arguments{
-\item{peer_pk}{(auto-doc) Argument \code{peer_pk}.}
+\item{peer_pk}{Character (base64url). Peer party's transport public key for sealed shares.}
 
-\item{x_col}{(auto-doc) Argument \code{x_col}.}
+\item{x_col}{Character. Name of the X column (or share key) to use in the Beaver vecmul.}
 
-\item{y_col}{(auto-doc) Argument \code{y_col}.}
+\item{y_col}{Character. Name of the Y column (or share key) to use in the Beaver vecmul.}
 
-\item{session_id}{(auto-doc) Argument \code{session_id}.}
+\item{session_id}{Character. Active MPC session identifier.}
 
-\item{frac_bits}{(auto-doc) Argument \code{frac_bits}.}
+\item{frac_bits}{Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).}
 
-\item{ring}{(auto-doc) Argument \code{ring}.}
+\item{ring}{Integer (63 or 127). MPC ring selector; controls fixed-point precision.}
 }
 \description{
 Per-party aggregate. Given two session keys containing

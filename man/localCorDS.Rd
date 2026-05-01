@@ -11,7 +11,7 @@ localCorDS(data_name, variables, session_id = NULL)
 
 \item{variables}{Character vector. Names of numeric columns to include.}
 
-\item{session_id}{(auto-doc) Argument \code{session_id}.}
+\item{session_id}{Character. Active MPC session identifier.}
 }
 \value{
 A list containing:

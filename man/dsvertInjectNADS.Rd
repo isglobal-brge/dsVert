@@ -13,15 +13,15 @@ dsvertInjectNADS(
 )
 }
 \arguments{
-\item{data_name}{(auto-doc) Argument \code{data_name}.}
+\item{data_name}{Character. Name of the data frame symbol on the server.}
 
-\item{column}{(auto-doc) Argument \code{column}.}
+\item{column}{Character. Name of an existing column to operate on.}
 
-\item{fraction}{(auto-doc) Argument \code{fraction}.}
+\item{fraction}{Numeric between 0 and 1. Fraction of rows to set to NA.}
 
-\item{seed}{(auto-doc) Argument \code{seed}.}
+\item{seed}{Integer. RNG seed for reproducibility (NULL leaves RNG untouched).}
 
-\item{output_column}{(auto-doc) Argument \code{output_column}.}
+\item{output_column}{Character. Name of the new column to add to the data frame.}
 }
 \description{
 Set a fixed fraction of values in \code{column} to NA

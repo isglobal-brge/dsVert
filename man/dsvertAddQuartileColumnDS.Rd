@@ -7,11 +7,11 @@
 dsvertAddQuartileColumnDS(data_name, column = "age", output_column = "age_q")
 }
 \arguments{
-\item{data_name}{(auto-doc) Argument \code{data_name}.}
+\item{data_name}{Character. Name of the data frame symbol on the server.}
 
-\item{column}{(auto-doc) Argument \code{column}.}
+\item{column}{Character. Name of an existing column to operate on.}
 
-\item{output_column}{(auto-doc) Argument \code{output_column}.}
+\item{output_column}{Character. Name of the new column to add to the data frame.}
 }
 \description{
 Compute quartile boundaries of the named column

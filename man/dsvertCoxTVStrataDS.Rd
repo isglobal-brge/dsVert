@@ -12,13 +12,13 @@ dsvertCoxTVStrataDS(
 )
 }
 \arguments{
-\item{data_name}{(auto-doc) Argument \code{data_name}.}
+\item{data_name}{Character. Name of the data frame symbol on the server.}
 
-\item{tstart_column}{(auto-doc) Argument \code{tstart_column}.}
+\item{tstart_column}{Character. Name of the left-truncation / counting-process start-time column.}
 
-\item{base_strata_column}{(auto-doc) Argument \code{base_strata_column}.}
+\item{base_strata_column}{Character. Name of the baseline stratification column.}
 
-\item{output_column}{(auto-doc) Argument \code{output_column}.}
+\item{output_column}{Character. Name of the new column to add to the data frame.}
 }
 \description{
 For Cox time-varying via Andersen-Gill counting-process

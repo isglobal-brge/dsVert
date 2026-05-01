@@ -13,9 +13,9 @@ pipeline) and then fall back to decoding the peer-share byte
 length. Pass explicitly from the client orchestration whenever
 the session wasn't initialised by k2ShareInputDS.}
 
-\item{session_id}{(auto-doc) Argument \code{session_id}.}
+\item{session_id}{Character. Active MPC session identifier.}
 
-\item{frac_bits}{(auto-doc) Argument \code{frac_bits}.}
+\item{frac_bits}{Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).}
 }
 \description{
 On the peer (non-outcome) server, the residual share is

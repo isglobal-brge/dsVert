@@ -17,23 +17,23 @@ dsvertAddSyntheticSurvivalDS(
 )
 }
 \arguments{
-\item{data_name}{(auto-doc) Argument \code{data_name}.}
+\item{data_name}{Character. Name of the data frame symbol on the server.}
 
-\item{covariate_column}{(auto-doc) Argument \code{covariate_column}.}
+\item{covariate_column}{Character. Name of the covariate column whose effect drives the synthetic survival times.}
 
-\item{beta}{(auto-doc) Argument \code{beta}.}
+\item{beta}{Numeric. True regression coefficient for the synthetic data generator.}
 
-\item{base_scale}{(auto-doc) Argument \code{base_scale}.}
+\item{base_scale}{Numeric. Baseline-hazard scale for the exponential survival generator.}
 
-\item{event_rate}{(auto-doc) Argument \code{event_rate}.}
+\item{event_rate}{Numeric in (0, 1). Target marginal event rate for censoring.}
 
-\item{time_column}{(auto-doc) Argument \code{time_column}.}
+\item{time_column}{Character. Name of the survival-time column to add.}
 
-\item{event_column}{(auto-doc) Argument \code{event_column}.}
+\item{event_column}{Character. Name of the event-indicator column to add.}
 
-\item{seed}{(auto-doc) Argument \code{seed}.}
+\item{seed}{Integer. RNG seed for reproducibility (NULL leaves RNG untouched).}
 
-\item{id_column}{(auto-doc) Argument \code{id_column}.}
+\item{id_column}{Character. Name of the row-id column.}
 }
 \description{
 Draw \code{time ~ Exp(lambda_i)} with

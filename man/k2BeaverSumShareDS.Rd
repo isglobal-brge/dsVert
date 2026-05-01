@@ -7,13 +7,13 @@
 k2BeaverSumShareDS(source_key, session_id = NULL, frac_bits = 20L, ring = NULL)
 }
 \arguments{
-\item{source_key}{(auto-doc) Argument \code{source_key}.}
+\item{source_key}{Character. Session-state key under which the source share is stored.}
 
-\item{session_id}{(auto-doc) Argument \code{session_id}.}
+\item{session_id}{Character. Active MPC session identifier.}
 
-\item{frac_bits}{(auto-doc) Argument \code{frac_bits}.}
+\item{frac_bits}{Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).}
 
-\item{ring}{(auto-doc) Argument \code{ring}.}
+\item{ring}{Integer (63 or 127). MPC ring selector; controls fixed-point precision.}
 }
 \description{
 Local sum (shares are linear): returns the scalar FP

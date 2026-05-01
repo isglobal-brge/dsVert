@@ -4,11 +4,11 @@
 #'   data frame under \code{output_column}. Used to create reproducible
 #'   synthetic-missingness scenarios for MI validation. Only returns
 #'   aggregate counts; no per-patient information.
-#' @param data_name (auto-doc) Argument \code{data_name}.
-#' @param column (auto-doc) Argument \code{column}.
-#' @param fraction (auto-doc) Argument \code{fraction}.
-#' @param seed (auto-doc) Argument \code{seed}.
-#' @param output_column (auto-doc) Argument \code{output_column}.
+#' @param data_name Character. Name of the data frame symbol on the server.
+#' @param column Character. Name of an existing column to operate on.
+#' @param fraction Numeric between 0 and 1. Fraction of rows to set to NA.
+#' @param seed Integer. RNG seed for reproducibility (NULL leaves RNG untouched).
+#' @param output_column Character. Name of the new column to add to the data frame.
 #' @export
 dsvertInjectNADS <- function(data_name, column,
                               fraction = 0.2, seed = 7L,
@@ -46,10 +46,10 @@ dsvertInjectNADS <- function(data_name, column,
 #'   Falls back to legacy positional-block assignment
 #'   (\code{floor((i-1)/block_size)+1}) when no \code{id_column} is
 #'   present on the server.
-#' @param data_name (auto-doc) Argument \code{data_name}.
-#' @param block_size (auto-doc) Argument \code{block_size}.
-#' @param output_column (auto-doc) Argument \code{output_column}.
-#' @param id_column (auto-doc) Argument \code{id_column}.
+#' @param data_name Character. Name of the data frame symbol on the server.
+#' @param block_size Integer. Cluster block size for synthetic cluster columns.
+#' @param output_column Character. Name of the new column to add to the data frame.
+#' @param id_column Character. Name of the row-id column.
 #' @export
 dsvertAddClusterColumnDS <- function(data_name, block_size = 13L,
                                       output_column = "cluster",
@@ -89,15 +89,15 @@ dsvertAddClusterColumnDS <- function(data_name, block_size = 13L,
 #'   validate \code{ds.vertCox} on datasets that do not ship with
 #'   native time-to-event data. Both new columns are written back to
 #'   the data frame. Only aggregate counts are returned.
-#' @param data_name (auto-doc) Argument \code{data_name}.
-#' @param covariate_column (auto-doc) Argument \code{covariate_column}.
-#' @param beta (auto-doc) Argument \code{beta}.
-#' @param base_scale (auto-doc) Argument \code{base_scale}.
-#' @param event_rate (auto-doc) Argument \code{event_rate}.
-#' @param time_column (auto-doc) Argument \code{time_column}.
-#' @param event_column (auto-doc) Argument \code{event_column}.
-#' @param seed (auto-doc) Argument \code{seed}.
-#' @param id_column (auto-doc) Argument \code{id_column}.
+#' @param data_name Character. Name of the data frame symbol on the server.
+#' @param covariate_column Character. Name of the covariate column whose effect drives the synthetic survival times.
+#' @param beta Numeric. True regression coefficient for the synthetic data generator.
+#' @param base_scale Numeric. Baseline-hazard scale for the exponential survival generator.
+#' @param event_rate Numeric in (0, 1). Target marginal event rate for censoring.
+#' @param time_column Character. Name of the survival-time column to add.
+#' @param event_column Character. Name of the event-indicator column to add.
+#' @param seed Integer. RNG seed for reproducibility (NULL leaves RNG untouched).
+#' @param id_column Character. Name of the row-id column.
 #' @export
 dsvertAddSyntheticSurvivalDS <- function(data_name,
                                           covariate_column,
@@ -162,9 +162,9 @@ dsvertAddSyntheticSurvivalDS <- function(data_name,
 #' @description Compute quartile boundaries of the named column
 #'   (defaulting to \code{age}) and attach a factor column with levels
 #'   Q1..Q4. Used to validate \code{ds.vertChisqCross}.
-#' @param data_name (auto-doc) Argument \code{data_name}.
-#' @param column (auto-doc) Argument \code{column}.
-#' @param output_column (auto-doc) Argument \code{output_column}.
+#' @param data_name Character. Name of the data frame symbol on the server.
+#' @param column Character. Name of an existing column to operate on.
+#' @param output_column Character. Name of the new column to add to the data frame.
 #' @export
 dsvertAddQuartileColumnDS <- function(data_name, column = "age",
                                        output_column = "age_q") {
@@ -189,8 +189,8 @@ dsvertAddQuartileColumnDS <- function(data_name, column = "age",
 #'   character column, with the same privacy-threshold suppression as
 #'   the rest of dsVert: levels whose count is below the threshold are
 #'   emitted as a single "<redacted>" level.
-#' @param data_name (auto-doc) Argument \code{data_name}.
-#' @param y_var (auto-doc) Argument \code{y_var}.
+#' @param data_name Character. Name of the data frame symbol on the server.
+#' @param y_var Character. Name of the outcome column on the label server.
 #' @export
 dsvertOutcomeLevelsDS <- function(data_name, y_var) {
   .validate_data_name(data_name)
@@ -222,10 +222,10 @@ dsvertOutcomeLevelsDS <- function(data_name, y_var) {
 #'
 #'   Correct for the common case of one interval per patient with a
 #'   fixed left-truncation time; conservative otherwise.
-#' @param data_name (auto-doc) Argument \code{data_name}.
-#' @param tstart_column (auto-doc) Argument \code{tstart_column}.
-#' @param base_strata_column (auto-doc) Argument \code{base_strata_column}.
-#' @param output_column (auto-doc) Argument \code{output_column}.
+#' @param data_name Character. Name of the data frame symbol on the server.
+#' @param tstart_column Character. Name of the left-truncation / counting-process start-time column.
+#' @param base_strata_column Character. Name of the baseline stratification column.
+#' @param output_column Character. Name of the new column to add to the data frame.
 #' @export
 dsvertCoxTVStrataDS <- function(data_name, tstart_column,
                                  base_strata_column = NULL,
@@ -251,8 +251,8 @@ dsvertCoxTVStrataDS <- function(data_name, tstart_column,
 }
 
 #' @title Copy a data frame to a new name (test helper)
-#' @param data_name (auto-doc) Argument \code{data_name}.
-#' @param output_name (auto-doc) Argument \code{output_name}.
+#' @param data_name Character. Name of the data frame symbol on the server.
+#' @param output_name Character. Name to bind the output object to in the server-side environment.
 #' @export
 dsvertCopyDfDS <- function(data_name, output_name) {
   .validate_data_name(data_name)

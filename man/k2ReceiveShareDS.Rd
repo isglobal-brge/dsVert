@@ -7,9 +7,9 @@
 k2ReceiveShareDS(peer_p = NULL, session_id = NULL)
 }
 \arguments{
-\item{peer_p}{(auto-doc) Argument \code{peer_p}.}
+\item{peer_p}{Integer. Number of features held by the peer (sets share length).}
 
-\item{session_id}{(auto-doc) Argument \code{session_id}.}
+\item{session_id}{Character. Active MPC session identifier.}
 }
 \description{
 Receive peer's shared data (FixedPoint)

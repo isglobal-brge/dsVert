@@ -2,7 +2,7 @@
 % Please edit documentation in R/fileStore.R
 \name{.key_put}
 \alias{.key_put}
-\title{Write a persistent key (adaptive: small → memory, large → disk)}
+\title{Write a persistent key (adaptive: small -> memory, large -> disk)}
 \usage{
 .key_put(name, value, ss)
 }
@@ -14,6 +14,6 @@
 \item{ss}{Session environment}
 }
 \description{
-Write a persistent key (adaptive: small → memory, large → disk)
+Write a persistent key (adaptive: small -> memory, large -> disk)
 }
 \keyword{internal}

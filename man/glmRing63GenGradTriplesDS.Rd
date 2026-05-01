@@ -4,7 +4,14 @@
 \alias{glmRing63GenGradTriplesDS}
 \title{Generate gradient matvec Beaver triples on server and distribute}
 \usage{
-glmRing63GenGradTriplesDS(dcf0_pk, dcf1_pk, n, p, session_id = NULL)
+glmRing63GenGradTriplesDS(
+  dcf0_pk,
+  dcf1_pk,
+  n,
+  p,
+  ring = 63L,
+  session_id = NULL
+)
 }
 \arguments{
 \item{dcf0_pk, dcf1_pk}{Character. Transport PKs of DCF parties (base64url).}

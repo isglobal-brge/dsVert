@@ -1,64 +1,17 @@
-#' @title Ordinal PO per-patient score-element routing (stub skeleton)
-#' @description Outcome server reads patient-level indicator columns
-#'   (\code{indicator_template \%\% class_name}), routes per-class
-#'   share contributions based on which ordinal class each patient
-#'   belongs to, and writes a share of the aggregate per-patient
-#'   score term T_i to \code{output_key} for downstream Beaver matvec
-#'   \eqn{X^\top T}.
-#'
-#' @details
-#'   Proportional-odds joint score per McCullagh 1980 *JRSS B* 42:109-142
-#'   Sec.2.5 equation (2.5):
-#'     \deqn{S(\beta) = \sum_i \left[ \sum_k I(y_i = k) \cdot T_{ik} \right] x_i}
-#'   with
-#'     \deqn{T_{ik} = \frac{f_{k-1}(\eta_i)}{F_k - F_{k-1}} -
-#'           \frac{f_k(\eta_i)}{F_{k+1} - F_k}}
-#'   where \eqn{f_k = F_k (1 - F_k)} and \eqn{F_k = \sigma(\theta_k -
-#'   \eta_i)}, by convention \eqn{F_0 \equiv 0} and \eqn{F_K \equiv 1}.
-#'
-#' @section Implementation status (2026-04-24, AUDITORIA piece-by-piece):
-#'   STUB -- interface shipped, no-op body. Current code stores a zero
-#'   share in \code{output_key} so the downstream orchestration (Beaver
-#'   matvec) returns a trivial zero gradient. The client-side Newton in
-#'   \code{ds.vertOrdinalJointNewton} continues to use its warm-Fisher
-#'   fallback until the full body is wired.
-#'
-#'   Remaining piece-by-piece scope (each commit = one piece):
-#'   \enumerate{
-#'     \item Read indicator columns for each class from local data frame.
-#'     \item For each patient, determine which class k they belong to.
-#'     \item Compute \eqn{T_{ik}} share using session slots
-#'       \code{f_keys}, \code{recipP_keys}. (\eqn{T_{i0}} and \eqn{T_{iK}}
-#'       get boundary conventions.)
-#'     \item Affine-combine class-specific shares into per-patient
-#'       T_i share via indicator-masking (outcome server holds
-#'       indicators in plaintext locally).
-#'     \item Store T_i share in \code{output_key} session slot.
-#'     \item Client-side: invoke existing
-#'       \code{glmRing63GenGradTriplesDS} + \code{k2GradientR[12]DS}
-#'       pipeline on \code{output_key} for the final X^T T matvec.
-#'   }
-#'
-#'   All the MPC primitives needed (k2Ring127AffineCombineDS,
-#'   k2Ring127LocalScaleDS, k2BeaverVecmul*) already exist. Scope is
-#'   routing + indicator logic, not new cryptographic machinery.
-#'
-#' @param data_name Character. Local data frame name on outcome server.
-#' @param indicator_template sprintf template for indicator column
-#'   names (e.g., "\%s_leq" for cumulative indicators).
-#' @param f_keys Character vector. Session slot keys holding share
-#'   of \eqn{f_k = F_k (1 - F_k)} per patient, one per non-reference
-#'   threshold.
-#' @param recipP_keys Character vector. Session slot keys holding share
-#'   of \eqn{1/(F_k - F_{k-1})} per patient (one per interior class).
-#' @param output_key Character. Session slot to write per-patient
-#'   T_i share.
-#' @param n Integer. Number of patients.
-#' @param is_outcome_server Logical. If FALSE, server contributes zero
-#'   (only the outcome server holds indicators).
-#' @param session_id MPC session id.
-#' @return \code{list(stored = TRUE, stub = TRUE, n = <integer>)}.
-#' @export
+# =====================================================================
+# Historical design note (orphan): an earlier draft of the ordinal joint
+# score pipeline factored a per-patient T_i routing helper out of
+# `dsvertOrdinalPatientDiffsDS`. That helper was inlined back into
+# PatientDiffs during the K=2 close-well refactor (worker2-k2safe-l2 →
+# d046049, 2026-04-24); its docstring has been removed here so it
+# does not bleed into the next exported function's Rd. Reference:
+# McCullagh 1980 JRSS B 42:109-142 Sec.2.5 eq.(2.5)
+#   S(beta) = sum_i [ sum_k I(y_i = k) * T_{ik} ] x_i
+# with T_{ik} = f_{k-1}/(F_k - F_{k-1}) - f_k/(F_{k+1} - F_k),
+# f_k = F_k * (1 - F_k), F_k = sigma(theta_k - eta_i),
+# boundary F_0 = 0, F_K = 1.
+# =====================================================================
+
 #' @title Seal F_k shares for inter-server reveal to outcome server
 #' @description Non-outcome server transport-encrypts its Ring127 F_k
 #'   shares to the outcome server's PK so the outcome server can
@@ -217,6 +170,36 @@ dsvertOrdinalSealEtaDS <- function(data_name, x_vars, beta_values,
 }
 
 
+#' Ordinal joint Newton: per-patient F differences for the threshold update
+#'
+#' Server-side aggregate that consumes the per-class cumulative-probability
+#' shares (or plaintext F values relayed from the outcome server, mode b)
+#' and emits the per-patient class indicator-minus-F differences used by
+#' the joint Newton Hessian and gradient. Non-disclosive: only aggregate
+#' summaries (sum_residual_fp, weight aggregates) are revealed at the
+#' audit boundary; per-patient values stay share-secret.
+#'
+#' @param data_name Name of the aligned data frame on each server.
+#' @param indicator_cols Character vector of integer-coded class indicator
+#'   columns (one-hot) on the outcome server.
+#' @param level_names Character vector of class names matching `indicator_cols`.
+#' @param F_plaintext_b64 Optional: base64url-encoded plaintext F vector
+#'   relayed from OS for mode b (eta-reveal disabled).
+#' @param peer_F_blob_key Optional: session-slot key for the encrypted
+#'   peer F-share blob.
+#' @param F_keys Character vector of session keys holding per-class F shares.
+#' @param output_key Session slot to store the resulting T_i vector.
+#' @param weight_output_key Session slot to store the W_i weights.
+#' @param weight_target_pk Recipient PK for the encrypted weights blob.
+#' @param cross_output_keys Per-class cross-block session slots.
+#' @param cross_target_pk Recipient PK for the encrypted cross-block blob.
+#' @param n Integer patient count.
+#' @param is_outcome_server Logical. TRUE on the server holding the outcome.
+#' @param session_id MPC session id.
+#' @return list with stored = TRUE and metadata about the Beaver round
+#'   to be consumed by the client orchestrator.
+#' @keywords internal
+#' @export
 dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
                                          indicator_cols = NULL,
                                          level_names = NULL,

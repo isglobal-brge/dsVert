@@ -8,8 +8,8 @@ At beta = 0, mu = exp(X*beta) = 1 identically. Neither the DCF exp
 spline nor the DCF reciprocal spline is invoked, so the score and
 the expected Fisher information are EXACT in the Ring63 FP ring
 (apart from ~1e-5 FP quantisation per op). A single Newton step
-beta_hat = Fisher(0)^{-1} . grad(0)
-recovers the Cox MLE to O(|beta|^2) — within 5-10\% for small
+beta_hat = inv(Fisher(0)) . grad(0)
+recovers the Cox MLE to O(|beta|^2) -- within 5-10\% for small
 coefficients, plenty for the paper's inference bar.
 
 Closed-form expressions at beta = 0:

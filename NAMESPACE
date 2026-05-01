@@ -36,6 +36,7 @@ export(localCorDS)
 export(mpcCleanupDS)
 export(mpcGcDS)
 # Storage
+export(mpcAvailable)
 export(mpcStoreBlobDS)
 export(mpcStoreTransportKeysDS)
 # K=2 MPC: input sharing + gradient

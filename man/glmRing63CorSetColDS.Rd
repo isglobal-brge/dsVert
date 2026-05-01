@@ -4,7 +4,7 @@
 \alias{glmRing63CorSetColDS}
 \title{Set column j of X_full as "mu" for Beaver correlation
 Extracts column col_idx from k2_x_full_fp, stores as secure_mu_share.
-Combined with zero y, the "residual" = col_j, and Beaver computes X^T × col_j.}
+Combined with zero y, the "residual" = col_j, and Beaver computes X^T x col_j.}
 \usage{
 glmRing63CorSetColDS(
   col_idx = NULL,
@@ -26,5 +26,5 @@ List with status.
 \description{
 Set column j of X_full as "mu" for Beaver correlation
 Extracts column col_idx from k2_x_full_fp, stores as secure_mu_share.
-Combined with zero y, the "residual" = col_j, and Beaver computes X^T × col_j.
+Combined with zero y, the "residual" = col_j, and Beaver computes X^T x col_j.
 }

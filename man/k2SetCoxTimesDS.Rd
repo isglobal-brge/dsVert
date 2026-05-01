@@ -10,7 +10,8 @@ k2SetCoxTimesDS(
   event_column,
   peer_pk,
   session_id = NULL,
-  strata_column = NULL
+  strata_column = NULL,
+  ring = NULL
 )
 }
 \arguments{

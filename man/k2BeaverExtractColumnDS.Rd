@@ -11,7 +11,8 @@ k2BeaverExtractColumnDS(
   col_index,
   output_key,
   session_id = NULL,
-  frac_bits = 20L
+  frac_bits = 20L,
+  ring = NULL
 )
 }
 \arguments{

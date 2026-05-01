@@ -11,7 +11,7 @@ dsvertResetDataFrameDS(data_name, keep = character(0))
 
 \item{keep}{Optional character vector of column names to preserve
 (e.g. synthetic columns that the caller added on purpose and
-wants to keep — "cluster", "time", "event", "age_q").}
+wants to keep -- "cluster", "time", "event", "age_q").}
 }
 \value{
 list(columns_removed = character, n_removed = integer).

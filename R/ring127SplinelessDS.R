@@ -1,3 +1,20 @@
+#' Restore base64 padding from base64url
+#'
+#' Opal DSL parser chokes on `=`, `+` and `/` inside double-quoted
+#' string literals. Client converts base64 -> base64url; we restore
+#' standard base64 via the already-existing `.base64url_to_base64`
+#' helper in `mpcUtils.R` (documented since pre-session as the
+#' canonical "Opal/Rock string parameter" workaround).
+#'
+#' @param x base64url-encoded string (or NULL / empty).
+#' @return Standard base64 string with padding restored, or `x`
+#'   unchanged if NULL / empty.
+#' @keywords internal
+.b64_pad <- function(x) {
+  if (is.null(x) || !nzchar(x)) return(x)
+  .base64url_to_base64(x)
+}
+
 #' @title Ring127 affine combine -- server-side local op for Horner/NR
 #'   orchestration.
 #' @description Computes, on one party's Ring127 shares:
@@ -29,17 +46,7 @@
 #' @param n Integer vector length.
 #' @param session_id MPC session identifier.
 #' @return list(stored = TRUE, output_key, n).
-#' @keywords internal
 #' @export
-# Opal DSL parser chokes on `=`, `+` and `/` inside double-quoted
-# string literals. Client converts base64 -> base64url; we restore
-# standard base64 via the already-existing .base64url_to_base64
-# helper in mpcUtils.R (documented since pre-session as the
-# canonical "Opal/Rock string parameter" workaround).
-.b64_pad <- function(x) {
-  if (is.null(x) || !nzchar(x)) return(x)
-  .base64url_to_base64(x)
-}
 
 k2Ring127AffineCombineDS <- function(a_key = NULL, b_key = NULL,
                                      sign_a = 0L, sign_b = 0L,

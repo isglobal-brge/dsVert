@@ -2,7 +2,7 @@
 % Please edit documentation in R/glmRing63DS.R
 \name{glmRing63PrepDevianceDS}
 \alias{glmRing63PrepDevianceDS}
-\title{Prepare deviance: store residual as 1-column X matrix for Beaver Σr²}
+\title{Prepare deviance: store residual as 1-column X matrix for Beaver Sumr^2}
 \usage{
 glmRing63PrepDevianceDS(mode = "rss", session_id = NULL)
 }
@@ -14,6 +14,6 @@ List with status.
 }
 \description{
 After convergence, computes r = mu_share - y_share in Ring63 and stores
-as k2_x_full_fp (n×1 "matrix"). Then the standard k2GradientR1DS/R2DS
-with p=1 triples computes "gradient" = r^T × r = Σ r_i² (deviance).
+as k2_x_full_fp (nx1 "matrix"). Then the standard k2GradientR1DS/R2DS
+with p=1 triples computes "gradient" = r^T x r = Sum r_i^2 (deviance).
 }

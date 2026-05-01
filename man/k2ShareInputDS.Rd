@@ -4,7 +4,20 @@
 \alias{k2ShareInputDS}
 \title{Share local data with peer (FixedPoint shares)}
 \usage{
-k2ShareInputDS(data_name, x_vars, y_var = NULL, peer_pk, session_id = NULL)
+k2ShareInputDS(
+  data_name,
+  x_vars,
+  y_var = NULL,
+  peer_pk,
+  ring = 63L,
+  session_id = NULL
+)
+}
+\arguments{
+\item{ring}{Integer 63 (default) or 127. Selects secret-share ring
+(task #116 Cox/LMM STRICT migration). Ring127 routes through 16-byte
+Uint128 records via k2-float-to-fp + k2-split-fp-share with
+ring="ring127"; Ring63 keeps the 8-byte pipeline.}
 }
 \description{
 Share local data with peer (FixedPoint shares)

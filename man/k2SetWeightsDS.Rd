@@ -4,7 +4,13 @@
 \alias{k2SetWeightsDS}
 \title{Register observation weights for an open GLM session (outcome-side)}
 \usage{
-k2SetWeightsDS(data_name, weights_column, peer_pk, session_id = NULL)
+k2SetWeightsDS(
+  data_name,
+  weights_column,
+  peer_pk,
+  ring = NULL,
+  session_id = NULL
+)
 }
 \arguments{
 \item{data_name}{Character. Aligned data-frame name on this server.}

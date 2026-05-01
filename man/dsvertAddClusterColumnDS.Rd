@@ -2,17 +2,29 @@
 % Please edit documentation in R/dsvertTestHelpersDS.R
 \name{dsvertAddClusterColumnDS}
 \alias{dsvertAddClusterColumnDS}
-\title{Append a contiguous-block cluster column (aggregate, test helper)}
+\title{Append a deterministic cluster column (aggregate, test helper)}
 \usage{
 dsvertAddClusterColumnDS(
   data_name,
   block_size = 13L,
-  output_column = "cluster"
+  output_column = "cluster",
+  id_column = "patient_id"
 )
 }
 \description{
-Append a cluster id column where each block of
-\code{block_size} consecutive rows shares a cluster. Used to
-validate \code{ds.vertLMM} on datasets that do not ship with a
-natural cluster variable.
+Append a cluster id column derived from a
+patient-level identifier. When \code{id_column} (default
+\code{patient_id}) is present, the cluster id is
+\code{(xxhash32(patient_id) \%\% K) + 1}, where
+\eqn{K = \lceil n / \text{block\_size} \rceil}. This is
+row-order-INVARIANT: the same patient receives the same cluster
+whether the data is PSI-aligned, rbind'd locally, or shuffled.
+Empirically essential for LMM validation, where row-order-based
+cluster assignments cause the estimated \eqn{\sigma_b^2} to vary
+by orders of magnitude across arbitrary permutations of the same
+dataset (see \code{scripts/bench_row_order_sensitivity.R}).
+
+Falls back to legacy positional-block assignment
+(\code{floor((i-1)/block_size)+1}) when no \code{id_column} is
+present on the server.
 }

@@ -15,7 +15,7 @@ psiMaskIdsDS(data_name, id_col, session_id = NULL)
 isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).}
 }
 \value{
-List with n (count only — no points returned).
+List with n (count only -- no points returned).
 }
 \description{
 Hashes identifiers to P-256 curve points and multiplies by a random scalar.

@@ -9,8 +9,17 @@ k2ComputeEtaShareDS(
   beta_nl,
   intercept = 0,
   is_coordinator = TRUE,
-  session_id = NULL
+  session_id = NULL,
+  output_key = NULL
 )
+}
+\arguments{
+\item{output_key}{Optional character. When set, the computed eta share
+is additionally stored under this session key (in addition to the
+standard slots \code{k2_eta_share_fp}, \code{k2_eta_share},
+\code{secure_eta_share}). Used by \code{ds.vertMultinomJointNewton}
+to maintain K-1 parallel eta shares (one per non-reference class)
+across the same session without overwrite.}
 }
 \description{
 If an offset has been registered for this session via k2SetOffsetDS(),

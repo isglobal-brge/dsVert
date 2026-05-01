@@ -16,7 +16,7 @@ For Cox time-varying via Andersen-Gill counting-process
 form, we encode each distinct \code{tstart} value as its own
 stratum break so the reverse-cumsum risk-set reset happens at
 entry times. When a \code{base_strata_column} is provided the
-combined stratum is the interaction (base × tstart).
+combined stratum is the interaction (base x tstart).
 
 Correct for the common case of one interval per patient with a
 fixed left-truncation time; conservative otherwise.

@@ -277,6 +277,19 @@ dsvertLMMGramR1DS <- function(peer_pk, x_col, y_col,
   list(peer_blob = base64_to_base64url(sealed$sealed))
 }
 
+#' LMM Gram R2: close peer-Beaver-share round on a single (x_col, y_col)
+#'
+#' Server-side R2 round of the LMM Gram Beaver vecmul protocol. Consumes
+#' the peer-masked share blob deposited by the client after R1 and stores
+#' the closed share into the per-pair session slot.
+#'
+#' @param is_party0 Logical. TRUE for the coordinator party.
+#' @param x_col,y_col Integer column indices participating in this Gram entry.
+#' @param session_id MPC session id.
+#' @param frac_bits Fractional bits of the FP encoding (20 for ring63, 50 for ring127).
+#' @param ring 63L or 127L (default derived from session).
+#' @return list(stored = TRUE).
+#' @keywords internal
 #' @export
 dsvertLMMGramR2DS <- function(is_party0, x_col, y_col,
                                session_id = NULL, frac_bits = 20L,

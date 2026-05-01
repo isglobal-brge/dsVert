@@ -11,7 +11,8 @@ k2BeaverVecmulR2DS(
   output_key,
   n,
   session_id = NULL,
-  frac_bits = 20L
+  frac_bits = 20L,
+  ring = 63L
 )
 }
 \arguments{
@@ -26,7 +27,10 @@ k2BeaverVecmulR2DS(
 
 \item{session_id}{MPC session id.}
 
-\item{frac_bits}{Ring63 fractional bits (default 20).}
+\item{frac_bits}{Ring63 fractional bits (default 20). At ring=127 the
+handler defaults to fracBits=50 regardless of this argument.}
+
+\item{ring}{Integer 63 (default) or 127.}
 }
 \value{
 list(stored = TRUE, output_key).

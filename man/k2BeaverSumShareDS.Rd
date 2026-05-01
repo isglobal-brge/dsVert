@@ -4,7 +4,7 @@
 \alias{k2BeaverSumShareDS}
 \title{Sum an FP share vector to a scalar share}
 \usage{
-k2BeaverSumShareDS(source_key, session_id = NULL, frac_bits = 20L)
+k2BeaverSumShareDS(source_key, session_id = NULL, frac_bits = 20L, ring = NULL)
 }
 \description{
 Local sum (shares are linear): returns the scalar FP

@@ -4,7 +4,7 @@
 #'   spline nor the DCF reciprocal spline is invoked, so the score and
 #'   the expected Fisher information are EXACT in the Ring63 FP ring
 #'   (apart from ~1e-5 FP quantisation per op). A single Newton step
-#'      beta_hat = Fisher(0)^{-1} . grad(0)
+#'      beta_hat = inv(Fisher(0)) . grad(0)
 #'   recovers the Cox MLE to O(|beta|^2) -- within 5-10% for small
 #'   coefficients, plenty for the paper's inference bar.
 #'
@@ -77,21 +77,21 @@ NULL
 #'
 #'   This helper:
 #'     1. Extracts each column into its own FP share slot
-#'          cox_n_Xc_<idx>_fp   (idx = 1..p_total, canonical order [own | peer])
+#'          cox_n_Xc_<idx>_fp   (idx = 1..p_total, canonical order (own | peer))
 #'     2. Computes reverse cumsums (strata-reset) on each column share
 #'          cox_n_Sc_<idx>_fp
 #'     3. Builds plaintext FP vectors (SAME bytes at both parties by
 #'        construction -- both parties read identical delta_fp and strata)
 #'          cox_n_delta_fp    delta (already stored; repeated here)
-#'          cox_n_W1_fp       delta(i)/N(i)          [plaintext FP]
-#'          cox_n_W2_fp       delta(i)/N(i)^2        [plaintext FP]
+#'          cox_n_W1_fp       delta(i)/N(i)          (plaintext FP)
+#'          cox_n_W2_fp       delta(i)/N(i)^2        (plaintext FP)
 #'
 #'   Returns: list(n, p_own, p_peer, p_total, n_events).
 #' @param session_id MPC session id.
 #' @return list(n, p_own, p_peer, p_total, n_events).
 #' @param is_coordinator Logical -- TRUE at the outcome server. Determines
 #'   the canonical mapping from local "own" / "peer" share matrices to the
-#'   global [coord | nonlabel] column order that BOTH parties must agree
+#'   global (coord | nonlabel) column order that BOTH parties must agree
 #'   on. Without this mapping each party's grad_j / Fisher_jk refers to a
 #'   different column and scalar aggregation across parties is garbage.
 #' @param p_coord,p_nl Canonical column counts (coordinator / nonlabel
@@ -295,7 +295,7 @@ dsvertCoxNewtonGradDS <- function(session_id = NULL) {
 #'   After R1 + R2, the Beaver z-share sits in cox_n_Beaver_Z_fp; the
 #'   caller then runs dsvertCoxNewtonFisherScalarDS to produce the
 #'   scalar share for the chosen term.
-#' @param j,k 1-based column indices (canonical [own | peer] order).
+#' @param j,k 1-based column indices (canonical (own | peer) order).
 #' @param which "X" for first Fisher term, "S" for second.
 #' @param session_id MPC session id.
 #' @return list(stored = TRUE).

@@ -9,12 +9,14 @@
 #'   coefficients, plenty for the paper's inference bar.
 #'
 #'   Closed-form expressions at beta = 0:
-#'     grad_j(0)      = sum_{i: delta_i=1} [ X_ij - S_j(t_i) / N(t_i) ]
-#'     Fisher_jk(0)   = sum_{i: delta_i=1} [ S_jk(t_i)/N(t_i)
-#'                                           - S_j(t_i)*S_k(t_i)/N(t_i)^2 ]
+#'   \preformatted{
+#'     grad_j(0)      = sum_{i: delta_i=1} ( X_ij - S_j(t_i) / N(t_i) )
+#'     Fisher_jk(0)   = sum_{i: delta_i=1} ( S_jk(t_i)/N(t_i)
+#'                                           - S_j(t_i)*S_k(t_i)/N(t_i)^2 )
 #'   with S_j(t_i)  = sum_{m >= i} X_mj  (reverse cumsum after sort by t)
 #'        S_jk(t_i) = sum_{m >= i} X_mj X_mk                (ditto)
-#'        N(t_i)    = |R(t_i)| = n - i + 1 (unique-ties; strata reset).
+#'        N(t_i)    = abs(R(t_i)) = n - i + 1 (unique-ties; strata reset).
+#'   }
 #'
 #'   Ring63 shares are LINEAR: reverse cumsum of each party's share is
 #'   a share of the reverse cumsum of the reconstructed column. Plain-

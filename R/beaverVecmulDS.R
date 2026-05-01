@@ -19,7 +19,7 @@
 #'   handler defaults to fracBits=50 regardless of this argument.
 #' @param ring Integer 63 (default) or 127. Routes through the Uint128
 #'   Ring127 handler when 127 (task #116 Cox/LMM STRICT migration).
-#' @return list(triple_blob_0, triple_blob_1) — both base64url sealed
+#' @return list(triple_blob_0, triple_blob_1) -- both base64url sealed
 #'   payloads for relay to party 0 and party 1.
 #' @export
 k2BeaverVecmulGenTriplesDS <- function(dcf0_pk, dcf1_pk, n,
@@ -97,7 +97,7 @@ k2BeaverVecmulConsumeTripleDS <- function(session_id = NULL) {
 #' @param frac_bits Ring63 fractional bits (default 20). At ring=127 the
 #'   handler defaults to fracBits=50 regardless of this argument.
 #' @param ring Integer 63 (default) or 127.
-#' @return list(peer_blob) — base64url sealed payload for peer relay.
+#' @return list(peer_blob) -- base64url sealed payload for peer relay.
 #' @export
 k2BeaverVecmulR1DS <- function(peer_pk, x_key, y_key, n,
                                session_id = NULL, frac_bits = 20L,

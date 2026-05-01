@@ -464,9 +464,9 @@ k2CoxResidualDS <- function(peer_pk = NULL, session_id = NULL) {
 #'   \eqn{K \times L} Beaver triple batch and returns the reconstructed
 #'   counts as non-negative integers rounded from the Ring63 result.
 #'
-#' @param var1 character — the variable held on this server.
-#' @param var2 character — the variable on the peer.
-#' @param peer_name character — server name of the peer (used for
+#' @param var1 character -- the variable held on this server.
+#' @param var2 character -- the variable on the peer.
+#' @param peer_name character -- server name of the peer (used for
 #'   session blob key disambiguation).
 #' @param peer_pk base64 X25519 pk of the peer.
 #' @param session_id MPC session.

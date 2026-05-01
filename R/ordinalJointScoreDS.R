@@ -8,7 +8,7 @@
 #'
 #' @details
 #'   Proportional-odds joint score per McCullagh 1980 *JRSS B* 42:109-142
-#'   §2.5 equation (2.5):
+#'   Sec.2.5 equation (2.5):
 #'     \deqn{S(\beta) = \sum_i \left[ \sum_k I(y_i = k) \cdot T_{ik} \right] x_i}
 #'   with
 #'     \deqn{T_{ik} = \frac{f_{k-1}(\eta_i)}{F_k - F_{k-1}} -
@@ -17,7 +17,7 @@
 #'   \eta_i)}, by convention \eqn{F_0 \equiv 0} and \eqn{F_K \equiv 1}.
 #'
 #' @section Implementation status (2026-04-24, AUDITORIA piece-by-piece):
-#'   STUB — interface shipped, no-op body. Current code stores a zero
+#'   STUB -- interface shipped, no-op body. Current code stores a zero
 #'   share in \code{output_key} so the downstream orchestration (Beaver
 #'   matvec) returns a trivial zero gradient. The client-side Newton in
 #'   \code{ds.vertOrdinalJointNewton} continues to use its warm-Fisher
@@ -90,15 +90,15 @@ dsvertOrdinalSealFkSharesDS <- function(F_keys, target_pk,
 }
 
 
-#' @title Receive transport-encrypted W (β-Hessian weight) share
+#' @title Receive transport-encrypted W (beta-Hessian weight) share
 #' @description Counterpart to the W-sharing emitted by
 #'   \code{dsvertOrdinalPatientDiffsDS} (when called with
 #'   \code{weight_output_key} + \code{weight_target_pk}). NL transport-
 #'   decrypts the sealed peer share and stores it as a Ring127 share
-#'   in \code{output_key}. The two slots — own at OS, peer at NL —
+#'   in \code{output_key}. The two slots -- own at OS, peer at NL --
 #'   form an additive Ring127 share of the per-patient W vector for
 #'   downstream `.ring127_vecmul` in the client's X^T diag(W) X
-#'   assembly (#A empirical β-Hessian path, McCullagh 1980 §2.5).
+#'   assembly (#A empirical beta-Hessian path, McCullagh 1980 Sec.2.5).
 #' @param W_blob_key character. Session blob slot holding the sealed
 #'   blob produced by `dsvertOrdinalPatientDiffsDS$W_sealed_blob`.
 #' @param output_key character. Session slot to write the NL-side
@@ -120,7 +120,7 @@ dsvertOrdinalReceiveBetaWeightsDS <- function(W_blob_key, output_key, n,
     stop("W blob missing at '", W_blob_key, "'", call. = FALSE)
   tsk <- .key_get("transport_sk", ss)
   if (is.null(tsk))
-    stop("transport_sk missing — call glmRing63TransportInitDS first",
+    stop("transport_sk missing -- call glmRing63TransportInitDS first",
          call. = FALSE)
   dec <- .callMpcTool("transport-decrypt",
                        list(sealed = .base64url_to_base64(blob),
@@ -131,13 +131,13 @@ dsvertOrdinalReceiveBetaWeightsDS <- function(W_blob_key, output_key, n,
 }
 
 
-#' @title Extract column j of an n×p Ring127 share matrix into n-vector slot
+#' @title Extract column j of an nxp Ring127 share matrix into n-vector slot
 #' @description The K=2 X share is stored as a single n*p flat row-major
 #'   Ring127 share (16 bytes per entry). For `.ring127_vecmul` operations
 #'   on per-column X slices, we need length-n session slots. This
 #'   primitive gathers row-major indices `[col_idx, p+col_idx,
 #'   2p+col_idx, ...]` from the flat share into a new slot.
-#'   ZERO MPC cost — pure local share rearrangement (gather indices on
+#'   ZERO MPC cost -- pure local share rearrangement (gather indices on
 #'   raw bytes; the additive-share property is preserved row-by-row).
 #' @param matrix_key character. Source flat n*p Ring127 share slot.
 #' @param n integer. Number of rows.
@@ -187,7 +187,7 @@ dsvertOrdinalExtractXColumnDS <- function(matrix_key, n, p, col_idx,
 #' @description Computes eta^nl = X^nl * beta^nl locally and transport-
 #'   seals to outcome server's PK. Bypasses the F-reveal Ring127 ULP
 #'   cancellation path; OS assembles full eta and computes F_k, P_k, T_i
-#'   via Mächler-stable log1mexp plaintext formulas.
+#'   via Machler-stable log1mexp plaintext formulas.
 #' @export
 dsvertOrdinalSealEtaDS <- function(data_name, x_vars, beta_values,
                                     target_pk, session_id = NULL) {
@@ -246,7 +246,7 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
   ss <- .S(session_id)
   .k2_enforce_K(ss, 2L, "dsvertOrdinalPatientDiffsDS")
 
-  # Piece (5) — default "no-op" output: both parties write a zero
+  # Piece (5) -- default "no-op" output: both parties write a zero
   # Ring127 share. Required for the case where the caller only wants
   # to stage the slot (e.g., downstream matvec on a non-outcome
   # server that doesn't need to contribute).
@@ -268,8 +268,8 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
   }
 
   # ===== OUTCOME-SERVER PATH (pieces 1-4) =====
-  # Piece 1 — read indicator columns. Uses cumulative encoding
-  # (indicator_template = "%s_leq" gives I(y ≤ k) per threshold k).
+  # Piece 1 -- read indicator columns. Uses cumulative encoding
+  # (indicator_template = "%s_leq" gives I(y <= k) per threshold k).
   # From cumulative indicators we derive per-patient class j(i).
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
@@ -283,7 +283,7 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
   n_k <- n_int  # alias
 
   # Read each cumulative indicator column. indicator_cols is a
-  # character vector of length K-1 passed by the client — avoids
+  # character vector of length K-1 passed by the client -- avoids
   # sprintf templates with "%" that hit the Opal DSL parser lexer
   # (observed 2026-04-24: "Lexical error Encountered '%' after '\"'"
   # on the "%s_leq" template literal).
@@ -303,27 +303,27 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
     ind_mat[, ki] <- v
   }
 
-  # Piece 2 — derive per-patient class j(i) in {1, ..., K} from
-  # cumulative indicators. y ≤ k for all k ≥ j(i) and y > k for k < j(i).
-  # So j(i) = (K - rowSums(ind_mat)) if ind_mat is I(y ≤ k)... actually:
-  # I(y ≤ k) = 1 iff y ≤ k. rowSums counts how many thresholds y is
-  # below-or-equal. If y = 1: all K-1 indicators are 1 → rowSums = K-1.
-  # If y = K: all 0 → rowSums = 0. So j(i) = K - rowSums(ind_mat).
+  # Piece 2 -- derive per-patient class j(i) in {1, ..., K} from
+  # cumulative indicators. y <= k for all k >= j(i) and y > k for k < j(i).
+  # So j(i) = (K - rowSums(ind_mat)) if ind_mat is I(y <= k)... actually:
+  # I(y <= k) = 1 iff y <= k. rowSums counts how many thresholds y is
+  # below-or-equal. If y = 1: all K-1 indicators are 1 -> rowSums = K-1.
+  # If y = K: all 0 -> rowSums = 0. So j(i) = K - rowSums(ind_mat).
   j_of_i <- K - rowSums(ind_mat)
   if (any(j_of_i < 1 | j_of_i > K))
     stop("invalid class derivation from indicators: out of range [1, K]",
          call. = FALSE)
 
-  # Piece 3 — assemble plaintext F on the OUTCOME SERVER ONLY.
+  # Piece 3 -- assemble plaintext F on the OUTCOME SERVER ONLY.
   # Three supported input modes (listed in priority order):
-  #   (a) peer_eta_blob_key : PRODUCTION path — OS assembles eta_i
+  #   (a) peer_eta_blob_key : PRODUCTION path -- OS assembles eta_i
   #       plaintext from own eta_label + peer eta_nl, computes F_k
-  #       and P_k via Mächler log1mexp stable form (avoids F_k-F_{k-1}
+  #       and P_k via Machler log1mexp stable form (avoids F_k-F_{k-1}
   #       cancellation that the Ring127 F-reveal path suffers when both
   #       sigmoids saturate, observed 100% sat_frac on NHANES warm).
   #   (b) peer_F_blob_key + F_keys : ring127 F-reveal (LEGACY, kept for
   #       unit tests). See diag(#2b) 3e54582 for saturation analysis.
-  #   (c) F_plaintext_b64 : row-major double[n × K-1] directly (tests).
+  #   (c) F_plaintext_b64 : row-major double[n x K-1] directly (tests).
   F_mat <- NULL
   if (!is.null(peer_eta_blob_key) && nzchar(peer_eta_blob_key)) {
     # --- Production path: assemble eta, compute F stably ---
@@ -373,7 +373,7 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
     # F_k = sigmoid(u_k) computed via plogis (numerically stable)
     F_mat <- matrix(plogis(as.numeric(U_mat)),
                      nrow = n_int, ncol = K_minus_1)
-    # Store U for later Mächler stable P computation
+    # Store U for later Machler stable P computation
     U_for_P <- U_mat
   } else if (!is.null(peer_F_blob_key) && nzchar(peer_F_blob_key)) {
     if (!is.character(F_keys) || length(F_keys) != K_minus_1)
@@ -383,7 +383,7 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
       stop("peer F blob missing at '", peer_F_blob_key, "'", call. = FALSE)
     tsk <- .key_get("transport_sk", ss)
     if (is.null(tsk))
-      stop("transport_sk missing — call glmRing63TransportInitDS first",
+      stop("transport_sk missing -- call glmRing63TransportInitDS first",
            call. = FALSE)
     dec <- .callMpcTool("transport-decrypt",
       list(sealed = .base64url_to_base64(blob), recipient_sk = tsk))
@@ -392,13 +392,13 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
     if (length(peer_shares_b64) != K_minus_1)
       stop("peer F shares count ", length(peer_shares_b64),
            " != K_minus_1 ", K_minus_1, call. = FALSE)
-    # Sum own + peer share per threshold → plaintext F_k Ring127
+    # Sum own + peer share per threshold -> plaintext F_k Ring127
     F_mat <- matrix(0, nrow = n_int, ncol = K_minus_1)
     for (ki in seq_len(K_minus_1)) {
       own_b64 <- ss[[F_keys[ki]]]
       if (is.null(own_b64))
         stop("own F share slot '", F_keys[ki], "' empty", call. = FALSE)
-      # aggregate two Ring127 shares → plaintext double vector
+      # aggregate two Ring127 shares -> plaintext double vector
       agg <- .callMpcTool("k2-ring63-aggregate",
         list(share_a = own_b64, share_b = peer_shares_b64[[ki]],
              frac_bits = 50L, ring = "ring127"))
@@ -419,14 +419,14 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
   # Ensure F in (eps, 1-eps) for numerical safety
   eps <- 1e-10
   F_mat <- pmin(pmax(F_mat, eps), 1 - eps)
-  # Augmented: F_0 ≡ 0, F_K ≡ 1. Columns 0..K of cumulative Fs.
-  F_aug <- cbind(0, F_mat, 1)   # n × (K+1)
-  # P_{i,j} = F_j - F_{j-1} for j ∈ 1..K
-  # Naive form suffers cancellation when both F saturate (Mächler 2012
+  # Augmented: F_0 == 0, F_K == 1. Columns 0..K of cumulative Fs.
+  F_aug <- cbind(0, F_mat, 1)   # n x (K+1)
+  # P_{i,j} = F_j - F_{j-1} for j in 1..K
+  # Naive form suffers cancellation when both F saturate (Machler 2012
   # Rmpfr log1mexp vignette). Stable form when available: compute
   # directly from U_for_P when the eta-reveal path supplies it.
   if (exists("U_for_P", inherits = FALSE) && !is.null(U_for_P)) {
-    # Mächler stable: P_{i,k} = sigma(u_k) - sigma(u_{k-1}) where
+    # Machler stable: P_{i,k} = sigma(u_k) - sigma(u_{k-1}) where
     # u_k = theta_k - eta, so u_1 > u_2 > ... > u_{K-1} (not
     # necessarily ordered; use absolute diff form).
     # Equivalent: -diff(plogis(U)) per row. plogis handles saturation
@@ -457,14 +457,14 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
              F_aug[, 1:K,         drop = FALSE]
   }
   P_mat <- pmax(P_mat, eps)     # safety against underflow
-  # f_k = F_k (1 - F_k)  for interior thresholds k ∈ 1..K-1; boundary
+  # f_k = F_k (1 - F_k)  for interior thresholds k in 1..K-1; boundary
   # f_0 = f_K = 0.
-  f_interior <- F_mat * (1 - F_mat)  # n × K_minus_1
-  f_aug <- cbind(0, f_interior, 0)   # n × (K+1)  i.e., f_0, f_1..f_{K-1}, f_K
-  # Piece 4 — per-patient T_i = (f_{j-1} − f_j) / P_{i,j}
-  # per McCullagh 1980 JRSS B 42:109-142 §2.5 eq (2.5) score form.
-  # Derivation: ρ_j = F(θ_j − η), dρ_j/dβ = −f_j · x → score x-weight
-  # u_i = (f_{j-1} − f_j) / (ρ_j − ρ_{j-1}).
+  f_interior <- F_mat * (1 - F_mat)  # n x K_minus_1
+  f_aug <- cbind(0, f_interior, 0)   # n x (K+1)  i.e., f_0, f_1..f_{K-1}, f_K
+  # Piece 4 -- per-patient T_i = (f_{j-1} - f_j) / P_{i,j}
+  # per McCullagh 1980 JRSS B 42:109-142 Sec.2.5 eq (2.5) score form.
+  # Derivation: rho_j = F(theta_j - eta), drho_j/dbeta = -f_j * x -> score x-weight
+  # u_i = (f_{j-1} - f_j) / (rho_j - rho_{j-1}).
   # Boundaries: f_0 = f_K = 0 absorb automatically via f_aug.
   T_i <- numeric(n_int)
   for (i in seq_len(n_int)) {
@@ -474,13 +474,13 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
   if (any(!is.finite(T_i))) {
     T_i[!is.finite(T_i)] <- 0
   }
-  # Clamp to sanity range; true |T_i| ≤ 1 for bounded η (since
-  # f_k ≤ 1/4 always, and P_{i,j} ≥ eps). Clamp at ±10 as a safety
+  # Clamp to sanity range; true |T_i| <= 1 for bounded eta (since
+  # f_k <= 1/4 always, and P_{i,j} >= eps). Clamp at +/-10 as a safety
   # net against near-zero P (from P-floor 1e-10 scaling).
   T_i <- pmin(pmax(T_i, -10), 10)
 
-  # Piece 5 (outcome side) — split T_i into additive Ring127 share:
-  # OS keeps (T_i − r), blob sends r to NL. For a generous baseline
+  # Piece 5 (outcome side) -- split T_i into additive Ring127 share:
+  # OS keeps (T_i - r), blob sends r to NL. For a generous baseline
   # without an NL round-trip yet, store T_i as the outcome's OWN
   # share and zero on NL (per dsvertComputeResidualShareDS pattern):
   # the non-outcome call sets zero above, outcome-sum = T_i locally.
@@ -490,20 +490,20 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
   ss[[output_key]] <- fp_T
 
   # AUDITORIA F saturation diagnostic: report F quantiles + saturation
-  # fraction. max|F − 0.5| ≥ 0.49 indicates Chebyshev sigmoid domain
-  # saturation → F_j and F_{j-1} both near 0 or 1 → P small → T clamp.
+  # fraction. max|F - 0.5| >= 0.49 indicates Chebyshev sigmoid domain
+  # saturation -> F_j and F_{j-1} both near 0 or 1 -> P small -> T clamp.
   F_abs_dev <- abs(F_mat - 0.5)
   F_q <- unname(quantile(as.numeric(F_mat), c(0.01, 0.25, 0.5, 0.75, 0.99)))
   P_q <- unname(quantile(as.numeric(P_mat), c(0.01, 0.25, 0.5, 0.75, 0.99)))
   sat_frac <- mean(F_abs_dev > 0.49)
 
-  # Per-threshold score_θ_k for the Bohning H*_θ Newton step (Tutz 1990
-  # §3.2; Agresti 2010 §8.1). PO gradient w.r.t. θ_k:
-  #   ∂L/∂θ_k = Σ_{i: y_i = k}   f_k(η_i) / P_{i,k}
-  #           − Σ_{i: y_i = k+1} f_k(η_i) / P_{i,k+1}
-  # where f_k(η_i) = F_k(1 − F_k). Computable plaintext on OS once F is
-  # aggregated (we already pay that disclosure under mode b). H*_θ_k =
-  # n_k / 4 is the Bohning majorant; client applies θ_k ← θ_k + (4/n_k) g_k.
+  # Per-threshold score_theta_k for the Bohning H*_theta Newton step (Tutz 1990
+  # Sec.3.2; Agresti 2010 Sec.8.1). PO gradient w.r.t. theta_k:
+  #   dL/dtheta_k = Sum_{i: y_i = k}   f_k(eta_i) / P_{i,k}
+  #           - Sum_{i: y_i = k+1} f_k(eta_i) / P_{i,k+1}
+  # where f_k(eta_i) = F_k(1 - F_k). Computable plaintext on OS once F is
+  # aggregated (we already pay that disclosure under mode b). H*_theta_k =
+  # n_k / 4 is the Bohning majorant; client applies theta_k <- theta_k + (4/n_k) g_k.
   score_theta <- numeric(K_minus_1)
   class_counts_int <- as.integer(table(factor(j_of_i, levels = seq_len(K))))
   for (kk in seq_len(K_minus_1)) {
@@ -515,22 +515,22 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
     score_theta[kk] <- g_pos - g_neg
   }
 
-  # Empirical PO θθ-Hessian (negative log-lik, descent direction) via
-  # McCullagh 1980 *JRSS B* 42:109-142 §2.5 closed-form derivative of the
+  # Empirical PO thetatheta-Hessian (negative log-lik, descent direction) via
+  # McCullagh 1980 *JRSS B* 42:109-142 Sec.2.5 closed-form derivative of the
   # score equations. Tridiagonal symmetric (only adjacent thresholds
   # couple). Diagonal:
-  #   H_θθ[k,k] = − Σ_{y=k}   f_k(1−2F_k)/P_k
-  #              + Σ_{y=k+1} f_k(1−2F_k)/P_{k+1}
-  #              + Σ_{y=k}   f_k²/P_k²
-  #              + Σ_{y=k+1} f_k²/P_{k+1}²
+  #   H_thetatheta[k,k] = - Sum_{y=k}   f_k(1-2F_k)/P_k
+  #              + Sum_{y=k+1} f_k(1-2F_k)/P_{k+1}
+  #              + Sum_{y=k}   f_k^2/P_k^2
+  #              + Sum_{y=k+1} f_k^2/P_{k+1}^2
   # Off-diagonal:
-  #   H_θθ[k,k+1] = − Σ_{y=k+1} f_k · f_{k+1} / P_{k+1}²
+  #   H_thetatheta[k,k+1] = - Sum_{y=k+1} f_k * f_{k+1} / P_{k+1}^2
   # Available plaintext on OS once F is aggregated (mode b disclosure
   # already paid). Replaces the loose Bohning majorant H*_k = n_k/4
-  # whose looseness under saturation was the root of the period-2 θ
+  # whose looseness under saturation was the root of the period-2 theta
   # oscillation in the 2026-04-26 30-min relaxation experiment.
-  # Auto-regulates at saturation: when P_k → eps, entries grow → solve
-  # gives tiny Newton step (Bertsekas 1999 §2.7 block coord descent).
+  # Auto-regulates at saturation: when P_k -> eps, entries grow -> solve
+  # gives tiny Newton step (Bertsekas 1999 Sec.2.7 block coord descent).
   H_theta_theta <- matrix(0, nrow = K_minus_1, ncol = K_minus_1)
   if (K_minus_1 >= 1L) {
     for (kk in seq_len(K_minus_1)) {
@@ -549,7 +549,7 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
     }
     if (K_minus_1 >= 2L) {
       for (kk in seq_len(K_minus_1 - 1L)) {
-        in_kp1 <- which(j_of_i == kk + 1L)   # patients y=k+1 couple θ_k & θ_{k+1}
+        in_kp1 <- which(j_of_i == kk + 1L)   # patients y=k+1 couple theta_k & theta_{k+1}
         if (length(in_kp1)) {
           fk_v   <- f_interior[in_kp1, kk]
           fkp1_v <- f_interior[in_kp1, kk + 1L]
@@ -562,21 +562,21 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
     }
   }
 
-  # === Per-patient empirical β-Hessian weight W_i for #A ===
-  # Negative log-lik PO Hessian wrt β: H_ββ = X^T diag(W_i) X with
+  # === Per-patient empirical beta-Hessian weight W_i for #A ===
+  # Negative log-lik PO Hessian wrt beta: H_betabeta = X^T diag(W_i) X with
   #   W_i = [f_{j-1}(1-2F_{j-1}) - f_j(1-2F_j)] / P_j
-  #         + (f_{j-1} - f_j)² / P_j²        (j = y_i)
-  # per McCullagh 1980 *JRSS B* 42:109-142 §2.5 second derivative of the
+  #         + (f_{j-1} - f_j)^2 / P_j^2        (j = y_i)
+  # per McCullagh 1980 *JRSS B* 42:109-142 Sec.2.5 second derivative of the
   # PO log-likelihood; the form used by ordinal::clm.fit (Christensen
-  # 2019 §A.3 modified Newton with diagonal eigenvalue inflation).
+  # 2019 Sec.A.3 modified Newton with diagonal eigenvalue inflation).
   # Replaces the Bohning B_PO=(1/4)X^TX bound (provably loose per
   # Anceschi 2024 arXiv:2410.10309) with the empirical second-derivative
   # for quadratic local convergence (Pratt 1981; Burridge 1981).
-  # Computable plaintext at OS in mode b — F/P/f already revealed under
+  # Computable plaintext at OS in mode b -- F/P/f already revealed under
   # current K=2 disclosure budget; ZERO new disclosure beyond mode b.
   W_i <- numeric(n_int)
   if (n_int > 0L) {
-    F_aug_for_W <- cbind(0, F_mat, 1)   # n × (K+1) augmented
+    F_aug_for_W <- cbind(0, F_mat, 1)   # n x (K+1) augmented
     for (i in seq_len(n_int)) {
       j     <- j_of_i[i]
       fjm1  <- f_aug[i, j]                  # f_{j-1}
@@ -589,12 +589,12 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
       W_i[i] <- curv + sqsc
     }
     if (any(!is.finite(W_i))) W_i[!is.finite(W_i)] <- 0
-    # Christensen 2019 ordinal::clm.fit §A.3 diagonal eigenvalue
+    # Christensen 2019 ordinal::clm.fit Sec.A.3 diagonal eigenvalue
     # inflation: when local Hessian has tiny / negative weights from
-    # numerical instability (saturation, near-boundary η), clamp the
-    # weight to a small positive ε. Prevents H_ββ from becoming
+    # numerical instability (saturation, near-boundary eta), clamp the
+    # weight to a small positive epsilon. Prevents H_betabeta from becoming
     # singular / non-PD; the client applies a Tikhonov ridge on the
-    # assembled p×p matrix as a second-line safety.
+    # assembled pxp matrix as a second-line safety.
     W_i <- pmax(W_i, 1e-8)
   }
 
@@ -609,14 +609,14 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
               H_theta_theta = H_theta_theta,
               W_q01_q99 = unname(quantile(W_i, c(0.01, 0.25, 0.5, 0.75, 0.99))))
 
-  # PO log-likelihood at current (β, θ) for Armijo step-halving
-  # (Nocedal-Wright 2006 §3.5 backtracking line search). Required for
+  # PO log-likelihood at current (beta, theta) for Armijo step-halving
+  # (Nocedal-Wright 2006 Sec.3.5 backtracking line search). Required for
   # the empirical-Hessian Newton path: Bohning's monotone-descent
   # guarantee (Th 2) does NOT hold for empirical-H Newton, so we add
   # explicit Armijo to ensure log-lik increases per accepted step.
   out$loglik <- sum(log(pmax(P_mat[cbind(seq_len(n_int), j_of_i)], eps)))
 
-  # === Optional W secret-share (#A empirical β-Hessian path) ===
+  # === Optional W secret-share (#A empirical beta-Hessian path) ===
   # When the client requests `weight_output_key` + `weight_target_pk`,
   # we split W into Ring127 additive shares: own at OS (slot
   # weight_output_key), peer transport-encrypted to NL_pk for downstream
@@ -643,18 +643,18 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
     out$W_share_emitted <- FALSE
   }
 
-  # === Cross-block H_βθ weights M_k (#A joint Newton, Tutz 1990 §3.2) ===
-  # Per-threshold k ∈ 1..K-1 cross-Hessian weight (closed-form derivative
-  # of the β-score equation w.r.t. θ_k):
-  #   M_k_i =  +f_k[(1-2F_k)/P_k + (f_{k-1}-f_k)/P_k²]   if y_i = k
-  #         =  -f_k(1-2F_k)/P_{k+1} - f_k(f_k-f_{k+1})/P_{k+1}²  if y_i = k+1
+  # === Cross-block H_betatheta weights M_k (#A joint Newton, Tutz 1990 Sec.3.2) ===
+  # Per-threshold k in 1..K-1 cross-Hessian weight (closed-form derivative
+  # of the beta-score equation w.r.t. theta_k):
+  #   M_k_i =  +f_k[(1-2F_k)/P_k + (f_{k-1}-f_k)/P_k^2]   if y_i = k
+  #         =  -f_k(1-2F_k)/P_{k+1} - f_k(f_k-f_{k+1})/P_{k+1}^2  if y_i = k+1
   #         =   0                                              otherwise
-  # (negative log-lik convention; signs flipped from raw ∂T_i/∂θ_k).
-  # Provides the X^T M_k = H[β, θ_k] cross-column needed for the full
-  # joint (β, θ) Newton step, without which BCD alternation oscillates
-  # (observed 2026-04-27: iter 9 |g_β|=0.009 + iter 10 |g_β|=1.45).
-  # Cite: McCullagh 1980 JRSS B 42:109-142 §2.5; Tutz 1990 Statistics &
-  # Decisions 7:21-37 §3.2; Pratt 1981 (PO log-lik strict concavity).
+  # (negative log-lik convention; signs flipped from raw dT_i/dtheta_k).
+  # Provides the X^T M_k = H[beta, theta_k] cross-column needed for the full
+  # joint (beta, theta) Newton step, without which BCD alternation oscillates
+  # (observed 2026-04-27: iter 9 |g_beta|=0.009 + iter 10 |g_beta|=1.45).
+  # Cite: McCullagh 1980 JRSS B 42:109-142 Sec.2.5; Tutz 1990 Statistics &
+  # Decisions 7:21-37 Sec.3.2; Pratt 1981 (PO log-lik strict concavity).
   if (!is.null(cross_output_keys) && length(cross_output_keys) == K_minus_1 &&
       !is.null(cross_target_pk) && nzchar(cross_target_pk)) {
     F_aug_for_M <- F_aug

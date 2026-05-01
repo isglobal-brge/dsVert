@@ -13,7 +13,7 @@
 #' @param peer_pk Transport pk of the peer (base64url).
 #' @param session_id MPC session id.
 #' @param frac_bits Ring63 fractional bits (default 20).
-#' @return list(peer_blob) — sealed payload for relay.
+#' @return list(peer_blob) -- sealed payload for relay.
 #' @export
 k2BeaverShareVectorDS <- function(source_key, peer_pk,
                                    session_id = NULL,
@@ -90,7 +90,7 @@ k2BeaverExtractColumnDS <- function(source_key, n, K, col_index,
   # Ring inference: caller may pass "ring63"/"ring127" explicitly; else
   # fall back to session-state ring tag set by k2ShareInputDS. Without
   # this, Ring127 16-byte Uint128 records get mis-parsed as Ring63
-  # 8-byte FixedPoint → length mismatch (silent in extract output if
+  # 8-byte FixedPoint -> length mismatch (silent in extract output if
   # lengths happen to align modulo 2; loud when they don't).
   if (is.null(ring) || !nzchar(ring)) {
     ss_ring <- as.integer(ss$k2_ring %||% 63L)
@@ -121,8 +121,8 @@ k2BeaverSumShareDS <- function(source_key, session_id = NULL,
   # Ring63 is the 8-byte default. Getting this wrong silently truncates
   # the per-element parse and returns garbage (see multinom joint bug #9
   # intercept-grad NA: Ring127 residual shares were being parsed as
-  # Ring63 → 8-byte scalar out → subsequent Ring127 aggregate saw 0
-  # Uint128 values → list() with empty $values).
+  # Ring63 -> 8-byte scalar out -> subsequent Ring127 aggregate saw 0
+  # Uint128 values -> list() with empty $values).
   if (is.null(ring) || !nzchar(ring)) {
     ss_ring <- as.integer(ss$k2_ring %||% 63L)
     ring <- if (ss_ring == 127L) "ring127" else "ring63"

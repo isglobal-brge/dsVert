@@ -1,4 +1,4 @@
-#' @title LMM cross-server exact residual pipeline — peer side
+#' @title LMM cross-server exact residual pipeline -- peer side
 #' @description On the non-outcome server (which holds some of the
 #'   predictors), compute the per-patient linear-predictor contribution
 #'   \eqn{f^{peer}_{ij} = x^{peer}_{ij}{}^T \hat\beta^{peer}} in
@@ -57,7 +57,7 @@ dsvertLMMPeerFittedShareDS <- function(data_name, x_names, betahat,
        n = length(fitted))
 }
 
-#' @title LMM cross-server exact residual pipeline — coordinator side
+#' @title LMM cross-server exact residual pipeline -- coordinator side
 #' @description On the outcome server, consume the peer's relayed share
 #'   blob, decrypt it, compute this party's share of the residual
 #'   \eqn{r_{ij} = y_{ij} - \alpha - X^{local}_{ij}{}^T\hat\beta^{local}
@@ -131,7 +131,7 @@ dsvertLMMCoordResidualShareDS <- function(data_name, y_var, x_names,
 #'   contributes -f^peer_share_kept to the sum). This helper moves the
 #'   negated value into the canonical \code{k2_lmm_exact_r_share} slot
 #'   so the subsequent Beaver vecmul picks it up automatically.
-#' @param n Optional integer — the vector length. If omitted, we try
+#' @param n Optional integer -- the vector length. If omitted, we try
 #'   \code{ss\$k2_x_n} (populated by k2ShareInputDS in the full GLM
 #'   pipeline) and then fall back to decoding the peer-share byte
 #'   length. Pass explicitly from the client orchestration whenever

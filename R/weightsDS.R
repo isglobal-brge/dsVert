@@ -159,7 +159,7 @@ k2ApplyWeightsDS <- function(session_id = NULL) {
   # spline so its in-place overwrite was harmless, but y_share_fp is
   # cached from Phase 1 input sharing and NEVER recomputed. Each
   # iter's k2ApplyWeightsDS therefore multiplied the CACHED y_share
-  # by w AGAIN, so after N iters y_share held w^N · y. For ipw
+  # by w AGAIN, so after N iters y_share held w^N * y. For ipw
   # weights in [1, 5] and max_iter=30 this blows up to w^30 ~ 1e19,
   # which in Ring63 FP manifested as the observed -2.8e8 coefficient
   # overflow reported in the v2c probe (probe_ipw_weights.R

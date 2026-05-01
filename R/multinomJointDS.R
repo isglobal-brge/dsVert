@@ -47,14 +47,14 @@ dsvertPrepareMultinomGradDS <- function(residual_key, is_outcome_server,
   list(stored = TRUE, residual_key = residual_key, n = n_int)
 }
 
-#' @title Sum K-1 exp(eta_k) shares + party-0 constant 1 → denominator share
-#' @description Computes the softmax denominator share \code{D = 1 + Σ_k exp(η_k)}
+#' @title Sum K-1 exp(eta_k) shares + party-0 constant 1 -> denominator share
+#' @description Computes the softmax denominator share \code{D = 1 + Sum_k exp(eta_k)}
 #'   via K-1 sequential \code{k2-ring127-affine-combine} calls. Party 0 also
 #'   adds the constant 1 at the first step; party 1 does not (additive
 #'   share convention).
 #'
 #' @param exp_eta_keys Character vector of session slots holding the
-#'   per-class \code{exp(η_k)} shares.
+#'   per-class \code{exp(eta_k)} shares.
 #' @param output_key Session slot to store the summed D share.
 #' @param is_party0 Whether this server is party 0 (adds the +1 constant).
 #' @param n Length of each share.

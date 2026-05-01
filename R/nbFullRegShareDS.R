@@ -1,46 +1,46 @@
-#' @title Non-disclosive K=2 share-domain primitives for NB full-reg θ MLE
+#' @title Non-disclosive K=2 share-domain primitives for NB full-reg theta MLE
 #' @description Server-side functions implementing the non-disclosive
 #'   variant of \code{ds.vertNBFullRegTheta(variant="full_reg_nd")} per
 #'   the spec in \code{docs/error_bounds/nb_t2_log_primitive_close_well_2026-04-29.md}.
 #'   Closes the D-INV-4 violation in the prior \code{full_reg} variant
-#'   (which transport-decrypted η^nl plaintext at the label server) by
-#'   keeping η^nl in Ring127 additive secret shares end-to-end through
-#'   the share-domain μ + log(μ+θ) + 1/(θ+μ) Beaver pipeline.
+#'   (which transport-decrypted eta^nl plaintext at the label server) by
+#'   keeping eta^nl in Ring127 additive secret shares end-to-end through
+#'   the share-domain mu + log(mu+theta) + 1/(theta+mu) Beaver pipeline.
 #'
-#'   Threat model: K=2 OT-Beaver dishonest-majority (Demmler–Schneider–
-#'   Zohner ABY 2015 §III.B). Inter-server channels Ed25519-pinned via
+#'   Threat model: K=2 OT-Beaver dishonest-majority (Demmler-Schneider-
+#'   Zohner ABY 2015 Sec.III.B). Inter-server channels Ed25519-pinned via
 #'   \code{trusted_peers} (\code{mpcUtils.R:530-556}). All entry points
 #'   K=2-only via \code{.k2_enforce_K(ss, 2L, ...)}.
 #'
-#'   Refs: Lawless 1987 *Can. J. Statist.* 15(3):209–225 (NB profile-MLE
-#'   θ score); Venables & Ripley 2002 *MASS* §7.4 (\code{glm.nb} Newton);
-#'   Catrina & Saxena 2010 *Financial Cryptography* §3.3 (multiplicative
-#'   depth ULP propagation); Trefethen ATAP §8 (Bernstein-ellipse rel
-#'   error bound); Beaver 1991 *CRYPTO* §3 (precomputed multiplication
-#'   triples); Boyle, Couteau & Gilboa 2019 (DCFNet — for future
+#'   Refs: Lawless 1987 *Can. J. Statist.* 15(3):209-225 (NB profile-MLE
+#'   theta score); Venables & Ripley 2002 *MASS* Sec.7.4 (\code{glm.nb} Newton);
+#'   Catrina & Saxena 2010 *Financial Cryptography* Sec.3.3 (multiplicative
+#'   depth ULP propagation); Trefethen ATAP Sec.8 (Bernstein-ellipse rel
+#'   error bound); Beaver 1991 *CRYPTO* Sec.3 (precomputed multiplication
+#'   triples); Boyle, Couteau & Gilboa 2019 (DCFNet -- for future
 #'   per-element argument reduction).
 #' @name nb-full-reg-share
 NULL
 
 
-#' @title NL-side: split η^nl into Ring127 additive shares
-#' @description Replaces \code{dsvertNBEtaSealDS} (which transported η^nl
-#'   plaintext to label, violating D-INV-4). Computes η^nl = X^nl β
+#' @title NL-side: split eta^nl into Ring127 additive shares
+#' @description Replaces \code{dsvertNBEtaSealDS} (which transported eta^nl
+#'   plaintext to label, violating D-INV-4). Computes eta^nl = X^nl beta
 #'   plaintext locally on the non-label server, FP-encodes in Ring127
 #'   (fracBits=50), and splits into uniform additive shares:
 #'   \itemize{
 #'     \item \code{own_share}: this server retains; stored as
 #'           \code{ss$k2_nb_eta_share_fp} (this server's Ring127 share of
-#'           η_total — for the NL server, η_total share == η^nl share
-#'           because NL contributes nothing to η_label or β₀).
+#'           eta_total -- for the NL server, eta_total share == eta^nl share
+#'           because NL contributes nothing to eta_label or beta_0).
 #'     \item \code{peer_share}: returned in the transport-encrypted blob
 #'           to be relayed to the label server.
 #'   }
 #'   The peer share is uniform random in Ring127, leaking no information
-#'   about η^nl.
+#'   about eta^nl.
 #'
 #'   Disclosure footing: identical to \code{k2ShareInputDS}'s feature
-#'   sharing — uniform Ring127 additive split, transport-encrypted via
+#'   sharing -- uniform Ring127 additive split, transport-encrypted via
 #'   the label's Ed25519 transport public key.
 #'
 #' @param data_name Character. Data frame on this server.
@@ -79,10 +79,10 @@ dsvertNBEtaShareDS <- function(data_name, x_vars, beta_values,
   if (is.numeric(privacy_min) && n < privacy_min)
     stop("Insufficient observations", call. = FALSE)
 
-  # Clamp η to keep μ = exp(η) and (μ + θ) within the NR-LOG wide
-  # Chebyshev seed domain [0.1, 1000]. With η ∈ [-5, 5], μ ∈
-  # [0.0067, 148] giving (μ+θ) ∈ [0.5, 153] for θ ∈ [0.5, 5] — well
-  # inside [0.1, 1000]. Tighter than the prior ±23 clamp, which was
+  # Clamp eta to keep mu = exp(eta) and (mu + theta) within the NR-LOG wide
+  # Chebyshev seed domain [0.1, 1000]. With eta in [-5, 5], mu in
+  # [0.0067, 148] giving (mu+theta) in [0.5, 153] for theta in [0.5, 5] -- well
+  # inside [0.1, 1000]. Tighter than the prior +/-23 clamp, which was
   # safe for the single-Chebyshev-core path but would carry NR-LOG
   # outside its convergence basin.
   eta_nl_clipped <- pmin(pmax(eta_nl, -5), 5)
@@ -96,8 +96,8 @@ dsvertNBEtaShareDS <- function(data_name, x_vars, beta_values,
   split <- .callMpcTool("k2-split-fp-share", list(
     data_fp = fp_eta, n = n, frac_bits = 50L, ring = "ring127"))
 
-  # Store own share — this server's contribution to η_total share.
-  # For NL, η_total share == η^nl share (NL contributes 0 to η_label + β₀).
+  # Store own share -- this server's contribution to eta_total share.
+  # For NL, eta_total share == eta^nl share (NL contributes 0 to eta_label + beta_0).
   ss$k2_nb_eta_share_fp <- split$own_share
   ss$k2_nb_eta_n <- n
   ss$k2_ring <- 127L
@@ -111,28 +111,28 @@ dsvertNBEtaShareDS <- function(data_name, x_vars, beta_values,
 }
 
 
-#' @title Label-side: receive NL's η^nl share + assemble η_total share
+#' @title Label-side: receive NL's eta^nl share + assemble eta_total share
 #' @description Decrypts the relayed Ring127 share blob from the
-#'   non-label server (label's share of η^nl), then computes the label's
-#'   own contribution η_label + β₀ plaintext from local x_vars + client-
-#'   supplied β_label slice + intercept, FP-encodes it, and adds to the
+#'   non-label server (label's share of eta^nl), then computes the label's
+#'   own contribution eta_label + beta_0 plaintext from local x_vars + client-
+#'   supplied beta_label slice + intercept, FP-encodes it, and adds to the
 #'   received share via \code{k2-fp-add}. The result stored under
 #'   \code{ss$k2_nb_eta_share_fp} is the label's Ring127 share of
-#'   η_total = η^nl + η_label + β₀.
+#'   eta_total = eta^nl + eta_label + beta_0.
 #'
 #'   Sum across parties:
 #'   \deqn{\eta^{\mathrm{NL}}_{\mathrm{share}} +
 #'         (\eta^{\mathrm{label}}_{\mathrm{share}} + (\eta_{\mathrm{label}} + \beta_0)_{\mathrm{FP}})
 #'         = \eta^{\mathrm{nl}} + \eta_{\mathrm{label}} + \beta_0 = \eta_{\mathrm{total}}}
-#'   ✓ correct reconstruction.
+#'   OK correct reconstruction.
 #'
-#'   Caches y for later \code{Σψ(y+θ)} computation under
+#'   Caches y for later \code{Sumpsi(y+theta)} computation under
 #'   \code{ss$k2_nb_y}.
 #'
 #' @param data_name Character.
 #' @param y_var Character. Outcome column.
 #' @param x_vars_label Character. Label-held feature column names.
-#' @param beta_values_label Numeric. β-slice for those columns.
+#' @param beta_values_label Numeric. beta-slice for those columns.
 #' @param beta_intercept Numeric scalar. Intercept (revealed at convergence).
 #' @param peer_eta_share_blob_key Character. Session blob slot holding
 #'   the relayed Ring127 share blob from the NL server.
@@ -151,11 +151,11 @@ dsvertNBEtaTotalReceiveDS <- function(data_name, y_var,
 
   blob <- .blob_consume(peer_eta_share_blob_key, ss)
   if (is.null(blob))
-    stop("peer η share blob missing at key '", peer_eta_share_blob_key,
+    stop("peer eta share blob missing at key '", peer_eta_share_blob_key,
          "'; client must relay from NL server", call. = FALSE)
   tsk <- .key_get("transport_sk", ss)
   if (is.null(tsk))
-    stop("transport secret key missing — call glmRing63TransportInitDS first",
+    stop("transport secret key missing -- call glmRing63TransportInitDS first",
          call. = FALSE)
   dec <- .callMpcTool("transport-decrypt", list(
     sealed = .base64url_to_base64(blob), recipient_sk = tsk))
@@ -183,16 +183,16 @@ dsvertNBEtaTotalReceiveDS <- function(data_name, y_var,
     eta_label_plus_int <- as.numeric(Xl %*% beta_values_label) +
                           as.numeric(beta_intercept)
   }
-  # Same clamp as NL side for consistency (η ∈ [-5, 5] keeps NR-LOG
-  # input in [0.5, 153] ⊂ [0.1, 1000] wide-Chebyshev seed domain).
+  # Same clamp as NL side for consistency (eta in [-5, 5] keeps NR-LOG
+  # input in [0.5, 153] subset [0.1, 1000] wide-Chebyshev seed domain).
   eta_label_plus_int <- pmin(pmax(eta_label_plus_int, -5), 5)
 
   fp_label_part <- .callMpcTool("k2-float-to-fp", list(
     values = eta_label_plus_int, frac_bits = 50L, ring = "ring127"))$fp_data
 
-  # Label's share of η_total = received_share_of_η^nl + (η_label + β₀)_FP.
+  # Label's share of eta_total = received_share_of_eta^nl + (eta_label + beta_0)_FP.
   # k2-fp-add Go handler reads input fields {a, b, frac_bits, ring} and
-  # writes output field {result} (NOT sum_fp — sum_fp is k2-fp-sum's).
+  # writes output field {result} (NOT sum_fp -- sum_fp is k2-fp-sum's).
   add_res <- .callMpcTool("k2-fp-add", list(
     a = share_label_of_eta_nl, b = fp_label_part,
     frac_bits = 50L, ring = "ring127"))
@@ -203,16 +203,16 @@ dsvertNBEtaTotalReceiveDS <- function(data_name, y_var,
   ss$k2_nb_eta_share_fp <- total_share
   ss$k2_nb_eta_n <- n
   ss$k2_ring <- 127L
-  ss$k2_nb_y <- y          # cache plaintext y for ψ(y+θ) later
+  ss$k2_nb_y <- y          # cache plaintext y for psi(y+theta) later
   list(stored = TRUE, n = n)
 }
 
 
-#' @title NL-side mirror: pin NL's η_total share + cache n
+#' @title NL-side mirror: pin NL's eta_total share + cache n
 #' @description Tiny helper invoked after \code{dsvertNBEtaShareDS} so the
 #'   NL server's session has the same canonical key (\code{k2_nb_eta_share_fp},
-#'   \code{k2_nb_eta_n}) as the label side post-receive. NL's η_total share
-#'   already equals its η^nl share (NL contributes 0 to η_label + β₀); this
+#'   \code{k2_nb_eta_n}) as the label side post-receive. NL's eta_total share
+#'   already equals its eta^nl share (NL contributes 0 to eta_label + beta_0); this
 #'   function just confirms the slot is populated.
 #' @param session_id Character.
 #' @return List with \code{stored} (TRUE if shares present; FALSE otherwise),
@@ -227,21 +227,21 @@ dsvertNBEtaShareConfirmDS <- function(session_id = NULL) {
 }
 
 
-#' @title Label-side: re-share (y + θ) into Ring127 additive shares
-#' @description Per Newton-θ iter, the score formula's last term is
-#'   \eqn{\sum_i (y_i + \theta) / (\theta + \mu_i)}. With μ_i in shares
-#'   and (y_i + θ) plaintext at label only (y is label's data, θ a
-#'   scalar from coord), the Beaver vecmul of \code{share((y+θ)) ×
-#'   share(1/(θ+μ))} requires (y + θ) to be in shares too. Label
+#' @title Label-side: re-share (y + theta) into Ring127 additive shares
+#' @description Per Newton-theta iter, the score formula's last term is
+#'   \eqn{\sum_i (y_i + \theta) / (\theta + \mu_i)}. With mu_i in shares
+#'   and (y_i + theta) plaintext at label only (y is label's data, theta a
+#'   scalar from coord), the Beaver vecmul of \code{share((y+theta)) x
+#'   share(1/(theta+mu))} requires (y + theta) to be in shares too. Label
 #'   generates a fresh uniform Ring127 mask r per call, keeps
-#'   \code{share_label = (y + θ)_FP - r} as its share, and transports
+#'   \code{share_label = (y + theta)_FP - r} as its share, and transports
 #'   the mask r as the peer's share to NL. After this call:
 #'   \itemize{
 #'     \item Label's session: \code{k2_nb_yt_share_fp = share_label}
 #'     \item NL receives mask via \code{dsvertNBYThetaShareReceiveDS}
 #'           and stores it in \code{k2_nb_yt_share_fp}.
 #'   }
-#'   Both parties hold valid Ring127 additive shares of \code{(y + θ)}
+#'   Both parties hold valid Ring127 additive shares of \code{(y + theta)}
 #'   with no per-patient leakage (mask is uniform random; share_label is
 #'   masked-by-uniform, also uniform).
 #'
@@ -261,20 +261,20 @@ dsvertNBYThetaShareDS <- function(theta, target_pk, session_id = NULL) {
     stop("theta must be finite positive", call. = FALSE)
   y <- ss$k2_nb_y
   if (is.null(y))
-    stop("y cache missing — call dsvertNBEtaTotalReceiveDS first",
+    stop("y cache missing -- call dsvertNBEtaTotalReceiveDS first",
          call. = FALSE)
   n <- length(y)
   privacy_min <- getOption("datashield.privacyLevel", 5L)
   if (is.numeric(privacy_min) && n < privacy_min)
     stop("Insufficient observations", call. = FALSE)
 
-  # Clamp (y + θ) similarly to η for FP safety. y is non-negative
-  # count data; θ ∈ (0, ~10²) — sum stays within Ring127 FP range.
+  # Clamp (y + theta) similarly to eta for FP safety. y is non-negative
+  # count data; theta in (0, ~10^2) -- sum stays within Ring127 FP range.
   yt <- y + theta
   fp_yt <- .callMpcTool("k2-float-to-fp", list(
     values = yt, frac_bits = 50L, ring = "ring127"))$fp_data
 
-  # Additive split: own_share + peer_share = (y + θ)_FP.
+  # Additive split: own_share + peer_share = (y + theta)_FP.
   split <- .callMpcTool("k2-split-fp-share", list(
     data_fp = fp_yt, n = as.integer(n), frac_bits = 50L,
     ring = "ring127"))
@@ -289,7 +289,7 @@ dsvertNBYThetaShareDS <- function(theta, target_pk, session_id = NULL) {
 }
 
 
-#' @title NL-side: receive (y + θ) share blob + store under canonical key
+#' @title NL-side: receive (y + theta) share blob + store under canonical key
 #' @description Decrypts the transport blob from
 #'   \code{dsvertNBYThetaShareDS} and stores in
 #'   \code{ss$k2_nb_yt_share_fp}.
@@ -302,7 +302,7 @@ dsvertNBYThetaShareReceiveDS <- function(peer_yt_share_blob_key,
   .k2_enforce_K(ss, 2L, "dsvertNBYThetaShareReceiveDS")
   blob <- .blob_consume(peer_yt_share_blob_key, ss)
   if (is.null(blob))
-    stop("peer (y+θ) share blob missing at key '", peer_yt_share_blob_key,
+    stop("peer (y+theta) share blob missing at key '", peer_yt_share_blob_key,
          "'", call. = FALSE)
   tsk <- .key_get("transport_sk", ss)
   dec <- .callMpcTool("transport-decrypt", list(
@@ -338,7 +338,7 @@ dsvertNBSumShareDS <- function(input_key, session_id = NULL) {
     stop("input_key required", call. = FALSE)
   share <- ss[[input_key]]
   if (is.null(share))
-    stop("session slot '", input_key, "' empty — orchestrator step missing?",
+    stop("session slot '", input_key, "' empty -- orchestrator step missing?",
          call. = FALSE)
   s <- .callMpcTool("k2-fp-sum", list(
     fp_data = share, ring = "ring127", frac_bits = 50L))
@@ -347,10 +347,10 @@ dsvertNBSumShareDS <- function(input_key, session_id = NULL) {
 }
 
 
-#' @title Label-side: plaintext Σψ(y+θ) and Σψ_1(y+θ)
-#' @description The score / Hessian terms involving ψ(y_i + θ) and
-#'   ψ_1(y_i + θ) (digamma / trigamma) only require y at label and θ as
-#'   a scalar — no μ_i shares needed. Computed plaintext at label and
+#' @title Label-side: plaintext Sumpsi(y+theta) and Sumpsi_1(y+theta)
+#' @description The score / Hessian terms involving psi(y_i + theta) and
+#'   psi_1(y_i + theta) (digamma / trigamma) only require y at label and theta as
+#'   a scalar -- no mu_i shares needed. Computed plaintext at label and
 #'   returned as scalars. No per-patient disclosure (only the two sums).
 #' @param theta Numeric scalar.
 #' @param session_id Character.
@@ -364,7 +364,7 @@ dsvertNBPsiAggregateDS <- function(theta, session_id = NULL) {
     stop("theta must be finite positive", call. = FALSE)
   y <- ss$k2_nb_y
   if (is.null(y))
-    stop("y cache missing — call dsvertNBEtaTotalReceiveDS first",
+    stop("y cache missing -- call dsvertNBEtaTotalReceiveDS first",
          call. = FALSE)
   n <- length(y)
   privacy_min <- getOption("datashield.privacyLevel", 5L)

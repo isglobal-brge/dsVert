@@ -347,7 +347,7 @@ base64_to_base64url <- function(x) {
   output <- jsonlite::read_json(output_file, simplifyVector = TRUE)
 
   # Normalize base64 strings: strip whitespace/encoding artifacts that
-  # accumulate across chained Beaver rounds (round k output → round k+1 input)
+  # accumulate across chained Beaver rounds (round k output -> round k+1 input)
   for (nm in names(output)) {
     if (is.character(output[[nm]]) && length(output[[nm]]) == 1) {
       output[[nm]] <- trimws(output[[nm]])
@@ -540,7 +540,7 @@ dsvertNaOmitDS <- function(data_name, vars = NULL) {
 #'       attacker with a valid TLS certificate can attempt to add
 #'       a server to the connection pool. Without `trusted_peers`,
 #'       the MPC protocol has no way to distinguish "the legitimate
-#'       study server" from "any server with a valid TLS cert" —
+#'       study server" from "any server with a valid TLS cert" --
 #'       the rogue server would either receive legitimate shares or
 #'       inject replay/malformed-computation traces designed to
 #'       leak structure, and its TLS certificate alone would NOT
@@ -553,7 +553,7 @@ dsvertNaOmitDS <- function(data_name, vars = NULL) {
 #'       tamper-evident cryptographic record of which server
 #'       originated which payload. Disputes about provenance reduce
 #'       to signature verification against the pinned public-key
-#'       list — no need to trust audit logs.
+#'       list -- no need to trust audit logs.
 #'
 #' @param identity_info Named list: server -> list(identity_pk, signature) (base64url).
 #' @param transport_keys Named list: server -> transport_pk (base64url).
@@ -602,7 +602,7 @@ dsvertNaOmitDS <- function(data_name, vars = NULL) {
 #' `.k2_enforce_K(ss, expected_K = 2L, "fnName")` immediately after
 #' resolving its session state. The check is silent when
 #' `peer_transport_pks` is unset (e.g., the function is invoked before
-#' the transport-key handshake — that path is already guarded by
+#' the transport-key handshake -- that path is already guarded by
 #' `mpcStoreTransportKeysDS` and the `dsvert.require_trusted_peers`
 #' default; this helper is defense-in-depth, not the first line).
 #'

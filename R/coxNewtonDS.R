@@ -5,7 +5,7 @@
 #'   the expected Fisher information are EXACT in the Ring63 FP ring
 #'   (apart from ~1e-5 FP quantisation per op). A single Newton step
 #'      beta_hat = Fisher(0)^{-1} . grad(0)
-#'   recovers the Cox MLE to O(|beta|^2) — within 5-10% for small
+#'   recovers the Cox MLE to O(|beta|^2) -- within 5-10% for small
 #'   coefficients, plenty for the paper's inference bar.
 #'
 #'   Closed-form expressions at beta = 0:
@@ -81,7 +81,7 @@ NULL
 #'     2. Computes reverse cumsums (strata-reset) on each column share
 #'          cox_n_Sc_<idx>_fp
 #'     3. Builds plaintext FP vectors (SAME bytes at both parties by
-#'        construction — both parties read identical delta_fp and strata)
+#'        construction -- both parties read identical delta_fp and strata)
 #'          cox_n_delta_fp    delta (already stored; repeated here)
 #'          cox_n_W1_fp       delta(i)/N(i)          [plaintext FP]
 #'          cox_n_W2_fp       delta(i)/N(i)^2        [plaintext FP]
@@ -255,7 +255,7 @@ dsvertCoxNewtonGradDS <- function(session_id = NULL) {
   ring_tag <- if (ring == 127L) "ring127" else "ring63"
   frac_bits <- if (ring == 127L) 50L else 20L
   # Return each scalar FP share as its own named field. The client
-  # aggregates each one individually via k2-ring63-aggregate — avoids
+  # aggregates each one individually via k2-ring63-aggregate -- avoids
   # any concat / endianness subtlety that can corrupt a packed p-vector.
   scalar_fps <- vector("list", p_total)
   for (cc in seq_len(p_total)) {

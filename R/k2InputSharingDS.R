@@ -15,7 +15,7 @@ NULL
 k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
                              peer_pk, ring = 63L, session_id = NULL) {
   ss <- .S(session_id)
-  ## NOTE: this primitive is shared infrastructure — the K=3 GLM
+  ## NOTE: this primitive is shared infrastructure -- the K=3 GLM
   ## (ds.vertGLM.k3ring63) designates 2-of-3 servers as DCF parties
   ## and reuses k2ShareInputDS between them. The .k2_enforce_K guard
   ## introduced by isglobal-brge/dsVert#2 (LMM K=2 hardening) counted
@@ -126,21 +126,21 @@ k2ReceiveShareDS <- function(peer_p = NULL, session_id = NULL) {
 #'   is additionally stored under this session key (in addition to the
 #'   standard slots \code{k2_eta_share_fp}, \code{k2_eta_share},
 #'   \code{secure_eta_share}). Used by \code{ds.vertMultinomJointNewton}
-#'   to maintain K−1 parallel eta shares (one per non-reference class)
+#'   to maintain K-1 parallel eta shares (one per non-reference class)
 #'   across the same session without overwrite.
 #' @export
 k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
                                   is_coordinator = TRUE, session_id = NULL,
                                   output_key = NULL) {
   ss <- .S(session_id)
-  ## Shared infra — see header comment on k2ShareInputDS for the
+  ## Shared infra -- see header comment on k2ShareInputDS for the
   ## K=3 interaction with this guard. Removed for K=3 compatibility.
   n <- ss$k2_x_n
   p_own <- ss$k2_x_p
   p_peer <- ss$k2_peer_p
   p_total <- p_own + p_peer
 
-  # Ring selection — read from session (pinned by upstream Cox/LMM setup
+  # Ring selection -- read from session (pinned by upstream Cox/LMM setup
   # via k2SetCoxTimesDS or similar). Default Ring63.
   ring <- as.integer(ss$k2_ring %||% 63L)
   if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
@@ -148,15 +148,15 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
   frac_bits <- if (ring == 127L) 50L else 20L
 
   # Beta is ALWAYS in canonical order: [coord features | nonlabel features]
-  # Both parties use the SAME order — this is the canonical feature ordering
+  # Both parties use the SAME order -- this is the canonical feature ordering
   # from the specification.
   beta_full <- c(as.numeric(beta_coord), as.numeric(beta_nl))
 
-  # Convert beta to FP (in the selected ring — 8 B/elem for ring63, 16 B
+  # Convert beta to FP (in the selected ring -- 8 B/elem for ring63, 16 B
   # Uint128/elem for ring127). Ring127 handler parses 16 B records.
   # Conditionally wrap length-1 beta in I() to force jsonlite array
   # encoding (auto_unbox would otherwise emit a scalar, failing Go's
-  # []float64 unmarshal). For length ≥ 2, leave vanilla numeric to
+  # []float64 unmarshal). For length >= 2, leave vanilla numeric to
   # avoid any stochastic-regression risk from jsonlite's AsIs path
   # (observed in Cox Pima L2 determinism 2026-04-20).
   values_arg <- if (length(beta_full) == 1L) I(beta_full) else beta_full
@@ -188,7 +188,7 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
   #
   # k2-fp-add Go handler (k2_fp_ops.go:12-43) reads input fields
   # {a, b, frac_bits, ring} and writes output field {result}. NOT
-  # {a_fp, b_fp, n, ...} / {sum_fp} — those names belong to k2-fp-sum,
+  # {a_fp, b_fp, n, ...} / {sum_fp} -- those names belong to k2-fp-sum,
   # a different command. Mismatched field names cause Go to read empty
   # base64 strings (silent zero-vector) and R to read NULL, which
   # propagates to ss$k2_eta_share_fp <- NULL and trips the downstream
@@ -232,13 +232,13 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
 #' @export
 k2GradientR1DS <- function(peer_pk, session_id = NULL) {
   ss <- .S(session_id)
-  ## Shared infra — see header comment on k2ShareInputDS.
+  ## Shared infra -- see header comment on k2ShareInputDS.
   n <- ss$k2_x_n
   p_own <- ss$k2_x_p
   p_peer <- ss$k2_peer_p
   p_total <- p_own + p_peer
 
-  # Ring selection — session-pinned by upstream setup. Default Ring63.
+  # Ring selection -- session-pinned by upstream setup. Default Ring63.
   ring <- as.integer(ss$k2_ring %||% 63L)
   if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
   ring_tag <- if (ring == 127L) "ring127" else "ring63"
@@ -289,11 +289,11 @@ k2GradientR1DS <- function(peer_pk, session_id = NULL) {
 #' @export
 k2GradientR2DS <- function(party_id = 0L, session_id = NULL) {
   ss <- .S(session_id)
-  ## Shared infra — see header comment on k2ShareInputDS.
+  ## Shared infra -- see header comment on k2ShareInputDS.
   n <- ss$k2_x_n
   p_total <- ss$k2_x_p + ss$k2_peer_p
 
-  # Ring selection — session-pinned by upstream setup. Default Ring63.
+  # Ring selection -- session-pinned by upstream setup. Default Ring63.
   ring <- as.integer(ss$k2_ring %||% 63L)
   if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
   ring_tag <- if (ring == 127L) "ring127" else "ring63"
@@ -336,7 +336,7 @@ k2GradientR2DS <- function(party_id = 0L, session_id = NULL) {
 #'   (e.g. paste0("k2_grad_triple_fp_class_", ki)) to avoid blob-key
 #'   collision across the K-1 classes within an outer Newton iter and
 #'   between consecutive outer iters. This eliminates a race-prone
-#'   pattern documented in ABY3 §IV.D (Mohassel-Rindal 2018 CCS) and
+#'   pattern documented in ABY3 Sec.IV.D (Mohassel-Rindal 2018 CCS) and
 #'   MP-SPDZ Programs/Source/Multiplications.hpp where pool isolation
 #'   is per-multiplication, not per-pool.
 #' @export

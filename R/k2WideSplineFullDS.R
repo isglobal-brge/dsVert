@@ -46,7 +46,7 @@ k2WideSplinePhase1DS <- function(party_id = 0L, family = "binomial",
                                   num_intervals = NULL, frac_bits = 20L,
                                   ring = 63L, session_id = NULL) {
   ss <- .S(session_id)
-  ## Shared infra — see k2InputSharingDS.R header for K=3 rationale.
+  ## Shared infra -- see k2InputSharingDS.R header for K=3 rationale.
   if (is.null(num_intervals)) num_intervals <- if (family == "poisson") 100L else if (family == "softplus") 80L else 50L
   ring <- as.integer(ring)
   if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
@@ -91,7 +91,7 @@ k2WideSplinePhase2DS <- function(party_id = 0L, family = "binomial",
                                   num_intervals = NULL, frac_bits = 20L,
                                   ring = 63L, session_id = NULL) {
   ss <- .S(session_id)
-  ## Shared infra — see k2InputSharingDS.R header for K=3 rationale.
+  ## Shared infra -- see k2InputSharingDS.R header for K=3 rationale.
   if (is.null(num_intervals)) num_intervals <- if (family == "poisson") 100L else if (family == "softplus") 80L else 50L
   # Ring defaults to session ring (set by Phase 1); explicit arg overrides.
   if (missing(ring) && !is.null(ss$k2_ws_ring)) ring <- ss$k2_ws_ring
@@ -134,7 +134,7 @@ k2WideSplinePhase3DS <- function(party_id = 0L, family = "binomial",
                                   num_intervals = NULL, frac_bits = 20L,
                                   ring = 63L, session_id = NULL) {
   ss <- .S(session_id)
-  ## Shared infra — see k2InputSharingDS.R header for K=3 rationale.
+  ## Shared infra -- see k2InputSharingDS.R header for K=3 rationale.
   if (is.null(num_intervals)) num_intervals <- if (family == "poisson") 100L else if (family == "softplus") 80L else 50L
   if (missing(ring) && !is.null(ss$k2_ws_ring)) ring <- ss$k2_ws_ring
   ring <- as.integer(ring)
@@ -174,7 +174,7 @@ k2WideSplinePhase4DS <- function(party_id = 0L, family = "binomial",
                                   num_intervals = NULL, frac_bits = 20L,
                                   ring = 63L, session_id = NULL) {
   ss <- .S(session_id)
-  ## Shared infra — see k2InputSharingDS.R header for K=3 rationale.
+  ## Shared infra -- see k2InputSharingDS.R header for K=3 rationale.
   if (is.null(num_intervals)) num_intervals <- if (family == "poisson") 100L else if (family == "softplus") 80L else 50L
   if (missing(ring) && !is.null(ss$k2_ws_ring)) ring <- ss$k2_ws_ring
   ring <- as.integer(ring)

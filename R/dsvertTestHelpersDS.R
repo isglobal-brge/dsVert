@@ -109,7 +109,7 @@ dsvertAddSyntheticSurvivalDS <- function(data_name,
   if (id_column %in% names(data)) {
     ids <- as.character(data[[id_column]])
     # R's strtoi returns NA for values > 2^31-1 (signed int 32 max).
-    # Take 7 hex chars (max 2^28 ≈ 268M) so the result fits and
+    # Take 7 hex chars (max 2^28 approx 268M) so the result fits and
     # divide by 2^28 for a uniform in [0, 1).
     hex2u <- function(h) {
       as.numeric(strtoi(substr(h, 1L, 7L), 16L)) / (2^28 - 1)
@@ -195,7 +195,7 @@ dsvertOutcomeLevelsDS <- function(data_name, y_var) {
 #'   form, we encode each distinct \code{tstart} value as its own
 #'   stratum break so the reverse-cumsum risk-set reset happens at
 #'   entry times. When a \code{base_strata_column} is provided the
-#'   combined stratum is the interaction (base × tstart).
+#'   combined stratum is the interaction (base x tstart).
 #'
 #'   Correct for the common case of one interval per patient with a
 #'   fixed left-truncation time; conservative otherwise.

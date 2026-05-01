@@ -7,7 +7,7 @@
 # Threshold: 50KB (nchar > 50000). This means:
 #   - Small blobs (transport keys, party_id, ct_hashes): memory (~instant)
 #   - Large blobs (encrypted shares, DCF keys, Beaver triples): disk
-#   - Persistent keys: transport SK/PK → memory (small)
+#   - Persistent keys: transport SK/PK -> memory (small)
 #
 # Directory structure (created lazily, only when first large blob arrives):
 #   <tempdir()>/dsvert_<session_id>/
@@ -115,7 +115,7 @@
 
 # --- Persistent Key Operations ---
 
-#' Write a persistent key (adaptive: small → memory, large → disk)
+#' Write a persistent key (adaptive: small -> memory, large -> disk)
 #' @param name Character. Key name (e.g., "cpk", "secret_key")
 #' @param value Character. Key data (single string or character vector)
 #' @param ss Session environment

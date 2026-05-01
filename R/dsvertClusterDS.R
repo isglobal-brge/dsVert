@@ -179,7 +179,7 @@ dsvertExpandClusterWeightsDS <- function(data_name, cluster_col,
 #'   Used by \code{ds.vertLMM.k3} to recover the random-intercept and
 #'   residual variance components after the federated weighted-GLM
 #'   fixed-effects fit converges (Pinheiro & Bates 2000 \emph{Mixed-
-#'   Effects Models in S/S-PLUS} §2.4.2 within-between ANOVA estimator).
+#'   Effects Models in S/S-PLUS} sec.2.4.2 within-between ANOVA estimator).
 #'
 #'   For balanced designs (constant n_i = n) the standard ANOVA
 #'   estimator on raw y gives:

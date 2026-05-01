@@ -2,7 +2,7 @@
 # Historical design note (orphan): an earlier draft of the ordinal joint
 # score pipeline factored a per-patient T_i routing helper out of
 # `dsvertOrdinalPatientDiffsDS`. That helper was inlined back into
-# PatientDiffs during the K=2 close-well refactor (worker2-k2safe-l2 →
+# PatientDiffs during the K=2 close-well refactor (worker2-k2safe-l2 ->
 # d046049, 2026-04-24); its docstring has been removed here so it
 # does not bleed into the next exported function's Rd. Reference:
 # McCullagh 1980 JRSS B 42:109-142 Sec.2.5 eq.(2.5)

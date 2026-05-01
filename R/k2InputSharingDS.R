@@ -174,13 +174,25 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
   # Ring additive shares are linear, so adding a plaintext value to
   # one party's share is equivalent to adding it to the reconstructed
   # value. The peer's share is unchanged (they have no offset).
+  #
+  # k2-fp-add Go handler (k2_fp_ops.go:12-43) reads input fields
+  # {a, b, frac_bits, ring} and writes output field {result}. NOT
+  # {a_fp, b_fp, n, ...} / {sum_fp} — those names belong to k2-fp-sum,
+  # a different command. Mismatched field names cause Go to read empty
+  # base64 strings (silent zero-vector) and R to read NULL, which
+  # propagates to ss$k2_eta_share_fp <- NULL and trips the downstream
+  # "No eta share in session" error in k2WideSplinePhase1DS. Same fix
+  # already applied in nbFullRegShareDS.R:194 (closes the GLMM offset
+  # path + any other caller that registers an offset via k2SetOffsetDS).
   if (!is.null(ss$k2_offset_fp)) {
-    eta_fp <- .callMpcTool("k2-fp-add", list(
-      a_fp = eta_fp, b_fp = ss$k2_offset_fp,
-      n = as.integer(n),
+    add_res <- .callMpcTool("k2-fp-add", list(
+      a = eta_fp, b = ss$k2_offset_fp,
       frac_bits = frac_bits,
-      ring = ring_tag
-    ))$sum_fp
+      ring = ring_tag))
+    if (is.null(add_res$result) || !nzchar(add_res$result))
+      stop("k2-fp-add returned empty result while applying offset",
+           call. = FALSE)
+    eta_fp <- add_res$result
   }
 
   # Store for Beaver polynomial eval AND gradient computation

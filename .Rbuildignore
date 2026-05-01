@@ -4,6 +4,8 @@
 ^docs$
 ^scripts$
 ^LICENSE\.md$
+^CITATION\.cff$
+^CONTRIBUTING\.md$
 ^inst/dsvert-mpc$
 ^inst/mhe-tool$
 ^inst/k2-mpc-tool$

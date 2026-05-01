@@ -1,8 +1,11 @@
-#' @title Package Load Hook
-#' @description Auto-generates Ed25519 identity seed on first load if none exists.
+#' Package Load Hook
+#'
+#' Auto-generates Ed25519 identity seed on first load if none exists.
+#'
+#' @name dsVert-package
 #' @keywords internal
 #' @importFrom utils head tail packageVersion
-NULL
+"_PACKAGE"
 
 .dsvert_init_identity_seed <- function() {
   seed_path <- file.path(Sys.getenv("HOME"), ".dsvert", "identity.seed")

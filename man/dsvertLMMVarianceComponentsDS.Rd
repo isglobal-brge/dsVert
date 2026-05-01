@@ -37,7 +37,7 @@ estimator on raw y gives:
   E(MSB) = sigma^2 + n sigma_b^2 + Var_between(X beta) ; MSB = SSB / (K - 1)
   }
 For covariates X with no within-cluster correlation (iid within
-cluster), Var_within(X beta) ≈ n · Var_between(X beta), and
+cluster), Var_within(X beta) ~ n * Var_between(X beta), and
 sigma_b^2 = (MSB - MSW) / n is approximately unbiased. The
 sigma^2 estimate inherits a Var_within(X beta) bias from the X
 contribution; flag this honestly in the wrapper.

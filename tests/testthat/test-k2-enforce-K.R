@@ -202,75 +202,25 @@ test_that("dsvertCoxDiscreteExpandXDS rejects K=3 session", {
     "K mismatch.*expected K=2.*got K=3")
 })
 
-# --- k2 input/gradient family ---
-test_that("k2ShareInputDS rejects K=3 session", {
-  s <- .mk_session(3L)
-  expect_error(
-    dsVert::k2ShareInputDS(
-      data_name = "fake", x_vars = "age",
-      peer_pk = "pk", session_id = s$sid),
-    "K mismatch.*expected K=2.*got K=3")
-})
-
-test_that("k2ComputeEtaShareDS rejects K=3 session", {
-  s <- .mk_session(3L)
-  expect_error(
-    dsVert::k2ComputeEtaShareDS(
-      beta_coord = 0.0, beta_nl = 0.0,
-      session_id = s$sid),
-    "K mismatch.*expected K=2.*got K=3")
-})
-
-test_that("k2GradientR1DS rejects K=3 session", {
-  s <- .mk_session(3L)
-  expect_error(
-    dsVert::k2GradientR1DS(peer_pk = "pk", session_id = s$sid),
-    "K mismatch.*expected K=2.*got K=3")
-})
-
-test_that("k2GradientR2DS rejects K=3 session", {
-  s <- .mk_session(3L)
-  expect_error(
-    dsVert::k2GradientR2DS(party_id = 0L, session_id = s$sid),
-    "K mismatch.*expected K=2.*got K=3")
-})
-
-# --- k2 wide-spline phases ---
-test_that("k2WideSplinePhase1DS rejects K=3 session", {
-  s <- .mk_session(3L)
-  expect_error(
-    dsVert::k2WideSplinePhase1DS(
-      party_id = 0L, family = "binomial",
-      session_id = s$sid),
-    "K mismatch.*expected K=2.*got K=3")
-})
-
-test_that("k2WideSplinePhase2DS rejects K=3 session", {
-  s <- .mk_session(3L)
-  expect_error(
-    dsVert::k2WideSplinePhase2DS(
-      party_id = 0L, family = "binomial",
-      session_id = s$sid),
-    "K mismatch.*expected K=2.*got K=3")
-})
-
-test_that("k2WideSplinePhase3DS rejects K=3 session", {
-  s <- .mk_session(3L)
-  expect_error(
-    dsVert::k2WideSplinePhase3DS(
-      party_id = 0L, family = "binomial",
-      session_id = s$sid),
-    "K mismatch.*expected K=2.*got K=3")
-})
-
-test_that("k2WideSplinePhase4DS rejects K=3 session", {
-  s <- .mk_session(3L)
-  expect_error(
-    dsVert::k2WideSplinePhase4DS(
-      party_id = 0L, family = "binomial",
-      session_id = s$sid),
-    "K mismatch.*expected K=2.*got K=3")
-})
+# --- k2 input/gradient family + k2 wide-spline phases ---
+#
+# Tests for K=3-rejection on the eight shared-infra primitives
+# (k2ShareInputDS, k2ComputeEtaShareDS, k2GradientR{1,2}DS,
+# k2WideSplinePhase{1,2,3,4}DS) were INTENTIONALLY removed at
+# commit b497cee ("fix(k3): lift K=2-only guards from shared-infra
+# primitives"). These primitives are reused by the K=3 GLM path —
+# ds.vertGLM.k3ring63 designates 2-of-3 servers as DCF parties and
+# runs the K=2-style Beaver pipeline between them — so the previous
+# `.k2_enforce_K(ss, 2L, ...)` guard, which counted the FULL 3-peer
+# pool from `peer_transport_pks`, was rejecting legitimate K=3
+# traffic and blocking glm K=3, multinom_warm K=3, ordinal_warm K=3,
+# lasso K=3, cox K=3, and lmm K=3.
+#
+# Guards REMAIN on K=2-only-by-algorithm primitives where the algebra
+# genuinely depends on a 2-party additive split (multinomJointDS,
+# dsvertLMMGramDS / GLSTransformDS / ClusterBroadcastDS, nbFullRegShareDS,
+# coxDiscreteShareDS, ordinalJointScoreDS); those tests above remain
+# in place and exercise the guard correctly.
 
 # =====================================================================
 # 3. Negative control: K=2 session reaches downstream code

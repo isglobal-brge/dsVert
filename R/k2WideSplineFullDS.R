@@ -60,6 +60,13 @@ k2WideSplinePhase1DS <- function(party_id = 0L, family = "binomial",
   if (is.null(dcf_keys)) stop("No DCF keys in session", call. = FALSE)
 
   n <- as.integer(nchar(.base64url_to_base64(eta_fp)) * 3 / 4 / bytes_per_elem)
+  # Divergence guard: a runaway client-side L-BFGS step can leave the
+  # eta share buffer with an implausible length or a non-decodable
+  # payload that cascades into a Go-side slice out-of-bounds SIGSEGV.
+  # We can't decode eta without the peer share, but n must be a sane
+  # positive integer.
+  if (!is.finite(n) || n <= 0 || n > 1e7)
+    stop("eta share length implausible \u2014 divergence guard", call. = FALSE)
 
   result <- .callMpcTool("k2-wide-spline-full", list(
     phase = 1L, party_id = party_id, family = family,

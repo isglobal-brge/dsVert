@@ -15,7 +15,17 @@ NULL
 k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
                              peer_pk, ring = 63L, session_id = NULL) {
   ss <- .S(session_id)
-  .k2_enforce_K(ss, 2L, "k2ShareInputDS")
+  ## NOTE: this primitive is shared infrastructure — the K=3 GLM
+  ## (ds.vertGLM.k3ring63) designates 2-of-3 servers as DCF parties
+  ## and reuses k2ShareInputDS between them. The .k2_enforce_K guard
+  ## introduced by isglobal-brge/dsVert#2 (LMM K=2 hardening) counted
+  ## the full 3-peer pool and incorrectly rejected legitimate K=3
+  ## traffic. The guard was removed for the four shared-infra
+  ## primitives (k2ShareInputDS, k2ComputeEtaShareDS, k2GradientR1DS,
+  ## k2GradientR2DS); guards are RETAINED for the K=2-only-by-
+  ## algorithm primitives (multinomJointDS, dsvertLMMGramDS,
+  ## dsvertLMMGLSTransformDS) where the algebra genuinely depends on
+  ## a 2-party additive split.
   data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
   n <- nrow(X)
@@ -123,7 +133,8 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
                                   is_coordinator = TRUE, session_id = NULL,
                                   output_key = NULL) {
   ss <- .S(session_id)
-  .k2_enforce_K(ss, 2L, "k2ComputeEtaShareDS")
+  ## Shared infra — see header comment on k2ShareInputDS for the
+  ## K=3 interaction with this guard. Removed for K=3 compatibility.
   n <- ss$k2_x_n
   p_own <- ss$k2_x_p
   p_peer <- ss$k2_peer_p
@@ -221,7 +232,7 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
 #' @export
 k2GradientR1DS <- function(peer_pk, session_id = NULL) {
   ss <- .S(session_id)
-  .k2_enforce_K(ss, 2L, "k2GradientR1DS")
+  ## Shared infra — see header comment on k2ShareInputDS.
   n <- ss$k2_x_n
   p_own <- ss$k2_x_p
   p_peer <- ss$k2_peer_p
@@ -278,7 +289,7 @@ k2GradientR1DS <- function(peer_pk, session_id = NULL) {
 #' @export
 k2GradientR2DS <- function(party_id = 0L, session_id = NULL) {
   ss <- .S(session_id)
-  .k2_enforce_K(ss, 2L, "k2GradientR2DS")
+  ## Shared infra — see header comment on k2ShareInputDS.
   n <- ss$k2_x_n
   p_total <- ss$k2_x_p + ss$k2_peer_p
 

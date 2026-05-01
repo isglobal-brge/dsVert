@@ -6,6 +6,9 @@
 \usage{
 dsvertLMMReceiveGramSharesDS(session_id = NULL)
 }
+\arguments{
+\item{session_id}{(auto-doc) Argument \code{session_id}.}
+}
 \description{
 Per-party aggregate. Consumes the peer's sealed share
 blob (relayed via \code{mpcStoreBlobDS} under

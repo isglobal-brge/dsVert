@@ -15,6 +15,12 @@ psiStoreTransportKeysDS(
 \arguments{
 \item{transport_keys}{Named list. Server name -> transport PK (base64url).}
 
+\item{transport_keys_b64}{(auto-doc) Argument \code{transport_keys_b64}.}
+
+\item{identity_info}{(auto-doc) Argument \code{identity_info}.}
+
+\item{identity_info_b64}{(auto-doc) Argument \code{identity_info_b64}.}
+
 \item{session_id}{Character or NULL. UUID for session-scoped storage.}
 }
 \value{

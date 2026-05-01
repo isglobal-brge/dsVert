@@ -19,6 +19,8 @@ k2SetWeightsDS(
 
 \item{peer_pk}{Character. Transport (X25519) public key of the DCF peer.}
 
+\item{ring}{(auto-doc) Argument \code{ring}.}
+
 \item{session_id}{Character. GLM session identifier.}
 }
 \value{

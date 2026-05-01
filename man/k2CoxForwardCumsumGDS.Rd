@@ -2,7 +2,7 @@
 % Please edit documentation in R/coxDS.R
 \name{k2CoxForwardCumsumGDS}
 \alias{k2CoxForwardCumsumGDS}
-\title{Compute the forward cumsum G_j = sum_{i<=j, delta=1} recip\link{i}}
+\title{Compute the forward cumsum \code{G_j = sum over i<=j with delta=1 of recip(i)}}
 \usage{
 k2CoxForwardCumsumGDS(session_id = NULL)
 }
@@ -13,5 +13,5 @@ k2CoxForwardCumsumGDS(session_id = NULL)
 list(G_length)
 }
 \description{
-Compute the forward cumsum G_j = sum_{i<=j, delta=1} recip\link{i}
+Compute the forward cumsum \code{G_j = sum over i<=j with delta=1 of recip(i)}
 }

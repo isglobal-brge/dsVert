@@ -27,7 +27,7 @@ a share of the reverse cumsum of the reconstructed column. Plain-
 text-at-both weights (delta/N, delta/N^2) can be folded in via the
 standard share * plaintext elementwise product. The only non-linear
 step is X_j * X_k and S_j * S_k, handled by the existing Beaver
-vecmul primitive (k2BeaverVecmul{Gen,Consume,R1,R2}DS).
+vecmul primitive (k2BeaverVecmul Gen / Consume / R1 / R2 DS).
 
 Pre-conditions set by ds.vertCox setup BEFORE calling this path:
 * k2ShareInputDS(..) has populated k2_x_share_fp (own) and

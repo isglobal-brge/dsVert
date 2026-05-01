@@ -13,6 +13,19 @@ dsvertLMMGramR1DS(
   ring = NULL
 )
 }
+\arguments{
+\item{peer_pk}{(auto-doc) Argument \code{peer_pk}.}
+
+\item{x_col}{(auto-doc) Argument \code{x_col}.}
+
+\item{y_col}{(auto-doc) Argument \code{y_col}.}
+
+\item{session_id}{(auto-doc) Argument \code{session_id}.}
+
+\item{frac_bits}{(auto-doc) Argument \code{frac_bits}.}
+
+\item{ring}{(auto-doc) Argument \code{ring}.}
+}
 \description{
 Per-party aggregate. Given two session keys containing
 FP shares of vectors x and y (n-long), runs one round of Beaver

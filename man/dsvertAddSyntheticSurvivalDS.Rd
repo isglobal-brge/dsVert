@@ -16,6 +16,25 @@ dsvertAddSyntheticSurvivalDS(
   id_column = "patient_id"
 )
 }
+\arguments{
+\item{data_name}{(auto-doc) Argument \code{data_name}.}
+
+\item{covariate_column}{(auto-doc) Argument \code{covariate_column}.}
+
+\item{beta}{(auto-doc) Argument \code{beta}.}
+
+\item{base_scale}{(auto-doc) Argument \code{base_scale}.}
+
+\item{event_rate}{(auto-doc) Argument \code{event_rate}.}
+
+\item{time_column}{(auto-doc) Argument \code{time_column}.}
+
+\item{event_column}{(auto-doc) Argument \code{event_column}.}
+
+\item{seed}{(auto-doc) Argument \code{seed}.}
+
+\item{id_column}{(auto-doc) Argument \code{id_column}.}
+}
 \description{
 Draw \code{time ~ Exp(lambda_i)} with
 \code{lambda_i = 1 / (base_scale * (1 + beta * x))} where \code{x}

@@ -6,6 +6,13 @@
 \usage{
 k2BeaverReceiveVectorDS(blob_key, output_key, session_id = NULL)
 }
+\arguments{
+\item{blob_key}{(auto-doc) Argument \code{blob_key}.}
+
+\item{output_key}{(auto-doc) Argument \code{output_key}.}
+
+\item{session_id}{(auto-doc) Argument \code{session_id}.}
+}
 \description{
 Consume the peer-relayed blob previously delivered via
 \code{mpcStoreBlobDS} under \code{blob_key}, decrypt with this

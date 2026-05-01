@@ -6,6 +6,13 @@
 \usage{
 dsvertLMMGlobalSumDS(share_key, session_id = NULL, frac_bits = 20L)
 }
+\arguments{
+\item{share_key}{(auto-doc) Argument \code{share_key}.}
+
+\item{session_id}{(auto-doc) Argument \code{session_id}.}
+
+\item{frac_bits}{(auto-doc) Argument \code{frac_bits}.}
+}
 \description{
 Sum ALL elements of \code{ss[[share_key]]}, returning
 one base64 FP scalar share. Used for total \eqn{\sum r^2}.

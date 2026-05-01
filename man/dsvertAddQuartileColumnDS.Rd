@@ -6,6 +6,13 @@
 \usage{
 dsvertAddQuartileColumnDS(data_name, column = "age", output_column = "age_q")
 }
+\arguments{
+\item{data_name}{(auto-doc) Argument \code{data_name}.}
+
+\item{column}{(auto-doc) Argument \code{column}.}
+
+\item{output_column}{(auto-doc) Argument \code{output_column}.}
+}
 \description{
 Compute quartile boundaries of the named column
 (defaulting to \code{age}) and attach a factor column with levels

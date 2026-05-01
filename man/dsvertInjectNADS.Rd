@@ -12,6 +12,17 @@ dsvertInjectNADS(
   output_column = NULL
 )
 }
+\arguments{
+\item{data_name}{(auto-doc) Argument \code{data_name}.}
+
+\item{column}{(auto-doc) Argument \code{column}.}
+
+\item{fraction}{(auto-doc) Argument \code{fraction}.}
+
+\item{seed}{(auto-doc) Argument \code{seed}.}
+
+\item{output_column}{(auto-doc) Argument \code{output_column}.}
+}
 \description{
 Set a fixed fraction of values in \code{column} to NA
 using the provided RNG seed, and write the result back to the

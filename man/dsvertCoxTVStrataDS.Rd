@@ -11,6 +11,15 @@ dsvertCoxTVStrataDS(
   output_column = "__dsvert_tv_strata"
 )
 }
+\arguments{
+\item{data_name}{(auto-doc) Argument \code{data_name}.}
+
+\item{tstart_column}{(auto-doc) Argument \code{tstart_column}.}
+
+\item{base_strata_column}{(auto-doc) Argument \code{base_strata_column}.}
+
+\item{output_column}{(auto-doc) Argument \code{output_column}.}
+}
 \description{
 For Cox time-varying via Andersen-Gill counting-process
 form, we encode each distinct \code{tstart} value as its own

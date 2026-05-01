@@ -20,6 +20,8 @@ glmRing63GenGradTriplesDS(
 
 \item{p}{Integer. Total number of features.}
 
+\item{ring}{(auto-doc) Argument \code{ring}.}
+
 \item{session_id}{Character or NULL.}
 }
 \value{

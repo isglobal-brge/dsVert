@@ -16,7 +16,7 @@ non-label beta-slice from a prior Poisson fit (client-provided, since
 beta is revealed at convergence).}
 
 \item{target_pk}{Character. Transport PK (base64url) of the label
-server that should receive the sealed eta^{nl} vector.}
+server that should receive the sealed \code{eta_nl} vector.}
 
 \item{session_id}{Character.}
 }
@@ -32,7 +32,7 @@ to get per-patient mu_i to the outcome server without revealing
 them to the client.
 
 Inter-server leakage (documented in P3 budget): the label server
-learns \eqn{\eta^{nl}_i} per patient after decryption. Equivalent
+learns \code{eta_nl_i} per patient after decryption. Equivalent
 to sharing the non-label's BLUE fitted value with the outcome
 holder -- a weaker disclosure than raw features. The client still
 sees only scalar aggregates (Sumpsi, Sumlog terms).

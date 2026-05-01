@@ -6,6 +6,15 @@
 \usage{
 k2BeaverSumShareDS(source_key, session_id = NULL, frac_bits = 20L, ring = NULL)
 }
+\arguments{
+\item{source_key}{(auto-doc) Argument \code{source_key}.}
+
+\item{session_id}{(auto-doc) Argument \code{session_id}.}
+
+\item{frac_bits}{(auto-doc) Argument \code{frac_bits}.}
+
+\item{ring}{(auto-doc) Argument \code{ring}.}
+}
 \description{
 Local sum (shares are linear): returns the scalar FP
 representation of \eqn{\sum_i v_i^{share}} as a double.

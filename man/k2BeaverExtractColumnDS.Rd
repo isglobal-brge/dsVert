@@ -23,6 +23,12 @@ k2BeaverExtractColumnDS(
 \item{col_index}{1-based column index (R convention) or 0-based.}
 
 \item{output_key}{Destination session slot for the n-length column share.}
+
+\item{session_id}{(auto-doc) Argument \code{session_id}.}
+
+\item{frac_bits}{(auto-doc) Argument \code{frac_bits}.}
+
+\item{ring}{(auto-doc) Argument \code{ring}.}
 }
 \description{
 Given a session slot holding an \eqn{n\times K}

@@ -7,7 +7,7 @@
 #'   them to the client.
 #'
 #'   Inter-server leakage (documented in P3 budget): the label server
-#'   learns \eqn{\eta^{nl}_i} per patient after decryption. Equivalent
+#'   learns \code{eta_nl_i} per patient after decryption. Equivalent
 #'   to sharing the non-label's BLUE fitted value with the outcome
 #'   holder -- a weaker disclosure than raw features. The client still
 #'   sees only scalar aggregates (Sumpsi, Sumlog terms).
@@ -18,7 +18,7 @@
 #'   non-label beta-slice from a prior Poisson fit (client-provided, since
 #'   beta is revealed at convergence).
 #' @param target_pk Character. Transport PK (base64url) of the label
-#'   server that should receive the sealed eta^{nl} vector.
+#'   server that should receive the sealed \code{eta_nl} vector.
 #' @param session_id Character.
 #' @return List with \code{sealed} (base64url blob).
 #' @export
@@ -49,7 +49,7 @@ dsvertNBEtaSealDS <- function(data_name, x_vars, beta_values,
   if (is.numeric(privacy_min) && n < privacy_min)
     stop("Insufficient observations", call. = FALSE)
 
-  # Transport-seal the eta^{nl} vector to the label server's PK. This is
+  # Transport-seal the \code{eta_nl} vector to the label server's PK. This is
   # JSON of a numeric vector; the label server decrypts in
   # dsvertNBFullScoreDS.
   payload <- jsonlite::base64_enc(charToRaw(jsonlite::toJSON(eta_nl)))
@@ -88,7 +88,7 @@ dsvertNBEtaSealDS <- function(data_name, x_vars, beta_values,
 #'   provided from prior Poisson fit).
 #' @param beta_intercept Numeric scalar. The fit's intercept (revealed).
 #' @param peer_eta_key Character. Session slot holding the peer's
-#'   transport-sealed eta^{nl} blob (set via \code{mpcStoreBlobDS}).
+#'   transport-sealed \code{eta_nl} blob (set via \code{mpcStoreBlobDS}).
 #' @param theta Numeric scalar > 0.
 #' @param session_id Character.
 #' @return List of five numeric scalars.
@@ -135,7 +135,7 @@ dsvertNBFullScoreDS <- function(data_name, y_var,
     eta_label <- as.numeric(Xl %*% beta_values_label)
   }
 
-  # Decrypt peer eta^{nl} from the session blob.
+  # Decrypt peer \code{eta_nl} from the session blob.
   blob <- .blob_consume(peer_eta_key, ss)
   if (is.null(blob))
     stop("peer eta blob missing at key '", peer_eta_key,

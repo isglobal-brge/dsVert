@@ -17,6 +17,7 @@
 #' @param peer_pk Character. Transport (X25519) public key of the DCF peer.
 #' @param session_id Character. GLM session identifier.
 #'
+#' @param ring (auto-doc) Argument \code{ring}.
 #' @return A list with \code{peer_blob} (base64url transport-encrypted
 #'   serialised FP weights vector) and \code{n} (vector length). The
 #'   client relays \code{peer_blob} to the peer via \code{mpcStoreBlobDS}

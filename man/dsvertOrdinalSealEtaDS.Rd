@@ -12,6 +12,17 @@ dsvertOrdinalSealEtaDS(
   session_id = NULL
 )
 }
+\arguments{
+\item{data_name}{(auto-doc) Argument \code{data_name}.}
+
+\item{x_vars}{(auto-doc) Argument \code{x_vars}.}
+
+\item{beta_values}{(auto-doc) Argument \code{beta_values}.}
+
+\item{target_pk}{(auto-doc) Argument \code{target_pk}.}
+
+\item{session_id}{(auto-doc) Argument \code{session_id}.}
+}
 \description{
 Computes eta^nl = X^nl * beta^nl locally and transport-
 seals to outcome server's PK. Bypasses the F-reveal Ring127 ULP

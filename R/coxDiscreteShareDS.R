@@ -37,7 +37,8 @@
 #'   reproducible across servers.
 #' @param mask_output_key,y_output_key Character. Session slots to write
 #'   own (OS) Ring127 shares of the flattened m_ij and y_ij vectors
-#'   (length J*n, row-major: m_{1,1}, m_{1,2}, ..., m_{1,J}, m_{2,1}, ...).
+#'   (length J*n, row-major:
+#'   \code{m[1,1], m[1,2], ..., m[1,J], m[2,1], ...}).
 #' @param target_pk Character. NL's transport public key (base64url).
 #' @param session_id Character.
 #' @return List(sealed_m_blob = b64url, sealed_y_blob = b64url,

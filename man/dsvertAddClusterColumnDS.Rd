@@ -11,6 +11,15 @@ dsvertAddClusterColumnDS(
   id_column = "patient_id"
 )
 }
+\arguments{
+\item{data_name}{(auto-doc) Argument \code{data_name}.}
+
+\item{block_size}{(auto-doc) Argument \code{block_size}.}
+
+\item{output_column}{(auto-doc) Argument \code{output_column}.}
+
+\item{id_column}{(auto-doc) Argument \code{id_column}.}
+}
 \description{
 Append a cluster id column derived from a
 patient-level identifier. When \code{id_column} (default

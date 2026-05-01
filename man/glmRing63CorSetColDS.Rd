@@ -18,6 +18,8 @@ glmRing63CorSetColDS(
 
 \item{p_total}{Integer. Total number of columns.}
 
+\item{from_storage}{(auto-doc) Argument \code{from_storage}.}
+
 \item{session_id}{Character or NULL.}
 }
 \value{

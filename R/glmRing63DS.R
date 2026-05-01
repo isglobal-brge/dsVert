@@ -57,8 +57,9 @@ glmRing63ExportOwnShareDS <- function(peer_pk, session_id = NULL) {
 #' Reorder X_full columns to canonical order on fusion party
 #'
 #' After k2ComputeEtaShareDS, the fusion party's X_full has column order
-#' [coord | extras | fusion]. This reorders to canonical [coord | fusion | extras]
-#' to match the coordinator's order, ensuring Beaver gradient works correctly.
+#' \code{(coord | extras | fusion)}. This reorders to canonical
+#' \code{(coord | fusion | extras)} to match the coordinator's order,
+#' ensuring Beaver gradient works correctly.
 #'
 #' @param p_coord Integer. Number of coordinator features.
 #' @param p_fusion Integer. Number of fusion features.
@@ -207,6 +208,7 @@ glmRing63GenSplineTriplesDS <- function(dcf0_pk, dcf1_pk, n, frac_bits,
 #' @param n Integer. Number of observations.
 #' @param p Integer. Total number of features.
 #' @param session_id Character or NULL.
+#' @param ring (auto-doc) Argument \code{ring}.
 #' @return List with encrypted blobs for each DCF party.
 #' @export
 glmRing63GenGradTriplesDS <- function(dcf0_pk, dcf1_pk, n, p,
@@ -245,6 +247,7 @@ glmRing63GenGradTriplesDS <- function(dcf0_pk, dcf1_pk, n, p,
 #' with p=1 triples computes "gradient" = r^T x r = Sum r_i^2 (deviance).
 #'
 #' @param session_id Character or NULL.
+#' @param mode (auto-doc) Argument \code{mode}.
 #' @return List with status.
 #' @export
 glmRing63PrepDevianceDS <- function(mode = "rss", session_id = NULL) {
@@ -337,6 +340,7 @@ glmRing63CorSetZeroYDS <- function(session_id = NULL) {
 #' @param col_idx Integer (0-indexed). Column to extract.
 #' @param p_total Integer. Total number of columns.
 #' @param session_id Character or NULL.
+#' @param from_storage (auto-doc) Argument \code{from_storage}.
 #' @return List with status.
 #' @export
 glmRing63CorSetColDS <- function(col_idx = NULL, p_total = NULL,
@@ -443,6 +447,8 @@ mpcStoreBlobDS <- function(key, chunk, chunk_index = 1L, n_chunks = 1L,
 #' @param transport_keys Named list of base64url transport PKs.
 #' @param identity_info Named list: server -> list(identity_pk, signature). NULL to skip.
 #' @param session_id Character or NULL.
+#' @param transport_keys_b64 (auto-doc) Argument \code{transport_keys_b64}.
+#' @param identity_info_b64 (auto-doc) Argument \code{identity_info_b64}.
 #' @return TRUE on success.
 #' @export
 mpcStoreTransportKeysDS <- function(transport_keys = NULL,

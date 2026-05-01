@@ -6,6 +6,11 @@
 \usage{
 dsvertOutcomeLevelsDS(data_name, y_var)
 }
+\arguments{
+\item{data_name}{(auto-doc) Argument \code{data_name}.}
+
+\item{y_var}{(auto-doc) Argument \code{y_var}.}
+}
 \description{
 Aggregate. Returns the levels (sorted) of a factor or
 character column, with the same privacy-threshold suppression as

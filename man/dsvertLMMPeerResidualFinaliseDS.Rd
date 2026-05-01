@@ -12,6 +12,10 @@ dsvertLMMPeerResidualFinaliseDS(n = NULL, session_id = NULL, frac_bits = 20L)
 pipeline) and then fall back to decoding the peer-share byte
 length. Pass explicitly from the client orchestration whenever
 the session wasn't initialised by k2ShareInputDS.}
+
+\item{session_id}{(auto-doc) Argument \code{session_id}.}
+
+\item{frac_bits}{(auto-doc) Argument \code{frac_bits}.}
 }
 \description{
 On the peer (non-outcome) server, the residual share is

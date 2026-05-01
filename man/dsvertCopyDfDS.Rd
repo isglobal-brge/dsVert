@@ -6,6 +6,11 @@
 \usage{
 dsvertCopyDfDS(data_name, output_name)
 }
+\arguments{
+\item{data_name}{(auto-doc) Argument \code{data_name}.}
+
+\item{output_name}{(auto-doc) Argument \code{output_name}.}
+}
 \description{
 Copy a data frame to a new name (test helper)
 }

@@ -20,10 +20,39 @@ dsvertLMMLocalGramDS(
   ring = "ring63"
 )
 }
+\arguments{
+\item{data_name}{(auto-doc) Argument \code{data_name}.}
+
+\item{columns}{(auto-doc) Argument \code{columns}.}
+
+\item{y_var}{(auto-doc) Argument \code{y_var}.}
+
+\item{lambda_per_cluster}{(auto-doc) Argument \code{lambda_per_cluster}.}
+
+\item{create_intercept}{(auto-doc) Argument \code{create_intercept}.}
+
+\item{intercept_col}{(auto-doc) Argument \code{intercept_col}.}
+
+\item{peer_pk}{(auto-doc) Argument \code{peer_pk}.}
+
+\item{session_id}{(auto-doc) Argument \code{session_id}.}
+
+\item{frac_bits}{(auto-doc) Argument \code{frac_bits}.}
+
+\item{share_scale}{(auto-doc) Argument \code{share_scale}.}
+
+\item{column_scales}{(auto-doc) Argument \code{column_scales}.}
+
+\item{standardize}{(auto-doc) Argument \code{standardize}.}
+
+\item{ring}{(auto-doc) Argument \code{ring}.}
+}
 \description{
 Per-server aggregate. Computes the Laird-Ware cluster-mean-
 centred transformed design columns in-place:
-tilde_v_j = v_j - lambda_{c(j)} * mean(v\link{cluster == c(j)})
+\preformatted{
+  tilde_v_j = v_j - lambda_c(j) * mean(v over cluster c(j))
+  }
 and returns:
 - XtX_local: p_local x p_local matrix of local inner products
 - Xty_local: p_local vector (only if this server owns y_var)

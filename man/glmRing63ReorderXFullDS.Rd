@@ -20,6 +20,7 @@ List with status.
 }
 \description{
 After k2ComputeEtaShareDS, the fusion party's X_full has column order
-\link{coord | extras | fusion}. This reorders to canonical \link{coord | fusion | extras}
-to match the coordinator's order, ensuring Beaver gradient works correctly.
+\code{(coord | extras | fusion)}. This reorders to canonical
+\code{(coord | fusion | extras)} to match the coordinator's order,
+ensuring Beaver gradient works correctly.
 }

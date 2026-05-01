@@ -1,7 +1,9 @@
 #' @title LMM closed-form GLS: local Gram blocks + share transformed columns
 #' @description Per-server aggregate. Computes the Laird-Ware cluster-mean-
 #'   centred transformed design columns in-place:
-#'       tilde_v_j = v_j - lambda_{c(j)} * mean(v[cluster == c(j)])
+#'   \preformatted{
+#'   tilde_v_j = v_j - lambda_c(j) * mean(v over cluster c(j))
+#'   }
 #'   and returns:
 #'     - XtX_local: p_local x p_local matrix of local inner products
 #'     - Xty_local: p_local vector (only if this server owns y_var)
@@ -21,6 +23,19 @@
 #'   computable from existing GLM pipeline) and transport-sealed FP
 #'   share blobs (random to the peer until combined).
 #'
+#' @param data_name (auto-doc) Argument \code{data_name}.
+#' @param columns (auto-doc) Argument \code{columns}.
+#' @param y_var (auto-doc) Argument \code{y_var}.
+#' @param lambda_per_cluster (auto-doc) Argument \code{lambda_per_cluster}.
+#' @param create_intercept (auto-doc) Argument \code{create_intercept}.
+#' @param intercept_col (auto-doc) Argument \code{intercept_col}.
+#' @param peer_pk (auto-doc) Argument \code{peer_pk}.
+#' @param session_id (auto-doc) Argument \code{session_id}.
+#' @param frac_bits (auto-doc) Argument \code{frac_bits}.
+#' @param share_scale (auto-doc) Argument \code{share_scale}.
+#' @param column_scales (auto-doc) Argument \code{column_scales}.
+#' @param standardize (auto-doc) Argument \code{standardize}.
+#' @param ring (auto-doc) Argument \code{ring}.
 #' @export
 dsvertLMMLocalGramDS <- function(data_name, columns,
                                   y_var = NULL,
@@ -211,6 +226,7 @@ dsvertLMMLocalGramDS <- function(data_name, columns,
 #'   \code{"k2_lmm_gram_peer_shares"}), decrypts it, and stores each
 #'   column's FP share under \code{ss$lmm_gram_col_<name>} so the
 #'   subsequent Beaver vecmul rounds can dereference it by name.
+#' @param session_id (auto-doc) Argument \code{session_id}.
 #' @export
 dsvertLMMReceiveGramSharesDS <- function(session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id))
@@ -246,6 +262,12 @@ dsvertLMMReceiveGramSharesDS <- function(session_id = NULL) {
 #'   The R1 variant produces masked outputs for the peer; the R2
 #'   variant consumes the peer's masks and reveals the party's output
 #'   share, then reduces to a scalar via \code{k2-fp-sum}.
+#' @param peer_pk (auto-doc) Argument \code{peer_pk}.
+#' @param x_col (auto-doc) Argument \code{x_col}.
+#' @param y_col (auto-doc) Argument \code{y_col}.
+#' @param session_id (auto-doc) Argument \code{session_id}.
+#' @param frac_bits (auto-doc) Argument \code{frac_bits}.
+#' @param ring (auto-doc) Argument \code{ring}.
 #' @export
 dsvertLMMGramR1DS <- function(peer_pk, x_col, y_col,
                                session_id = NULL, frac_bits = 20L,

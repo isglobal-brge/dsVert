@@ -15,7 +15,7 @@ of mu = exp(X beta_k), G, S, 1/S, mu\emph{G (via existing DCF + Beaver
 infrastructure).
 2. For each column j: Beaver(X_j_share * mu_share) -> share of
 X_j}mu per row. Then local reverse cumsum (strata-aware) gives
-share of T_j(i) = sum_{k>=i} X_kj mu_k.
+share of \code{T_j(i) = sum over k >= i of X_kj mu_k}.
 3. One Beaver((1/S) * (1/S)) gives share of 1/S^2 per row.
 4. Per Fisher pair (j, k):
 Term1 = sum_m X_mj X_mk (mu G)_m

@@ -40,6 +40,9 @@ k2BeaverShareVectorDS <- function(source_key, peer_pk,
 #' @description Consume the peer-relayed blob previously delivered via
 #'   \code{mpcStoreBlobDS} under \code{blob_key}, decrypt with this
 #'   party's transport secret key, and store under \code{output_key}.
+#' @param blob_key (auto-doc) Argument \code{blob_key}.
+#' @param output_key (auto-doc) Argument \code{output_key}.
+#' @param session_id (auto-doc) Argument \code{session_id}.
 #' @export
 k2BeaverReceiveVectorDS <- function(blob_key, output_key,
                                      session_id = NULL) {
@@ -70,6 +73,9 @@ k2BeaverReceiveVectorDS <- function(blob_key, output_key,
 #' @param n,K Matrix dimensions.
 #' @param col_index 1-based column index (R convention) or 0-based.
 #' @param output_key Destination session slot for the n-length column share.
+#' @param session_id (auto-doc) Argument \code{session_id}.
+#' @param frac_bits (auto-doc) Argument \code{frac_bits}.
+#' @param ring (auto-doc) Argument \code{ring}.
 #' @export
 k2BeaverExtractColumnDS <- function(source_key, n, K, col_index,
                                     output_key, session_id = NULL,
@@ -107,6 +113,10 @@ k2BeaverExtractColumnDS <- function(source_key, n, K, col_index,
 #' @title Sum an FP share vector to a scalar share
 #' @description Local sum (shares are linear): returns the scalar FP
 #'   representation of \eqn{\sum_i v_i^{share}} as a double.
+#' @param source_key (auto-doc) Argument \code{source_key}.
+#' @param session_id (auto-doc) Argument \code{session_id}.
+#' @param frac_bits (auto-doc) Argument \code{frac_bits}.
+#' @param ring (auto-doc) Argument \code{ring}.
 #' @export
 k2BeaverSumShareDS <- function(source_key, session_id = NULL,
                                 frac_bits = 20L, ring = NULL) {

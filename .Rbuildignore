@@ -1,0 +1,9 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.github$
+^docs$
+^scripts$
+^LICENSE\.md$
+^inst/dsvert-mpc$
+^inst/mhe-tool$
+^inst/k2-mpc-tool$

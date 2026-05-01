@@ -15,7 +15,11 @@ mpcStoreTransportKeysDS(
 \arguments{
 \item{transport_keys}{Named list of base64url transport PKs.}
 
+\item{transport_keys_b64}{(auto-doc) Argument \code{transport_keys_b64}.}
+
 \item{identity_info}{Named list: server -> list(identity_pk, signature). NULL to skip.}
+
+\item{identity_info_b64}{(auto-doc) Argument \code{identity_info_b64}.}
 
 \item{session_id}{Character or NULL.}
 }

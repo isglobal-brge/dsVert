@@ -14,10 +14,20 @@ k2ShareInputDS(
 )
 }
 \arguments{
+\item{data_name}{(auto-doc) Argument \code{data_name}.}
+
+\item{x_vars}{(auto-doc) Argument \code{x_vars}.}
+
+\item{y_var}{(auto-doc) Argument \code{y_var}.}
+
+\item{peer_pk}{(auto-doc) Argument \code{peer_pk}.}
+
 \item{ring}{Integer 63 (default) or 127. Selects secret-share ring
 (task #116 Cox/LMM STRICT migration). Ring127 routes through 16-byte
 Uint128 records via k2-float-to-fp + k2-split-fp-share with
 ring="ring127"; Ring63 keeps the 8-byte pipeline.}
+
+\item{session_id}{(auto-doc) Argument \code{session_id}.}
 }
 \description{
 Share local data with peer (FixedPoint shares)

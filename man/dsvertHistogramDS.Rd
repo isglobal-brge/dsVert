@@ -12,8 +12,8 @@ dsvertHistogramDS(data_name, variable, edges, suppress_small_cells = TRUE)
 \item{variable}{Character. Name of the numeric column to bucketise.}
 
 \item{edges}{Numeric vector (length K+1, strictly increasing). Defines the
-K buckets [edges\link{1}, edges\link{2}), ..., [edges\link{K}, edges\link{K+1}] (the last
-bucket is right-closed).}
+K buckets \code{[edges[1], edges[2]), ..., [edges[K], edges[K+1]]}
+(the last bucket is right-closed).}
 
 \item{suppress_small_cells}{Logical. If TRUE (default) cells with positive
 count below the DataSHIELD privacy threshold
@@ -25,8 +25,10 @@ number of non-missing observations.}
 A list with elements
 \itemize{
 \item \code{counts}: length-K integer vector of per-bucket counts
-\item \code{below}: number of observations strictly below \code{edges[1]}
-\item \code{above}: number of observations strictly above \code{edges[K+1]}
+\item \code{below}: number of observations strictly below the
+lowest edge \code{edges[1]}
+\item \code{above}: number of observations strictly above the
+highest edge \code{edges[K+1]}
 \item \code{n_total}: number of non-missing observations
 \item \code{n_na}: number of missing observations
 \item \code{edges}: the edges vector (echoed for client-side reproducibility)

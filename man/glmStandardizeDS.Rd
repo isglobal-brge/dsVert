@@ -25,6 +25,10 @@ glmStandardizeDS(
 
 \item{session_id}{Character or NULL. UUID for session-scoped storage
 isolation. Default NULL uses global shared storage.}
+
+\item{skip_standardize}{(auto-doc) Argument \code{skip_standardize}.}
+
+\item{mode}{(auto-doc) Argument \code{mode}.}
 }
 \value{
 List with x_means, x_sds, y_mean (if y_var), y_sd (if y_var)

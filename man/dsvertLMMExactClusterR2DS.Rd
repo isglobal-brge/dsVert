@@ -21,6 +21,8 @@ dsvertLMMExactClusterR2DS(
 \code{"k2_lmm_exact_r2_share"}).}
 
 \item{session_id}{MPC session id.}
+
+\item{frac_bits}{(auto-doc) Argument \code{frac_bits}.}
 }
 \value{
 list(per_cluster_fp -- K vector of base64 FP scalars,

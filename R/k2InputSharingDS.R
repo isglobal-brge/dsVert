@@ -11,6 +11,11 @@ NULL
 #'   (task #116 Cox/LMM STRICT migration). Ring127 routes through 16-byte
 #'   Uint128 records via k2-float-to-fp + k2-split-fp-share with
 #'   ring="ring127"; Ring63 keeps the 8-byte pipeline.
+#' @param data_name (auto-doc) Argument \code{data_name}.
+#' @param x_vars (auto-doc) Argument \code{x_vars}.
+#' @param y_var (auto-doc) Argument \code{y_var}.
+#' @param peer_pk (auto-doc) Argument \code{peer_pk}.
+#' @param session_id (auto-doc) Argument \code{session_id}.
 #' @export
 k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
                              peer_pk, ring = 63L, session_id = NULL) {
@@ -89,6 +94,8 @@ k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
 }
 
 #' Receive peer's shared data (FixedPoint)
+#' @param peer_p (auto-doc) Argument \code{peer_p}.
+#' @param session_id (auto-doc) Argument \code{session_id}.
 #' @export
 k2ReceiveShareDS <- function(peer_p = NULL, session_id = NULL) {
   ss <- .S(session_id)
@@ -128,6 +135,11 @@ k2ReceiveShareDS <- function(peer_p = NULL, session_id = NULL) {
 #'   \code{secure_eta_share}). Used by \code{ds.vertMultinomJointNewton}
 #'   to maintain K-1 parallel eta shares (one per non-reference class)
 #'   across the same session without overwrite.
+#' @param beta_coord (auto-doc) Argument \code{beta_coord}.
+#' @param beta_nl (auto-doc) Argument \code{beta_nl}.
+#' @param intercept (auto-doc) Argument \code{intercept}.
+#' @param is_coordinator (auto-doc) Argument \code{is_coordinator}.
+#' @param session_id (auto-doc) Argument \code{session_id}.
 #' @export
 k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
                                   is_coordinator = TRUE, session_id = NULL,
@@ -229,6 +241,8 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
 }
 
 #' Gradient round 1: compute (X-A, r-B) in selected ring (Ring63 / Ring127)
+#' @param peer_pk (auto-doc) Argument \code{peer_pk}.
+#' @param session_id (auto-doc) Argument \code{session_id}.
 #' @export
 k2GradientR1DS <- function(peer_pk, session_id = NULL) {
   ss <- .S(session_id)
@@ -286,6 +300,8 @@ k2GradientR1DS <- function(peer_pk, session_id = NULL) {
 }
 
 #' Gradient round 2: compute gradient share from Beaver formula
+#' @param party_id (auto-doc) Argument \code{party_id}.
+#' @param session_id (auto-doc) Argument \code{session_id}.
 #' @export
 k2GradientR2DS <- function(party_id = 0L, session_id = NULL) {
   ss <- .S(session_id)
@@ -339,6 +355,7 @@ k2GradientR2DS <- function(party_id = 0L, session_id = NULL) {
 #'   pattern documented in ABY3 Sec.IV.D (Mohassel-Rindal 2018 CCS) and
 #'   MP-SPDZ Programs/Source/Multiplications.hpp where pool isolation
 #'   is per-multiplication, not per-pool.
+#' @param session_id (auto-doc) Argument \code{session_id}.
 #' @export
 k2StoreGradTripleDS <- function(session_id = NULL,
                                 grad_triple_key = "k2_grad_triple_fp") {

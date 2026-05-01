@@ -6,6 +6,11 @@
 \usage{
 k2GradientR1DS(peer_pk, session_id = NULL)
 }
+\arguments{
+\item{peer_pk}{(auto-doc) Argument \code{peer_pk}.}
+
+\item{session_id}{(auto-doc) Argument \code{session_id}.}
+}
 \description{
 Gradient round 1: compute (X-A, r-B) in selected ring (Ring63 / Ring127)
 }

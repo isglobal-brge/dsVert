@@ -35,7 +35,7 @@ disclosure.
 The NB(mu, theta) log-likelihood, assuming a common mean mu, has score
 dell/dtheta = Sum_i psi(y_i + theta) - n psi(theta) + n log(theta/(ybar + theta))
 and Fisher-like curvature
--d^2ell/dtheta^2 approx -\link{Sum_i psi_1(y_i + theta) - n psi_1(theta)} - n * \link{1/theta - 1/(ybar + theta)}
+-d^2ell/dtheta^2 approx -(Sum_i psi_1(y_i + theta) - n psi_1(theta)) - n * (1/theta - 1/(ybar + theta))
 where psi is the digamma function and psi_1 its derivative (trigamma).
 This is the Anscombe / Lawless parametrisation used by
 \code{MASS::theta.ml}, specialised to the homogeneous-mu case so that

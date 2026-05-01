@@ -14,6 +14,16 @@ k2ComputeEtaShareDS(
 )
 }
 \arguments{
+\item{beta_coord}{(auto-doc) Argument \code{beta_coord}.}
+
+\item{beta_nl}{(auto-doc) Argument \code{beta_nl}.}
+
+\item{intercept}{(auto-doc) Argument \code{intercept}.}
+
+\item{is_coordinator}{(auto-doc) Argument \code{is_coordinator}.}
+
+\item{session_id}{(auto-doc) Argument \code{session_id}.}
+
 \item{output_key}{Optional character. When set, the computed eta share
 is additionally stored under this session key (in addition to the
 standard slots \code{k2_eta_share_fp}, \code{k2_eta_share},

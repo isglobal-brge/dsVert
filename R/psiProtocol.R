@@ -160,6 +160,9 @@ psiInitDS <- function(session_id = NULL) {
 #'
 #' @param transport_keys Named list. Server name -> transport PK (base64url).
 #' @param session_id Character or NULL. UUID for session-scoped storage.
+#' @param transport_keys_b64 (auto-doc) Argument \code{transport_keys_b64}.
+#' @param identity_info (auto-doc) Argument \code{identity_info}.
+#' @param identity_info_b64 (auto-doc) Argument \code{identity_info_b64}.
 #' @return TRUE (invisible).
 #' @export
 psiStoreTransportKeysDS <- function(transport_keys = NULL,

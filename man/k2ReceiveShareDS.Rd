@@ -6,6 +6,11 @@
 \usage{
 k2ReceiveShareDS(peer_p = NULL, session_id = NULL)
 }
+\arguments{
+\item{peer_p}{(auto-doc) Argument \code{peer_p}.}
+
+\item{session_id}{(auto-doc) Argument \code{session_id}.}
+}
 \description{
 Receive peer's shared data (FixedPoint)
 }

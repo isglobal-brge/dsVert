@@ -10,6 +10,8 @@ localCorDS(data_name, variables, session_id = NULL)
 \item{data_name}{Character string. Name of the data frame in the server environment.}
 
 \item{variables}{Character vector. Names of numeric columns to include.}
+
+\item{session_id}{(auto-doc) Argument \code{session_id}.}
 }
 \value{
 A list containing:

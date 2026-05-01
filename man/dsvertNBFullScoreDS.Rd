@@ -28,7 +28,7 @@ provided from prior Poisson fit).}
 \item{beta_intercept}{Numeric scalar. The fit's intercept (revealed).}
 
 \item{peer_eta_key}{Character. Session slot holding the peer's
-transport-sealed eta^{nl} blob (set via \code{mpcStoreBlobDS}).}
+transport-sealed \code{eta_nl} blob (set via \code{mpcStoreBlobDS}).}
 
 \item{theta}{Numeric scalar > 0.}
 

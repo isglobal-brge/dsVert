@@ -1,24 +1,24 @@
 #' @title Cox K=2 discrete-time non-disclosive share-mask primitives (#D')
-#' @description Worker2 K=2-safe option (B) — hide J_i (per-patient ending
+#' @description Worker2 K=2-safe option (B) -- hide J_i (per-patient ending
 #'   bin index) from the covariate (non-label) server. Implements the
 #'   share-mask gating pattern documented in
-#'   \code{project_k2_strict_unified_plan_2026-04-27.md} §"Option B
+#'   \code{project_k2_strict_unified_plan_2026-04-27.md} Sec."Option B
 #'   FEASIBILITY ANALYSIS":
 #'
 #'   - At the outcome (label) server, J_i and status_i are local plaintext.
-#'     Compute the per-patient at-risk mask m_ij ∈ \{0,1\} (j=1..J,
-#'     i=1..n) where m_ij = I(j ≤ J_i) and the event indicator
+#'     Compute the per-patient at-risk mask m_ij in \{0,1\} (j=1..J,
+#'     i=1..n) where m_ij = I(j <= J_i) and the event indicator
 #'     y_ij = I(j == J_i AND status_i = 1).
 #'   - Both m and y get split into Ring127 additive shares between OS and
 #'     the covariate server. The covariate server thereby never sees J_i
 #'     directly; the only signal it receives is two random-looking
-#'     length-(J·n) shares that, summed pointwise mod 2^127 with the OS
+#'     length-(J*n) shares that, summed pointwise mod 2^127 with the OS
 #'     shares, reconstruct m and y.
-#'   - The covariate server expands its X to a UNIFORM J×n person-period
+#'   - The covariate server expands its X to a UNIFORM Jxn person-period
 #'     frame (every patient contributes J rows, regardless of true J_i),
 #'     so no row-count signal leaks. The mask shares gate which rows
 #'     enter the score / Hessian aggregations downstream via Beaver
-#'     vecmul against (y - p) and W = p·(1-p).
+#'     vecmul against (y - p) and W = p*(1-p).
 #'
 #'   Cite: Aliasgari-Blanton 2013 NDSS eprint 2012/405 (share-mask
 #'   gating); Cock et al. 2016 eprint 2016/736 (oblivious selection);
@@ -37,7 +37,7 @@
 #'   reproducible across servers.
 #' @param mask_output_key,y_output_key Character. Session slots to write
 #'   own (OS) Ring127 shares of the flattened m_ij and y_ij vectors
-#'   (length J·n, row-major: [m_{1,1}, m_{1,2}, ..., m_{1,J}, m_{2,1}, ...]).
+#'   (length J*n, row-major: [m_{1,1}, m_{1,2}, ..., m_{1,J}, m_{2,1}, ...]).
 #' @param target_pk Character. NL's transport public key (base64url).
 #' @param session_id Character.
 #' @return List(sealed_m_blob = b64url, sealed_y_blob = b64url,
@@ -128,16 +128,16 @@ dsvertCoxDiscreteShareMaskDS <- function(data_name, time_var, status_var,
 
 
 #' @title Cox K=2 discrete-time receive shared mask + y at NL
-#' @description Counterpart to \code{dsvertCoxDiscreteShareMaskDS} —
+#' @description Counterpart to \code{dsvertCoxDiscreteShareMaskDS} --
 #'   non-label server transport-decrypts the sealed mask + y blobs and
-#'   stores them as Ring127 shares (length J·n, row-major). Forms the
+#'   stores them as Ring127 shares (length J*n, row-major). Forms the
 #'   additive share pair (own at OS, peer at NL) needed for the
 #'   downstream Beaver-gated person-period Cox Newton.
 #' @param mask_blob_key,y_blob_key Character. Session blob slots
 #'   holding sealed shares.
 #' @param mask_output_key,y_output_key Character. Session slots to
 #'   write decrypted Ring127 shares.
-#' @param n_pp Integer. Total person-period rows = J · n_obs.
+#' @param n_pp Integer. Total person-period rows = J * n_obs.
 #' @param session_id Character.
 #' @export
 dsvertCoxDiscreteReceiveSharesDS <- function(mask_blob_key, y_blob_key,
@@ -149,7 +149,7 @@ dsvertCoxDiscreteReceiveSharesDS <- function(mask_blob_key, y_blob_key,
   .k2_enforce_K(ss, 2L, "dsvertCoxDiscreteReceiveSharesDS")
   tsk <- .key_get("transport_sk", ss)
   if (is.null(tsk))
-    stop("transport_sk missing — call glmRing63TransportInitDS first",
+    stop("transport_sk missing -- call glmRing63TransportInitDS first",
          call. = FALSE)
   m_blob <- .blob_consume(mask_blob_key, ss)
   if (is.null(m_blob))
@@ -173,13 +173,13 @@ dsvertCoxDiscreteReceiveSharesDS <- function(mask_blob_key, y_blob_key,
 }
 
 
-#' @title Expand local covariates to uniform J×n person-period frame
+#' @title Expand local covariates to uniform Jxn person-period frame
 #' @description At the covariate server, replicate each X_i row J times
-#'   to form a uniform J·n × p person-period frame. No row-count signal
-#'   leaks — every patient contributes exactly J rows regardless of
+#'   to form a uniform J*n x p person-period frame. No row-count signal
+#'   leaks -- every patient contributes exactly J rows regardless of
 #'   their true (hidden) ending bin J_i. Bin index per row is implicit
 #'   in the row position: row idx (i-1)*J + j corresponds to (patient i,
-#'   bin j). Bin-dummy α_j coefficients indexed by j are public; only
+#'   bin j). Bin-dummy alpha_j coefficients indexed by j are public; only
 #'   J_i (per-patient hidden) is share-protected via the mask.
 #' @param data_name Character. Local data frame name (NL side).
 #' @param new_data_name Character. Name to assign expanded frame to.
@@ -212,7 +212,7 @@ dsvertCoxDiscreteExpandXDS <- function(data_name, new_data_name,
   expanded$patient_id <- sprintf("PP%05d_%03d",
                                   rep_idx,
                                   expanded$bin)
-  # Add bin one-hot dummies (α_j coefficients indexed by j).
+  # Add bin one-hot dummies (alpha_j coefficients indexed by j).
   for (j in seq_len(J)) {
     expanded[[paste0("bin", j)]] <- as.integer(expanded$bin == j)
   }

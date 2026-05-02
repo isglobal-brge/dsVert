@@ -102,6 +102,8 @@ AggregateMethods:
     dsvertAddFactorDummiesDS,
     dsvertImputeColumnDS,
     dsvertPearsonR2ColDS,
+    dsvertGEEInterceptShareDS,
+    dsvertGEERestoreFeatureShapeDS,
     dsvertClusterSizesDS,
     dsvertClusterResidualsDS,
     dsvertClusterBinomialMomentsDS,

@@ -57,8 +57,9 @@ glmRing63ExportOwnShareDS <- function(peer_pk, session_id = NULL) {
 #' Reorder X_full columns to canonical order on fusion party
 #'
 #' After k2ComputeEtaShareDS, the fusion party's X_full has column order
-#' [coord | extras | fusion]. This reorders to canonical [coord | fusion | extras]
-#' to match the coordinator's order, ensuring Beaver gradient works correctly.
+#' \code{(coord | extras | fusion)}. This reorders to canonical
+#' \code{(coord | fusion | extras)} to match the coordinator's order,
+#' ensuring Beaver gradient works correctly.
 #'
 #' @param p_coord Integer. Number of coordinator features.
 #' @param p_fusion Integer. Number of fusion features.
@@ -101,7 +102,7 @@ glmRing63ReorderXFullDS <- function(p_coord, p_fusion, p_extras, session_id = NU
 #' Generate DCF keys on server and distribute to DCF parties
 #'
 #' Called on a NON-DCF server to generate DCF keys securely.
-#' The client never sees the key values — only opaque transport-encrypted blobs.
+#' The client never sees the key values -- only opaque transport-encrypted blobs.
 #' This prevents a malicious client from crafting DCF keys to leak information.
 #'
 #' @param dcf0_pk,dcf1_pk Character. Transport PKs of DCF parties (base64url).
@@ -207,6 +208,7 @@ glmRing63GenSplineTriplesDS <- function(dcf0_pk, dcf1_pk, n, frac_bits,
 #' @param n Integer. Number of observations.
 #' @param p Integer. Total number of features.
 #' @param session_id Character or NULL.
+#' @param ring Integer (63 or 127). MPC ring selector; controls fixed-point precision.
 #' @return List with encrypted blobs for each DCF party.
 #' @export
 glmRing63GenGradTriplesDS <- function(dcf0_pk, dcf1_pk, n, p,
@@ -238,13 +240,14 @@ glmRing63GenGradTriplesDS <- function(dcf0_pk, dcf1_pk, n, p,
   )
 }
 
-#' Prepare deviance: store residual as 1-column X matrix for Beaver Σr²
+#' Prepare deviance: store residual as 1-column X matrix for Beaver Sumr^2
 #'
 #' After convergence, computes r = mu_share - y_share in Ring63 and stores
-#' as k2_x_full_fp (n×1 "matrix"). Then the standard k2GradientR1DS/R2DS
-#' with p=1 triples computes "gradient" = r^T × r = Σ r_i² (deviance).
+#' as k2_x_full_fp (nx1 "matrix"). Then the standard k2GradientR1DS/R2DS
+#' with p=1 triples computes "gradient" = r^T x r = Sum r_i^2 (deviance).
 #'
 #' @param session_id Character or NULL.
+#' @param mode Character. Operation mode (e.g. \code{"rss"} or \code{"canonical"}).
 #' @return List with status.
 #' @export
 glmRing63PrepDevianceDS <- function(mode = "rss", session_id = NULL) {
@@ -253,7 +256,7 @@ glmRing63PrepDevianceDS <- function(mode = "rss", session_id = NULL) {
   if (mode == "canonical") {
     # Canonical deviance: Beaver computes eta^T * y
     # gradient uses residual = mu_share - y_share
-    # We set: x_full = eta, mu_share = y, y_share = 0 → residual = y - 0 = y
+    # We set: x_full = eta, mu_share = y, y_share = 0 -> residual = y - 0 = y
     eta_fp <- ss$k2_eta_share_fp
     if (is.null(eta_fp)) stop("No eta shares for canonical deviance", call. = FALSE)
     ss$k2_x_full_fp <- eta_fp
@@ -293,7 +296,7 @@ glmRing63DevianceSumsDS <- function(family, session_id = NULL) {
   ss <- .S(session_id)
 
   if (family == "binomial") {
-    # Sum of softplus(eta) shares — spline must have been evaluated already
+    # Sum of softplus(eta) shares -- spline must have been evaluated already
     sp_fp <- ss$softplus_share_fp
     if (is.null(sp_fp))
       stop("Softplus shares not computed. Run softplus spline first.", call. = FALSE)
@@ -305,7 +308,7 @@ glmRing63DevianceSumsDS <- function(family, session_id = NULL) {
     mu_fp <- .base64url_to_base64(ss$secure_mu_share)
     r <- .callMpcTool("k2-fp-sum", list(fp_data = mu_fp))
 
-    # Null term: label server computes Σ(y*log(y) - y) in plaintext
+    # Null term: label server computes Sum(y*log(y) - y) in plaintext
     null_term <- 0
     if (!is.null(ss$k2_y_raw)) {
       y <- ss$k2_y_raw
@@ -333,10 +336,11 @@ glmRing63CorSetZeroYDS <- function(session_id = NULL) {
 
 #' Set column j of X_full as "mu" for Beaver correlation
 #' Extracts column col_idx from k2_x_full_fp, stores as secure_mu_share.
-#' Combined with zero y, the "residual" = col_j, and Beaver computes X^T × col_j.
+#' Combined with zero y, the "residual" = col_j, and Beaver computes X^T x col_j.
 #' @param col_idx Integer (0-indexed). Column to extract.
 #' @param p_total Integer. Total number of columns.
 #' @param session_id Character or NULL.
+#' @param from_storage Logical. If TRUE, recover parameters from the chunked-blob session store.
 #' @return List with status.
 #' @export
 glmRing63CorSetColDS <- function(col_idx = NULL, p_total = NULL,
@@ -443,6 +447,8 @@ mpcStoreBlobDS <- function(key, chunk, chunk_index = 1L, n_chunks = 1L,
 #' @param transport_keys Named list of base64url transport PKs.
 #' @param identity_info Named list: server -> list(identity_pk, signature). NULL to skip.
 #' @param session_id Character or NULL.
+#' @param transport_keys_b64 Character (base64url). JSON-encoded peer transport public keys.
+#' @param identity_info_b64 Character (base64url). JSON-encoded identity info / Ed25519 signatures.
 #' @return TRUE on success.
 #' @export
 mpcStoreTransportKeysDS <- function(transport_keys = NULL,
@@ -480,7 +486,7 @@ mpcStoreTransportKeysDS <- function(transport_keys = NULL,
   # The client builds `transport_keys` by iterating every server in the
   # federation (ds.vertGLM.setup.R Phase 0), so the dict received here
   # also contains this server's own transport_pk. Filter self out so
-  # `peer_transport_pks` truly contains peers only — required by
+  # `peer_transport_pks` truly contains peers only -- required by
   # `.k2_enforce_K` whose contract is `length + 1 == K`.
   own_tp_plain <- .key_get("transport_pk", ss)
   is_self <- vapply(transport_keys, function(v) {

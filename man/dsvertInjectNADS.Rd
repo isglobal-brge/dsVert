@@ -12,6 +12,17 @@ dsvertInjectNADS(
   output_column = NULL
 )
 }
+\arguments{
+\item{data_name}{Character. Name of the data frame symbol on the server.}
+
+\item{column}{Character. Name of an existing column to operate on.}
+
+\item{fraction}{Numeric between 0 and 1. Fraction of rows to set to NA.}
+
+\item{seed}{Integer. RNG seed for reproducibility (NULL leaves RNG untouched).}
+
+\item{output_column}{Character. Name of the new column to add to the data frame.}
+}
 \description{
 Set a fixed fraction of values in \code{column} to NA
 using the provided RNG seed, and write the result back to the

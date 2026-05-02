@@ -6,6 +6,11 @@
 \usage{
 k2GradientR2DS(party_id = 0L, session_id = NULL)
 }
+\arguments{
+\item{party_id}{Integer (0 or 1). Beaver-protocol party index.}
+
+\item{session_id}{Character. Active MPC session identifier.}
+}
 \description{
 Gradient round 2: compute gradient share from Beaver formula
 }

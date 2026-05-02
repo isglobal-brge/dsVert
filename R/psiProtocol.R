@@ -160,6 +160,9 @@ psiInitDS <- function(session_id = NULL) {
 #'
 #' @param transport_keys Named list. Server name -> transport PK (base64url).
 #' @param session_id Character or NULL. UUID for session-scoped storage.
+#' @param transport_keys_b64 Character (base64url). JSON-encoded peer transport public keys.
+#' @param identity_info Named list. Per-server identity public keys and signatures (NULL to skip).
+#' @param identity_info_b64 Character (base64url). JSON-encoded identity info / Ed25519 signatures.
 #' @return TRUE (invisible).
 #' @export
 psiStoreTransportKeysDS <- function(transport_keys = NULL,
@@ -213,7 +216,7 @@ psiStoreTransportKeysDS <- function(transport_keys = NULL,
 #' @param session_id Character or NULL. UUID for session-scoped storage
 #'   isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).
 #'
-#' @return List with n (count only — no points returned).
+#' @return List with n (count only -- no points returned).
 #' @export
 psiMaskIdsDS <- function(data_name, id_col, session_id = NULL) {
   ss <- .S(session_id)
@@ -391,7 +394,7 @@ psiProcessTargetDS <- function(data_name, id_col, from_storage = FALSE,
 #' generated in Phase 1, and re-encrypts the result under the target's
 #' transport PK. The client never sees raw EC points.
 #'
-#' PSI Firewall: one-shot per target — each target can only be double-masked
+#' PSI Firewall: one-shot per target -- each target can only be double-masked
 #' once, preventing the OPRF oracle attack.
 #'
 #' @param target_name Character. Name of the target server whose points
@@ -534,7 +537,7 @@ psiSelfAlignDS <- function(data_name, session_id = NULL) {
   # All ref indices are matched (the ref matches itself)
   ss$psi_matched_ref_indices <- as.integer(0:(nrow(data) - 1L))
 
-  # Return copy (same order — ref is the reference)
+  # Return copy (same order -- ref is the reference)
   data
 }
 

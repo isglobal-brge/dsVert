@@ -4,14 +4,21 @@
 \alias{k2CoxFinaliseResidualDS}
 \title{Cox residual finalisation: r = delta - mu\emph{G (party 0) / -mu}G (party 1)}
 \usage{
-k2CoxFinaliseResidualDS(is_party0, session_id = NULL, frac_bits = 20L)
+k2CoxFinaliseResidualDS(
+  is_party0,
+  session_id = NULL,
+  frac_bits = 20L,
+  ring = 63L
+)
 }
 \arguments{
 \item{is_party0}{Logical.}
 
 \item{session_id}{MPC session id.}
 
-\item{frac_bits}{Ring63 fractional bits.}
+\item{frac_bits}{Ring63 fractional bits. At ring=127 forced to 50.}
+
+\item{ring}{Integer 63 (default) or 127.}
 }
 \value{
 list(done = TRUE).

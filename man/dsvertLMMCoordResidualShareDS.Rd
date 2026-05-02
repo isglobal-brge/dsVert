@@ -2,7 +2,7 @@
 % Please edit documentation in R/dsvertLMMExactDS.R
 \name{dsvertLMMCoordResidualShareDS}
 \alias{dsvertLMMCoordResidualShareDS}
-\title{LMM cross-server exact residual pipeline — coordinator side}
+\title{LMM cross-server exact residual pipeline -- coordinator side}
 \usage{
 dsvertLMMCoordResidualShareDS(
   data_name,

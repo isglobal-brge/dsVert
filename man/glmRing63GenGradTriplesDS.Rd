@@ -4,7 +4,14 @@
 \alias{glmRing63GenGradTriplesDS}
 \title{Generate gradient matvec Beaver triples on server and distribute}
 \usage{
-glmRing63GenGradTriplesDS(dcf0_pk, dcf1_pk, n, p, session_id = NULL)
+glmRing63GenGradTriplesDS(
+  dcf0_pk,
+  dcf1_pk,
+  n,
+  p,
+  ring = 63L,
+  session_id = NULL
+)
 }
 \arguments{
 \item{dcf0_pk, dcf1_pk}{Character. Transport PKs of DCF parties (base64url).}
@@ -12,6 +19,8 @@ glmRing63GenGradTriplesDS(dcf0_pk, dcf1_pk, n, p, session_id = NULL)
 \item{n}{Integer. Number of observations.}
 
 \item{p}{Integer. Total number of features.}
+
+\item{ring}{Integer (63 or 127). MPC ring selector; controls fixed-point precision.}
 
 \item{session_id}{Character or NULL.}
 }

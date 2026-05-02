@@ -33,7 +33,7 @@ scalar summaries do. This is the building block for \code{ds.vertDesc}
 }
 \details{
 Because the variable is held in plaintext by a single server,
-this is not a secure-computation step — it is a plain release of
+this is not a secure-computation step -- it is a plain release of
 aggregate statistics, subject to standard DataSHIELD disclosure control
 (minimum cohort size). The returned values are scalar aggregates over
 all non-missing observations and carry no per-observation information.

@@ -10,7 +10,8 @@ k2SetCoxTimesDS(
   event_column,
   peer_pk,
   session_id = NULL,
-  strata_column = NULL
+  strata_column = NULL,
+  ring = NULL
 )
 }
 \arguments{
@@ -23,6 +24,10 @@ k2SetCoxTimesDS(
 \item{peer_pk}{Transport X25519 public key of the DCF peer.}
 
 \item{session_id}{GLM session id.}
+
+\item{strata_column}{Character. Name of the stratification column for stratified Cox.}
+
+\item{ring}{Integer (63 or 127). MPC ring selector; controls fixed-point precision.}
 }
 \value{
 list(peer_blob = <encrypted permutation + delta>, n = length)
@@ -36,9 +41,12 @@ the permutation and the delta vector) destined for the DCF peer so
 both parties can align their shares with the sorted cohort.
 
 Cox reformulated gradient:
-grad = sum_{j: delta_j = 1} x_j  -  sum_j x_j exp(eta_j) G_j,
-where G_j = sum_{i: delta_i = 1, t_i <= t_j} 1 / S(t_i) and
-S(t_i) = sum_{k: t_k >= t_i} exp(eta_k). After sorting by ascending
+\preformatted{
+  grad = sum over j with delta_j=1 of x_j  -  sum_j x_j exp(eta_j) G_j,
+  G_j = sum over i with delta_i=1 and t_i <= t_j of 1 / S(t_i),
+  S(t_i) = sum over k with t_k >= t_i of exp(eta_k).
+  }
+After sorting by ascending
 t, S(t_i) is the REVERSE cumsum of exp(eta) and G_j is a forward
 cumsum of delta / S. Both are local cumsums on secret shares
 (k2-fp-cumsum primitive), so no new Beaver rounds are introduced

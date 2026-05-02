@@ -11,7 +11,7 @@
 #'        infrastructure).
 #'     2. For each column j: Beaver(X_j_share * mu_share) -> share of
 #'        X_j*mu per row. Then local reverse cumsum (strata-aware) gives
-#'        share of T_j(i) = sum_{k>=i} X_kj mu_k.
+#'        share of \code{T_j(i) = sum over k >= i of X_kj mu_k}.
 #'     3. One Beaver((1/S) * (1/S)) gives share of 1/S^2 per row.
 #'     4. Per Fisher pair (j, k):
 #'        Term1 = sum_m X_mj X_mk (mu G)_m
@@ -75,13 +75,13 @@ dsvertCoxPathBCumsumDS <- function(input_key, output_key,
   list(stored = TRUE, output_key = output_key)
 }
 
-#' @title Compute scalar share of Σ_i w_i * share(i) where w is plaintext at both parties
+#' @title Compute scalar share of Sum_i w_i * share(i) where w is plaintext at both parties
 #' @description
 #'   Multiplies share at `input_key` element-wise by plaintext vector at
-#'   `weight_key` (plaintext means both parties hold identical bytes —
+#'   `weight_key` (plaintext means both parties hold identical bytes --
 #'   e.g. k2_cox_delta_fp or cox_n_W1_fp). Uses k2-fp-vec-mul (local on
-#'   share × plaintext) then k2-fp-sum to produce a scalar share.
-#'   Used for the "× δ" step in Fisher term 2 aggregation.
+#'   share x plaintext) then k2-fp-sum to produce a scalar share.
+#'   Used for the "x delta" step in Fisher term 2 aggregation.
 #' @param input_key Session slot with FP share vector (e.g. the result of
 #'   a Beaver product left over at cox_pb_<...>_fp).
 #' @param weight_key Session slot with plaintext FP weight vector

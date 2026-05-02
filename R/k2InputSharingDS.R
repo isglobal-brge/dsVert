@@ -11,11 +11,26 @@ NULL
 #'   (task #116 Cox/LMM STRICT migration). Ring127 routes through 16-byte
 #'   Uint128 records via k2-float-to-fp + k2-split-fp-share with
 #'   ring="ring127"; Ring63 keeps the 8-byte pipeline.
+#' @param data_name Character. Name of the data frame symbol on the server.
+#' @param x_vars Character vector. Non-label feature names on this server.
+#' @param y_var Character. Name of the outcome column on the label server.
+#' @param peer_pk Character (base64url). Peer party's transport public key for sealed shares.
+#' @param session_id Character. Active MPC session identifier.
 #' @export
 k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
                              peer_pk, ring = 63L, session_id = NULL) {
   ss <- .S(session_id)
-  .k2_enforce_K(ss, 2L, "k2ShareInputDS")
+  ## NOTE: this primitive is shared infrastructure -- the K=3 GLM
+  ## (ds.vertGLM.k3ring63) designates 2-of-3 servers as DCF parties
+  ## and reuses k2ShareInputDS between them. The .k2_enforce_K guard
+  ## introduced by isglobal-brge/dsVert#2 (LMM K=2 hardening) counted
+  ## the full 3-peer pool and incorrectly rejected legitimate K=3
+  ## traffic. The guard was removed for the four shared-infra
+  ## primitives (k2ShareInputDS, k2ComputeEtaShareDS, k2GradientR1DS,
+  ## k2GradientR2DS); guards are RETAINED for the K=2-only-by-
+  ## algorithm primitives (multinomJointDS, dsvertLMMGramDS,
+  ## dsvertLMMGLSTransformDS) where the algebra genuinely depends on
+  ## a 2-party additive split.
   data <- .resolveData(data_name, parent.frame(), session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
   n <- nrow(X)
@@ -79,6 +94,8 @@ k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
 }
 
 #' Receive peer's shared data (FixedPoint)
+#' @param peer_p Integer. Number of features held by the peer (sets share length).
+#' @param session_id Character. Active MPC session identifier.
 #' @export
 k2ReceiveShareDS <- function(peer_p = NULL, session_id = NULL) {
   ss <- .S(session_id)
@@ -116,20 +133,26 @@ k2ReceiveShareDS <- function(peer_p = NULL, session_id = NULL) {
 #'   is additionally stored under this session key (in addition to the
 #'   standard slots \code{k2_eta_share_fp}, \code{k2_eta_share},
 #'   \code{secure_eta_share}). Used by \code{ds.vertMultinomJointNewton}
-#'   to maintain K−1 parallel eta shares (one per non-reference class)
+#'   to maintain K-1 parallel eta shares (one per non-reference class)
 #'   across the same session without overwrite.
+#' @param beta_coord Numeric vector. Coordinator-side coefficient slice used to compute eta share.
+#' @param beta_nl Numeric vector. Non-label-side coefficient slice used to compute eta share.
+#' @param intercept Numeric scalar. Intercept term added to the linear predictor.
+#' @param is_coordinator Logical. TRUE if this server is acting as the coordinator (label) party.
+#' @param session_id Character. Active MPC session identifier.
 #' @export
 k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
                                   is_coordinator = TRUE, session_id = NULL,
                                   output_key = NULL) {
   ss <- .S(session_id)
-  .k2_enforce_K(ss, 2L, "k2ComputeEtaShareDS")
+  ## Shared infra -- see header comment on k2ShareInputDS for the
+  ## K=3 interaction with this guard. Removed for K=3 compatibility.
   n <- ss$k2_x_n
   p_own <- ss$k2_x_p
   p_peer <- ss$k2_peer_p
   p_total <- p_own + p_peer
 
-  # Ring selection — read from session (pinned by upstream Cox/LMM setup
+  # Ring selection -- read from session (pinned by upstream Cox/LMM setup
   # via k2SetCoxTimesDS or similar). Default Ring63.
   ring <- as.integer(ss$k2_ring %||% 63L)
   if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
@@ -137,15 +160,15 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
   frac_bits <- if (ring == 127L) 50L else 20L
 
   # Beta is ALWAYS in canonical order: [coord features | nonlabel features]
-  # Both parties use the SAME order — this is the canonical feature ordering
+  # Both parties use the SAME order -- this is the canonical feature ordering
   # from the specification.
   beta_full <- c(as.numeric(beta_coord), as.numeric(beta_nl))
 
-  # Convert beta to FP (in the selected ring — 8 B/elem for ring63, 16 B
+  # Convert beta to FP (in the selected ring -- 8 B/elem for ring63, 16 B
   # Uint128/elem for ring127). Ring127 handler parses 16 B records.
   # Conditionally wrap length-1 beta in I() to force jsonlite array
   # encoding (auto_unbox would otherwise emit a scalar, failing Go's
-  # []float64 unmarshal). For length ≥ 2, leave vanilla numeric to
+  # []float64 unmarshal). For length >= 2, leave vanilla numeric to
   # avoid any stochastic-regression risk from jsonlite's AsIs path
   # (observed in Cox Pima L2 determinism 2026-04-20).
   values_arg <- if (length(beta_full) == 1L) I(beta_full) else beta_full
@@ -174,13 +197,25 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
   # Ring additive shares are linear, so adding a plaintext value to
   # one party's share is equivalent to adding it to the reconstructed
   # value. The peer's share is unchanged (they have no offset).
+  #
+  # k2-fp-add Go handler (k2_fp_ops.go:12-43) reads input fields
+  # {a, b, frac_bits, ring} and writes output field {result}. NOT
+  # {a_fp, b_fp, n, ...} / {sum_fp} -- those names belong to k2-fp-sum,
+  # a different command. Mismatched field names cause Go to read empty
+  # base64 strings (silent zero-vector) and R to read NULL, which
+  # propagates to ss$k2_eta_share_fp <- NULL and trips the downstream
+  # "No eta share in session" error in k2WideSplinePhase1DS. Same fix
+  # already applied in nbFullRegShareDS.R:194 (closes the GLMM offset
+  # path + any other caller that registers an offset via k2SetOffsetDS).
   if (!is.null(ss$k2_offset_fp)) {
-    eta_fp <- .callMpcTool("k2-fp-add", list(
-      a_fp = eta_fp, b_fp = ss$k2_offset_fp,
-      n = as.integer(n),
+    add_res <- .callMpcTool("k2-fp-add", list(
+      a = eta_fp, b = ss$k2_offset_fp,
       frac_bits = frac_bits,
-      ring = ring_tag
-    ))$sum_fp
+      ring = ring_tag))
+    if (is.null(add_res$result) || !nzchar(add_res$result))
+      stop("k2-fp-add returned empty result while applying offset",
+           call. = FALSE)
+    eta_fp <- add_res$result
   }
 
   # Store for Beaver polynomial eval AND gradient computation
@@ -206,16 +241,18 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
 }
 
 #' Gradient round 1: compute (X-A, r-B) in selected ring (Ring63 / Ring127)
+#' @param peer_pk Character (base64url). Peer party's transport public key for sealed shares.
+#' @param session_id Character. Active MPC session identifier.
 #' @export
 k2GradientR1DS <- function(peer_pk, session_id = NULL) {
   ss <- .S(session_id)
-  .k2_enforce_K(ss, 2L, "k2GradientR1DS")
+  ## Shared infra -- see header comment on k2ShareInputDS.
   n <- ss$k2_x_n
   p_own <- ss$k2_x_p
   p_peer <- ss$k2_peer_p
   p_total <- p_own + p_peer
 
-  # Ring selection — session-pinned by upstream setup. Default Ring63.
+  # Ring selection -- session-pinned by upstream setup. Default Ring63.
   ring <- as.integer(ss$k2_ring %||% 63L)
   if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
   ring_tag <- if (ring == 127L) "ring127" else "ring63"
@@ -263,14 +300,16 @@ k2GradientR1DS <- function(peer_pk, session_id = NULL) {
 }
 
 #' Gradient round 2: compute gradient share from Beaver formula
+#' @param party_id Integer (0 or 1). Beaver-protocol party index.
+#' @param session_id Character. Active MPC session identifier.
 #' @export
 k2GradientR2DS <- function(party_id = 0L, session_id = NULL) {
   ss <- .S(session_id)
-  .k2_enforce_K(ss, 2L, "k2GradientR2DS")
+  ## Shared infra -- see header comment on k2ShareInputDS.
   n <- ss$k2_x_n
   p_total <- ss$k2_x_p + ss$k2_peer_p
 
-  # Ring selection — session-pinned by upstream setup. Default Ring63.
+  # Ring selection -- session-pinned by upstream setup. Default Ring63.
   ring <- as.integer(ss$k2_ring %||% 63L)
   if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
   ring_tag <- if (ring == 127L) "ring127" else "ring63"
@@ -313,9 +352,10 @@ k2GradientR2DS <- function(party_id = 0L, session_id = NULL) {
 #'   (e.g. paste0("k2_grad_triple_fp_class_", ki)) to avoid blob-key
 #'   collision across the K-1 classes within an outer Newton iter and
 #'   between consecutive outer iters. This eliminates a race-prone
-#'   pattern documented in ABY3 §IV.D (Mohassel-Rindal 2018 CCS) and
+#'   pattern documented in ABY3 Sec.IV.D (Mohassel-Rindal 2018 CCS) and
 #'   MP-SPDZ Programs/Source/Multiplications.hpp where pool isolation
 #'   is per-multiplication, not per-pool.
+#' @param session_id Character. Active MPC session identifier.
 #' @export
 k2StoreGradTripleDS <- function(session_id = NULL,
                                 grad_triple_key = "k2_grad_triple_fp") {

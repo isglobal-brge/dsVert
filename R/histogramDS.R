@@ -7,8 +7,8 @@
 #' @param data_name Character. Name of the server-side data frame.
 #' @param variable Character. Name of the numeric column to bucketise.
 #' @param edges Numeric vector (length K+1, strictly increasing). Defines the
-#'   K buckets [edges[1], edges[2]), ..., [edges[K], edges[K+1]] (the last
-#'   bucket is right-closed).
+#'   K buckets \code{[edges[1], edges[2]), ..., [edges[K], edges[K+1]]}
+#'   (the last bucket is right-closed).
 #' @param suppress_small_cells Logical. If TRUE (default) cells with positive
 #'   count below the DataSHIELD privacy threshold
 #'   (\code{datashield.privacyLevel}) are returned as 0 instead of the raw
@@ -18,8 +18,10 @@
 #' @return A list with elements
 #'   \itemize{
 #'     \item \code{counts}: length-K integer vector of per-bucket counts
-#'     \item \code{below}: number of observations strictly below \code{edges[1]}
-#'     \item \code{above}: number of observations strictly above \code{edges[K+1]}
+#'     \item \code{below}: number of observations strictly below the
+#'       lowest edge \code{edges[1]}
+#'     \item \code{above}: number of observations strictly above the
+#'       highest edge \code{edges[K+1]}
 #'     \item \code{n_total}: number of non-missing observations
 #'     \item \code{n_na}: number of missing observations
 #'     \item \code{edges}: the edges vector (echoed for client-side reproducibility)

@@ -1,0 +1,14 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.github$
+^docs$
+^scripts$
+^LICENSE\.md$
+^CITATION\.cff$
+^CONTRIBUTING\.md$
+^CODE_OF_CONDUCT\.md$
+^_pkgdown\.yml$
+^pkgdown$
+^inst/dsvert-mpc$
+^inst/mhe-tool$
+^inst/k2-mpc-tool$

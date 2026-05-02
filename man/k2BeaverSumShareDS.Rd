@@ -4,7 +4,16 @@
 \alias{k2BeaverSumShareDS}
 \title{Sum an FP share vector to a scalar share}
 \usage{
-k2BeaverSumShareDS(source_key, session_id = NULL, frac_bits = 20L)
+k2BeaverSumShareDS(source_key, session_id = NULL, frac_bits = 20L, ring = NULL)
+}
+\arguments{
+\item{source_key}{Character. Session-state key under which the source share is stored.}
+
+\item{session_id}{Character. Active MPC session identifier.}
+
+\item{frac_bits}{Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).}
+
+\item{ring}{Integer (63 or 127). MPC ring selector; controls fixed-point precision.}
 }
 \description{
 Local sum (shares are linear): returns the scalar FP

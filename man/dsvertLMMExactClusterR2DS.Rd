@@ -21,6 +21,8 @@ dsvertLMMExactClusterR2DS(
 \code{"k2_lmm_exact_r2_share"}).}
 
 \item{session_id}{MPC session id.}
+
+\item{frac_bits}{Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).}
 }
 \value{
 list(per_cluster_fp -- K vector of base64 FP scalars,

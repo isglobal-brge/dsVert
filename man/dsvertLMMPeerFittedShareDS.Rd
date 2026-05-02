@@ -2,7 +2,7 @@
 % Please edit documentation in R/dsvertLMMExactDS.R
 \name{dsvertLMMPeerFittedShareDS}
 \alias{dsvertLMMPeerFittedShareDS}
-\title{LMM cross-server exact residual pipeline — peer side}
+\title{LMM cross-server exact residual pipeline -- peer side}
 \usage{
 dsvertLMMPeerFittedShareDS(
   data_name,

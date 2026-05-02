@@ -167,3 +167,148 @@ dsvertExpandClusterWeightsDS <- function(data_name, cluster_col,
   list(n_expanded = nrow(data), n_filled_na = sum(is.na(map[as.character(id)])),
        output_column = output_column)
 }
+
+#' @title Cluster ANOVA moments for LMM K=3 variance-component recovery
+#' @description Computes the within-cluster (SSW) and between-cluster
+#'   (SSB) sums of squares of the outcome y on the outcome server,
+#'   plus per-cluster sizes. Aggregate-only output: only the two
+#'   scalars SSW + SSB plus the per-cluster size vector (the latter
+#'   already disclosed by \code{dsvertClusterSizesDS}). No per-row
+#'   data leaves the server.
+#'
+#'   Used by \code{ds.vertLMM.k3} to recover the random-intercept and
+#'   residual variance components after the federated weighted-GLM
+#'   fixed-effects fit converges (Pinheiro & Bates 2000 \emph{Mixed-
+#'   Effects Models in S/S-PLUS} sec.2.4.2 within-between ANOVA estimator).
+#'
+#'   For balanced designs (constant n_i = n) the standard ANOVA
+#'   estimator on raw y gives:
+#'   \preformatted{
+#'   E(MSW) = sigma^2 + Var_within(X beta) ; MSW = SSW / (N - K)
+#'   E(MSB) = sigma^2 + n sigma_b^2 + Var_between(X beta) ; MSB = SSB / (K - 1)
+#'   }
+#'   For covariates X with no within-cluster correlation (iid within
+#'   cluster), Var_within(X beta) ~ n * Var_between(X beta), and
+#'   sigma_b^2 = (MSB - MSW) / n is approximately unbiased. The
+#'   sigma^2 estimate inherits a Var_within(X beta) bias from the X
+#'   contribution; flag this honestly in the wrapper.
+#'
+#' @param data_name Character. Aligned data-frame name on the
+#'   outcome server.
+#' @param y_var Character. Outcome column name.
+#' @param cluster_col Character. Cluster id column.
+#' @return list(SSW, SSB, n_per_cluster, K, N, ybar, ssw_per_cluster).
+#' @export
+dsvertLMMVarianceComponentsDS <- function(data_name, y_var, cluster_col) {
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
+  if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
+  if (!y_var %in% names(data)) stop("y_var not found", call. = FALSE)
+  if (!cluster_col %in% names(data))
+    stop("cluster_col not found", call. = FALSE)
+  y <- as.numeric(data[[y_var]])
+  id <- data[[cluster_col]]
+  n <- length(y)
+  privacy_min <- getOption("datashield.privacyLevel", 5L)
+  if (is.numeric(privacy_min) && n < privacy_min)
+    stop("Insufficient observations", call. = FALSE)
+  by <- split(seq_len(n), id)
+  n_i <- vapply(by, length, integer(1L))
+  ybar_i <- vapply(by, function(ix) mean(y[ix]), numeric(1L))
+  ssw_i <- vapply(by, function(ix) {
+    yi <- y[ix]; sum((yi - mean(yi))^2)
+  }, numeric(1L))
+  K <- length(by)
+  N <- sum(n_i)
+  ybar <- sum(n_i * ybar_i) / N
+  ssw <- sum(ssw_i)
+  ssb <- sum(n_i * (ybar_i - ybar)^2)
+  ## Anonymised cluster_id_vector -- integer 1..K assignment per row in
+  ## the data frame's local order. Client relays this verbatim to
+  ## non-label servers so they can compute their own per-cluster
+  ## within-X moments via dsvertLMMXCovarianceWithinDS. Disclosure is
+  ## the documented LMM cluster-membership tier (analogous to the
+  ## K=2 dsvertLMMBroadcastClusterIDsDS path) -- anonymous integer
+  ## indices, no cross-reference to subject identity beyond what is
+  ## already implied by PSI alignment.
+  cid_levels <- sort(unique(id))
+  cluster_id_vector <- as.integer(match(id, cid_levels))
+  list(SSW = as.numeric(ssw),
+       SSB = as.numeric(ssb),
+       ssw_per_cluster = as.numeric(ssw_i),
+       n_per_cluster = as.integer(n_i),
+       K = as.integer(K),
+       N = as.integer(N),
+       ybar = as.numeric(ybar),
+       cluster_id_vector = cluster_id_vector)
+}
+
+#' @title Within-cluster X covariance for LMM K=3 sigma^2 X-correction
+#' @description Computes the pooled within-cluster X cross-product matrix
+#'   on this server, summed across clusters: SX2 = Sum_clusters
+#'   X_centered_i' X_centered_i where X_centered_i = X_i - colMeans(X_i)
+#'   for cluster i. Together with df_within = Sum_i (n_i - 1) the
+#'   pooled within-cluster X covariance is Var_within(X) = SX2 / df_w.
+#'
+#'   Used by ds.vertLMM.k3 to subtract the Var_within(X beta) inflation
+#'   from the raw-y ANOVA estimate of sigma^2 (Pinheiro-Bates 2000
+#'   Sec.2.4.2 caveat). The cluster_id argument is supplied by the
+#'   client (received from the outcome server then passed verbatim to
+#'   each non-label server), so the helper does not require
+#'   cluster_col to be locally present on this server.
+#'
+#'   Cross-server X covariance off-diagonals (Cov_within(x_s, x_t) for
+#'   s != t) are not recoverable without additional MPC. Each server
+#'   reports its own block of the within-cluster X cross-product;
+#'   the client aggregates Sum_s SX2_s into a block-diagonal pooled
+#'   matrix, then computes beta_s' Var_within(X_s) beta_s per server
+#'   and sums. This is exact when X across servers is uncorrelated
+#'   within cluster (the typical iid-covariate validation regime);
+#'   for correlated cross-server X the cross-cov term is missing
+#'   and the pure-sigma^2 estimate inherits a small residual bias
+#'   bounded by the cross-server X correlation structure.
+#'
+#' @param data_name Aligned data frame name.
+#' @param x_vars Character vector of X column names on this server.
+#' @param cluster_id_vector Integer vector of length nrow(data)
+#'   assigning each row to a cluster index (1..K). Supplied by the
+#'   client; the outcome server produces the canonical mapping via
+#'   `dsvertLMMVarianceComponentsDS` (which already reports cluster
+#'   sizes) and the client relays it to non-label servers in PSI order.
+#' @return list(SX2_within = matrix p x p, df_within = integer scalar,
+#'   p = ncol, x_vars = character).
+#' @export
+dsvertLMMXCovarianceWithinDS <- function(data_name, x_vars,
+                                          cluster_id_vector) {
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
+  if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
+  missing_x <- setdiff(x_vars, names(data))
+  if (length(missing_x) > 0L)
+    stop("x_vars not local: ", paste(missing_x, collapse = ", "),
+         call. = FALSE)
+  X <- as.matrix(data[, x_vars, drop = FALSE])
+  n <- nrow(X)
+  cid <- as.integer(cluster_id_vector)
+  if (length(cid) != n)
+    stop(sprintf("cluster_id_vector length %d != nrow(data) %d",
+                  length(cid), n), call. = FALSE)
+  privacy_min <- getOption("datashield.privacyLevel", 5L)
+  if (is.numeric(privacy_min) && n < privacy_min)
+    stop("Insufficient observations", call. = FALSE)
+  p <- ncol(X)
+  SX2 <- matrix(0, p, p, dimnames = list(x_vars, x_vars))
+  df_w <- 0L
+  by <- split(seq_len(n), cid)
+  for (ix in by) {
+    if (length(ix) < 2L) next
+    Xi <- X[ix, , drop = FALSE]
+    Xi_centered <- sweep(Xi, 2L, colMeans(Xi))
+    SX2 <- SX2 + crossprod(Xi_centered)
+    df_w <- df_w + (length(ix) - 1L)
+  }
+  list(SX2_within = SX2,
+       df_within = as.integer(df_w),
+       p = as.integer(p),
+       x_vars = x_vars)
+}

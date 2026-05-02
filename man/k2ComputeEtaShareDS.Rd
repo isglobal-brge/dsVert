@@ -9,8 +9,27 @@ k2ComputeEtaShareDS(
   beta_nl,
   intercept = 0,
   is_coordinator = TRUE,
-  session_id = NULL
+  session_id = NULL,
+  output_key = NULL
 )
+}
+\arguments{
+\item{beta_coord}{Numeric vector. Coordinator-side coefficient slice used to compute eta share.}
+
+\item{beta_nl}{Numeric vector. Non-label-side coefficient slice used to compute eta share.}
+
+\item{intercept}{Numeric scalar. Intercept term added to the linear predictor.}
+
+\item{is_coordinator}{Logical. TRUE if this server is acting as the coordinator (label) party.}
+
+\item{session_id}{Character. Active MPC session identifier.}
+
+\item{output_key}{Optional character. When set, the computed eta share
+is additionally stored under this session key (in addition to the
+standard slots \code{k2_eta_share_fp}, \code{k2_eta_share},
+\code{secure_eta_share}). Used by \code{ds.vertMultinomJointNewton}
+to maintain K-1 parallel eta shares (one per non-reference class)
+across the same session without overwrite.}
 }
 \description{
 If an offset has been registered for this session via k2SetOffsetDS(),

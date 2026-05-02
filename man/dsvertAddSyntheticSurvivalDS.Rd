@@ -16,6 +16,25 @@ dsvertAddSyntheticSurvivalDS(
   id_column = "patient_id"
 )
 }
+\arguments{
+\item{data_name}{Character. Name of the data frame symbol on the server.}
+
+\item{covariate_column}{Character. Name of the covariate column whose effect drives the synthetic survival times.}
+
+\item{beta}{Numeric. True regression coefficient for the synthetic data generator.}
+
+\item{base_scale}{Numeric. Baseline-hazard scale for the exponential survival generator.}
+
+\item{event_rate}{Numeric in (0, 1). Target marginal event rate for censoring.}
+
+\item{time_column}{Character. Name of the survival-time column to add.}
+
+\item{event_column}{Character. Name of the event-indicator column to add.}
+
+\item{seed}{Integer. RNG seed for reproducibility (NULL leaves RNG untouched).}
+
+\item{id_column}{Character. Name of the row-id column.}
+}
 \description{
 Draw \code{time ~ Exp(lambda_i)} with
 \code{lambda_i = 1 / (base_scale * (1 + beta * x))} where \code{x}

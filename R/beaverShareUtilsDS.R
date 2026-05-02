@@ -13,7 +13,7 @@
 #' @param peer_pk Transport pk of the peer (base64url).
 #' @param session_id MPC session id.
 #' @param frac_bits Ring63 fractional bits (default 20).
-#' @return list(peer_blob) — sealed payload for relay.
+#' @return list(peer_blob) -- sealed payload for relay.
 #' @export
 k2BeaverShareVectorDS <- function(source_key, peer_pk,
                                    session_id = NULL,
@@ -40,6 +40,9 @@ k2BeaverShareVectorDS <- function(source_key, peer_pk,
 #' @description Consume the peer-relayed blob previously delivered via
 #'   \code{mpcStoreBlobDS} under \code{blob_key}, decrypt with this
 #'   party's transport secret key, and store under \code{output_key}.
+#' @param blob_key Character. Session blob slot to consume the sealed share from.
+#' @param output_key Character. Session-state key under which the output share is written.
+#' @param session_id Character. Active MPC session identifier.
 #' @export
 k2BeaverReceiveVectorDS <- function(blob_key, output_key,
                                      session_id = NULL) {
@@ -70,6 +73,9 @@ k2BeaverReceiveVectorDS <- function(blob_key, output_key,
 #' @param n,K Matrix dimensions.
 #' @param col_index 1-based column index (R convention) or 0-based.
 #' @param output_key Destination session slot for the n-length column share.
+#' @param session_id Character. Active MPC session identifier.
+#' @param frac_bits Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).
+#' @param ring Integer (63 or 127). MPC ring selector; controls fixed-point precision.
 #' @export
 k2BeaverExtractColumnDS <- function(source_key, n, K, col_index,
                                     output_key, session_id = NULL,
@@ -90,7 +96,7 @@ k2BeaverExtractColumnDS <- function(source_key, n, K, col_index,
   # Ring inference: caller may pass "ring63"/"ring127" explicitly; else
   # fall back to session-state ring tag set by k2ShareInputDS. Without
   # this, Ring127 16-byte Uint128 records get mis-parsed as Ring63
-  # 8-byte FixedPoint → length mismatch (silent in extract output if
+  # 8-byte FixedPoint -> length mismatch (silent in extract output if
   # lengths happen to align modulo 2; loud when they don't).
   if (is.null(ring) || !nzchar(ring)) {
     ss_ring <- as.integer(ss$k2_ring %||% 63L)
@@ -107,6 +113,10 @@ k2BeaverExtractColumnDS <- function(source_key, n, K, col_index,
 #' @title Sum an FP share vector to a scalar share
 #' @description Local sum (shares are linear): returns the scalar FP
 #'   representation of \eqn{\sum_i v_i^{share}} as a double.
+#' @param source_key Character. Session-state key under which the source share is stored.
+#' @param session_id Character. Active MPC session identifier.
+#' @param frac_bits Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).
+#' @param ring Integer (63 or 127). MPC ring selector; controls fixed-point precision.
 #' @export
 k2BeaverSumShareDS <- function(source_key, session_id = NULL,
                                 frac_bits = 20L, ring = NULL) {
@@ -121,8 +131,8 @@ k2BeaverSumShareDS <- function(source_key, session_id = NULL,
   # Ring63 is the 8-byte default. Getting this wrong silently truncates
   # the per-element parse and returns garbage (see multinom joint bug #9
   # intercept-grad NA: Ring127 residual shares were being parsed as
-  # Ring63 → 8-byte scalar out → subsequent Ring127 aggregate saw 0
-  # Uint128 values → list() with empty $values).
+  # Ring63 -> 8-byte scalar out -> subsequent Ring127 aggregate saw 0
+  # Uint128 values -> list() with empty $values).
   if (is.null(ring) || !nzchar(ring)) {
     ss_ring <- as.integer(ss$k2_ring %||% 63L)
     ring <- if (ss_ring == 127L) "ring127" else "ring63"

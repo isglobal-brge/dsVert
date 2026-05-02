@@ -17,7 +17,7 @@ vector (e.g. \code{"k2_onehot_<var>_fp"}).}
 \item{frac_bits}{Ring63 fractional bits (default 20).}
 }
 \value{
-list(peer_blob) — sealed payload for relay.
+list(peer_blob) -- sealed payload for relay.
 }
 \description{
 Reads an FP vector stored under \code{source_key} in the

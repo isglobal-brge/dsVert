@@ -4,7 +4,14 @@
 \alias{glmRing63GenSplineTriplesDS}
 \title{Generate spline Beaver triples on server and distribute to DCF parties}
 \usage{
-glmRing63GenSplineTriplesDS(dcf0_pk, dcf1_pk, n, frac_bits, session_id = NULL)
+glmRing63GenSplineTriplesDS(
+  dcf0_pk,
+  dcf1_pk,
+  n,
+  frac_bits,
+  ring = 63L,
+  session_id = NULL
+)
 }
 \arguments{
 \item{dcf0_pk, dcf1_pk}{Character. Transport PKs of DCF parties (base64url).}
@@ -12,6 +19,9 @@ glmRing63GenSplineTriplesDS(dcf0_pk, dcf1_pk, n, frac_bits, session_id = NULL)
 \item{n}{Integer. Number of observations.}
 
 \item{frac_bits}{Integer. Fractional bits.}
+
+\item{ring}{Integer 63 (default) or 127. Ring127 emits 16-byte Uint128
+triple shares (task #116 Cox/LMM).}
 
 \item{session_id}{Character or NULL.}
 }

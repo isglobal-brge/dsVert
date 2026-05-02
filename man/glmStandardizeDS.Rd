@@ -9,7 +9,9 @@ glmStandardizeDS(
   output_name,
   x_vars,
   y_var = NULL,
-  session_id = NULL
+  session_id = NULL,
+  skip_standardize = FALSE,
+  mode = "full"
 )
 }
 \arguments{
@@ -23,6 +25,10 @@ glmStandardizeDS(
 
 \item{session_id}{Character or NULL. UUID for session-scoped storage
 isolation. Default NULL uses global shared storage.}
+
+\item{skip_standardize}{Logical. If TRUE, skip server-side standardisation (used by callers that pre-standardised).}
+
+\item{mode}{Character. Operation mode (e.g. \code{"rss"} or \code{"canonical"}).}
 }
 \value{
 List with x_means, x_sds, y_mean (if y_var), y_sd (if y_var)

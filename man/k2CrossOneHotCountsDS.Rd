@@ -13,11 +13,11 @@ k2CrossOneHotCountsDS(
 )
 }
 \arguments{
-\item{var1}{character — the variable held on this server.}
+\item{var1}{character -- the variable held on this server.}
 
-\item{var2}{character — the variable on the peer.}
+\item{var2}{character -- the variable on the peer.}
 
-\item{peer_name}{character — server name of the peer (used for
+\item{peer_name}{character -- server name of the peer (used for
 session blob key disambiguation).}
 
 \item{peer_pk}{base64 X25519 pk of the peer.}

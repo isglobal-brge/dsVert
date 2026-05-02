@@ -2,8 +2,8 @@
 #' @description Returns the FP share stored at \code{slot_key} in the
 #'   current session. Used by ds.vertCox diagnostic hook to enable
 #'   client-side aggregation + plaintext comparison of Path B intermediate
-#'   quantities (μ, S, 1/S, G, μG, residual). NOT intended for production
-#'   analysis flows — revealing a session share is a disclosure-trust
+#'   quantities (mu, S, 1/S, G, muG, residual). NOT intended for production
+#'   analysis flows -- revealing a session share is a disclosure-trust
 #'   decision and only appropriate in diagnostic sessions where the
 #'   analyst is the protocol designer.
 #'
@@ -14,7 +14,7 @@
 #'   shares reconstructs per-observation plaintext. To prevent this in
 #'   production deployments, this function refuses to execute unless
 #'   the env var \code{DSVERT_DEBUG_REVEAL_ALLOW=1} is set on the
-#'   server R session. Default (unset) → the call stops with a clear
+#'   server R session. Default (unset) -> the call stops with a clear
 #'   error; production deployments therefore remain 0-bit per-obs.
 #'
 #' @param slot_key Character. Name of the session slot to fetch.

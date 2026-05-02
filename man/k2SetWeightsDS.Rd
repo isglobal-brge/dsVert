@@ -4,7 +4,13 @@
 \alias{k2SetWeightsDS}
 \title{Register observation weights for an open GLM session (outcome-side)}
 \usage{
-k2SetWeightsDS(data_name, weights_column, peer_pk, session_id = NULL)
+k2SetWeightsDS(
+  data_name,
+  weights_column,
+  peer_pk,
+  ring = NULL,
+  session_id = NULL
+)
 }
 \arguments{
 \item{data_name}{Character. Aligned data-frame name on this server.}
@@ -12,6 +18,8 @@ k2SetWeightsDS(data_name, weights_column, peer_pk, session_id = NULL)
 \item{weights_column}{Character. Name of the numeric weights column.}
 
 \item{peer_pk}{Character. Transport (X25519) public key of the DCF peer.}
+
+\item{ring}{Integer (63 or 127). MPC ring selector; controls fixed-point precision.}
 
 \item{session_id}{Character. GLM session identifier.}
 }

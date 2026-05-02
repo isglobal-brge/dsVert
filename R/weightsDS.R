@@ -17,6 +17,7 @@
 #' @param peer_pk Character. Transport (X25519) public key of the DCF peer.
 #' @param session_id Character. GLM session identifier.
 #'
+#' @param ring Integer (63 or 127). MPC ring selector; controls fixed-point precision.
 #' @return A list with \code{peer_blob} (base64url transport-encrypted
 #'   serialised FP weights vector) and \code{n} (vector length). The
 #'   client relays \code{peer_blob} to the peer via \code{mpcStoreBlobDS}
@@ -159,7 +160,7 @@ k2ApplyWeightsDS <- function(session_id = NULL) {
   # spline so its in-place overwrite was harmless, but y_share_fp is
   # cached from Phase 1 input sharing and NEVER recomputed. Each
   # iter's k2ApplyWeightsDS therefore multiplied the CACHED y_share
-  # by w AGAIN, so after N iters y_share held w^N · y. For ipw
+  # by w AGAIN, so after N iters y_share held w^N * y. For ipw
   # weights in [1, 5] and max_iter=30 this blows up to w^30 ~ 1e19,
   # which in Ring63 FP manifested as the observed -2.8e8 coefficient
   # overflow reported in the v2c probe (probe_ipw_weights.R

@@ -10,7 +10,8 @@ k2BeaverVecmulR1DS(
   y_key,
   n,
   session_id = NULL,
-  frac_bits = 20L
+  frac_bits = 20L,
+  ring = 63L
 )
 }
 \arguments{
@@ -22,10 +23,13 @@ k2BeaverVecmulR1DS(
 
 \item{session_id}{MPC session id.}
 
-\item{frac_bits}{Ring63 fractional bits (default 20).}
+\item{frac_bits}{Ring63 fractional bits (default 20). At ring=127 the
+handler defaults to fracBits=50 regardless of this argument.}
+
+\item{ring}{Integer 63 (default) or 127.}
 }
 \value{
-list(peer_blob) — base64url sealed payload for peer relay.
+list(peer_blob) -- base64url sealed payload for peer relay.
 }
 \description{
 Per-party aggregate. Reads the own x- and y-share FP

@@ -25,6 +25,6 @@ generated in Phase 1, and re-encrypts the result under the target's
 transport PK. The client never sees raw EC points.
 }
 \details{
-PSI Firewall: one-shot per target — each target can only be double-masked
+PSI Firewall: one-shot per target -- each target can only be double-masked
 once, preventing the OPRF oracle attack.
 }

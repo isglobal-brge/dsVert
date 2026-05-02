@@ -7,9 +7,12 @@
 #'   both parties can align their shares with the sorted cohort.
 #'
 #'   Cox reformulated gradient:
-#'     grad = sum_{j: delta_j = 1} x_j  -  sum_j x_j exp(eta_j) G_j,
-#'   where G_j = sum_{i: delta_i = 1, t_i <= t_j} 1 / S(t_i) and
-#'   S(t_i) = sum_{k: t_k >= t_i} exp(eta_k). After sorting by ascending
+#'   \preformatted{
+#'   grad = sum over j with delta_j=1 of x_j  -  sum_j x_j exp(eta_j) G_j,
+#'   G_j = sum over i with delta_i=1 and t_i <= t_j of 1 / S(t_i),
+#'   S(t_i) = sum over k with t_k >= t_i of exp(eta_k).
+#'   }
+#'   After sorting by ascending
 #'   t, S(t_i) is the REVERSE cumsum of exp(eta) and G_j is a forward
 #'   cumsum of delta / S. Both are local cumsums on secret shares
 #'   (k2-fp-cumsum primitive), so no new Beaver rounds are introduced
@@ -26,6 +29,8 @@
 #' @param event_column Binary event indicator (1 = event, 0 = censored).
 #' @param peer_pk      Transport X25519 public key of the DCF peer.
 #' @param session_id   GLM session id.
+#' @param strata_column Character. Name of the stratification column for stratified Cox.
+#' @param ring Integer (63 or 127). MPC ring selector; controls fixed-point precision.
 #' @return list(peer_blob = <encrypted permutation + delta>, n = length)
 #' @export
 k2SetCoxTimesDS <- function(data_name, time_column, event_column,
@@ -229,9 +234,11 @@ k2ApplyCoxPermutationDS <- function(session_id = NULL) {
 #' @description Given a secret-shared exp(eta) vector (ss$secure_mu_share
 #'   after the wide-spline exp pass) already permuted to ascending-time
 #'   order, compute shares of:
-#'     S[i] = sum_{k >= i} exp(eta_k)       (reverse cumsum)
-#'     G[j] = sum_{i: delta_i=1, i <= j} 1 / S[i]   (forward cumsum of
-#'       delta*recip)
+#'   \preformatted{
+#'   S(i) = sum over k >= i of exp(eta_k)              (reverse cumsum)
+#'   G(j) = sum over i with delta_i=1 and i <= j of    (forward cumsum
+#'          1 / S(i)                                    of delta*recip)
+#'   }
 #'   and store S and G in the session as k2_cox_S_share_fp and
 #'   k2_cox_G_share_fp. These are reused by the gradient reduction step
 #'   that forms x_j * exp(eta_j) * G_j and sums over j.
@@ -269,7 +276,7 @@ k2CoxReverseCumsumSDS <- function(session_id = NULL) {
        stratified = !is.null(ss$k2_cox_strata))
 }
 
-#' @title Compute the forward cumsum G_j = sum_{i<=j, delta=1} recip[i]
+#' @title Compute the forward cumsum \code{G_j = sum over i<=j with delta=1 of recip(i)}
 #' @param session_id GLM session id.
 #' @return list(G_length)
 #' @export
@@ -464,9 +471,9 @@ k2CoxResidualDS <- function(peer_pk = NULL, session_id = NULL) {
 #'   \eqn{K \times L} Beaver triple batch and returns the reconstructed
 #'   counts as non-negative integers rounded from the Ring63 result.
 #'
-#' @param var1 character — the variable held on this server.
-#' @param var2 character — the variable on the peer.
-#' @param peer_name character — server name of the peer (used for
+#' @param var1 character -- the variable held on this server.
+#' @param var2 character -- the variable on the peer.
+#' @param peer_name character -- server name of the peer (used for
 #'   session blob key disambiguation).
 #' @param peer_pk base64 X25519 pk of the peer.
 #' @param session_id MPC session.

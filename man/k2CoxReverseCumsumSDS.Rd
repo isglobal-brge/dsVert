@@ -16,9 +16,11 @@ list(S_length, G_length)
 Given a secret-shared exp(eta) vector (ss$secure_mu_share
 after the wide-spline exp pass) already permuted to ascending-time
 order, compute shares of:
-S\link{i} = sum_{k >= i} exp(eta_k)       (reverse cumsum)
-G\link{j} = sum_{i: delta_i=1, i <= j} 1 / S\link{i}   (forward cumsum of
-delta*recip)
+\preformatted{
+  S(i) = sum over k >= i of exp(eta_k)              (reverse cumsum)
+  G(j) = sum over i with delta_i=1 and i <= j of    (forward cumsum
+         1 / S(i)                                    of delta*recip)
+  }
 and store S and G in the session as k2_cox_S_share_fp and
 k2_cox_G_share_fp. These are reused by the gradient reduction step
 that forms x_j * exp(eta_j) * G_j and sums over j.

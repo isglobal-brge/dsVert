@@ -1,23 +1,23 @@
-#' @title NB profile-MLE score sums for dispersion θ (aggregate)
+#' @title NB profile-MLE score sums for dispersion theta (aggregate)
 #' @description Compute scalar sums needed to evaluate the profile
 #'   log-likelihood score and its derivative for the negative-binomial
-#'   dispersion parameter θ at a given θ value. The outcome variable is
+#'   dispersion parameter theta at a given theta value. The outcome variable is
 #'   held in plaintext by a single (label) server; this function returns
-#'   four scalar aggregates computed on that plaintext — no per-patient
+#'   four scalar aggregates computed on that plaintext -- no per-patient
 #'   disclosure.
 #'
-#'   The NB(μ, θ) log-likelihood, assuming a common mean μ, has score
-#'     ∂ℓ/∂θ = Σᵢ ψ(yᵢ + θ) − n ψ(θ) + n log(θ/(ȳ + θ))
+#'   The NB(mu, theta) log-likelihood, assuming a common mean mu, has score
+#'     dell/dtheta = Sum_i psi(y_i + theta) - n psi(theta) + n log(theta/(ybar + theta))
 #'   and Fisher-like curvature
-#'     −∂²ℓ/∂θ² ≈ −[Σᵢ ψ₁(yᵢ + θ) − n ψ₁(θ)] − n · [1/θ − 1/(ȳ + θ)]
-#'   where ψ is the digamma function and ψ₁ its derivative (trigamma).
+#'     -d^2ell/dtheta^2 approx -(Sum_i psi_1(y_i + theta) - n psi_1(theta)) - n * (1/theta - 1/(ybar + theta))
+#'   where psi is the digamma function and psi_1 its derivative (trigamma).
 #'   This is the Anscombe / Lawless parametrisation used by
-#'   \code{MASS::theta.ml}, specialised to the homogeneous-μ case so that
-#'   the outcome server does not need any β / η quantities — only its own
-#'   y plus a client-chosen scalar θ.
+#'   \code{MASS::theta.ml}, specialised to the homogeneous-mu case so that
+#'   the outcome server does not need any beta / eta quantities -- only its own
+#'   y plus a client-chosen scalar theta.
 #'
-#'   Reveals exactly four floats per call: Σψ(y+θ), Σψ₁(y+θ), n, ȳ. All
-#'   are already-aggregate functions of y. The caller iterates θ
+#'   Reveals exactly four floats per call: Sumpsi(y+theta), Sumpsi_1(y+theta), n, ybar. All
+#'   are already-aggregate functions of y. The caller iterates theta
 #'   client-side via Newton-Raphson.
 #'
 #' @param data_name Character. Name of the server-side data frame.
@@ -26,10 +26,10 @@
 #'
 #' @return A list with four numeric scalars:
 #'   \itemize{
-#'     \item \code{sum_psi}: Σ ψ(yᵢ + θ)
-#'     \item \code{sum_tri}: Σ ψ₁(yᵢ + θ)
+#'     \item \code{sum_psi}: Sum psi(y_i + theta)
+#'     \item \code{sum_tri}: Sum psi_1(y_i + theta)
 #'     \item \code{n_total}: count of non-missing observations
-#'     \item \code{y_mean}:  sample mean of y (ȳ)
+#'     \item \code{y_mean}:  sample mean of y (ybar)
 #'   }
 #'   Returned as \code{NA_real_} if the cohort falls below the
 #'   \code{datashield.privacyLevel} threshold.
@@ -80,22 +80,22 @@ dsvertNBProfileSumsDS <- function(data_name, variable, theta) {
 
 #' @title NB Method-of-Moments aggregate sufficient statistics
 #' @description Returns the four scalar y-sufficient statistics needed
-#'   to compute the iid-μ Method-of-Moments θ-estimator (Anscombe 1950
+#'   to compute the iid-mu Method-of-Moments theta-estimator (Anscombe 1950
 #'   Biometrika 37(3-4):358-382; Saha & Paul 2005 Biometrics 61(1):179-185
-#'   §3 reduction under common-μ). All outputs are functions of y alone
-#'   (no μ̂ or β disclosure), revealing 4 floats per call (Σy, Σy², n, ȳ).
-#'   Disclosure budget is the SAME as \code{dsvertNBProfileSumsDS} —
-#'   y aggregates only; ZERO new disclosure beyond the existing iid-μ
+#'   Sec.3 reduction under common-mu). All outputs are functions of y alone
+#'   (no mu or beta disclosure), revealing 4 floats per call (Sumy, Sumy^2, n, ybar).
+#'   Disclosure budget is the SAME as \code{dsvertNBProfileSumsDS} --
+#'   y aggregates only; ZERO new disclosure beyond the existing iid-mu
 #'   path.
 #'
-#'   Under common-μ (μ̂ ≡ ȳ), the regression-aware Saha-Paul 2005
+#'   Under common-mu (mu == ybar), the regression-aware Saha-Paul 2005
 #'   moment equation reduces to the Anscombe 1950 sample-moment form
-#'     θ̂_MoM = ȳ² / (s² − ȳ)
-#'   where s² = (Σy² − n·ȳ²)/(n−1) is the bias-corrected sample
-#'   variance. Closed form — no Newton iteration on θ. The iid-μ
-#'   approximation propagates through both estimators (iid-μ MLE and
-#'   iid-μ MoM) with the same structural bias direction; full-regression
-#'   MoM (Saha-Paul Method 2 with per-patient μ̂_i) requires η at OS,
+#'     theta_MoM = ybar^2 / (s^2 - ybar)
+#'   where s^2 = (Sumy^2 - n*ybar^2)/(n-1) is the bias-corrected sample
+#'   variance. Closed form -- no Newton iteration on theta. The iid-mu
+#'   approximation propagates through both estimators (iid-mu MLE and
+#'   iid-mu MoM) with the same structural bias direction; full-regression
+#'   MoM (Saha-Paul Method 2 with per-patient mu_i) requires eta at OS,
 #'   currently outside the K=2-safe disclosure budget.
 #'
 #' @param data_name Character. Name of the server-side data frame.

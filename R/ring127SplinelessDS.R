@@ -1,11 +1,28 @@
-#' @title Ring127 affine combine — server-side local op for Horner/NR
+#' Restore base64 padding from base64url
+#'
+#' Opal DSL parser chokes on `=`, `+` and `/` inside double-quoted
+#' string literals. Client converts base64 -> base64url; we restore
+#' standard base64 via the already-existing `.base64url_to_base64`
+#' helper in `mpcUtils.R` (documented since pre-session as the
+#' canonical "Opal/Rock string parameter" workaround).
+#'
+#' @param x base64url-encoded string (or NULL / empty).
+#' @return Standard base64 string with padding restored, or `x`
+#'   unchanged if NULL / empty.
+#' @keywords internal
+.b64_pad <- function(x) {
+  if (is.null(x) || !nzchar(x)) return(x)
+  .base64url_to_base64(x)
+}
+
+#' @title Ring127 affine combine -- server-side local op for Horner/NR
 #'   orchestration.
 #' @description Computes, on one party's Ring127 shares:
 #'   \deqn{out[i] = sign_a \cdot a[i] + sign_b \cdot b[i] +
 #'                  (public_const \text{ if party 0 else } 0)}
 #'   where \eqn{sign_a, sign_b \in \{-1, 0, +1\}}. The result is stored back
 #'   into the session slot named \code{output_key}. No cross-party
-#'   communication — the client orchestrates one such call on each party
+#'   communication -- the client orchestrates one such call on each party
 #'   per Horner / NR iteration.
 #'
 #'   Called by \code{dsVertClient:::.exp127_round} and
@@ -29,17 +46,7 @@
 #' @param n Integer vector length.
 #' @param session_id MPC session identifier.
 #' @return list(stored = TRUE, output_key, n).
-#' @keywords internal
 #' @export
-# Opal DSL parser chokes on `=`, `+` and `/` inside double-quoted
-# string literals. Client converts base64 → base64url; we restore
-# standard base64 via the already-existing .base64url_to_base64
-# helper in mpcUtils.R (documented since pre-session as the
-# canonical "Opal/Rock string parameter" workaround).
-.b64_pad <- function(x) {
-  if (is.null(x) || !nzchar(x)) return(x)
-  .base64url_to_base64(x)
-}
 
 k2Ring127AffineCombineDS <- function(a_key = NULL, b_key = NULL,
                                      sign_a = 0L, sign_b = 0L,
@@ -105,9 +112,9 @@ k2Ring127AffineCombineDS <- function(a_key = NULL, b_key = NULL,
 
 #' @title Ring127 local scale by public scalar.
 #' @description Element-wise multiplies a Ring127 FP share vector by a
-#'   PUBLIC scalar (broadcast). Local op — additive-sharing correctness
+#'   PUBLIC scalar (broadcast). Local op -- additive-sharing correctness
 #'   under broadcast scaling: both parties locally compute
-#'   \code{share'[i] = share[i] * s}, which sums to \code{true[i] * s}.
+#'   \code{share_new[i] = share[i] * s}, which sums to \code{true[i] * s}.
 #'
 #'   Used by \code{.exp127_round} for the \code{y = eta * (1/a)} rescale
 #'   (a=5, the Chebyshev domain half-width). May also be used by

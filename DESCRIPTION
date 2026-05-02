@@ -99,6 +99,8 @@ AggregateMethods:
     dsvertClusterSizesDS,
     dsvertClusterResidualsDS,
     dsvertExpandClusterWeightsDS,
+    dsvertLMMVarianceComponentsDS,
+    dsvertLMMXCovarianceWithinDS,
     k2CoxPrepareRecipPhaseDS,
     k2CoxResidualDS,
     k2CoxSaveMuDS,

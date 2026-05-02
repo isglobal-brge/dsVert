@@ -16,4 +16,12 @@ An environment for storing session state.
 Returns the sub-environment for the given session_id. Creates it if
 it does not exist. Requires a valid session_id.
 }
+\details{
+Storage anchor: the DSI eval-envir (host frame). DSLite collision
+avoidance: distinct DSLite servers in one R process use distinct
+eval envs, so a single client-generated session_id resolves to
+distinct \verb{[[session_id]]} slots across servers. Real Opal: the
+dsBase eval env persists for the whole login, so cross-call
+persistence within a login is unchanged.
+}
 \keyword{internal}

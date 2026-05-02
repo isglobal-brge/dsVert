@@ -1,4 +1,4 @@
-#' @title Compute residual share r = y_ind − p on outcome server
+#' @title Compute residual share r = y_ind - p on outcome server
 #' @description Local share operation: on the outcome server, subtract a
 #'   plaintext 0/1 class-indicator column from a softmax/sigmoid probability
 #'   share stored under \code{p_key}. On the peer, just negate the p share.
@@ -9,13 +9,13 @@
 #'   Beaver matvec gradient per class without any cross-server MPC.
 #'
 #' @param p_key Character. Session slot holding Ring127 share of p per
-#'   patient (from Beaver vecmul \code{exp(η_k) · (1/D)}).
+#'   patient (from Beaver vecmul \code{exp(eta_k) * (1/D)}).
 #' @param indicator_col Character. Plaintext 0/1 column name on the
 #'   outcome server (e.g. \code{"low_ind"}). Ignored on peer.
 #' @param data_name Character. Data frame name (for indicator column
 #'   resolution).
 #' @param output_key Character. Session slot to store the residual share.
-#' @param is_outcome_server Logical. When TRUE, subtract y_ind − p_share.
+#' @param is_outcome_server Logical. When TRUE, subtract y_ind - p_share.
 #'   When FALSE, just negate the p share.
 #' @param n Integer. Length of p / indicator vector.
 #' @param session_id MPC session id.
@@ -57,14 +57,14 @@ dsvertComputeResidualShareDS <- function(p_key, indicator_col = NULL,
       stop("indicator length ", length(y_ind), " != n ", n, call. = FALSE)
     y_ind_fp <- .callMpcTool("k2-float-to-fp", list(
       values = y_ind, frac_bits = 50L, ring = "ring127"))$fp_data
-    # r_share = y_ind_const − p_share per-element.
+    # r_share = y_ind_const - p_share per-element.
     # Use k2-ring127-per-element-combine (vector variant). If it doesn't exist,
     # fall back to: split y_ind into a "share" (y_ind, 0) and affine-combine.
     # For now: store y_ind as a temp share (outcome server holds the full
-    # vector, peer has zeros — additive share of y_ind with peer).
+    # vector, peer has zeros -- additive share of y_ind with peer).
     tmp_key <- paste0(output_key, "__y_ind_tmp")
     ss[[tmp_key]] <- y_ind_fp
-    # r_share = (y_ind − p) on outcome server: use affine-combine vector form.
+    # r_share = (y_ind - p) on outcome server: use affine-combine vector form.
     .callMpcTool("k2-ring127-affine-combine", list(
       a = ss[[tmp_key]], b = ss[[p_key]],
       sign_a = 1L, sign_b = -1L,
@@ -73,7 +73,7 @@ dsvertComputeResidualShareDS <- function(p_key, indicator_col = NULL,
     ss[[output_key]] <- res
     ss[[tmp_key]] <- NULL
   } else {
-    # Peer: r_share = −p_share (just negate).
+    # Peer: r_share = -p_share (just negate).
     res <- .callMpcTool("k2-ring127-affine-combine", list(
       a = ss[[p_key]], b = "",
       sign_a = -1L, sign_b = 0L,

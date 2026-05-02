@@ -4,6 +4,11 @@
 #'   data frame under \code{output_column}. Used to create reproducible
 #'   synthetic-missingness scenarios for MI validation. Only returns
 #'   aggregate counts; no per-patient information.
+#' @param data_name Character. Name of the data frame symbol on the server.
+#' @param column Character. Name of an existing column to operate on.
+#' @param fraction Numeric between 0 and 1. Fraction of rows to set to NA.
+#' @param seed Integer. RNG seed for reproducibility (NULL leaves RNG untouched).
+#' @param output_column Character. Name of the new column to add to the data frame.
 #' @export
 dsvertInjectNADS <- function(data_name, column,
                               fraction = 0.2, seed = 7L,
@@ -41,6 +46,10 @@ dsvertInjectNADS <- function(data_name, column,
 #'   Falls back to legacy positional-block assignment
 #'   (\code{floor((i-1)/block_size)+1}) when no \code{id_column} is
 #'   present on the server.
+#' @param data_name Character. Name of the data frame symbol on the server.
+#' @param block_size Integer. Cluster block size for synthetic cluster columns.
+#' @param output_column Character. Name of the new column to add to the data frame.
+#' @param id_column Character. Name of the row-id column.
 #' @export
 dsvertAddClusterColumnDS <- function(data_name, block_size = 13L,
                                       output_column = "cluster",
@@ -80,6 +89,15 @@ dsvertAddClusterColumnDS <- function(data_name, block_size = 13L,
 #'   validate \code{ds.vertCox} on datasets that do not ship with
 #'   native time-to-event data. Both new columns are written back to
 #'   the data frame. Only aggregate counts are returned.
+#' @param data_name Character. Name of the data frame symbol on the server.
+#' @param covariate_column Character. Name of the covariate column whose effect drives the synthetic survival times.
+#' @param beta Numeric. True regression coefficient for the synthetic data generator.
+#' @param base_scale Numeric. Baseline-hazard scale for the exponential survival generator.
+#' @param event_rate Numeric in (0, 1). Target marginal event rate for censoring.
+#' @param time_column Character. Name of the survival-time column to add.
+#' @param event_column Character. Name of the event-indicator column to add.
+#' @param seed Integer. RNG seed for reproducibility (NULL leaves RNG untouched).
+#' @param id_column Character. Name of the row-id column.
 #' @export
 dsvertAddSyntheticSurvivalDS <- function(data_name,
                                           covariate_column,
@@ -109,7 +127,7 @@ dsvertAddSyntheticSurvivalDS <- function(data_name,
   if (id_column %in% names(data)) {
     ids <- as.character(data[[id_column]])
     # R's strtoi returns NA for values > 2^31-1 (signed int 32 max).
-    # Take 7 hex chars (max 2^28 ≈ 268M) so the result fits and
+    # Take 7 hex chars (max 2^28 approx 268M) so the result fits and
     # divide by 2^28 for a uniform in [0, 1).
     hex2u <- function(h) {
       as.numeric(strtoi(substr(h, 1L, 7L), 16L)) / (2^28 - 1)
@@ -144,6 +162,9 @@ dsvertAddSyntheticSurvivalDS <- function(data_name,
 #' @description Compute quartile boundaries of the named column
 #'   (defaulting to \code{age}) and attach a factor column with levels
 #'   Q1..Q4. Used to validate \code{ds.vertChisqCross}.
+#' @param data_name Character. Name of the data frame symbol on the server.
+#' @param column Character. Name of an existing column to operate on.
+#' @param output_column Character. Name of the new column to add to the data frame.
 #' @export
 dsvertAddQuartileColumnDS <- function(data_name, column = "age",
                                        output_column = "age_q") {
@@ -168,6 +189,8 @@ dsvertAddQuartileColumnDS <- function(data_name, column = "age",
 #'   character column, with the same privacy-threshold suppression as
 #'   the rest of dsVert: levels whose count is below the threshold are
 #'   emitted as a single "<redacted>" level.
+#' @param data_name Character. Name of the data frame symbol on the server.
+#' @param y_var Character. Name of the outcome column on the label server.
 #' @export
 dsvertOutcomeLevelsDS <- function(data_name, y_var) {
   .validate_data_name(data_name)
@@ -195,10 +218,14 @@ dsvertOutcomeLevelsDS <- function(data_name, y_var) {
 #'   form, we encode each distinct \code{tstart} value as its own
 #'   stratum break so the reverse-cumsum risk-set reset happens at
 #'   entry times. When a \code{base_strata_column} is provided the
-#'   combined stratum is the interaction (base × tstart).
+#'   combined stratum is the interaction (base x tstart).
 #'
 #'   Correct for the common case of one interval per patient with a
 #'   fixed left-truncation time; conservative otherwise.
+#' @param data_name Character. Name of the data frame symbol on the server.
+#' @param tstart_column Character. Name of the left-truncation / counting-process start-time column.
+#' @param base_strata_column Character. Name of the baseline stratification column.
+#' @param output_column Character. Name of the new column to add to the data frame.
 #' @export
 dsvertCoxTVStrataDS <- function(data_name, tstart_column,
                                  base_strata_column = NULL,
@@ -224,6 +251,8 @@ dsvertCoxTVStrataDS <- function(data_name, tstart_column,
 }
 
 #' @title Copy a data frame to a new name (test helper)
+#' @param data_name Character. Name of the data frame symbol on the server.
+#' @param output_name Character. Name to bind the output object to in the server-side environment.
 #' @export
 dsvertCopyDfDS <- function(data_name, output_name) {
   .validate_data_name(data_name)

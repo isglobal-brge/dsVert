@@ -14,7 +14,7 @@
 #' @param data_name Aligned data-frame name.
 #' @param keep Optional character vector of column names to preserve
 #'   (e.g. synthetic columns that the caller added on purpose and
-#'   wants to keep — "cluster", "time", "event", "age_q").
+#'   wants to keep -- "cluster", "time", "event", "age_q").
 #' @return list(columns_removed = character, n_removed = integer).
 #' @export
 dsvertResetDataFrameDS <- function(data_name, keep = character(0)) {

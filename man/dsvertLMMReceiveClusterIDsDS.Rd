@@ -6,6 +6,9 @@
 \usage{
 dsvertLMMReceiveClusterIDsDS(session_id = NULL)
 }
+\arguments{
+\item{session_id}{Character. Active MPC session identifier.}
+}
 \description{
 Per-party aggregate. Consume the relayed blob, decrypt,
 and store the integer cluster ID vector under

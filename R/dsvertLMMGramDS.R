@@ -1,7 +1,9 @@
 #' @title LMM closed-form GLS: local Gram blocks + share transformed columns
 #' @description Per-server aggregate. Computes the Laird-Ware cluster-mean-
 #'   centred transformed design columns in-place:
-#'       tilde_v_j = v_j - lambda_{c(j)} * mean(v[cluster == c(j)])
+#'   \preformatted{
+#'   tilde_v_j = v_j - lambda_c(j) * mean(v over cluster c(j))
+#'   }
 #'   and returns:
 #'     - XtX_local: p_local x p_local matrix of local inner products
 #'     - Xty_local: p_local vector (only if this server owns y_var)
@@ -21,6 +23,19 @@
 #'   computable from existing GLM pipeline) and transport-sealed FP
 #'   share blobs (random to the peer until combined).
 #'
+#' @param data_name Character. Name of the data frame symbol on the server.
+#' @param columns Character vector. Column names to include in the local Gram block.
+#' @param y_var Character. Name of the outcome column on the label server.
+#' @param lambda_per_cluster Numeric vector. Cluster-mean shrinkage factor per cluster (Laird-Ware).
+#' @param create_intercept Logical. If TRUE, prepend a synthetic intercept column.
+#' @param intercept_col Character. Name of the synthetic intercept column when \code{create_intercept = TRUE}.
+#' @param peer_pk Character (base64url). Peer party's transport public key for sealed shares.
+#' @param session_id Character. Active MPC session identifier.
+#' @param frac_bits Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).
+#' @param share_scale Numeric. Optional scaling factor applied to the FP shares before sealing.
+#' @param column_scales Numeric vector. Per-column scaling factors used during standardisation.
+#' @param standardize Logical. If TRUE, standardise columns to unit SD before computing the Gram block.
+#' @param ring Integer (63 or 127). MPC ring selector; controls fixed-point precision.
 #' @export
 dsvertLMMLocalGramDS <- function(data_name, columns,
                                   y_var = NULL,
@@ -52,12 +67,12 @@ dsvertLMMLocalGramDS <- function(data_name, columns,
   # dividing each raw column by its public SD before cluster-mean centering
   # equalizes the Gram diagonal and reduces kappa(X~^T X~) from O(1e5-1e6)
   # to O(1-1e3), amplifying MPC precision from rel~1e-4 to rel~1e-8 on
-  # |β|>1 coefficients. Scales are supplied by the client from the
+  # |beta|>1 coefficients. Scales are supplied by the client from the
   # already-documented scalar aggregate dsvertLocalMomentsDS (same P3 tier
   # as mean/sd releases in ds.vertDesc). Intercept column is NOT scaled
   # (its magnitude is governed by lambda_i, not user data). y_var is NOT
-  # scaled so that β_std_j = β_raw_j × s_j and the client unscaling
-  # β_raw_j = β_std_j / s_j is a clean per-coefficient divide.
+  # scaled so that beta_std_j = beta_raw_j x s_j and the client unscaling
+  # beta_raw_j = beta_std_j / s_j is a clean per-coefficient divide.
   scale_vec <- function(v) {
     if (is.null(column_scales)) return(1.0)
     sj <- column_scales[[v]]
@@ -85,12 +100,12 @@ dsvertLMMLocalGramDS <- function(data_name, columns,
   }
   # Post-centering L2 standardization. This is the Codex-approved
   # structural fix (2026-04-19) that closes the X4 rel<1e-4 gap:
-  # the raw Gram X~^T X~ has κ≈5.57e5 on mixed-scale designs; dividing
-  # each centered column by its L2 norm shrinks κ to O(10), amplifying
+  # the raw Gram X~^T X~ has kappaapprox5.57e5 on mixed-scale designs; dividing
+  # each centered column by its L2 norm shrinks kappa to O(10), amplifying
   # MPC precision from rel~1e-4 to rel~1e-8. Scales are returned to the
-  # client so it can unscale β at the end. L2 of each centered column
+  # client so it can unscale beta at the end. L2 of each centered column
   # is a scalar aggregate (same P3 tier as mean/sd releases in
-  # ds.vertDesc) — no new disclosure.
+  # ds.vertDesc) -- no new disclosure.
   use_std <- isTRUE(standardize)
   l2_scales <- setNames(rep(1.0, length(names(tx))), names(tx))
   if (use_std) {
@@ -103,8 +118,8 @@ dsvertLMMLocalGramDS <- function(data_name, columns,
       }
     }
   }
-  # y is NOT standardized: unscaling then becomes β_raw_j = β_std_j / s_j
-  # (and y stays in original units so downstream σ²/σ_b² consumers work
+  # y is NOT standardized: unscaling then becomes beta_raw_j = beta_std_j / s_j
+  # (and y stays in original units so downstream sigma^2/sigma_b^2 consumers work
   # without re-scaling).
   # Transform y if this server owns it.
   y_tx <- NULL
@@ -141,9 +156,9 @@ dsvertLMMLocalGramDS <- function(data_name, columns,
   # FP floor): multiply every shared column by share_scale so cross-Gram
   # Beaver products operate on values with larger absolute magnitude
   # vs the fixed ~1e-4 absolute Ring63 noise. Per docs/acceptance
-  # §LMM iterative-refinement band-aid. X̃, ỹ both pre-multiplied so the
-  # GLS solution is INVARIANT (β = solve(c²XtX, c²Xty) = solve(XtX, Xty)).
-  # The within-server XtX_local and Xty_local ALSO scale by c² and c²
+  # Sec.LMM iterative-refinement band-aid. X, ytilde both pre-multiplied so the
+  # GLS solution is INVARIANT (beta = solve(c^2XtX, c^2Xty) = solve(XtX, Xty)).
+  # The within-server XtX_local and Xty_local ALSO scale by c^2 and c^2
   # so the client-side assembly is consistent.
   sc <- as.numeric(share_scale)
   if (!is.finite(sc) || sc <= 0) sc <- 1.0
@@ -211,6 +226,7 @@ dsvertLMMLocalGramDS <- function(data_name, columns,
 #'   \code{"k2_lmm_gram_peer_shares"}), decrypts it, and stores each
 #'   column's FP share under \code{ss$lmm_gram_col_<name>} so the
 #'   subsequent Beaver vecmul rounds can dereference it by name.
+#' @param session_id Character. Active MPC session identifier.
 #' @export
 dsvertLMMReceiveGramSharesDS <- function(session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id))
@@ -246,6 +262,12 @@ dsvertLMMReceiveGramSharesDS <- function(session_id = NULL) {
 #'   The R1 variant produces masked outputs for the peer; the R2
 #'   variant consumes the peer's masks and reveals the party's output
 #'   share, then reduces to a scalar via \code{k2-fp-sum}.
+#' @param peer_pk Character (base64url). Peer party's transport public key for sealed shares.
+#' @param x_col Character. Name of the X column (or share key) to use in the Beaver vecmul.
+#' @param y_col Character. Name of the Y column (or share key) to use in the Beaver vecmul.
+#' @param session_id Character. Active MPC session identifier.
+#' @param frac_bits Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).
+#' @param ring Integer (63 or 127). MPC ring selector; controls fixed-point precision.
 #' @export
 dsvertLMMGramR1DS <- function(peer_pk, x_col, y_col,
                                session_id = NULL, frac_bits = 20L,
@@ -277,6 +299,19 @@ dsvertLMMGramR1DS <- function(peer_pk, x_col, y_col,
   list(peer_blob = base64_to_base64url(sealed$sealed))
 }
 
+#' LMM Gram R2: close peer-Beaver-share round on a single (x_col, y_col)
+#'
+#' Server-side R2 round of the LMM Gram Beaver vecmul protocol. Consumes
+#' the peer-masked share blob deposited by the client after R1 and stores
+#' the closed share into the per-pair session slot.
+#'
+#' @param is_party0 Logical. TRUE for the coordinator party.
+#' @param x_col,y_col Integer column indices participating in this Gram entry.
+#' @param session_id MPC session id.
+#' @param frac_bits Fractional bits of the FP encoding (20 for ring63, 50 for ring127).
+#' @param ring 63L or 127L (default derived from session).
+#' @return list(stored = TRUE).
+#' @keywords internal
 #' @export
 dsvertLMMGramR2DS <- function(is_party0, x_col, y_col,
                                session_id = NULL, frac_bits = 20L,

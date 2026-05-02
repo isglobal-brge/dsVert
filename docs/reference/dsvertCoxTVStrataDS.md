@@ -1,0 +1,40 @@
+# Build a combined stratum column from tstart + optional base strata
+
+For Cox time-varying via Andersen-Gill counting-process form, we encode
+each distinct `tstart` value as its own stratum break so the
+reverse-cumsum risk-set reset happens at entry times. When a
+`base_strata_column` is provided the combined stratum is the interaction
+(base x tstart).
+
+Correct for the common case of one interval per patient with a fixed
+left-truncation time; conservative otherwise.
+
+## Usage
+
+``` r
+dsvertCoxTVStrataDS(
+  data_name,
+  tstart_column,
+  base_strata_column = NULL,
+  output_column = "__dsvert_tv_strata"
+)
+```
+
+## Arguments
+
+- data_name:
+
+  Character. Name of the data frame symbol on the server.
+
+- tstart_column:
+
+  Character. Name of the left-truncation / counting-process start-time
+  column.
+
+- base_strata_column:
+
+  Character. Name of the baseline stratification column.
+
+- output_column:
+
+  Character. Name of the new column to add to the data frame.

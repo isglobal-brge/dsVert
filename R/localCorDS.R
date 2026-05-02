@@ -73,6 +73,8 @@ localCorDS <- function(data_name, variables, session_id = NULL) {
   }
 
   # Compute correlation
+  disclosure_guard <- .dsvert_guard_matrix_release(
+    n_obs = n_obs, p = length(variables), what = "local correlation matrix")
   R <- cor(X)
   rownames(R) <- variables
   colnames(R) <- variables
@@ -80,6 +82,7 @@ localCorDS <- function(data_name, variables, session_id = NULL) {
   list(
     correlation = R,
     n_obs = n_obs,
-    var_names = variables
+    var_names = variables,
+    disclosure_guard = disclosure_guard
   )
 }

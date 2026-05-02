@@ -120,6 +120,44 @@ test_that("dsvertOrdinalReceiveBetaWeightsDS rejects K=3 session", {
     "K mismatch.*expected K=2.*got K=3")
 })
 
+test_that("ordinal joint patient-level helpers are diagnostic-only by default", {
+  old_opt <- getOption("dsvert.allow_patient_level_ordinal_joint", NULL)
+  old_env <- Sys.getenv("DSVERT_ALLOW_PATIENT_LEVEL_ORDINAL_JOINT", unset = NA)
+  on.exit({
+    if (is.null(old_opt)) {
+      options(dsvert.allow_patient_level_ordinal_joint = NULL)
+    } else {
+      options(dsvert.allow_patient_level_ordinal_joint = old_opt)
+    }
+    if (is.na(old_env)) {
+      Sys.unsetenv("DSVERT_ALLOW_PATIENT_LEVEL_ORDINAL_JOINT")
+    } else {
+      Sys.setenv(DSVERT_ALLOW_PATIENT_LEVEL_ORDINAL_JOINT = old_env)
+    }
+  }, add = TRUE)
+  options(dsvert.allow_patient_level_ordinal_joint = FALSE)
+  Sys.unsetenv("DSVERT_ALLOW_PATIENT_LEVEL_ORDINAL_JOINT")
+
+  s <- .mk_session(2L)
+
+  expect_error(
+    dsVert::dsvertOrdinalSealFkSharesDS(
+      F_keys = "k1", target_pk = "pk", session_id = s$sid),
+    "disabled under strict non-disclosure")
+
+  expect_error(
+    dsVert::dsvertOrdinalSealEtaDS(
+      data_name = "fake_table", x_vars = "age",
+      beta_values = 0.0, target_pk = "fake_pk",
+      session_id = s$sid),
+    "disabled under strict non-disclosure")
+
+  expect_error(
+    dsVert::dsvertOrdinalPatientDiffsDS(
+      output_key = "out", n = 10L, session_id = s$sid),
+    "disabled under strict non-disclosure")
+})
+
 test_that("dsvertOrdinalExtractXColumnDS rejects K=3 session", {
   s <- .mk_session(3L)
   expect_error(

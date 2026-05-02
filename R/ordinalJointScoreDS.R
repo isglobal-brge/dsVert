@@ -12,10 +12,28 @@
 # boundary F_0 = 0, F_K = 1.
 # =====================================================================
 
+.ordinal_joint_patient_level_allowed <- function() {
+  if (isTRUE(getOption("dsvert.allow_patient_level_ordinal_joint", FALSE)))
+    return(TRUE)
+  env <- tolower(Sys.getenv("DSVERT_ALLOW_PATIENT_LEVEL_ORDINAL_JOINT", ""))
+  env %in% c("1", "true", "yes")
+}
+
+.ordinal_joint_stop_patient_level <- function(fun) {
+  stop(fun, " is disabled under strict non-disclosure because the current ",
+       "ordinal joint path can reconstruct per-patient eta/probability/",
+       "residual/weight quantities on the outcome server. Enable option ",
+       "'dsvert.allow_patient_level_ordinal_joint' or environment variable ",
+       "'DSVERT_ALLOW_PATIENT_LEVEL_ORDINAL_JOINT' only for controlled ",
+       "diagnostic legacy runs.",
+       call. = FALSE)
+}
+
 #' @title Seal F_k shares for inter-server reveal to outcome server
 #' @description Non-outcome server transport-encrypts its Ring127 F_k
 #'   shares to the outcome server's PK so the outcome server can
-#'   assemble plaintext F per patient. Cox-class inter-server reveal.
+#'   assemble plaintext F per patient. Disabled by default under the
+#'   strict non-disclosure policy; kept only for diagnostic legacy runs.
 #' @param F_keys character vector of session slot keys holding F_k shares.
 #' @param target_pk outcome server transport PK (base64url).
 #' @param session_id MPC session id.
@@ -29,6 +47,8 @@ dsvertOrdinalSealFkSharesDS <- function(F_keys, target_pk,
     stop("F_keys required", call. = FALSE)
   ss <- .S(session_id)
   .k2_enforce_K(ss, 2L, "dsvertOrdinalSealFkSharesDS")
+  if (!.ordinal_joint_patient_level_allowed())
+    .ordinal_joint_stop_patient_level("dsvertOrdinalSealFkSharesDS")
   shares_b64 <- lapply(F_keys, function(k) {
     v <- ss[[k]]
     if (is.null(v)) stop("F share slot '", k, "' empty", call. = FALSE)
@@ -152,6 +172,8 @@ dsvertOrdinalSealEtaDS <- function(data_name, x_vars, beta_values,
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
   .k2_enforce_K(.S(session_id), 2L, "dsvertOrdinalSealEtaDS")
+  if (!.ordinal_joint_patient_level_allowed())
+    .ordinal_joint_stop_patient_level("dsvertOrdinalSealEtaDS")
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
   if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
@@ -233,6 +255,8 @@ dsvertOrdinalPatientDiffsDS <- function(data_name = NULL,
     stop("n must be a positive integer", call. = FALSE)
   ss <- .S(session_id)
   .k2_enforce_K(ss, 2L, "dsvertOrdinalPatientDiffsDS")
+  if (!.ordinal_joint_patient_level_allowed())
+    .ordinal_joint_stop_patient_level("dsvertOrdinalPatientDiffsDS")
 
   # Piece (5) -- default "no-op" output: both parties write a zero
   # Ring127 share. Required for the case where the caller only wants

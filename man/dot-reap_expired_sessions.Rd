@@ -4,7 +4,11 @@
 \alias{.reap_expired_sessions}
 \title{Reap sessions older than TTL}
 \usage{
-.reap_expired_sessions()
+.reap_expired_sessions(storage = NULL)
+}
+\arguments{
+\item{storage}{Optional session-storage env override; defaults to
+the package-level session env when NULL.}
 }
 \description{
 Reap sessions older than TTL

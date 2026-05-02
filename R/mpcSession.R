@@ -199,6 +199,8 @@ NULL
 }
 
 #' Reap sessions older than TTL
+#' @param storage Optional session-storage env override; defaults to
+#'   the package-level session env when NULL.
 #' @keywords internal
 .reap_expired_sessions <- function(storage = NULL) {
   if (is.null(storage)) storage <- .session_storage()

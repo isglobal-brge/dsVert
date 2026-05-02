@@ -1,0 +1,44 @@
+# Broadcast per-patient cluster IDs to the peer (LMM exact)
+
+On the outcome server (which holds the cluster membership column
+plaintext), encode the cluster IDs as an integer vector and
+transport-encrypt them to the peer so both DCF parties can compute
+per-cluster aggregates of their own r / r^2 shares.
+
+This is the documented LMM inter-server leakage tier (cluster-ID
+membership, see V2_PROGRESS disclosure table). The shared cluster IDs
+are plaintext between the two DCF parties but NEVER reach the analyst
+client.
+
+## Usage
+
+``` r
+dsvertLMMBroadcastClusterIDsDS(
+  data_name,
+  cluster_col,
+  peer_pk,
+  session_id = NULL
+)
+```
+
+## Arguments
+
+- data_name:
+
+  Aligned data frame.
+
+- cluster_col:
+
+  Cluster column.
+
+- peer_pk:
+
+  Transport pk of the peer (base64url).
+
+- session_id:
+
+  MPC session id.
+
+## Value
+
+list(peer_blob, n_clusters, levels)

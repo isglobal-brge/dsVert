@@ -135,6 +135,8 @@ func main() {
 	// Ring127 local affine combine — used by Horner / NR R-orchestration
 	case "k2-ring127-affine-combine":
 		handleK2Ring127AffineCombine()
+	case "k2-ring127-local-scale-share":
+		handleK2Ring127LocalScaleShare()
 
 	// Ring63 aggregation (client-side)
 	case "k2-ring63-aggregate":

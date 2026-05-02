@@ -235,10 +235,20 @@ base64_to_base64url <- function(x) {
 
   bin_path <- ""
 
+  # Development and validation runs may need to exercise a repo-local binary
+  # even when an installed dsVert package is also present.
+  opt_path <- getOption("dsvert.mpc_binary")
+  if (is.null(opt_path)) opt_path <- getOption("default.dsvert.mpc_binary")
+  if (!is.null(opt_path) && opt_path != "" && file.exists(opt_path)) {
+    bin_path <- opt_path
+  }
+
   # Look for binary in package installation (platform-specific)
-  tryCatch({
-    bin_path <- system.file("bin", subdir, binary_name, package = "dsVert")
-  }, error = function(e) {})
+  if (bin_path == "" || !file.exists(bin_path)) {
+    tryCatch({
+      bin_path <- system.file("bin", subdir, binary_name, package = "dsVert")
+    }, error = function(e) {})
+  }
 
   # Fallback: look in development locations
   if (bin_path == "" || !file.exists(bin_path)) {
@@ -256,14 +266,6 @@ base64_to_base64url <- function(x) {
     }
   }
 
-  # Additional fallback: check R option (dsBase pattern), then env var
-  if (bin_path == "" || !file.exists(bin_path)) {
-    opt_path <- getOption("dsvert.mpc_binary")
-    if (is.null(opt_path)) opt_path <- getOption("default.dsvert.mpc_binary")
-    if (!is.null(opt_path) && opt_path != "" && file.exists(opt_path)) {
-      bin_path <- opt_path
-    }
-  }
   if (bin_path == "" || !file.exists(bin_path)) {
     stop(
       "dsvert-mpc binary not found. ",

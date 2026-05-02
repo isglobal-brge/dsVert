@@ -47,7 +47,8 @@
 dsvertCoxDiscreteShareMaskDS <- function(data_name, time_var, status_var,
                                           J, bin_breaks,
                                           mask_output_key, y_output_key,
-                                          target_pk, session_id) {
+                                          target_pk, session_id,
+                                          debug = FALSE) {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
   .k2_enforce_K(.S(session_id), 2L, "dsvertCoxDiscreteShareMaskDS")
@@ -66,6 +67,14 @@ dsvertCoxDiscreteShareMaskDS <- function(data_name, time_var, status_var,
                   length(bin_breaks), J + 1L), call. = FALSE)
   if (any(diff(bin_breaks) <= 0))
     stop("bin_breaks must be strictly increasing", call. = FALSE)
+  if (length(bin_breaks) > 1L) {
+    eps <- max(1e-12, 128 * .Machine$double.eps *
+                 max(1, max(abs(bin_breaks), na.rm = TRUE)))
+    bin_breaks[-1L] <- bin_breaks[-1L] + eps
+    if (any(diff(bin_breaks) <= 0))
+      stop("bin_breaks too close after numeric stabilisation",
+           call. = FALSE)
+  }
   ss <- .S(session_id)
 
   t_vec <- as.numeric(data[[time_var]])
@@ -123,7 +132,15 @@ dsvertCoxDiscreteShareMaskDS <- function(data_name, time_var, status_var,
     sealed_y_blob = base64_to_base64url(sealed_y$sealed),
     n_obs         = as.integer(n),
     J             = J,
-    n_pp          = as.integer(n) * J
+    n_pp          = as.integer(n) * J,
+    debug         = if (isTRUE(debug)) {
+      list(bin_breaks = bin_breaks,
+           J_i_counts = as.integer(tabulate(J_i, nbins = J)),
+           y_counts = as.integer(vapply(seq_len(J), function(j) {
+             sum(J_i == j & d_vec == 1L)
+           }, integer(1L))),
+           time_range = range(t_vec, na.rm = TRUE))
+    } else NULL
   )
 }
 

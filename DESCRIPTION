@@ -55,6 +55,7 @@ AggregateMethods:
     k2SetWeightsDS,
     k2ReceiveWeightsDS,
     k2ApplyWeightsDS,
+    k2ApplySqrtWeightsDS,
     k2ClearWeightsDS,
     k2SetCoxTimesDS,
     k2ReceiveCoxMetaDS,
@@ -94,10 +95,12 @@ AggregateMethods:
     dsvertSoftmaxDenominatorDS,
     dsvertContingencyDS,
     dsvertOneHotDS,
+    dsvertAddFactorDummiesDS,
     dsvertImputeColumnDS,
     dsvertPearsonR2ColDS,
     dsvertClusterSizesDS,
     dsvertClusterResidualsDS,
+    dsvertClusterBinomialMomentsDS,
     dsvertExpandClusterWeightsDS,
     dsvertLMMVarianceComponentsDS,
     dsvertLMMXCovarianceWithinDS,
@@ -169,6 +172,7 @@ AggregateMethods:
     psiGetMatchedIndicesDS,
     dsvertCoxDiscreteReceiveSharesDS,
     dsvertCoxDiscreteShareMaskDS,
+    dsvertCoxDiscreteExpandXDS,
     dsvertNBMomentSumsDS,
     dsvertOrdinalExtractXColumnDS,
     dsvertOrdinalReceiveBetaWeightsDS,
@@ -179,8 +183,7 @@ AggregateMethods:
 AssignMethods:
     psiMatchAndAlignDS,
     psiSelfAlignDS,
-    psiFilterCommonDS,
-    dsvertCoxDiscreteExpandXDS
+    psiFilterCommonDS
 Options:
     datashield.privacyLevel=5,
     default.nfilter.tab=3,

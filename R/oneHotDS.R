@@ -132,3 +132,62 @@ dsvertOneHotDS <- function(data_name, var, levels = NULL,
     }
   )
 }
+
+#' @title Materialise factor dummy columns on the server
+#' @description Create 0/1 dummy columns for a categorical variable in a
+#'   server-side data frame. This is used by wrappers such as
+#'   \code{ds.vertCox.k3} before calling \code{ds.vertGLM}, whose formula
+#'   parser expects real column names rather than inline
+#'   \code{factor(...)} terms.
+#'
+#' @param data_name Character. Server-side data frame name.
+#' @param var Character. Categorical variable to expand.
+#' @param prefix Character. Prefix for generated dummy columns.
+#' @param levels Optional character vector of levels. If NULL, uses
+#'   sorted observed levels.
+#' @param drop_first Logical. If TRUE, omit the first level to avoid
+#'   collinearity with the intercept.
+#' @param suppress_small_cells Logical. Suppress returned counts below
+#'   \code{datashield.privacyLevel}; dummy columns are still created.
+#' @return list(levels, dummy_columns, counts)
+#' @export
+dsvertAddFactorDummiesDS <- function(data_name, var, prefix = NULL,
+                                      levels = NULL, drop_first = TRUE,
+                                      suppress_small_cells = TRUE) {
+  if (!is.character(data_name) || length(data_name) != 1L) {
+    stop("data_name must be a single character string", call. = FALSE)
+  }
+  if (!is.character(var) || length(var) != 1L) {
+    stop("var must be a single character string", call. = FALSE)
+  }
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
+  if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
+  if (!var %in% names(data)) {
+    stop("Variable '", var, "' not found in '", data_name, "'",
+         call. = FALSE)
+  }
+  x <- as.character(data[[var]])
+  lvls <- if (is.null(levels)) sort(unique(x[!is.na(x)])) else as.character(levels)
+  if (length(lvls) < 1L) stop("No levels found for ", var, call. = FALSE)
+  if (is.null(prefix) || !nzchar(prefix)) prefix <- paste0(var, "_")
+  sanitize <- function(z) gsub("[^A-Za-z0-9_]+", "_", z)
+  dummy_levels <- if (isTRUE(drop_first)) lvls[-1L] else lvls
+  dummy_cols <- character(length(dummy_levels))
+  for (i in seq_along(dummy_levels)) {
+    nm <- paste0(prefix, sanitize(dummy_levels[[i]]))
+    data[[nm]] <- as.integer(!is.na(x) & x == dummy_levels[[i]])
+    dummy_cols[[i]] <- nm
+  }
+  counts <- stats::setNames(tabulate(match(x, lvls), nbins = length(lvls)),
+                            lvls)
+  if (isTRUE(suppress_small_cells)) {
+    privacy_min <- getOption("datashield.privacyLevel", 5L)
+    if (is.numeric(privacy_min) && privacy_min > 0L) {
+      counts[counts > 0L & counts < privacy_min] <- 0L
+    }
+  }
+  assign(data_name, data, envir = parent.frame())
+  list(levels = lvls, dummy_columns = dummy_cols,
+       counts = as.integer(counts))
+}

@@ -73,6 +73,86 @@ dsvertClusterResidualsDS <- function(data_name, y_var, x_names,
        n_per_cluster    = as.integer(npc))
 }
 
+#' @title Per-cluster binomial score moments for GLMM updates
+#' @description Given plaintext fixed-effect coefficients from the client,
+#'   compute per-cluster binomial random-intercept score moments:
+#'   \eqn{\sum_i (y_i - p_i)} and \eqn{\sum_i p_i(1-p_i)}. These are
+#'   aggregate vectors with one scalar per cluster, used by
+#'   \code{ds.vertGLMM()} to run a Laplace/PQL random-intercept update
+#'   without returning row-level residuals or fitted probabilities.
+#' @param data_name Character. Aligned data-frame name.
+#' @param y_var Outcome column on this server.
+#' @param x_names Predictor names on this server.
+#' @param betahat Coefficients for \code{x_names}.
+#' @param intercept Scalar intercept.
+#' @param cluster_col Cluster column.
+#' @param offset_col Optional numeric offset column to add to the linear
+#'   predictor, typically the current per-cluster random-intercept column.
+#' @return list(rsum_per_cluster, vsum_per_cluster, rss_per_cluster,
+#'   n_per_cluster).
+#' @export
+dsvertClusterBinomialMomentsDS <- function(data_name, y_var, x_names,
+                                           betahat, intercept = 0,
+                                           cluster_col,
+                                           offset_col = NULL) {
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
+  if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
+  if (!y_var %in% names(data)) stop("y_var not found", call. = FALSE)
+  if (!cluster_col %in% names(data))
+    stop("cluster_col not found", call. = FALSE)
+  missing_x <- setdiff(x_names, names(data))
+  if (length(missing_x) > 0L) {
+    stop("x_names not local: ", paste(missing_x, collapse = ", "),
+         call. = FALSE)
+  }
+  if (!is.null(offset_col)) {
+    if (!is.character(offset_col) || length(offset_col) != 1L) {
+      stop("offset_col must be NULL or a single character string",
+           call. = FALSE)
+    }
+    if (!offset_col %in% names(data)) {
+      stop("offset_col not found", call. = FALSE)
+    }
+  }
+
+  y <- as.numeric(data[[y_var]])
+  if (anyNA(y) || any(!y %in% c(0, 1))) {
+    stop("y_var must be complete 0/1 binomial data", call. = FALSE)
+  }
+  eta <- rep(as.numeric(intercept), nrow(data))
+  if (length(x_names) > 0L) {
+    X <- as.matrix(data[, x_names, drop = FALSE])
+    eta <- eta + drop(X %*% as.numeric(betahat))
+  }
+  if (!is.null(offset_col)) {
+    off <- as.numeric(data[[offset_col]])
+    if (length(off) != length(eta) || anyNA(off)) {
+      stop("offset_col must be complete and match nrow(data)", call. = FALSE)
+    }
+    eta <- eta + off
+  }
+  eta <- pmax(pmin(eta, 30), -30)
+  p <- stats::plogis(eta)
+  r <- y - p
+  v <- p * (1 - p)
+  id <- data[[cluster_col]]
+  by_cluster <- split(seq_len(nrow(data)), id)
+  rsum <- vapply(by_cluster, function(ix) sum(r[ix]), numeric(1L))
+  vsum <- vapply(by_cluster, function(ix) sum(v[ix]), numeric(1L))
+  rss <- vapply(by_cluster, function(ix) sum(r[ix] * r[ix]), numeric(1L))
+  npc <- vapply(by_cluster, length, integer(1L))
+  privacy_min <- getOption("datashield.privacyLevel", 5L)
+  if (is.numeric(privacy_min) && privacy_min > 0L) {
+    mask <- npc < privacy_min
+    rsum[mask] <- 0; vsum[mask] <- 0; rss[mask] <- 0; npc[mask] <- 0L
+  }
+  list(rsum_per_cluster = as.numeric(rsum),
+       vsum_per_cluster = as.numeric(vsum),
+       rss_per_cluster  = as.numeric(rss),
+       n_per_cluster    = as.integer(npc))
+}
+
 #' @title Per-cluster Z^T Z matrices for LMM random slopes
 #' @description For each cluster in the outcome server, return the q*q
 #'   matrix \eqn{Z_i^T Z_i} where \eqn{Z_i} is the per-patient random-

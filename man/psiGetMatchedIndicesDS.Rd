@@ -15,5 +15,7 @@ Integer vector of matched reference indices (0-based).
 }
 \description{
 Returns the set of reference indices that this server matched during
-PSI alignment. Used by the client to compute the multi-server intersection.
+PSI alignment. This legacy diagnostic helper is disabled by default because
+the index vector is patient-level metadata; production alignment uses
+encrypted index export plus server-side intersection.
 }

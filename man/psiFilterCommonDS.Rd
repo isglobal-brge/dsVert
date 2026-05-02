@@ -8,6 +8,7 @@ psiFilterCommonDS(
   data_name,
   common_indices = NULL,
   from_storage = FALSE,
+  encrypted = FALSE,
   session_id = NULL
 )
 }
@@ -18,7 +19,10 @@ psiFilterCommonDS(
 servers (0-based). Ignored when \code{from_storage = TRUE}.}
 
 \item{from_storage}{Logical. If \code{TRUE}, read \code{common_indices}
-from server-side blob storage (comma-separated integers).
+from server-side blob storage.}
+
+\item{encrypted}{Logical. If \code{TRUE}, the stored common-index blob is
+transport-encrypted for this server.
 Default \code{FALSE}.}
 
 \item{session_id}{Character or NULL. UUID for session-scoped storage

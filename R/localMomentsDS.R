@@ -1,5 +1,5 @@
 #' @title Server-side local descriptive moments (aggregate)
-#' @description Compute plaintext mean, standard deviation, min, max, and
+#' @description Compute plaintext mean, standard deviation, optional min/max,
 #'   counts of non-missing / missing observations for a numeric variable
 #'   held by a single server. The variable never leaves the server; only the
 #'   scalar summaries do. This is the building block for \code{ds.vertDesc}
@@ -7,13 +7,18 @@
 #'
 #' @param data_name Character. Name of the server-side data frame.
 #' @param variable Character. Name of the numeric column.
+#' @param return_extrema Logical. Return exact min/max. Defaults to
+#'   \code{getOption("dsvert.allow_exact_extrema", FALSE)} because exact
+#'   extrema can disclose outliers in small cohorts.
 #'
 #' @return A list with elements:
 #'   \itemize{
 #'     \item \code{mean}: sample mean of non-missing values
 #'     \item \code{sd}:   sample standard deviation (n-1 denominator)
-#'     \item \code{min}:  minimum of non-missing values (suppressed if n_total < privacyLevel)
-#'     \item \code{max}:  maximum of non-missing values (suppressed if n_total < privacyLevel)
+#'     \item \code{min}:  minimum of non-missing values, or \code{NA} unless
+#'       exact extrema are explicitly enabled
+#'     \item \code{max}:  maximum of non-missing values, or \code{NA} unless
+#'       exact extrema are explicitly enabled
 #'     \item \code{n_total}: number of non-missing observations
 #'     \item \code{n_na}:    number of missing observations
 #'   }
@@ -29,7 +34,9 @@
 #' @seealso \code{dsvertHistogramDS}
 #' @importFrom stats sd
 #' @export
-dsvertLocalMomentsDS <- function(data_name, variable) {
+dsvertLocalMomentsDS <- function(data_name, variable,
+                                 return_extrema = getOption(
+                                   "dsvert.allow_exact_extrema", FALSE)) {
   if (!is.character(data_name) || length(data_name) != 1) {
     stop("data_name must be a single character string", call. = FALSE)
   }
@@ -62,16 +69,18 @@ dsvertLocalMomentsDS <- function(data_name, variable) {
     return(list(
       mean = NA_real_, sd = NA_real_,
       min = NA_real_, max = NA_real_,
-      n_total = n_total, n_na = n_na
+      n_total = n_total, n_na = n_na,
+      extrema_released = FALSE
     ))
   }
 
   list(
     mean = mean(x),
     sd = if (n_total > 1L) sd(x) else NA_real_,
-    min = min(x),
-    max = max(x),
+    min = if (isTRUE(return_extrema)) min(x) else NA_real_,
+    max = if (isTRUE(return_extrema)) max(x) else NA_real_,
     n_total = n_total,
-    n_na = n_na
+    n_na = n_na,
+    extrema_released = isTRUE(return_extrema)
   )
 }

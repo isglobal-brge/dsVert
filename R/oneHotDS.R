@@ -32,6 +32,8 @@
 #'   reduction).
 #' @param suppress_small_cells Logical. If TRUE (default) suppress
 #'   per-level row-margin counts below the DataSHIELD privacy threshold.
+#' @param fail_on_small_cells Logical. Stop instead of returning level
+#'   metadata if any positive level count is below the privacy threshold.
 #' @return A list with elements:
 #'   \itemize{
 #'     \item \code{levels}: character vector of category names (canonical)
@@ -44,7 +46,9 @@
 #' @export
 dsvertOneHotDS <- function(data_name, var, levels = NULL,
                            session_id = NULL,
-                           suppress_small_cells = TRUE) {
+                           suppress_small_cells = TRUE,
+                           fail_on_small_cells = getOption(
+                             "dsvert.fail_on_small_cells", TRUE)) {
   if (!is.character(data_name) || length(data_name) != 1L) {
     stop("data_name must be a single character string", call. = FALSE)
   }
@@ -91,6 +95,12 @@ dsvertOneHotDS <- function(data_name, var, levels = NULL,
   if (isTRUE(suppress_small_cells)) {
     privacy_min <- getOption("datashield.privacyLevel", 5L)
     if (is.numeric(privacy_min) && privacy_min > 0) {
+      small <- row_margins > 0L & row_margins < privacy_min
+      if ((any(small) || (n > 0L && n < privacy_min)) &&
+          isTRUE(fail_on_small_cells)) {
+        stop("One-hot level count below datashield.privacyLevel; ",
+             "refusing to release categorical metadata", call. = FALSE)
+      }
       row_margins[row_margins > 0L & row_margins < privacy_min] <- 0L
       if (n < privacy_min) n <- 0L
     }
@@ -114,6 +124,11 @@ dsvertOneHotDS <- function(data_name, var, levels = NULL,
     row_margins = row_margins,
     n = n,
     n_na = n_na,
-    session_key = session_key
+    session_key = session_key,
+    small_cell_policy = if (isTRUE(suppress_small_cells)) {
+      if (isTRUE(fail_on_small_cells)) "fail" else "zero"
+    } else {
+      "none"
+    }
   )
 }

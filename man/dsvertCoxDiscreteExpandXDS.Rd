@@ -21,7 +21,7 @@ dsvertCoxDiscreteExpandXDS(data_name, new_data_name, x_vars, J, session_id)
 List(stored=TRUE, n_pp=\if{html}{\out{<int>}}=J*n, p=\if{html}{\out{<int>}}=length(x_vars))
 }
 \description{
-At the covariate server, replicate each X_i row J times
+At each feature server, replicate each X_i row J times
 to form a uniform J*n x p person-period frame. No row-count signal
 leaks -- every patient contributes exactly J rows regardless of
 their true (hidden) ending bin J_i. Bin index per row is implicit

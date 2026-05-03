@@ -2,7 +2,7 @@
 % Please edit documentation in R/coxDiscreteShareDS.R
 \name{dsvertCoxDiscreteReceiveSharesDS}
 \alias{dsvertCoxDiscreteReceiveSharesDS}
-\title{Cox K=2 discrete-time receive shared mask + y at NL}
+\title{Cox discrete-time receive shared mask + y at DCF peer}
 \usage{
 dsvertCoxDiscreteReceiveSharesDS(
   mask_blob_key,

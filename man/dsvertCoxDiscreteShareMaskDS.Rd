@@ -2,7 +2,7 @@
 % Please edit documentation in R/coxDiscreteShareDS.R
 \name{dsvertCoxDiscreteShareMaskDS}
 \alias{dsvertCoxDiscreteShareMaskDS}
-\title{Cox K=2 discrete-time non-disclosive share-mask primitives (#D')}
+\title{Cox discrete-time non-disclosive share-mask primitives (#D')}
 \usage{
 dsvertCoxDiscreteShareMaskDS(
   data_name,
@@ -13,7 +13,8 @@ dsvertCoxDiscreteShareMaskDS(
   mask_output_key,
   y_output_key,
   target_pk,
-  session_id
+  session_id,
+  debug = FALSE
 )
 }
 \arguments{
@@ -43,8 +44,8 @@ List(sealed_m_blob = b64url, sealed_y_blob = b64url,
 n_obs = \if{html}{\out{<int>}}, J = \if{html}{\out{<int>}}, n_pp = \if{html}{\out{<int>}}=J*n).
 }
 \description{
-Worker2 K=2-safe option (B) -- hide J_i (per-patient ending
-bin index) from the covariate (non-label) server. Implements the
+Hide J_i (per-patient ending bin index) from every covariate
+server. Implements the
 share-mask gating pattern documented in
 \code{project_k2_strict_unified_plan_2026-04-27.md} Sec."Option B
 FEASIBILITY ANALYSIS":
@@ -54,15 +55,16 @@ Compute the per-patient at-risk mask m_ij in \{0,1\} (j=1..J,
 i=1..n) where m_ij = I(j <= J_i) and the event indicator
 y_ij = I(j == J_i AND status_i = 1).
 \item Both m and y get split into Ring127 additive shares between OS and
-the covariate server. The covariate server thereby never sees J_i
+one DCF/fusion covariate server. That server thereby never sees J_i
 directly; the only signal it receives is two random-looking
 length-(J*n) shares that, summed pointwise mod 2^127 with the OS
 shares, reconstruct m and y.
-\item The covariate server expands its X to a UNIFORM Jxn person-period
+\item Every covariate server expands its X to a UNIFORM Jxn person-period
 frame (every patient contributes J rows, regardless of true J_i),
-so no row-count signal leaks. The mask shares gate which rows
-enter the score / Hessian aggregations downstream via Beaver
-vecmul against (y - p) and W = p*(1-p).
+so no row-count signal leaks. In K>=3, non-DCF servers send only
+encrypted additive shares of this uniform frame to the two DCF parties.
+The mask shares gate which rows enter the score / Hessian aggregations
+downstream via Beaver vecmul against (y - p) and W = p*(1-p).
 }
 
 Cite: Aliasgari-Blanton 2013 NDSS eprint 2012/405 (share-mask

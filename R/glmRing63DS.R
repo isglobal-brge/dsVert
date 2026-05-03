@@ -271,6 +271,9 @@ glmRing63PrepDevianceDS <- function(mode = "rss", session_id = NULL) {
     ss$k2_peer_p <- 0L
     # Save and replace: mu = y, y = 0
     n <- ss$k2_x_n
+    if (is.null(ss$k2_y_share_fp_original)) {
+      ss$k2_y_share_fp_original <- ss$k2_y_share_fp
+    }
     zero <- .callMpcTool("k2-float-to-fp", list(
       values = rep(0, n), frac_bits = frac_bits, ring = ring_tag))
     ss$secure_mu_share <- ss$k2_y_share_fp  # mu = y

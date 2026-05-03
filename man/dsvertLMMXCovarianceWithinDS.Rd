@@ -12,10 +12,9 @@ dsvertLMMXCovarianceWithinDS(data_name, x_vars, cluster_id_vector)
 \item{x_vars}{Character vector of X column names on this server.}
 
 \item{cluster_id_vector}{Integer vector of length nrow(data)
-assigning each row to a cluster index (1..K). Supplied by the
-client; the outcome server produces the canonical mapping via
-\code{dsvertLMMVarianceComponentsDS} (which already reports cluster
-sizes) and the client relays it to non-label servers in PSI order.}
+assigning each row to a cluster index (1..K). Legacy diagnostic path
+only; production callers should use
+\code{dsvertLMMXCovarianceWithinStoredDS}.}
 }
 \value{
 list(SX2_within = matrix p x p, df_within = integer scalar,
@@ -28,12 +27,12 @@ X_centered_i' X_centered_i where X_centered_i = X_i - colMeans(X_i)
 for cluster i. Together with df_within = Sum_i (n_i - 1) the
 pooled within-cluster X covariance is Var_within(X) = SX2 / df_w.
 
-Used by ds.vertLMM.k3 to subtract the Var_within(X beta) inflation
+Used by legacy diagnostics to subtract the Var_within(X beta) inflation
 from the raw-y ANOVA estimate of sigma^2 (Pinheiro-Bates 2000
-Sec.2.4.2 caveat). The cluster_id argument is supplied by the
-client (received from the outcome server then passed verbatim to
-each non-label server), so the helper does not require
-cluster_col to be locally present on this server.
+Sec.2.4.2 caveat). This helper receives row-level cluster membership
+from the client and should not be used for strict non-disclosure
+evidence; production \code{ds.vertLMM.k3} uses encrypted server-to-server
+cluster-ID broadcast and \code{dsvertLMMXCovarianceWithinStoredDS}.
 
 Cross-server X covariance off-diagonals (Cov_within(x_s, x_t) for
 s != t) are not recoverable without additional MPC. Each server

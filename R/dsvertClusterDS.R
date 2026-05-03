@@ -303,24 +303,13 @@ dsvertLMMVarianceComponentsDS <- function(data_name, y_var, cluster_col) {
   ybar <- sum(n_i * ybar_i) / N
   ssw <- sum(ssw_i)
   ssb <- sum(n_i * (ybar_i - ybar)^2)
-  ## Anonymised cluster_id_vector -- integer 1..K assignment per row in
-  ## the data frame's local order. Client relays this verbatim to
-  ## non-label servers so they can compute their own per-cluster
-  ## within-X moments via dsvertLMMXCovarianceWithinDS. Disclosure is
-  ## the documented LMM cluster-membership tier (analogous to the
-  ## K=2 dsvertLMMBroadcastClusterIDsDS path) -- anonymous integer
-  ## indices, no cross-reference to subject identity beyond what is
-  ## already implied by PSI alignment.
-  cid_levels <- sort(unique(id))
-  cluster_id_vector <- as.integer(match(id, cid_levels))
   list(SSW = as.numeric(ssw),
        SSB = as.numeric(ssb),
        ssw_per_cluster = as.numeric(ssw_i),
        n_per_cluster = as.integer(n_i),
        K = as.integer(K),
        N = as.integer(N),
-       ybar = as.numeric(ybar),
-       cluster_id_vector = cluster_id_vector)
+       ybar = as.numeric(ybar))
 }
 
 #' @title Within-cluster X covariance for LMM K=3 sigma^2 X-correction
@@ -330,12 +319,11 @@ dsvertLMMVarianceComponentsDS <- function(data_name, y_var, cluster_col) {
 #'   for cluster i. Together with df_within = Sum_i (n_i - 1) the
 #'   pooled within-cluster X covariance is Var_within(X) = SX2 / df_w.
 #'
-#'   Used by ds.vertLMM.k3 to subtract the Var_within(X beta) inflation
-#'   from the raw-y ANOVA estimate of sigma^2 (Pinheiro-Bates 2000
-#'   Sec.2.4.2 caveat). The cluster_id argument is supplied by the
-#'   client (received from the outcome server then passed verbatim to
-#'   each non-label server), so the helper does not require
-#'   cluster_col to be locally present on this server.
+#'   Legacy diagnostic helper for subtracting the Var_within(X beta)
+#'   inflation from the raw-y ANOVA estimate of sigma^2 (Pinheiro-Bates
+#'   2000 Sec.2.4.2 caveat). Because the cluster_id argument is supplied
+#'   by the client, strict non-disclosure callers should use
+#'   \code{dsvertLMMXCovarianceWithinStoredDS} instead.
 #'
 #'   Cross-server X covariance off-diagonals (Cov_within(x_s, x_t) for
 #'   s != t) are not recoverable without additional MPC. Each server
@@ -351,10 +339,9 @@ dsvertLMMVarianceComponentsDS <- function(data_name, y_var, cluster_col) {
 #' @param data_name Aligned data frame name.
 #' @param x_vars Character vector of X column names on this server.
 #' @param cluster_id_vector Integer vector of length nrow(data)
-#'   assigning each row to a cluster index (1..K). Supplied by the
-#'   client; the outcome server produces the canonical mapping via
-#'   `dsvertLMMVarianceComponentsDS` (which already reports cluster
-#'   sizes) and the client relays it to non-label servers in PSI order.
+#'   assigning each row to a cluster index (1..K). Legacy diagnostic path
+#'   only; production callers should use
+#'   \code{dsvertLMMXCovarianceWithinStoredDS}.
 #' @return list(SX2_within = matrix p x p, df_within = integer scalar,
 #'   p = ncol, x_vars = character).
 #' @export
@@ -376,6 +363,68 @@ dsvertLMMXCovarianceWithinDS <- function(data_name, x_vars,
   privacy_min <- getOption("datashield.privacyLevel", 5L)
   if (is.numeric(privacy_min) && n < privacy_min)
     stop("Insufficient observations", call. = FALSE)
+  p <- ncol(X)
+  SX2 <- matrix(0, p, p, dimnames = list(x_vars, x_vars))
+  df_w <- 0L
+  by <- split(seq_len(n), cid)
+  for (ix in by) {
+    if (length(ix) < 2L) next
+    Xi <- X[ix, , drop = FALSE]
+    Xi_centered <- sweep(Xi, 2L, colMeans(Xi))
+    SX2 <- SX2 + crossprod(Xi_centered)
+    df_w <- df_w + (length(ix) - 1L)
+  }
+  list(SX2_within = SX2,
+       df_within = as.integer(df_w),
+       p = as.integer(p),
+       x_vars = x_vars)
+}
+
+#' @title Within-cluster X covariance from stored cluster IDs
+#' @description Non-disclosive variant of
+#'   \code{dsvertLMMXCovarianceWithinDS}. The cluster assignment vector is
+#'   read from the active MPC session after an encrypted
+#'   \code{dsvertClusterIDsBroadcastDS}/\code{dsvertClusterIDsReceiveDS}
+#'   exchange, so the analyst client does not receive row-level cluster
+#'   membership.
+#' @param data_name Aligned data frame name.
+#' @param x_vars Character vector of X column names on this server.
+#' @param session_id Active MPC session identifier.
+#' @return list(SX2_within = matrix p x p, df_within = integer scalar,
+#'   p = ncol, x_vars = character).
+#' @export
+dsvertLMMXCovarianceWithinStoredDS <- function(data_name, x_vars,
+                                                session_id = NULL) {
+  if (is.null(session_id) || !nzchar(session_id)) {
+    stop("session_id required", call. = FALSE)
+  }
+  ss <- .S(session_id)
+  cid <- ss$dsvert_cluster_ids
+  if (is.null(cid)) {
+    stop("cluster IDs missing; broadcast first via ",
+         "dsvertClusterIDsBroadcastDS / dsvertClusterIDsReceiveDS",
+         call. = FALSE)
+  }
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
+  if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
+  missing_x <- setdiff(x_vars, names(data))
+  if (length(missing_x) > 0L)
+    stop("x_vars not local: ", paste(missing_x, collapse = ", "),
+         call. = FALSE)
+  X <- as.matrix(data[, x_vars, drop = FALSE])
+  n <- nrow(X)
+  cid <- as.integer(cid)
+  if (length(cid) != n)
+    stop(sprintf("stored cluster ID length %d != nrow(data) %d",
+                 length(cid), n), call. = FALSE)
+  privacy_min <- getOption("datashield.privacyLevel", 5L)
+  privacy_min <- suppressWarnings(as.integer(privacy_min[[1L]]))
+  if (is.na(privacy_min)) privacy_min <- 5L
+  sizes <- tabulate(cid, nbins = max(cid))
+  if (privacy_min > 1L && any(sizes > 0L & sizes < privacy_min)) {
+    stop("cluster size below datashield.privacyLevel", call. = FALSE)
+  }
   p <- ncol(X)
   SX2 <- matrix(0, p, p, dimnames = list(x_vars, x_vars))
   df_w <- 0L

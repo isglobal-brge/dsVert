@@ -25,4 +25,6 @@ parties' outputs aggregate (client-side k2-ring63-aggregate) to the
 per-cluster plaintext sum.
 
 Aggregates only; no per-patient information returns to the client.
+The helper fails closed when any cluster is smaller than
+\code{datashield.privacyLevel}.
 }

@@ -48,6 +48,50 @@ test_that("dsvertLMMPerClusterSumDS rejects K=3 session", {
     "K mismatch.*expected K=2.*got K=3")
 })
 
+test_that("LMM cluster broadcast fails closed below privacyLevel", {
+  old_opt <- getOption("datashield.privacyLevel", 5L)
+  options(datashield.privacyLevel = 5L)
+  on.exit(options(datashield.privacyLevel = old_opt), add = TRUE)
+  s <- .mk_session(2L)
+  D <- data.frame(cluster = c(1L, 1L, rep(2L, 5L)))
+  expect_error(
+    dsVert::dsvertLMMBroadcastClusterIDsDS(
+      data_name = "D", cluster_col = "cluster",
+      peer_pk = "not-needed", session_id = s$sid),
+    "cluster size below datashield\\.privacyLevel")
+})
+
+test_that("LMM per-cluster sums fail closed below privacyLevel", {
+  old_opt <- getOption("datashield.privacyLevel", 5L)
+  options(datashield.privacyLevel = 5L)
+  on.exit(options(datashield.privacyLevel = old_opt), add = TRUE)
+  s <- .mk_session(2L)
+  s$ss$k2_lmm_cluster_ids <- c(1L, 1L, rep(2L, 5L))
+  s$ss$dummy_share <- "unused-because-privacy-guard-runs-first"
+  expect_error(
+    dsVert::dsvertLMMPerClusterSumDS(
+      share_key = "dummy_share", session_id = s$sid),
+    "cluster size below datashield\\.privacyLevel")
+})
+
+test_that("stored LMM X covariance avoids client-supplied cluster vector", {
+  old_opt <- getOption("datashield.privacyLevel", 5L)
+  options(datashield.privacyLevel = 5L)
+  on.exit(options(datashield.privacyLevel = old_opt), add = TRUE)
+  s <- .mk_session(2L)
+  D <- data.frame(
+    x = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
+    z = c(2, 1, 3, 5, 4, 7, 6, 8, 10, 9))
+  cid <- rep(1:2, each = 5L)
+  s$ss$dsvert_cluster_ids <- cid
+  stored <- dsVert::dsvertLMMXCovarianceWithinStoredDS(
+    data_name = "D", x_vars = c("x", "z"), session_id = s$sid)
+  legacy <- dsVert::dsvertLMMXCovarianceWithinDS(
+    data_name = "D", x_vars = c("x", "z"), cluster_id_vector = cid)
+  expect_equal(stored$SX2_within, legacy$SX2_within)
+  expect_equal(stored$df_within, legacy$df_within)
+})
+
 test_that("dsvertLMMGlobalSumDS rejects K=3 session", {
   s <- .mk_session(3L)
   expect_error(

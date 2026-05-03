@@ -3,6 +3,8 @@
 #'   membership column plaintext), encode the cluster IDs as an integer
 #'   vector and transport-encrypt them to the peer so both DCF parties
 #'   can compute per-cluster aggregates of their own r / r^2 shares.
+#'   Original cluster labels are not returned to the analyst client or
+#'   sent to the peer.
 #'
 #'   This is the documented LMM inter-server leakage tier
 #'   (cluster-ID membership, see V2_PROGRESS disclosure table). The
@@ -12,7 +14,7 @@
 #' @param cluster_col Cluster column.
 #' @param peer_pk Transport pk of the peer (base64url).
 #' @param session_id MPC session id.
-#' @return list(peer_blob, n_clusters, levels)
+#' @return list(peer_blob, n_clusters)
 #' @export
 dsvertLMMBroadcastClusterIDsDS <- function(data_name, cluster_col,
                                             peer_pk,
@@ -27,19 +29,27 @@ dsvertLMMBroadcastClusterIDsDS <- function(data_name, cluster_col,
   if (!cluster_col %in% names(data))
     stop("cluster_col not found", call. = FALSE)
   ids <- data[[cluster_col]]
+  if (anyNA(ids)) stop("cluster_col contains missing values", call. = FALSE)
   lvls <- sort(unique(ids))
   ids_int <- as.integer(match(ids, lvls))
+  sizes <- tabulate(ids_int, nbins = length(lvls))
+  privacy_min <- suppressWarnings(
+    as.integer(getOption("datashield.privacyLevel", 5L)[[1L]])
+  )
+  if (is.na(privacy_min)) privacy_min <- 5L
+  if (privacy_min > 1L && any(sizes > 0L & sizes < privacy_min)) {
+    stop("cluster size below datashield.privacyLevel", call. = FALSE)
+  }
   ss <- .S(session_id)
   ss$k2_lmm_cluster_ids <- ids_int
-  ss$k2_lmm_cluster_levels <- as.character(lvls)
-  payload <- list(ids = ids_int, levels = as.character(lvls))
+  ss$k2_lmm_cluster_n <- length(lvls)
+  payload <- list(ids = ids_int, n_clusters = length(lvls))
   payload_json <- jsonlite::toJSON(payload, auto_unbox = TRUE)
   payload_b64 <- jsonlite::base64_enc(charToRaw(payload_json))
   sealed <- .callMpcTool("transport-encrypt", list(
     data = payload_b64, recipient_pk = .base64url_to_base64(peer_pk)))
   list(peer_blob = base64_to_base64url(sealed$sealed),
-       n_clusters = length(lvls),
-       levels = as.character(lvls))
+       n_clusters = length(lvls))
 }
 
 #' @title Receive + store peer's cluster IDs (LMM exact)
@@ -62,8 +72,8 @@ dsvertLMMReceiveClusterIDsDS <- function(session_id = NULL) {
     sealed = .base64url_to_base64(blob), recipient_sk = tsk))
   payload <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
   ss$k2_lmm_cluster_ids <- as.integer(payload$ids)
-  ss$k2_lmm_cluster_levels <- as.character(payload$levels)
-  list(stored = TRUE, n_clusters = length(ss$k2_lmm_cluster_levels))
+  ss$k2_lmm_cluster_n <- as.integer(payload$n_clusters)
+  list(stored = TRUE, n_clusters = ss$k2_lmm_cluster_n)
 }
 
 #' @title Per-cluster FP sum of a session share vector (LMM exact)
@@ -100,6 +110,12 @@ dsvertLMMPerClusterSumDS <- function(share_key, session_id = NULL,
   n <- length(ids)
   lvls <- seq_len(max(ids))
   sizes <- tabulate(ids, nbins = length(lvls))
+  privacy_min <- getOption("datashield.privacyLevel", 5L)
+  privacy_min <- suppressWarnings(as.integer(privacy_min[[1L]]))
+  if (is.na(privacy_min)) privacy_min <- 5L
+  if (privacy_min > 1L && any(sizes > 0L & sizes < privacy_min)) {
+    stop("cluster size below datashield.privacyLevel", call. = FALSE)
+  }
   out_fp <- character(length(lvls))
   for (ci in seq_along(lvls)) {
     mask <- as.numeric(ids == lvls[ci])
@@ -110,10 +126,6 @@ dsvertLMMPerClusterSumDS <- function(share_key, session_id = NULL,
       frac_bits = as.integer(frac_bits)))
     s <- .callMpcTool("k2-fp-sum", list(fp_data = masked$result))
     out_fp[ci] <- s$sum_fp
-  }
-  privacy_min <- getOption("datashield.privacyLevel", 5L)
-  if (is.numeric(privacy_min) && privacy_min > 0L) {
-    sizes[sizes > 0L & sizes < privacy_min] <- 0L
   }
   list(per_cluster_fp = out_fp,
        cluster_sizes = sizes,

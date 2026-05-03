@@ -114,6 +114,7 @@ AggregateMethods:
     dsvertExpandClusterWeightsDS,
     dsvertLMMVarianceComponentsDS,
     dsvertLMMXCovarianceWithinDS,
+    dsvertLMMXCovarianceWithinStoredDS,
     k2CoxPrepareRecipPhaseDS,
     k2CoxResidualDS,
     k2CoxSaveMuDS,

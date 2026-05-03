@@ -345,14 +345,34 @@ func handleK2FPSum() {
 type K2FPPermuteInput struct {
 	FPData string `json:"fp_data"` // base64 FP
 	Perm   []int  `json:"perm"`    // permutation: result[i] = input[perm[i]]
+	Ring   string `json:"ring"`    // "" or "ring63" or "ring127"
 }
 
 func handleK2FPPermute() {
 	var input K2FPPermuteInput
 	mpcReadInput(&input)
+	if input.Ring == "ring127" {
+		data := bytesToUint128Vec(base64ToBytes(input.FPData))
+		result := make([]Uint128, len(input.Perm))
+		for i, p := range input.Perm {
+			if p < 0 || p >= len(data) {
+				outputError("k2-fp-permute (ring127): index out of range")
+				return
+			}
+			result[i] = data[p]
+		}
+		mpcWriteOutput(map[string]string{
+			"fp_data": bytesToBase64(uint128VecToBytes(result)),
+		})
+		return
+	}
 	data := bytesToFPVec(base64ToBytes(input.FPData))
 	result := make([]FixedPoint, len(input.Perm))
 	for i, p := range input.Perm {
+		if p < 0 || p >= len(data) {
+			outputError("k2-fp-permute: index out of range")
+			return
+		}
 		result[i] = data[p]
 	}
 	mpcWriteOutput(map[string]string{

@@ -92,8 +92,11 @@ glmRing63ReorderXFullDS <- function(p_coord, p_fusion, p_extras, session_id = NU
       perm <- c(perm, row_offset + p_coord + (0:(p_extras - 1)))
   }
 
+  ring <- as.integer(ss$k2_ring %||% 63L)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
   result <- .callMpcTool("k2-fp-permute", list(
-    fp_data = x_full_fp, perm = as.integer(perm)))
+    fp_data = x_full_fp, perm = as.integer(perm), ring = ring_tag))
 
   ss$k2_x_full_fp <- result$fp_data
   list(status = "ok")

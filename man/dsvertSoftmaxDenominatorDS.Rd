@@ -28,5 +28,6 @@ per-class \code{exp(eta_k)} shares.}
 Computes the softmax denominator share \code{D = 1 + Sum_k exp(eta_k)}
 via K-1 sequential \code{k2-ring127-affine-combine} calls. Party 0 also
 adds the constant 1 at the first step; party 1 does not (additive
-share convention).
+share convention). In K>=3 deployments, only the two DCF parties call
+this helper.
 }

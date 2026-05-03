@@ -168,22 +168,18 @@ test_that("dsvertOrdinalExtractXColumnDS rejects K=3 session", {
 })
 
 # --- mnl_joint family ---
-test_that("dsvertPrepareMultinomGradDS rejects K=3 session", {
+test_that("multinomial DCF-share helpers are usable inside K>=3 sessions", {
   s <- .mk_session(3L)
   expect_error(
     dsVert::dsvertPrepareMultinomGradDS(
       residual_key = "rkey", is_outcome_server = TRUE,
       n = 10L, session_id = s$sid),
-    "K mismatch.*expected K=2.*got K=3")
-})
-
-test_that("dsvertSoftmaxDenominatorDS rejects K=3 session", {
-  s <- .mk_session(3L)
+    "residual slot 'rkey' is empty")
   expect_error(
     dsVert::dsvertSoftmaxDenominatorDS(
       exp_eta_keys = "k1", output_key = "out",
       is_party0 = TRUE, n = 10L, session_id = s$sid),
-    "K mismatch.*expected K=2.*got K=3")
+    "slot 'k1' is empty")
 })
 
 # --- NB family ---

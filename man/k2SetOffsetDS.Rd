@@ -34,7 +34,7 @@ outcome variable.
 }
 \details{
 The offset is added to this server's eta share in-place; the
-other DCF party's share is unchanged. Because Ring63 additive
+other DCF party's share is unchanged. Because fixed-point additive
 sharing is linear, the reconstructed eta is
 \code{eta_own + eta_peer + offset = X beta + offset}.
 

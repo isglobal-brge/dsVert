@@ -20,7 +20,7 @@
 #'   stored FP vector.
 #'
 #' @details The offset is added to this server's eta share in-place; the
-#'   other DCF party's share is unchanged. Because Ring63 additive
+#'   other DCF party's share is unchanged. Because fixed-point additive
 #'   sharing is linear, the reconstructed eta is
 #'   \code{eta_own + eta_peer + offset = X beta + offset}.
 #'
@@ -65,9 +65,14 @@ k2SetOffsetDS <- function(data_name, offset_column, session_id = NULL) {
          call. = FALSE)
   }
 
+  ring <- as.integer(ss$k2_ring %||% 63L)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  frac_bits <- if (ring == 127L) 50L else 20L
   fp_result <- .callMpcTool("k2-float-to-fp", list(
     values = as.numeric(offset_values),
-    frac_bits = 20L
+    frac_bits = frac_bits,
+    ring = ring_tag
   ))
   ss$k2_offset_fp <- fp_result$fp_data
   ss$k2_offset_column <- offset_column

@@ -53,5 +53,7 @@ exact REML / GLS fixed-effects estimate -- matches
 
 Operates locally on the server: no cross-server traffic, no
 Beaver MPC. Just a per-cluster mean subtraction using the cluster
-IDs previously broadcast by \code{dsvertLMMBroadcastClusterIDsDS}.
+IDs previously broadcast by \code{dsvertLMMBroadcastClusterIDsDS}
+(K=2 closed-form path) or \code{dsvertClusterIDsBroadcastDS}
+(generic K>=3 path).
 }

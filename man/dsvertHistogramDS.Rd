@@ -4,7 +4,13 @@
 \alias{dsvertHistogramDS}
 \title{Server-side histogram bucket counts (aggregate)}
 \usage{
-dsvertHistogramDS(data_name, variable, edges, suppress_small_cells = TRUE)
+dsvertHistogramDS(
+  data_name,
+  variable,
+  edges,
+  suppress_small_cells = TRUE,
+  fail_on_small_cells = getOption("dsvert.fail_on_small_cells", TRUE)
+)
 }
 \arguments{
 \item{data_name}{Character. Name of the server-side data frame.}
@@ -17,9 +23,13 @@ K buckets \code{[edges[1], edges[2]), ..., [edges[K], edges[K+1]]}
 
 \item{suppress_small_cells}{Logical. If TRUE (default) cells with positive
 count below the DataSHIELD privacy threshold
-(\code{datashield.privacyLevel}) are returned as 0 instead of the raw
-count. The total \code{n_total} is always returned as the raw total
-number of non-missing observations.}
+(\code{datashield.privacyLevel}) fail closed by default. Set
+\code{fail_on_small_cells = FALSE} only for legacy diagnostics to return
+suppressed zeros instead.}
+
+\item{fail_on_small_cells}{Logical. Stop instead of returning a histogram
+if any positive bucket/underflow/overflow count is below the privacy
+threshold.}
 }
 \value{
 A list with elements

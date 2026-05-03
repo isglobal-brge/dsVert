@@ -4,21 +4,31 @@
 \alias{k2Ring127LocalScaleDS}
 \title{Ring127 local scale by public scalar.}
 \usage{
-k2Ring127LocalScaleDS(in_key, scalar_fp, output_key, n, session_id = NULL)
+k2Ring127LocalScaleDS(
+  in_key,
+  scalar_fp,
+  output_key,
+  n,
+  session_id = NULL,
+  is_party0 = NULL
+)
 }
 \arguments{
 \item{in_key}{Session slot holding the Ring127 FP share vector
 (base64 Uint128).}
 
 \item{scalar_fp}{Base64 string encoding a single Ring127 FP Uint128
-(the public scalar). One TruncMulSigned per element, so the
-result is FP-consistent (not raw integer).}
+(the public scalar). Uses the party-asymmetric Ring127 scalar-share
+product so truncation remains additive after reconstruction.}
 
 \item{output_key}{Session slot to store the scaled share.}
 
 \item{n}{Integer vector length.}
 
 \item{session_id}{MPC session identifier.}
+
+\item{is_party0}{Logical. TRUE for party 0 so fixed-point truncation uses
+the party-asymmetric public-scalar share multiplication.}
 }
 \value{
 list(stored = TRUE, output_key, n).

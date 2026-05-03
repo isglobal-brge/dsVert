@@ -4,20 +4,30 @@
 \alias{dsvertLocalMomentsDS}
 \title{Server-side local descriptive moments (aggregate)}
 \usage{
-dsvertLocalMomentsDS(data_name, variable)
+dsvertLocalMomentsDS(
+  data_name,
+  variable,
+  return_extrema = getOption("dsvert.allow_exact_extrema", FALSE)
+)
 }
 \arguments{
 \item{data_name}{Character. Name of the server-side data frame.}
 
 \item{variable}{Character. Name of the numeric column.}
+
+\item{return_extrema}{Logical. Return exact min/max. Defaults to
+\code{getOption("dsvert.allow_exact_extrema", FALSE)} because exact
+extrema can disclose outliers in small cohorts.}
 }
 \value{
 A list with elements:
 \itemize{
 \item \code{mean}: sample mean of non-missing values
 \item \code{sd}:   sample standard deviation (n-1 denominator)
-\item \code{min}:  minimum of non-missing values (suppressed if n_total < privacyLevel)
-\item \code{max}:  maximum of non-missing values (suppressed if n_total < privacyLevel)
+\item \code{min}:  minimum of non-missing values, or \code{NA} unless
+exact extrema are explicitly enabled
+\item \code{max}:  maximum of non-missing values, or \code{NA} unless
+exact extrema are explicitly enabled
 \item \code{n_total}: number of non-missing observations
 \item \code{n_na}:    number of missing observations
 }
@@ -25,7 +35,7 @@ If the cohort is below the DataSHIELD privacy threshold the numeric
 summaries are returned as \code{NA} and only counts are released.
 }
 \description{
-Compute plaintext mean, standard deviation, min, max, and
+Compute plaintext mean, standard deviation, optional min/max,
 counts of non-missing / missing observations for a numeric variable
 held by a single server. The variable never leaves the server; only the
 scalar summaries do. This is the building block for \code{ds.vertDesc}

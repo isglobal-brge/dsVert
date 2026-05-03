@@ -4,7 +4,13 @@
 \alias{dsvertContingencyDS}
 \title{Server-side 2-way contingency table (aggregate)}
 \usage{
-dsvertContingencyDS(data_name, var1, var2, suppress_small_cells = TRUE)
+dsvertContingencyDS(
+  data_name,
+  var1,
+  var2,
+  suppress_small_cells = TRUE,
+  fail_on_small_cells = getOption("dsvert.fail_on_small_cells", TRUE)
+)
 }
 \arguments{
 \item{data_name}{Character. Name of the server-side data frame.}
@@ -15,9 +21,12 @@ dsvertContingencyDS(data_name, var1, var2, suppress_small_cells = TRUE)
 
 \item{suppress_small_cells}{Logical. If TRUE (default) cells with
 positive counts below the DataSHIELD privacy threshold
-(\code{datashield.privacyLevel}) are returned as 0; the row/column
-margins and total \code{n} are also suppressed if they fall below
-the threshold.}
+(\code{datashield.privacyLevel}) fail closed by default. Set
+\code{fail_on_small_cells = FALSE} only for legacy diagnostics to return
+suppressed zeros instead.}
+
+\item{fail_on_small_cells}{Logical. Stop instead of returning a table if
+any positive cell or margin count is below the privacy threshold.}
 }
 \value{
 A list with elements:

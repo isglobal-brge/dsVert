@@ -44,5 +44,6 @@ Helpers used by vertical GLMM/LMM-style follow-on rounds. Cluster
 membership is transported only between DCF parties; the analyst client
 relays opaque blobs and receives aggregate per-cluster sums only. Original
 cluster labels are not returned to the client, and helpers fail closed when
-a cluster is smaller than \code{datashield.privacyLevel}.
+a cluster is smaller than \code{datashield.privacyLevel} or
+\code{dsvert.min_cluster_size}.
 }

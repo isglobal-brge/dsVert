@@ -231,11 +231,11 @@ dsvertLMMExactClusterR2DS <- function(data_name, cluster_col,
   # Use a per-byte read; we return raw per-cluster sums as aggregated
   # FP scalars by calling the server's k2-fp-sum via a sliced input.
   lvls <- sort(unique(ids))
+  sizes <- tabulate(match(ids, lvls), nbins = length(lvls))
+  .dsvert_guard_cluster_sizes(sizes, "LMM exact per-cluster R2 aggregate")
   out_fp <- character(length(lvls))
-  sizes <- integer(length(lvls))
   for (ci in seq_along(lvls)) {
     idx <- which(ids == lvls[ci])
-    sizes[ci] <- length(idx)
     # Construct a masked vector: set to zero outside this cluster.
     # Use a 0/1 mask via k2-fp-vec-mul.
     mask <- rep(0, n); mask[idx] <- 1
@@ -246,13 +246,6 @@ dsvertLMMExactClusterR2DS <- function(data_name, cluster_col,
       frac_bits = as.integer(frac_bits)))
     s <- .callMpcTool("k2-fp-sum", list(fp_data = masked$result))
     out_fp[ci] <- s$sum_fp
-  }
-  privacy_min <- getOption("datashield.privacyLevel", 5L)
-  if (is.numeric(privacy_min) && privacy_min > 0L) {
-    mask_small <- sizes < privacy_min
-    sizes[mask_small] <- 0L
-    # Can't easily zero out an FP scalar share -- leave it; the client
-    # will see the (noisy) share but the size=0 flag signals suppression.
   }
   list(per_cluster_fp = out_fp,
        cluster_sizes = sizes,

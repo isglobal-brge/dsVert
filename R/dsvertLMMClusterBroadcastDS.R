@@ -33,13 +33,7 @@ dsvertLMMBroadcastClusterIDsDS <- function(data_name, cluster_col,
   lvls <- sort(unique(ids))
   ids_int <- as.integer(match(ids, lvls))
   sizes <- tabulate(ids_int, nbins = length(lvls))
-  privacy_min <- suppressWarnings(
-    as.integer(getOption("datashield.privacyLevel", 5L)[[1L]])
-  )
-  if (is.na(privacy_min)) privacy_min <- 5L
-  if (privacy_min > 1L && any(sizes > 0L & sizes < privacy_min)) {
-    stop("cluster size below datashield.privacyLevel", call. = FALSE)
-  }
+  .dsvert_guard_cluster_sizes(sizes, "LMM cluster-ID broadcast")
   ss <- .S(session_id)
   ss$k2_lmm_cluster_ids <- ids_int
   ss$k2_lmm_cluster_n <- length(lvls)
@@ -110,12 +104,7 @@ dsvertLMMPerClusterSumDS <- function(share_key, session_id = NULL,
   n <- length(ids)
   lvls <- seq_len(max(ids))
   sizes <- tabulate(ids, nbins = length(lvls))
-  privacy_min <- getOption("datashield.privacyLevel", 5L)
-  privacy_min <- suppressWarnings(as.integer(privacy_min[[1L]]))
-  if (is.na(privacy_min)) privacy_min <- 5L
-  if (privacy_min > 1L && any(sizes > 0L & sizes < privacy_min)) {
-    stop("cluster size below datashield.privacyLevel", call. = FALSE)
-  }
+  .dsvert_guard_cluster_sizes(sizes, "LMM per-cluster share aggregate")
   out_fp <- character(length(lvls))
   for (ci in seq_along(lvls)) {
     mask <- as.numeric(ids == lvls[ci])

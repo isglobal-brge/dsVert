@@ -10,6 +10,7 @@
 #' @param session_id Active MPC session identifier.
 #' @return list(peer_blob, n_clusters).
 #' @export
+#' @noRd
 dsvertClusterIDsBroadcastDS <- function(data_name, cluster_col, peer_pk,
                                         session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
@@ -26,13 +27,7 @@ dsvertClusterIDsBroadcastDS <- function(data_name, cluster_col, peer_pk,
   lvls <- sort(unique(ids))
   ids_int <- as.integer(match(ids, lvls))
   sizes <- tabulate(ids_int, nbins = length(lvls))
-  privacy_min <- suppressWarnings(
-    as.integer(getOption("datashield.privacyLevel", 5L)[[1L]])
-  )
-  if (is.na(privacy_min)) privacy_min <- 5L
-  if (privacy_min > 1L && any(sizes > 0L & sizes < privacy_min)) {
-    stop("cluster size below datashield.privacyLevel", call. = FALSE)
-  }
+  .dsvert_guard_cluster_sizes(sizes, "cluster-ID broadcast")
   ss <- .S(session_id)
   ss$dsvert_cluster_ids <- ids_int
   ss$dsvert_cluster_n <- length(lvls)
@@ -51,6 +46,7 @@ dsvertClusterIDsBroadcastDS <- function(data_name, cluster_col, peer_pk,
 #' @param session_id Active MPC session identifier.
 #' @return list(stored, n_clusters).
 #' @export
+#' @noRd
 dsvertClusterIDsReceiveDS <- function(session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
@@ -78,6 +74,7 @@ dsvertClusterIDsReceiveDS <- function(session_id = NULL) {
 #' @param ring Integer 63 or 127.
 #' @return list(per_cluster_fp, cluster_sizes, n_clusters).
 #' @export
+#' @noRd
 dsvertPerClusterSumShareDS <- function(share_key, session_id = NULL,
                                        frac_bits = 20L, ring = 63L) {
   if (is.null(session_id) || !nzchar(session_id)) {
@@ -96,12 +93,7 @@ dsvertPerClusterSumShareDS <- function(share_key, session_id = NULL,
   if (ring == 127L) frac_bits <- 50L
   lvls <- seq_len(max(ids))
   sizes <- tabulate(ids, nbins = length(lvls))
-  privacy_min <- getOption("datashield.privacyLevel", 5L)
-  privacy_min <- suppressWarnings(as.integer(privacy_min[[1L]]))
-  if (is.na(privacy_min)) privacy_min <- 5L
-  if (privacy_min > 1L && any(sizes > 0L & sizes < privacy_min)) {
-    stop("cluster size below datashield.privacyLevel", call. = FALSE)
-  }
+  .dsvert_guard_cluster_sizes(sizes, "per-cluster share aggregate")
   out_fp <- character(length(lvls))
   for (ci in seq_along(lvls)) {
     mask <- as.numeric(ids == lvls[[ci]])
@@ -131,6 +123,7 @@ dsvertPerClusterSumShareDS <- function(share_key, session_id = NULL,
 #' @param ring Integer 63 or 127.
 #' @return list(stored, output_key, n).
 #' @export
+#' @noRd
 dsvertGLMMOneMinusMuDS <- function(output_key = "glmm_one_minus_mu_share",
                                    is_party0 = FALSE,
                                    session_id = NULL,

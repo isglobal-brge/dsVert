@@ -20,13 +20,24 @@
 #' @param target_pk Character. Transport PK (base64url) of the label
 #'   server that should receive the sealed \code{eta_nl} vector.
 #' @param session_id Character.
+#' @param allow_disclosive_legacy Logical. Must be \code{TRUE} to run this
+#'   archived helper. The non-disclosive replacement is
+#'   \code{ds.vertNBFullRegTheta(variant = "full_reg_nd")}.
 #' @return List with \code{sealed} (base64url blob).
 #' @export
 dsvertNBEtaSealDS <- function(data_name, x_vars, beta_values,
-                              target_pk, session_id = NULL) {
+                              target_pk, session_id = NULL,
+                              allow_disclosive_legacy = FALSE) {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
   .k2_enforce_K(.S(session_id), 2L, "dsvertNBEtaSealDS")
+  if (!isTRUE(allow_disclosive_legacy)) {
+    stop("dsvertNBEtaSealDS is disabled by default because it transports ",
+         "per-patient non-label eta to the outcome server; use ",
+         "ds.vertNBFullRegTheta(variant = 'full_reg_nd') or pass ",
+         "allow_disclosive_legacy = TRUE only for archived reproducibility.",
+         call. = FALSE)
+  }
   if (!is.character(x_vars) || length(x_vars) < 1L)
     stop("x_vars must be a non-empty character vector", call. = FALSE)
   beta_values <- as.numeric(beta_values)
@@ -91,13 +102,17 @@ dsvertNBEtaSealDS <- function(data_name, x_vars, beta_values,
 #'   transport-sealed \code{eta_nl} blob (set via \code{mpcStoreBlobDS}).
 #' @param theta Numeric scalar > 0.
 #' @param session_id Character.
+#' @param allow_disclosive_legacy Logical. Must be \code{TRUE} to consume the
+#'   archived per-patient eta transport path. The non-disclosive replacement
+#'   is \code{ds.vertNBFullRegTheta(variant = "full_reg_nd")}.
 #' @return List of five numeric scalars.
 #' @export
 dsvertNBFullScoreDS <- function(data_name, y_var,
                                 x_vars_label, beta_values_label,
                                 beta_intercept,
                                 peer_eta_key, theta,
-                                session_id = NULL) {
+                                session_id = NULL,
+                                allow_disclosive_legacy = FALSE) {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
   theta <- as.numeric(theta)
@@ -106,6 +121,13 @@ dsvertNBFullScoreDS <- function(data_name, y_var,
 
   ss <- .S(session_id)
   .k2_enforce_K(ss, 2L, "dsvertNBFullScoreDS")
+  if (!isTRUE(allow_disclosive_legacy)) {
+    stop("dsvertNBFullScoreDS is disabled by default because it consumes ",
+         "per-patient non-label eta on the outcome server; use ",
+         "ds.vertNBFullRegTheta(variant = 'full_reg_nd') or pass ",
+         "allow_disclosive_legacy = TRUE only for archived reproducibility.",
+         call. = FALSE)
+  }
 
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())

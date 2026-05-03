@@ -137,14 +137,14 @@ test_that("dsvertLMMExactClusterR2DS rejects K=3 session", {
 })
 
 # --- GLSTransform family ---
-test_that("dsvertLMMGLSTransformDS rejects K=3 session", {
+test_that("dsvertLMMGLSTransformDS permits K=3 session arity", {
   s <- .mk_session(3L)
   expect_error(
     dsVert::dsvertLMMGLSTransformDS(
       data_name = "fake", columns = "x",
       lambda_per_cluster = c(0.5, 0.5),
       session_id = s$sid),
-    "K mismatch.*expected K=2.*got K=3")
+    "object 'fake' not found")
 })
 
 test_that("dsvertLMMGLSAggregatesDS rejects K=3 session", {

@@ -205,6 +205,24 @@ test_that("dsvertNBFullScoreDS rejects K=3 session", {
     "K mismatch.*expected K=2.*got K=3")
 })
 
+test_that("NB full_reg legacy helpers fail closed in K=2 sessions", {
+  s <- .mk_session(2L)
+  expect_error(
+    dsVert::dsvertNBEtaSealDS(
+      data_name = "fake", x_vars = "age",
+      beta_values = 0.0, target_pk = "pk",
+      session_id = s$sid),
+    "disabled by default.*full_reg_nd")
+  expect_error(
+    dsVert::dsvertNBFullScoreDS(
+      data_name = "fake", y_var = "y",
+      x_vars_label = "age", beta_values_label = 0.0,
+      beta_intercept = 0.0,
+      peer_eta_key = "ek", theta = 1.0,
+      session_id = s$sid),
+    "disabled by default.*full_reg_nd")
+})
+
 # --- Cox K=2 non-disclosive family ---
 test_that("dsvertCoxDiscreteShareMaskDS rejects K=3 session", {
   s <- .mk_session(3L)

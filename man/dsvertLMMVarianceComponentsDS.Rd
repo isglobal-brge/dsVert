@@ -20,10 +20,10 @@ list(SSW, SSB, n_per_cluster, K, N, ybar, ssw_per_cluster).
 \description{
 Computes the within-cluster (SSW) and between-cluster
 (SSB) sums of squares of the outcome y on the outcome server,
-plus per-cluster sizes. Aggregate-only output: only the two
-scalars SSW + SSB plus the per-cluster size vector (the latter
-already disclosed by \code{dsvertClusterSizesDS}). No per-row
-data leaves the server.
+plus guarded per-cluster sizes and within-cluster sums of squares.
+Aggregate-only output: only the two scalars SSW + SSB plus
+per-cluster vectors that pass the cluster-size disclosure guard.
+No per-row data leaves the server.
 
 Used by \code{ds.vertLMM.k3} to recover the random-intercept and
 residual variance components after the federated weighted-GLM

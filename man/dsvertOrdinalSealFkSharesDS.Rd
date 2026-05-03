@@ -19,5 +19,6 @@ list(sealed = base64url blob).
 \description{
 Non-outcome server transport-encrypts its Ring127 F_k
 shares to the outcome server's PK so the outcome server can
-assemble plaintext F per patient. Cox-class inter-server reveal.
+assemble plaintext F per patient. Disabled by default under the
+strict non-disclosure policy; kept only for diagnostic legacy runs.
 }

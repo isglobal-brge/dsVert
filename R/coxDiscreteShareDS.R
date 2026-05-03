@@ -42,6 +42,8 @@
 #'   \code{m[1,1], m[1,2], ..., m[1,J], m[2,1], ...}).
 #' @param target_pk Character. NL's transport public key (base64url).
 #' @param session_id Character.
+#' @param debug Logical. If TRUE, include diagnostic plaintext fields in the
+#'   returned object; intended only for controlled local validation.
 #' @return List(sealed_m_blob = b64url, sealed_y_blob = b64url,
 #'   n_obs = <int>, J = <int>, n_pp = <int>=J*n).
 #' @export

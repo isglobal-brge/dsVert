@@ -27,12 +27,11 @@ X_centered_i' X_centered_i where X_centered_i = X_i - colMeans(X_i)
 for cluster i. Together with df_within = Sum_i (n_i - 1) the
 pooled within-cluster X covariance is Var_within(X) = SX2 / df_w.
 
-Used by legacy diagnostics to subtract the Var_within(X beta) inflation
-from the raw-y ANOVA estimate of sigma^2 (Pinheiro-Bates 2000
-Sec.2.4.2 caveat). This helper receives row-level cluster membership
-from the client and should not be used for strict non-disclosure
-evidence; production \code{ds.vertLMM.k3} uses encrypted server-to-server
-cluster-ID broadcast and \code{dsvertLMMXCovarianceWithinStoredDS}.
+Legacy diagnostic helper for subtracting the Var_within(X beta)
+inflation from the raw-y ANOVA estimate of sigma^2 (Pinheiro-Bates
+2000 Sec.2.4.2 caveat). Because the cluster_id argument is supplied
+by the client, strict non-disclosure callers should use
+\code{dsvertLMMXCovarianceWithinStoredDS} instead.
 
 Cross-server X covariance off-diagonals (Cov_within(x_s, x_t) for
 s != t) are not recoverable without additional MPC. Each server

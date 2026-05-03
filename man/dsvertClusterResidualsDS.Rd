@@ -33,6 +33,7 @@ list(rsum_per_cluster, rss_per_cluster, n_per_cluster).
 Given a plaintext \code{betahat} and intercept from the
 client, compute per-cluster
 \eqn{\sum_{ij} r_{ij}} and \eqn{\sum_{ij} r_{ij}^2}
-and return the aggregate vector (one scalar per cluster). Clusters
-below the privacy threshold are suppressed.
+and return the aggregate vector (one scalar per cluster). The helper
+fails closed when any cluster is below the configured cluster-size
+disclosure threshold.
 }

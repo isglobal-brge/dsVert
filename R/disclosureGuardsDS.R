@@ -38,3 +38,31 @@
     max_p_over_n = max_p_over_n,
     allow_high_dim = allow_high_dim)
 }
+
+.dsvert_cluster_min_size <- function() {
+  as_single_int <- function(value, default) {
+    out <- suppressWarnings(as.integer(value[[1L]]))
+    if (length(out) != 1L || is.na(out)) default else out
+  }
+  privacy_min <- as_single_int(
+    getOption("datashield.privacyLevel", 5L), 5L)
+  cluster_min <- as_single_int(
+    getOption("dsvert.min_cluster_size", privacy_min), privacy_min)
+  max(2L, privacy_min, cluster_min)
+}
+
+.dsvert_guard_cluster_sizes <- function(sizes,
+                                        what = "per-cluster aggregate") {
+  sizes <- as.integer(sizes)
+  if (length(sizes) == 0L || anyNA(sizes) || any(sizes < 0L)) {
+    stop("invalid cluster sizes for ", what, call. = FALSE)
+  }
+  min_size <- .dsvert_cluster_min_size()
+  if (min_size > 1L && any(sizes > 0L & sizes < min_size)) {
+    stop(
+      "cluster size below datashield.privacyLevel/dsvert.min_cluster_size ",
+      "for ", what, " (min ", min_size, ")",
+      call. = FALSE)
+  }
+  invisible(min_size)
+}

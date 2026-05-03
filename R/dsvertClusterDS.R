@@ -2,8 +2,9 @@
 #' @description Return a vector of cluster sizes for an ID column on the
 #'   outcome server. Only per-cluster counts leave the server; individual
 #'   memberships are not revealed to the client. Subject to the standard
-#'   \code{datashield.privacyLevel} suppression: clusters with fewer than
-#'   the privacy threshold are returned as 0.
+#'   \code{datashield.privacyLevel} / \code{dsvert.min_cluster_size}
+#'   guard: the helper fails closed when any cluster is smaller than the
+#'   configured threshold.
 #' @param data_name Character. Aligned data-frame name.
 #' @param cluster_col Character. Column holding the cluster id.
 #' @return list(sizes: integer vector; n_clusters; n_total).
@@ -16,10 +17,7 @@ dsvertClusterSizesDS <- function(data_name, cluster_col) {
     stop("cluster_col not found", call. = FALSE)
   id <- data[[cluster_col]]
   tbl <- as.integer(table(id))
-  privacy_min <- getOption("datashield.privacyLevel", 5L)
-  if (is.numeric(privacy_min) && privacy_min > 0L) {
-    tbl[tbl > 0L & tbl < privacy_min] <- 0L
-  }
+  .dsvert_guard_cluster_sizes(tbl, "cluster-size aggregate")
   list(sizes = tbl,
        n_clusters = length(tbl),
        n_total = sum(tbl))
@@ -29,8 +27,9 @@ dsvertClusterSizesDS <- function(data_name, cluster_col) {
 #' @description Given a plaintext \code{betahat} and intercept from the
 #'   client, compute per-cluster
 #'     \eqn{\sum_{ij} r_{ij}} and \eqn{\sum_{ij} r_{ij}^2}
-#'   and return the aggregate vector (one scalar per cluster). Clusters
-#'   below the privacy threshold are suppressed.
+#'   and return the aggregate vector (one scalar per cluster). The helper
+#'   fails closed when any cluster is below the configured cluster-size
+#'   disclosure threshold.
 #' @param data_name Character. Aligned data-frame name.
 #' @param y_var Outcome column (on this server).
 #' @param x_names Predictor names on this server.
@@ -63,11 +62,7 @@ dsvertClusterResidualsDS <- function(data_name, y_var, x_names,
   rsum <- vapply(by_cluster, function(ix) sum(r[ix]), numeric(1L))
   rss <- vapply(by_cluster, function(ix) sum(r2[ix]), numeric(1L))
   npc <- vapply(by_cluster, length, integer(1L))
-  privacy_min <- getOption("datashield.privacyLevel", 5L)
-  if (is.numeric(privacy_min) && privacy_min > 0L) {
-    mask <- npc < privacy_min
-    rsum[mask] <- 0; rss[mask] <- 0; npc[mask] <- 0L
-  }
+  .dsvert_guard_cluster_sizes(npc, "per-cluster residual aggregate")
   list(rsum_per_cluster = as.numeric(rsum),
        rss_per_cluster  = as.numeric(rss),
        n_per_cluster    = as.integer(npc))
@@ -142,11 +137,7 @@ dsvertClusterBinomialMomentsDS <- function(data_name, y_var, x_names,
   vsum <- vapply(by_cluster, function(ix) sum(v[ix]), numeric(1L))
   rss <- vapply(by_cluster, function(ix) sum(r[ix] * r[ix]), numeric(1L))
   npc <- vapply(by_cluster, length, integer(1L))
-  privacy_min <- getOption("datashield.privacyLevel", 5L)
-  if (is.numeric(privacy_min) && privacy_min > 0L) {
-    mask <- npc < privacy_min
-    rsum[mask] <- 0; vsum[mask] <- 0; rss[mask] <- 0; npc[mask] <- 0L
-  }
+  .dsvert_guard_cluster_sizes(npc, "per-cluster binomial moments")
   list(rsum_per_cluster = as.numeric(rsum),
        vsum_per_cluster = as.numeric(vsum),
        rss_per_cluster  = as.numeric(rss),
@@ -196,6 +187,7 @@ dsvertClusterZtZDS <- function(data_name, cluster_col,
                    else NULL)
     ZtZ[ci, , ] <- crossprod(Z_i)
   }
+  .dsvert_guard_cluster_sizes(sizes, "per-cluster random-effects design")
   list(n_clusters = n_clusters, q = q,
        ZtZ = ZtZ, cluster_sizes = sizes,
        cluster_levels = as.character(lvls))
@@ -251,10 +243,10 @@ dsvertExpandClusterWeightsDS <- function(data_name, cluster_col,
 #' @title Cluster ANOVA moments for LMM K=3 variance-component recovery
 #' @description Computes the within-cluster (SSW) and between-cluster
 #'   (SSB) sums of squares of the outcome y on the outcome server,
-#'   plus per-cluster sizes. Aggregate-only output: only the two
-#'   scalars SSW + SSB plus the per-cluster size vector (the latter
-#'   already disclosed by \code{dsvertClusterSizesDS}). No per-row
-#'   data leaves the server.
+#'   plus guarded per-cluster sizes and within-cluster sums of squares.
+#'   Aggregate-only output: only the two scalars SSW + SSB plus
+#'   per-cluster vectors that pass the cluster-size disclosure guard.
+#'   No per-row data leaves the server.
 #'
 #'   Used by \code{ds.vertLMM.k3} to recover the random-intercept and
 #'   residual variance components after the federated weighted-GLM
@@ -294,6 +286,7 @@ dsvertLMMVarianceComponentsDS <- function(data_name, y_var, cluster_col) {
     stop("Insufficient observations", call. = FALSE)
   by <- split(seq_len(n), id)
   n_i <- vapply(by, length, integer(1L))
+  .dsvert_guard_cluster_sizes(n_i, "LMM variance-component aggregate")
   ybar_i <- vapply(by, function(ix) mean(y[ix]), numeric(1L))
   ssw_i <- vapply(by, function(ix) {
     yi <- y[ix]; sum((yi - mean(yi))^2)
@@ -367,6 +360,8 @@ dsvertLMMXCovarianceWithinDS <- function(data_name, x_vars,
   SX2 <- matrix(0, p, p, dimnames = list(x_vars, x_vars))
   df_w <- 0L
   by <- split(seq_len(n), cid)
+  sizes <- vapply(by, length, integer(1L))
+  .dsvert_guard_cluster_sizes(sizes, "within-cluster X covariance")
   for (ix in by) {
     if (length(ix) < 2L) next
     Xi <- X[ix, , drop = FALSE]
@@ -418,13 +413,8 @@ dsvertLMMXCovarianceWithinStoredDS <- function(data_name, x_vars,
   if (length(cid) != n)
     stop(sprintf("stored cluster ID length %d != nrow(data) %d",
                  length(cid), n), call. = FALSE)
-  privacy_min <- getOption("datashield.privacyLevel", 5L)
-  privacy_min <- suppressWarnings(as.integer(privacy_min[[1L]]))
-  if (is.na(privacy_min)) privacy_min <- 5L
   sizes <- tabulate(cid, nbins = max(cid))
-  if (privacy_min > 1L && any(sizes > 0L & sizes < privacy_min)) {
-    stop("cluster size below datashield.privacyLevel", call. = FALSE)
-  }
+  .dsvert_guard_cluster_sizes(sizes, "stored within-cluster X covariance")
   p <- ncol(X)
   SX2 <- matrix(0, p, p, dimnames = list(x_vars, x_vars))
   df_w <- 0L

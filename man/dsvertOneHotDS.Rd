@@ -9,7 +9,8 @@ dsvertOneHotDS(
   var,
   levels = NULL,
   session_id = NULL,
-  suppress_small_cells = TRUE
+  suppress_small_cells = TRUE,
+  fail_on_small_cells = getOption("dsvert.fail_on_small_cells", TRUE)
 )
 }
 \arguments{
@@ -28,6 +29,9 @@ reduction).}
 
 \item{suppress_small_cells}{Logical. If TRUE (default) suppress
 per-level row-margin counts below the DataSHIELD privacy threshold.}
+
+\item{fail_on_small_cells}{Logical. Stop instead of returning level
+metadata if any positive level count is below the privacy threshold.}
 }
 \value{
 A list with elements:

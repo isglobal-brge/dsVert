@@ -18,6 +18,7 @@ list(sizes: integer vector; n_clusters; n_total).
 Return a vector of cluster sizes for an ID column on the
 outcome server. Only per-cluster counts leave the server; individual
 memberships are not revealed to the client. Subject to the standard
-\code{datashield.privacyLevel} suppression: clusters with fewer than
-the privacy threshold are returned as 0.
+\code{datashield.privacyLevel} / \code{dsvert.min_cluster_size}
+guard: the helper fails closed when any cluster is smaller than the
+configured threshold.
 }

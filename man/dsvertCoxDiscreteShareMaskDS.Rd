@@ -38,6 +38,9 @@ own (OS) Ring127 shares of the flattened m_ij and y_ij vectors
 \item{target_pk}{Character. NL's transport public key (base64url).}
 
 \item{session_id}{Character.}
+
+\item{debug}{Logical. If TRUE, include diagnostic plaintext fields in the
+returned object; intended only for controlled local validation.}
 }
 \value{
 List(sealed_m_blob = b64url, sealed_y_blob = b64url,

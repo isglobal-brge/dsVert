@@ -92,8 +92,11 @@ glmRing63ReorderXFullDS <- function(p_coord, p_fusion, p_extras, session_id = NU
       perm <- c(perm, row_offset + p_coord + (0:(p_extras - 1)))
   }
 
+  ring <- as.integer(ss$k2_ring %||% 63L)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
   result <- .callMpcTool("k2-fp-permute", list(
-    fp_data = x_full_fp, perm = as.integer(perm)))
+    fp_data = x_full_fp, perm = as.integer(perm), ring = ring_tag))
 
   ss$k2_x_full_fp <- result$fp_data
   list(status = "ok")
@@ -252,6 +255,10 @@ glmRing63GenGradTriplesDS <- function(dcf0_pk, dcf1_pk, n, p,
 #' @export
 glmRing63PrepDevianceDS <- function(mode = "rss", session_id = NULL) {
   ss <- .S(session_id)
+  ring <- as.integer(ss$k2_ring %||% 63L)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  frac_bits <- if (ring == 127L) 50L else 20L
 
   if (mode == "canonical") {
     # Canonical deviance: Beaver computes eta^T * y
@@ -264,7 +271,11 @@ glmRing63PrepDevianceDS <- function(mode = "rss", session_id = NULL) {
     ss$k2_peer_p <- 0L
     # Save and replace: mu = y, y = 0
     n <- ss$k2_x_n
-    zero <- .callMpcTool("k2-float-to-fp", list(values = rep(0, n), frac_bits = 20L))
+    if (is.null(ss$k2_y_share_fp_original)) {
+      ss$k2_y_share_fp_original <- ss$k2_y_share_fp
+    }
+    zero <- .callMpcTool("k2-float-to-fp", list(
+      values = rep(0, n), frac_bits = frac_bits, ring = ring_tag))
     ss$secure_mu_share <- ss$k2_y_share_fp  # mu = y
     ss$k2_y_share_fp <- zero$fp_data        # y = 0
     list(status = "ok")
@@ -274,7 +285,8 @@ glmRing63PrepDevianceDS <- function(mode = "rss", session_id = NULL) {
     y_fp <- .base64url_to_base64(ss$k2_y_share_fp)
     if (is.null(mu_fp) || is.null(y_fp))
       stop("No mu/y shares for deviance", call. = FALSE)
-    r <- .callMpcTool("k2-fp-sub", list(a = mu_fp, b = y_fp, frac_bits = 20L))
+    r <- .callMpcTool("k2-fp-sub", list(
+      a = mu_fp, b = y_fp, frac_bits = frac_bits, ring = ring_tag))
     ss$k2_x_full_fp <- r$result
     ss$k2_x_p <- 1L
     ss$k2_peer_p <- 0L
@@ -294,19 +306,22 @@ glmRing63PrepDevianceDS <- function(mode = "rss", session_id = NULL) {
 #' @export
 glmRing63DevianceSumsDS <- function(family, session_id = NULL) {
   ss <- .S(session_id)
+  ring <- as.integer(ss$k2_ring %||% 63L)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
 
   if (family == "binomial") {
     # Sum of softplus(eta) shares -- spline must have been evaluated already
     sp_fp <- ss$softplus_share_fp
     if (is.null(sp_fp))
       stop("Softplus shares not computed. Run softplus spline first.", call. = FALSE)
-    r <- .callMpcTool("k2-fp-sum", list(fp_data = sp_fp))
+    r <- .callMpcTool("k2-fp-sum", list(fp_data = sp_fp, ring = ring_tag))
     list(sum_fp = r$sum_fp)
 
   } else if (family == "poisson") {
     # Sum of mu shares (from last exp spline evaluation)
     mu_fp <- .base64url_to_base64(ss$secure_mu_share)
-    r <- .callMpcTool("k2-fp-sum", list(fp_data = mu_fp))
+    r <- .callMpcTool("k2-fp-sum", list(fp_data = mu_fp, ring = ring_tag))
 
     # Null term: label server computes Sum(y*log(y) - y) in plaintext
     null_term <- 0
@@ -389,13 +404,17 @@ glmRing63ReceiveExtraShareDS <- function(extra_key, extra_p, session_id = NULL) 
 
   # Column-concatenate: interleave extra features into peer FP matrix (row-major)
   n <- ss$k2_x_n
+  ring <- as.integer(ss$k2_ring %||% 63L)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
   if (!is.null(ss$k2_peer_x_share_fp) && !is.null(ss$k2_peer_p) && ss$k2_peer_p > 0) {
     result <- .callMpcTool("k2-fp-column-concat", list(
       a = ss$k2_peer_x_share_fp,
       b = extra_fp,
       n = as.integer(n),
       p_a = as.integer(ss$k2_peer_p),
-      p_b = as.integer(extra_p)))
+      p_b = as.integer(extra_p),
+      ring = ring_tag))
     ss$k2_peer_x_share_fp <- result$result
   } else {
     ss$k2_peer_x_share_fp <- extra_fp

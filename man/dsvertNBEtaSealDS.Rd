@@ -4,7 +4,14 @@
 \alias{dsvertNBEtaSealDS}
 \title{Per-patient mu seal on non-label server for NB full-reg theta MLE}
 \usage{
-dsvertNBEtaSealDS(data_name, x_vars, beta_values, target_pk, session_id = NULL)
+dsvertNBEtaSealDS(
+  data_name,
+  x_vars,
+  beta_values,
+  target_pk,
+  session_id = NULL,
+  allow_disclosive_legacy = FALSE
+)
 }
 \arguments{
 \item{data_name}{Character. Data frame with the feature columns.}
@@ -19,6 +26,10 @@ beta is revealed at convergence).}
 server that should receive the sealed \code{eta_nl} vector.}
 
 \item{session_id}{Character.}
+
+\item{allow_disclosive_legacy}{Logical. Must be \code{TRUE} to run this
+archived helper. The non-disclosive replacement is
+\code{ds.vertNBFullRegTheta(variant = "full_reg_nd")}.}
 }
 \value{
 List with \code{sealed} (base64url blob).

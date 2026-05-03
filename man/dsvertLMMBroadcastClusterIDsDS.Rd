@@ -21,13 +21,15 @@ dsvertLMMBroadcastClusterIDsDS(
 \item{session_id}{MPC session id.}
 }
 \value{
-list(peer_blob, n_clusters, levels)
+list(peer_blob, n_clusters)
 }
 \description{
 On the outcome server (which holds the cluster
 membership column plaintext), encode the cluster IDs as an integer
 vector and transport-encrypt them to the peer so both DCF parties
 can compute per-cluster aggregates of their own r / r^2 shares.
+Original cluster labels are not returned to the analyst client or
+sent to the peer.
 
 This is the documented LMM inter-server leakage tier
 (cluster-ID membership, see V2_PROGRESS disclosure table). The

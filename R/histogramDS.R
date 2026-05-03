@@ -11,9 +11,12 @@
 #'   (the last bucket is right-closed).
 #' @param suppress_small_cells Logical. If TRUE (default) cells with positive
 #'   count below the DataSHIELD privacy threshold
-#'   (\code{datashield.privacyLevel}) are returned as 0 instead of the raw
-#'   count. The total \code{n_total} is always returned as the raw total
-#'   number of non-missing observations.
+#'   (\code{datashield.privacyLevel}) fail closed by default. Set
+#'   \code{fail_on_small_cells = FALSE} only for legacy diagnostics to return
+#'   suppressed zeros instead.
+#' @param fail_on_small_cells Logical. Stop instead of returning a histogram
+#'   if any positive bucket/underflow/overflow count is below the privacy
+#'   threshold.
 #'
 #' @return A list with elements
 #'   \itemize{
@@ -35,8 +38,10 @@
 #'
 #' @seealso \code{getObsCountDS}
 #' @export
-dsvertHistogramDS <- function(data_name, variable, edges,
-                              suppress_small_cells = TRUE) {
+dsvertHistogramDS <- function(
+    data_name, variable, edges,
+    suppress_small_cells = TRUE,
+    fail_on_small_cells = getOption("dsvert.fail_on_small_cells", TRUE)) {
   # --- Validate inputs --------------------------------------------------
   if (!is.character(data_name) || length(data_name) != 1) {
     stop("data_name must be a single character string", call. = FALSE)
@@ -85,6 +90,13 @@ dsvertHistogramDS <- function(data_name, variable, edges,
     privacy_min <- getOption("datashield.privacyLevel", 5L)
     if (is.numeric(privacy_min) && privacy_min > 0) {
       mask <- counts > 0L & counts < privacy_min
+      small_tail <- (below > 0L && below < privacy_min) ||
+        (above > 0L && above < privacy_min)
+      if ((any(mask) || small_tail) && isTRUE(fail_on_small_cells)) {
+        stop("Histogram has a positive bucket/tail count below ",
+             "datashield.privacyLevel; refusing to release counts",
+             call. = FALSE)
+      }
       counts[mask] <- 0L
       if (below > 0L && below < privacy_min) below <- 0L
       if (above > 0L && above < privacy_min) above <- 0L
@@ -97,6 +109,11 @@ dsvertHistogramDS <- function(data_name, variable, edges,
     above = above,
     n_total = length(x),
     n_na = n_na,
-    edges = edges
+    edges = edges,
+    small_cell_policy = if (isTRUE(suppress_small_cells)) {
+      if (isTRUE(fail_on_small_cells)) "fail" else "zero"
+    } else {
+      "none"
+    }
   )
 }

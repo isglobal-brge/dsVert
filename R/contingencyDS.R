@@ -12,9 +12,11 @@
 #' @param var2 Character. Second variable (columns).
 #' @param suppress_small_cells Logical. If TRUE (default) cells with
 #'   positive counts below the DataSHIELD privacy threshold
-#'   (\code{datashield.privacyLevel}) are returned as 0; the row/column
-#'   margins and total \code{n} are also suppressed if they fall below
-#'   the threshold.
+#'   (\code{datashield.privacyLevel}) fail closed by default. Set
+#'   \code{fail_on_small_cells = FALSE} only for legacy diagnostics to return
+#'   suppressed zeros instead.
+#' @param fail_on_small_cells Logical. Stop instead of returning a table if
+#'   any positive cell or margin count is below the privacy threshold.
 #'
 #' @return A list with elements:
 #'   \itemize{
@@ -29,8 +31,10 @@
 #'   }
 #' @seealso \code{dsvertHistogramDS}
 #' @export
-dsvertContingencyDS <- function(data_name, var1, var2,
-                                suppress_small_cells = TRUE) {
+dsvertContingencyDS <- function(
+    data_name, var1, var2,
+    suppress_small_cells = TRUE,
+    fail_on_small_cells = getOption("dsvert.fail_on_small_cells", TRUE)) {
   if (!is.character(data_name) || length(data_name) != 1) {
     stop("data_name must be a single character string", call. = FALSE)
   }
@@ -77,6 +81,14 @@ dsvertContingencyDS <- function(data_name, var1, var2,
     privacy_min <- getOption("datashield.privacyLevel", 5L)
     if (is.numeric(privacy_min) && privacy_min > 0) {
       mask <- counts > 0L & counts < privacy_min
+      small_margin <- any(row_margins > 0L & row_margins < privacy_min) ||
+        any(col_margins > 0L & col_margins < privacy_min) ||
+        (n > 0L && n < privacy_min)
+      if ((any(mask) || small_margin) && isTRUE(fail_on_small_cells)) {
+        stop("Contingency table has a positive cell or margin below ",
+             "datashield.privacyLevel; refusing to release counts",
+             call. = FALSE)
+      }
       counts[mask] <- 0L
       row_margins[row_margins > 0L & row_margins < privacy_min] <- 0L
       col_margins[col_margins > 0L & col_margins < privacy_min] <- 0L
@@ -91,6 +103,11 @@ dsvertContingencyDS <- function(data_name, var1, var2,
     row_margins = row_margins,
     col_margins = col_margins,
     n = n,
-    n_na = n_na
+    n_na = n_na,
+    small_cell_policy = if (isTRUE(suppress_small_cells)) {
+      if (isTRUE(fail_on_small_cells)) "fail" else "zero"
+    } else {
+      "none"
+    }
   )
 }

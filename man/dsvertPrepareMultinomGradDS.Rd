@@ -31,6 +31,9 @@ existing \code{glmRing63GenGradTriplesDS} + \code{k2GradientR1DS}
 \item \code{k2GradientR2DS} matvec pipeline on a per-class residual
 share already computed via \code{dsvertComputeResidualShareDS}.
 }
+In K>=3 deployments, this still runs only on the two selected DCF
+parties; the other servers provide encrypted additive shares and/or
+Beaver triples.
 
 The gradient pipeline computes \eqn{X^\top (\mu - y)} internally,
 so this helper:

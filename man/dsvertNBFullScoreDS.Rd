@@ -12,7 +12,8 @@ dsvertNBFullScoreDS(
   beta_intercept,
   peer_eta_key,
   theta,
-  session_id = NULL
+  session_id = NULL,
+  allow_disclosive_legacy = FALSE
 )
 }
 \arguments{
@@ -33,6 +34,10 @@ transport-sealed \code{eta_nl} blob (set via \code{mpcStoreBlobDS}).}
 \item{theta}{Numeric scalar > 0.}
 
 \item{session_id}{Character.}
+
+\item{allow_disclosive_legacy}{Logical. Must be \code{TRUE} to consume the
+archived per-patient eta transport path. The non-disclosive replacement
+is \code{ds.vertNBFullRegTheta(variant = "full_reg_nd")}.}
 }
 \value{
 List of five numeric scalars.

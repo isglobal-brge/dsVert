@@ -350,21 +350,22 @@ dsvertNBSumShareDS <- function(input_key, session_id = NULL) {
 #' @title Label-side: plaintext Sumpsi(y+theta) and Sumpsi_1(y+theta)
 #' @description The score / Hessian terms involving psi(y_i + theta) and
 #'   psi_1(y_i + theta) (digamma / trigamma) only require y at label and theta as
-#'   a scalar -- no mu_i shares needed. Computed plaintext at label and
-#'   returned as scalars. No per-patient disclosure (only the two sums).
+#'   a scalar -- no mu_i shares needed. Computed plaintext at the outcome
+#'   server and returned as scalars. No per-patient disclosure (only the two
+#'   sums). In K>=3, y may come from the outcome server's Ring127 input-sharing
+#'   cache; no y or y+theta vector is sent to another party.
 #' @param theta Numeric scalar.
 #' @param session_id Character.
 #' @return List with \code{sum_psi}, \code{sum_tri}, \code{n}.
 #' @export
 dsvertNBPsiAggregateDS <- function(theta, session_id = NULL) {
   ss <- .S(session_id)
-  .k2_enforce_K(ss, 2L, "dsvertNBPsiAggregateDS")
   theta <- as.numeric(theta)
   if (!is.finite(theta) || theta <= 0)
     stop("theta must be finite positive", call. = FALSE)
-  y <- ss$k2_nb_y
+  y <- ss$k2_nb_y %||% ss$k2_y_raw
   if (is.null(y))
-    stop("y cache missing -- call dsvertNBEtaTotalReceiveDS first",
+    stop("y cache missing -- call dsvertNBEtaTotalReceiveDS or k2ShareInputDS first",
          call. = FALSE)
   n <- length(y)
   privacy_min <- getOption("datashield.privacyLevel", 5L)

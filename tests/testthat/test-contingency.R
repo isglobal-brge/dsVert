@@ -56,8 +56,14 @@ test_that("contingency suppresses small cells when privacyLevel active", {
   if (!any(res_raw$counts > 0L & res_raw$counts < 5L)) {
     skip("no small cells on this fixture")
   }
+  expect_error(
+    dsvertContingencyDS("D", "sex", "stage",
+                        suppress_small_cells = TRUE),
+    "refusing to release counts")
+
   res_sup <- dsvertContingencyDS("D", "sex", "stage",
-                                 suppress_small_cells = TRUE)
+                                 suppress_small_cells = TRUE,
+                                 fail_on_small_cells = FALSE)
   for (i in seq_len(nrow(res_raw$counts))) {
     for (j in seq_len(ncol(res_raw$counts))) {
       if (res_raw$counts[i, j] > 0L && res_raw$counts[i, j] < 5L) {

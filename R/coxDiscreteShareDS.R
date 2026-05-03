@@ -1,6 +1,6 @@
-#' @title Cox K=2 discrete-time non-disclosive share-mask primitives (#D')
-#' @description Worker2 K=2-safe option (B) -- hide J_i (per-patient ending
-#'   bin index) from the covariate (non-label) server. Implements the
+#' @title Cox discrete-time non-disclosive share-mask primitives (#D')
+#' @description Hide J_i (per-patient ending bin index) from every covariate
+#'   server. Implements the
 #'   share-mask gating pattern documented in
 #'   \code{project_k2_strict_unified_plan_2026-04-27.md} Sec."Option B
 #'   FEASIBILITY ANALYSIS":
@@ -10,15 +10,16 @@
 #'     i=1..n) where m_ij = I(j <= J_i) and the event indicator
 #'     y_ij = I(j == J_i AND status_i = 1).
 #'   - Both m and y get split into Ring127 additive shares between OS and
-#'     the covariate server. The covariate server thereby never sees J_i
+#'     one DCF/fusion covariate server. That server thereby never sees J_i
 #'     directly; the only signal it receives is two random-looking
 #'     length-(J*n) shares that, summed pointwise mod 2^127 with the OS
 #'     shares, reconstruct m and y.
-#'   - The covariate server expands its X to a UNIFORM Jxn person-period
+#'   - Every covariate server expands its X to a UNIFORM Jxn person-period
 #'     frame (every patient contributes J rows, regardless of true J_i),
-#'     so no row-count signal leaks. The mask shares gate which rows
-#'     enter the score / Hessian aggregations downstream via Beaver
-#'     vecmul against (y - p) and W = p*(1-p).
+#'     so no row-count signal leaks. In K>=3, non-DCF servers send only
+#'     encrypted additive shares of this uniform frame to the two DCF parties.
+#'     The mask shares gate which rows enter the score / Hessian aggregations
+#'     downstream via Beaver vecmul against (y - p) and W = p*(1-p).
 #'
 #'   Cite: Aliasgari-Blanton 2013 NDSS eprint 2012/405 (share-mask
 #'   gating); Cock et al. 2016 eprint 2016/736 (oblivious selection);
@@ -47,10 +48,10 @@
 dsvertCoxDiscreteShareMaskDS <- function(data_name, time_var, status_var,
                                           J, bin_breaks,
                                           mask_output_key, y_output_key,
-                                          target_pk, session_id) {
+                                          target_pk, session_id,
+                                          debug = FALSE) {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
-  .k2_enforce_K(.S(session_id), 2L, "dsvertCoxDiscreteShareMaskDS")
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
   if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
@@ -66,6 +67,14 @@ dsvertCoxDiscreteShareMaskDS <- function(data_name, time_var, status_var,
                   length(bin_breaks), J + 1L), call. = FALSE)
   if (any(diff(bin_breaks) <= 0))
     stop("bin_breaks must be strictly increasing", call. = FALSE)
+  if (length(bin_breaks) > 1L) {
+    eps <- max(1e-12, 128 * .Machine$double.eps *
+                 max(1, max(abs(bin_breaks), na.rm = TRUE)))
+    bin_breaks[-1L] <- bin_breaks[-1L] + eps
+    if (any(diff(bin_breaks) <= 0))
+      stop("bin_breaks too close after numeric stabilisation",
+           call. = FALSE)
+  }
   ss <- .S(session_id)
 
   t_vec <- as.numeric(data[[time_var]])
@@ -123,12 +132,20 @@ dsvertCoxDiscreteShareMaskDS <- function(data_name, time_var, status_var,
     sealed_y_blob = base64_to_base64url(sealed_y$sealed),
     n_obs         = as.integer(n),
     J             = J,
-    n_pp          = as.integer(n) * J
+    n_pp          = as.integer(n) * J,
+    debug         = if (isTRUE(debug)) {
+      list(bin_breaks = bin_breaks,
+           J_i_counts = as.integer(tabulate(J_i, nbins = J)),
+           y_counts = as.integer(vapply(seq_len(J), function(j) {
+             sum(J_i == j & d_vec == 1L)
+           }, integer(1L))),
+           time_range = range(t_vec, na.rm = TRUE))
+    } else NULL
   )
 }
 
 
-#' @title Cox K=2 discrete-time receive shared mask + y at NL
+#' @title Cox discrete-time receive shared mask + y at DCF peer
 #' @description Counterpart to \code{dsvertCoxDiscreteShareMaskDS} --
 #'   non-label server transport-decrypts the sealed mask + y blobs and
 #'   stores them as Ring127 shares (length J*n, row-major). Forms the
@@ -147,7 +164,6 @@ dsvertCoxDiscreteReceiveSharesDS <- function(mask_blob_key, y_blob_key,
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
   ss <- .S(session_id)
-  .k2_enforce_K(ss, 2L, "dsvertCoxDiscreteReceiveSharesDS")
   tsk <- .key_get("transport_sk", ss)
   if (is.null(tsk))
     stop("transport_sk missing -- call glmRing63TransportInitDS first",
@@ -175,7 +191,7 @@ dsvertCoxDiscreteReceiveSharesDS <- function(mask_blob_key, y_blob_key,
 
 
 #' @title Expand local covariates to uniform Jxn person-period frame
-#' @description At the covariate server, replicate each X_i row J times
+#' @description At each feature server, replicate each X_i row J times
 #'   to form a uniform J*n x p person-period frame. No row-count signal
 #'   leaks -- every patient contributes exactly J rows regardless of
 #'   their true (hidden) ending bin J_i. Bin index per row is implicit
@@ -193,7 +209,6 @@ dsvertCoxDiscreteExpandXDS <- function(data_name, new_data_name,
                                         x_vars, J, session_id) {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
-  .k2_enforce_K(.S(session_id), 2L, "dsvertCoxDiscreteExpandXDS")
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
   if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)

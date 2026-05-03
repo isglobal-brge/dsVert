@@ -17,6 +17,8 @@ List with \code{sum_psi}, \code{sum_tri}, \code{n}.
 \description{
 The score / Hessian terms involving psi(y_i + theta) and
 psi_1(y_i + theta) (digamma / trigamma) only require y at label and theta as
-a scalar -- no mu_i shares needed. Computed plaintext at label and
-returned as scalars. No per-patient disclosure (only the two sums).
+a scalar -- no mu_i shares needed. Computed plaintext at the outcome
+server and returned as scalars. No per-patient disclosure (only the two
+sums). In K>=3, y may come from the outcome server's Ring127 input-sharing
+cache; no y or y+theta vector is sent to another party.
 }

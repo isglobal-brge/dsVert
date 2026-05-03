@@ -44,7 +44,13 @@ test_that("histogram suppresses small cells when enabled", {
   has_small <- any(raw$counts > 0L & raw$counts < 5L)
   if (!has_small) skip("no small cells on this fixture; adjust seed or edges")
 
-  suppressed <- dsvertHistogramDS("D", "x", edges, suppress_small_cells = TRUE)
+  expect_error(
+    dsvertHistogramDS("D", "x", edges, suppress_small_cells = TRUE),
+    "refusing to release counts")
+
+  suppressed <- dsvertHistogramDS("D", "x", edges,
+                                  suppress_small_cells = TRUE,
+                                  fail_on_small_cells = FALSE)
   # Every cell that was in (0, privacy_min) must now be 0
   for (k in seq_along(raw$counts)) {
     if (raw$counts[k] > 0L && raw$counts[k] < 5L) {
@@ -72,17 +78,28 @@ test_that("histogram errors on bad input", {
 # dsvertLocalMomentsDS
 # =============================================================================
 
-test_that("local moments match base R mean/sd/min/max", {
+test_that("local moments match base R mean/sd and suppress extrema by default", {
   D <- make_df()
   res <- dsvertLocalMomentsDS("D", "x")
 
   x_nomiss <- D$x[!is.na(D$x)]
   expect_equal(res$mean, mean(x_nomiss))
   expect_equal(res$sd, sd(x_nomiss))
-  expect_equal(res$min, min(x_nomiss))
-  expect_equal(res$max, max(x_nomiss))
+  expect_true(is.na(res$min))
+  expect_true(is.na(res$max))
+  expect_false(res$extrema_released)
   expect_equal(res$n_total, length(x_nomiss))
   expect_equal(res$n_na, sum(is.na(D$x)))
+})
+
+test_that("local moments can opt into exact extrema", {
+  D <- make_df()
+  res <- dsvertLocalMomentsDS("D", "x", return_extrema = TRUE)
+
+  x_nomiss <- D$x[!is.na(D$x)]
+  expect_equal(res$min, min(x_nomiss))
+  expect_equal(res$max, max(x_nomiss))
+  expect_true(res$extrema_released)
 })
 
 test_that("local moments suppressed when cohort below privacyLevel", {

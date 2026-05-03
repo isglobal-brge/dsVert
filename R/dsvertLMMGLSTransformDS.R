@@ -12,7 +12,9 @@
 #'
 #'   Operates locally on the server: no cross-server traffic, no
 #'   Beaver MPC. Just a per-cluster mean subtraction using the cluster
-#'   IDs previously broadcast by \code{dsvertLMMBroadcastClusterIDsDS}.
+#'   IDs previously broadcast by \code{dsvertLMMBroadcastClusterIDsDS}
+#'   (K=2 closed-form path) or \code{dsvertClusterIDsBroadcastDS}
+#'   (generic K>=3 path).
 #'
 #' @param data_name Character. Aligned data frame on this server.
 #' @param columns   Character vector of columns to transform.
@@ -38,15 +40,16 @@ dsvertLMMGLSTransformDS <- function(data_name, columns,
                                      session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
-  .k2_enforce_K(.S(session_id), 2L, "dsvertLMMGLSTransformDS")
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
   if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
   ss <- .S(session_id)
   ids <- ss$k2_lmm_cluster_ids
+  if (is.null(ids)) ids <- ss$dsvert_cluster_ids
   if (is.null(ids))
     stop("cluster IDs missing in session; call ",
-         "dsvertLMMBroadcastClusterIDsDS / ReceiveClusterIDsDS first",
+         "dsvertLMMBroadcastClusterIDsDS / ReceiveClusterIDsDS or ",
+         "dsvertClusterIDsBroadcastDS / dsvertClusterIDsReceiveDS first",
          call. = FALSE)
   if (length(ids) != nrow(data))
     stop("cluster id length != nrow(data)", call. = FALSE)
@@ -131,4 +134,3 @@ dsvertLMMGLSAggregatesDS <- function(data_name, columns,
   }
   out
 }
-

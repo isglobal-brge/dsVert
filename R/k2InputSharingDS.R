@@ -71,6 +71,7 @@ k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
       data_fp = fp_y, n = length(y), frac_bits = frac_bits,
       ring = ring_tag))
     ss$k2_y_share_fp <- y_split$own_share
+    ss$k2_y_share_fp_original <- y_split$own_share
 
     # Transport-encrypt peer's y share
     pk <- .base64url_to_base64(peer_pk)
@@ -114,6 +115,7 @@ k2ReceiveShareDS <- function(peer_p = NULL, session_id = NULL) {
     dec <- .callMpcTool("transport-decrypt", list(
       sealed = .base64url_to_base64(y_blob), recipient_sk = tsk))
     ss$k2_y_share_fp <- rawToChar(jsonlite::base64_dec(dec$data))
+    ss$k2_y_share_fp_original <- ss$k2_y_share_fp
   }
 
   list(stored = TRUE)

@@ -99,6 +99,37 @@ NULL
   result$data
 }
 
+.psi_text_to_b64 <- function(text) {
+  if (!is.character(text) || length(text) != 1L) {
+    stop("PSI payload must be a single character string", call. = FALSE)
+  }
+  jsonlite::base64_enc(charToRaw(text))
+}
+
+.psi_b64_to_text <- function(data_b64) {
+  rawToChar(jsonlite::base64_dec(data_b64))
+}
+
+.psi_encrypt_text <- function(text, recipient_pk_b64) {
+  sealed <- .psi_encrypt_b64data(.psi_text_to_b64(text), recipient_pk_b64)
+  base64_to_base64url(sealed)
+}
+
+.psi_decrypt_text <- function(sealed_b64url, session_id = NULL) {
+  .psi_b64_to_text(.psi_decrypt_to_b64data(sealed_b64url, session_id))
+}
+
+.psi_pack_indices <- function(indices) {
+  indices <- as.integer(indices)
+  if (!length(indices)) return("")
+  paste(indices, collapse = ",")
+}
+
+.psi_unpack_indices <- function(payload) {
+  if (is.null(payload) || !nzchar(payload)) return(integer(0))
+  as.integer(strsplit(payload, ",", fixed = TRUE)[[1L]])
+}
+
 #' Read and consume a PSI blob from chunked storage (internal)
 #' @param key Character. The blob storage key.
 #' @return Character. The assembled blob string.
@@ -548,7 +579,9 @@ psiSelfAlignDS <- function(data_name, session_id = NULL) {
 #' Get matched reference indices (aggregate function)
 #'
 #' Returns the set of reference indices that this server matched during
-#' PSI alignment. Used by the client to compute the multi-server intersection.
+#' PSI alignment. This legacy diagnostic helper is disabled by default because
+#' the index vector is patient-level metadata; production alignment uses
+#' encrypted index export plus server-side intersection.
 #'
 #' @param session_id Character or NULL. UUID for session-scoped storage
 #'   isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).
@@ -556,11 +589,116 @@ psiSelfAlignDS <- function(data_name, session_id = NULL) {
 #' @return Integer vector of matched reference indices (0-based).
 #' @export
 psiGetMatchedIndicesDS <- function(session_id = NULL) {
+  allow_reveal <- getOption("dsvert.psi.allow_matched_indices_reveal", FALSE)
+  if (!isTRUE(as.logical(allow_reveal))) {
+    stop(
+      "Disclosure control: psiGetMatchedIndicesDS is disabled by default ",
+      "because matched row indices are patient-level metadata. Use encrypted ",
+      "PSI phase-8 helpers instead.",
+      call. = FALSE
+    )
+  }
   ss <- .S(session_id)
   if (is.null(ss$psi_matched_ref_indices)) {
     stop("PSI matched indices not available. Run alignment first.", call. = FALSE)
   }
   ss$psi_matched_ref_indices
+}
+
+#' Export encrypted matched reference indices for server-side intersection
+#'
+#' Encrypts this server's matched reference-index vector under the recipient
+#' server transport public key. The client relays only an opaque blob and sees
+#' no row indices.
+#'
+#' @param recipient_name Character. Recipient server name, usually the PSI
+#'   reference server.
+#' @param session_id Character or NULL. UUID for session-scoped storage.
+#'
+#' @return List with encrypted_blob and n_matched.
+#' @export
+psiExportMatchedIndicesDS <- function(recipient_name = "ref",
+                                      session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$psi_matched_ref_indices)) {
+    stop("PSI matched indices not available. Run alignment first.",
+         call. = FALSE)
+  }
+  recipient_pk <- ss$psi_peer_pks[[recipient_name]]
+  if (is.null(recipient_pk)) {
+    stop("No transport PK for recipient '", recipient_name, "'.",
+         call. = FALSE)
+  }
+
+  payload <- .psi_pack_indices(ss$psi_matched_ref_indices)
+  list(
+    encrypted_blob = .psi_encrypt_text(payload, recipient_pk),
+    n_matched = length(ss$psi_matched_ref_indices)
+  )
+}
+
+#' Compute the multi-server PSI intersection on the reference server
+#'
+#' Reads encrypted matched-index blobs from server-side storage, decrypts them
+#' on the reference server, intersects them with the reference index set, and
+#' stores the common index set server-side. Only counts are returned.
+#'
+#' @param target_names Character vector. Names of target servers whose encrypted
+#'   index blobs were stored on the reference server.
+#' @param session_id Character or NULL. UUID for session-scoped storage.
+#'
+#' @return List with n_common and n_targets.
+#' @export
+psiComputeCommonIndicesDS <- function(target_names, session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$psi_matched_ref_indices)) {
+    stop("PSI matched indices not available on reference server.",
+         call. = FALSE)
+  }
+  if (!is.character(target_names)) {
+    target_names <- as.character(target_names)
+  }
+
+  common_indices <- as.integer(ss$psi_matched_ref_indices)
+  for (target_name in target_names) {
+    key <- paste0("matched_indices_", target_name)
+    encrypted_blob <- .read_psi_blob(key, session_id)
+    payload <- .psi_decrypt_text(encrypted_blob, session_id)
+    target_indices <- .psi_unpack_indices(payload)
+    common_indices <- intersect(common_indices, target_indices)
+  }
+  common_indices <- sort(as.integer(common_indices))
+  ss$psi_common_indices <- common_indices
+
+  list(n_common = length(common_indices), n_targets = length(target_names))
+}
+
+#' Export encrypted common PSI indices from the reference server
+#'
+#' Encrypts the server-side common index set under a target server transport
+#' public key so the target can filter without exposing indices to the client.
+#'
+#' @param target_name Character. Target server name.
+#' @param session_id Character or NULL. UUID for session-scoped storage.
+#'
+#' @return List with encrypted_blob and n_common.
+#' @export
+psiExportCommonIndicesDS <- function(target_name, session_id = NULL) {
+  ss <- .S(session_id)
+  if (is.null(ss$psi_common_indices)) {
+    stop("PSI common indices not available. Run psiComputeCommonIndicesDS.",
+         call. = FALSE)
+  }
+  target_pk <- ss$psi_peer_pks[[target_name]]
+  if (is.null(target_pk)) {
+    stop("No transport PK for target '", target_name, "'.", call. = FALSE)
+  }
+
+  payload <- .psi_pack_indices(ss$psi_common_indices)
+  list(
+    encrypted_blob = .psi_encrypt_text(payload, target_pk),
+    n_common = length(ss$psi_common_indices)
+  )
 }
 
 #' Filter aligned data to common intersection (assign function)
@@ -572,7 +710,9 @@ psiGetMatchedIndicesDS <- function(session_id = NULL) {
 #' @param common_indices Integer vector. Reference indices common to all
 #'   servers (0-based). Ignored when \code{from_storage = TRUE}.
 #' @param from_storage Logical. If \code{TRUE}, read \code{common_indices}
-#'   from server-side blob storage (comma-separated integers).
+#'   from server-side blob storage.
+#' @param encrypted Logical. If \code{TRUE}, the stored common-index blob is
+#'   transport-encrypted for this server.
 #'   Default \code{FALSE}.
 #' @param session_id Character or NULL. UUID for session-scoped storage
 #'   isolation. Default NULL uses global shared storage (not recommended for concurrent jobs).
@@ -580,7 +720,8 @@ psiGetMatchedIndicesDS <- function(session_id = NULL) {
 #' @return Filtered data frame (assigned to server environment).
 #' @export
 psiFilterCommonDS <- function(data_name, common_indices = NULL,
-                              from_storage = FALSE, session_id = NULL) {
+                              from_storage = FALSE, encrypted = FALSE,
+                              session_id = NULL) {
   ss <- .S(session_id)
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
@@ -592,11 +733,18 @@ psiFilterCommonDS <- function(data_name, common_indices = NULL,
   # Read from blob storage or inline argument
   if (from_storage) {
     blobs <- .blob_snapshot(ss)
-    if (length(blobs) == 0L || is.null(blobs[["common_indices"]])) {
-      stop("No common_indices blob stored", call. = FALSE)
+    key <- if (isTRUE(encrypted)) "common_indices_encrypted" else "common_indices"
+    if (length(blobs) == 0L || is.null(blobs[[key]])) {
+      stop("No ", key, " blob stored", call. = FALSE)
     }
-    common_indices <- as.integer(strsplit(blobs[["common_indices"]], ",", fixed = TRUE)[[1]])
+    payload <- blobs[[key]]
+    if (isTRUE(encrypted)) {
+      payload <- .psi_decrypt_text(payload, session_id)
+    }
+    common_indices <- .psi_unpack_indices(payload)
     .blob_nuke(ss)
+  } else if (is.null(common_indices) && !is.null(ss$psi_common_indices)) {
+    common_indices <- ss$psi_common_indices
   } else {
     common_indices <- as.integer(common_indices)
   }
@@ -638,6 +786,7 @@ psiFilterCommonDS <- function(data_name, common_indices = NULL,
   ss$psi_transport_pk <- NULL
   ss$psi_peer_pks <- NULL
   ss$psi_trusted_pks <- NULL
+  ss$psi_common_indices <- NULL
   ss$psi_phase <- NULL
   ss$psi_dm_used <- NULL
 

@@ -124,11 +124,13 @@ k2Ring127AffineCombineDS <- function(a_key = NULL, b_key = NULL,
 #' @param in_key Session slot holding the Ring127 FP share vector
 #'   (base64 Uint128).
 #' @param scalar_fp Base64 string encoding a single Ring127 FP Uint128
-#'   (the public scalar). One TruncMulSigned per element, so the
-#'   result is FP-consistent (not raw integer).
+#'   (the public scalar). Uses the party-asymmetric Ring127 scalar-share
+#'   product so truncation remains additive after reconstruction.
 #' @param output_key Session slot to store the scaled share.
 #' @param n Integer vector length.
 #' @param session_id MPC session identifier.
+#' @param is_party0 Logical. TRUE for party 0 so fixed-point truncation uses
+#'   the party-asymmetric public-scalar share multiplication.
 #' @return list(stored = TRUE, output_key, n).
 #' @keywords internal
 #' @export
@@ -136,7 +138,8 @@ k2Ring127LocalScaleDS <- function(in_key,
                                   scalar_fp,
                                   output_key,
                                   n,
-                                  session_id = NULL) {
+                                  session_id = NULL,
+                                  is_party0 = NULL) {
   scalar_fp <- .b64_pad(scalar_fp)
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
@@ -147,6 +150,8 @@ k2Ring127LocalScaleDS <- function(in_key,
     stop("output_key required", call. = FALSE)
   if (is.null(scalar_fp) || !nzchar(scalar_fp))
     stop("scalar_fp required (base64 Uint128)", call. = FALSE)
+  if (is.null(is_party0))
+    stop("is_party0 required for Ring127 share scaling", call. = FALSE)
 
   ss <- .S(session_id)
   ring <- as.integer(ss$k2_ring %||% 63L)
@@ -160,19 +165,16 @@ k2Ring127LocalScaleDS <- function(in_key,
     stop("session slot '", in_key, "' is empty", call. = FALSE)
   }
 
-  # Broadcast the single scalar to a length-n vector by repeating the
-  # 16 raw bytes, then base64-encode. 16 B * n is small (<4 KB at n<=256).
   raw_scalar <- jsonlite::base64_dec(scalar_fp)
   if (length(raw_scalar) != 16L) {
     stop("scalar_fp must decode to exactly 16 bytes (one Uint128), got ",
          length(raw_scalar), call. = FALSE)
   }
-  raw_bcast <- rep(raw_scalar, times = as.integer(n))
-  bcast_b64 <- jsonlite::base64_enc(raw_bcast)
 
-  res <- .callMpcTool("k2-fp-vec-mul", list(
-    a = share_b64,
-    b = bcast_b64,
+  res <- .callMpcTool("k2-ring127-local-scale-share", list(
+    share_fp = share_b64,
+    scalar_fp = scalar_fp,
+    is_party0 = isTRUE(is_party0),
     frac_bits = 50L,
     ring = "ring127"
   ))

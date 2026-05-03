@@ -52,6 +52,14 @@ dsvertImputeColumnDS <- function(data_name, impute_column,
   }
 
   other_cols <- setdiff(names(data), c(impute_column, output_column))
+  # Repeated MI rounds write complete columns such as x1__mi_1,
+  # x1__mi_2, ... into the same server-side data frame. They must not
+  # become predictors for later imputations; otherwise the imputation
+  # model changes across rounds and later draws condition on previous
+  # synthetic draws.
+  internal_imp <- grepl("__mi_[0-9]+$", other_cols) |
+    grepl("^__dsvert_imp_", other_cols)
+  other_cols <- other_cols[!internal_imp]
   # Keep only numeric/complete predictors to avoid leaking structure.
   keep <- character(0)
   for (c in other_cols) {

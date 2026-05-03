@@ -4,6 +4,9 @@
 #'   existing \code{glmRing63GenGradTriplesDS} + \code{k2GradientR1DS}
 #'   + \code{k2GradientR2DS} matvec pipeline on a per-class residual
 #'   share already computed via \code{dsvertComputeResidualShareDS}.
+#'   In K>=3 deployments, this still runs only on the two selected DCF
+#'   parties; the other servers provide encrypted additive shares and/or
+#'   Beaver triples.
 #'
 #'   The gradient pipeline computes \eqn{X^\top (\mu - y)} internally,
 #'   so this helper:
@@ -27,7 +30,6 @@ dsvertPrepareMultinomGradDS <- function(residual_key, is_outcome_server,
   if (is.null(residual_key) || !nzchar(residual_key))
     stop("residual_key required", call. = FALSE)
   ss <- .S(session_id)
-  .k2_enforce_K(ss, 2L, "dsvertPrepareMultinomGradDS")
   r_share <- ss[[residual_key]]
   if (is.null(r_share) || !nzchar(r_share))
     stop("residual slot '", residual_key, "' is empty", call. = FALSE)
@@ -51,7 +53,8 @@ dsvertPrepareMultinomGradDS <- function(residual_key, is_outcome_server,
 #' @description Computes the softmax denominator share \code{D = 1 + Sum_k exp(eta_k)}
 #'   via K-1 sequential \code{k2-ring127-affine-combine} calls. Party 0 also
 #'   adds the constant 1 at the first step; party 1 does not (additive
-#'   share convention).
+#'   share convention). In K>=3 deployments, only the two DCF parties call
+#'   this helper.
 #'
 #' @param exp_eta_keys Character vector of session slots holding the
 #'   per-class \code{exp(eta_k)} shares.
@@ -68,7 +71,6 @@ dsvertSoftmaxDenominatorDS <- function(exp_eta_keys, output_key,
   if (!is.character(exp_eta_keys) || length(exp_eta_keys) < 1L)
     stop("exp_eta_keys must be a non-empty character vector", call. = FALSE)
   ss <- .S(session_id)
-  .k2_enforce_K(ss, 2L, "dsvertSoftmaxDenominatorDS")
   n_int <- as.integer(n)
 
   # FP(1.0) constant

@@ -398,13 +398,17 @@ glmRing63ReceiveExtraShareDS <- function(extra_key, extra_p, session_id = NULL) 
 
   # Column-concatenate: interleave extra features into peer FP matrix (row-major)
   n <- ss$k2_x_n
+  ring <- as.integer(ss$k2_ring %||% 63L)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
   if (!is.null(ss$k2_peer_x_share_fp) && !is.null(ss$k2_peer_p) && ss$k2_peer_p > 0) {
     result <- .callMpcTool("k2-fp-column-concat", list(
       a = ss$k2_peer_x_share_fp,
       b = extra_fp,
       n = as.integer(n),
       p_a = as.integer(ss$k2_peer_p),
-      p_b = as.integer(extra_p)))
+      p_b = as.integer(extra_p),
+      ring = ring_tag))
     ss$k2_peer_x_share_fp <- result$result
   } else {
     ss$k2_peer_x_share_fp <- extra_fp

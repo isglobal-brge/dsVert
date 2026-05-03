@@ -10,10 +10,10 @@ import "fmt"
 // ============================================================================
 
 type K2FPAddInput struct {
-	A        string `json:"a"`         // base64 FP
-	B        string `json:"b"`         // base64 FP
+	A        string `json:"a"` // base64 FP
+	B        string `json:"b"` // base64 FP
 	FracBits int    `json:"frac_bits"`
-	Ring     string `json:"ring"`      // "" or "ring63" or "ring127"
+	Ring     string `json:"ring"` // "" or "ring63" or "ring127"
 }
 
 type K2FPAddOutput struct {
@@ -60,10 +60,10 @@ func handleK2FPAdd() {
 // ============================================================================
 
 type K2FPVecMulInput struct {
-	A        string `json:"a"`         // base64 FP
-	B        string `json:"b"`         // base64 FP
+	A        string `json:"a"` // base64 FP
+	B        string `json:"b"` // base64 FP
 	FracBits int    `json:"frac_bits"`
-	Ring     string `json:"ring"`      // "" or "ring63" or "ring127"
+	Ring     string `json:"ring"` // "" or "ring63" or "ring127"
 }
 
 type K2FPVecMulOutput struct {
@@ -121,10 +121,10 @@ func handleK2FPVecMul() {
 // ============================================================================
 
 type K2FPCumsumInput struct {
-	A        string `json:"a"`        // base64 FP input vector (share)
-	Mask     string `json:"mask"`     // optional base64 FP mask (plaintext)
-	Reverse  bool   `json:"reverse"`  // true = right-to-left cumulative sum
-	N        int    `json:"n"`
+	A       string `json:"a"`       // base64 FP input vector (share)
+	Mask    string `json:"mask"`    // optional base64 FP mask (plaintext)
+	Reverse bool   `json:"reverse"` // true = right-to-left cumulative sum
+	N       int    `json:"n"`
 	// Strata: optional 1-based stratum id per element (same length as A).
 	// If provided, the running accumulator RESETS to 0 at every stratum
 	// boundary, so the cumsum is computed WITHIN each stratum. Used by
@@ -367,11 +367,12 @@ func handleK2FPPermute() {
 // ============================================================================
 
 type K2FPColumnConcatInput struct {
-	A    string `json:"a"`     // base64 FP (n × p_a, row-major)
-	B    string `json:"b"`     // base64 FP (n × p_b, row-major)
-	N    int    `json:"n"`     // number of rows
-	PA   int    `json:"p_a"`   // columns in A
-	PB   int    `json:"p_b"`   // columns in B
+	A    string `json:"a"`    // base64 FP (n × p_a, row-major)
+	B    string `json:"b"`    // base64 FP (n × p_b, row-major)
+	N    int    `json:"n"`    // number of rows
+	PA   int    `json:"p_a"`  // columns in A
+	PB   int    `json:"p_b"`  // columns in B
+	Ring string `json:"ring"` // "" or "ring63" or "ring127"
 }
 
 type K2FPColumnConcatOutput struct {
@@ -433,6 +434,35 @@ func handleK2FPExtractColumn() {
 func handleK2FPColumnConcat() {
 	var input K2FPColumnConcatInput
 	mpcReadInput(&input)
+	if input.Ring == "ring127" {
+		a := bytesToUint128Vec(base64ToBytes(input.A))
+		b := bytesToUint128Vec(base64ToBytes(input.B))
+		n, pa, pb := input.N, input.PA, input.PB
+		if n <= 0 || pa < 0 || pb < 0 {
+			outputError("k2-fp-column-concat (ring127): bad dimensions")
+			return
+		}
+		if len(a) != n*pa || len(b) != n*pb {
+			outputError(fmt.Sprintf(
+				"k2-fp-column-concat (ring127): length mismatch (got %d/%d, expected %d/%d)",
+				len(a), len(b), n*pa, n*pb))
+			return
+		}
+		ptotal := pa + pb
+		result := make([]Uint128, n*ptotal)
+		for i := 0; i < n; i++ {
+			for j := 0; j < pa; j++ {
+				result[i*ptotal+j] = a[i*pa+j]
+			}
+			for j := 0; j < pb; j++ {
+				result[i*ptotal+pa+j] = b[i*pb+j]
+			}
+		}
+		mpcWriteOutput(K2FPColumnConcatOutput{
+			Result: bytesToBase64(uint128VecToBytes(result)),
+		})
+		return
+	}
 	a := bytesToFPVec(base64ToBytes(input.A))
 	b := bytesToFPVec(base64ToBytes(input.B))
 	n, pa, pb := input.N, input.PA, input.PB
@@ -450,4 +480,3 @@ func handleK2FPColumnConcat() {
 		Result: bytesToBase64(fpVecToBytes(result)),
 	})
 }
-

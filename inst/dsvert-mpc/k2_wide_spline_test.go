@@ -64,8 +64,9 @@ func evalSplineAt(slopes, intercepts, thresholds []float64, x float64) float64 {
 }
 
 // TestWideSigmoidParams documents the approximation tolerance of the
-// existing sigmoid spline on [-5, 5] with K2SigmoidIntervals=50.
-// Unchanged: sigmoid uses uniform spacing.
+// existing sigmoid spline on [-8, 8] with K2SigmoidIntervals=100.
+// Sigmoid uses uniform spacing; the wider domain avoids clipping bias in
+// separable logistic/IPW fixtures.
 func TestWideSigmoidParams(t *testing.T) {
 	slopes, intercepts, halfRange := WideSigmoidParams(K2SigmoidIntervals)
 	lower, upper := -halfRange, halfRange
@@ -84,7 +85,7 @@ func TestWideSigmoidParams(t *testing.T) {
 	t.Logf("sigmoid (uniform): %d intervals on [%.1f, %.1f], max abs err=%.6e",
 		K2SigmoidIntervals, lower, upper, maxAbsErr)
 	if maxAbsErr > 5e-4 {
-		t.Errorf("sigmoid spline max abs err %.6e exceeds documented 4.73e-4", maxAbsErr)
+		t.Errorf("sigmoid spline max abs err %.6e exceeds documented 5e-4", maxAbsErr)
 	}
 }
 
@@ -478,7 +479,7 @@ func TestWideSplineReciprocal_Clamps(t *testing.T) {
 	ring := NewRing63(K2DefaultFracBits)
 	lower := 0.5
 	upper := 5.0
-	truth := []float64{0.1, 0.2, 10.0, 20.0}  // 2 below, 2 above
+	truth := []float64{0.1, 0.2, 10.0, 20.0} // 2 below, 2 above
 	x0, x1 := splitFPShares(ring, truth)
 	mu0, mu1 := WideSplineReciprocal(ring, x0, x1, 50, lower, upper)
 	got := reconstructFromShares(ring, mu0, mu1)

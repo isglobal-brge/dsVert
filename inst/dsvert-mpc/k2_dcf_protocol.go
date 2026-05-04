@@ -25,10 +25,10 @@ import (
 // ============================================================================
 
 type K2DcfGenBatchInput struct {
-	Family       string  `json:"family"`        // "binomial" | "poisson" | "softplus" | "reciprocal" | "log"
-	N            int     `json:"n"`             // number of elements
-	FracBits     int     `json:"frac_bits"`
-	NumIntervals int     `json:"num_intervals"` // 0 = use default from K2Config
+	Family       string `json:"family"` // "binomial" | "poisson" | "softplus" | "reciprocal" | "log"
+	N            int    `json:"n"`      // number of elements
+	FracBits     int    `json:"frac_bits"`
+	NumIntervals int    `json:"num_intervals"` // 0 = use default from K2Config
 	// Optional domain override for "reciprocal" / "log". If zero,
 	// defaults to K2ReciprocalLower / K2ReciprocalUpper or K2LogLower /
 	// K2LogUpper. Ignored for other families which have fixed domains.
@@ -47,8 +47,8 @@ type K2DcfGenBatchInput struct {
 type K2DcfGenBatchOutput struct {
 	Party0Keys string    `json:"party0_keys"` // base64: serialized DCF keys + mask shares
 	Party1Keys string    `json:"party1_keys"`
-	Thresholds []float64 `json:"thresholds"`  // all thresholds (broad + sub-interval)
-	NumBroad   int       `json:"num_broad"`   // number of broad thresholds (2)
+	Thresholds []float64 `json:"thresholds"` // all thresholds (broad + sub-interval)
+	NumBroad   int       `json:"num_broad"`  // number of broad thresholds (2)
 }
 
 func handleK2DcfGenBatch() {
@@ -106,8 +106,8 @@ func handleK2DcfGenBatch() {
 			numInt = K2LogIntervals
 		}
 		logSpaced = true
-	default: // binomial
-		lower, upper = -5.0, 5.0
+	default: // binomial / sigmoid
+		lower, upper = -8.0, 8.0
 		if numInt <= 0 {
 			numInt = K2SigmoidIntervals
 		}
@@ -184,15 +184,16 @@ func handleK2DcfGenBatch() {
 
 // serializeDcfBatch packs all DCF keys + mask shares into a single byte slice.
 // Layout: for each threshold t, for each element i:
-//   DCFKey: Seed0(16) + T0(1) + 63 * dcfCW(26) + FinalCW(8) = 1663 bytes
-//   dcfCW: SeedCW(16) + VCW(8) + TCW_L(1) + TCW_R(1) = 26 bytes
-//   MaskShare: 8 bytes
-//   Total per element per threshold: 1671 bytes
+//
+//	DCFKey: Seed0(16) + T0(1) + 63 * dcfCW(26) + FinalCW(8) = 1663 bytes
+//	dcfCW: SeedCW(16) + VCW(8) + TCW_L(1) + TCW_R(1) = 26 bytes
+//	MaskShare: 8 bytes
+//	Total per element per threshold: 1671 bytes
 func serializeDcfBatch(keys []CmpPreprocessPerParty, n, numThresh int) []byte {
 	numBits := 63
-	cwSize := 16 + 8 + 1 + 1 // SeedCW(16) + VCW(8) + TCW_L(1) + TCW_R(1)
+	cwSize := 16 + 8 + 1 + 1               // SeedCW(16) + VCW(8) + TCW_L(1) + TCW_R(1)
 	keySize := 16 + 1 + numBits*cwSize + 8 // Seed0 + T0 + CW array + FinalCW
-	elemSize := keySize + 8 // + MaskShare
+	elemSize := keySize + 8                // + MaskShare
 
 	buf := make([]byte, numThresh*n*elemSize)
 
@@ -260,4 +261,3 @@ func deserializeDcfBatch(buf []byte, n, numThresh int) []CmpPreprocessPerParty {
 
 	return keys
 }
-

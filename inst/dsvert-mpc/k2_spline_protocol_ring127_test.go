@@ -44,7 +44,7 @@ func TestWideSplineRing127_Sigmoid_EndToEnd(t *testing.T) {
 	numInt := K2SigmoidIntervals
 	numThresh := 2 + numInt - 1
 
-	// Eta values span [-4, 4] — inside the sigmoid spline's [-5, 5] domain.
+	// Eta values span [-4, 4] — inside the sigmoid spline's [-8, 8] domain.
 	etaFloat := []float64{-4.0, -3.0, -2.0, -1.0, -0.5, 0.5, 1.0, 2.0, 3.0, 4.0}
 	if len(etaFloat) != n {
 		t.Fatalf("test setup: len(etaFloat)=%d != n=%d", len(etaFloat), n)
@@ -58,7 +58,8 @@ func TestWideSplineRing127_Sigmoid_EndToEnd(t *testing.T) {
 	}
 
 	// Build thresholds identical to handleK2DcfGenBatch logic (binomial default).
-	lower, upper := -5.0, 5.0
+	_, _, halfRange := WideSigmoidParams(numInt)
+	lower, upper := -halfRange, halfRange
 	thresholds := make([]float64, 0, numInt+1)
 	thresholds = append(thresholds, lower, upper)
 	width := (upper - lower) / float64(numInt)
@@ -159,9 +160,10 @@ func TestWideSplineRing127_Sigmoid_EndToEnd(t *testing.T) {
 	// Sigmoid spline at numInt=50 has an intrinsic piecewise-linear
 	// approximation error of ~1e-4 relative; Ring127 arithmetic adds ~1e-14.
 	// So max rel err is bounded by the spline approx error, NOT the ring.
-	// At numInt=50 and eta in [-4, 4], sigmoid approx is good to ~1e-4.
-	if maxRelErr > 1e-3 {
-		t.Errorf("Ring127 sigmoid spline max rel err %.3e > 1e-3 (spline quality)", maxRelErr)
+	// At numInt=100 and eta in [-8, 8], the wider stress-safe sigmoid
+	// spline is bounded by roughly 2e-3 relative in the lower tail.
+	if maxRelErr > 3e-3 {
+		t.Errorf("Ring127 sigmoid spline max rel err %.3e > 3e-3 (spline quality)", maxRelErr)
 	}
 	t.Logf("Ring127 sigmoid spline end-to-end max rel err = %.3e", maxRelErr)
 }
@@ -264,8 +266,8 @@ func TestWideSplineRing127_Poisson_EndToEnd(t *testing.T) {
 
 // TestWideSplineRing127_VsRing63_Sigmoid: same test harness but compare
 // Ring127 mu to Ring63 mu vs truth. Documents the precision gain.
-// Ring63 sigmoid at numInt=50 typically sits at 1e-4..1e-3 relative (spline
-// error dominates); Ring127 should match the same spline floor, NOT be
+// Ring63 sigmoid at numInt=100 on [-8,8] sits around 1e-3..3e-3 relative
+// (spline error dominates); Ring127 should match the same spline floor, NOT be
 // worse. The win from Ring127 shows up in paths where cumulative FP-bias
 // noise (Cox reciprocal compound) dominates — not this direct-evaluation
 // sigmoid test. So here we only assert Ring127 ≤ Ring63 (i.e. no regression).
@@ -279,7 +281,8 @@ func TestWideSplineRing127_VsRing63_Sigmoid(t *testing.T) {
 	// Ring127 path (same as above, compressed)
 	numInt := K2SigmoidIntervals
 	numThresh := 2 + numInt - 1
-	lower, upper := -5.0, 5.0
+	_, _, halfRange := WideSigmoidParams(numInt)
+	lower, upper := -halfRange, halfRange
 	thresholds := make([]float64, 0, numInt+1)
 	thresholds = append(thresholds, lower, upper)
 	width := (upper - lower) / float64(numInt)
@@ -348,7 +351,7 @@ func TestWideSplineRing127_VsRing63_Sigmoid(t *testing.T) {
 	}
 	t.Logf("Ring127 sigmoid max rel err=%.3e (vs Ring63 typical ~1e-4 spline-bound)", max127)
 	// Sanity: Ring127 should be well within the spline approx error bound.
-	if max127 > 1e-3 {
+	if max127 > 3e-3 {
 		t.Errorf("Ring127 sigmoid beyond spline quality bound: %.3e", max127)
 	}
 	_ = r63 // Ring63 baseline not re-run here — separately tested in legacy suites.

@@ -105,6 +105,12 @@ func main() {
 	// DCF (Distributed Comparison Function)
 	case "k2-dcf-gen-batch":
 		handleK2DcfGenBatch()
+	case "k2-cmp-gen":
+		handleK2CmpGen()
+	case "k2-cmp-round1":
+		handleK2CmpRound1()
+	case "k2-cmp-round2":
+		handleK2CmpRound2()
 
 	// Wide spline sigmoid/exp (4-phase DCF protocol)
 	case "k2-wide-spline-full":

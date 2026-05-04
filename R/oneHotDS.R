@@ -147,8 +147,8 @@ dsvertOneHotDS <- function(data_name, var, levels = NULL,
 #'   sorted observed levels.
 #' @param drop_first Logical. If TRUE, omit the first level to avoid
 #'   collinearity with the intercept.
-#' @param suppress_small_cells Logical. Suppress returned counts below
-#'   \code{datashield.privacyLevel}; dummy columns are still created.
+#' @param suppress_small_cells Logical. If \code{TRUE}, fail closed when an
+#'   observed level count is below \code{datashield.privacyLevel}.
 #' @return list(levels, dummy_columns, counts)
 #' @export
 dsvertAddFactorDummiesDS <- function(data_name, var, prefix = NULL,
@@ -184,7 +184,10 @@ dsvertAddFactorDummiesDS <- function(data_name, var, prefix = NULL,
   if (isTRUE(suppress_small_cells)) {
     privacy_min <- getOption("datashield.privacyLevel", 5L)
     if (is.numeric(privacy_min) && privacy_min > 0L) {
-      counts[counts > 0L & counts < privacy_min] <- 0L
+      if (any(counts > 0L & counts < privacy_min)) {
+        stop("Factor level count below datashield.privacyLevel; refusing ",
+             "to create dummy expansion", call. = FALSE)
+      }
     }
   }
   assign(data_name, data, envir = parent.frame())

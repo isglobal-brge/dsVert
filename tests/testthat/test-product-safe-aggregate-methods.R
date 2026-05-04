@@ -48,3 +48,13 @@ test_that("legacy Cox rank AggregateMethods are not product-exposed", {
     "dsvertCoxTVStrataDS")
   expect_false(any(blocked %in% methods))
 })
+
+test_that("Gaussian GEE AR1 exposes only guarded order-share helpers", {
+  methods <- aggregate_methods_from_description()
+
+  expected <- c(
+    "dsvertGEEAR1OrderBroadcastDS",
+    "dsvertGEEAR1OrderReceiveDS",
+    "dsvertGEEAR1TransformShareDS")
+  expect_true(all(expected %in% methods))
+})

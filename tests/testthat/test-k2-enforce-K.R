@@ -87,79 +87,6 @@ test_that(".k2_enforce_K omits fn_name when NULL", {
 # effects, even with otherwise-invalid arguments.
 
 # --- ord_joint family ---
-test_that("dsvertOrdinalSealEtaDS rejects K=3 session", {
-  s <- .mk_session(3L)
-  expect_error(
-    dsVert::dsvertOrdinalSealEtaDS(
-      data_name = "fake_table", x_vars = "age",
-      beta_values = 0.0, target_pk = "fake_pk",
-      session_id = s$sid),
-    "K mismatch.*expected K=2.*got K=3")
-})
-
-test_that("dsvertOrdinalPatientDiffsDS rejects K=3 session", {
-  s <- .mk_session(3L)
-  expect_error(
-    dsVert::dsvertOrdinalPatientDiffsDS(
-      output_key = "out", n = 10L, session_id = s$sid),
-    "K mismatch.*expected K=2.*got K=3")
-})
-
-test_that("dsvertOrdinalSealFkSharesDS rejects K=3 session", {
-  s <- .mk_session(3L)
-  expect_error(
-    dsVert::dsvertOrdinalSealFkSharesDS(
-      F_keys = c("k1"), target_pk = "pk", session_id = s$sid),
-    "K mismatch.*expected K=2.*got K=3")
-})
-
-test_that("dsvertOrdinalReceiveBetaWeightsDS rejects K=3 session", {
-  s <- .mk_session(3L)
-  expect_error(
-    dsVert::dsvertOrdinalReceiveBetaWeightsDS(
-      W_blob_key = "wblob", output_key = "out",
-      n = 10L, session_id = s$sid),
-    "K mismatch.*expected K=2.*got K=3")
-})
-
-test_that("ordinal joint patient-level helpers are diagnostic-only by default", {
-  old_opt <- getOption("dsvert.allow_patient_level_ordinal_joint", NULL)
-  old_env <- Sys.getenv("DSVERT_ALLOW_PATIENT_LEVEL_ORDINAL_JOINT", unset = NA)
-  on.exit({
-    if (is.null(old_opt)) {
-      options(dsvert.allow_patient_level_ordinal_joint = NULL)
-    } else {
-      options(dsvert.allow_patient_level_ordinal_joint = old_opt)
-    }
-    if (is.na(old_env)) {
-      Sys.unsetenv("DSVERT_ALLOW_PATIENT_LEVEL_ORDINAL_JOINT")
-    } else {
-      Sys.setenv(DSVERT_ALLOW_PATIENT_LEVEL_ORDINAL_JOINT = old_env)
-    }
-  }, add = TRUE)
-  options(dsvert.allow_patient_level_ordinal_joint = FALSE)
-  Sys.unsetenv("DSVERT_ALLOW_PATIENT_LEVEL_ORDINAL_JOINT")
-
-  s <- .mk_session(2L)
-
-  expect_error(
-    dsVert::dsvertOrdinalSealFkSharesDS(
-      F_keys = "k1", target_pk = "pk", session_id = s$sid),
-    "disabled under strict non-disclosure")
-
-  expect_error(
-    dsVert::dsvertOrdinalSealEtaDS(
-      data_name = "fake_table", x_vars = "age",
-      beta_values = 0.0, target_pk = "fake_pk",
-      session_id = s$sid),
-    "disabled under strict non-disclosure")
-
-  expect_error(
-    dsVert::dsvertOrdinalPatientDiffsDS(
-      output_key = "out", n = 10L, session_id = s$sid),
-    "disabled under strict non-disclosure")
-})
-
 test_that("dsvertOrdinalExtractXColumnDS rejects K=3 session", {
   s <- .mk_session(3L)
   expect_error(
@@ -182,47 +109,6 @@ test_that("multinomial DCF-share helpers are usable inside K>=3 sessions", {
       exp_eta_keys = "k1", output_key = "out",
       is_party0 = TRUE, n = 10L, session_id = s$sid),
     "slot 'k1' is empty")
-})
-
-# --- NB family ---
-test_that("dsvertNBEtaSealDS rejects K=3 session", {
-  s <- .mk_session(3L)
-  expect_error(
-    dsVert::dsvertNBEtaSealDS(
-      data_name = "fake", x_vars = "age",
-      beta_values = 0.0, target_pk = "pk",
-      session_id = s$sid),
-    "K mismatch.*expected K=2.*got K=3")
-})
-
-test_that("dsvertNBFullScoreDS rejects K=3 session", {
-  s <- .mk_session(3L)
-  expect_error(
-    dsVert::dsvertNBFullScoreDS(
-      data_name = "fake", y_var = "y",
-      x_vars_label = "age", beta_values_label = 0.0,
-      beta_intercept = 0.0,
-      peer_eta_key = "ek", theta = 1.0,
-      session_id = s$sid),
-    "K mismatch.*expected K=2.*got K=3")
-})
-
-test_that("NB full_reg legacy helpers fail closed in K=2 sessions", {
-  s <- .mk_session(2L)
-  expect_error(
-    dsVert::dsvertNBEtaSealDS(
-      data_name = "fake", x_vars = "age",
-      beta_values = 0.0, target_pk = "pk",
-      session_id = s$sid),
-    "disabled by default.*full_reg_nd")
-  expect_error(
-    dsVert::dsvertNBFullScoreDS(
-      data_name = "fake", y_var = "y",
-      x_vars_label = "age", beta_values_label = 0.0,
-      beta_intercept = 0.0,
-      peer_eta_key = "ek", theta = 1.0,
-      session_id = s$sid),
-    "disabled by default.*full_reg_nd")
 })
 
 # --- Cox discrete non-disclosive family ---
@@ -273,8 +159,8 @@ test_that("dsvertCoxDiscreteExpandXDS permits K=3 DCF-party use", {
 # Guards REMAIN on K=2-only-by-algorithm primitives where the algebra
 # genuinely depends on a 2-party additive split (multinomJointDS,
 # dsvertLMMGramDS / GLSTransformDS / ClusterBroadcastDS, nbFullRegShareDS,
-# coxDiscreteShareDS, ordinalJointScoreDS); those tests above remain
-# in place and exercise the guard correctly.
+# coxDiscreteShareDS, and the remaining ordinal strict share helpers);
+# those tests above remain in place and exercise the guard correctly.
 
 # =====================================================================
 # 3. Negative control: K=2 session reaches downstream code

@@ -32,8 +32,8 @@ list(stored = TRUE, n, output_key).
 \description{
 The K=2 X share is stored as a single n*p flat row-major
 Ring127 share (16 bytes per entry). For \code{.ring127_vecmul} operations
-on per-column X slices, we need length-n session slots. This
-primitive gathers row-major indices \verb{[col_idx, p+col_idx, 2p+col_idx, ...]} from the flat share into a new slot.
-ZERO MPC cost -- pure local share rearrangement (gather indices on
-raw bytes; the additive-share property is preserved row-by-row).
+on per-column X slices, we need length-n session slots. This primitive
+gathers row-major indices \verb{[col_idx, p+col_idx, 2p+col_idx, ...]}
+from the flat share into a new slot. This is pure local share
+rearrangement; the additive-share property is preserved row-by-row.
 }

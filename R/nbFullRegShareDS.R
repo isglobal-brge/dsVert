@@ -24,8 +24,7 @@ NULL
 
 
 #' @title NL-side: split eta^nl into Ring127 additive shares
-#' @description Replaces \code{dsvertNBEtaSealDS} (which transported eta^nl
-#'   plaintext to label, violating D-INV-4). Computes eta^nl = X^nl beta
+#' @description Computes eta^nl = X^nl beta
 #'   plaintext locally on the non-label server, FP-encodes in Ring127
 #'   (fracBits=50), and splits into uniform additive shares:
 #'   \itemize{

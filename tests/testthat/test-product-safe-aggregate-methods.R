@@ -18,8 +18,102 @@ test_that("DataSHIELD AggregateMethods expose safe ordinal helpers only", {
   blocked <- c(
     "dsvertOrdinalPatientDiffsDS",
     "dsvertOrdinalSealFkSharesDS",
+    "dsvertOrdinalSealEtaDS",
     "dsvertOrdinalReceiveBetaWeightsDS")
   expect_false(any(blocked %in% methods))
+})
+
+test_that("debug and patient-level legacy helpers are not product-exposed", {
+  methods <- aggregate_methods_from_description()
+
+  blocked <- c(
+    "dsvertDebugRevealDS",
+    "dsvertDebugSnapshotDS",
+    "dsvertNBEtaSealDS",
+    "dsvertNBFullScoreDS",
+    "k2SetWeightsDS",
+    "k2ReceiveWeightsDS",
+    "k2ApplyWeightsDS",
+    "k2ApplySqrtWeightsDS")
+  expect_false(any(blocked %in% methods))
+})
+
+test_that("debug and patient-level helpers are not namespace-exported", {
+  exports <- getNamespaceExports("dsVert")
+
+  blocked <- c(
+    "dsvertDebugRevealDS",
+    "dsvertDebugSnapshotDS",
+    "dsvertOrdinalPatientDiffsDS",
+    "dsvertOrdinalSealFkSharesDS",
+    "dsvertOrdinalSealEtaDS",
+    "dsvertOrdinalReceiveBetaWeightsDS",
+    "dsvertNBEtaSealDS",
+    "dsvertNBFullScoreDS",
+    "k2SetWeightsDS",
+    "k2ReceiveWeightsDS",
+    "k2ApplyWeightsDS",
+    "k2ApplySqrtWeightsDS",
+    "k2SetCoxTimesDS",
+    "k2ReceiveCoxMetaDS",
+    "k2ApplyCoxPermutationDS",
+    "k2CoxReverseCumsumSDS",
+    "k2CoxForwardCumsumGDS",
+    "k2StoreCoxRecipDS",
+    "k2CoxPrepareRecipPhaseDS",
+    "k2CoxResidualDS",
+    "k2CoxSaveMuDS",
+    "k2CoxFinaliseResidualDS",
+    "k2CoxPrepareLogSPhaseDS",
+    "k2CoxPartialLogLikAggregateDS",
+    "dsvertCoxNewtonPrepDS",
+    "dsvertCoxNewtonGradDS",
+    "dsvertCoxNewtonLoadPairDS",
+    "dsvertCoxNewtonFisherScalarDS",
+    "dsvertCoxPathBCumsumDS",
+    "dsvertCoxPathBScalarDS",
+    "dsvertCoxPathBCopyDS",
+    "dsvertCoxTVStrataDS")
+  expect_false(any(blocked %in% exports))
+})
+
+test_that("discarded unsafe helpers are removed from the namespace", {
+  ns <- asNamespace("dsVert")
+  removed <- c(
+    "dsvertDebugRevealDS",
+    "dsvertDebugSnapshotDS",
+    "dsvertOrdinalPatientDiffsDS",
+    "dsvertOrdinalSealFkSharesDS",
+    "dsvertOrdinalSealEtaDS",
+    "dsvertOrdinalReceiveBetaWeightsDS",
+    "dsvertNBEtaSealDS",
+    "dsvertNBFullScoreDS",
+    "k2SetWeightsDS",
+    "k2ReceiveWeightsDS",
+    "k2ApplyWeightsDS",
+    "k2ApplySqrtWeightsDS",
+    "k2SetCoxTimesDS",
+    "k2ReceiveCoxMetaDS",
+    "k2ApplyCoxPermutationDS",
+    "k2CoxReverseCumsumSDS",
+    "k2CoxForwardCumsumGDS",
+    "k2StoreCoxRecipDS",
+    "k2CoxPrepareRecipPhaseDS",
+    "k2CoxResidualDS",
+    "k2CoxSaveMuDS",
+    "k2CoxFinaliseResidualDS",
+    "k2CoxPrepareLogSPhaseDS",
+    "k2CoxPartialLogLikAggregateDS",
+    "dsvertCoxNewtonPrepDS",
+    "dsvertCoxNewtonGradDS",
+    "dsvertCoxNewtonLoadPairDS",
+    "dsvertCoxNewtonFisherScalarDS",
+    "dsvertCoxPathBCumsumDS",
+    "dsvertCoxPathBScalarDS",
+    "dsvertCoxPathBCopyDS",
+    "dsvertCoxTVStrataDS")
+  present <- vapply(removed, exists, logical(1), envir = ns, inherits = FALSE)
+  expect_false(any(present), info = paste(names(present)[present], collapse = ", "))
 })
 
 test_that("legacy Cox rank AggregateMethods are not product-exposed", {

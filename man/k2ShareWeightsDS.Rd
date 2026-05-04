@@ -35,7 +35,7 @@ Metadata and sealed share blobs for the client relay.
 \description{
 Reads a weights column, converts it to the session fixed-point
 ring, splits \eqn{w} and \eqn{\sqrt{w}} into two additive shares, and
-stores or seals those shares for the two DCF parties. Unlike
-\code{k2SetWeightsDS}, this helper never gives either DCF party the
-full patient-level weights vector.
+stores or seals those shares for the two DCF parties. Unlike the
+removed plaintext-weight route, this helper never gives either DCF
+party the full patient-level weights vector.
 }

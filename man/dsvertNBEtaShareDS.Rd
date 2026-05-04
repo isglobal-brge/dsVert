@@ -29,8 +29,7 @@ List with \code{sealed} (transport-encrypted peer share blob,
 base64url) and \code{n} (number of patients).
 }
 \description{
-Replaces \code{dsvertNBEtaSealDS} (which transported eta^nl
-plaintext to label, violating D-INV-4). Computes eta^nl = X^nl beta
+Computes eta^nl = X^nl beta
 plaintext locally on the non-label server, FP-encodes in Ring127
 (fracBits=50), and splits into uniform additive shares:
 \itemize{

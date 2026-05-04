@@ -11,11 +11,14 @@ Authors@R: c(
            role = "ctb")
   )
 Description: Server-side DataSHIELD functions for privacy-preserving analysis
-    of vertically partitioned federated data. Implements ECDH-PSI record
-    alignment (P-256), Ring63 Beaver MPC for GLM (Gaussian, Binomial, Poisson)
-    with DCF wide spline link functions, and Ring63 Beaver cross-products for
-    correlation and PCA. All computation uses additive secret sharing in Ring63
-    fixed-point arithmetic. No observation-level data is ever disclosed.
+    of vertically partitioned federated data. The product AggregateMethods
+    surface covers ECDH-PSI record alignment, GLM, Cox PH, negative binomial,
+    multinomial, ordinal, LMM, GEE, GLMM, IPW, multiple imputation, LASSO,
+    contingency, correlation, PCA, and descriptive aggregates. MPC kernels use
+    additive secret sharing over Ring63 or Ring127 fixed-point arithmetic with
+    Beaver triples and DCF wide-spline primitives. Historical diagnostic
+    helpers that could reveal per-observation working values are removed from
+    the invocable server surface.
 License: MIT + file LICENSE
 URL: https://github.com/isglobal-brge/dsVert
 BugReports: https://github.com/isglobal-brge/dsVert/issues

@@ -154,8 +154,8 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
   p_peer <- ss$k2_peer_p
   p_total <- p_own + p_peer
 
-  # Ring selection -- read from session (pinned by upstream Cox/LMM setup
-  # via k2SetCoxTimesDS or similar). Default Ring63.
+  # Ring selection -- read from session when an upstream orchestrator pins it.
+  # Default Ring63.
   ring <- as.integer(ss$k2_ring %||% 63L)
   if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
   ring_tag <- if (ring == 127L) "ring127" else "ring63"

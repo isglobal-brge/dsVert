@@ -1,37 +1,43 @@
-# dsVert — DataSHIELD Server Package for Vertically Partitioned Data
+# dsVert - DataSHIELD Server Package for Vertically Partitioned Data
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![R-CMD-check](https://github.com/isglobal-brge/dsVert/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/isglobal-brge/dsVert/actions/workflows/R-CMD-check.yaml)
 [![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](NEWS.md)
 
 ## Overview
 
-**dsVert** is a server-side DataSHIELD package for privacy-preserving statistical analysis on **vertically partitioned federated data**. Each server holds different features (columns) for the same observations (rows). No server sees another's raw data.
+**dsVert** is the server-side DataSHIELD package for privacy-preserving
+analysis on vertically partitioned federated data. Each server holds different
+columns for the same aligned records; no server receives another server's raw
+features or outcome column.
 
-All computation uses **Ring63 / Ring127 Beaver MPC** — pure fixed-point arithmetic with additive secret sharing — combined with **DCF wide-spline** non-linear link functions, **OT-Beaver** triple generation, and **ECDH-PSI** record alignment. No observation-level data is ever disclosed.
+The analyst-facing API lives in
+[**dsVertClient**](https://github.com/isglobal-brge/dsVertClient). This package
+ships the server functions registered in Opal/DataSHIELD plus the Go MPC
+runtime used by those functions.
 
-Pair with the client-side companion package [**dsVertClient**](https://github.com/isglobal-brge/dsVertClient).
+## Product Surface
 
-## Protocols (v1.1.0)
+The production DataSHIELD surface is the `AggregateMethods` and
+`AssignMethods` list in `DESCRIPTION`. Disclosive or materially suboptimal
+historical helpers have been removed from the server namespace or omitted from
+method registration when they are low-level safe primitives only.
 
-| Family | Methods | Output |
-|---|---|---|
-| **PSI** | ECDH blind relay (P-256), Ed25519 identity pinning | Common record set |
-| **GLM** (gaussian / binomial / poisson) | Ring63/127 Beaver + DCF wide-spline + L-BFGS, with offset / weights / IPW | Coefficients, SE, p-values, deviance |
-| **Cox PH** | Reverse-cumsum reformulation, sort-permutation relay, Newton path A/B (Ring127) | β, SE, partial log-lik |
-| **Cox K=2 discrete-time** | Allison 1982 / Andreux 2020 pooled-logistic with Aliasgari-Blanton 2013 share-mask gating | β, SE |
-| **Negative Binomial** | iid-µ profile MLE, Method-of-Moments (Anscombe / Saha-Paul), full-regression θ via Ring127 NR-LOG share-domain primitive (Goldschmidt 1964 + Pugh 2004) | β, SE, θ |
-| **Multinomial** | OVR + softmax-anchor; joint Newton via DCF exp + reciprocal + Beaver vecmul on per-patient eta_k / mu_k shares (Bohning-bounded) | (K−1)·p coefficient matrix |
-| **Ordinal (proportional odds)** | BLUE pool + threshold correction (McCullagh 1980); joint Newton (Tutz 1990 §3.2 block-diagonal + McCullagh §2.5 closed-form H_θθ) | β, θ_k, SE |
-| **LMM (random intercept + slopes)** | Laird-Ware GLS closed form, REML/ML, Pinheiro-Bates §2.4.2 within-between ANOVA variance components, K=2 and K=3 | β, σ², σ_b², ICC |
-| **GEE** | Working correlation (exchangeable / AR1) + sandwich SE | β, robust SE |
-| **GLMM (binomial PQL)** | Aggregate weighted-LMM PQL with guarded share-domain cluster sufficient statistics | β, σ_b² |
-| **Correlation** | Ring63 Beaver cross-products | p × p matrix |
-| **PCA** | Eigendecomposition of correlation | Loadings, eigenvalues |
-| **LASSO / penalised GLM** | Post-hoc soft-threshold; one-step quadratic-surrogate; Gaussian coordinate descent; binomial aggregate-score FISTA; Poisson aggregate prox-Newton; AIC / BIC / EBIC λ selector | Sparse β, support |
-| **IPW / propensity** | Two-stage propensity logit + weighted outcome GLM | Adjusted β |
-| **Multiple imputation** | Server-local FCS + Rubin pooling client-side | Pooled β, SE |
-| **Descriptive / contingency** | Histogram-based quantiles, two-way χ² via Beaver dot product on one-hot shares | Counts, p-values, summaries |
+Diagnostic helpers that could reconstruct session shares, patient-level
+working vectors, or legacy Cox rank metadata are not shipped as invocable
+routes. Tests assert both the DataSHIELD product surface and the R namespace.
+
+## Methods (v1.1.0)
+
+| Family | Product route |
+|---|---|
+| PSI / alignment | ECDH-PSI common-record alignment with Ed25519 peer identity pinning |
+| GLM | Gaussian, binomial, and Poisson GLM with Ring63/Ring127 Beaver MPC, DCF wide-spline links, offsets, weights, and IPW |
+| Cox PH | Non-disclosive Breslow profile route for K=2 and K>=3; K=2 discrete-time pooled-logistic route is also available |
+| Negative binomial | iid-mu, Method-of-Moments, and non-disclosive full-regression theta share-domain route |
+| Multinomial / ordinal | Joint Newton routes; warm starts are internal only |
+| Mixed models | LMM K=2/K>=3, GEE, and binomial GLMM-PQL with guarded cluster aggregates |
+| Penalised / causal / MI | LASSO variants, two-stage IPW, and multiple imputation with Rubin pooling |
+| Descriptive / second-order | Descriptives, contingency/chi-square, Fisher helper, correlation, and PCA |
 
 ## Architecture
 
@@ -47,7 +53,10 @@ Client (analyst)                    Servers (data holders)
 └──────────────┘                   └──────────────────────┘
 ```
 
-**What the client sees**: p-dimensional gradient aggregates, correlation scalars, deviance (1 scalar), per-cluster BLUPs, χ² statistics. No individual observations.
+**What the client sees**: model-scale aggregates such as gradients, Fisher or
+Hessian summaries, guarded cluster summaries, correlation/cross-product
+scalars, deviances, and test statistics. No observation-level aggregate is part
+of the product surface.
 
 **What each server sees**: its own data + random additive Ring shares of other servers' data. Cannot reconstruct without all shares.
 
@@ -55,19 +64,30 @@ Client (analyst)                    Servers (data holders)
 
 | Property | Guarantee |
 |---|---|
-| Observation-level disclosure | Zero |
+| Observation-level disclosure | Not product-exposed |
 | Beaver triples | Server-generated (client never sees) |
 | Transport encryption | X25519 + AES-256-GCM (transport-encrypt) |
 | Identity verification | Ed25519 signed peer transport keys (require_trusted_peers) |
 | Dealer rotation | Different dealer each iteration (K ≥ 3 → rotation; K = 2 → fixed dealer) |
 | Collusion threshold | (K−1)/K servers needed to recover any plaintext |
-| Ring | Ring63 (frac_bits = 20) for legacy; Ring127 (frac_bits = 50) for STRICT closure (Catrina-Saxena 2010) |
+| Ring | Ring63 (frac_bits = 20) and Ring127 (frac_bits = 50) depending on method precision needs |
 
-## Go Binary (`dsvert-mpc`)
+## Go Runtime (`dsvert-mpc`)
 
-Standalone binary providing the Ring63 / Ring127 MPC kernels: DCF wide-spline (sigmoid / exp / reciprocal / log-sum-exp), Beaver triple generation, OT-Beaver dishonest-majority triples, transport encryption (X25519 + AES-256-GCM), Ed25519 identity verification, and Catrina-Saxena 2010 fixed-point fp50 ULP truncation. Pure Go, no external crypto libraries beyond `golang.org/x/crypto`.
+`inst/dsvert-mpc` contains the current Go source for the Ring63/Ring127 MPC
+kernels: DCF wide-spline functions, Beaver and OT-Beaver primitives, transport
+encryption, identity verification, and fixed-point truncation. Per-platform
+runtime binaries ship under
+`inst/bin/{darwin-amd64,darwin-arm64,linux-amd64,windows-amd64}/`.
 
-Per-platform binaries ship under `inst/bin/{darwin-amd64,darwin-arm64,linux-amd64,windows-amd64}/`.
+The Go binary intentionally exposes only low-level kernel commands. Product
+analysis routes are orchestrated by R DataSHIELD methods, and the safe product
+surface is still the `AggregateMethods` list. Commands that would directly
+reveal session state, legacy Cox ranks, patient-level working vectors, or
+debug snapshots are not part of the Go command surface. A test guards this.
+
+The old experimental `inst/k2-mpc-tool` tree is no longer part of the package;
+the maintained implementation is `inst/dsvert-mpc`.
 
 ## Installation
 
@@ -82,7 +102,7 @@ cd ../..
 
 # 2. Build + install the R package
 R CMD build --no-build-vignettes .
-R CMD INSTALL dsVert_1.1.0.tar.gz
+R CMD INSTALL "$(ls -t dsVert_*.tar.gz | head -1)"
 ```
 
 ## DataSHIELD method registration
@@ -91,13 +111,14 @@ Either include `dsVert` in the Opal profile via `dsadmin::install_local_package`
 
 ## Validation
 
-R CMD check: 0 ERRORs, 0 NOTEs, 1 WARNING (intentional `inst/bin/{platform}/dsvert-mpc` Go runtime binaries — unavoidable for the dual-package R + Go architecture).
-
-`testthat`: 88 / 88 PASS. Go test (`dsvert-mpc`): full suite passes in ~2 s.
+The server test suite includes a product-surface disclosure check that verifies
+legacy patient-level helpers and Cox rank primitives are not listed in
+`AggregateMethods`, are not namespace-exported, and are absent from the package
+namespace. The Go runtime is tested independently under `inst/dsvert-mpc`.
 
 ## License
 
-MIT — see [LICENSE](LICENSE.md).
+MIT - see [LICENSE](LICENSE.md).
 
 ## Citation
 

@@ -1,5 +1,21 @@
 # dsVert (development version)
 
+### Cleanup
+
+* Removed archived `inst/k2-mpc-tool` research sources and generated package
+  tarballs from version control. The maintained Go runtime is
+  `inst/dsvert-mpc`; shipped binaries remain under `inst/bin/`.
+* Documented the production DataSHIELD surface as the `AggregateMethods` /
+  `AssignMethods` list in `DESCRIPTION`. Disclosive or suboptimal historical
+  helpers are removed from the invocable server surface.
+* Strengthened the product-surface disclosure test so debug reveal helpers,
+  patient-level ordinal/NB legacy helpers, plaintext weight helpers, and Cox
+  rank primitives remain out of `AggregateMethods`, out of `NAMESPACE`
+  exports, and absent from the package namespace.
+* Removed archived server code for debug share reveal, Cox rank/Newton/Path-B,
+  plaintext DCF weights, disclosive NB eta transport, and ordinal
+  patient-level reconstruction.
+
 ## dsVert 1.1.0
 
 Server-side primitives for the v2.0 federated method stack. Companion
@@ -12,26 +28,21 @@ release to dsVertClient 1.1.0.
   `dsvertCoxDiscreteExpandXDS` for the Allison 1982 / Andreux 2020
   pooled-logistic equivalence with K=2-safe share-mask gating
   (Aliasgari-Blanton 2013 NDSS).
-* **Cox Newton path** — `dsvertCoxNewton{Prep,Grad,LoadPair,FisherScalar}DS`
-  closed-form Fisher(0)/grad(0) at beta=0 plus refinement steps;
-  `dsvertCoxPathBCumsumDS` / `dsvertCoxPathBScalarDS` /
-  `dsvertCoxPathBCopyDS` for damped fixed-Fisher refinement under the
-  P3 disclosure budget (HARD CAP 5 iters).
 * **NB regression** — full profile-MLE digamma chain
   (`dsvertNBProfileSumsDS`, `dsvertNBMomentSumsDS`,
-  `dsvertNBEtaSealDS`/`dsvertNBEtaShareDS`, `dsvertNBFullScoreDS`,
-  `dsvertNBSumShareDS`, `dsvertNBPsiAggregateDS`) supporting both iid-mu
-  and full-regression theta estimators with the Ring127 NR-LOG
+  `dsvertNBEtaShareDS`, `dsvertNBEtaTotalReceiveDS`,
+  `dsvertNBSumShareDS`, `dsvertNBPsiAggregateDS`) supporting iid-mu,
+  Method-of-Moments, and non-disclosive full-regression theta estimators with
+  the Ring127 NR-LOG
   share-domain primitive (Goldschmidt 1964 + Pugh 2004).
 * **Multinomial joint Newton** — `dsvertPrepareMultinomGradDS`,
   `dsvertSoftmaxDenominatorDS`, `dsvertOneHotDS`,
   `dsvertComputeResidualShareDS` for the K-1 stacked Bohning-bounded
   Newton path (paper §V.A row).
-* **Ordinal joint PO Newton** — `dsvertOrdinalPatientDiffsDS`,
-  `dsvertOrdinalSealFkSharesDS`, `dsvertOrdinalSealEtaDS`,
-  `dsvertOrdinalReceiveBetaWeightsDS`, `dsvertOrdinalExtractXColumnDS`
-  for the Tutz 1990 §3.2 block-diagonal joint Newton + McCullagh §2.5
-  closed-form H_θθ.
+* **Ordinal joint PO Newton** — `dsvertOrdinalShareClassMasksDS`,
+  `dsvertOrdinalReceiveClassMaskDS`, and `dsvertOrdinalExtractXColumnDS`
+  for strict class-mask/share-domain orchestration without the historical
+  patient-level reconstruction path.
 * **LMM (random intercept + slopes)** —
   `dsvertCluster{Sizes,Residuals}DS`, `dsvertExpandClusterWeightsDS`,
   `dsvertClusterZtZDS`, `dsvertLMMPeerFittedShareDS`,
@@ -75,8 +86,7 @@ release to dsVertClient 1.1.0.
 * Non-ASCII characters in R sources replaced with ASCII equivalents
   (R CMD check `code files for non-ASCII characters` clean).
 * LICENSE switched to DCF stub; full MIT text retained in `LICENSE.md`.
-* `.Rbuildignore` excludes Go-source dirs (`inst/dsvert-mpc/`,
-  `inst/mhe-tool/`, `inst/k2-mpc-tool/`) and vignette caches; the
+* `.Rbuildignore` excludes Go-source dirs and vignette caches; the
   per-platform compiled binaries under `inst/bin/{darwin,linux,windows}-*`
   ship intentionally.
 

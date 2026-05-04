@@ -1,0 +1,4 @@
+inst/bin/darwin-amd64/dsvert-mpc
+inst/bin/darwin-arm64/dsvert-mpc
+inst/bin/linux-amd64/dsvert-mpc
+inst/bin/windows-amd64/dsvert-mpc.exe

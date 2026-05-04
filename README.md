@@ -25,10 +25,10 @@ Pair with the client-side companion package [**dsVertClient**](https://github.co
 | **Ordinal (proportional odds)** | BLUE pool + threshold correction (McCullagh 1980); joint Newton (Tutz 1990 §3.2 block-diagonal + McCullagh §2.5 closed-form H_θθ) | β, θ_k, SE |
 | **LMM (random intercept + slopes)** | Laird-Ware GLS closed form, REML/ML, Pinheiro-Bates §2.4.2 within-between ANOVA variance components, K=2 and K=3 | β, σ², σ_b², ICC |
 | **GEE** | Working correlation (exchangeable / AR1) + sandwich SE | β, robust SE |
-| **GLMM (binomial Laplace)** | Per-cluster inner PIRLS + outer moment-match (stretch deliverable) | β, σ_b² |
+| **GLMM (binomial PQL)** | Aggregate weighted-LMM PQL with guarded share-domain cluster sufficient statistics | β, σ_b² |
 | **Correlation** | Ring63 Beaver cross-products | p × p matrix |
 | **PCA** | Eigendecomposition of correlation | Loadings, eigenvalues |
-| **LASSO / penalised GLM** | Post-hoc soft-threshold; one-step quadratic-surrogate; FISTA proximal-gradient on normal equations; AIC / BIC / EBIC λ selector | Sparse β, support |
+| **LASSO / penalised GLM** | Post-hoc soft-threshold; one-step quadratic-surrogate; Gaussian coordinate descent; binomial aggregate-score FISTA; Poisson aggregate prox-Newton; AIC / BIC / EBIC λ selector | Sparse β, support |
 | **IPW / propensity** | Two-stage propensity logit + weighted outcome GLM | Adjusted β |
 | **Multiple imputation** | Server-local FCS + Rubin pooling client-side | Pooled β, SE |
 | **Descriptive / contingency** | Histogram-based quantiles, two-way χ² via Beaver dot product on one-hot shares | Counts, p-values, summaries |

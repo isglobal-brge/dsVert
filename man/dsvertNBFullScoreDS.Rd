@@ -36,8 +36,10 @@ transport-sealed \code{eta_nl} blob (set via \code{mpcStoreBlobDS}).}
 \item{session_id}{Character.}
 
 \item{allow_disclosive_legacy}{Logical. Must be \code{TRUE} to consume the
-archived per-patient eta transport path. The non-disclosive replacement
-is \code{ds.vertNBFullRegTheta(variant = "full_reg_nd")}.}
+archived per-patient eta transport path, and the server must also set
+\code{options(dsvert.allow_disclosive_nb_full_reg = TRUE)} or
+\code{DSVERT_ALLOW_DISCLOSIVE_NB_FULL_REG=true}. The non-disclosive
+replacement is \code{ds.vertNBFullRegTheta(variant = "full_reg_nd")}.}
 }
 \value{
 List of five numeric scalars.

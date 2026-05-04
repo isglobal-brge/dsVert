@@ -1,3 +1,12 @@
+# Internal helper: archived NB full_reg helpers transport per-patient eta.
+# Require both the per-call flag and an environment/option gate.
+.nb_fullreg_disclosive_legacy_allowed <- function() {
+  if (isTRUE(getOption("dsvert.allow_disclosive_nb_full_reg", FALSE)))
+    return(TRUE)
+  env <- tolower(Sys.getenv("DSVERT_ALLOW_DISCLOSIVE_NB_FULL_REG", ""))
+  env %in% c("1", "true", "yes")
+}
+
 #' @title Per-patient mu seal on non-label server for NB full-reg theta MLE
 #' @description Computes \eqn{\eta_i^s = X_i^s \beta} on this (non-
 #'   label) server from the locally-held feature partition and a client-
@@ -21,8 +30,10 @@
 #'   server that should receive the sealed \code{eta_nl} vector.
 #' @param session_id Character.
 #' @param allow_disclosive_legacy Logical. Must be \code{TRUE} to run this
-#'   archived helper. The non-disclosive replacement is
-#'   \code{ds.vertNBFullRegTheta(variant = "full_reg_nd")}.
+#'   archived helper, and the server must also set
+#'   \code{options(dsvert.allow_disclosive_nb_full_reg = TRUE)} or
+#'   \code{DSVERT_ALLOW_DISCLOSIVE_NB_FULL_REG=true}. The non-disclosive
+#'   replacement is \code{ds.vertNBFullRegTheta(variant = "full_reg_nd")}.
 #' @return List with \code{sealed} (base64url blob).
 #' @export
 dsvertNBEtaSealDS <- function(data_name, x_vars, beta_values,
@@ -31,11 +42,13 @@ dsvertNBEtaSealDS <- function(data_name, x_vars, beta_values,
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
   .k2_enforce_K(.S(session_id), 2L, "dsvertNBEtaSealDS")
-  if (!isTRUE(allow_disclosive_legacy)) {
+  if (!isTRUE(allow_disclosive_legacy) ||
+      !.nb_fullreg_disclosive_legacy_allowed()) {
     stop("dsvertNBEtaSealDS is disabled by default because it transports ",
          "per-patient non-label eta to the outcome server; use ",
-         "ds.vertNBFullRegTheta(variant = 'full_reg_nd') or pass ",
-         "allow_disclosive_legacy = TRUE only for archived reproducibility.",
+         "ds.vertNBFullRegTheta(variant = 'full_reg_nd'). For archived ",
+         "diagnostics, pass allow_disclosive_legacy = TRUE and set ",
+         "options(dsvert.allow_disclosive_nb_full_reg = TRUE) on the server.",
          call. = FALSE)
   }
   if (!is.character(x_vars) || length(x_vars) < 1L)
@@ -103,8 +116,10 @@ dsvertNBEtaSealDS <- function(data_name, x_vars, beta_values,
 #' @param theta Numeric scalar > 0.
 #' @param session_id Character.
 #' @param allow_disclosive_legacy Logical. Must be \code{TRUE} to consume the
-#'   archived per-patient eta transport path. The non-disclosive replacement
-#'   is \code{ds.vertNBFullRegTheta(variant = "full_reg_nd")}.
+#'   archived per-patient eta transport path, and the server must also set
+#'   \code{options(dsvert.allow_disclosive_nb_full_reg = TRUE)} or
+#'   \code{DSVERT_ALLOW_DISCLOSIVE_NB_FULL_REG=true}. The non-disclosive
+#'   replacement is \code{ds.vertNBFullRegTheta(variant = "full_reg_nd")}.
 #' @return List of five numeric scalars.
 #' @export
 dsvertNBFullScoreDS <- function(data_name, y_var,
@@ -121,11 +136,13 @@ dsvertNBFullScoreDS <- function(data_name, y_var,
 
   ss <- .S(session_id)
   .k2_enforce_K(ss, 2L, "dsvertNBFullScoreDS")
-  if (!isTRUE(allow_disclosive_legacy)) {
+  if (!isTRUE(allow_disclosive_legacy) ||
+      !.nb_fullreg_disclosive_legacy_allowed()) {
     stop("dsvertNBFullScoreDS is disabled by default because it consumes ",
          "per-patient non-label eta on the outcome server; use ",
-         "ds.vertNBFullRegTheta(variant = 'full_reg_nd') or pass ",
-         "allow_disclosive_legacy = TRUE only for archived reproducibility.",
+         "ds.vertNBFullRegTheta(variant = 'full_reg_nd'). For archived ",
+         "diagnostics, pass allow_disclosive_legacy = TRUE and set ",
+         "options(dsvert.allow_disclosive_nb_full_reg = TRUE) on the server.",
          call. = FALSE)
   }
 

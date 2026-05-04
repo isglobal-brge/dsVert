@@ -28,8 +28,10 @@ server that should receive the sealed \code{eta_nl} vector.}
 \item{session_id}{Character.}
 
 \item{allow_disclosive_legacy}{Logical. Must be \code{TRUE} to run this
-archived helper. The non-disclosive replacement is
-\code{ds.vertNBFullRegTheta(variant = "full_reg_nd")}.}
+archived helper, and the server must also set
+\code{options(dsvert.allow_disclosive_nb_full_reg = TRUE)} or
+\code{DSVERT_ALLOW_DISCLOSIVE_NB_FULL_REG=true}. The non-disclosive
+replacement is \code{ds.vertNBFullRegTheta(variant = "full_reg_nd")}.}
 }
 \value{
 List with \code{sealed} (base64url blob).

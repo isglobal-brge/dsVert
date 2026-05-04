@@ -141,6 +141,99 @@ k2BeaverSumShareDS <- function(source_key, session_id = NULL,
   list(sum_share_fp = s$sum_fp, ring = ring)
 }
 
+#' @title Store a scalar sum share without returning it to the client
+#' @description Local linear reduction of a session-stored FP share vector.
+#'   Unlike \code{k2BeaverSumShareDS}, this helper keeps the scalar share in
+#'   the server session. With \code{append = TRUE}, successive scalar sums are
+#'   concatenated into one FP share vector. This supports pre-release MPC
+#'   threshold checks where the analyst must not receive both parties' scalar
+#'   shares before the disclosure guard passes.
+#' @param source_key Session key containing the FP share vector to sum.
+#' @param output_key Session key where the scalar share or concatenated scalar
+#'   share vector is stored.
+#' @param append Logical. Append this scalar to an existing FP vector.
+#' @param session_id Active MPC session identifier.
+#' @param ring Optional ring selector ("ring63"/"ring127"); defaults from the
+#'   session when available.
+#' @return list(stored, output_key, length).
+#' @export
+k2StoreSumShareDS <- function(source_key, output_key, append = FALSE,
+                              session_id = NULL, ring = NULL) {
+  if (is.null(session_id) || !nzchar(session_id)) {
+    stop("session_id required", call. = FALSE)
+  }
+  if (!is.character(output_key) || length(output_key) != 1L ||
+      !nzchar(output_key)) {
+    stop("output_key must be a non-empty string", call. = FALSE)
+  }
+  ss <- .S(session_id)
+  fp <- ss[[source_key]]
+  if (is.null(fp)) stop("source_key missing", call. = FALSE)
+  if (is.null(ring) || !nzchar(ring)) {
+    ss_ring <- as.integer(ss$k2_ring %||% 63L)
+    ring <- if (ss_ring == 127L) "ring127" else "ring63"
+  }
+  s <- .callMpcTool("k2-fp-sum", list(fp_data = fp, ring = ring))$sum_fp
+  new_raw <- jsonlite::base64_dec(s)
+  if (isTRUE(append) && !is.null(ss[[output_key]])) {
+    old_raw <- jsonlite::base64_dec(.base64url_to_base64(ss[[output_key]]))
+    out_raw <- c(old_raw, new_raw)
+  } else {
+    out_raw <- new_raw
+  }
+  ss[[output_key]] <- jsonlite::base64_enc(out_raw)
+  bytes_per_elem <- if (identical(ring, "ring127")) 16L else 8L
+  list(stored = TRUE, output_key = output_key,
+       length = as.integer(length(out_raw) / bytes_per_elem))
+}
+
+#' @title Return a stored FP share after a disclosure precheck has passed
+#' @param source_key Session key containing the FP share vector.
+#' @param session_id Active MPC session identifier.
+#' @return list(share_fp).
+#' @export
+k2GetStoredShareDS <- function(source_key, session_id = NULL) {
+  if (is.null(session_id) || !nzchar(session_id)) {
+    stop("session_id required", call. = FALSE)
+  }
+  ss <- .S(session_id)
+  fp <- ss[[source_key]]
+  if (is.null(fp)) stop("source_key missing", call. = FALSE)
+  list(share_fp = fp)
+}
+
+#' @title Store the element-wise difference of two FP share vectors
+#' @param a_key,b_key Session keys containing FP share vectors.
+#' @param output_key Destination session key.
+#' @param session_id Active MPC session identifier.
+#' @param frac_bits Fixed-point fractional bits.
+#' @param ring Optional ring selector ("ring63"/"ring127").
+#' @return list(stored, output_key).
+#' @export
+k2FPSubStoreDS <- function(a_key, b_key, output_key, session_id = NULL,
+                           frac_bits = 20L, ring = NULL) {
+  if (is.null(session_id) || !nzchar(session_id)) {
+    stop("session_id required", call. = FALSE)
+  }
+  ss <- .S(session_id)
+  a <- ss[[a_key]]
+  b <- ss[[b_key]]
+  if (is.null(a) || is.null(b)) {
+    stop("a_key / b_key missing", call. = FALSE)
+  }
+  if (is.null(ring) || !nzchar(ring)) {
+    ss_ring <- as.integer(ss$k2_ring %||% 63L)
+    ring <- if (ss_ring == 127L) "ring127" else "ring63"
+  }
+  res <- .callMpcTool("k2-fp-sub", list(
+    a = .base64url_to_base64(a),
+    b = .base64url_to_base64(b),
+    frac_bits = as.integer(frac_bits),
+    ring = ring))
+  ss[[output_key]] <- res$result
+  list(stored = TRUE, output_key = output_key)
+}
+
 #' @title Sum a row-major share matrix by strided event index
 #' @description Linear share operation: stores \eqn{\sum_i A_{ij}} for each
 #'   event-time/bin index \eqn{j} without reconstructing the per-bin sums at

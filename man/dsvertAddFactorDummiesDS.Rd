@@ -26,8 +26,8 @@ sorted observed levels.}
 \item{drop_first}{Logical. If TRUE, omit the first level to avoid
 collinearity with the intercept.}
 
-\item{suppress_small_cells}{Logical. Suppress returned counts below
-\code{datashield.privacyLevel}; dummy columns are still created.}
+\item{suppress_small_cells}{Logical. If \code{TRUE}, fail closed when an
+observed level count is below \code{datashield.privacyLevel}.}
 }
 \value{
 list(levels, dummy_columns, counts)

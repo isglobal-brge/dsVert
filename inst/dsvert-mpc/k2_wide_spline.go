@@ -81,9 +81,9 @@ func computeWideSplineLogSpaced(f func(float64) float64, numIntervals int, lower
 }
 
 // WideSigmoidParams returns the piecewise linear spline parameters for sigmoid
-// on [-5, 5) with numIntervals intervals.
+// on [-8, 8) with numIntervals intervals.
 func WideSigmoidParams(numIntervals int) (slopes, intercepts []float64, halfRange float64) {
-	halfRange = 5.0
+	halfRange = 8.0
 	sigma := func(x float64) float64 { return 1.0 / (1.0 + math.Exp(-x)) }
 	slopes, intercepts = computeWideSpline(sigma, numIntervals, -halfRange, halfRange)
 	return
@@ -632,12 +632,12 @@ func WideSplineReciprocal(ring Ring63, x0, x1 []uint64, numIntervals int, lower,
 }
 
 // WideSplineSigmoid evaluates sigmoid on secret shares using a wide piecewise-
-// linear spline with numIntervals intervals on [-5, 5).
+// linear spline with numIntervals intervals on [-8, 8).
 //
 // Structure:
-//   - 2 broad DCF comparisons for saturation (x < -5, x < 5)
+//   - 2 broad DCF comparisons for saturation (x < -8, x < 8)
 //   - 1 Beaver AND for I_mid = NOT(c_low) * c_high
-//   - (numIntervals-1) sub-interval DCF comparisons within [-5, 5)
+//   - (numIntervals-1) sub-interval DCF comparisons within [-8, 8)
 //   - numIntervals individual ScalarVP for slopes and intercepts
 //   - 1 Hadamard for slope*x
 //   - 1 Hadamard for I_mid * spline_value

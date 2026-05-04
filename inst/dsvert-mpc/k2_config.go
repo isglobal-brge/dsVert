@@ -1,7 +1,8 @@
 // k2_config.go: Optimal configuration for K=2 MPC GLM.
 //
 // These defaults were determined by systematic experimentation:
-// - Binomial (sigmoid): 50 intervals on [-5,5) gives 1.40e-3 coef error vs GLM
+// - Binomial (sigmoid): 100 intervals on [-8,8) avoids clipping in separable
+//   logistic/IPW stress fixtures while keeping spline error around 1e-3.
 // - Poisson (exp): 100 intervals on [-3,8] gives 3.55e-3 MPC error vs centralized
 // - Ring63 with fracBits=20 is sufficient for both families
 // - Wide piecewise-linear spline (no Kelkar exp) eliminates the 4.57e-2 shift
@@ -23,10 +24,11 @@ const (
 	K2DefaultFracBits = 20
 
 	// K2SigmoidIntervals is the number of piecewise-linear spline intervals
-	// for the sigmoid function on [-5, 5).
-	// 50 intervals (width=0.2) gives max point error 4.73e-4 and training error 1.40e-3.
+	// for the sigmoid function on [-8, 8).
+	// The wider domain prevents coefficient bias when fitted logits leave
+	// [-5, 5]; 100 intervals preserves the previous point-error tier.
 	// Fewer intervals reduce communication rounds but increase approximation error.
-	K2SigmoidIntervals = 50
+	K2SigmoidIntervals = 100
 
 	// K2ExpIntervals is the number of piecewise-linear spline intervals
 	// for the exp function on [-3, 8].

@@ -337,6 +337,59 @@ func handleK2FPSum() {
 }
 
 // ============================================================================
+// Command: k2-fp-strided-sum
+// Sum a row-major n-by-J FP share matrix down the rows, returning a
+// length-J FP share vector. This is a linear operation on additive shares.
+// Used by non-disclosive event-time Cox to aggregate n*J risk-set shares
+// by hidden event-time index without reconstructing per-event quantities.
+// ============================================================================
+
+type K2FPStridedSumInput struct {
+	FPData string `json:"fp_data"` // base64 FP vector, row-major n x J
+	N      int    `json:"n"`
+	J      int    `json:"j"`
+	Ring   string `json:"ring"` // "" or "ring63" or "ring127"
+}
+
+type K2FPStridedSumOutput struct {
+	Result string `json:"result"` // base64 FP length J
+}
+
+func handleK2FPStridedSum() {
+	var input K2FPStridedSumInput
+	mpcReadInput(&input)
+	if input.Ring == "ring127" {
+		handleK2FPStridedSum127(input)
+		return
+	}
+	if input.Ring != "" && input.Ring != "ring63" {
+		panic("k2-fp-strided-sum: unknown ring='" + input.Ring + "'")
+	}
+	if input.N <= 0 || input.J <= 0 {
+		outputError("k2-fp-strided-sum: bad n/j")
+		return
+	}
+	data := fpToRing63(bytesToFPVec(base64ToBytes(input.FPData)))
+	if len(data) != input.N*input.J {
+		outputError(fmt.Sprintf(
+			"k2-fp-strided-sum: length mismatch (got %d, expected n*j=%d*%d=%d)",
+			len(data), input.N, input.J, input.N*input.J))
+		return
+	}
+	ring := NewRing63(K2DefaultFracBits)
+	out := make([]uint64, input.J)
+	for i := 0; i < input.N; i++ {
+		base := i * input.J
+		for j := 0; j < input.J; j++ {
+			out[j] = ring.Add(out[j], data[base+j])
+		}
+	}
+	mpcWriteOutput(K2FPStridedSumOutput{
+		Result: bytesToBase64(fpVecToBytes(ring63ToFP(out))),
+	})
+}
+
+// ============================================================================
 // Command: k2-fp-permute
 // Permute elements of an FP vector by given indices.
 // Used to align gradient column orders between DCF parties in K>=3.

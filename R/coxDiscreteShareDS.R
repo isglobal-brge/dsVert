@@ -147,6 +147,137 @@ dsvertCoxDiscreteShareMaskDS <- function(data_name, time_var, status_var,
 }
 
 
+#' @title Cox event-time risk-set non-disclosive share-mask primitive
+#' @description Share the continuous-time risk-set mask needed for an
+#'   event-time Poisson bridge to Breslow Cox without transferring the
+#'   patient-level event-time permutation, event vector, or risk-set
+#'   membership to a peer. The outcome server computes the unique observed
+#'   event-time indices locally and builds a uniform \code{n * J_event}
+#'   frame:
+#'
+#'   \itemize{
+#'     \item \code{m_ij = I(time_i >= event_time_j)}
+#'     \item \code{y_ij = I(status_i = 1 and time_i = event_time_j)}
+#'   }
+#'
+#'   Both matrices are flattened row-major and split into Ring127 additive
+#'   shares between the outcome server and the DCF peer. The returned metadata
+#'   contains only guarded scalar dimensions; actual event times, event
+#'   indicators, patient order, and risk-set membership are kept local or
+#'   share-domain.
+#' @param data_name Character. Local data frame name on outcome server.
+#' @param time_var,status_var Character survival time and event columns.
+#' @param mask_output_key,y_output_key Session slots for this server's shares.
+#' @param target_pk DCF peer transport public key (base64url).
+#' @param session_id Active MPC session.
+#' @param max_event_times Optional public runtime guard.
+#' @param debug Logical. If TRUE, include local aggregate diagnostics.
+#' @return List with sealed mask/y blobs and scalar dimensions.
+#' @export
+dsvertCoxEventTimeShareMaskDS <- function(data_name, time_var, status_var,
+                                           mask_output_key, y_output_key,
+                                           target_pk, session_id,
+                                           max_event_times = NULL,
+                                           debug = FALSE) {
+  if (is.null(session_id) || !nzchar(session_id))
+    stop("session_id required", call. = FALSE)
+  .validate_data_name(data_name)
+  data <- get(data_name, envir = parent.frame())
+  if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
+  if (!time_var %in% names(data))
+    stop("time_var '", time_var, "' not in data", call. = FALSE)
+  if (!status_var %in% names(data))
+    stop("status_var '", status_var, "' not in data", call. = FALSE)
+
+  ss <- .S(session_id)
+  t_vec <- as.numeric(data[[time_var]])
+  d_vec <- as.integer(data[[status_var]])
+  n <- length(t_vec)
+  privacy_min <- getOption("datashield.privacyLevel", 5L)
+  if (is.numeric(privacy_min) && n < privacy_min)
+    stop("Insufficient observations (n=", n, ")", call. = FALSE)
+  if (anyNA(t_vec) || anyNA(d_vec))
+    stop("time/status contain missing values", call. = FALSE)
+  if (any(!is.finite(t_vec)))
+    stop("time contains non-finite values", call. = FALSE)
+  if (!all(d_vec %in% c(0L, 1L)))
+    stop("status must be coded 0/1", call. = FALSE)
+
+  event_times <- sort(unique(t_vec[d_vec == 1L]))
+  J <- length(event_times)
+  if (J < 2L)
+    stop("At least two distinct event times are required", call. = FALSE)
+  if (is.null(max_event_times)) {
+    max_event_times <- getOption("dsvert.cox_event_time_max", 80L)
+  }
+  max_event_times <- as.integer(max_event_times)
+  if (is.finite(max_event_times) && max_event_times > 0L &&
+      J > max_event_times) {
+    stop("Too many distinct event times for the event-time Poisson ",
+         "prototype (", J, " > ", max_event_times, "). Increase ",
+         "`dsvert.cox_event_time_max` only for controlled validation.",
+         call. = FALSE)
+  }
+
+  n_pp <- as.integer(n) * as.integer(J)
+  m <- numeric(n_pp)
+  y <- numeric(n_pp)
+  event_index <- match(t_vec, event_times)
+  for (i in seq_len(n)) {
+    base <- (i - 1L) * J
+    at_risk <- which(t_vec[i] >= event_times)
+    if (length(at_risk) > 0L) m[base + at_risk] <- 1
+    if (d_vec[i] == 1L && !is.na(event_index[i])) {
+      y[base + event_index[i]] <- 1
+    }
+  }
+
+  fp_m <- .callMpcTool("k2-float-to-fp",
+                        list(values = m, frac_bits = 50L,
+                             ring = "ring127"))$fp_data
+  split_m <- .callMpcTool("k2-split-fp-share",
+                           list(data_fp = fp_m, n = length(m),
+                                frac_bits = 50L, ring = "ring127"))
+  ss[[mask_output_key]] <- split_m$own_share
+  pk_std <- .base64url_to_base64(target_pk)
+  sealed_m <- .callMpcTool("transport-encrypt",
+                            list(data = jsonlite::base64_enc(
+                                   charToRaw(split_m$peer_share)),
+                                 recipient_pk = pk_std))
+
+  fp_y <- .callMpcTool("k2-float-to-fp",
+                        list(values = y, frac_bits = 50L,
+                             ring = "ring127"))$fp_data
+  split_y <- .callMpcTool("k2-split-fp-share",
+                           list(data_fp = fp_y, n = length(y),
+                                frac_bits = 50L, ring = "ring127"))
+  ss[[y_output_key]] <- split_y$own_share
+  sealed_y <- .callMpcTool("transport-encrypt",
+                            list(data = jsonlite::base64_enc(
+                                   charToRaw(split_y$peer_share)),
+                                 recipient_pk = pk_std))
+
+  list(
+    sealed_m_blob = base64_to_base64url(sealed_m$sealed),
+    sealed_y_blob = base64_to_base64url(sealed_y$sealed),
+    n_obs = as.integer(n),
+    J = as.integer(J),
+    n_pp = n_pp,
+    n_events = as.integer(sum(d_vec == 1L)),
+    n_event_times = as.integer(J),
+    debug = if (isTRUE(debug)) {
+      list(
+        event_counts = as.integer(tabulate(event_index[d_vec == 1L],
+                                           nbins = J)),
+        riskset_sizes = as.integer(vapply(event_times, function(tt) {
+          sum(t_vec >= tt)
+        }, integer(1L))),
+        time_range = range(t_vec, na.rm = TRUE))
+    } else NULL
+  )
+}
+
+
 #' @title Cox discrete-time receive shared mask + y at DCF peer
 #' @description Counterpart to \code{dsvertCoxDiscreteShareMaskDS} --
 #'   non-label server transport-decrypts the sealed mask + y blobs and

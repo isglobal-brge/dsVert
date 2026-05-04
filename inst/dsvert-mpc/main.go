@@ -79,6 +79,8 @@ func main() {
 		handleK2FPPermuteShare()
 	case "k2-fp-sum":
 		handleK2FPSum()
+	case "k2-fp-strided-sum":
+		handleK2FPStridedSum()
 	case "k2-fp-permute":
 		handleK2FPPermute()
 	case "k2-fp-column-concat":

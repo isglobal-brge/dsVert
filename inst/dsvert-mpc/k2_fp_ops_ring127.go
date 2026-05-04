@@ -103,6 +103,33 @@ func handleK2FPSum127(input K2FPSumInput) {
 	})
 }
 
+// --- k2-fp-strided-sum ------------------------------------------------------
+
+func handleK2FPStridedSum127(input K2FPStridedSumInput) {
+	if input.N <= 0 || input.J <= 0 {
+		outputError("k2-fp-strided-sum (ring127): bad n/j")
+		return
+	}
+	data := b64Uint128Vec(input.FPData)
+	if len(data) != input.N*input.J {
+		outputError(fmt.Sprintf(
+			"k2-fp-strided-sum (ring127): length mismatch (got %d, expected n*j=%d*%d=%d)",
+			len(data), input.N, input.J, input.N*input.J))
+		return
+	}
+	r := NewRing127(K2DefaultFracBits127)
+	out := make([]Uint128, input.J)
+	for i := 0; i < input.N; i++ {
+		base := i * input.J
+		for j := 0; j < input.J; j++ {
+			out[j] = r.Add(out[j], data[base+j])
+		}
+	}
+	mpcWriteOutput(K2FPStridedSumOutput{
+		Result: Uint128VecToB64(out),
+	})
+}
+
 // --- k2-fp-cumsum (strata-aware reverse/forward, optional mask) -------------
 
 func handleK2FPCumsum127(input K2FPCumsumInput) {

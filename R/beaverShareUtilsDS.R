@@ -140,3 +140,43 @@ k2BeaverSumShareDS <- function(source_key, session_id = NULL,
   s <- .callMpcTool("k2-fp-sum", list(fp_data = fp, ring = ring))
   list(sum_share_fp = s$sum_fp, ring = ring)
 }
+
+#' @title Sum a row-major share matrix by strided event index
+#' @description Linear share operation: stores \eqn{\sum_i A_{ij}} for each
+#'   event-time/bin index \eqn{j} without reconstructing the per-bin sums at
+#'   the client. Used by non-disclosive Cox profile-score primitives.
+#' @param source_key Session key containing a row-major n_obs-by-J FP share.
+#' @param output_key Session key for the length-J FP share result.
+#' @param n_obs Integer number of subjects.
+#' @param J Integer number of event-time/bin columns.
+#' @param session_id Character. Active MPC session identifier.
+#' @param frac_bits Integer fixed-point fractional bits.
+#' @param ring Integer 63 or 127.
+#' @export
+k2BeaverStridedSumShareDS <- function(source_key, output_key, n_obs, J,
+                                      session_id = NULL,
+                                      frac_bits = 20L, ring = NULL) {
+  if (is.null(session_id) || !nzchar(session_id)) {
+    stop("session_id required", call. = FALSE)
+  }
+  ss <- .S(session_id)
+  fp <- ss[[source_key]]
+  if (is.null(fp)) stop("source_key missing", call. = FALSE)
+  if (is.null(ring) || !nzchar(ring)) {
+    ss_ring <- as.integer(ss$k2_ring %||% 63L)
+    ring <- if (ss_ring == 127L) "ring127" else "ring63"
+  } else {
+    ring <- as.integer(ring)
+    ring <- if (ring == 127L) "ring127" else "ring63"
+  }
+  if (identical(ring, "ring127")) frac_bits <- 50L
+  res <- .callMpcTool("k2-fp-strided-sum", list(
+    fp_data = fp,
+    n = as.integer(n_obs),
+    j = as.integer(J),
+    frac_bits = as.integer(frac_bits),
+    ring = ring))
+  ss[[output_key]] <- res$result
+  list(stored = TRUE, output_key = output_key,
+       n_obs = as.integer(n_obs), J = as.integer(J), ring = ring)
+}

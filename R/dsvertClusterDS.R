@@ -129,6 +129,10 @@ dsvertClusterBinomialMomentsDS <- function(data_name, y_var, x_names,
   }
   eta <- pmax(pmin(eta, 30), -30)
   p <- stats::plogis(eta)
+  # Keep binomial working weights away from exact zero. This is the same
+  # numerical stabilization used by standard PIRLS implementations and
+  # prevents separated clusters from destroying aggregate PQL updates.
+  p <- pmin(pmax(p, 1e-6), 1 - 1e-6)
   r <- y - p
   v <- p * (1 - p)
   id <- data[[cluster_col]]

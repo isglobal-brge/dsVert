@@ -19,7 +19,8 @@ is written.}
 \value{
 List with components \code{n_imputed} (count of cells
 imputed), \code{n_observed} (count with non-missing original
-values), \code{method} ("bayesian_ridge" or "bayesian_logit").
+values), \code{method}, \code{n_predictors}, and
+\code{intercept_only}. Imputed values remain server-side.
 }
 \description{
 Draw a Bayesian-ridge posterior predictive imputation
@@ -29,11 +30,16 @@ The imputed column is written back into the data frame under
 \code{output_column}. The client never sees the imputed values;
 only an aggregate "n imputed" count.
 
-Fits a Bayesian ridge regression with default hyperparameters
-\eqn{\alpha_0 = 1, \beta_0 = 1}, draws a posterior sample
-\eqn{(\beta^*, \sigma^{2*})}, and imputes each missing cell as
-\eqn{x_\ast^T \beta^* + \sigma^* \epsilon},
+Fits a Bayesian ridge regression with an unpenalized intercept and
+default hyperparameters \eqn{\alpha_0 = 1, \beta_0 = 1}, draws a
+posterior sample \eqn{(\beta^*, \sigma^{2*})}, and imputes each
+missing cell as \eqn{x_\ast^T \beta^* + \sigma^* \epsilon},
 \eqn{\epsilon \sim N(0, 1)}.
+If the server that owns \code{impute_column} has no other complete
+numeric predictors, the same posterior predictive draw is run with
+an intercept-only model instead of failing closed; this preserves
+missing rows for downstream multiple imputation without exposing
+imputed values to the client.
 
 For categorical \code{impute_column}: fits a logistic / multinomial
 ridge classifier and samples from the posterior predictive class

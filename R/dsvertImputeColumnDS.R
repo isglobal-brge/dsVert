@@ -6,11 +6,16 @@
 #'   \code{output_column}. The client never sees the imputed values;
 #'   only an aggregate "n imputed" count.
 #'
-#'   Fits a Bayesian ridge regression with default hyperparameters
-#'   \eqn{\alpha_0 = 1, \beta_0 = 1}, draws a posterior sample
-#'   \eqn{(\beta^*, \sigma^{2*})}, and imputes each missing cell as
-#'   \eqn{x_\ast^T \beta^* + \sigma^* \epsilon},
+#'   Fits a Bayesian ridge regression with an unpenalized intercept and
+#'   default hyperparameters \eqn{\alpha_0 = 1, \beta_0 = 1}, draws a
+#'   posterior sample \eqn{(\beta^*, \sigma^{2*})}, and imputes each
+#'   missing cell as \eqn{x_\ast^T \beta^* + \sigma^* \epsilon},
 #'   \eqn{\epsilon \sim N(0, 1)}.
+#'   If the server that owns \code{impute_column} has no other complete
+#'   numeric predictors, the same posterior predictive draw is run with
+#'   an intercept-only model instead of failing closed; this preserves
+#'   missing rows for downstream multiple imputation without exposing
+#'   imputed values to the client.
 #'
 #'   For categorical \code{impute_column}: fits a logistic / multinomial
 #'   ridge classifier and samples from the posterior predictive class
@@ -24,7 +29,8 @@
 #' @param seed Integer. RNG seed for reproducible draws.
 #' @return List with components \code{n_imputed} (count of cells
 #'   imputed), \code{n_observed} (count with non-missing original
-#'   values), \code{method} ("bayesian_ridge" or "bayesian_logit").
+#'   values), \code{method}, \code{n_predictors}, and
+#'   \code{intercept_only}. Imputed values remain server-side.
 #' @export
 dsvertImputeColumnDS <- function(data_name, impute_column,
                                   output_column = NULL,
@@ -48,7 +54,8 @@ dsvertImputeColumnDS <- function(data_name, impute_column,
     data[[output_column]] <- y
     assign(data_name, data, envir = parent.frame())
     return(list(n_imputed = 0L, n_observed = n_observed,
-                method = "none"))
+                method = "none", n_predictors = NA_integer_,
+                intercept_only = NA))
   }
 
   other_cols <- setdiff(names(data), c(impute_column, output_column))
@@ -60,28 +67,43 @@ dsvertImputeColumnDS <- function(data_name, impute_column,
   internal_imp <- grepl("__mi_[0-9]+$", other_cols) |
     grepl("^__dsvert_imp_", other_cols)
   other_cols <- other_cols[!internal_imp]
-  # Keep only numeric/complete predictors to avoid leaking structure.
+  # Keep only numeric/complete predictors to avoid leaking structure. When
+  # none are available, use an intercept-only imputation model rather than
+  # forcing complete-case analysis upstream.
   keep <- character(0)
   for (c in other_cols) {
     col <- data[[c]]
     if (is.numeric(col) && !any(is.na(col))) keep <- c(keep, c)
   }
-  if (length(keep) == 0L) {
-    stop("no complete numeric predictors available for imputation",
-         call. = FALSE)
-  }
+  intercept_only <- length(keep) == 0L
 
   set.seed(as.integer(seed))
+  build_design <- function(df, rows) {
+    n_rows <- if (is.logical(rows)) sum(rows) else length(rows)
+    X <- if (intercept_only) {
+      matrix(numeric(n_rows * 0L), nrow = n_rows, ncol = 0L)
+    } else {
+      as.matrix(df[rows, keep, drop = FALSE])
+    }
+    cbind("(Intercept)" = 1, X)
+  }
+  ridge_penalty <- function(p) {
+    P <- diag(p)
+    P[1L, 1L] <- 0
+    P
+  }
 
   if (is.numeric(y)) {
-    X_obs <- as.matrix(data[!miss, keep, drop = FALSE])
+    X_obs <- build_design(data, !miss)
     y_obs <- y[!miss]
     # Bayesian ridge: beta_post ~ N((X^T X + alpha I)^-1 X^T y,
-    #                                sigma^2 (X^T X + alpha I)^-1)
+    #                                sigma^2 (X^T X + alpha I)^-1), with
+    # an unpenalized intercept in column 1.
     alpha <- 1
+    P_ridge <- ridge_penalty(ncol(X_obs))
     XtX <- crossprod(X_obs)
     Xty <- crossprod(X_obs, y_obs)
-    prec <- XtX + alpha * diag(ncol(X_obs))
+    prec <- XtX + alpha * P_ridge
     Sigma <- tryCatch(solve(prec), error = function(e) {
       solve(prec + 1e-6 * diag(ncol(X_obs))) })
     beta_hat <- drop(Sigma %*% Xty)
@@ -91,32 +113,34 @@ dsvertImputeColumnDS <- function(data_name, impute_column,
     L <- chol(Sigma * sigma2_hat + 1e-12 * diag(ncol(X_obs)))
     beta_draw <- beta_hat + drop(t(L) %*% stats::rnorm(ncol(X_obs)))
     sigma_draw <- sqrt(sigma2_hat)
-    X_miss <- as.matrix(data[miss, keep, drop = FALSE])
+    X_miss <- build_design(data, miss)
     imp <- drop(X_miss %*% beta_draw) +
            sigma_draw * stats::rnorm(n_missing)
     y_out <- y
     y_out[miss] <- imp
-    method <- "bayesian_ridge"
+    method <- if (intercept_only) "bayesian_ridge_intercept"
+              else "bayesian_ridge"
   } else {
     yf <- as.factor(y)
     lvls <- levels(yf)
     if (length(lvls) < 2L) {
       stop("impute_column has <2 levels", call. = FALSE)
     }
-    X_obs <- as.matrix(data[!miss, keep, drop = FALSE])
-    X_miss <- as.matrix(data[miss, keep, drop = FALSE])
+    X_obs <- build_design(data, !miss)
+    X_miss <- build_design(data, miss)
     alpha <- 1
+    P_ridge <- ridge_penalty(ncol(X_obs))
     if (length(lvls) == 2L) {
       y01 <- as.integer(yf) - 1L
       y_obs <- y01[!miss]
       beta <- rep(0, ncol(X_obs))
-      H <- diag(ncol(X_obs)) * alpha
+      H <- P_ridge * alpha
       for (it in seq_len(25L)) {
         eta <- X_obs %*% beta
         p <- 1 / (1 + exp(-eta))
         W <- as.numeric(p * (1 - p)); W <- pmax(W, 1e-6)
-        H <- crossprod(X_obs * W, X_obs) + alpha * diag(ncol(X_obs))
-        g <- crossprod(X_obs, y_obs - p) - alpha * beta
+        H <- crossprod(X_obs * W, X_obs) + alpha * P_ridge
+        g <- crossprod(X_obs, y_obs - p) - alpha * drop(P_ridge %*% beta)
         step <- tryCatch(solve(H, g),
           error = function(e) solve(H + 1e-6 * diag(ncol(X_obs)), g))
         beta <- beta + drop(step)
@@ -131,7 +155,8 @@ dsvertImputeColumnDS <- function(data_name, impute_column,
       y_out <- y
       y_out[miss] <- lvls[draws + 1L]
       y_out <- factor(y_out, levels = lvls)
-      method <- "bayesian_logit"
+      method <- if (intercept_only) "bayesian_logit_intercept"
+                else "bayesian_logit"
     } else {
       # Multinomial Bayesian ridge: K-1 linear predictors vs reference
       # (first level). IRLS-Newton on the joint softmax objective,
@@ -157,14 +182,14 @@ dsvertImputeColumnDS <- function(data_name, impute_column,
         Y_nonref <- matrix(0, nrow = nrow(X_obs), ncol = K - 1L)
         for (k in 2:K) Y_nonref[y_obs == k, k - 1L] <- 1
         grad <- crossprod(X_obs, Y_nonref - P[, 2:K, drop = FALSE]) -
-                 alpha * beta
+                 alpha * (P_ridge %*% beta)
         # Hessian is a (p_d(K-1)) square matrix; approximate per-class
         # diagonal blocks using P_k(1 - P_k) weights (standard
         # block-Newton for multinomial logistic).
         step <- matrix(0, nrow = p_d, ncol = K - 1L)
         for (k in 2:K) {
           w <- as.numeric(P[, k] * (1 - P[, k])); w <- pmax(w, 1e-6)
-          Hk <- crossprod(X_obs * w, X_obs) + alpha * diag(p_d)
+          Hk <- crossprod(X_obs * w, X_obs) + alpha * P_ridge
           step[, k - 1L] <- solve(Hk, grad[, k - 1L])
         }
         beta <- beta + step
@@ -177,7 +202,7 @@ dsvertImputeColumnDS <- function(data_name, impute_column,
         w <- as.numeric(softmax_probs(X_obs %*% beta)[, k] *
                          (1 - softmax_probs(X_obs %*% beta)[, k]))
         w <- pmax(w, 1e-6)
-        Hk <- crossprod(X_obs * w, X_obs) + alpha * diag(p_d)
+        Hk <- crossprod(X_obs * w, X_obs) + alpha * P_ridge
         Sig_k <- tryCatch(solve(Hk), error = function(e)
           solve(Hk + 1e-6 * diag(p_d)))
         Lk <- chol(Sig_k + 1e-12 * diag(p_d))
@@ -190,7 +215,8 @@ dsvertImputeColumnDS <- function(data_name, impute_column,
       y_out <- y
       y_out[miss] <- lvls[draws]
       y_out <- factor(y_out, levels = lvls)
-      method <- "bayesian_multinomial_ridge"
+      method <- if (intercept_only) "bayesian_multinomial_intercept"
+                else "bayesian_multinomial_ridge"
     }
   }
 
@@ -198,5 +224,7 @@ dsvertImputeColumnDS <- function(data_name, impute_column,
   assign(data_name, data, envir = parent.frame())
   list(n_imputed = as.integer(n_missing),
        n_observed = as.integer(n_observed),
-       method = method)
+       method = method,
+       n_predictors = as.integer(length(keep)),
+       intercept_only = isTRUE(intercept_only))
 }

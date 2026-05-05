@@ -12,10 +12,11 @@
 #'   missing cell as \eqn{x_\ast^T \beta^* + \sigma^* \epsilon},
 #'   \eqn{\epsilon \sim N(0, 1)}.
 #'   If the server that owns \code{impute_column} has no other complete
-#'   numeric predictors, the same posterior predictive draw is run with
-#'   an intercept-only model instead of failing closed; this preserves
-#'   missing rows for downstream multiple imputation without exposing
-#'   imputed values to the client.
+#'   numeric predictors, the server uses a deterministic aggregate-only
+#'   fallback: the observed mean for numeric columns and the observed
+#'   mode for factors. This preserves missing rows for downstream MI
+#'   without adding noisy intercept-only draws or exposing imputed values
+#'   to the client.
 #'
 #'   For categorical \code{impute_column}: fits a logistic / multinomial
 #'   ridge classifier and samples from the posterior predictive class
@@ -96,30 +97,34 @@ dsvertImputeColumnDS <- function(data_name, impute_column,
   if (is.numeric(y)) {
     X_obs <- build_design(data, !miss)
     y_obs <- y[!miss]
-    # Bayesian ridge: beta_post ~ N((X^T X + alpha I)^-1 X^T y,
-    #                                sigma^2 (X^T X + alpha I)^-1), with
-    # an unpenalized intercept in column 1.
-    alpha <- 1
-    P_ridge <- ridge_penalty(ncol(X_obs))
-    XtX <- crossprod(X_obs)
-    Xty <- crossprod(X_obs, y_obs)
-    prec <- XtX + alpha * P_ridge
-    Sigma <- tryCatch(solve(prec), error = function(e) {
-      solve(prec + 1e-6 * diag(ncol(X_obs))) })
-    beta_hat <- drop(Sigma %*% Xty)
-    resid <- y_obs - X_obs %*% beta_hat
-    sigma2_hat <- sum(resid^2) / max(length(y_obs) - ncol(X_obs), 1L)
-    # Posterior draw
-    L <- chol(Sigma * sigma2_hat + 1e-12 * diag(ncol(X_obs)))
-    beta_draw <- beta_hat + drop(t(L) %*% stats::rnorm(ncol(X_obs)))
-    sigma_draw <- sqrt(sigma2_hat)
-    X_miss <- build_design(data, miss)
-    imp <- drop(X_miss %*% beta_draw) +
-           sigma_draw * stats::rnorm(n_missing)
+    if (intercept_only) {
+      imp <- rep(mean(y_obs), n_missing)
+      method <- "mean_intercept"
+    } else {
+      # Bayesian ridge: beta_post ~ N((X^T X + alpha I)^-1 X^T y,
+      #                                sigma^2 (X^T X + alpha I)^-1), with
+      # an unpenalized intercept in column 1.
+      alpha <- 1
+      P_ridge <- ridge_penalty(ncol(X_obs))
+      XtX <- crossprod(X_obs)
+      Xty <- crossprod(X_obs, y_obs)
+      prec <- XtX + alpha * P_ridge
+      Sigma <- tryCatch(solve(prec), error = function(e) {
+        solve(prec + 1e-6 * diag(ncol(X_obs))) })
+      beta_hat <- drop(Sigma %*% Xty)
+      resid <- y_obs - X_obs %*% beta_hat
+      sigma2_hat <- sum(resid^2) / max(length(y_obs) - ncol(X_obs), 1L)
+      # Posterior draw
+      L <- chol(Sigma * sigma2_hat + 1e-12 * diag(ncol(X_obs)))
+      beta_draw <- beta_hat + drop(t(L) %*% stats::rnorm(ncol(X_obs)))
+      sigma_draw <- sqrt(sigma2_hat)
+      X_miss <- build_design(data, miss)
+      imp <- drop(X_miss %*% beta_draw) +
+             sigma_draw * stats::rnorm(n_missing)
+      method <- "bayesian_ridge"
+    }
     y_out <- y
     y_out[miss] <- imp
-    method <- if (intercept_only) "bayesian_ridge_intercept"
-              else "bayesian_ridge"
   } else {
     yf <- as.factor(y)
     lvls <- levels(yf)
@@ -130,7 +135,13 @@ dsvertImputeColumnDS <- function(data_name, impute_column,
     X_miss <- build_design(data, miss)
     alpha <- 1
     P_ridge <- ridge_penalty(ncol(X_obs))
-    if (length(lvls) == 2L) {
+    if (intercept_only) {
+      counts <- tabulate(as.integer(yf[!miss]), nbins = length(lvls))
+      y_out <- y
+      y_out[miss] <- lvls[which.max(counts)]
+      y_out <- factor(y_out, levels = lvls)
+      method <- "mode_intercept"
+    } else if (length(lvls) == 2L) {
       y01 <- as.integer(yf) - 1L
       y_obs <- y01[!miss]
       beta <- rep(0, ncol(X_obs))
@@ -155,8 +166,7 @@ dsvertImputeColumnDS <- function(data_name, impute_column,
       y_out <- y
       y_out[miss] <- lvls[draws + 1L]
       y_out <- factor(y_out, levels = lvls)
-      method <- if (intercept_only) "bayesian_logit_intercept"
-                else "bayesian_logit"
+      method <- "bayesian_logit"
     } else {
       # Multinomial Bayesian ridge: K-1 linear predictors vs reference
       # (first level). IRLS-Newton on the joint softmax objective,
@@ -215,8 +225,7 @@ dsvertImputeColumnDS <- function(data_name, impute_column,
       y_out <- y
       y_out[miss] <- lvls[draws]
       y_out <- factor(y_out, levels = lvls)
-      method <- if (intercept_only) "bayesian_multinomial_intercept"
-                else "bayesian_multinomial_ridge"
+      method <- "bayesian_multinomial_ridge"
     }
   }
 

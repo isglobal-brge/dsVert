@@ -3,6 +3,7 @@
 #' Auto-generates Ed25519 identity seed on first load if none exists.
 #'
 #' @name dsVert-package
+#' @encoding UTF-8
 #' @keywords internal
 #' @importFrom utils head tail packageVersion
 "_PACKAGE"

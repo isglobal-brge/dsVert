@@ -2,7 +2,7 @@
 % Please edit documentation in R/mpcSession.R
 \name{.session_storage}
 \alias{.session_storage}
-\title{Resolve the per-server session-storage env.}
+\title{Resolve the per-server session-storage env}
 \usage{
 .session_storage()
 }

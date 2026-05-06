@@ -36,13 +36,14 @@ posterior sample \eqn{(\beta^*, \sigma^{2*})}, and imputes each
 missing cell as \eqn{x_\ast^T \beta^* + \sigma^* \epsilon},
 \eqn{\epsilon \sim N(0, 1)}.
 If the server that owns \code{impute_column} has no other complete
-numeric predictors, the same posterior predictive draw is run with
-an intercept-only model instead of failing closed; this preserves
-missing rows for downstream multiple imputation without exposing
-imputed values to the client.
+numeric predictors, the server uses a deterministic aggregate-only
+fallback: the observed mean for numeric columns and the observed
+mode for factors. This preserves missing rows for downstream MI
+without adding noisy intercept-only draws or exposing imputed values
+to the client.
 
-For categorical \code{impute_column}: fits a logistic / multinomial
-ridge classifier and samples from the posterior predictive class
-distribution. (First pass: supports numeric and binary factor
-columns; K>2 factor support is Month 4.)
+For categorical \code{impute_column}: fits a logistic or multinomial
+ridge classifier, then samples from the posterior predictive class
+distribution. Numeric, binary-factor, and multi-level-factor targets
+are supported; imputed values remain server-side.
 }

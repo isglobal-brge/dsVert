@@ -6,10 +6,11 @@
 #'   Original cluster labels are not returned to the analyst client or
 #'   sent to the peer.
 #'
-#'   This is the documented LMM inter-server leakage tier
-#'   (cluster-ID membership, see V2_PROGRESS disclosure table). The
-#'   shared cluster IDs are plaintext between the two DCF parties but
-#'   NEVER reach the analyst client.
+#'   This is the documented LMM inter-server leakage tier: guarded
+#'   cluster-ID membership may be shared between the two DCF parties so
+#'   they can compute per-cluster aggregates. The shared cluster IDs never
+#'   reach the analyst client, and clusters below the configured privacy
+#'   threshold fail closed.
 #' @param data_name Aligned data frame.
 #' @param cluster_col Cluster column.
 #' @param peer_pk Transport pk of the peer (base64url).

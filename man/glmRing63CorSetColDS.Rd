@@ -2,9 +2,7 @@
 % Please edit documentation in R/glmRing63DS.R
 \name{glmRing63CorSetColDS}
 \alias{glmRing63CorSetColDS}
-\title{Set column j of X_full as "mu" for Beaver correlation
-Extracts column col_idx from k2_x_full_fp, stores as secure_mu_share.
-Combined with zero y, the "residual" = col_j, and Beaver computes X^T x col_j.}
+\title{Set one X_full column as mu for Beaver correlation}
 \usage{
 glmRing63CorSetColDS(
   col_idx = NULL,
@@ -26,7 +24,7 @@ glmRing63CorSetColDS(
 List with status.
 }
 \description{
-Set column j of X_full as "mu" for Beaver correlation
-Extracts column col_idx from k2_x_full_fp, stores as secure_mu_share.
-Combined with zero y, the "residual" = col_j, and Beaver computes X^T x col_j.
+Extracts column \code{col_idx} from \code{k2_x_full_fp} and
+stores it as \code{secure_mu_share}. Combined with zero y, the residual is
+the selected column and Beaver computes \code{X^T x_col}.
 }

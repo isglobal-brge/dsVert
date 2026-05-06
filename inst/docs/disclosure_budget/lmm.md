@@ -94,9 +94,11 @@ Traced through `ds.vertLMM.R` → `.ds_vertLMM_closed_form`
 
 - **Cluster ID is a real inter-server leak**. Deployments where
   cluster membership is itself sensitive (e.g., research-site
-  membership of participants revealed to peer) should NOT use
-  ds.vertLMM in its current form. Oblivious clustering (Month 4
-  stretch per plan) closes this at ~2× protocol cost.
+  membership of participants revealed to peer) should NOT use the
+  current LMM/cluster-sharing route unless that disclosure tier is
+  explicitly accepted by the data owners. An oblivious-clustering
+  variant would be a different, higher-cost protocol and is not the
+  current product route.
 - **Variance components σ², σ_b² revealed to client** — standard
   for LMM, but this gives the client more information about the
   within-cluster variability than a pure β-only release.

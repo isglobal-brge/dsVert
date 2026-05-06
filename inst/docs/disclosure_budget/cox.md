@@ -107,8 +107,11 @@ Only outputs: p-vector + p×p matrix + one scalar.
   honest-but-curious semi-honest parties; malicious server behavior
   (e.g., sending incorrect shares) is not defended against at the
   protocol level. See the paper's §Discussion for the assumed model.
-- **Event-time permutation is a real leak** that some deployments may
-  find unacceptable. The oblivious-sort variant (plan §Month 2 time
-  budget) would close this at ~2× protocol cost; not shipped in v30.
+- **Legacy event-time permutation routes are not product-exposed**.
+  Earlier design sketches treated event-time permutation as an
+  inter-server leak; the current product route avoids exposing Cox
+  event-rank metadata to the client. Any future route that reintroduces
+  plaintext event-time ordering should be treated as a separate
+  disclosure tier and reviewed before registration.
 - **Strata membership** is an additional inter-server leak when
   `strata_col` is used. Same tier as cluster-ID in LMM.

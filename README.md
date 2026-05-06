@@ -36,7 +36,7 @@ routes. Tests assert both the DataSHIELD product surface and the R namespace.
 | Negative binomial | iid-mu, Method-of-Moments, and non-disclosive full-regression theta share-domain route |
 | Multinomial / ordinal | Joint Newton routes; warm starts are internal only |
 | Mixed models | LMM K=2/K>=3, GEE, binomial GLMM-PQL, and binomial GLMM-Laplace with guarded cluster aggregates |
-| Penalised / causal / MI | LASSO variants, two-stage IPW, and multiple imputation with Rubin pooling |
+| Penalised / causal / MI | LASSO variants, IPW weighted outcome models with server-side weights, and multiple imputation with Rubin pooling |
 | Descriptive / second-order | Descriptives, contingency/chi-square, Fisher helper, correlation, and PCA |
 
 ## Architecture

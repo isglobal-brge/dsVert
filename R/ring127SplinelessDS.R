@@ -15,8 +15,7 @@
   .base64url_to_base64(x)
 }
 
-#' @title Ring127 affine combine -- server-side local op for Horner/NR
-#'   orchestration.
+#' @title Ring127 affine combine for Horner/NR orchestration
 #' @description Computes, on one party's Ring127 shares:
 #'   \deqn{out[i] = sign_a \cdot a[i] + sign_b \cdot b[i] +
 #'                  (public_const \text{ if party 0 else } 0)}
@@ -110,7 +109,7 @@ k2Ring127AffineCombineDS <- function(a_key = NULL, b_key = NULL,
   list(stored = TRUE, output_key = output_key, n = as.integer(n))
 }
 
-#' @title Ring127 local scale by public scalar.
+#' @title Ring127 local scale by public scalar
 #' @description Element-wise multiplies a Ring127 FP share vector by a
 #'   PUBLIC scalar (broadcast). Local op -- additive-sharing correctness
 #'   under broadcast scaling: both parties locally compute

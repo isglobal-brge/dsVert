@@ -50,6 +50,7 @@ Only the outcome server participates; features on other servers
 are NOT consulted here, because the fitted values
 \eqn{x_i^T \hat\beta} only use the \code{x_names} provided (which
 must all live on the outcome server for the Gaussian sandwich to
-be tractable from this helper alone; a cross-server r^2 needs a
-Beaver path that is part of Month 4).
+be tractable from this local helper alone). Cross-server residual
+squared columns require the protected share-domain residual path used
+by the higher-level GEE/LMM frontdoors, not this local helper.
 }

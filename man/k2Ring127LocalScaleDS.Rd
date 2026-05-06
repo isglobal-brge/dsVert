@@ -2,7 +2,7 @@
 % Please edit documentation in R/ring127SplinelessDS.R
 \name{k2Ring127LocalScaleDS}
 \alias{k2Ring127LocalScaleDS}
-\title{Ring127 local scale by public scalar.}
+\title{Ring127 local scale by public scalar}
 \usage{
 k2Ring127LocalScaleDS(
   in_key,

@@ -18,10 +18,10 @@
 #'   without adding noisy intercept-only draws or exposing imputed values
 #'   to the client.
 #'
-#'   For categorical \code{impute_column}: fits a logistic / multinomial
-#'   ridge classifier and samples from the posterior predictive class
-#'   distribution. (First pass: supports numeric and binary factor
-#'   columns; K>2 factor support is Month 4.)
+#'   For categorical \code{impute_column}: fits a logistic or multinomial
+#'   ridge classifier, then samples from the posterior predictive class
+#'   distribution. Numeric, binary-factor, and multi-level-factor targets
+#'   are supported; imputed values remain server-side.
 #'
 #' @param data_name Character. Aligned data-frame name.
 #' @param impute_column Character. Column with missingness.

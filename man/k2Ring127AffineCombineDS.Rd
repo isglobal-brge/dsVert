@@ -2,8 +2,7 @@
 % Please edit documentation in R/ring127SplinelessDS.R
 \name{k2Ring127AffineCombineDS}
 \alias{k2Ring127AffineCombineDS}
-\title{Ring127 affine combine -- server-side local op for Horner/NR
-orchestration.}
+\title{Ring127 affine combine for Horner/NR orchestration}
 \usage{
 k2Ring127AffineCombineDS(
   a_key = NULL,

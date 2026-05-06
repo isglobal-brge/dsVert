@@ -48,7 +48,7 @@ NULL
 # Session TTL: 24 hours
 .SESSION_TTL_SECONDS <- 86400L
 
-#' Resolve the per-server session-storage env.
+#' Resolve the per-server session-storage env
 #'
 #' Walks the call stack outwards looking for the OUTERMOST frame that
 #' is an environment (the DSI/DSLite/Rserve eval-envir frame for the

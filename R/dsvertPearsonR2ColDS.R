@@ -12,8 +12,9 @@
 #'   are NOT consulted here, because the fitted values
 #'   \eqn{x_i^T \hat\beta} only use the \code{x_names} provided (which
 #'   must all live on the outcome server for the Gaussian sandwich to
-#'   be tractable from this helper alone; a cross-server r^2 needs a
-#'   Beaver path that is part of Month 4).
+#'   be tractable from this local helper alone). Cross-server residual
+#'   squared columns require the protected share-domain residual path used
+#'   by the higher-level GEE/LMM frontdoors, not this local helper.
 #'
 #' @param data_name Character.
 #' @param y_var Outcome column.
@@ -40,7 +41,8 @@ dsvertPearsonR2ColDS <- function(data_name, y_var, x_names,
   if (length(missing_x) > 0L) {
     stop("x_names not local to this server: ",
          paste(missing_x, collapse = ", "),
-         ". Cross-server r^2 requires the Beaver path (Month 4).",
+         ". Cross-server r^2 is not available from this local helper; ",
+         "use a protected share-domain residual route.",
          call. = FALSE)
   }
   if (length(x_names) != length(betahat)) {

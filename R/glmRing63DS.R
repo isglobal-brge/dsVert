@@ -349,9 +349,10 @@ glmRing63CorSetZeroYDS <- function(session_id = NULL) {
   list(status = "ok")
 }
 
-#' Set column j of X_full as "mu" for Beaver correlation
-#' Extracts column col_idx from k2_x_full_fp, stores as secure_mu_share.
-#' Combined with zero y, the "residual" = col_j, and Beaver computes X^T x col_j.
+#' @title Set one X_full column as mu for Beaver correlation
+#' @description Extracts column \code{col_idx} from \code{k2_x_full_fp} and
+#'   stores it as \code{secure_mu_share}. Combined with zero y, the residual is
+#'   the selected column and Beaver computes \code{X^T x_col}.
 #' @param col_idx Integer (0-indexed). Column to extract.
 #' @param p_total Integer. Total number of columns.
 #' @param session_id Character or NULL.

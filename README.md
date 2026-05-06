@@ -116,6 +116,11 @@ legacy patient-level helpers and Cox rank primitives are not listed in
 `AggregateMethods`, are not namespace-exported, and are absent from the package
 namespace. The Go runtime is tested independently under `inst/dsvert-mpc`.
 
+The executable method evidence is maintained in the client package because the
+client vignettes drive the full DSLite workflow. See the
+[dsVertClient validation summary](https://isglobal-brge.github.io/dsVertClient/articles/validation_summary.html)
+for the current K=2/K>=3 distributed-vs-centralized validation matrix.
+
 ## License
 
 MIT - see [LICENSE](LICENSE.md).

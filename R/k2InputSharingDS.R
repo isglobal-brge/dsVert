@@ -363,9 +363,15 @@ k2StoreGradTripleDS <- function(session_id = NULL,
                                 grad_triple_key = "k2_grad_triple_fp") {
   ss <- .S(session_id)
   blob <- .blob_consume(grad_triple_key, ss)
-  if (is.null(blob))
+  if (is.null(blob)) {
+    if (!is.null(ss$k2_grad_a_fp) &&
+        !is.null(ss$k2_grad_b_fp) &&
+        !is.null(ss$k2_grad_c_fp)) {
+      return(list(stored = TRUE, source = "session"))
+    }
     stop(sprintf("No gradient triple blob at key '%s'", grad_triple_key),
          call. = FALSE)
+  }
   tsk <- .key_get("transport_sk", ss)
   dec <- .callMpcTool("transport-decrypt", list(
     sealed = .base64url_to_base64(blob), recipient_sk = tsk))

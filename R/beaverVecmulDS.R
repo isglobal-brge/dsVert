@@ -68,6 +68,9 @@ k2BeaverVecmulConsumeTripleDS <- function(session_id = NULL) {
   ss <- .S(session_id)
   blob <- .blob_consume("k2_beaver_vecmul_triple", ss)
   if (is.null(blob)) {
+    if (!is.null(ss$k2_beaver_vecmul_triple)) {
+      return(list(stored = TRUE, source = "session"))
+    }
     stop("No k2_beaver_vecmul_triple blob in session; client must ",
          "relay it from the dealer.", call. = FALSE)
   }

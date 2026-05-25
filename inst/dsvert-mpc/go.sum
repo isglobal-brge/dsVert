@@ -1,2 +1,6 @@
+github.com/markkurossi/crypto v0.0.0-20240520115340-daed3f9a1082 h1:9lj+7BEGrRT+7iylAqu0hY50nHQk3+LUL2g0eWDqAuw=
+github.com/markkurossi/crypto v0.0.0-20240520115340-daed3f9a1082/go.mod h1:+mhV8wp86RN6GgVyETgAd6oY+D3xLNESWKty2fGNg5U=
+github.com/markkurossi/mpc v0.0.0-20260325113446-c911bbd029d1 h1:xrsSmhu1o6lXsBB1IIPAHTTTC40Cwmok+vEpBfbB/LU=
+github.com/markkurossi/mpc v0.0.0-20260325113446-c911bbd029d1/go.mod h1:hYbH/4kxe34tl5glyVxnAZ8VObts5sib+Yx8OH+A3+4=
 golang.org/x/crypto v0.50.0 h1:zO47/JPrL6vsNkINmLoo/PH1gcxpls50DNogFvB5ZGI=
 golang.org/x/crypto v0.50.0/go.mod h1:3muZ7vA7PBCE6xgPX7nkzzjiUq87kRItoJQM1Yo8S+Q=

@@ -96,6 +96,20 @@ func main() {
 	case "k2-beaver-vecmul-round2":
 		handleK2BeaverVecmulR2()
 
+	// OT-Beaver preprocessing (dealer-free triple generation).
+	case "k2-ot-beaver-sample":
+		handleK2OTBeaverSample()
+	case "k2-ot-mul-sender-setup":
+		handleK2OTMulSenderSetup()
+	case "k2-ot-mul-receiver-choices":
+		handleK2OTMulReceiverChoices()
+	case "k2-ot-mul-sender-encrypt":
+		handleK2OTMulSenderEncrypt()
+	case "k2-ot-mul-receiver-decrypt":
+		handleK2OTMulReceiverDecrypt()
+	case "k2-ot-beaver-finalize":
+		handleK2OTBeaverFinalize()
+
 	// Beaver triple generation
 	case "k2-gen-beaver-triples":
 		handleK2GenBeaverTriples()

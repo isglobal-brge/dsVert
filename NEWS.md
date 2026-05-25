@@ -1,5 +1,13 @@
 # dsVert (development version)
 
+### Beaver preprocessing
+
+* Added server-side direct OT-Beaver preprocessing primitives and shipped
+  rebuilt `dsvert-mpc` binaries for all packaged platforms. The direct OT path
+  is intended for bounded correctness checks; full workloads continue to use
+  the production dealer preprocessing path until an OT-extension backend is
+  introduced.
+
 ### Cleanup
 
 * Removed archived `inst/k2-mpc-tool` research sources and generated package

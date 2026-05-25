@@ -103,11 +103,15 @@ k2WideSplinePhase2DS <- function(party_id = 0L, family = "binomial",
   if (is.null(peer_dcf)) stop("No peer DCF masked blob", call. = FALSE)
 
   triple_blob <- .blob_consume("k2_spline_triples", ss)
-  if (is.null(triple_blob)) stop("No spline triples blob", call. = FALSE)
-  tsk <- .key_get("transport_sk", ss)
-  dec <- .callMpcTool("transport-decrypt", list(
-    sealed = .base64url_to_base64(triple_blob), recipient_sk = tsk))
-  triples <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
+  if (is.null(triple_blob)) {
+    triples <- ss$k2_ws_triples
+    if (is.null(triples)) stop("No spline triples blob", call. = FALSE)
+  } else {
+    tsk <- .key_get("transport_sk", ss)
+    dec <- .callMpcTool("transport-decrypt", list(
+      sealed = .base64url_to_base64(triple_blob), recipient_sk = tsk))
+    triples <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
+  }
 
   result <- .callMpcTool("k2-wide-spline-full", list(
     phase = 2L, party_id = party_id, family = family,

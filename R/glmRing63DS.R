@@ -166,6 +166,7 @@ glmRing63GenDcfKeysDS <- function(dcf0_pk, dcf1_pk, family, n, frac_bits,
 glmRing63GenSplineTriplesDS <- function(dcf0_pk, dcf1_pk, n, frac_bits,
                                          ring = 63L, session_id = NULL,
                                          dealer_party = NULL) {
+  .dsvert_require_beaver_mode("dealer")
   ring <- as.integer(ring)
   if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
   ring_tag <- if (ring == 127L) "ring127" else "ring63"
@@ -270,6 +271,7 @@ glmRing63GenSplineTriplesDS <- function(dcf0_pk, dcf1_pk, n, frac_bits,
 glmRing63GenGradTriplesDS <- function(dcf0_pk, dcf1_pk, n, p,
                                        ring = 63L, session_id = NULL,
                                        dealer_party = NULL) {
+  .dsvert_require_beaver_mode("dealer")
   ring <- as.integer(ring)
   if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
   ring_tag <- if (ring == 127L) "ring127" else "ring63"

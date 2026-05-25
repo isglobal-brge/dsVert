@@ -2,17 +2,18 @@
 
 ### Beaver preprocessing
 
-* Added server-side direct OT-Beaver preprocessing primitives and relayable
-  semi-honest IKNP OT-extension commands, with rebuilt `dsvert-mpc` binaries
-  for all packaged platforms. The direct OT path remains available for bounded
-  correctness checks; IKNP is the scalable OT backend for full workloads.
+* Added `dsvertBeaverPolicyDS()` so DataSHIELD administrators can expose an
+  explicit Beaver preprocessing policy: efficient dealer mode, IKNP
+  OT-extension mode, or both.
+* Added relayable semi-honest IKNP OT-extension commands as the strengthened
+  Beaver preprocessing backend, with rebuilt `dsvert-mpc` binaries for all
+  packaged platforms.
 * Domain-separated IKNP extension seeds so client-side orchestrators can reuse
   a base-OT transcript safely across multiple multiplication batches without
   reusing PRG pads.
-* Optimised the production dealer path: DCF spline triples are now generated
-  as one batched triple set instead of three separate runtime calls, and a
-  dealer that is also a DCF party installs its own Beaver share directly in the
-  server session instead of encrypting it to itself for client relay.
+* Kept dealer preprocessing as a product backend for governed institutional
+  peer deployments and removed the historical direct-OT helpers from the
+  registered `AggregateMethods` surface.
 
 ### Cleanup
 

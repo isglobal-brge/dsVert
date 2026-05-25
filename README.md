@@ -65,17 +65,16 @@ of the product surface.
 | Property | Guarantee |
 |---|---|
 | Observation-level disclosure | Not product-exposed |
-| Beaver triples | Server-generated; optional IKNP OT-extension backend for dealer-free preprocessing; direct OT remains available for bounded checks; dealer self-shares stay server-side when the dealer is a DCF party |
+| Beaver triples | Product routes use an administrator-controlled preprocessing profile: efficient dealer mode for governed institutional-peer deployments, or IKNP OT-extension mode when no participating server should receive the unsplit `(a, b, c)` triple |
 | Transport encryption | X25519 + AES-256-GCM (transport-encrypt) |
 | Identity verification | Ed25519 signed peer transport keys (require_trusted_peers) |
-| Dealer rotation | Dealer backend rotates in K >= 3 and uses a fixed server-side dealer in K = 2 |
 | Collusion threshold | (K−1)/K servers needed to recover any plaintext |
 | Ring | Ring63 (frac_bits = 20) and Ring127 (frac_bits = 50) depending on method precision needs |
 
 ## Go Runtime (`dsvert-mpc`)
 
 `inst/dsvert-mpc` contains the current Go source for the Ring63/Ring127 MPC
-kernels: DCF wide-spline functions, Beaver and direct OT-Beaver primitives,
+kernels: DCF wide-spline functions, dealer and IKNP Beaver preprocessing,
 transport encryption, identity verification, and fixed-point truncation.
 Per-platform runtime binaries ship under
 `inst/bin/{darwin-amd64,darwin-arm64,linux-amd64,windows-amd64}/`.

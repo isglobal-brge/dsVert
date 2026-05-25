@@ -34,7 +34,11 @@ test_that("debug and patient-level legacy helpers are not product-exposed", {
     "k2SetWeightsDS",
     "k2ReceiveWeightsDS",
     "k2ApplyWeightsDS",
-    "k2ApplySqrtWeightsDS")
+    "k2ApplySqrtWeightsDS",
+    "k2OtMulSenderSetupDS",
+    "k2OtMulReceiverChoicesDS",
+    "k2OtMulSenderEncryptDS",
+    "k2OtMulReceiverDecryptDS")
   expect_false(any(blocked %in% methods))
 })
 
@@ -54,6 +58,10 @@ test_that("debug and patient-level helpers are not namespace-exported", {
     "k2ReceiveWeightsDS",
     "k2ApplyWeightsDS",
     "k2ApplySqrtWeightsDS",
+    "k2OtMulSenderSetupDS",
+    "k2OtMulReceiverChoicesDS",
+    "k2OtMulSenderEncryptDS",
+    "k2OtMulReceiverDecryptDS",
     "k2SetCoxTimesDS",
     "k2ReceiveCoxMetaDS",
     "k2ApplyCoxPermutationDS",

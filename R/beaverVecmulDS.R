@@ -30,6 +30,7 @@ k2BeaverVecmulGenTriplesDS <- function(dcf0_pk, dcf1_pk, n,
                                        frac_bits = 20L,
                                        ring = 63L,
                                        dealer_party = NULL) {
+  .dsvert_require_beaver_mode("dealer")
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }

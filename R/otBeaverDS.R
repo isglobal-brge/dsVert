@@ -1,8 +1,8 @@
 #' OT-Beaver preprocessing helpers
 #'
-#' These aggregate methods implement the server-side half of the dealer-free
-#' Beaver preprocessing protocol. They are intentionally low-level: the client
-#' package orchestrates the two OT directions and then calls the existing
+#' These aggregate methods implement the server-side half of the IKNP
+#' Beaver-preprocessing profile. They are intentionally low-level: the client
+#' package orchestrates the two IKNP directions and then calls the existing
 #' Beaver online rounds unchanged.
 #'
 #' @keywords internal
@@ -41,6 +41,7 @@ NULL
 k2OtBeaverSampleDS <- function(kind = "vecmul", n, p = 0L, ring = 63L,
                                beaver_key = "k2_ot_beaver",
                                session_id = NULL) {
+  .dsvert_require_beaver_mode("iknp")
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }

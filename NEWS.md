@@ -6,6 +6,9 @@
   semi-honest IKNP OT-extension commands, with rebuilt `dsvert-mpc` binaries
   for all packaged platforms. The direct OT path remains available for bounded
   correctness checks; IKNP is the scalable OT backend for full workloads.
+* Domain-separated IKNP extension seeds so client-side orchestrators can reuse
+  a base-OT transcript safely across multiple multiplication batches without
+  reusing PRG pads.
 * Optimised the production dealer path: DCF spline triples are now generated
   as one batched triple set instead of three separate runtime calls, and a
   dealer that is also a DCF party installs its own Beaver share directly in the

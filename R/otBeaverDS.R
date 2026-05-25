@@ -189,7 +189,7 @@ k2OtMulReceiverDecryptDS <- function(ciphertexts = NULL,
 
 #' Start an IKNP base-OT receiver transcript
 #'
-#' @param iknp_key Session key prefix.
+#' @param iknp_key Session key prefix for the reusable IKNP base-OT state.
 #' @param session_id MPC session id.
 #' @return Public base setup to relay to the IKNP sender.
 #' @export
@@ -284,7 +284,8 @@ k2IknpBaseSenderFinalizeDS <- function(ciphertexts = NULL,
 #' Extend IKNP receiver choices from a stored ring operand
 #'
 #' @param y_key Session key containing the receiver ring operand.
-#' @param iknp_key Session key prefix.
+#' @param iknp_key Session key prefix for this extension transcript.
+#' @param base_key Session key prefix for the reusable IKNP base-OT state.
 #' @param n Operand length.
 #' @param ring Integer ring selector, 63 or 127.
 #' @param u_matrix_blob_key Optional blob key where the public U matrix should
@@ -293,14 +294,15 @@ k2IknpBaseSenderFinalizeDS <- function(ciphertexts = NULL,
 #' @return Public U matrix to relay to the IKNP sender.
 #' @export
 k2IknpReceiverExtendDS <- function(y_key, iknp_key, n, ring = 63L,
+                                   base_key = iknp_key,
                                    u_matrix_blob_key = NULL,
                                    session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
-  state <- ss[[.otb_key(iknp_key, "receiver_state")]]
-  if (is.null(state)) stop("Missing IKNP receiver state for ", iknp_key,
+  state <- ss[[.otb_key(base_key, "receiver_state")]]
+  if (is.null(state)) stop("Missing IKNP receiver state for ", base_key,
                            call. = FALSE)
   y <- ss[[y_key]]
   if (is.null(y)) stop("Missing IKNP receiver operand key ", y_key,
@@ -308,7 +310,8 @@ k2IknpReceiverExtendDS <- function(y_key, iknp_key, n, ring = 63L,
   ring <- as.integer(ring)
   ring_tag <- if (ring == 127L) "ring127" else "ring63"
   res <- .callMpcTool("k2-iknp-receiver-extend", list(
-    receiver_state = state, y = y, n = as.integer(n), ring = ring_tag))
+    receiver_state = state, y = y, n = as.integer(n), ring = ring_tag,
+    domain = iknp_key))
   ss[[.otb_key(iknp_key, "receiver_extend_state")]] <-
     res$receiver_extend_state
   u <- .otb_b64u(res$u_matrix)
@@ -324,7 +327,8 @@ k2IknpReceiverExtendDS <- function(y_key, iknp_key, n, ring = 63L,
 #' @param u_matrix Public receiver U matrix.
 #' @param u_matrix_blob_key Optional blob key containing the U matrix.
 #' @param x_key Session key containing the sender ring operand.
-#' @param iknp_key Session key prefix.
+#' @param iknp_key Session key prefix for this extension transcript.
+#' @param base_key Session key prefix for the reusable IKNP base-OT state.
 #' @param output_key Session key for this party's sender cross-term share.
 #' @param n Operand length.
 #' @param ring Integer ring selector, 63 or 127.
@@ -336,14 +340,15 @@ k2IknpReceiverExtendDS <- function(y_key, iknp_key, n, ring = 63L,
 k2IknpSenderEncryptDS <- function(u_matrix = NULL, u_matrix_blob_key = NULL,
                                   x_key, iknp_key, output_key, n,
                                   ring = 63L,
+                                  base_key = iknp_key,
                                   ciphertexts_blob_key = NULL,
                                   session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
-  state <- ss[[.otb_key(iknp_key, "sender_state")]]
-  if (is.null(state)) stop("Missing IKNP sender state for ", iknp_key,
+  state <- ss[[.otb_key(base_key, "sender_state")]]
+  if (is.null(state)) stop("Missing IKNP sender state for ", base_key,
                            call. = FALSE)
   x <- ss[[x_key]]
   if (is.null(x)) stop("Missing IKNP sender operand key ", x_key,
@@ -353,7 +358,7 @@ k2IknpSenderEncryptDS <- function(u_matrix = NULL, u_matrix_blob_key = NULL,
   res <- .callMpcTool("k2-iknp-sender-encrypt", list(
     sender_state = state,
     u_matrix = .otb_blob_or_arg(u_matrix, u_matrix_blob_key, ss),
-    x = x, n = as.integer(n), ring = ring_tag))
+    x = x, n = as.integer(n), ring = ring_tag, domain = iknp_key))
   ss[[output_key]] <- res$sender_share
   cts <- .otb_b64u(res$ciphertexts)
   if (!is.null(ciphertexts_blob_key) && nzchar(ciphertexts_blob_key)) {

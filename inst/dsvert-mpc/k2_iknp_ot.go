@@ -74,6 +74,7 @@ type iknpReceiverExtendInput struct {
 	Y             string `json:"y"`
 	N             int    `json:"n"`
 	Ring          string `json:"ring"`
+	Domain        string `json:"domain"`
 }
 
 type iknpReceiverExtendStateWire struct {
@@ -95,6 +96,7 @@ type iknpSenderEncryptInput struct {
 	X           string `json:"x"`
 	N           int    `json:"n"`
 	Ring        string `json:"ring"`
+	Domain      string `json:"domain"`
 }
 
 type iknpCiphertextsWire struct {
@@ -296,7 +298,7 @@ func handleK2IKNPReceiverExtend() {
 		outputError("k2-iknp-receiver-extend: " + err.Error())
 		return
 	}
-	labels, uMatrix, err := iknpReceiverExtend(wires, choices)
+	labels, uMatrix, err := iknpReceiverExtend(wires, choices, input.Domain)
 	if err != nil {
 		outputError("k2-iknp-receiver-extend: " + err.Error())
 		return
@@ -338,7 +340,7 @@ func handleK2IKNPSenderEncrypt() {
 		outputError("k2-iknp-sender-encrypt: bad u_matrix base64")
 		return
 	}
-	labels, err := iknpSenderLabels(baseLabels, delta, uMatrix, len(wires))
+	labels, err := iknpSenderLabels(baseLabels, delta, uMatrix, len(wires), input.Domain)
 	if err != nil {
 		outputError("k2-iknp-sender-encrypt: " + err.Error())
 		return
@@ -521,16 +523,16 @@ func iknpSenderBaseLabels(state iknpBaseSenderStateWire) (ot.Label, []ot.Label, 
 	return deltaLabels[0], baseLabels, nil
 }
 
-func iknpReceiverExtend(wires []ot.Wire, choices []bool) ([]ot.Label, []byte, error) {
+func iknpReceiverExtend(wires []ot.Wire, choices []bool, domain string) ([]ot.Label, []byte, error) {
 	var g0 [iknpK]cipher.Stream
 	var g1 [iknpK]cipher.Stream
 	var err error
 	for i := 0; i < iknpK; i++ {
-		g0[i], err = iknpNewPrg(wires[i].L0)
+		g0[i], err = iknpNewPrg(iknpDeriveSeed(wires[i].L0, domain))
 		if err != nil {
 			return nil, nil, err
 		}
-		g1[i], err = iknpNewPrg(wires[i].L1)
+		g1[i], err = iknpNewPrg(iknpDeriveSeed(wires[i].L1, domain))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -563,11 +565,11 @@ func iknpReceiverExtend(wires []ot.Wire, choices []bool) ([]ot.Label, []byte, er
 	return labels, uMatrix, nil
 }
 
-func iknpSenderLabels(baseLabels []ot.Label, delta ot.Label, uMatrix []byte, n int) ([]ot.Label, error) {
+func iknpSenderLabels(baseLabels []ot.Label, delta ot.Label, uMatrix []byte, n int, domain string) ([]ot.Label, error) {
 	var g0 [iknpK]cipher.Stream
 	var err error
 	for i := 0; i < iknpK; i++ {
-		g0[i], err = iknpNewPrg(baseLabels[i])
+		g0[i], err = iknpNewPrg(iknpDeriveSeed(baseLabels[i], domain))
 		if err != nil {
 			return nil, err
 		}
@@ -640,6 +642,18 @@ func iknpPad(label ot.Label, index int, branch byte) ot.Label {
 	binary.LittleEndian.PutUint64(idx[:], uint64(index))
 	h.Write(idx[:])
 	h.Write([]byte{branch})
+	sum := h.Sum(nil)
+	var out ot.Label
+	out.SetBytes(sum[:16])
+	return out
+}
+
+func iknpDeriveSeed(label ot.Label, domain string) ot.Label {
+	var data ot.LabelData
+	h := sha256.New()
+	h.Write([]byte("dsvert-iknp-seed-v1"))
+	h.Write(label.Bytes(&data))
+	h.Write([]byte(domain))
 	sum := h.Sum(nil)
 	var out ot.Label
 	out.SetBytes(sum[:16])

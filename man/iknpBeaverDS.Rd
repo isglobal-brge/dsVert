@@ -34,6 +34,7 @@ k2IknpReceiverExtendDS(
   iknp_key,
   n,
   ring = 63L,
+  base_key = iknp_key,
   u_matrix_blob_key = NULL,
   session_id = NULL
 )
@@ -46,6 +47,7 @@ k2IknpSenderEncryptDS(
   output_key,
   n,
   ring = 63L,
+  base_key = iknp_key,
   ciphertexts_blob_key = NULL,
   session_id = NULL
 )
@@ -61,7 +63,11 @@ k2IknpReceiverDecryptDS(
 )
 }
 \arguments{
-\item{iknp_key}{Session key prefix.}
+\item{iknp_key}{Session key prefix. For extension calls this identifies the
+per-extension transcript; \code{base_key} identifies the reusable base-OT
+state.}
+
+\item{base_key}{Session key prefix for the reusable IKNP base-OT state.}
 
 \item{session_id}{MPC session id.}
 

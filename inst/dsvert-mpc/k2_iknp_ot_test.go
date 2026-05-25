@@ -90,7 +90,8 @@ func runIKNPCrossTermForTest(t *testing.T, xB64, yB64 string, n int, ring string
 	if err != nil {
 		t.Fatal(err)
 	}
-	receiverLabels, uMatrix, err := iknpReceiverExtend(baseWires, choices)
+	domain := "iknp-test-domain"
+	receiverLabels, uMatrix, err := iknpReceiverExtend(baseWires, choices, domain)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +99,7 @@ func runIKNPCrossTermForTest(t *testing.T, xB64, yB64 string, n int, ring string
 	if err != nil {
 		t.Fatal(err)
 	}
-	senderLabels, err := iknpSenderLabels(baseLabels, delta, uMatrix, len(wires))
+	senderLabels, err := iknpSenderLabels(baseLabels, delta, uMatrix, len(wires), domain)
 	if err != nil {
 		t.Fatal(err)
 	}

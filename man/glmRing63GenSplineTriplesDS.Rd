@@ -10,7 +10,8 @@ glmRing63GenSplineTriplesDS(
   n,
   frac_bits,
   ring = 63L,
-  session_id = NULL
+  session_id = NULL,
+  dealer_party = NULL
 )
 }
 \arguments{
@@ -24,6 +25,10 @@ glmRing63GenSplineTriplesDS(
 triple shares (task #116 Cox/LMM).}
 
 \item{session_id}{Character or NULL.}
+
+\item{dealer_party}{Optional integer 0/1. When this dealer is also one of
+the two DCF parties, store that party's triples directly in the current
+session and only return the encrypted blob for the peer.}
 }
 \value{
 List with encrypted blobs for each DCF party.

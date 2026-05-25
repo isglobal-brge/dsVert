@@ -65,7 +65,7 @@ of the product surface.
 | Property | Guarantee |
 |---|---|
 | Observation-level disclosure | Not product-exposed |
-| Beaver triples | Server-generated; optional direct OT-Beaver preprocessing for bounded correctness checks |
+| Beaver triples | Server-generated; optional direct OT-Beaver preprocessing for bounded correctness checks; dealer self-shares stay server-side when the dealer is a DCF party |
 | Transport encryption | X25519 + AES-256-GCM (transport-encrypt) |
 | Identity verification | Ed25519 signed peer transport keys (require_trusted_peers) |
 | Dealer rotation | Dealer backend rotates in K >= 3 and uses a fixed server-side dealer in K = 2 |

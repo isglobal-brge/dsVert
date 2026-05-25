@@ -10,7 +10,8 @@ k2BeaverVecmulGenTriplesDS(
   n,
   session_id = NULL,
   frac_bits = 20L,
-  ring = 63L
+  ring = 63L,
+  dealer_party = NULL
 )
 }
 \arguments{
@@ -26,6 +27,10 @@ handler defaults to fracBits=50 regardless of this argument.}
 
 \item{ring}{Integer 63 (default) or 127. Routes through the Uint128
 Ring127 handler when 127 (task #116 Cox/LMM STRICT migration).}
+
+\item{dealer_party}{Optional integer 0/1. When the dealer is also one of
+the two DCF parties, store that party's triple share directly in the
+current session and only return the encrypted blob for the peer.}
 }
 \value{
 list(triple_blob_0, triple_blob_1) -- both base64url sealed

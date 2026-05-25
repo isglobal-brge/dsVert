@@ -7,6 +7,10 @@
   is intended for bounded correctness checks; full workloads continue to use
   the production dealer preprocessing path until an OT-extension backend is
   introduced.
+* Optimised the production dealer path: DCF spline triples are now generated
+  as one batched triple set instead of three separate runtime calls, and a
+  dealer that is also a DCF party installs its own Beaver share directly in the
+  server session instead of encrypting it to itself for client relay.
 
 ### Cleanup
 

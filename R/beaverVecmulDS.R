@@ -19,13 +19,17 @@
 #'   handler defaults to fracBits=50 regardless of this argument.
 #' @param ring Integer 63 (default) or 127. Routes through the Uint128
 #'   Ring127 handler when 127 (task #116 Cox/LMM STRICT migration).
+#' @param dealer_party Optional integer 0/1. When the dealer is also one of
+#'   the two DCF parties, store that party's triple share directly in the
+#'   current session and only return the encrypted blob for the peer.
 #' @return list(triple_blob_0, triple_blob_1) -- both base64url sealed
 #'   payloads for relay to party 0 and party 1.
 #' @export
 k2BeaverVecmulGenTriplesDS <- function(dcf0_pk, dcf1_pk, n,
                                        session_id = NULL,
                                        frac_bits = 20L,
-                                       ring = 63L) {
+                                       ring = 63L,
+                                       dealer_party = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
@@ -39,15 +43,36 @@ k2BeaverVecmulGenTriplesDS <- function(dcf0_pk, dcf1_pk, n,
   res <- .callMpcTool("k2-beaver-vecmul-gen-triples",
     list(n = as.integer(n), frac_bits = as.integer(frac_bits),
          ring = ring_tag))
+  dealer_party <- if (is.null(dealer_party)) NA_integer_ else
+    as.integer(dealer_party)
+  if (!is.na(dealer_party) && !dealer_party %in% c(0L, 1L)) {
+    stop("dealer_party must be NULL, 0 or 1", call. = FALSE)
+  }
+  ss <- .S(session_id)
+  if (identical(dealer_party, 0L)) {
+    ss$k2_beaver_vecmul_triple <- res$triple_0
+  } else if (identical(dealer_party, 1L)) {
+    ss$k2_beaver_vecmul_triple <- res$triple_1
+  }
+
   # Seal each triple blob to the target party's transport pk.
-  seal0 <- .callMpcTool("transport-encrypt",
-    list(data = res$triple_0,
-         recipient_pk = .base64url_to_base64(dcf0_pk)))
-  seal1 <- .callMpcTool("transport-encrypt",
-    list(data = res$triple_1,
-         recipient_pk = .base64url_to_base64(dcf1_pk)))
-  list(triple_blob_0 = base64_to_base64url(seal0$sealed),
-       triple_blob_1 = base64_to_base64url(seal1$sealed),
+  blob0 <- ""
+  blob1 <- ""
+  if (!identical(dealer_party, 0L)) {
+    seal0 <- .callMpcTool("transport-encrypt",
+      list(data = res$triple_0,
+           recipient_pk = .base64url_to_base64(dcf0_pk)))
+    blob0 <- base64_to_base64url(seal0$sealed)
+  }
+  if (!identical(dealer_party, 1L)) {
+    seal1 <- .callMpcTool("transport-encrypt",
+      list(data = res$triple_1,
+           recipient_pk = .base64url_to_base64(dcf1_pk)))
+    blob1 <- base64_to_base64url(seal1$sealed)
+  }
+  list(triple_blob_0 = blob0,
+       triple_blob_1 = blob1,
+       dealer_self_stored = !is.na(dealer_party),
        n = as.integer(n))
 }
 

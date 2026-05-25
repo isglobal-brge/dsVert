@@ -158,18 +158,42 @@ glmRing63GenDcfKeysDS <- function(dcf0_pk, dcf1_pk, family, n, frac_bits,
 #' @param ring Integer 63 (default) or 127. Ring127 emits 16-byte Uint128
 #'   triple shares (task #116 Cox/LMM).
 #' @param session_id Character or NULL.
+#' @param dealer_party Optional integer 0/1. When this dealer is also one of
+#'   the two DCF parties, store that party's triples directly in the current
+#'   session and only return the encrypted blob for the peer.
 #' @return List with encrypted blobs for each DCF party.
 #' @export
 glmRing63GenSplineTriplesDS <- function(dcf0_pk, dcf1_pk, n, frac_bits,
-                                         ring = 63L, session_id = NULL) {
+                                         ring = 63L, session_id = NULL,
+                                         dealer_party = NULL) {
   ring <- as.integer(ring)
   if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
   ring_tag <- if (ring == 127L) "ring127" else "ring63"
 
-  triples <- lapply(1:3, function(i)
-    .callMpcTool("k2-gen-beaver-triples",
-      list(n = as.integer(n), frac_bits = as.integer(frac_bits),
-           ring = ring_tag)))
+  n <- as.integer(n)
+  triples <- .callMpcTool("k2-gen-beaver-triples",
+    list(n = as.integer(3L * n), frac_bits = as.integer(frac_bits),
+         ring = ring_tag))
+
+  split_b64 <- function(x) {
+    raw <- jsonlite::base64_dec(x)
+    bytes_per_value <- if (ring == 127L) 16L else 8L
+    chunk <- n * bytes_per_value
+    if (length(raw) != 3L * chunk) {
+      stop("unexpected batched spline triple payload length", call. = FALSE)
+    }
+    lapply(0:2, function(i) {
+      idx <- (i * chunk + 1L):((i + 1L) * chunk)
+      jsonlite::base64_enc(raw[idx])
+    })
+  }
+
+  p0_a <- split_b64(triples$party0_u)
+  p0_b <- split_b64(triples$party0_v)
+  p0_c <- split_b64(triples$party0_w)
+  p1_a <- split_b64(triples$party1_u)
+  p1_b <- split_b64(triples$party1_v)
+  p1_c <- split_b64(triples$party1_w)
 
   pk0 <- .base64url_to_base64(dcf0_pk)
   pk1 <- .base64url_to_base64(dcf1_pk)
@@ -179,26 +203,52 @@ glmRing63GenSplineTriplesDS <- function(dcf0_pk, dcf1_pk, n, frac_bits,
   td1 <- list()
   for (op in c("and", "had1", "had2")) {
     ti <- switch(op, and = 1, had1 = 2, had2 = 3)
-    td0[[paste0(op, "_a")]] <- triples[[ti]]$party0_u
-    td0[[paste0(op, "_b")]] <- triples[[ti]]$party0_v
-    td0[[paste0(op, "_c")]] <- triples[[ti]]$party0_w
-    td1[[paste0(op, "_a")]] <- triples[[ti]]$party1_u
-    td1[[paste0(op, "_b")]] <- triples[[ti]]$party1_v
-    td1[[paste0(op, "_c")]] <- triples[[ti]]$party1_w
+    td0[[paste0(op, "_a")]] <- p0_a[[ti]]
+    td0[[paste0(op, "_b")]] <- p0_b[[ti]]
+    td0[[paste0(op, "_c")]] <- p0_c[[ti]]
+    td1[[paste0(op, "_a")]] <- p1_a[[ti]]
+    td1[[paste0(op, "_b")]] <- p1_b[[ti]]
+    td1[[paste0(op, "_c")]] <- p1_c[[ti]]
   }
 
-  sealed0 <- .callMpcTool("transport-encrypt", list(
-    data = jsonlite::base64_enc(charToRaw(
-      jsonlite::toJSON(td0, auto_unbox = TRUE))),
-    recipient_pk = pk0))
-  sealed1 <- .callMpcTool("transport-encrypt", list(
-    data = jsonlite::base64_enc(charToRaw(
-      jsonlite::toJSON(td1, auto_unbox = TRUE))),
-    recipient_pk = pk1))
+  dealer_party <- if (is.null(dealer_party)) NA_integer_ else
+    as.integer(dealer_party)
+  if (!is.na(dealer_party) && !dealer_party %in% c(0L, 1L)) {
+    stop("dealer_party must be NULL, 0 or 1", call. = FALSE)
+  }
+  if (!is.na(dealer_party)) {
+    if (is.null(session_id) || !nzchar(session_id)) {
+      stop("session_id required when dealer_party is set", call. = FALSE)
+    }
+    ss <- .S(session_id)
+    if (identical(dealer_party, 0L)) {
+      ss$k2_ws_triples <- td0
+    } else if (identical(dealer_party, 1L)) {
+      ss$k2_ws_triples <- td1
+    }
+  }
+
+  blob0 <- ""
+  blob1 <- ""
+  if (!identical(dealer_party, 0L)) {
+    sealed0 <- .callMpcTool("transport-encrypt", list(
+      data = jsonlite::base64_enc(charToRaw(
+        jsonlite::toJSON(td0, auto_unbox = TRUE))),
+      recipient_pk = pk0))
+    blob0 <- base64_to_base64url(sealed0$sealed)
+  }
+  if (!identical(dealer_party, 1L)) {
+    sealed1 <- .callMpcTool("transport-encrypt", list(
+      data = jsonlite::base64_enc(charToRaw(
+        jsonlite::toJSON(td1, auto_unbox = TRUE))),
+      recipient_pk = pk1))
+    blob1 <- base64_to_base64url(sealed1$sealed)
+  }
 
   list(
-    spline_blob_0 = base64_to_base64url(sealed0$sealed),
-    spline_blob_1 = base64_to_base64url(sealed1$sealed)
+    spline_blob_0 = blob0,
+    spline_blob_1 = blob1,
+    dealer_self_stored = !is.na(dealer_party)
   )
 }
 
@@ -212,10 +262,14 @@ glmRing63GenSplineTriplesDS <- function(dcf0_pk, dcf1_pk, n, frac_bits,
 #' @param p Integer. Total number of features.
 #' @param session_id Character or NULL.
 #' @param ring Integer (63 or 127). MPC ring selector; controls fixed-point precision.
+#' @param dealer_party Optional integer 0/1. When this dealer is also one of
+#'   the two DCF parties, store that party's gradient triple share directly in
+#'   the current session and only return the encrypted blob for the peer.
 #' @return List with encrypted blobs for each DCF party.
 #' @export
 glmRing63GenGradTriplesDS <- function(dcf0_pk, dcf1_pk, n, p,
-                                       ring = 63L, session_id = NULL) {
+                                       ring = 63L, session_id = NULL,
+                                       dealer_party = NULL) {
   ring <- as.integer(ring)
   if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
   ring_tag <- if (ring == 127L) "ring127" else "ring63"
@@ -226,20 +280,50 @@ glmRing63GenGradTriplesDS <- function(dcf0_pk, dcf1_pk, n, p,
   pk0 <- .base64url_to_base64(dcf0_pk)
   pk1 <- .base64url_to_base64(dcf1_pk)
 
-  sealed0 <- .callMpcTool("transport-encrypt", list(
-    data = jsonlite::base64_enc(charToRaw(jsonlite::toJSON(list(
-      a = mvt$party0_a, b = mvt$party0_b, c = mvt$party0_c),
-      auto_unbox = TRUE))),
-    recipient_pk = pk0))
-  sealed1 <- .callMpcTool("transport-encrypt", list(
-    data = jsonlite::base64_enc(charToRaw(jsonlite::toJSON(list(
-      a = mvt$party1_a, b = mvt$party1_b, c = mvt$party1_c),
-      auto_unbox = TRUE))),
-    recipient_pk = pk1))
+  dealer_party <- if (is.null(dealer_party)) NA_integer_ else
+    as.integer(dealer_party)
+  if (!is.na(dealer_party) && !dealer_party %in% c(0L, 1L)) {
+    stop("dealer_party must be NULL, 0 or 1", call. = FALSE)
+  }
+  if (!is.na(dealer_party)) {
+    if (is.null(session_id) || !nzchar(session_id)) {
+      stop("session_id required when dealer_party is set", call. = FALSE)
+    }
+    ss <- .S(session_id)
+    if (identical(dealer_party, 0L)) {
+      ss$k2_grad_a_fp <- mvt$party0_a
+      ss$k2_grad_b_fp <- mvt$party0_b
+      ss$k2_grad_c_fp <- mvt$party0_c
+    } else if (identical(dealer_party, 1L)) {
+      ss$k2_grad_a_fp <- mvt$party1_a
+      ss$k2_grad_b_fp <- mvt$party1_b
+      ss$k2_grad_c_fp <- mvt$party1_c
+    }
+  }
+
+  blob0 <- ""
+  blob1 <- ""
+  if (!identical(dealer_party, 0L)) {
+    sealed0 <- .callMpcTool("transport-encrypt", list(
+      data = jsonlite::base64_enc(charToRaw(jsonlite::toJSON(list(
+        a = mvt$party0_a, b = mvt$party0_b, c = mvt$party0_c),
+        auto_unbox = TRUE))),
+      recipient_pk = pk0))
+    blob0 <- base64_to_base64url(sealed0$sealed)
+  }
+  if (!identical(dealer_party, 1L)) {
+    sealed1 <- .callMpcTool("transport-encrypt", list(
+      data = jsonlite::base64_enc(charToRaw(jsonlite::toJSON(list(
+        a = mvt$party1_a, b = mvt$party1_b, c = mvt$party1_c),
+        auto_unbox = TRUE))),
+      recipient_pk = pk1))
+    blob1 <- base64_to_base64url(sealed1$sealed)
+  }
 
   list(
-    grad_blob_0 = base64_to_base64url(sealed0$sealed),
-    grad_blob_1 = base64_to_base64url(sealed1$sealed)
+    grad_blob_0 = blob0,
+    grad_blob_1 = blob1,
+    dealer_self_stored = !is.na(dealer_party)
   )
 }
 

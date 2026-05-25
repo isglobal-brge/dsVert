@@ -109,6 +109,20 @@ func main() {
 		handleK2OTMulReceiverDecrypt()
 	case "k2-ot-beaver-finalize":
 		handleK2OTBeaverFinalize()
+	case "k2-iknp-base-receiver-setup":
+		handleK2IKNPBaseReceiverSetup()
+	case "k2-iknp-base-sender-choices":
+		handleK2IKNPBaseSenderChoices()
+	case "k2-iknp-base-receiver-encrypt":
+		handleK2IKNPBaseReceiverEncrypt()
+	case "k2-iknp-base-sender-finalize":
+		handleK2IKNPBaseSenderFinalize()
+	case "k2-iknp-receiver-extend":
+		handleK2IKNPReceiverExtend()
+	case "k2-iknp-sender-encrypt":
+		handleK2IKNPSenderEncrypt()
+	case "k2-iknp-receiver-decrypt":
+		handleK2IKNPReceiverDecrypt()
 
 	// Beaver triple generation
 	case "k2-gen-beaver-triples":

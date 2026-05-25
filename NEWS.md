@@ -2,11 +2,10 @@
 
 ### Beaver preprocessing
 
-* Added server-side direct OT-Beaver preprocessing primitives and shipped
-  rebuilt `dsvert-mpc` binaries for all packaged platforms. The direct OT path
-  is intended for bounded correctness checks; full workloads continue to use
-  the production dealer preprocessing path until an OT-extension backend is
-  introduced.
+* Added server-side direct OT-Beaver preprocessing primitives and relayable
+  semi-honest IKNP OT-extension commands, with rebuilt `dsvert-mpc` binaries
+  for all packaged platforms. The direct OT path remains available for bounded
+  correctness checks; IKNP is the scalable OT backend for full workloads.
 * Optimised the production dealer path: DCF spline triples are now generated
   as one batched triple set instead of three separate runtime calls, and a
   dealer that is also a DCF party installs its own Beaver share directly in the

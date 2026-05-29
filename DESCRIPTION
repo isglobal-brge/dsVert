@@ -200,4 +200,13 @@ Options:
     default.dsvert.mpc_binary="",
     default.dsvert.identity_seed="",
     default.dsvert.require_trusted_peers=TRUE,
-    default.dsvert.trusted_peers=""
+    default.dsvert.trusted_peers="",
+    default.dsvert.psi.pseudonym_mode="auto",
+    default.dsvert.psi.pseudonym_key="",
+    default.dsvert.psi.study_id="",
+    default.dsvert.psi.key_custody="none",
+    default.dsvert.psi.require_keyed_pseudonyms=FALSE,
+    default.dsvert.psi.max_input_ids=1000000,
+    default.dsvert.psi.rate_limit_n=1000,
+    default.dsvert.psi.rate_limit_window_sec=60,
+    default.dsvert.psi.audit_log_path=""

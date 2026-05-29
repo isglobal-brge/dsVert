@@ -18,7 +18,8 @@ isolation. Default NULL uses global shared storage (not recommended for concurre
 List with n (count only -- no points returned).
 }
 \description{
-Hashes identifiers to P-256 curve points and multiplies by a random scalar.
-The scalar and masked points are stored locally and NEVER returned to the
-client. Points are exported per-target via \code{\link{psiExportMaskedDS}}.
+Applies the server PSI pseudonymisation policy, hashes identifiers to P-256
+curve points and multiplies by a random scalar. The scalar and masked points
+are stored locally and NEVER returned to the client. Points are exported
+per-target via \code{\link{psiExportMaskedDS}}.
 }

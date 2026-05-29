@@ -11,10 +11,12 @@
 #'
 #' Security (DDH assumption on P-256, malicious-client model):
 #' \itemize{
-#'   \item The client sees only opaque encrypted blobs (not reversible)
+#'   \item The client sees only opaque encrypted blobs
 #'   \item Each server's scalar never leaves the server
 #'   \item The PSI firewall enforces phase ordering and one-shot semantics
-#'   \item No party can perform dictionary attacks or OPRF oracle attacks
+#'   \item When server policy provides a per-study PSI pseudonym key, identifiers
+#'     are first mapped through a study-separated keyed PRF before ECDH masking
+#'   \item The client receives no identifiers, pseudonyms, EC points or row maps
 #' }
 #'
 #' @references
@@ -54,6 +56,208 @@ NULL
          if (is.null(current)) "none" else current,
          "'. Required: '", required_phase, "'", call. = FALSE)
   }
+}
+
+.psi_option <- function(name, default = NULL) {
+  value <- getOption(name)
+  if (is.null(value)) value <- getOption(paste0("default.", name))
+  if (is.null(value)) default else value
+}
+
+.psi_scalar_option <- function(name, default = NULL) {
+  value <- .psi_option(name, default)
+  if (is.null(value) || length(value) == 0L) return("")
+  as.character(value[[1L]])
+}
+
+.psi_bool_option <- function(name, default = FALSE) {
+  isTRUE(as.logical(.psi_option(name, default)))
+}
+
+.psi_int_option <- function(name, default) {
+  value <- suppressWarnings(as.integer(.psi_option(name, default)[[1L]]))
+  if (length(value) != 1L || is.na(value)) as.integer(default) else value
+}
+
+.psi_num_option <- function(name, default) {
+  value <- suppressWarnings(as.numeric(.psi_option(name, default)[[1L]]))
+  if (length(value) != 1L || is.na(value)) as.numeric(default) else value
+}
+
+.psi_policy <- function(session_id) {
+  key <- .psi_scalar_option("dsvert.psi.pseudonym_key", "")
+  mode <- .psi_scalar_option("dsvert.psi.pseudonym_mode", "auto")
+  if (!nzchar(mode) || identical(mode, "auto")) {
+    mode <- if (nzchar(key)) "shared_key" else "none"
+  }
+  mode <- match.arg(mode, c("none", "shared_key", "threshold"))
+  if (identical(mode, "threshold")) {
+    stop(
+      "PSI threshold-OPRF key custody is not implemented in this build. ",
+      "Use dsvert.psi.pseudonym_mode='shared_key' with pinned peers, or ",
+      "disable the threshold policy for this profile.",
+      call. = FALSE
+    )
+  }
+  if (.psi_bool_option("dsvert.psi.require_keyed_pseudonyms", FALSE) &&
+      identical(mode, "none")) {
+    stop("PSI keyed pseudonymisation is required by server policy.", call. = FALSE)
+  }
+  if (identical(mode, "shared_key") && !nzchar(key)) {
+    stop("PSI pseudonym_mode='shared_key' requires dsvert.psi.pseudonym_key.",
+         call. = FALSE)
+  }
+
+  study_id <- .psi_scalar_option("dsvert.psi.study_id", "")
+  if (!nzchar(study_id)) study_id <- session_id
+  key_custody <- .psi_scalar_option("dsvert.psi.key_custody", "")
+  if (!nzchar(key_custody)) {
+    key_custody <- if (identical(mode, "shared_key")) "shared_key" else "none"
+  }
+  if (!identical(mode, "shared_key")) {
+    key_custody <- "none"
+  }
+
+  key_id <- if (identical(mode, "shared_key")) {
+    digest::hmac(key, paste0("dsVert-PSI-key-id-v1|", study_id),
+                 algo = "sha256")
+  } else {
+    ""
+  }
+  list(
+    pseudonym_mode = mode,
+    pseudonym_key = key,
+    key_custody = key_custody,
+    study_id = study_id,
+    study_id_hash = digest::digest(study_id, algo = "sha256"),
+    key_id = key_id,
+    max_input_ids = .psi_int_option("dsvert.psi.max_input_ids", 1000000L),
+    rate_limit_n = .psi_int_option("dsvert.psi.rate_limit_n", 1000L),
+    rate_limit_window_sec = .psi_num_option("dsvert.psi.rate_limit_window_sec", 60)
+  )
+}
+
+.psi_public_policy <- function(policy) {
+  list(
+    pseudonym_mode = policy$pseudonym_mode,
+    key_custody = policy$key_custody,
+    study_id_hash = policy$study_id_hash,
+    key_id = policy$key_id,
+    max_input_ids = policy$max_input_ids,
+    rate_limit_n = policy$rate_limit_n,
+    rate_limit_window_sec = policy$rate_limit_window_sec
+  )
+}
+
+.psi_audit_event <- function(session_id, operation, status,
+                             n_input = NA_integer_, n_valid = NA_integer_,
+                             detail = "") {
+  ss <- .S(session_id)
+  policy <- ss$psi_policy %||% .psi_policy(session_id)
+  event <- list(
+    ts = format(Sys.time(), "%Y-%m-%dT%H:%M:%OS3Z", tz = "UTC"),
+    session_hash = digest::digest(session_id, algo = "sha256"),
+    operation = operation,
+    status = status,
+    n_input = as.integer(n_input),
+    n_valid = as.integer(n_valid),
+    skipped = as.integer(max(0L, n_input - n_valid)),
+    pseudonym_mode = policy$pseudonym_mode,
+    key_custody = policy$key_custody,
+    study_id_hash = policy$study_id_hash,
+    detail = detail
+  )
+  ss$psi_audit <- c(ss$psi_audit %||% list(), list(event))
+  path <- .psi_scalar_option("dsvert.psi.audit_log_path", "")
+  if (nzchar(path)) {
+    dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
+    cat(jsonlite::toJSON(event, auto_unbox = TRUE), "\n",
+        file = path, append = TRUE)
+  }
+  invisible(event)
+}
+
+.psi_rate_limit_check <- function(session_id, operation) {
+  policy <- .S(session_id)$psi_policy %||% .psi_policy(session_id)
+  limit <- policy$rate_limit_n
+  window <- policy$rate_limit_window_sec
+  if (!is.finite(limit) || limit <= 0L || !is.finite(window) || window <= 0) {
+    return(invisible(TRUE))
+  }
+  storage <- .session_storage()
+  key <- paste0("psi:", operation)
+  now <- Sys.time()
+  log <- storage$.psi_rate_log %||% list()
+  times <- log[[key]]
+  if (is.null(times)) times <- as.POSIXct(character(0), origin = "1970-01-01")
+  keep <- as.numeric(difftime(now, times, units = "secs")) <= window
+  times <- times[keep]
+  if (length(times) >= limit) {
+    .psi_audit_event(session_id, operation, "blocked_rate_limit",
+                     detail = paste0("limit=", limit, "/", window, "s"))
+    stop("PSI rate limit exceeded for operation '", operation,
+         "' (limit ", limit, " per ", window, " seconds).", call. = FALSE)
+  }
+  log[[key]] <- c(times, now)
+  storage$.psi_rate_log <- log
+  invisible(TRUE)
+}
+
+.psi_valid_id_rows <- function(ids) {
+  which(!is.na(ids) & nzchar(ids))
+}
+
+.psi_guard_input_set <- function(session_id, operation, n_input, n_valid) {
+  policy <- .S(session_id)$psi_policy %||% .psi_policy(session_id)
+  .psi_rate_limit_check(session_id, operation)
+  max_ids <- policy$max_input_ids
+  if (is.finite(max_ids) && max_ids > 0L && n_input > max_ids) {
+    .psi_audit_event(session_id, operation, "blocked_max_input",
+                     n_input = n_input, n_valid = n_valid,
+                     detail = paste0("max_input_ids=", max_ids))
+    stop("PSI input set has ", n_input, " records, exceeding ",
+         "dsvert.psi.max_input_ids = ", max_ids, ".", call. = FALSE)
+  }
+
+  privacy_level <- getOption("datashield.privacyLevel", 5)
+  min_records <- as.integer(privacy_level) * 10L
+  if (n_valid < min_records) {
+    .psi_audit_event(session_id, operation, "blocked_min_input",
+                     n_input = n_input, n_valid = n_valid,
+                     detail = paste0("min_records=", min_records))
+    stop("Dataset has ", n_valid, " valid identifiers, minimum ", min_records,
+         " required for PSI (anti-dictionary protection)", call. = FALSE)
+  }
+  .psi_audit_event(session_id, operation, "accepted",
+                   n_input = n_input, n_valid = n_valid)
+  invisible(TRUE)
+}
+
+.psi_guard_intersection_count <- function(n, what = "PSI intersection") {
+  settings <- .dsvert_disclosure_settings()
+  if (n <= 0L) {
+    stop(what, " is empty.", call. = FALSE)
+  }
+  if (n < settings$nfilter.subset) {
+    stop(
+      "Disclosure control: ", what, " too small (", n,
+      " records). Minimum allowed: nfilter.subset = ",
+      settings$nfilter.subset, ".",
+      call. = FALSE
+    )
+  }
+  invisible(TRUE)
+}
+
+.psi_mask_payload <- function(ids, scalar = "", session_id = NULL) {
+  policy <- .S(session_id)$psi_policy %||% .psi_policy(session_id)
+  list(
+    ids = as.list(ids),
+    scalar = scalar,
+    pseudonym_mode = policy$pseudonym_mode,
+    pseudonym_key = policy$pseudonym_key,
+    study_id = policy$study_id
+  )
 }
 
 # ============================================================================
@@ -163,6 +367,7 @@ NULL
 #' @export
 psiInitDS <- function(session_id = NULL) {
   ss <- .S(session_id)
+  ss$psi_policy <- .psi_policy(session_id)
 
   # Generate fresh ephemeral keypair for this session
   transport <- .callMpcTool("transport-keygen", list())
@@ -180,7 +385,8 @@ psiInitDS <- function(session_id = NULL) {
   list(
     transport_pk = base64_to_base64url(ss$psi_transport_pk),
     identity_pk  = base64_to_base64url(identity$identity_pk),
-    signature    = base64_to_base64url(signature)
+    signature    = base64_to_base64url(signature),
+    psi_policy   = .psi_public_policy(ss$psi_policy)
   )
 }
 
@@ -238,9 +444,10 @@ psiStoreTransportKeysDS <- function(transport_keys = NULL,
 
 #' Mask identifiers using ECDH (aggregate function)
 #'
-#' Hashes identifiers to P-256 curve points and multiplies by a random scalar.
-#' The scalar and masked points are stored locally and NEVER returned to the
-#' client. Points are exported per-target via \code{\link{psiExportMaskedDS}}.
+#' Applies the server PSI pseudonymisation policy, hashes identifiers to P-256
+#' curve points and multiplies by a random scalar. The scalar and masked points
+#' are stored locally and NEVER returned to the client. Points are exported
+#' per-target via \code{\link{psiExportMaskedDS}}.
 #'
 #' @param data_name Character. Name of data frame.
 #' @param id_col Character. Name of identifier column.
@@ -263,19 +470,14 @@ psiMaskIdsDS <- function(data_name, id_col, session_id = NULL) {
   }
 
   ids <- as.character(data[[id_col]])
+  valid_rows <- .psi_valid_id_rows(ids)
+  ids <- ids[valid_rows]
+  .psi_guard_input_set(session_id, "mask", nrow(data), length(ids))
 
-  # Anti-dictionary-attack: require minimum dataset size
-  # A phantom server with a small ID list (< privacyLevel * 10) is suspicious
-  privacy_level <- getOption("datashield.privacyLevel", 5)
-  min_records <- privacy_level * 10L  # default: 50 records minimum
-  if (length(ids) < min_records) {
-    stop("Dataset has ", length(ids), " records, minimum ", min_records,
-         " required for PSI (anti-dictionary protection)", call. = FALSE)
-  }
-
-  result <- .callMpcTool("psi-mask", list(
-    ids = as.list(ids),
-    scalar = ""
+  result <- .callMpcTool("psi-mask", .psi_mask_payload(
+    ids = ids,
+    scalar = "",
+    session_id = session_id
   ))
 
   # SECURITY: scalar and masked points stored locally, NEVER returned.
@@ -283,6 +485,7 @@ psiMaskIdsDS <- function(data_name, id_col, session_id = NULL) {
   ss$psi_masked_points <- sapply(
     result$masked_points, base64_to_base64url, USE.NAMES = FALSE
   )
+  ss$psi_valid_rows <- as.integer(valid_rows)
 
   ss$psi_phase <- "masked"
 
@@ -369,22 +572,19 @@ psiProcessTargetDS <- function(data_name, id_col, from_storage = FALSE,
   ref_masked_points <- unpacked$points  # already standard base64
 
   ids <- as.character(data[[id_col]])
-
-  # Anti-dictionary-attack: require minimum dataset size
-  privacy_level <- getOption("datashield.privacyLevel", 5)
-  min_records <- privacy_level * 10L
-  if (length(ids) < min_records) {
-    stop("Dataset has ", length(ids), " records, minimum ", min_records,
-         " required for PSI (anti-dictionary protection)", call. = FALSE)
-  }
+  valid_rows <- .psi_valid_id_rows(ids)
+  ids <- ids[valid_rows]
+  .psi_guard_input_set(session_id, "process_target", nrow(data), length(ids))
 
   # 2. Mask own IDs (generates new random scalar)
-  own_result <- .callMpcTool("psi-mask", list(
-    ids = as.list(ids),
-    scalar = ""
+  own_result <- .callMpcTool("psi-mask", .psi_mask_payload(
+    ids = ids,
+    scalar = "",
+    session_id = session_id
   ))
 
   ss$psi_scalar <- own_result$scalar
+  ss$psi_valid_rows <- as.integer(valid_rows)
 
   # 3. Double-mask ref points with own scalar (points already standard base64)
   ref_dm <- .callMpcTool("psi-double-mask", list(
@@ -423,10 +623,11 @@ psiProcessTargetDS <- function(data_name, id_col, from_storage = FALSE,
 #'
 #' Decrypts the encrypted target points blob, multiplies by the scalar
 #' generated in Phase 1, and re-encrypts the result under the target's
-#' transport PK. The client never sees raw EC points.
+#' transport PK. The client never sees raw EC points or row maps.
 #'
 #' PSI Firewall: one-shot per target -- each target can only be double-masked
-#' once, preventing the OPRF oracle attack.
+#' once, preventing repeated online use of this phase as an identifier-testing
+#' oracle by the analyst.
 #'
 #' @param target_name Character. Name of the target server whose points
 #'   are being double-masked.
@@ -446,7 +647,7 @@ psiDoubleMaskDS <- function(target_name, from_storage = FALSE,
     stop("PSI scalar not stored. Call psiMaskIdsDS first.", call. = FALSE)
   }
 
-  # Firewall: one-shot per target (prevents OPRF oracle attack)
+  # Firewall: one-shot per target (prevents repeated online oracle use)
   if (target_name %in% ss$psi_dm_used) {
     stop("PSI Firewall: double-mask already called for target '",
          target_name, "'. Each target can only be processed once.",
@@ -523,6 +724,8 @@ psiMatchAndAlignDS <- function(data_name, from_storage = FALSE,
     ref_doubled = as.list(ss$psi_ref_dm),
     ref_indices = as.list(ss$psi_ref_indices)
   ))
+  .psi_guard_intersection_count(as.integer(result$n_matched),
+                                "PSI pairwise match")
 
   # Store matched ref indices for Phase 8 multi-server intersection
   ss$psi_matched_ref_indices <- as.integer(result$matched_ref_indices)
@@ -531,12 +734,10 @@ psiMatchAndAlignDS <- function(data_name, from_storage = FALSE,
   ss$psi_ref_dm <- NULL
   ss$psi_ref_indices <- NULL
 
-  if (result$n_matched == 0) {
-    stop("PSI: no matching records found", call. = FALSE)
-  }
-
-  # Reorder data by matched_own_rows
-  aligned_data <- data[as.integer(result$matched_own_rows) + 1L, , drop = FALSE]
+  # Reorder data by matched valid-ID rows
+  valid_rows <- ss$psi_valid_rows %||% seq_len(nrow(data))
+  matched_rows <- valid_rows[as.integer(result$matched_own_rows) + 1L]
+  aligned_data <- data[matched_rows, , drop = FALSE]
   rownames(aligned_data) <- NULL
 
   ss$psi_phase <- "matched"
@@ -565,11 +766,16 @@ psiSelfAlignDS <- function(data_name, session_id = NULL) {
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
 
-  # All ref indices are matched (the ref matches itself)
-  ss$psi_matched_ref_indices <- as.integer(0:(nrow(data) - 1L))
+  valid_rows <- ss$psi_valid_rows %||% seq_len(nrow(data))
+  valid_rows <- as.integer(valid_rows)
 
-  # Return copy (same order -- ref is the reference)
-  data
+  # All valid ref IDs are matched against the reference itself.
+  ss$psi_matched_ref_indices <- as.integer(0:(length(valid_rows) - 1L))
+
+  # Return copy in valid-ID reference order.
+  aligned_data <- data[valid_rows, , drop = FALSE]
+  rownames(aligned_data) <- NULL
+  aligned_data
 }
 
 # ============================================================================
@@ -630,6 +836,8 @@ psiExportMatchedIndicesDS <- function(recipient_name = "ref",
          call. = FALSE)
   }
 
+  .psi_guard_intersection_count(length(ss$psi_matched_ref_indices),
+                                "PSI pairwise match")
   payload <- .psi_pack_indices(ss$psi_matched_ref_indices)
   list(
     encrypted_blob = .psi_encrypt_text(payload, recipient_pk),
@@ -668,6 +876,8 @@ psiComputeCommonIndicesDS <- function(target_names, session_id = NULL) {
     common_indices <- intersect(common_indices, target_indices)
   }
   common_indices <- sort(as.integer(common_indices))
+  .psi_guard_intersection_count(length(common_indices),
+                                "PSI common intersection")
   ss$psi_common_indices <- common_indices
 
   list(n_common = length(common_indices), n_targets = length(target_names))
@@ -689,6 +899,8 @@ psiExportCommonIndicesDS <- function(target_name, session_id = NULL) {
     stop("PSI common indices not available. Run psiComputeCommonIndicesDS.",
          call. = FALSE)
   }
+  .psi_guard_intersection_count(length(ss$psi_common_indices),
+                                "PSI common intersection")
   target_pk <- ss$psi_peer_pks[[target_name]]
   if (is.null(target_pk)) {
     stop("No transport PK for target '", target_name, "'.", call. = FALSE)
@@ -753,7 +965,7 @@ psiFilterCommonDS <- function(data_name, common_indices = NULL,
 
   # Disclosure control: nfilter.subset (dsBase pattern)
   settings <- .dsvert_disclosure_settings()
-  if (n_common > 0 && n_common < settings$nfilter.subset) {
+  if (n_common < settings$nfilter.subset) {
     stop(
       "Disclosure control: PSI intersection too small (",
       n_common, " records). Minimum allowed: nfilter.subset = ",
@@ -789,6 +1001,8 @@ psiFilterCommonDS <- function(data_name, common_indices = NULL,
   ss$psi_common_indices <- NULL
   ss$psi_phase <- NULL
   ss$psi_dm_used <- NULL
+  ss$psi_valid_rows <- NULL
+  ss$psi_policy <- NULL
 
   filtered_data
 }

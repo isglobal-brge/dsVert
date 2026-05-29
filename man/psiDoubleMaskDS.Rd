@@ -22,9 +22,10 @@ List with encrypted_blob (base64url).
 \description{
 Decrypts the encrypted target points blob, multiplies by the scalar
 generated in Phase 1, and re-encrypts the result under the target's
-transport PK. The client never sees raw EC points.
+transport PK. The client never sees raw EC points or row maps.
 }
 \details{
 PSI Firewall: one-shot per target -- each target can only be double-masked
-once, preventing the OPRF oracle attack.
+once, preventing repeated online use of this phase as an identifier-testing
+oracle by the analyst.
 }

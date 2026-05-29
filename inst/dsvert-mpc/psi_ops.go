@@ -15,6 +15,7 @@ package main
 
 import (
 	"crypto/elliptic"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -28,6 +29,9 @@ import (
 // RFC 9380 suite identifier for P-256 with SHA-256
 const psiDST = "QUUX-V01-CS02-with-P256_XMD:SHA-256_SSWU_RO_"
 const psiDomainSeparator = "dsVert-PSI-v2"
+const psiOPRFH1Domain = "dsVert-PSI-OPRF-H1-v1"
+const psiOPRFH2Domain = "dsVert-PSI-OPRF-H2-v1"
+const psiOPRFScalarDomain = "dsVert-PSI-OPRF-scalar-v1"
 
 var p256Curve = elliptic.P256()
 
@@ -45,14 +49,13 @@ var (
 // (no data-dependent branching), preventing timing side-channels.
 //
 // Implements: hash_to_curve(msg) from RFC 9380 Section 3:
-//   1. u = hash_to_field(msg, 2)    -- produces two field elements
-//   2. Q0 = map_to_curve(u[0])      -- Simplified SWU
-//   3. Q1 = map_to_curve(u[1])
-//   4. R = Q0 + Q1                  -- point addition
-//   5. P = clear_cofactor(R)        -- no-op for P-256 (cofactor = 1)
-func hashToP256Point(id string) (*big.Int, *big.Int) {
+//  1. u = hash_to_field(msg, 2)    -- produces two field elements
+//  2. Q0 = map_to_curve(u[0])      -- Simplified SWU
+//  3. Q1 = map_to_curve(u[1])
+//  4. R = Q0 + Q1                  -- point addition
+//  5. P = clear_cofactor(R)        -- no-op for P-256 (cofactor = 1)
+func hashToP256PointBytes(msg []byte) (*big.Int, *big.Int) {
 	// Step 1: hash_to_field using expand_message_xmd (SHA-256)
-	msg := []byte(psiDomainSeparator + id)
 	u0, u1 := hashToFieldP256(msg)
 
 	// Steps 2-3: Simplified SWU map for each field element
@@ -63,6 +66,66 @@ func hashToP256Point(id string) (*big.Int, *big.Int) {
 	rx, ry := p256Curve.Add(x0, y0, x1, y1)
 
 	return rx, ry
+}
+
+func hashToP256Point(id string) (*big.Int, *big.Int) {
+	return hashToP256PointBytes([]byte(psiDomainSeparator + id))
+}
+
+func psiEncodeComponents(parts ...string) []byte {
+	total := 4 * len(parts)
+	for _, p := range parts {
+		total += len(p)
+	}
+	out := make([]byte, 0, total)
+	var lenBuf [4]byte
+	for _, p := range parts {
+		binary.BigEndian.PutUint32(lenBuf[:], uint32(len(p)))
+		out = append(out, lenBuf[:]...)
+		out = append(out, []byte(p)...)
+	}
+	return out
+}
+
+func deriveOPRFScalar(key, studyID string) (*big.Int, error) {
+	if key == "" {
+		return nil, fmt.Errorf("pseudonym key required")
+	}
+	params := p256Curve.Params()
+	mac := hmac.New(sha256.New, []byte(key))
+	mac.Write(psiEncodeComponents(psiOPRFScalarDomain, studyID))
+	sum := mac.Sum(nil)
+	nMinus1 := new(big.Int).Sub(params.N, big.NewInt(1))
+	k := new(big.Int).SetBytes(sum)
+	k.Mod(k, nMinus1)
+	k.Add(k, big.NewInt(1))
+	return k, nil
+}
+
+func keyedPseudonymIdentifier(id, key, studyID string) (string, error) {
+	k, err := deriveOPRFScalar(key, studyID)
+	if err != nil {
+		return "", err
+	}
+	h1Msg := psiEncodeComponents(psiOPRFH1Domain, studyID, id)
+	px, py := hashToP256PointBytes(h1Msg)
+	qx, qy := p256Curve.ScalarMult(px, py, k.Bytes())
+	qEncoded := encodePoint(qx, qy)
+
+	h := sha256.New()
+	h.Write(psiEncodeComponents(psiOPRFH2Domain, studyID, id, qEncoded))
+	return base64.StdEncoding.EncodeToString(h.Sum(nil)), nil
+}
+
+func psiIdentifierForMasking(id string, input *PSIMaskInput) (string, error) {
+	mode := input.PseudonymMode
+	if mode == "" || mode == "none" {
+		return id, nil
+	}
+	if mode != "shared_key" {
+		return "", fmt.Errorf("unsupported PSI pseudonym mode %q", mode)
+	}
+	return keyedPseudonymIdentifier(id, input.PseudonymKey, input.StudyID)
 }
 
 // hashToFieldP256 implements hash_to_field from RFC 9380 Section 5.2
@@ -272,8 +335,11 @@ func decodePoint(encoded string) (*big.Int, *big.Int, error) {
 // --- JSON I/O types ---
 
 type PSIMaskInput struct {
-	IDs    []string `json:"ids"`
-	Scalar string   `json:"scalar"` // empty = generate new
+	IDs           []string `json:"ids"`
+	Scalar        string   `json:"scalar"` // empty = generate new
+	PseudonymMode string   `json:"pseudonym_mode"`
+	PseudonymKey  string   `json:"pseudonym_key"`
+	StudyID       string   `json:"study_id"`
 }
 
 type PSIMaskOutput struct {
@@ -323,7 +389,11 @@ func psiMask(input *PSIMaskInput) (*PSIMaskOutput, error) {
 
 	maskedPoints := make([]string, len(input.IDs))
 	for i, id := range input.IDs {
-		px, py := hashToP256Point(id)
+		maskID, err := psiIdentifierForMasking(id, input)
+		if err != nil {
+			return nil, fmt.Errorf("pseudonymize id %d: %w", i, err)
+		}
+		px, py := hashToP256Point(maskID)
 		mx, my := p256Curve.ScalarMult(px, py, scalar.Bytes())
 		maskedPoints[i] = encodePoint(mx, my)
 	}

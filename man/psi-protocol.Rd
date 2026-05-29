@@ -16,10 +16,12 @@ The protocol exploits the commutativity of scalar multiplication on P-256:
 
 Security (DDH assumption on P-256, malicious-client model):
 \itemize{
-\item The client sees only opaque encrypted blobs (not reversible)
+\item The client sees only opaque encrypted blobs
 \item Each server's scalar never leaves the server
 \item The PSI firewall enforces phase ordering and one-shot semantics
-\item No party can perform dictionary attacks or OPRF oracle attacks
+\item When server policy provides a per-study PSI pseudonym key, identifiers
+are first mapped through a study-separated keyed PRF before ECDH masking
+\item The client receives no identifiers, pseudonyms, EC points or row maps
 }
 }
 \references{

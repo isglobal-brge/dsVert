@@ -8,7 +8,6 @@ import (
 	"os"
 )
 
-
 func handlePSIMask() {
 	inputBytes, err := readInputBytes()
 	if err != nil {
@@ -78,4 +77,3 @@ func handlePSIMatch() {
 // ============================================================================
 // PSI Fuse Server command handler
 // ============================================================================
-

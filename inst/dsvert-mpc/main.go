@@ -159,6 +159,11 @@ func main() {
 	case "k2-sigmoid127-get-coeffs":
 		handleK2Sigmoid127GetCoeffs()
 
+	// Ring127 direct-softplus Chebyshev coefficients (public). Binomial-deviance
+	// reveal-free link: softplus(eta)=log(1+exp(eta)) in one Clenshaw pass.
+	case "k2-softplus127-get-coeffs":
+		handleK2Softplus127GetCoeffs()
+
 	// Ring127 Chebyshev-recip coefficients + NR constants (public)
 	case "k2-recip127-get-coeffs":
 		handleK2Recip127GetCoeffs()

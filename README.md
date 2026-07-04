@@ -67,7 +67,10 @@ of the product surface.
 | Observation-level disclosure | Not product-exposed |
 | Beaver triples | Dealer-free IKNP OT-extension is the sole preprocessing backend; server policy refuses any trusted-dealer mode, so no participating server ever receives the unsplit `(a, b, c)` triple |
 | Transport encryption | X25519 + AES-256-GCM (transport-encrypt) |
-| Identity verification | Ed25519 signed peer transport keys (require_trusted_peers) |
+| Identity verification | Ed25519 signed peer transport keys (require_trusted_peers); only transport keys that pass signature and trusted-list verification are pinned as peers |
+| Recipient pinning | Every transport-sealed share is pinned to an identity-verified peer (or this server's own key), never an analyst-supplied key |
+| Raw-share release | Default-deny: only an allowlisted aggregate slot is returnable, and release is bound by a content digest to the aggregating producer, so a per-observation share cannot be laundered into the slot and read back |
+| Disclosure floors | Small-cell contingency, per-cluster, single-observation aggregation, and Cox time-bin risk-set floors reject any release that would isolate an individual record |
 | Collusion threshold | Additive-sharing modeling paths are outsourced 2-of-2 to a fusion + coordinator pair: inputs stay private while at least one of those two designated servers is honest. Genuine K-out-of-K threshold (all K shares required to recover any plaintext) applies only to the CKKS/MHE path via Mouchet et al. (2021) threshold decryption |
 | Ring | Ring63 (frac_bits = 20) and Ring127 (frac_bits = 50) depending on method precision needs |
 

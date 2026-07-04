@@ -22,6 +22,9 @@ k2CmpGenKeysDS <- function(dcf0_pk, dcf1_pk, n, threshold,
       !is.finite(threshold)) {
     stop("threshold must be a finite scalar", call. = FALSE)
   }
+  ss <- .S(session_id)
+  .dsvert_validate_recipient_pk(dcf0_pk, ss, "party0")
+  .dsvert_validate_recipient_pk(dcf1_pk, ss, "party1")
   cmp <- .callMpcTool("k2-cmp-gen", list(
     n = as.integer(n),
     threshold = as.numeric(threshold),
@@ -69,16 +72,26 @@ k2CmpStoreKeysDS <- function(blob_key = "k2_cmp_keys",
 
 #' @title Threshold comparison round 1
 #' @description Returns a one-time-masked DCF value for client relay to the
-#'   peer. The returned masked value is not a share of the underlying count.
+#'   peer. The returned masked value is not a share of the underlying count:
+#'   with the fresh per-\code{k2CmpGenKeysDS} mask it is an information-theoretic
+#'   one-time pad, so a passive relay learns nothing from it in isolation. When
+#'   \code{peer_pk} is supplied the masked value is additionally sealed to the
+#'   consuming peer's transport key (defence-in-depth: the analyst relay then
+#'   only ever forwards an opaque blob, closing any residual exposure should a
+#'   mask ever be reused).
 #' @param source_key Session key containing the FP share vector.
 #' @param party_id 0 or 1.
 #' @param keys_key Session key containing decrypted comparison keys.
+#' @param peer_pk Optional base64url transport public key of the peer that will
+#'   consume this masked value in \code{k2CmpRound2DS}. If given, the masked
+#'   value is transport-sealed to that peer before relay.
 #' @param session_id MPC session id.
 #' @param frac_bits Ring63 fractional bits.
-#' @return list(cmp_masked).
+#' @return list(cmp_masked). Sealed iff \code{peer_pk} was supplied.
 #' @export
 k2CmpRound1DS <- function(source_key, party_id,
                           keys_key = "k2_cmp_keys",
+                          peer_pk = NULL,
                           session_id = NULL,
                           frac_bits = 20L) {
   if (is.null(session_id) || !nzchar(session_id)) {
@@ -97,7 +110,13 @@ k2CmpRound1DS <- function(source_key, party_id,
     party_id = as.integer(party_id),
     n = as.integer(n),
     frac_bits = as.integer(frac_bits)))
-  list(cmp_masked = base64_to_base64url(res$masked))
+  masked <- res$masked
+  if (!is.null(peer_pk) && nzchar(peer_pk)) {
+    sealed <- .callMpcTool("transport-encrypt", list(
+      data = masked, recipient_pk = .base64url_to_base64(peer_pk)))
+    masked <- sealed$sealed
+  }
+  list(cmp_masked = base64_to_base64url(masked))
 }
 
 #' @title Threshold comparison round 2
@@ -109,6 +128,9 @@ k2CmpRound1DS <- function(source_key, party_id,
 #' @param output_key Session key for the comparison-bit FP share vector.
 #' @param keys_key Session key containing decrypted comparison keys.
 #' @param peer_blob_key Session blob key containing the peer masked value.
+#' @param peer_sealed Logical. If TRUE, the relayed peer masked value was
+#'   transport-sealed by \code{k2CmpRound1DS(peer_pk=...)} and is decrypted here
+#'   with this party's transport secret key before use.
 #' @param return_share Logical. If TRUE, return this party's output share.
 #' @param session_id MPC session id.
 #' @param frac_bits Ring63 fractional bits.
@@ -117,6 +139,7 @@ k2CmpRound1DS <- function(source_key, party_id,
 k2CmpRound2DS <- function(source_key, party_id, output_key,
                           keys_key = "k2_cmp_keys",
                           peer_blob_key = "k2_cmp_peer_masked",
+                          peer_sealed = FALSE,
                           return_share = FALSE,
                           session_id = NULL,
                           frac_bits = 20L) {
@@ -131,11 +154,21 @@ k2CmpRound2DS <- function(source_key, party_id, output_key,
   }
   peer <- .blob_consume(peer_blob_key, ss)
   if (is.null(peer)) stop("peer masked comparison blob missing", call. = FALSE)
+  if (isTRUE(peer_sealed)) {
+    tsk <- .key_get("transport_sk", ss)
+    if (is.null(tsk)) stop("Transport secret key missing", call. = FALSE)
+    dec <- .callMpcTool("transport-decrypt", list(
+      sealed = .base64url_to_base64(peer),
+      recipient_sk = tsk))
+    peer_masked_b64 <- dec$data
+  } else {
+    peer_masked_b64 <- .base64url_to_base64(peer)
+  }
   n <- .k2_cmp_source_n(source)
   res <- .callMpcTool("k2-cmp-round2", list(
     share_fp = .base64url_to_base64(source),
     dcf_keys = keys,
-    peer_masked = .base64url_to_base64(peer),
+    peer_masked = peer_masked_b64,
     party_id = as.integer(party_id),
     n = as.integer(n),
     frac_bits = as.integer(frac_bits)))

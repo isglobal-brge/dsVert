@@ -46,7 +46,7 @@ Client (analyst)                    Servers (data holders)
 ┌──────────────┐                   ┌──────────────────────┐
 │ ds.vertGLM() │──── DataSHIELD ──→│ Ring63/Ring127 shares│
 │ ds.vertCox() │    (HTTP/REST)    │ Beaver matvec        │
-│ ds.vertLMM() │                   │ DCF wide-spline      │
+│ ds.vertLMM() │                   │ Share-domain link    │
 │ ds.psiAlign()│←── p aggregates ──│ OT-Beaver triples    │
 │ ds.vertNB()  │   (gradients,     │ Ed25519 verification │
 │ ds.vertCor() │    deviance)      │ X25519 + AES-256-GCM │
@@ -65,16 +65,17 @@ of the product surface.
 | Property | Guarantee |
 |---|---|
 | Observation-level disclosure | Not product-exposed |
-| Beaver triples | Product routes use an administrator-controlled preprocessing profile: efficient dealer mode for governed institutional-peer deployments, or IKNP OT-extension mode when no participating server should receive the unsplit `(a, b, c)` triple |
+| Beaver triples | Dealer-free IKNP OT-extension is the sole preprocessing backend; server policy refuses any trusted-dealer mode, so no participating server ever receives the unsplit `(a, b, c)` triple |
 | Transport encryption | X25519 + AES-256-GCM (transport-encrypt) |
 | Identity verification | Ed25519 signed peer transport keys (require_trusted_peers) |
-| Collusion threshold | (K−1)/K servers needed to recover any plaintext |
+| Collusion threshold | Additive-sharing modeling paths are outsourced 2-of-2 to a fusion + coordinator pair: inputs stay private while at least one of those two designated servers is honest. Genuine K-out-of-K threshold (all K shares required to recover any plaintext) applies only to the CKKS/MHE path via Mouchet et al. (2021) threshold decryption |
 | Ring | Ring63 (frac_bits = 20) and Ring127 (frac_bits = 50) depending on method precision needs |
 
 ## Go Runtime (`dsvert-mpc`)
 
 `inst/dsvert-mpc` contains the current Go source for the Ring63/Ring127 MPC
-kernels: DCF wide-spline functions, dealer and IKNP Beaver preprocessing,
+kernels: reveal-free share-domain Chebyshev link primitives (and legacy DCF
+wide-spline functions), dealer-free IKNP OT-extension Beaver preprocessing,
 transport encryption, identity verification, and fixed-point truncation.
 Per-platform runtime binaries ship under
 `inst/bin/{darwin-amd64,darwin-arm64,linux-amd64,windows-amd64}/`.

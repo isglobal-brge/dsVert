@@ -89,6 +89,10 @@ k2ShareWeightsDS <- function(data_name, weights_column, dcf0_pk, dcf1_pk,
 
   dcf_role <- match.arg(dcf_role)
   ss <- .S(session_id)
+  # Both recipients are sealed to; pin them so a caller cannot supply its own
+  # keys and, in dealer role, receive BOTH complementary shares of the weights.
+  .dsvert_validate_recipient_pk(dcf0_pk, ss, "dcf0")
+  .dsvert_validate_recipient_pk(dcf1_pk, ss, "dcf1")
   info <- .k2_weight_ring_info(ring, ss)
   w <- .k2_read_weight_column(data_name, weights_column, session_id)
 

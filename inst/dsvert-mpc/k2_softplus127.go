@@ -1,11 +1,11 @@
 // k2_softplus127.go — Ring127 direct softplus(x)=log(1+exp(x)) via Chebyshev.
 //
-// SPEED + REVEAL-FREE primitive (2026-07-04): the binomial-deviance link.
+// Reveal-free, dealer-free share-domain link for the binomial deviance
 // D_binomial = 2*(sum softplus(eta) - y^T eta). softplus is smooth + bounded
 // on [-8, 8] (range ~[3.4e-4, 8.0]), so a single Chebyshev Clenshaw pass gives
-// a reveal-free, dealer-free per-observation softplus share — replacing the DCF
-// wide-spline (which relayed a masked eta). Structural clone of k2_sigmoid127.go
-// / k2_exp127.go; does NOT touch exp127/recip127 (kept for the Newton family).
+// a per-observation softplus share without ever relaying a masked eta.
+// Structural clone of k2_sigmoid127.go / k2_exp127.go; independent of
+// exp127/recip127 (which the Newton family uses).
 //
 // The -log(1-mu) identity is avoided: 1-mu reaches ~3.4e-4 at eta=8, below the
 // wide-log Chebyshev domain [0.1, 1000], so a direct softplus poly is cleaner.

@@ -60,6 +60,39 @@ k2CrossOneHotCountsDS <- function(var1, var2,
     n = as.integer(n), k = as.integer(K), l = as.integer(L),
     frac_bits = 20L))
   counts <- as.integer(round(res$counts))
+
+  # Server-authoritative disclosure control — the cross-server joint counts are
+  # released to the calling (data-owning) server, which knows its own var1 per
+  # record. Without suppression a singleton/small var1 category lets it read a
+  # peer's per-observation var2 value off the surviving row. Suppress cells and
+  # margins below max(privacyLevel, dsvert.min_release_n), suppress + relabel
+  # small var1 rows / var2 columns, fail closed by default (as dsvertContingencyDS).
+  cmat <- matrix(counts, nrow = as.integer(K), ncol = as.integer(L), byrow = TRUE)
+  row_margins <- as.integer(rowSums(cmat))
+  col_margins <- as.integer(colSums(cmat))
+  suppress_effective <- !isTRUE(getOption("dsvert.allow_small_cell_release", FALSE))
+  fail_effective <- isTRUE(getOption("dsvert.fail_on_small_cells", TRUE)) ||
+    !isTRUE(getOption("dsvert.allow_silent_small_cells", FALSE))
+  if (suppress_effective) {
+    privacy_min <- max(as.integer(getOption("datashield.privacyLevel", 5L)),
+                       as.integer(getOption("dsvert.min_release_n", 1L)))
+    if (is.numeric(privacy_min) && privacy_min > 0L) {
+      small_row <- row_margins > 0L & row_margins < privacy_min
+      small_col <- col_margins > 0L & col_margins < privacy_min
+      cell_mask <- cmat > 0L & cmat < privacy_min
+      if ((any(cell_mask) || any(small_row) || any(small_col)) && fail_effective) {
+        stop("Cross-server contingency has a positive cell or margin below ",
+             "datashield.privacyLevel; refusing to release counts", call. = FALSE)
+      }
+      cmat[cell_mask] <- 0L
+      if (any(small_row)) { cmat[small_row, ] <- 0L; row_levels[small_row] <- "<suppressed>" }
+      if (any(small_col)) { cmat[, small_col] <- 0L; col_levels[small_col] <- "<suppressed>" }
+      counts <- as.integer(t(cmat))
+    }
+  }
   list(counts = counts, K = K, L = L,
-       row_levels = row_levels, col_levels = col_levels)
+       row_levels = row_levels, col_levels = col_levels,
+       small_cell_policy = if (suppress_effective) {
+         if (fail_effective) "fail" else "zero"
+       } else "none")
 }

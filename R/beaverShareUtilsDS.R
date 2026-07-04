@@ -22,6 +22,10 @@ k2BeaverShareVectorDS <- function(source_key, peer_pk,
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
+  # Pin the recipient to an identity-verified peer: the peer share is sealed to
+  # `peer_pk`, so an unverified recipient would let a caller supply its own key
+  # and decrypt the "sealed" share (its complement is the retained own_share).
+  .dsvert_validate_peer_pk(peer_pk, ss, "peer")
   fp <- ss[[source_key]]
   if (is.null(fp)) {
     stop("source_key '", source_key, "' not in session", call. = FALSE)
@@ -195,6 +199,17 @@ k2StoreSumShareDS <- function(source_key, output_key, append = FALSE,
 k2GetStoredShareDS <- function(source_key, session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
+  }
+  # Server-authoritative raw-share release guard. This returns a raw additive
+  # share to the caller; calling it on BOTH servers with the same key and
+  # summing the complementary shares reconstructs the plaintext. Default-deny:
+  # only authorised AGGREGATE output slots may be released (the cross-chisq K*L
+  # count), never a per-observation input/intermediate share
+  # (feature/label/eta/weight/offset/one-hot).
+  if (!.dsvert_releasable_share_key(source_key)) {
+    stop("DSVERT_NOT_RELEASABLE: source_key '", source_key, "' is not an ",
+         "authorised releasable aggregate output; refusing to return a raw ",
+         "share", call. = FALSE)
   }
   ss <- .S(session_id)
   fp <- ss[[source_key]]

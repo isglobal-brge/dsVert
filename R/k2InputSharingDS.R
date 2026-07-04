@@ -20,6 +20,11 @@ NULL
 k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
                              peer_pk, ring = 63L, session_id = NULL) {
   ss <- .S(session_id)
+  # The peer shares of X and y are transport-sealed to `peer_pk`; pin it to an
+  # identity-verified peer so a caller cannot supply its own key and decrypt
+  # them (own_share is retained locally; own+peer reconstructs the full
+  # plaintext feature/label matrix).
+  .dsvert_validate_peer_pk(peer_pk, ss, "peer")
   ## NOTE: this primitive is shared infrastructure -- the K=3 GLM
   ## (ds.vertGLM.k3ring63) designates 2-of-3 servers as DCF parties
   ## and reuses k2ShareInputDS between them. The .k2_enforce_K guard
@@ -248,6 +253,7 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
 #' @export
 k2GradientR1DS <- function(peer_pk, session_id = NULL) {
   ss <- .S(session_id)
+  .dsvert_validate_recipient_pk(peer_pk, ss, "peer")
   ## Shared infra -- see header comment on k2ShareInputDS.
   n <- ss$k2_x_n
   p_own <- ss$k2_x_p

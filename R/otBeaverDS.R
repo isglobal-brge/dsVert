@@ -316,11 +316,19 @@ k2IknpReceiverExtendDS <- function(y_key, iknp_key, n, ring = 63L,
   ss[[.otb_key(iknp_key, "receiver_extend_state")]] <-
     res$receiver_extend_state
   u <- .otb_b64u(res$u_matrix)
+  # KOS15/SoftSpoken consistency-check opener (see k2_iknp_kos.go); relayed to
+  # the sender alongside the U matrix so no extra round is needed.
+  kos_check <- if (!is.null(res$kos_check) && nzchar(res$kos_check)) {
+    .otb_b64u(res$kos_check)
+  } else {
+    NULL
+  }
   if (!is.null(u_matrix_blob_key) && nzchar(u_matrix_blob_key)) {
     .blob_put(u_matrix_blob_key, u, ss)
-    return(list(stored = TRUE, u_matrix_blob_key = u_matrix_blob_key))
+    return(list(stored = TRUE, u_matrix_blob_key = u_matrix_blob_key,
+                kos_check = kos_check))
   }
-  list(u_matrix = u, iknp_key = iknp_key)
+  list(u_matrix = u, iknp_key = iknp_key, kos_check = kos_check)
 }
 
 #' Encrypt IKNP multiplication messages as sender
@@ -335,6 +343,10 @@ k2IknpReceiverExtendDS <- function(y_key, iknp_key, n, ring = 63L,
 #' @param ring Integer ring selector, 63 or 127.
 #' @param ciphertexts_blob_key Optional blob key where ciphertexts should be
 #'   stored instead of returned directly.
+#' @param kos_check Optional base64url KOS15/SoftSpoken consistency-check opener
+#'   produced by \code{k2IknpReceiverExtendDS}. When supplied, the OT extension
+#'   aborts if the receiver used inconsistent choice bits (malicious-receiver
+#'   defence). \code{NULL} skips the check (legacy relay).
 #' @param session_id MPC session id.
 #' @return Public ciphertexts to relay to the receiver.
 #' @export
@@ -343,6 +355,7 @@ k2IknpSenderEncryptDS <- function(u_matrix = NULL, u_matrix_blob_key = NULL,
                                   ring = 63L,
                                   base_key = iknp_key,
                                   ciphertexts_blob_key = NULL,
+                                  kos_check = NULL,
                                   session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
@@ -356,10 +369,27 @@ k2IknpSenderEncryptDS <- function(u_matrix = NULL, u_matrix_blob_key = NULL,
                        call. = FALSE)
   ring <- as.integer(ring)
   ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  # KOS15 opener: convert the relayed base64url opener back to std base64 for
+  # the Go kernel, which aborts if the receiver's choice bits were inconsistent.
+  # SERVER-AUTHORITATIVE anti-downgrade (M1): the opener is produced by the
+  # peer *receiver* — the very party the check defends against — so a malicious
+  # receiver (or relay) could disable the check by omitting it. When the
+  # custodian option dsvert.iknp_require_kos_check is TRUE (default) this sender
+  # server FAILS CLOSED if no opener is supplied, so the malicious-receiver
+  # guarantee cannot be silently downgraded.
+  have_kos <- !is.null(kos_check) && nzchar(kos_check)
+  if (!have_kos && isTRUE(getOption("dsvert.iknp_require_kos_check", TRUE))) {
+    stop("DSVERT_KOS_REQUIRED: IKNP KOS consistency-check opener missing; this ",
+         "server requires it (possible malicious-receiver downgrade). Set ",
+         "options(dsvert.iknp_require_kos_check = FALSE) to permit unchecked OT.",
+         call. = FALSE)
+  }
+  kos_arg <- if (have_kos) .otb_b64(kos_check) else ""
   res <- .callMpcTool("k2-iknp-sender-encrypt", list(
     sender_state = state,
     u_matrix = .otb_blob_or_arg(u_matrix, u_matrix_blob_key, ss),
-    x = x, n = as.integer(n), ring = ring_tag, domain = iknp_key))
+    x = x, n = as.integer(n), ring = ring_tag, domain = iknp_key,
+    kos_check = kos_arg))
   ss[[output_key]] <- res$sender_share
   cts <- .otb_b64u(res$ciphertexts)
   if (!is.null(ciphertexts_blob_key) && nzchar(ciphertexts_blob_key)) {

@@ -88,6 +88,7 @@ type iknpReceiverExtendStateWire struct {
 type iknpReceiverExtendOutput struct {
 	ReceiverExtendState string `json:"receiver_extend_state"`
 	UMatrix             string `json:"u_matrix"`
+	Check               string `json:"kos_check"`
 }
 
 type iknpSenderEncryptInput struct {
@@ -97,6 +98,7 @@ type iknpSenderEncryptInput struct {
 	N           int    `json:"n"`
 	Ring        string `json:"ring"`
 	Domain      string `json:"domain"`
+	Check       string `json:"kos_check"`
 }
 
 type iknpCiphertextsWire struct {
@@ -310,9 +312,13 @@ func handleK2IKNPReceiverExtend() {
 		N:       input.N,
 		Ring:    ring,
 	}
+	// KOS15/SoftSpoken consistency-check openers, bound by Fiat-Shamir to the
+	// U matrix the receiver has just committed to (see k2_iknp_kos.go).
+	xHat, tHat := iknpReceiverKOSCheck(labels, choices, uMatrix, input.N, ring, input.Domain)
 	mpcWriteOutput(iknpReceiverExtendOutput{
 		ReceiverExtendState: encodeJSONB64(extState),
 		UMatrix:             bytesToBase64(uMatrix),
+		Check:               iknpKOSEncode(xHat, tHat),
 	})
 }
 
@@ -344,6 +350,22 @@ func handleK2IKNPSenderEncrypt() {
 	if err != nil {
 		outputError("k2-iknp-sender-encrypt: " + err.Error())
 		return
+	}
+	// KOS15/SoftSpoken consistency check: verify the receiver used consistent
+	// choice bits across the U columns before releasing any OT payloads. If the
+	// opener is absent (legacy relay) the check is skipped; when present a
+	// failure aborts the extension (defence against a malicious receiver's
+	// selective-failure attack on Delta). See k2_iknp_kos.go.
+	if input.Check != "" {
+		xHat, tHat, ok := iknpKOSDecode(input.Check)
+		if !ok {
+			outputError("k2-iknp-sender-encrypt: malformed KOS check opener")
+			return
+		}
+		if !iknpSenderKOSVerify(labels, delta, uMatrix, input.N, ring, input.Domain, xHat, tHat) {
+			outputError("k2-iknp-sender-encrypt: KOS consistency check FAILED -- aborting OT extension (possible malicious receiver)")
+			return
+		}
 	}
 	c0 := make([]ot.Label, len(wires))
 	c1 := make([]ot.Label, len(wires))

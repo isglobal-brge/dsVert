@@ -1,9 +1,9 @@
 // k2_sigmoid127.go — Ring127 direct sigmoid(x)=1/(1+exp(-x)) via Chebyshev.
 //
-// SPEED primitive (2026-07-03): a GLM-specific, reveal-free, dealer-free
-// share-domain logistic link that replaces the exp127+recip127 composition
-// (~85 Beaver rounds) with a SINGLE Chebyshev Clenshaw pass (~29 rounds,
-// ~2.9x fewer). sigmoid is smooth + bounded on [-8, 8], so a degree-29
+// A GLM-specific, reveal-free, dealer-free share-domain logistic link:
+// evaluates the whole sigmoid in a SINGLE Chebyshev Clenshaw pass (~29 Beaver
+// rounds) rather than composing exp127+recip127 (~85 rounds), ~2.9x fewer
+// rounds. sigmoid is smooth + bounded on [-8, 8], so a degree-29
 // Chebyshev reaches max-abs ~6.5e-6 — far tighter than the ~1e-4 a GLM
 // coefficient needs, and far looser than exp/recip's 3.45e-14 overkill.
 //

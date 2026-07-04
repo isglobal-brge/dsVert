@@ -141,6 +141,7 @@ k2BeaverVecmulR1DS <- function(peer_pk, x_key, y_key, n,
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
+  .dsvert_validate_recipient_pk(peer_pk, ss, "peer")
   x_share <- ss[[x_key]]
   y_share <- ss[[y_key]]
   if (is.null(x_share) || is.null(y_share)) {

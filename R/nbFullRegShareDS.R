@@ -254,6 +254,7 @@ dsvertNBYThetaShareDS <- function(theta, target_pk, session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
   ss <- .S(session_id)
+  .dsvert_validate_recipient_pk(target_pk, ss, "peer")
   .k2_enforce_K(ss, 2L, "dsvertNBYThetaShareDS")
   theta <- as.numeric(theta)
   if (!is.finite(theta) || theta <= 0)

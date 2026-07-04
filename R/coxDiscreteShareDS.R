@@ -78,6 +78,7 @@ dsvertCoxDiscreteShareMaskDS <- function(data_name, time_var, status_var,
            call. = FALSE)
   }
   ss <- .S(session_id)
+  .dsvert_validate_recipient_pk(target_pk, ss, "peer")
 
   t_vec <- as.numeric(data[[time_var]])
   d_vec <- as.integer(data[[status_var]])
@@ -135,7 +136,7 @@ dsvertCoxDiscreteShareMaskDS <- function(data_name, time_var, status_var,
     n_obs         = as.integer(n),
     J             = J,
     n_pp          = as.integer(n) * J,
-    debug         = if (isTRUE(debug)) {
+    debug         = if (isTRUE(debug) && isTRUE(getOption("dsvert.allow_cox_debug", FALSE))) {
       list(bin_breaks = bin_breaks,
            J_i_counts = as.integer(tabulate(J_i, nbins = J)),
            y_counts = as.integer(vapply(seq_len(J), function(j) {
@@ -190,6 +191,7 @@ dsvertCoxEventTimeShareMaskDS <- function(data_name, time_var, status_var,
     stop("status_var '", status_var, "' not in data", call. = FALSE)
 
   ss <- .S(session_id)
+  .dsvert_validate_recipient_pk(target_pk, ss, "peer")
   t_vec <- as.numeric(data[[time_var]])
   d_vec <- as.integer(data[[status_var]])
   n <- length(t_vec)
@@ -265,7 +267,7 @@ dsvertCoxEventTimeShareMaskDS <- function(data_name, time_var, status_var,
     n_pp = n_pp,
     n_events = as.integer(sum(d_vec == 1L)),
     n_event_times = as.integer(J),
-    debug = if (isTRUE(debug)) {
+    debug = if (isTRUE(debug) && isTRUE(getOption("dsvert.allow_cox_debug", FALSE))) {
       list(
         event_counts = as.integer(tabulate(event_index[d_vec == 1L],
                                            nbins = J)),

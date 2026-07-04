@@ -48,7 +48,11 @@
     getOption("datashield.privacyLevel", 5L), 5L)
   cluster_min <- as_single_int(
     getOption("dsvert.min_cluster_size", privacy_min), privacy_min)
-  max(2L, privacy_min, cluster_min)
+  # Hard floor of 3: per-cluster aggregates (sum, sum-of-squares, ...) on a
+  # size-2 cluster form a determined system that inverts to both members'
+  # values. Requiring >= 3 keeps the released aggregates underdetermined
+  # regardless of a lowered datashield.privacyLevel.
+  max(3L, privacy_min, cluster_min)
 }
 
 .dsvert_guard_cluster_sizes <- function(sizes,

@@ -29,6 +29,7 @@ dsvertClusterIDsBroadcastDS <- function(data_name, cluster_col, peer_pk,
   sizes <- tabulate(ids_int, nbins = length(lvls))
   .dsvert_guard_cluster_sizes(sizes, "cluster-ID broadcast")
   ss <- .S(session_id)
+  .dsvert_validate_recipient_pk(peer_pk, ss, "peer")
   ss$dsvert_cluster_ids <- ids_int
   ss$dsvert_cluster_n <- length(lvls)
   payload <- list(ids = ids_int, n_clusters = length(lvls))
@@ -118,6 +119,7 @@ dsvertGEEAR1OrderBroadcastDS <- function(data_name, cluster_col, order_col,
   }
 
   ss <- .S(session_id)
+  .dsvert_validate_recipient_pk(peer_pk, ss, "peer")
   ss$dsvert_gee_ar1_next_index <- next_index
   ss$dsvert_gee_ar1_prev_index <- prev_index
   ss$dsvert_gee_ar1_n <- as.integer(n)

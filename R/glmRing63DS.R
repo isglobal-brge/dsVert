@@ -43,6 +43,10 @@ glmRing63TransportInitDS <- function(session_id = NULL) {
 #' @export
 glmRing63ExportOwnShareDS <- function(peer_pk, session_id = NULL) {
   ss <- .S(session_id)
+  # Pin the recipient to an identity-verified peer. Otherwise a caller supplies
+  # its own transport key, "sealing" gives no confidentiality, and it recovers
+  # own_share of the raw features X (its complement is retrievable on the peer).
+  .dsvert_validate_peer_pk(peer_pk, ss, "peer")
   own_fp <- ss$k2_x_share_fp
   if (is.null(own_fp)) stop("No own share in session. Call k2ShareInputDS first.", call. = FALSE)
 

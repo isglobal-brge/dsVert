@@ -91,7 +91,6 @@ AggregateMethods:
     dsvertPerClusterSumShareDS,
     dsvertGLMMOneMinusMuDS,
     dsvertOneHotDS,
-    dsvertAddFactorDummiesDS,
     dsvertImputeColumnDS,
     dsvertPearsonR2ColDS,
     dsvertGEEInterceptShareDS,

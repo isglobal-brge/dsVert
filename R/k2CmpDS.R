@@ -2,6 +2,10 @@
 #' @description Dealer-side helper for comparing additive FP shares with a
 #'   public threshold without reconstructing the shared value. The dealer
 #'   returns only transport-encrypted key blobs for the two comparison parties.
+#'   The dealer draws the comparison mask, so it must be disjoint from the two
+#'   comparison parties (enforced here): a data-owning dealer could otherwise
+#'   open the compared value from a party's round-one relay. Key generation is
+#'   normally performed by the non-computing coordinator instead.
 #' @param dcf0_pk,dcf1_pk Base64url transport public keys of parties 0 and 1.
 #' @param n Number of shared values to compare.
 #' @param threshold Public threshold. The comparison bit is
@@ -25,6 +29,10 @@ k2CmpGenKeysDS <- function(dcf0_pk, dcf1_pk, n, threshold,
   ss <- .S(session_id)
   .dsvert_validate_recipient_pk(dcf0_pk, ss, "party0")
   .dsvert_validate_recipient_pk(dcf1_pk, ss, "party1")
+  # The dealer draws the comparison mask; it must not also be one of the two
+  # comparison parties, or it could open the compared value from the peer's
+  # round-one masked relay.
+  .dsvert_reject_self_dealer(dcf0_pk, dcf1_pk, ss)
   cmp <- .callMpcTool("k2-cmp-gen", list(
     n = as.integer(n),
     threshold = as.numeric(threshold),

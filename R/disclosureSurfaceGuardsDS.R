@@ -70,3 +70,30 @@
 .dsvert_releasable_share_key <- function(key) {
   as.character(key)[1L] %in% c("k2_chisq_cross_count_shares")
 }
+
+#' @keywords internal
+# FSS/DCF dealer separation. The threshold-comparison dealer draws the input
+# mask and hands each comparison party its own mask share; a dealer that also
+# holds a comparison party's share knows the whole mask and, being a computing
+# party, later receives the peer's one-time-masked value and so can open the
+# compared secret. The dealer must therefore be disjoint from the two
+# comparison parties: this server's own transport key may be NEITHER party key.
+# Key generation is instead performed by a non-computing coordinator (which
+# only ever relays sealed round-one blobs) or by a server that holds neither
+# compared variable.
+.dsvert_reject_self_dealer <- function(party0_pk, party1_pk, ss) {
+  own <- .key_get("transport_pk", ss)
+  if (is.null(own) || !nzchar(own)) return(invisible(TRUE))
+  own <- as.character(own)
+  for (pk in list(party0_pk, party1_pk)) {
+    pk_b64 <- tryCatch(.base64url_to_base64(pk), error = function(e) pk)
+    if (identical(as.character(pk_b64), own)) {
+      stop("DSVERT_SELF_DEALER: the threshold-comparison dealer may not also ",
+           "be a comparison party; a data-owning dealer would recover the ",
+           "compared counts. Route key generation to a non-computing ",
+           "coordinator or a server holding neither compared variable.",
+           call. = FALSE)
+    }
+  }
+  invisible(TRUE)
+}

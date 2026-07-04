@@ -49,13 +49,16 @@ dsvertBeaverPolicyDS <- function() {
 }
 
 .dsvert_beaver_policy <- function() {
-  supported <- c("dealer", "iknp")
+  # DEALER MODE REMOVED (F2/F17): a participating-party dealer can reconstruct
+  # peer operands. IKNP OT-extension is the sole, dealer-free backend. The
+  # policy advertises IKNP only; any 'dealer' request is normalised/refused.
+  supported <- c("iknp")
   allowed <- .dsvert_normalise_beaver_modes(.dsvert_get_option(
     "dsvert.beaver_preprocessing.allowed", supported), supported)
   minimum <- .dsvert_normalise_beaver_modes(.dsvert_get_option(
-    "dsvert.beaver_preprocessing.minimum", "dealer"), "dealer")[1L]
+    "dsvert.beaver_preprocessing.minimum", "iknp"), "iknp")[1L]
   preferred <- .dsvert_normalise_beaver_modes(.dsvert_get_option(
-    "dsvert.beaver_preprocessing.preferred", "dealer"), "dealer")[1L]
+    "dsvert.beaver_preprocessing.preferred", "iknp"), "iknp")[1L]
 
   allowed <- intersect(supported, allowed)
   if (identical(minimum, "iknp")) {

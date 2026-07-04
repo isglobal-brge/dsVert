@@ -16,9 +16,11 @@ Description: Server-side DataSHIELD functions for privacy-preserving analysis
     multinomial, ordinal, LMM, GEE, GLMM, IPW, multiple imputation, LASSO,
     contingency, correlation, PCA, and descriptive aggregates. MPC kernels use
     additive secret sharing over Ring63 or Ring127 fixed-point arithmetic with
-    Beaver triples and DCF wide-spline primitives. Historical diagnostic
-    helpers that could reveal per-observation working values are removed from
-    the invocable server surface.
+    Beaver triples over dealer-free IKNP OT-extension and reveal-free
+    share-domain Chebyshev links. The invocable server surface returns only
+    sealed shares and disclosure-controlled aggregates: raw-share release is
+    allowlisted to authorised outputs and every seal is pinned to an
+    identity-verified peer.
 License: MIT + file LICENSE
 URL: https://github.com/isglobal-brge/dsVert
 BugReports: https://github.com/isglobal-brge/dsVert/issues

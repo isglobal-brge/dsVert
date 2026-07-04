@@ -31,7 +31,7 @@ routes. Tests assert both the DataSHIELD product surface and the R namespace.
 | Family | Product route |
 |---|---|
 | PSI / alignment | ECDH-PSI common-record alignment with Ed25519 peer identity pinning |
-| GLM | Gaussian, binomial, and Poisson GLM with Ring63/Ring127 Beaver MPC, DCF wide-spline links, offsets, weights, and IPW |
+| GLM | Gaussian, binomial, and Poisson GLM with Ring63/Ring127 Beaver MPC, reveal-free share-domain links, offsets, weights, and IPW |
 | Cox PH | Non-disclosive Breslow profile route for K=2 and K>=3; K=2 discrete-time pooled-logistic route is also available |
 | Negative binomial | iid-mu, Method-of-Moments, and non-disclosive full-regression theta share-domain route |
 | Multinomial / ordinal | Joint Newton routes; warm starts are internal only |

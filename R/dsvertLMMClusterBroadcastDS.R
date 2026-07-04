@@ -36,6 +36,7 @@ dsvertLMMBroadcastClusterIDsDS <- function(data_name, cluster_col,
   sizes <- tabulate(ids_int, nbins = length(lvls))
   .dsvert_guard_cluster_sizes(sizes, "LMM cluster-ID broadcast")
   ss <- .S(session_id)
+  .dsvert_validate_recipient_pk(peer_pk, ss, "peer")
   ss$k2_lmm_cluster_ids <- ids_int
   ss$k2_lmm_cluster_n <- length(lvls)
   payload <- list(ids = ids_int, n_clusters = length(lvls))

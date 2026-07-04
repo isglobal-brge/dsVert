@@ -55,6 +55,18 @@ dsvertHistogramDS <- function(
   if (is.unsorted(edges, strictly = TRUE)) {
     stop("edges must be strictly increasing", call. = FALSE)
   }
+  # F9: bound the number of analyst-chosen bins. Very fine, analyst-controlled
+  # edges let an attacker read an exact empirical CDF and difference sliding
+  # two-bucket queries to recover interior order statistics down to 1 record.
+  # Cap the bin count (custodian-tunable). The full defence against un-budgeted
+  # exact-count reconstruction is the output-DP / query-budget layer.
+  max_bins <- as.integer(getOption("dsvert.histogram_max_bins", 1000L))
+  if (is.finite(max_bins) && (length(edges) - 1L) > max_bins) {
+    stop("histogram requested ", length(edges) - 1L, " bins > ",
+         "dsvert.histogram_max_bins (", max_bins, "); refusing (F9: limits ",
+         "CDF/order-statistic reconstruction from fine analyst-chosen edges)",
+         call. = FALSE)
+  }
 
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
@@ -95,7 +107,9 @@ dsvertHistogramDS <- function(
   fail_effective <- isTRUE(fail_on_small_cells) ||
     !isTRUE(getOption("dsvert.allow_silent_small_cells", FALSE))
   if (suppress_effective) {
-    privacy_min <- getOption("datashield.privacyLevel", 5L)
+    # F7: independent floor (max of privacyLevel and dsvert.min_release_n).
+    privacy_min <- max(as.integer(getOption("datashield.privacyLevel", 5L)),
+                       as.integer(getOption("dsvert.min_release_n", 1L)))
     if (is.numeric(privacy_min) && privacy_min > 0) {
       mask <- counts > 0L & counts < privacy_min
       small_tail <- (below > 0L && below < privacy_min) ||

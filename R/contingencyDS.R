@@ -84,7 +84,9 @@ dsvertContingencyDS <- function(
   fail_effective <- isTRUE(fail_on_small_cells) ||
     !isTRUE(getOption("dsvert.allow_silent_small_cells", FALSE))
   if (suppress_effective) {
-    privacy_min <- getOption("datashield.privacyLevel", 5L)
+    # F7: independent floor (max of privacyLevel and dsvert.min_release_n).
+    privacy_min <- max(as.integer(getOption("datashield.privacyLevel", 5L)),
+                       as.integer(getOption("dsvert.min_release_n", 1L)))
     if (is.numeric(privacy_min) && privacy_min > 0) {
       mask <- counts > 0L & counts < privacy_min
       small_margin <- any(row_margins > 0L & row_margins < privacy_min) ||

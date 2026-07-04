@@ -70,8 +70,13 @@ dsvertLocalMomentsDS <- function(data_name, variable,
   x <- raw[!is.na(raw)]
   n_total <- length(x)
 
-  privacy_min <- getOption("datashield.privacyLevel", 5L)
-  if (is.numeric(privacy_min) && n_total < privacy_min) {
+  # F7: the release floor is max(datashield.privacyLevel, an INDEPENDENT
+  # custodian option) so a control exists even when privacyLevel is 0 (parity
+  # with localCorDS's min_n_per_variable). Default 1 preserves current
+  # behaviour; production custodians should set dsvert.min_release_n >= 3.
+  privacy_min <- max(as.integer(getOption("datashield.privacyLevel", 5L)),
+                     as.integer(getOption("dsvert.min_release_n", 1L)))
+  if (is.numeric(privacy_min) && privacy_min > 0L && n_total < privacy_min) {
     return(list(
       mean = NA_real_, sd = NA_real_,
       min = NA_real_, max = NA_real_,

@@ -17,3 +17,5 @@
 ^inst/dsvert-mpc/mhe-tool$
 ^inst/mhe-tool$
 ^inst/k2-mpc-tool$
+^\.claude$
+^\.claude/

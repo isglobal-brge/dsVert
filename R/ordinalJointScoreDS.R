@@ -65,6 +65,7 @@ dsvertOrdinalShareClassMasksDS <- function(data_name,
   }
 
   ss <- .S(session_id)
+  .dsvert_validate_recipient_pk(peer_pk, ss, "peer")
   ring <- as.integer(ss$k2_ring %||% 127L)
   if (ring != 127L)
     stop("ordinal strict masks require a Ring127 session", call. = FALSE)

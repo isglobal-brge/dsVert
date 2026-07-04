@@ -554,6 +554,11 @@ mpcStoreBlobDS <- function(key, chunk, chunk_index = 1L, n_chunks = 1L,
 }
 
 #' Store peer transport public keys (with identity verification)
+#'
+#' When identity info is supplied, only transport keys that pass Ed25519
+#' signature and trusted-list verification are pinned in the session peer set;
+#' an extra unverified key riding along in \code{transport_keys} is dropped, so
+#' it cannot poison the set that recipient pinning later trusts.
 #' @param transport_keys Named list of base64url transport PKs.
 #' @param identity_info Named list: server -> list(identity_pk, signature). NULL to skip.
 #' @param session_id Character or NULL.
@@ -581,9 +586,15 @@ mpcStoreTransportKeysDS <- function(transport_keys = NULL,
   if (is.null(identity_info) && !is.null(identity_info_b64) && nzchar(identity_info_b64))
     identity_info <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(.from_b64url(identity_info_b64))), simplifyVector = FALSE)
 
+  # An empty identity dict carries no verification; treat it as absent so the
+  # trusted-peers requirement below is enforced rather than silently bypassed.
+  if (!is.null(identity_info) && length(identity_info) == 0L)
+    identity_info <- NULL
+  verified_peers <- NULL
   if (!is.null(identity_info)) {
     own_pk <- .key_get("identity_pk", ss)
-    .verify_all_peer_identities(identity_info, transport_keys, own_pk)
+    verified_peers <- .verify_all_peer_identities(identity_info, transport_keys,
+                                                  own_pk)
   } else {
     require_tp <- getOption("dsvert.require_trusted_peers")
     if (is.null(require_tp)) require_tp <- getOption("default.dsvert.require_trusted_peers")
@@ -599,9 +610,17 @@ mpcStoreTransportKeysDS <- function(transport_keys = NULL,
   # `peer_transport_pks` truly contains peers only -- required by
   # `.k2_enforce_K` whose contract is `length + 1 == K`.
   own_tp_plain <- .key_get("transport_pk", ss)
-  is_self <- vapply(transport_keys, function(v) {
-    identical(.base64url_to_base64(v), own_tp_plain)
-  }, logical(1))
-  ss$peer_transport_pks <- lapply(transport_keys[!is_self], .base64url_to_base64)
+  peer_pks <- lapply(transport_keys, .base64url_to_base64)
+  peer_pks <- peer_pks[vapply(peer_pks, function(v) !identical(v, own_tp_plain),
+                              logical(1))]
+  # When identities were verified, pin exactly the transport keys that passed
+  # Ed25519 + trusted-list verification, so an extra unverified key riding along
+  # in transport_keys cannot poison the trusted peer set. Only restrict when a
+  # verified set exists (identity-based flows); key-only dev flows keep the
+  # self-filtered set.
+  if (length(verified_peers) > 0L)
+    peer_pks <- peer_pks[vapply(peer_pks, function(v) v %in% verified_peers,
+                                logical(1))]
+  ss$peer_transport_pks <- peer_pks
   TRUE
 }

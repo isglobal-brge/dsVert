@@ -48,6 +48,7 @@ dsvertLMMPeerFittedShareDS <- function(data_name, x_names, betahat,
     list(values = as.numeric(fitted), frac_bits = as.integer(frac_bits)))$fp_data
   split_res <- .callMpcTool("k2-split-fp-share", list(data_fp = fp))
   ss <- .S(session_id)
+  .dsvert_validate_recipient_pk(peer_pk, ss, "peer")
   # Keep OWN share (random) for the negating side of the residual.
   ss$k2_lmm_exact_peer_share <- split_res$own_share
   sealed <- .callMpcTool("transport-encrypt",

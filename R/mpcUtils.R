@@ -564,6 +564,7 @@ dsvertNaOmitDS <- function(data_name, vars = NULL) {
 .verify_all_peer_identities <- function(identity_info, transport_keys,
                                          own_identity_pk) {
   trusted_peers <- .get_trusted_peers()
+  verified <- character(0)
   for (srv in names(identity_info)) {
     info <- identity_info[[srv]]
     tk <- transport_keys[[srv]]
@@ -585,8 +586,14 @@ dsvertNaOmitDS <- function(data_name, vars = NULL) {
     if (!is.null(trusted_peers) && !id_pk %in% trusted_peers)
       stop("Untrusted peer '", srv, "': identity PK not in trusted_peers.",
            call. = FALSE)
+
+    # This transport key passed signature + trusted-list verification.
+    verified <- c(verified, tk_b64)
   }
-  invisible(TRUE)
+  # The transport public keys (standard base64) that passed verification, so the
+  # caller can pin exactly this set and never an extra unverified key that may
+  # ride along in transport_keys.
+  invisible(verified)
 }
 
 #' Enforce K-arity at server side (defense-in-depth)

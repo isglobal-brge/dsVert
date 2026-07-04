@@ -56,6 +56,7 @@ dsvertLMMLocalGramDS <- function(data_name, columns,
   data <- get(data_name, envir = parent.frame())
   if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
   ss <- .S(session_id)
+  .dsvert_validate_recipient_pk(peer_pk, ss, "peer")
   ids <- ss$k2_lmm_cluster_ids
   if (is.null(ids)) stop("cluster IDs not in session", call. = FALSE)
   lambda <- as.numeric(lambda_per_cluster)
@@ -276,6 +277,7 @@ dsvertLMMGramR1DS <- function(peer_pk, x_col, y_col,
     stop("session_id required", call. = FALSE)
   ss <- .S(session_id)
   .k2_enforce_K(ss, 2L, "dsvertLMMGramR1DS")
+  .dsvert_validate_recipient_pk(peer_pk, ss, "peer")
   x_key <- paste0("lmm_gram_col_", x_col)
   y_key <- paste0("lmm_gram_col_", y_col)
   if (is.null(ss[[x_key]]) || is.null(ss[[y_key]]))

@@ -57,6 +57,7 @@ dsvertNBEtaShareDS <- function(data_name, x_vars, beta_values,
     stop("session_id required", call. = FALSE)
   ss <- .S(session_id)
   .k2_enforce_K(ss, 2L, "dsvertNBEtaShareDS")
+  .dsvert_validate_recipient_pk(target_pk, ss, "peer")
   if (!is.character(x_vars) || length(x_vars) < 1L)
     stop("x_vars must be a non-empty character vector", call. = FALSE)
   beta_values <- as.numeric(beta_values)

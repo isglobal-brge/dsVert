@@ -120,6 +120,7 @@ k2CmpRound1DS <- function(source_key, party_id,
     frac_bits = as.integer(frac_bits)))
   masked <- res$masked
   if (!is.null(peer_pk) && nzchar(peer_pk)) {
+    .dsvert_validate_recipient_pk(peer_pk, ss, "peer")
     sealed <- .callMpcTool("transport-encrypt", list(
       data = masked, recipient_pk = .base64url_to_base64(peer_pk)))
     masked <- sealed$sealed

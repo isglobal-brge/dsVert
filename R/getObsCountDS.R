@@ -57,6 +57,15 @@ getObsCountDS <- function(data_name, variables = NULL) {
     n_vars <- length(variables)
   }
 
+  # F8: apply the DataSHIELD min-count floor. Without it, an analyst can choose
+  # `variables` subsets and difference the complete-case counts (inclusion-
+  # exclusion over {a},{b},{a,b}) to recover missingness-pattern overlaps down
+  # to a single individual. Censor any count below the privacy threshold.
+  privacy_min <- getOption("datashield.privacyLevel", 5L)
+  if (is.numeric(privacy_min) && privacy_min > 0 && n_obs < privacy_min) {
+    n_obs <- NA_integer_
+  }
+
   list(
     n_obs = n_obs,
     n_vars = n_vars

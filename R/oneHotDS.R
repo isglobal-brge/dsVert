@@ -92,12 +92,17 @@ dsvertOneHotDS <- function(data_name, var, levels = NULL,
   }
   row_margins <- as.integer(colSums(mat))
 
-  if (isTRUE(suppress_small_cells)) {
+  # SERVER-AUTHORITATIVE disclosure control (F3): a client arg may only make
+  # suppression stricter; applied unless the CUSTODIAN explicitly permits.
+  suppress_effective <- isTRUE(suppress_small_cells) ||
+    !isTRUE(getOption("dsvert.allow_small_cell_release", FALSE))
+  fail_effective <- isTRUE(fail_on_small_cells) ||
+    !isTRUE(getOption("dsvert.allow_silent_small_cells", FALSE))
+  if (suppress_effective) {
     privacy_min <- getOption("datashield.privacyLevel", 5L)
     if (is.numeric(privacy_min) && privacy_min > 0) {
       small <- row_margins > 0L & row_margins < privacy_min
-      if ((any(small) || (n > 0L && n < privacy_min)) &&
-          isTRUE(fail_on_small_cells)) {
+      if ((any(small) || (n > 0L && n < privacy_min)) && fail_effective) {
         stop("One-hot level count below datashield.privacyLevel; ",
              "refusing to release categorical metadata", call. = FALSE)
       }
@@ -125,8 +130,8 @@ dsvertOneHotDS <- function(data_name, var, levels = NULL,
     n = n,
     n_na = n_na,
     session_key = session_key,
-    small_cell_policy = if (isTRUE(suppress_small_cells)) {
-      if (isTRUE(fail_on_small_cells)) "fail" else "zero"
+    small_cell_policy = if (suppress_effective) {
+      if (fail_effective) "fail" else "zero"
     } else {
       "none"
     }

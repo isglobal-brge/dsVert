@@ -85,14 +85,22 @@ dsvertHistogramDS <- function(
   below <- sum(idx == 0L)
   above <- sum(idx > K)
 
-  # --- Disclosure control ----------------------------------------------
-  if (isTRUE(suppress_small_cells)) {
+  # --- Disclosure control (SERVER-AUTHORITATIVE, F3) --------------------
+  # A client argument may only make suppression STRICTER, never looser: it is
+  # applied unless the CUSTODIAN option explicitly permits an unsuppressed /
+  # silent release. So an analyst passing suppress_small_cells=FALSE or
+  # fail_on_small_cells=FALSE cannot loosen the control.
+  suppress_effective <- isTRUE(suppress_small_cells) ||
+    !isTRUE(getOption("dsvert.allow_small_cell_release", FALSE))
+  fail_effective <- isTRUE(fail_on_small_cells) ||
+    !isTRUE(getOption("dsvert.allow_silent_small_cells", FALSE))
+  if (suppress_effective) {
     privacy_min <- getOption("datashield.privacyLevel", 5L)
     if (is.numeric(privacy_min) && privacy_min > 0) {
       mask <- counts > 0L & counts < privacy_min
       small_tail <- (below > 0L && below < privacy_min) ||
         (above > 0L && above < privacy_min)
-      if ((any(mask) || small_tail) && isTRUE(fail_on_small_cells)) {
+      if ((any(mask) || small_tail) && fail_effective) {
         stop("Histogram has a positive bucket/tail count below ",
              "datashield.privacyLevel; refusing to release counts",
              call. = FALSE)

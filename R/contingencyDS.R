@@ -77,19 +77,29 @@ dsvertContingencyDS <- function(
   row_margins <- as.integer(rowSums(counts))
   col_margins <- as.integer(colSums(counts))
 
-  if (isTRUE(suppress_small_cells)) {
+  # SERVER-AUTHORITATIVE disclosure control (F3): a client argument may only
+  # make suppression STRICTER. Applied unless the CUSTODIAN explicitly permits.
+  suppress_effective <- isTRUE(suppress_small_cells) ||
+    !isTRUE(getOption("dsvert.allow_small_cell_release", FALSE))
+  fail_effective <- isTRUE(fail_on_small_cells) ||
+    !isTRUE(getOption("dsvert.allow_silent_small_cells", FALSE))
+  if (suppress_effective) {
     privacy_min <- getOption("datashield.privacyLevel", 5L)
     if (is.numeric(privacy_min) && privacy_min > 0) {
       mask <- counts > 0L & counts < privacy_min
       small_margin <- any(row_margins > 0L & row_margins < privacy_min) ||
         any(col_margins > 0L & col_margins < privacy_min) ||
         (n > 0L && n < privacy_min)
-      if ((any(mask) || small_margin) && isTRUE(fail_on_small_cells)) {
+      if ((any(mask) || small_margin) && fail_effective) {
         stop("Contingency table has a positive cell or margin below ",
              "datashield.privacyLevel; refusing to release counts",
              call. = FALSE)
       }
       counts[mask] <- 0L
+      # F6: mask the level LABELS of any suppressed margin, so the exact
+      # value domain of a (possibly continuous) column is not echoed.
+      row_levels[row_margins > 0L & row_margins < privacy_min] <- "<suppressed>"
+      col_levels[col_margins > 0L & col_margins < privacy_min] <- "<suppressed>"
       row_margins[row_margins > 0L & row_margins < privacy_min] <- 0L
       col_margins[col_margins > 0L & col_margins < privacy_min] <- 0L
       if (n < privacy_min) n <- 0L

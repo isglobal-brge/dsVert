@@ -7,9 +7,11 @@
 #'
 #' @param data_name Character. Name of the server-side data frame.
 #' @param variable Character. Name of the numeric column.
-#' @param return_extrema Logical. Return exact min/max. Defaults to
-#'   \code{getOption("dsvert.allow_exact_extrema", FALSE)} because exact
-#'   extrema can disclose outliers in small cohorts.
+#' @param return_extrema Logical. Client REQUEST for exact min/max. Extrema are
+#'   released only if BOTH this is \code{TRUE} AND the custodian option
+#'   \code{getOption("dsvert.allow_exact_extrema", FALSE)} is \code{TRUE}
+#'   (server-authoritative, F3): a client argument can never loosen the control,
+#'   because exact extrema disclose two identifiable outliers.
 #'
 #' @return A list with elements:
 #'   \itemize{
@@ -35,8 +37,12 @@
 #' @importFrom stats sd
 #' @export
 dsvertLocalMomentsDS <- function(data_name, variable,
-                                 return_extrema = getOption(
-                                   "dsvert.allow_exact_extrema", FALSE)) {
+                                 return_extrema = FALSE) {
+  # F3 (server-authoritative): a client arg may only REQUEST extrema; the
+  # custodian option must also permit them. AND-combine so the analyst cannot
+  # force exact min/max by passing return_extrema=TRUE.
+  allow_extrema <- isTRUE(return_extrema) &&
+    isTRUE(getOption("dsvert.allow_exact_extrema", FALSE))
   if (!is.character(data_name) || length(data_name) != 1) {
     stop("data_name must be a single character string", call. = FALSE)
   }
@@ -77,10 +83,10 @@ dsvertLocalMomentsDS <- function(data_name, variable,
   list(
     mean = mean(x),
     sd = if (n_total > 1L) sd(x) else NA_real_,
-    min = if (isTRUE(return_extrema)) min(x) else NA_real_,
-    max = if (isTRUE(return_extrema)) max(x) else NA_real_,
+    min = if (allow_extrema) min(x) else NA_real_,
+    max = if (allow_extrema) max(x) else NA_real_,
     n_total = n_total,
     n_na = n_na,
-    extrema_released = isTRUE(return_extrema)
+    extrema_released = allow_extrema
   )
 }

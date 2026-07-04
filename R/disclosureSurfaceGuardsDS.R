@@ -71,6 +71,31 @@
   as.character(key)[1L] %in% c("k2_chisq_cross_count_shares")
 }
 
+# The raw-share release allowlist above gates on the destination NAME only.
+# Many primitives write a caller-chosen output key, so a per-observation share
+# could be written under the allowlisted name and then read back as a raw share.
+# Release is therefore additionally bound to the sole legitimate producer of a
+# releasable slot -- k2StoreSumShareDS, an aggregating sum-reduction over all
+# observations. That producer stamps a content digest of exactly what it stored;
+# the reader releases only while the stored content still matches the stamp, so
+# any later overwrite by another primitive (or a per-observation write under the
+# allowlisted name) no longer matches and release fails closed.
+.dsvert_stamp_releasable_share <- function(output_key, value, ss) {
+  if (.dsvert_releasable_share_key(output_key)) {
+    if (!is.list(ss$k2_releasable_digest)) ss$k2_releasable_digest <- list()
+    ss$k2_releasable_digest[[as.character(output_key)[1L]]] <-
+      digest::digest(value)
+  }
+  invisible(TRUE)
+}
+
+.dsvert_releasable_share_matches <- function(source_key, value, ss) {
+  stamp <- if (is.list(ss$k2_releasable_digest)) {
+    ss$k2_releasable_digest[[as.character(source_key)[1L]]]
+  } else NULL
+  !is.null(stamp) && identical(stamp, digest::digest(value))
+}
+
 #' @keywords internal
 # FSS/DCF dealer separation. The threshold-comparison dealer draws the input
 # mask and hands each comparison party its own mask share; a dealer that also

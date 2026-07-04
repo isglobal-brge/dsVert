@@ -191,12 +191,20 @@ k2StoreSumShareDS <- function(source_key, output_key, append = FALSE,
     out_raw <- new_raw
   }
   ss[[output_key]] <- jsonlite::base64_enc(out_raw)
+  # Bind release eligibility to this aggregating producer: stamp the stored
+  # aggregate so k2GetStoredShareDS releases only content this reduction wrote.
+  .dsvert_stamp_releasable_share(output_key, ss[[output_key]], ss)
   bytes_per_elem <- if (identical(ring, "ring127")) 16L else 8L
   list(stored = TRUE, output_key = output_key,
        length = as.integer(length(out_raw) / bytes_per_elem))
 }
 
 #' @title Return a stored FP share after a disclosure precheck has passed
+#' @description Releases a raw additive share only from an allowlisted aggregate
+#'   slot whose current content still carries the provenance stamp written by the
+#'   aggregating producer (\code{k2StoreSumShareDS}). A per-observation share
+#'   written under the allowlisted name by any other primitive does not match the
+#'   stamp and is refused, so no per-observation value can be laundered out.
 #' @param source_key Session key containing the FP share vector.
 #' @param session_id Active MPC session identifier.
 #' @return list(share_fp).
@@ -219,6 +227,14 @@ k2GetStoredShareDS <- function(source_key, session_id = NULL) {
   ss <- .S(session_id)
   fp <- ss[[source_key]]
   if (is.null(fp)) stop("source_key missing", call. = FALSE)
+  # The allowlisted name only becomes releasable once the aggregating producer
+  # has stamped this exact content; a per-observation share written under the
+  # name by any other primitive does not match the stamp and is refused.
+  if (!.dsvert_releasable_share_matches(source_key, fp, ss)) {
+    stop("DSVERT_NOT_RELEASABLE: source_key '", source_key, "' does not carry ",
+         "an aggregating-producer provenance stamp for its current content; ",
+         "refusing to return a raw share", call. = FALSE)
+  }
   list(share_fp = fp)
 }
 

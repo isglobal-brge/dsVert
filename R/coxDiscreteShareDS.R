@@ -92,6 +92,25 @@ dsvertCoxDiscreteShareMaskDS <- function(data_name, time_var, status_var,
                          include.lowest = TRUE, right = TRUE))
   J_i <- pmin(pmax(J_i, 1L), J)
 
+  # Server-authoritative risk-set disclosure guard. The per-iteration Hessian
+  # returned to the client has H[bin_j, x] / H[bin_j, bin_j] = the at-risk mean
+  # of covariate x in bin j, so a bin whose risk set is a single subject reveals
+  # that subject's covariate. The risk set at bin j is #{i : J_i >= j}; refuse
+  # if any bin's at-risk count is below the floor (coarsen the tail bins).
+  risk_min <- max(as.integer(getOption("datashield.privacyLevel", 5L)),
+                  as.integer(getOption("dsvert.min_release_n", 1L)))
+  if (risk_min > 1L) {
+    risk_sets <- vapply(seq_len(J), function(j) sum(J_i >= j), integer(1L))
+    small <- risk_sets > 0L & risk_sets < risk_min
+    if (any(small)) {
+      stop("Cox discrete-time risk set below the disclosure floor in ",
+           sum(small), " bin(s) (min at-risk = ", min(risk_sets[risk_sets > 0L]),
+           " < ", risk_min, "); coarsen the tail bins so each at-risk count is ",
+           ">= the floor (a size-1 risk set reveals that subject's covariate ",
+           "through the Hessian).", call. = FALSE)
+    }
+  }
+
   # Build flattened (n, J) row-major matrices m, y (length n*J).
   # Convention: idx = (i-1)*J + j  for patient i, bin j.
   m <- numeric(as.integer(n) * J)

@@ -184,7 +184,9 @@ dsvertCoxDiscreteShareMaskDS <- function(data_name, time_var, status_var,
 #'   shares between the outcome server and the DCF peer. The returned metadata
 #'   contains only guarded scalar dimensions; actual event times, event
 #'   indicators, patient order, and risk-set membership are kept local or
-#'   share-domain.
+#'   share-domain. Sparse tail event times whose at-risk count falls below the
+#'   disclosure floor are grouped into the last bin that meets it, so no released
+#'   time bin has a single-subject risk set and no event is dropped.
 #' @param data_name Character. Local data frame name on outcome server.
 #' @param time_var,status_var Character survival time and event columns.
 #' @param mask_output_key,y_output_key Session slots for this server's shares.
@@ -240,10 +242,36 @@ dsvertCoxEventTimeShareMaskDS <- function(data_name, time_var, status_var,
          call. = FALSE)
   }
 
+  # Server-authoritative risk-set disclosure guard. The per-iteration Hessian
+  # exposes at-risk covariate means per event-time bin, so a bin whose risk set
+  # is a single subject would reveal that subject's covariate. Risk sets shrink
+  # monotonically over event time, so group the sparse tail event times into the
+  # last bin that still meets the disclosure floor; every retained bin then has
+  # an at-risk count >= the floor, and no event is dropped (tail events fall into
+  # the final retained bin).
+  risk_min <- max(as.integer(getOption("datashield.privacyLevel", 5L)),
+                  as.integer(getOption("dsvert.min_release_n", 1L)))
+  if (risk_min > 1L) {
+    risk_sets <- vapply(event_times, function(tt) sum(t_vec >= tt), integer(1L))
+    keep <- which(risk_sets >= risk_min)
+    if (length(keep) < 1L)
+      stop("Cox event-time risk sets are all below the disclosure floor ",
+           "(max at-risk < ", risk_min, "); too few subjects to release.",
+           call. = FALSE)
+    last_bin <- max(keep)
+    if (last_bin < J) {
+      event_times <- event_times[seq_len(last_bin)]
+      J <- length(event_times)
+    }
+  }
+
   n_pp <- as.integer(n) * as.integer(J)
   m <- numeric(n_pp)
   y <- numeric(n_pp)
   event_index <- match(t_vec, event_times)
+  # An event occurring after the last retained bin is grouped into that bin.
+  tail_event <- d_vec == 1L & is.na(event_index)
+  if (any(tail_event)) event_index[tail_event] <- J
   for (i in seq_len(n)) {
     base <- (i - 1L) * J
     at_risk <- which(t_vec[i] >= event_times)

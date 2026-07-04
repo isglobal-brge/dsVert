@@ -154,6 +154,11 @@ func main() {
 	case "k2-exp127-get-coeffs":
 		handleK2Exp127GetCoeffs()
 
+	// Ring127 direct-sigmoid Chebyshev coefficients (public). GLM-specific
+	// reveal-free logistic link; 29 rounds vs exp127+recip127's ~85.
+	case "k2-sigmoid127-get-coeffs":
+		handleK2Sigmoid127GetCoeffs()
+
 	// Ring127 Chebyshev-recip coefficients + NR constants (public)
 	case "k2-recip127-get-coeffs":
 		handleK2Recip127GetCoeffs()

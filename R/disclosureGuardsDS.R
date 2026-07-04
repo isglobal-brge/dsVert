@@ -70,3 +70,29 @@
   }
   invisible(min_size)
 }
+
+# Minimum number of per-observation contributions a released share-sum is
+# permitted to fold together. Additive share-sums are revealed by combining
+# both parties' outputs; a sum over a single observation IS that observation's
+# plaintext value, so any slice/reshape that drives the aggregation size to
+# one lets a caller isolate an individual record. The slicing primitives
+# (single-column extraction, strided per-index sum) determine this granularity:
+# extraction retains `n` rows and a strided sum folds `n_obs` rows per output
+# index. Requiring both to meet the per-cluster underdetermination floor keeps
+# every released aggregate spanning enough records that no single contribution
+# is recoverable. Legitimate gradient/moment/bin sums always slice the full
+# aligned sample, so they clear the floor; a degenerate one-observation slice
+# does not.
+.dsvert_guard_min_agg_count <- function(count, what = "share-sum aggregate") {
+  count <- suppressWarnings(as.integer(count))
+  if (length(count) != 1L || is.na(count) || count < 0L) {
+    stop("invalid aggregation size for ", what, call. = FALSE)
+  }
+  min_n <- .dsvert_cluster_min_size()
+  if (count < min_n) {
+    stop("aggregation size ", count, " below the minimum releasable ",
+         "aggregation floor for ", what, " (min ", min_n,
+         "; single-observation isolation guard)", call. = FALSE)
+  }
+  invisible(min_n)
+}

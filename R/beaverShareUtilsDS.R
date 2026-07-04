@@ -92,6 +92,11 @@ k2BeaverExtractColumnDS <- function(source_key, n, K, col_index,
   if (is.null(fp)) {
     stop("source_key '", source_key, "' missing", call. = FALSE)
   }
+  # The extracted column becomes a length-n share that downstream helpers sum
+  # into a released aggregate; require it to span the minimum releasable number
+  # of observations so a caller cannot reshape the source to pluck (and later
+  # reveal) a single record.
+  .dsvert_guard_min_agg_count(n, "column extraction")
   ci <- as.integer(col_index)
   if (ci >= 1L && ci <= K) ci <- ci - 1L  # R -> 0-based
   if (ci < 0L || ci >= K) {
@@ -270,6 +275,11 @@ k2BeaverStridedSumShareDS <- function(source_key, output_key, n_obs, J,
   ss <- .S(session_id)
   fp <- ss[[source_key]]
   if (is.null(fp)) stop("source_key missing", call. = FALSE)
+  # Each output index folds n_obs rows (row-major stride over J columns), so
+  # n_obs is the per-index aggregation size. Enforce the releasable-aggregate
+  # floor to block an isolating shape (n_obs = 1) that would emit one output
+  # value per observation.
+  .dsvert_guard_min_agg_count(n_obs, "strided share-sum")
   if (is.null(ring) || !nzchar(ring)) {
     ss_ring <- as.integer(ss$k2_ring %||% 63L)
     ring <- if (ss_ring == 127L) "ring127" else "ring63"

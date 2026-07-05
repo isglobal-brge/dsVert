@@ -10,7 +10,7 @@ k2CmpRound2DS(
   output_key,
   keys_key = "k2_cmp_keys",
   peer_blob_key = "k2_cmp_peer_masked",
-  peer_sealed = FALSE,
+  peer_sealed = TRUE,
   return_share = FALSE,
   session_id = NULL,
   frac_bits = 20L

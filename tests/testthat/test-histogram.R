@@ -33,33 +33,35 @@ test_that("histogram counts sum to n_total and match tabulate()", {
   expect_equal(res$n_na, sum(is.na(D$x)))
 })
 
-test_that("histogram suppresses small cells when enabled", {
+test_that("histogram refuses and suppresses small cells when enabled", {
   D <- make_df()
   # Very tight edges so some buckets have 1 observation
   edges <- c(-5, -2, -1, 0, 1, 2, 5)
+  # Rough client-side bucket counts confirm the fixture has small buckets (the
+  # server refuses to release raw small-cell counts, so we cannot fetch them).
+  cl <- as.integer(table(cut(D$x[!is.na(D$x)], breaks = edges,
+                             include.lowest = TRUE)))
+  if (!any(cl > 0L & cl < 5L)) {
+    skip("no small cells on this fixture; adjust seed or edges")
+  }
+  old <- options(dsvert.allow_silent_small_cells = TRUE)
+  on.exit(options(old), add = TRUE)
 
-  raw <- dsvertHistogramDS("D", "x", edges, suppress_small_cells = FALSE)
-  # privacyLevel default is 5 in dsVert DESCRIPTION; some buckets should
-  # have <5 observations on a 50-sample Gaussian.
-  has_small <- any(raw$counts > 0L & raw$counts < 5L)
-  if (!has_small) skip("no small cells on this fixture; adjust seed or edges")
-
+  # Server-authoritative refusal of any raw small-cell release.
+  expect_error(
+    dsvertHistogramDS("D", "x", edges, suppress_small_cells = FALSE),
+    "refusing to release counts")
   expect_error(
     dsvertHistogramDS("D", "x", edges, suppress_small_cells = TRUE),
     "refusing to release counts")
 
+  # Suppression with fail-open zeroes small buckets; no positive released
+  # bucket is below the privacy floor.
   suppressed <- dsvertHistogramDS("D", "x", edges,
                                   suppress_small_cells = TRUE,
                                   fail_on_small_cells = FALSE)
-  # Every cell that was in (0, privacy_min) must now be 0
-  for (k in seq_along(raw$counts)) {
-    if (raw$counts[k] > 0L && raw$counts[k] < 5L) {
-      expect_equal(suppressed$counts[k], 0L)
-    } else {
-      expect_equal(suppressed$counts[k], raw$counts[k])
-    }
-  }
-  expect_equal(suppressed$n_total, raw$n_total)
+  pl <- getOption("datashield.privacyLevel", 5L)
+  expect_false(any(suppressed$counts > 0L & suppressed$counts < pl))
 })
 
 test_that("histogram errors on bad input", {
@@ -93,6 +95,10 @@ test_that("local moments match base R mean/sd and suppress extrema by default", 
 })
 
 test_that("local moments can opt into exact extrema", {
+  # Exact extrema are server-authoritative: the client request only takes
+  # effect when the server has explicitly enabled it.
+  old <- options(dsvert.allow_exact_extrema = TRUE)
+  on.exit(options(old), add = TRUE)
   D <- make_df()
   res <- dsvertLocalMomentsDS("D", "x", return_extrema = TRUE)
 

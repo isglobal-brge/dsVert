@@ -35,7 +35,13 @@ Metadata and sealed share blobs for the client relay.
 \description{
 Reads a weights column, converts it to the session fixed-point
 ring, splits \eqn{w} and \eqn{\sqrt{w}} into two additive shares, and
-stores or seals those shares for the two DCF parties. Unlike the
-removed plaintext-weight route, this helper never gives either DCF
-party the full patient-level weights vector.
+stores or seals those shares for the two DCF parties. Neither DCF party
+ever holds the full patient-level weights vector, only an additive share.
+
+The weights column is a purely local quantity: it is read as plaintext
+only on the server that owns it, immediately split into additive shares,
+and consumed only in the share domain, so a peer never receives the
+patient-level weights. This non-disclosure holds because the plaintext
+weight never leaves its holder; a weight is therefore derived from data
+local to that holder, never from a revealed cross-party quantity.
 }

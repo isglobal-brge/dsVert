@@ -1,19 +1,37 @@
 # dsVert (development version)
 
+### Security hardening
+
+* Raw-share release is bound to the aggregating producer by a content-digest
+  provenance stamp; a per-observation share can no longer be laundered into the
+  allowlisted release slot (`k2GetStoredShareDS` / `k2StoreSumShareDS`).
+* Every transport-sealed share is pinned to an identity-verified peer, and the
+  stored peer set contains only Ed25519 + trusted-list verified keys.
+* Chi-square DCF comparison keys are generated on the non-computing
+  coordinator; a data-owning server can never act as the comparison dealer.
+* Cox discrete-time and event-time risk sets below the disclosure floor are
+  grouped so no released time bin isolates a single subject.
+* Single-observation isolation floor on the share-sum slicing primitives.
+* Disclosure controls (small-cell suppression, exact extrema, histogram /
+  contingency floors) are server-authoritative and fail closed by default.
+* Pinned peers are mandatory by default (`dsvert.require_trusted_peers = TRUE`).
+* Added `k2SeedSingleClusterDS`, seeding a constant cluster so the LMM Gram
+  driver serves the gaussian GLM one-shot fast path.
+
 ### Beaver preprocessing
 
-* Added `dsvertBeaverPolicyDS()` so DataSHIELD administrators can expose an
-  explicit Beaver preprocessing policy: efficient dealer mode, IKNP
-  OT-extension mode, or both.
+* Added `dsvertBeaverPolicyDS()` so DataSHIELD administrators can inspect the
+  server-side Beaver preprocessing policy.
 * Added relayable semi-honest IKNP OT-extension commands as the strengthened
   Beaver preprocessing backend, with rebuilt `dsvert-mpc` binaries for all
   packaged platforms.
 * Domain-separated IKNP extension seeds so client-side orchestrators can reuse
   a base-OT transcript safely across multiple multiplication batches without
   reusing PRG pads.
-* Kept dealer preprocessing as a product backend for governed institutional
-  peer deployments and removed the historical direct-OT helpers from the
-  registered `AggregateMethods` surface.
+* Dealer preprocessing has been removed: a participating-party dealer can
+  reconstruct peer operands, so IKNP OT-extension is now the sole, dealer-free
+  backend. The historical direct-OT helpers are also out of the registered
+  `AggregateMethods` surface.
 
 ### Cleanup
 

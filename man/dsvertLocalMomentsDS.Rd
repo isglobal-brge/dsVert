@@ -4,20 +4,18 @@
 \alias{dsvertLocalMomentsDS}
 \title{Server-side local descriptive moments (aggregate)}
 \usage{
-dsvertLocalMomentsDS(
-  data_name,
-  variable,
-  return_extrema = getOption("dsvert.allow_exact_extrema", FALSE)
-)
+dsvertLocalMomentsDS(data_name, variable, return_extrema = FALSE)
 }
 \arguments{
 \item{data_name}{Character. Name of the server-side data frame.}
 
 \item{variable}{Character. Name of the numeric column.}
 
-\item{return_extrema}{Logical. Return exact min/max. Defaults to
-\code{getOption("dsvert.allow_exact_extrema", FALSE)} because exact
-extrema can disclose outliers in small cohorts.}
+\item{return_extrema}{Logical. Client REQUEST for exact min/max. Extrema are
+released only if BOTH this is \code{TRUE} AND the custodian option
+\code{getOption("dsvert.allow_exact_extrema", FALSE)} is \code{TRUE}
+(server-authoritative, F3): a client argument can never loosen the control,
+because exact extrema disclose two identifiable outliers.}
 }
 \value{
 A list with elements:

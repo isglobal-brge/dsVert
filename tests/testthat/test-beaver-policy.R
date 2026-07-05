@@ -1,14 +1,14 @@
-test_that("Beaver policy defaults to dealer and IKNP support", {
+test_that("Beaver policy is IKNP-only by default (dealer mode removed)", {
   old <- options(dsvert.beaver_preprocessing.allowed = NULL,
                  dsvert.beaver_preprocessing.preferred = NULL,
                  dsvert.beaver_preprocessing.minimum = NULL)
   on.exit(options(old), add = TRUE)
 
   p <- dsvertBeaverPolicyDS()
-  expect_setequal(p$supported, c("dealer", "iknp"))
-  expect_setequal(p$allowed, c("dealer", "iknp"))
-  expect_identical(p$preferred, "dealer")
-  expect_false(p$requires_iknp)
+  expect_setequal(p$supported, "iknp")
+  expect_setequal(p$allowed, "iknp")
+  expect_identical(p$preferred, "iknp")
+  expect_true(p$requires_iknp)
 })
 
 test_that("Beaver policy can require IKNP", {

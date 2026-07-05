@@ -15,5 +15,9 @@ k2GetStoredShareDS(source_key, session_id = NULL)
 list(share_fp).
 }
 \description{
-Return a stored FP share after a disclosure precheck has passed
+Releases a raw additive share only from an allowlisted aggregate
+slot whose current content still carries the provenance stamp written by the
+aggregating producer (\code{k2StoreSumShareDS}). A per-observation share
+written under the allowlisted name by any other primitive does not match the
+stamp and is refused, so no per-observation value can be laundered out.
 }

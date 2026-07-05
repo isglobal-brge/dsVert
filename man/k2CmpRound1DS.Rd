@@ -8,6 +8,7 @@ k2CmpRound1DS(
   source_key,
   party_id,
   keys_key = "k2_cmp_keys",
+  peer_pk = NULL,
   session_id = NULL,
   frac_bits = 20L
 )
@@ -19,14 +20,24 @@ k2CmpRound1DS(
 
 \item{keys_key}{Session key containing decrypted comparison keys.}
 
+\item{peer_pk}{Optional base64url transport public key of the peer that will
+consume this masked value in \code{k2CmpRound2DS}. If given, the masked
+value is transport-sealed to that peer before relay.}
+
 \item{session_id}{MPC session id.}
 
 \item{frac_bits}{Ring63 fractional bits.}
 }
 \value{
-list(cmp_masked).
+list(cmp_masked). Sealed iff \code{peer_pk} was supplied.
 }
 \description{
 Returns a one-time-masked DCF value for client relay to the
-peer. The returned masked value is not a share of the underlying count.
+peer. The returned masked value is not a share of the underlying count:
+with the fresh per-\code{k2CmpGenKeysDS} mask it is an information-theoretic
+one-time pad, so a passive relay learns nothing from it in isolation. When
+\code{peer_pk} is supplied the masked value is additionally sealed to the
+consuming peer's transport key (defence-in-depth: the analyst relay then
+only ever forwards an opaque blob, closing any residual exposure should a
+mask ever be reused).
 }

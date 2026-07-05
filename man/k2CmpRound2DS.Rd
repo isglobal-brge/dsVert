@@ -10,6 +10,7 @@ k2CmpRound2DS(
   output_key,
   keys_key = "k2_cmp_keys",
   peer_blob_key = "k2_cmp_peer_masked",
+  peer_sealed = FALSE,
   return_share = FALSE,
   session_id = NULL,
   frac_bits = 20L
@@ -25,6 +26,10 @@ k2CmpRound2DS(
 \item{keys_key}{Session key containing decrypted comparison keys.}
 
 \item{peer_blob_key}{Session blob key containing the peer masked value.}
+
+\item{peer_sealed}{Logical. If TRUE, the relayed peer masked value was
+transport-sealed by \code{k2CmpRound1DS(peer_pk=...)} and is decrypted here
+with this party's transport secret key before use.}
 
 \item{return_share}{Logical. If TRUE, return this party's output share.}
 

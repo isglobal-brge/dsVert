@@ -42,37 +42,45 @@ test_that("contingency drops rows with missingness in either variable", {
   D <- make_cat_df(n = 50)
   D$sex[c(1, 5, 10)] <- NA
   D$smoke[c(5, 20, 30)] <- NA  # row 5 is NA in both
+  # n / n_na are release-safe totals (not per-cell), so suppression does not
+  # affect them; suppress + server-enabled silent suppression avoids the
+  # small-cell release refusal.
+  old <- options(dsvert.allow_silent_small_cells = TRUE)
+  on.exit(options(old), add = TRUE)
   res <- dsvertContingencyDS("D", "sex", "smoke",
-                              suppress_small_cells = FALSE)
+                              suppress_small_cells = TRUE,
+                              fail_on_small_cells = FALSE)
   expect_equal(res$n, 50L - 5L)  # 5 distinct rows have NA
   expect_equal(res$n_na, 5L)
 })
 
-test_that("contingency suppresses small cells when privacyLevel active", {
+test_that("contingency refuses and suppresses small cells when privacyLevel active", {
   D <- make_cat_df(n = 50, seed = 1)
-  # Make a sparse 2x4 table so some cells drop below 5
-  res_raw <- dsvertContingencyDS("D", "sex", "stage",
-                                 suppress_small_cells = FALSE)
-  if (!any(res_raw$counts > 0L & res_raw$counts < 5L)) {
+  # Expected raw table computed client-side (the server refuses to release raw
+  # small cells, so we cannot fetch them; a sparse 2x4 table has cells below 5).
+  tab_raw <- unclass(table(D$sex, D$stage))
+  if (!any(tab_raw > 0L & tab_raw < 5L)) {
     skip("no small cells on this fixture")
   }
+  old <- options(dsvert.allow_silent_small_cells = TRUE)
+  on.exit(options(old), add = TRUE)
+  # Server-authoritative refusal: raw release of a small-cell table is denied.
+  expect_error(
+    dsvertContingencyDS("D", "sex", "stage",
+                        suppress_small_cells = FALSE),
+    "refusing to release counts")
   expect_error(
     dsvertContingencyDS("D", "sex", "stage",
                         suppress_small_cells = TRUE),
     "refusing to release counts")
 
+  # With suppression AND fail-open, small cells are zeroed and no positive
+  # released cell is below the privacy floor.
   res_sup <- dsvertContingencyDS("D", "sex", "stage",
                                  suppress_small_cells = TRUE,
                                  fail_on_small_cells = FALSE)
-  for (i in seq_len(nrow(res_raw$counts))) {
-    for (j in seq_len(ncol(res_raw$counts))) {
-      if (res_raw$counts[i, j] > 0L && res_raw$counts[i, j] < 5L) {
-        expect_equal(res_sup$counts[i, j], 0L)
-      } else {
-        expect_equal(res_sup$counts[i, j], res_raw$counts[i, j])
-      }
-    }
-  }
+  pl <- getOption("datashield.privacyLevel", 5L)
+  expect_false(any(res_sup$counts > 0L & res_sup$counts < pl))
 })
 
 test_that("contingency errors on invalid input", {

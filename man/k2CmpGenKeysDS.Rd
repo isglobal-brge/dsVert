@@ -32,4 +32,8 @@ list(cmp_blob_0, cmp_blob_1).
 Dealer-side helper for comparing additive FP shares with a
 public threshold without reconstructing the shared value. The dealer
 returns only transport-encrypted key blobs for the two comparison parties.
+The dealer draws the comparison mask, so it must be disjoint from the two
+comparison parties (enforced here): a data-owning dealer could otherwise
+open the compared value from a party's round-one relay. Key generation is
+normally performed by the non-computing coordinator instead.
 }

@@ -51,5 +51,7 @@ Both matrices are flattened row-major and split into Ring127 additive
 shares between the outcome server and the DCF peer. The returned metadata
 contains only guarded scalar dimensions; actual event times, event
 indicators, patient order, and risk-set membership are kept local or
-share-domain.
+share-domain. Sparse tail event times whose at-risk count falls below the
+disclosure floor are grouped into the last bin that meets it, so no released
+time bin has a single-subject risk set and no event is dropped.
 }

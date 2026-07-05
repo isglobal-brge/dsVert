@@ -27,5 +27,8 @@ mpcStoreTransportKeysDS(
 TRUE on success.
 }
 \description{
-Store peer transport public keys (with identity verification)
+When identity info is supplied, only transport keys that pass Ed25519
+signature and trusted-list verification are pinned in the session peer set;
+an extra unverified key riding along in \code{transport_keys} is dropped, so
+it cannot poison the set that recipient pinning later trusts.
 }

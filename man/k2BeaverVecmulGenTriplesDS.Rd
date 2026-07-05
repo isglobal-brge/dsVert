@@ -46,6 +46,12 @@ The client relays each blob to the corresponding party via
 each party then consumes it via
 \code{\link{k2BeaverVecmulConsumeTripleDS}}.
 
-Inter-party leakage: none. The triple is a standard MPC randomness
-commitment; both parties learn only their own shares.
+DEPRECATED / DEALER PATH (F2/F17): this generates the full (a,b,c) triple
+in one server's process. That server (the dealer) knows a and b, and from
+the online openings d=x-a, e=y-b it can reconstruct the peer's operands.
+The earlier claim of "inter-party leakage: none" was FALSE whenever the
+dealer is also a computing party (the default). Dealer mode is removed from
+the client orchestration; the sole Beaver backend is now the dealer-free
+IKNP OT-extension. This handler is retained only for legacy/testing and is
+not reached by any product analysis route.
 }

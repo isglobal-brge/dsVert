@@ -71,7 +71,7 @@ of the product surface.
 | Recipient pinning | Every transport-sealed share is pinned to an identity-verified peer (or this server's own key), never an analyst-supplied key |
 | Raw-share release | Default-deny: only an allowlisted aggregate slot is returnable, and release is bound by a content digest to the aggregating producer, so a per-observation share cannot be laundered into the slot and read back |
 | Disclosure floors | Small-cell contingency, per-cluster, single-observation aggregation, and Cox time-bin risk-set floors reject any release that would isolate an individual record |
-| Collusion threshold | Additive-sharing modeling paths are outsourced 2-of-2 to a fusion + coordinator pair: inputs stay private while at least one of those two designated servers is honest. Genuine K-out-of-K threshold (all K shares required to recover any plaintext) applies only to the CKKS/MHE path via Mouchet et al. (2021) threshold decryption |
+| Collusion threshold | Additive-sharing paths are outsourced 2-of-2 to a fusion + coordinator pair: inputs stay private while at least one of those two designated servers is honest (semi-honest, non-colluding) |
 | Ring | Ring63 (frac_bits = 20) and Ring127 (frac_bits = 50) depending on method precision needs |
 
 ## Go Runtime (`dsvert-mpc`)
@@ -127,7 +127,3 @@ for the current K=2/K>=3 distributed-vs-centralized validation matrix.
 ## License
 
 MIT - see [LICENSE](LICENSE.md).
-
-## Citation
-
-See `paper/jbhi_dsvert.tex` (IEEE J-BHI submission r2.5) for the full validation table and theoretical bounds. Per-method theoretical floors (Catrina-Saxena fp50, McCullagh-Agresti L1, Bohning, Therneau survival) cited in the paper §V.A.

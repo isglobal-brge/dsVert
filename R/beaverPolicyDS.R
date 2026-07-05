@@ -1,23 +1,19 @@
 #' Report the server-side Beaver preprocessing policy
 #'
-#' DataSHIELD administrators can control which Beaver preprocessing backends a
-#' server is willing to participate in through R options. The client uses this
-#' aggregate method during the preflight handshake so that the effective mode is
-#' the strictest mode accepted by all participating servers.
+#' Reports which Beaver preprocessing backends this DataSHIELD server allows.
+#' The client uses this aggregate method during preflight negotiation so that
+#' the effective backend is accepted by every participating server.
 #'
-#' Recognised options are:
-#' \itemize{
-#'   \item \code{dsvert.beaver_preprocessing.allowed}: character vector or
-#'     comma-separated string containing \code{"dealer"} and/or \code{"iknp"}.
-#'   \item \code{dsvert.beaver_preprocessing.preferred}: \code{"dealer"} or
-#'     \code{"iknp"}; used by client \code{"auto"} mode when all servers allow
-#'     both.
-#'   \item \code{dsvert.beaver_preprocessing.minimum}: \code{"dealer"} or
-#'     \code{"iknp"}. Setting \code{"iknp"} forbids dealer preprocessing on
-#'     that server.
-#' }
+#' Administrators can configure the policy with the ordinary R/DataSHIELD
+#' options \code{dsvert.beaver_preprocessing.allowed},
+#' \code{dsvert.beaver_preprocessing.preferred} and
+#' \code{dsvert.beaver_preprocessing.minimum}. The corresponding
+#' \code{default.*} option names are also honoured.
 #'
-#' The usual \code{default.*} DataSHIELD option names are also honoured.
+#' The sole supported backend is dealer-free \code{"iknp"} OT-extension
+#' (\code{"ot"} is normalised to \code{"iknp"}). Trusted-dealer preprocessing
+#' has been removed because a participating-party dealer can reconstruct peer
+#' operands, so any \code{"dealer"} request is refused.
 #'
 #' @return A list describing supported, allowed, preferred and minimum modes.
 #' @export

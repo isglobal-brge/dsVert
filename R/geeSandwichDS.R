@@ -49,10 +49,14 @@ dsvertGEEInterceptShareDS <- function(output_key = "gee_x_col_0",
 #'   rerunning PSI or input sharing.
 #' @param p_own Number of feature columns owned by this DCF party.
 #' @param p_peer Number of feature columns held in the peer-share matrix.
+#' @param n Aligned observation count. Optional; when supplied it restores the
+#'   session row count (\code{k2_x_n}) that the deviance pass can leave unset,
+#'   which \code{k2ComputeEtaShareDS()} needs as a scalar.
 #' @param session_id Active MPC session identifier.
-#' @return list(stored, p_own, p_peer).
+#' @return list(stored, p_own, p_peer, n).
 #' @export
 dsvertGEERestoreFeatureShapeDS <- function(p_own, p_peer,
+                                           n = NULL,
                                            session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
@@ -66,5 +70,15 @@ dsvertGEERestoreFeatureShapeDS <- function(p_own, p_peer,
   }
   ss$k2_x_p <- p_own
   ss$k2_peer_p <- p_peer
-  list(stored = TRUE, p_own = p_own, p_peer = p_peer)
+  # The GLM deviance pass can leave the session row count (k2_x_n) unset for
+  # follow-on sandwich rounds, so k2ComputeEtaShareDS would serialise n as an
+  # empty array. Restore the scalar count from the caller-supplied aligned n.
+  if (!is.null(n)) {
+    n_int <- as.integer(n)[[1L]]
+    if (!is.finite(n_int) || n_int < 1L) {
+      stop("n must be a positive integer", call. = FALSE)
+    }
+    ss$k2_x_n <- n_int
+  }
+  list(stored = TRUE, p_own = p_own, p_peer = p_peer, n = ss$k2_x_n)
 }

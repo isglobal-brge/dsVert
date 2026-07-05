@@ -16,11 +16,10 @@ Administrators can configure the policy with ordinary R/DataSHIELD options:
 \code{dsvert.beaver_preprocessing.minimum}. The corresponding
 \code{default.*} option names are also honoured.
 
-Recognised backend names are \code{"dealer"} and \code{"iknp"}; \code{"ot"}
-is normalised to \code{"iknp"}. Dealer mode is the efficient profile for
-governed semi-honest institutional peers. IKNP mode removes the privileged
-preprocessing dealer for deployments that require stronger
-inter-institutional protection.
+The sole supported backend is dealer-free \code{"iknp"} OT-extension
+(\code{"ot"} is normalised to \code{"iknp"}). Trusted-dealer preprocessing has
+been removed because a participating-party dealer can reconstruct peer
+operands, so any \code{"dealer"} request is refused.
 }
 \value{
 A list with \code{supported}, \code{allowed}, \code{preferred},

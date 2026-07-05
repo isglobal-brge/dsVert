@@ -106,6 +106,15 @@ k2CmpRound1DS <- function(source_key, party_id,
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
+  # The masked round-one value must be sealed to the consuming peer; an unsealed
+  # return would let the analyst relay learn a masked value and open the compared
+  # secret. Require a verified peer key (dev-only escape for controlled testing).
+  if ((is.null(peer_pk) || !nzchar(peer_pk)) &&
+      !isTRUE(getOption("dsvert.allow_unsealed_cmp", FALSE))) {
+    stop("k2CmpRound1DS requires peer_pk so the masked value is sealed to the ",
+         "consuming peer; set options(dsvert.allow_unsealed_cmp = TRUE) only ",
+         "for controlled testing.", call. = FALSE)
+  }
   source <- ss[[source_key]]
   keys <- ss[[keys_key]]
   if (is.null(source) || is.null(keys)) {
@@ -148,7 +157,7 @@ k2CmpRound1DS <- function(source_key, party_id,
 k2CmpRound2DS <- function(source_key, party_id, output_key,
                           keys_key = "k2_cmp_keys",
                           peer_blob_key = "k2_cmp_peer_masked",
-                          peer_sealed = FALSE,
+                          peer_sealed = TRUE,
                           return_share = FALSE,
                           session_id = NULL,
                           frac_bits = 20L) {
@@ -156,10 +165,27 @@ k2CmpRound2DS <- function(source_key, party_id, output_key,
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
+  # The relayed peer masked value must arrive transport-sealed; accepting an
+  # unsealed relay would let the analyst inject a chosen masked value.
+  if (!isTRUE(peer_sealed) &&
+      !isTRUE(getOption("dsvert.allow_unsealed_cmp", FALSE))) {
+    stop("k2CmpRound2DS requires peer_sealed = TRUE; set ",
+         "options(dsvert.allow_unsealed_cmp = TRUE) only for controlled ",
+         "testing.", call. = FALSE)
+  }
   source <- ss[[source_key]]
   keys <- ss[[keys_key]]
   if (is.null(source) || is.null(keys)) {
     stop("source_key / keys_key missing", call. = FALSE)
+  }
+  # The two parties' comparison-bit shares sum to the released bit, so returning
+  # a per-observation vector of shares would reconstruct per-observation
+  # comparisons. Restrict the returnable share to a scalar aggregate comparison.
+  if (isTRUE(return_share) && .k2_cmp_source_n(source) > 1L &&
+      !isTRUE(getOption("dsvert.allow_vector_cmp_share", FALSE))) {
+    stop("k2CmpRound2DS return_share is restricted to a scalar aggregate ",
+         "comparison; returning per-observation comparison-bit shares would ",
+         "let a caller reconstruct per-observation comparisons.", call. = FALSE)
   }
   peer <- .blob_consume(peer_blob_key, ss)
   if (is.null(peer)) stop("peer masked comparison blob missing", call. = FALSE)

@@ -145,6 +145,7 @@ AggregateMethods:
     dsvertLMMGLSTransformDS,
     dsvertLMMGLSAggregatesDS,
     dsvertLMMLocalGramDS,
+    k2SeedSingleClusterDS,
     dsvertLMMReceiveGramSharesDS,
     dsvertLMMGramR1DS,
     dsvertLMMGramR2DS,

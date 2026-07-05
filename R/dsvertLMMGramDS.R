@@ -1,3 +1,25 @@
+#' @title Seed a single constant cluster for the OLS Gram fast-path
+#' @description Sets every observation to one constant cluster so the LMM Gram
+#'   driver, run with a zero variance-ratio, degenerates to the ordinary
+#'   normal-equations solve used by the gaussian GLM one-shot. The constant
+#'   cluster carries no information.
+#' @param data_name Aligned data-frame name on this server.
+#' @param session_id Active MPC session id.
+#' @return list(n).
+#' @export
+k2SeedSingleClusterDS <- function(data_name, session_id = NULL) {
+  if (is.null(session_id) || !nzchar(session_id))
+    stop("session_id required", call. = FALSE)
+  .validate_data_name(data_name)
+  data <- .resolveData(data_name, parent.frame(), session_id)
+  if (!is.data.frame(data))
+    stop("Object '", data_name, "' is not a data frame", call. = FALSE)
+  ss <- .S(session_id)
+  .k2_enforce_K(ss, 2L, "k2SeedSingleClusterDS")
+  ss$k2_lmm_cluster_ids <- rep(1L, nrow(data))
+  list(n = nrow(data))
+}
+
 #' @title LMM closed-form GLS: local Gram blocks + share transformed columns
 #' @description Per-server aggregate. Computes the Laird-Ware cluster-mean-
 #'   centred transformed design columns in-place:
@@ -53,7 +75,7 @@ dsvertLMMLocalGramDS <- function(data_name, columns,
     stop("session_id required", call. = FALSE)
   .k2_enforce_K(.S(session_id), 2L, "dsvertLMMLocalGramDS")
   .validate_data_name(data_name)
-  data <- get(data_name, envir = parent.frame())
+  data <- .resolveData(data_name, parent.frame(), session_id)
   if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
   ss <- .S(session_id)
   .dsvert_validate_recipient_pk(peer_pk, ss, "peer")

@@ -17,13 +17,14 @@
 //
 // FP correction: x, y arrive as Ring63 FP values with frac_bits bits of
 // fraction. The product x*y in the ring has 2*frac_bits worth of
-// fraction; to return to frac_bits we apply CorrelatedStochasticTruncate
-// (shared-carry SecureML truncation) so the shares stay additive and
-// the truncation bias is zero-mean.
+// fraction; to return to frac_bits each party applies the asymmetric
+// deterministic SecureML local-truncation convention. This has the usual
+// one-unit normal-path error and rare wrap failure; it is not unbiased
+// stochastic truncation.
 //
 // All three handlers are thin wrappers around the already-deployed
 // SampleBeaverTripleVector / GenerateBatchedMultiplicationGateMessage /
-// GenerateBatchedMultiplicationOutput{Zero,One} / CorrelatedStochasticTruncate
+// GenerateBatchedMultiplicationOutput{Zero,One} / TruncateShareParty{Zero,One}
 // helpers in k2_beaver_google.go + k2_truncation.go.
 
 package main
@@ -31,6 +32,7 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 )
 
 // ============================================================================
@@ -39,33 +41,11 @@ import (
 // ============================================================================
 
 func ring63VecToBase64(v []uint64) string {
-	buf := make([]byte, 8*len(v))
-	for i, x := range v {
-		for b := 0; b < 8; b++ {
-			buf[8*i+b] = byte(x >> (8 * b))
-		}
-	}
-	return base64.StdEncoding.EncodeToString(buf)
+	return bytesToBase64(fpVecToBytes(ring63ToFP(v)))
 }
 
 func base64ToRing63Vec(s string, n int) ([]uint64, error) {
-	raw, err := base64.StdEncoding.DecodeString(s)
-	if err != nil {
-		return nil, err
-	}
-	if len(raw) != 8*n {
-		// fall back: infer n
-		n = len(raw) / 8
-	}
-	out := make([]uint64, n)
-	for i := 0; i < n; i++ {
-		var x uint64
-		for b := 0; b < 8; b++ {
-			x |= uint64(raw[8*i+b]) << (8 * b)
-		}
-		out[i] = x
-	}
-	return out, nil
+	return decodeRing63FPVector(s, n)
 }
 
 // ============================================================================
@@ -119,6 +99,9 @@ func decodeTripleBlob(blob string, n int) (BeaverTripleVec, error) {
 	if err := json.Unmarshal(raw, &w); err != nil {
 		return BeaverTripleVec{}, err
 	}
+	if len(w.A) != 1 || len(w.B) != 1 || len(w.C) != 1 {
+		return BeaverTripleVec{}, &sizeMismatchErr{got: len(w.A), want: 1}
+	}
 	a, err := base64ToRing63Vec(w.A[0], n)
 	if err != nil {
 		return BeaverTripleVec{}, err
@@ -137,18 +120,21 @@ func decodeTripleBlob(blob string, n int) (BeaverTripleVec, error) {
 func handleK2BeaverVecmulGenTriples() {
 	var input K2BeaverVecmulGenInput
 	mpcReadInput(&input)
-	if input.Ring == "ring127" {
-		handleK2BeaverVecmulGenTriples127(input)
+	ringName, fracBits, err := normalizeRingAndFracBits(input.Ring, input.FracBits)
+	if err != nil {
+		outputError("k2-beaver-vecmul-gen-triples: " + err.Error())
 		return
 	}
-	if input.FracBits <= 0 {
-		input.FracBits = K2DefaultFracBits
+	input.Ring, input.FracBits = ringName, fracBits
+	if ringName == "ring127" {
+		handleK2BeaverVecmulGenTriples127(input)
+		return
 	}
 	if input.N <= 0 {
 		outputError("k2-beaver-vecmul-gen-triples: n must be positive")
 		return
 	}
-	r := NewRing63(input.FracBits)
+	r := NewRing63(fracBits)
 	p0, p1 := SampleBeaverTripleVector(input.N, r)
 	mpcWriteOutput(K2BeaverVecmulGenOutput{
 		Triple0: encodeTripleBlob(p0),
@@ -178,6 +164,8 @@ type K2BeaverVecmulR1Input struct {
 	YFp        string `json:"y_fp"`
 	TripleBlob string `json:"triple_blob"`
 	N          int    `json:"n"`
+	TotalN     int    `json:"total_n,omitempty"`
+	Offset     int    `json:"offset,omitempty"`
 	FracBits   int    `json:"frac_bits"`
 	Ring       string `json:"ring"` // "" or "ring63" or "ring127"
 }
@@ -190,32 +178,45 @@ type K2BeaverVecmulR1Output struct {
 func handleK2BeaverVecmulR1() {
 	var input K2BeaverVecmulR1Input
 	mpcReadInput(&input)
-	if input.Ring == "ring127" {
+	ringName, fracBits, err := normalizeRingAndFracBits(input.Ring, input.FracBits)
+	if err != nil {
+		outputError("k2-beaver-vecmul-round1: " + err.Error())
+		return
+	}
+	if input.N <= 0 {
+		outputError("k2-beaver-vecmul-round1: n must be positive")
+		return
+	}
+	input.Ring, input.FracBits = ringName, fracBits
+	if ringName == "ring127" {
 		handleK2BeaverVecmulR1127(input)
 		return
 	}
-	if input.FracBits <= 0 {
-		input.FracBits = K2DefaultFracBits
+	start, end, totalN, err := k2BeaverVecmulWindow(input.N, input.TotalN, input.Offset)
+	if err != nil {
+		outputError("k2-beaver-vecmul-round1: " + err.Error())
+		return
 	}
-	r := NewRing63(input.FracBits)
-	x, err := base64ToRing63Vec(input.XFp, input.N)
+	r := NewRing63(fracBits)
+	xAll, err := base64ToRing63Vec(input.XFp, totalN)
 	if err != nil {
 		outputError("k2-beaver-vecmul-round1: bad x_fp: " + err.Error())
 		return
 	}
-	y, err := base64ToRing63Vec(input.YFp, input.N)
+	yAll, err := base64ToRing63Vec(input.YFp, totalN)
 	if err != nil {
 		outputError("k2-beaver-vecmul-round1: bad y_fp: " + err.Error())
 		return
 	}
-	if len(x) != len(y) {
-		outputError("k2-beaver-vecmul-round1: length mismatch")
-		return
-	}
-	triple, err := decodeTripleBlob(input.TripleBlob, len(x))
+	tripleAll, err := decodeTripleBlob(input.TripleBlob, totalN)
 	if err != nil {
 		outputError("k2-beaver-vecmul-round1: bad triple: " + err.Error())
 		return
+	}
+	x, y := xAll[start:end], yAll[start:end]
+	triple := BeaverTripleVec{
+		A: tripleAll.A[start:end], B: tripleAll.B[start:end],
+		C: tripleAll.C[start:end],
 	}
 	// Interpret x, y as Ring63 (already in Ring63 internal rep).
 	_, msg := GenerateBatchedMultiplicationGateMessage(x, y, triple, r)
@@ -250,8 +251,27 @@ type K2BeaverVecmulR2Input struct {
 	PeerEFp    string `json:"peer_e_fp"`
 	IsParty0   bool   `json:"is_party0"`
 	N          int    `json:"n"`
+	TotalN     int    `json:"total_n,omitempty"`
+	Offset     int    `json:"offset,omitempty"`
 	FracBits   int    `json:"frac_bits"`
 	Ring       string `json:"ring"` // "" or "ring63" or "ring127"
+	// ExactGCDeferTruncation is used only by the purpose-bound server adapter.
+	// It returns the raw 2*frac additive product share for exact two-peer
+	// truncation; the legacy generic R2 endpoint never sets this flag.
+	ExactGCDeferTruncation bool `json:"exact_gc_defer_truncation,omitempty"`
+}
+
+func k2BeaverVecmulWindow(n, totalN, offset int) (int, int, int, error) {
+	if n <= 0 || offset < 0 {
+		return 0, 0, 0, fmt.Errorf("invalid vector window")
+	}
+	if totalN == 0 {
+		totalN = n
+	}
+	if totalN < n || offset > totalN-n {
+		return 0, 0, 0, fmt.Errorf("vector window exceeds total length")
+	}
+	return offset, offset + n, totalN, nil
 }
 
 type K2BeaverVecmulR2Output struct {
@@ -261,29 +281,46 @@ type K2BeaverVecmulR2Output struct {
 func handleK2BeaverVecmulR2() {
 	var input K2BeaverVecmulR2Input
 	mpcReadInput(&input)
-	if input.Ring == "ring127" {
+	ringName, fracBits, err := normalizeRingAndFracBits(input.Ring, input.FracBits)
+	if err != nil {
+		outputError("k2-beaver-vecmul-round2: " + err.Error())
+		return
+	}
+	if input.N <= 0 {
+		outputError("k2-beaver-vecmul-round2: n must be positive")
+		return
+	}
+	input.Ring, input.FracBits = ringName, fracBits
+	if ringName == "ring127" {
 		handleK2BeaverVecmulR2127(input)
 		return
 	}
-	if input.FracBits <= 0 {
-		input.FracBits = K2DefaultFracBits
+	start, end, totalN, err := k2BeaverVecmulWindow(input.N, input.TotalN, input.Offset)
+	if err != nil {
+		outputError("k2-beaver-vecmul-round2: " + err.Error())
+		return
 	}
-	r := NewRing63(input.FracBits)
-	x, err := base64ToRing63Vec(input.XFp, input.N)
+	r := NewRing63(fracBits)
+	xAll, err := base64ToRing63Vec(input.XFp, totalN)
 	if err != nil {
 		outputError("k2-beaver-vecmul-round2: bad x_fp: " + err.Error())
 		return
 	}
-	y, err := base64ToRing63Vec(input.YFp, input.N)
+	yAll, err := base64ToRing63Vec(input.YFp, totalN)
 	if err != nil {
 		outputError("k2-beaver-vecmul-round2: bad y_fp: " + err.Error())
 		return
 	}
-	n := len(x)
-	triple, err := decodeTripleBlob(input.TripleBlob, n)
+	n := input.N
+	tripleAll, err := decodeTripleBlob(input.TripleBlob, totalN)
 	if err != nil {
 		outputError("k2-beaver-vecmul-round2: bad triple: " + err.Error())
 		return
+	}
+	x, y := xAll[start:end], yAll[start:end]
+	triple := BeaverTripleVec{
+		A: tripleAll.A[start:end], B: tripleAll.B[start:end],
+		C: tripleAll.C[start:end],
 	}
 	peerD, err := base64ToRing63Vec(input.PeerDFp, n)
 	if err != nil {
@@ -314,28 +351,21 @@ func handleK2BeaverVecmulR2() {
 	} else {
 		raw = GenerateBatchedMultiplicationOutputPartyOne(state, triple, peerMsg, r)
 	}
-	// Correlated stochastic truncation by 2^frac_bits: each party
-	// truncates its own share independently using the SAME random carry
-	// bit (in real MPC this is derived from a shared PRG seed; here we
-	// use a process-local coin flip which gives unbiased error per call).
-	divisor := uint64(1) << uint(input.FracBits)
-	// Each party truncates with its OWN path in CorrelatedStochasticTruncate;
-	// the helper expects both raw shares at once, but we only have our own
-	// share here -- we therefore apply the asymmetric deterministic rule
-	// that matches TruncateSharePartyZero / TruncateSharePartyOne when the
-	// other party is doing the complementary rule. The shared-carry bit
-	// reduces bias to zero mean; caller is free to add a PRG-derived carry
-	// if stronger statistical guarantees are needed.
-	out := make([]uint64, n)
+	if input.ExactGCDeferTruncation {
+		mpcWriteOutput(K2BeaverVecmulR2Output{
+			ZFp: ring63VecToBase64(raw),
+		})
+		return
+	}
+	// Production uses deterministic asymmetric local truncation. A true
+	// probabilistic truncation protocol would require correlated preprocessing
+	// and additional protocol steps; no process-local coin can provide it.
+	divisor := uint64(1) << uint(fracBits)
+	var out []uint64
 	if input.IsParty0 {
-		for i := 0; i < n; i++ {
-			out[i] = raw[i] / divisor
-		}
+		out = TruncateSharePartyZero(raw, divisor, r.Modulus)
 	} else {
-		for i := 0; i < n; i++ {
-			negS := (r.Modulus - raw[i]) % r.Modulus
-			out[i] = (r.Modulus - negS/divisor) % r.Modulus
-		}
+		out = TruncateSharePartyOne(raw, divisor, r.Modulus)
 	}
 	mpcWriteOutput(K2BeaverVecmulR2Output{
 		ZFp: ring63VecToBase64(out),

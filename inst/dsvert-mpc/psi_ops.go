@@ -3,10 +3,11 @@
 // Implements Private Set Intersection using the commutativity property of
 // elliptic curve scalar multiplication: α·(β·H(id)) = β·(α·H(id)).
 //
-// Hash-to-curve uses RFC 9380 Simplified SWU (Shallue-van de Woerstra-Ulas)
-// for constant-time operation, replacing the non-constant-time try-and-increment
-// method. This prevents timing side-channels that could leak information about
-// input IDs in a semi-honest adversary model.
+// Hash-to-curve follows the RFC 9380 Simplified SWU construction and avoids an
+// unbounded try-and-increment loop. The current math/big and elliptic.P256
+// primitives are variable-time, so this file makes no constant-time or timing
+// non-interference claim. Host-local timing observation remains outside the
+// package's pinned semi-honest network threat model.
 //
 // Security: DDH assumption on P-256 (semi-honest model).
 // No additional dependencies beyond Go standard library.
@@ -26,12 +27,12 @@ import (
 	"sort"
 )
 
-// RFC 9380 suite identifier for P-256 with SHA-256
-const psiDST = "QUUX-V01-CS02-with-P256_XMD:SHA-256_SSWU_RO_"
-const psiDomainSeparator = "dsVert-PSI-v2"
-const psiOPRFH1Domain = "dsVert-PSI-OPRF-H1-v1"
-const psiOPRFH2Domain = "dsVert-PSI-OPRF-H2-v1"
-const psiOPRFScalarDomain = "dsVert-PSI-OPRF-scalar-v1"
+// Application-specific RFC 9380 domain separation for the v4 PSI transcript.
+const psiDST = "DSVERT-V04-CS02-with-P256_XMD:SHA-256_SSWU_RO_"
+const psiDomainSeparator = "dsVert-PSI-v4"
+const psiOPRFH1Domain = "dsVert-PSI-OPRF-H1-v2"
+const psiOPRFH2Domain = "dsVert-PSI-OPRF-H2-v2"
+const psiOPRFScalarDomain = "dsVert-PSI-OPRF-scalar-v2"
 
 var p256Curve = elliptic.P256()
 
@@ -45,8 +46,9 @@ var (
 )
 
 // hashToP256Point hashes a string ID to a point on P-256 using RFC 9380
-// hash_to_curve with Simplified SWU map. This is a constant-time operation
-// (no data-dependent branching), preventing timing side-channels.
+// hash_to_curve with Simplified SWU map. This implementation contains
+// data-dependent branches and variable-time big-integer operations; callers
+// must not treat it as a constant-time primitive.
 //
 // Implements: hash_to_curve(msg) from RFC 9380 Section 3:
 //  1. u = hash_to_field(msg, 2)    -- produces two field elements

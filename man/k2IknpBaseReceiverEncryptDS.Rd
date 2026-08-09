@@ -8,6 +8,9 @@ k2IknpBaseReceiverEncryptDS(
   points = NULL,
   points_blob_key = NULL,
   iknp_key,
+  producer_name = NULL,
+  recipient_pk,
+  ring = 63L,
   ciphertexts_blob_key = NULL,
   session_id = NULL
 )
@@ -18,6 +21,14 @@ k2IknpBaseReceiverEncryptDS(
 \item{points_blob_key}{Optional blob key containing the points.}
 
 \item{iknp_key}{Session key prefix.}
+
+\item{producer_name}{Verified logical name of the peer that sent the typed
+base-points transfer.}
+
+\item{recipient_pk}{Verified base64url transport public key of the IKNP
+base sender.}
+
+\item{ring}{Integer ring selector, 63 or 127.}
 
 \item{ciphertexts_blob_key}{Optional blob key where ciphertexts should be
 stored instead of returned directly.}

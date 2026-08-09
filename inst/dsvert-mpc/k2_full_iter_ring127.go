@@ -41,9 +41,23 @@ func handleK2ComputeEtaFP127(input K2ComputeEtaFPInput) {
 	pTotal := pOwn + pPeer
 
 	// 16-byte Uint128 per element (X shares and beta).
-	xOwn := bytesToUint128Vec(base64ToBytes(input.XOwnFP))
-	xPeer := bytesToUint128Vec(base64ToBytes(input.XPeerFP))
-	betaU128 := bytesToUint128Vec(base64ToBytes(input.BetaFP))
+	xOwnLen, _ := checkedProduct("x_own", n, pOwn)
+	xPeerLen, _ := checkedProduct("x_peer", n, pPeer)
+	xOwn, err := decodeRing127Vector(input.XOwnFP, xOwnLen)
+	if err != nil {
+		outputError("k2-compute-eta-fp (ring127): invalid x_own_fp: " + err.Error())
+		return
+	}
+	xPeer, err := decodeRing127Vector(input.XPeerFP, xPeerLen)
+	if err != nil {
+		outputError("k2-compute-eta-fp (ring127): invalid x_peer_fp: " + err.Error())
+		return
+	}
+	betaU128, err := decodeRing127Vector(input.BetaFP, pTotal)
+	if err != nil {
+		outputError("k2-compute-eta-fp (ring127): invalid beta_fp: " + err.Error())
+		return
+	}
 
 	eta := make([]Uint128, n)
 	for i := 0; i < n; i++ {
@@ -74,7 +88,11 @@ func handleK2ComputeEtaFP127(input K2ComputeEtaFPInput) {
 
 	// Public intercept: only party zero contributes.
 	if input.IsPartyZero && input.Intercept != 0 {
-		interceptU128 := ring.FromDouble(input.Intercept)
+		interceptU128, err := ring.FromDoubleChecked(input.Intercept)
+		if err != nil {
+			outputError("k2-compute-eta-fp (ring127): invalid intercept: " + err.Error())
+			return
+		}
 		for i := 0; i < n; i++ {
 			eta[i] = ring.Add(eta[i], interceptU128)
 		}
@@ -126,11 +144,24 @@ func handleK2FullIterR3_127(input K2FullIterR3Input) {
 
 	n := input.N
 	p := input.P
+	np, _ := checkedProduct("k2-full-iter-r3 matrix", n, p)
 
 	// 16-byte Uint128 per element.
-	xShare := bytesToUint128Vec(base64ToBytes(input.XShareFP))
-	muShare := bytesToUint128Vec(base64ToBytes(input.MuShareFP))
-	yShare := bytesToUint128Vec(base64ToBytes(input.YShareFP))
+	xShare, err := decodeRing127Vector(input.XShareFP, np)
+	if err != nil {
+		outputError("k2-full-iter-r3 (ring127): invalid x_share_fp: " + err.Error())
+		return
+	}
+	muShare, err := decodeRing127Vector(input.MuShareFP, n)
+	if err != nil {
+		outputError("k2-full-iter-r3 (ring127): invalid mu_share_fp: " + err.Error())
+		return
+	}
+	yShare, err := decodeRing127Vector(input.YShareFP, n)
+	if err != nil {
+		outputError("k2-full-iter-r3 (ring127): invalid y_share_fp: " + err.Error())
+		return
+	}
 
 	// Residual share: r = mu - y (linear share op).
 	residual := make([]Uint128, n)
@@ -149,10 +180,18 @@ func handleK2FullIterR3_127(input K2FullIterR3Input) {
 	sumResidualFloat := ring.ToDouble(sumResidualU128)
 
 	if input.Phase == 1 {
-		aShare := bytesToUint128Vec(base64ToBytes(input.AShareFP))
-		bShare := bytesToUint128Vec(base64ToBytes(input.BShareFP))
+		aShare, err := decodeRing127Vector(input.AShareFP, np)
+		if err != nil {
+			outputError("k2-full-iter-r3 (ring127): invalid a_share_fp: " + err.Error())
+			return
+		}
+		bShare, err := decodeRing127Vector(input.BShareFP, n)
+		if err != nil {
+			outputError("k2-full-iter-r3 (ring127): invalid b_share_fp: " + err.Error())
+			return
+		}
 
-		xma := make([]Uint128, n*p)
+		xma := make([]Uint128, np)
 		rmb := make([]Uint128, n)
 		for i := range xma {
 			xma[i] = ring.Sub(xShare[i], aShare[i])
@@ -171,13 +210,33 @@ func handleK2FullIterR3_127(input K2FullIterR3Input) {
 	}
 
 	// --- Phase 2: Beaver matvec ---
-	aShare := bytesToUint128Vec(base64ToBytes(input.AShareFP))
-	bShare := bytesToUint128Vec(base64ToBytes(input.BShareFP))
-	cShare := bytesToUint128Vec(base64ToBytes(input.CShareFP))
-	peerXMA := bytesToUint128Vec(base64ToBytes(input.PeerXmaFP))
-	peerRMB := bytesToUint128Vec(base64ToBytes(input.PeerRmbFP))
+	aShare, err := decodeRing127Vector(input.AShareFP, np)
+	if err != nil {
+		outputError("k2-full-iter-r3 (ring127): invalid a_share_fp: " + err.Error())
+		return
+	}
+	bShare, err := decodeRing127Vector(input.BShareFP, n)
+	if err != nil {
+		outputError("k2-full-iter-r3 (ring127): invalid b_share_fp: " + err.Error())
+		return
+	}
+	cShare, err := decodeRing127Vector(input.CShareFP, p)
+	if err != nil {
+		outputError("k2-full-iter-r3 (ring127): invalid c_share_fp: " + err.Error())
+		return
+	}
+	peerXMA, err := decodeRing127Vector(input.PeerXmaFP, np)
+	if err != nil {
+		outputError("k2-full-iter-r3 (ring127): invalid peer_xma_fp: " + err.Error())
+		return
+	}
+	peerRMB, err := decodeRing127Vector(input.PeerRmbFP, n)
+	if err != nil {
+		outputError("k2-full-iter-r3 (ring127): invalid peer_rmb_fp: " + err.Error())
+		return
+	}
 
-	ownXMA := make([]Uint128, n*p)
+	ownXMA := make([]Uint128, np)
 	ownRMB := make([]Uint128, n)
 	for i := range ownXMA {
 		ownXMA[i] = ring.Sub(xShare[i], aShare[i])
@@ -187,7 +246,7 @@ func handleK2FullIterR3_127(input K2FullIterR3Input) {
 	}
 
 	// Reconstruct full (X-A), (r-B) by adding peer shares.
-	fullXMA := make([]Uint128, n*p)
+	fullXMA := make([]Uint128, np)
 	fullRMB := make([]Uint128, n)
 	for i := range fullXMA {
 		fullXMA[i] = ring.Add(ownXMA[i], peerXMA[i])
@@ -260,9 +319,10 @@ func handleK2FullIterR3_127(input K2FullIterR3Input) {
 func handleK2GenMatvecTriples127(input K2GenMatvecTriplesInput) {
 	n := input.N
 	p := input.P
+	np, _ := checkedProduct("k2-gen-matvec-triples matrix", n, p)
 	ring := NewRing127(K2DefaultFracBits127)
 
-	A := make([]Uint128, n*p)
+	A := make([]Uint128, np)
 	B := make([]Uint128, n)
 	for i := range A {
 		A[i] = cryptoRandUint128().ModPow127()
@@ -282,8 +342,8 @@ func handleK2GenMatvecTriples127(input K2GenMatvecTriplesInput) {
 	}
 
 	// Additively split.
-	a0 := make([]Uint128, n*p)
-	a1 := make([]Uint128, n*p)
+	a0 := make([]Uint128, np)
+	a1 := make([]Uint128, np)
 	b0 := make([]Uint128, n)
 	b1 := make([]Uint128, n)
 	c0 := make([]Uint128, p)

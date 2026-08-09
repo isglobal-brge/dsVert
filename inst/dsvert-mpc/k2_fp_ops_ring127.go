@@ -14,17 +14,16 @@
 
 package main
 
-import "fmt"
-
 const K2DefaultFracBits127 = 50
 
 // --- helpers ----------------------------------------------------------------
 
 func ring127DefaultFracBits(v int) int {
-	if v <= 0 {
-		return K2DefaultFracBits127
+	normalized, err := normalizeRing127FracBits(v)
+	if err != nil {
+		panic("Ring127: " + err.Error())
 	}
-	return v
+	return normalized
 }
 
 // b64Uint128Vec decodes a base64 blob into a []Uint128 (16 bytes per element).
@@ -42,10 +41,14 @@ func Uint128VecToB64(v []Uint128) string {
 func handleK2FPAdd127(input K2FPAddInput) {
 	fb := ring127DefaultFracBits(input.FracBits)
 	r := NewRing127(fb)
-	a := b64Uint128Vec(input.A)
-	b := b64Uint128Vec(input.B)
-	if len(a) != len(b) {
-		outputError("k2-fp-add (ring127): length mismatch")
+	a, err := decodeRing127Vector(input.A, -1)
+	if err != nil {
+		outputError("k2-fp-add (ring127): invalid a: " + err.Error())
+		return
+	}
+	b, err := decodeRing127Vector(input.B, len(a))
+	if err != nil {
+		outputError("k2-fp-add (ring127): invalid b: " + err.Error())
 		return
 	}
 	out := make([]Uint128, len(a))
@@ -58,10 +61,14 @@ func handleK2FPAdd127(input K2FPAddInput) {
 func handleK2FPSub127(input K2FPAddInput) {
 	fb := ring127DefaultFracBits(input.FracBits)
 	r := NewRing127(fb)
-	a := b64Uint128Vec(input.A)
-	b := b64Uint128Vec(input.B)
-	if len(a) != len(b) {
-		outputError("k2-fp-sub (ring127): length mismatch")
+	a, err := decodeRing127Vector(input.A, -1)
+	if err != nil {
+		outputError("k2-fp-sub (ring127): invalid a: " + err.Error())
+		return
+	}
+	b, err := decodeRing127Vector(input.B, len(a))
+	if err != nil {
+		outputError("k2-fp-sub (ring127): invalid b: " + err.Error())
 		return
 	}
 	out := make([]Uint128, len(a))
@@ -71,20 +78,25 @@ func handleK2FPSub127(input K2FPAddInput) {
 	mpcWriteOutput(K2FPAddOutput{Result: Uint128VecToB64(out)})
 }
 
-// --- k2-fp-vec-mul (LOCAL share×plaintext, signed TruncMul) -----------------
+// --- k2-fp-vec-mul (LOCAL exact public bit-mask selection) ------------------
 
 func handleK2FPVecMul127(input K2FPVecMulInput) {
 	fb := ring127DefaultFracBits(input.FracBits)
 	r := NewRing127(fb)
-	a := b64Uint128Vec(input.A)
-	b := b64Uint128Vec(input.B)
-	if len(a) != len(b) {
-		outputError("k2-fp-vec-mul (ring127): length mismatch")
+	a, err := decodeRing127Vector(input.A, -1)
+	if err != nil {
+		outputError("k2-fp-vec-mul (ring127): invalid a: " + err.Error())
 		return
 	}
-	out := make([]Uint128, len(a))
-	for i := range a {
-		out[i] = r.TruncMulSigned(a[i], b[i])
+	b, err := decodeRing127Vector(input.B, len(a))
+	if err != nil {
+		outputError("k2-fp-vec-mul (ring127): invalid b: " + err.Error())
+		return
+	}
+	out, err := applyPublicBitMask127(a, b, r)
+	if err != nil {
+		outputError("k2-fp-vec-mul (ring127): " + err.Error())
+		return
 	}
 	mpcWriteOutput(K2FPVecMulOutput{Result: Uint128VecToB64(out)})
 }
@@ -93,7 +105,11 @@ func handleK2FPVecMul127(input K2FPVecMulInput) {
 
 func handleK2FPSum127(input K2FPSumInput) {
 	r := NewRing127(K2DefaultFracBits127) // fracBits doesn't affect Add
-	data := b64Uint128Vec(input.FPData)
+	data, err := decodeRing127Vector(input.FPData, -1)
+	if err != nil {
+		outputError("k2-fp-sum (ring127): invalid fp_data: " + err.Error())
+		return
+	}
 	total := Uint128{}
 	for _, v := range data {
 		total = r.Add(total, v)
@@ -110,11 +126,14 @@ func handleK2FPStridedSum127(input K2FPStridedSumInput) {
 		outputError("k2-fp-strided-sum (ring127): bad n/j")
 		return
 	}
-	data := b64Uint128Vec(input.FPData)
-	if len(data) != input.N*input.J {
-		outputError(fmt.Sprintf(
-			"k2-fp-strided-sum (ring127): length mismatch (got %d, expected n*j=%d*%d=%d)",
-			len(data), input.N, input.J, input.N*input.J))
+	expected, err := checkedProduct("k2-fp-strided-sum matrix", input.N, input.J)
+	if err != nil {
+		outputError("k2-fp-strided-sum (ring127): " + err.Error())
+		return
+	}
+	data, err := decodeRing127Vector(input.FPData, expected)
+	if err != nil {
+		outputError("k2-fp-strided-sum (ring127): invalid fp_data: " + err.Error())
 		return
 	}
 	r := NewRing127(K2DefaultFracBits127)
@@ -135,20 +154,30 @@ func handleK2FPStridedSum127(input K2FPStridedSumInput) {
 func handleK2FPCumsum127(input K2FPCumsumInput) {
 	fb := ring127DefaultFracBits(input.FracBits)
 	r := NewRing127(fb)
-	a := b64Uint128Vec(input.A)
+	expected := -1
+	if input.N > 0 {
+		expected = input.N
+	}
+	a, err := decodeRing127Vector(input.A, expected)
+	if err != nil {
+		outputError("k2-fp-cumsum (ring127): invalid a: " + err.Error())
+		return
+	}
 	n := len(a)
-	if input.N > 0 && input.N != n {
-		outputError("k2-fp-cumsum (ring127): length mismatch")
+	if len(input.Strata) != 0 && len(input.Strata) != n {
+		outputError("k2-fp-cumsum (ring127): strata length mismatch")
 		return
 	}
 	if input.Mask != "" {
-		mask := b64Uint128Vec(input.Mask)
-		if len(mask) != n {
-			outputError("k2-fp-cumsum (ring127): mask length mismatch")
+		mask, err := decodeRing127Vector(input.Mask, n)
+		if err != nil {
+			outputError("k2-fp-cumsum (ring127): invalid mask: " + err.Error())
 			return
 		}
-		for i := 0; i < n; i++ {
-			a[i] = r.TruncMulSigned(a[i], mask[i])
+		a, err = applyPublicBitMask127(a, mask, r)
+		if err != nil {
+			outputError("k2-fp-cumsum (ring127): " + err.Error())
+			return
 		}
 	}
 	useStrata := len(input.Strata) == n
@@ -182,11 +211,14 @@ func handleK2FPExtractColumn127(input K2FPExtractColumnInput) {
 		outputError("k2-fp-extract-column (ring127): bad n/k/col")
 		return
 	}
-	a := b64Uint128Vec(input.FPData)
-	if len(a) != input.N*input.K {
-		outputError(fmt.Sprintf(
-			"k2-fp-extract-column (ring127): length mismatch (got %d, expected n*k=%d*%d=%d)",
-			len(a), input.N, input.K, input.N*input.K))
+	expected, err := checkedProduct("k2-fp-extract-column matrix", input.N, input.K)
+	if err != nil {
+		outputError("k2-fp-extract-column (ring127): " + err.Error())
+		return
+	}
+	a, err := decodeRing127Vector(input.FPData, expected)
+	if err != nil {
+		outputError("k2-fp-extract-column (ring127): invalid fp_data: " + err.Error())
 		return
 	}
 	out := make([]Uint128, input.N)
@@ -199,7 +231,11 @@ func handleK2FPExtractColumn127(input K2FPExtractColumnInput) {
 // --- k2-fp-permute-share ----------------------------------------------------
 
 func handleK2FPPermuteShare127(input K2FPPermuteShareInput) {
-	a := b64Uint128Vec(input.A)
+	a, err := decodeRing127Vector(input.A, -1)
+	if err != nil {
+		outputError("k2-fp-permute-share (ring127): invalid a: " + err.Error())
+		return
+	}
 	cols := input.Cols
 	if cols <= 0 {
 		cols = 1
@@ -210,6 +246,10 @@ func handleK2FPPermuteShare127(input K2FPPermuteShareInput) {
 		return
 	}
 	n := total / cols
+	if input.N > 0 && input.N != n {
+		outputError("k2-fp-permute-share (ring127): n does not match the payload")
+		return
+	}
 	if len(input.Perm) != n {
 		outputError("k2-fp-permute-share (ring127): permutation length mismatch")
 		return

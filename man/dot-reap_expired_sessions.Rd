@@ -2,7 +2,7 @@
 % Please edit documentation in R/mpcSession.R
 \name{.reap_expired_sessions}
 \alias{.reap_expired_sessions}
-\title{Reap sessions older than TTL}
+\title{Reap sessions idle beyond the inactivity lease}
 \usage{
 .reap_expired_sessions(storage = NULL)
 }
@@ -11,6 +11,6 @@
 the package-level session env when NULL.}
 }
 \description{
-Reap sessions older than TTL
+Reap sessions idle beyond the inactivity lease
 }
 \keyword{internal}

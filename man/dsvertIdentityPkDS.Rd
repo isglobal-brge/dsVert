@@ -12,4 +12,6 @@ List with identity_pk (base64url).
 \description{
 Returns the Ed25519 identity PK. Used by admins to discover PKs
 for configuring trusted_peers lists across a consortium.
+This provisioning endpoint remains available before \code{dsvert.peer_name} is
+configured; authenticated binds do not.
 }

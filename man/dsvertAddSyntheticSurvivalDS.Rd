@@ -44,3 +44,4 @@ validate \code{ds.vertCox} on datasets that do not ship with
 native time-to-event data. Both new columns are written back to
 the data frame. Only aggregate counts are returned.
 }
+\keyword{internal}

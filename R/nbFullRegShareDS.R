@@ -50,7 +50,6 @@ NULL
 #' @param session_id Character.
 #' @return List with \code{sealed} (transport-encrypted peer share blob,
 #'   base64url) and \code{n} (number of patients).
-#' @export
 dsvertNBEtaShareDS <- function(data_name, x_vars, beta_values,
                                 target_pk, session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id))
@@ -138,7 +137,6 @@ dsvertNBEtaShareDS <- function(data_name, x_vars, beta_values,
 #'   the relayed Ring127 share blob from the NL server.
 #' @param session_id Character.
 #' @return List with \code{stored = TRUE}, \code{n}.
-#' @export
 dsvertNBEtaTotalReceiveDS <- function(data_name, y_var,
                                        x_vars_label, beta_values_label,
                                        beta_intercept,
@@ -217,7 +215,6 @@ dsvertNBEtaTotalReceiveDS <- function(data_name, y_var,
 #' @param session_id Character.
 #' @return List with \code{stored} (TRUE if shares present; FALSE otherwise),
 #'   \code{n}.
-#' @export
 dsvertNBEtaShareConfirmDS <- function(session_id = NULL) {
   ss <- .S(session_id)
   .k2_enforce_K(ss, 2L, "dsvertNBEtaShareConfirmDS")
@@ -250,7 +247,6 @@ dsvertNBEtaShareConfirmDS <- function(session_id = NULL) {
 #' @param session_id Character.
 #' @return List with \code{sealed} (transport-encrypted mask blob,
 #'   base64url), \code{n}.
-#' @export
 dsvertNBYThetaShareDS <- function(theta, target_pk, session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
@@ -296,7 +292,6 @@ dsvertNBYThetaShareDS <- function(theta, target_pk, session_id = NULL) {
 #'   \code{ss$k2_nb_yt_share_fp}.
 #' @param peer_yt_share_blob_key Character.
 #' @param session_id Character.
-#' @export
 dsvertNBYThetaShareReceiveDS <- function(peer_yt_share_blob_key,
                                           session_id = NULL) {
   ss <- .S(session_id)
@@ -331,7 +326,6 @@ dsvertNBYThetaShareReceiveDS <- function(peer_yt_share_blob_key,
 #' @param session_id Character.
 #' @return List with \code{sum_share_fp} (base64url Uint128 scalar
 #'   share), \code{n}.
-#' @export
 dsvertNBSumShareDS <- function(input_key, session_id = NULL) {
   ss <- .S(session_id)
   .k2_enforce_K(ss, 2L, "dsvertNBSumShareDS")
@@ -358,7 +352,6 @@ dsvertNBSumShareDS <- function(input_key, session_id = NULL) {
 #' @param theta Numeric scalar.
 #' @param session_id Character.
 #' @return List with \code{sum_psi}, \code{sum_tri}, \code{n}.
-#' @export
 dsvertNBPsiAggregateDS <- function(theta, session_id = NULL) {
   ss <- .S(session_id)
   theta <- as.numeric(theta)

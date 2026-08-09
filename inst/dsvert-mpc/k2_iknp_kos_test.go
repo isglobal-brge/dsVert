@@ -47,6 +47,21 @@ func TestIKNPKOSEncodeRoundTrip(t *testing.T) {
 	}
 }
 
+func TestIKNPKOSOpenerIsMandatory(t *testing.T) {
+	if _, _, err := iknpKOSDecodeRequired(""); err == nil {
+		t.Fatal("unchecked IKNP downgrade accepted an absent KOS opener")
+	}
+	if _, _, err := iknpKOSDecodeRequired("not-base64"); err == nil {
+		t.Fatal("accepted a malformed KOS opener")
+	}
+	x := gfElem{lo: 1, hi: 2}
+	tt := gfElem{lo: 3, hi: 4}
+	dx, dt, err := iknpKOSDecodeRequired(iknpKOSEncode(x, tt))
+	if err != nil || dx != x || dt != tt {
+		t.Fatalf("required KOS opener round-trip failed: %v", err)
+	}
+}
+
 // iknpKOSTranscript builds an honest IKNP extension transcript: base wires,
 // the sender's Delta and its base labels L_{Delta_i}, a random choice vector,
 // the receiver's extended seeds t_i + U matrix, and the sender's q_i.

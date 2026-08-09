@@ -5,7 +5,6 @@
 #'
 #' @param session_id Character or NULL. Session identifier.
 #' @return List with ok = TRUE.
-#' @export
 k2IdentityLinkDS <- function(session_id = NULL) {
   ss <- .S(session_id)
   eta_fp <- ss$k2_eta_share_fp

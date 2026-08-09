@@ -18,8 +18,8 @@
 #'
 #'   Privacy: the per-level row-margin counts are themselves an aggregate
 #'   (one integer per category) and are subject to the same
-#'   `datashield.privacyLevel` suppression rule as the existing
-#'   `dsvertContingencyDS` helper.
+#'   `datashield.privacyLevel` suppression rule. This legacy exact helper is
+#'   not a substitute for the signed DP contingency release.
 #'
 #' @param data_name Character. Name of the server-side data frame.
 #' @param var Character. Name of the categorical column to encode.
@@ -43,7 +43,7 @@
 #'     \item \code{session_key}: key under which the n x K one-hot matrix
 #'       is stored in the MPC session for the downstream Beaver stage.
 #'   }
-#' @export
+#' @keywords internal
 dsvertOneHotDS <- function(data_name, var, levels = NULL,
                            session_id = NULL,
                            suppress_small_cells = TRUE,
@@ -155,7 +155,7 @@ dsvertOneHotDS <- function(data_name, var, levels = NULL,
 #' @param suppress_small_cells Logical. If \code{TRUE}, fail closed when an
 #'   observed level count is below \code{datashield.privacyLevel}.
 #' @return list(levels, dummy_columns, counts)
-#' @export
+#' @keywords internal
 dsvertAddFactorDummiesDS <- function(data_name, var, prefix = NULL,
                                       levels = NULL, drop_first = TRUE,
                                       suppress_small_cells = TRUE) {

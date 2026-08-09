@@ -6,7 +6,9 @@
 //     truncation in Ring127 (2^127 modulus). Parallel of the uint64 pair in
 //     k2_beaver_google.go. Equivalent to "divide share by 2^fracBits" with
 //     the P1 sign-flip trick that recovers the true FP value under additive
-//     sharing with at most ±1 ULP bias (the Google C++ SecureML formula).
+//     sharing with ±1 ULP normal-path error (the Google C++ SecureML
+//     formula). The rare local-truncation wrap failure remains; see
+//     k2_truncation.go.
 //   - HadamardProductPartyZero127 / HadamardProductPartyOne127 : combines
 //     GenerateBatchedMultiplicationOutputPartyZero/One127 with the truncation
 //     above. Input shares at fracBits, output shares at fracBits (not
@@ -37,8 +39,10 @@ func TruncateSharePartyZero127(shares []Uint128, fracBits int, r Ring127) []Uint
 
 // TruncateSharePartyOne127 truncates P1's Uint128 share by 2^fracBits.
 // Ring127 analogue of TruncateSharePartyOne:
-//   negS = modulus - s              (= -s mod 2^127)
-//   result = modulus - (negS / 2^fracBits)
+//
+//	negS = modulus - s              (= -s mod 2^127)
+//	result = modulus - (negS / 2^fracBits)
+//
 // The s==0 special case is preserved to avoid the 2^127 artifact.
 func TruncateSharePartyOne127(shares []Uint128, fracBits int, r Ring127) []Uint128 {
 	result := make([]Uint128, len(shares))
@@ -133,7 +137,9 @@ func ScalarVectorProductPartyZero127(scalarA float64, vectorB []Uint128, r Ring1
 		}
 		ab := new(big.Int).Mul(aBig, b.ToBig())
 		ab.Sub(ab, aTimesMod)
-		ab.Div(ab, fracShift) // big.Int Div truncates toward zero
+		// With a positive divisor, big.Int.Div rounds a negative numerator
+		// toward negative infinity, matching floor here.
+		ab.Div(ab, fracShift)
 		ab.Mod(ab, modBig)
 		if ab.Sign() < 0 {
 			ab.Add(ab, modBig)

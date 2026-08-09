@@ -35,8 +35,8 @@ const transportInfoString = "dsVert-transport-v1"
 // ============================================================================
 
 type TransportKeygenOutput struct {
-	PublicKey  string `json:"public_key"`  // Base64
-	SecretKey  string `json:"secret_key"`  // Base64
+	PublicKey string `json:"public_key"` // Base64
+	SecretKey string `json:"secret_key"` // Base64
 }
 
 func transportKeygen() (*TransportKeygenOutput, error) {

@@ -35,12 +35,10 @@ func bytesToFPVec(buf []byte) []FixedPoint {
 func mpcReadInput(v interface{}) {
 	data, err := io.ReadAll(os.Stdin)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, `{"error":"read stdin: %s"}`, err)
-		os.Exit(1)
+		mpcFatalError("read stdin: " + err.Error())
 	}
 	if err := json.Unmarshal(data, v); err != nil {
-		fmt.Fprintf(os.Stderr, `{"error":"parse input: %s"}`, err)
-		os.Exit(1)
+		mpcFatalError("parse input: " + err.Error())
 	}
 }
 
@@ -48,10 +46,15 @@ func mpcReadInput(v interface{}) {
 func mpcWriteOutput(v interface{}) {
 	j, err := json.Marshal(v)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, `{"error":"marshal output: %s"}`, err)
-		os.Exit(1)
+		mpcFatalError("marshal output: " + err.Error())
 	}
 	fmt.Println(string(j))
+}
+
+func mpcFatalError(message string) {
+	j, _ := json.Marshal(ErrorOutput{Error: message})
+	fmt.Fprintln(os.Stderr, string(j))
+	os.Exit(1)
 }
 
 // bytesToBase64 encodes bytes as standard base64.

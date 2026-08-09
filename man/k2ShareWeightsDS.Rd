@@ -11,7 +11,8 @@ k2ShareWeightsDS(
   dcf1_pk,
   dcf_role = c("dealer", "dcf0", "dcf1"),
   ring = NULL,
-  session_id = NULL
+  session_id = NULL,
+  numeric_family = "gaussian"
 )
 }
 \arguments{
@@ -28,6 +29,8 @@ blob; a non-DCF dealer returns both sealed DCF blobs.}
 \item{ring}{Integer (63 or 127). MPC ring selector.}
 
 \item{session_id}{Character. GLM session identifier.}
+
+\item{numeric_family}{GLM family for the execution-attestation binding.}
 }
 \value{
 Metadata and sealed share blobs for the client relay.

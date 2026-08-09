@@ -14,8 +14,6 @@ import (
 	"os"
 )
 
-const VERSION = "1.0.0"
-
 type ErrorOutput struct {
 	Error string `json:"error"`
 }
@@ -35,8 +33,16 @@ func output(v interface{}) {
 }
 
 func main() {
+	defer func() {
+		if recover() != nil {
+			// Malformed input must never produce a Go stack trace or a partial
+			// non-JSON response at the command boundary.
+			outputError("internal command validation failure")
+			os.Exit(1)
+		}
+	}()
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "Usage: dsvert-mpc <command>")
+		mpcFatalError("usage: dsvert-mpc command")
 		os.Exit(1)
 	}
 	cmd := os.Args[1]
@@ -49,6 +55,8 @@ func main() {
 		handleTransportEncrypt()
 	case "transport-decrypt":
 		handleTransportDecrypt()
+	case "typed-source-stream-probe":
+		handleTypedSourceStreamProbe()
 
 	// PSI (EC-DH on P-256)
 	case "psi-mask":
@@ -155,12 +163,12 @@ func main() {
 		handleK2Exp127GetCoeffs()
 
 	// Ring127 direct-sigmoid Chebyshev coefficients (public). GLM-specific
-	// reveal-free logistic link; 29 rounds vs exp127+recip127's ~85.
+	// share-domain logistic link; 29 rounds vs exp127+recip127's ~85.
 	case "k2-sigmoid127-get-coeffs":
 		handleK2Sigmoid127GetCoeffs()
 
 	// Ring127 direct-softplus Chebyshev coefficients (public). Binomial-deviance
-	// reveal-free link: softplus(eta)=log(1+exp(eta)) in one Clenshaw pass.
+	// share-domain link: softplus(eta)=log(1+exp(eta)) in one Clenshaw pass.
 	case "k2-softplus127-get-coeffs":
 		handleK2Softplus127GetCoeffs()
 
@@ -196,9 +204,87 @@ func main() {
 	case "verify-transport":
 		handleVerifyTransport()
 
+	// Exact two-peer garbled circuits. The derivation command is local to one
+	// DataSHIELD server; the worker exchanges only encrypted spool bytes.
+	case "exact-gc-derive-master":
+		handleExactGCDeriveMaster()
+	case "exact-gc-capability":
+		handleExactGCCapability()
+	case "exact-gc-plan-mul":
+		handleExactGCMulPlan()
+	case "joint-dp-laplace-plan-v2":
+		handleJointDPLaplacePlan()
+	case "joint-dp-laplace-worker-contract-v2":
+		handleJointDPLaplaceWorkerContract()
+	case "joint-dp-vector-laplace-plan-v3":
+		handleJointDPVectorPlan()
+	case "joint-dp-vector-worker-contract-v3":
+		handleJointDPVectorWorkerContract()
+	case "joint-dp-vector-convolution-plan-v3":
+		handleJointDPVectorConvolutionPlan()
+	case "joint-dp-vector-convolution-share-v3":
+		handleJointDPVectorConvolutionShareV3()
+	case "joint-dp-vector-convolution-finalize-v3":
+		handleJointDPVectorConvolutionFinalizeV3()
+	case "joint-dp-vector-gaussian-plan-v2":
+		handleJointDPVectorGaussianPlan()
+	case "joint-dp-vector-gaussian-share-v2":
+		handleJointDPVectorGaussianShare()
+	case "joint-dp-vector-gaussian-finalize-v2":
+		handleJointDPVectorGaussianFinalize()
+	case "exact-gc-worker":
+		if len(os.Args) != 3 {
+			mpcFatalError("exact-gc worker configuration is required")
+		}
+		if err := handleExactGCWorker(os.Args[2]); err != nil {
+			mpcFatalError("exact-gc worker failed: " + err.Error())
+		}
+	// Internal formal-GLM runtime boundary. These commands consume only
+	// authenticated Phase-1.8 ciphertext frames and remain absent from the
+	// advertised capability surface until the complete DP release is wired.
+	case "formal-glm-phase19-prepare":
+		handleFormalGLMPhase19RuntimePrepare()
+	case "formal-glm-phase19-worker":
+		if len(os.Args) != 3 {
+			mpcFatalError("formal-glm Phase-1.9 worker configuration is required")
+		}
+		if err := handleFormalGLMPhase19RuntimeWorker(os.Args[2]); err != nil {
+			mpcFatalError("formal-glm Phase-1.9 worker failed")
+		}
+	case "formal-glm-phase19-schedule-worker":
+		if len(os.Args) != 3 {
+			mpcFatalError("formal-glm durable schedule worker configuration is required")
+		}
+		if err := handleFormalGLMPhase19ScheduleWorker(os.Args[2]); err != nil {
+			mpcFatalError("formal-glm durable schedule worker failed")
+		}
+
+	// Server-local differential-privacy sampler. This command does not expose
+	// raw data or accept analyst-selected privacy policy; R supplies only the
+	// already bounded sufficient statistics and custodian-ledger allocation.
+	case "dp-noise-int64":
+		handleDPNoiseInt64()
+	case "dp-gaussian-int64":
+		handleDPGaussianInt64()
+	case "dp-noise-select-int64":
+		handleDPNoiseSelectionInt64()
+	// Unpromoted local arithmetic for the independent-full-draw joint-DP
+	// fallback. It is intentionally absent from runtime-capabilities.
+	case "joint-dp-convolution-share-v1":
+		handleJointDPConvolutionShare()
+	case "joint-ring128-source-split-v1":
+		handleJointDPUniformSplit()
+	case "ring128-sum-records-v1":
+		handleRing128SumRecords()
+
+	// Deterministic compatibility manifest for the R server bridge. It does
+	// not read protected input or consume randomness.
+	case "runtime-capabilities":
+		handleRuntimeCapabilities()
+
 	// Version
 	case "version":
-		output(map[string]string{"version": VERSION})
+		output(map[string]string{"version": runtimeVersion})
 
 	default:
 		outputError("Unknown command: " + cmd)

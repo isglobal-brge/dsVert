@@ -42,3 +42,4 @@ Public ciphertexts to relay to the receiver, unless stored as a blob.
 \description{
 Encrypt OT multiplication messages as sender
 }
+\keyword{internal}

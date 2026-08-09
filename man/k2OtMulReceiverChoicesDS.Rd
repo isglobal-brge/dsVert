@@ -36,3 +36,4 @@ Public receiver points to relay to the sender, unless stored as a blob.
 \description{
 Prepare OT receiver choices from a stored ring operand
 }
+\keyword{internal}

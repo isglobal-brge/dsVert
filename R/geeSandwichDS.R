@@ -10,7 +10,6 @@
 #' @param frac_bits Fixed-point fractional bits.
 #' @param ring Integer 63 or 127.
 #' @return list(stored, output_key, n).
-#' @export
 dsvertGEEInterceptShareDS <- function(output_key = "gee_x_col_0",
                                       n = NULL,
                                       is_party0 = FALSE,
@@ -54,7 +53,6 @@ dsvertGEEInterceptShareDS <- function(output_key = "gee_x_col_0",
 #'   which \code{k2ComputeEtaShareDS()} needs as a scalar.
 #' @param session_id Active MPC session identifier.
 #' @return list(stored, p_own, p_peer, n).
-#' @export
 dsvertGEERestoreFeatureShapeDS <- function(p_own, p_peer,
                                            n = NULL,
                                            session_id = NULL) {

@@ -11,8 +11,8 @@
 // Share convention: same additive-secret-share model as Ring63.
 //   x = s0 + s1 (mod 2^127), where s0 is a fresh crypto/rand sample and
 //   s1 = x - s0 (mod 2^127).
-// TruncMul: (a*b) >> fracBits (mod 2^127). Stochastic truncation preserved
-// via the same carry-bit mechanism used in Ring63.
+// TruncMul: (a*b) >> fracBits (mod 2^127). Secret-share multiplication uses
+// the same deterministic asymmetric local-truncation convention as Ring63.
 
 package main
 
@@ -29,7 +29,7 @@ type Uint128 struct {
 	Lo uint64
 }
 
-func U128Zero() Uint128             { return Uint128{} }
+func U128Zero() Uint128               { return Uint128{} }
 func U128FromUint64(x uint64) Uint128 { return Uint128{Lo: x} }
 
 // Add returns a+b mod 2^128.
@@ -149,10 +149,10 @@ type Ring127 struct {
 	SignThreshold Uint128 // modulus / 2 = 2^126
 }
 
-// NewRing127 creates a Ring127 with fracBits fractional bits.
-// fracBits can be up to 63 without overflow of FracMul within a Uint64.
+// NewRing127 creates a Ring127 with fracBits fractional bits. FracMul is a
+// Uint128, so every mathematically valid setting in [1,126] is representable.
 func NewRing127(fracBits int) Ring127 {
-	if fracBits < 1 || fracBits > 126 {
+	if fracBits < 1 || fracBits > k2Ring127Bits-1 {
 		panic("Ring127: fracBits must be in [1, 126]")
 	}
 	fm := Uint128{}.Add(Uint128{Lo: 1}).Shl(uint(fracBits))
@@ -175,27 +175,11 @@ func (r Ring127) IsNeg(a Uint128) bool { return a.Cmp(r.SignThreshold) >= 0 }
 // FromDouble converts a float64 to Ring127 FP. Uses big.Float for precision
 // (cold path — one-off conversion per input, not per-element hot loop).
 func (r Ring127) FromDouble(x float64) Uint128 {
-	if x == 0 {
-		return Uint128{}
+	encoded, err := r.FromDoubleChecked(x)
+	if err != nil {
+		panic("Ring127.FromDouble: " + err.Error())
 	}
-	neg := x < 0
-	if neg {
-		x = -x
-	}
-	// Scale x by 2^fracBits THEN convert to integer (big.Int route).
-	// big.Float gives full precision until the truncation at integer.
-	bf := new(big.Float).SetPrec(256).SetFloat64(x)
-	scale := new(big.Float).SetPrec(256).SetInt(new(big.Int).Lsh(big.NewInt(1), uint(r.FracBits)))
-	bf.Mul(bf, scale)
-	// Round to nearest integer
-	half := new(big.Float).SetPrec(256).SetFloat64(0.5)
-	bf.Add(bf, half)
-	scaledInt, _ := bf.Int(nil)
-	abs := U128FromBig(scaledInt).ModPow127()
-	if neg {
-		return r.Neg(abs)
-	}
-	return abs
+	return encoded
 }
 
 // ToDouble converts a Ring127 FP to float64. Sign-aware.
@@ -258,7 +242,9 @@ func (r Ring127) SplitShare(value Uint128) (s0, s1 Uint128) {
 
 func cryptoRandUint128() Uint128 {
 	var buf [16]byte
-	rand.Read(buf[:])
+	if _, err := rand.Read(buf[:]); err != nil {
+		panic("crypto/rand unavailable")
+	}
 	return Uint128{
 		Hi: binary.LittleEndian.Uint64(buf[0:8]) & ((uint64(1) << 63) - 1),
 		Lo: binary.LittleEndian.Uint64(buf[8:16]),

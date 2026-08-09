@@ -38,3 +38,4 @@ List with dcf_masked (base64url).
 Computes DCF comparison challenges from eta shares. The masked values
 are exchanged between DCF parties for phase 2.
 }
+\keyword{internal}

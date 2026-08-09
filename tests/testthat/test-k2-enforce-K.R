@@ -90,7 +90,7 @@ test_that(".k2_enforce_K omits fn_name when NULL", {
 test_that("dsvertOrdinalExtractXColumnDS rejects K=3 session", {
   s <- .mk_session(3L)
   expect_error(
-    dsVert::dsvertOrdinalExtractXColumnDS(
+    dsVert:::dsvertOrdinalExtractXColumnDS(
       matrix_key = "m", n = 10L, p = 3L, col_idx = 1L,
       output_key = "out", session_id = s$sid),
     "K mismatch.*expected K=2.*got K=3")
@@ -100,12 +100,12 @@ test_that("dsvertOrdinalExtractXColumnDS rejects K=3 session", {
 test_that("multinomial DCF-share helpers are usable inside K>=3 sessions", {
   s <- .mk_session(3L)
   expect_error(
-    dsVert::dsvertPrepareMultinomGradDS(
+    dsVert:::dsvertPrepareMultinomGradDS(
       residual_key = "rkey", is_outcome_server = TRUE,
       n = 10L, session_id = s$sid),
     "residual slot 'rkey' is empty")
   expect_error(
-    dsVert::dsvertSoftmaxDenominatorDS(
+    dsVert:::dsvertSoftmaxDenominatorDS(
       exp_eta_keys = "k1", output_key = "out",
       is_party0 = TRUE, n = 10L, session_id = s$sid),
     "slot 'k1' is empty")
@@ -115,7 +115,7 @@ test_that("multinomial DCF-share helpers are usable inside K>=3 sessions", {
 test_that("dsvertCoxDiscreteShareMaskDS permits K=3 DCF-party use", {
   s <- .mk_session(3L)
   expect_error(
-    dsVert::dsvertCoxDiscreteShareMaskDS(
+    dsVert:::dsvertCoxDiscreteShareMaskDS(
       data_name = "fake", time_var = "time", status_var = "status",
       J = 5L, bin_breaks = c(0, 1, 2, 3, 4, 5),
       mask_output_key = "m", y_output_key = "y",
@@ -126,7 +126,7 @@ test_that("dsvertCoxDiscreteShareMaskDS permits K=3 DCF-party use", {
 test_that("dsvertCoxDiscreteReceiveSharesDS permits K=3 DCF-party use", {
   s <- .mk_session(3L)
   expect_error(
-    dsVert::dsvertCoxDiscreteReceiveSharesDS(
+    dsVert:::dsvertCoxDiscreteReceiveSharesDS(
       mask_blob_key = "mb", y_blob_key = "yb",
       mask_output_key = "mo", y_output_key = "yo",
       n_pp = 50L, session_id = s$sid),
@@ -136,7 +136,7 @@ test_that("dsvertCoxDiscreteReceiveSharesDS permits K=3 DCF-party use", {
 test_that("dsvertCoxDiscreteExpandXDS permits K=3 DCF-party use", {
   s <- .mk_session(3L)
   expect_error(
-    dsVert::dsvertCoxDiscreteExpandXDS(
+    dsVert:::dsvertCoxDiscreteExpandXDS(
       data_name = "fake", new_data_name = "fake2",
       x_vars = "age", J = 5L, session_id = s$sid),
     "object 'fake' not found")
@@ -183,7 +183,7 @@ test_that("k2GradientR1DS does NOT fire K-guard when K=2", {
 test_that("dsvertOrdinalExtractXColumnDS does NOT fire K-guard when K=2", {
   s <- .mk_session(2L)
   err <- tryCatch(
-    dsVert::dsvertOrdinalExtractXColumnDS(
+    dsVert:::dsvertOrdinalExtractXColumnDS(
       matrix_key = "m", n = 10L, p = 3L, col_idx = 1L,
       output_key = "out", session_id = s$sid),
     error = function(e) conditionMessage(e))

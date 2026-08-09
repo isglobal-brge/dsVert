@@ -16,7 +16,7 @@
 #'   (e.g. synthetic columns that the caller added on purpose and
 #'   wants to keep -- "cluster", "time", "event", "age_q").
 #' @return list(columns_removed = character, n_removed = integer).
-#' @export
+#' @keywords internal
 dsvertResetDataFrameDS <- function(data_name, keep = character(0)) {
   .validate_data_name(data_name)
   data <- tryCatch(get(data_name, envir = parent.frame()),

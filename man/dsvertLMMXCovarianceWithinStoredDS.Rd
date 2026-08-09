@@ -15,8 +15,7 @@ list(SX2_within = matrix p x p, df_within = integer scalar,
 p = ncol, x_vars = character).
 }
 \description{
-Non-disclosive variant of \code{dsvertLMMXCovarianceWithinDS}. The
-cluster assignment vector is read from the active MPC session after an
+The cluster assignment vector is read from the active MPC session after an
 encrypted \code{dsvertClusterIDsBroadcastDS}/\code{dsvertClusterIDsReceiveDS}
 exchange, so the analyst client does not receive row-level cluster
 membership.

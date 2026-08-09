@@ -4,10 +4,10 @@
 \alias{glmRing63ReceiveExtraShareDS}
 \title{Receive and assemble extra feature shares from non-DCF servers}
 \usage{
-glmRing63ReceiveExtraShareDS(extra_key, extra_p, session_id = NULL)
+glmRing63ReceiveExtraShareDS(source_name, extra_p, session_id = NULL)
 }
 \arguments{
-\item{extra_key}{Character. Blob key for the encrypted extra feature share.}
+\item{source_name}{Authenticated logical name of the feature producer.}
 
 \item{extra_p}{Integer. Number of features in this share.}
 

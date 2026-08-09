@@ -26,11 +26,11 @@ const (
 
 // DCFKey holds one party's key for the DCF.
 type DCFKey struct {
-	Seed0    [dcfLambda]byte // initial seed
-	T0       byte            // initial control bit (0 for party 0, 1 for party 1)
-	CW       []dcfCW         // correction words, one per level
-	FinalCW  int64           // final correction value (group element)
-	NumBits  int             // number of bits in the domain (log2 of domain size)
+	Seed0   [dcfLambda]byte // initial seed
+	T0      byte            // initial control bit (0 for party 0, 1 for party 1)
+	CW      []dcfCW         // correction words, one per level
+	FinalCW int64           // final correction value (group element)
+	NumBits int             // number of bits in the domain (log2 of domain size)
 }
 
 // dcfCW is a correction word for one level of the DCF tree.
@@ -100,7 +100,9 @@ func dcfConvertG(seed [dcfLambda]byte) int64 {
 // dcfRandomSeed generates a random 128-bit seed.
 func dcfRandomSeed() [dcfLambda]byte {
 	var s [dcfLambda]byte
-	crand.Read(s[:])
+	if _, err := crand.Read(s[:]); err != nil {
+		panic("crypto/rand unavailable")
+	}
 	return s
 }
 

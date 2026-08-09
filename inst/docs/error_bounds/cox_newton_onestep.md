@@ -1,5 +1,10 @@
 # Error bound for Cox one-step Newton from β=0
 
+> **Archived historical design record.** The derivation below analyzes a
+> retired one-step estimator. It is not release evidence: every Cox public
+> frontdoor is quarantined and fails before any DSI call. References to
+> shipping or PASS_PRACTICAL record an obsolete proposal only.
+
 ## Theorem
 
 Let β* ∈ ℝ^p be the Cox partial-likelihood MLE for a fixed (X, t, δ) design

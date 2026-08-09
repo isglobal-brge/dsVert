@@ -1,26 +1,25 @@
 aggregate_methods_from_description <- function() {
-  candidates <- c("DESCRIPTION", "../../DESCRIPTION",
-                  system.file("DESCRIPTION", package = "dsVert"))
-  desc_path <- candidates[file.exists(candidates)][1L]
-  if (is.na(desc_path) || !nzchar(desc_path)) {
-    stop("Could not locate dsVert DESCRIPTION", call. = FALSE)
-  }
+  desc_path <- .dsvert_test_package_file("DESCRIPTION")
   desc <- read.dcf(desc_path)
   trimws(strsplit(desc[1, "AggregateMethods"], ",")[[1]])
 }
 
-test_that("DataSHIELD AggregateMethods expose safe ordinal helpers only", {
+test_that("legacy ordinal helpers are internal and not remotely exposed", {
   methods <- aggregate_methods_from_description()
-
-  expect_true("dsvertOrdinalShareClassMasksDS" %in% methods)
-  expect_true("dsvertOrdinalReceiveClassMaskDS" %in% methods)
-
-  blocked <- c(
+  retired <- c(
+    "dsvertOrdinalShareClassMasksDS",
+    "dsvertOrdinalReceiveClassMaskDS",
+    "dsvertOrdinalExtractXColumnDS")
+  removed <- c(
     "dsvertOrdinalPatientDiffsDS",
     "dsvertOrdinalSealFkSharesDS",
     "dsvertOrdinalSealEtaDS",
     "dsvertOrdinalReceiveBetaWeightsDS")
-  expect_false(any(blocked %in% methods))
+  expect_false(any(c(retired, removed) %in% methods))
+  expect_false(any(retired %in% getNamespaceExports("dsVert")))
+  expect_true(all(vapply(
+    retired, exists, logical(1L), envir = asNamespace("dsVert"),
+    mode = "function", inherits = FALSE)))
 })
 
 test_that("debug and patient-level legacy helpers are not product-exposed", {
@@ -151,12 +150,16 @@ test_that("legacy Cox rank AggregateMethods are not product-exposed", {
   expect_false(any(blocked %in% methods))
 })
 
-test_that("Gaussian GEE AR1 exposes only guarded order-share helpers", {
+test_that("legacy GEE AR1 helpers are internal and not remotely exposed", {
   methods <- aggregate_methods_from_description()
 
-  expected <- c(
+  retired <- c(
     "dsvertGEEAR1OrderBroadcastDS",
     "dsvertGEEAR1OrderReceiveDS",
     "dsvertGEEAR1TransformShareDS")
-  expect_true(all(expected %in% methods))
+  expect_false(any(retired %in% methods))
+  expect_false(any(retired %in% getNamespaceExports("dsVert")))
+  expect_true(all(vapply(
+    retired, exists, logical(1L), envir = asNamespace("dsVert"),
+    mode = "function", inherits = FALSE)))
 })

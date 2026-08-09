@@ -21,3 +21,4 @@ aggregating producer (\code{k2StoreSumShareDS}). A per-observation share
 written under the allowlisted name by any other primitive does not match the
 stamp and is refused, so no per-observation value can be laundered out.
 }
+\keyword{internal}

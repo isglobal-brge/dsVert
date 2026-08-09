@@ -4,7 +4,12 @@
 \alias{k2SetOffsetDS}
 \title{Register an offset column for an open GLM session (server-side)}
 \usage{
-k2SetOffsetDS(data_name, offset_column, session_id = NULL)
+k2SetOffsetDS(
+  data_name,
+  offset_column,
+  session_id = NULL,
+  numeric_family = "poisson"
+)
 }
 \arguments{
 \item{data_name}{Character. Aligned data-frame name on this server.}
@@ -14,6 +19,8 @@ k2SetOffsetDS(data_name, offset_column, session_id = NULL)
 (i.e., already log-transformed where appropriate).}
 
 \item{session_id}{Character. GLM session identifier.}
+
+\item{numeric_family}{GLM family for the execution-attestation binding.}
 }
 \value{
 Named list with \code{stored = TRUE} and the length of the

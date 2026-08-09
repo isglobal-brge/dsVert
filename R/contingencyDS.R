@@ -1,7 +1,9 @@
-#' @title Server-side 2-way contingency table (aggregate)
-#' @description Compute the joint frequency table of two categorical or
+#' @title Retired internal exact 2-way contingency helper
+#' @description Historical helper that computes the joint frequency table of two categorical or
 #'   numeric variables held at the same server. Returns the observed counts
-#'   and margins as aggregates for client-side chi-square testing. Intended
+#'   and margins. It is retained only for source compatibility and focused
+#'   server tests; it is neither exported nor registered as a DataSHIELD
+#'   method because repeated exact tables are reconstructible. Intended
 #'   for the case where both variables are held on the same server (the
 #'   cross-server case with vertically partitioned variables will reuse the
 #'   k2 Beaver dot-product infrastructure and will be added as a separate
@@ -30,7 +32,6 @@
 #'     \item \code{n_na}: number of rows with missingness in either variable
 #'   }
 #' @seealso \code{dsvertHistogramDS}
-#' @export
 dsvertContingencyDS <- function(
     data_name, var1, var2,
     suppress_small_cells = TRUE,

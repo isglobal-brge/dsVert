@@ -37,3 +37,4 @@ List with and_xma, and_ymb, had1_xma, had1_ymb.
 \description{
 Wide spline Phase 2: DCF close + Beaver R1 for AND and Hadamard-1
 }
+\keyword{internal}

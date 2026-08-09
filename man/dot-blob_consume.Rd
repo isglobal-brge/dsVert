@@ -4,7 +4,7 @@
 \alias{.blob_consume}
 \title{Read a blob and delete it (one-shot consumption)}
 \usage{
-.blob_consume(key, ss)
+.blob_consume(key, ss, invalidate_accounting = TRUE)
 }
 \arguments{
 \item{key}{Character. Blob key}

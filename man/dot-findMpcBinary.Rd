@@ -10,6 +10,10 @@
 Path to the dsvert-mpc binary
 }
 \description{
-Find the dsvert-mpc binary
+Explicit administrator/development overrides are not release artifacts and
+therefore are not listed in package SHA256SUMS; operational calls still
+require their compatible runtime manifest. Binaries discovered under an
+installed or source package must pass both checksum and runtime-manifest
+validation.
 }
 \keyword{internal}

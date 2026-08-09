@@ -7,7 +7,12 @@
 \alias{dsVert-package}
 \title{Package Load Hook}
 \description{
-Auto-generates Ed25519 identity seed on first load if none exists.
+Package loading validates the executable surface but never creates secret
+material. Independent Ed25519 identity and sticky-noise roots are generated
+on the first cryptographic service operation, preventing image-build loads
+from baking one deployment identity into every clone. A recovered identity
+is preferred; an unrecoverable replacement remains untrusted by its peers
+until their administrators verify and update the name-bound pin.
 }
 \seealso{
 Useful links:

@@ -1,11 +1,13 @@
 // k2_recip127_cheb.go — Ring127 plaintext reciprocal 1/x via Chebyshev
 // polynomial initial guess + Newton-Raphson refinement (no range reduction).
 //
-// Purpose (task #116 step 5c(I-c-6)): provide a 0-bit-disclosure Ring127
-// 1/x primitive. Unlike the Goldschmidt variant in k2_recip127.go which
+// Purpose (task #116 step 5c(I-c-6)): keep the Ring127 1/x operand in the
+// share domain. Unlike the Goldschmidt variant in k2_recip127.go which
 // requires revealing an integer shift `s` per element to parties (P3
-// regression vs current 0-bit wide-spline), this hybrid keeps x in shares
-// throughout the MPC orchestration:
+// regression), this hybrid does not directly open x during the arithmetic
+// orchestration. This is not a zero-disclosure claim: the current DCF masking
+// and local-truncation subprotocols have the limitations documented in
+// k2_distributed_cmp*.go and k2_truncation.go.
 //
 //   1. Chebyshev Horner on t = (x - mid)/halfRange ∈ [-1, 1] produces a
 //      rough approximation y_0 ≈ 1/x with max rel err ~33% on the default
@@ -35,9 +37,11 @@ const Ring127RecipChebDegree = 30
 
 // Ring127RecipChebXMin, Ring127RecipChebXMax: domain of validity. Chosen
 // to cover Cox S(t) across typical scenarios:
-//   NCCTG lung : S(t) ∈ [~5, ~1500]
-//   Pima       : S(t) ∈ [~10, ~800]
-//   synthetic  : S(t) ∈ [~1, ~2500]
+//
+//	NCCTG lung : S(t) ∈ [~5, ~1500]
+//	Pima       : S(t) ∈ [~10, ~800]
+//	synthetic  : S(t) ∈ [~1, ~2500]
+//
 // A single [1, 3000] domain handles all without per-element bucket reveal.
 const (
 	Ring127RecipChebXMin = 1.0
@@ -83,8 +87,8 @@ const Ring127RecipChebNRSteps = 12
 // r.FracBits, plus the affine mapping constants needed to transform x
 // into the Chebyshev domain t ∈ [-1, 1]:
 //
-//   t = (x - mid) / halfRange
-//     = x · (1 / halfRange)   +   (-mid / halfRange)
+//	t = (x - mid) / halfRange
+//	  = x · (1 / halfRange)   +   (-mid / halfRange)
 //
 // where mid = (xMax + xMin)/2 and halfRange = (xMax - xMin)/2.
 //

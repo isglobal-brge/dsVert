@@ -2,14 +2,14 @@
 % Please edit documentation in R/mpcUtils.R
 \name{.get_trusted_peers}
 \alias{.get_trusted_peers}
-\title{Get the set of trusted peer identity PKs}
+\title{Get the name-bound map of trusted peer identity PKs}
 \usage{
 .get_trusted_peers()
 }
 \value{
-Character vector of base64 PKs, or NULL if enforcement disabled.
+Named character vector mapping logical peer names to base64 PKs.
 }
 \description{
-Get the set of trusted peer identity PKs
+Get the name-bound map of trusted peer identity PKs
 }
 \keyword{internal}

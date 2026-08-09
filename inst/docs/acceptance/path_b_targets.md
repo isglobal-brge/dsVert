@@ -1,5 +1,11 @@
 # Pre-fix tolerance targets (ex-ante, Codex audit gate)
 
+> **Archived historical design record.** This file predates quarantine of the
+> Cox and LMM frontdoors. The PASS/FAIL labels below describe obsolete numeric
+> experiments, not package-release status or disclosure approval. Both public
+> routes fail before any DSI call; use the method registry and disclosure-budget
+> notes for the authoritative surface.
+
 Declared BEFORE touching code for Path B + LMM fix. Any post-fix result
 that misses these targets is a FAIL, not a relaxation opportunity.
 

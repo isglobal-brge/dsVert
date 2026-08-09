@@ -26,7 +26,6 @@
 #' }
 #'
 #' @importFrom stats complete.cases
-#' @export
 getObsCountDS <- function(data_name, variables = NULL) {
   # Validate inputs
   if (!is.character(data_name) || length(data_name) != 1) {

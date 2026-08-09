@@ -2,13 +2,17 @@
 % Please edit documentation in R/mpcUtils.R
 \name{mpcAvailable}
 \alias{mpcAvailable}
-\title{Check if MPC binary is available}
+\title{Check if a compatible MPC runtime is available}
 \usage{
 mpcAvailable()
 }
 \value{
-TRUE if dsvert-mpc binary is available, FALSE otherwise
+TRUE if a compatible dsvert-mpc runtime is available, FALSE otherwise
 }
 \description{
-Check if MPC binary is available
+Availability requires the exact runtime manifest, API version, DP sampler,
+exact-GC capability contract, and (for packaged artifacts) SHA-256 checksum
+expected by this package. Mere file existence is not sufficient.
+The checksum detects release-packaging drift; it is not a signature and
+cannot defend against an administrator replacing both artifact and manifest.
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/mpcUtils.R
 \name{.get_identity_seed}
 \alias{.get_identity_seed}
-\title{Get the identity seed (R option or filesystem)}
+\title{Get the persistent identity seed}
 \usage{
 .get_identity_seed()
 }
@@ -10,6 +10,6 @@
 Character. Base64-encoded seed.
 }
 \description{
-Get the identity seed (R option or filesystem)
+Get the persistent identity seed
 }
 \keyword{internal}

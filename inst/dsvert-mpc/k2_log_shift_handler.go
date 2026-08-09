@@ -19,9 +19,10 @@
 //
 // NB full-regression θ MLE pipeline (dsvertNBFullScoreDS): once log on
 // shares is available, the score Σψ(y_i+θ) − n·ψ(θ) + n·log(θ) − Σlog(μ_i+θ)
-// can be assembled in shares without revealing η^nl or per-patient μ_i —
-// closing the K=2 disclosure budget violation in the prior full_reg path
-// (Lawless 1987; Venables–Ripley 2002 §7.4).
+// can be assembled without directly returning η^nl or per-patient μ_i.
+// That narrows the prior disclosure surface, but it is not by itself a
+// zero-disclosure guarantee for the full pipeline (Lawless 1987;
+// Venables–Ripley 2002 §7.4).
 //
 // No new cryptographic primitives; pure data dump. The underlying
 // Chebyshev evaluator Ring127LogShiftPlaintext + accuracy proof live
@@ -63,9 +64,10 @@ type K2LogShiftGetCoeffsOutput struct {
 func handleK2LogShiftGetCoeffs() {
 	var input K2LogShiftGetCoeffsInput
 	mpcReadInput(&input)
-	fb := input.FracBits
-	if fb <= 0 {
-		fb = K2DefaultFracBits127
+	fb, err := normalizeRing127FracBits(input.FracBits)
+	if err != nil {
+		outputError("k2-log-shift-coeffs: " + err.Error())
+		return
 	}
 	r := NewRing127(fb)
 	oneOverHalf, _, coeffs, degree := Ring127LogShiftCoeffsFP(r)

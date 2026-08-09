@@ -10,11 +10,11 @@
 #' @param n Number of shared values to compare.
 #' @param threshold Public threshold. The comparison bit is
 #'   \code{value < threshold}.
+#' @param operation_id Character. Comparison operation identifier.
 #' @param session_id MPC session id.
 #' @param frac_bits Ring63 fractional bits.
 #' @return list(cmp_blob_0, cmp_blob_1).
-#' @export
-k2CmpGenKeysDS <- function(dcf0_pk, dcf1_pk, n, threshold,
+k2CmpGenKeysDS <- function(dcf0_pk, dcf1_pk, n, threshold, operation_id,
                            session_id = NULL, frac_bits = 20L) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
@@ -33,6 +33,13 @@ k2CmpGenKeysDS <- function(dcf0_pk, dcf1_pk, n, threshold,
   # comparison parties, or it could open the compared value from the peer's
   # round-one masked relay.
   .dsvert_reject_self_dealer(dcf0_pk, dcf1_pk, ss)
+  request <- list(
+    dcf0_pk = dcf0_pk, dcf1_pk = dcf1_pk, n = as.integer(n),
+    threshold = as.numeric(threshold), operation_id = operation_id,
+    frac_bits = as.integer(frac_bits))
+  replay <- .dsvert_typed_blob_operation_replay(
+    ss, "k2CmpGenKeysDS", request)
+  if (isTRUE(replay$hit)) return(replay$result)
   cmp <- .callMpcTool("k2-cmp-gen", list(
     n = as.integer(n),
     threshold = as.numeric(threshold),
@@ -44,31 +51,55 @@ k2CmpGenKeysDS <- function(dcf0_pk, dcf1_pk, n, threshold,
     data = cmp$party0_keys, recipient_pk = pk0))
   sealed1 <- .callMpcTool("transport-encrypt", list(
     data = cmp$party1_keys, recipient_pk = pk1))
-  list(
-    cmp_blob_0 = base64_to_base64url(sealed0$sealed),
-    cmp_blob_1 = base64_to_base64url(sealed1$sealed))
+  blob0 <- base64_to_base64url(sealed0$sealed)
+  blob1 <- base64_to_base64url(sealed1$sealed)
+  result <- list(
+    cmp_blob_0 = blob0,
+    cmp_transfer_0 = .dsvert_typed_blob_mint(
+      ss, session_id, "blob.comparison.keys.v1", dcf0_pk, blob0,
+      list(operation = operation_id, n = as.integer(n), ring = 63L,
+           party = 0L), producer = "k2CmpGenKeysDS"),
+    cmp_blob_1 = blob1,
+    cmp_transfer_1 = .dsvert_typed_blob_mint(
+      ss, session_id, "blob.comparison.keys.v1", dcf1_pk, blob1,
+      list(operation = operation_id, n = as.integer(n), ring = 63L,
+           party = 1L), producer = "k2CmpGenKeysDS"))
+  .dsvert_typed_blob_operation_commit(
+    ss, "k2CmpGenKeysDS", request, result)
+}
+
+.k2_cmp_typed_state_key <- function(operation_id, party_id) {
+  party_id <- as.integer(party_id)
+  if (!party_id %in% c(0L, 1L)) stop("party_id must be 0 or 1", call. = FALSE)
+  paste0("tb_cmp_state_", .dsvert_typed_blob_operation_tag(
+    operation_id, "comparison operation"), "_p", party_id)
 }
 
 #' @title Store encrypted threshold-comparison keys
-#' @param blob_key Session blob key containing this party's encrypted DCF keys.
-#' @param output_key Session key for decrypted DCF keys.
+#' @param operation_id Character. Comparison operation identifier.
+#' @param party_id Integer party identifier, 0 or 1.
+#' @param n Number of shared values covered by the keys.
+#' @param producer_name Character. Verified logical name of the sending dealer.
 #' @param session_id MPC session id.
 #' @return list(stored, output_key).
-#' @export
-k2CmpStoreKeysDS <- function(blob_key = "k2_cmp_keys",
-                             output_key = "k2_cmp_keys",
+#' @keywords internal
+k2CmpStoreKeysDS <- function(operation_id, party_id, n,
+                             producer_name,
                              session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
-  blob <- .blob_consume(blob_key, ss)
-  if (is.null(blob)) stop("No comparison key blob", call. = FALSE)
+  blob <- .dsvert_typed_blob_consume(
+    ss, "blob.comparison.keys.v1",
+    list(operation = operation_id, n = as.integer(n), ring = 63L,
+         party = as.integer(party_id)), sender_name = producer_name)
   tsk <- .key_get("transport_sk", ss)
   if (is.null(tsk)) stop("Transport secret key missing", call. = FALSE)
   dec <- .callMpcTool("transport-decrypt", list(
     sealed = .base64url_to_base64(blob),
     recipient_sk = tsk))
+  output_key <- .k2_cmp_typed_state_key(operation_id, party_id)
   ss[[output_key]] <- dec$data
   list(stored = TRUE, output_key = output_key)
 }
@@ -96,9 +127,10 @@ k2CmpStoreKeysDS <- function(blob_key = "k2_cmp_keys",
 #' @param session_id MPC session id.
 #' @param frac_bits Ring63 fractional bits.
 #' @return list(cmp_masked). Sealed iff \code{peer_pk} was supplied.
-#' @export
+#' @keywords internal
 k2CmpRound1DS <- function(source_key, party_id,
                           keys_key = "k2_cmp_keys",
+                          operation_id = NULL,
                           peer_pk = NULL,
                           session_id = NULL,
                           frac_bits = 20L) {
@@ -116,11 +148,25 @@ k2CmpRound1DS <- function(source_key, party_id,
          "for controlled testing.", call. = FALSE)
   }
   source <- ss[[source_key]]
+  if (!is.null(operation_id)) {
+    keys_key <- .k2_cmp_typed_state_key(operation_id, party_id)
+  }
   keys <- ss[[keys_key]]
   if (is.null(source) || is.null(keys)) {
     stop("source_key / keys_key missing", call. = FALSE)
   }
   n <- .k2_cmp_source_n(source)
+  request <- NULL
+  if (!is.null(operation_id)) {
+    .dsvert_validate_recipient_pk(peer_pk, ss, "peer")
+    request <- list(
+      source_key = source_key, party_id = as.integer(party_id),
+      operation_id = operation_id, peer_pk = peer_pk,
+      frac_bits = as.integer(frac_bits))
+    replay <- .dsvert_typed_blob_operation_replay(
+      ss, "k2CmpRound1DS", request)
+    if (isTRUE(replay$hit)) return(replay$result)
+  }
   res <- .callMpcTool("k2-cmp-round1", list(
     share_fp = .base64url_to_base64(source),
     dcf_keys = keys,
@@ -129,12 +175,25 @@ k2CmpRound1DS <- function(source_key, party_id,
     frac_bits = as.integer(frac_bits)))
   masked <- res$masked
   if (!is.null(peer_pk) && nzchar(peer_pk)) {
-    .dsvert_validate_recipient_pk(peer_pk, ss, "peer")
+    if (is.null(operation_id)) {
+      .dsvert_validate_recipient_pk(peer_pk, ss, "peer")
+    }
     sealed <- .callMpcTool("transport-encrypt", list(
       data = masked, recipient_pk = .base64url_to_base64(peer_pk)))
     masked <- sealed$sealed
   }
-  list(cmp_masked = base64_to_base64url(masked))
+  cmp_masked <- base64_to_base64url(masked)
+  result <- list(cmp_masked = cmp_masked)
+  if (!is.null(operation_id)) {
+    result$cmp_transfer <- .dsvert_typed_blob_mint(
+      ss, session_id, "blob.comparison.peer-masked.v1", peer_pk,
+      cmp_masked,
+      list(operation = operation_id, n = n, ring = 63L,
+           party = as.integer(party_id)), producer = "k2CmpRound1DS")
+    result <- .dsvert_typed_blob_operation_commit(
+      ss, "k2CmpRound1DS", request, result)
+  }
+  result
 }
 
 #' @title Threshold comparison round 2
@@ -153,10 +212,12 @@ k2CmpRound1DS <- function(source_key, party_id,
 #' @param session_id MPC session id.
 #' @param frac_bits Ring63 fractional bits.
 #' @return list(stored, output_key) and optionally \code{indicator_fp}.
-#' @export
+#' @keywords internal
 k2CmpRound2DS <- function(source_key, party_id, output_key,
                           keys_key = "k2_cmp_keys",
                           peer_blob_key = "k2_cmp_peer_masked",
+                          operation_id = NULL,
+                          producer_name = NULL,
                           peer_sealed = TRUE,
                           return_share = FALSE,
                           session_id = NULL,
@@ -165,6 +226,9 @@ k2CmpRound2DS <- function(source_key, party_id, output_key,
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
+  if (!is.null(operation_id)) {
+    keys_key <- .k2_cmp_typed_state_key(operation_id, party_id)
+  }
   # The relayed peer masked value must arrive transport-sealed; accepting an
   # unsealed relay would let the analyst inject a chosen masked value.
   if (!isTRUE(peer_sealed) &&
@@ -187,7 +251,15 @@ k2CmpRound2DS <- function(source_key, party_id, output_key,
          "comparison; returning per-observation comparison-bit shares would ",
          "let a caller reconstruct per-observation comparisons.", call. = FALSE)
   }
-  peer <- .blob_consume(peer_blob_key, ss)
+  peer <- if (!is.null(operation_id)) {
+    .dsvert_typed_blob_consume(
+      ss, "blob.comparison.peer-masked.v1",
+      list(operation = operation_id, n = .k2_cmp_source_n(source),
+           ring = 63L, party = 1L - as.integer(party_id)),
+      sender_name = producer_name)
+  } else {
+    .blob_consume(peer_blob_key, ss)
+  }
   if (is.null(peer)) stop("peer masked comparison blob missing", call. = FALSE)
   if (isTRUE(peer_sealed)) {
     tsk <- .key_get("transport_sk", ss)

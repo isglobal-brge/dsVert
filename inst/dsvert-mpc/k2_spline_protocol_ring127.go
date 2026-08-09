@@ -17,7 +17,6 @@ package main
 
 import (
 	"encoding/binary"
-	"fmt"
 	"math"
 )
 
@@ -162,30 +161,12 @@ func wsComputeIndicators127(
 // handleK2WideSplineFullEval127 implements phases 1-4 for the Ring127 path.
 // Called from handleK2WideSplineFullEval when input.Ring == "ring127".
 func handleK2WideSplineFullEval127(input K2WideSplineFullInput) {
-	if input.FracBits <= 0 {
-		input.FracBits = K2DefaultFracBits
-	}
-
 	ring := NewRing127(input.FracBits)
 	n := input.N
 	numInt := input.NumIntervals
-	if numInt <= 0 {
-		switch input.Family {
-		case "poisson":
-			numInt = K2ExpIntervals
-		case "softplus":
-			numInt = 80
-		default:
-			numInt = K2SigmoidIntervals
-		}
-	}
-	numThresh := 2 + numInt - 1
+	numThresh := numInt + 1
 
 	etaBytes := base64ToBytes(input.EtaShareFP)
-	if len(etaBytes) == 0 {
-		outputError(fmt.Sprintf("k2-wide-spline-full (ring127): eta empty (n=%d, b64len=%d)", n, len(input.EtaShareFP)))
-		return
-	}
 	etaShare := bytesToUint128Vec(etaBytes)
 	dcfKeys := deserializeDcfBatch127(base64ToBytes(input.DcfKeys), n, numThresh)
 
@@ -277,7 +258,7 @@ func handleK2WideSplineFullEval127(input K2WideSplineFullInput) {
 		_, h2Msg := GenerateBatchedMultiplicationGateMessage127(iMid, splineVal, h2Beaver, ring)
 
 		mpcWriteOutput(K2WSPhase2Out{
-			AND_XMA:  "", AND_YMB: "",
+			AND_XMA: "", AND_YMB: "",
 			Had1_XMA: "", Had1_YMB: "",
 			Had2_XMA: bytesToBase64(uint128VecToBytes(h2Msg.XMinusAShares)),
 			Had2_YMB: bytesToBase64(uint128VecToBytes(h2Msg.YMinusBShares)),

@@ -3,7 +3,6 @@ package main
 
 import (
 	"encoding/binary"
-	"fmt"
 	"math"
 )
 
@@ -19,24 +18,22 @@ import (
 // ============================================================================
 
 type K2WideSplineFullInput struct {
-	Phase        int     `json:"phase"`          // 1, 2, 3 or 4
-	PartyID      int     `json:"party_id"`
-	Family       string  `json:"family"`         // binomial|poisson|softplus|reciprocal|log
-	EtaShareFP   string  `json:"eta_share_fp"`   // base64 FP (all phases)
-	DcfKeys      string  `json:"dcf_keys"`       // base64 (all phases)
-	N            int     `json:"n"`
-	FracBits     int     `json:"frac_bits"`
-	NumIntervals int     `json:"num_intervals"`
+	Phase        int    `json:"phase"` // 1, 2, 3 or 4
+	PartyID      int    `json:"party_id"`
+	Family       string `json:"family"`       // binomial|poisson|softplus|reciprocal|log
+	EtaShareFP   string `json:"eta_share_fp"` // base64 FP (all phases)
+	DcfKeys      string `json:"dcf_keys"`     // base64 (all phases)
+	N            int    `json:"n"`
+	FracBits     int    `json:"frac_bits"`
+	NumIntervals int    `json:"num_intervals"`
 	// Ring selects the secret-share ring. "ring63" (default, empty) uses
-	// uint64 Ring63. "ring127" uses Uint128 Ring127 (task #116 migration
-	// for Cox/LMM STRICT closure). Ring127 is NOT YET FULLY WIRED in the
-	// spline protocol — setting it here is currently a no-op fallthrough
-	// to Ring63; the R client may pass it for forward-compatibility.
-	Ring         string  `json:"ring"`
+	// uint64 Ring63. "ring127" uses the Uint128 Ring127 implementation for
+	// all four spline phases.
+	Ring string `json:"ring"`
 	// Optional domain override for dual-clamp families (reciprocal / log).
 	// If zero, family defaults apply (K2Reciprocal* / K2Log*).
-	Lower        float64 `json:"lower"`
-	Upper        float64 `json:"upper"`
+	Lower float64 `json:"lower"`
+	Upper float64 `json:"upper"`
 	// Phase 2+3: peer DCF masked values (needed to recompute comparisons)
 	PeerDcfMasked string `json:"peer_dcf_masked"` // base64
 	// Phase 2+3: Beaver triples (3 ops: AND, Had1=slope*x, Had2=I_mid*spline)
@@ -63,7 +60,7 @@ type K2WSPhase1Out struct {
 }
 
 type K2WSPhase2Out struct {
-	AND_XMA  string `json:"and_xma"`  // base64 FP: Beaver R1 for AND
+	AND_XMA  string `json:"and_xma"` // base64 FP: Beaver R1 for AND
 	AND_YMB  string `json:"and_ymb"`
 	Had1_XMA string `json:"had1_xma"` // Beaver R1 for slope*x
 	Had1_YMB string `json:"had1_ymb"`
@@ -224,39 +221,24 @@ func wsComputeIndicators(ring Ring63, n, numInt, numThresh int, partyID int,
 func handleK2WideSplineFullEval() {
 	var input K2WideSplineFullInput
 	mpcReadInput(&input)
-	if input.FracBits <= 0 {
-		input.FracBits = K2DefaultFracBits
+	validatedInput, numThresh, err := validateWideSplineInput(input)
+	if err != nil {
+		outputError("k2-wide-spline-full: " + err.Error())
+		return
 	}
+	input = validatedInput
 	// Ring127 dispatch — Cox/LMM STRICT migration (task #116). Ring63 path
-	// stays the default and is unchanged. Unknown ring values reject loudly.
+	// stays the default.
 	if input.Ring == "ring127" {
 		handleK2WideSplineFullEval127(input)
 		return
-	}
-	if input.Ring != "" && input.Ring != "ring63" {
-		panic("k2-wide-spline-full: unknown ring='" + input.Ring + "'")
 	}
 
 	ring := NewRing63(input.FracBits)
 	n := input.N
 	numInt := input.NumIntervals
-	if numInt <= 0 {
-		switch input.Family {
-		case "poisson":
-			numInt = K2ExpIntervals
-		case "softplus":
-			numInt = 80
-		default:
-			numInt = K2SigmoidIntervals
-		}
-	}
-	numThresh := 2 + numInt - 1
 
 	etaBytes := base64ToBytes(input.EtaShareFP)
-	if len(etaBytes) == 0 {
-		outputError(fmt.Sprintf("k2-wide-spline-full: eta empty (n=%d, b64len=%d)", n, len(input.EtaShareFP)))
-		return
-	}
 	etaShare := fpToRing63(bytesToFPVec(etaBytes))
 	dcfKeys := deserializeDcfBatch(base64ToBytes(input.DcfKeys), n, numThresh)
 
@@ -377,7 +359,7 @@ func handleK2WideSplineFullEval() {
 		_, h2Msg := GenerateBatchedMultiplicationGateMessage(iMid, splineVal, h2Beaver, ring)
 
 		mpcWriteOutput(K2WSPhase2Out{
-			AND_XMA:  "", AND_YMB: "",
+			AND_XMA: "", AND_YMB: "",
 			Had1_XMA: "", Had1_YMB: "",
 			Had2_XMA: bytesToBase64(fpVecToBytes(ring63ToFP(h2Msg.XMinusAShares))),
 			Had2_YMB: bytesToBase64(fpVecToBytes(ring63ToFP(h2Msg.YMinusBShares))),
@@ -460,4 +442,3 @@ func handleK2WideSplineFullEval() {
 		})
 	}
 }
-

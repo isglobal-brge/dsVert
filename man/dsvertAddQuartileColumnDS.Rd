@@ -18,3 +18,4 @@ Compute quartile boundaries of the named column
 (defaulting to \code{age}) and attach a factor column with levels
 Q1..Q4. Used to validate \code{ds.vertChisqCross}.
 }
+\keyword{internal}

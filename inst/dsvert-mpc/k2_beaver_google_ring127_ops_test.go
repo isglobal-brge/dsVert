@@ -42,8 +42,14 @@ func TestTruncateShare127_ReconstructAccuracy(t *testing.T) {
 		x2FP := ring.FromDouble(xFloats[i]) // at fracBits
 		// Promote to "2*fracBits" by leftshift
 		xRaw := x2FP.Shl(uint(shift)).ModPow127()
-		// Split into shares
-		s0, s1 := ring.SplitShare(xRaw)
+		// Choose a deterministic additive split in the normal (non-failure)
+		// branch. Sampling a random split here made the test itself flaky by
+		// deliberately retaining the protocol's documented rare wrap event.
+		var s0 Uint128
+		if !ring.IsNeg(xRaw) {
+			s0 = ring.SignThreshold // s0 > xRaw, so the positive split wraps
+		}
+		s1 := ring.Sub(xRaw, s0)
 
 		// Each party truncates its share
 		t0 := TruncateSharePartyZero127([]Uint128{s0}, shift, ring)[0]

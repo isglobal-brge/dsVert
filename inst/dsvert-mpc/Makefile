@@ -2,7 +2,7 @@
 # Builds binaries for all supported platforms
 
 BINARY_NAME = dsvert-mpc
-VERSION = 1.8.0
+VERSION ?= 1.1.0
 
 # Output directories
 BIN_DIR = ../bin
@@ -11,43 +11,74 @@ DARWIN_AMD64_DIR = $(BIN_DIR)/darwin-amd64
 DARWIN_ARM64_DIR = $(BIN_DIR)/darwin-arm64
 WINDOWS_AMD64_DIR = $(BIN_DIR)/windows-amd64
 
-# Go build flags
-GO_FLAGS = -ldflags="-s -w"
+# Reproducible pure-Go release flags. Disabling VCS stamping and the build ID,
+# trimming host paths, and injecting only the declared package version makes
+# identical source/module inputs produce identical binaries under one Go
+# toolchain and target environment.
+GO_LDFLAGS = -s -w -buildid= -X main.runtimeVersion=$(VERSION)
+GO_FLAGS = -trimpath -buildvcs=false -ldflags="$(GO_LDFLAGS)"
+GO_ENV = CGO_ENABLED=0
 
-.PHONY: all clean deps linux darwin-amd64 darwin-arm64 windows
+.PHONY: all clean deps linux darwin-amd64 darwin-arm64 windows checksums
 
-all: deps linux darwin-amd64 darwin-arm64 windows
+all: checksums
 	@echo "Build complete! Binaries in $(BIN_DIR)/"
 
 deps:
 	@echo "Downloading dependencies..."
 	go mod download
-	go mod tidy
+	go mod verify
 
-linux:
+linux: deps
 	@echo "Building for Linux (amd64)..."
 	@mkdir -p $(LINUX_AMD64_DIR)
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build $(GO_FLAGS) -o $(LINUX_AMD64_DIR)/$(BINARY_NAME) .
+	$(GO_ENV) GOOS=linux GOARCH=amd64 go build $(GO_FLAGS) -o $(LINUX_AMD64_DIR)/$(BINARY_NAME) .
 
-darwin-amd64:
+darwin-amd64: deps
 	@echo "Building for macOS (amd64)..."
 	@mkdir -p $(DARWIN_AMD64_DIR)
-	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build $(GO_FLAGS) -o $(DARWIN_AMD64_DIR)/$(BINARY_NAME) .
+	$(GO_ENV) GOOS=darwin GOARCH=amd64 go build $(GO_FLAGS) -o $(DARWIN_AMD64_DIR)/$(BINARY_NAME) .
 
-darwin-arm64:
+darwin-arm64: deps
 	@echo "Building for macOS (arm64)..."
 	@mkdir -p $(DARWIN_ARM64_DIR)
-	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build $(GO_FLAGS) -o $(DARWIN_ARM64_DIR)/$(BINARY_NAME) .
+	$(GO_ENV) GOOS=darwin GOARCH=arm64 go build $(GO_FLAGS) -o $(DARWIN_ARM64_DIR)/$(BINARY_NAME) .
 
-windows:
+windows: deps
 	@echo "Building for Windows (amd64)..."
 	@mkdir -p $(WINDOWS_AMD64_DIR)
-	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build $(GO_FLAGS) -o $(WINDOWS_AMD64_DIR)/$(BINARY_NAME).exe .
+	$(GO_ENV) GOOS=windows GOARCH=amd64 go build $(GO_FLAGS) -o $(WINDOWS_AMD64_DIR)/$(BINARY_NAME).exe .
+
+checksums: linux darwin-amd64 darwin-arm64 windows
+	@set -eu; \
+	if command -v sha256sum >/dev/null 2>&1; then \
+		checksum="sha256sum"; \
+	elif command -v shasum >/dev/null 2>&1; then \
+		checksum="shasum -a 256"; \
+	else \
+		echo "No SHA-256 checksum tool found" >&2; exit 1; \
+	fi; \
+	cd "$(BIN_DIR)"; \
+	for artifact in \
+		darwin-amd64/$(BINARY_NAME) \
+		darwin-arm64/$(BINARY_NAME) \
+		linux-amd64/$(BINARY_NAME); do \
+		test -x "$$artifact" || { \
+			echo "Runtime artifact is not executable: $$artifact" >&2; \
+			exit 1; \
+		}; \
+	done; \
+	$$checksum \
+		darwin-amd64/$(BINARY_NAME) \
+		darwin-arm64/$(BINARY_NAME) \
+		linux-amd64/$(BINARY_NAME) \
+		windows-amd64/$(BINARY_NAME).exe > SHA256SUMS.tmp; \
+	mv SHA256SUMS.tmp SHA256SUMS
 
 # Build for current platform only (for development)
 dev:
 	@echo "Building for current platform..."
-	go build $(GO_FLAGS) -o $(BINARY_NAME) .
+	$(GO_ENV) go build $(GO_FLAGS) -o $(BINARY_NAME) .
 
 # Run tests
 test:
@@ -63,5 +94,5 @@ clean:
 # Install dependencies and verify
 verify: deps
 	@echo "Verifying build..."
-	go build -o /dev/null .
+	$(GO_ENV) go build $(GO_FLAGS) -o /dev/null .
 	@echo "Build verification successful!"

@@ -8,7 +8,6 @@
 #' @param data_name Character. Aligned data-frame name.
 #' @param cluster_col Character. Column holding the cluster id.
 #' @return list(sizes: integer vector; n_clusters; n_total).
-#' @export
 dsvertClusterSizesDS <- function(data_name, cluster_col) {
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
@@ -37,7 +36,6 @@ dsvertClusterSizesDS <- function(data_name, cluster_col) {
 #' @param intercept Scalar intercept.
 #' @param cluster_col Cluster column.
 #' @return list(rsum_per_cluster, rss_per_cluster, n_per_cluster).
-#' @export
 dsvertClusterResidualsDS <- function(data_name, y_var, x_names,
                                       betahat, intercept = 0,
                                       cluster_col) {
@@ -68,86 +66,6 @@ dsvertClusterResidualsDS <- function(data_name, y_var, x_names,
        n_per_cluster    = as.integer(npc))
 }
 
-#' @title Per-cluster binomial score moments for GLMM updates
-#' @description Given plaintext fixed-effect coefficients from the client,
-#'   compute per-cluster binomial random-intercept score moments:
-#'   \eqn{\sum_i (y_i - p_i)} and \eqn{\sum_i p_i(1-p_i)}. These are
-#'   aggregate vectors with one scalar per cluster, used by
-#'   \code{ds.vertGLMM()} to run a Laplace/PQL random-intercept update
-#'   without returning row-level residuals or fitted probabilities.
-#' @param data_name Character. Aligned data-frame name.
-#' @param y_var Outcome column on this server.
-#' @param x_names Predictor names on this server.
-#' @param betahat Coefficients for \code{x_names}.
-#' @param intercept Scalar intercept.
-#' @param cluster_col Cluster column.
-#' @param offset_col Optional numeric offset column to add to the linear
-#'   predictor, typically the current per-cluster random-intercept column.
-#' @return list(rsum_per_cluster, vsum_per_cluster, rss_per_cluster,
-#'   n_per_cluster).
-#' @export
-dsvertClusterBinomialMomentsDS <- function(data_name, y_var, x_names,
-                                           betahat, intercept = 0,
-                                           cluster_col,
-                                           offset_col = NULL) {
-  .validate_data_name(data_name)
-  data <- get(data_name, envir = parent.frame())
-  if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
-  if (!y_var %in% names(data)) stop("y_var not found", call. = FALSE)
-  if (!cluster_col %in% names(data))
-    stop("cluster_col not found", call. = FALSE)
-  missing_x <- setdiff(x_names, names(data))
-  if (length(missing_x) > 0L) {
-    stop("x_names not local: ", paste(missing_x, collapse = ", "),
-         call. = FALSE)
-  }
-  if (!is.null(offset_col)) {
-    if (!is.character(offset_col) || length(offset_col) != 1L) {
-      stop("offset_col must be NULL or a single character string",
-           call. = FALSE)
-    }
-    if (!offset_col %in% names(data)) {
-      stop("offset_col not found", call. = FALSE)
-    }
-  }
-
-  y <- as.numeric(data[[y_var]])
-  if (anyNA(y) || any(!y %in% c(0, 1))) {
-    stop("y_var must be complete 0/1 binomial data", call. = FALSE)
-  }
-  eta <- rep(as.numeric(intercept), nrow(data))
-  if (length(x_names) > 0L) {
-    X <- as.matrix(data[, x_names, drop = FALSE])
-    eta <- eta + drop(X %*% as.numeric(betahat))
-  }
-  if (!is.null(offset_col)) {
-    off <- as.numeric(data[[offset_col]])
-    if (length(off) != length(eta) || anyNA(off)) {
-      stop("offset_col must be complete and match nrow(data)", call. = FALSE)
-    }
-    eta <- eta + off
-  }
-  eta <- pmax(pmin(eta, 30), -30)
-  p <- stats::plogis(eta)
-  # Keep binomial working weights away from exact zero. This is the same
-  # numerical stabilization used by standard PIRLS implementations and
-  # prevents separated clusters from destroying aggregate PQL updates.
-  p <- pmin(pmax(p, 1e-6), 1 - 1e-6)
-  r <- y - p
-  v <- p * (1 - p)
-  id <- data[[cluster_col]]
-  by_cluster <- split(seq_len(nrow(data)), id)
-  rsum <- vapply(by_cluster, function(ix) sum(r[ix]), numeric(1L))
-  vsum <- vapply(by_cluster, function(ix) sum(v[ix]), numeric(1L))
-  rss <- vapply(by_cluster, function(ix) sum(r[ix] * r[ix]), numeric(1L))
-  npc <- vapply(by_cluster, length, integer(1L))
-  .dsvert_guard_cluster_sizes(npc, "per-cluster binomial moments")
-  list(rsum_per_cluster = as.numeric(rsum),
-       vsum_per_cluster = as.numeric(vsum),
-       rss_per_cluster  = as.numeric(rss),
-       n_per_cluster    = as.integer(npc))
-}
-
 #' @title Per-cluster Z^T Z matrices for LMM random slopes
 #' @description For each cluster in the outcome server, return the q*q
 #'   matrix \eqn{Z_i^T Z_i} where \eqn{Z_i} is the per-patient random-
@@ -164,7 +82,6 @@ dsvertClusterBinomialMomentsDS <- function(data_name, y_var, x_names,
 #'   (intercept + slopes).
 #' @return list(n_clusters, q, ZtZ (n_clusters * q * q array),
 #'   cluster_sizes, Zty optional).
-#' @export
 dsvertClusterZtZDS <- function(data_name, cluster_col,
                                 slope_columns = character(0)) {
   .validate_data_name(data_name)
@@ -210,7 +127,6 @@ dsvertClusterZtZDS <- function(data_name, cluster_col,
 #'   \code{table()} order returned by \code{dsvertClusterSizesDS}).
 #' @param output_column Column name for the expanded weights vector.
 #' @return list(n_expanded, output_column).
-#' @export
 dsvertExpandClusterWeightsDS <- function(data_name, cluster_col,
                                           weights_per_cluster,
                                           output_column = "__dsvert_lmm_w") {
@@ -274,7 +190,6 @@ dsvertExpandClusterWeightsDS <- function(data_name, cluster_col,
 #' @param y_var Character. Outcome column name.
 #' @param cluster_col Character. Cluster id column.
 #' @return list(SSW, SSB, n_per_cluster, K, N, ybar, ssw_per_cluster).
-#' @export
 dsvertLMMVarianceComponentsDS <- function(data_name, y_var, cluster_col) {
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
@@ -309,80 +224,9 @@ dsvertLMMVarianceComponentsDS <- function(data_name, y_var, cluster_col) {
        ybar = as.numeric(ybar))
 }
 
-#' @title Within-cluster X covariance for LMM K=3 sigma^2 X-correction
-#' @description Computes the pooled within-cluster X cross-product matrix
-#'   on this server, summed across clusters: SX2 = Sum_clusters
-#'   X_centered_i' X_centered_i where X_centered_i = X_i - colMeans(X_i)
-#'   for cluster i. Together with df_within = Sum_i (n_i - 1) the
-#'   pooled within-cluster X covariance is Var_within(X) = SX2 / df_w.
-#'
-#'   Legacy diagnostic helper for subtracting the Var_within(X beta)
-#'   inflation from the raw-y ANOVA estimate of sigma^2 (Pinheiro-Bates
-#'   2000 Sec.2.4.2 caveat). Because the cluster_id argument is supplied
-#'   by the client, strict non-disclosure callers should use
-#'   \code{dsvertLMMXCovarianceWithinStoredDS} instead.
-#'
-#'   Cross-server X covariance off-diagonals (Cov_within(x_s, x_t) for
-#'   s != t) are not recoverable without additional MPC. Each server
-#'   reports its own block of the within-cluster X cross-product;
-#'   the client aggregates Sum_s SX2_s into a block-diagonal pooled
-#'   matrix, then computes beta_s' Var_within(X_s) beta_s per server
-#'   and sums. This is exact when X across servers is uncorrelated
-#'   within cluster (the typical iid-covariate validation regime);
-#'   for correlated cross-server X the cross-cov term is missing
-#'   and the pure-sigma^2 estimate inherits a small residual bias
-#'   bounded by the cross-server X correlation structure.
-#'
-#' @param data_name Aligned data frame name.
-#' @param x_vars Character vector of X column names on this server.
-#' @param cluster_id_vector Integer vector of length nrow(data)
-#'   assigning each row to a cluster index (1..K). Legacy diagnostic path
-#'   only; production callers should use
-#'   \code{dsvertLMMXCovarianceWithinStoredDS}.
-#' @return list(SX2_within = matrix p x p, df_within = integer scalar,
-#'   p = ncol, x_vars = character).
-#' @export
-dsvertLMMXCovarianceWithinDS <- function(data_name, x_vars,
-                                          cluster_id_vector) {
-  .validate_data_name(data_name)
-  data <- get(data_name, envir = parent.frame())
-  if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
-  missing_x <- setdiff(x_vars, names(data))
-  if (length(missing_x) > 0L)
-    stop("x_vars not local: ", paste(missing_x, collapse = ", "),
-         call. = FALSE)
-  X <- as.matrix(data[, x_vars, drop = FALSE])
-  n <- nrow(X)
-  cid <- as.integer(cluster_id_vector)
-  if (length(cid) != n)
-    stop(sprintf("cluster_id_vector length %d != nrow(data) %d",
-                  length(cid), n), call. = FALSE)
-  privacy_min <- getOption("datashield.privacyLevel", 5L)
-  if (is.numeric(privacy_min) && n < privacy_min)
-    stop("Insufficient observations", call. = FALSE)
-  p <- ncol(X)
-  SX2 <- matrix(0, p, p, dimnames = list(x_vars, x_vars))
-  df_w <- 0L
-  by <- split(seq_len(n), cid)
-  sizes <- vapply(by, length, integer(1L))
-  .dsvert_guard_cluster_sizes(sizes, "within-cluster X covariance")
-  for (ix in by) {
-    if (length(ix) < 2L) next
-    Xi <- X[ix, , drop = FALSE]
-    Xi_centered <- sweep(Xi, 2L, colMeans(Xi))
-    SX2 <- SX2 + crossprod(Xi_centered)
-    df_w <- df_w + (length(ix) - 1L)
-  }
-  list(SX2_within = SX2,
-       df_within = as.integer(df_w),
-       p = as.integer(p),
-       x_vars = x_vars)
-}
-
 #' @title Within-cluster X covariance from stored cluster IDs
-#' @description Non-disclosive variant of
-#'   \code{dsvertLMMXCovarianceWithinDS}. The cluster assignment vector is
-#'   read from the active MPC session after an encrypted
+#' @description The cluster assignment vector is read from the active MPC
+#'   session after an encrypted
 #'   \code{dsvertClusterIDsBroadcastDS}/\code{dsvertClusterIDsReceiveDS}
 #'   exchange, so the analyst client does not receive row-level cluster
 #'   membership.
@@ -391,7 +235,6 @@ dsvertLMMXCovarianceWithinDS <- function(data_name, x_vars,
 #' @param session_id Active MPC session identifier.
 #' @return list(SX2_within = matrix p x p, df_within = integer scalar,
 #'   p = ncol, x_vars = character).
-#' @export
 dsvertLMMXCovarianceWithinStoredDS <- function(data_name, x_vars,
                                                 session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {

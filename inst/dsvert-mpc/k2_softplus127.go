@@ -1,9 +1,11 @@
 // k2_softplus127.go — Ring127 direct softplus(x)=log(1+exp(x)) via Chebyshev.
 //
-// Reveal-free, dealer-free share-domain link for the binomial deviance
+// Dealer-free share-domain link for the binomial deviance
 // D_binomial = 2*(sum softplus(eta) - y^T eta). softplus is smooth + bounded
 // on [-8, 8] (range ~[3.4e-4, 8.0]), so a single Chebyshev Clenshaw pass gives
-// a per-observation softplus share without ever relaying a masked eta.
+// a per-observation softplus share without directly opening eta. This is not
+// a zero-disclosure claim for the complete pipeline; comparison and local
+// truncation limitations are documented in their respective primitives.
 // Structural clone of k2_sigmoid127.go / k2_exp127.go; independent of
 // exp127/recip127 (which the Newton family uses).
 //

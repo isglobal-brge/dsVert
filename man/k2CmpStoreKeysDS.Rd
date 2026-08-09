@@ -4,16 +4,16 @@
 \alias{k2CmpStoreKeysDS}
 \title{Store encrypted threshold-comparison keys}
 \usage{
-k2CmpStoreKeysDS(
-  blob_key = "k2_cmp_keys",
-  output_key = "k2_cmp_keys",
-  session_id = NULL
-)
+k2CmpStoreKeysDS(operation_id, party_id, n, producer_name, session_id = NULL)
 }
 \arguments{
-\item{blob_key}{Session blob key containing this party's encrypted DCF keys.}
+\item{operation_id}{Character. Comparison operation identifier.}
 
-\item{output_key}{Session key for decrypted DCF keys.}
+\item{party_id}{Integer party identifier, 0 or 1.}
+
+\item{n}{Number of shared values covered by the keys.}
+
+\item{producer_name}{Character. Verified logical name of the sending dealer.}
 
 \item{session_id}{MPC session id.}
 }
@@ -23,3 +23,4 @@ list(stored, output_key).
 \description{
 Store encrypted threshold-comparison keys
 }
+\keyword{internal}

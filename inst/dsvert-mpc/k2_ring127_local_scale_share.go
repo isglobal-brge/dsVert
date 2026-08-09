@@ -23,13 +23,21 @@ type K2Ring127LocalScaleShareOutput struct {
 func handleK2Ring127LocalScaleShare() {
 	var input K2Ring127LocalScaleShareInput
 	mpcReadInput(&input)
-	fb := ring127DefaultFracBits(input.FracBits)
+	fb, err := normalizeRing127FracBits(input.FracBits)
+	if err != nil {
+		outputError("k2-ring127-local-scale-share: " + err.Error())
+		return
+	}
 	r := NewRing127(fb)
 
-	share := b64Uint128Vec(input.ShareFP)
-	scalarVec := b64Uint128Vec(input.ScalarFP)
-	if len(scalarVec) != 1 {
-		outputError("k2-ring127-local-scale-share: scalar_fp must contain exactly one Ring127 FP value")
+	share, err := decodeRing127Vector(input.ShareFP, -1)
+	if err != nil {
+		outputError("k2-ring127-local-scale-share: invalid share_fp: " + err.Error())
+		return
+	}
+	scalarVec, err := decodeRing127Vector(input.ScalarFP, 1)
+	if err != nil {
+		outputError("k2-ring127-local-scale-share: invalid scalar_fp: " + err.Error())
 		return
 	}
 	scalar := r.ToDouble(scalarVec[0])

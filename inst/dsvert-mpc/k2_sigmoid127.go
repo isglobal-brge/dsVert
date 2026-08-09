@@ -1,6 +1,6 @@
 // k2_sigmoid127.go — Ring127 direct sigmoid(x)=1/(1+exp(-x)) via Chebyshev.
 //
-// A GLM-specific, reveal-free, dealer-free share-domain logistic link:
+// A GLM-specific, dealer-free share-domain logistic link:
 // evaluates the whole sigmoid in a SINGLE Chebyshev Clenshaw pass (~29 Beaver
 // rounds) rather than composing exp127+recip127 (~85 rounds), ~2.9x fewer
 // rounds. sigmoid is smooth + bounded on [-8, 8], so a degree-29
@@ -10,7 +10,9 @@
 // This primitive DOES NOT touch exp127/recip127, which stay at degree 30
 // (rel 3.45e-14) for the high-accuracy Newton family (NB / ordinal /
 // multinomial / Cox). It is a structural clone of Ring127ExpPlaintext, so it
-// inherits that path's reveal-free MPC orchestration.
+// inherits that path's share-domain MPC orchestration. This description does
+// not imply zero disclosure for the complete pipeline; comparison and local
+// truncation limitations are documented in their respective primitives.
 //
 // sigmoid(x) - 0.5 is an ODD function, so the even-index Chebyshev
 // coefficients are ~0 (numerical zero) and c_0 carries the +0.5 baseline —

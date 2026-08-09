@@ -14,36 +14,39 @@ import (
 
 // Ring63 holds parameters for the 2^63 ring used by the C++ code.
 type Ring63 struct {
-	Modulus      uint64 // 2^63
-	FracMul      uint64 // 2^fracBits
-	IntRingMod   uint64 // 2^(63-fracBits)
-	FracBits     int
+	Modulus       uint64 // 2^63
+	FracMul       uint64 // 2^fracBits
+	IntRingMod    uint64 // 2^(63-fracBits)
+	FracBits      int
 	SignThreshold uint64 // modulus / 2
 }
 
 func NewRing63(fracBits int) Ring63 {
+	if fracBits < 1 || fracBits > k2Ring63Bits-1 {
+		panic("Ring63: fracBits must be in [1, 62]")
+	}
 	mod := uint64(1) << 63
 	return Ring63{
-		Modulus:      mod,
-		FracMul:      uint64(1) << fracBits,
-		IntRingMod:   uint64(1) << (63 - fracBits),
-		FracBits:     fracBits,
+		Modulus:       mod,
+		FracMul:       uint64(1) << fracBits,
+		IntRingMod:    uint64(1) << (63 - fracBits),
+		FracBits:      fracBits,
 		SignThreshold: mod >> 1,
 	}
 }
 
 // Ring63 arithmetic — ALL explicit % modulus, matching C++ exactly.
-func (r Ring63) Add(a, b uint64) uint64  { return (a + b) % r.Modulus }
-func (r Ring63) Sub(a, b uint64) uint64  { return (r.Modulus + a - b) % r.Modulus }
-func (r Ring63) Neg(a uint64) uint64     { return (r.Modulus - a) % r.Modulus }
-func (r Ring63) IsNeg(a uint64) bool     { return a >= r.SignThreshold }
+func (r Ring63) Add(a, b uint64) uint64 { return (a + b) % r.Modulus }
+func (r Ring63) Sub(a, b uint64) uint64 { return (r.Modulus + a - b) % r.Modulus }
+func (r Ring63) Neg(a uint64) uint64    { return (r.Modulus - a) % r.Modulus }
+func (r Ring63) IsNeg(a uint64) bool    { return a >= r.SignThreshold }
 
 func (r Ring63) FromDouble(x float64) uint64 {
-	if x >= 0 {
-		return uint64(x*float64(r.FracMul)+0.5) % r.Modulus
+	encoded, err := r.FromDoubleChecked(x)
+	if err != nil {
+		panic("Ring63.FromDouble: " + err.Error())
 	}
-	abs := uint64(-x*float64(r.FracMul) + 0.5)
-	return r.Neg(abs % r.Modulus)
+	return encoded
 }
 
 func (r Ring63) ToDouble(a uint64) float64 {
@@ -73,10 +76,16 @@ func (r Ring63) TruncMulSigned(a, b uint64) uint64 {
 	aNeg := r.IsNeg(a)
 	bNeg := r.IsNeg(b)
 	aa, bb := a, b
-	if aNeg { aa = r.Neg(a) }
-	if bNeg { bb = r.Neg(b) }
+	if aNeg {
+		aa = r.Neg(a)
+	}
+	if bNeg {
+		bb = r.Neg(b)
+	}
 	result := r.TruncMul(aa, bb)
-	if aNeg != bNeg { result = r.Neg(result) }
+	if aNeg != bNeg {
+		result = r.Neg(result)
+	}
 	return result
 }
 
@@ -89,7 +98,9 @@ func (r Ring63) SplitShare(value uint64) (s0, s1 uint64) {
 // cryptoRandUint64K2 generates a cryptographically random uint64.
 func cryptoRandUint64K2() uint64 {
 	var buf [8]byte
-	rand.Read(buf[:])
+	if _, err := rand.Read(buf[:]); err != nil {
+		panic("crypto/rand unavailable")
+	}
 	return binary.LittleEndian.Uint64(buf[:])
 }
 

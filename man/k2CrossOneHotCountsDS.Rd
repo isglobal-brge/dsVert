@@ -44,3 +44,4 @@ Delegates the bilinear form to the Go binary via
 \eqn{K \times L} Beaver triple batch and returns the reconstructed
 counts as non-negative integers rounded from the Ring63 result.
 }
+\keyword{internal}

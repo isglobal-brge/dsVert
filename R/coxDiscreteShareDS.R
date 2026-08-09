@@ -46,7 +46,6 @@
 #'   returned object; intended only for controlled local validation.
 #' @return List(sealed_m_blob = b64url, sealed_y_blob = b64url,
 #'   n_obs = <int>, J = <int>, n_pp = <int>=J*n).
-#' @export
 dsvertCoxDiscreteShareMaskDS <- function(data_name, time_var, status_var,
                                           J, bin_breaks,
                                           mask_output_key, y_output_key,
@@ -195,7 +194,6 @@ dsvertCoxDiscreteShareMaskDS <- function(data_name, time_var, status_var,
 #' @param max_event_times Optional public runtime guard.
 #' @param debug Logical. If TRUE, include local aggregate diagnostics.
 #' @return List with sealed mask/y blobs and scalar dimensions.
-#' @export
 dsvertCoxEventTimeShareMaskDS <- function(data_name, time_var, status_var,
                                            mask_output_key, y_output_key,
                                            target_pk, session_id,
@@ -339,7 +337,6 @@ dsvertCoxEventTimeShareMaskDS <- function(data_name, time_var, status_var,
 #'   write decrypted Ring127 shares.
 #' @param n_pp Integer. Total person-period rows = J * n_obs.
 #' @param session_id Character.
-#' @export
 dsvertCoxDiscreteReceiveSharesDS <- function(mask_blob_key, y_blob_key,
                                               mask_output_key, y_output_key,
                                               n_pp, session_id) {
@@ -386,7 +383,6 @@ dsvertCoxDiscreteReceiveSharesDS <- function(mask_blob_key, y_blob_key,
 #' @param J Integer. Number of bins.
 #' @param session_id Character.
 #' @return List(stored=TRUE, n_pp=<int>=J*n, p=<int>=length(x_vars))
-#' @export
 dsvertCoxDiscreteExpandXDS <- function(data_name, new_data_name,
                                         x_vars, J, session_id) {
   if (is.null(session_id) || !nzchar(session_id))

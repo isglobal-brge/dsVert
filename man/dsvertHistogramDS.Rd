@@ -2,7 +2,7 @@
 % Please edit documentation in R/histogramDS.R
 \name{dsvertHistogramDS}
 \alias{dsvertHistogramDS}
-\title{Server-side histogram bucket counts (aggregate)}
+\title{Legacy internal exact histogram helper}
 \usage{
 dsvertHistogramDS(
   data_name,
@@ -45,18 +45,18 @@ highest edge \code{edges[K+1]}
 }
 }
 \description{
-Compute per-bucket counts of a numeric variable server-side and
-return the aggregate count vector. This is the foundation primitive for
-approximate quantile / median estimation, chi-square across continuous
-variables after binning, and LASSO cross-validation diagnostics.
+Compute exact per-bucket counts for focused compatibility tests.
+This function is deliberately unexported and absent from the DataSHIELD
+remote registration surface. Public descriptives use the fixed-grid,
+sticky DP capsule instead.
 }
 \details{
-Bucket counts are aggregates: they carry no information about any
-individual observation beyond membership in a bucket of size \eqn{\ge}
-\code{datashield.privacyLevel}. Downstream helpers on the client side
-(\code{ds.vertDesc}) combine per-server counts into cohort-wide quantile
-and histogram summaries without ever reconstructing a per-patient value.
+Small-cell suppression is not a composition or non-reconstruction
+guarantee for repeated analyst-selected exact histograms. Consequently,
+no client call builder can invoke this helper and it must remain both
+unregistered and unexported.
 }
 \seealso{
 \code{getObsCountDS}
 }
+\keyword{internal}

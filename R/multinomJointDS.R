@@ -22,7 +22,6 @@
 #' @param n Length of residual vector.
 #' @param session_id MPC session id.
 #' @return \code{list(stored = TRUE)}.
-#' @export
 dsvertPrepareMultinomGradDS <- function(residual_key, is_outcome_server,
                                           n, session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id))
@@ -62,7 +61,6 @@ dsvertPrepareMultinomGradDS <- function(residual_key, is_outcome_server,
 #' @param is_party0 Whether this server is party 0 (adds the +1 constant).
 #' @param n Length of each share.
 #' @param session_id MPC session id.
-#' @export
 dsvertSoftmaxDenominatorDS <- function(exp_eta_keys, output_key,
                                         is_party0 = FALSE, n,
                                         session_id = NULL) {

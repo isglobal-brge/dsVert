@@ -133,7 +133,20 @@ func handleK2OTBeaverSample() {
 		outputError("k2-ot-beaver-sample: n must be positive")
 		return
 	}
-	ring := normalizeOTRing(input.Ring)
+	if input.Kind == "matvec" {
+		if input.P <= 0 {
+			outputError("k2-ot-beaver-sample: p must be positive for matvec")
+			return
+		}
+		if _, err := checkedProduct("k2-ot-beaver-sample matrix", input.N, input.P); err != nil {
+			outputError("k2-ot-beaver-sample: " + err.Error())
+			return
+		}
+	}
+	ring, ok := validatedOTRing("k2-ot-beaver-sample", input.Ring)
+	if !ok {
+		return
+	}
 	kind := input.Kind
 	if kind == "" {
 		kind = "vecmul"
@@ -251,7 +264,18 @@ func handleK2OTMulSenderSetup() {
 func handleK2OTMulReceiverChoices() {
 	var input otMulReceiverChoicesInput
 	mpcReadInput(&input)
-	ring := normalizeOTRing(input.Ring)
+	ring, ok := validatedOTRing("k2-ot-mul-receiver-choices", input.Ring)
+	if !ok {
+		return
+	}
+	if input.N <= 0 {
+		outputError("k2-ot-mul-receiver-choices: n must be positive")
+		return
+	}
+	if _, err := checkedProduct("k2-ot-mul-receiver-choices bits", input.N, ringBitLen(ring)); err != nil {
+		outputError("k2-ot-mul-receiver-choices: " + err.Error())
+		return
+	}
 	curve := elliptic.P256()
 	pub, err := decodePublicSetup(input.PublicSetup)
 	if err != nil {
@@ -292,7 +316,18 @@ func handleK2OTMulReceiverChoices() {
 func handleK2OTMulSenderEncrypt() {
 	var input otMulSenderEncryptInput
 	mpcReadInput(&input)
-	ring := normalizeOTRing(input.Ring)
+	ring, ok := validatedOTRing("k2-ot-mul-sender-encrypt", input.Ring)
+	if !ok {
+		return
+	}
+	if input.N <= 0 {
+		outputError("k2-ot-mul-sender-encrypt: n must be positive")
+		return
+	}
+	if _, err := checkedProduct("k2-ot-mul-sender-encrypt bits", input.N, ringBitLen(ring)); err != nil {
+		outputError("k2-ot-mul-sender-encrypt: " + err.Error())
+		return
+	}
 	curve := elliptic.P256()
 	setup, err := decodeSecretSetup(input.SecretSetup)
 	if err != nil {
@@ -334,7 +369,18 @@ func handleK2OTMulSenderEncrypt() {
 func handleK2OTMulReceiverDecrypt() {
 	var input otMulReceiverDecryptInput
 	mpcReadInput(&input)
-	ring := normalizeOTRing(input.Ring)
+	ring, ok := validatedOTRing("k2-ot-mul-receiver-decrypt", input.Ring)
+	if !ok {
+		return
+	}
+	if input.N <= 0 {
+		outputError("k2-ot-mul-receiver-decrypt: n must be positive")
+		return
+	}
+	if _, err := checkedProduct("k2-ot-mul-receiver-decrypt bits", input.N, ringBitLen(ring)); err != nil {
+		outputError("k2-ot-mul-receiver-decrypt: " + err.Error())
+		return
+	}
 	curve := elliptic.P256()
 	bundle, err := decodeChoiceBundle(input.ChoiceBundle)
 	if err != nil {
@@ -362,10 +408,31 @@ func handleK2OTMulReceiverDecrypt() {
 func handleK2OTBeaverFinalize() {
 	var input otBeaverFinalizeInput
 	mpcReadInput(&input)
-	ring := normalizeOTRing(input.Ring)
+	ring, ok := validatedOTRing("k2-ot-beaver-finalize", input.Ring)
+	if !ok {
+		return
+	}
 	kind := input.Kind
 	if kind == "" {
 		kind = "vecmul"
+	}
+	if input.N <= 0 {
+		outputError("k2-ot-beaver-finalize: n must be positive")
+		return
+	}
+	if kind != "vecmul" && kind != "matvec" {
+		outputError("k2-ot-beaver-finalize: unsupported kind " + kind)
+		return
+	}
+	if kind == "matvec" {
+		if input.P <= 0 {
+			outputError("k2-ot-beaver-finalize: p must be positive for matvec")
+			return
+		}
+		if _, err := checkedProduct("k2-ot-beaver-finalize matrix", input.N, input.P); err != nil {
+			outputError("k2-ot-beaver-finalize: " + err.Error())
+			return
+		}
 	}
 	switch ring {
 	case "ring127":
@@ -503,7 +570,19 @@ func normalizeOTRing(ring string) string {
 	if ring == "ring127" || ring == "127" {
 		return "ring127"
 	}
-	return "ring63"
+	if ring == "" || ring == "ring63" || ring == "63" {
+		return "ring63"
+	}
+	return ""
+}
+
+func validatedOTRing(command, input string) (string, bool) {
+	ring := normalizeOTRing(input)
+	if ring == "" {
+		outputError(command + ": unknown ring " + input)
+		return "", false
+	}
+	return ring, true
 }
 
 func expectedAInputLen(n, p int, kind string) int {
@@ -525,27 +604,11 @@ func ring63VectorToFPB64(v []uint64) string {
 }
 
 func decodeRing63FP(s string, expected int) ([]uint64, error) {
-	raw := base64ToBytes(s)
-	if raw == nil {
-		return nil, fmt.Errorf("bad ring63 base64")
-	}
-	v := fpToRing63(bytesToFPVec(raw))
-	if expected > 0 && len(v) != expected {
-		return nil, fmt.Errorf("ring63 length mismatch: got %d want %d", len(v), expected)
-	}
-	return v, nil
+	return decodeRing63FPVector(s, expected)
 }
 
 func decodeRing127(s string, expected int) ([]Uint128, error) {
-	raw := base64ToBytes(s)
-	if raw == nil {
-		return nil, fmt.Errorf("bad ring127 base64")
-	}
-	v := bytesToUint128Vec(raw)
-	if expected > 0 && len(v) != expected {
-		return nil, fmt.Errorf("ring127 length mismatch: got %d want %d", len(v), expected)
-	}
-	return v, nil
+	return decodeRing127Vector(s, expected)
 }
 
 func encodeRingVectorB64(v any, ring string) string {

@@ -216,8 +216,9 @@ func ScalarVectorProductPartyZero(scalarA float64, vectorB []uint64, r Ring63) [
 		ab := new(big.Int).Mul(aBig, new(big.Int).SetUint64(b))
 		// a * b_0 - a * modulus
 		ab.Sub(ab, aTimesMod)
-		// >> fracBits (arithmetic shift, since value is negative)
-		ab.Div(ab, fracShift) // Div truncates toward zero for big.Int
+		// Divide by 2^fracBits. With a positive divisor, big.Int.Div rounds a
+		// negative numerator toward negative infinity, matching floor here.
+		ab.Div(ab, fracShift)
 		// % modulus
 		ab.Mod(ab, modBig)
 		result[i] = ab.Uint64()
@@ -264,8 +265,8 @@ func ScalarVectorProductPartyOne(scalarA float64, vectorB []uint64, r Ring63) []
 // ============================================================================
 
 type K2GenBeaverTriplesInput struct {
-	N        int    `json:"n"`         // number of triples
-	FracBits int    `json:"frac_bits"` // fractional bits
+	N        int `json:"n"`         // number of triples
+	FracBits int `json:"frac_bits"` // fractional bits
 	// Ring selector. "" or "ring63" (default, 8-byte shares) / "ring127"
 	// (16-byte Uint128 shares). Ring127 selected by Cox/LMM plumbing.
 	Ring string `json:"ring"`
@@ -283,14 +284,21 @@ type K2GenBeaverTriplesOutput struct {
 func handleK2GenBeaverTriples() {
 	var input K2GenBeaverTriplesInput
 	mpcReadInput(&input)
-	if input.FracBits <= 0 {
-		input.FracBits = K2DefaultFracBits
+	ringName, fracBits, err := normalizeRingAndFracBits(input.Ring, input.FracBits)
+	if err != nil {
+		outputError("k2-gen-beaver-triples: " + err.Error())
+		return
 	}
+	if input.N <= 0 {
+		outputError("k2-gen-beaver-triples: n must be positive")
+		return
+	}
+	input.Ring, input.FracBits = ringName, fracBits
 
 	// Ring127 dispatch — triples serialized as 16-byte Uint128 records
 	// (Ring63 default path remains exactly as before).
-	if input.Ring == "ring127" {
-		ring127 := NewRing127(input.FracBits)
+	if ringName == "ring127" {
+		ring127 := NewRing127(fracBits)
 		p0, p1 := SampleBeaverTripleVector127(input.N, ring127)
 		mpcWriteOutput(K2GenBeaverTriplesOutput{
 			Party0U: bytesToBase64(uint128VecToBytes(p0.A)),
@@ -302,12 +310,8 @@ func handleK2GenBeaverTriples() {
 		})
 		return
 	}
-	if input.Ring != "" && input.Ring != "ring63" {
-		panic("k2-gen-beaver-triples: unknown ring='" + input.Ring + "'")
-	}
-
 	n := input.N
-	r := NewRing63(input.FracBits)
+	r := NewRing63(fracBits)
 
 	// Generate Beaver triples entirely in Ring63 (uint64 mod 2^63),
 	// matching the validated Google C++ port.
@@ -325,4 +329,3 @@ func handleK2GenBeaverTriples() {
 		Party1W: bytesToBase64(fpVecToBytes(ring63ToFP(p1.C))),
 	})
 }
-

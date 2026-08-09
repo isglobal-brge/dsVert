@@ -19,13 +19,12 @@ pinned-config check protects against three distinct adversaries
 that mTLS alone does NOT cover:
 }
 \details{
-(a) Active man-in-the-middle. An on-path adversary that
-intercepts and replaces secret shares mid-flight cannot
-forge an Ed25519 signature without the sender's private
-key. Each share is signed by the sender; the recipient
-verifies against the sender's public key, which is pinned
-in \code{dsvert.trusted_peers}. No reliance on TLS PKI for
-integrity of the share content.
+(a) Transport-key substitution. An active relay cannot replace a
+server's ephemeral X25519 key without forging its Ed25519 signature.
+Payload integrity is then provided by the authenticated encryption
+under that verified key. The legacy primitive path does not provide
+per-message non-repudiation; the typed relay substrate adds signed,
+context-bound envelopes before it can be promoted.
 
 (b) Rogue server injection. A compromised study admin or
 attacker with a valid TLS certificate can attempt to add
@@ -40,10 +39,10 @@ allow-list in \code{trusted_peers} prevents this: only servers
 whose identity PK appears in the pre-distributed config can
 sit in the pool.
 
-(c) Non-repudiation. The Ed25519 signature on each share is a
-tamper-evident cryptographic record of which server
-originated which payload. Disputes about provenance reduce
-to signature verification against the pinned public-key
-list -- no need to trust audit logs.
+(c) Logical-role binding. A name-bound pin prevents two legitimate peers
+from being swapped into one another's protocol roles. Flat allow-lists
+do not provide this property and are not accepted. The local role is
+read exclusively from persistent server configuration through
+\code{dsvert.peer_name}, never inferred from a relay-supplied map.
 }
 \keyword{internal}

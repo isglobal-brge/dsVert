@@ -9,8 +9,10 @@ import (
 )
 
 // TestAffineCombine_HornerStep: simulate one Horner iter:
-//   party0_b_k = twoYbKp1_0 + c_k - bKp2_0
-//   party1_b_k = twoYbKp1_1 +   0 - bKp2_1
+//
+//	party0_b_k = twoYbKp1_0 + c_k - bKp2_0
+//	party1_b_k = twoYbKp1_1 +   0 - bKp2_1
+//
 // Verify party0 + party1 = twoYbKp1_sum + c_k - bKp2_sum = true b_k.
 func TestAffineCombine_HornerStep(t *testing.T) {
 	r := NewRing127(50)
@@ -76,10 +78,11 @@ func TestAffineCombine_HornerStep(t *testing.T) {
 }
 
 // TestAffineCombine_NRStep: simulate NR inner-assembly
-//   tmp = 2 - xy_share  (sign_a=0 so a is empty; sign_b=-1; const=2)
-//   party0: 2 - xy_0
-//   party1: 0 - xy_1
-//   sum: 2 - (xy_0 + xy_1) = 2 - xy
+//
+//	tmp = 2 - xy_share  (sign_a=0 so a is empty; sign_b=-1; const=2)
+//	party0: 2 - xy_0
+//	party1: 0 - xy_1
+//	sum: 2 - (xy_0 + xy_1) = 2 - xy
 func TestAffineCombine_NRStep(t *testing.T) {
 	r := NewRing127(50)
 	n := 3

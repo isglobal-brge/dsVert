@@ -16,7 +16,6 @@
 #' operands, so any \code{"dealer"} request is refused.
 #'
 #' @return A list describing supported, allowed, preferred and minimum modes.
-#' @export
 dsvertBeaverPolicyDS <- function() {
   .dsvert_beaver_policy()
 }

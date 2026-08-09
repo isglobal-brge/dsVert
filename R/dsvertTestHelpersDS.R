@@ -9,7 +9,7 @@
 #' @param fraction Numeric between 0 and 1. Fraction of rows to set to NA.
 #' @param seed Integer. RNG seed for reproducibility (NULL leaves RNG untouched).
 #' @param output_column Character. Name of the new column to add to the data frame.
-#' @export
+#' @keywords internal
 dsvertInjectNADS <- function(data_name, column,
                               fraction = 0.2, seed = 7L,
                               output_column = NULL) {
@@ -50,7 +50,7 @@ dsvertInjectNADS <- function(data_name, column,
 #' @param block_size Integer. Cluster block size for synthetic cluster columns.
 #' @param output_column Character. Name of the new column to add to the data frame.
 #' @param id_column Character. Name of the row-id column.
-#' @export
+#' @keywords internal
 dsvertAddClusterColumnDS <- function(data_name, block_size = 13L,
                                       output_column = "cluster",
                                       id_column = "patient_id") {
@@ -98,7 +98,7 @@ dsvertAddClusterColumnDS <- function(data_name, block_size = 13L,
 #' @param event_column Character. Name of the event-indicator column to add.
 #' @param seed Integer. RNG seed for reproducibility (NULL leaves RNG untouched).
 #' @param id_column Character. Name of the row-id column.
-#' @export
+#' @keywords internal
 dsvertAddSyntheticSurvivalDS <- function(data_name,
                                           covariate_column,
                                           beta = 0.05,
@@ -165,7 +165,7 @@ dsvertAddSyntheticSurvivalDS <- function(data_name,
 #' @param data_name Character. Name of the data frame symbol on the server.
 #' @param column Character. Name of an existing column to operate on.
 #' @param output_column Character. Name of the new column to add to the data frame.
-#' @export
+#' @keywords internal
 dsvertAddQuartileColumnDS <- function(data_name, column = "age",
                                        output_column = "age_q") {
   .validate_data_name(data_name)
@@ -184,43 +184,33 @@ dsvertAddQuartileColumnDS <- function(data_name, column = "age",
        output_column = output_column)
 }
 
-#' @title List ordered factor levels of an outcome column
-#' @description Aggregate. Returns the levels (sorted) of a factor or
-#'   character column, with the same privacy-threshold suppression as
-#'   the rest of dsVert: levels whose count is below the threshold are
-#'   emitted as a single "<redacted>" level.
+#' @title List the public schema levels of an outcome column
+#' @description Aggregate. Returns only a public categorical domain: declared
+#'   factor levels or a custodian-configured domain. It never derives or returns
+#'   observed counts or data-dependent unique values.
 #' @param data_name Character. Name of the data frame symbol on the server.
 #' @param y_var Character. Name of the outcome column on the label server.
-#' @export
 dsvertOutcomeLevelsDS <- function(data_name, y_var) {
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
   if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
   if (!y_var %in% names(data)) stop("y_var not found", call. = FALSE)
   y <- data[[y_var]]
-  y <- y[!is.na(y)]
-  tbl <- table(y)
-  lv <- names(sort(tbl, decreasing = FALSE))
-  counts <- as.integer(tbl[lv])
-  privacy_min <- getOption("datashield.privacyLevel", 5L)
-  if (is.numeric(privacy_min) && privacy_min > 0L) {
-    suppress <- counts < privacy_min
-    lv[suppress] <- "<redacted>"
-    counts[suppress] <- 0L
-    keep <- !duplicated(lv)
-    lv <- lv[keep]; counts <- counts[keep]
+  if (is.factor(y)) {
+    lv <- levels(y)
+    source <- "factor_schema"
+  } else {
+    domains <- getOption("dsvert.categorical_levels", list())
+    if (!is.list(domains) || is.null(domains[[y_var]])) {
+      stop("Outcome levels are not declared in the factor schema or the ",
+           "custodian-owned dsvert.categorical_levels option; pass levels= ",
+           "explicitly to the client method", call. = FALSE)
+    }
+    lv <- as.character(domains[[y_var]])
+    source <- "custodian_schema"
   }
-  list(levels = lv, counts = counts, n = sum(counts))
-}
-
-#' @title Copy a data frame to a new name (test helper)
-#' @param data_name Character. Name of the data frame symbol on the server.
-#' @param output_name Character. Name to bind the output object to in the server-side environment.
-#' @export
-dsvertCopyDfDS <- function(data_name, output_name) {
-  .validate_data_name(data_name)
-  data <- get(data_name, envir = parent.frame())
-  if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
-  assign(output_name, data, envir = parent.frame())
-  list(n = nrow(data), output_name = output_name)
+  if (length(lv) < 2L || anyNA(lv) || any(!nzchar(lv)) || anyDuplicated(lv)) {
+    stop("Outcome categorical domain is invalid", call. = FALSE)
+  }
+  list(levels = lv, source = source)
 }

@@ -30,7 +30,7 @@
 #'   current session and only return the encrypted blob for the peer.
 #' @return list(triple_blob_0, triple_blob_1) -- both base64url sealed
 #'   payloads for relay to party 0 and party 1.
-#' @export
+#' @keywords internal
 k2BeaverVecmulGenTriplesDS <- function(dcf0_pk, dcf1_pk, n,
                                        session_id = NULL,
                                        frac_bits = 20L,
@@ -92,7 +92,7 @@ k2BeaverVecmulGenTriplesDS <- function(dcf0_pk, dcf1_pk, n,
 #'   round-2 calls.
 #' @param session_id MPC session id.
 #' @return list(stored = TRUE).
-#' @export
+#' @keywords internal
 k2BeaverVecmulConsumeTripleDS <- function(session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
@@ -133,7 +133,6 @@ k2BeaverVecmulConsumeTripleDS <- function(session_id = NULL) {
 #'   handler defaults to fracBits=50 regardless of this argument.
 #' @param ring Integer 63 (default) or 127.
 #' @return list(peer_blob) -- base64url sealed payload for peer relay.
-#' @export
 k2BeaverVecmulR1DS <- function(peer_pk, x_key, y_key, n,
                                session_id = NULL, frac_bits = 20L,
                                ring = 63L) {
@@ -142,6 +141,12 @@ k2BeaverVecmulR1DS <- function(peer_pk, x_key, y_key, n,
   }
   ss <- .S(session_id)
   .dsvert_validate_recipient_pk(peer_pk, ss, "peer")
+  request <- list(
+    peer_pk = peer_pk, x_key = x_key, y_key = y_key, n = as.integer(n),
+    frac_bits = as.integer(frac_bits), ring = as.integer(ring))
+  replay <- .dsvert_typed_blob_operation_replay(
+    ss, "k2BeaverVecmulR1DS", request)
+  if (isTRUE(replay$hit)) return(replay$result)
   x_share <- ss[[x_key]]
   y_share <- ss[[y_key]]
   if (is.null(x_share) || is.null(y_share)) {
@@ -171,7 +176,94 @@ k2BeaverVecmulR1DS <- function(peer_pk, x_key, y_key, n,
   sealed <- .callMpcTool("transport-encrypt",
     list(data = payload_b64,
          recipient_pk = .base64url_to_base64(peer_pk)))
-  list(peer_blob = base64_to_base64url(sealed$sealed))
+  peer_blob <- base64_to_base64url(sealed$sealed)
+  result <- list(
+    peer_blob = peer_blob,
+    peer_transfer = .dsvert_typed_blob_mint(
+      ss, session_id, "blob.beaver.vecmul-masked.v1", peer_pk, peer_blob,
+      list(n = as.integer(n), ring = ring),
+      producer = "k2BeaverVecmulR1DS"))
+  .dsvert_typed_blob_operation_commit(
+    ss, "k2BeaverVecmulR1DS", request, result)
+}
+
+.k2_beaver_vecmul_r2_compute <- function(ss, is_party0, x_key, y_key, n,
+                                         frac_bits, ring,
+                                         exact_gc_defer_truncation = FALSE,
+                                         peer_blob_key =
+                                           "k2_beaver_vecmul_peer_masked",
+                                         peer_name = NULL,
+                                         exact_peer_context = NULL,
+                                         total_n = n, offset = 0L,
+                                         triple_key =
+                                           "k2_beaver_vecmul_triple") {
+  x_share <- ss[[x_key]]
+  y_share <- ss[[y_key]]
+  if (is.null(x_share) || is.null(y_share)) {
+    stop("Session slots ", x_key, " / ", y_key, " are not populated",
+         call. = FALSE)
+  }
+  triple <- ss[[triple_key]]
+  if (is.null(triple)) {
+    stop("Beaver vecmul triple missing in session", call. = FALSE)
+  }
+  blob <- if (is.null(exact_peer_context)) {
+    .dsvert_typed_blob_consume(
+      ss, "blob.beaver.vecmul-masked.v1",
+      list(n = as.integer(n), ring = as.integer(ring)),
+      sender_name = peer_name)
+  } else {
+    .blob_consume(peer_blob_key, ss)
+  }
+  if (is.null(blob)) {
+    stop("Peer masked-share blob missing; client must relay after R1.",
+         call. = FALSE)
+  }
+  tsk <- .key_get("transport_sk", ss)
+  if (is.null(tsk)) stop("Transport secret key missing", call. = FALSE)
+  dec <- .callMpcTool("transport-decrypt",
+    list(sealed = .base64url_to_base64(blob), recipient_sk = tsk))
+  if (is.null(exact_peer_context)) {
+    payload <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
+  } else {
+    envelope <- tryCatch(jsonlite::fromJSON(
+      rawToChar(jsonlite::base64_dec(dec$data)), simplifyVector = FALSE),
+      error = function(e) NULL)
+    if (!is.list(envelope) ||
+        !identical(sort(names(envelope)), c("body", "signature"))) {
+      stop("Invalid exact-gc vecmul peer envelope.", call. = FALSE)
+    }
+    body_raw <- .exact_gc_b64url_decode(
+      envelope$body, "exact-gc vecmul peer body", 64 * 1024^2)
+    payload <- tryCatch(jsonlite::fromJSON(
+      rawToChar(body_raw), simplifyVector = FALSE), error = function(e) NULL)
+    required <- c(names(exact_peer_context), "d_fp", "e_fp")
+    if (!is.list(payload) || !identical(sort(names(payload)), sort(required)) ||
+        !all(vapply(names(exact_peer_context), function(name) {
+          identical(payload[[name]], exact_peer_context[[name]])
+        }, logical(1L)))) {
+      stop("Exact-gc vecmul peer payload has the wrong context.", call. = FALSE)
+    }
+    peer_identity <- ss$.exact_gc_peer_identity_pks[[
+      exact_peer_context$sender_name]]
+    if (is.null(peer_identity) || !.verify_peer_identity(
+        .base64url_to_base64(envelope$body), peer_identity,
+        .base64url_to_base64(envelope$signature))) {
+      stop("Exact-gc vecmul peer signature is invalid.", call. = FALSE)
+    }
+  }
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  ring_tag <- if (ring == 127L) "ring127" else "ring63"
+  if (ring == 127L) frac_bits <- 50L
+  .callMpcTool("k2-beaver-vecmul-round2", list(
+    x_fp = x_share, y_fp = y_share,
+    triple_blob = triple,
+    peer_d_fp = payload$d_fp, peer_e_fp = payload$e_fp,
+    is_party0 = isTRUE(is_party0), n = as.integer(n),
+    total_n = as.integer(total_n), offset = as.integer(offset),
+    frac_bits = as.integer(frac_bits), ring = ring_tag,
+    exact_gc_defer_truncation = isTRUE(exact_gc_defer_truncation)))
 }
 
 #' @title Beaver vecmul round 2
@@ -185,49 +277,22 @@ k2BeaverVecmulR1DS <- function(peer_pk, x_key, y_key, n,
 #' @param x_key,y_key Session keys with own FP shares (same as round 1).
 #' @param output_key Session key to receive the FP share of z.
 #' @param n Vector length.
+#' @param peer_name Authenticated logical name of the expected round-one peer.
 #' @param session_id MPC session id.
 #' @param frac_bits Ring63 fractional bits (default 20). At ring=127 the
 #'   handler defaults to fracBits=50 regardless of this argument.
 #' @param ring Integer 63 (default) or 127.
 #' @return list(stored = TRUE, output_key).
-#' @export
 k2BeaverVecmulR2DS <- function(is_party0, x_key, y_key, output_key, n,
-                               session_id = NULL, frac_bits = 20L,
+                               peer_name, session_id = NULL, frac_bits = 20L,
                                ring = 63L) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
-  x_share <- ss[[x_key]]
-  y_share <- ss[[y_key]]
-  if (is.null(x_share) || is.null(y_share)) {
-    stop("Session slots ", x_key, " / ", y_key, " are not populated",
-         call. = FALSE)
-  }
-  if (is.null(ss$k2_beaver_vecmul_triple)) {
-    stop("Beaver vecmul triple missing in session", call. = FALSE)
-  }
-  blob <- .blob_consume("k2_beaver_vecmul_peer_masked", ss)
-  if (is.null(blob)) {
-    stop("Peer masked-share blob missing; client must relay after R1.",
-         call. = FALSE)
-  }
-  tsk <- .key_get("transport_sk", ss)
-  if (is.null(tsk)) stop("Transport secret key missing", call. = FALSE)
-  dec <- .callMpcTool("transport-decrypt",
-    list(sealed = .base64url_to_base64(blob), recipient_sk = tsk))
-  payload <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(dec$data)))
-  ring <- as.integer(ring)
-  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
-  ring_tag <- if (ring == 127L) "ring127" else "ring63"
-  if (ring == 127L) frac_bits <- 50L
-  res <- .callMpcTool("k2-beaver-vecmul-round2", list(
-    x_fp = x_share, y_fp = y_share,
-    triple_blob = ss$k2_beaver_vecmul_triple,
-    peer_d_fp = payload$d_fp, peer_e_fp = payload$e_fp,
-    is_party0 = isTRUE(is_party0),
-    n = as.integer(n), frac_bits = as.integer(frac_bits),
-    ring = ring_tag))
+  res <- .k2_beaver_vecmul_r2_compute(
+    ss, is_party0, x_key, y_key, n, frac_bits, ring,
+    peer_name = peer_name)
   ss[[output_key]] <- res$z_fp
   list(stored = TRUE, output_key = output_key)
 }

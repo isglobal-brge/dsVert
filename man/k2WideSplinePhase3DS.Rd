@@ -37,3 +37,4 @@ List with had2_xma, had2_ymb.
 \description{
 Wide spline Phase 3: Close AND+Had1, generate Had2 R1
 }
+\keyword{internal}

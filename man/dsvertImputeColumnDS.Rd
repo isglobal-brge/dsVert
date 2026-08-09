@@ -4,7 +4,13 @@
 \alias{dsvertImputeColumnDS}
 \title{Server-side Bayesian-ridge imputation of a single column}
 \usage{
-dsvertImputeColumnDS(data_name, impute_column, output_column = NULL, seed = 1L)
+dsvertImputeColumnDS(
+  data_name,
+  impute_column,
+  output_column = NULL,
+  seed = 1L,
+  allow_intercept_only = FALSE
+)
 }
 \arguments{
 \item{data_name}{Character. Aligned data-frame name.}
@@ -15,6 +21,11 @@ dsvertImputeColumnDS(data_name, impute_column, output_column = NULL, seed = 1L)
 is written.}
 
 \item{seed}{Integer. RNG seed for reproducible draws.}
+
+\item{allow_intercept_only}{Logical. Explicitly permit the aggregate
+mean/mode imputation alternative when no complete numeric predictor is
+available. Defaults to \code{FALSE}; this prevents an automatic change of
+imputation model.}
 }
 \value{
 List with components \code{n_imputed} (count of cells

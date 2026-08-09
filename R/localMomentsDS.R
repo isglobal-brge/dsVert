@@ -35,7 +35,6 @@
 #'
 #' @seealso \code{dsvertHistogramDS}
 #' @importFrom stats sd
-#' @export
 dsvertLocalMomentsDS <- function(data_name, variable,
                                  return_extrema = FALSE) {
   # F3 (server-authoritative): a client arg may only REQUEST extrema; the
@@ -72,7 +71,7 @@ dsvertLocalMomentsDS <- function(data_name, variable,
 
   # F7: the release floor is max(datashield.privacyLevel, an INDEPENDENT
   # custodian option) so a control exists even when privacyLevel is 0 (parity
-  # with localCorDS's min_n_per_variable). Default 1 preserves current
+  # with the historical exact-correlation minimum). Default 1 preserves current
   # behaviour; production custodians should set dsvert.min_release_n >= 3.
   privacy_min <- max(as.integer(getOption("datashield.privacyLevel", 5L)),
                      as.integer(getOption("dsvert.min_release_n", 1L)))

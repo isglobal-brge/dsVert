@@ -4,17 +4,30 @@
 \alias{k2BeaverReceiveVectorDS}
 \title{Receive a shared FP vector and store under a session key}
 \usage{
-k2BeaverReceiveVectorDS(blob_key, output_key, session_id = NULL)
+k2BeaverReceiveVectorDS(
+  variable,
+  n,
+  levels,
+  peer_name,
+  ring = 63L,
+  session_id = NULL
+)
 }
 \arguments{
-\item{blob_key}{Character. Session blob slot to consume the sealed share from.}
+\item{variable}{Character. One-hot variable represented by the share.}
 
-\item{output_key}{Character. Session-state key under which the output share is written.}
+\item{n}{Number of rows in the one-hot matrix.}
+
+\item{levels}{Number of levels in the one-hot matrix.}
+
+\item{peer_name}{Character. Verified logical name of the sending peer.}
+
+\item{ring}{Integer ring selector, 63 or 127.}
 
 \item{session_id}{Character. Active MPC session identifier.}
 }
 \description{
-Consume the peer-relayed blob previously delivered via
-\code{mpcStoreBlobDS} under \code{blob_key}, decrypt with this
-party's transport secret key, and store under \code{output_key}.
+Consume the peer's typed one-hot vector transfer, decrypt it,
+and store the share under the session key derived from \code{variable}.
 }
+\keyword{internal}

@@ -4,12 +4,23 @@
 \alias{k2IknpBaseSenderChoicesDS}
 \title{Prepare IKNP base-OT sender choices}
 \usage{
-k2IknpBaseSenderChoicesDS(public_setup, iknp_key, session_id = NULL)
+k2IknpBaseSenderChoicesDS(
+  public_setup,
+  iknp_key,
+  recipient_pk,
+  ring = 63L,
+  session_id = NULL
+)
 }
 \arguments{
 \item{public_setup}{Public setup from \code{k2IknpBaseReceiverSetupDS}.}
 
 \item{iknp_key}{Session key prefix.}
+
+\item{recipient_pk}{Verified base64url transport public key of the IKNP
+base receiver.}
+
+\item{ring}{Integer ring selector, 63 or 127.}
 
 \item{session_id}{MPC session id.}
 }

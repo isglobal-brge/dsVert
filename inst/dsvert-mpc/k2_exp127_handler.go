@@ -20,10 +20,11 @@ type K2Exp127GetCoeffsInput struct {
 }
 
 // K2Exp127GetCoeffsOutput carries the base64-encoded coefficients.
-//   OneOverA  : single Uint128, the rescale factor 1/a (a=5)
-//   Coeffs    : 31 Uint128 values, c_0..c_30 in degree order
-//   Degree    : polynomial degree (30)
-//   FracBits  : Ring127 fracBits used for FP encoding (50)
+//
+//	OneOverA  : single Uint128, the rescale factor 1/a (a=5)
+//	Coeffs    : 31 Uint128 values, c_0..c_30 in degree order
+//	Degree    : polynomial degree (30)
+//	FracBits  : Ring127 fracBits used for FP encoding (50)
 type K2Exp127GetCoeffsOutput struct {
 	OneOverA string `json:"one_over_a"`
 	Coeffs   string `json:"coeffs"`
@@ -39,9 +40,10 @@ type K2Exp127GetCoeffsOutput struct {
 func handleK2Exp127GetCoeffs() {
 	var input K2Exp127GetCoeffsInput
 	mpcReadInput(&input)
-	fb := input.FracBits
-	if fb <= 0 {
-		fb = K2DefaultFracBits127
+	fb, err := normalizeRing127FracBits(input.FracBits)
+	if err != nil {
+		outputError("k2-exp127-get-coeffs: " + err.Error())
+		return
 	}
 	r := NewRing127(fb)
 	oneOverA, coeffs, degree := Ring127ExpCoeffsFP(r)

@@ -27,7 +27,9 @@ import "math"
 
 // Domain + degree chosen to hit rel <1e-14 for exp on [-5, 5].
 // Chebyshev series truncation error at degree N on [-a, a] for exp:
-//   |err| ≲ 2 · a_{N+1} · e^a,  a_n ≈ (a/2)^n / n! · {1 for n≥1, 1/2 for n=0}.
+//
+//	|err| ≲ 2 · a_{N+1} · e^a,  a_n ≈ (a/2)^n / n! · {1 for n≥1, 1/2 for n=0}.
+//
 // For a=5, N=30: a_31 ≈ 2.5^31 / 31! ≈ 6e-23, err ≈ 2·6e-23·148 ≈ 2e-20 — well
 // below 1e-14 target. Leaves headroom for Ring127 fracBits=50 truncation drift
 // (N sequential TruncMul steps × 2^-50 ≈ N·9e-16 absolute).
@@ -90,7 +92,7 @@ const Ring127ExpExtendedDomainA = 8.0
 //
 //   - |x| ≤ Ring127ExpDomainA  : direct Chebyshev via Ring127ExpPlaintext.
 //   - |x| > Ring127ExpDomainA  : exp(x) = exp(x/2)^2, recursing on x/2
-//                                 which lies in the interior region.
+//     which lies in the interior region.
 //
 // Cox Pima structural fix (2026-04-21 PM) replacement for the failed
 // attempt to widen the Chebyshev domain from [-5, 5] to [-8, 8] at
@@ -101,7 +103,9 @@ const Ring127ExpExtendedDomainA = 8.0
 // TruncMulSigned at the tail per |x|>5 call.
 //
 // Theoretical accuracy bound at |x|=8 under Ring127 fracBits=50:
-//   rel_floor = 2^{-fracBits} / exp(-8) ≈ 9e-16 / 3.4e-4 ≈ 2.6e-12
+//
+//	rel_floor = 2^{-fracBits} / exp(-8) ≈ 9e-16 / 3.4e-4 ≈ 2.6e-12
+//
 // (Trefethen ATAP §8 Chebyshev-plus-TruncMul ULP model.) This is the
 // BEST achievable rel for exp(x) at x=-8 under Ring127 arithmetic
 // regardless of algorithm — it bounds ANY evaluation strategy.
@@ -129,10 +133,11 @@ func Ring127ExpPlaintextExtended(r Ring127, xRing Uint128) Uint128 {
 // applies argument reduction x -> x/2.
 //
 // Clenshaw recurrence (stable for degree ≥ 20):
-//   b_{N+1} = b_{N+2} = 0
-//   for k = N, N-1, ..., 1:
-//     b_k = c_k + 2·y·b_{k+1} - b_{k+2}
-//   result = c_0 + y·b_1 - b_2
+//
+//	b_{N+1} = b_{N+2} = 0
+//	for k = N, N-1, ..., 1:
+//	  b_k = c_k + 2·y·b_{k+1} - b_{k+2}
+//	result = c_0 + y·b_1 - b_2
 func Ring127ExpPlaintext(r Ring127, xRing Uint128) Uint128 {
 	// Rescale x → y = x / a  (a = 5); y ∈ [-1, 1] for x ∈ [-a, a].
 	oneOverA := r.FromDouble(1.0 / Ring127ExpDomainA)
@@ -163,15 +168,15 @@ func Ring127ExpPlaintext(r Ring127, xRing Uint128) Uint128 {
 // The caller receives 1/a (for rescaling), c_0..c_N (coefficients), and
 // the degree. The Horner protocol on shares is:
 //
-//   y_share   = TruncMulSigned(x_share, 1/a)   (local, 1/a public)
-//   b_{N+2}   = 0  (both parties)
-//   b_{N+1}   = 0  (both parties)
-//   for k = N downto 1:
-//       twoY     = 2·y   (local, double-share)
-//       twoYbKp1 = Beaver(twoY, b_{k+1})  ← Beaver vecmul round
-//       b_k      = (party 0 adds c_k plaintext) + twoYbKp1 - b_{k+2}
-//   yb1       = Beaver(y, b_1)  ← Beaver vecmul round
-//   result    = (party 0 adds c_0) + yb1 - b_2
+//	y_share   = TruncMulSigned(x_share, 1/a)   (local, 1/a public)
+//	b_{N+2}   = 0  (both parties)
+//	b_{N+1}   = 0  (both parties)
+//	for k = N downto 1:
+//	    twoY     = 2·y   (local, double-share)
+//	    twoYbKp1 = Beaver(twoY, b_{k+1})  ← Beaver vecmul round
+//	    b_k      = (party 0 adds c_k plaintext) + twoYbKp1 - b_{k+2}
+//	yb1       = Beaver(y, b_1)  ← Beaver vecmul round
+//	result    = (party 0 adds c_0) + yb1 - b_2
 //
 // Total Beaver rounds: N (one per Horner step) + 1 (final y·b_1). At
 // Ring127 with degree=30, ~31 Beaver vecmul rounds per exp call.

@@ -30,6 +30,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 
 	"github.com/markkurossi/mpc/ot"
 )
@@ -91,6 +92,19 @@ func iknpKOSDecode(s string) (xHat, tHat gfElem, ok bool) {
 	xHat = gfElem{binary.LittleEndian.Uint64(raw[0:8]), binary.LittleEndian.Uint64(raw[8:16])}
 	tHat = gfElem{binary.LittleEndian.Uint64(raw[16:24]), binary.LittleEndian.Uint64(raw[24:32])}
 	return xHat, tHat, true
+}
+
+// iknpKOSDecodeRequired is the production anti-downgrade entry point. Plain
+// IKNP is not an accepted fallback, even if a caller omits the opener.
+func iknpKOSDecodeRequired(s string) (xHat, tHat gfElem, err error) {
+	if s == "" {
+		return gfElem{}, gfElem{}, fmt.Errorf("KOS consistency check opener is required")
+	}
+	xHat, tHat, ok := iknpKOSDecode(s)
+	if !ok {
+		return gfElem{}, gfElem{}, fmt.Errorf("malformed KOS check opener")
+	}
+	return xHat, tHat, nil
 }
 
 // iknpKOSSeed binds the Fiat-Shamir transcript: the committed U matrix plus the

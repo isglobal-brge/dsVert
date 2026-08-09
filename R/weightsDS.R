@@ -2,6 +2,10 @@
 .k2_weight_ring_info <- function(ring = NULL, ss = NULL) {
   if (is.null(ring) && !is.null(ss)) ring <- ss$k2_ring %||% 63L
   if (is.null(ring)) ring <- 63L
+  if (!is.numeric(ring) || length(ring) != 1L || is.na(ring) ||
+      !is.finite(ring) || ring != floor(ring)) {
+    stop("ring must be 63 or 127", call. = FALSE)
+  }
   ring <- as.integer(ring)
   if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
   list(
@@ -26,9 +30,9 @@
   if (!is.numeric(w)) {
     stop("Weights column must be numeric", call. = FALSE)
   }
-  if (anyNA(w)) {
-    stop("Weights column contains NA on the aligned cohort; this is ",
-         "not supported", call. = FALSE)
+  if (any(!is.finite(w))) {
+    stop("Weights column contains NA, NaN, Inf, or -Inf on the aligned ",
+         "cohort; this is not supported", call. = FALSE)
   }
   if (any(w < 0)) {
     stop("Weights must be non-negative", call. = FALSE)
@@ -72,16 +76,19 @@
 #'   \code{"dealer"}. DCF callers store their own share and return the peer
 #'   blob; a non-DCF dealer returns both sealed DCF blobs.
 #' @param ring Integer (63 or 127). MPC ring selector.
+#' @param numeric_family GLM family for the execution-attestation binding.
 #' @param session_id Character. GLM session identifier.
 #' @return Metadata and sealed share blobs for the client relay.
-#' @export
 k2ShareWeightsDS <- function(data_name, weights_column, dcf0_pk, dcf1_pk,
                              dcf_role = c("dealer", "dcf0", "dcf1"),
-                             ring = NULL, session_id = NULL) {
-  if (!is.character(data_name) || length(data_name) != 1L) {
+                             ring = NULL, session_id = NULL,
+                             numeric_family = "gaussian") {
+  if (!is.character(data_name) || length(data_name) != 1L ||
+      is.na(data_name) || !nzchar(data_name)) {
     stop("data_name must be a single character string", call. = FALSE)
   }
-  if (!is.character(weights_column) || length(weights_column) != 1L) {
+  if (!is.character(weights_column) || length(weights_column) != 1L ||
+      is.na(weights_column) || !nzchar(weights_column)) {
     stop("weights_column must be a single character string", call. = FALSE)
   }
   if (!is.character(dcf0_pk) || length(dcf0_pk) != 1L ||
@@ -92,6 +99,12 @@ k2ShareWeightsDS <- function(data_name, weights_column, dcf0_pk, dcf1_pk,
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
+  if (!is.character(numeric_family) || length(numeric_family) != 1L ||
+      is.na(numeric_family) ||
+      !numeric_family %in% c("gaussian", "binomial", "poisson")) {
+    stop("numeric_family must be gaussian, binomial, or poisson",
+         call. = FALSE)
+  }
 
   dcf_role <- match.arg(dcf_role)
   ss <- .S(session_id)
@@ -100,7 +113,43 @@ k2ShareWeightsDS <- function(data_name, weights_column, dcf0_pk, dcf1_pk,
   .dsvert_validate_recipient_pk(dcf0_pk, ss, "dcf0")
   .dsvert_validate_recipient_pk(dcf1_pk, ss, "dcf1")
   info <- .k2_weight_ring_info(ring, ss)
+  request <- list(
+    data_name = data_name, weights_column = weights_column,
+    dcf0_pk = dcf0_pk, dcf1_pk = dcf1_pk, dcf_role = dcf_role,
+    ring = info$ring, numeric_family = numeric_family)
+  replay <- .dsvert_typed_blob_operation_replay(
+    ss, "k2ShareWeightsDS", request)
+  if (isTRUE(replay$hit)) return(replay$result)
+  finish <- function(result) {
+    .dsvert_typed_blob_operation_commit(
+      ss, "k2ShareWeightsDS", request, result)
+  }
   w <- .k2_read_weight_column(data_name, weights_column, session_id)
+  policy <- .dsvert_numeric_policy()
+  .dsvert_numeric_assert_vector(
+    w, policy$bounds$max_abs_weight, "encoded GLM weights", lower = 0)
+  .dsvert_numeric_assert_fp_encoding(
+    w, info$ring, info$frac_bits, "encoded GLM weights")
+  .dsvert_numeric_assert_fp_encoding(
+    sqrt(w), info$ring, info$frac_bits, "encoded square-root GLM weights")
+  if (length(w) > policy$bounds$max_observations) {
+    stop("DSVERT_NUMERIC_BOUND_FAILURE: weights length exceeds the ",
+         "custodian-owned public policy", call. = FALSE)
+  }
+  numeric_attestation <- .dsvert_numeric_attestation(
+    kind = "glm_weights",
+    policy = policy,
+    session_id = session_id,
+    data_name = data_name,
+    variables = weights_column,
+    family = numeric_family,
+    ring = info$ring,
+    n = length(w),
+    checks = list(
+      ieee_finite = TRUE,
+      nonnegative_domain = TRUE,
+      encoded_input_bounds = TRUE,
+      fixed_point_representable = TRUE))
 
   fp_res <- .callMpcTool("k2-float-to-fp", list(
     values = w, frac_bits = info$frac_bits, ring = info$ring_tag))
@@ -115,47 +164,84 @@ k2ShareWeightsDS <- function(data_name, weights_column, dcf0_pk, dcf1_pk,
 
   ss$k2_weights_column <- weights_column
   ss$k2_weights_ring <- info$ring
+  ss$k2_weights_numeric_family <- numeric_family
+  mint <- function(payload, recipient_pk, capability_id) {
+    .dsvert_typed_blob_mint(
+      ss, session_id, capability_id, recipient_pk, payload,
+      list(n = length(w), ring = info$ring,
+           numeric_family = numeric_family), producer = "k2ShareWeightsDS")
+  }
 
   if (dcf_role == "dcf0") {
     ss$k2_weights_share_fp <- split_w$own_share
     ss$k2_sqrt_weights_share_fp <- split_sw$own_share
-    return(list(
-      peer_blob = .k2_seal_weight_share(split_w$peer_share, dcf1_pk),
-      peer_sqrt_blob = .k2_seal_weight_share(split_sw$peer_share, dcf1_pk),
-      n = length(w), disclosure = "shared_weights"))
+    peer_blob <- .k2_seal_weight_share(split_w$peer_share, dcf1_pk)
+    peer_sqrt_blob <- .k2_seal_weight_share(split_sw$peer_share, dcf1_pk)
+    return(finish(list(
+      peer_blob = peer_blob,
+      peer_transfer = mint(peer_blob, dcf1_pk, "blob.glm.weight-share.v1"),
+      peer_sqrt_blob = peer_sqrt_blob,
+      peer_sqrt_transfer = mint(
+        peer_sqrt_blob, dcf1_pk, "blob.glm.sqrt-weight-share.v1"),
+      n = length(w), disclosure = "shared_weights",
+      numeric_attestation = numeric_attestation)))
   }
   if (dcf_role == "dcf1") {
     ss$k2_weights_share_fp <- split_w$own_share
     ss$k2_sqrt_weights_share_fp <- split_sw$own_share
-    return(list(
-      peer_blob = .k2_seal_weight_share(split_w$peer_share, dcf0_pk),
-      peer_sqrt_blob = .k2_seal_weight_share(split_sw$peer_share, dcf0_pk),
-      n = length(w), disclosure = "shared_weights"))
+    peer_blob <- .k2_seal_weight_share(split_w$peer_share, dcf0_pk)
+    peer_sqrt_blob <- .k2_seal_weight_share(split_sw$peer_share, dcf0_pk)
+    return(finish(list(
+      peer_blob = peer_blob,
+      peer_transfer = mint(peer_blob, dcf0_pk, "blob.glm.weight-share.v1"),
+      peer_sqrt_blob = peer_sqrt_blob,
+      peer_sqrt_transfer = mint(
+        peer_sqrt_blob, dcf0_pk, "blob.glm.sqrt-weight-share.v1"),
+      n = length(w), disclosure = "shared_weights",
+      numeric_attestation = numeric_attestation)))
   }
 
-  list(
-    dcf0_blob = .k2_seal_weight_share(split_w$own_share, dcf0_pk),
-    dcf1_blob = .k2_seal_weight_share(split_w$peer_share, dcf1_pk),
-    dcf0_sqrt_blob = .k2_seal_weight_share(split_sw$own_share, dcf0_pk),
-    dcf1_sqrt_blob = .k2_seal_weight_share(split_sw$peer_share, dcf1_pk),
-    n = length(w), disclosure = "shared_weights")
+  dcf0_blob <- .k2_seal_weight_share(split_w$own_share, dcf0_pk)
+  dcf1_blob <- .k2_seal_weight_share(split_w$peer_share, dcf1_pk)
+  dcf0_sqrt_blob <- .k2_seal_weight_share(split_sw$own_share, dcf0_pk)
+  dcf1_sqrt_blob <- .k2_seal_weight_share(split_sw$peer_share, dcf1_pk)
+  finish(list(
+    dcf0_blob = dcf0_blob,
+    dcf0_transfer = mint(dcf0_blob, dcf0_pk, "blob.glm.weight-share.v1"),
+    dcf1_blob = dcf1_blob,
+    dcf1_transfer = mint(dcf1_blob, dcf1_pk, "blob.glm.weight-share.v1"),
+    dcf0_sqrt_blob = dcf0_sqrt_blob,
+    dcf0_sqrt_transfer = mint(
+      dcf0_sqrt_blob, dcf0_pk, "blob.glm.sqrt-weight-share.v1"),
+    dcf1_sqrt_blob = dcf1_sqrt_blob,
+    dcf1_sqrt_transfer = mint(
+      dcf1_sqrt_blob, dcf1_pk, "blob.glm.sqrt-weight-share.v1"),
+    n = length(w), disclosure = "shared_weights",
+    numeric_attestation = numeric_attestation)
+  )
 }
 
 #' @title Receive secret-shared observation weights
 #' @description Decrypts a relayed additive share generated by
 #'   \code{k2ShareWeightsDS} and stores it for share-domain weighted GLM.
+#' @param numeric_family Character. Public GLM family bound to the numeric
+#'   policy used by later producer-minted exact operations.
+#' @param peer_name Authenticated logical name of the expected weight producer.
 #' @param session_id Character. GLM session identifier.
 #' @return \code{list(stored = TRUE)}
-#' @export
-k2ReceiveWeightSharesDS <- function(session_id = NULL) {
+k2ReceiveWeightSharesDS <- function(
+    numeric_family = c("gaussian", "binomial", "poisson"),
+    peer_name, session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
+  numeric_family <- match.arg(numeric_family)
   ss <- .S(session_id)
-  blob <- .blob_consume("k2_peer_weight_share", ss)
-  if (is.null(blob)) {
-    stop("No peer weight-share blob found for session", call. = FALSE)
-  }
+  ring <- as.integer(ss$k2_ring %||% 63L)
+  context <- list(
+    n = ss$k2_x_n, ring = ring, numeric_family = numeric_family)
+  blob <- .dsvert_typed_blob_consume(
+    ss, "blob.glm.weight-share.v1", context, sender_name = peer_name)
   tsk <- .key_get("transport_sk", ss)
   if (is.null(tsk)) {
     stop("Transport secret key missing for session", call. = FALSE)
@@ -165,13 +251,16 @@ k2ReceiveWeightSharesDS <- function(session_id = NULL) {
     recipient_sk = tsk))
   ss$k2_weights_share_fp <- dec$data
 
-  sqrt_blob <- .blob_consume("k2_peer_sqrt_weight_share", ss)
+  sqrt_blob <- .dsvert_typed_blob_consume(
+    ss, "blob.glm.sqrt-weight-share.v1", context,
+    sender_name = peer_name, required = FALSE)
   if (!is.null(sqrt_blob)) {
     sqrt_dec <- .callMpcTool("transport-decrypt", list(
       sealed = .base64url_to_base64(sqrt_blob),
       recipient_sk = tsk))
     ss$k2_sqrt_weights_share_fp <- sqrt_dec$data
   }
+  ss$k2_weights_numeric_family <- numeric_family
   list(stored = TRUE)
 }
 
@@ -179,14 +268,24 @@ k2ReceiveWeightSharesDS <- function(session_id = NULL) {
 #' @description Computes and stores this party's residual share
 #'   \eqn{r = \mu - y}. The original \eqn{y} share is snapshotted once so
 #'   repeated weighted iterations are independent.
+#' @param exact_product Character. Internal producer purpose: \code{"none"},
+#'   \code{"weight"}, or \code{"sqrt_weight"}. The latter two mint one opaque,
+#'   one-shot exact multiplication manifest bound to fixed server slots.
 #' @param session_id Character. GLM session identifier.
-#' @return \code{list(stored = TRUE)}
-#' @export
-k2PrepareWeightedResidualShareDS <- function(session_id = NULL) {
+#' @return Opaque storage metadata and, when requested, a producer-bound
+#'   multiplication manifest handle. No share is returned.
+k2PrepareWeightedResidualShareDS <- function(
+    exact_product = "none", session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
+  if (!is.character(exact_product) || length(exact_product) != 1L ||
+      is.na(exact_product) ||
+      !exact_product %in% c("none", "weight", "sqrt_weight")) {
+    stop("exact_product must be none, weight, or sqrt_weight",
+         call. = FALSE)
+  }
   if (is.null(ss$secure_mu_share) || is.null(ss$k2_y_share_fp)) {
     stop("mu / y shares missing for this session; call link evaluation first",
          call. = FALSE)
@@ -199,7 +298,23 @@ k2PrepareWeightedResidualShareDS <- function(session_id = NULL) {
     a = ss$secure_mu_share, b = ss$k2_y_share_fp_original,
     frac_bits = info$frac_bits, ring = info$ring_tag))
   ss$k2_weight_residual_share_fp <- r$result
-  list(stored = TRUE)
+  result <- list(stored = TRUE)
+  if (!identical(exact_product, "none")) {
+    if (!identical(as.integer(ss$k2_ring %||% 63L), 127L)) {
+      stop("Exact weighted residual manifests require a Ring127 session",
+           call. = FALSE)
+    }
+    purpose <- if (identical(exact_product, "weight")) {
+      "glm.weighted-residual"
+    } else {
+      "glm.sqrt-weighted-residual"
+    }
+    result$exact_vecmul_manifest <- .exact_gc_vecmul_mint_manifest(
+      ss = ss, session_id = session_id,
+      producer = "glm.weighted-residual.v1", purpose = purpose,
+      total_n = ss$k2_x_n)
+  }
+  result
 }
 
 #' @title Finalise a share-domain weighted residual
@@ -211,7 +326,6 @@ k2PrepareWeightedResidualShareDS <- function(session_id = NULL) {
 #' @param input_key Character. Session key containing the product share.
 #' @param session_id Character. GLM session identifier.
 #' @return \code{list(applied = TRUE)}
-#' @export
 k2FinalizeWeightedResidualShareDS <- function(
     input_key = "k2_weighted_residual_share_fp", session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
@@ -243,7 +357,6 @@ k2FinalizeWeightedResidualShareDS <- function(
 #'   were registered.
 #' @param session_id Character.
 #' @return \code{list(cleared = TRUE)}
-#' @export
 k2ClearWeightsDS <- function(session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
@@ -254,5 +367,6 @@ k2ClearWeightsDS <- function(session_id = NULL) {
   ss$k2_weights_share_fp <- NULL
   ss$k2_sqrt_weights_share_fp <- NULL
   ss$k2_weights_column <- NULL
+  ss$k2_weights_numeric_family <- NULL
   list(cleared = TRUE)
 }

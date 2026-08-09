@@ -37,3 +37,4 @@ Falls back to legacy positional-block assignment
 (\code{floor((i-1)/block_size)+1}) when no \code{id_column} is
 present on the server.
 }
+\keyword{internal}

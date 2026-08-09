@@ -15,3 +15,4 @@ Character string in base64url encoding
 \description{
 Converts standard base64 to base64url encoding (URL-safe).
 }
+\keyword{internal}

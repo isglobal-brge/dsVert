@@ -30,3 +30,4 @@ list(stored, output_key).
 \description{
 Store the element-wise difference of two FP share vectors
 }
+\keyword{internal}

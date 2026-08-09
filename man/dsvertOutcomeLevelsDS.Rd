@@ -2,7 +2,7 @@
 % Please edit documentation in R/dsvertTestHelpersDS.R
 \name{dsvertOutcomeLevelsDS}
 \alias{dsvertOutcomeLevelsDS}
-\title{List ordered factor levels of an outcome column}
+\title{List the public schema levels of an outcome column}
 \usage{
 dsvertOutcomeLevelsDS(data_name, y_var)
 }
@@ -12,8 +12,7 @@ dsvertOutcomeLevelsDS(data_name, y_var)
 \item{y_var}{Character. Name of the outcome column on the label server.}
 }
 \description{
-Aggregate. Returns the levels (sorted) of a factor or
-character column, with the same privacy-threshold suppression as
-the rest of dsVert: levels whose count is below the threshold are
-emitted as a single "\if{html}{\out{<redacted>}}" level.
+Aggregate. Returns only a public categorical domain: declared
+factor levels or a custodian-configured domain. It never derives or returns
+observed counts or data-dependent unique values.
 }

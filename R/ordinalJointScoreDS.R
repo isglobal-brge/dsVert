@@ -12,7 +12,6 @@
 #' @param peer_pk Transport public key of the peer DCF party.
 #' @param session_id MPC session id.
 #' @return list(mask_keys, mask_blobs, class_counts).
-#' @export
 dsvertOrdinalShareClassMasksDS <- function(data_name,
                                             indicator_cols,
                                             level_names,
@@ -98,7 +97,6 @@ dsvertOrdinalShareClassMasksDS <- function(data_name,
 #' @param output_key Session slot to receive the Ring127 share.
 #' @param session_id MPC session id.
 #' @return list(stored = TRUE, output_key).
-#' @export
 dsvertOrdinalReceiveClassMaskDS <- function(mask_blob_key,
                                              output_key,
                                              session_id = NULL) {
@@ -140,7 +138,6 @@ dsvertOrdinalReceiveClassMaskDS <- function(mask_blob_key,
 #' @param output_key character. Destination length-n share slot.
 #' @param session_id MPC session id.
 #' @return list(stored = TRUE, n, output_key).
-#' @export
 dsvertOrdinalExtractXColumnDS <- function(matrix_key, n, p, col_idx,
                                             output_key, session_id) {
   if (is.null(session_id) || !nzchar(session_id))

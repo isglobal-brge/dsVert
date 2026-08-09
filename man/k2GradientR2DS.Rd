@@ -4,10 +4,12 @@
 \alias{k2GradientR2DS}
 \title{Gradient round 2: compute gradient share from Beaver formula}
 \usage{
-k2GradientR2DS(party_id = 0L, session_id = NULL)
+k2GradientR2DS(party_id = 0L, peer_name, session_id = NULL)
 }
 \arguments{
 \item{party_id}{Integer (0 or 1). Beaver-protocol party index.}
+
+\item{peer_name}{Authenticated logical name of the expected round-one peer.}
 
 \item{session_id}{Character. Active MPC session identifier.}
 }

@@ -4,13 +4,18 @@
 \alias{k2PrepareWeightedResidualShareDS}
 \title{Prepare residual shares for share-domain weighting}
 \usage{
-k2PrepareWeightedResidualShareDS(session_id = NULL)
+k2PrepareWeightedResidualShareDS(exact_product = "none", session_id = NULL)
 }
 \arguments{
+\item{exact_product}{Character. Internal producer purpose: \code{"none"},
+\code{"weight"}, or \code{"sqrt_weight"}. The latter two mint one opaque,
+one-shot exact multiplication manifest bound to fixed server slots.}
+
 \item{session_id}{Character. GLM session identifier.}
 }
 \value{
-\code{list(stored = TRUE)}
+Opaque storage metadata and, when requested, a producer-bound
+multiplication manifest handle. No share is returned.
 }
 \description{
 Computes and stores this party's residual share

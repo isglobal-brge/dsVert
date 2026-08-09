@@ -284,7 +284,18 @@ func handleK2IKNPBaseSenderFinalize() {
 func handleK2IKNPReceiverExtend() {
 	var input iknpReceiverExtendInput
 	mpcReadInput(&input)
-	ring := normalizeOTRing(input.Ring)
+	ring, ok := validatedOTRing("k2-iknp-receiver-extend", input.Ring)
+	if !ok {
+		return
+	}
+	if input.N <= 0 {
+		outputError("k2-iknp-receiver-extend: n must be positive")
+		return
+	}
+	if _, err := checkedProduct("k2-iknp-receiver-extend bits", input.N, ringBitLen(ring)); err != nil {
+		outputError("k2-iknp-receiver-extend: " + err.Error())
+		return
+	}
 	state, err := iknpDecodeBaseReceiverState(input.ReceiverState)
 	if err != nil {
 		outputError("k2-iknp-receiver-extend: " + err.Error())
@@ -325,7 +336,18 @@ func handleK2IKNPReceiverExtend() {
 func handleK2IKNPSenderEncrypt() {
 	var input iknpSenderEncryptInput
 	mpcReadInput(&input)
-	ring := normalizeOTRing(input.Ring)
+	ring, ok := validatedOTRing("k2-iknp-sender-encrypt", input.Ring)
+	if !ok {
+		return
+	}
+	if input.N <= 0 {
+		outputError("k2-iknp-sender-encrypt: n must be positive")
+		return
+	}
+	if _, err := checkedProduct("k2-iknp-sender-encrypt bits", input.N, ringBitLen(ring)); err != nil {
+		outputError("k2-iknp-sender-encrypt: " + err.Error())
+		return
+	}
 	state, err := iknpDecodeBaseSenderState(input.SenderState)
 	if err != nil {
 		outputError("k2-iknp-sender-encrypt: " + err.Error())
@@ -351,21 +373,16 @@ func handleK2IKNPSenderEncrypt() {
 		outputError("k2-iknp-sender-encrypt: " + err.Error())
 		return
 	}
-	// KOS15/SoftSpoken consistency check: verify the receiver used consistent
-	// choice bits across the U columns before releasing any OT payloads. If the
-	// opener is absent (legacy relay) the check is skipped; when present a
-	// failure aborts the extension (defence against a malicious receiver's
-	// selective-failure attack on Delta). See k2_iknp_kos.go.
-	if input.Check != "" {
-		xHat, tHat, ok := iknpKOSDecode(input.Check)
-		if !ok {
-			outputError("k2-iknp-sender-encrypt: malformed KOS check opener")
-			return
-		}
-		if !iknpSenderKOSVerify(labels, delta, uMatrix, input.N, ring, input.Domain, xHat, tHat) {
-			outputError("k2-iknp-sender-encrypt: KOS consistency check FAILED -- aborting OT extension (possible malicious receiver)")
-			return
-		}
+	// KOS15/SoftSpoken consistency check: the opener is mandatory. There is no
+	// legacy unchecked IKNP downgrade path.
+	xHat, tHat, err := iknpKOSDecodeRequired(input.Check)
+	if err != nil {
+		outputError("k2-iknp-sender-encrypt: " + err.Error())
+		return
+	}
+	if !iknpSenderKOSVerify(labels, delta, uMatrix, input.N, ring, input.Domain, xHat, tHat) {
+		outputError("k2-iknp-sender-encrypt: KOS consistency check FAILED -- aborting OT extension (possible malicious receiver)")
+		return
 	}
 	c0 := make([]ot.Label, len(wires))
 	c1 := make([]ot.Label, len(wires))
@@ -392,7 +409,18 @@ func handleK2IKNPReceiverDecrypt() {
 		outputError("k2-iknp-receiver-decrypt: " + err.Error())
 		return
 	}
-	ring := normalizeOTRing(input.Ring)
+	ring, ok := validatedOTRing("k2-iknp-receiver-decrypt", input.Ring)
+	if !ok {
+		return
+	}
+	if input.N <= 0 {
+		outputError("k2-iknp-receiver-decrypt: n must be positive")
+		return
+	}
+	if _, err := checkedProduct("k2-iknp-receiver-decrypt bits", input.N, ringBitLen(ring)); err != nil {
+		outputError("k2-iknp-receiver-decrypt: " + err.Error())
+		return
+	}
 	if state.Ring != "" && state.Ring != ring {
 		outputError("k2-iknp-receiver-decrypt: ring mismatch")
 		return

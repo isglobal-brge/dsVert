@@ -40,3 +40,4 @@ Called on a NON-DCF server to generate DCF keys securely.
 The client never sees the key values -- only opaque transport-encrypted blobs.
 This prevents a malicious client from crafting DCF keys to leak information.
 }
+\keyword{internal}

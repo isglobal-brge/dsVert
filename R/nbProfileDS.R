@@ -35,7 +35,6 @@
 #'   \code{datashield.privacyLevel} threshold.
 #'
 #' @seealso \code{dsvertLocalMomentsDS}, \code{ds.vertNB}, \code{dsvertNBMomentSumsDS}
-#' @export
 dsvertNBProfileSumsDS <- function(data_name, variable, theta) {
   if (!is.character(data_name) || length(data_name) != 1) {
     stop("data_name must be a single character string", call. = FALSE)
@@ -103,7 +102,6 @@ dsvertNBProfileSumsDS <- function(data_name, variable, theta) {
 #' @return List with \code{n_total}, \code{sum_y}, \code{sum_y_sq},
 #'   \code{y_mean}, \code{y_var}.
 #' @seealso \code{ds.vertNBMoMTheta}, \code{dsvertNBProfileSumsDS}
-#' @export
 dsvertNBMomentSumsDS <- function(data_name, variable) {
   if (!is.character(data_name) || length(data_name) != 1) {
     stop("data_name must be a single character string", call. = FALSE)

@@ -39,3 +39,4 @@ server-side data frame. This is used by wrappers such as
 parser expects real column names rather than inline
 \code{factor(...)} terms.
 }
+\keyword{internal}

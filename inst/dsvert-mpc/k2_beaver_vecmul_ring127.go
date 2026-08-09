@@ -44,11 +44,20 @@ func decodeTripleBlob127(blob string, n int) (BeaverTripleVec127, error) {
 	if err := json.Unmarshal(raw, &w); err != nil {
 		return BeaverTripleVec127{}, err
 	}
-	a := b64Uint128Vec(w.A[0])
-	b := b64Uint128Vec(w.B[0])
-	c := b64Uint128Vec(w.C[0])
-	if n > 0 && (len(a) != n || len(b) != n || len(c) != n) {
-		return BeaverTripleVec127{}, &sizeMismatchErr{got: len(a), want: n}
+	if len(w.A) != 1 || len(w.B) != 1 || len(w.C) != 1 {
+		return BeaverTripleVec127{}, &sizeMismatchErr{got: len(w.A), want: 1}
+	}
+	a, err := decodeRing127Vector(w.A[0], n)
+	if err != nil {
+		return BeaverTripleVec127{}, err
+	}
+	b, err := decodeRing127Vector(w.B[0], n)
+	if err != nil {
+		return BeaverTripleVec127{}, err
+	}
+	c, err := decodeRing127Vector(w.C[0], n)
+	if err != nil {
+		return BeaverTripleVec127{}, err
 	}
 	return BeaverTripleVec127{A: a, B: b, C: c}, nil
 }
@@ -75,21 +84,37 @@ func handleK2BeaverVecmulGenTriples127(input K2BeaverVecmulGenInput) {
 }
 
 // handleK2BeaverVecmulR1127: per-party round 1.
-//   d_share = x_share - a_share
-//   e_share = y_share - b_share
+//
+//	d_share = x_share - a_share
+//	e_share = y_share - b_share
 func handleK2BeaverVecmulR1127(input K2BeaverVecmulR1Input) {
 	fb := ring127DefaultFracBits(input.FracBits)
 	r := NewRing127(fb)
-	x := b64Uint128Vec(input.XFp)
-	y := b64Uint128Vec(input.YFp)
-	if len(x) != len(y) {
-		outputError("k2-beaver-vecmul-round1 (ring127): length mismatch")
+	start, end, totalN, err := k2BeaverVecmulWindow(
+		input.N, input.TotalN, input.Offset)
+	if err != nil {
+		outputError("k2-beaver-vecmul-round1 (ring127): " + err.Error())
 		return
 	}
-	triple, err := decodeTripleBlob127(input.TripleBlob, len(x))
+	xAll, err := decodeRing127Vector(input.XFp, totalN)
+	if err != nil {
+		outputError("k2-beaver-vecmul-round1 (ring127): invalid x_fp: " + err.Error())
+		return
+	}
+	yAll, err := decodeRing127Vector(input.YFp, totalN)
+	if err != nil {
+		outputError("k2-beaver-vecmul-round1 (ring127): invalid y_fp: " + err.Error())
+		return
+	}
+	tripleAll, err := decodeTripleBlob127(input.TripleBlob, totalN)
 	if err != nil {
 		outputError("k2-beaver-vecmul-round1 (ring127): bad triple: " + err.Error())
 		return
+	}
+	x, y := xAll[start:end], yAll[start:end]
+	triple := BeaverTripleVec127{
+		A: tripleAll.A[start:end], B: tripleAll.B[start:end],
+		C: tripleAll.C[start:end],
 	}
 	_, msg := GenerateBatchedMultiplicationGateMessage127(x, y, triple, r)
 	mpcWriteOutput(K2BeaverVecmulR1Output{
@@ -104,22 +129,41 @@ func handleK2BeaverVecmulR1127(input K2BeaverVecmulR1Input) {
 func handleK2BeaverVecmulR2127(input K2BeaverVecmulR2Input) {
 	fb := ring127DefaultFracBits(input.FracBits)
 	r := NewRing127(fb)
-	x := b64Uint128Vec(input.XFp)
-	y := b64Uint128Vec(input.YFp)
-	if len(x) != len(y) {
-		outputError("k2-beaver-vecmul-round2 (ring127): length mismatch")
+	start, end, totalN, err := k2BeaverVecmulWindow(
+		input.N, input.TotalN, input.Offset)
+	if err != nil {
+		outputError("k2-beaver-vecmul-round2 (ring127): " + err.Error())
 		return
 	}
-	n := len(x)
-	triple, err := decodeTripleBlob127(input.TripleBlob, n)
+	xAll, err := decodeRing127Vector(input.XFp, totalN)
+	if err != nil {
+		outputError("k2-beaver-vecmul-round2 (ring127): invalid x_fp: " + err.Error())
+		return
+	}
+	yAll, err := decodeRing127Vector(input.YFp, totalN)
+	if err != nil {
+		outputError("k2-beaver-vecmul-round2 (ring127): invalid y_fp: " + err.Error())
+		return
+	}
+	n := input.N
+	tripleAll, err := decodeTripleBlob127(input.TripleBlob, totalN)
 	if err != nil {
 		outputError("k2-beaver-vecmul-round2 (ring127): bad triple: " + err.Error())
 		return
 	}
-	peerD := b64Uint128Vec(input.PeerDFp)
-	peerE := b64Uint128Vec(input.PeerEFp)
-	if len(peerD) != n || len(peerE) != n {
-		outputError("k2-beaver-vecmul-round2 (ring127): peer msg length mismatch")
+	x, y := xAll[start:end], yAll[start:end]
+	triple := BeaverTripleVec127{
+		A: tripleAll.A[start:end], B: tripleAll.B[start:end],
+		C: tripleAll.C[start:end],
+	}
+	peerD, err := decodeRing127Vector(input.PeerDFp, n)
+	if err != nil {
+		outputError("k2-beaver-vecmul-round2 (ring127): invalid peer_d_fp: " + err.Error())
+		return
+	}
+	peerE, err := decodeRing127Vector(input.PeerEFp, n)
+	if err != nil {
+		outputError("k2-beaver-vecmul-round2 (ring127): invalid peer_e_fp: " + err.Error())
 		return
 	}
 	state := BatchedMultState127{
@@ -137,10 +181,15 @@ func handleK2BeaverVecmulR2127(input K2BeaverVecmulR2Input) {
 	var raw []Uint128
 	if input.IsParty0 {
 		raw = GenerateBatchedMultiplicationOutputPartyZero127(state, triple, peerMsg, r)
-		raw = TruncateSharePartyZero127(raw, fb, r)
 	} else {
 		raw = GenerateBatchedMultiplicationOutputPartyOne127(state, triple, peerMsg, r)
-		raw = TruncateSharePartyOne127(raw, fb, r)
+	}
+	if !input.ExactGCDeferTruncation {
+		if input.IsParty0 {
+			raw = TruncateSharePartyZero127(raw, fb, r)
+		} else {
+			raw = TruncateSharePartyOne127(raw, fb, r)
+		}
 	}
 	mpcWriteOutput(K2BeaverVecmulR2Output{
 		ZFp: Uint128VecToB64(raw),

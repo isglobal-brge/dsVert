@@ -20,7 +20,6 @@
 #' @param n Integer. Length of p / indicator vector.
 #' @param session_id MPC session id.
 #' @return \code{list(stored = TRUE, output_key, n)}.
-#' @export
 dsvertComputeResidualShareDS <- function(p_key, indicator_col = NULL,
                                           data_name = NULL, output_key,
                                           is_outcome_server = FALSE,

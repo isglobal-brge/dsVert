@@ -36,3 +36,4 @@ List with encrypted blobs for each DCF party.
 Generates Beaver triples for the gradient matrix-vector multiplication.
 Transport-encrypts each party's shares. Client never sees the values.
 }
+\keyword{internal}

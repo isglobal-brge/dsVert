@@ -23,16 +23,27 @@ type K2FPAddOutput struct {
 func handleK2FPAdd() {
 	var input K2FPAddInput
 	mpcReadInput(&input)
-	if input.Ring == "ring127" {
+	ringName, fracBits, err := normalizeRingAndFracBits(input.Ring, input.FracBits)
+	if err != nil {
+		outputError("k2-fp-add: " + err.Error())
+		return
+	}
+	input.Ring, input.FracBits = ringName, fracBits
+	if ringName == "ring127" {
 		handleK2FPAdd127(input)
 		return
 	}
-	if input.FracBits <= 0 {
-		input.FracBits = K2DefaultFracBits
+	r := NewRing63(fracBits)
+	a, err := decodeRing63FPVector(input.A, -1)
+	if err != nil {
+		outputError("k2-fp-add: invalid a: " + err.Error())
+		return
 	}
-	r := NewRing63(input.FracBits)
-	a := fpToRing63(bytesToFPVec(base64ToBytes(input.A)))
-	b := fpToRing63(bytesToFPVec(base64ToBytes(input.B)))
+	b, err := decodeRing63FPVector(input.B, len(a))
+	if err != nil {
+		outputError("k2-fp-add: invalid b: " + err.Error())
+		return
+	}
 	result := make([]uint64, len(a))
 	for i := range a {
 		result[i] = r.Add(a[i], b[i])
@@ -44,19 +55,17 @@ func handleK2FPAdd() {
 
 // ============================================================================
 // Command: k2-fp-vec-mul
-// Element-wise Ring63 FP multiplication with truncation:
-//   result[i] = (a[i] * b[i]) >> fracBits   (signed, mod 2^63).
+// Apply a public binary mask to a Ring63 FP share.
 //
 // This is LOCAL (no communication): it is intended for the case where
-// one operand is a secret share held by this party and the other is a
-// public or server-to-server-broadcast plaintext vector known to this
-// party -- e.g., element-wise scaling of a residual share by a
-// per-patient weights vector in weighted GLM / IPW.
+// A is a secret share held by this party and B is an encoded public 0/1
+// vector. The historical command name is retained for compatibility.
 //
-// Correctness of additive sharing under per-element scaling:
-//   Given shares r_A + r_B = r, both parties locally compute
-//   r'_A[i] = r_A[i] * w[i] and r'_B[i] = r_B[i] * w[i].
-//   Then r'_A + r'_B = w * r element-wise. No Beaver round required.
+// Copying a share for bit 1 and returning zero for bit 0 is exact and avoids
+// local fixed-point truncation. Arbitrary public weights are deliberately
+// rejected: independently truncating two random shares is not a linear share
+// operation and has the catastrophic wrap event documented in
+// k2_truncation.go.
 // ============================================================================
 
 type K2FPVecMulInput struct {
@@ -73,23 +82,31 @@ type K2FPVecMulOutput struct {
 func handleK2FPVecMul() {
 	var input K2FPVecMulInput
 	mpcReadInput(&input)
-	if input.Ring == "ring127" {
+	ringName, fracBits, err := normalizeRingAndFracBits(input.Ring, input.FracBits)
+	if err != nil {
+		outputError("k2-fp-vec-mul: " + err.Error())
+		return
+	}
+	input.Ring, input.FracBits = ringName, fracBits
+	if ringName == "ring127" {
 		handleK2FPVecMul127(input)
 		return
 	}
-	if input.FracBits <= 0 {
-		input.FracBits = K2DefaultFracBits
-	}
-	r := NewRing63(input.FracBits)
-	a := fpToRing63(bytesToFPVec(base64ToBytes(input.A)))
-	b := fpToRing63(bytesToFPVec(base64ToBytes(input.B)))
-	if len(a) != len(b) {
-		outputError("k2-fp-vec-mul: length mismatch")
+	r := NewRing63(fracBits)
+	a, err := decodeRing63FPVector(input.A, -1)
+	if err != nil {
+		outputError("k2-fp-vec-mul: invalid a: " + err.Error())
 		return
 	}
-	result := make([]uint64, len(a))
-	for i := range a {
-		result[i] = r.TruncMulSigned(a[i], b[i])
+	b, err := decodeRing63FPVector(input.B, len(a))
+	if err != nil {
+		outputError("k2-fp-vec-mul: invalid b: " + err.Error())
+		return
+	}
+	result, err := applyPublicBitMask63(a, b, r)
+	if err != nil {
+		outputError("k2-fp-vec-mul: " + err.Error())
+		return
 	}
 	mpcWriteOutput(K2FPVecMulOutput{
 		Result: bytesToBase64(fpVecToBytes(ring63ToFP(result))),
@@ -114,10 +131,8 @@ func handleK2FPVecMul() {
 // Optional mask input: if provided, each element is multiplied by its
 // mask bit before accumulation, so the caller can restrict the sum to
 // events (delta_i == 1) in-place without a separate Beaver step.
-// Because the mask is a plaintext vector known on each party (usually
-// derived from event indicators held by the outcome server and shared
-// to peer via the usual transport), the element-wise pre-multiply is a
-// TruncMulSigned LOCAL operation per party.
+// The mask must be an encoded public 0/1 vector. The element-wise operation
+// is exact share selection, so it introduces neither truncation nor wrap.
 // ============================================================================
 
 type K2FPCumsumInput struct {
@@ -141,30 +156,43 @@ type K2FPCumsumOutput struct {
 func handleK2FPCumsum() {
 	var input K2FPCumsumInput
 	mpcReadInput(&input)
-	if input.Ring == "ring127" {
+	ringName, fracBits, err := normalizeRingAndFracBits(input.Ring, input.FracBits)
+	if err != nil {
+		outputError("k2-fp-cumsum: " + err.Error())
+		return
+	}
+	input.Ring, input.FracBits = ringName, fracBits
+	if ringName == "ring127" {
 		handleK2FPCumsum127(input)
 		return
 	}
-	if input.FracBits <= 0 {
-		input.FracBits = K2DefaultFracBits
+	r := NewRing63(fracBits)
+	expected := -1
+	if input.N > 0 {
+		expected = input.N
 	}
-	r := NewRing63(input.FracBits)
-	a := fpToRing63(bytesToFPVec(base64ToBytes(input.A)))
+	a, err := decodeRing63FPVector(input.A, expected)
+	if err != nil {
+		outputError("k2-fp-cumsum: invalid a: " + err.Error())
+		return
+	}
 	n := len(a)
-	if input.N > 0 && input.N != n {
-		outputError("k2-fp-cumsum: length mismatch")
+	if len(input.Strata) != 0 && len(input.Strata) != n {
+		outputError("k2-fp-cumsum: strata length mismatch")
 		return
 	}
 
-	// Apply optional mask (element-wise TruncMulSigned)
+	// Apply the optional public bit mask exactly, without truncation.
 	if input.Mask != "" {
-		mask := fpToRing63(bytesToFPVec(base64ToBytes(input.Mask)))
-		if len(mask) != n {
-			outputError("k2-fp-cumsum: mask length mismatch")
+		mask, err := decodeRing63FPVector(input.Mask, n)
+		if err != nil {
+			outputError("k2-fp-cumsum: invalid mask: " + err.Error())
 			return
 		}
-		for i := 0; i < n; i++ {
-			a[i] = r.TruncMulSigned(a[i], mask[i])
+		a, err = applyPublicBitMask63(a, mask, r)
+		if err != nil {
+			outputError("k2-fp-cumsum: " + err.Error())
+			return
 		}
 	}
 
@@ -225,14 +253,25 @@ type K2FPPermuteShareOutput struct {
 func handleK2FPPermuteShare() {
 	var input K2FPPermuteShareInput
 	mpcReadInput(&input)
-	if input.Ring == "ring127" {
+	if input.N < 0 || input.Cols < 0 {
+		outputError("k2-fp-permute-share: n and cols must not be negative")
+		return
+	}
+	ringName, fracBits, err := normalizeRingAndFracBits(input.Ring, input.FracBits)
+	if err != nil {
+		outputError("k2-fp-permute-share: " + err.Error())
+		return
+	}
+	input.Ring, input.FracBits = ringName, fracBits
+	if ringName == "ring127" {
 		handleK2FPPermuteShare127(input)
 		return
 	}
-	if input.FracBits <= 0 {
-		input.FracBits = K2DefaultFracBits
+	a, err := decodeRing63FPVector(input.A, -1)
+	if err != nil {
+		outputError("k2-fp-permute-share: invalid a: " + err.Error())
+		return
 	}
-	a := fpToRing63(bytesToFPVec(base64ToBytes(input.A)))
 	cols := input.Cols
 	if cols <= 0 {
 		cols = 1
@@ -243,6 +282,10 @@ func handleK2FPPermuteShare() {
 		return
 	}
 	n := total / cols
+	if input.N > 0 && input.N != n {
+		outputError("k2-fp-permute-share: n does not match the payload")
+		return
+	}
 	if len(input.Perm) != n {
 		outputError("k2-fp-permute-share: permutation length mismatch")
 		return
@@ -282,16 +325,27 @@ func handleK2FPPermuteShare() {
 func handleK2FPSub() {
 	var input K2FPAddInput
 	mpcReadInput(&input)
-	if input.Ring == "ring127" {
+	ringName, fracBits, err := normalizeRingAndFracBits(input.Ring, input.FracBits)
+	if err != nil {
+		outputError("k2-fp-sub: " + err.Error())
+		return
+	}
+	input.Ring, input.FracBits = ringName, fracBits
+	if ringName == "ring127" {
 		handleK2FPSub127(input)
 		return
 	}
-	if input.FracBits <= 0 {
-		input.FracBits = K2DefaultFracBits
+	r := NewRing63(fracBits)
+	a, err := decodeRing63FPVector(input.A, -1)
+	if err != nil {
+		outputError("k2-fp-sub: invalid a: " + err.Error())
+		return
 	}
-	r := NewRing63(input.FracBits)
-	a := fpToRing63(bytesToFPVec(base64ToBytes(input.A)))
-	b := fpToRing63(bytesToFPVec(base64ToBytes(input.B)))
+	b, err := decodeRing63FPVector(input.B, len(a))
+	if err != nil {
+		outputError("k2-fp-sub: invalid b: " + err.Error())
+		return
+	}
 	result := make([]uint64, len(a))
 	for i := range a {
 		result[i] = r.Sub(a[i], b[i])
@@ -319,18 +373,28 @@ type K2FPSumOutput struct {
 func handleK2FPSum() {
 	var input K2FPSumInput
 	mpcReadInput(&input)
-	if input.Ring == "ring127" {
+	ringName, _, err := normalizeRingAndFracBits(input.Ring, 0)
+	if err != nil {
+		outputError("k2-fp-sum: " + err.Error())
+		return
+	}
+	input.Ring = ringName
+	if ringName == "ring127" {
 		handleK2FPSum127(input)
 		return
 	}
-	data := bytesToFPVec(base64ToBytes(input.FPData))
+	data, err := decodeRing63FPVector(input.FPData, -1)
+	if err != nil {
+		outputError("k2-fp-sum: invalid fp_data: " + err.Error())
+		return
+	}
 	ring := NewRing63(K2DefaultFracBits) // frac_bits doesn't matter for addition; use default for consistency
 	var total uint64
 	for _, v := range data {
-		total = ring.Add(total, uint64(v))
+		total = ring.Add(total, v)
 	}
 	result := make([]FixedPoint, 1)
-	result[0] = FixedPoint(total)
+	result[0] = ring63ToFP([]uint64{total})[0]
 	mpcWriteOutput(K2FPSumOutput{
 		SumFP: bytesToBase64(fpVecToBytes(result)),
 	})
@@ -358,22 +422,29 @@ type K2FPStridedSumOutput struct {
 func handleK2FPStridedSum() {
 	var input K2FPStridedSumInput
 	mpcReadInput(&input)
-	if input.Ring == "ring127" {
-		handleK2FPStridedSum127(input)
+	ringName, _, err := normalizeRingAndFracBits(input.Ring, 0)
+	if err != nil {
+		outputError("k2-fp-strided-sum: " + err.Error())
 		return
 	}
-	if input.Ring != "" && input.Ring != "ring63" {
-		panic("k2-fp-strided-sum: unknown ring='" + input.Ring + "'")
+	input.Ring = ringName
+	if ringName == "ring127" {
+		handleK2FPStridedSum127(input)
+		return
 	}
 	if input.N <= 0 || input.J <= 0 {
 		outputError("k2-fp-strided-sum: bad n/j")
 		return
 	}
-	data := fpToRing63(bytesToFPVec(base64ToBytes(input.FPData)))
-	if len(data) != input.N*input.J {
+	expected, err := checkedProduct("k2-fp-strided-sum matrix", input.N, input.J)
+	if err != nil {
+		outputError("k2-fp-strided-sum: " + err.Error())
+		return
+	}
+	data, err := decodeRing63FPVector(input.FPData, expected)
+	if err != nil {
 		outputError(fmt.Sprintf(
-			"k2-fp-strided-sum: length mismatch (got %d, expected n*j=%d*%d=%d)",
-			len(data), input.N, input.J, input.N*input.J))
+			"k2-fp-strided-sum: invalid fp_data: %s", err))
 		return
 	}
 	ring := NewRing63(K2DefaultFracBits)
@@ -404,8 +475,17 @@ type K2FPPermuteInput struct {
 func handleK2FPPermute() {
 	var input K2FPPermuteInput
 	mpcReadInput(&input)
-	if input.Ring == "ring127" {
-		data := bytesToUint128Vec(base64ToBytes(input.FPData))
+	ringName, _, err := normalizeRingAndFracBits(input.Ring, 0)
+	if err != nil {
+		outputError("k2-fp-permute: " + err.Error())
+		return
+	}
+	if ringName == "ring127" {
+		data, err := decodeRing127Vector(input.FPData, -1)
+		if err != nil {
+			outputError("k2-fp-permute (ring127): invalid fp_data: " + err.Error())
+			return
+		}
 		result := make([]Uint128, len(input.Perm))
 		for i, p := range input.Perm {
 			if p < 0 || p >= len(data) {
@@ -419,8 +499,12 @@ func handleK2FPPermute() {
 		})
 		return
 	}
-	data := bytesToFPVec(base64ToBytes(input.FPData))
-	result := make([]FixedPoint, len(input.Perm))
+	data, err := decodeRing63FPVector(input.FPData, -1)
+	if err != nil {
+		outputError("k2-fp-permute: invalid fp_data: " + err.Error())
+		return
+	}
+	result := make([]uint64, len(input.Perm))
 	for i, p := range input.Perm {
 		if p < 0 || p >= len(data) {
 			outputError("k2-fp-permute: index out of range")
@@ -429,7 +513,7 @@ func handleK2FPPermute() {
 		result[i] = data[p]
 	}
 	mpcWriteOutput(map[string]string{
-		"fp_data": bytesToBase64(fpVecToBytes(result)),
+		"fp_data": bytesToBase64(fpVecToBytes(ring63ToFP(result))),
 	})
 }
 
@@ -477,22 +561,28 @@ type K2FPExtractColumnOutput struct {
 func handleK2FPExtractColumn() {
 	var input K2FPExtractColumnInput
 	mpcReadInput(&input)
-	if input.Ring == "ring127" {
-		handleK2FPExtractColumn127(input)
+	ringName, fracBits, err := normalizeRingAndFracBits(input.Ring, input.FracBits)
+	if err != nil {
+		outputError("k2-fp-extract-column: " + err.Error())
 		return
 	}
-	if input.FracBits <= 0 {
-		input.FracBits = K2DefaultFracBits
+	input.Ring, input.FracBits = ringName, fracBits
+	if ringName == "ring127" {
+		handleK2FPExtractColumn127(input)
+		return
 	}
 	if input.N <= 0 || input.K <= 0 || input.Col < 0 || input.Col >= input.K {
 		outputError("k2-fp-extract-column: bad n/k/col")
 		return
 	}
-	a := fpToRing63(bytesToFPVec(base64ToBytes(input.FPData)))
-	if len(a) != input.N*input.K {
-		outputError(fmt.Sprintf(
-			"k2-fp-extract-column: length mismatch (got %d, expected n*k=%d*%d=%d)",
-			len(a), input.N, input.K, input.N*input.K))
+	expected, err := checkedProduct("k2-fp-extract-column matrix", input.N, input.K)
+	if err != nil {
+		outputError("k2-fp-extract-column: " + err.Error())
+		return
+	}
+	a, err := decodeRing63FPVector(input.FPData, expected)
+	if err != nil {
+		outputError("k2-fp-extract-column: invalid fp_data: " + err.Error())
 		return
 	}
 	out := make([]uint64, input.N)
@@ -507,28 +597,54 @@ func handleK2FPExtractColumn() {
 func handleK2FPColumnConcat() {
 	var input K2FPColumnConcatInput
 	mpcReadInput(&input)
-	if input.Ring == "ring127" {
-		a := bytesToUint128Vec(base64ToBytes(input.A))
-		b := bytesToUint128Vec(base64ToBytes(input.B))
-		n, pa, pb := input.N, input.PA, input.PB
-		if n <= 0 || pa < 0 || pb < 0 {
-			outputError("k2-fp-column-concat (ring127): bad dimensions")
+	ringName, _, err := normalizeRingAndFracBits(input.Ring, 0)
+	if err != nil {
+		outputError("k2-fp-column-concat: " + err.Error())
+		return
+	}
+	n, pa, pb := input.N, input.PA, input.PB
+	if n <= 0 || pa < 0 || pb < 0 {
+		outputError("k2-fp-column-concat: bad dimensions")
+		return
+	}
+	lenA, err := checkedProduct("k2-fp-column-concat a", n, pa)
+	if err != nil {
+		outputError("k2-fp-column-concat: " + err.Error())
+		return
+	}
+	lenB, err := checkedProduct("k2-fp-column-concat b", n, pb)
+	if err != nil {
+		outputError("k2-fp-column-concat: " + err.Error())
+		return
+	}
+	if pa > int(^uint(0)>>1)-pb {
+		outputError("k2-fp-column-concat: dimensions overflow")
+		return
+	}
+	colsTotal := pa + pb
+	outputLen, err := checkedProduct("k2-fp-column-concat output", n, colsTotal)
+	if err != nil {
+		outputError("k2-fp-column-concat: " + err.Error())
+		return
+	}
+	if ringName == "ring127" {
+		a, err := decodeRing127Vector(input.A, lenA)
+		if err != nil {
+			outputError("k2-fp-column-concat (ring127): invalid a: " + err.Error())
 			return
 		}
-		if len(a) != n*pa || len(b) != n*pb {
-			outputError(fmt.Sprintf(
-				"k2-fp-column-concat (ring127): length mismatch (got %d/%d, expected %d/%d)",
-				len(a), len(b), n*pa, n*pb))
+		b, err := decodeRing127Vector(input.B, lenB)
+		if err != nil {
+			outputError("k2-fp-column-concat (ring127): invalid b: " + err.Error())
 			return
 		}
-		ptotal := pa + pb
-		result := make([]Uint128, n*ptotal)
+		result := make([]Uint128, outputLen)
 		for i := 0; i < n; i++ {
 			for j := 0; j < pa; j++ {
-				result[i*ptotal+j] = a[i*pa+j]
+				result[i*colsTotal+j] = a[i*pa+j]
 			}
 			for j := 0; j < pb; j++ {
-				result[i*ptotal+pa+j] = b[i*pb+j]
+				result[i*colsTotal+pa+j] = b[i*pb+j]
 			}
 		}
 		mpcWriteOutput(K2FPColumnConcatOutput{
@@ -536,20 +652,26 @@ func handleK2FPColumnConcat() {
 		})
 		return
 	}
-	a := bytesToFPVec(base64ToBytes(input.A))
-	b := bytesToFPVec(base64ToBytes(input.B))
-	n, pa, pb := input.N, input.PA, input.PB
-	ptotal := pa + pb
-	result := make([]FixedPoint, n*ptotal)
+	a, err := decodeRing63FPVector(input.A, lenA)
+	if err != nil {
+		outputError("k2-fp-column-concat: invalid a: " + err.Error())
+		return
+	}
+	b, err := decodeRing63FPVector(input.B, lenB)
+	if err != nil {
+		outputError("k2-fp-column-concat: invalid b: " + err.Error())
+		return
+	}
+	result := make([]uint64, outputLen)
 	for i := 0; i < n; i++ {
 		for j := 0; j < pa; j++ {
-			result[i*ptotal+j] = a[i*pa+j]
+			result[i*colsTotal+j] = a[i*pa+j]
 		}
 		for j := 0; j < pb; j++ {
-			result[i*ptotal+pa+j] = b[i*pb+j]
+			result[i*colsTotal+pa+j] = b[i*pb+j]
 		}
 	}
 	mpcWriteOutput(K2FPColumnConcatOutput{
-		Result: bytesToBase64(fpVecToBytes(result)),
+		Result: bytesToBase64(fpVecToBytes(ring63ToFP(result))),
 	})
 }

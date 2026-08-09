@@ -8,6 +8,8 @@ k2IknpBaseSenderFinalizeDS(
   ciphertexts = NULL,
   ciphertexts_blob_key = NULL,
   iknp_key,
+  producer_name = NULL,
+  ring = 63L,
   session_id = NULL
 )
 }
@@ -17,6 +19,11 @@ k2IknpBaseSenderFinalizeDS(
 \item{ciphertexts_blob_key}{Optional blob key containing ciphertexts.}
 
 \item{iknp_key}{Session key prefix.}
+
+\item{producer_name}{Verified logical name of the peer that sent the typed
+base-ciphertexts transfer.}
+
+\item{ring}{Integer ring selector, 63 or 127.}
 
 \item{session_id}{MPC session id.}
 }

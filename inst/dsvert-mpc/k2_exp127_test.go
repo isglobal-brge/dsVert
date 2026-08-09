@@ -62,7 +62,7 @@ func TestRing127Exp_Grid_Interior(t *testing.T) {
 // |x| ∈ (5, 8] via argument reduction in Ring127ExpPlaintextExtended.
 // Tolerance is the THEORETICAL ULP floor at fracBits=50:
 //
-//   rel_floor(x) = 2^{-fracBits} / exp(-|x|)   (Trefethen ATAP §8)
+//	rel_floor(x) = 2^{-fracBits} / exp(-|x|)   (Trefethen ATAP §8)
 //
 // which at x=8 is 9e-16 / 3.4e-4 = 2.6e-12. The argument reduction
 // adds ONE TruncMulSigned after Chebyshev on x/2 → the ULP floor

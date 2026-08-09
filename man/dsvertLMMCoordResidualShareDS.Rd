@@ -42,6 +42,6 @@ The peer side has \eqn{r^{peer} = -f^{peer,1}_{ij}} in its
 \eqn{r^0 + r^1 = y - \alpha - X\hat\beta} which is the true
 residual. Subsequent Beaver vecmul on
 \code{k2_lmm_exact_r_share} with itself yields \eqn{r^2} shares
-which the caller sums per cluster on the outcome server via
-\code{\link{dsvertLMMExactClusterR2DS}}.
+which the caller sums per cluster from the two share holders via
+\code{\link{dsvertLMMPerClusterSumDS}}.
 }

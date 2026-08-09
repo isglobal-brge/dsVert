@@ -6,7 +6,6 @@
 #' @param data_name Aligned data-frame name on this server.
 #' @param session_id Active MPC session id.
 #' @return list(n).
-#' @export
 k2SeedSingleClusterDS <- function(data_name, session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
@@ -58,7 +57,6 @@ k2SeedSingleClusterDS <- function(data_name, session_id = NULL) {
 #' @param column_scales Numeric vector. Per-column scaling factors used during standardisation.
 #' @param standardize Logical. If TRUE, standardise columns to unit SD before computing the Gram block.
 #' @param ring Integer (63 or 127). MPC ring selector; controls fixed-point precision.
-#' @export
 dsvertLMMLocalGramDS <- function(data_name, columns,
                                   y_var = NULL,
                                   lambda_per_cluster,
@@ -250,7 +248,6 @@ dsvertLMMLocalGramDS <- function(data_name, columns,
 #'   column's FP share under \code{ss$lmm_gram_col_<name>} so the
 #'   subsequent Beaver vecmul rounds can dereference it by name.
 #' @param session_id Character. Active MPC session identifier.
-#' @export
 dsvertLMMReceiveGramSharesDS <- function(session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id))
     stop("session_id required", call. = FALSE)
@@ -291,7 +288,6 @@ dsvertLMMReceiveGramSharesDS <- function(session_id = NULL) {
 #' @param session_id Character. Active MPC session identifier.
 #' @param frac_bits Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).
 #' @param ring Integer (63 or 127). MPC ring selector; controls fixed-point precision.
-#' @export
 dsvertLMMGramR1DS <- function(peer_pk, x_col, y_col,
                                session_id = NULL, frac_bits = 20L,
                                ring = NULL) {
@@ -336,7 +332,6 @@ dsvertLMMGramR1DS <- function(peer_pk, x_col, y_col,
 #' @param ring 63L or 127L (default derived from session).
 #' @return list(stored = TRUE).
 #' @keywords internal
-#' @export
 dsvertLMMGramR2DS <- function(is_party0, x_col, y_col,
                                session_id = NULL, frac_bits = 20L,
                                ring = NULL) {

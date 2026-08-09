@@ -2,7 +2,7 @@
 % Please edit documentation in R/mpcUtils.R
 \name{dsvertNaOmitDS}
 \alias{dsvertNaOmitDS}
-\title{Remove rows with NAs in specified columns (per-server, non-disclosive)}
+\title{Legacy in-place NA omission helper}
 \usage{
 dsvertNaOmitDS(data_name, vars = NULL)
 }
@@ -16,10 +16,11 @@ If NULL, checks all columns except id/patient_id.}
 List with n_before, n_after, n_dropped.
 }
 \description{
-Performs complete.cases() on the specified columns and removes incomplete
-rows from the data frame. This is done per-server BEFORE PSI alignment,
-so no observation-level information is disclosed. The PSI intersection
-naturally excludes patients removed by any server.
+Compatibility helper that performs \code{complete.cases()} on selected columns
+and mutates the named server-side data frame. It is retained for existing
+deployments but is no longer registered as a product AggregateMethod and is
+not used by \code{ds.psiAlign()}. PSI now applies its explicit missing-data policy
+inside the protocol without modifying the source table.
 }
 \details{
 Equivalent to R's na.action = na.omit in glm().

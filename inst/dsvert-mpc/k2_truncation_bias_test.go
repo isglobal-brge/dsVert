@@ -1,5 +1,5 @@
 // k2_truncation_bias_test.go — investigation of the LMM X4 150× gap.
-// Hypothesis (i/ii): TruncateShare / stochastic-carry accumulates a
+// Hypothesis (i/ii): asymmetric local truncation accumulates a
 // systematic bias that 152× exceeds the Gaussian √n·ULP model.
 //
 // Setup: 200 elements in the LMM cluster-centered magnitude range
@@ -51,11 +51,15 @@ func TestTruncationBias_Deterministic_200(t *testing.T) {
 		y[i] = (rng.Float64()*2 - 1) * 40.0
 	}
 	// Split shares
-	x0 := make([]uint64, n); x1 := make([]uint64, n)
-	y0 := make([]uint64, n); y1 := make([]uint64, n)
+	x0 := make([]uint64, n)
+	x1 := make([]uint64, n)
+	y0 := make([]uint64, n)
+	y1 := make([]uint64, n)
 	for i := 0; i < n; i++ {
-		xr := r.FromDouble(x[i]); yr := r.FromDouble(y[i])
-		x0[i], x1[i] = r.SplitShare(xr); y0[i], y1[i] = r.SplitShare(yr)
+		xr := r.FromDouble(x[i])
+		yr := r.FromDouble(y[i])
+		x0[i], x1[i] = r.SplitShare(xr)
+		y0[i], y1[i] = r.SplitShare(yr)
 	}
 	// Beaver end-to-end
 	t0, t1 := SampleBeaverTripleVector(n, r)
@@ -82,7 +86,9 @@ func TestTruncationBias_Deterministic_200(t *testing.T) {
 		}
 	}
 	// Stats
-	bmean := mean(bias); bsd := sd(bias); bsum := sum(bias)
+	bmean := mean(bias)
+	bsd := sd(bias)
+	bsum := sum(bias)
 	amax := 0.0
 	for _, v := range abs_err {
 		if v > amax {
@@ -106,33 +112,38 @@ func TestTruncationBias_Deterministic_200(t *testing.T) {
 			return m
 		}())
 	// Interpretation clues:
-	//   bmean ~ 0: zero-mean stochastic truncation works
+	//   bmean ~ 0: no measurable systematic bias in this fixture
 	//   |bmean| > 1e-6: deterministic residual bias per element
 	//   sum(bias) ≈ n*bmean: correlated (same sign per element)
-	//   sum(bias) ≈ 0 while bmean ≈ 0: independent zero-mean
+	//   sum(bias) ≈ 0 while bmean ≈ 0: no aggregate drift in this fixture
 }
 
-// Test (A) step (b): correlated stochastic truncation — the path
-// used by StochasticHadamardProduct in production.
-func TestTruncationBias_StochCorrelated_200(t *testing.T) {
+// Test (A) step (b): the paired deterministic asymmetric local-truncation
+// helper. This has the same reconstruction as the per-party production path.
+func TestTruncationBias_AsymmetricLocal_200(t *testing.T) {
 	r := NewRing63(K2DefaultFracBits)
 	n := 200
 	rng := rand.New(rand.NewSource(42))
-	x := make([]float64, n); y := make([]float64, n)
+	x := make([]float64, n)
+	y := make([]float64, n)
 	for i := 0; i < n; i++ {
 		x[i] = (rng.Float64()*2 - 1) * 40.0
 		y[i] = (rng.Float64()*2 - 1) * 40.0
 	}
-	x0 := make([]uint64, n); x1 := make([]uint64, n)
-	y0 := make([]uint64, n); y1 := make([]uint64, n)
+	x0 := make([]uint64, n)
+	x1 := make([]uint64, n)
+	y0 := make([]uint64, n)
+	y1 := make([]uint64, n)
 	for i := 0; i < n; i++ {
-		xr := r.FromDouble(x[i]); yr := r.FromDouble(y[i])
-		x0[i], x1[i] = r.SplitShare(xr); y0[i], y1[i] = r.SplitShare(yr)
+		xr := r.FromDouble(x[i])
+		yr := r.FromDouble(y[i])
+		x0[i], x1[i] = r.SplitShare(xr)
+		y0[i], y1[i] = r.SplitShare(yr)
 	}
 	t0, t1 := SampleBeaverTripleVector(n, r)
 	st0, m0 := GenerateBatchedMultiplicationGateMessage(x0, y0, t0, r)
 	st1, m1 := GenerateBatchedMultiplicationGateMessage(x1, y1, t1, r)
-	out0, out1 := StochasticHadamardProduct(st0, t0, m1, st1, t1, m0,
+	out0, out1 := AsymmetricLocalHadamardProduct(st0, t0, m1, st1, t1, m0,
 		K2DefaultFracBits, r)
 	bias := make([]float64, n)
 	abs_err := make([]float64, n)
@@ -147,21 +158,22 @@ func TestTruncationBias_StochCorrelated_200(t *testing.T) {
 			scaled_err[i] = bias[i] / math.Abs(want)
 		}
 	}
-	bmean := mean(bias); bsd := sd(bias); bsum := sum(bias)
+	bmean := mean(bias)
+	bsd := sd(bias)
+	bsum := sum(bias)
 	amax := 0.0
 	for _, v := range abs_err {
 		if v > amax {
 			amax = v
 		}
 	}
-	t.Logf("[STOCH-TRUNC (correlated)] n=%d", n)
+	t.Logf("[ASYMMETRIC-LOCAL-TRUNC] n=%d", n)
 	t.Logf("  per-elem bias mean = %.3e", bmean)
 	t.Logf("  per-elem bias sd   = %.3e", bsd)
 	t.Logf("  per-elem |bias|max = %.3e", amax)
 	t.Logf("  sum(bias) over n   = %.3e", bsum)
 	t.Logf("  n * bias_mean      = %.3e", float64(n)*bmean)
-	t.Logf("  Theoretical random-walk (independent zero-mean): |sum| ~ sqrt(n)*sd = %.3e",
-		math.Sqrt(float64(n))*bsd)
+	t.Logf("  sqrt(n)*sd reference scale = %.3e", math.Sqrt(float64(n))*bsd)
 	t.Logf("  scaled_err (rel) mean = %.3e, max = %.3e",
 		mean(scaled_err), func() float64 {
 			m := 0.0
@@ -181,7 +193,8 @@ func TestTruncationBias_ScaleSweep(t *testing.T) {
 	n := 200
 	scales := []float64{1.0, 10.0, 40.0, 100.0, 200.0, 500.0}
 	rng := rand.New(rand.NewSource(42))
-	xu := make([]float64, n); yu := make([]float64, n)
+	xu := make([]float64, n)
+	yu := make([]float64, n)
 	for i := 0; i < n; i++ {
 		xu[i] = rng.Float64()*2 - 1
 		yu[i] = rng.Float64()*2 - 1
@@ -190,7 +203,8 @@ func TestTruncationBias_ScaleSweep(t *testing.T) {
 	t.Logf("%10s %15s %15s %15s %15s", "scale", "|dot_err|", "dot_rel_err",
 		"per-elem rel", "x·y mean")
 	for _, s := range scales {
-		x := make([]float64, n); y := make([]float64, n)
+		x := make([]float64, n)
+		y := make([]float64, n)
 		for i := 0; i < n; i++ {
 			x[i] = xu[i] * s
 			y[i] = yu[i] * s
@@ -208,8 +222,10 @@ func TestTruncationBias_ScaleSweep(t *testing.T) {
 				s, maxProd, int64(1)<<22)
 			continue
 		}
-		x0 := make([]uint64, n); x1 := make([]uint64, n)
-		y0 := make([]uint64, n); y1 := make([]uint64, n)
+		x0 := make([]uint64, n)
+		x1 := make([]uint64, n)
+		y0 := make([]uint64, n)
+		y1 := make([]uint64, n)
 		for i := 0; i < n; i++ {
 			x0[i], x1[i] = r.SplitShare(r.FromDouble(x[i]))
 			y0[i], y1[i] = r.SplitShare(r.FromDouble(y[i]))
@@ -223,15 +239,19 @@ func TestTruncationBias_ScaleSweep(t *testing.T) {
 		o0 := TruncateSharePartyZero(raw0, div, r.Modulus)
 		o1 := TruncateSharePartyOne(raw1, div, r.Modulus)
 		// Dot product bias
-		got_sum := 0.0; want_sum := 0.0
-		per_elem_rel := 0.0; cnt := 0
+		got_sum := 0.0
+		want_sum := 0.0
+		per_elem_rel := 0.0
+		cnt := 0
 		for i := 0; i < n; i++ {
 			z := r.Add(o0[i], o1[i])
 			g := r.ToDouble(z)
 			w := x[i] * y[i]
-			got_sum += g; want_sum += w
+			got_sum += g
+			want_sum += w
 			if math.Abs(w) > 1e-10 {
-				per_elem_rel += math.Abs((g - w) / w); cnt++
+				per_elem_rel += math.Abs((g - w) / w)
+				cnt++
 			}
 		}
 		dot_err := got_sum - want_sum

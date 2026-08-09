@@ -23,16 +23,17 @@
 package main
 
 // K2Ring127AffineCombineInput: inputs for one affine combine call.
-//   A, B:           base64 Ring127 FP shares (16 B per elt), length n each.
-//                   Required iff corresponding sign is nonzero; may be "" if
-//                   the sign is 0.
-//   SignA, SignB:   -1, 0, or +1. Any other value → error.
-//   PublicConst:    base64 of a single Uint128 (16 B). Broadcast scalar added
-//                   to every element on party 0 only. May be "" for zero.
-//   IsParty0:       bool. True → add PublicConst; false → skip.
-//   FracBits:       Ring127 fracBits (default 50).
-//   N:              vector length. Required; used to construct zero-shares
-//                   when a sign is 0 and the corresponding vec is empty.
+//
+//	A, B:           base64 Ring127 FP shares (16 B per elt), length n each.
+//	                Required iff corresponding sign is nonzero; may be "" if
+//	                the sign is 0.
+//	SignA, SignB:   -1, 0, or +1. Any other value → error.
+//	PublicConst:    base64 of a single Uint128 (16 B). Broadcast scalar added
+//	                to every element on party 0 only. May be "" for zero.
+//	IsParty0:       bool. True → add PublicConst; false → skip.
+//	FracBits:       Ring127 fracBits (default 50).
+//	N:              vector length. Required; used to construct zero-shares
+//	                when a sign is 0 and the corresponding vec is empty.
 type K2Ring127AffineCombineInput struct {
 	A           string `json:"a"`
 	B           string `json:"b"`
@@ -53,7 +54,11 @@ func handleK2Ring127AffineCombine() {
 	var input K2Ring127AffineCombineInput
 	mpcReadInput(&input)
 
-	fb := ring127DefaultFracBits(input.FracBits)
+	fb, err := normalizeRing127FracBits(input.FracBits)
+	if err != nil {
+		outputError("k2-ring127-affine-combine: " + err.Error())
+		return
+	}
 	r := NewRing127(fb)
 	n := input.N
 	if n <= 0 {
@@ -72,16 +77,16 @@ func handleK2Ring127AffineCombine() {
 	// Decode vectors, substituting zero when the sign is 0.
 	var a, b []Uint128
 	if input.SignA != 0 {
-		a = b64Uint128Vec(input.A)
-		if len(a) != n {
-			outputError("k2-ring127-affine-combine: |a| mismatch vs n")
+		a, err = decodeRing127Vector(input.A, n)
+		if err != nil {
+			outputError("k2-ring127-affine-combine: invalid a: " + err.Error())
 			return
 		}
 	}
 	if input.SignB != 0 {
-		b = b64Uint128Vec(input.B)
-		if len(b) != n {
-			outputError("k2-ring127-affine-combine: |b| mismatch vs n")
+		b, err = decodeRing127Vector(input.B, n)
+		if err != nil {
+			outputError("k2-ring127-affine-combine: invalid b: " + err.Error())
 			return
 		}
 	}
@@ -90,9 +95,9 @@ func handleK2Ring127AffineCombine() {
 	var cAdd Uint128
 	addConst := false
 	if input.IsParty0 && input.PublicConst != "" {
-		cv := b64Uint128Vec(input.PublicConst)
-		if len(cv) != 1 {
-			outputError("k2-ring127-affine-combine: public_const must encode exactly 1 Uint128")
+		cv, err := decodeRing127Vector(input.PublicConst, 1)
+		if err != nil {
+			outputError("k2-ring127-affine-combine: invalid public_const: " + err.Error())
 			return
 		}
 		cAdd = cv[0]

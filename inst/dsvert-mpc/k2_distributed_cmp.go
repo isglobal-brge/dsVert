@@ -1,22 +1,29 @@
-// k2_distributed_cmp.go: Distributed secure comparison using DCF.
+// k2_distributed_cmp.go: masked DCF comparison building block.
 //
-// Port from k2-mpc-tool/distributed_comparison.go, adapted to use
-// the dsvert-mpc Ring63 (which is validated with 0% failure).
+// Port from k2-mpc-tool/distributed_comparison.go, adapted to Ring63. This
+// historical construction is not a promotion-safe comparison protocol by
+// itself: its mask is uniform over only one quarter of the ring, so opening
+// the masked value leaks coarse range information, and the comparison is
+// wrong when the masked input and masked threshold wrap differently. A
+// server-proven interior-domain contract can address correctness but not the
+// range leakage. See the counterexamples in k2_numeric_validation_test.go.
 //
 // Protocol:
 //   Preprocessing (dealer): Generate DCF keys + random masks for [x < threshold]
 //   Round 1: Each party computes masked_share = share + mask_share, sends to peer
 //   Round 2: Each party reconstructs masked value, evaluates DCF → arithmetic share
 //
-// The DCF output is an ARITHMETIC share in Ring63 (not a mod-2 bit).
-// share0 + share1 = 0 or 1 (exact, in Ring63).
+// The DCF output is an ARITHMETIC share in Ring63 (not a mod-2 bit). Its
+// reconstruction is the exact DCF predicate on the masked values; it equals
+// the intended signed comparison only when the no-differential-wrap
+// precondition holds.
 
 package main
 
 // CmpPreprocessPerParty holds one party's preprocessing for comparisons.
 type CmpPreprocessPerParty struct {
-	Keys      []DCFKey  // One DCF key per element
-	MaskShare []uint64  // Party's share of random mask
+	Keys      []DCFKey // One DCF key per element
+	MaskShare []uint64 // Party's share of random mask
 }
 
 // CmpMaskedValues is the round 1 message: masked eta values for each comparison.
@@ -34,7 +41,7 @@ type CmpArithResult struct {
 // To handle signed values, party 0 adds SignThreshold in round 1.
 func cmpGeneratePreprocess(ring Ring63, n int, threshold uint64) (CmpPreprocessPerParty, CmpPreprocessPerParty) {
 	mod := ring.Modulus
-	safeMax := mod / 4 // mask range to prevent wraparound
+	maskRange := mod / 4
 
 	// Shift threshold for unsigned comparison
 	threshShifted := ring.Add(threshold, ring.SignThreshold)
@@ -51,7 +58,7 @@ func cmpGeneratePreprocess(ring Ring63, n int, threshold uint64) (CmpPreprocessP
 	numBits := 63 // Ring63
 
 	for i := 0; i < n; i++ {
-		r := cryptoRandUint64K2() % safeMax
+		r := cryptoRandUint64K2() % maskRange
 		r0 := cryptoRandUint64K2() % mod
 		r1 := ring.Sub(r, r0)
 

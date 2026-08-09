@@ -12,7 +12,7 @@ NULL
 #'
 #' @param session_id Character or NULL.
 #' @return List with status.
-#' @export
+#' @keywords internal
 k2StoreDcfKeysPersistentDS <- function(session_id = NULL) {
   ss <- .S(session_id)
   blob <- .blob_consume("k2_dcf_keys_persistent", ss)
@@ -41,7 +41,7 @@ k2StoreDcfKeysPersistentDS <- function(session_id = NULL) {
 #'   `ring = "ring127"` in the JSON input.
 #' @param session_id Character or NULL.
 #' @return List with dcf_masked (base64url).
-#' @export
+#' @keywords internal
 k2WideSplinePhase1DS <- function(party_id = 0L, family = "binomial",
                                   num_intervals = NULL, frac_bits = 20L,
                                   ring = 63L, session_id = NULL) {
@@ -86,7 +86,7 @@ k2WideSplinePhase1DS <- function(party_id = 0L, family = "binomial",
 #' Wide spline Phase 2: DCF close + Beaver R1 for AND and Hadamard-1
 #' @inheritParams k2WideSplinePhase1DS
 #' @return List with and_xma, and_ymb, had1_xma, had1_ymb.
-#' @export
+#' @keywords internal
 k2WideSplinePhase2DS <- function(party_id = 0L, family = "binomial",
                                   num_intervals = NULL, frac_bits = 20L,
                                   ring = 63L, session_id = NULL) {
@@ -133,7 +133,7 @@ k2WideSplinePhase2DS <- function(party_id = 0L, family = "binomial",
 #' Wide spline Phase 3: Close AND+Had1, generate Had2 R1
 #' @inheritParams k2WideSplinePhase1DS
 #' @return List with had2_xma, had2_ymb.
-#' @export
+#' @keywords internal
 k2WideSplinePhase3DS <- function(party_id = 0L, family = "binomial",
                                   num_intervals = NULL, frac_bits = 20L,
                                   ring = 63L, session_id = NULL) {
@@ -173,7 +173,7 @@ k2WideSplinePhase3DS <- function(party_id = 0L, family = "binomial",
 #' Wide spline Phase 4: Close Had2 + assemble mu shares
 #' @inheritParams k2WideSplinePhase1DS
 #' @return List with status and mu_computed flag.
-#' @export
+#' @keywords internal
 k2WideSplinePhase4DS <- function(party_id = 0L, family = "binomial",
                                   num_intervals = NULL, frac_bits = 20L,
                                   ring = 63L, session_id = NULL) {

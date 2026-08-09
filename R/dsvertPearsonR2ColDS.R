@@ -28,7 +28,6 @@
 #'   residual.
 #' @param r2_column Name of the new column (default "__dsvert_r2").
 #' @return list(n_observed, n_missing, method) -- no per-patient values.
-#' @export
 dsvertPearsonR2ColDS <- function(data_name, y_var, x_names,
                                   betahat, intercept = 0,
                                   family = "gaussian",

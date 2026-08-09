@@ -30,3 +30,4 @@ column on the data frame prefixes the name with \code{__dsvert_}.
 Client wrappers should call this at the end of their on.exit
 cleanup chain to restore the data frame to its post-PSI state.
 }
+\keyword{internal}

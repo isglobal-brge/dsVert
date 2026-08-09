@@ -4,10 +4,12 @@
 \alias{k2ReceiveShareDS}
 \title{Receive peer's shared data (FixedPoint)}
 \usage{
-k2ReceiveShareDS(peer_p = NULL, session_id = NULL)
+k2ReceiveShareDS(peer_p = NULL, peer_name, session_id = NULL)
 }
 \arguments{
 \item{peer_p}{Integer. Number of features held by the peer (sets share length).}
+
+\item{peer_name}{Authenticated logical name of the expected producer.}
 
 \item{session_id}{Character. Active MPC session identifier.}
 }

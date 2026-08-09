@@ -28,20 +28,28 @@
 #' @param output_column Character. Name under which the imputed column
 #'   is written.
 #' @param seed Integer. RNG seed for reproducible draws.
+#' @param allow_intercept_only Logical. Explicitly permit the aggregate
+#'   mean/mode imputation alternative when no complete numeric predictor is
+#'   available. Defaults to \code{FALSE}; this prevents an automatic change of
+#'   imputation model.
 #' @return List with components \code{n_imputed} (count of cells
 #'   imputed), \code{n_observed} (count with non-missing original
 #'   values), \code{method}, \code{n_predictors}, and
 #'   \code{intercept_only}. Imputed values remain server-side.
-#' @export
 dsvertImputeColumnDS <- function(data_name, impute_column,
                                   output_column = NULL,
-                                  seed = 1L) {
+                                  seed = 1L,
+                                  allow_intercept_only = FALSE) {
   .validate_data_name(data_name)
   data <- get(data_name, envir = parent.frame())
   if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
   if (!impute_column %in% names(data)) {
     stop("impute_column '", impute_column, "' not found",
          call. = FALSE)
+  }
+  if (!is.logical(allow_intercept_only) ||
+      length(allow_intercept_only) != 1L || is.na(allow_intercept_only)) {
+    stop("allow_intercept_only must be TRUE or FALSE", call. = FALSE)
   }
   if (is.null(output_column) || !nzchar(output_column)) {
     output_column <- paste0(impute_column, "_imputed")
@@ -77,6 +85,12 @@ dsvertImputeColumnDS <- function(data_name, impute_column,
     if (is.numeric(col) && !any(is.na(col))) keep <- c(keep, c)
   }
   intercept_only <- length(keep) == 0L
+  if (isTRUE(intercept_only) && !isTRUE(allow_intercept_only)) {
+    stop(paste0(
+      "No complete numeric predictor is available for '", impute_column,
+      "'. The aggregate mean/mode alternative was not requested."),
+      call. = FALSE)
+  }
 
   set.seed(as.integer(seed))
   build_design <- function(df, rows) {
@@ -109,8 +123,12 @@ dsvertImputeColumnDS <- function(data_name, impute_column,
       XtX <- crossprod(X_obs)
       Xty <- crossprod(X_obs, y_obs)
       prec <- XtX + alpha * P_ridge
-      Sigma <- tryCatch(solve(prec), error = function(e) {
-        solve(prec + 1e-6 * diag(ncol(X_obs))) })
+      Sigma <- tryCatch(
+        solve(prec),
+        error = function(e) {
+          stop("Bayesian-ridge posterior precision is singular",
+               call. = FALSE)
+        })
       beta_hat <- drop(Sigma %*% Xty)
       resid <- y_obs - X_obs %*% beta_hat
       sigma2_hat <- sum(resid^2) / max(length(y_obs) - ncol(X_obs), 1L)
@@ -152,13 +170,21 @@ dsvertImputeColumnDS <- function(data_name, impute_column,
         W <- as.numeric(p * (1 - p)); W <- pmax(W, 1e-6)
         H <- crossprod(X_obs * W, X_obs) + alpha * P_ridge
         g <- crossprod(X_obs, y_obs - p) - alpha * drop(P_ridge %*% beta)
-        step <- tryCatch(solve(H, g),
-          error = function(e) solve(H + 1e-6 * diag(ncol(X_obs)), g))
+        step <- tryCatch(
+          solve(H, g),
+          error = function(e) {
+            stop("Bayesian-logit posterior information is singular",
+                 call. = FALSE)
+          })
         beta <- beta + drop(step)
         if (max(abs(step)) < 1e-6) break
       }
-      Sigma <- tryCatch(solve(H), error = function(e)
-        solve(H + 1e-6 * diag(ncol(X_obs))))
+      Sigma <- tryCatch(
+        solve(H),
+        error = function(e) {
+          stop("Bayesian-logit posterior covariance is singular",
+               call. = FALSE)
+        })
       L <- chol(Sigma + 1e-12 * diag(ncol(X_obs)))
       beta_draw <- beta + drop(t(L) %*% stats::rnorm(ncol(X_obs)))
       p_miss <- 1 / (1 + exp(-drop(X_miss %*% beta_draw)))
@@ -213,8 +239,12 @@ dsvertImputeColumnDS <- function(data_name, impute_column,
                          (1 - softmax_probs(X_obs %*% beta)[, k]))
         w <- pmax(w, 1e-6)
         Hk <- crossprod(X_obs * w, X_obs) + alpha * P_ridge
-        Sig_k <- tryCatch(solve(Hk), error = function(e)
-          solve(Hk + 1e-6 * diag(p_d)))
+        Sig_k <- tryCatch(
+          solve(Hk),
+          error = function(e) {
+            stop("Bayesian-multinomial posterior covariance is singular",
+                 call. = FALSE)
+          })
         Lk <- chol(Sig_k + 1e-12 * diag(p_d))
         beta_draw[, k - 1L] <- beta[, k - 1L] +
                                 drop(t(Lk) %*% stats::rnorm(p_d))
@@ -234,6 +264,13 @@ dsvertImputeColumnDS <- function(data_name, impute_column,
   list(n_imputed = as.integer(n_missing),
        n_observed = as.integer(n_observed),
        method = method,
+       model_regularization = if (intercept_only) "none" else "bayesian_ridge",
+       regularization_alpha = if (intercept_only) 0 else 1,
+       numerical_stabilization = if (intercept_only) {
+         "none"
+       } else {
+         "posterior_cholesky_jitter_1e-12"
+       },
        n_predictors = as.integer(length(keep)),
        intercept_only = isTRUE(intercept_only))
 }

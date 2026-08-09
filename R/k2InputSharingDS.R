@@ -16,15 +16,45 @@ NULL
 #' @param y_var Character. Name of the outcome column on the label server.
 #' @param peer_pk Character (base64url). Peer party's transport public key for sealed shares.
 #' @param session_id Character. Active MPC session identifier.
-#' @export
 k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
-                             peer_pk, ring = 63L, session_id = NULL) {
+                           peer_pk, ring = 63L, session_id = NULL) {
+  .k2_share_input_impl(
+    data_name = data_name, x_vars = x_vars, y_var = y_var,
+    peer_pk = peer_pk, ring = ring, session_id = session_id,
+    capability_id = "blob.input.peer-x.v1", producer = "k2ShareInputDS",
+    data_env = parent.frame())
+}
+
+#' Share local features with a non-owning DCF party
+#'
+#' Fixed-purpose companion to \code{k2ShareInputDS}. It cannot carry an outcome
+#' and always mints the \code{input.extra_x} transport capability.
+#' @inheritParams k2ShareInputDS
+glmRing63ShareExtraInputDS <- function(data_name, x_vars, peer_pk,
+                                       ring = 63L, session_id = NULL) {
+  .k2_share_input_impl(
+    data_name = data_name, x_vars = x_vars, y_var = NULL,
+    peer_pk = peer_pk, ring = ring, session_id = session_id,
+    capability_id = "blob.input.extra-x.v1",
+    producer = "glmRing63ShareExtraInputDS", data_env = parent.frame())
+}
+
+.k2_share_input_impl <- function(data_name, x_vars, y_var, peer_pk, ring,
+                                 session_id, capability_id, producer,
+                                 data_env) {
   ss <- .S(session_id)
   # The peer shares of X and y are transport-sealed to `peer_pk`; pin it to an
   # identity-verified peer so a caller cannot supply its own key and decrypt
   # them (own_share is retained locally; own+peer reconstructs the full
   # plaintext feature/label matrix).
   .dsvert_validate_peer_pk(peer_pk, ss, "peer")
+  request <- list(
+    data_name = data_name, x_vars = as.character(x_vars),
+    y_var = if (is.null(y_var)) NULL else as.character(y_var),
+    peer_pk = peer_pk, ring = as.integer(ring),
+    capability_id = capability_id)
+  replay <- .dsvert_typed_blob_operation_replay(ss, producer, request)
+  if (isTRUE(replay$hit)) return(replay$result)
   ## NOTE: this primitive is shared infrastructure -- the K=3 GLM
   ## (ds.vertGLM.k3ring63) designates 2-of-3 servers as DCF parties
   ## and reuses k2ShareInputDS between them. The .k2_enforce_K guard
@@ -36,7 +66,7 @@ k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
   ## algorithm primitives (multinomJointDS, dsvertLMMGramDS,
   ## dsvertLMMGLSTransformDS) where the algebra genuinely depends on
   ## a 2-party additive split.
-  data <- .resolveData(data_name, parent.frame(), session_id)
+  data <- .resolveData(data_name, data_env, session_id)
   X <- as.matrix(data[, x_vars, drop = FALSE])
   n <- nrow(X)
   p <- ncol(X)
@@ -67,6 +97,7 @@ k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
 
   # y (label only)
   encrypted_y <- NULL
+  encrypted_y_transfer <- NULL
   if (!is.null(y_var)) {
     y <- as.numeric(data[[y_var]])
     ss$k2_y_raw <- y  # Store raw y for canonical deviance constants
@@ -84,6 +115,9 @@ k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
       data = jsonlite::base64_enc(charToRaw(y_split$peer_share)),
       recipient_pk = pk))
     encrypted_y <- base64_to_base64url(sealed_y$sealed)
+    encrypted_y_transfer <- .dsvert_typed_blob_mint(
+      ss, session_id, "blob.input.peer-y.v1", peer_pk, encrypted_y,
+      list(n = n, ring = ring), producer = "k2ShareInputDS")
   }
 
   # Transport-encrypt peer's X share
@@ -92,30 +126,47 @@ k2ShareInputDS <- function(data_name, x_vars, y_var = NULL,
     data = jsonlite::base64_enc(charToRaw(x_split$peer_share)),
     recipient_pk = pk))
 
-  list(
-    encrypted_x_share = base64_to_base64url(sealed_x$sealed),
+  encrypted_x <- base64_to_base64url(sealed_x$sealed)
+  encrypted_x_transfer <- .dsvert_typed_blob_mint(
+    ss, session_id, capability_id, peer_pk, encrypted_x,
+    list(n = n, p = p, ring = ring), producer = producer)
+
+  result <- list(
+    encrypted_x_share = encrypted_x,
+    encrypted_x_transfer = encrypted_x_transfer,
     encrypted_y_share = encrypted_y,
+    encrypted_y_transfer = encrypted_y_transfer,
     n = n, p = p
   )
+  .dsvert_typed_blob_operation_commit(ss, producer, request, result)
 }
 
 #' Receive peer's shared data (FixedPoint)
 #' @param peer_p Integer. Number of features held by the peer (sets share length).
+#' @param peer_name Authenticated logical name of the expected producer.
 #' @param session_id Character. Active MPC session identifier.
-#' @export
-k2ReceiveShareDS <- function(peer_p = NULL, session_id = NULL) {
+k2ReceiveShareDS <- function(peer_p = NULL, peer_name,
+                             session_id = NULL) {
   ss <- .S(session_id)
   tsk <- .key_get("transport_sk", ss)
-
-  x_blob <- .blob_consume("k2_peer_x_share", ss)
-  if (!is.null(x_blob)) {
-    dec <- .callMpcTool("transport-decrypt", list(
-      sealed = .base64url_to_base64(x_blob), recipient_sk = tsk))
-    ss$k2_peer_x_share_fp <- rawToChar(jsonlite::base64_dec(dec$data))
-    ss$k2_peer_p <- as.integer(peer_p)
+  n <- ss$k2_x_n
+  ring <- as.integer(ss$k2_ring %||% 63L)
+  peer_p <- as.integer(peer_p)
+  if (!is.finite(peer_p) || length(peer_p) != 1L || peer_p < 1L) {
+    stop("peer_p must be a positive integer", call. = FALSE)
   }
 
-  y_blob <- .blob_consume("k2_peer_y_share", ss)
+  x_blob <- .dsvert_typed_blob_consume(
+    ss, "blob.input.peer-x.v1",
+    list(n = n, p = peer_p, ring = ring), sender_name = peer_name)
+  dec <- .callMpcTool("transport-decrypt", list(
+    sealed = .base64url_to_base64(x_blob), recipient_sk = tsk))
+  ss$k2_peer_x_share_fp <- rawToChar(jsonlite::base64_dec(dec$data))
+  ss$k2_peer_p <- peer_p
+
+  y_blob <- .dsvert_typed_blob_consume(
+    ss, "blob.input.peer-y.v1", list(n = n, ring = ring),
+    sender_name = peer_name, required = FALSE)
   if (!is.null(y_blob)) {
     dec <- .callMpcTool("transport-decrypt", list(
       sealed = .base64url_to_base64(y_blob), recipient_sk = tsk))
@@ -147,7 +198,6 @@ k2ReceiveShareDS <- function(peer_p = NULL, session_id = NULL) {
 #' @param intercept Numeric scalar. Intercept term added to the linear predictor.
 #' @param is_coordinator Logical. TRUE if this server is acting as the coordinator (label) party.
 #' @param session_id Character. Active MPC session identifier.
-#' @export
 k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
                                   is_coordinator = TRUE, session_id = NULL,
                                   output_key = NULL) {
@@ -250,10 +300,13 @@ k2ComputeEtaShareDS <- function(beta_coord, beta_nl, intercept = 0.0,
 #' Gradient round 1: compute (X-A, r-B) in selected ring (Ring63 / Ring127)
 #' @param peer_pk Character (base64url). Peer party's transport public key for sealed shares.
 #' @param session_id Character. Active MPC session identifier.
-#' @export
 k2GradientR1DS <- function(peer_pk, session_id = NULL) {
   ss <- .S(session_id)
   .dsvert_validate_recipient_pk(peer_pk, ss, "peer")
+  request <- list(peer_pk = peer_pk)
+  replay <- .dsvert_typed_blob_operation_replay(
+    ss, "k2GradientR1DS", request)
+  if (isTRUE(replay$hit)) return(replay$result)
   ## Shared infra -- see header comment on k2ShareInputDS.
   n <- ss$k2_x_n
   p_own <- ss$k2_x_p
@@ -299,19 +352,26 @@ k2GradientR1DS <- function(peer_pk, session_id = NULL) {
   sealed <- .callMpcTool("transport-encrypt", list(
     data = jsonlite::base64_enc(charToRaw(msg_json)),
     recipient_pk = pk))
+  encrypted_r1 <- base64_to_base64url(sealed$sealed)
 
-  list(
-    encrypted_r1 = base64_to_base64url(sealed$sealed),
+  result <- list(
+    encrypted_r1 = encrypted_r1,
+    encrypted_r1_transfer = .dsvert_typed_blob_mint(
+      ss, session_id, "blob.gradient.peer-r1.v1", peer_pk, encrypted_r1,
+      list(n = n, p = p_total, ring = ring), producer = "k2GradientR1DS"),
     sum_residual = result$sum_residual,
     sum_residual_fp = result$sum_residual_fp
   )
+  .dsvert_typed_blob_operation_commit(
+    ss, "k2GradientR1DS", request, result)
 }
 
 #' Gradient round 2: compute gradient share from Beaver formula
 #' @param party_id Integer (0 or 1). Beaver-protocol party index.
+#' @param peer_name Authenticated logical name of the expected round-one peer.
 #' @param session_id Character. Active MPC session identifier.
-#' @export
-k2GradientR2DS <- function(party_id = 0L, session_id = NULL) {
+k2GradientR2DS <- function(party_id = 0L, peer_name,
+                           session_id = NULL) {
   ss <- .S(session_id)
   ## Shared infra -- see header comment on k2ShareInputDS.
   n <- ss$k2_x_n
@@ -324,7 +384,9 @@ k2GradientR2DS <- function(party_id = 0L, session_id = NULL) {
   frac_bits <- if (ring == 127L) 50L else 20L
 
   # Decrypt peer's round-1 message
-  blob <- .blob_consume("k2_grad_peer_r1", ss)
+  blob <- .dsvert_typed_blob_consume(
+    ss, "blob.gradient.peer-r1.v1",
+    list(n = n, p = p_total, ring = ring), sender_name = peer_name)
   tsk <- .key_get("transport_sk", ss)
   dec <- .callMpcTool("transport-decrypt", list(
     sealed = .base64url_to_base64(blob), recipient_sk = tsk))
@@ -364,7 +426,7 @@ k2GradientR2DS <- function(party_id = 0L, session_id = NULL) {
 #'   MP-SPDZ Programs/Source/Multiplications.hpp where pool isolation
 #'   is per-multiplication, not per-pool.
 #' @param session_id Character. Active MPC session identifier.
-#' @export
+#' @keywords internal
 k2StoreGradTripleDS <- function(session_id = NULL,
                                 grad_triple_key = "k2_grad_triple_fp") {
   ss <- .S(session_id)

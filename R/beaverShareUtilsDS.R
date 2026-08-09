@@ -1,23 +1,67 @@
+.DSVERT_SHARED_ONEHOT_PROVENANCE_VERSION <-
+  "dsvert-shared-onehot-provenance-v1"
+
+.dsvert_shared_onehot_digest <- function(value) {
+  digest::digest(value, algo = "sha256", serialize = FALSE)
+}
+
+.dsvert_record_shared_onehot <- function(
+    ss, key, variable, n, levels, ring, source, peer_name = NULL) {
+  if (!is.environment(ss)) {
+    stop("Invalid shared one-hot session.", call. = FALSE)
+  }
+  key <- .exact_gc_vecmul_validate_slot(key, "shared one-hot slot")
+  variable <- .dsvert_typed_blob_storage_name(
+    variable, "shared one-hot variable")
+  n <- as.integer(.exact_gc_integer(
+    n, "shared one-hot row count", 1, .Machine$integer.max))
+  levels <- as.integer(.exact_gc_integer(
+    levels, "shared one-hot level count", 1, 4096))
+  ring <- as.integer(.exact_gc_integer(
+    ring, "shared one-hot ring", 63, 127))
+  if (!ring %in% c(63L, 127L) || !source %in% c("local", "peer")) {
+    stop("Invalid shared one-hot provenance.", call. = FALSE)
+  }
+  if (identical(source, "peer")) {
+    peer_name <- .dsvert_validate_logical_peer_name(peer_name)
+  } else {
+    peer_name <- NULL
+  }
+  value <- ss[[key]]
+  .exact_gc_validate_residue_records(
+    value, ring, as.numeric(n) * levels, "shared one-hot vector")
+  if (is.null(ss$.dsvert_shared_onehot_provenance)) {
+    ss$.dsvert_shared_onehot_provenance <- list()
+  }
+  ss$.dsvert_shared_onehot_provenance[[key]] <- list(
+    version = .DSVERT_SHARED_ONEHOT_PROVENANCE_VERSION,
+    key = key, variable = variable, n = n, levels = levels,
+    ring_bits = ring,
+    frac_bits = if (ring == 63L) 20L else 50L,
+    source = source, peer_name = peer_name,
+    value_digest = .dsvert_shared_onehot_digest(value))
+  invisible(NULL)
+}
+
 #' @title Share a session FP vector with the peer (additive 2-party split)
-#' @description Reads an FP vector stored under \code{source_key} in the
-#'   MPC session, splits it into two additive Ring63 shares, overwrites
-#'   \code{source_key} with this party's share (so downstream helpers
-#'   see a share rather than the plaintext), and returns a
-#'   transport-encrypted blob carrying the peer's share for relay via
-#'   \code{mpcStoreBlobDS} under \code{relay_key}.
+#' @description Reads the one-hot FP vector derived from \code{variable} in the
+#'   MPC session, splits it into two additive shares, retains this party's share,
+#'   and returns a transport-encrypted typed transfer for the peer.
 #'
 #'   Used by \code{ds.vertChisqCross} to share each one-hot indicator
 #'   matrix between the DCF parties before the per-cell Beaver product.
-#' @param source_key Character. Session slot holding the plaintext FP
-#'   vector (e.g. \code{"k2_onehot_<var>_fp"}).
+#' @param variable Character. One-hot variable whose FP vector is shared.
+#' @param n Number of rows in the one-hot matrix.
+#' @param levels Number of levels in the one-hot matrix.
 #' @param peer_pk Transport pk of the peer (base64url).
 #' @param session_id MPC session id.
 #' @param frac_bits Ring63 fractional bits (default 20).
+#' @param ring Integer ring selector, 63 or 127.
 #' @return list(peer_blob) -- sealed payload for relay.
-#' @export
-k2BeaverShareVectorDS <- function(source_key, peer_pk,
-                                   session_id = NULL,
-                                   frac_bits = 20L) {
+#' @keywords internal
+k2BeaverShareVectorDS <- function(variable, n, levels, peer_pk,
+                                  session_id = NULL,
+                                  frac_bits = 20L, ring = 63L) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
@@ -26,6 +70,25 @@ k2BeaverShareVectorDS <- function(source_key, peer_pk,
   # `peer_pk`, so an unverified recipient would let a caller supply its own key
   # and decrypt the "sealed" share (its complement is the retained own_share).
   .dsvert_validate_peer_pk(peer_pk, ss, "peer")
+  variable <- .dsvert_typed_blob_storage_name(
+    variable, "one-hot variable")
+  source_key <- paste0("k2_onehot_", variable, "_fp")
+  n <- as.integer(n)
+  levels <- as.integer(levels)
+  ring <- as.integer(ring)
+  if (!is.finite(n) || n < 1L || !is.finite(levels) || levels < 1L ||
+      !ring %in% c(63L, 127L)) {
+    stop("Invalid one-hot share shape or ring", call. = FALSE)
+  }
+  if (!is.null(ss$k2_ring) && !identical(as.integer(ss$k2_ring), ring)) {
+    stop("One-hot share ring conflicts with the session", call. = FALSE)
+  }
+  request <- list(
+    variable = variable, n = n, levels = levels, peer_pk = peer_pk,
+    frac_bits = as.integer(frac_bits), ring = ring)
+  replay <- .dsvert_typed_blob_operation_replay(
+    ss, "k2BeaverShareVectorDS", request)
+  if (isTRUE(replay$hit)) return(replay$result)
   fp <- ss[[source_key]]
   if (is.null(fp)) {
     stop("source_key '", source_key, "' not in session", call. = FALSE)
@@ -33,36 +96,55 @@ k2BeaverShareVectorDS <- function(source_key, peer_pk,
   split_res <- .callMpcTool("k2-split-fp-share",
     list(data_fp = fp))
   ss[[source_key]] <- split_res$own_share
+  .dsvert_record_shared_onehot(
+    ss, source_key, variable, n, levels, ring, source = "local")
   # Transport-seal the peer's share for relay.
   sealed <- .callMpcTool("transport-encrypt",
     list(data = split_res$peer_share,
          recipient_pk = .base64url_to_base64(peer_pk)))
-  list(peer_blob = base64_to_base64url(sealed$sealed))
+  payload <- base64_to_base64url(sealed$sealed)
+  result <- list(
+    peer_blob = payload,
+    peer_transfer = .dsvert_typed_blob_mint(
+      ss, session_id, "blob.beaver.vector-share.v1", peer_pk, payload,
+      list(variable = variable, n = n, levels = levels, ring = ring),
+      producer = "k2BeaverShareVectorDS"))
+  .dsvert_typed_blob_operation_commit(
+    ss, "k2BeaverShareVectorDS", request, result)
 }
 
 #' @title Receive a shared FP vector and store under a session key
-#' @description Consume the peer-relayed blob previously delivered via
-#'   \code{mpcStoreBlobDS} under \code{blob_key}, decrypt with this
-#'   party's transport secret key, and store under \code{output_key}.
-#' @param blob_key Character. Session blob slot to consume the sealed share from.
-#' @param output_key Character. Session-state key under which the output share is written.
+#' @description Consume the peer's typed one-hot vector transfer, decrypt it,
+#'   and store the share under the session key derived from \code{variable}.
+#' @param variable Character. One-hot variable represented by the share.
+#' @param n Number of rows in the one-hot matrix.
+#' @param levels Number of levels in the one-hot matrix.
+#' @param peer_name Character. Verified logical name of the sending peer.
+#' @param ring Integer ring selector, 63 or 127.
 #' @param session_id Character. Active MPC session identifier.
-#' @export
-k2BeaverReceiveVectorDS <- function(blob_key, output_key,
-                                     session_id = NULL) {
+#' @keywords internal
+k2BeaverReceiveVectorDS <- function(variable, n, levels, peer_name,
+                                     ring = 63L, session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
-  blob <- .blob_consume(blob_key, ss)
-  if (is.null(blob)) {
-    stop("No blob '", blob_key, "' in session", call. = FALSE)
-  }
+  variable <- .dsvert_typed_blob_storage_name(
+    variable, "one-hot variable")
+  output_key <- paste0("k2_onehot_peer_", variable, "_fp")
+  blob <- .dsvert_typed_blob_consume(
+    ss, "blob.beaver.vector-share.v1",
+    list(variable = variable, n = as.integer(n),
+         levels = as.integer(levels), ring = as.integer(ring)),
+    sender_name = peer_name)
   tsk <- .key_get("transport_sk", ss)
   if (is.null(tsk)) stop("Transport sk missing", call. = FALSE)
   dec <- .callMpcTool("transport-decrypt",
     list(sealed = .base64url_to_base64(blob), recipient_sk = tsk))
   ss[[output_key]] <- dec$data
+  .dsvert_record_shared_onehot(
+    ss, output_key, variable, n, levels, ring,
+    source = "peer", peer_name = peer_name)
   list(stored = TRUE, output_key = output_key)
 }
 
@@ -80,7 +162,6 @@ k2BeaverReceiveVectorDS <- function(blob_key, output_key,
 #' @param session_id Character. Active MPC session identifier.
 #' @param frac_bits Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).
 #' @param ring Integer (63 or 127). MPC ring selector; controls fixed-point precision.
-#' @export
 k2BeaverExtractColumnDS <- function(source_key, n, K, col_index,
                                     output_key, session_id = NULL,
                                     frac_bits = 20L, ring = NULL) {
@@ -126,7 +207,6 @@ k2BeaverExtractColumnDS <- function(source_key, n, K, col_index,
 #' @param session_id Character. Active MPC session identifier.
 #' @param frac_bits Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).
 #' @param ring Integer (63 or 127). MPC ring selector; controls fixed-point precision.
-#' @export
 k2BeaverSumShareDS <- function(source_key, session_id = NULL,
                                 frac_bits = 20L, ring = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
@@ -165,7 +245,7 @@ k2BeaverSumShareDS <- function(source_key, session_id = NULL,
 #' @param ring Optional ring selector ("ring63"/"ring127"); defaults from the
 #'   session when available.
 #' @return list(stored, output_key, length).
-#' @export
+#' @keywords internal
 k2StoreSumShareDS <- function(source_key, output_key, append = FALSE,
                               session_id = NULL, ring = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
@@ -208,7 +288,7 @@ k2StoreSumShareDS <- function(source_key, output_key, append = FALSE,
 #' @param source_key Session key containing the FP share vector.
 #' @param session_id Active MPC session identifier.
 #' @return list(share_fp).
-#' @export
+#' @keywords internal
 k2GetStoredShareDS <- function(source_key, session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
@@ -245,7 +325,7 @@ k2GetStoredShareDS <- function(source_key, session_id = NULL) {
 #' @param frac_bits Fixed-point fractional bits.
 #' @param ring Optional ring selector ("ring63"/"ring127").
 #' @return list(stored, output_key).
-#' @export
+#' @keywords internal
 k2FPSubStoreDS <- function(a_key, b_key, output_key, session_id = NULL,
                            frac_bits = 20L, ring = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
@@ -281,7 +361,6 @@ k2FPSubStoreDS <- function(a_key, b_key, output_key, session_id = NULL,
 #' @param session_id Character. Active MPC session identifier.
 #' @param frac_bits Integer fixed-point fractional bits.
 #' @param ring Integer 63 or 127.
-#' @export
 k2BeaverStridedSumShareDS <- function(source_key, output_key, n_obs, J,
                                       session_id = NULL,
                                       frac_bits = 20L, ring = NULL) {

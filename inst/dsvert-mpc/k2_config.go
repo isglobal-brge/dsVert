@@ -13,7 +13,7 @@ const (
 	// K2DefaultFracBits is the number of fractional bits for fixed-point arithmetic.
 	// Ring63 with 20 fractional bits gives 2^{-20} ≈ 1e-6 per-element precision.
 	// Higher values (e.g., 25) would give more precision but break Hadamard-
-	// product and StochasticHadamardProduct protocols that carry the
+	// product and asymmetric local-truncation protocols that carry the
 	// implicit 2*fracBits < 63 constraint through uint64 intermediates
 	// (not all ops use big.Int). Attempted upgrade to 25 on 2026-04-19
 	// broke TestSoftmax_Composition (|err|=3508) and LMM synth (intercept

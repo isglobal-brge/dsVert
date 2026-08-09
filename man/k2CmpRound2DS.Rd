@@ -10,6 +10,8 @@ k2CmpRound2DS(
   output_key,
   keys_key = "k2_cmp_keys",
   peer_blob_key = "k2_cmp_peer_masked",
+  operation_id = NULL,
+  producer_name = NULL,
   peer_sealed = TRUE,
   return_share = FALSE,
   session_id = NULL,
@@ -45,3 +47,4 @@ Consumes the peer's masked DCF value and stores this party's
 FP-scaled comparison-bit share. The two parties' outputs sum to 1.0 iff
 the hidden shared value is below the public threshold, otherwise 0.0.
 }
+\keyword{internal}

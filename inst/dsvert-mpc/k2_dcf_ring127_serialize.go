@@ -36,9 +36,9 @@ import (
 const ring127DcfNumBits = 127
 
 const (
-	ring127DcfCWSize   = 16 + 16 + 1 + 1                                   // SeedCW + VCW(Uint128) + TCW_L + TCW_R
-	ring127DcfKeySize  = 16 + 1 + ring127DcfNumBits*ring127DcfCWSize + 16  // Seed0 + T0 + CW[] + FinalCW
-	ring127DcfElemSize = ring127DcfKeySize + 16                            // + MaskShare (Uint128)
+	ring127DcfCWSize   = 16 + 16 + 1 + 1                                  // SeedCW + VCW(Uint128) + TCW_L + TCW_R
+	ring127DcfKeySize  = 16 + 1 + ring127DcfNumBits*ring127DcfCWSize + 16 // Seed0 + T0 + CW[] + FinalCW
+	ring127DcfElemSize = ring127DcfKeySize + 16                           // + MaskShare (Uint128)
 )
 
 // putUint128LE writes v to buf[0:16] in little-endian (Lo then Hi), matching

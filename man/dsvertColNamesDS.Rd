@@ -2,7 +2,7 @@
 % Please edit documentation in R/mpcUtils.R
 \name{dsvertColNamesDS}
 \alias{dsvertColNamesDS}
-\title{List column names of a server-side data frame}
+\title{List custodian-published columns for a policy-bound data frame}
 \usage{
 dsvertColNamesDS(data_name)
 }
@@ -13,6 +13,8 @@ dsvertColNamesDS(data_name)
 List with columns (character vector of column names).
 }
 \description{
-Returns the column names available on this server for the given data frame.
-Used by the client for automatic variable-to-server mapping.
+Returns only the patient-key name and bounded analysis-column names that the
+custodian published for this local dataset in the capsule policy.  This
+metadata endpoint does not resolve or inspect the protected data frame.
+It is used by the client for automatic variable-to-server mapping.
 }

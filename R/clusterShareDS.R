@@ -9,7 +9,6 @@
 #' @param peer_pk Transport public key of the DCF peer (base64url).
 #' @param session_id Active MPC session identifier.
 #' @return list(peer_blob, n_clusters).
-#' @export
 #' @noRd
 dsvertClusterIDsBroadcastDS <- function(data_name, cluster_col, peer_pk,
                                         session_id = NULL) {
@@ -46,7 +45,6 @@ dsvertClusterIDsBroadcastDS <- function(data_name, cluster_col, peer_pk,
 #'   cluster labels in the active MPC session for per-cluster share sums.
 #' @param session_id Active MPC session identifier.
 #' @return list(stored, n_clusters).
-#' @export
 #' @noRd
 dsvertClusterIDsReceiveDS <- function(session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
@@ -76,7 +74,6 @@ dsvertClusterIDsReceiveDS <- function(session_id = NULL) {
 #' @param peer_pk Transport public key of the DCF peer (base64url).
 #' @param session_id Active MPC session identifier.
 #' @return list(peer_blob, n_clusters, n_pairs).
-#' @export
 #' @noRd
 dsvertGEEAR1OrderBroadcastDS <- function(data_name, cluster_col, order_col,
                                          peer_pk, session_id = NULL) {
@@ -150,7 +147,6 @@ dsvertGEEAR1OrderBroadcastDS <- function(data_name, cluster_col, order_col,
 #'   used only to transform additive shares locally on the DCF parties.
 #' @param session_id Active MPC session identifier.
 #' @return list(stored, n_clusters, n_pairs).
-#' @export
 #' @noRd
 dsvertGEEAR1OrderReceiveDS <- function(session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
@@ -200,7 +196,6 @@ dsvertGEEAR1OrderReceiveDS <- function(session_id = NULL) {
 #' @param frac_bits Fixed-point fractional bits.
 #' @param ring Integer 63 or 127.
 #' @return list(stored, output_key, n, transform).
-#' @export
 #' @noRd
 dsvertGEEAR1TransformShareDS <- function(
     source_key, output_key,
@@ -268,7 +263,6 @@ dsvertGEEAR1TransformShareDS <- function(
 #' @param frac_bits Fixed-point fractional bits.
 #' @param ring Integer 63 or 127.
 #' @return list(per_cluster_fp, cluster_sizes, n_clusters).
-#' @export
 #' @noRd
 dsvertPerClusterSumShareDS <- function(share_key, session_id = NULL,
                                        frac_bits = 20L, ring = 63L) {
@@ -317,7 +311,6 @@ dsvertPerClusterSumShareDS <- function(share_key, session_id = NULL,
 #' @param frac_bits Fixed-point fractional bits.
 #' @param ring Integer 63 or 127.
 #' @return list(stored, output_key, n).
-#' @export
 #' @noRd
 dsvertGLMMOneMinusMuDS <- function(output_key = "glmm_one_minus_mu_share",
                                    is_party0 = FALSE,

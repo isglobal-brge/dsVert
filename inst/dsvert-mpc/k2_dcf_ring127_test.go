@@ -127,9 +127,9 @@ func TestDCFRing127_EdgeAlphaZero(t *testing.T) {
 	beta := Uint128{Hi: 0xDEAD, Lo: 0xBEEF}
 	key0, key1 := DCFGen127(Uint128{}, beta, numBits)
 	testInputs := []Uint128{
-		{},                         // x = 0
-		{Lo: 1},                    // x = 1
-		{Hi: 1},                    // x crosses into Hi
+		{},      // x = 0
+		{Lo: 1}, // x = 1
+		{Hi: 1}, // x crosses into Hi
 		{Hi: (uint64(1) << 63) - 1, Lo: ^uint64(0)}, // max in [0, 2^127)
 	}
 	for _, x := range testInputs {

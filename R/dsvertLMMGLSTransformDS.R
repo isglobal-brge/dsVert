@@ -31,7 +31,6 @@
 #'   \code{"__dsvert_lmm_int"}.
 #' @param session_id MPC session id.
 #' @return list(n, columns_transformed, intercept_col, n_clusters).
-#' @export
 dsvertLMMGLSTransformDS <- function(data_name, columns,
                                      lambda_per_cluster,
                                      output_suffix = "_lmmtx",
@@ -84,53 +83,4 @@ dsvertLMMGLSTransformDS <- function(data_name, columns,
        missing = missing,
        intercept_col = if (isTRUE(create_intercept)) intercept_col else NA_character_,
        n_clusters = length(lambda))
-}
-
-#' @title Aggregate sums weighted by (1 - lambda_i) for LMM GLS intercept
-#' @description Compute the scalar aggregates
-#'   \eqn{\sum_i (1 - \lambda_{c(i)})^2},
-#'   \eqn{\sum_i (1 - \lambda_{c(i)})},
-#'   and \eqn{\sum_i (1 - \lambda_{c(i)}) v_i} for each requested column
-#'   \eqn{v}. Used client-side to recover the exact GLS intercept
-#'   \deqn{\hat\beta_0 = \frac{\sum (1-\lambda_i) y_i - \sum_k \hat\beta_k
-#'                                          \sum (1-\lambda_i) x_{ki}}
-#'                                 {\sum (1-\lambda_i)^2}}
-#'   without having to rely on a no-intercept OLS fit (which the K=2
-#'   Beaver loop cannot do exactly when the design is standardised).
-#'
-#'   Only returns scalar dot products -- aggregate, no per-patient
-#'   disclosure.
-#' @param data_name Data frame on this server.
-#' @param columns Character vector of local columns to aggregate.
-#' @param lambda_per_cluster Numeric vector, length n_clusters.
-#' @param session_id MPC session id (cluster IDs must be broadcast).
-#' @return named list with \code{sum_omlambda_sq}, \code{sum_omlambda},
-#'   \code{n}, and \code{sum_omlambda_\{col\}} per requested column.
-#' @export
-dsvertLMMGLSAggregatesDS <- function(data_name, columns,
-                                      lambda_per_cluster,
-                                      session_id = NULL) {
-  if (is.null(session_id) || !nzchar(session_id))
-    stop("session_id required", call. = FALSE)
-  .k2_enforce_K(.S(session_id), 2L, "dsvertLMMGLSAggregatesDS")
-  .validate_data_name(data_name)
-  data <- get(data_name, envir = parent.frame())
-  if (!is.data.frame(data)) stop("not a data frame", call. = FALSE)
-  ss <- .S(session_id)
-  ids <- ss$k2_lmm_cluster_ids
-  if (is.null(ids))
-    stop("cluster IDs missing; broadcast first", call. = FALSE)
-  lambda <- as.numeric(lambda_per_cluster)
-  one_minus_lambda <- 1 - lambda[ids]
-  out <- list(
-    sum_omlambda_sq = sum(one_minus_lambda^2, na.rm = TRUE),
-    sum_omlambda    = sum(one_minus_lambda, na.rm = TRUE),
-    n               = length(one_minus_lambda))
-  for (v in columns) {
-    if (v %in% names(data)) {
-      out[[paste0("sum_omlambda_", v)]] <-
-        sum(one_minus_lambda * as.numeric(data[[v]]), na.rm = TRUE)
-    }
-  }
-  out
 }

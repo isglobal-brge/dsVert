@@ -17,3 +17,4 @@ Public sender setup to relay to the receiver.
 \description{
 Start an OT multiplication sender transcript
 }
+\keyword{internal}

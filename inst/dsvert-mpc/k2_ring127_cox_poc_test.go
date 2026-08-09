@@ -248,7 +248,13 @@ func coxScoreFloat64(X [][]float64, beta []float64, delta []float64) ([]float64,
 func TestCoxRing127POC(t *testing.T) {
 	X, beta, delta, n, p := generateCoxSynthRing127POC()
 	t.Logf("Synth Cox: n=%d, p=%d, n_events=%.0f", n, p,
-		func() float64 { s := 0.0; for _, d := range delta { s += d }; return s }())
+		func() float64 {
+			s := 0.0
+			for _, d := range delta {
+				s += d
+			}
+			return s
+		}())
 
 	// Float64 reference
 	scoreRef, fisherRef := coxScoreFloat64(X, beta, delta)

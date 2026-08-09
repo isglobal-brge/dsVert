@@ -2,7 +2,7 @@
 % Please edit documentation in R/contingencyDS.R
 \name{dsvertContingencyDS}
 \alias{dsvertContingencyDS}
-\title{Server-side 2-way contingency table (aggregate)}
+\title{Retired internal exact 2-way contingency helper}
 \usage{
 dsvertContingencyDS(
   data_name,
@@ -42,9 +42,11 @@ A list with elements:
 }
 }
 \description{
-Compute the joint frequency table of two categorical or
+Historical helper that computes the joint frequency table of two categorical or
 numeric variables held at the same server. Returns the observed counts
-and margins as aggregates for client-side chi-square testing. Intended
+and margins. It is retained only for source compatibility and focused
+server tests; it is neither exported nor registered as a DataSHIELD
+method because repeated exact tables are reconstructible. Intended
 for the case where both variables are held on the same server (the
 cross-server case with vertically partitioned variables will reuse the
 k2 Beaver dot-product infrastructure and will be added as a separate

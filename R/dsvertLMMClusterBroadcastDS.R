@@ -16,7 +16,6 @@
 #' @param peer_pk Transport pk of the peer (base64url).
 #' @param session_id MPC session id.
 #' @return list(peer_blob, n_clusters)
-#' @export
 dsvertLMMBroadcastClusterIDsDS <- function(data_name, cluster_col,
                                             peer_pk,
                                             session_id = NULL) {
@@ -53,7 +52,6 @@ dsvertLMMBroadcastClusterIDsDS <- function(data_name, cluster_col,
 #'   and store the integer cluster ID vector under
 #'   \code{ss$k2_lmm_cluster_ids}.
 #' @param session_id Character. Active MPC session identifier.
-#' @export
 dsvertLMMReceiveClusterIDsDS <- function(session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
@@ -85,7 +83,6 @@ dsvertLMMReceiveClusterIDsDS <- function(session_id = NULL) {
 #' @param frac_bits Ring63 fractional bits (default 20).
 #' @return list(per_cluster_fp: K-vector of base64 FP scalars,
 #'              cluster_sizes, n_clusters).
-#' @export
 dsvertLMMPerClusterSumDS <- function(share_key, session_id = NULL,
                                       frac_bits = 20L) {
   if (is.null(session_id) || !nzchar(session_id)) {
@@ -129,7 +126,6 @@ dsvertLMMPerClusterSumDS <- function(share_key, session_id = NULL,
 #' @param share_key Character. Session-state key under which the input share is stored.
 #' @param session_id Character. Active MPC session identifier.
 #' @param frac_bits Integer. Fixed-point fractional-bit precision (e.g. 20 for Ring63, 50 for Ring127).
-#' @export
 dsvertLMMGlobalSumDS <- function(share_key, session_id = NULL,
                                   frac_bits = 20L) {
   if (is.null(session_id) || !nzchar(session_id)) {

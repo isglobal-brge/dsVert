@@ -1,0 +1,109 @@
+{
+  "schema": "dsvert-exact-arithmetic-inventory-v1",
+  "security_model": "two pinned semi-honest non-colluding peers; untrusted opaque relay",
+  "promoted_operations": ["truncate-floor", "count-guard", "clamp-count", "joint-dp-laplace-v2", "joint-dp-vector-laplace-v3"],
+  "implemented_not_promoted": [
+    {
+      "operation": "mul-truncate-checked",
+      "reason": "the Chisq cell-product, GLM weighted-residual and binomial-softplus producers are manifest-bound, but remaining legacy producers and their workload E2E certification are incomplete"
+    },
+    {
+      "operation": "compare-signed",
+      "reason": "no producer-bound DSI adapter"
+    }
+  ],
+  "glm_adapter_blockers": [
+    {
+      "id": "dynamic_ring_records",
+      "current": "GLM input sharing, eta, gradient, aggregation and session slots accept only Ring63 or Ring127 records",
+      "required": "one canonical variable-width Ring63-through-Ring4096 record/session adapter selected before any shares are created"
+    },
+    {
+      "id": "linear_predictor_truncation",
+      "current": "k2-compute-eta-fp uses asymmetric local truncation for public beta times protected X shares",
+      "required": "producer-bound exact public-scalar mul-truncate plus certified accumulation bounds for every eta coordinate"
+    },
+    {
+      "id": "nonlinear_chain_provenance",
+      "current": "most exp, sigmoid and reciprocal polynomial products enter exact GC through the legacy analyst-selected slot binder; only selected GLM softplus and weighted-residual products have producer manifests",
+      "required": "one-shot producer manifests and intermediate bounds for every product, public scaling and approximation-domain edge"
+    },
+    {
+      "id": "gradient_matvec_truncation",
+      "current": "k2-full-iter-r3 accumulates Beaver matvec products and applies asymmetric local truncation in Ring63 and Ring127",
+      "required": "purpose-bound exact dot-product/matvec chunks with checked accumulators and exact truncation"
+    },
+    {
+      "id": "execution_and_estimator_certificate",
+      "current": "only input bounds and finite result postconditions are execution-bound",
+      "required": "operation-complete intermediate attestation, aggregate error bound, estimator error bound, convergence and identifiability certificate, and plaintext-reference E2E oracle"
+    }
+  ],
+  "certified_workloads": [
+    {
+      "workload": "joint-dp.count.one-draw-and-clamp",
+      "numeric_scope": "one unsigned Ring127 Count share per peer, public unit-capacity bound, unit replacement sensitivity and the allocator-minted epsilon/delta policy",
+      "arithmetic": "the exact GC reconstructs the Count only inside the circuit, combines one private seed contribution from each peer, samples one bounded discrete-Laplace/geometric variate, adds it and saturates exactly to [0, unit_capacity]",
+      "release": "only identical durable releases signed independently by both pinned peers are accepted; the relay never receives either source share, seed contribution, noise variate or output share",
+      "status": "e2e_verified"
+    },
+    {
+      "workload": "chisq.cross.cell-products",
+      "numeric_scope": "aligned finite one-hot inputs, Ring63/f20, n <= 2147483647 and K*L <= 4096",
+        "arithmetic": "producer-bound direct-wide checked multiplication, exact floor truncation and proved non-wrapping count accumulation",
+        "release": "exact count vector remains sealed; the data-dependent guard bit is disabled and a fixed-shape joint differentially-private clamp/noise/opening is required",
+      "status": "numeric_path_certified_release_provisional"
+    }
+  ],
+  "residual_commands": [
+    {
+      "id": "k2-beaver-vecmul-round2",
+      "class": "local_or_asymmetric_truncation",
+      "status": "legacy_not_promoted",
+      "server_callers": ["R/beaverVecmulDS.R", "R/dsvertLMMGramDS.R"]
+    },
+    {
+      "id": "k2-full-iter-r3",
+      "class": "local_truncation",
+      "status": "legacy_not_promoted",
+      "server_callers": ["R/k2InputSharingDS.R"]
+    },
+    {
+      "id": "k2-ring127-local-scale-share",
+      "class": "local_truncation",
+      "status": "internal_not_promoted",
+      "server_callers": []
+    },
+    {
+      "id": "k2-cmp-gen",
+      "class": "dcf_comparison",
+      "status": "legacy_not_promoted",
+      "server_callers": ["R/k2CmpDS.R"]
+    },
+    {
+      "id": "k2-cmp-round1",
+      "class": "dcf_comparison",
+      "status": "legacy_not_promoted",
+      "server_callers": ["R/k2CmpDS.R"]
+    },
+    {
+      "id": "k2-cmp-round2",
+      "class": "dcf_comparison",
+      "status": "legacy_not_promoted",
+      "server_callers": ["R/k2CmpDS.R"]
+    },
+    {
+      "id": "k2-wide-spline-full",
+      "class": "dcf_and_local_truncation",
+      "status": "legacy_not_promoted",
+      "server_callers": ["R/k2WideSplineFullDS.R"]
+    }
+  ],
+  "promotion_blockers": [
+    "exactGCVecmulBindInputsDS remains exposed only for unmigrated legacy workloads and still accepts analyst-selected session slots",
+    "all remaining checked-multiplication producers must mint one-shot manifests before the legacy bind endpoint can be removed",
+    "remaining checked-multiplication workloads do not yet have a certified E2E oracle",
+    "the published exact domain ends at Ring4096 and public operand bounds at 1200 decimal digits; larger bound combinations fail typed rather than wrapping",
+    "circuit shapes are bounded by explicit typed-input and multiplication-bit work budgets; these are infrastructure limits, not request quotas"
+  ]
+}

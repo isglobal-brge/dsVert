@@ -45,7 +45,6 @@
 #' @param n Integer vector length.
 #' @param session_id MPC session identifier.
 #' @return list(stored = TRUE, output_key, n).
-#' @export
 
 k2Ring127AffineCombineDS <- function(a_key = NULL, b_key = NULL,
                                      sign_a = 0L, sign_b = 0L,
@@ -132,7 +131,6 @@ k2Ring127AffineCombineDS <- function(a_key = NULL, b_key = NULL,
 #'   the party-asymmetric public-scalar share multiplication.
 #' @return list(stored = TRUE, output_key, n).
 #' @keywords internal
-#' @export
 k2Ring127LocalScaleDS <- function(in_key,
                                   scalar_fp,
                                   output_key,

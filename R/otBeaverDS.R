@@ -5,6 +5,7 @@
 #' package orchestrates the two IKNP directions and then calls the existing
 #' Beaver online rounds unchanged.
 #'
+#' @name otBeaverDS
 #' @keywords internal
 NULL
 
@@ -37,7 +38,6 @@ NULL
 #' @param beaver_key Session prefix for this triple batch.
 #' @param session_id MPC session id.
 #' @return Metadata only; sampled operands remain server-side.
-#' @export
 k2OtBeaverSampleDS <- function(kind = "vecmul", n, p = 0L, ring = 63L,
                                beaver_key = "k2_ot_beaver",
                                session_id = NULL) {
@@ -70,7 +70,7 @@ k2OtBeaverSampleDS <- function(kind = "vecmul", n, p = 0L, ring = 63L,
 #' @param ot_key Session key prefix for one cross-term direction.
 #' @param session_id MPC session id.
 #' @return Public sender setup to relay to the receiver.
-#' @export
+#' @keywords internal
 k2OtMulSenderSetupDS <- function(ot_key, session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
@@ -92,7 +92,7 @@ k2OtMulSenderSetupDS <- function(ot_key, session_id = NULL) {
 #'   instead of returned directly.
 #' @param session_id MPC session id.
 #' @return Public receiver points to relay to the sender, unless stored as a blob.
-#' @export
+#' @keywords internal
 k2OtMulReceiverChoicesDS <- function(public_setup, y_key, ot_key, n,
                                      ring = 63L, points_blob_key = NULL,
                                      session_id = NULL) {
@@ -129,7 +129,7 @@ k2OtMulReceiverChoicesDS <- function(public_setup, y_key, ot_key, n,
 #'   stored instead of returned directly.
 #' @param session_id MPC session id.
 #' @return Public ciphertexts to relay to the receiver, unless stored as a blob.
-#' @export
+#' @keywords internal
 k2OtMulSenderEncryptDS <- function(points = NULL, points_blob_key = NULL,
                                    x_key, ot_key, output_key, n, ring = 63L,
                                    ciphertexts_blob_key = NULL,
@@ -167,7 +167,7 @@ k2OtMulSenderEncryptDS <- function(points = NULL, points_blob_key = NULL,
 #' @param ring Integer ring selector, 63 or 127.
 #' @param session_id MPC session id.
 #' @return list(stored = TRUE).
-#' @export
+#' @keywords internal
 k2OtMulReceiverDecryptDS <- function(ciphertexts = NULL,
                                      ciphertexts_blob_key = NULL,
                                      ot_key, output_key, n, ring = 63L,
@@ -193,7 +193,6 @@ k2OtMulReceiverDecryptDS <- function(ciphertexts = NULL,
 #' @param iknp_key Session key prefix for the reusable IKNP base-OT state.
 #' @param session_id MPC session id.
 #' @return Public base setup to relay to the IKNP sender.
-#' @export
 k2IknpBaseReceiverSetupDS <- function(iknp_key, session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
@@ -208,19 +207,38 @@ k2IknpBaseReceiverSetupDS <- function(iknp_key, session_id = NULL) {
 #'
 #' @param public_setup Public setup from \code{k2IknpBaseReceiverSetupDS}.
 #' @param iknp_key Session key prefix.
+#' @param recipient_pk Verified base64url transport public key of the IKNP
+#'   base receiver.
+#' @param ring Integer ring selector, 63 or 127.
 #' @param session_id MPC session id.
 #' @return Public base points to relay to the IKNP receiver.
-#' @export
-k2IknpBaseSenderChoicesDS <- function(public_setup, iknp_key,
-                                      session_id = NULL) {
+k2IknpBaseSenderChoicesDS <- function(public_setup, iknp_key, recipient_pk,
+                                      ring = 63L, session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
+  .dsvert_validate_recipient_pk(recipient_pk, ss, "IKNP base receiver")
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  request <- list(
+    public_setup = public_setup, iknp_key = iknp_key,
+    recipient_pk = recipient_pk, ring = as.integer(ring))
+  replay <- .dsvert_typed_blob_operation_replay(
+    ss, "k2IknpBaseSenderChoicesDS", request)
+  if (isTRUE(replay$hit)) return(replay$result)
   res <- .callMpcTool("k2-iknp-base-sender-choices", list(
     public_setup = .otb_b64(public_setup)))
   ss[[.otb_key(iknp_key, "sender_state")]] <- res$sender_state
-  list(points = .otb_b64u(res$points), iknp_key = iknp_key)
+  points <- .otb_b64u(res$points)
+  result <- list(
+    points = points, iknp_key = iknp_key,
+    points_transfer = .dsvert_typed_blob_mint(
+      ss, session_id, "blob.iknp.base-points.v1", recipient_pk, points,
+      list(operation = iknp_key, n = 128L, ring = as.integer(ring)),
+      producer = "k2IknpBaseSenderChoicesDS"))
+  .dsvert_typed_blob_operation_commit(
+    ss, "k2IknpBaseSenderChoicesDS", request, result)
 }
 
 #' Encrypt IKNP base-OT receiver labels
@@ -228,32 +246,68 @@ k2IknpBaseSenderChoicesDS <- function(public_setup, iknp_key,
 #' @param points Public base points.
 #' @param points_blob_key Optional blob key containing the points.
 #' @param iknp_key Session key prefix.
+#' @param producer_name Verified logical name of the peer that sent the typed
+#'   base-points transfer.
+#' @param recipient_pk Verified base64url transport public key of the IKNP
+#'   base sender.
+#' @param ring Integer ring selector, 63 or 127.
 #' @param ciphertexts_blob_key Optional blob key where ciphertexts should be
 #'   stored instead of returned directly.
 #' @param session_id MPC session id.
 #' @return Public base ciphertexts to relay to the IKNP sender.
-#' @export
 k2IknpBaseReceiverEncryptDS <- function(points = NULL,
                                         points_blob_key = NULL,
                                         iknp_key,
+                                        producer_name = NULL,
+                                        recipient_pk,
+                                        ring = 63L,
                                         ciphertexts_blob_key = NULL,
                                         session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
+  .dsvert_validate_recipient_pk(recipient_pk, ss, "IKNP base sender")
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  if (!is.null(points_blob_key)) {
+    stop("Legacy IKNP points blob keys are retired", call. = FALSE)
+  }
+  request <- NULL
+  if (is.null(ciphertexts_blob_key) || !nzchar(ciphertexts_blob_key)) {
+    request <- list(
+      points = points, iknp_key = iknp_key,
+      producer_name = producer_name, recipient_pk = recipient_pk,
+      ring = as.integer(ring))
+    replay <- .dsvert_typed_blob_operation_replay(
+      ss, "k2IknpBaseReceiverEncryptDS", request)
+    if (isTRUE(replay$hit)) return(replay$result)
+  }
+  if (is.null(points)) {
+    points <- .dsvert_typed_blob_consume(
+      ss, "blob.iknp.base-points.v1",
+      list(operation = iknp_key, n = 128L, ring = as.integer(ring)),
+      sender_name = producer_name)
+  }
   state <- ss[[.otb_key(iknp_key, "receiver_state")]]
   if (is.null(state)) stop("Missing IKNP receiver state for ", iknp_key,
                            call. = FALSE)
   res <- .callMpcTool("k2-iknp-base-receiver-encrypt", list(
     receiver_state = state,
-    points = .otb_blob_or_arg(points, points_blob_key, ss)))
+    points = .otb_b64(points)))
   cts <- .otb_b64u(res$ciphertexts)
   if (!is.null(ciphertexts_blob_key) && nzchar(ciphertexts_blob_key)) {
     .blob_put(ciphertexts_blob_key, cts, ss)
     return(list(stored = TRUE, ciphertexts_blob_key = ciphertexts_blob_key))
   }
-  list(ciphertexts = cts, iknp_key = iknp_key)
+  result <- list(
+    ciphertexts = cts, iknp_key = iknp_key,
+    ciphertexts_transfer = .dsvert_typed_blob_mint(
+      ss, session_id, "blob.iknp.base-ciphertexts.v1", recipient_pk, cts,
+      list(operation = iknp_key, n = 128L, ring = as.integer(ring)),
+      producer = "k2IknpBaseReceiverEncryptDS"))
+  .dsvert_typed_blob_operation_commit(
+    ss, "k2IknpBaseReceiverEncryptDS", request, result)
 }
 
 #' Finalise IKNP base-OT sender state
@@ -261,23 +315,36 @@ k2IknpBaseReceiverEncryptDS <- function(points = NULL,
 #' @param ciphertexts Public base ciphertexts.
 #' @param ciphertexts_blob_key Optional blob key containing ciphertexts.
 #' @param iknp_key Session key prefix.
+#' @param producer_name Verified logical name of the peer that sent the typed
+#'   base-ciphertexts transfer.
+#' @param ring Integer ring selector, 63 or 127.
 #' @param session_id MPC session id.
 #' @return list(stored = TRUE).
-#' @export
 k2IknpBaseSenderFinalizeDS <- function(ciphertexts = NULL,
                                        ciphertexts_blob_key = NULL,
                                        iknp_key,
+                                       producer_name = NULL,
+                                       ring = 63L,
                                        session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
+  if (!is.null(ciphertexts_blob_key)) {
+    stop("Legacy IKNP base-ciphertext blob keys are retired", call. = FALSE)
+  }
+  if (is.null(ciphertexts)) {
+    ciphertexts <- .dsvert_typed_blob_consume(
+      ss, "blob.iknp.base-ciphertexts.v1",
+      list(operation = iknp_key, n = 128L, ring = as.integer(ring)),
+      sender_name = producer_name)
+  }
   state <- ss[[.otb_key(iknp_key, "sender_state")]]
   if (is.null(state)) stop("Missing IKNP sender state for ", iknp_key,
                            call. = FALSE)
   res <- .callMpcTool("k2-iknp-base-sender-finalize", list(
     sender_state = state,
-    ciphertexts = .otb_blob_or_arg(ciphertexts, ciphertexts_blob_key, ss)))
+    ciphertexts = .otb_b64(ciphertexts)))
   ss[[.otb_key(iknp_key, "sender_state")]] <- res$sender_state
   list(stored = TRUE, iknp_key = iknp_key)
 }
@@ -289,26 +356,40 @@ k2IknpBaseSenderFinalizeDS <- function(ciphertexts = NULL,
 #' @param base_key Session key prefix for the reusable IKNP base-OT state.
 #' @param n Operand length.
 #' @param ring Integer ring selector, 63 or 127.
+#' @param recipient_pk Verified base64url transport public key of the IKNP
+#'   extension sender.
 #' @param u_matrix_blob_key Optional blob key where the public U matrix should
 #'   be stored instead of returned directly.
 #' @param session_id MPC session id.
 #' @return Public U matrix to relay to the IKNP sender.
-#' @export
 k2IknpReceiverExtendDS <- function(y_key, iknp_key, n, ring = 63L,
                                    base_key = iknp_key,
+                                   recipient_pk,
                                    u_matrix_blob_key = NULL,
                                    session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
+  .dsvert_validate_recipient_pk(recipient_pk, ss, "IKNP extension sender")
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  request <- NULL
+  if (is.null(u_matrix_blob_key) || !nzchar(u_matrix_blob_key)) {
+    request <- list(
+      y_key = y_key, iknp_key = iknp_key, n = as.integer(n),
+      ring = as.integer(ring), base_key = base_key,
+      recipient_pk = recipient_pk)
+    replay <- .dsvert_typed_blob_operation_replay(
+      ss, "k2IknpReceiverExtendDS", request)
+    if (isTRUE(replay$hit)) return(replay$result)
+  }
   state <- ss[[.otb_key(base_key, "receiver_state")]]
   if (is.null(state)) stop("Missing IKNP receiver state for ", base_key,
                            call. = FALSE)
   y <- ss[[y_key]]
   if (is.null(y)) stop("Missing IKNP receiver operand key ", y_key,
                        call. = FALSE)
-  ring <- as.integer(ring)
   ring_tag <- if (ring == 127L) "ring127" else "ring63"
   res <- .callMpcTool("k2-iknp-receiver-extend", list(
     receiver_state = state, y = y, n = as.integer(n), ring = ring_tag,
@@ -328,7 +409,14 @@ k2IknpReceiverExtendDS <- function(y_key, iknp_key, n, ring = 63L,
     return(list(stored = TRUE, u_matrix_blob_key = u_matrix_blob_key,
                 kos_check = kos_check))
   }
-  list(u_matrix = u, iknp_key = iknp_key, kos_check = kos_check)
+  result <- list(
+    u_matrix = u, iknp_key = iknp_key, kos_check = kos_check,
+    u_matrix_transfer = .dsvert_typed_blob_mint(
+      ss, session_id, "blob.iknp.u-matrix.v1", recipient_pk, u,
+      list(operation = iknp_key, n = as.integer(n), ring = ring),
+      producer = "k2IknpReceiverExtendDS"))
+  .dsvert_typed_blob_operation_commit(
+    ss, "k2IknpReceiverExtendDS", request, result)
 }
 
 #' Encrypt IKNP multiplication messages as sender
@@ -341,19 +429,23 @@ k2IknpReceiverExtendDS <- function(y_key, iknp_key, n, ring = 63L,
 #' @param output_key Session key for this party's sender cross-term share.
 #' @param n Operand length.
 #' @param ring Integer ring selector, 63 or 127.
+#' @param producer_name Verified logical name of the peer that sent the typed
+#'   U-matrix transfer.
+#' @param recipient_pk Verified base64url transport public key of the IKNP
+#'   extension receiver.
 #' @param ciphertexts_blob_key Optional blob key where ciphertexts should be
 #'   stored instead of returned directly.
-#' @param kos_check Optional base64url KOS15/SoftSpoken consistency-check opener
-#'   produced by \code{k2IknpReceiverExtendDS}. When supplied, the OT extension
-#'   aborts if the receiver used inconsistent choice bits (malicious-receiver
-#'   defence). \code{NULL} skips the check (legacy relay).
+#' @param kos_check Required base64url KOS15/SoftSpoken consistency-check opener
+#'   produced by \code{k2IknpReceiverExtendDS}. The OT extension aborts if the
+#'   opener is absent or the receiver used inconsistent choice bits.
 #' @param session_id MPC session id.
 #' @return Public ciphertexts to relay to the receiver.
-#' @export
 k2IknpSenderEncryptDS <- function(u_matrix = NULL, u_matrix_blob_key = NULL,
                                   x_key, iknp_key, output_key, n,
                                   ring = 63L,
                                   base_key = iknp_key,
+                                  producer_name = NULL,
+                                  recipient_pk,
                                   ciphertexts_blob_key = NULL,
                                   kos_check = NULL,
                                   session_id = NULL) {
@@ -361,33 +453,49 @@ k2IknpSenderEncryptDS <- function(u_matrix = NULL, u_matrix_blob_key = NULL,
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
+  .dsvert_validate_recipient_pk(recipient_pk, ss, "IKNP extension receiver")
+  ring <- as.integer(ring)
+  if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
+  if (!is.null(u_matrix_blob_key)) {
+    stop("Legacy IKNP U-matrix blob keys are retired", call. = FALSE)
+  }
+  request <- NULL
+  if (is.null(ciphertexts_blob_key) || !nzchar(ciphertexts_blob_key)) {
+    request <- list(
+      u_matrix = u_matrix, x_key = x_key, iknp_key = iknp_key,
+      output_key = output_key, n = as.integer(n), ring = as.integer(ring),
+      base_key = base_key, producer_name = producer_name,
+      recipient_pk = recipient_pk, kos_check = kos_check)
+    replay <- .dsvert_typed_blob_operation_replay(
+      ss, "k2IknpSenderEncryptDS", request)
+    if (isTRUE(replay$hit)) return(replay$result)
+  }
+  if (is.null(u_matrix)) {
+    u_matrix <- .dsvert_typed_blob_consume(
+      ss, "blob.iknp.u-matrix.v1",
+      list(operation = iknp_key, n = as.integer(n), ring = as.integer(ring)),
+      sender_name = producer_name)
+  }
   state <- ss[[.otb_key(base_key, "sender_state")]]
   if (is.null(state)) stop("Missing IKNP sender state for ", base_key,
                            call. = FALSE)
   x <- ss[[x_key]]
   if (is.null(x)) stop("Missing IKNP sender operand key ", x_key,
                        call. = FALSE)
-  ring <- as.integer(ring)
   ring_tag <- if (ring == 127L) "ring127" else "ring63"
   # KOS15 opener: convert the relayed base64url opener back to std base64 for
   # the Go kernel, which aborts if the receiver's choice bits were inconsistent.
-  # SERVER-AUTHORITATIVE anti-downgrade (M1): the opener is produced by the
-  # peer *receiver* — the very party the check defends against — so a malicious
-  # receiver (or relay) could disable the check by omitting it. When the
-  # custodian option dsvert.iknp_require_kos_check is TRUE (default) this sender
-  # server FAILS CLOSED if no opener is supplied, so the malicious-receiver
-  # guarantee cannot be silently downgraded.
+  # SERVER-AUTHORITATIVE anti-downgrade: the opener is mandatory. A receiver or
+  # relay cannot select an unchecked legacy OT path.
   have_kos <- !is.null(kos_check) && nzchar(kos_check)
-  if (!have_kos && isTRUE(getOption("dsvert.iknp_require_kos_check", TRUE))) {
-    stop("DSVERT_KOS_REQUIRED: IKNP KOS consistency-check opener missing; this ",
-         "server requires it (possible malicious-receiver downgrade). Set ",
-         "options(dsvert.iknp_require_kos_check = FALSE) to permit unchecked OT.",
-         call. = FALSE)
+  if (!have_kos) {
+    stop("DSVERT_KOS_REQUIRED: IKNP KOS consistency-check opener missing; ",
+         "unchecked OT is not supported.", call. = FALSE)
   }
-  kos_arg <- if (have_kos) .otb_b64(kos_check) else ""
+  kos_arg <- .otb_b64(kos_check)
   res <- .callMpcTool("k2-iknp-sender-encrypt", list(
     sender_state = state,
-    u_matrix = .otb_blob_or_arg(u_matrix, u_matrix_blob_key, ss),
+    u_matrix = .otb_b64(u_matrix),
     x = x, n = as.integer(n), ring = ring_tag, domain = iknp_key,
     kos_check = kos_arg))
   ss[[output_key]] <- res$sender_share
@@ -396,7 +504,14 @@ k2IknpSenderEncryptDS <- function(u_matrix = NULL, u_matrix_blob_key = NULL,
     .blob_put(ciphertexts_blob_key, cts, ss)
     return(list(stored = TRUE, ciphertexts_blob_key = ciphertexts_blob_key))
   }
-  list(ciphertexts = cts, output_key = output_key)
+  result <- list(
+    ciphertexts = cts, output_key = output_key,
+    ciphertexts_transfer = .dsvert_typed_blob_mint(
+      ss, session_id, "blob.iknp.ciphertexts.v1", recipient_pk, cts,
+      list(operation = iknp_key, n = as.integer(n), ring = ring),
+      producer = "k2IknpSenderEncryptDS"))
+  .dsvert_typed_blob_operation_commit(
+    ss, "k2IknpSenderEncryptDS", request, result)
 }
 
 #' Decrypt IKNP multiplication messages as receiver
@@ -407,18 +522,29 @@ k2IknpSenderEncryptDS <- function(u_matrix = NULL, u_matrix_blob_key = NULL,
 #' @param output_key Session key for this party's receiver cross-term share.
 #' @param n Operand length.
 #' @param ring Integer ring selector, 63 or 127.
+#' @param producer_name Verified logical name of the peer that sent the typed
+#'   ciphertext transfer.
 #' @param session_id MPC session id.
 #' @return list(stored = TRUE).
-#' @export
 k2IknpReceiverDecryptDS <- function(ciphertexts = NULL,
                                     ciphertexts_blob_key = NULL,
                                     iknp_key, output_key, n,
                                     ring = 63L,
+                                    producer_name = NULL,
                                     session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
   }
   ss <- .S(session_id)
+  if (!is.null(ciphertexts_blob_key)) {
+    stop("Legacy IKNP ciphertext blob keys are retired", call. = FALSE)
+  }
+  if (is.null(ciphertexts)) {
+    ciphertexts <- .dsvert_typed_blob_consume(
+      ss, "blob.iknp.ciphertexts.v1",
+      list(operation = iknp_key, n = as.integer(n), ring = as.integer(ring)),
+      sender_name = producer_name)
+  }
   state <- ss[[.otb_key(iknp_key, "receiver_extend_state")]]
   if (is.null(state)) {
     stop("Missing IKNP receiver extension state for ", iknp_key,
@@ -428,7 +554,7 @@ k2IknpReceiverDecryptDS <- function(ciphertexts = NULL,
   ring_tag <- if (ring == 127L) "ring127" else "ring63"
   res <- .callMpcTool("k2-iknp-receiver-decrypt", list(
     receiver_extend_state = state,
-    ciphertexts = .otb_blob_or_arg(ciphertexts, ciphertexts_blob_key, ss),
+    ciphertexts = .otb_b64(ciphertexts),
     n = as.integer(n), ring = ring_tag))
   ss[[output_key]] <- res$receiver_share
   list(stored = TRUE, output_key = output_key)
@@ -443,7 +569,6 @@ k2IknpReceiverDecryptDS <- function(ciphertexts = NULL,
 #'   directions.
 #' @param session_id MPC session id.
 #' @return list(stored = TRUE).
-#' @export
 k2OtBeaverFinalizeDS <- function(beaver_key = "k2_ot_beaver",
                                  target = c("vecmul", "grad",
                                             "spline_and", "spline_had1",

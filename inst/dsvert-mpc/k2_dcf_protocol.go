@@ -37,10 +37,8 @@ type K2DcfGenBatchInput struct {
 	// Ring selects the secret-share ring for DCF preprocessing.
 	// "" or "ring63" (default): uses the Ring63 path (uint64 shares, 63-bit
 	// DCF domain, 8-byte VCW) — the only path currently wired into
-	// handleK2DcfGenBatch. "ring127": reserved for the Cox/LMM selective
-	// migration; accepted as a forward-compat stub but NOT dispatched in
-	// step 2 (handler panics if used). Dispatch + uint128 share blob
-	// serialization land in P1 step 3.
+	// handleK2DcfGenBatch. "ring127" selects the 127-bit DCF and Uint128
+	// serialization path consumed by the Ring127 spline evaluator.
 	Ring string `json:"ring"`
 }
 
@@ -54,17 +52,32 @@ type K2DcfGenBatchOutput struct {
 func handleK2DcfGenBatch() {
 	var input K2DcfGenBatchInput
 	mpcReadInput(&input)
-	if input.FracBits <= 0 {
-		input.FracBits = K2DefaultFracBits
+	ringName, fracBits, err := normalizeRingAndFracBits(input.Ring, input.FracBits)
+	if err != nil {
+		outputError("k2-dcf-gen-batch: " + err.Error())
+		return
 	}
-	// Ring selector. "" or "ring63" → uint64 Ring63 path. "ring127" → Uint128
-	// Ring127 path (task #116 Cox/LMM STRICT migration). Reject anything else
-	// loud rather than silently defaulting to Ring63.
-	if input.Ring != "" && input.Ring != "ring63" && input.Ring != "ring127" {
-		panic("k2-dcf-gen-batch: unknown ring='" + input.Ring + "'")
+	if input.N <= 0 {
+		outputError("k2-dcf-gen-batch: n must be positive")
+		return
 	}
-
-	ring := NewRing63(input.FracBits)
+	if input.NumIntervals < 0 {
+		outputError("k2-dcf-gen-batch: num_intervals must not be negative")
+		return
+	}
+	if err := validateFinite("lower", input.Lower); err != nil {
+		outputError("k2-dcf-gen-batch: " + err.Error())
+		return
+	}
+	if err := validateFinite("upper", input.Upper); err != nil {
+		outputError("k2-dcf-gen-batch: " + err.Error())
+		return
+	}
+	if input.Lower < 0 || input.Upper < 0 {
+		outputError("k2-dcf-gen-batch: domain overrides must not be negative")
+		return
+	}
+	input.Ring, input.FracBits = ringName, fracBits
 	n := input.N
 
 	// Determine thresholds based on family
@@ -106,15 +119,35 @@ func handleK2DcfGenBatch() {
 			numInt = K2LogIntervals
 		}
 		logSpaced = true
-	default: // binomial / sigmoid
+	case "binomial", "sigmoid", "":
 		lower, upper = -8.0, 8.0
 		if numInt <= 0 {
 			numInt = K2SigmoidIntervals
 		}
+	default:
+		outputError("k2-dcf-gen-batch: unsupported family " + input.Family)
+		return
+	}
+	if lower >= upper {
+		outputError("k2-dcf-gen-batch: lower must be less than upper")
+		return
+	}
+	if numInt < 2 {
+		outputError("k2-dcf-gen-batch: num_intervals must be at least 2")
+		return
+	}
+	thresholdCapacity, err := checkedSum("k2-dcf-gen-batch threshold count", numInt, 1)
+	if err != nil {
+		outputError("k2-dcf-gen-batch: " + err.Error())
+		return
+	}
+	if _, err := checkedProduct("k2-dcf-gen-batch elements", n, thresholdCapacity); err != nil {
+		outputError("k2-dcf-gen-batch: " + err.Error())
+		return
 	}
 
 	// Build ALL thresholds: 2 broad + (numInt-1) sub-interval
-	thresholds := make([]float64, 0, numInt+1)
+	thresholds := make([]float64, 0, thresholdCapacity)
 	// Broad thresholds (always lower, upper)
 	thresholds = append(thresholds, lower) // c_low: x < lower
 	thresholds = append(thresholds, upper) // c_high: x < upper
@@ -138,32 +171,44 @@ func handleK2DcfGenBatch() {
 	}
 
 	numThresh := len(thresholds)
-
 	var p0Bytes, p1Bytes []byte
 
-	if input.Ring == "ring127" {
+	if ringName == "ring127" {
 		// Ring127 path: cmpGeneratePreprocess127 (Uint128 arithmetic, 127-bit
 		// DCF domain, Z_{2^128} output group) + 16-byte share-blob layout.
 		// Serialization format documented in k2_dcf_ring127_serialize.go.
-		// NOTE (P1 step 4 scope): the downstream spline-eval phase handlers
-		// (handleK2WideSplineFullEval phases 1..4) are not yet Ring127-aware.
-		// Callers requesting ring="ring127" from k2-dcf-gen-batch cannot yet
-		// consume these keys through the spline pipeline.
-		ring127 := NewRing127(input.FracBits)
+		if _, err := checkedProduct("k2-dcf-gen-batch payload", n, numThresh, ring127DcfElemSize); err != nil {
+			outputError("k2-dcf-gen-batch: " + err.Error())
+			return
+		}
+		ring127 := NewRing127(fracBits)
 		allP0Keys := make([]CmpPreprocessPerParty127, numThresh)
 		allP1Keys := make([]CmpPreprocessPerParty127, numThresh)
 		for t := 0; t < numThresh; t++ {
-			threshFP := ring127.FromDouble(thresholds[t])
+			threshFP, err := ring127.FromDoubleChecked(thresholds[t])
+			if err != nil {
+				outputError("k2-dcf-gen-batch: invalid generated threshold: " + err.Error())
+				return
+			}
 			allP0Keys[t], allP1Keys[t] = cmpGeneratePreprocess127(ring127, n, threshFP)
 		}
 		p0Bytes = serializeDcfBatch127(allP0Keys, n, numThresh)
 		p1Bytes = serializeDcfBatch127(allP1Keys, n, numThresh)
 	} else {
 		// Ring63 path (default).
+		if _, err := checkedProduct("k2-dcf-gen-batch payload", n, numThresh, k2Ring63DcfElemSize); err != nil {
+			outputError("k2-dcf-gen-batch: " + err.Error())
+			return
+		}
+		ring := NewRing63(fracBits)
 		allP0Keys := make([]CmpPreprocessPerParty, numThresh)
 		allP1Keys := make([]CmpPreprocessPerParty, numThresh)
 		for t := 0; t < numThresh; t++ {
-			threshFP := ring.FromDouble(thresholds[t])
+			threshFP, err := ring.FromDoubleChecked(thresholds[t])
+			if err != nil {
+				outputError("k2-dcf-gen-batch: invalid generated threshold: " + err.Error())
+				return
+			}
 			allP0Keys[t], allP1Keys[t] = cmpGeneratePreprocess(ring, n, threshFP)
 		}
 		p0Bytes = serializeDcfBatch(allP0Keys, n, numThresh)

@@ -2,7 +2,7 @@
 % Please edit documentation in R/glmRing63DS.R
 \name{mpcStoreBlobDS}
 \alias{mpcStoreBlobDS}
-\title{Store a blob on server (adaptive chunking support)}
+\title{Store a generic legacy MPC blob (adaptive chunking support)}
 \usage{
 mpcStoreBlobDS(key, chunk, chunk_index = 1L, n_chunks = 1L, session_id = NULL)
 }
@@ -21,5 +21,7 @@ mpcStoreBlobDS(key, chunk, chunk_index = 1L, n_chunks = 1L, session_id = NULL)
 TRUE on success.
 }
 \description{
-Store a blob on server (adaptive chunking support)
+This compatibility endpoint is disabled by the disclosure-safe gate. New
+protocols must expose a purpose-bound transport method instead of allowing
+the caller to choose an arbitrary session key.
 }

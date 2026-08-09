@@ -20,3 +20,4 @@ server's transport secret key and stores the base64 triple payload
 under \code{ss$k2_beaver_vecmul_triple} for subsequent round-1 /
 round-2 calls.
 }
+\keyword{internal}

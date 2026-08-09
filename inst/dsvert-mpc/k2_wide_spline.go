@@ -308,7 +308,7 @@ func WideSplineLog(ring Ring63, x0, x1 []uint64, numIntervals int, lower, upper 
 	btA0, btA1 := SampleBeaverTripleVector(n, ring)
 	stA0, msgA0 := GenerateBatchedMultiplicationGateMessage(aSlope0, x0, btA0, ring)
 	stA1, msgA1 := GenerateBatchedMultiplicationGateMessage(aSlope1, x1, btA1, ring)
-	atx0, atx1 := StochasticHadamardProduct(stA0, btA0, msgA1, stA1, btA1, msgA0, ring.FracBits, ring)
+	atx0, atx1 := AsymmetricLocalHadamardProduct(stA0, btA0, msgA1, stA1, btA1, msgA0, ring.FracBits, ring)
 
 	spline0 := make([]uint64, n)
 	spline1 := make([]uint64, n)
@@ -320,7 +320,7 @@ func WideSplineLog(ring Ring63, x0, x1 []uint64, numIntervals int, lower, upper 
 	btM0, btM1 := SampleBeaverTripleVector(n, ring)
 	stM0, msgM0 := GenerateBatchedMultiplicationGateMessage(iMid0, spline0, btM0, ring)
 	stM1, msgM1 := GenerateBatchedMultiplicationGateMessage(iMid1, spline1, btM1, ring)
-	midSpline0, midSpline1 := StochasticHadamardProduct(stM0, btM0, msgM1, stM1, btM1, msgM0, ring.FracBits, ring)
+	midSpline0, midSpline1 := AsymmetricLocalHadamardProduct(stM0, btM0, msgM1, stM1, btM1, msgM0, ring.FracBits, ring)
 
 	y0 = make([]uint64, n)
 	y1 = make([]uint64, n)
@@ -364,7 +364,7 @@ func NewtonLogStep(ring Ring63, x0, x1, y0, y1 []uint64, expNumIntervals int) (y
 	btT0, btT1 := SampleBeaverTripleVector(n, ring)
 	stT0, msgT0 := GenerateBatchedMultiplicationGateMessage(x0, expNegY0, btT0, ring)
 	stT1, msgT1 := GenerateBatchedMultiplicationGateMessage(x1, expNegY1, btT1, ring)
-	t0, t1 := StochasticHadamardProduct(stT0, btT0, msgT1, stT1, btT1, msgT0, ring.FracBits, ring)
+	t0, t1 := AsymmetricLocalHadamardProduct(stT0, btT0, msgT1, stT1, btT1, msgT0, ring.FracBits, ring)
 	// y_new = y + (t - 1). Only party 0 subtracts the constant 1 FP.
 	oneFP := ring.FromDouble(1.0)
 	yNew0 = make([]uint64, n)
@@ -418,7 +418,7 @@ func GoldschmidtReciprocalStep(ring Ring63, x0, x1, y0, y1 []uint64) (yNew0, yNe
 	btT0, btT1 := SampleBeaverTripleVector(n, ring)
 	stT0, msgT0 := GenerateBatchedMultiplicationGateMessage(x0, y0, btT0, ring)
 	stT1, msgT1 := GenerateBatchedMultiplicationGateMessage(x1, y1, btT1, ring)
-	t0, t1 := StochasticHadamardProduct(stT0, btT0, msgT1, stT1, btT1, msgT0, ring.FracBits, ring)
+	t0, t1 := AsymmetricLocalHadamardProduct(stT0, btT0, msgT1, stT1, btT1, msgT0, ring.FracBits, ring)
 
 	// Step 2: u = 2 - t   (linear on shares; 2.0 in Ring63 FP)
 	twoFP := ring.FromDouble(2.0)
@@ -433,7 +433,7 @@ func GoldschmidtReciprocalStep(ring Ring63, x0, x1, y0, y1 []uint64) (yNew0, yNe
 	btU0, btU1 := SampleBeaverTripleVector(n, ring)
 	stU0, msgU0 := GenerateBatchedMultiplicationGateMessage(y0, u0, btU0, ring)
 	stU1, msgU1 := GenerateBatchedMultiplicationGateMessage(y1, u1, btU1, ring)
-	yNew0, yNew1 = StochasticHadamardProduct(stU0, btU0, msgU1, stU1, btU1, msgU0, ring.FracBits, ring)
+	yNew0, yNew1 = AsymmetricLocalHadamardProduct(stU0, btU0, msgU1, stU1, btU1, msgU0, ring.FracBits, ring)
 	return
 }
 
@@ -606,7 +606,7 @@ func WideSplineReciprocal(ring Ring63, x0, x1 []uint64, numIntervals int, lower,
 	btA0, btA1 := SampleBeaverTripleVector(n, ring)
 	stA0, msgA0 := GenerateBatchedMultiplicationGateMessage(aSlope0, x0, btA0, ring)
 	stA1, msgA1 := GenerateBatchedMultiplicationGateMessage(aSlope1, x1, btA1, ring)
-	atx0, atx1 := StochasticHadamardProduct(stA0, btA0, msgA1, stA1, btA1, msgA0, ring.FracBits, ring)
+	atx0, atx1 := AsymmetricLocalHadamardProduct(stA0, btA0, msgA1, stA1, btA1, msgA0, ring.FracBits, ring)
 
 	// Spline value: a_t * x + b_t
 	spline0 := make([]uint64, n)
@@ -620,7 +620,7 @@ func WideSplineReciprocal(ring Ring63, x0, x1 []uint64, numIntervals int, lower,
 	btM0, btM1 := SampleBeaverTripleVector(n, ring)
 	stM0, msgM0 := GenerateBatchedMultiplicationGateMessage(iMid0, spline0, btM0, ring)
 	stM1, msgM1 := GenerateBatchedMultiplicationGateMessage(iMid1, spline1, btM1, ring)
-	midSpline0, midSpline1 := StochasticHadamardProduct(stM0, btM0, msgM1, stM1, btM1, msgM0, ring.FracBits, ring)
+	midSpline0, midSpline1 := AsymmetricLocalHadamardProduct(stM0, btM0, msgM1, stM1, btM1, msgM0, ring.FracBits, ring)
 
 	mu0 = make([]uint64, n)
 	mu1 = make([]uint64, n)
@@ -767,7 +767,7 @@ func WideSplineSigmoid(ring Ring63, x0, x1 []uint64, numIntervals int) (mu0, mu1
 	btA0, btA1 := SampleBeaverTripleVector(n, ring)
 	stA0, msgA0 := GenerateBatchedMultiplicationGateMessage(aSlope0, x0, btA0, ring)
 	stA1, msgA1 := GenerateBatchedMultiplicationGateMessage(aSlope1, x1, btA1, ring)
-	atx0, atx1 := StochasticHadamardProduct(stA0, btA0, msgA1, stA1, btA1, msgA0, ring.FracBits, ring)
+	atx0, atx1 := AsymmetricLocalHadamardProduct(stA0, btA0, msgA1, stA1, btA1, msgA0, ring.FracBits, ring)
 
 	// Spline value: a_t * x + b_t
 	spline0 := make([]uint64, n)
@@ -784,7 +784,7 @@ func WideSplineSigmoid(ring Ring63, x0, x1 []uint64, numIntervals int) (mu0, mu1
 	btM0, btM1 := SampleBeaverTripleVector(n, ring)
 	stM0, msgM0 := GenerateBatchedMultiplicationGateMessage(iMid0, spline0, btM0, ring)
 	stM1, msgM1 := GenerateBatchedMultiplicationGateMessage(iMid1, spline1, btM1, ring)
-	midSpline0, midSpline1 := StochasticHadamardProduct(stM0, btM0, msgM1, stM1, btM1, msgM0, ring.FracBits, ring)
+	midSpline0, midSpline1 := AsymmetricLocalHadamardProduct(stM0, btM0, msgM1, stM1, btM1, msgM0, ring.FracBits, ring)
 
 	mu0 = make([]uint64, n)
 	mu1 = make([]uint64, n)
@@ -905,7 +905,7 @@ func WideSplineSoftplus(ring Ring63, x0, x1 []uint64, numIntervals int) (mu0, mu
 	btA0, btA1 := SampleBeaverTripleVector(n, ring)
 	stA0, msgA0 := GenerateBatchedMultiplicationGateMessage(aSlope0, x0, btA0, ring)
 	stA1, msgA1 := GenerateBatchedMultiplicationGateMessage(aSlope1, x1, btA1, ring)
-	atx0, atx1 := StochasticHadamardProduct(stA0, btA0, msgA1, stA1, btA1, msgA0, ring.FracBits, ring)
+	atx0, atx1 := AsymmetricLocalHadamardProduct(stA0, btA0, msgA1, stA1, btA1, msgA0, ring.FracBits, ring)
 
 	// spline = slope*x + intercept
 	spline0 := make([]uint64, n)
@@ -919,7 +919,7 @@ func WideSplineSoftplus(ring Ring63, x0, x1 []uint64, numIntervals int) (mu0, mu
 	btM0, btM1 := SampleBeaverTripleVector(n, ring)
 	stM0, msgM0 := GenerateBatchedMultiplicationGateMessage(iMid0, spline0, btM0, ring)
 	stM1, msgM1 := GenerateBatchedMultiplicationGateMessage(iMid1, spline1, btM1, ring)
-	midSpline0, midSpline1 := StochasticHadamardProduct(stM0, btM0, msgM1, stM1, btM1, msgM0, ring.FracBits, ring)
+	midSpline0, midSpline1 := AsymmetricLocalHadamardProduct(stM0, btM0, msgM1, stM1, btM1, msgM0, ring.FracBits, ring)
 
 	// result = iHigh + I_mid * spline
 	mu0 = make([]uint64, n)
@@ -1091,7 +1091,7 @@ func WideSplineExp(ring Ring63, x0, x1 []uint64, numIntervals int) (mu0, mu1 []u
 	btA0, btA1 := SampleBeaverTripleVector(n, ring)
 	stA0, msgA0 := GenerateBatchedMultiplicationGateMessage(aSlope0, x0, btA0, ring)
 	stA1, msgA1 := GenerateBatchedMultiplicationGateMessage(aSlope1, x1, btA1, ring)
-	atx0, atx1 := StochasticHadamardProduct(stA0, btA0, msgA1, stA1, btA1, msgA0, ring.FracBits, ring)
+	atx0, atx1 := AsymmetricLocalHadamardProduct(stA0, btA0, msgA1, stA1, btA1, msgA0, ring.FracBits, ring)
 
 	// Spline value: a_t * x + b_t
 	spline0 := make([]uint64, n)
@@ -1106,7 +1106,7 @@ func WideSplineExp(ring Ring63, x0, x1 []uint64, numIntervals int) (mu0, mu1 []u
 	btM0, btM1 := SampleBeaverTripleVector(n, ring)
 	stM0, msgM0 := GenerateBatchedMultiplicationGateMessage(iMid0, spline0, btM0, ring)
 	stM1, msgM1 := GenerateBatchedMultiplicationGateMessage(iMid1, spline1, btM1, ring)
-	midSpline0, midSpline1 := StochasticHadamardProduct(stM0, btM0, msgM1, stM1, btM1, msgM0, ring.FracBits, ring)
+	midSpline0, midSpline1 := AsymmetricLocalHadamardProduct(stM0, btM0, msgM1, stM1, btM1, msgM0, ring.FracBits, ring)
 
 	mu0 = make([]uint64, n)
 	mu1 = make([]uint64, n)

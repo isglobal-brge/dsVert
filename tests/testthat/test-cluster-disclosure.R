@@ -19,7 +19,7 @@ test_that("cluster-size aggregates fail closed for small clusters", {
   with_cluster_privacy({
     D <- data.frame(cluster = c(1L, 1L, rep(2L, 5L)))
     expect_error(
-      dsVert::dsvertClusterSizesDS("D", "cluster"),
+      dsVert:::dsvertClusterSizesDS("D", "cluster"),
       "cluster size below datashield\\.privacyLevel")
   })
 })
@@ -31,23 +31,21 @@ test_that("per-cluster residual aggregates fail closed for small clusters", {
       x = seq_len(7) / 10,
       cluster = c(1L, 1L, rep(2L, 5L)))
     expect_error(
-      dsVert::dsvertClusterResidualsDS(
+      dsVert:::dsvertClusterResidualsDS(
         "D", y_var = "y", x_names = "x", betahat = 0.1,
         intercept = 0, cluster_col = "cluster"),
       "cluster size below datashield\\.privacyLevel")
   })
 })
 
-test_that("per-cluster binomial moments fail closed for small clusters", {
+test_that("per-cluster random-effects designs fail closed for small clusters", {
   with_cluster_privacy({
     D <- data.frame(
-      y = c(0L, 1L, 0L, 1L, 1L, 0L, 1L),
       x = seq_len(7) / 10,
       cluster = c(1L, 1L, rep(2L, 5L)))
     expect_error(
-      dsVert::dsvertClusterBinomialMomentsDS(
-        "D", y_var = "y", x_names = "x", betahat = 0.1,
-        intercept = 0, cluster_col = "cluster"),
+      dsVert:::dsvertClusterZtZDS(
+        "D", cluster_col = "cluster", slope_columns = "x"),
       "cluster size below datashield\\.privacyLevel")
   })
 })
@@ -58,7 +56,7 @@ test_that("LMM variance-component aggregates fail closed for small clusters", {
       y = seq_len(7),
       cluster = c(1L, 1L, rep(2L, 5L)))
     expect_error(
-      dsVert::dsvertLMMVarianceComponentsDS(
+      dsVert:::dsvertLMMVarianceComponentsDS(
         "D", y_var = "y", cluster_col = "cluster"),
       "cluster size below datashield\\.privacyLevel")
   })
@@ -70,22 +68,20 @@ test_that("per-cluster share sums fail before MPC work for small clusters", {
     s$ss$dsvert_cluster_ids <- c(1L, 1L, rep(2L, 5L))
     s$ss$dummy_share <- "unused-before-privacy-guard"
     expect_error(
-      dsVert::dsvertPerClusterSumShareDS(
+      dsVert:::dsvertPerClusterSumShareDS(
         share_key = "dummy_share", session_id = s$sid),
       "cluster size below datashield\\.privacyLevel")
   })
 })
 
-test_that("LMM exact per-cluster R2 shares fail closed for small clusters", {
+test_that("active LMM per-cluster shares fail closed for small clusters", {
   with_cluster_privacy({
     s <- new_k2_session()
-    n <- 7L
-    s$ss$dummy_r2 <- jsonlite::base64_enc(as.raw(rep(0L, n * 8L)))
-    D <- data.frame(cluster = c(1L, 1L, rep(2L, 5L)))
+    s$ss$k2_lmm_cluster_ids <- c(1L, 1L, rep(2L, 5L))
+    s$ss$dummy_r2 <- "unused-before-privacy-guard"
     expect_error(
-      dsVert::dsvertLMMExactClusterR2DS(
-        data_name = "D", cluster_col = "cluster",
-        r2_key = "dummy_r2", session_id = s$sid),
+      dsVert:::dsvertLMMPerClusterSumDS(
+        share_key = "dummy_r2", session_id = s$sid),
       "cluster size below datashield\\.privacyLevel")
   })
 })
@@ -96,9 +92,9 @@ test_that("cluster aggregates still pass when all clusters meet threshold", {
       y = seq_len(10),
       x = seq_len(10) / 10,
       cluster = rep(1:2, each = 5L))
-    sizes <- dsVert::dsvertClusterSizesDS("D", "cluster")
+    sizes <- dsVert:::dsvertClusterSizesDS("D", "cluster")
     expect_equal(sizes$sizes, c(5L, 5L))
-    vc <- dsVert::dsvertLMMVarianceComponentsDS(
+    vc <- dsVert:::dsvertLMMVarianceComponentsDS(
       "D", y_var = "y", cluster_col = "cluster")
     expect_equal(vc$n_per_cluster, c(5L, 5L))
   })

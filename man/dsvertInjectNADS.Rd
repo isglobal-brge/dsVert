@@ -30,3 +30,4 @@ data frame under \code{output_column}. Used to create reproducible
 synthetic-missingness scenarios for MI validation. Only returns
 aggregate counts; no per-patient information.
 }
+\keyword{internal}

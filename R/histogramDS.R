@@ -1,8 +1,8 @@
-#' @title Server-side histogram bucket counts (aggregate)
-#' @description Compute per-bucket counts of a numeric variable server-side and
-#'   return the aggregate count vector. This is the foundation primitive for
-#'   approximate quantile / median estimation, chi-square across continuous
-#'   variables after binning, and LASSO cross-validation diagnostics.
+#' @title Legacy internal exact histogram helper
+#' @description Compute exact per-bucket counts for focused compatibility tests.
+#'   This function is deliberately unexported and absent from the DataSHIELD
+#'   remote registration surface. Public descriptives use the fixed-grid,
+#'   sticky DP capsule instead.
 #'
 #' @param data_name Character. Name of the server-side data frame.
 #' @param variable Character. Name of the numeric column to bucketise.
@@ -30,14 +30,13 @@
 #'     \item \code{edges}: the edges vector (echoed for client-side reproducibility)
 #'   }
 #'
-#' @details Bucket counts are aggregates: they carry no information about any
-#'   individual observation beyond membership in a bucket of size \eqn{\ge}
-#'   \code{datashield.privacyLevel}. Downstream helpers on the client side
-#'   (\code{ds.vertDesc}) combine per-server counts into cohort-wide quantile
-#'   and histogram summaries without ever reconstructing a per-patient value.
+#' @details Small-cell suppression is not a composition or non-reconstruction
+#'   guarantee for repeated analyst-selected exact histograms. Consequently,
+#'   no client call builder can invoke this helper and it must remain both
+#'   unregistered and unexported.
 #'
 #' @seealso \code{getObsCountDS}
-#' @export
+#' @keywords internal
 dsvertHistogramDS <- function(
     data_name, variable, edges,
     suppress_small_cells = TRUE,

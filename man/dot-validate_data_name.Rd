@@ -13,7 +13,7 @@
 TRUE if valid, otherwise stops with an error.
 }
 \description{
-Prevents command injection via eval(parse(text = ...)) by ensuring
+Prevents expression injection when resolving server-side data by ensuring
 data_name contains only letters, digits, dots, and underscores.
 }
 \keyword{internal}

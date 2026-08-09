@@ -10,6 +10,7 @@ k2IknpReceiverExtendDS(
   n,
   ring = 63L,
   base_key = iknp_key,
+  recipient_pk,
   u_matrix_blob_key = NULL,
   session_id = NULL
 )
@@ -24,6 +25,9 @@ k2IknpReceiverExtendDS(
 \item{ring}{Integer ring selector, 63 or 127.}
 
 \item{base_key}{Session key prefix for the reusable IKNP base-OT state.}
+
+\item{recipient_pk}{Verified base64url transport public key of the IKNP
+extension sender.}
 
 \item{u_matrix_blob_key}{Optional blob key where the public U matrix should
 be stored instead of returned directly.}

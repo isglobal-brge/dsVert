@@ -1,0 +1,229 @@
+{
+  "schema_version": "dsvert-typed-blob-inventory-v1",
+  "generated_at": "2026-07-31",
+  "legacy_endpoint": "mpcStoreBlobDS",
+  "typed_endpoint": "mpcTypedBlobStoreDS",
+  "receipt_endpoint": "mpcTypedBlobReceiptDS",
+  "records": [
+    {
+      "id": "input.peer_x",
+      "families": ["cor", "cox", "glm", "multinomial", "negative-binomial", "ordinal"],
+      "callers": ["ds.vertCor", "ds.vertCoxDiscreteNonDisclosive", "ds.vertGLM.k2", "ds.vertGLM.k3ring63", "ds.vertMultinomJointNewton", "ds.vertNBFullRegTheta", "ds.vertOrdinalJointNewton"],
+      "slot": "k2_peer_x_share",
+      "producer": "k2ShareInputDS.encrypted_x_share",
+      "recipient": "k2ReceiveShareDS",
+      "shape": "sealed row-major fixed-point X share: n*p ring records (8 bytes for Ring63, 16 bytes for Ring127 before sealing)",
+      "confidentiality": "recipient-sealed",
+      "migration": "migrated-typed-v1"
+    },
+    {
+      "id": "input.peer_y",
+      "families": ["cox", "glm", "multinomial", "negative-binomial"],
+      "callers": ["ds.vertCoxDiscreteNonDisclosive", "ds.vertGLM.k2", "ds.vertGLM.k3ring63", "ds.vertMultinomJointNewton", "ds.vertNBFullRegTheta"],
+      "slot": "k2_peer_y_share",
+      "producer": "k2ShareInputDS.encrypted_y_share",
+      "recipient": "k2ReceiveShareDS",
+      "shape": "sealed fixed-point outcome share: n ring records",
+      "confidentiality": "recipient-sealed",
+      "migration": "migrated-typed-v1"
+    },
+    {
+      "id": "input.extra_x",
+      "families": ["cor", "cox", "glm", "multinomial", "negative-binomial", "ordinal"],
+      "callers": ["ds.vertCor", "ds.vertCoxDiscreteNonDisclosive", "ds.vertGLM.k3ring63", "ds.vertMultinomJointNewton", "ds.vertNBFullRegTheta", "ds.vertOrdinalJointNewton"],
+      "slot": "k2_extra_x_share_<pinned-source-name>",
+      "producer": "k2ShareInputDS.encrypted_x_share or glmRing63ExportOwnShareDS.encrypted_own_share",
+      "recipient": "glmRing63ReceiveExtraShareDS",
+      "shape": "sealed row-major fixed-point feature share: n*p_source ring records",
+      "confidentiality": "recipient-sealed",
+      "migration": "migrated-typed-v1"
+    },
+    {
+      "id": "gradient.peer_r1",
+      "families": ["cor", "cox", "gee", "glm", "multinomial", "negative-binomial", "ordinal"],
+      "callers": ["ds.vertCor", "ds.vertCoxDiscreteNonDisclosive", "ds.vertGEE", "ds.vertGLM.k2", "ds.vertGLM.k3ring63", "ds.vertMultinomJointNewton", "ds.vertNBFullRegTheta", "ds.vertOrdinalJointNewton"],
+      "slot": "k2_grad_peer_r1",
+      "producer": "k2GradientR1DS.encrypted_r1",
+      "recipient": "k2GradientR2DS",
+      "shape": "sealed round-one tuple: x-minus-a has n*p records and residual-minus-b has n records",
+      "confidentiality": "recipient-sealed",
+      "migration": "migrated-typed-v1"
+    },
+    {
+      "id": "beaver.vector_share",
+      "families": ["chisq-cross"],
+      "callers": ["ds.vertChisqCross"],
+      "slot": "bshr_<producer-validated-variable>",
+      "producer": "k2BeaverShareVectorDS.peer_blob",
+      "recipient": "k2BeaverReceiveVectorDS",
+      "shape": "sealed fixed-point one-hot vector share: n*levels ring records",
+      "confidentiality": "recipient-sealed",
+      "migration": "migrated-typed-v1"
+    },
+    {
+      "id": "beaver.vecmul_masked",
+      "families": ["chisq-cross", "gee", "glm", "glmm", "lmm"],
+      "callers": ["ds.vertChisqCross", "ds.vertGEE", "ds.vertGLM.weights", "ds.vertGLMM", "ds.vertLMM"],
+      "slot": "k2_beaver_vecmul_peer_masked",
+      "producer": "k2BeaverVecmulR1DS.peer_blob",
+      "recipient": "k2BeaverVecmulR2DS",
+      "shape": "sealed round-one masked vector tuple with n ring records per operand",
+      "confidentiality": "recipient-sealed",
+      "migration": "migrated-typed-v1"
+    },
+    {
+      "id": "iknp.base_points",
+      "families": ["cor", "cox", "gee", "glm", "glmm", "multinomial", "negative-binomial", "ordinal"],
+      "callers": [".iknp_beaver_direction"],
+      "slot": "k2_iknp_base_<pinned-sender>_<pinned-recipient>_ring<63|127>_base_points",
+      "producer": "k2IknpBaseSenderChoicesDS.points",
+      "recipient": "k2IknpBaseReceiverEncryptDS",
+      "shape": "fixed-size base-OT curve point batch selected by the IKNP implementation",
+      "confidentiality": "opaque-public-cryptographic",
+      "migration": "migrated-typed-v1"
+    },
+    {
+      "id": "iknp.base_ciphertexts",
+      "families": ["cor", "cox", "gee", "glm", "glmm", "multinomial", "negative-binomial", "ordinal"],
+      "callers": [".iknp_beaver_direction"],
+      "slot": "k2_iknp_base_<pinned-sender>_<pinned-recipient>_ring<63|127>_base_ciphertexts",
+      "producer": "k2IknpBaseReceiverEncryptDS.ciphertexts",
+      "recipient": "k2IknpBaseSenderFinalizeDS",
+      "shape": "fixed-size base-OT ciphertext batch selected by the IKNP implementation",
+      "confidentiality": "opaque-cryptographic",
+      "migration": "migrated-typed-v1"
+    },
+    {
+      "id": "iknp.u_matrix",
+      "families": ["cor", "cox", "gee", "glm", "glmm", "multinomial", "negative-binomial", "ordinal"],
+      "callers": [".iknp_beaver_direction"],
+      "slot": "<producer-minted-iknp-operation>_u_matrix",
+      "producer": "k2IknpReceiverExtendDS.u_matrix",
+      "recipient": "k2IknpSenderEncryptDS",
+      "shape": "IKNP extension U matrix bound to n, ring and KOS consistency opener",
+      "confidentiality": "opaque-public-cryptographic",
+      "migration": "migrated-typed-v1"
+    },
+    {
+      "id": "iknp.ciphertexts",
+      "families": ["cor", "cox", "gee", "glm", "glmm", "multinomial", "negative-binomial", "ordinal"],
+      "callers": [".iknp_beaver_direction"],
+      "slot": "<producer-minted-iknp-operation>_ciphertexts",
+      "producer": "k2IknpSenderEncryptDS.ciphertexts",
+      "recipient": "k2IknpReceiverDecryptDS",
+      "shape": "IKNP extension ciphertext batch bound to n and ring",
+      "confidentiality": "opaque-cryptographic",
+      "migration": "migrated-typed-v1"
+    },
+    {
+      "id": "glm.weight_share",
+      "families": ["glm"],
+      "callers": ["ds.vertGLM"],
+      "slot": "k2_peer_weight_share",
+      "producer": "k2ShareWeightsDS.peer_blob or dcf0_blob or dcf1_blob",
+      "recipient": "k2ReceiveWeightSharesDS",
+      "shape": "sealed fixed-point weight share: n Ring127 records",
+      "confidentiality": "recipient-sealed",
+      "migration": "migrated-typed-v1"
+    },
+    {
+      "id": "glm.sqrt_weight_share",
+      "families": ["glm"],
+      "callers": ["ds.vertGLM"],
+      "slot": "k2_peer_sqrt_weight_share",
+      "producer": "k2ShareWeightsDS.peer_sqrt_blob or dcf0_sqrt_blob or dcf1_sqrt_blob",
+      "recipient": "k2ReceiveWeightSharesDS",
+      "shape": "sealed fixed-point square-root weight share: n Ring127 records",
+      "confidentiality": "recipient-sealed",
+      "migration": "migrated-typed-v1"
+    },
+    {
+      "id": "cox.mask_share",
+      "families": ["cox"],
+      "callers": ["ds.vertCoxDiscreteNonDisclosive"],
+      "slot": "cox_nd_mask_sealed",
+      "producer": "dsvertCoxDiscreteShareDS.sealed_m_blob",
+      "recipient": "dsvertCoxDiscreteReceiveSharesDS",
+      "shape": "sealed risk-set mask share: n*J Ring127 records",
+      "confidentiality": "recipient-sealed",
+      "migration": "active-second"
+    },
+    {
+      "id": "cox.outcome_share",
+      "families": ["cox"],
+      "callers": ["ds.vertCoxDiscreteNonDisclosive"],
+      "slot": "cox_nd_y_sealed",
+      "producer": "dsvertCoxDiscreteShareDS.sealed_y_blob",
+      "recipient": "dsvertCoxDiscreteReceiveSharesDS",
+      "shape": "sealed event share: n*J Ring127 records",
+      "confidentiality": "recipient-sealed",
+      "migration": "active-second"
+    },
+    {
+      "id": "ordinal.class_mask",
+      "families": ["ordinal"],
+      "callers": ["ds.vertOrdinalJointNewton"],
+      "slot": "ord_strict_mask_blob_<producer-class-index>",
+      "producer": "dsvertOrdinalClassMaskSharesDS.mask_blobs[class]",
+      "recipient": "dsvertOrdinalReceiveClassMaskDS",
+      "shape": "sealed class-indicator share: n Ring127 records",
+      "confidentiality": "recipient-sealed",
+      "migration": "active-second"
+    },
+    {
+      "id": "nb.eta_share",
+      "families": ["negative-binomial"],
+      "callers": ["ds.vertNBFullRegTheta"],
+      "slot": "nb_eta_nl_share_blob",
+      "producer": "dsvertNBEtaShareSealDS.sealed",
+      "recipient": "dsvertNBEtaShareReceiveDS",
+      "shape": "sealed eta share: n Ring127 records",
+      "confidentiality": "recipient-sealed",
+      "migration": "active-second"
+    },
+    {
+      "id": "nb.y_theta_share",
+      "families": ["negative-binomial"],
+      "callers": ["ds.vertNBFullRegTheta"],
+      "slot": "nb_yt_share_blob",
+      "producer": "dsvertNBYThetaShareSealDS.sealed",
+      "recipient": "dsvertNBYThetaShareReceiveDS",
+      "shape": "sealed y-plus-theta share: n Ring127 records",
+      "confidentiality": "recipient-sealed",
+      "migration": "active-second"
+    },
+    {
+      "id": "cluster.ids",
+      "families": ["gee", "glmm", "lmm"],
+      "callers": ["ds.vertGEE", "ds.vertGLMM", "ds.vertLMM"],
+      "slot": "dsvert_cluster_ids_blob or k2_lmm_cluster_ids_blob",
+      "producer": "dsvertClusterIDsShareDS.peer_blob or dsvertLMMClusterBroadcastDS.peer_blob",
+      "recipient": "dsvertClusterIDsReceiveDS or dsvertLMMReceiveClusterIDsDS",
+      "shape": "sealed cluster-id equality/order representation with n rows",
+      "confidentiality": "recipient-sealed",
+      "migration": "quarantine-after-active"
+    },
+    {
+      "id": "gee.ar1_order",
+      "families": ["gee"],
+      "callers": ["ds.vertGEE"],
+      "slot": "dsvert_gee_ar1_order_blob",
+      "producer": "dsvertGEEAR1OrderShareDS.peer_blob",
+      "recipient": "dsvertGEEAR1OrderReceiveDS",
+      "shape": "sealed within-cluster ordering representation with n rows",
+      "confidentiality": "recipient-sealed",
+      "migration": "quarantine-after-active"
+    },
+    {
+      "id": "lmm.peer_state",
+      "families": ["lmm"],
+      "callers": ["ds.vertLMM", "ds.vertLMM.closed_form", "ds.vertLMM.k3"],
+      "slot": "k2_lmm_exact_peer_blob or k2_lmm_gram_peer_shares",
+      "producer": "dsvertLMMCoordFittedShareDS.peer_blob or dsvertLMMGramDS.peer_blob",
+      "recipient": "dsvertLMMCoordResidualShareDS or dsvertLMMGramReceiveDS",
+      "shape": "sealed per-row fitted share or packed Gram/cross-product shares; method-specific",
+      "confidentiality": "recipient-sealed",
+      "migration": "quarantine-redesign-or-remove"
+    }
+  ]
+}

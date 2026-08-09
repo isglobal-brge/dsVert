@@ -64,6 +64,7 @@ session_id.
 
 Privacy: the per-level row-margin counts are themselves an aggregate
 (one integer per category) and are subject to the same
-\code{datashield.privacyLevel} suppression rule as the existing
-\code{dsvertContingencyDS} helper.
+\code{datashield.privacyLevel} suppression rule. This legacy exact helper is
+not a substitute for the signed DP contingency release.
 }
+\keyword{internal}

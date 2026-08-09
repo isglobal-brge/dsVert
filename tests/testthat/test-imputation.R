@@ -1,13 +1,22 @@
 test_that("numeric imputation uses an aggregate mean fallback", {
   D <- data.frame(x = c(1, NA, 3, NA, 5, 6))
 
-  res <- dsvertImputeColumnDS("D", "x", "x_imp", seed = 11L)
+  res <- dsvertImputeColumnDS("D", "x", "x_imp", seed = 11L,
+                              allow_intercept_only = TRUE)
 
   expect_equal(res$n_imputed, 2L)
   expect_equal(res$method, "mean_intercept")
   expect_false(anyNA(D$x_imp))
   expect_equal(D$x_imp[!is.na(D$x)], D$x[!is.na(D$x)])
   expect_equal(D$x_imp[is.na(D$x)], rep(mean(D$x, na.rm = TRUE), 2L))
+})
+
+test_that("aggregate-only imputation requires explicit opt-in", {
+  D <- data.frame(x = c(1, NA, 3, NA, 5, 6))
+
+  expect_error(
+    dsvertImputeColumnDS("D", "x", "x_imp", seed = 11L),
+    "alternative was not requested")
 })
 
 test_that("numeric imputation includes an unpenalized intercept", {
@@ -26,7 +35,8 @@ test_that("numeric imputation includes an unpenalized intercept", {
 test_that("binary imputation uses an aggregate mode fallback", {
   D <- data.frame(x = factor(c("a", "b", NA, "b", NA, "a")))
 
-  res <- dsvertImputeColumnDS("D", "x", "x_imp", seed = 33L)
+  res <- dsvertImputeColumnDS("D", "x", "x_imp", seed = 33L,
+                              allow_intercept_only = TRUE)
 
   expect_equal(res$n_imputed, 2L)
   expect_equal(res$method, "mode_intercept")

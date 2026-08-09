@@ -30,35 +30,12 @@ The \code{.callMpcTool} function uses temporary files (not stdin/stdout
 pipes) for JSON I/O because encrypted data can be hundreds of KB.
 Pipe-based I/O can cause R's C stack to overflow with large outputs.
 }
+
+Read dsVert disclosure control settings
+
+Reads nfilter options using the dsBase two-tier fallback pattern:
+first checks \code{getOption("nfilter.X")}, then falls back to
+\code{getOption("default.nfilter.X")}. This allows Opal administrators
+to override settings per DataSHIELD profile.
 }
-\keyword{DataSHIELD}
-\keyword{Opal}
-\keyword{Read}
-\keyword{Reads}
-\keyword{This}
-\keyword{\code{getOption("default.nfilter.X")}.}
-\keyword{\code{getOption("nfilter.X")},}
-\keyword{administrators}
-\keyword{allows}
-\keyword{back}
-\keyword{checks}
-\keyword{control}
-\keyword{disclosure}
-\keyword{dsBase}
-\keyword{dsVert}
-\keyword{fallback}
-\keyword{falls}
-\keyword{first}
 \keyword{internal}
-\keyword{nfilter}
-\keyword{options}
-\keyword{override}
-\keyword{pattern:}
-\keyword{per}
-\keyword{profile.}
-\keyword{settings}
-\keyword{the}
-\keyword{then}
-\keyword{to}
-\keyword{two-tier}
-\keyword{using}

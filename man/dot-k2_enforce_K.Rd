@@ -33,7 +33,7 @@ Pattern: each K-specific *DS function calls
 resolving its session state. The check is silent when
 \code{peer_transport_pks} is unset (e.g., the function is invoked before
 the transport-key handshake -- that path is already guarded by
-\code{mpcStoreTransportKeysDS} and the \code{dsvert.require_trusted_peers}
-default; this helper is defense-in-depth, not the first line).
+\code{mpcStoreTransportKeysDS} and mandatory name-bound peer pinning; this helper
+is defense-in-depth, not the first line).
 }
 \keyword{internal}

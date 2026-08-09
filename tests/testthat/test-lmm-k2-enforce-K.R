@@ -27,7 +27,7 @@ library(testthat)
 test_that("dsvertLMMBroadcastClusterIDsDS rejects K=3 session", {
   s <- .mk_session(3L)
   expect_error(
-    dsVert::dsvertLMMBroadcastClusterIDsDS(
+    dsVert:::dsvertLMMBroadcastClusterIDsDS(
       data_name = "fake", cluster_col = "cluster",
       peer_pk = "pk", session_id = s$sid),
     "K mismatch.*expected K=2.*got K=3")
@@ -36,14 +36,14 @@ test_that("dsvertLMMBroadcastClusterIDsDS rejects K=3 session", {
 test_that("dsvertLMMReceiveClusterIDsDS rejects K=3 session", {
   s <- .mk_session(3L)
   expect_error(
-    dsVert::dsvertLMMReceiveClusterIDsDS(session_id = s$sid),
+    dsVert:::dsvertLMMReceiveClusterIDsDS(session_id = s$sid),
     "K mismatch.*expected K=2.*got K=3")
 })
 
 test_that("dsvertLMMPerClusterSumDS rejects K=3 session", {
   s <- .mk_session(3L)
   expect_error(
-    dsVert::dsvertLMMPerClusterSumDS(
+    dsVert:::dsvertLMMPerClusterSumDS(
       share_key = "fake", session_id = s$sid),
     "K mismatch.*expected K=2.*got K=3")
 })
@@ -55,7 +55,7 @@ test_that("LMM cluster broadcast fails closed below privacyLevel", {
   s <- .mk_session(2L)
   D <- data.frame(cluster = c(1L, 1L, rep(2L, 5L)))
   expect_error(
-    dsVert::dsvertLMMBroadcastClusterIDsDS(
+    dsVert:::dsvertLMMBroadcastClusterIDsDS(
       data_name = "D", cluster_col = "cluster",
       peer_pk = "not-needed", session_id = s$sid),
     "cluster size below datashield\\.privacyLevel")
@@ -69,7 +69,7 @@ test_that("LMM per-cluster sums fail closed below privacyLevel", {
   s$ss$k2_lmm_cluster_ids <- c(1L, 1L, rep(2L, 5L))
   s$ss$dummy_share <- "unused-because-privacy-guard-runs-first"
   expect_error(
-    dsVert::dsvertLMMPerClusterSumDS(
+    dsVert:::dsvertLMMPerClusterSumDS(
       share_key = "dummy_share", session_id = s$sid),
     "cluster size below datashield\\.privacyLevel")
 })
@@ -84,18 +84,20 @@ test_that("stored LMM X covariance avoids client-supplied cluster vector", {
     z = c(2, 1, 3, 5, 4, 7, 6, 8, 10, 9))
   cid <- rep(1:2, each = 5L)
   s$ss$dsvert_cluster_ids <- cid
-  stored <- dsVert::dsvertLMMXCovarianceWithinStoredDS(
+  stored <- dsVert:::dsvertLMMXCovarianceWithinStoredDS(
     data_name = "D", x_vars = c("x", "z"), session_id = s$sid)
-  legacy <- dsVert::dsvertLMMXCovarianceWithinDS(
-    data_name = "D", x_vars = c("x", "z"), cluster_id_vector = cid)
-  expect_equal(stored$SX2_within, legacy$SX2_within)
-  expect_equal(stored$df_within, legacy$df_within)
+  expected <- Reduce(`+`, lapply(split(seq_len(nrow(D)), cid), function(ix) {
+    crossprod(scale(as.matrix(D[ix, c("x", "z")]),
+                    center = TRUE, scale = FALSE))
+  }))
+  expect_equal(stored$SX2_within, expected)
+  expect_equal(stored$df_within, nrow(D) - length(unique(cid)))
 })
 
 test_that("dsvertLMMGlobalSumDS rejects K=3 session", {
   s <- .mk_session(3L)
   expect_error(
-    dsVert::dsvertLMMGlobalSumDS(
+    dsVert:::dsvertLMMGlobalSumDS(
       share_key = "fake", session_id = s$sid),
     "K mismatch.*expected K=2.*got K=3")
 })
@@ -104,7 +106,7 @@ test_that("dsvertLMMGlobalSumDS rejects K=3 session", {
 test_that("dsvertLMMPeerFittedShareDS rejects K=3 session", {
   s <- .mk_session(3L)
   expect_error(
-    dsVert::dsvertLMMPeerFittedShareDS(
+    dsVert:::dsvertLMMPeerFittedShareDS(
       data_name = "fake", x_names = "x", betahat = 0.0,
       session_id = s$sid),
     "K mismatch.*expected K=2.*got K=3")
@@ -113,7 +115,7 @@ test_that("dsvertLMMPeerFittedShareDS rejects K=3 session", {
 test_that("dsvertLMMCoordResidualShareDS rejects K=3 session", {
   s <- .mk_session(3L)
   expect_error(
-    dsVert::dsvertLMMCoordResidualShareDS(
+    dsVert:::dsvertLMMCoordResidualShareDS(
       data_name = "fake", y_var = "y", x_names = "x",
       betahat_local = 0.0, session_id = s$sid),
     "K mismatch.*expected K=2.*got K=3")
@@ -122,17 +124,8 @@ test_that("dsvertLMMCoordResidualShareDS rejects K=3 session", {
 test_that("dsvertLMMPeerResidualFinaliseDS rejects K=3 session", {
   s <- .mk_session(3L)
   expect_error(
-    dsVert::dsvertLMMPeerResidualFinaliseDS(
+    dsVert:::dsvertLMMPeerResidualFinaliseDS(
       n = 10L, session_id = s$sid),
-    "K mismatch.*expected K=2.*got K=3")
-})
-
-test_that("dsvertLMMExactClusterR2DS rejects K=3 session", {
-  s <- .mk_session(3L)
-  expect_error(
-    dsVert::dsvertLMMExactClusterR2DS(
-      data_name = "fake", cluster_col = "cluster",
-      session_id = s$sid),
     "K mismatch.*expected K=2.*got K=3")
 })
 
@@ -140,28 +133,18 @@ test_that("dsvertLMMExactClusterR2DS rejects K=3 session", {
 test_that("dsvertLMMGLSTransformDS permits K=3 session arity", {
   s <- .mk_session(3L)
   expect_error(
-    dsVert::dsvertLMMGLSTransformDS(
+    dsVert:::dsvertLMMGLSTransformDS(
       data_name = "fake", columns = "x",
       lambda_per_cluster = c(0.5, 0.5),
       session_id = s$sid),
     "object 'fake' not found")
 })
 
-test_that("dsvertLMMGLSAggregatesDS rejects K=3 session", {
-  s <- .mk_session(3L)
-  expect_error(
-    dsVert::dsvertLMMGLSAggregatesDS(
-      data_name = "fake", columns = "x",
-      lambda_per_cluster = c(0.5, 0.5),
-      session_id = s$sid),
-    "K mismatch.*expected K=2.*got K=3")
-})
-
 # --- GramDS family ---
 test_that("dsvertLMMLocalGramDS rejects K=3 session", {
   s <- .mk_session(3L)
   expect_error(
-    dsVert::dsvertLMMLocalGramDS(
+    dsVert:::dsvertLMMLocalGramDS(
       data_name = "fake", columns = "x",
       lambda_per_cluster = c(0.5, 0.5),
       session_id = s$sid),
@@ -171,14 +154,14 @@ test_that("dsvertLMMLocalGramDS rejects K=3 session", {
 test_that("dsvertLMMReceiveGramSharesDS rejects K=3 session", {
   s <- .mk_session(3L)
   expect_error(
-    dsVert::dsvertLMMReceiveGramSharesDS(session_id = s$sid),
+    dsVert:::dsvertLMMReceiveGramSharesDS(session_id = s$sid),
     "K mismatch.*expected K=2.*got K=3")
 })
 
 test_that("dsvertLMMGramR1DS rejects K=3 session", {
   s <- .mk_session(3L)
   expect_error(
-    dsVert::dsvertLMMGramR1DS(
+    dsVert:::dsvertLMMGramR1DS(
       peer_pk = "pk", x_col = "x", y_col = "y",
       session_id = s$sid),
     "K mismatch.*expected K=2.*got K=3")
@@ -187,7 +170,7 @@ test_that("dsvertLMMGramR1DS rejects K=3 session", {
 test_that("dsvertLMMGramR2DS rejects K=3 session", {
   s <- .mk_session(3L)
   expect_error(
-    dsVert::dsvertLMMGramR2DS(
+    dsVert:::dsvertLMMGramR2DS(
       is_party0 = TRUE, x_col = "x", y_col = "y",
       session_id = s$sid),
     "K mismatch.*expected K=2.*got K=3")
@@ -197,7 +180,7 @@ test_that("dsvertLMMGramR2DS rejects K=3 session", {
 test_that("dsvertLMMReceiveClusterIDsDS does NOT fire K-guard when K=2", {
   s <- .mk_session(2L)
   err <- tryCatch(
-    dsVert::dsvertLMMReceiveClusterIDsDS(session_id = s$sid),
+    dsVert:::dsvertLMMReceiveClusterIDsDS(session_id = s$sid),
     error = function(e) conditionMessage(e))
   expect_false(grepl("K mismatch", err))
 })
@@ -205,7 +188,7 @@ test_that("dsvertLMMReceiveClusterIDsDS does NOT fire K-guard when K=2", {
 test_that("dsvertLMMGramR1DS does NOT fire K-guard when K=2", {
   s <- .mk_session(2L)
   err <- tryCatch(
-    dsVert::dsvertLMMGramR1DS(
+    dsVert:::dsvertLMMGramR1DS(
       peer_pk = "pk", x_col = "x", y_col = "y",
       session_id = s$sid),
     error = function(e) conditionMessage(e))

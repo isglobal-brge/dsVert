@@ -56,9 +56,8 @@ func TestBeaverVecmulEndToEnd(t *testing.T) {
 			maxErr = e
 		}
 	}
-	// Stochastic-truncation ULP is 2^-frac_bits ≈ 9.5e-7; allow 1e-3
-	// tolerance to cover the residual bias when using the deterministic
-	// asymmetric rule (no PRG carry in this test).
+	// The fixed-point ULP is 2^-frac_bits ≈ 9.5e-7; allow 1e-3 tolerance
+	// for the deterministic asymmetric local-truncation error in this fixture.
 	if maxErr > 1e-3 {
 		t.Fatalf("Beaver vecmul max err = %.3g (> 1e-3)", maxErr)
 	}

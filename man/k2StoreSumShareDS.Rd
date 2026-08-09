@@ -36,3 +36,4 @@ concatenated into one FP share vector. This supports pre-release MPC
 threshold checks where the analyst must not receive both parties' scalar
 shares before the disclosure guard passes.
 }
+\keyword{internal}

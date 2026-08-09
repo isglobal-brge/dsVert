@@ -22,7 +22,7 @@
 #' @param session_id MPC session.
 #' @return list(counts = integer K*L vector row-major,
 #'              K, L, row_levels, col_levels).
-#' @export
+#' @keywords internal
 k2CrossOneHotCountsDS <- function(var1, var2,
                                    peer_name = NULL,
                                    peer_pk = NULL,
@@ -66,7 +66,8 @@ k2CrossOneHotCountsDS <- function(var1, var2,
   # record. Without suppression a singleton/small var1 category lets it read a
   # peer's per-observation var2 value off the surviving row. Suppress cells and
   # margins below max(privacyLevel, dsvert.min_release_n), suppress + relabel
-  # small var1 rows / var2 columns, fail closed by default (as dsvertContingencyDS).
+  # small var1 rows / var2 columns and fail closed by default. This legacy
+  # exact route is not an authorised contingency-table release.
   cmat <- matrix(counts, nrow = as.integer(K), ncol = as.integer(L), byrow = TRUE)
   row_margins <- as.integer(rowSums(cmat))
   col_margins <- as.integer(colSums(cmat))

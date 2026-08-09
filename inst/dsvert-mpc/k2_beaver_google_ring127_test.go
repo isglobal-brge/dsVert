@@ -137,8 +137,8 @@ func TestBeaverRing127_VsRing63(t *testing.T) {
 
 	// Note: Ring63 Beaver output is x*y at 2*fracBits scale; need truncation.
 	// The Go-side Beaver here returns UN-truncated products (C++ parity).
-	// For correct comparison we must truncate both. The test harness in
-	// production code applies CorrelatedStochasticTruncate after reconstruction.
+	// For correct comparison we must truncate both. Production applies the
+	// deterministic asymmetric local-truncation convention to the two shares.
 	// For this smoke test we accept that Ring63 value is at 2*fracBits=40 bits
 	// of fraction, so dividing by FracMul gives the correct float.
 

@@ -8,6 +8,7 @@ k2CmpRound1DS(
   source_key,
   party_id,
   keys_key = "k2_cmp_keys",
+  operation_id = NULL,
   peer_pk = NULL,
   session_id = NULL,
   frac_bits = 20L
@@ -41,3 +42,4 @@ consuming peer's transport key (defence-in-depth: the analyst relay then
 only ever forwards an opaque blob, closing any residual exposure should a
 mask ever be reused).
 }
+\keyword{internal}

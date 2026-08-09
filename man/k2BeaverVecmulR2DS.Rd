@@ -10,6 +10,7 @@ k2BeaverVecmulR2DS(
   y_key,
   output_key,
   n,
+  peer_name,
   session_id = NULL,
   frac_bits = 20L,
   ring = 63L
@@ -24,6 +25,8 @@ k2BeaverVecmulR2DS(
 \item{output_key}{Session key to receive the FP share of z.}
 
 \item{n}{Vector length.}
+
+\item{peer_name}{Authenticated logical name of the expected round-one peer.}
 
 \item{session_id}{MPC session id.}
 

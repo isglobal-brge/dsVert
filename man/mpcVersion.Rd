@@ -7,8 +7,10 @@
 mpcVersion()
 }
 \value{
-Version string of dsvert-mpc
+Compatible version string of dsvert-mpc
 }
 \description{
-Get MPC tool version
+Reads the validated compatibility manifest and fails closed when the
+runtime API does not match this package.
 }
+\keyword{internal}

@@ -90,9 +90,10 @@ func Ring127LogShiftPlaintext(r Ring127, sumRing Uint128) Uint128 {
 // Ring127LogShiftCoeffsFP returns the rescale + coefficients for MPC Horner.
 // The caller receives half-width 1/a, midpoint-shift (a+b)/2 encoded as
 // Ring127 FP, and c_0..c_N. Share-side orchestration:
-//   mid_share  = sum_share − (a+b)/2    (local affine-combine with plaintext)
-//   y_share    = mid_share · (2/(b−a))  (local scale)
-//   Clenshaw via K+1 Beaver vecmul rounds identical to the exp127 pipeline.
+//
+//	mid_share  = sum_share − (a+b)/2    (local affine-combine with plaintext)
+//	y_share    = mid_share · (2/(b−a))  (local scale)
+//	Clenshaw via K+1 Beaver vecmul rounds identical to the exp127 pipeline.
 func Ring127LogShiftCoeffsFP(r Ring127) (oneOverHalf Uint128, midShift Uint128,
 	coeffs [Ring127LogShiftDegree + 1]Uint128, degree int) {
 	half := (Ring127LogShiftMax - Ring127LogShiftMin) / 2.0

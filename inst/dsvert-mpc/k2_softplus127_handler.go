@@ -20,9 +20,10 @@ type K2Softplus127GetCoeffsOutput struct {
 func handleK2Softplus127GetCoeffs() {
 	var input K2Softplus127GetCoeffsInput
 	mpcReadInput(&input)
-	fb := input.FracBits
-	if fb <= 0 {
-		fb = K2DefaultFracBits127
+	fb, err := normalizeRing127FracBits(input.FracBits)
+	if err != nil {
+		outputError("k2-softplus127-get-coeffs: " + err.Error())
+		return
 	}
 	r := NewRing127(fb)
 	oneOverA, coeffs, degree := Ring127SoftplusCoeffsFP(r)

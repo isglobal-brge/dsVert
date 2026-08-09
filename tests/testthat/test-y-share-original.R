@@ -10,7 +10,7 @@ test_that("canonical deviance preserves the original y share", {
   ss$k2_y_share_fp <- fp_y
   ss$k2_eta_share_fp <- fp_eta
 
-  expect_silent(dsVert::glmRing63PrepDevianceDS(
+  expect_silent(dsVert:::glmRing63PrepDevianceDS(
     mode = "canonical", session_id = sid))
   expect_identical(ss$k2_y_share_fp_original, fp_y)
   expect_false(identical(ss$k2_y_share_fp, fp_y))

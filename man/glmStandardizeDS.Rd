@@ -11,7 +11,11 @@ glmStandardizeDS(
   y_var = NULL,
   session_id = NULL,
   skip_standardize = FALSE,
-  mode = "full"
+  mode = "full",
+  missing = "fail",
+  numeric_family = "gaussian",
+  numeric_ring = 63L,
+  numeric_y_var = y_var
 )
 }
 \arguments{
@@ -28,7 +32,20 @@ isolation. Default NULL uses global shared storage.}
 
 \item{skip_standardize}{Logical. If TRUE, skip server-side standardisation (used by callers that pre-standardised).}
 
-\item{mode}{Character. Operation mode (e.g. \code{"rss"} or \code{"canonical"}).}
+\item{mode}{Character. One of \code{"full"}, \code{"scale_only"}, or
+\code{"none"}.}
+
+\item{missing}{Character. Missing-data contract. \code{"fail"} (default)
+refuses incomplete analysis columns so missing values cannot be silently
+converted to zero in fixed-point arithmetic. \code{"mean_impute"} is an
+explicit compatibility policy that imputes the local column mean before
+applying the requested scaling.}
+
+\item{numeric_family, numeric_ring}{Custodian numeric-policy context used to
+validate the values that will be fixed-point encoded.}
+
+\item{numeric_y_var}{Response column to validate even when it is not being
+standardized (as for binomial and Poisson models).}
 }
 \value{
 List with x_means, x_sds, y_mean (if y_var), y_sd (if y_var)

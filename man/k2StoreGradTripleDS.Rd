@@ -23,3 +23,4 @@ is per-multiplication, not per-pool.}
 \description{
 Store gradient Beaver triple (Ring63 FP format)
 }
+\keyword{internal}

@@ -11,6 +11,7 @@ k2IknpReceiverDecryptDS(
   output_key,
   n,
   ring = 63L,
+  producer_name = NULL,
   session_id = NULL
 )
 }
@@ -26,6 +27,9 @@ k2IknpReceiverDecryptDS(
 \item{n}{Operand length.}
 
 \item{ring}{Integer ring selector, 63 or 127.}
+
+\item{producer_name}{Verified logical name of the peer that sent the typed
+ciphertext transfer.}
 
 \item{session_id}{MPC session id.}
 }

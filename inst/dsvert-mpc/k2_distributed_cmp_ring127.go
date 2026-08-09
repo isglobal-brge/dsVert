@@ -1,12 +1,15 @@
 // k2_distributed_cmp_ring127.go — Ring127 parallel of k2_distributed_cmp.go.
 //
-// Distributed secure comparison over Ring127: preprocessing (dealer),
-// round 1 (share + mask), round 2 (DCF eval). All arithmetic is Uint128
-// at modulus 2^127. Reuses DCFKey127/DCFGen127/DCFEval127 from
-// k2_dcf_ring127.go.
+// Masked DCF comparison over Ring127: preprocessing (dealer), round 1
+// (share + mask), round 2 (DCF eval). All arithmetic is Uint128 at modulus
+// 2^127. Reuses DCFKey127/DCFGen127/DCFEval127 from k2_dcf_ring127.go.
 //
-// Output is an arithmetic share in Ring127: share0 + share1 (mod 2^127)
-// is 0 or 1 (exact, not an approximation).
+// The reconstructed output is the exact DCF predicate on the masked values,
+// but it equals the intended signed comparison only if the masked input and
+// threshold do not wrap differently. Moreover, r spans only one quarter of
+// the ring, so opening the masked value leaks coarse range information. This
+// historical primitive is therefore not promotion-safe without redesign;
+// merely widening Ring63 to Ring127 does not fix either issue.
 //
 // Protocol (same structure as Ring63):
 //   Preprocess: dealer draws r ∈ [0, 2^125), splits it as (r0, r1). Computes
@@ -16,9 +19,9 @@
 //     SignThreshold : 0) + r_i_share.
 //   Round 2: m := own_masked + peer_masked. share := DCFEval127(partyID, key, m).
 //
-// SafeMax headroom: modulus/4 = 2^125 (2 bits of safety, matching Ring63's
-// 2^61 = modulus/4). Keeps eta_shifted + r from wrapping in a way that
-// corrupts the comparison.
+// The historical mask range is modulus/4 = 2^125, matching Ring63's 2^61.
+// It avoids differential wrap only for inputs and thresholds constrained to
+// a suitable interior domain; no such secret-domain proof occurs here.
 
 package main
 
@@ -38,8 +41,8 @@ type CmpArithResult127 struct {
 	Shares []Uint128
 }
 
-// cmpGenMaskHiBits127: safeMax = 2^125 means r.Hi ∈ [0, 2^61), i.e. mask
-// Hi with (1<<61)-1 and keep Lo unconstrained.
+// cmpGenMaskHiBits127: maskRange = 2^125 means r.Hi ∈ [0, 2^61), i.e.
+// mask Hi with (1<<61)-1 and keep Lo unconstrained.
 const cmpGenMaskHiBits127 uint64 = (uint64(1) << 61) - 1
 
 // cmpGeneratePreprocess127 creates preprocessing for n Ring127 comparisons
@@ -97,8 +100,9 @@ func cmpRound1_127(ring Ring127, partyID int, etaShare []Uint128, preproc CmpPre
 	return msg
 }
 
-// cmpRound2_127 evaluates DCF and returns arithmetic Ring127 shares.
-// share0 + share1 (mod 2^127) == 1 iff original eta < threshold, else 0.
+// cmpRound2_127 evaluates DCF and returns arithmetic Ring127 shares of the
+// masked predicate. Mapping that predicate back to eta < threshold requires
+// the no-differential-wrap precondition described above.
 func cmpRound2_127(ring Ring127, partyID int, preproc CmpPreprocessPerParty127, ownMsg, peerMsg CmpMaskedValues127) CmpArithResult127 {
 	n := len(ownMsg.Values)
 	result := CmpArithResult127{Shares: make([]Uint128, n)}

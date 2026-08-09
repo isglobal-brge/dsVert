@@ -17,7 +17,7 @@ mpcStoreTransportKeysDS(
 
 \item{transport_keys_b64}{Character (base64url). JSON-encoded peer transport public keys.}
 
-\item{identity_info}{Named list: server -> list(identity_pk, signature). NULL to skip.}
+\item{identity_info}{Named list: server -> list(identity_pk, signature).}
 
 \item{identity_info_b64}{Character (base64url). JSON-encoded identity info / Ed25519 signatures.}
 
@@ -27,8 +27,9 @@ mpcStoreTransportKeysDS(
 TRUE on success.
 }
 \description{
-When identity info is supplied, only transport keys that pass Ed25519
-signature and trusted-list verification are pinned in the session peer set;
-an extra unverified key riding along in \code{transport_keys} is dropped, so
-it cannot poison the set that recipient pinning later trusts.
+Only transport keys that pass Ed25519 signature and exact name-bound pin
+verification are installed in the session peer set. Identity information is
+mandatory; an extra unverified key riding along in \code{transport_keys} is
+dropped. The local logical role must be persisted by the server administrator
+as \code{dsvert.peer_name}; it is never learned from a client connection alias.
 }

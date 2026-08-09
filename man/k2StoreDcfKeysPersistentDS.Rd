@@ -16,3 +16,4 @@ List with status.
 Decrypts transport-encrypted DCF keys and stores them in session.
 Keys are generated server-side by glmRing63GenDcfKeysDS.
 }
+\keyword{internal}

@@ -15,6 +15,7 @@
 #'   \code{data_name} holding the offset on the linear-predictor scale
 #'   (i.e., already log-transformed where appropriate).
 #' @param session_id Character. GLM session identifier.
+#' @param numeric_family GLM family for the execution-attestation binding.
 #'
 #' @return Named list with \code{stored = TRUE} and the length of the
 #'   stored FP vector.
@@ -26,16 +27,24 @@
 #'
 #'   Offsets never leave their home server; the client only orchestrates
 #'   the registration call to the server that owns the offset column.
-#' @export
-k2SetOffsetDS <- function(data_name, offset_column, session_id = NULL) {
-  if (!is.character(data_name) || length(data_name) != 1L) {
+k2SetOffsetDS <- function(data_name, offset_column, session_id = NULL,
+                          numeric_family = "poisson") {
+  if (!is.character(data_name) || length(data_name) != 1L ||
+      is.na(data_name) || !nzchar(data_name)) {
     stop("data_name must be a single character string", call. = FALSE)
   }
-  if (!is.character(offset_column) || length(offset_column) != 1L) {
+  if (!is.character(offset_column) || length(offset_column) != 1L ||
+      is.na(offset_column) || !nzchar(offset_column)) {
     stop("offset_column must be a single character string", call. = FALSE)
   }
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)
+  }
+  if (!is.character(numeric_family) || length(numeric_family) != 1L ||
+      is.na(numeric_family) ||
+      !numeric_family %in% c("gaussian", "binomial", "poisson")) {
+    stop("numeric_family must be gaussian, binomial, or poisson",
+         call. = FALSE)
   }
 
   .validate_data_name(data_name)
@@ -52,9 +61,9 @@ k2SetOffsetDS <- function(data_name, offset_column, session_id = NULL) {
   if (!is.numeric(offset_values)) {
     stop("Offset column must be numeric", call. = FALSE)
   }
-  if (anyNA(offset_values)) {
-    stop("Offset column contains NA; dsVert requires offsets complete on
-          the post-alignment cohort", call. = FALSE)
+  if (any(!is.finite(offset_values))) {
+    stop("Offset column contains NA, NaN, Inf, or -Inf; dsVert requires ",
+         "finite offsets on the post-alignment cohort", call. = FALSE)
   }
 
   ss <- .S(session_id)
@@ -69,6 +78,15 @@ k2SetOffsetDS <- function(data_name, offset_column, session_id = NULL) {
   if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
   ring_tag <- if (ring == 127L) "ring127" else "ring63"
   frac_bits <- if (ring == 127L) 50L else 20L
+  policy <- .dsvert_numeric_policy()
+  .dsvert_numeric_assert_vector(
+    offset_values, policy$bounds$max_abs_offset, "encoded GLM offset")
+  .dsvert_numeric_assert_fp_encoding(
+    offset_values, ring, frac_bits, "encoded GLM offset")
+  if (length(offset_values) > policy$bounds$max_observations) {
+    stop("DSVERT_NUMERIC_BOUND_FAILURE: offset length exceeds the ",
+         "custodian-owned public policy", call. = FALSE)
+  }
   fp_result <- .callMpcTool("k2-float-to-fp", list(
     values = as.numeric(offset_values),
     frac_bits = frac_bits,
@@ -77,7 +95,22 @@ k2SetOffsetDS <- function(data_name, offset_column, session_id = NULL) {
   ss$k2_offset_fp <- fp_result$fp_data
   ss$k2_offset_column <- offset_column
 
-  list(stored = TRUE, n = length(offset_values))
+  list(
+    stored = TRUE,
+    n = length(offset_values),
+    numeric_attestation = .dsvert_numeric_attestation(
+      kind = "glm_offset",
+      policy = policy,
+      session_id = session_id,
+      data_name = data_name,
+      variables = offset_column,
+      family = numeric_family,
+      ring = ring,
+      n = length(offset_values),
+      checks = list(
+        ieee_finite = TRUE,
+        encoded_input_bounds = TRUE,
+        fixed_point_representable = TRUE)))
 }
 
 #' @title Clear a registered offset for a session (server-side)
@@ -85,7 +118,6 @@ k2SetOffsetDS <- function(data_name, offset_column, session_id = NULL) {
 #'   that subsequent eta computations fall back to plain X beta.
 #' @param session_id Character. GLM session identifier.
 #' @return \code{list(cleared = TRUE)}
-#' @export
 k2ClearOffsetDS <- function(session_id = NULL) {
   if (is.null(session_id) || !nzchar(session_id)) {
     stop("session_id required", call. = FALSE)

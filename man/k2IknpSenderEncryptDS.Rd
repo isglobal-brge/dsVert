@@ -13,6 +13,8 @@ k2IknpSenderEncryptDS(
   n,
   ring = 63L,
   base_key = iknp_key,
+  producer_name = NULL,
+  recipient_pk,
   ciphertexts_blob_key = NULL,
   kos_check = NULL,
   session_id = NULL
@@ -35,13 +37,18 @@ k2IknpSenderEncryptDS(
 
 \item{base_key}{Session key prefix for the reusable IKNP base-OT state.}
 
+\item{producer_name}{Verified logical name of the peer that sent the typed
+U-matrix transfer.}
+
+\item{recipient_pk}{Verified base64url transport public key of the IKNP
+extension receiver.}
+
 \item{ciphertexts_blob_key}{Optional blob key where ciphertexts should be
 stored instead of returned directly.}
 
-\item{kos_check}{Optional base64url KOS15/SoftSpoken consistency-check opener
-produced by \code{k2IknpReceiverExtendDS}. When supplied, the OT extension
-aborts if the receiver used inconsistent choice bits (malicious-receiver
-defence). \code{NULL} skips the check (legacy relay).}
+\item{kos_check}{Required base64url KOS15/SoftSpoken consistency-check opener
+produced by \code{k2IknpReceiverExtendDS}. The OT extension aborts if the
+opener is absent or the receiver used inconsistent choice bits.}
 
 \item{session_id}{MPC session id.}
 }

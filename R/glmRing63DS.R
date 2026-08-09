@@ -11,15 +11,16 @@ NULL
 #'
 #' @param session_id Character or NULL.
 #' @return List with transport_pk, identity_pk, signature (all base64url).
-#' @export
 glmRing63TransportInitDS <- function(session_id = NULL) {
   ss <- .S(session_id)
+  # Cross the persistent-identity bootstrap barrier before creating any
+  # ephemeral transport state.
+  identity <- .get_identity_keypair()
   transport <- .callMpcTool("transport-keygen", list())
   .key_put("transport_sk", transport$secret_key, ss)
   .key_put("transport_pk", transport$public_key, ss)
 
   # Ed25519 identity: derive keypair, sign transport PK
-  identity <- .get_identity_keypair()
   .key_put("identity_pk", identity$identity_pk, ss)
   signature <- .sign_transport_pk(transport$public_key, identity$identity_sk)
 
@@ -40,13 +41,16 @@ glmRing63TransportInitDS <- function(session_id = NULL) {
 #' @param peer_pk Character. Transport PK of the second DCF party (base64url).
 #' @param session_id Character or NULL.
 #' @return List with encrypted_own_share (base64url).
-#' @export
 glmRing63ExportOwnShareDS <- function(peer_pk, session_id = NULL) {
   ss <- .S(session_id)
   # Pin the recipient to an identity-verified peer. Otherwise a caller supplies
   # its own transport key, "sealing" gives no confidentiality, and it recovers
   # own_share of the raw features X (its complement is retrievable on the peer).
   .dsvert_validate_peer_pk(peer_pk, ss, "peer")
+  request <- list(peer_pk = peer_pk)
+  replay <- .dsvert_typed_blob_operation_replay(
+    ss, "glmRing63ExportOwnShareDS", request)
+  if (isTRUE(replay$hit)) return(replay$result)
   own_fp <- ss$k2_x_share_fp
   if (is.null(own_fp)) stop("No own share in session. Call k2ShareInputDS first.", call. = FALSE)
 
@@ -54,8 +58,17 @@ glmRing63ExportOwnShareDS <- function(peer_pk, session_id = NULL) {
   sealed <- .callMpcTool("transport-encrypt", list(
     data = jsonlite::base64_enc(charToRaw(own_fp)),
     recipient_pk = pk))
+  payload <- base64_to_base64url(sealed$sealed)
 
-  list(encrypted_own_share = base64_to_base64url(sealed$sealed))
+  result <- list(
+    encrypted_own_share = payload,
+    encrypted_own_transfer = .dsvert_typed_blob_mint(
+      ss, session_id, "blob.input.extra-x.v1", peer_pk, payload,
+      list(n = ss$k2_x_n, p = ss$k2_x_p,
+           ring = as.integer(ss$k2_ring %||% 63L)),
+      producer = "glmRing63ExportOwnShareDS"))
+  .dsvert_typed_blob_operation_commit(
+    ss, "glmRing63ExportOwnShareDS", request, result)
 }
 
 #' Reorder X_full columns to canonical order on fusion party
@@ -70,7 +83,6 @@ glmRing63ExportOwnShareDS <- function(peer_pk, session_id = NULL) {
 #' @param p_extras Integer. Number of extra (non-DCF) features.
 #' @param session_id Character or NULL.
 #' @return List with status.
-#' @export
 glmRing63ReorderXFullDS <- function(p_coord, p_fusion, p_extras, session_id = NULL) {
   ss <- .S(session_id)
   x_full_fp <- ss$k2_x_full_fp
@@ -122,7 +134,7 @@ glmRing63ReorderXFullDS <- function(p_coord, p_fusion, p_extras, session_id = NU
 #'   key records for the Uint128 pipeline; Ring63 keeps the 8-byte records.
 #' @param session_id Character or NULL.
 #' @return List with encrypted blobs for each DCF party.
-#' @export
+#' @keywords internal
 glmRing63GenDcfKeysDS <- function(dcf0_pk, dcf1_pk, family, n, frac_bits,
                                    num_intervals, ring = 63L,
                                    session_id = NULL) {
@@ -166,7 +178,7 @@ glmRing63GenDcfKeysDS <- function(dcf0_pk, dcf1_pk, family, n, frac_bits,
 #'   the two DCF parties, store that party's triples directly in the current
 #'   session and only return the encrypted blob for the peer.
 #' @return List with encrypted blobs for each DCF party.
-#' @export
+#' @keywords internal
 glmRing63GenSplineTriplesDS <- function(dcf0_pk, dcf1_pk, n, frac_bits,
                                          ring = 63L, session_id = NULL,
                                          dealer_party = NULL) {
@@ -271,7 +283,7 @@ glmRing63GenSplineTriplesDS <- function(dcf0_pk, dcf1_pk, n, frac_bits,
 #'   the two DCF parties, store that party's gradient triple share directly in
 #'   the current session and only return the encrypted blob for the peer.
 #' @return List with encrypted blobs for each DCF party.
-#' @export
+#' @keywords internal
 glmRing63GenGradTriplesDS <- function(dcf0_pk, dcf1_pk, n, p,
                                        ring = 63L, session_id = NULL,
                                        dealer_party = NULL) {
@@ -342,7 +354,6 @@ glmRing63GenGradTriplesDS <- function(dcf0_pk, dcf1_pk, n, p,
 #' @param session_id Character or NULL.
 #' @param mode Character. Operation mode (e.g. \code{"rss"} or \code{"canonical"}).
 #' @return List with status.
-#' @export
 glmRing63PrepDevianceDS <- function(mode = "rss", session_id = NULL) {
   ss <- .S(session_id)
   ring <- as.integer(ss$k2_ring %||% 63L)
@@ -393,7 +404,6 @@ glmRing63PrepDevianceDS <- function(mode = "rss", session_id = NULL) {
 #' @param session_id Character or NULL.
 #' @return List with sum_fp (Ring63 scalar as base64) and optionally
 #'   null_term (plaintext constant for Poisson).
-#' @export
 glmRing63DevianceSumsDS <- function(family, session_id = NULL) {
   ss <- .S(session_id)
   ring <- as.integer(ss$k2_ring %||% 63L)
@@ -427,10 +437,8 @@ glmRing63DevianceSumsDS <- function(family, session_id = NULL) {
   }
 }
 
-#' Set y_share to zeros (for correlation: no response variable)
-#' @param session_id Character or NULL.
-#' @return List with status.
-#' @export
+# Retired correlation control-plane compatibility helper. It remains internal
+# for source-level tests and cannot be invoked through DataSHIELD.
 glmRing63CorSetZeroYDS <- function(session_id = NULL) {
   ss <- .S(session_id)
   n <- ss$k2_x_n
@@ -439,27 +447,27 @@ glmRing63CorSetZeroYDS <- function(session_id = NULL) {
   list(status = "ok")
 }
 
-#' @title Set one X_full column as mu for Beaver correlation
-#' @description Extracts column \code{col_idx} from \code{k2_x_full_fp} and
-#'   stores it as \code{secure_mu_share}. Combined with zero y, the residual is
-#'   the selected column and Beaver computes \code{X^T x_col}.
-#' @param col_idx Integer (0-indexed). Column to extract.
-#' @param p_total Integer. Total number of columns.
-#' @param session_id Character or NULL.
-#' @param from_storage Logical. If TRUE, recover parameters from the chunked-blob session store.
-#' @return List with status.
-#' @export
+# Retired correlation control-plane compatibility helper. The promoted
+# correlation path uses a joint DP capsule and has no caller for this mutating
+# session endpoint.
 glmRing63CorSetColDS <- function(col_idx = NULL, p_total = NULL,
                                   from_storage = FALSE, session_id = NULL) {
   ss <- .S(session_id)
   if (isTRUE(from_storage)) {
-    params <- .blob_consume("cor_col_params", ss)
-    if (!is.null(params)) {
-      parts <- strsplit(params, ",")[[1]]
-      col_idx <- as.integer(parts[1])
-      p_total <- as.integer(parts[2])
-    }
+    stop("Blob-encoded correlation column parameters are retired; pass ",
+         "col_idx and p_total as bounded scalars.", call. = FALSE)
   }
+  if (!is.numeric(col_idx) || length(col_idx) != 1L || is.na(col_idx) ||
+      !is.finite(col_idx) || col_idx != floor(col_idx) || col_idx < 0) {
+    stop("col_idx must be one non-negative integer", call. = FALSE)
+  }
+  if (!is.numeric(p_total) || length(p_total) != 1L || is.na(p_total) ||
+      !is.finite(p_total) || p_total != floor(p_total) || p_total < 1L ||
+      p_total > .Machine$integer.max || col_idx >= p_total) {
+    stop("p_total must be positive and col_idx must be in range", call. = FALSE)
+  }
+  col_idx <- as.integer(col_idx)
+  p_total <- as.integer(p_total)
   n <- ss$k2_x_n
   x_full <- ss$k2_x_full_fp
   if (is.null(x_full)) stop("No X_full in session", call. = FALSE)
@@ -476,18 +484,21 @@ glmRing63CorSetColDS <- function(col_idx = NULL, p_total = NULL,
 #' Called on DCF parties to receive feature shares from non-DCF servers.
 #' Appends the shares to the peer X matrix for gradient computation.
 #'
-#' @param extra_key Character. Blob key for the encrypted extra feature share.
+#' @param source_name Authenticated logical name of the feature producer.
 #' @param extra_p Integer. Number of features in this share.
 #' @param session_id Character or NULL.
 #' @return List with status.
-#' @export
-glmRing63ReceiveExtraShareDS <- function(extra_key, extra_p, session_id = NULL) {
+glmRing63ReceiveExtraShareDS <- function(source_name, extra_p,
+                                         session_id = NULL) {
   ss <- .S(session_id)
   tsk <- .key_get("transport_sk", ss)
   if (is.null(tsk)) stop("Transport SK not stored", call. = FALSE)
 
-  blob <- .blob_consume(extra_key, ss)
-  if (is.null(blob)) stop("No blob for key: ", extra_key, call. = FALSE)
+  ring <- as.integer(ss$k2_ring %||% 63L)
+  blob <- .dsvert_typed_blob_consume(
+    ss, "blob.input.extra-x.v1",
+    list(n = ss$k2_x_n, p = as.integer(extra_p), ring = ring),
+    sender_name = source_name)
 
   dec <- .callMpcTool("transport-decrypt", list(
     sealed = .base64url_to_base64(blob), recipient_sk = tsk))
@@ -495,7 +506,6 @@ glmRing63ReceiveExtraShareDS <- function(extra_key, extra_p, session_id = NULL) 
 
   # Column-concatenate: interleave extra features into peer FP matrix (row-major)
   n <- ss$k2_x_n
-  ring <- as.integer(ss$k2_ring %||% 63L)
   if (!ring %in% c(63L, 127L)) stop("ring must be 63 or 127", call. = FALSE)
   ring_tag <- if (ring == 127L) "ring127" else "ring63"
   if (!is.null(ss$k2_peer_x_share_fp) && !is.null(ss$k2_peer_p) && ss$k2_peer_p > 0) {
@@ -522,50 +532,248 @@ glmRing63ReceiveExtraShareDS <- function(extra_key, extra_p, session_id = NULL) 
 # Core storage functions
 # ===========================================================================
 
-#' Store a blob on server (adaptive chunking support)
-#' @param key Character. Blob key.
-#' @param chunk Character. Blob data (or chunk if multi-part).
-#' @param chunk_index Integer. Chunk index (1-based).
-#' @param n_chunks Integer. Total chunks.
-#' @param session_id Character or NULL.
-#' @return TRUE on success.
-#' @export
-mpcStoreBlobDS <- function(key, chunk, chunk_index = 1L, n_chunks = 1L,
-                           session_id = NULL) {
-  ss <- .S(session_id)
+.DSVERT_LEGACY_BLOB_MAX_FRAME_BYTES <- 8L * 1024L^2
+
+.dsvert_store_blob_chunks <- function(ss, key, chunk, chunk_index, n_chunks,
+                                      purpose = c("generic", "psi")) {
+  purpose <- match.arg(purpose)
+  .validate_storage_component(key, "blob key")
+  if (!is.character(chunk) || length(chunk) != 1L || is.na(chunk) ||
+      !nzchar(chunk)) {
+    stop("chunk must be one non-empty character string", call. = FALSE)
+  }
+  validate_integer <- function(value, name, lower, upper) {
+    if (!is.numeric(value) || length(value) != 1L || is.na(value) ||
+        !is.finite(value) || value != floor(value) || value < lower ||
+        value > upper) {
+      stop(name, " must be one integer between ", lower, " and ", upper,
+           call. = FALSE)
+    }
+    as.integer(value)
+  }
+  # These are per-payload resource bounds, not a request/rate limit. They
+  # prevent a single unauthenticated relay frame from exhausting the R worker.
+  # Matches the absolute data-free probe ceiling. The route must prove a
+  # smaller connector-wide geometry before sending; this remains the server's
+  # hard per-request availability bound even if a client claims more.
+  max_chunk_bytes <- .DSVERT_LEGACY_BLOB_MAX_FRAME_BYTES
+  max_chunks <- 4096L
+  max_blob_bytes <- .DSVERT_LEGACY_BLOB_MAX_OBJECT_BYTES
+  n_chunks_candidate <- suppressWarnings(as.numeric(n_chunks))
+  if (length(n_chunks_candidate) == 1L && !is.na(n_chunks_candidate) &&
+      is.finite(n_chunks_candidate) &&
+      n_chunks_candidate == floor(n_chunks_candidate) &&
+      n_chunks_candidate > max_chunks) {
+    .dsvert_resource_oversize(
+      n_chunks_candidate, max_chunks, "legacy blob frame metadata")
+  }
+  n_chunks <- validate_integer(n_chunks, "n_chunks", 1L, max_chunks)
+  chunk_index <- validate_integer(
+    chunk_index, "chunk_index", 1L, n_chunks)
+  chunk_bytes <- as.numeric(nchar(chunk, type = "bytes"))
+  if (chunk_bytes > max_chunk_bytes) {
+    .dsvert_resource_oversize(
+      chunk_bytes, max_chunk_bytes, "legacy blob immutable frame")
+  }
+
+  if (is.null(ss$blob_chunk_receipts)) ss$blob_chunk_receipts <- list()
+  receipt <- ss$blob_chunk_receipts[[key]]
+  chunk_digest <- digest::digest(
+    chunk, algo = "sha256", serialize = FALSE)
+  if (!is.null(receipt)) {
+    existing <- .blob_snapshot(ss)[[key]]
+    receipt_matches <-
+      identical(receipt$purpose, purpose) &&
+      identical(receipt$n_chunks, n_chunks) &&
+      length(receipt$chunk_digests) == n_chunks &&
+      identical(receipt$chunk_digests[[chunk_index]], chunk_digest) &&
+      !is.null(existing) &&
+      identical(
+        receipt$blob_digest,
+        digest::digest(existing, algo = "sha256", serialize = FALSE))
+    if (!receipt_matches) {
+      stop("Conflicting retry for a completed blob", call. = FALSE)
+    }
+    return(TRUE)
+  }
+
+  if (identical(purpose, "psi")) {
+    fixed_psi_keys <- c(
+      "ref_encrypted_blob", "target_encrypted_blob", "dm_encrypted_blob",
+      "common_indices_encrypted")
+    matched_peer <- sub("^matched_indices_", "", key)
+    is_matched <- startsWith(key, "matched_indices_") &&
+      nzchar(matched_peer) && !identical(matched_peer, key)
+    if (is_matched) {
+      trusted <- .get_trusted_peers()
+      is_matched <- !is.null(names(trusted)) && matched_peer %in% names(trusted)
+    }
+    if (!key %in% fixed_psi_keys && !is_matched) {
+      stop("This is not a permitted typed PSI transport slot",
+           call. = FALSE)
+    }
+  }
+
   if (n_chunks == 1L) {
-    .blob_put(key, chunk, ss)
+    existing <- .blob_snapshot(ss)[[key]]
+    if (!is.null(existing)) {
+      if (!identical(existing, chunk)) {
+        stop("Conflicting retry for an existing blob", call. = FALSE)
+      }
+    } else {
+      .dsvert_resource_admit(
+        ss, chunk_bytes + .DSVERT_LEGACY_BLOB_OBJECT_METADATA_BYTES +
+          .DSVERT_LEGACY_BLOB_FRAME_METADATA_BYTES)
+      .blob_put(key, chunk, ss)
+    }
+    ss$blob_chunk_receipts[[key]] <- list(
+      purpose = purpose,
+      n_chunks = n_chunks,
+      chunk_digests = chunk_digest,
+      blob_digest = chunk_digest)
   } else {
     if (is.null(ss$blob_chunks)) ss$blob_chunks <- list()
-    if (!is.null(ss$blob_chunks[[key]]) &&
-        length(ss$blob_chunks[[key]]) != n_chunks) {
-      ss$blob_chunks[[key]] <- NULL
+    state <- ss$blob_chunks[[key]]
+    state_was_new <- is.null(state)
+    if (is.character(state)) {
+      # One-time compatibility migration for an in-progress state created by
+      # the former character-vector implementation during a package upgrade.
+      if (length(state) != n_chunks) {
+        stop("Conflicting n_chunks for an in-progress blob", call. = FALSE)
+      }
+      migrated <- new.env(parent = emptyenv())
+      migrated$purpose <- purpose
+      migrated$n_chunks <- n_chunks
+      migrated$chunks <- new.env(parent = emptyenv())
+      migrated$digests <- new.env(parent = emptyenv())
+      present <- which(nzchar(state))
+      for (index in present) {
+        index_key <- as.character(index)
+        migrated$chunks[[index_key]] <- state[[index]]
+        migrated$digests[[index_key]] <- digest::digest(
+          state[[index]], algo = "sha256", serialize = FALSE)
+      }
+      migrated$received_count <- length(present)
+      migrated$received_bytes <- sum(nchar(
+        state[present], type = "bytes"))
+      state <- migrated
+      ss$blob_chunks[[key]] <- state
     }
-    if (is.null(ss$blob_chunks[[key]])) {
-      ss$blob_chunks[[key]] <- character(n_chunks)
+    if (!is.null(state) && !is.environment(state)) {
+      stop("Malformed in-progress blob state", call. = FALSE)
     }
-    ss$blob_chunks[[key]][chunk_index] <- chunk
-    if (all(nzchar(ss$blob_chunks[[key]]))) {
-      .blob_put(key, paste0(ss$blob_chunks[[key]], collapse = ""), ss)
+    if (is.null(state)) {
+      if (!is.null(.blob_snapshot(ss)[[key]])) {
+        stop("Conflicting retry for an existing blob", call. = FALSE)
+      }
+      .dsvert_resource_admit(
+        ss, chunk_bytes + .DSVERT_LEGACY_BLOB_OBJECT_METADATA_BYTES +
+          as.numeric(n_chunks) * .DSVERT_LEGACY_BLOB_FRAME_METADATA_BYTES)
+      state <- new.env(parent = emptyenv())
+      state$purpose <- purpose
+      state$n_chunks <- n_chunks
+      state$chunks <- new.env(parent = emptyenv())
+      state$digests <- new.env(parent = emptyenv())
+      state$received_count <- 0L
+      state$received_bytes <- 0
+      ss$blob_chunks[[key]] <- state
+    }
+    valid_state <- identical(state$purpose, purpose) &&
+      identical(state$n_chunks, n_chunks) &&
+      is.environment(state$chunks) && is.environment(state$digests) &&
+      is.numeric(state$received_count) &&
+      length(state$received_count) == 1L &&
+      !is.na(state$received_count) && is.finite(state$received_count) &&
+      state$received_count == floor(state$received_count) &&
+      state$received_count >= 0 && state$received_count <= n_chunks &&
+      is.numeric(state$received_bytes) &&
+      length(state$received_bytes) == 1L &&
+      !is.na(state$received_bytes) && is.finite(state$received_bytes) &&
+      state$received_bytes >= 0 && state$received_bytes <= max_blob_bytes
+    if (!valid_state) {
+      stop("Conflicting or malformed in-progress blob state", call. = FALSE)
+    }
+    index_key <- as.character(chunk_index)
+    prior <- state$chunks[[index_key]]
+    if (!is.null(prior)) {
+      if (!identical(prior, chunk) ||
+          !identical(state$digests[[index_key]], chunk_digest)) {
+        stop("Conflicting retry for an existing blob chunk", call. = FALSE)
+      }
+      return(TRUE)
+    }
+    next_bytes <- state$received_bytes + nchar(chunk, type = "bytes")
+    if (!is.finite(next_bytes) || next_bytes > max_blob_bytes) {
+      .dsvert_resource_oversize(
+        next_bytes, max_blob_bytes, "legacy blob object")
+    }
+    if (!is.null(state$chunks[[index_key]])) {
+      stop("Conflicting legacy blob frame state", call. = FALSE)
+    }
+    if (!isTRUE(state_was_new)) {
+      .dsvert_resource_admit(ss, chunk_bytes)
+    }
+    state$chunks[[index_key]] <- chunk
+    state$digests[[index_key]] <- chunk_digest
+    state$received_count <- state$received_count + 1L
+    state$received_bytes <- next_bytes
+    if (identical(state$received_count, n_chunks)) {
+      indices <- as.character(seq_len(n_chunks))
+      completed_chunks <- vapply(
+        indices, function(index) state$chunks[[index]], character(1L),
+        USE.NAMES = FALSE)
+      completed_digests <- vapply(
+        indices, function(index) state$digests[[index]], character(1L),
+        USE.NAMES = FALSE)
+      assembled <- paste0(completed_chunks, collapse = "")
+      existing <- .blob_snapshot(ss)[[key]]
+      if (!is.null(existing) && !identical(existing, assembled)) {
+        stop("Conflicting retry for an existing blob", call. = FALSE)
+      }
+      if (is.null(existing)) .blob_put(key, assembled, ss)
+      ss$blob_chunk_receipts[[key]] <- list(
+        purpose = purpose,
+        n_chunks = n_chunks,
+        chunk_digests = completed_digests,
+        blob_digest = digest::digest(
+          assembled, algo = "sha256", serialize = FALSE))
       ss$blob_chunks[[key]] <- NULL
     }
   }
   TRUE
 }
 
+#' Store a generic legacy MPC blob (adaptive chunking support)
+#'
+#' This compatibility endpoint is disabled by the disclosure-safe gate. New
+#' protocols must expose a purpose-bound transport method instead of allowing
+#' the caller to choose an arbitrary session key.
+#' @param key Character. Blob key.
+#' @param chunk Character. Blob data (or chunk if multi-part).
+#' @param chunk_index Integer. Chunk index (1-based).
+#' @param n_chunks Integer. Total chunks.
+#' @param session_id Character or NULL.
+#' @return TRUE on success.
+mpcStoreBlobDS <- function(key, chunk, chunk_index = 1L, n_chunks = 1L,
+                           session_id = NULL) {
+  ss <- .S(session_id)
+  .dsvert_store_blob_chunks(
+    ss, key, chunk, chunk_index, n_chunks, purpose = "generic")
+}
+
 #' Store peer transport public keys (with identity verification)
 #'
-#' When identity info is supplied, only transport keys that pass Ed25519
-#' signature and trusted-list verification are pinned in the session peer set;
-#' an extra unverified key riding along in \code{transport_keys} is dropped, so
-#' it cannot poison the set that recipient pinning later trusts.
+#' Only transport keys that pass Ed25519 signature and exact name-bound pin
+#' verification are installed in the session peer set. Identity information is
+#' mandatory; an extra unverified key riding along in \code{transport_keys} is
+#' dropped. The local logical role must be persisted by the server administrator
+#' as `dsvert.peer_name`; it is never learned from a client connection alias.
 #' @param transport_keys Named list of base64url transport PKs.
-#' @param identity_info Named list: server -> list(identity_pk, signature). NULL to skip.
+#' @param identity_info Named list: server -> list(identity_pk, signature).
 #' @param session_id Character or NULL.
 #' @param transport_keys_b64 Character (base64url). JSON-encoded peer transport public keys.
 #' @param identity_info_b64 Character (base64url). JSON-encoded identity info / Ed25519 signatures.
 #' @return TRUE on success.
-#' @export
 mpcStoreTransportKeysDS <- function(transport_keys = NULL,
                                      transport_keys_b64 = NULL,
                                      identity_info = NULL,
@@ -586,23 +794,14 @@ mpcStoreTransportKeysDS <- function(transport_keys = NULL,
   if (is.null(identity_info) && !is.null(identity_info_b64) && nzchar(identity_info_b64))
     identity_info <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(.from_b64url(identity_info_b64))), simplifyVector = FALSE)
 
-  # An empty identity dict carries no verification; treat it as absent so the
-  # trusted-peers requirement below is enforced rather than silently bypassed.
-  if (!is.null(identity_info) && length(identity_info) == 0L)
-    identity_info <- NULL
-  verified_peers <- NULL
-  if (!is.null(identity_info)) {
-    own_pk <- .key_get("identity_pk", ss)
-    verified_peers <- .verify_all_peer_identities(identity_info, transport_keys,
-                                                  own_pk)
-  } else {
-    require_tp <- getOption("dsvert.require_trusted_peers")
-    if (is.null(require_tp)) require_tp <- getOption("default.dsvert.require_trusted_peers")
-    if (is.null(require_tp)) require_tp <- TRUE
-    if (isTRUE(as.logical(require_tp)))
-      stop("Trusted peers required but no identity_info provided by client.",
-           call. = FALSE)
+  if (is.null(identity_info) || length(identity_info) == 0L) {
+    stop(
+      "Name-bound pinned peers require signed identity_info for every ",
+      "transport-key handshake.", call. = FALSE)
   }
+  own_pk <- .key_get("identity_pk", ss)
+  verified_peers <- .verify_all_peer_identities(
+    identity_info, transport_keys, own_pk)
 
   # The client builds `transport_keys` by iterating every server in the
   # federation (ds.vertGLM.setup.R Phase 0), so the dict received here
@@ -613,14 +812,15 @@ mpcStoreTransportKeysDS <- function(transport_keys = NULL,
   peer_pks <- lapply(transport_keys, .base64url_to_base64)
   peer_pks <- peer_pks[vapply(peer_pks, function(v) !identical(v, own_tp_plain),
                               logical(1))]
-  # When identities were verified, pin exactly the transport keys that passed
-  # Ed25519 + trusted-list verification, so an extra unverified key riding along
-  # in transport_keys cannot poison the trusted peer set. Only restrict when a
-  # verified set exists (identity-based flows); key-only dev flows keep the
-  # self-filtered set.
-  if (length(verified_peers) > 0L)
-    peer_pks <- peer_pks[vapply(peer_pks, function(v) v %in% verified_peers,
-                                logical(1))]
+  # Pin exactly the transport keys that passed Ed25519 + exact name-bound
+  # verification, so an extra unverified key cannot poison the peer set.
+  peer_pks <- peer_pks[vapply(names(peer_pks), function(srv) {
+      srv %in% names(verified_peers) &&
+        identical(peer_pks[[srv]], verified_peers[[srv]])
+    }, logical(1L))]
+  # Install the same verified, name-bound identity manifest for producer-minted
+  # typed blob tickets.
+  .dsvert_typed_blob_install_peer_manifest(ss, identity_info, transport_keys)
   ss$peer_transport_pks <- peer_pks
   TRUE
 }

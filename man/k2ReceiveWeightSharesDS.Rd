@@ -4,9 +4,18 @@
 \alias{k2ReceiveWeightSharesDS}
 \title{Receive secret-shared observation weights}
 \usage{
-k2ReceiveWeightSharesDS(session_id = NULL)
+k2ReceiveWeightSharesDS(
+  numeric_family = c("gaussian", "binomial", "poisson"),
+  peer_name,
+  session_id = NULL
+)
 }
 \arguments{
+\item{numeric_family}{Character. Public GLM family bound to the numeric
+policy used by later producer-minted exact operations.}
+
+\item{peer_name}{Authenticated logical name of the expected weight producer.}
+
 \item{session_id}{Character. GLM session identifier.}
 }
 \value{

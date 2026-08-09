@@ -38,3 +38,4 @@ Generates 3 sets of Beaver triples (AND, Hadamard1, Hadamard2) for the
 DCF wide spline protocol. Transport-encrypts each party's shares.
 The client never sees the triple values.
 }
+\keyword{internal}

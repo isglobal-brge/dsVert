@@ -1,13 +1,12 @@
 package main
 
-import (
-	"encoding/binary"
-	"fmt"
-)
+import "encoding/binary"
 
 // k2_cmp_threshold.go: minimal DCF comparison commands for DataSHIELD
 // relay workflows that need a threshold bit without reconstructing the
-// underlying shared scalar/vector.
+// underlying shared scalar/vector exactly. The current quarter-ring mask
+// still leaks coarse range information and needs a no-differential-wrap
+// domain proof; these commands remain historical/quarantined primitives.
 
 type K2CmpGenInput struct {
 	N         int     `json:"n"`
@@ -27,11 +26,17 @@ func handleK2CmpGen() {
 		outputError("k2-cmp-gen: n must be positive")
 		return
 	}
-	if input.FracBits <= 0 {
-		input.FracBits = K2DefaultFracBits
+	_, fracBits, err := normalizeRingAndFracBits("ring63", input.FracBits)
+	if err != nil {
+		outputError("k2-cmp-gen: " + err.Error())
+		return
 	}
-	ring := NewRing63(input.FracBits)
-	thresholdFP := ring.FromDouble(input.Threshold)
+	ring := NewRing63(fracBits)
+	thresholdFP, err := ring.FromDoubleChecked(input.Threshold)
+	if err != nil {
+		outputError("k2-cmp-gen: invalid threshold: " + err.Error())
+		return
+	}
 	p0, p1 := cmpGeneratePreprocess(ring, input.N, thresholdFP)
 	mpcWriteOutput(K2CmpGenOutput{
 		Party0Keys: bytesToBase64(serializeDcfBatch(
@@ -56,25 +61,31 @@ type K2CmpRound1Output struct {
 func handleK2CmpRound1() {
 	var input K2CmpRound1Input
 	mpcReadInput(&input)
-	if input.FracBits <= 0 {
-		input.FracBits = K2DefaultFracBits
+	_, fracBits, err := normalizeRingAndFracBits("ring63", input.FracBits)
+	if err != nil {
+		outputError("k2-cmp-round1: " + err.Error())
+		return
 	}
 	if input.PartyID != 0 && input.PartyID != 1 {
 		outputError("k2-cmp-round1: party_id must be 0 or 1")
 		return
 	}
-	ring := NewRing63(input.FracBits)
-	share := fpToRing63(bytesToFPVec(base64ToBytes(input.ShareFP)))
 	if input.N <= 0 {
-		input.N = len(share)
-	}
-	if len(share) != input.N {
-		outputError(fmt.Sprintf(
-			"k2-cmp-round1: share length mismatch (got %d, n=%d)",
-			len(share), input.N))
+		outputError("k2-cmp-round1: n must be positive")
 		return
 	}
-	keys := deserializeDcfBatch(base64ToBytes(input.DcfKeys), input.N, 1)
+	ring := NewRing63(fracBits)
+	share, err := decodeRing63FPVector(input.ShareFP, input.N)
+	if err != nil {
+		outputError("k2-cmp-round1: invalid share_fp: " + err.Error())
+		return
+	}
+	keyBytes, err := decodeBase64Records(input.DcfKeys, k2Ring63DcfElemSize, input.N)
+	if err != nil {
+		outputError("k2-cmp-round1: invalid dcf_keys: " + err.Error())
+		return
+	}
+	keys := deserializeDcfBatch(keyBytes, input.N, 1)
 	msg := cmpRound1(ring, input.PartyID, share, keys[0])
 	buf := make([]byte, len(msg.Values)*8)
 	for i, v := range msg.Values {
@@ -99,49 +110,50 @@ type K2CmpRound2Output struct {
 func handleK2CmpRound2() {
 	var input K2CmpRound2Input
 	mpcReadInput(&input)
-	if input.FracBits <= 0 {
-		input.FracBits = K2DefaultFracBits
+	_, fracBits, err := normalizeRingAndFracBits("ring63", input.FracBits)
+	if err != nil {
+		outputError("k2-cmp-round2: " + err.Error())
+		return
 	}
 	if input.PartyID != 0 && input.PartyID != 1 {
 		outputError("k2-cmp-round2: party_id must be 0 or 1")
 		return
 	}
-	ring := NewRing63(input.FracBits)
-	share := fpToRing63(bytesToFPVec(base64ToBytes(input.ShareFP)))
 	if input.N <= 0 {
-		input.N = len(share)
-	}
-	if len(share) != input.N {
-		outputError(fmt.Sprintf(
-			"k2-cmp-round2: share length mismatch (got %d, n=%d)",
-			len(share), input.N))
+		outputError("k2-cmp-round2: n must be positive")
 		return
 	}
-	peerMaskedBytes := base64ToBytes(input.PeerMasked)
-	if len(peerMaskedBytes) != input.N*8 {
-		outputError(fmt.Sprintf(
-			"k2-cmp-round2: peer masked length mismatch (got %d bytes, want %d)",
-			len(peerMaskedBytes), input.N*8))
+	ring := NewRing63(fracBits)
+	share, err := decodeRing63FPVector(input.ShareFP, input.N)
+	if err != nil {
+		outputError("k2-cmp-round2: invalid share_fp: " + err.Error())
 		return
 	}
-	peer := CmpMaskedValues{Values: make([]uint64, input.N)}
-	for i := range peer.Values {
-		peer.Values[i] = binary.LittleEndian.Uint64(peerMaskedBytes[i*8:])
+	peerValues, err := decodeRing63ResidueVector(input.PeerMasked, input.N)
+	if err != nil {
+		outputError("k2-cmp-round2: invalid peer_masked: " + err.Error())
+		return
 	}
+	peer := CmpMaskedValues{Values: peerValues}
 
-	keys := deserializeDcfBatch(base64ToBytes(input.DcfKeys), input.N, 1)
+	keyBytes, err := decodeBase64Records(input.DcfKeys, k2Ring63DcfElemSize, input.N)
+	if err != nil {
+		outputError("k2-cmp-round2: invalid dcf_keys: " + err.Error())
+		return
+	}
+	keys := deserializeDcfBatch(keyBytes, input.N, 1)
 	own := cmpRound1(ring, input.PartyID, share, keys[0])
 	cmp := cmpRound2(ring, input.PartyID, keys[0], own, peer)
 
-	indicator := make([]FixedPoint, input.N)
+	indicator := make([]uint64, input.N)
 	for i, bitShare := range cmp.Shares {
 		// Convert arithmetic bit shares (sum = 0/1 in Ring63) into
 		// fixed-point shares (sum = 0.0/1.0) so existing k2-fp-sum and
 		// k2-ring63-aggregate can consume the result.
-		indicator[i] = FixedPoint(modMulBig63(
-			bitShare, ring.FracMul, ring.Modulus))
+		indicator[i] = modMulBig63(
+			bitShare, ring.FracMul, ring.Modulus)
 	}
 	mpcWriteOutput(K2CmpRound2Output{
-		IndicatorFP: bytesToBase64(fpVecToBytes(indicator)),
+		IndicatorFP: bytesToBase64(fpVecToBytes(ring63ToFP(indicator))),
 	})
 }

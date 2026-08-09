@@ -9,6 +9,7 @@ k2CmpGenKeysDS(
   dcf1_pk,
   n,
   threshold,
+  operation_id,
   session_id = NULL,
   frac_bits = 20L
 )
@@ -20,6 +21,8 @@ k2CmpGenKeysDS(
 
 \item{threshold}{Public threshold. The comparison bit is
 \code{value < threshold}.}
+
+\item{operation_id}{Character. Comparison operation identifier.}
 
 \item{session_id}{MPC session id.}
 

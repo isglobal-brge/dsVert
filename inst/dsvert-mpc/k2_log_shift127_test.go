@@ -9,8 +9,9 @@ import (
 
 // TestRing127LogShift_Grid tests log(x) on a dense grid covering
 // [Ring127LogShiftMin, Ring127LogShiftMax]. Thresholds:
-//   |x| in central region (a/4 ≤ x ≤ 3b/4)  → rel < 1e-10
-//   near boundary                           → rel < 5e-10
+//
+//	|x| in central region (a/4 ≤ x ≤ 3b/4)  → rel < 1e-10
+//	near boundary                           → rel < 5e-10
 func TestRing127LogShift_Grid(t *testing.T) {
 	r := NewRing127(50)
 	const step_fine = 0.05
@@ -61,7 +62,7 @@ func TestRing127LogShift_NBCentralRange(t *testing.T) {
 		errABS := math.Abs(got - want)
 		var metric float64
 		if math.Abs(want) < 1e-3 {
-			metric = errABS  // threshold on absolute
+			metric = errABS // threshold on absolute
 			if metric > 1e-11 {
 				t.Errorf("log(%g) central abs: got %g want %g abs=%e", x, got, want, metric)
 			}

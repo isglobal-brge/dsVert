@@ -116,9 +116,9 @@
 .dsvert_dp_count_config_validate_v1 <- function(config) {
   fields <- c(
     "version", "domain", "cohort_id", "dataset_id", "dataset_version",
-    "privacy_unit_column", "alignment_purpose", "max_records_per_unit",
-    "overflow_policy", "privacy", "calibration", "peer_pins",
-    "backend_build_sha256", "transport_chunk_coordinates")
+    "privacy_unit_column", "alignment_purpose", "count_upper_bound",
+    "max_records_per_unit", "overflow_policy", "privacy", "calibration",
+    "peer_pins", "backend_build_sha256", "transport_chunk_coordinates")
   if (!is.list(config) || is.null(names(config)) || anyNA(names(config)) ||
       anyDuplicated(names(config)) || !setequal(names(config), fields) ||
       !identical(config$version, .DSVERT_DP_COUNT_CONFIG_VERSION)) {
@@ -139,6 +139,8 @@
   records <- .dsvert_dp_count_positive_integer_v1(
     config$max_records_per_unit, "maximum records per privacy unit",
     .Machine$integer.max)
+  count_upper_bound <- .dsvert_dp_count_positive_integer_v1(
+    config$count_upper_bound, "upper bound", 1000000)
   if (!identical(records, 1) ||
       !identical(config$overflow_policy, "reject_operation")) {
     stop("Count requires one aligned record per privacy unit.",
@@ -198,6 +200,7 @@
     .Machine$integer.max)
 
   result <- config
+  result$count_upper_bound <- count_upper_bound
   result$max_records_per_unit <- records
   result$privacy <- list(
     delta = as.numeric(privacy$delta), epsilon = as.numeric(privacy$epsilon))
@@ -389,6 +392,10 @@
     stop("The Count PSI alignment does not match the configuration.",
          call. = FALSE)
   }
+  if (nrow(data) > config$count_upper_bound) {
+    stop("The aligned Count exceeds its custodian-owned upper bound.",
+         call. = FALSE)
+  }
   expected_pinset <- .psi_padded_pinset_id(as.list(config$peer_pins))
   attestation_fields <- c(
     "attestation_version", "alignment_attested", "alignment_protocol",
@@ -413,6 +420,15 @@
       !attestation$reference_peer %in% names(config$peer_pins) ||
       any(!attestation$compute_peers %in% names(config$peer_pins))) {
     stop("The Count PSI attestation does not match the configuration.",
+         call. = FALSE)
+  }
+  capacity_bucket <- tryCatch(
+    .psi_padded_validate_capacity(attestation$capacity_bucket),
+    error = function(error) stop(
+      "The Count PSI attestation has an invalid capacity bucket.",
+      call. = FALSE))
+  if (nrow(data) > capacity_bucket) {
+    stop("The aligned Count exceeds its authenticated capacity bucket.",
          call. = FALSE)
   }
   snapshot <- .dsvert_dp_count_membership_commitment_v1(
@@ -592,6 +608,7 @@
       effective_arguments = list(
         statistic = "aligned_privacy_unit_count",
         owner_combination = "vertical_membership_once_v1",
+        count_bounds = list(lower = 0, upper = config$count_upper_bound),
         sampler_plan = plan)),
     privacy = list(
       version = "dsvert-per-analysis-dp-v1",

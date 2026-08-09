@@ -2,7 +2,8 @@
   .dsvert_relay_b64url_encode(as.raw(rep(as.integer(index), 32L)))
 }
 
-.count_analysis_config <- function(k = 3L, id_column = "patient_id") {
+.count_analysis_config <- function(
+    k = 3L, id_column = "patient_id", count_upper_bound = 10L) {
   peers <- paste0("site_", seq_len(k))
   pins <- stats::setNames(vapply(
     seq_along(peers), .count_analysis_identity_pk, character(1L)), peers)
@@ -14,6 +15,7 @@
     dataset_version = "v1",
     privacy_unit_column = id_column,
     alignment_purpose = "patient-record-alignment-v1",
+    count_upper_bound = count_upper_bound,
     max_records_per_unit = 1,
     overflow_policy = "reject_operation",
     privacy = list(epsilon = 1, delta = 1e-6),
@@ -50,7 +52,8 @@
   .dsvert_relay_b64url_encode(as.raw(rep(as.integer(index), 32L)))
 }
 
-.count_analysis_psi_contract <- function(config, run_index = 1L) {
+.count_analysis_psi_contract <- function(
+    config, run_index = 1L, capacity_bucket = 64L) {
   source <- list(
     alignment_purpose = config$alignment_purpose,
     dataset_id = config$dataset_id,
@@ -67,7 +70,7 @@
     attestation_id = paste0("attest_", run_hash("attestation")),
     policy_id = paste0("policy_", run_hash("policy"))), source, list(
     pinset_id = .psi_padded_pinset_id(as.list(config$peer_pins)),
-    capacity = 64L,
+    capacity = as.integer(capacity_bucket),
     relay_frame_bytes = 65536L,
     inline_max_bytes = 65536L,
     peer_names = peers,
@@ -77,7 +80,7 @@
 
 .count_analysis_aligned <- function(
     ids, config, token_index = 1L, run_index = 1L,
-    private_offset = 0L) {
+    private_offset = 0L, capacity_bucket = 64L) {
   data <- data.frame(
     privacy_unit_id = ids,
     private_value = private_offset + seq_along(ids),
@@ -87,7 +90,8 @@
     .psi_attach_alignment_manifest(
       data, config$privacy_unit_column,
       .count_analysis_token(token_index)),
-    .count_analysis_psi_contract(config, run_index))
+    .count_analysis_psi_contract(
+      config, run_index, capacity_bucket = capacity_bucket))
 }
 
 .count_analysis_signature <- function(message, identity_pk) {
@@ -108,10 +112,10 @@
 .count_analysis_receipts <- function(
     config, ids = c("p1", "p2", "p3"), token_index = 1L,
     run_index = 1L, private_offset = 0L,
-    planner = .count_analysis_plan) {
+    capacity_bucket = 64L, planner = .count_analysis_plan) {
   data <- .count_analysis_aligned(
     ids, config, token_index = token_index, run_index = run_index,
-    private_offset = private_offset)
+    private_offset = private_offset, capacity_bucket = capacity_bucket)
   receipts <- lapply(seq_along(config$peer_pins), function(index) {
     peer <- names(config$peer_pins)[[index]]
     identity_seed <- as.raw(rep(index + 20L, 32L))
@@ -157,6 +161,17 @@ test_that("Count config is closed and stateless", {
   expect_error(
     .dsvert_dp_count_config_validate_v1(duplicate_pin), "peer pins")
 
+  invalid_bound <- config
+  invalid_bound$count_upper_bound <- 0
+  expect_error(
+    .dsvert_dp_count_config_validate_v1(invalid_bound), "upper bound")
+  invalid_bound$count_upper_bound <- 1000001
+  expect_error(
+    .dsvert_dp_count_config_validate_v1(invalid_bound), "upper bound")
+  invalid_bound$count_upper_bound <- 2.5
+  expect_error(
+    .dsvert_dp_count_config_validate_v1(invalid_bound), "upper bound")
+
   product_formals <- names(formals(.dsvert_dp_count_local_draft_v1))
   expect_false(any(grepl("key|secret", product_formals, ignore.case = TRUE)))
 })
@@ -190,6 +205,17 @@ test_that("Count drafts use validated PSI membership, not run randomness", {
   expect_identical(first_contract$artifact_key, rerun_contract$artifact_key)
   expect_identical(first_contract, rerun_contract)
 
+  larger_bucket <- .count_analysis_receipts(
+    config, ids = members, token_index = 1L, run_index = 1L,
+    capacity_bucket = 128L)
+  larger_bucket_contract <- .dsvert_dp_count_compile_v1(
+    larger_bucket, config, .verifier = .count_analysis_verifier)
+  expect_false(identical(first[[1L]]$psi_run_sha256,
+                         larger_bucket[[1L]]$psi_run_sha256))
+  expect_identical(first_contract$artifact_key,
+                   larger_bucket_contract$artifact_key)
+  expect_identical(first_contract$semantic, larger_bucket_contract$semantic)
+
   renamed_config <- .count_analysis_config(3L, "subject_id")
   renamed <- .count_analysis_receipts(
     renamed_config, ids = members, token_index = 4L, run_index = 4L)
@@ -200,6 +226,17 @@ test_that("Count drafts use validated PSI membership, not run randomness", {
   expect_identical(first_contract$artifact_key,
                    renamed_contract$artifact_key)
   expect_identical(first_contract$semantic, renamed_contract$semantic)
+
+  wider_config <- .count_analysis_config(3L, count_upper_bound = 11L)
+  wider <- .count_analysis_receipts(
+    wider_config, ids = members, token_index = 1L, run_index = 1L)
+  wider_contract <- .dsvert_dp_count_compile_v1(
+    wider, wider_config, .verifier = .count_analysis_verifier)
+  expect_false(identical(first_contract$artifact_key,
+                         wider_contract$artifact_key))
+  expect_identical(
+    wider_contract$semantic$analysis$effective_arguments$count_bounds,
+    list(lower = 0, upper = 11))
 
   changed <- .count_analysis_receipts(
     config, ids = c(members[1:2], "patient-member-delta-unique"),
@@ -212,6 +249,16 @@ test_that("Count drafts use validated PSI membership, not run randomness", {
   leaked <- .dsvert_dp_canonical_json(first)
   expect_false(any(vapply(
     members, grepl, logical(1L), x = leaked, fixed = TRUE)))
+
+  bounded <- .count_analysis_config(3L, count_upper_bound = 2L)
+  expect_error(
+    .count_analysis_receipts(bounded, ids = c("p1", "p2", "p3")),
+    "upper bound")
+  capacity_limited <- .count_analysis_config(
+    3L, count_upper_bound = 100L)
+  expect_error(.count_analysis_receipts(
+    capacity_limited, ids = paste0("p", seq_len(65L)),
+    capacity_bucket = 64L), "capacity bucket")
 
   unattested <- data.frame(patient_id = c("p1", "p2"))
   expect_error(testthat::with_mocked_bindings(
@@ -323,6 +370,9 @@ test_that("Count contracts have one vertical count for K=2,3,5", {
     expect_identical(
       contract$semantic$analysis$effective_arguments$owner_combination,
       "vertical_membership_once_v1")
+    expect_identical(
+      contract$semantic$analysis$effective_arguments$count_bounds,
+      list(lower = 0, upper = 10))
     expected_authorities <- sort(
       unname(config$peer_pins), method = "radix")[1:2]
     expect_identical(

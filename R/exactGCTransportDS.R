@@ -24,6 +24,10 @@
   "dsVert/exact-gc/cleanup-capability/v1|"
 .DSVERT_EXACT_GC_CROSS_CLEANUP_PURPOSE <-
   "dp.cross-owner.exact-session.v1"
+.DSVERT_EXACT_GC_ANALYSIS_BINDING_VERSION <-
+  "dsvert-exact-gc-analysis-binding-v1"
+.DSVERT_EXACT_GC_ANALYSIS_PEER_BINDING_VERSION <-
+  "dsvert-exact-gc-analysis-peer-binding-v1"
 .DSVERT_EXACT_GC_FAILURE_CODES <- c(
   "infrastructure_unavailable", "non_identifiable", "bound_exceeded",
   "numeric_backend_unavailable")
@@ -504,6 +508,196 @@
     sha256 = .exact_gc_peer_binding_contract_digest(contract))
 }
 
+.exact_gc_analysis_contract_binding <- function(contract) {
+  contract <- .dsvert_dp_analysis_contract_validate_v1(contract)
+  semantic <- contract$semantic
+  if (!identical(semantic$analysis$primitive, "joint-dp-laplace-v2") ||
+      !identical(contract$execution$backend$kernel,
+                 "joint-dp-laplace-v2") ||
+      !identical(contract$execution$backend$ring, "ring127")) {
+    stop("The exact-gc analysis contract is not the audited Count shape.",
+         call. = FALSE)
+  }
+  full_pins <- unlist(contract$execution$peer_pins, use.names = TRUE)
+  if (any(!grepl("^[A-Za-z0-9][A-Za-z0-9_.-]*$", names(full_pins))) ||
+      any(nchar(names(full_pins), type = "bytes") > 128L)) {
+    stop("Invalid full K peer names in the exact-gc analysis contract.",
+         call. = FALSE)
+  }
+  full_pins <- full_pins[order(names(full_pins), method = "radix")]
+  authorities <- unlist(
+    semantic$noise_authorities, use.names = FALSE)
+  authority_names <- names(full_pins)[match(authorities, unname(full_pins))]
+  authority_peer_ids <- vapply(
+    authorities, .dsvert_relay_peer_id, character(1L), USE.NAMES = FALSE)
+  authority_order <- order(authority_peer_ids, method = "radix")
+  authority_roles <- as.list(stats::setNames(
+    authorities[authority_order], c("garbler", "evaluator")))
+  semantic_sha256 <- digest::digest(
+    .dsvert_dp_canonical_json(semantic), algo = "sha256",
+    serialize = FALSE)
+  binding <- .dsvert_dp_analysis_canonical_value_v1(list(
+    version = .DSVERT_EXACT_GC_ANALYSIS_BINDING_VERSION,
+    artifact_key = contract$artifact_key,
+    semantic_contract_sha256 = semantic_sha256,
+    authority_roles = authority_roles))
+  list(
+    contract = contract,
+    full_pins = full_pins,
+    authority_names = authority_names,
+    binding = binding,
+    sha256 = .exact_gc_peer_binding_contract_digest(binding))
+}
+
+.exact_gc_analysis_policy_context <- function(
+    analysis, identity_info, own_identity_pk) {
+  expected <- analysis
+  authority_names <- expected$authority_names
+  if (!is.list(identity_info) || length(identity_info) != 2L ||
+      is.null(names(identity_info)) || anyNA(names(identity_info)) ||
+      anyDuplicated(names(identity_info)) ||
+      !setequal(names(identity_info), authority_names)) {
+    stop("Exact-gc peer names do not match the two noise authorities.",
+         call. = FALSE)
+  }
+  supplied <- vapply(names(identity_info), function(name) {
+    info <- identity_info[[name]]
+    if (!is.list(info) || !is.character(info$identity_pk) ||
+        length(info$identity_pk) != 1L || is.na(info$identity_pk)) {
+      stop("Invalid exact-gc noise authority identity.", call. = FALSE)
+    }
+    .dsvert_relay_normalize_identity_pk(info$identity_pk)
+  }, character(1L), USE.NAMES = TRUE)
+  supplied <- supplied[authority_names]
+  if (!identical(supplied, expected$full_pins[authority_names])) {
+    stop("Exact-gc peer name and pin do not match the noise authorities.",
+         call. = FALSE)
+  }
+  own_identity_pk <- .dsvert_relay_normalize_identity_pk(own_identity_pk)
+  own_name <- authority_names[match(
+    own_identity_pk, unname(expected$full_pins[authority_names]))]
+  if (length(own_name) != 1L || is.na(own_name)) {
+    stop("The local identity is not an exact-gc noise authority.",
+         call. = FALSE)
+  }
+  designated <- sort(authority_names, method = "radix")
+  list(
+    peer_name = unname(own_name),
+    designated = designated,
+    pins = expected$full_pins[designated],
+    full_pins = expected$full_pins,
+    full_pinset_sha256 = digest::digest(
+      .dsvert_dp_canonical_json(as.list(expected$full_pins)),
+      algo = "sha256", serialize = FALSE),
+    consortium_id = expected$contract$artifact_key)
+}
+
+.exact_gc_analysis_peer_binding_digest <- function(
+    session_id, analysis, policy_context, verified) {
+  contract <- list(
+    version = .DSVERT_EXACT_GC_ANALYSIS_PEER_BINDING_VERSION,
+    capability_id = .DSVERT_EXACT_GC_CAPABILITY,
+    session_id = session_id,
+    consortium_id = policy_context$consortium_id,
+    full_peer_pinset_sha256 = policy_context$full_pinset_sha256,
+    designated_peers = as.list(policy_context$designated),
+    designated_peer_pinset = as.list(policy_context$pins),
+    identity_pks = as.list(verified$identity_pks),
+    transport_pks = as.list(verified$transport_pks),
+    analysis_binding = analysis$binding,
+    analysis_binding_sha256 = analysis$sha256)
+  list(
+    contract = contract,
+    sha256 = .exact_gc_peer_binding_contract_digest(contract))
+}
+
+.exact_gc_analysis_count_worker_validate_v1 <- function(
+    ss, session_id, joint_dp, ring, frac_bits, vector_len, purpose,
+    .compiler = NULL) {
+  binding <- ss$.exact_gc_peer_binding_contract
+  if (!is.list(binding) || !identical(
+        binding$version, .DSVERT_EXACT_GC_ANALYSIS_PEER_BINDING_VERSION)) {
+    stop("Invalid analysis-bound exact-gc Count worker contract.",
+         call. = FALSE)
+  }
+  authorization <- .dsvert_dp_count_session_authorization_validate_v1(
+    ss, session_id, binding$consortium_id)
+  expected <- authorization$worker_static
+  static_fields <- c(
+    "sampler", "stop_numerator", "sensitivity_steps", "epsilon",
+    "allocated_delta", "encoded_lower", "encoded_upper",
+    "transcript_hash", "garbler_commitment_context",
+    "evaluator_commitment_context", "implementation_delta_numerator",
+    "implementation_delta_denominator")
+  if (ring != expected$ring_bits || frac_bits != expected$frac_bits ||
+      vector_len != expected$coordinate_count || !is.list(joint_dp) ||
+      !identical(joint_dp$version,
+                 .DSVERT_JOINT_DP_BACKEND_TEMPLATE_V2) ||
+      !identical(as.integer(joint_dp$bernoulli_bits),
+                 as.integer(expected$bernoulli_bits)) ||
+      !identical(as.integer(joint_dp$max_geometric_steps),
+                 as.integer(expected$max_geometric_steps)) ||
+      !all(vapply(static_fields, function(field) {
+        identical(joint_dp[[field]], expected[[field]])
+      }, logical(1L)))) {
+    stop("Invalid analysis-bound exact-gc Count worker contract.",
+         call. = FALSE)
+  }
+  input <- list(
+    version = .DSVERT_JOINT_DP_COUNT_WORKER_CONTRACT_INPUT,
+    ring_bits = expected$ring_bits, frac_bits = expected$frac_bits,
+    coordinate_count = expected$coordinate_count,
+    epsilon = expected$epsilon,
+    allocated_delta = expected$allocated_delta,
+    sensitivity_steps = expected$sensitivity_steps,
+    encoded_lower = expected$encoded_lower,
+    encoded_upper = expected$encoded_upper,
+    bernoulli_bits = expected$bernoulli_bits, max_steps = 4096L,
+    transcript_hash = expected$transcript_hash,
+    garbler_commitment_context = expected$garbler_commitment_context,
+    evaluator_commitment_context = expected$evaluator_commitment_context,
+    garbler_seed_commitment = joint_dp$garbler_seed_commitment,
+    evaluator_seed_commitment = joint_dp$evaluator_seed_commitment)
+  compiler <- if (is.null(.compiler)) function(value) {
+    .callMpcTool("joint-dp-laplace-worker-contract-v2", value)
+  } else .compiler
+  if (!is.function(compiler)) {
+    stop("Invalid analysis-bound Count worker compiler.", call. = FALSE)
+  }
+  compiled <- compiler(input)
+  required <- c(
+    "version", "capability_id", "operation", "purpose", "circuit_digest",
+    "input_contract", "protected_inputs_accepted", "private_seed_accepted",
+    "worker_policy", "capability_available")
+  valid <- is.list(compiled) && !is.null(names(compiled)) &&
+    !anyNA(names(compiled)) && !anyDuplicated(names(compiled)) &&
+    setequal(names(compiled), required) &&
+    identical(compiled$version,
+              .DSVERT_JOINT_DP_COUNT_WORKER_CONTRACT) &&
+    identical(compiled$capability_id,
+              .DSVERT_JOINT_DP_COUNT_EXACT_CAPABILITY) &&
+    identical(compiled$operation, "joint-dp-laplace-v2") &&
+    identical(compiled$input_contract, "public-data-free-count-v1") &&
+    identical(compiled$protected_inputs_accepted, FALSE) &&
+    identical(compiled$private_seed_accepted, FALSE) &&
+    identical(compiled$capability_available, TRUE) &&
+    is.character(compiled$circuit_digest) &&
+    length(compiled$circuit_digest) == 1L &&
+    grepl("^[0-9a-f]{64}$", compiled$circuit_digest) &&
+    identical(compiled$purpose,
+              paste0("joint-dp-laplace-v2/", compiled$circuit_digest)) &&
+    identical(compiled$purpose, purpose) &&
+    identical(compiled$worker_policy$circuit_digest,
+              compiled$circuit_digest) &&
+    identical(.dsvert_dp_canonical_query_value(compiled$worker_policy),
+              .dsvert_dp_canonical_query_value(joint_dp))
+  if (!isTRUE(valid)) {
+    stop("Invalid analysis-bound exact-gc Count worker contract.",
+         call. = FALSE)
+  }
+  authorization
+}
+
 .exact_gc_peer_binding_contract_digest <- function(contract) {
   digest::digest(
     .dsvert_dp_canonical_json(contract), algo = "sha256",
@@ -540,11 +734,17 @@
     "version", "capability_id", "session_id", "consortium_id",
     "full_peer_pinset_sha256", "designated_peers",
     "designated_peer_pinset", "identity_pks", "transport_pks")
+  analysis_bound <- identical(
+    contract$version, .DSVERT_EXACT_GC_ANALYSIS_PEER_BINDING_VERSION)
+  if (analysis_bound) {
+    required <- c(required, "analysis_binding", "analysis_binding_sha256")
+  }
   if (is.null(names(contract)) || anyNA(names(contract)) ||
       anyDuplicated(names(contract)) || !setequal(names(contract), required) ||
       !contract$version %in% c(
         "dsvert-exact-gc-designated-binding-v2",
-        "dsvert-exact-gc-psi-binding-v1") ||
+        "dsvert-exact-gc-psi-binding-v1",
+        .DSVERT_EXACT_GC_ANALYSIS_PEER_BINDING_VERSION) ||
       !identical(contract$capability_id, .DSVERT_EXACT_GC_CAPABILITY) ||
       !identical(contract$session_id, session_id) ||
       !is.character(contract$consortium_id) ||
@@ -604,7 +804,8 @@
   }
 
   if (identical(contract$version,
-                "dsvert-exact-gc-designated-binding-v2")) {
+                "dsvert-exact-gc-designated-binding-v2") ||
+      analysis_bound) {
     # exactGCBindPeersDS installs the typed producer manifest as a child of
     # this policy/session binding. Recompute its digest from the immutable
     # contract instead of trusting the cached value consumed by ticket minting.
@@ -634,19 +835,48 @@
       stop("Exact-gc typed transport disagrees with the authenticated peer ",
            "binding.", call. = FALSE)
     }
-    context <- .exact_gc_designated_policy_context()
-    current_pins <- vapply(
-      context$pins[context$designated],
-      .dsvert_relay_normalize_identity_pk, character(1L),
-      USE.NAMES = TRUE)
-    if (!identical(context$peer_name, self_name) ||
-        !identical(context$designated, designated) ||
-        !identical(context$consortium_id, contract$consortium_id) ||
-        !identical(context$full_pinset_sha256,
-                   contract$full_peer_pinset_sha256) ||
-        !identical(current_pins, bound_pins)) {
-      stop("The current server policy conflicts with the authenticated ",
-           "exact-gc peer binding.", call. = FALSE)
+    if (analysis_bound) {
+      authorization <-
+        .dsvert_dp_count_session_authorization_validate_v1(
+          ss, session_id, contract$consortium_id)
+      analysis <- .exact_gc_analysis_contract_binding(
+        authorization$contract)
+      identity_info <- lapply(as.list(bound_identities), function(identity_pk) {
+        list(identity_pk = identity_pk)
+      })
+      context <- .exact_gc_analysis_policy_context(
+        analysis, identity_info, .key_get("identity_pk", ss))
+      if (!identical(ss$.exact_gc_analysis_contract,
+                     authorization$contract) ||
+          !identical(ss$.exact_gc_analysis_binding, analysis$binding) ||
+          !identical(ss$.exact_gc_analysis_binding_sha256,
+                     analysis$sha256) ||
+          !identical(contract$analysis_binding, analysis$binding) ||
+          !identical(contract$analysis_binding_sha256, analysis$sha256) ||
+          !identical(context$peer_name, self_name) ||
+          !identical(context$designated, designated) ||
+          !identical(context$consortium_id, contract$consortium_id) ||
+          !identical(context$full_pinset_sha256,
+                     contract$full_peer_pinset_sha256) ||
+          !identical(context$pins[designated], bound_pins)) {
+        stop("The analysis contract conflicts with the authenticated ",
+             "exact-gc peer binding.", call. = FALSE)
+      }
+    } else {
+      context <- .exact_gc_designated_policy_context()
+      current_pins <- vapply(
+        context$pins[context$designated],
+        .dsvert_relay_normalize_identity_pk, character(1L),
+        USE.NAMES = TRUE)
+      if (!identical(context$peer_name, self_name) ||
+          !identical(context$designated, designated) ||
+          !identical(context$consortium_id, contract$consortium_id) ||
+          !identical(context$full_pinset_sha256,
+                     contract$full_peer_pinset_sha256) ||
+          !identical(current_pins, bound_pins)) {
+        stop("The current server policy conflicts with the authenticated ",
+             "exact-gc peer binding.", call. = FALSE)
+      }
     }
   } else {
     state <- ss$.psi_padded_state
@@ -1897,6 +2127,9 @@
     worker_heartbeat = state$worker_heartbeat_counter,
     state = state$status,
     stored = identical(state$status, "complete"))
+  if (!is.null(state$analysis_binding_sha256)) {
+    result$analysis_binding_sha256 <- state$analysis_binding_sha256
+  }
   if (identical(state$operation, "mul-truncate-checked")) {
     result$mul_plan_id <- state$mul_plan$plan_id
     result$mul_backend <- state$mul_plan$backend
@@ -2817,6 +3050,24 @@
     stop("Unexpected joint-DP worker material.", call. = FALSE)
   }
   peer_binding_digest <- .exact_gc_validate_bound_peer_context(ss, session_id)
+  analysis_bound <- identical(
+    ss$.exact_gc_peer_binding_contract$version,
+    .DSVERT_EXACT_GC_ANALYSIS_PEER_BINDING_VERSION)
+  analysis_binding_sha256 <- if (analysis_bound) {
+    ss$.exact_gc_analysis_binding_sha256
+  } else {
+    NULL
+  }
+  if (analysis_bound) {
+    if (!identical(operation, "joint-dp-laplace-v2") ||
+        !identical(.exact_gc_output_kind(operation),
+                   "joint-dp-ring-share-v2")) {
+      stop("Invalid analysis-bound exact-gc Count worker contract.",
+           call. = FALSE)
+    }
+    .exact_gc_analysis_count_worker_validate_v1(
+      ss, session_id, joint_dp, ring, frac_bits, vector_len, purpose)
+  }
   output_seed_commitment <- ""
   if (!is.null(deterministic_output_seed)) {
     if (!identical(operation, "clamp-count") ||
@@ -2894,6 +3145,9 @@
     mul_backend = if (is.null(mul_plan)) "" else mul_plan$backend,
     bound_x = if (is.null(mul_plan)) "" else mul_plan$bound_x,
     bound_y = if (is.null(mul_plan)) "" else mul_plan$bound_y)
+  if (analysis_bound) {
+    requested_spec$analysis_binding_sha256 <- analysis_binding_sha256
+  }
   attempt <- 1L
   if (!is.null(previous)) {
     if (!identical(previous$requested_spec, requested_spec)) {
@@ -2959,12 +3213,21 @@
     stop("Exact-gc requires exactly two initialized pinned peers.", call. = FALSE)
   }
   peer_name <- names(ss$peer_transport_pks)[[1L]]
-  trusted <- .get_trusted_peers()
-  if (is.null(trusted[[peer_name]])) {
-    stop("Exact-gc requires a name-bound pinned peer identity.", call. = FALSE)
+  if (analysis_bound) {
+    peer_identity_pk <- ss$.exact_gc_peer_identity_pks[[peer_name]]
+    if (is.null(peer_identity_pk)) {
+      stop("Exact-gc requires an analysis-bound pinned peer identity.",
+           call. = FALSE)
+    }
+  } else {
+    trusted <- .get_trusted_peers()
+    if (is.null(trusted[[peer_name]])) {
+      stop("Exact-gc requires a name-bound pinned peer identity.",
+           call. = FALSE)
+    }
+    peer_identity_pk <- trusted[[peer_name]]
   }
   own_identity_pk <- .key_get("identity_pk", ss)
-  peer_identity_pk <- trusted[[peer_name]]
   self_peer_id <- .dsvert_relay_peer_id(own_identity_pk)
   peer_id <- .dsvert_relay_peer_id(peer_identity_pk)
   if (identical(self_peer_id, peer_id)) {
@@ -2974,6 +3237,18 @@
   garbler_id <- ordered[[1L]]
   evaluator_id <- ordered[[2L]]
   role <- if (identical(self_peer_id, garbler_id)) "garbler" else "evaluator"
+  if (analysis_bound) {
+    peer_role <- if (identical(role, "garbler")) "evaluator" else "garbler"
+    if (!identical(
+          .dsvert_relay_normalize_identity_pk(own_identity_pk),
+          ss$.exact_gc_analysis_binding$authority_roles[[role]]) ||
+        !identical(
+          .dsvert_relay_normalize_identity_pk(peer_identity_pk),
+          ss$.exact_gc_analysis_binding$authority_roles[[peer_role]])) {
+      stop("Exact-gc roles disagree with the analysis noise authorities.",
+           call. = FALSE)
+    }
+  }
   protocol_session <- .exact_gc_protocol_session(
     session_id, operation_id, attempt,
     peer_binding_digest = peer_binding_digest)
@@ -3133,6 +3408,9 @@
   state$role <- role
   state$context_hash <- derived$context_hash
   state$peer_binding_digest <- peer_binding_digest
+  if (analysis_bound) {
+    state$analysis_binding_sha256 <- analysis_binding_sha256
+  }
   state$operation <- operation
   state$output_kind <- output_kind
   state$purpose <- purpose
@@ -3443,6 +3721,11 @@
 .exact_gc_bind_public <- function(ss, session_id, cleanup_purpose = "") {
   result <- list(
     bound = TRUE, capability_id = .DSVERT_EXACT_GC_CAPABILITY)
+  if (!is.null(ss$.exact_gc_analysis_binding)) {
+    result$analysis_binding <- ss$.exact_gc_analysis_binding
+    result$analysis_binding_sha256 <-
+      ss$.exact_gc_analysis_binding_sha256
+  }
   if (is.character(cleanup_purpose) && length(cleanup_purpose) == 1L &&
       !is.na(cleanup_purpose) && nzchar(cleanup_purpose)) {
     result$cleanup_purpose <- cleanup_purpose
@@ -3484,13 +3767,14 @@ exactGCTransportInitDS <- function(session_id) {
   .exact_gc_transport_public(ss)
 }
 
-#' Bind the server-designated signed exact-GC peer (AGGREGATE)
+#' Bind a signed exact-GC peer pair (AGGREGATE)
 #'
-#' The accepted two-peer set is derived exclusively from the custodian's
-#' joint-DP policy inside the server. The canonical binding commits the full
-#' consortium pinset digest, designated pair, signed identities, ephemeral
-#' transport keys, session and exact-GC capability. No analyst-controlled
-#' subset or local-role name is accepted.
+#' Existing policy-bound routes derive the accepted two-peer set exclusively
+#' from the custodian's joint-DP policy. A server-held Count authorization is
+#' resolved only by its artifact key and supplies the full K pinset and exact
+#' two noise authorities. In both cases the binding commits the signed
+#' identities, ephemeral transport keys, session and exact-GC capability; no
+#' analyst-selected subset or role is accepted.
 #'
 #' @param transport_keys_b64 Canonical map of the designated peers' ephemeral
 #'   transport public keys.
@@ -3500,10 +3784,13 @@ exactGCTransportInitDS <- function(session_id) {
 #' @param cleanup_purpose Empty for routes that do not need session cleanup,
 #'   or the fixed cross-owner cleanup purpose. The server does not accept an
 #'   analyst-defined purpose.
+#' @param artifact_key Empty for policy-bound routes, or the artifact key of an
+#'   intact server-held Count authorization in this session.
 #'
 #' @export
 exactGCBindPeersDS <- function(transport_keys_b64, identity_info_b64,
-                               session_id, cleanup_purpose = "") {
+                               session_id, cleanup_purpose = "",
+                               artifact_key = "") {
   session_id <- .dsvert_relay_validate_session_id(session_id)
   ss <- .S(session_id)
   if (!isTRUE(ss$.exact_gc_transport_initialized) ||
@@ -3512,13 +3799,40 @@ exactGCBindPeersDS <- function(transport_keys_b64, identity_info_b64,
       !.key_exists("identity_pk", ss)) {
     stop("Exact-gc transport is not initialized.", call. = FALSE)
   }
-  policy_context <- .exact_gc_designated_policy_context()
+  if (!is.character(artifact_key) || length(artifact_key) != 1L ||
+      is.na(artifact_key) ||
+      (!identical(artifact_key, "") &&
+       !grepl("^[0-9a-f]{64}$", artifact_key))) {
+    stop("Invalid exact-gc analysis artifact key.", call. = FALSE)
+  }
+  analysis <- NULL
+  if (identical(artifact_key, "")) {
+    if (!is.null(ss$.dp_count_authorization)) {
+      stop("An authorized Count session requires its analysis artifact key.",
+           call. = FALSE)
+    }
+    policy_context <- .exact_gc_designated_policy_context()
+  } else {
+    authorization <- .dsvert_dp_count_session_authorization_validate_v1(
+      ss, session_id, artifact_key)
+    analysis <- .exact_gc_analysis_contract_binding(
+      authorization$contract)
+  }
   transport_keys <- .exact_gc_validate_handshake_map(
     transport_keys_b64, "exact-gc transport-key map",
-    expected_names = policy_context$designated)
+    expected_names = if (is.null(analysis)) policy_context$designated else NULL)
   identity_info <- .exact_gc_validate_handshake_map(
     identity_info_b64, "exact-gc identity map",
-    expected_names = policy_context$designated)
+    expected_names = if (is.null(analysis)) policy_context$designated else NULL)
+  if (!is.null(analysis)) {
+    policy_context <- .exact_gc_analysis_policy_context(
+      analysis, identity_info, .key_get("identity_pk", ss))
+    if (length(transport_keys) != 2L ||
+        !setequal(names(transport_keys), policy_context$designated)) {
+      stop("Exact-gc handshake must contain exactly the two noise ",
+           "authorities.", call. = FALSE)
+    }
+  }
   if (!identical(sort(names(transport_keys)), sort(names(identity_info)))) {
     stop("Exact-gc handshake maps name different peers.", call. = FALSE)
   }
@@ -3544,8 +3858,13 @@ exactGCBindPeersDS <- function(transport_keys_b64, identity_info_b64,
   verified <- .exact_gc_verify_designated_pair(
     identity_info, transport_keys, own_identity, own_transport,
     policy_context)
-  binding <- .exact_gc_designated_binding_digest(
-    session_id, policy_context, verified)
+  binding <- if (is.null(analysis)) {
+    .exact_gc_designated_binding_digest(
+      session_id, policy_context, verified)
+  } else {
+    .exact_gc_analysis_peer_binding_digest(
+      session_id, analysis, policy_context, verified)
+  }
   canonical_digest <- binding$sha256
   if (!is.null(ss$.exact_gc_peer_binding_digest)) {
     if (!identical(ss$.exact_gc_peer_binding_digest, canonical_digest)) {
@@ -3575,6 +3894,11 @@ exactGCBindPeersDS <- function(transport_keys_b64, identity_info_b64,
   ss$.exact_gc_self_name <- policy_context$peer_name
   ss$.exact_gc_designated_peers <- policy_context$designated
   ss$.exact_gc_full_peer_pinset_sha256 <- policy_context$full_pinset_sha256
+  if (!is.null(analysis)) {
+    ss$.exact_gc_analysis_contract <- analysis$contract
+    ss$.exact_gc_analysis_binding <- analysis$binding
+    ss$.exact_gc_analysis_binding_sha256 <- analysis$sha256
+  }
   ss$.exact_gc_peer_binding_contract <- binding$contract
   ss$.exact_gc_peer_binding_digest <- canonical_digest
   .exact_gc_bind_public(ss, session_id, cleanup_purpose)

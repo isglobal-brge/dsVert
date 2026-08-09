@@ -345,6 +345,82 @@
     .package = "dsVert")
 }
 
+.exact_gc_analysis_test_identity_pk <- function(index) {
+  .dsvert_relay_b64url_encode(as.raw(rep(as.integer(index), 32L)))
+}
+
+.exact_gc_analysis_test_signature <- function(message, identity_pk) {
+  .dsvert_relay_b64url_encode(digest::hmac(
+    key = charToRaw(identity_pk), object = message,
+    algo = "sha512", serialize = FALSE, raw = TRUE))
+}
+
+.exact_gc_analysis_test_verifier <- function(
+    message, identity_pk, signature, peer_name) {
+  identical(signature,
+            .exact_gc_analysis_test_signature(message, identity_pk))
+}
+
+.exact_gc_analysis_test_fixture <- function(k = 3L, pins = NULL) {
+  if (is.null(pins)) {
+    owners <- paste0("site_", seq_len(k))
+    pins <- setNames(vapply(
+      seq_along(owners), .exact_gc_analysis_test_identity_pk, character(1L)),
+      owners)
+  } else {
+    owners <- names(pins)
+    k <- length(pins)
+  }
+  config <- list(
+    version = "dsvert-dp-count-config-v1",
+    domain = "study-domain",
+    cohort_id = "cohort-v1",
+    dataset_id = "cohort_table",
+    dataset_version = "v1",
+    privacy_unit_column = "patient_id",
+    alignment_purpose = "patient-record-alignment-v1",
+    count_upper_bound = 1000,
+    max_records_per_unit = 1,
+    overflow_policy = "reject_operation",
+    privacy = list(
+      epsilon = 1, delta = 1e-6),
+    calibration = list(implementation_delta = 1e-9),
+    peer_pins = pins,
+    backend_build_sha256 = strrep("a", 64L),
+    transport_chunk_coordinates = 4096)
+  config <- .dsvert_dp_count_config_validate_v1(config)
+  plan <- .dsvert_joint_dp_laplace_plan_v2(
+    .dsvert_dp_count_decimal_text(config$privacy$epsilon),
+    .dsvert_dp_count_decimal_text(
+      config$calibration$implementation_delta),
+    "1", 1L, 8L, 4096L)
+  certificate <- .dsvert_dp_count_plan_certificate_v1(plan, config)
+  receipts <- stats::setNames(lapply(seq_along(owners), function(index) {
+    peer <- owners[[index]]
+    draft <- list(
+      version = .DSVERT_DP_COUNT_RECEIPT_VERSION,
+      peer_name = peer,
+      peer_identity_pk = unname(config$peer_pins[[peer]]),
+      config_sha256 = .dsvert_dp_count_config_hash_v1(config),
+      psi_run_sha256 = strrep("b", 64L),
+      snapshot_commitment = digest::digest(
+        paste0("snapshot|", peer), algo = "sha256", serialize = FALSE),
+      sampler_plan = certificate)
+    .dsvert_dp_count_sign_receipt_v1(
+      draft, .signer = function(message, peer_name, identity_pk) {
+        .exact_gc_analysis_test_signature(message, identity_pk)
+      })
+  }), owners)
+  contract <- .dsvert_dp_count_compile_v1(
+    receipts, config, .verifier = .exact_gc_analysis_test_verifier)
+  list(config = config, receipts = receipts, contract = contract,
+       plan = plan)
+}
+
+.exact_gc_analysis_test_contract <- function(k = 3L, pins = NULL) {
+  .exact_gc_analysis_test_fixture(k, pins)$contract
+}
+
 test_that("Ring128 decimal residues use exact canonical little-endian records", {
   values <- c(
     "0", "1", "9223372036854775807", "9223372036854775808",
@@ -2525,8 +2601,267 @@ test_that("exact-specific transport binds exactly two signed pinned peers", {
     transport_keys_b64 = reversed_transport,
     identity_info_b64 = reversed_identities,
     session_id = session_id)$bound)
+
+  analysis_session <- "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
+  analysis_a <- new.env(parent = emptyenv())
+  analysis_b <- new.env(parent = emptyenv())
+  analysis_a$.session_id <- paste0(
+    analysis_session, "_handshake_a_", Sys.getpid())
+  analysis_b$.session_id <- paste0(
+    analysis_session, "_handshake_b_", Sys.getpid())
+  analysis_init_a <- .exact_gc_test_server_call(
+    analysis_a, seed_a, exactGCTransportInitDS,
+    session_id = analysis_session)
+  analysis_init_b <- .exact_gc_test_server_call(
+    analysis_b, seed_b, exactGCTransportInitDS,
+    session_id = analysis_session)
+  analysis_transport <- list(
+    site_a = analysis_init_a$transport_pk,
+    site_b = analysis_init_b$transport_pk)
+  analysis_identities <- list(
+    site_a = list(
+      identity_pk = analysis_init_a$identity_pk,
+      signature = analysis_init_a$signature),
+    site_b = list(
+      identity_pk = analysis_init_b$identity_pk,
+      signature = analysis_init_b$signature))
+  analysis_pins <- c(
+    site_a = analysis_init_a$identity_pk,
+    site_b = analysis_init_b$identity_pk)
+  analysis_fixture <- .exact_gc_analysis_test_fixture(
+    pins = analysis_pins)
+  analysis_contract <- analysis_fixture$contract
+  analysis_binding <- .exact_gc_analysis_contract_binding(analysis_contract)
+  expect_error(.exact_gc_test_server_call(
+    analysis_a, seed_a, exactGCBindPeersDS,
+    transport_keys_b64 = encode(analysis_transport),
+    identity_info_b64 = encode(analysis_identities),
+    session_id = analysis_session,
+    artifact_key = analysis_contract$artifact_key), "authorization")
+  authorize_analysis <- function(ss, seed) testthat::with_mocked_bindings(
+    withr::with_options(
+      list(dsvert.identity_seed = seed),
+      .dsvert_dp_count_authorize_session_v1(
+        ss, analysis_session, analysis_fixture$config,
+        analysis_fixture$receipts,
+        .verifier = .exact_gc_analysis_test_verifier,
+        .planner = .dsvert_joint_dp_laplace_plan_v2)),
+    .dsvert_dp_policy = function(...) stop("policy must not be called"),
+    .package = "dsVert")
+  authorization_a <- authorize_analysis(analysis_a, seed_a)
+  authorization_b <- authorize_analysis(analysis_b, seed_b)
+  expect_false("analysis_contract_b64" %in%
+                 names(formals(exactGCBindPeersDS)))
+  expect_error(testthat::with_mocked_bindings(
+    .exact_gc_test_server_call(
+      analysis_a, seed_a, exactGCBindPeersDS,
+      transport_keys_b64 = encode(analysis_transport),
+      identity_info_b64 = encode(analysis_identities),
+      session_id = analysis_session),
+    .dsvert_dp_policy = function(...) stop("policy must not be called"),
+    .package = "dsVert"), "requires its analysis artifact key")
+  expect_error(.exact_gc_test_server_call(
+    analysis_a, seed_a, exactGCBindPeersDS,
+    transport_keys_b64 = encode(analysis_transport),
+    identity_info_b64 = encode(analysis_identities),
+    session_id = analysis_session, artifact_key = strrep("0", 64L)),
+    "authorization")
+  expect_error(do.call(exactGCBindPeersDS, list(
+    transport_keys_b64 = encode(analysis_transport),
+    identity_info_b64 = encode(analysis_identities),
+    session_id = analysis_session,
+    analysis_contract_b64 = "raw-contract")), "unused argument")
+  bind_analysis <- function(ss, seed, peer_name) withr::with_options(
+    list(dsvert.peer_name = peer_name), testthat::with_mocked_bindings(
+      .exact_gc_test_server_call(
+        ss, seed, exactGCBindPeersDS,
+        transport_keys_b64 = encode(analysis_transport),
+        identity_info_b64 = encode(analysis_identities),
+        session_id = analysis_session,
+        artifact_key = analysis_contract$artifact_key),
+      .dsvert_dp_policy = function(...) stop("policy must not be called"),
+      .package = "dsVert"))
+  analysis_bound_a <- bind_analysis(analysis_a, seed_a, "site_a")
+  analysis_bound_b <- bind_analysis(analysis_b, seed_b, "site_b")
+  expect_identical(
+    analysis_bound_a$analysis_binding, analysis_binding$binding)
+  expect_identical(
+    analysis_bound_b$analysis_binding_sha256, analysis_binding$sha256)
+  expect_identical(
+    analysis_a$.exact_gc_peer_binding_digest,
+    analysis_b$.exact_gc_peer_binding_digest)
+  expect_identical(length(
+    analysis_a$.exact_gc_analysis_contract$execution$peer_pins), 2L)
+  expect_true(bind_analysis(analysis_a, seed_a, "site_a")$bound)
+  static <- authorization_a$worker_static
+  seed_commitment <- function(context, seed) {
+    .dsvert_joint_dp_backend_hash_raw_v2(c(
+      .dsvert_joint_dp_backend_hex_raw_v2(context, "test context"),
+      jsonlite::base64_dec(seed)))
+  }
+  garbler_seed <- if (identical(
+    authorization_a$local_authority$role, "garbler")) seed_a else seed_b
+  evaluator_seed <- if (identical(
+    authorization_a$local_authority$role, "evaluator")) seed_a else seed_b
+  worker <- .callMpcTool(
+    "joint-dp-laplace-worker-contract-v2", list(
+      version = .DSVERT_JOINT_DP_COUNT_WORKER_CONTRACT_INPUT,
+      ring_bits = static$ring_bits, frac_bits = static$frac_bits,
+      coordinate_count = static$coordinate_count,
+      epsilon = static$epsilon, allocated_delta = static$allocated_delta,
+      sensitivity_steps = static$sensitivity_steps,
+      encoded_lower = static$encoded_lower,
+      encoded_upper = static$encoded_upper,
+      bernoulli_bits = static$bernoulli_bits, max_steps = 4096L,
+      transcript_hash = static$transcript_hash,
+      garbler_commitment_context = static$garbler_commitment_context,
+      evaluator_commitment_context = static$evaluator_commitment_context,
+      garbler_seed_commitment = seed_commitment(
+        static$garbler_commitment_context, garbler_seed),
+      evaluator_seed_commitment = seed_commitment(
+        static$evaluator_commitment_context, evaluator_seed)))
+  validate_worker <- function(policy = worker$worker_policy,
+                              ring = 127L, frac_bits = 0L,
+                              vector_len = 1L,
+                              purpose = worker$purpose) {
+    withr::with_options(
+      list(dsvert.identity_seed = seed_a),
+      .exact_gc_analysis_count_worker_validate_v1(
+        analysis_a, analysis_session, policy, ring, frac_bits,
+        vector_len, purpose))
+  }
+  expect_identical(validate_worker()$artifact_key,
+                   analysis_contract$artifact_key)
+  mutations <- list(
+    version = "other-template", sampler = "other-sampler",
+    bernoulli_bits = 16L, epsilon = "2", allocated_delta = "1e-6",
+    sensitivity_steps = "2", encoded_lower = "-1",
+    encoded_upper = "1001", stop_numerator = "1",
+    max_geometric_steps = 1L,
+    implementation_delta_numerator = "2",
+    implementation_delta_denominator = "3",
+    transcript_hash = strrep("1", 64L),
+    garbler_commitment_context = strrep("2", 64L),
+    evaluator_commitment_context = strrep("3", 64L),
+    garbler_seed_commitment = strrep("4", 64L))
+  for (field in names(mutations)) {
+    changed <- worker$worker_policy
+    changed[[field]] <- mutations[[field]]
+    expect_error(validate_worker(changed), "analysis-bound.*Count")
+  }
+  changed_circuit <- worker$worker_policy
+  changed_circuit$circuit_digest <- strrep("f", 64L)
+  expect_error(validate_worker(
+    changed_circuit,
+    purpose = paste0("joint-dp-laplace-v2/", strrep("f", 64L))),
+    "analysis-bound.*Count")
+  expect_error(validate_worker(ring = 128L), "analysis-bound.*Count")
+
+  analysis_operation <- "op_99999999999999999999999999999999"
+  analysis_source <- "exact_gc_in_99999999999999999999999999999999"
+  analysis_output <- "exact_gc_out_99999999999999999999999999999999"
+  .exact_gc_stage_share(
+    analysis_a, analysis_source,
+    .exact_gc_test_b64_records(7, 16L), 127L, 1L,
+    "count.scalar.v1", "joint-dp-laplace-v2", worker$purpose,
+    0L, "joint-dp-ring-share-v2")
+  initialized <- testthat::with_mocked_bindings(
+    withr::with_options(
+      list(dsvert.identity_seed = seed_a), .exact_gc_init_impl(
+        analysis_a, analysis_session, analysis_operation,
+        .DSVERT_EXACT_GC_CAPABILITY, analysis_source, analysis_output,
+        "joint-dp-laplace-v2", 127L, 0L, 1L, worker$purpose,
+        joint_dp = worker$worker_policy, private_seed = seed_a,
+        binary = binary)),
+    .dsvert_dp_policy = function(...) stop("policy must not be called"),
+    .package = "dsVert")
+  expect_identical(initialized$operation, "joint-dp-laplace-v2")
+  expect_identical(initialized$analysis_binding_sha256,
+                   authorization_a$analysis_binding_sha256)
+  .exact_gc_abort_all(analysis_a)
+
   .session_dir_cleanup(ss_a)
   .session_dir_cleanup(ss_b)
+  .session_dir_cleanup(analysis_a)
+  .session_dir_cleanup(analysis_b)
+})
+
+test_that("analysis-bound Count binding is K-generic and execution-free", {
+  bindings <- lapply(c(2L, 3L, 5L), function(k) {
+    .exact_gc_analysis_contract_binding(
+      .exact_gc_analysis_test_contract(k))
+  })
+  expect_true(all(vapply(bindings, function(value) {
+    identical(value$binding$artifact_key, value$contract$artifact_key) &&
+      identical(length(value$contract$execution$peer_pins),
+                length(value$contract$semantic$owner_snapshots)) &&
+      identical(sort(unname(unlist(value$binding$authority_roles)),
+                       method = "radix"),
+                sort(unlist(
+                  value$contract$semantic$noise_authorities),
+                  method = "radix"))
+  }, logical(1L))))
+
+  binding <- bindings[[2L]]
+  expect_identical(
+    binding$sha256,
+    "7290f74d0d3160c5f64183ec3a6f7474471267dcf7a9c47449b68d6ffed64083")
+  binding_json <- .dsvert_dp_canonical_json(binding$binding)
+  expect_false(any(vapply(c(
+    "session", "operation", "transport", "build_sha256", "ring",
+    "chunk_coordinates"), grepl, logical(1L), x = binding_json,
+    fixed = TRUE)))
+
+  changed_execution <- binding$contract
+  changed_execution$execution$backend$build_sha256 <- strrep("b", 64L)
+  changed_execution$execution$transport$chunk_coordinates <- 8192
+  expect_identical(
+    .exact_gc_analysis_contract_binding(changed_execution)$binding,
+    binding$binding)
+
+  pins <- unlist(binding$contract$execution$peer_pins, use.names = TRUE)
+  authorities <- unlist(
+    binding$contract$semantic$noise_authorities, use.names = FALSE)
+  authority_names <- names(pins)[match(authorities, unname(pins))]
+  identity_info <- stats::setNames(lapply(authority_names, function(name) {
+    list(identity_pk = unname(pins[[name]]), signature = "opaque")
+  }), authority_names)
+  context <- testthat::with_mocked_bindings(
+    .exact_gc_analysis_policy_context(
+      binding, identity_info, pins[[authority_names[[1L]]]]),
+    .dsvert_dp_policy = function(...) stop("policy must not be called"),
+    .package = "dsVert")
+  expect_identical(context$designated, sort(authority_names, method = "radix"))
+  expect_identical(length(context$full_pins), 3L)
+
+  verified <- list(
+    identity_pks = context$pins[context$designated],
+    transport_pks = stats::setNames(
+      as.list(vapply(seq_along(context$designated), function(index) {
+        .exact_gc_analysis_test_identity_pk(index + 10L)
+      }, character(1L))), context$designated))
+  first <- .exact_gc_analysis_peer_binding_digest(
+    "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    binding, context, verified)
+  second <- .exact_gc_analysis_peer_binding_digest(
+    "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    binding, context, verified)
+  expect_false(identical(first$sha256, second$sha256))
+  expect_identical(first$contract$analysis_binding, binding$binding)
+  expect_identical(
+    first$contract$analysis_binding_sha256, binding$sha256)
+
+  substituted <- identity_info
+  substituted[[1L]]$identity_pk <- unname(
+    pins[[setdiff(names(pins), authority_names)[[1L]]]])
+  expect_error(.exact_gc_analysis_policy_context(
+    binding, substituted, pins[[authority_names[[1L]]]]),
+    "noise authorities")
+  relabelled <- identity_info
+  names(relabelled)[[1L]] <- setdiff(names(pins), authority_names)[[1L]]
+  expect_error(.exact_gc_analysis_policy_context(
+    binding, relabelled, pins[[authority_names[[1L]]]]),
+    "peer name|pin")
 })
 
 test_that("dynamic residue records reject non-zero unused high bits", {

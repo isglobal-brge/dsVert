@@ -138,6 +138,18 @@
     unsigned, .signer = .count_analysis_signer)
 }
 
+.count_analysis_authorize <- function(
+    ss, session_id, config, receipts, identity_pk,
+    planner = .count_analysis_plan) {
+  testthat::with_mocked_bindings(
+    .dsvert_dp_count_authorize_session_v1(
+      ss, session_id, config, receipts,
+      .verifier = .count_analysis_verifier, .planner = planner),
+    .get_identity_keypair = function() list(identity_pk = identity_pk),
+    .dsvert_dp_policy = function(...) stop("policy must not be called"),
+    .package = "dsVert")
+}
+
 test_that("Count config is closed and stateless", {
   config <- .count_analysis_config(3L)
   validated <- .dsvert_dp_count_config_validate_v1(config)
@@ -380,4 +392,155 @@ test_that("Count contracts have one vertical count for K=2,3,5", {
       unname(expected_authorities))
     expect_identical(length(contract$semantic$owner_snapshots), k)
   }
+})
+
+test_that("Count authorization is server-held, canonical and K-generic", {
+  session_id <- "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+  for (k in c(2L, 3L, 5L)) {
+    config <- .count_analysis_config(k)
+    receipts <- .count_analysis_receipts(config)
+    contract <- .dsvert_dp_count_compile_v1(
+      receipts, config, .verifier = .count_analysis_verifier)
+    authority <- unlist(
+      contract$semantic$noise_authorities, use.names = FALSE)[[1L]]
+    ss <- new.env(parent = emptyenv())
+    authorization <- .count_analysis_authorize(
+      ss, session_id, config, receipts, authority)
+
+    expect_identical(ss$.dp_count_authorization, authorization)
+    expect_identical(authorization$artifact_key, contract$artifact_key)
+    expect_identical(authorization$contract, contract)
+    expect_identical(
+      authorization$receipt_peers,
+      as.list(sort(names(config$peer_pins), method = "radix")))
+    expect_identical(
+      authorization$worker_static$allocated_delta,
+      .dsvert_dp_count_decimal_text(
+        config$calibration$implementation_delta))
+    expect_false(identical(
+      authorization$worker_static$allocated_delta,
+      .dsvert_dp_count_decimal_text(config$privacy$delta)))
+    expect_identical(
+      authorization$worker_static$transcript_hash,
+      authorization$analysis_binding_sha256)
+    expect_false(any(grepl(
+      "seed|secret|private", names(unlist(authorization)),
+      ignore.case = TRUE)))
+
+    validated <- testthat::with_mocked_bindings(
+      .dsvert_dp_count_session_authorization_validate_v1(
+        ss, session_id, contract$artifact_key),
+      .get_identity_keypair = function() list(identity_pk = authority),
+      .package = "dsVert")
+    expect_identical(validated, authorization)
+    expect_identical(.count_analysis_authorize(
+      ss, session_id, config, rev(receipts), authority), authorization)
+  }
+
+  config <- .count_analysis_config(3L)
+  receipts <- .count_analysis_receipts(config)
+  contract <- .dsvert_dp_count_compile_v1(
+    receipts, config, .verifier = .count_analysis_verifier)
+  authorities <- unlist(
+    contract$semantic$noise_authorities, use.names = FALSE)
+  second <- new.env(parent = emptyenv())
+  expect_silent(.count_analysis_authorize(
+    second, session_id, config, receipts, authorities[[2L]]))
+
+  aliases <- config
+  names(aliases$peer_pins) <- paste0("renamed_", seq_along(
+    aliases$peer_pins))
+  aliased_receipts <- .count_analysis_receipts(aliases)
+  aliased_contract <- .dsvert_dp_count_compile_v1(
+    aliased_receipts, aliases, .verifier = .count_analysis_verifier)
+  expect_false(identical(
+    .dsvert_dp_count_config_hash_v1(config),
+    .dsvert_dp_count_config_hash_v1(aliases)))
+  expect_identical(aliased_contract$artifact_key, contract$artifact_key)
+  expect_identical(
+    .dsvert_dp_count_worker_static_v1(
+      aliased_contract, .planner = .count_analysis_plan),
+    .dsvert_dp_count_worker_static_v1(
+      contract, .planner = .count_analysis_plan))
+
+  maximum <- .count_analysis_config(2L, count_upper_bound = 1000000L)
+  maximum_contract <- .dsvert_dp_count_compile_v1(
+    .count_analysis_receipts(maximum), maximum,
+    .verifier = .count_analysis_verifier)
+  expect_identical(.dsvert_dp_count_worker_static_v1(
+    maximum_contract, .planner = .count_analysis_plan)$encoded_upper,
+    "1000000")
+})
+
+test_that("Count authorization fails closed without partial session state", {
+  session_id <- "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+  config <- .count_analysis_config(3L)
+  receipts <- .count_analysis_receipts(config)
+  contract <- .dsvert_dp_count_compile_v1(
+    receipts, config, .verifier = .count_analysis_verifier)
+  authorities <- unlist(
+    contract$semantic$noise_authorities, use.names = FALSE)
+  base_receipts <- receipts
+  base_config <- config
+  authorize_error <- function(receipts = base_receipts, config = base_config,
+                              identity_pk = authorities[[1L]],
+                              planner = .count_analysis_plan) {
+    ss <- new.env(parent = emptyenv())
+    error <- tryCatch({
+      .count_analysis_authorize(
+        ss, session_id, config, receipts, identity_pk, planner)
+      NULL
+    }, error = identity)
+    expect_s3_class(error, "error")
+    expect_null(ss$.dp_count_authorization)
+    conditionMessage(error)
+  }
+
+  expect_match(authorize_error(receipts = receipts[-1L]),
+               "exactly one signed receipt")
+  bad_signature <- receipts
+  bad_signature[[1L]]$signature <- strrep("x", 86L)
+  expect_match(authorize_error(receipts = bad_signature), "signature")
+  changed_config <- config
+  changed_config$count_upper_bound <- 11
+  expect_match(authorize_error(config = changed_config),
+               "different configuration")
+  invalid_bound <- config
+  invalid_bound$count_upper_bound <- 0
+  expect_match(authorize_error(config = invalid_bound), "upper bound")
+  mismatched_plan <- function(...) {
+    plan <- .count_analysis_plan(...)
+    plan$stop_numerator <- "52"
+    plan
+  }
+  expect_match(authorize_error(planner = mismatched_plan), "planner")
+  non_authority <- setdiff(
+    unname(config$peer_pins), authorities)[[1L]]
+  expect_match(authorize_error(identity_pk = non_authority),
+               "noise authority")
+
+  late <- new.env(parent = emptyenv())
+  late$.exact_gc_peer_binding_digest <- strrep("a", 64L)
+  expect_error(.count_analysis_authorize(
+    late, session_id, config, receipts, authorities[[1L]]),
+    "must precede exact-gc peer binding")
+  expect_null(late$.dp_count_authorization)
+
+  ss <- new.env(parent = emptyenv())
+  installed <- .count_analysis_authorize(
+    ss, session_id, config, receipts, authorities[[1L]])
+  other_run <- .count_analysis_receipts(
+    config, token_index = 8L, run_index = 8L)
+  expect_error(.count_analysis_authorize(
+    ss, session_id, config, other_run, authorities[[1L]]),
+    "Conflicting Count session authorization")
+  expect_identical(ss$.dp_count_authorization, installed)
+
+  ss$.dp_count_authorization$worker_static$encoded_upper <- "11"
+  expect_error(testthat::with_mocked_bindings(
+    .dsvert_dp_count_session_authorization_validate_v1(
+      ss, session_id, contract$artifact_key),
+    .get_identity_keypair = function() list(
+      identity_pk = authorities[[1L]]),
+    .package = "dsVert"), "authorization")
 })

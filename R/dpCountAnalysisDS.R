@@ -13,6 +13,16 @@
 .DSVERT_DP_COUNT_ALIGNMENT_DOMAIN <- "dsVert/dp-count/alignment/v1|"
 .DSVERT_DP_COUNT_ALIGNMENT_VERSION <- "dsvert-count-alignment-v1"
 .DSVERT_DP_COUNT_PSI_RUN_DOMAIN <- "dsVert/dp-count/psi-run/v1|"
+.DSVERT_DP_COUNT_AUTHORIZATION_VERSION <-
+  "dsvert-dp-count-session-authorization-v1"
+.DSVERT_DP_COUNT_WORKER_STATIC_VERSION <-
+  "dsvert-dp-count-worker-static-v1"
+.DSVERT_DP_COUNT_AUTHORIZATION_DOMAIN <-
+  "dsVert/dp-count/session-authorization/v1|"
+.DSVERT_DP_COUNT_RECEIPT_SET_DOMAIN <-
+  "dsVert/dp-count/receipt-set/v1|"
+.DSVERT_DP_COUNT_COMPILED_CONTRACT_DOMAIN <-
+  "dsVert/dp-count/compiled-contract/v1|"
 
 .dsvert_dp_count_hash_v1 <- function(domain, value) {
   digest::digest(
@@ -659,4 +669,212 @@
     transport = list(
       chunk_coordinates = config$transport_chunk_coordinates))
   .dsvert_dp_analysis_contract_v1(semantic, execution)
+}
+
+.dsvert_dp_count_worker_static_v1 <- function(contract, .planner = NULL) {
+  contract <- .dsvert_dp_analysis_contract_validate_v1(contract)
+  binding <- .exact_gc_analysis_contract_binding(contract)
+  semantic <- contract$semantic
+  arguments <- semantic$analysis$effective_arguments
+  fields <- c(
+    "statistic", "owner_combination", "count_bounds", "sampler_plan")
+  bounds <- arguments$count_bounds
+  if (!is.list(arguments) || is.null(names(arguments)) ||
+      !setequal(names(arguments), fields) ||
+      !identical(arguments$statistic, "aligned_privacy_unit_count") ||
+      !identical(arguments$owner_combination, "vertical_membership_once_v1") ||
+      !is.list(bounds) || !identical(sort(names(bounds)),
+                                     c("lower", "upper")) ||
+      !is.numeric(bounds$lower) || length(bounds$lower) != 1L ||
+      is.na(bounds$lower) || !is.finite(bounds$lower) ||
+      !identical(as.numeric(bounds$lower), 0)) {
+    stop("Invalid Count worker semantic contract.", call. = FALSE)
+  }
+  upper <- .dsvert_dp_count_positive_integer_v1(
+    bounds$upper, "worker upper bound", 1000000)
+  certificate <- .dsvert_dp_count_plan_certificate_validate_v1(
+    arguments$sampler_plan)
+  mechanism <- semantic$privacy$mechanism
+  epsilon <- .dsvert_dp_count_decimal_text(semantic$privacy$epsilon)
+  implementation_delta <- .dsvert_dp_count_decimal_text(
+    mechanism$calibration$implementation_delta)
+  if (!is.null(.planner)) {
+    if (!is.function(.planner)) {
+      stop("Invalid Count authorization planner.", call. = FALSE)
+    }
+    replanned <- .planner(
+      epsilon = epsilon, delta = implementation_delta,
+      sensitivity_steps = "1", coordinate_count = 1L,
+      bernoulli_bits = 8L, max_steps = 4096L)
+    replanned <- .dsvert_dp_count_plan_certificate_v1(replanned, NULL)
+    if (!identical(replanned, certificate)) {
+      stop("The Count authorization planner disagrees with the signed ",
+           "certificate.", call. = FALSE)
+    }
+  }
+  roles <- binding$binding$authority_roles
+  authority_ids <- stats::setNames(vapply(
+    roles, .dsvert_relay_peer_id, character(1L)), names(roles))
+  .dsvert_dp_canonical_query_value(list(
+    version = .DSVERT_DP_COUNT_WORKER_STATIC_VERSION,
+    ring_bits = 127L, frac_bits = 0L, coordinate_count = 1L,
+    sampler = mechanism$calibration$sampler,
+    epsilon = epsilon, allocated_delta = implementation_delta,
+    sensitivity_steps = "1",
+    bernoulli_bits = as.integer(certificate$bernoulli_bits),
+    stop_numerator = certificate$stop_numerator,
+    max_geometric_steps = as.integer(certificate$max_geometric_steps),
+    implementation_delta_numerator =
+      certificate$implementation_delta_numerator,
+    implementation_delta_denominator =
+      certificate$implementation_delta_denominator,
+    encoded_lower = "0", encoded_upper = as.character(as.integer(upper)),
+    transcript_hash = binding$sha256,
+    garbler_commitment_context =
+      .dsvert_joint_dp_backend_commitment_context_v2(
+        binding$sha256, "garbler", authority_ids[["garbler"]]),
+    evaluator_commitment_context =
+      .dsvert_joint_dp_backend_commitment_context_v2(
+        binding$sha256, "evaluator", authority_ids[["evaluator"]])))
+}
+
+.dsvert_dp_count_local_authority_v1 <- function(binding) {
+  local_pk <- .dsvert_dp_analysis_identity_pk(
+    .get_identity_keypair()$identity_pk, "local Count authority")
+  roles <- unlist(binding$binding$authority_roles, use.names = TRUE)
+  role <- names(roles)[match(local_pk, unname(roles))]
+  peer_name <- names(binding$full_pins)[match(
+    local_pk, unname(binding$full_pins))]
+  if (length(role) != 1L || is.na(role) || length(peer_name) != 1L ||
+      is.na(peer_name)) {
+    stop("The local identity is not a Count noise authority.",
+         call. = FALSE)
+  }
+  list(peer_name = unname(peer_name), identity_pk = local_pk,
+       role = unname(role))
+}
+
+.dsvert_dp_count_authorization_sha256_v1 <- function(value) {
+  value <- value[setdiff(names(value), "authorization_sha256")]
+  value$config$peer_pins <- as.list(value$config$peer_pins)
+  .dsvert_dp_count_hash_v1(.DSVERT_DP_COUNT_AUTHORIZATION_DOMAIN, value)
+}
+
+.dsvert_dp_count_session_authorization_validate_v1 <- function(
+    ss, session_id, artifact_key = NULL) {
+  if (!is.environment(ss)) {
+    stop("Invalid Count session authorization state.", call. = FALSE)
+  }
+  session_id <- .dsvert_relay_validate_session_id(session_id)
+  authorization <- ss$.dp_count_authorization
+  fields <- c(
+    "version", "session_id", "artifact_key", "config", "config_sha256",
+    "receipt_peers", "receipt_set_sha256", "psi_run_sha256", "contract",
+    "contract_sha256", "analysis_binding", "analysis_binding_sha256",
+    "worker_static", "local_authority", "authorization_sha256")
+  if (!is.list(authorization) || is.null(names(authorization)) ||
+      anyNA(names(authorization)) || anyDuplicated(names(authorization)) ||
+      !setequal(names(authorization), fields) ||
+      !identical(authorization$version,
+                 .DSVERT_DP_COUNT_AUTHORIZATION_VERSION) ||
+      !identical(authorization$session_id, session_id)) {
+    stop("Invalid Count session authorization.", call. = FALSE)
+  }
+  config <- .dsvert_dp_count_config_validate_v1(authorization$config)
+  contract <- .dsvert_dp_analysis_contract_validate_v1(
+    authorization$contract)
+  binding <- .exact_gc_analysis_contract_binding(contract)
+  local_authority <- .dsvert_dp_count_local_authority_v1(binding)
+  worker_static <- .dsvert_dp_count_worker_static_v1(contract)
+  receipt_peers <- authorization$receipt_peers
+  expected_peers <- as.list(sort(names(config$peer_pins), method = "radix"))
+  for (field in c(
+      "artifact_key", "config_sha256", "receipt_set_sha256",
+      "psi_run_sha256", "contract_sha256", "analysis_binding_sha256",
+      "authorization_sha256")) {
+    .dsvert_dp_count_hash_scalar_v1(
+      authorization[[field]], paste("authorization", field))
+  }
+  expected <- authorization
+  expected$config <- config
+  expected$artifact_key <- contract$artifact_key
+  expected$config_sha256 <- .dsvert_dp_count_config_hash_v1(config)
+  expected$receipt_peers <- expected_peers
+  expected$contract <- contract
+  expected$contract_sha256 <- .dsvert_dp_count_hash_v1(
+    .DSVERT_DP_COUNT_COMPILED_CONTRACT_DOMAIN, contract)
+  expected$analysis_binding <- binding$binding
+  expected$analysis_binding_sha256 <- binding$sha256
+  expected$worker_static <- worker_static
+  expected$local_authority <- local_authority
+  expected$authorization_sha256 <-
+    .dsvert_dp_count_authorization_sha256_v1(expected)
+  if (!is.list(receipt_peers) || !identical(receipt_peers, expected_peers) ||
+      !identical(contract$execution$peer_pins,
+                 as.list(config$peer_pins)) ||
+      !identical(worker_static$encoded_upper,
+                 as.character(as.integer(config$count_upper_bound))) ||
+      !identical(authorization, expected) ||
+      (!is.null(artifact_key) &&
+       !identical(contract$artifact_key, artifact_key))) {
+    stop("Invalid Count session authorization.", call. = FALSE)
+  }
+  authorization
+}
+
+.dsvert_dp_count_authorize_session_v1 <- function(
+    ss, session_id, config, receipts,
+    .verifier = .dsvert_relay_verify_message,
+    .planner = .dsvert_joint_dp_laplace_plan_v2) {
+  if (!is.environment(ss)) {
+    stop("Invalid Count session authorization state.", call. = FALSE)
+  }
+  session_id <- .dsvert_relay_validate_session_id(session_id)
+  config <- .dsvert_dp_count_config_validate_v1(config)
+  contract <- .dsvert_dp_count_compile_v1(
+    receipts, config, .verifier = .verifier)
+  verified <- lapply(
+    receipts, .dsvert_dp_count_receipt_verify_v1,
+    config = config, .verifier = .verifier)
+  peers <- vapply(verified, `[[`, character(1L), "peer_name")
+  names(verified) <- peers
+  verified <- verified[sort(peers, method = "radix")]
+  binding <- .exact_gc_analysis_contract_binding(contract)
+  worker_static <- .dsvert_dp_count_worker_static_v1(
+    contract, .planner = .planner)
+  local_authority <- .dsvert_dp_count_local_authority_v1(binding)
+  candidate <- list(
+    version = .DSVERT_DP_COUNT_AUTHORIZATION_VERSION,
+    session_id = session_id,
+    artifact_key = contract$artifact_key,
+    config = config,
+    config_sha256 = .dsvert_dp_count_config_hash_v1(config),
+    receipt_peers = as.list(names(verified)),
+    receipt_set_sha256 = .dsvert_dp_count_hash_v1(
+      .DSVERT_DP_COUNT_RECEIPT_SET_DOMAIN, verified),
+    psi_run_sha256 = verified[[1L]]$psi_run_sha256,
+    contract = contract,
+    contract_sha256 = .dsvert_dp_count_hash_v1(
+      .DSVERT_DP_COUNT_COMPILED_CONTRACT_DOMAIN, contract),
+    analysis_binding = binding$binding,
+    analysis_binding_sha256 = binding$sha256,
+    worker_static = worker_static,
+    local_authority = local_authority)
+  candidate$authorization_sha256 <-
+    .dsvert_dp_count_authorization_sha256_v1(candidate)
+  previous <- ss$.dp_count_authorization
+  if (!is.null(previous)) {
+    previous <- .dsvert_dp_count_session_authorization_validate_v1(
+      ss, session_id)
+    if (!identical(previous, candidate)) {
+      stop("Conflicting Count session authorization.", call. = FALSE)
+    }
+    return(previous)
+  }
+  if (!is.null(ss$.exact_gc_peer_binding_digest)) {
+    stop("Count authorization must precede exact-gc peer binding.",
+         call. = FALSE)
+  }
+  ss$.dp_count_authorization <- candidate
+  candidate
 }

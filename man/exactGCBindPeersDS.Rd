@@ -2,13 +2,14 @@
 % Please edit documentation in R/exactGCTransportDS.R
 \name{exactGCBindPeersDS}
 \alias{exactGCBindPeersDS}
-\title{Bind the server-designated signed exact-GC peer (AGGREGATE)}
+\title{Bind a signed exact-GC peer pair (AGGREGATE)}
 \usage{
 exactGCBindPeersDS(
   transport_keys_b64,
   identity_info_b64,
   session_id,
-  cleanup_purpose = ""
+  cleanup_purpose = "",
+  artifact_key = ""
 )
 }
 \arguments{
@@ -23,11 +24,15 @@ identities.}
 \item{cleanup_purpose}{Empty for routes that do not need session cleanup,
 or the fixed cross-owner cleanup purpose. The server does not accept an
 analyst-defined purpose.}
+
+\item{artifact_key}{Empty for policy-bound routes, or the artifact key of an
+intact server-held Count authorization in this session.}
 }
 \description{
-The accepted two-peer set is derived exclusively from the custodian's
-joint-DP policy inside the server. The canonical binding commits the full
-consortium pinset digest, designated pair, signed identities, ephemeral
-transport keys, session and exact-GC capability. No analyst-controlled
-subset or local-role name is accepted.
+Existing policy-bound routes derive the accepted two-peer set exclusively
+from the custodian's joint-DP policy. A server-held Count authorization is
+resolved only by its artifact key and supplies the full K pinset and exact
+two noise authorities. In both cases the binding commits the signed
+identities, ephemeral transport keys, session and exact-GC capability; no
+analyst-selected subset or role is accepted.
 }

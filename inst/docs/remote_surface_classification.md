@@ -16,13 +16,14 @@ The current client/server registration contract is internally complete:
 | Unregistered endpoint names retained below guarded/test-only client code | 94 |
 | Production-reachable client expressions naming an unregistered endpoint | 0 |
 | Registered endpoints with no repository consumer | 0 |
-| Unregistered, unexported internal `*DS` functions | 164 |
+| Unregistered, unexported internal `*DS` functions | 158 |
 
 This audit removed a further 94 endpoints from `AggregateMethods` and
 `NAMESPACE`: four diagnostic/migration helpers and 90 legacy exact, generic
-MPC, score, cluster-model and mutating-analysis primitives. Their R closures
-remain internal solely for source compatibility and focused regression tests;
-they are neither exported nor remotely invocable. All 64 endpoints that remain
+MPC, score, cluster-model and mutating-analysis primitives. Six obsolete
+per-query DP wrappers and their bare SQLite release engine are now hard-deleted;
+the remaining R closures stay internal solely for source compatibility and
+focused regression tests. None is exported or remotely invocable. All 64 endpoints that remain
 registered belong to the promoted purpose-bound allowlist and have a real
 repository consumer after resolving literal calls, seven `as.call()` / `as.name()`
 constructions and the closed dynamic branch. The latter still names
@@ -46,6 +47,12 @@ aggregate phases and one assign phase. Cross-owner statistical inputs use a
 separate four-endpoint private integrity gate: recipient-specific digest XOR
 shares are compared only inside fixed-shape GC and only one terminal
 `complete`/`alignment_contract_invalid` outcome is opened.
+
+The retired `dsvertDPStatusDS`, `dsvertDPCountDS`,
+`dsvertDPContingencyDS`, `dsvertDPMeanVarDS`, `dsvertDPDescribeDS`, and
+`dsvertDPSurvivalDS` closures are also hard-deleted. Their unregistered bare
+SQLite engine had no production consumer; `dsvert.dp.ledger_path` remains only
+as the namespace prefix for promoted stores.
 
 `mpcTypedSourceProbeDS` and `mpcTypedBlobReadDS` retain concrete internal
 diagnostic call builders, but both are now unregistered and unexported. They
@@ -124,7 +131,7 @@ and is rejected during service bootstrap and Opal allowlist reconciliation.
 | Retired diagnostic/migration internals | 4 | Generic typed read/source diagnostics plus generic exact-GC bind and GLM softplus helpers; unregistered, unexported and test-only or locally guarded |
 | Retired quarantined compatibility internals | 90 | Legacy exact/MPC endpoints below stable local frontdoor errors; unregistered, unexported and carrying no DP or non-reconstruction claim |
 | Registered orphan/dangerous candidates | 0 | Every registered endpoint is promoted and consumed |
-| Internal-unregistered total | 164 | The 94 above plus 70 previously retired compatibility/test closures |
+| Internal-unregistered total | 158 | The 94 above plus 64 previously retired compatibility/test closures |
 
 “Production-safe” is not an unconditional theorem. A DP claim still depends on
 the advertised adjacency and contribution bounds, immutable snapshot, sticky
@@ -196,11 +203,10 @@ destination, operation and one permitted opening.
 
 ## Already outside the remote surface
 
-The 164 internal `*DS` functions are both unregistered and unexported. This set
+The 158 internal `*DS` functions are both unregistered and unexported. This set
 includes:
 
-- the 22 retired legacy per-query DP, generic scalar control-plane and scalar
-  Count lifecycle functions;
+- the 16 retired generic scalar control-plane and Count lifecycle functions;
 - the retired exact adaptive `dsvertHistogramDS` helper, now replaced in
   `ds.vertDesc` by the sticky fixed-grid DP capsule;
 - the orphaned exact `dsvertContingencyDS` table, replaced by the signed DP

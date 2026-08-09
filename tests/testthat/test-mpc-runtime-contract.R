@@ -64,24 +64,12 @@ test_that("malformed or incomplete capability manifests fail closed", {
 
   testthat::local_mocked_bindings(
     .callMpcTool = function(...) old,
-    # Status normally builds a custodian policy before probing a pending
-    # allocator. This test is about the runtime manifest, so supply the minimal
-    # non-pending branch that reaches the probe without depending on ambient DP
-    # deployment options.
-    .dsvert_dp_policy = function() list(
-      rollback_protection = list(mode = "external_cas")),
     # A preceding exact-GC test may already have cached the packaged runtime
     # identity.  This test exercises malformed-manifest handling, so bypass
     # that valid cache explicitly instead of depending on file order.
     .dsvert_mpc_cached_manifest = function(...) NULL,
     .package = "dsVert")
   expect_false(mpcAvailable())
-  expect_error(dsvertDPStatusDS(), "Incompatible dsvert-mpc runtime")
-  expect_error(
-    .dsvert_dp_release(
-      NULL, "unused", "unused", "unused", "unused", 1,
-      function(epsilon, delta) stop("release callback was reached")),
-    "Incompatible dsvert-mpc runtime")
 })
 
 test_that("a validated manifest is cached only for one executable identity", {

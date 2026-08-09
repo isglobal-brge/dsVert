@@ -4,8 +4,7 @@
 # opening.  It only replicates a global DP allocation between exactly two
 # custodian-designated, identity-pinned computation peers selected from the
 # complete vertical pinset.  The historical local epsilon/K
-# accountant is test-only: production remains fail-closed until an MPC
-# PRF/sampler and a complete E2E adapter consume the authorization token and
+# accountant is absent. Production uses the complete signed capsule and
 # durable result state machine defined here.
 
 .DSVERT_JOINT_DP_VERSION <- "dsvert-joint-dp-control-v3"
@@ -468,11 +467,7 @@
 }
 
 .dsvert_joint_dp_ledger_path <- function(policy) {
-  path <- paste0(policy$ledger_path, ".joint-mpc-single-opening-v2.sqlite")
-  if (identical(path, policy$ledger_path)) {
-    stop("The joint and local DP ledgers must be separate.", call. = FALSE)
-  }
-  path
+  paste0(policy$ledger_path, ".joint-mpc-single-opening-v2.sqlite")
 }
 
 .dsvert_joint_dp_open_ledger <- function(policy) {

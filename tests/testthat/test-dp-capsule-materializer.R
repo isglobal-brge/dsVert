@@ -390,12 +390,6 @@ test_that("local capsule coordinates have the exact canonical order", {
         fixture$policy, fixture$manifest, fixture$resolved),
       .dsvert_dp_capsule_materialize_local(
         fixture$policy, fixture$manifest, fixture$resolved)),
-    .dsvert_dp_release = function(...) {
-      stop("legacy release path was called", call. = FALSE)
-    },
-    .dsvert_dp_open_ledger = function(...) {
-      stop("privacy history was consulted", call. = FALSE)
-    },
     .dsvert_capsule_registry_lookup = function(...) {
       stop("capsule history was consulted", call. = FALSE)
     },

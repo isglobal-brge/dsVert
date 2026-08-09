@@ -186,6 +186,40 @@ test_that("legacy per-query DP and scalar-count endpoints are not remote", {
   expect_true("dsvertPublicFixedCohortCountDS" %in% exports)
 })
 
+test_that("the retired bare local SQLite release engine is absent", {
+  retired <- c(
+    ".dsvert_dp_open_ledger", ".dsvert_dp_close_ledger",
+    ".dsvert_dp_release", ".dsvert_dp_inactive_local_history",
+    ".dsvert_dp_initialize_or_validate_noise_root",
+    ".dsvert_dp_meta_get", ".dsvert_dp_meta_set",
+    "dsvertDPStatusDS", "dsvertDPCountDS",
+    "dsvertDPContingencyDS", "dsvertDPMeanVarDS",
+    "dsvertDPDescribeDS", "dsvertDPSurvivalDS")
+  namespace <- asNamespace("dsVert")
+  expect_false(any(vapply(
+    retired, exists, logical(1L), envir = namespace, inherits = FALSE)))
+
+  r_dir <- .dsvert_test_package_file("R", source_only = TRUE)
+  files <- list.files(r_dir, pattern = "[.]R$", full.names = TRUE)
+  source <- paste(unlist(lapply(
+    files, readLines, warn = FALSE), use.names = FALSE), collapse = "\n")
+  forbidden <- c(
+    "CREATE TABLE IF NOT EXISTS dp_meta",
+    "CREATE TABLE IF NOT EXISTS dp_releases",
+    ".test_only_allow_local_anchor",
+    "legacy_local_accounting",
+    "legacy_local_route",
+    "\"unsafe_local_only\"",
+    "\"external_cas\"",
+    "local_total_epsilon",
+    "local_total_delta",
+    "The joint and local DP ledgers must be separate.",
+    paste0(retired, " <- function"))
+  for (token in forbidden) {
+    expect_false(grepl(token, source, fixed = TRUE), info = token)
+  }
+})
+
 test_that("retired remote primitives are not namespace exports", {
   retired <- c(
     "dsvertClusterBinomialMomentsDS", "dsvertLMMExactClusterR2DS",

@@ -2,8 +2,8 @@
 # bootstrapped from the operating-system CSPRNG on the first service-runtime
 # load, unless a custodian configured an HSM/KMS provider. A complete enabled
 # DP policy performs the full ledger/anchor bootstrap check; an otherwise
-# inactive service still creates the independent root after ruling out any
-# configured pre-existing local ledger. The root is never returned through
+# inactive service still creates the independent root after checking any
+# configured promoted joint stores. The root is never returned through
 # DSI, written into the package/library, or stored in the DP ledger.
 
 .DSVERT_DP_NOISE_ROOT_PROTOCOL <- "dsvert-dp-noise-root-v1"
@@ -1105,11 +1105,9 @@
   if (is.null(state)) return(invisible(NULL))
   ledger <- state$ledger_path
   candidates <- c(
-    local = ledger,
     joint_v1 = paste0(ledger, ".joint-mpc-single-opening-v1.sqlite"),
     joint_v2 = paste0(ledger, ".joint-mpc-single-opening-v2.sqlite"))
   descriptions <- c(
-    local = "local DP ledger",
     joint_v1 = "legacy joint DP ledger",
     joint_v2 = "joint DP ledger")
   present <- vapply(names(candidates), function(type) {
@@ -1121,44 +1119,6 @@
   key_id <- paste0(
     "file_", digest::digest(key, algo = "sha256", serialize = FALSE))
 
-  validate_local <- function(path) {
-    .dsvert_dp_history_readonly(
-      path, descriptions[["local"]], function(connection) {
-        if (!all(c("dp_meta", "dp_releases") %in%
-                 tryCatch(DBI::dbListTables(connection),
-                          error = function(e) character()))) {
-          return(FALSE)
-        }
-        rows <- tryCatch(DBI::dbGetQuery(connection, paste(
-          "SELECT key, value FROM dp_meta WHERE key IN",
-          "('schema_version', 'next_index', 'noise_key_id',",
-          "'noise_key_provider_id')")), error = function(e) NULL)
-        if (!is.data.frame(rows) || anyDuplicated(rows$key)) return(FALSE)
-        values <- setNames(rows$value, rows$key)
-        next_index <- suppressWarnings(as.numeric(values[["next_index"]]))
-        if (!identical(values[["schema_version"]], "3") ||
-            !is.finite(next_index) || next_index < 0 ||
-            next_index != floor(next_index)) {
-          return(FALSE)
-        }
-        count <- tryCatch(DBI::dbGetQuery(
-          connection, "SELECT COUNT(*) AS n FROM dp_releases")$n[[1L]],
-          error = function(e) NA_real_)
-        if (!is.numeric(count) || length(count) != 1L ||
-            !is.finite(count) || count < 0 || count != floor(count)) {
-          return(FALSE)
-        }
-        # A current-schema ledger with no releases has no sticky output to bind
-        # to a retired root, so its first continuity receipt may safely bind the
-        # active root. Full policy metadata is still validated by the first DP
-        # operation before any release can be served.
-        if (next_index == 0 && count == 0) return(TRUE)
-        noise_fields <- c("noise_key_id", "noise_key_provider_id")
-        if (!all(noise_fields %in% names(values))) return(FALSE)
-        identical(values[["noise_key_id"]], key_id) &&
-          identical(values[["noise_key_provider_id"]], "owner_only_file_v2")
-      })
-  }
   validate_joint <- function(path, expected_schema) {
     type <- if (identical(expected_schema, "1")) "joint_v1" else "joint_v2"
     .dsvert_dp_history_readonly(
@@ -1205,17 +1165,13 @@
       })
   }
   valid <- vapply(names(candidates), function(type) {
-    if (identical(type, "local")) {
-      validate_local(candidates[[type]])
-    } else {
-      validate_joint(
-        candidates[[type]], if (identical(type, "joint_v1")) "1" else "2")
-    }
+    validate_joint(
+      candidates[[type]], if (identical(type, "joint_v1")) "1" else "2")
   }, logical(1L))
   key <- NULL
   if (!all(valid)) {
     stop(
-      "The active DP noise root cannot authenticate the existing local/joint release history; restore the original key before creating its continuity receipt",
+      "The active DP noise root cannot authenticate the existing joint release history; restore the original key before creating its continuity receipt",
       call. = FALSE)
   }
   invisible(NULL)
@@ -1601,18 +1557,17 @@
   vector_ledgers <- paste0(
     ledger_path, ".joint-dp-vector-v4.sqlite")
   prior_paths <- c(
-    ledger_path, paste0(ledger_path, "-wal"), paste0(ledger_path, "-shm"),
     joint_ledgers, paste0(joint_ledgers, "-wal"),
     paste0(joint_ledgers, "-shm"),
     vector_ledgers, paste0(vector_ledgers, "-wal"),
     paste0(vector_ledgers, "-shm"))
-  prior_local_state <- any(vapply(prior_paths, function(path) {
+  prior_promoted_state <- any(vapply(prior_paths, function(path) {
     if (!file.exists(path)) return(FALSE)
     info <- file.info(path)
     nrow(info) == 1L && !isTRUE(info$isdir) &&
       !is.na(info$size) && info$size > 0
   }, logical(1L)))
-  if (isTRUE(prior_local_state)) {
+  if (isTRUE(prior_promoted_state)) {
     probe <- .dsvert_dp_noise_history_probe(state)
     if (!isTRUE(probe$authenticated_empty)) {
       stop(
@@ -1708,7 +1663,7 @@
       "file_", digest::digest(key, algo = "sha256", serialize = FALSE))
     if (!is.null(journal) &&
         !identical(journal$active$key_id, key_id)) {
-      stop("The active DP noise root cannot authenticate the existing local/joint release history or its epoch journal",
+      stop("The active DP noise root cannot authenticate the existing joint release history or its epoch journal",
            call. = FALSE)
     }
     invisible(.dsvert_dp_noise_ensure_receipt(canonical_path, key))
@@ -2021,132 +1976,4 @@
   invisible(.dsvert_ensure_identity_recovery(
     identity_path, identity_seed, policy$noise_root))
   seed
-}
-
-.dsvert_dp_initialize_or_validate_noise_root <- function(connection, policy) {
-  root <- policy$noise_root
-  stored_epoch <- .dsvert_dp_meta_get(connection, "noise_key_epoch")
-  if (is.null(stored_epoch)) {
-    # A non-empty legacy ledger cannot be rebound to a newly introduced noise
-    # root: its earlier randomness was not covered by this key contract.
-    next_index <- suppressWarnings(as.numeric(
-      .dsvert_dp_meta_get(connection, "next_index")))
-    if (!is.finite(next_index) || next_index != 0 || root$epoch != 1) {
-      stop("The persistent DP ledger predates the required noise-root contract; migrate it under custodian control",
-           call. = FALSE)
-    }
-    .dsvert_dp_meta_set(connection, "noise_key_epoch", "1")
-    .dsvert_dp_meta_set(connection, "noise_key_id", root$key_id)
-    .dsvert_dp_meta_set(connection, "noise_key_provider_id", root$provider_id)
-    return(invisible(NULL))
-  }
-  epoch <- suppressWarnings(as.numeric(stored_epoch))
-  key_id <- .dsvert_dp_meta_get(connection, "noise_key_id")
-  provider_id <- .dsvert_dp_meta_get(connection, "noise_key_provider_id")
-  if (!is.finite(epoch) || epoch < 1 || epoch != floor(epoch) ||
-      is.null(key_id) || is.null(provider_id)) {
-    stop("The persistent DP ledger noise-root metadata is invalid",
-         call. = FALSE)
-  }
-  if (root$epoch == epoch) {
-    if (!identical(root$key_id, key_id) ||
-        !identical(root$provider_id, provider_id)) {
-      next_index <- suppressWarnings(as.numeric(
-        .dsvert_dp_meta_get(connection, "next_index")))
-      empty <- is.finite(next_index) && next_index == 0 &&
-        identical(.dsvert_dp_meta_get(connection, "chain_head"), "GENESIS") &&
-        identical(as.numeric(.dsvert_dp_meta_get(
-          connection, "cumulative_epsilon")), 0) &&
-        identical(as.numeric(.dsvert_dp_meta_get(
-          connection, "cumulative_delta")), 0)
-      if (isTRUE(empty)) {
-        .dsvert_dp_meta_set(connection, "noise_key_id", root$key_id)
-        .dsvert_dp_meta_set(
-          connection, "noise_key_provider_id", root$provider_id)
-        return(invisible(NULL))
-      }
-      stop("The active DP noise root changed without an explicit privacy-epoch rotation",
-           call. = FALSE)
-    }
-    return(invisible(NULL))
-  }
-  if (is.function(root$transition_chain) && root$epoch > epoch) {
-    transitions <- root$transition_chain()
-    valid_records <- is.list(transitions) && length(transitions) &&
-      all(vapply(transitions, function(record) {
-        is.list(record) &&
-          is.numeric(record$privacy_epoch) &&
-          length(record$privacy_epoch) == 1L &&
-          is.finite(record$privacy_epoch) &&
-          is.character(record$key_id) && length(record$key_id) == 1L &&
-          !is.na(record$key_id) &&
-          (is.null(record$previous_key_id) ||
-             (is.character(record$previous_key_id) &&
-              length(record$previous_key_id) == 1L &&
-              !is.na(record$previous_key_id)))
-      }, logical(1L)))
-    if (!isTRUE(valid_records)) {
-      stop("The authenticated DP noise-root transition chain is invalid",
-           call. = FALSE)
-    }
-    epochs <- vapply(transitions, `[[`, numeric(1L), "privacy_epoch")
-    keys <- vapply(transitions, `[[`, character(1L), "key_id")
-    start <- which(epochs == epoch & keys == key_id)
-    if (length(start) != 1L ||
-        !identical(provider_id, "owner_only_file_v2")) {
-      stop("The persistent DP ledger is not represented in the authenticated noise-root epoch journal",
-           call. = FALSE)
-    }
-    selected <- transitions[seq.int(start, length(transitions))]
-    expected_epoch <- epoch
-    expected_key <- key_id
-    for (i in seq_along(selected)) {
-      record <- selected[[i]]
-      if (i == 1L) {
-        if (record$privacy_epoch != expected_epoch ||
-            !identical(record$key_id, expected_key)) {
-          stop("The authenticated DP noise-root transition baseline is invalid",
-               call. = FALSE)
-        }
-        next
-      }
-      if (record$privacy_epoch != expected_epoch + 1 ||
-          !identical(record$previous_key_id, expected_key) ||
-          identical(record$key_id, expected_key)) {
-        stop("The authenticated DP noise-root transition is not consecutive",
-             call. = FALSE)
-      }
-      .dsvert_dp_meta_set(
-        connection, paste0("noise_key_history_", expected_epoch),
-        paste(expected_key, "owner_only_file_v2", sep = "@"))
-      expected_epoch <- record$privacy_epoch
-      expected_key <- record$key_id
-    }
-    if (expected_epoch != root$epoch ||
-        !identical(expected_key, root$key_id)) {
-      stop("The authenticated DP noise-root transition chain does not reach the active root",
-           call. = FALSE)
-    }
-    .dsvert_dp_meta_set(connection, "noise_key_epoch",
-                        format(root$epoch, scientific = FALSE, trim = TRUE))
-    .dsvert_dp_meta_set(connection, "noise_key_id", root$key_id)
-    .dsvert_dp_meta_set(connection, "noise_key_provider_id",
-                        root$provider_id)
-    return(invisible(NULL))
-  }
-  valid_rotation <- root$epoch == epoch + 1 &&
-    !is.null(root$previous_key_id) &&
-    identical(root$previous_key_id, key_id) &&
-    !identical(root$key_id, key_id)
-  if (!isTRUE(valid_rotation)) {
-    stop("DP noise-root rotation must advance exactly one privacy epoch and bind the previous key id",
-         call. = FALSE)
-  }
-  .dsvert_dp_meta_set(connection, paste0("noise_key_history_", epoch),
-                      paste(key_id, provider_id, sep = "@"))
-  .dsvert_dp_meta_set(connection, "noise_key_epoch",
-                      format(root$epoch, scientific = FALSE, trim = TRUE))
-  .dsvert_dp_meta_set(connection, "noise_key_id", root$key_id)
-  .dsvert_dp_meta_set(connection, "noise_key_provider_id", root$provider_id)
-  invisible(NULL)
 }

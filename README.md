@@ -485,8 +485,9 @@ one final opening, durable release/replay, and bilateral finalization. Scalar
 Laplace vectors use the exact-GC one-draw backend; wider vectors use the
 scalable two-independent-complete-draw convolution. The fixed-work dyadic
 discrete-Gaussian backend is selected only when its signed exact plan is
-eligible and improves the certified simultaneous radius. There is no
-unanchored local-ledger fallback.
+eligible and improves the certified simultaneous radius. The retired bare
+per-query SQLite release engine is absent; `dsvert.dp.ledger_path` remains only
+the namespace prefix for the promoted stores.
 
 For K greater than two, the control-plane transcript binds the complete pinset,
 its derived `peer_count`, and the canonical `designated_noise_peers` pair. Only

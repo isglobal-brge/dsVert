@@ -47,11 +47,6 @@
       designated_noise_peers = c("peer_a", "peer_b"),
       global_total_epsilon = 1, global_total_delta = 1e-6,
       lifetime_max_distinct_capsules = 8,
-      # Deliberately retain legacy accounting fields. The capsule allocator
-      # ignores them and assigns the fixed per-capsule epsilon of 1, never
-      # epsilon/K and never an index-decayed per-request quota.
-      composition_partitions = 2L, local_total_epsilon = 0.5,
-      local_total_delta = 5e-7, decay = 0.5,
       adjacency = "add_remove_patient", patient_column = "patient_id",
       unit_capacity = 100L, max_records_per_unit = 2L,
       overflow_policy = "reject_snapshot",

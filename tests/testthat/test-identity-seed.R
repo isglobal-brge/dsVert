@@ -116,55 +116,6 @@ test_that("identity seed creation preserves an existing identity", {
   expect_true(file.exists(.dsvert_identity_receipt_path(seed_path)))
 })
 
-test_that("pre-receipt identity upgrades authenticate the existing DP ledger", {
-  .identity_test_isolation()
-  seed_dir <- withr::local_tempdir(pattern = "dsvert-identity-ledger-")
-  seed_path <- file.path(seed_dir, "identity.seed")
-  ledger_path <- file.path(seed_dir, "ledger.sqlite")
-  original <- jsonlite::base64_enc(as.raw(rep(37L, 32L)))
-  writeLines(original, seed_path)
-  Sys.chmod(seed_path, mode = "0600")
-  secret <- digest::hmac(
-    key = jsonlite::base64_dec(original),
-    object = charToRaw("dsVert/dp-ledger/key/v1"),
-    algo = "sha256", serialize = FALSE, raw = TRUE)
-  secret_id <- .dsvert_dp_hmac(secret, "secret-id-v1")
-  connection <- DBI::dbConnect(RSQLite::SQLite(), ledger_path)
-  DBI::dbExecute(connection,
-    "CREATE TABLE dp_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
-  DBI::dbExecute(connection,
-    "INSERT INTO dp_meta(key, value) VALUES('schema_version', '3')")
-  DBI::dbExecute(connection,
-    "INSERT INTO dp_meta(key, value) VALUES('secret_id', ?)",
-    params = list(secret_id))
-  DBI::dbDisconnect(connection)
-  Sys.chmod(ledger_path, mode = "0600")
-  withr::local_options(list(
-    dsvert.dp.ledger_path = ledger_path,
-    default.dsvert.dp.ledger_path = NULL,
-    dsvert.identity_seed = NULL,
-    default.dsvert.identity_seed = ""))
-
-  expect_invisible(.dsvert_init_identity_seed(
-    seed_path = seed_path,
-    random_bytes = function(n) stop("must not sample"),
-    .allow_test_path = TRUE))
-  receipt <- .dsvert_identity_receipt_path(seed_path)
-  expect_true(.dsvert_validate_identity_receipt(receipt, original))
-
-  unlink(receipt, force = TRUE)
-  replacement <- jsonlite::base64_enc(as.raw(rep(41L, 32L)))
-  writeLines(replacement, seed_path)
-  Sys.chmod(seed_path, mode = "0600")
-  expect_error(
-    .dsvert_init_identity_seed(
-      seed_path = seed_path,
-      random_bytes = function(n) stop("must not sample"),
-      .allow_test_path = TRUE),
-    "cannot authenticate the existing DP ledger")
-  expect_false(file.exists(receipt))
-})
-
 test_that("pre-receipt identity upgrades authenticate a surviving joint ledger", {
   .identity_test_isolation()
   seed_dir <- withr::local_tempdir(pattern = "dsvert-identity-joint-")
@@ -276,28 +227,6 @@ test_that("pre-receipt identity upgrades authenticate current joint ledgers", {
   expect_false(file.exists(receipt))
 })
 
-test_that("pre-receipt identity upgrades reject orphan ledger sidecars", {
-  .identity_test_isolation()
-  seed_dir <- withr::local_tempdir(pattern = "dsvert-identity-sidecar-")
-  seed_path <- file.path(seed_dir, "identity.seed")
-  ledger_path <- file.path(seed_dir, "ledger.sqlite")
-  seed <- jsonlite::base64_enc(as.raw(rep(73L, 32L)))
-  writeLines(seed, seed_path)
-  Sys.chmod(seed_path, mode = "0600")
-  writeBin(charToRaw("orphan authenticated WAL"), paste0(ledger_path, "-wal"))
-  withr::local_options(list(
-    dsvert.dp.ledger_path = ledger_path,
-    default.dsvert.dp.ledger_path = NULL))
-
-  expect_error(
-    .dsvert_init_identity_seed(
-      seed_path = seed_path,
-      random_bytes = function(n) stop("must not sample"),
-      .allow_test_path = TRUE),
-    "local DP ledger has orphan SQLite sidecars")
-  expect_false(file.exists(.dsvert_identity_receipt_path(seed_path)))
-})
-
 test_that("identity continuity rejects orphan current joint-ledger sidecars", {
   .identity_test_isolation()
   seed_dir <- withr::local_tempdir(
@@ -323,94 +252,6 @@ test_that("identity continuity rejects orphan current joint-ledger sidecars", {
     "joint DP ledger has orphan SQLite sidecars")
   expect_false(file.exists(.dsvert_identity_receipt_path(seed_path)))
 
-})
-
-test_that("pre-receipt identity history enforces the read-only boundary", {
-  .identity_test_isolation()
-  skip_on_os("windows")
-  directory <- withr::local_tempdir(pattern = "dsvert-identity-history-ro-")
-  Sys.chmod(directory, mode = "0700")
-  ledger <- file.path(directory, "ledger.sqlite")
-  seed <- jsonlite::base64_enc(as.raw(rep(89L, 32L)))
-  secret <- digest::hmac(
-    key = jsonlite::base64_dec(seed),
-    object = charToRaw("dsVert/dp-ledger/key/v1"),
-    algo = "sha256", serialize = FALSE, raw = TRUE)
-  connection <- DBI::dbConnect(RSQLite::SQLite(), ledger)
-  DBI::dbExecute(connection,
-    "CREATE TABLE dp_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
-  DBI::dbExecute(connection,
-    "INSERT INTO dp_meta(key, value) VALUES('schema_version', '3')")
-  DBI::dbExecute(connection,
-    "INSERT INTO dp_meta(key, value) VALUES('secret_id', ?)",
-    params = list(.dsvert_dp_hmac(secret, "secret-id-v1")))
-  DBI::dbDisconnect(connection)
-  Sys.chmod(ledger, mode = "0600")
-  withr::local_options(list(
-    dsvert.dp.ledger_path = ledger,
-    default.dsvert.dp.ledger_path = NULL))
-  validate <- function(path = ledger) {
-    options(dsvert.dp.ledger_path = path)
-    .dsvert_identity_validate_pre_receipt_ledgers(seed)
-  }
-  expect_invisible(validate())
-
-  public <- file.path(directory, "public.sqlite")
-  expect_true(file.copy(ledger, public))
-  Sys.chmod(public, mode = "0644")
-  alias <- file.path(directory, "ledger-alias.sqlite")
-  expect_true(file.symlink(public, alias))
-  expect_error(validate(alias), "symbolic link")
-  expect_identical(as.integer(file.info(public)$mode), 420L)
-  unlink(alias, force = TRUE)
-
-  hardlink <- file.path(directory, "ledger-hardlink.sqlite")
-  expect_true(file.link(ledger, hardlink))
-  expect_error(validate(), "hard links")
-  unlink(hardlink, force = TRUE)
-
-  Sys.chmod(ledger, mode = "0644")
-  expect_error(validate(), "mode 0600")
-  Sys.chmod(ledger, mode = "0600")
-
-  wal <- paste0(ledger, "-wal")
-  sidecar_target <- file.path(directory, "sidecar-target")
-  writeBin(charToRaw("target"), sidecar_target)
-  Sys.chmod(sidecar_target, mode = "0644")
-  expect_true(file.symlink(sidecar_target, wal))
-  expect_error(validate(), "sidecar must not be a symbolic link")
-  expect_identical(as.integer(file.info(sidecar_target)$mode), 420L)
-  unlink(wal, force = TRUE)
-
-  expect_true(file.create(wal))
-  Sys.chmod(wal, mode = "0600")
-  sidecar_hardlink <- file.path(directory, "sidecar-hardlink")
-  expect_true(file.link(wal, sidecar_hardlink))
-  expect_error(validate(), "sidecar must not have hard links")
-  unlink(c(wal, sidecar_hardlink), force = TRUE)
-
-  expect_true(file.create(wal))
-  Sys.chmod(wal, mode = "0644")
-  expect_error(validate(), "sidecar must be owned.*mode 0600")
-  unlink(wal, force = TRUE)
-
-  real_stamp <- .dsvert_dp_ledger_content_stamp
-  calls <- 0L
-  condition <- testthat::with_mocked_bindings(
-    tryCatch(validate(), error = identity),
-    .dsvert_dp_ledger_content_stamp = function(path) {
-      calls <<- calls + 1L
-      if (calls == 2L) {
-        stream <- file(path, open = "ab")
-        on.exit(close(stream), add = TRUE)
-        writeBin(as.raw(0L), stream)
-        flush(stream)
-      }
-      real_stamp(path)
-    },
-    .package = "dsVert")
-  expect_s3_class(condition, "error")
-  expect_match(condition$message, "changed during its recovery audit")
 })
 
 test_that("an empty configured default never shadows persistent identity", {

@@ -83,17 +83,16 @@ so an abandoned commit cannot recreate budget.
 
 ## Retired request-history code
 
-The geometric implementation remains solely behind the non-exported
-`.test_only_allow_local_anchor` constructor flag for compatibility tests and
-ledger-upgrade evidence. The production policy builder does not read
+The geometric local allocator, its bare SQLite schema and its non-exported test
+constructor are hard-deleted. The production policy builder does not read
 `dsvert.dp.enabled`, `dsvert.dp.decay` or
-`dsvert.dp.composition_partitions`. Its v9 schema has no decay, per-request
+`dsvert.dp.composition_partitions`. Its sole v9 schema has no decay, per-request
 allocation or partition fields; the finite lifetime capsule count is a distinct
 server-owned policy field.
 
 The public calibrator likewise has no decay, release-index, partition or
-analyst-controlled lifetime-total aliases. Existing retired ledgers remain
-audit evidence and cannot authorize a production release.
+analyst-controlled lifetime-total aliases. A bare ledger is not inspected and
+cannot authorize a production release.
 
 ## Other fail-closed conditions
 

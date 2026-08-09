@@ -192,7 +192,6 @@
 
 .dsvert_identity_dp_state_bases <- function(ledger_path) {
   unique(c(
-    ledger_path,
     paste0(ledger_path, ".joint-mpc-single-opening-v1.sqlite"),
     paste0(ledger_path, ".joint-mpc-single-opening-v2.sqlite"),
     paste0(
@@ -880,13 +879,11 @@
     stop("The configured DP ledger path must be absolute", call. = FALSE)
   }
   candidates <- c(
-    local = ledger,
     joint_v1 = paste0(
       ledger, ".joint-mpc-single-opening-v1.sqlite"),
     joint_v2 = paste0(
       ledger, ".joint-mpc-single-opening-v2.sqlite"))
   descriptions <- c(
-    local = "local DP ledger",
     joint_v1 = "legacy joint DP ledger",
     joint_v2 = "joint DP ledger")
   present <- vapply(names(candidates), function(type) {
@@ -909,20 +906,6 @@
   validate_one <- function(path, type) {
     .dsvert_dp_history_readonly(
       path, descriptions[[type]], function(connection) {
-        if (identical(type, "local")) {
-          rows <- tryCatch(DBI::dbGetQuery(connection, paste(
-            "SELECT key, value FROM dp_meta",
-            "WHERE key IN ('schema_version', 'secret_id')")),
-            error = function(e) NULL)
-          if (!is.data.frame(rows) || nrow(rows) != 2L ||
-              anyDuplicated(rows$key) ||
-              !setequal(rows$key, c("schema_version", "secret_id"))) {
-            return(FALSE)
-          }
-          values <- setNames(rows$value, rows$key)
-          return(identical(values[["schema_version"]], "3") &&
-            identical(values[["secret_id"]], expected_id("secret-id-v1")))
-        }
         expected_schema <- switch(
           type, joint_v1 = "1", joint_v2 = "2", NULL)
         if (is.null(expected_schema)) return(FALSE)
@@ -968,8 +951,8 @@
   }
 
   # During an upgrade from a pre-receipt installation, authenticate every
-  # existing local/joint DP ledger with the candidate identity before sealing
-  # it as the deployment identity.
+  # existing joint DP store with the candidate identity before sealing it as
+  # the deployment identity.
   .dsvert_identity_validate_pre_receipt_ledgers(seed)
 
   .dsvert_identity_require_sync(seed_path, "identity seed")

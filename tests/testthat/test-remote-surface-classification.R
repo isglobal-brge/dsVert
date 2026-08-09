@@ -152,7 +152,7 @@ test_that("internal DS compatibility functions stay outside the remote surface",
       retired_legacy_chisq, retired_correlation),
     unlist(inventory$immediate_removal_decision$removed_in_this_audit,
            use.names = FALSE))
-  expect_length(retired, 22L)
+  expect_length(retired, 16L)
   expect_identical(retired_histogram, "dsvertHistogramDS")
   expect_identical(retired_contingency, "dsvertContingencyDS")
   expect_length(retired_legacy_chisq, 10L)

@@ -12,7 +12,7 @@
     "unregistered_client_endpoint_literals": 94,
     "reachable_unregistered_client_endpoints": 0,
     "registered_orphan_endpoints": 0,
-    "internal_unregistered_ds_functions": 164
+    "internal_unregistered_ds_functions": 158
   },
   "classification_semantics": {
     "production_safe_purpose_bound": "Callable through the current default gate. A DP label is conditional on the published policy, immutable snapshot, healthy global accountant, persistent sticky-noise root and stated threat model.",
@@ -362,12 +362,6 @@
     "dsvertAddQuartileColumnDS",
     "dsvertAddSyntheticSurvivalDS",
     "dsvertContingencyDS",
-    "dsvertDPContingencyDS",
-    "dsvertDPCountDS",
-    "dsvertDPDescribeDS",
-    "dsvertDPMeanVarDS",
-    "dsvertDPStatusDS",
-    "dsvertDPSurvivalDS",
     "dsvertHistogramDS",
     "dsvertInjectNADS",
     "dsvertJointDPAuthorizeDS",
@@ -430,12 +424,6 @@
   ],
   "internal_unregistered_risk_groups": {
     "retired_legacy_dp_and_scalar_control_plane": [
-      "dsvertDPContingencyDS",
-      "dsvertDPCountDS",
-      "dsvertDPDescribeDS",
-      "dsvertDPMeanVarDS",
-      "dsvertDPStatusDS",
-      "dsvertDPSurvivalDS",
       "dsvertJointDPAuthorizeDS",
       "dsvertJointDPCommitDS",
       "dsvertJointDPCountBackendPrepareDS",
@@ -532,6 +520,12 @@
   },
   "immediate_removal_decision": {
     "hard_deleted_in_this_audit": [
+      "dsvertDPStatusDS",
+      "dsvertDPCountDS",
+      "dsvertDPContingencyDS",
+      "dsvertDPMeanVarDS",
+      "dsvertDPDescribeDS",
+      "dsvertDPSurvivalDS",
       "localCorDS",
       "psiInitDS",
       "psiStoreBlobDS",
@@ -550,14 +544,8 @@
       "psiGetMatchedIndicesDS",
       "psiPaddedExactTransportDS"
     ],
-    "hard_delete_reason": "The client has one fixed-capacity padded PSI route, so the variable-shape protocol and its exact cardinality/local-correlation openings have no compatibility consumer. Keeping their closures would only preserve accidental direct-call surface. The redundant padded transport phase is now an idempotent internal step of psiPaddedANDStartDS.",
+    "hard_delete_reason": "The retired per-query DP wrappers had no registered or exported route and depended only on the removed bare SQLite release engine. The client also has one fixed-capacity padded PSI route, so the variable-shape protocol and its exact cardinality/local-correlation openings have no compatibility consumer. Keeping these closures would only preserve accidental direct-call surface. The redundant padded transport phase is now an idempotent internal step of psiPaddedANDStartDS.",
     "removed_in_this_audit": [
-      "dsvertDPStatusDS",
-      "dsvertDPCountDS",
-      "dsvertDPContingencyDS",
-      "dsvertDPMeanVarDS",
-      "dsvertDPDescribeDS",
-      "dsvertDPSurvivalDS",
       "dsvertJointDPPrepareDS",
       "dsvertJointDPCommitDS",
       "dsvertJointDPAuthorizeDS",
@@ -589,7 +577,7 @@
       "k2BeaverShareVectorDS",
       "k2BeaverReceiveVectorDS"
     ],
-    "reason": "The public methods migrated to the manifest-bound joint vector and categorical capsules. The legacy per-query DP releases, generic scalar control plane, scalar Count lifecycle, exact adaptive descriptive histogram, unused exact contingency release, mutable correlation controls, legacy chi-square guard/product lifecycle, exact one-hot helper and generic Beaver vector-share calls are retained only as unregistered, unexported test/source-compatibility functions.",
+    "reason": "The public methods migrated to the manifest-bound joint vector and categorical capsules. The six obsolete per-query DP wrappers and their bare SQLite release engine are hard-deleted. The generic scalar control plane, scalar Count lifecycle, exact adaptive descriptive histogram, unused exact contingency release, mutable correlation controls, legacy chi-square guard/product lifecycle, exact one-hot helper and generic Beaver vector-share calls remain only as unregistered, unexported test/source-compatibility functions.",
     "next_removal_gate": "A registered endpoint may become a candidate only after its replacement is live, all client AST consumers are gone, it is absent from retry/transport inventories and focused plus full compatibility suites pass."
   },
   "claim_boundary": {

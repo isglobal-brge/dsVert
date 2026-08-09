@@ -108,57 +108,6 @@ test_that("automatic recovery is identity-authenticated and never rerolls", {
   expect_identical(.dsvert_dp_noise_validate_file(path), original)
 })
 
-test_that("pre-receipt noise-root upgrades authenticate the local DP ledger", {
-  skip_on_os("windows")
-  directory <- withr::local_tempdir(pattern = "dsvert-noise-ledger-")
-  Sys.chmod(directory, mode = "0700")
-  path <- file.path(directory, "privacy", "noise_root")
-  dir.create(dirname(path), mode = "0700")
-  original <- as.raw(rep(59L, 32L))
-  writeChar(paste(format(original), collapse = ""), path,
-            eos = NULL, useBytes = TRUE)
-  Sys.chmod(path, mode = "0600")
-  key_id <- paste0(
-    "file_", digest::digest(original, algo = "sha256", serialize = FALSE))
-  ledger <- file.path(directory, "ledger.sqlite")
-  connection <- DBI::dbConnect(RSQLite::SQLite(), ledger)
-  DBI::dbExecute(connection,
-    "CREATE TABLE dp_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
-  DBI::dbExecute(connection,
-    "CREATE TABLE dp_releases (query_hash TEXT PRIMARY KEY)")
-  for (entry in list(
-      c("schema_version", "3"), c("next_index", "0"),
-      c("noise_key_id", key_id),
-      c("noise_key_provider_id", "owner_only_file_v2"))) {
-    DBI::dbExecute(connection,
-      "INSERT INTO dp_meta(key, value) VALUES(?, ?)",
-      params = as.list(entry))
-  }
-  DBI::dbDisconnect(connection)
-  Sys.chmod(ledger, mode = "0600")
-  withr::local_options(list(
-    dsvert.dp.ledger_path = ledger,
-    default.dsvert.dp.ledger_path = NULL))
-
-  expect_identical(.dsvert_dp_ensure_noise_key_file(
-    path, random_bytes = function(n) stop("must not sample"),
-    .allow_test_path = TRUE), normalizePath(path, winslash = "/"))
-  receipt <- .dsvert_dp_noise_receipt_path(path)
-  expect_true(.dsvert_dp_noise_validate_receipt(receipt, original))
-
-  unlink(receipt, force = TRUE)
-  replacement <- as.raw(rep(61L, 32L))
-  writeChar(paste(format(replacement), collapse = ""), path,
-            eos = NULL, useBytes = TRUE)
-  Sys.chmod(path, mode = "0600")
-  expect_error(
-    .dsvert_dp_ensure_noise_key_file(
-      path, random_bytes = function(n) stop("must not sample"),
-      .allow_test_path = TRUE),
-    "cannot authenticate the existing local/joint release history")
-  expect_false(file.exists(receipt))
-})
-
 test_that("pre-receipt noise-root upgrades authenticate joint history", {
   skip_on_os("windows")
   directory <- withr::local_tempdir(pattern = "dsvert-noise-joint-")
@@ -197,7 +146,7 @@ test_that("pre-receipt noise-root upgrades authenticate joint history", {
     .dsvert_dp_ensure_noise_key_file(
       path, random_bytes = function(n) stop("must not sample"),
       .allow_test_path = TRUE),
-    "cannot authenticate the existing local/joint release history")
+    "cannot authenticate the existing joint release history")
   expect_false(file.exists(.dsvert_dp_noise_receipt_path(path)))
 
   replacement_id <- paste0(
@@ -216,114 +165,6 @@ test_that("pre-receipt noise-root upgrades authenticate joint history", {
     .allow_test_path = TRUE), normalizePath(path, winslash = "/"))
   expect_true(.dsvert_dp_noise_validate_receipt(
     .dsvert_dp_noise_receipt_path(path), replacement))
-})
-
-test_that("pre-receipt noise-root upgrades reject orphan ledger sidecars", {
-  skip_on_os("windows")
-  directory <- withr::local_tempdir(pattern = "dsvert-noise-sidecar-")
-  Sys.chmod(directory, mode = "0700")
-  path <- file.path(directory, "privacy", "noise_root")
-  dir.create(dirname(path), mode = "0700")
-  key <- as.raw(rep(79L, 32L))
-  writeChar(paste(format(key), collapse = ""), path,
-            eos = NULL, useBytes = TRUE)
-  Sys.chmod(path, mode = "0600")
-  ledger <- file.path(directory, "ledger.sqlite")
-  writeBin(charToRaw("orphan authenticated SHM"), paste0(ledger, "-shm"))
-  withr::local_options(list(
-    dsvert.dp.ledger_path = ledger,
-    default.dsvert.dp.ledger_path = NULL))
-
-  expect_error(
-    .dsvert_dp_ensure_noise_key_file(
-      path, random_bytes = function(n) stop("must not sample"),
-      .allow_test_path = TRUE),
-    "local DP ledger has orphan SQLite sidecars")
-  expect_false(file.exists(.dsvert_dp_noise_receipt_path(path)))
-})
-
-test_that("pre-receipt noise-root history enforces the read-only boundary", {
-  skip_on_os("windows")
-  directory <- withr::local_tempdir(pattern = "dsvert-noise-history-ro-")
-  Sys.chmod(directory, mode = "0700")
-  ledger <- file.path(directory, "ledger.sqlite")
-  connection <- DBI::dbConnect(RSQLite::SQLite(), ledger)
-  DBI::dbExecute(connection,
-    "CREATE TABLE dp_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
-  DBI::dbExecute(connection,
-    "CREATE TABLE dp_releases (query_hash TEXT PRIMARY KEY)")
-  DBI::dbExecute(connection,
-    "INSERT INTO dp_meta(key, value) VALUES('schema_version', '3')")
-  DBI::dbExecute(connection,
-    "INSERT INTO dp_meta(key, value) VALUES('next_index', '0')")
-  DBI::dbDisconnect(connection)
-  Sys.chmod(ledger, mode = "0600")
-  key <- as.raw(rep(83L, 32L))
-  withr::local_options(list(
-    dsvert.dp.ledger_path = ledger,
-    default.dsvert.dp.ledger_path = NULL))
-  validate <- function(path = ledger) {
-    options(dsvert.dp.ledger_path = path)
-    .dsvert_dp_noise_validate_pre_receipt_ledgers(key)
-  }
-  expect_invisible(validate())
-
-  public <- file.path(directory, "public.sqlite")
-  expect_true(file.copy(ledger, public))
-  Sys.chmod(public, mode = "0644")
-  alias <- file.path(directory, "ledger-alias.sqlite")
-  expect_true(file.symlink(public, alias))
-  expect_error(validate(alias), "symbolic link")
-  expect_identical(as.integer(file.info(public)$mode), 420L)
-  unlink(alias, force = TRUE)
-
-  hardlink <- file.path(directory, "ledger-hardlink.sqlite")
-  expect_true(file.link(ledger, hardlink))
-  expect_error(validate(), "hard links")
-  unlink(hardlink, force = TRUE)
-
-  Sys.chmod(ledger, mode = "0644")
-  expect_error(validate(), "mode 0600")
-  Sys.chmod(ledger, mode = "0600")
-
-  wal <- paste0(ledger, "-wal")
-  sidecar_target <- file.path(directory, "sidecar-target")
-  writeBin(charToRaw("target"), sidecar_target)
-  Sys.chmod(sidecar_target, mode = "0644")
-  expect_true(file.symlink(sidecar_target, wal))
-  expect_error(validate(), "sidecar must not be a symbolic link")
-  expect_identical(as.integer(file.info(sidecar_target)$mode), 420L)
-  unlink(wal, force = TRUE)
-
-  expect_true(file.create(wal))
-  Sys.chmod(wal, mode = "0600")
-  sidecar_hardlink <- file.path(directory, "sidecar-hardlink")
-  expect_true(file.link(wal, sidecar_hardlink))
-  expect_error(validate(), "sidecar must not have hard links")
-  unlink(c(wal, sidecar_hardlink), force = TRUE)
-
-  expect_true(file.create(wal))
-  Sys.chmod(wal, mode = "0644")
-  expect_error(validate(), "sidecar must be owned.*mode 0600")
-  unlink(wal, force = TRUE)
-
-  real_stamp <- .dsvert_dp_ledger_content_stamp
-  calls <- 0L
-  condition <- testthat::with_mocked_bindings(
-    tryCatch(validate(), error = identity),
-    .dsvert_dp_ledger_content_stamp = function(path) {
-      calls <<- calls + 1L
-      if (calls == 2L) {
-        stream <- file(path, open = "ab")
-        on.exit(close(stream), add = TRUE)
-        writeBin(as.raw(0L), stream)
-        flush(stream)
-      }
-      real_stamp(path)
-    },
-    .package = "dsVert")
-  expect_s3_class(condition, "error")
-  expect_match(condition$message, "changed during its recovery audit")
 })
 
 test_that("concurrent processes converge on one noise root", {
@@ -413,23 +254,12 @@ test_that("noise-root location policy is rechecked after symlink resolution", {
     normalizePath(file.path(target, "privacy"), winslash = "/"))
 })
 
-test_that("a missing root never replaces a ledger or external-anchor binding", {
+test_that("a missing root never replaces promoted or external state", {
   skip_on_os("windows")
   directory <- withr::local_tempdir(pattern = "dsvert-noise-recovery-")
   Sys.chmod(directory, mode = "0700")
   path <- file.path(directory, "privacy", "noise_root")
   ledger <- file.path(directory, "ledger.sqlite")
-  writeBin(charToRaw("prior authenticated ledger"), ledger)
-  expect_error(
-    .dsvert_dp_ensure_noise_key_file(
-      path, .allow_test_path = TRUE,
-      random_bytes = function(n) stop("must not mint a replacement"),
-      .bootstrap_state = list(
-        ledger_path = ledger, anchor_provider = NULL, anchor_id = NULL)),
-    "restore the original key")
-  expect_false(file.exists(path))
-
-  unlink(ledger, force = TRUE)
   joint_ledger <- paste0(
     ledger, ".joint-mpc-single-opening-v1.sqlite")
   writeBin(charToRaw("prior joint authenticated ledger"), joint_ledger)
@@ -823,31 +653,20 @@ test_that("simultaneous root loss retires old DP state and resumes cleanly", {
   identity_before <- .get_identity_keypair()$identity_pk
   root_before <- .dsvert_dp_noise_key_file(
     noise_path, .allow_test_path = TRUE)
-  policy <- list(
-    schema_version = 7L, datasets = list(), ledger_path = ledger,
-    ledger_private = TRUE, lock_timeout_ms = 30000L,
-    noise_root = root_before)
-  handle <- .dsvert_dp_open_ledger(policy)
-  expect_invisible(.dsvert_dp_initialize_or_validate(
-    handle$connection, policy, .dsvert_dp_secret()))
-  expect_invisible(.dsvert_dp_initialize_or_validate_noise_root(
-    handle$connection, policy))
-  .dsvert_dp_close_ledger(handle)
 
   # Exercise every persistent DP store derived from the configured ledger.
-  extra_bases <- setdiff(
-    .dsvert_identity_dp_state_bases(ledger), ledger)
-  for (index in seq_along(extra_bases)) {
-    writeBin(charToRaw(paste0("retired-store-", index)),
-             extra_bases[[index]])
-    Sys.chmod(extra_bases[[index]], mode = "0600")
-  }
   active_artifacts <- .dsvert_identity_dp_state_bases(ledger)
+  for (index in seq_along(active_artifacts)) {
+    writeBin(charToRaw(paste0("retired-store-", index)),
+             active_artifacts[[index]])
+    Sys.chmod(active_artifacts[[index]], mode = "0600")
+  }
   before_hashes <- setNames(vapply(active_artifacts, function(path) {
     digest::digest(file = path, algo = "sha256", serialize = FALSE)
   }, character(1L)), basename(active_artifacts))
 
-  # Both primary roots are gone; reciprocal envelopes and old ledgers remain.
+  # Both primary roots are gone; reciprocal envelopes and promoted stores
+  # remain.
   unlink(c(seed_path, noise_path), force = TRUE)
   results <- parallel::mclapply(seq_len(4L), function(unused) {
     .dsvert_initialize_service_state()
@@ -882,8 +701,7 @@ test_that("simultaneous root loss retires old DP state and resumes cleanly", {
     manifest$authentication,
     "not_claimed_after_loss_of_both_reciprocal_roots")
 
-  # The original path is immediately reusable under the replacement identity
-  # and root. This is the post-repin server-side continuation boundary.
+  # The replacement roots remain stable after the post-repin service boundary.
   root_after <- .dsvert_dp_noise_key_file(
     noise_path, .allow_test_path = TRUE)
   expect_true(root_after$automatic_rotation)
@@ -893,16 +711,6 @@ test_that("simultaneous root loss retires old DP state and resumes cleanly", {
   expect_identical(
     journal$active$reason,
     "identity_replacement_after_continuity_loss")
-  replacement_policy <- policy
-  replacement_policy$noise_root <- root_after
-  handle <- .dsvert_dp_open_ledger(replacement_policy)
-  expect_invisible(.dsvert_dp_initialize_or_validate(
-    handle$connection, replacement_policy, .dsvert_dp_secret()))
-  expect_invisible(.dsvert_dp_initialize_or_validate_noise_root(
-    handle$connection, replacement_policy))
-  expect_identical(
-    .dsvert_dp_meta_get(handle$connection, "next_index"), "0")
-  .dsvert_dp_close_ledger(handle)
   expect_invisible(.dsvert_initialize_service_state())
   expect_identical(.get_identity_keypair()$identity_pk,
                    results[[1L]]$identity_pk)
@@ -986,7 +794,8 @@ test_that("service startup can restore identity through an original HSM root", {
 
 test_that("inactive bootstrap refuses to replace a configured ledger root", {
   ledger <- tempfile("dsvert-existing-ledger-", fileext = ".sqlite")
-  writeBin(charToRaw("prior authenticated ledger"), ledger)
+  promoted <- paste0(ledger, ".joint-mpc-single-opening-v2.sqlite")
+  writeBin(charToRaw("prior authenticated ledger"), promoted)
   withr::local_options(list(dsvert.dp.ledger_path = ledger))
   state <- .dsvert_noise_bootstrap_state_from_options()
   expect_identical(state$ledger_path, path.expand(ledger))
@@ -1016,7 +825,7 @@ test_that("inactive bootstrap refuses to replace a configured ledger root", {
   expect_false(file.exists(forged_path))
 })
 
-test_that("inactive bootstrap rejects orphan sidecars and legacy joint v1", {
+test_that("inactive bootstrap rejects legacy joint v1", {
   directory <- withr::local_tempdir(
     pattern = "dsvert-inactive-legacy-guard-")
   Sys.chmod(directory, mode = "0700")
@@ -1024,17 +833,6 @@ test_that("inactive bootstrap rejects orphan sidecars and legacy joint v1", {
   withr::local_options(list(dsvert.dp.ledger_path = ledger))
   state <- .dsvert_noise_bootstrap_state_from_options()
 
-  orphan <- paste0(ledger, "-wal")
-  writeBin(charToRaw("orphaned committed state"), orphan)
-  Sys.chmod(orphan, mode = "0600")
-  orphan_root <- file.path(directory, "orphan", "noise_root")
-  expect_error(.dsvert_dp_ensure_noise_key_file(
-    orphan_root, random_bytes = function(n) stop("must not resample"),
-    .allow_test_path = TRUE, .bootstrap_state = state),
-    "could not be authenticated")
-  expect_false(file.exists(orphan_root))
-
-  unlink(orphan, force = TRUE)
   legacy <- paste0(
     ledger, ".joint-mpc-single-opening-v1.sqlite")
   writeBin(charToRaw("legacy joint history"), legacy)
@@ -1208,7 +1006,9 @@ test_that("receipt-only recovery rejects tamper and surviving release state", {
     protocol = .DSVERT_DP_NOISE_RECEIPT_PROTOCOL,
     key_id = paste0("file_", strrep("3", 64L))))), receipt)
   Sys.chmod(receipt, mode = "0600")
-  writeBin(charToRaw("surviving release state"), clean$ledger_path)
+  writeBin(
+    charToRaw("surviving release state"),
+    paste0(clean$ledger_path, ".joint-dp-vector-v4.sqlite"))
   expect_error(.dsvert_dp_ensure_noise_key_file(
     path, random_bytes = function(n) stop("must not reroll history"),
     .allow_test_path = TRUE, .bootstrap_state = clean),

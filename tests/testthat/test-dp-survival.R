@@ -9,7 +9,6 @@
       adjacency, "replace_one_fixed_cohort")) capacity else NULL,
     max_records_per_unit = 4L,
     overflow_policy = "reject_snapshot",
-    composition_partitions = 2L,
     numeric_bounds = list(time = c(0, 4), entry = c(0, 4)),
     categorical_levels = list(status = c("0", "A", "B")))
 }
@@ -171,97 +170,4 @@ test_that("add-remove and replacement L1 bounds match the declared adjacency", {
     expect_lte(sum(abs(baseline - replacement_histogram)),
                2 * spec$l1_sensitivity)
   }
-})
-
-test_that("the endpoint uses one sticky joint release and fixed transcript", {
-  withr::local_options(list(
-    dsvert.dp.survival_specs = .dp_survival_specs(FALSE)))
-  policy <- .dp_survival_policy(FALSE)
-  data <- .dp_survival_data(FALSE)
-  cache <- new.env(parent = emptyenv())
-  sampler_calls <- 0L
-  histogram_calls <- admission_calls <- 0L
-  release_calls <- 0L
-  original_histogram <- .dsvert_dp_survival_histogram
-  original_admission <- .dsvert_dp_admit_units
-  release_mock <- function(policy, query_hash, dataset_ledger_key,
-                           protected_fingerprint, mechanism, sensitivity,
-                           release_fn, mechanism_epsilon_floor = 0,
-                           uses_delta = FALSE, noise_context = NULL,
-                           mechanism_plan = NULL) {
-    release_calls <<- release_calls + 1L
-    if (exists(query_hash, envir = cache, inherits = FALSE)) {
-      return(get(query_hash, envir = cache, inherits = FALSE))
-    }
-    selected_plan <- list(
-      selector = "minimum_conservative_95_radius_v3",
-      winner = "laplace",
-      certificate = list(winner_delta = 0))
-    payload <- release_fn(
-      epsilon = 0.25, delta = 0, seed = strrep("a", 64L),
-      mechanism_plan = selected_plan)
-    payload <- c(payload, list(
-      privacy_epoch = 1, noise_key_id = "test-noise-key-v1",
-      sticky_noise = "dsvert-sticky-noise-v1"))
-    value <- list(payload = payload, memoized = FALSE,
-                  release_index = 0, epsilon = 0.25, delta = 0)
-    assign(query_hash, value, envir = cache)
-    value
-  }
-  sampler_mock <- function(values, epsilons, sensitivities, seed) {
-    sampler_calls <<- sampler_calls + 1L
-    expect_identical(unique(sensitivities), 1L)
-    expect_length(values, 13L)
-    list(
-      values = values,
-      accuracy_95_abs = rep(12, length(values)),
-      accuracy_simultaneous_95_abs = rep(23, length(values)),
-      clipped_coordinates = 0L,
-      mechanism =
-        "dsvert_dp_v1_deterministic_granular_laplace_int64",
-      implementation = paste0(
-        "dsVert adapted Google Differential Privacy v4.1.0 ",
-        "granular Laplace integer mechanism"),
-      sampler = "deterministic_two_sided_geometric",
-      randomness = "HMAC-SHA256/ChaCha20",
-      simultaneous_confidence = 0.95,
-      simultaneous_method = "union_bound")
-  }
-  query_mock <- function(secret, policy, dataset, method, arguments) {
-    digest::digest(
-      list(dataset, method, arguments), algo = "sha256", serialize = TRUE)
-  }
-  evaluate <- function() {
-    dsvertDPSurvivalDS("protected", "primary")
-  }
-  result <- testthat::with_mocked_bindings(
-    list(evaluate(), evaluate()),
-    .dsvert_dp_policy = function() policy,
-    .dsvert_dp_get_data = function(data_name, envir) data,
-    .dsvert_dp_secret = function() "ledger-secret",
-    .dsvert_dp_dataset_binding = function(...) list(
-      public = list(id = "study", version = "v1"),
-      ledger_key = paste0("dataset_snapshot_", strrep("b", 40L)),
-      fingerprint = strrep("c", 64L)),
-    .dsvert_dp_query_hash = query_mock,
-    .dsvert_dp_release = release_mock,
-    .dsvert_dp_survival_histogram = function(...) {
-      histogram_calls <<- histogram_calls + 1L
-      original_histogram(...)
-    },
-    .dsvert_dp_admit_units = function(...) {
-      admission_calls <<- admission_calls + 1L
-      original_admission(...)
-    },
-    .dsvert_dp_noise_int64 = sampler_mock,
-    .package = "dsVert")
-  expect_identical(result[[1L]], result[[2L]])
-  expect_identical(release_calls, 2L)
-  expect_identical(histogram_calls, 1L)
-  expect_identical(admission_calls, 1L)
-  expect_identical(sampler_calls, 1L)
-  expect_false(any(grepl("exact|raw|cohort_size|event_count|risk_set",
-                         names(result[[1L]]), ignore.case = TRUE)))
-  expect_identical(result[[1L]]$histogram,
-                   c(0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1))
 })

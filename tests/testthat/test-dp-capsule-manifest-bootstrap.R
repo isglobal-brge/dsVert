@@ -75,9 +75,9 @@
         censor = "0", time_grid = c(5, 10), entry = NULL)
     }
     list(
-      schema_version = 7L,
+      schema_version = 9L,
       mechanism_version = "dsvert-dp-v7-contingency-unit-aggregation-1",
-      policy_contract = "single_safe_policy_v4_global_allocator",
+      policy_contract = "single_disclosure_safe_capsule_policy_v2",
       domain = "capsule-manifest-study", cohort_id = "aligned-cohort-v1",
       peer_name = peer, own_identity_pk = unname(pins[[peer]]),
       logical_peers = peers, peer_pinset = pins,
@@ -85,8 +85,7 @@
       designated_noise_peers = peers[1:2],
       lifetime_max_distinct_capsules = 8,
       global_total_epsilon = 1, global_total_delta = 2^-100,
-      allocation_total_epsilon = 1, allocation_total_delta = 2^-100,
-      decay = 0.5, adjacency = "add_remove_patient",
+      adjacency = "add_remove_patient",
       patient_column = "patient_id", unit_capacity = 100L,
       fixed_cohort_size = NULL, max_records_per_unit = 2L,
       overflow_policy = "reject_snapshot",

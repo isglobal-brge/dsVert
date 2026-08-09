@@ -77,8 +77,9 @@
   This is a privacy-loss/publication-safety gate, not a request counter:
   byte-identical replay of the same
   capsule/release instance and all of its post-processing remain unlimited and
-  do not reduce accuracy. The geometric allocator remains reachable only
-  through a non-exported unit-test constructor. Joint-DP capsule status v5
+  do not reduce accuracy. The retired geometric per-query allocator and its
+  bare SQLite ledger are no longer present; `dsvert.dp.ledger_path` remains
+  only the namespace prefix for promoted stores. Joint-DP capsule status v5
   scopes the bound to
   `at_most_N_immutable_snapshot_workload_capsules_per_stable_privacy_accountant_namespace`.
   It binds both the requirement that at least one non-colluding designated peer

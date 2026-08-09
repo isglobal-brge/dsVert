@@ -20,10 +20,10 @@ The allocator has no request-count quota: an identical capsule replays forever.
 A previously unseen capsule is admitted only while one of the server-owned
 `lifetime_max_distinct_capsules` units remains; the default is one.
 That bound is per stable privacy accountant namespace. The privacy claim
-requires one preserved identity-bound receipt and matching authenticated
-history for each protected privacy universe. The receipt enforces the exact
-common policy and canonical accountant paths locally; normal service operations
-cannot create or rebind it, and counters are never migrated automatically.
+assumes one stable, unique namespace across domain, cohort, policy, pinset and
+ledger reconfiguration for each protected privacy universe. This is presently
+a custodial deployment obligation: the control plane does not discover or
+merge competing namespaces and does not automatically migrate their counters.
 The intended product adapter will bind that identity to one persistent capsule
 per logical snapshot, complete schema/workload contract and privacy epoch, so
 downstream methods are post-processing of the capsule rather than new

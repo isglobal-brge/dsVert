@@ -8,11 +8,10 @@ Original audit: 2026-08-01. Lifetime-contract update: 2026-08-09.
   workload capsules per stable privacy accountant namespace, where the
   server-owned option
   `dsvert.dp.lifetime_max_distinct_capsules` defaults to `1`.
-- One preserved identity-bound accountant receipt and matching authenticated
-  history must span each protected privacy universe. The receipt enforces the
-  common policy and canonical local/joint/registry/vector-v4/source-v3 paths;
-  normal service operations cannot create or rebind it, and dsVert never
-  migrates reservations automatically.
+- One stable, unique accountant namespace must span domain, cohort, policy,
+  pinset and ledger reconfiguration for each protected privacy universe. This
+  is currently a custodial deployment assumption: dsVert neither enforces
+  cross-namespace uniqueness nor automatically migrates reservations.
 - Every capsule has the same fixed policy-owned epsilon and delta. Exact decimal
   arithmetic must prove `N * epsilon <= 8` and `N * delta < 1` before the policy
   can become active.

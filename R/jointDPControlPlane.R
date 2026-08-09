@@ -137,7 +137,7 @@
     lifetime_delta = lifetime_delta)
 }
 
-.dsvert_joint_dp_policy_context_preflight <- function(
+.dsvert_joint_dp_policy_context <- function(
     policy, require_designated = TRUE) {
   if (!is.logical(require_designated) ||
       length(require_designated) != 1L || is.na(require_designated)) {
@@ -148,7 +148,7 @@
     "peer_pinset_sha256", "global_total_epsilon", "global_total_delta",
     "lifetime_max_distinct_capsules",
     "adjacency", "patient_column", "unit_capacity",
-    "max_records_per_unit", "overflow_policy", "ledger_path")
+    "max_records_per_unit", "overflow_policy", "noise_root", "ledger_path")
   if (!is.list(policy) || !all(required %in% names(policy)) ||
       !is.character(policy$peer_name) || length(policy$peer_name) != 1L ||
       !is.character(policy$peer_pinset) || length(policy$peer_pinset) < 2L ||
@@ -187,7 +187,18 @@
   if (length(epsilon) != 1L || is.na(epsilon) || !is.finite(epsilon) ||
       epsilon <= 0 || epsilon > .DSVERT_DP_MAXIMUM_EPSILON ||
       length(delta) != 1L || is.na(delta) || !is.finite(delta) ||
-      delta < 0 || delta >= 1) {
+      delta < 0 || delta >= 1 ||
+      !is.list(policy$noise_root) ||
+      !is.numeric(policy$noise_root$epoch) ||
+      length(policy$noise_root$epoch) != 1L ||
+      is.na(policy$noise_root$epoch) || !is.finite(policy$noise_root$epoch) ||
+      policy$noise_root$epoch < 1 ||
+      policy$noise_root$epoch != floor(policy$noise_root$epoch) ||
+      !is.character(policy$noise_root$key_id) ||
+      length(policy$noise_root$key_id) != 1L ||
+      is.na(policy$noise_root$key_id) ||
+      !grepl("^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+             policy$noise_root$key_id)) {
     stop("The joint-DP global policy is invalid.", call. = FALSE)
   }
   lifetime <- .dsvert_joint_dp_lifetime_contract(policy)
@@ -229,26 +240,6 @@
       peer_name = policy$peer_name,
       privacy_epoch_scope =
         .DSVERT_JOINT_DP_CAPSULE_PRIVACY_EPOCH_SCOPE)))
-}
-
-.dsvert_joint_dp_policy_context <- function(
-    policy, require_designated = TRUE) {
-  context <- .dsvert_joint_dp_policy_context_preflight(
-    policy, require_designated = require_designated)
-  if (!is.list(policy$noise_root) ||
-      !is.numeric(policy$noise_root$epoch) ||
-      length(policy$noise_root$epoch) != 1L ||
-      is.na(policy$noise_root$epoch) || !is.finite(policy$noise_root$epoch) ||
-      policy$noise_root$epoch < 1 ||
-      policy$noise_root$epoch != floor(policy$noise_root$epoch) ||
-      !is.character(policy$noise_root$key_id) ||
-      length(policy$noise_root$key_id) != 1L ||
-      is.na(policy$noise_root$key_id) ||
-      !grepl("^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
-             policy$noise_root$key_id)) {
-    stop("The joint-DP global policy is invalid.", call. = FALSE)
-  }
-  context
 }
 
 .dsvert_joint_dp_mechanism <- function(value, policy) {

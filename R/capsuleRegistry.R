@@ -181,10 +181,6 @@
     policy, registry_path = NULL) {
   context <- .dsvert_joint_dp_policy_context(
     policy, require_designated = FALSE)
-  if (!isTRUE(.dsvert_identity_test_mode())) {
-    invisible(.dsvert_privacy_accountant_namespace_enforce(
-      policy, context))
-  }
   ledger_path <- .dsvert_joint_dp_ledger_path(policy)
   if (is.null(registry_path)) {
     # Leave historical registries untouched as authenticated state. The v3

@@ -45,22 +45,13 @@ is an opaque terminal union for privacy and compatibility, not evidence that
 `remaining_distinct_capsules == 0`; distinct public tokens would reveal which
 state occurred.
 
-Status v6 scopes that bound to
+Status v5 scopes that bound to
 `at_most_N_immutable_snapshot_workload_capsules_per_stable_privacy_accountant_namespace`.
-It publishes the shared consortium accountant ID. Before accountant-ledger,
-registry, alignment-registry or protected-source access, each peer requires an
-immutable identity-HMAC-bound receipt containing the exact canonical common
-contract, peer name, local ledger, joint ledger, v3 registry, vector-v4 and
-source-v3 paths. Any domain, cohort, pinset, accountant-policy or path change
-therefore fails closed. Normal service operations never create a missing
-receipt. On a stopped service, a custodian may call
-`dsvertBootstrapPrivacyAccountantNamespace(confirm_no_other_history = TRUE)`
-only after auditing every previous path and backup. The action succeeds only
-when all known accountant databases, locks and SQLite sidecars are absent; no
-receipt or burned reservation is automatically migrated. Snapshot, workload
-and noise-root rotations remain allowed because they do not select a new
-accountant namespace. Custodians must preserve both the receipt and complete
-authenticated monotonic history.
+It assumes that the custodians preserve one stable, unique accountant namespace
+across domain, cohort, policy, pinset and ledger reconfiguration for each
+protected privacy universe. The package does not currently discover competing
+namespaces, enforce this uniqueness globally or migrate burned reservations
+between reconfigured ledgers; those are custodial deployment obligations.
 
 Reusing the exact same capsule and public release instance is pure
 post-processing and does not consume another unit. Reusable records are

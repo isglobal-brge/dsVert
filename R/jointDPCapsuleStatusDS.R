@@ -6,7 +6,7 @@
 # pinned policy without opening an allocator ledger.
 
 .DSVERT_JOINT_DP_CAPSULE_STATUS_VERSION <-
-  "dsvert-joint-dp-capsule-status-v6"
+  "dsvert-joint-dp-capsule-status-v5"
 
 .dsvert_joint_dp_capsule_status_policy <- function(policy, context) {
   pins <- vapply(
@@ -264,14 +264,12 @@
         "at_most_N_immutable_snapshot_workload_capsules_per_stable_",
         "privacy_accountant_namespace"),
       adversary_model = "authenticated_semi_honest_noncollusion",
-      privacy_accountant_namespace_id = context$consortium_id,
-      privacy_accountant_namespace_enforcement =
-        "identity_bound_immutable_receipt_v1",
       assumptions = paste0(
         "declared_adjacency_bounds_immutable_snapshot_protocol_compliant_",
         "peers_at_least_one_noncolluding_designated_noise_peer_retains_and_",
-        "uses_complete_authenticated_monotonic_history_preserves_identity_",
-        "bound_privacy_accountant_receipt_and_accounting_history"),
+        "uses_complete_authenticated_monotonic_history_stable_unique_",
+        "privacy_accountant_",
+        "namespace_per_protected_privacy_universe"),
       simultaneous_designated_history_rollback_protection =
         "not_claimed_without_external_linearizable_cas",
       transcript_security = "computational_mpc_and_csprng",
@@ -314,10 +312,6 @@
 #' the configured bound is exhausted, but cannot reduce accuracy or charge exact
 #' replay as a new request. Non-designated pinned peers attest the policy without
 #' opening an allocator ledger.
-#' Status v6 publishes the shared consortium privacy-accountant namespace ID
-#' and attests identity-bound immutable-receipt enforcement. The receipt binds
-#' the canonical common policy and this peer's local accountant paths before
-#' accountant-ledger, registry, alignment-registry, or protected-source access.
 #'
 #' @return A public policy attestation and, on the two designated noise peers,
 #'   authenticated composition telemetry plus the current data-independent

@@ -2872,7 +2872,7 @@ test_that("capsule status separates the lifetime gate from request quotas", {
     fixture$verifier)
 
   expect_identical(first$version,
-                   "dsvert-joint-dp-capsule-status-v6")
+                   "dsvert-joint-dp-capsule-status-v5")
   expect_true(first$enabled)
   expect_true(first$role$designated_noise_peer)
   expect_identical(first$role$allocator, "authenticated_ready")
@@ -2883,13 +2883,6 @@ test_that("capsule status separates the lifetime gate from request quotas", {
   expect_true(first$privacy_contract$operation_limit)
   expect_false(first$privacy_contract$request_limit)
   expect_true(first$privacy_contract$history_can_deny_operation)
-  expect_identical(
-    first$privacy_contract$privacy_accountant_namespace_id,
-    .dsvert_joint_dp_policy_context(
-      fixture$policies$peer_a, require_designated = FALSE)$consortium_id)
-  expect_identical(
-    first$privacy_contract$privacy_accountant_namespace_enforcement,
-    "identity_bound_immutable_receipt_v1")
   expect_identical(
     first$privacy_contract$
       simultaneous_designated_history_rollback_protection,

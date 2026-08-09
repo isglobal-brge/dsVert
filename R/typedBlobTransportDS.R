@@ -23,6 +23,9 @@
 .DSVERT_TYPED_BLOB_SOURCE_DESCRIPTOR_VERSION <-
   "dsvert-typed-source-descriptor-v1"
 .DSVERT_TYPED_BLOB_SWEEP_MAX_RECORDS <- 256L
+.DSVERT_TYPED_BLOB_ANALYSIS_COUNT_CAPABILITIES <- c(
+  "blob.analysis-dp.count-source.v1",
+  "blob.analysis-dp.count-final-share.v1")
 
 .dsvert_typed_blob_spool_max_bytes <- function() {
   value <- getOption("dsvert.typed_blob.spool_max_bytes", 1024^3)
@@ -455,6 +458,50 @@
   context[required]
 }
 
+.dsvert_typed_blob_analysis_count_context <- function(
+    context, sender_name) {
+  required <- c(
+    "artifact_key", "contract_hash", "circuit", "roles", "sender",
+    "recipient")
+  context <- .dsvert_typed_blob_context_fields(context, required)
+  hashes <- context[c("artifact_key", "contract_hash")]
+  if (any(!vapply(hashes, function(value) {
+    is.character(value) && length(value) == 1L && !is.na(value) &&
+      grepl("^[0-9a-f]{64}$", value)
+  }, logical(1L)))) {
+    stop("Invalid typed-blob analysis Count context.", call. = FALSE)
+  }
+  if (!is.character(context$circuit) || length(context$circuit) != 1L ||
+      is.na(context$circuit) ||
+      !grepl("^joint-dp-laplace-v2/[0-9a-f]{64}$", context$circuit)) {
+    stop("Invalid typed-blob analysis Count circuit.", call. = FALSE)
+  }
+  roles <- .dsvert_typed_blob_context_fields(
+    context$roles, c("source", "finalizer"))
+  roles$source <- .dsvert_validate_logical_peer_name(roles$source)
+  roles$finalizer <- .dsvert_validate_logical_peer_name(roles$finalizer)
+  context$sender <- .dsvert_validate_logical_peer_name(context$sender)
+  context$recipient <- .dsvert_validate_logical_peer_name(context$recipient)
+  if (identical(roles$source, roles$finalizer) ||
+      !identical(context$sender, sender_name) ||
+      !identical(context$sender, roles$source) ||
+      !identical(context$recipient, roles$finalizer)) {
+    stop("Invalid typed-blob analysis Count route.", call. = FALSE)
+  }
+  context$roles <- roles
+  context
+}
+
+.dsvert_typed_blob_validate_analysis_count_route <- function(
+    capability_id, resolved, sender_name, recipient_name) {
+  if (capability_id %in% .DSVERT_TYPED_BLOB_ANALYSIS_COUNT_CAPABILITIES &&
+      (!identical(resolved$context$sender, sender_name) ||
+       !identical(resolved$context$recipient, recipient_name))) {
+    stop("Invalid typed-blob analysis Count route.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
 .dsvert_typed_blob_storage_name <- function(value, what) {
   if (!is.character(value) || length(value) != 1L || is.na(value)) {
     stop("Invalid typed-blob ", what, ".", call. = FALSE)
@@ -484,7 +531,8 @@
 
 .dsvert_typed_blob_metadata <- function(capability_id, slot, context,
                                          family, producer, consumer, phase,
-                                         shape, count) {
+                                         shape, count,
+                                         ring = context$ring) {
   .validate_storage_component(slot, "typed-blob destination")
   list(
     slot = slot,
@@ -493,7 +541,7 @@
     producer = producer,
     consumer = consumer,
     phase = phase,
-    ring = context$ring,
+    ring = ring,
     shape = shape,
     count = .dsvert_typed_blob_count_string(count, "element count"))
 }
@@ -675,6 +723,44 @@
       "mpcTypedSourceProbeDS", "transportSourceProbeOnly",
       "transport.source-probe", "opaque-base64url-stream",
       as.numeric(context$raw_bytes)))
+  }
+  if (capability_id %in% .DSVERT_TYPED_BLOB_ANALYSIS_COUNT_CAPABILITIES) {
+    context <- .dsvert_typed_blob_analysis_count_context(
+      context, sender_name)
+    final_share <- identical(
+      capability_id, "blob.analysis-dp.count-final-share.v1")
+    tag <- substr(digest::digest(
+      .dsvert_dp_canonical_json(context),
+      algo = "sha256", serialize = FALSE), 1L, 24L)
+    slot <- paste0(
+      if (final_share) {
+        "analysis_dp_count_final_"
+      } else {
+        "analysis_dp_count_source_"
+      }, tag)
+    .validate_storage_component(slot, "typed-blob destination")
+    return(.dsvert_typed_blob_metadata(
+      capability_id, slot, context, "analysis-dp",
+      if (final_share) {
+        "dsvertDPCountFinalShareDS"
+      } else {
+        "dsvertDPCountPrepareDS"
+      },
+      if (final_share) {
+        "dsvertDPCountReleaseDS"
+      } else {
+        "dsvertDPCountStartDS"
+      },
+      if (final_share) {
+        "analysis-dp.count-final-share"
+      } else {
+        "analysis-dp.count-source"
+      },
+      if (final_share) {
+        "encrypted-post-clamp-ring127-share"
+      } else {
+        "encrypted-ring127-scalar-share"
+      }, 1, ring = "127"))
   }
   if (identical(capability_id, "blob.joint-dp.count-source.v1")) {
     required <- c(
@@ -1191,6 +1277,8 @@
   recipient_name <- .dsvert_typed_blob_recipient_name(ss, recipient_pk)
   resolved <- .dsvert_typed_blob_destination(
     capability_id, session$self_name, context)
+  .dsvert_typed_blob_validate_analysis_count_route(
+    capability_id, resolved, session$self_name, recipient_name)
   allowed_producers <- resolved$producer
   if (is.null(producer) && length(allowed_producers) == 1L) {
     producer <- allowed_producers[[1L]]
@@ -1743,6 +1831,8 @@ mpcTypedBlobReadDS <- function(ticket, offset, max_chars, session_id) {
     error = function(e) NULL)
   resolved <- .dsvert_typed_blob_destination(
     body$capability_id, sender, context)
+  .dsvert_typed_blob_validate_analysis_count_route(
+    body$capability_id, resolved, sender, recipient)
   metadata_valid <-
     identical(body$family, resolved$family) &&
     is.character(body$producer) && length(body$producer) == 1L &&

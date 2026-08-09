@@ -1234,3 +1234,192 @@ test_that("failed first-frame admission rolls back file and accounting", {
   typed_root <- file.path(pair$recipient$ss$.session_dir, "typed")
   expect_length(list.files(typed_root, all.files = TRUE, no.. = TRUE), 0L)
 })
+
+.typed_blob_count_analysis_context <- function() {
+  list(
+    artifact_key = strrep("1", 64L),
+    contract_hash = strrep("2", 64L),
+    circuit = paste0("joint-dp-laplace-v2/", strrep("3", 64L)),
+    roles = list(source = "self", finalizer = "peer"),
+    sender = "self",
+    recipient = "peer")
+}
+
+test_that("analysis Count capabilities reject context and route tampering", {
+  context <- .typed_blob_count_analysis_context()
+  capabilities <- c(
+    "blob.analysis-dp.count-source.v1",
+    "blob.analysis-dp.count-final-share.v1")
+
+  resolved <- lapply(capabilities, function(capability) {
+    .dsvert_typed_blob_destination(capability, "self", context)
+  })
+  expect_identical(vapply(resolved, `[[`, character(1L), "ring"),
+                   c("127", "127"))
+  expect_identical(vapply(resolved, `[[`, character(1L), "count"),
+                   c("1", "1"))
+  expect_identical(vapply(resolved, `[[`, character(1L), "producer"), c(
+    "dsvertDPCountPrepareDS", "dsvertDPCountFinalShareDS"))
+  expect_identical(vapply(resolved, `[[`, character(1L), "consumer"), c(
+    "dsvertDPCountStartDS", "dsvertDPCountReleaseDS"))
+  expect_false(identical(resolved[[1L]]$slot, resolved[[2L]]$slot))
+
+  mutate <- function(field, value) {
+    changed <- context
+    changed[[field]] <- value
+    changed
+  }
+  for (capability in capabilities) {
+    expect_error(.dsvert_typed_blob_destination(
+      capability, "self", context[c(
+        "artifact_key", "contract_hash", "circuit", "roles", "sender")]),
+      "producer context")
+    expect_error(.dsvert_typed_blob_destination(
+      capability, "self", c(context, list(query_id = strrep("4", 64L)))),
+      "producer context")
+    expect_error(.dsvert_typed_blob_destination(
+      capability, "self", mutate("artifact_key", strrep("A", 64L))),
+      "analysis Count context")
+    expect_error(.dsvert_typed_blob_destination(
+      capability, "self", mutate("contract_hash", strrep("2", 63L))),
+      "analysis Count context")
+    expect_error(.dsvert_typed_blob_destination(
+      capability, "self", mutate(
+        "circuit", paste0("joint-dp-vector-laplace-v3/", strrep("3", 64L)))),
+      "analysis Count circuit")
+    expect_error(.dsvert_typed_blob_destination(
+      capability, "self", mutate(
+        "roles", list(source = "peer", finalizer = "self"))),
+      "analysis Count route")
+    expect_error(.dsvert_typed_blob_destination(
+      capability, "peer", context), "analysis Count route")
+    expect_error(.dsvert_typed_blob_destination(
+      capability, "self", mutate("recipient", "self")),
+      "analysis Count route")
+    expect_error(.dsvert_typed_blob_destination(
+      capability, "self", c(context, list(ring = "127"))),
+      "producer context")
+  }
+})
+
+test_that("analysis Count transfers are typed, replay-safe and ephemeral", {
+  specs <- list(
+    list(
+      capability = "blob.analysis-dp.count-source.v1",
+      producer = "dsvertDPCountPrepareDS"),
+    list(
+      capability = "blob.analysis-dp.count-final-share.v1",
+      producer = "dsvertDPCountFinalShareDS"))
+
+  for (spec in specs) {
+    pair <- .typed_blob_test_pair()
+    on.exit(.session_dir_cleanup(pair$sender$ss), add = TRUE)
+    on.exit(.session_dir_cleanup(pair$recipient$ss), add = TRUE)
+    context <- .typed_blob_count_analysis_context()
+    payload <- base64_to_base64url(gsub(
+      "[\r\n]", "", jsonlite::base64_enc(charToRaw(spec$capability))))
+    request <- list(
+      artifact_key = context$artifact_key,
+      contract_hash = context$contract_hash,
+      capability = spec$capability)
+
+    produced <- .typed_blob_with_crypto(pair$sender, {
+      transfer <- .dsvert_typed_blob_mint(
+        pair$sender$ss, pair$sender$session_id, spec$capability,
+        pair$sender$peer_transport, payload, context,
+        producer = spec$producer)
+      .dsvert_typed_blob_operation_commit(
+        pair$sender$ss, spec$producer, request,
+        list(ciphertext = payload, transfer = transfer))
+    })
+    replay <- .typed_blob_with_crypto(pair$sender,
+      .dsvert_typed_blob_operation_replay(
+        pair$sender$ss, spec$producer, request))
+    expect_true(replay$hit)
+    expect_identical(replay$result, produced)
+
+    wrong_recipient <- context
+    wrong_recipient$recipient <- "another-peer"
+    expect_error(.typed_blob_with_crypto(pair$sender,
+      .dsvert_typed_blob_mint(
+        pair$sender$ss, pair$sender$session_id, spec$capability,
+        pair$sender$peer_transport, payload, wrong_recipient,
+        producer = spec$producer)), "analysis Count route")
+    wrong_producer <- if (identical(
+      spec$producer, "dsvertDPCountPrepareDS")) {
+      "dsvertDPCountFinalShareDS"
+    } else {
+      "dsvertDPCountPrepareDS"
+    }
+    expect_error(.typed_blob_with_crypto(pair$sender,
+      .dsvert_typed_blob_mint(
+        pair$sender$ss, pair$sender$session_id, spec$capability,
+        pair$sender$peer_transport, payload, context,
+        producer = wrong_producer)), "does not own")
+
+    wrong_type_ticket <- .typed_blob_mutate_envelope(
+      produced$transfer$ticket, function(body) {
+        body$capability_id <- if (identical(
+          spec$capability, "blob.analysis-dp.count-source.v1")) {
+          "blob.analysis-dp.count-final-share.v1"
+        } else {
+          "blob.analysis-dp.count-source.v1"
+        }
+        body
+      })
+    tampered_context_ticket <- .typed_blob_mutate_envelope(
+      produced$transfer$ticket, function(body) {
+        decoded <- jsonlite::fromJSON(rawToChar(
+          .dsvert_relay_b64url_decode(
+            body$context, "test Count context")), simplifyVector = FALSE)
+        decoded$artifact_key <- strrep("4", 64L)
+        body$context <- .dsvert_typed_blob_context_token(decoded)
+        body
+      })
+    receipt <- .typed_blob_with_crypto(pair$recipient, {
+      expect_error(.mpcTypedBlobStoreDS_impl(
+        wrong_type_ticket, payload, 0, pair$recipient$session_id),
+        "metadata conflicts")
+      expect_error(.mpcTypedBlobStoreDS_impl(
+        tampered_context_ticket, payload, 0, pair$recipient$session_id),
+        "metadata conflicts")
+      sealed <- .mpcTypedBlobStoreDS_impl(
+        produced$transfer$ticket, payload, 0,
+        pair$recipient$session_id)
+      expect_true(sealed$sealed)
+      terminal_replay <- .mpcTypedBlobStoreDS_impl(
+        produced$transfer$ticket, payload, 0,
+        pair$recipient$session_id)
+      expect_identical(terminal_replay, sealed)
+
+      wrong_context <- context
+      wrong_context$contract_hash <- strrep("5", 64L)
+      expect_error(.dsvert_typed_blob_consume(
+        pair$recipient$ss, spec$capability, wrong_context,
+        sender_name = "self"),
+        "could not resolve|not committed|provenance/shape")
+      expect_identical(.dsvert_typed_blob_consume(
+        pair$recipient$ss, spec$capability, context,
+        sender_name = "self"), payload)
+      destination <- .dsvert_typed_blob_destination(
+        spec$capability, "self", context)$slot
+      expect_null(pair$recipient$ss$.typed_blob_destinations[[destination]])
+      expect_false(.dsvert_typed_blob_destination_present(
+        pair$recipient$ss, destination))
+      receipt_state <- pair$recipient$ss$.typed_blob_receipts[[
+        produced$transfer$transfer_id]]
+      expect_length(receipt_state$frame_offsets, 1L)
+      expect_length(receipt_state$frame_chars, 1L)
+      sealed$receipt
+    })
+
+    confirmation <- .typed_blob_with_crypto(pair$sender,
+      .mpcTypedBlobReceiptDS_impl(receipt, pair$sender$session_id))
+    expect_true(confirmation$confirmed)
+    expect_null(pair$sender$ss$.typed_blob_outbound[[
+      produced$transfer$transfer_id]])
+    expect_false(.typed_blob_with_crypto(pair$sender,
+      .dsvert_typed_blob_operation_replay(
+        pair$sender$ss, spec$producer, request))$hit)
+  }
+})

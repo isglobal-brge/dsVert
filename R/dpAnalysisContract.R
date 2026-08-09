@@ -22,6 +22,10 @@
 .DSVERT_DP_STICKY_SUBSEED_DOMAIN <-
   "dsVert/sticky-artifact-subseed/v1|"
 .DSVERT_DP_ANALYSIS_GAUSSIAN_TV_PER_COORDINATE <- 2^-40
+.DSVERT_DP_ANALYSIS_COUNT_TV_MECHANISM <-
+  "discrete-laplace-output-perturbation-tv-v2"
+.DSVERT_DP_ANALYSIS_COUNT_TV_SAMPLER <-
+  "hkdf-sha256-aes128ctr-two-geometric-tv-v2"
 
 .DSVERT_DP_ANALYSIS_RESERVED_FIELDS <- c(
   "analysis_id", "attempt_id", "connection_id", "epoch", "key_id", "nonce",
@@ -126,6 +130,15 @@
   as.numeric(value)
 }
 
+.dsvert_dp_analysis_nonnegative_integer <- function(value, what) {
+  if (!is.numeric(value) || length(value) != 1L || is.na(value) ||
+      !is.finite(value) ||
+      value < 0 || value != floor(value) || value > .Machine$integer.max) {
+    stop("Invalid ", what, " in the analysis contract", call. = FALSE)
+  }
+  as.numeric(value)
+}
+
 .dsvert_dp_analysis_gaussian_impl_delta_v1 <- function(
     coordinates, epsilon) {
   log_bound <- log(coordinates) +
@@ -153,6 +166,8 @@
     mechanism, epsilon, delta, coordinates) {
   calibration <- mechanism$calibration
   sensitivity <- mechanism$sensitivity$value
+  count_tv <- identical(
+    mechanism$version, .DSVERT_DP_ANALYSIS_COUNT_TV_MECHANISM)
   expected <- switch(mechanism$family,
     gaussian = c(
       version = "gaussian-output-perturbation-v1",
@@ -160,9 +175,11 @@
     laplace = c(
       version = "laplace-output-perturbation-v1",
       sampler = "laplace-one-draw-v1"),
-    discrete_laplace = c(
-      version = "discrete-laplace-output-perturbation-v1",
-      sampler = "discrete-laplace-one-draw-v1"))
+    discrete_laplace = if (count_tv) c(
+      version = .DSVERT_DP_ANALYSIS_COUNT_TV_MECHANISM,
+      sampler = .DSVERT_DP_ANALYSIS_COUNT_TV_SAMPLER) else c(
+        version = "discrete-laplace-output-perturbation-v1",
+        sampler = "discrete-laplace-one-draw-v1"))
   if (!identical(mechanism$version, unname(expected[["version"]])) ||
       !identical(calibration$sampler, unname(expected[["sampler"]]))) {
     stop("The DP mechanism and sampler are not an audited pair",
@@ -181,6 +198,15 @@
           implementation_floor ||
         achieved + calibration$implementation_delta > delta + tolerance) {
       stop("The Gaussian calibration does not prove its declared privacy",
+           call. = FALSE)
+    }
+  } else if (count_tv) {
+    minimum_scale <- sensitivity / epsilon
+    if (!is.finite(minimum_scale) || minimum_scale <= 0 ||
+        calibration$noise_scale < minimum_scale || delta <= 0 ||
+        calibration$implementation_delta <= 0 ||
+        calibration$implementation_delta > delta || coordinates != 1) {
+      stop("The Count TV calibration does not prove its declared privacy",
            call. = FALSE)
     }
   } else {
@@ -450,6 +476,19 @@
   mechanism <- .dsvert_dp_analysis_calibration_validate_v1(
     mechanism, privacy$epsilon, privacy$delta,
     lanes$final_noise$coordinates)
+  count_tv <- identical(
+    mechanism$version, .DSVERT_DP_ANALYSIS_COUNT_TV_MECHANISM)
+  if (!identical(count_tv,
+                 identical(analysis$primitive, "joint-dp-laplace-v2"))) {
+    stop("The exact Count primitive and TV mechanism must be paired",
+         call. = FALSE)
+  }
+  if (count_tv &&
+      (!identical(sensitivity$value, 1) ||
+       !identical(names(lanes), "final_noise"))) {
+    stop("The Count TV mechanism does not match the audited worker",
+         call. = FALSE)
+  }
   privacy$mechanism <- mechanism
   value$privacy <- privacy
 
@@ -470,16 +509,31 @@
   }
   numeric$value_bits <- .dsvert_dp_analysis_positive_integer(
     numeric$value_bits, "numeric value bits")
-  numeric$fractional_bits <- .dsvert_dp_analysis_positive_integer(
+  numeric$fractional_bits <- .dsvert_dp_analysis_nonnegative_integer(
     numeric$fractional_bits, "numeric fractional bits")
   if (numeric$fractional_bits >= numeric$value_bits) {
     stop("Invalid numeric scale in the analysis contract", call. = FALSE)
+  }
+  if (count_tv &&
+      (!identical(numeric$value_bits, 127) ||
+       !identical(numeric$fractional_bits, 0) ||
+       !identical(numeric$rounding, "toward_zero") ||
+       !identical(numeric$overflow, "reject") ||
+       !identical(numeric$sampler_encoding,
+                  "aes128ctr_integer_coordinate_v2") ||
+       !identical(numeric$output_encoding,
+                  "twos_complement_integer_v1"))) {
+    stop("The exact Count numeric contract must fail closed",
+         call. = FALSE)
   }
   .dsvert_dp_analysis_scalar_id(
     numeric$sampler_encoding, "sampler encoding")
   .dsvert_dp_analysis_scalar_id(numeric$output_encoding, "output encoding")
   value$numeric <- numeric
   .dsvert_dp_analysis_named_list(value$public_shape, "public result shape")
+  if (count_tv && !identical(value$public_shape, list(count = 1))) {
+    stop("The exact Count public shape is invalid", call. = FALSE)
+  }
   .dsvert_dp_analysis_canonical_value_v1(value)
 }
 
@@ -532,6 +586,13 @@
     backend$ring, ring127 = 127, ring128 = 128)
   if (physical_ring_bits < semantic$numeric$value_bits) {
     stop("The execution ring is too small for the semantic value domain",
+         call. = FALSE)
+  }
+  if (identical(
+      semantic$privacy$mechanism$version,
+      .DSVERT_DP_ANALYSIS_COUNT_TV_MECHANISM) &&
+      !identical(backend$ring, "ring127")) {
+    stop("The execution ring does not support the exact Count backend",
          call. = FALSE)
   }
   transport <- value$transport

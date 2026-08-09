@@ -81,6 +81,201 @@
       transport = list(chunk_coordinates = 4096)))
 }
 
+.analysis_count_contract_fixture <- function(k = 2L) {
+  fixture <- .analysis_contract_fixture(k)
+  fixture$semantic$analysis$primitive <- "joint-dp-laplace-v2"
+  fixture$semantic$analysis["formula"] <- list(NULL)
+  fixture$semantic$analysis$effective_arguments <- list(
+    statistic = "admitted_privacy_unit_count")
+  fixture$semantic$privacy$mechanism <- list(
+    family = "discrete_laplace",
+    version = "discrete-laplace-output-perturbation-tv-v2",
+    sensitivity = list(
+      version = "dsvert-sensitivity-v1", norm = "l1", value = 1),
+    calibration = list(
+      version = "dsvert-calibration-v1",
+      noise_scale = 1,
+      sampler = "hkdf-sha256-aes128ctr-two-geometric-tv-v2",
+      implementation_delta = 1e-9),
+    randomness = list(
+      version = "dsvert-randomness-plan-v1",
+      lanes = list(
+        final_noise = list(
+          version = "dsvert-randomness-lane-v1",
+          purpose = "privatize_final_vector",
+          primitive = "hkdf-sha256-aes128ctr-two-geometric-tv-v2",
+          coordinates = 1))))
+  fixture$semantic$privacy$epsilon <- 1
+  fixture$semantic$privacy$delta <- 1e-6
+  fixture$semantic$numeric <- list(
+    version = "dsvert-numeric-semantics-v1",
+    value_bits = 127,
+    fractional_bits = 0,
+    rounding = "toward_zero",
+    overflow = "reject",
+    sampler_encoding = "aes128ctr_integer_coordinate_v2",
+    output_encoding = "twos_complement_integer_v1")
+  fixture$semantic$public_shape <- list(count = 1)
+  fixture$execution$backend$kernel <- "joint-dp-laplace-v2"
+  fixture$execution$backend$ring <- "ring127"
+  fixture
+}
+
+test_that("Count TV contracts are canonical and fail closed for K=2,3,5", {
+  contracts <- lapply(c(2L, 3L, 5L), function(k) {
+    fixture <- .analysis_count_contract_fixture(k)
+    .dsvert_dp_analysis_contract_v1(fixture$semantic, fixture$execution)
+  })
+  expect_true(all(vapply(contracts, function(contract) {
+    identical(contract$semantic$numeric$fractional_bits, 0) &&
+      identical(contract$semantic$numeric$value_bits, 127) &&
+      identical(contract$semantic$numeric$overflow, "reject") &&
+      identical(contract,
+                .dsvert_dp_analysis_contract_validate_v1(contract))
+  }, logical(1L))))
+  calibration <- contracts[[1L]]$semantic$privacy$mechanism$calibration
+  expect_lt(calibration$implementation_delta,
+            contracts[[1L]]$semantic$privacy$delta)
+
+  fixture <- .analysis_count_contract_fixture(3L)
+  original <- .dsvert_dp_analysis_contract_v1(
+    fixture$semantic, fixture$execution)
+  expect_identical(
+    original$artifact_key,
+    "f930efe30f04bd6c2d118c4c69ae82a43cd15f62703b91b43ae99d464133e6b0")
+  expect_identical(
+    .dsvert_dp_analysis_contract_v1(
+      fixture$semantic[rev(names(fixture$semantic))],
+      fixture$execution[rev(names(fixture$execution))]),
+    original)
+
+  invalid <- list(
+    sampler = function(x) {
+      x$semantic$privacy$mechanism$calibration$sampler <-
+        "discrete-laplace-one-draw-v1"
+      x$semantic$privacy$mechanism$randomness$lanes$final_noise$primitive <-
+        "discrete-laplace-one-draw-v1"
+      x
+    },
+    mechanism = function(x) {
+      x$semantic$privacy$mechanism$version <-
+        "discrete-laplace-output-perturbation-v1"
+      x
+    },
+    legacy_pair = function(x) {
+      x$semantic$privacy$mechanism$version <-
+        "discrete-laplace-output-perturbation-v1"
+      x$semantic$privacy$mechanism$calibration$sampler <-
+        "discrete-laplace-one-draw-v1"
+      x$semantic$privacy$mechanism$calibration$implementation_delta <- 0
+      x$semantic$privacy$mechanism$randomness$lanes$final_noise$primitive <-
+        "discrete-laplace-one-draw-v1"
+      x
+    },
+    zero_implementation_delta = function(x) {
+      x$semantic$privacy$mechanism$calibration$implementation_delta <- 0
+      x
+    },
+    zero_delta = function(x) {
+      x$semantic$privacy$delta <- 0
+      x$semantic$privacy$mechanism$calibration$implementation_delta <- 0
+      x
+    },
+    excessive_implementation_delta = function(x) {
+      x$semantic$privacy$mechanism$calibration$implementation_delta <- 2e-6
+      x
+    },
+    insufficient_scale = function(x) {
+      x$semantic$privacy$mechanism$calibration$noise_scale <- 1 - 1e-12
+      x
+    },
+    overflowing_scale = function(x) {
+      x$semantic$privacy$mechanism$sensitivity$value <- 1e308
+      x$semantic$privacy$mechanism$calibration$noise_scale <- 1e308
+      x$semantic$privacy$epsilon <- 1e-308
+      x
+    },
+    nonnumeric_certificate = function(x) {
+      x$semantic$privacy$mechanism$calibration$implementation_delta <- "1e-9"
+      x
+    },
+    saturating_overflow = function(x) {
+      x$semantic$numeric$overflow <- "saturate"
+      x
+    },
+    vector_noise = function(x) {
+      x$semantic$privacy$mechanism$randomness$lanes$final_noise$coordinates <-
+        2
+      x
+    },
+    nonunit_sensitivity = function(x) {
+      x$semantic$privacy$mechanism$sensitivity$value <- 2
+      x$semantic$privacy$mechanism$calibration$noise_scale <- 2
+      x
+    },
+    extra_lane = function(x) {
+      x$semantic$privacy$mechanism$randomness$lanes$internal <- list(
+        version = "dsvert-randomness-lane-v1",
+        purpose = "confidential_internal_randomness",
+        primitive = "aes128ctr-internal-v1",
+        coordinates = 1)
+      x
+    },
+    non_count_primitive = function(x) {
+      x$semantic$analysis$primitive <- "other-analysis-v1"
+      x$execution$backend$kernel <- "other-analysis-v1"
+      x
+    },
+    unsupported_ring = function(x) {
+      x$execution$backend$ring <- "ring128"
+      x
+    },
+    narrow_value_bits = function(x) {
+      x$semantic$numeric$value_bits <- 126
+      x
+    },
+    wrong_rounding = function(x) {
+      x$semantic$numeric$rounding <- "nearest_even"
+      x
+    },
+    wrong_sampler_encoding = function(x) {
+      x$semantic$numeric$sampler_encoding <- "other_encoding_v1"
+      x
+    },
+    wrong_output_encoding = function(x) {
+      x$semantic$numeric$output_encoding <- "other_encoding_v1"
+      x
+    },
+    wrong_shape = function(x) {
+      x$semantic$public_shape <- list(value = 1)
+      x
+    },
+    negative_fractional_bits = function(x) {
+      x$semantic$numeric$fractional_bits <- -1
+      x
+    },
+    full_width_fractional_bits = function(x) {
+      x$semantic$numeric$fractional_bits <- 127
+      x
+    })
+  for (mutate in invalid) {
+    bad <- mutate(fixture)
+    expect_error(.dsvert_dp_analysis_contract_v1(
+      bad$semantic, bad$execution))
+  }
+
+  generic_zero <- .analysis_contract_fixture()
+  generic_zero$semantic$numeric$fractional_bits <- 0
+  validated_zero <- .dsvert_dp_analysis_contract_v1(
+    generic_zero$semantic, generic_zero$execution)
+  expect_identical(validated_zero$semantic$numeric$fractional_bits, 0)
+  bad_lane <- generic_zero
+  bad_lane$semantic$privacy$mechanism$randomness$lanes$final_noise$coordinates <-
+    0
+  expect_error(.dsvert_dp_analysis_contract_v1(
+    bad_lane$semantic, bad_lane$execution))
+})
+
 test_that("analysis artifact identity is semantic and K-generic", {
   contracts <- lapply(c(2L, 3L, 5L), function(k) {
     fixture <- .analysis_contract_fixture(k)

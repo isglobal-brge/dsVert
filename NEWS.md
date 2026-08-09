@@ -70,15 +70,21 @@
   byte-identical replay of the same
   capsule/release instance and all of its post-processing remain unlimited and
   do not reduce accuracy. The geometric allocator remains reachable only
-  through a non-exported unit-test constructor. Joint-DP capsule status v5
+  through a non-exported unit-test constructor. Joint-DP capsule status v6
   scopes the bound to
   `at_most_N_immutable_snapshot_workload_capsules_per_stable_privacy_accountant_namespace`.
-  It binds both the requirement that at least one non-colluding designated peer
-  `retains_and_uses_complete_authenticated_monotonic_history` and one stable,
-  unique privacy accountant namespace across domain, cohort, policy, pinset and ledger
-  reconfiguration for each protected privacy universe. Namespace continuity is
-  currently a custodial deployment assumption, not package enforcement or
-  automatic counter migration. Status explicitly declines protection against
+  It publishes the shared consortium accountant ID and requires an immutable
+  identity-HMAC-bound receipt over the canonical common contract plus each
+  peer's local ledger, joint ledger, registry, vector-v4 and source-v3 paths.
+  Drift fails closed before accountant-ledger, registry or protected-source
+  access. Normal service operations never create a missing receipt. The local
+  administrative
+  `dsvertBootstrapPrivacyAccountantNamespace(confirm_no_other_history = TRUE)`
+  action requires a stopped service, an audit of all previous paths/backups and
+  absence of every known state artifact; it never migrates counters.
+  Snapshot, workload and noise-root rotation remain allowed. Custodians must
+  retain the receipt and complete authenticated monotonic history. Status
+  explicitly declines protection against
   simultaneous rollback of both designated histories without an external
   linearizable CAS.
 

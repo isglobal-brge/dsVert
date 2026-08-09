@@ -116,8 +116,12 @@ provider has precedence. Otherwise the first cryptographic service operation
 bootstraps exactly 32 bytes from the OS CSPRNG into persistent owner-only
 service state; there is no statistical RNG fallback. `configure`, package
 installation and `.onLoad()` never generate a key, including when an image
-build loads the package for a smoke test. If DP is enabled, the complete policy
-performs the ledger/anchor guard before minting its independent noise root.
+build loads the package for a smoke test. The independent noise root may be
+bootstrapped by service identity/status initialization before a statistical DP
+policy is complete. A DP policy separately validates its identity-bound
+accountant receipt before accountant-ledger, registry or protected-source
+access; no ordering claim is made between that receipt and service-level
+noise-root initialization.
 Production fails closed if secure persistence or the compiled runtime is
 unavailable. The independent Ed25519 `identity.seed` is created at first
 pinned-identity use, not at package load. Once both roots exist, dsVert durably
@@ -366,17 +370,22 @@ only when exact decimal arithmetic proves `N * epsilon <= 8` and
 `N * delta < 1`. This operation/history gate is not a request quota and never
 changes the fixed noise of an admitted capsule. Resource, dimensional and
 mechanism-domain bounds remain separate fail-closed safety checks. Public
-joint-DP capsule status v5 scopes this claim to
+joint-DP capsule status v6 scopes this claim to
 `at_most_N_immutable_snapshot_workload_capsules_per_stable_privacy_accountant_namespace`.
-It binds the assumptions that at least one non-colluding designated peer
-`retains_and_uses_complete_authenticated_monotonic_history` and that one
-stable, unique privacy accountant namespace spans domain, cohort, policy,
-pinset and ledger
-reconfiguration for each protected privacy universe. The latter is currently a
-custodial deployment obligation: dsVert neither enforces uniqueness across
-namespaces nor automatically migrates lifetime accounting during
-reconfiguration. Simultaneous rollback of both designated histories is not
-covered without an external linearizable CAS.
+It publishes the shared consortium accountant ID and enforces an
+identity-HMAC-bound immutable receipt over the exact common contract plus each
+peer's canonical local ledger, joint ledger, registry, vector-v4 and source-v3
+paths. Domain, cohort, pinset, accountant-policy or path drift fails closed
+before accountant ledgers, registries or protected sources are read. Normal
+service operations never create a missing receipt. On a stopped service, a
+custodian may invoke
+`dsvertBootstrapPrivacyAccountantNamespace(confirm_no_other_history = TRUE)`
+only after auditing every former path and backup; it succeeds only when every
+known accountant database, lock and SQLite sidecar is absent. There is no
+automatic migration. Snapshot, workload and noise-root rotation do not change
+the accountant namespace. Custodians must still preserve the identity receipt
+and complete authenticated monotonic history. Simultaneous rollback of both
+designated histories is not covered without an external linearizable CAS.
 
 For privacy and compatibility that same terminal token also covers the case in
 which the requested capsule cannot safely advance because its irrevocable
@@ -430,12 +439,14 @@ partition epsilon as `epsilon/K`, and does not allocate privacy per method.
 Each capsule uses fixed policy-owned epsilon/delta. Its allocator index both
 orders the rollback chain and records one non-refundable lifetime reservation;
 the authenticated registry counts reservations, while the publication ledger
-separately counts public releases. The lifetime claim additionally assumes one
-stable, unique privacy accountant namespace for each protected privacy
-universe across deployment reconfiguration; this continuity is custodian
-managed rather than automatically enforced or migrated. Its rollback claim
-assumes that at least one designated non-colluding peer retains and uses its
-complete durable authenticated ledger history. The
+separately counts public releases. The lifetime claim additionally requires
+one stable privacy accountant namespace for each protected privacy universe.
+An identity-bound receipt enforces the common policy and canonical accountant
+paths locally; normal service operations cannot create or rebind a missing
+receipt. Custodians must still preserve that identity, receipt and history, and
+no counter migration is automatic. Its rollback claim assumes that at least
+one designated non-colluding peer retains and uses its complete durable
+authenticated ledger history. The
 analyst/DSI relay may replay, reorder, suppress or fork messages but cannot
 forge that peer's signatures. Simultaneous rollback of every peer to mutually
 consistent old images remains outside this assumption.

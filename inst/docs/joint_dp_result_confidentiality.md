@@ -157,9 +157,8 @@ composition requires
   private protocol state remaining unknown to the other peer and relay, and
   that same non-colluding peer retaining and using complete authenticated
   monotonic history;
-- one stable, unique privacy accountant namespace across domain, cohort,
-  policy, pinset and ledger reconfiguration for each protected privacy
-  universe;
+- one preserved identity-bound privacy accountant receipt and its matching
+  authenticated history for each protected privacy universe;
 - the certified sampler implementation and its charged implementation delta;
   and
 - authenticated durable release state for sticky replay.
@@ -171,10 +170,11 @@ availability, malicious custodian input semantics and simultaneous compromise
 or rollback of all durable peers are not covered. Pinning authenticates who is
 participating; it does not prove that a peer is honest.
 
-Namespace continuity is currently a custodial deployment assumption. The
-package neither enforces uniqueness across independently configured namespaces
-nor automatically migrates burned reservations when a ledger or pinset is
-reconfigured.
+The immutable identity-HMAC-bound receipt enforces the exact common policy and
+canonical ledger, joint-ledger, registry, vector-v4 and source-v3 paths before
+accountant or protected-source access. Normal service operations cannot create
+or rebind a missing receipt. Custodians must preserve the identity, receipt and
+authenticated history; burned reservations are never migrated automatically.
 
 The guarantee is bounded lifetime DP, not a promise for arbitrarily many
 logical capsules. A new privacy epoch, snapshot or overlapping cohort is a

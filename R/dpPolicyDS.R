@@ -1455,7 +1455,8 @@
     .test_only_skip_snapshot_binding = FALSE,
     .test_only_skip_alignment_binding = FALSE,
     .test_only_allow_local_anchor = FALSE,
-    .test_only_allow_nonprivate_ledger = FALSE) {
+    .test_only_allow_nonprivate_ledger = FALSE,
+    .privacy_accountant_bootstrap_empty = FALSE) {
   test_flags <- c(
     .test_only_skip_snapshot_binding,
     .test_only_skip_alignment_binding,
@@ -1463,6 +1464,12 @@
     .test_only_allow_nonprivate_ledger)
   if (!is.logical(test_flags) || anyNA(test_flags)) {
     stop("Internal DP test flags must be TRUE or FALSE", call. = FALSE)
+  }
+  if (!is.logical(.privacy_accountant_bootstrap_empty) ||
+      length(.privacy_accountant_bootstrap_empty) != 1L ||
+      is.na(.privacy_accountant_bootstrap_empty)) {
+    stop("The internal privacy-accountant bootstrap flag must be TRUE or FALSE",
+         call. = FALSE)
   }
   # Production has one disclosure-safe mode.  Historical enable/disable and
   # geometric-allocation options are deliberately not read here, so setting
@@ -1651,6 +1658,47 @@
       peer_name = peer$peer_name, pinset_sha256 = peer$sha256)),
     algo = "sha256", serialize = FALSE))
 
+  configured_ledger_path <- .dsvert_dp_option("ledger_path", NULL)
+  ledger_private <- !isTRUE(.test_only_allow_nonprivate_ledger)
+  namespace_ledger_path <- NULL
+  if (!legacy_local_accounting &&
+      !isTRUE(.dsvert_identity_test_mode())) {
+    namespace_ledger_path <-
+      .dsvert_privacy_accountant_namespace_canonical_path(
+        configured_ledger_path, "local ledger")
+    namespace_policy <- list(
+      domain = domain,
+      cohort_id = cohort_id,
+      peer_name = peer$peer_name,
+      peer_pinset = peer$pinset,
+      peer_pinset_sha256 = peer$sha256,
+      peer_count = as.integer(peer_count),
+      designated_noise_peers = designated_noise_peers,
+      global_total_epsilon = total_epsilon,
+      global_total_delta = total_delta,
+      lifetime_max_distinct_capsules =
+        lifetime_max_distinct_capsules,
+      adjacency = adjacency,
+      patient_column = patient_column,
+      unit_capacity = unit_capacity,
+      max_records_per_unit = max_records_per_unit,
+      overflow_policy = overflow_policy,
+      ledger_path = namespace_ledger_path)
+    namespace_context <- .dsvert_joint_dp_policy_context_preflight(
+      namespace_policy, require_designated = FALSE)
+    namespace_receipt <- .dsvert_privacy_accountant_namespace_enforce(
+      namespace_policy, namespace_context,
+      allow_virgin_bootstrap =
+        isTRUE(.privacy_accountant_bootstrap_empty))
+    if (isTRUE(.privacy_accountant_bootstrap_empty)) {
+      return(list(
+        privacy_accountant_namespace_id =
+          namespace_receipt$privacy_accountant_namespace_id,
+        receipt_path =
+          .dsvert_privacy_accountant_namespace_receipt_path()))
+    }
+  }
+
   configured_datasets <- .dsvert_dp_option("datasets", NULL)
   if (!legacy_local_accounting && isTRUE(require_snapshot_digest) &&
       isTRUE(require_alignment_manifest)) {
@@ -1728,7 +1776,7 @@
     },
     require_snapshot_digest = isTRUE(require_snapshot_digest),
     require_alignment_manifest = isTRUE(require_alignment_manifest),
-    ledger_private = !isTRUE(.test_only_allow_nonprivate_ledger),
+    ledger_private = ledger_private,
     rollback_protection = list(
       schema_version = 2L,
       mode = anchor_mode,
@@ -1796,8 +1844,14 @@
     invisible(.dsvert_joint_dp_lifetime_contract(policy))
   }
   policy$ledger_path <- .dsvert_dp_ledger_path(
-    .dsvert_dp_option("ledger_path", NULL),
+    configured_ledger_path,
     require_private = policy$ledger_private)
+  if (!is.null(namespace_ledger_path) &&
+      !identical(policy$ledger_path, namespace_ledger_path)) {
+    .dsvert_privacy_accountant_namespace_abort(
+      "The validated DP ledger path changed after namespace enforcement.",
+      "dsvert_privacy_accountant_namespace_mismatch")
+  }
   policy$lock_timeout_ms <- as.integer(lock_timeout_ms)
   policy$anchor_provider <- anchor_provider
   history_policy <- policy

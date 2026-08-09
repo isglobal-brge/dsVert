@@ -185,10 +185,14 @@
     paste0(
       ledger_path,
       ".joint-mpc-single-opening-v2.sqlite.capsule-registry-v2.sqlite"),
+    paste0(
+      ledger_path,
+      ".joint-mpc-single-opening-v2.sqlite.capsule-registry-v3.sqlite"),
     paste0(ledger_path, ".joint-dp-vector-v3.sqlite"),
     paste0(ledger_path, ".joint-dp-vector-v4.sqlite"),
     paste0(ledger_path, ".capsule-source-v1.sqlite"),
-    paste0(ledger_path, ".capsule-source-v2.sqlite")))
+    paste0(ledger_path, ".capsule-source-v2.sqlite"),
+    paste0(ledger_path, ".capsule-source-v3.sqlite")))
 }
 
 # When both reciprocal roots are unavailable, an old identity-derived ledger

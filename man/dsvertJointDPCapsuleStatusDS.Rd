@@ -23,4 +23,8 @@ is authenticated lifetime-accounting state: it can deny a new capsule after
 the configured bound is exhausted, but cannot reduce accuracy or charge exact
 replay as a new request. Non-designated pinned peers attest the policy without
 opening an allocator ledger.
+Status v6 publishes the shared consortium privacy-accountant namespace ID
+and attests identity-bound immutable-receipt enforcement. The receipt binds
+the canonical common policy and this peer's local accountant paths before
+accountant-ledger, registry, alignment-registry, or protected-source access.
 }

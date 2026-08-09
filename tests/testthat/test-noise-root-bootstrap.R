@@ -757,7 +757,7 @@ test_that("unrecoverable identity loss rotates a surviving noise root", {
     recursive = TRUE, full.names = TRUE)) == "noise_root"))
 })
 
-test_that("a configured matching identity restores both roots without rotation", {
+test_that("service bootstrap rejects a configured identity before root creation", {
   skip_on_os("windows")
   directory <- withr::local_tempdir(
     pattern = "dsvert-service-configured-root-restore-")
@@ -784,21 +784,12 @@ test_that("a configured matching identity restores both roots without rotation",
     .dsvert_dp_reject_ephemeral_or_library_path = function(...) invisible(),
     .package = "dsVert")
 
-  expect_invisible(.dsvert_initialize_service_state())
   seed_path <- file.path(directory, "identity.seed")
-  identity_before <- .get_identity_keypair()$identity_pk
-  root_before <- .dsvert_dp_noise_key_file(
-    noise_path, .allow_test_path = TRUE)$key_id
-  unlink(c(seed_path, noise_path), force = TRUE)
-
-  expect_invisible(.dsvert_initialize_service_state())
-  expect_identical(
-    .dsvert_validate_identity_seed_file(seed_path), configured)
-  expect_identical(.get_identity_keypair()$identity_pk, identity_before)
-  expect_identical(.dsvert_dp_noise_key_file(
-    noise_path, .allow_test_path = TRUE)$key_id, root_before)
-  expect_false(dir.exists(file.path(
-    directory, ".retired-identity-continuity")))
+  expect_error(
+    .dsvert_initialize_service_state(),
+    "must not be configured in a package image or service profile")
+  expect_false(file.exists(seed_path))
+  expect_false(file.exists(noise_path))
 })
 
 test_that("simultaneous root loss retires old DP state and resumes cleanly", {

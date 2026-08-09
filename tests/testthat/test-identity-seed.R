@@ -883,6 +883,20 @@ test_that("persistent state overrides an ephemeral HOME across reloads", {
                                      "identity.seed")))
 })
 
+test_that("Rock persistent home precedes the container HOME fallback", {
+  .identity_test_isolation()
+  withr::local_options(list(
+    dsvert.state_dir = NULL,
+    default.dsvert.state_dir = NULL))
+  withr::local_envvar(c(
+    DSVERT_STATE_DIR = NA_character_,
+    ROCK_HOME = "/srv",
+    HOME = "/root"))
+
+  expect_identical(.dsvert_state_root(), "/srv/.dsvert")
+  expect_identical(.dsvert_identity_seed_path(), "/srv/.dsvert/identity.seed")
+})
+
 test_that("configured identity seeds require canonical 256-bit entropy", {
   .identity_test_isolation()
   valid <- jsonlite::base64_enc(as.raw(rep(9L, 32L)))

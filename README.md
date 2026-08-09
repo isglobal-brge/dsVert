@@ -114,13 +114,16 @@ replays return byte-identical releases without resampling. A dedicated secret
 root derives every private seed by domain-separated HMAC-SHA256. An HSM/KMS
 provider has precedence. Otherwise the first cryptographic service operation
 bootstraps exactly 32 bytes from the OS CSPRNG into persistent owner-only
-service state; there is no statistical RNG fallback. `configure`, package
-installation and `.onLoad()` never generate a key, including when an image
-build loads the package for a smoke test. If DP is enabled, the complete policy
+service state; there is no statistical RNG fallback and production rejects a
+literal seed in a package image or service profile. `DSVERT_STATE_DIR` selects
+the state volume explicitly; in Rock, `ROCK_HOME/.dsvert` is used before the
+ephemeral container `HOME` fallback. `configure`, package installation and
+`.onLoad()` never generate a key, including when an image build loads the
+package for a smoke test. If DP is enabled, the complete policy
 performs the ledger/anchor guard before minting its independent noise root.
 Production fails closed if secure persistence or the compiled runtime is
-unavailable. The independent Ed25519 `identity.seed` is created at first
-pinned-identity use, not at package load. Once both roots exist, dsVert durably
+unavailable. The independent Ed25519 `identity.seed` is created at the first
+protected service boundary, not at package load. Once both roots exist, dsVert durably
 stores two authenticated,
 encrypted recovery envelopes: the identity is wrapped under keys derived by
 the non-extractable noise-root HMAC interface, and a file-backed noise root is
@@ -539,7 +542,8 @@ The noise-root provider contract exposes only public provider/key identifiers
 and HMAC-SHA256. Package installation and `configure` make no changes outside
 the package library; the first cryptographic service operation atomically
 creates or validates `~/.dsvert/privacy/noise_root` (or
-`$DSVERT_STATE_DIR/privacy/noise_root`) under an interprocess lock. The key is
+`$DSVERT_STATE_DIR/privacy/noise_root`; Rock falls back to
+`$ROCK_HOME/.dsvert/privacy/noise_root`) under an interprocess lock. The key is
 32 bytes encoded as lowercase hex in a `0600` single-link regular file below a
 `0700` owner-only directory. Temporary, shared-memory and installed-library
 paths are rejected again after resolving ancestor symlinks. Before first

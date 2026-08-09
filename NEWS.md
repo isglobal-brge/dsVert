@@ -2,6 +2,14 @@
 
 ### Security hardening
 
+* Persistent peer identity is now unambiguously runtime-owned: production
+  rejects a literal `dsvert.identity_seed` supplied by an image or service
+  profile, while tests may still inject deterministic entropy internally.
+  `configure`, installation and `.onLoad()` remain state-free. The first
+  protected service boundary creates `identity.seed` from the OS CSPRNG, using
+  `DSVERT_STATE_DIR` when configured and otherwise `ROCK_HOME/.dsvert` before
+  the container `HOME` fallback.
+
 * `dsvertTransportProbeDS()` retains its exact three-argument v1 request
   acknowledgement and adds an optional, stateless response-padding probe. The
   extension returns only bounded public `R` padding and its digest, has an

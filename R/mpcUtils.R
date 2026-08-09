@@ -857,11 +857,11 @@ dsvertNaOmitDS <- function(data_name, vars = NULL) {
 #' @return Character. Base64-encoded seed.
 #' @keywords internal
 .get_identity_seed <- function() {
-  configured <- .dsvert_configured_identity_seed()
-  # Package tests emulate several peers in one R process by swapping this
-  # option. Production service startup persists the configured value before
-  # any identity operation and never permits this in-memory-only fallback.
   test_mode <- .dsvert_identity_test_mode()
+  configured <- .dsvert_identity_seed_configuration(
+    allow_test = test_mode)
+  # Package tests emulate several peers in one R process by swapping this
+  # option. Production rejects that option before consulting recovery state.
   if (!is.null(configured) && isTRUE(test_mode)) {
     return(configured)
   }

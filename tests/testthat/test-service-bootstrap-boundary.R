@@ -79,6 +79,37 @@ test_that("configure never materializes deployment service state", {
   expect_false(dir.exists(state))
 })
 
+test_that("production bootstrap rejects an image-configured identity seed", {
+  state <- withr::local_tempdir(pattern = "dsvert-baked-identity-")
+  seed_path <- file.path(state, "identity.seed")
+  configured <- jsonlite::base64_enc(as.raw(rep(23L, 32L)))
+  recovery_calls <- 0L
+  withr::local_options(list(
+    dsvert.state_dir = state,
+    default.dsvert.state_dir = NULL,
+    dsvert.identity_seed = configured,
+    default.dsvert.identity_seed = NULL))
+  testthat::local_mocked_bindings(
+    .dsvert_dp_noise_root_for_identity_recovery = function(...) {
+      recovery_calls <<- recovery_calls + 1L
+      stop("recovery must not run", call. = FALSE)
+    },
+    .dsvert_dp_reject_ephemeral_or_library_path =
+      function(...) invisible(NULL),
+    .package = "dsVert")
+
+  condition <- tryCatch(
+    .dsvert_initialize_service_state(), error = identity)
+  expect_s3_class(condition, "error")
+  expect_match(
+    conditionMessage(condition),
+    "must not be configured in a package image or service profile")
+  expect_false(grepl(
+    configured, conditionMessage(condition), fixed = TRUE))
+  expect_identical(recovery_calls, 0L)
+  expect_false(file.exists(seed_path))
+})
+
 test_that("every production release gate crosses the service bootstrap", {
   calls <- 0L
   testthat::local_mocked_bindings(

@@ -131,7 +131,6 @@ Options:
     default.nfilter.glm=0.33,
     default.nfilter.subset=3,
     default.dsvert.mpc_binary="",
-    default.dsvert.identity_seed="",
     default.dsvert.peer_name="",
     default.dsvert.trusted_peers="",
     default.dsvert.psi.pseudonym_mode="auto",

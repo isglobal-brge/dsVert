@@ -23,11 +23,14 @@
     configured = getOption(
       "dsvert.state_dir", getOption("default.dsvert.state_dir")),
     environment = Sys.getenv("DSVERT_STATE_DIR", unset = ""),
+    rock_home = Sys.getenv("ROCK_HOME", unset = ""),
     home = Sys.getenv("HOME", unset = "")) {
   value <- if (!is.null(configured)) {
     configured
   } else if (nzchar(environment)) {
     environment
+  } else if (nzchar(rock_home)) {
+    file.path(rock_home, ".dsvert")
   } else {
     file.path(home, ".dsvert")
   }
@@ -60,6 +63,9 @@
 }
 
 .dsvert_configured_identity_seed <- function() {
+  # Test-only peer emulation. Production bootstrap rejects a literal seed so
+  # package images and shared service profiles cannot clone one deployment
+  # identity across nodes.
   seed <- getOption("dsvert.identity_seed")
   if (is.null(seed)) seed <- getOption("default.dsvert.identity_seed")
   # DataSHIELD package profiles commonly materialise an empty-string default.
@@ -70,6 +76,16 @@
     return(NULL)
   }
   .dsvert_normalize_crypto_b64(seed, 32L, "dsvert.identity_seed")
+}
+
+.dsvert_identity_seed_configuration <- function(allow_test = FALSE) {
+  configured <- .dsvert_configured_identity_seed()
+  if (!isTRUE(allow_test) && !is.null(configured)) {
+    stop(
+      "A production identity seed must not be configured in a package image or service profile; restore the owner-only identity.seed file instead",
+      call. = FALSE)
+  }
+  configured
 }
 
 .dsvert_identity_seed_matches_configuration <- function(seed) {
@@ -1017,6 +1033,8 @@
   if (!is.function(random_bytes)) {
     stop("random_bytes must be a secure random-byte function", call. = FALSE)
   }
+  configured_seed <- .dsvert_identity_seed_configuration(
+    allow_test = .allow_test_path)
 
   seed_path <- path.expand(seed_path)
   if (!grepl("^/", seed_path)) {
@@ -1092,7 +1110,6 @@
   has_recovery <- any(vapply(recovery_paths, function(path) {
     file.exists(path) || .dsvert_dp_path_is_link(path)
   }, logical(1L)))
-  configured_seed <- .dsvert_configured_identity_seed()
   if (isTRUE(has_recovery)) {
     if (!is.null(noise_root_for_recovery)) {
       invisible(.dsvert_identity_restore_recovery(
@@ -1177,6 +1194,7 @@
 }
 
 .dsvert_initialize_service_state <- function() {
+  invisible(.dsvert_identity_seed_configuration(allow_test = FALSE))
   seed_path <- .dsvert_identity_seed_path()
   recovery_root <- if (!file.exists(seed_path)) {
     .dsvert_dp_noise_root_for_identity_recovery()

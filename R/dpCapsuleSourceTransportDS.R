@@ -277,6 +277,8 @@
 }
 
 .dsvert_dp_capsule_source_contract_validate <- function(contract) {
+  synopsis <- is.list(contract) &&
+    "synopsis_binding" %in% names(contract)
   base_required <- c(
     "version", "purpose", "capsule_id", "logical_snapshot_sha256",
     "workload_sha256", "source_context_hash", "peer_pinset_sha256",
@@ -289,7 +291,9 @@
     "release_coordinate_count", "release_coordinate_order_sha256",
     "private_layout_sha256", "cross_input_peers",
     "private_alignment_consensus")
-  required <- c(base_required, if (cross) cross_required else character())
+  required <- c(
+    base_required, if (cross) cross_required else character(),
+    if (synopsis) "synopsis_binding" else character())
   valid <- is.list(contract) && !is.null(names(contract)) &&
     !anyNA(names(contract)) && !anyDuplicated(names(contract)) &&
     setequal(names(contract), required) &&
@@ -328,6 +332,28 @@
     identical(contract$ready_for_sampling, FALSE)
   if (!isTRUE(valid)) {
     stop("Invalid biomedical capsule source contract.", call. = FALSE)
+  }
+  if (synopsis) {
+    binding <- contract$synopsis_binding
+    binding_fields <- c(
+      "version", "manifest_capsule_id", "artifact_key",
+      "source_claim_set_sha256")
+    valid_binding <- is.list(binding) && !is.null(names(binding)) &&
+      !anyNA(names(binding)) && !anyDuplicated(names(binding)) &&
+      setequal(names(binding), binding_fields) &&
+      identical(
+        binding$version, .DSVERT_DP_SYNOPSIS_SOURCE_CONTRACT_VERSION) &&
+      all(vapply(binding[setdiff(binding_fields, "version")],
+        function(value) {
+          is.character(value) && length(value) == 1L && !is.na(value) &&
+            grepl("^[0-9a-f]{64}$", value)
+        }, logical(1L))) &&
+      identical(contract$capsule_id, tryCatch(
+        .dsvert_dp_synopsis_source_namespace_id_v1(binding),
+        error = function(error) NULL))
+    if (!isTRUE(valid_binding)) {
+      stop("Invalid synopsis capsule source binding.", call. = FALSE)
+    }
   }
   coordinate_count <- .dsvert_dp_capsule_source_index(
     contract$coordinate_count, "coordinate count", 1,

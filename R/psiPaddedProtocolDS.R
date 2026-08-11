@@ -10,6 +10,22 @@
 .DSVERT_PSI_PADDED_AND_PRODUCER <- "psi.padded.membership-sum.v4"
 .DSVERT_PSI_PADDED_AND_PURPOSE <- "psi-padded-and-v4"
 .PSI_PADDED_ATTESTATION_ATTRIBUTE <- "dsvert.psi.padded.attestation"
+.PSI_PADDED_FACTOR_REGISTRY_ATTRIBUTE <- "dsvert.psi.padded.factor-registry"
+.DSVERT_PSI_PADDED_FACTOR_REGISTRY_VERSION <-
+  "dsvert-psi-padded-factor-registry-v1"
+.DSVERT_PSI_PADDED_FACTOR_ENTRY_VERSION <-
+  "dsvert-psi-padded-factor-entry-v1"
+.DSVERT_PSI_PADDED_FACTOR_VARIABLE_DOMAIN <-
+  "dsVert/psi-padded/factor-variable/v1|"
+.DSVERT_PSI_PADDED_FACTOR_ENTRY_DOMAIN <-
+  "dsVert/psi-padded/factor-entry/v1|"
+.DSVERT_PSI_PADDED_FACTOR_REGISTRY_DOMAIN <-
+  "dsVert/psi-padded/factor-registry/v1|"
+.DSVERT_PSI_PADDED_FACTOR_REGISTRY_SIGNATURE_DOMAIN <-
+  "dsVert/psi-padded/factor-registry-signature/v1|"
+.DSVERT_PSI_PADDED_FACTOR_MAX_COLUMNS <- 4096L
+.DSVERT_PSI_PADDED_FACTOR_MAX_LEVELS <- 1000000L
+.DSVERT_PSI_PADDED_FACTOR_MAX_METADATA_BYTES <- 16L * 1024L * 1024L
 
 .psi_padded_scalar <- function(value, what, pattern = NULL) {
   if (!is.character(value) || length(value) != 1L || is.na(value) ||
@@ -1896,6 +1912,16 @@ psiPaddedMembershipAcceptDS <- function(
   result <- .psi_padded_materialize_target(
     data, state$id_col, state$slot_rows, state$slot_valid, mapping, plan, token)
   result <- .psi_padded_attach_attestation(result, contract)
+  identity <- .get_identity_keypair()
+  expected_pk <- .dsvert_relay_normalize_identity_pk(
+    state$identity_pks[[state$self_peer]])
+  if (!identical(
+      .dsvert_relay_normalize_identity_pk(identity$identity_pk), expected_pk)) {
+    stop("Padded PSI factor registry identity is not the pinned local peer.",
+         call. = FALSE)
+  }
+  result <- .psi_padded_attach_factor_registry_v1(
+    result, state$self_peer, identity)
   state$completed_manifest <- attr(
     result, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE)
   state$phase <- "complete"
@@ -1955,8 +1981,69 @@ psiPaddedMembershipAcceptDS <- function(
   data
 }
 
-.psi_padded_validate_persistent_attestation <- function(data) {
-  .psi_validate_alignment_manifest(data)
+.psi_padded_raw_data_frame_shape_v1 <- function(data) {
+  if (!is.data.frame(data)) {
+    stop("Invalid padded PSI data-frame metadata.", call. = FALSE)
+  }
+  data_names <- attr(data, "names", exact = TRUE)
+  row_count <- tryCatch(
+    base::.row_names_info(data, 2L), error = function(error) NA_real_)
+  if (!is.character(data_names) || anyNA(data_names) ||
+      anyDuplicated(data_names) || !is.numeric(row_count) ||
+      length(row_count) != 1L || is.na(row_count) ||
+      !is.finite(row_count) || row_count < 0 ||
+      row_count != floor(row_count) || row_count > .Machine$integer.max) {
+    stop("Invalid padded PSI data-frame metadata.", call. = FALSE)
+  }
+  list(names = data_names, n = as.integer(row_count))
+}
+
+.psi_padded_alignment_metadata_v1 <- function(data) {
+  fail <- function() stop(
+    "Padded PSI alignment metadata is unavailable.", call. = FALSE)
+  shape <- tryCatch(
+    .psi_padded_raw_data_frame_shape_v1(data), error = function(error) fail())
+  manifest <- attr(data, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE)
+  required <- c("version", "token", "id_col", "n", "order_binding", "hash")
+  version <- if (is.list(manifest) && length(manifest$version) == 1L) {
+    suppressWarnings(as.numeric(manifest$version))
+  } else NA_real_
+  manifest_n <- if (is.list(manifest) && length(manifest$n) == 1L) {
+    suppressWarnings(as.numeric(manifest$n))
+  } else NA_real_
+  if (!is.list(manifest) || !identical(names(manifest), required) ||
+      length(version) != 1L || is.na(version) || !is.finite(version) ||
+      version != .PSI_ALIGNMENT_VERSION ||
+      !is.character(manifest$id_col) || length(manifest$id_col) != 1L ||
+      is.na(manifest$id_col) || !manifest$id_col %in% shape$names ||
+      length(manifest_n) != 1L || is.na(manifest_n) ||
+      !is.finite(manifest_n) || manifest_n != floor(manifest_n) ||
+      manifest_n != shape$n ||
+      !is.character(manifest$order_binding) ||
+      length(manifest$order_binding) != 1L ||
+      !grepl("^[0-9a-f]{64}$", manifest$order_binding) ||
+      !is.character(manifest$hash) || length(manifest$hash) != 1L ||
+      !grepl("^[0-9a-f]{64}$", manifest$hash)) fail()
+  tryCatch(.psi_validate_alignment_token(manifest$token),
+           error = function(error) fail())
+  list(
+    version = .PSI_ALIGNMENT_VERSION,
+    hash = manifest$hash,
+    n = as.integer(manifest_n),
+    id_col = manifest$id_col)
+}
+
+.psi_padded_validate_persistent_attestation_impl_v1 <- function(
+    data, metadata_only) {
+  if (!is.logical(metadata_only) || length(metadata_only) != 1L ||
+      is.na(metadata_only)) {
+    stop("Invalid padded PSI attestation validation mode.", call. = FALSE)
+  }
+  if (isTRUE(metadata_only)) {
+    .psi_padded_alignment_metadata_v1(data)
+  } else {
+    .psi_validate_alignment_manifest(data)
+  }
   manifest <- attr(data, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE)
   record <- attr(data, .PSI_PADDED_ATTESTATION_ATTRIBUTE, exact = TRUE)
   required <- c("public", "binding")
@@ -2013,6 +2100,353 @@ psiPaddedMembershipAcceptDS <- function(
         record$binding,
         .psi_padded_attestation_binding(public, manifest$token))) fail()
   public
+}
+
+.psi_padded_validate_persistent_attestation <- function(data) {
+  .psi_padded_validate_persistent_attestation_impl_v1(
+    data, metadata_only = FALSE)
+}
+
+.psi_padded_validate_persistent_attestation_metadata_v1 <- function(data) {
+  .psi_padded_validate_persistent_attestation_impl_v1(
+    data, metadata_only = TRUE)
+}
+
+.psi_padded_factor_text_v1 <- function(value, what) {
+  if (!is.character(value) || length(value) != 1L || is.na(value)) {
+    stop("Invalid padded PSI factor ", what, ".", call. = FALSE)
+  }
+  byte_count <- tryCatch(
+    nchar(value, type = "bytes"), error = function(error) NA_integer_)
+  if (length(byte_count) != 1L || is.na(byte_count) ||
+      byte_count < 1L || byte_count > 1024L) {
+    stop("Invalid padded PSI factor ", what, ".", call. = FALSE)
+  }
+  value <- enc2utf8(value)
+  if (!nzchar(value) || !isTRUE(validUTF8(value)) ||
+      nchar(value, type = "bytes") > 1024L) {
+    stop("Invalid padded PSI factor ", what, ".", call. = FALSE)
+  }
+  value
+}
+
+.psi_padded_configured_factor_domains_v1 <- function() {
+  value <- getOption("dsvert.dp.categorical_levels")
+  if (is.null(value)) {
+    value <- getOption("default.dsvert.dp.categorical_levels")
+  }
+  if (is.null(value)) list() else value
+}
+
+.psi_padded_factor_entries_v1 <- function(
+    data, public_domains = list(), exclude = character()) {
+  shape <- tryCatch(.psi_padded_raw_data_frame_shape_v1(data),
+                    error = function(error) NULL)
+  if (!is.list(public_domains) ||
+      (length(public_domains) &&
+      (is.null(names(public_domains)) || anyNA(names(public_domains)))) ||
+      length(public_domains) > .DSVERT_PSI_PADDED_FACTOR_MAX_COLUMNS ||
+      !is.character(exclude) || anyNA(exclude) || is.null(shape)) {
+    stop("Invalid padded PSI factor registry.", call. = FALSE)
+  }
+  exclude <- enc2utf8(exclude)
+  variable_names <- vapply(
+    names(public_domains), .psi_padded_factor_text_v1, character(1L),
+    what = "variable name")
+  if (anyDuplicated(variable_names)) {
+    stop("Invalid padded PSI factor registry.", call. = FALSE)
+  }
+  if (!length(variable_names)) return(list())
+  names(public_domains) <- variable_names
+  data_names <- enc2utf8(shape$names)
+  total_levels <- 0L
+  total_bytes <- 0
+  entries <- list()
+  for (variable_name in variable_names) {
+    if (variable_name %in% exclude) next
+    index <- which(data_names == variable_name)
+    if (!length(index)) next
+    declared <- public_domains[[variable_name]]
+    column <- if (length(index) == 1L) .subset2(data, index) else NULL
+    actual <- if (is.factor(column)) {
+      attr(column, "levels", exact = TRUE)
+    } else NULL
+    if (!is.atomic(declared) || !is.null(dim(declared)) ||
+        !length(declared) ||
+        length(declared) > .DSVERT_PSI_PADDED_FACTOR_MAX_LEVELS ||
+        !is.character(actual) || !length(actual) ||
+        length(actual) > .DSVERT_PSI_PADDED_FACTOR_MAX_LEVELS ||
+        length(actual) != length(declared) ||
+        anyNA(declared) || anyNA(actual)) {
+      stop("Invalid padded PSI factor levels.", call. = FALSE)
+    }
+    declared <- tryCatch(.dsvert_canonical_label_values(
+      declared, "padded PSI public factor levels",
+      allow_na = FALSE, allow_blank = FALSE),
+    error = function(error) {
+      stop("Invalid padded PSI factor levels.", call. = FALSE)
+    })
+    declared <- vapply(
+      declared, .psi_padded_factor_text_v1, character(1L),
+      what = "level")
+    actual <- vapply(
+      actual, .psi_padded_factor_text_v1, character(1L), what = "level")
+    if (anyDuplicated(declared) || anyDuplicated(actual) ||
+        !identical(sort(declared, method = "radix"),
+                   sort(actual, method = "radix"))) {
+      stop("Invalid padded PSI factor levels.", call. = FALSE)
+    }
+    total_levels <- total_levels + length(declared)
+    total_bytes <- total_bytes +
+      nchar(variable_name, type = "bytes") +
+      sum(nchar(declared, type = "bytes"))
+    if (total_levels > .DSVERT_PSI_PADDED_FACTOR_MAX_LEVELS ||
+        total_bytes > .DSVERT_PSI_PADDED_FACTOR_MAX_METADATA_BYTES) {
+      stop("Padded PSI factor registry exceeds the metadata limit.",
+           call. = FALSE)
+    }
+    declared <- sort(declared, method = "radix")
+    variable_id <- paste0("var_", digest::digest(
+      paste0(
+        .DSVERT_PSI_PADDED_FACTOR_VARIABLE_DOMAIN,
+        .psi_padded_canonical_json(list(variable_name = variable_name))),
+      algo = "sha256", serialize = FALSE))
+    entries[[length(entries) + 1L]] <- list(
+      version = .DSVERT_PSI_PADDED_FACTOR_ENTRY_VERSION,
+      variable_name = variable_name,
+      variable_id = variable_id,
+      levels = as.list(unname(declared)),
+      dimension = as.integer(length(declared)))
+  }
+  if (!length(entries)) return(list())
+  ids <- vapply(entries, `[[`, character(1L), "variable_id")
+  if (anyDuplicated(ids)) {
+    stop("Invalid padded PSI factor registry.", call. = FALSE)
+  }
+  unname(entries[order(ids, method = "radix")])
+}
+
+.psi_padded_factor_domains_from_entries_v1 <- function(entries) {
+  required <- c(
+    "version", "variable_name", "variable_id", "levels", "dimension")
+  if (!is.list(entries) || !is.null(names(entries))) {
+    stop("Invalid padded PSI factor registry.", call. = FALSE)
+  }
+  if (length(entries) > .DSVERT_PSI_PADDED_FACTOR_MAX_COLUMNS) {
+    stop("Padded PSI factor registry exceeds the metadata limit.",
+         call. = FALSE)
+  }
+  if (!length(entries)) return(list())
+  domains <- list()
+  total_levels <- 0L
+  total_bytes <- 0
+  for (entry in entries) {
+    if (!is.list(entry) || !identical(names(entry), required) ||
+        !is.list(entry$levels) || !is.null(names(entry$levels))) {
+      stop("Invalid padded PSI factor registry.", call. = FALSE)
+    }
+    level_count <- length(entry$levels)
+    if (!level_count ||
+        level_count > .DSVERT_PSI_PADDED_FACTOR_MAX_LEVELS ||
+        total_levels + level_count >
+          .DSVERT_PSI_PADDED_FACTOR_MAX_LEVELS) {
+      stop("Padded PSI factor registry exceeds the metadata limit.",
+           call. = FALSE)
+    }
+    total_levels <- total_levels + level_count
+    variable_name <- .psi_padded_factor_text_v1(
+      entry$variable_name, "variable name")
+    total_bytes <- total_bytes + nchar(variable_name, type = "bytes")
+    if (total_bytes > .DSVERT_PSI_PADDED_FACTOR_MAX_METADATA_BYTES) {
+      stop("Padded PSI factor registry exceeds the metadata limit.",
+           call. = FALSE)
+    }
+    levels <- character(level_count)
+    for (index in seq_len(level_count)) {
+      levels[[index]] <- .psi_padded_factor_text_v1(
+        entry$levels[[index]], "level")
+      total_bytes <- total_bytes + nchar(levels[[index]], type = "bytes")
+      if (total_bytes > .DSVERT_PSI_PADDED_FACTOR_MAX_METADATA_BYTES) {
+        stop("Padded PSI factor registry exceeds the metadata limit.",
+             call. = FALSE)
+      }
+    }
+    if (!is.null(domains[[variable_name]])) {
+      stop("Invalid padded PSI factor registry.", call. = FALSE)
+    }
+    domains[[variable_name]] <- levels
+  }
+  domains
+}
+
+.psi_padded_factor_registry_hash_v1 <- function(
+    source_binding_id, entries, public_levels_policy) {
+  digest::digest(
+    paste0(
+      .DSVERT_PSI_PADDED_FACTOR_REGISTRY_DOMAIN,
+      .psi_padded_canonical_json(list(
+        version = .DSVERT_PSI_PADDED_FACTOR_REGISTRY_VERSION,
+        source_binding_id = source_binding_id,
+        entries = entries,
+        public_levels_policy = public_levels_policy))),
+    algo = "sha256", serialize = FALSE)
+}
+
+.psi_padded_factor_entry_hash_v1 <- function(entry) {
+  digest::digest(
+    paste0(
+      .DSVERT_PSI_PADDED_FACTOR_ENTRY_DOMAIN,
+      .psi_padded_canonical_json(entry)),
+    algo = "sha256", serialize = FALSE)
+}
+
+.psi_padded_factor_registry_message_v1 <- function(unsigned) {
+  charToRaw(paste0(
+    .DSVERT_PSI_PADDED_FACTOR_REGISTRY_SIGNATURE_DOMAIN,
+    .psi_padded_canonical_json(unsigned)))
+}
+
+.psi_padded_attach_factor_registry_v1 <- function(
+    data, peer_name, identity,
+    .signer = .dsvert_relay_sign_message,
+    .public_domains = .psi_padded_configured_factor_domains_v1()) {
+  public <- .psi_padded_validate_persistent_attestation(data)
+  alignment <- attr(data, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE)
+  peer_name <- .psi_padded_scalar(
+    peer_name, "factor registry peer",
+    "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+  if (!is.list(identity) || is.null(identity$identity_pk) ||
+      is.null(identity$identity_sk) || !is.function(.signer)) {
+    stop("Invalid padded PSI factor registry identity.", call. = FALSE)
+  }
+  identity_pk <- tryCatch(
+    .dsvert_relay_normalize_identity_pk(identity$identity_pk),
+    error = function(error) NULL)
+  if (is.null(identity_pk)) {
+    stop("Invalid padded PSI factor registry identity.", call. = FALSE)
+  }
+  entries <- .psi_padded_factor_entries_v1(
+    data, public_domains = .public_domains, exclude = public$id_column)
+  public_levels_policy <- if (length(.public_domains)) {
+    "custodian_named_public_factor_domains_v1"
+  } else {
+    "no_public_factor_domains_v1"
+  }
+  registry_sha256 <- .psi_padded_factor_registry_hash_v1(
+    public$source_binding_id, entries, public_levels_policy)
+  unsigned <- list(
+    version = .DSVERT_PSI_PADDED_FACTOR_REGISTRY_VERSION,
+    peer_name = peer_name,
+    peer_identity_pk = identity_pk,
+    attestation_id = public$attestation_id,
+    contract_hash = public$contract_hash,
+    source_binding_id = public$source_binding_id,
+    alignment_hash = alignment$hash,
+    entries = entries,
+    public_levels_policy = public_levels_policy,
+    registry_sha256 = registry_sha256)
+  if (nchar(.psi_padded_canonical_json(unsigned), type = "bytes") >
+      64L * 1024L * 1024L) {
+    stop("Padded PSI factor registry exceeds the metadata limit.",
+         call. = FALSE)
+  }
+  signature <- .signer(
+    .psi_padded_factor_registry_message_v1(unsigned), identity$identity_sk)
+  signature_raw <- tryCatch(
+    .dsvert_relay_b64url_decode(signature, "factor registry signature"),
+    error = function(error) NULL)
+  if (is.null(signature_raw) || length(signature_raw) != 64L) {
+    stop("Invalid padded PSI factor registry signature.", call. = FALSE)
+  }
+  attr(data, .PSI_PADDED_FACTOR_REGISTRY_ATTRIBUTE) <- c(
+    unsigned, list(signature = signature))
+  data
+}
+
+.psi_padded_validate_factor_registry_v1 <- function(
+    data, expected_peer_name = NULL, expected_identity_pk = NULL,
+    .verifier = .dsvert_relay_verify_message,
+    metadata_only = FALSE) {
+  fail <- function() stop(
+    "Padded PSI factor registry authentication failed.", call. = FALSE)
+  if (!is.function(.verifier) || !is.logical(metadata_only) ||
+      length(metadata_only) != 1L || is.na(metadata_only)) fail()
+  public <- tryCatch(if (isTRUE(metadata_only)) {
+    .psi_padded_validate_persistent_attestation_metadata_v1(data)
+  } else {
+    .psi_padded_validate_persistent_attestation(data)
+  }, error = function(error) fail())
+  alignment <- attr(data, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE)
+  record <- attr(data, .PSI_PADDED_FACTOR_REGISTRY_ATTRIBUTE, exact = TRUE)
+  required <- c(
+    "version", "peer_name", "peer_identity_pk", "attestation_id",
+    "contract_hash", "source_binding_id", "alignment_hash", "entries",
+    "public_levels_policy", "registry_sha256", "signature")
+  if (!is.list(record) || !identical(names(record), required) ||
+      !identical(record$version,
+                 .DSVERT_PSI_PADDED_FACTOR_REGISTRY_VERSION) ||
+      !is.list(record$entries) || !is.null(names(record$entries)) ||
+      !identical(record$attestation_id, public$attestation_id) ||
+      !identical(record$contract_hash, public$contract_hash) ||
+      !identical(record$source_binding_id, public$source_binding_id) ||
+      !identical(record$alignment_hash, alignment$hash)) fail()
+  peer_name <- tryCatch(.psi_padded_scalar(
+    record$peer_name, "factor registry peer",
+    "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$"), error = function(error) NULL)
+  record_identity_pk <- record$peer_identity_pk
+  identity_pk <- if (is.character(record_identity_pk) &&
+      length(record_identity_pk) == 1L && !is.na(record_identity_pk) &&
+      nchar(record_identity_pk, type = "bytes") == 43L &&
+      grepl("^[A-Za-z0-9_-]{43}$", record_identity_pk)) {
+    tryCatch(.dsvert_relay_normalize_identity_pk(record_identity_pk),
+             error = function(error) NULL)
+  } else NULL
+  expected_peer_name <- tryCatch(.psi_padded_scalar(
+    expected_peer_name, "expected factor registry peer",
+    "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$"), error = function(error) NULL)
+  expected_identity_pk <- tryCatch(
+    .dsvert_relay_normalize_identity_pk(expected_identity_pk),
+    error = function(error) NULL)
+  policy <- record$public_levels_policy
+  if (!is.character(policy) || length(policy) != 1L || is.na(policy) ||
+      !policy %in% c(
+        "custodian_named_public_factor_domains_v1",
+        "no_public_factor_domains_v1")) fail()
+  entries <- if (identical(
+      policy, "custodian_named_public_factor_domains_v1")) {
+    tryCatch({
+      domains <- .psi_padded_factor_domains_from_entries_v1(record$entries)
+      .psi_padded_factor_entries_v1(
+        data, public_domains = domains, exclude = public$id_column)
+    }, error = function(error) NULL)
+  } else list()
+  expected_hash <- if (!is.null(entries)) {
+    .psi_padded_factor_registry_hash_v1(
+      public$source_binding_id, entries, policy)
+  } else ""
+  if (is.null(peer_name) || is.null(identity_pk) ||
+      is.null(expected_peer_name) || is.null(expected_identity_pk) ||
+      !identical(peer_name, expected_peer_name) ||
+      !identical(identity_pk, expected_identity_pk) ||
+      !identical(record$peer_identity_pk, identity_pk) ||
+      !identical(record$entries, entries) ||
+      !identical(record$registry_sha256, expected_hash) ||
+      !grepl("^[0-9a-f]{64}$", record$registry_sha256)) fail()
+  unsigned <- record[setdiff(names(record), "signature")]
+  signature <- record$signature
+  signature_raw <- if (is.character(signature) && length(signature) == 1L &&
+      !is.na(signature) && nchar(signature, type = "bytes") == 86L &&
+      grepl("^[A-Za-z0-9_-]{86}$", signature)) {
+    tryCatch(.dsvert_relay_b64url_decode(
+      signature, "factor registry signature"),
+    error = function(error) NULL)
+  } else NULL
+  valid <- !is.null(signature_raw) && length(signature_raw) == 64L &&
+    isTRUE(tryCatch(.verifier(
+      .psi_padded_factor_registry_message_v1(unsigned), identity_pk,
+      record$signature), error = function(error) FALSE))
+  if (!valid) fail()
+  record
 }
 
 .psi_padded_completed_manifest_binding <- function(manifest) {

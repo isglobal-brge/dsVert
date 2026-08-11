@@ -225,10 +225,13 @@
     seeds[[reference]], NULL,
     .psi_padded_final_prepare_impl(states[[reference]]))
   aligned <- list()
-  aligned[[reference]] <- .psi_padded_filter_impl(
-    states[[reference]], data[[reference]])
-  aligned[[target]] <- .psi_padded_filter_impl(
-    states[[target]], data[[target]], final$envelopes[[target]])
+  aligned[[reference]] <- .psi_padded_test_with_identity(
+    seeds[[reference]], NULL,
+    .psi_padded_filter_impl(states[[reference]], data[[reference]]))
+  aligned[[target]] <- .psi_padded_test_with_identity(
+    seeds[[target]], NULL,
+    .psi_padded_filter_impl(
+      states[[target]], data[[target]], final$envelopes[[target]]))
   attestations <- lapply(names(states), function(peer) {
     .psi_padded_attestation_impl(states[[peer]], aligned[[peer]])
   })
@@ -331,9 +334,11 @@
     .psi_padded_final_prepare_impl(states[[reference]]))
   aligned <- list()
   for (peer in peers) {
-    aligned[[peer]] <- .psi_padded_filter_impl(
-      states[[peer]], data[[peer]],
-      if (identical(peer, reference)) NULL else final$envelopes[[peer]])
+    aligned[[peer]] <- .psi_padded_test_with_identity(
+      seeds[[peer]], NULL,
+      .psi_padded_filter_impl(
+        states[[peer]], data[[peer]],
+        if (identical(peer, reference)) NULL else final$envelopes[[peer]]))
   }
   list(
     contract = contract, states = states, data = data, seeds = seeds,
@@ -428,6 +433,15 @@ test_that("fixed-capacity pinned PSI completes K=2 with exact canonical order", 
   expect_identical(result$aligned[[target]]$id,
                    result$aligned[[reference]]$id)
   expect_identical(result$attestations[[1L]], result$attestations[[2L]])
+  registries <- lapply(names(result$aligned), function(peer) {
+    .psi_padded_validate_factor_registry_v1(
+      result$aligned[[peer]], expected_peer_name = peer,
+      expected_identity_pk = result$identities[[peer]]$identity_pk)
+  })
+  expect_true(all(vapply(registries, function(record) {
+    identical(record$entries, list()) &&
+      identical(record$public_levels_policy, "no_public_factor_domains_v1")
+  }, logical(1L))))
   visible <- result$attestations[[1L]]
   expect_named(visible, c(
     "attestation_version", "alignment_attested", "alignment_protocol",

@@ -144,6 +144,7 @@ Options:
     default.dsvert.psi.key_custody="none",
     default.dsvert.psi.require_keyed_pseudonyms=FALSE,
     default.dsvert.psi.max_input_ids=1000000,
+    default.dsvert.dp.categorical_levels=NULL,
     default.dsvert.psi.audit_log_path="",
     default.dsvert.dp.epsilon=1,
     default.dsvert.dp.delta=1e-6,

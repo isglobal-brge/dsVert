@@ -9,8 +9,8 @@ The current client/server registration contract is internally complete:
 
 | Check | Result |
 |---|---:|
-| Registered `*DS` endpoints | 68 |
-| Direct `call(name = "...")` endpoints | 154 |
+| Registered `*DS` endpoints | 75 |
+| Direct `call(name = "...")` endpoints | 161 |
 | `as.call()` / `as.name()` exact-GC endpoints | 7 |
 | Dynamically named endpoints behind one closed runtime allowlist | 1 |
 | Unregistered endpoint names retained below guarded/test-only client code | 94 |
@@ -26,7 +26,7 @@ scalar Count capsule/ledger phases are now hard-deleted. The seven generic
 scalar control-plane frontdoors and their endpoint-only DSI adapters are also
 hard-deleted; the remaining R closures stay internal solely for source
 compatibility and focused regression tests. None is exported or remotely
-invocable. All 68
+invocable. All 75
 endpoints that remain registered belong to the promoted purpose-bound
 allowlist and have a product call builder after resolving literal calls, seven
 `as.call()` / `as.name()` constructions and the closed dynamic branch. The
@@ -75,6 +75,16 @@ seed and the semantic analysis contract. Session identifiers, attempts and
 signatures do not reroll the semantic release, and no Count lifetime ledger,
 request quota or durable cache exists. Fixed-cohort Count is represented by the
 signed zero-sensitivity Compile variant and does not enter exact GC.
+
+Fixed-domain Frequency uses a separate seven-endpoint stateless lifecycle.
+Claim is issued only by the explicitly configured source owner; every pinned
+peer contributes one signed, snapshot-bound Compile receipt, while only the
+source owner and the contract-selected secondary noise authority create
+authorization, typed-transfer, execution or resource state. Source and
+Finalize process fixed 65,536-coordinate Ring128 windows sequentially and open
+one signed terminal vector release; Replay returns committed chunks without a
+new draw. Cleanup is authenticated, idempotent and invoked only on those two
+authorities. The K-2 witnesses retain no session state for this lifecycle.
 
 The biomedical vector capsule remains the route for its other promoted
 artifacts. Five product-bound allocation
@@ -145,7 +155,7 @@ and is rejected during service bootstrap and Opal allowlist reconciliation.
 
 | Class | Count | Meaning |
 |---|---:|---|
-| Production-safe / purpose-bound | 68 | Fixed status/schema, padded PSI, complete stateless Count execution, typed-store, transport, capsule manifest/source, cross-signed allocation, cross-owner checked-vector-multiplication and joint vector-release routes admitted by the default guard |
+| Production-safe / purpose-bound | 75 | Fixed status/schema, padded PSI, complete stateless Count and Frequency execution, typed-store, transport, capsule manifest/source, cross-signed allocation, cross-owner checked-vector-multiplication and joint vector-release routes admitted by the default guard |
 | Retired diagnostic/migration internals | 4 | Generic typed read/source diagnostics plus generic exact-GC bind and GLM softplus helpers; unregistered, unexported and test-only or locally guarded |
 | Retired quarantined compatibility internals | 90 | Legacy exact/MPC endpoints below stable local frontdoor errors; unregistered, unexported and carrying no DP or non-reconstruction claim |
 | Registered orphan/dangerous candidates | 0 | Every registered endpoint is promoted and consumed |
@@ -242,7 +252,7 @@ includes:
 - test-only data mutation helpers for injected NAs, synthetic survival,
   quartiles, factors and clusters.
 
-The executable tests assert this exact set, the exact 68-endpoint registration
+The executable tests assert this exact set, the exact 75-endpoint registration
 allowlist and all guarded public frontdoors. Merely leaving one of these
 functions defined in package source does not make it a DataSHIELD endpoint.
 The removed legacy PSI functions, `psiGetMatchedIndicesDS`,

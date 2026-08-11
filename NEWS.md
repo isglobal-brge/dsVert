@@ -2,6 +2,15 @@
 
 ### Security hardening
 
+* Promoted the seven-endpoint stateless sticky Frequency server lifecycle:
+  signed source Claim, K-wide signed Compile receipts, two server-selected
+  execution-authority authorizations, fixed-window encrypted Source/Finalize,
+  signed Replay and authenticated idempotent Cleanup. The K-2 witnesses retain
+  no authorization, typed-transfer, execution or resource state. The route
+  uses the existing fixed-domain Frequency v1 wire contracts and semantic v2
+  artifact, has no generic typed read endpoint, and creates no local release
+  database or lifetime ledger.
+
 * Promoted only the public-data-free Frequency backend selector in the new
   bilateral runtime API 1.2 manifest as
   `joint_dp_frequency_backend_selection_v1`. The advertised command
@@ -10,9 +19,8 @@
   runtime failure. The package/runtime release remains 1.1.0; API 1.1 peers
   fail closed instead of silently accepting the enlarged exact manifest. All
   four packaged runtimes and `SHA256SUMS` were rebuilt reproducibly with the
-  Makefile-enforced Go 1.25.7 toolchain. This selector-only promotion does not
-  promote a Frequency sampler, protected-data release route or analyst-facing
-  product.
+  Makefile-enforced Go 1.25.7 toolchain. That selector was the data-free
+  prerequisite for the Frequency lifecycle now promoted above.
 
 * Persistent peer identity is now unambiguously runtime-owned: production
   rejects a literal `dsvert.identity_seed` supplied by an image or service

@@ -67,8 +67,10 @@
   list(
     version = .DSVERT_DP_FREQUENCY_WORKER_STATIC_VERSION,
     selected_primitive = primitive, selected_profile = profile,
-    selected_request = config$backend_selection$selected_request,
-    selected_plan = config$backend_selection$selected_plan,
+    selected_request = .dsvert_dp_analysis_canonical_value_v1(
+      config$backend_selection$selected_request),
+    selected_plan = .dsvert_dp_analysis_canonical_value_v1(
+      config$backend_selection$selected_plan),
     selected_plan_sha256 = plan$full_plan_sha256,
     ring_bits = 128L, frac_bits = 0L,
     output_lattice_bits = as.integer(profile$output_lattice_bits),

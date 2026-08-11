@@ -14,8 +14,9 @@ Description: Server-side DataSHIELD functions for privacy-aware analysis
     of vertically partitioned federated data. The audited remotely invocable
     surface is an exact allowlist containing only fixed-capacity pinned PSI,
     data-independent identity/schema/status replies, typed authenticated peer
-    transport, server-authoritative stateless sticky Count execution and
-    fixed-shape biomedical DP capsule lifecycles. Historical
+    transport, server-authoritative stateless sticky Count and fixed-domain
+    Frequency execution, and fixed-shape biomedical DP capsule lifecycles.
+    Historical
     GLM, Cox PH, negative-binomial, multinomial, ordinal, LMM, GEE, GLMM, IPW,
     multiple-imputation and iterative-LASSO kernels remain namespace-internal
     for migration regression tests, but are neither registered nor exported.
@@ -69,6 +70,13 @@ AggregateMethods:
     dsvertDPCountStartDS,
     dsvertDPCountFinalShareDS,
     dsvertDPCountReleaseDS,
+    dsvertDPFrequencyClaimDS,
+    dsvertDPFrequencyCompileDS,
+    dsvertDPFrequencyAuthorizeDS,
+    dsvertDPFrequencySourceWindowDS,
+    dsvertDPFrequencyFinalizeWindowDS,
+    dsvertDPFrequencyReplayDS,
+    dsvertDPFrequencyCleanupDS,
     dsvertSecurityProfileDS,
     dsvertTransportProbeDS,
     dsvertNumericPolicyDS,

@@ -84,7 +84,9 @@ test_that("the peer-relay security matrix covers the complete active surface", {
     "dsvertIdentityPkDS", "dsvertNumericPolicyDS", "dsvertColNamesDS",
     "dsvertJointDPCapsuleStatusDS", "dsvertDPCountCompileDS",
     "dsvertDPCountAuthorizeDS", "dsvertDPCountStartDS",
-    "dsvertDPCountReleaseDS")
+    "dsvertDPCountReleaseDS", "dsvertDPFrequencyClaimDS",
+    "dsvertDPFrequencyCompileDS", "dsvertDPFrequencyAuthorizeDS",
+    "dsvertDPFrequencyCleanupDS")
   expect_setequal(
     exposed,
     setdiff(.dsvert_disclosure_safe_remote_methods, local_only))

@@ -58,7 +58,9 @@
       "payload_class": "registry-authorized typed peer blob",
       "remote_endpoints": [
         "mpcTypedBlobStoreDS",
-        "mpcTypedBlobReceiptDS"
+        "mpcTypedBlobReceiptDS",
+        "dsvertDPFrequencySourceWindowDS",
+        "dsvertDPFrequencyFinalizeWindowDS"
       ],
       "private_payload": true,
       "confidentiality": "capability_specific_recipient_aead_or_opaque_cryptographic",
@@ -72,14 +74,18 @@
       "ordering_bound": true,
       "replay_safe": true,
       "idempotent_retry": true,
-      "binding": "producer-signed capability ticket binds session, transfer, replay id, family, producer, consumer, phase, ring, shape, count, server-derived destination, sender, recipient, complete peer-binding digest, sequence and payload hash; recipient signs the terminal receipt",
-      "retry_contract": "producer response and recipient acknowledgement are byte-identical for one exact request; absolute offsets permit lost-response retry without duplicating bytes",
+      "binding": "producer-signed capability ticket binds session, transfer, replay id, family, producer, consumer, phase, ring, shape, count, server-derived destination, sender, recipient, complete peer-binding digest, sequence and payload hash; Frequency additionally binds its signed analysis, authorization set, fixed window geometry and two server-held authority roles; recipient signs the terminal receipt",
+      "retry_contract": "producer response and recipient acknowledgement are byte-identical for one exact request; absolute offsets permit lost-response retry without duplicating bytes, and a Frequency window is consumed only after its committed finalization record exists",
       "relay_tamper_outcome": "authentic_delivery_exact_duplicate_or_abort",
       "metadata_visibility": "capability, bounded shape and ciphertext length are public; sensitive capability producers emit recipient-sealed bytes",
       "malicious_peer_security": "not_claimed",
       "evidence_files": [
         "R/typedBlobTransportDS.R",
+        "R/dpFrequencyExecutionDS.R",
+        "R/dpFrequencySurfaceDS.R",
         "tests/testthat/test-typed-blob-transport.R",
+        "tests/testthat/test-dp-frequency-execution.R",
+        "tests/testthat/test-dp-frequency-surface.R",
         "inst/docs/typed_blob_transport_inventory.json"
       ]
     },
@@ -333,7 +339,8 @@
       "remote_endpoints": [
         "dsvertJointDPVectorReleaseDS",
         "dsvertJointDPVectorReplayDS",
-        "dsvertJointDPVectorFinalizeAckDS"
+        "dsvertJointDPVectorFinalizeAckDS",
+        "dsvertDPFrequencyReplayDS"
       ],
       "private_payload": false,
       "confidentiality": "public_dp_output_and_authenticated_receipts",
@@ -347,15 +354,17 @@
       "ordering_bound": true,
       "replay_safe": true,
       "idempotent_retry": true,
-      "binding": "signed release contract binds canonical query, capsule, logical snapshot, allocation, release instance, result-set hash, final vector root, per-peer receipts and terminal acknowledgement state",
-      "retry_contract": "the same canonical query and release instance replays one memoized DP output; conflicting result sets, acknowledgements or release instances abort",
+      "binding": "signed release contract binds the canonical query, immutable logical snapshot, fixed mechanism, final vector root and authority identities; biomedical releases additionally bind capsule, allocation, release instance, result-set hash, per-peer receipts and terminal acknowledgement state, while Frequency binds its compiled artifact, authorization set, window and chunk hashes",
+      "retry_contract": "the same canonical query and release identity replays one committed DP output; conflicting result sets, acknowledgements, Frequency operations or release instances abort",
       "relay_tamper_outcome": "authentic_delivery_exact_duplicate_or_abort",
       "metadata_visibility": "the released DP value, public release identity and signed receipts are intentionally visible DP output or post-processing",
       "malicious_peer_security": "not_claimed",
       "evidence_files": [
         "R/jointDPVectorCapsuleDS.R",
         "R/jointDPControlPlane.R",
-        "tests/testthat/test-joint-dp-vector-capsule.R"
+        "R/dpFrequencyExecutionDS.R",
+        "tests/testthat/test-joint-dp-vector-capsule.R",
+        "tests/testthat/test-dp-frequency-execution.R"
       ]
     },
     {

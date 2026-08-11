@@ -1,5 +1,4 @@
-# Internal K-wide compiler for one fixed-domain categorical Frequency analysis.
-# Product routes remain unregistered until runtime and client promotion.
+# K-wide compiler for one fixed-domain categorical Frequency analysis.
 
 .DSVERT_DP_FREQUENCY_CONFIG_VERSION <- "dsvert-dp-frequency-config-v1"
 .DSVERT_DP_FREQUENCY_RECEIPT_VERSION <- "dsvert-dp-frequency-receipt-v1"
@@ -32,13 +31,15 @@
     .dsvert_dp_analysis_scalar_id(settings[[field]], paste("Frequency", field))
   }
   owner <- settings$source_owner
-  if (!is.list(owner) || !identical(names(owner),
-      c("peer_name", "identity_pk"))) {
+  if (!is.list(owner) || is.null(names(owner)) || anyNA(names(owner)) ||
+      anyDuplicated(names(owner)) || !setequal(
+        names(owner), c("peer_name", "identity_pk"))) {
     stop("Invalid Frequency source owner.", call. = FALSE)
   }
-  owner$peer_name <- .dsvert_dp_frequency_peer_name_v1(owner$peer_name)
-  owner$identity_pk <- .dsvert_dp_frequency_identity_pk_v1(
-    owner$identity_pk, "source owner")
+  owner <- list(
+    peer_name = .dsvert_dp_frequency_peer_name_v1(owner$peer_name),
+    identity_pk = .dsvert_dp_frequency_identity_pk_v1(
+      owner$identity_pk, "source owner"))
   privacy <- settings$privacy
   calibration <- settings$calibration
   if (!is.list(privacy) || is.null(names(privacy)) || anyNA(names(privacy)) ||
@@ -162,7 +163,9 @@
       "Invalid Frequency backend selection.", call. = FALSE))
   expected_request <- .dsvert_dp_analysis_frequency_candidate_requests_v2(
     privacy, config$calibration, config$factor_domain$dimension)[[kind]]
-  if (!identical(selection$selected_request, expected_request) ||
+  if (!identical(
+      .dsvert_dp_analysis_canonical_value_v1(selection$selected_request),
+      .dsvert_dp_analysis_canonical_value_v1(expected_request)) ||
       !identical(config$transport_chunk_coordinates,
                  plan$chunk_coordinates)) {
     stop("Invalid Frequency backend selection.", call. = FALSE)

@@ -102,6 +102,14 @@ test_that("Frequency Claim exposes one pinned public factor entry only", {
     .psi_padded_factor_entry_hash_v1(claim$factor_entry))
   expect_match(claim$psi_run_sha256, "^[0-9a-f]{64}$")
 
+  surface_wire <- .dsvert_dsi_text_encode(.dsvert_dp_canonical_json(
+    .dsvert_dp_analysis_canonical_value_v1(claim)))
+  surface_claim <- .dsvert_dp_frequency_surface_claim_v1(surface_wire)
+  expect_identical(.dsvert_dp_analysis_canonical_value_v1(
+    .dsvert_dp_frequency_claim_validate_v1(
+      surface_claim, fixture$pins, .verifier = .frequency_analysis_verifier)),
+    .dsvert_dp_analysis_canonical_value_v1(claim))
+
   wire <- .dsvert_dp_canonical_json(claim)
   expect_false(grepl("p-1|secret-1|private-a", wire))
   expect_false(grepl("private_value|unrelated", wire))
@@ -150,22 +158,30 @@ test_that("Frequency Claim is metadata-only, canonical and fail-closed", {
     "signature")
 })
 
-test_that("Frequency Claim does not expose a public or registered route", {
+test_that("Frequency Claim keeps its closed core behind the exact public ABI", {
   expect_identical(names(formals(.dsvert_dp_frequency_claim_v1)), c(
     "data", "variable_name", "peer_name", "identity", "peer_pins",
     ".registry_verifier", ".signer"))
-  expect_false(exists(
+  expect_true(exists(
     "dsvertDPFrequencyClaimDS", envir = asNamespace("dsVert"),
     inherits = FALSE))
+  expect_identical(
+    names(formals(dsvertDPFrequencyClaimDS)),
+    c("data_name", "variable_name"))
   description <- read.dcf(.dsvert_test_package_file("DESCRIPTION"))
   registered <- trimws(strsplit(
     description[1L, "AggregateMethods"], ",", fixed = TRUE)[[1L]])
-  expect_false("dsvertDPFrequencyClaimDS" %in% registered)
+  expect_true("dsvertDPFrequencyClaimDS" %in% registered)
 })
 
 test_that("Frequency Claim rejects oversized crypto fields before decoding", {
   fixture <- .frequency_claim_fixture()
   claim <- .frequency_claim(fixture)
+  standard_pk <- gsub("[\r\n]", "", jsonlite::base64_enc(
+    as.raw(rep(9L, 32L))))
+  expect_identical(
+    .dsvert_dp_frequency_identity_pk_v1(standard_pk, "identity"),
+    base64_to_base64url(standard_pk))
   expect_error(testthat::with_mocked_bindings(
     .dsvert_dp_frequency_signature_v1(strrep("A", 100000L)),
     .dsvert_relay_b64url_decode = function(...) stop("decoder reached"),
@@ -496,6 +512,56 @@ test_that("Frequency compiles identical K-wide consensus for K=2,3,5", {
       contract$semantic$noise_authority_roles$authority_ids,
       list(unname(fixture$pins[[fixture$source_peer]]), expected_secondary))
     expect_identical(contract$execution$backend$ring, "ring128")
+    if (k == 3L) {
+      encode <- function(value) .dsvert_dsi_text_encode(
+        .dsvert_dp_canonical_json(
+          .dsvert_dp_analysis_canonical_value_v1(value)))
+      surface_claim <- .dsvert_dp_frequency_surface_claim_v1(
+        encode(fixture$claim))
+      wire_config <- configs[[1L]]
+      wire_config$peer_pins <- as.list(wire_config$peer_pins)
+      surface_config <- .dsvert_dp_frequency_surface_config_v1(
+        encode(wire_config))
+      surface_receipts <- .dsvert_dp_frequency_surface_array_v1(
+        encode(receipts), "receipt array",
+        .DSVERT_DP_FREQUENCY_RECEIPTS_MAX_BYTES, length = k)
+      expect_identical(.dsvert_dp_frequency_compile_v1(
+        surface_receipts, surface_config, surface_claim,
+        .verifier = .frequency_analysis_verifier), contract)
+    }
+  }
+})
+
+test_that("Frequency worker is invariant across canonical DSV1", {
+  for (outcome in c("convolution", "gaussian")) {
+    fixture <- .frequency_compile_fixture(3L)
+    local <- lapply(names(fixture$pins), function(peer) {
+      .frequency_local_compile(fixture, peer, selector = function(request) {
+        .analysis_frequency_oracle_fixture(request, outcome)
+      })
+    })
+    config <- local[[1L]]$config
+    receipts <- lapply(local, `[[`, "receipt")
+    contract <- .dsvert_dp_frequency_compile_v1(
+      receipts, config, fixture$claim,
+      .verifier = .frequency_analysis_verifier)
+    binding <- .dsvert_dp_frequency_analysis_binding_v1(contract)
+    native <- .dsvert_dp_frequency_worker_static_v1(
+      contract, config, binding)
+    wire <- config
+    wire$peer_pins <- as.list(wire$peer_pins)
+    decoded <- .dsvert_dp_frequency_surface_config_v1(
+      .dsvert_dsi_text_encode(.dsvert_dp_canonical_json(
+        .dsvert_dp_analysis_canonical_value_v1(wire))))
+    roundtrip <- .dsvert_dp_frequency_worker_static_v1(
+      contract, decoded, binding)
+
+    expect_identical(roundtrip, native)
+    expect_identical(
+      .dsvert_dp_frequency_hash_v1(
+        .DSVERT_DP_FREQUENCY_WORKER_DOMAIN, roundtrip),
+      .dsvert_dp_frequency_hash_v1(
+        .DSVERT_DP_FREQUENCY_WORKER_DOMAIN, native))
   }
 })
 
@@ -725,8 +791,10 @@ test_that("Frequency authorization is two-role, sticky and atomic", {
   for (k in c(2L, 3L, 5L)) {
     fixture <- .frequency_compile_fixture(k)
     compiled <- .frequency_compiled(fixture)
+    expect_length(compiled$receipts, k)
     authorities <- compiled$contract$semantic$
       noise_authority_roles$authority_ids
+    expect_length(authorities, 2L)
     authority_peers <- vapply(authorities, function(identity_pk) {
       names(fixture$pins)[match(identity_pk, unname(fixture$pins))]
     }, character(1L))
@@ -765,11 +833,19 @@ test_that("Frequency authorization is two-role, sticky and atomic", {
         fixture, compiled, authority_peers[[2L]])$seed_commitment$sha256))
     non_authorities <- setdiff(names(fixture$pins), authority_peers)
     if (length(non_authorities)) {
-      rejected <- new.env(parent = emptyenv())
-      expect_error(.frequency_authorize(
-        fixture, compiled, non_authorities[[1L]], ss = rejected),
-        "noise authority")
-      expect_null(rejected$.dp_frequency_authorization)
+      for (peer in non_authorities) {
+        rejected <- new.env(parent = emptyenv())
+        expect_error(.frequency_public_authorize(
+          fixture, compiled, peer, ss = rejected), "noise authority")
+        expect_true(all(vapply(c(
+          ".dp_frequency_authorization",
+          ".dp_frequency_public_authorization",
+          ".dp_frequency_execution",
+          ".dp_frequency_resource_reservation",
+          ".typed_blob_outbound"), function(field) {
+            is.null(rejected[[field]])
+          }, logical(1L))))
+      }
     }
   }
 })

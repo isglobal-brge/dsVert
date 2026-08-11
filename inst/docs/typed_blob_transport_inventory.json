@@ -17,6 +17,17 @@
       "migration": "migrated-typed-v1"
     },
     {
+      "id": "analysis_dp.frequency_source_window",
+      "families": ["dp-frequency"],
+      "callers": ["ds.vertDPFrequency"],
+      "slot": "analysis_dp_frequency_source_<24-hex canonical-context digest>",
+      "producer": "dsvertDPFrequencySourceWindowDS.ciphertext_chars",
+      "recipient": "dsvertDPFrequencyFinalizeWindowDS",
+      "shape": "recipient-sealed fixed 65,536-coordinate Ring128 source-authority window",
+      "confidentiality": "recipient-sealed",
+      "migration": "migrated-typed-v1"
+    },
+    {
       "id": "input.peer_x",
       "families": ["cor", "cox", "glm", "multinomial", "negative-binomial", "ordinal"],
       "callers": ["ds.vertCor", "ds.vertCoxDiscreteNonDisclosive", "ds.vertGLM.k2", "ds.vertGLM.k3ring63", "ds.vertMultinomJointNewton", "ds.vertNBFullRegTheta", "ds.vertOrdinalJointNewton"],

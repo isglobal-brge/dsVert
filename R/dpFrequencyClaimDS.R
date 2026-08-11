@@ -1,6 +1,4 @@
-# Internal server compiler for one fixed-domain categorical Frequency analysis.
-# The product route remains unregistered until its runtime and client slices are
-# promoted together.
+# Server Claim compiler for one fixed-domain categorical Frequency analysis.
 
 .DSVERT_DP_FREQUENCY_CLAIM_VERSION <- "dsvert-dp-frequency-factor-claim-v1"
 .DSVERT_DP_FREQUENCY_CLAIM_DOMAIN <- "dsVert/dp-frequency/factor-claim/v1|"
@@ -25,11 +23,14 @@
 
 .dsvert_dp_frequency_identity_pk_v1 <- function(value, what) {
   if (!is.character(value) || length(value) != 1L || is.na(value) ||
-      nchar(value, type = "bytes") != 43L ||
-      !grepl("^[A-Za-z0-9_-]{43}$", value)) {
+      !nchar(value, type = "bytes") %in% c(43L, 44L) ||
+      !(grepl("^[A-Za-z0-9_-]{43}$", value) ||
+        grepl("^[A-Za-z0-9+/]{43}=$", value))) {
     stop("Invalid Frequency ", what, ".", call. = FALSE)
   }
-  .dsvert_relay_normalize_identity_pk(value)
+  tryCatch(.dsvert_relay_normalize_identity_pk(value),
+    error = function(error) stop(
+      "Invalid Frequency ", what, ".", call. = FALSE))
 }
 
 .dsvert_dp_frequency_peer_pins_v1 <- function(value) {
@@ -71,7 +72,8 @@
 .dsvert_dp_frequency_factor_entry_validate_v1 <- function(entry) {
   required <- c(
     "version", "variable_name", "variable_id", "levels", "dimension")
-  if (!is.list(entry) || !identical(names(entry), required) ||
+  if (!is.list(entry) || is.null(names(entry)) || anyNA(names(entry)) ||
+      anyDuplicated(names(entry)) || !setequal(names(entry), required) ||
       !identical(entry$version, .DSVERT_PSI_PADDED_FACTOR_ENTRY_VERSION) ||
       !is.list(entry$levels) || !is.null(names(entry$levels))) {
     stop("Invalid Frequency public factor entry.", call. = FALSE)

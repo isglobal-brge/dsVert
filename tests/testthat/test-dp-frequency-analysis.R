@@ -539,6 +539,21 @@ test_that("Frequency source snapshot binds labels by canonical level", {
     missing_receipt$snapshot_commitment,
     original$receipt$snapshot_commitment))
 
+  all_missing <- fixture$data_by_peer[[source]]
+  all_missing$category <- factor(
+    rep(NA_character_, nrow(all_missing)),
+    levels = attr(all_missing$category, "levels", exact = TRUE))
+  invalid_codes <- fixture$data_by_peer[[source]]
+  invalid_codes$category <- structure(
+    c(0L, 4L, NA_integer_),
+    levels = attr(invalid_codes$category, "levels", exact = TRUE),
+    class = "factor")
+  expect_identical(
+    .frequency_local_compile(
+      fixture, source, invalid_codes)$receipt$snapshot_commitment,
+    .frequency_local_compile(
+      fixture, source, all_missing)$receipt$snapshot_commitment)
+
   permuted <- fixture$data_by_peer[[source]]
   permuted$category <- factor(
     as.character(permuted$category), levels = rev(levels(permuted$category)))
@@ -553,6 +568,13 @@ test_that("Frequency source snapshot binds labels by canonical level", {
   expect_identical(
     permuted_receipt$snapshot_commitment,
     original$receipt$snapshot_commitment)
+
+  as.character.dsvert_malicious_factor <- function(x, ...) {
+    stop("malicious as.character method called", call. = FALSE)
+  }
+  malicious <- fixture$data_by_peer[[source]]
+  class(malicious$category) <- c("dsvert_malicious_factor", "factor")
+  expect_silent(.frequency_local_compile(fixture, source, malicious))
 
   dummy <- fixture$data_by_peer[[source]]
   levels(dummy$category) <- c(levels(dummy$category), "dummy")

@@ -372,14 +372,19 @@
       stop("The Frequency factor registry does not match the Claim.",
            call. = FALSE)
     }
-    labels <- as.character(.subset2(data, index))
-    coordinate <- match(labels, unlist(
-      config$factor_domain$levels, use.names = FALSE), nomatch = 0L)
-    if (any(!is.na(labels) & coordinate == 0L)) {
-      stop("The Frequency source contains an out-of-domain label.",
-           call. = FALSE)
+    column <- .subset2(data, index)
+    level_coordinate <- match(
+      enc2utf8(attr(column, "levels", exact = TRUE)),
+      unlist(config$factor_domain$levels, use.names = FALSE), nomatch = 0L)
+    codes <- unclass(column)
+    attributes(codes) <- NULL
+    coordinate <- integer(length(codes))
+    if (is.integer(codes) || is.double(codes)) {
+      valid <- !is.na(codes) & is.finite(codes) &
+        codes == trunc(codes) & codes >= 1 &
+        codes <= length(level_coordinate)
+      coordinate[valid] <- level_coordinate[codes[valid]]
     }
-    coordinate[is.na(labels)] <- 0L
     list(
       version = "dsvert-dp-frequency-fixed-categorical-vector-v1",
       factor_entry_sha256 = config$factor_entry_sha256,

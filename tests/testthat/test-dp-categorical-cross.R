@@ -393,6 +393,36 @@ test_that("source-vector Claims bind both categorical cross owners", {
   baseline <- lapply(fixtures, mint)
   expect_identical(
     baseline$peer_a$catalog_sha256, baseline$peer_b$catalog_sha256)
+  claim_set <- .dsvert_dp_synopsis_source_claim_set_v1(
+    fixtures$peer_a$policy, fixtures$peer_a$manifest,
+    rev(unname(baseline)), .verifier = function(...) TRUE)
+  expect_named(claim_set$claims, c("peer_a", "peer_b"))
+  expect_identical(
+    .dsvert_dp_synopsis_source_claim_set_v1(
+      fixtures$peer_a$policy, fixtures$peer_a$manifest, baseline,
+      .verifier = function(...) TRUE),
+    claim_set)
+  resigned <- baseline
+  resigned$peer_a$signature <- .cross_cat_b64url(as.raw(rep(84L, 64L)))
+  expect_identical(
+    .dsvert_dp_synopsis_source_claim_set_v1(
+      fixtures$peer_a$policy, fixtures$peer_a$manifest, resigned,
+      .verifier = function(...) TRUE)$sha256,
+    claim_set$sha256)
+  expect_error(.dsvert_dp_synopsis_source_claim_set_v1(
+    fixtures$peer_a$policy, fixtures$peer_a$manifest, baseline[-1L],
+    .verifier = function(...) TRUE), "coverage")
+  expect_error(.dsvert_dp_synopsis_source_claim_set_v1(
+    fixtures$peer_a$policy, fixtures$peer_a$manifest,
+    c(baseline, baseline[1L]), .verifier = function(...) TRUE), "coverage")
+  mixed <- baseline
+  mixed$peer_b$catalog_sha256 <- strrep("f", 64L)
+  expect_error(.dsvert_dp_synopsis_source_claim_set_v1(
+    fixtures$peer_a$policy, fixtures$peer_a$manifest, mixed,
+    .verifier = function(...) TRUE), "catalog")
+  expect_error(.dsvert_dp_synopsis_source_claim_set_v1(
+    fixtures$peer_a$policy, fixtures$peer_a$manifest, baseline,
+    .verifier = function(...) FALSE), "signature")
 
   for (peer in names(fixtures)) {
     fixture <- fixtures[[peer]]

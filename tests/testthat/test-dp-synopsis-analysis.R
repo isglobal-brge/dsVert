@@ -235,9 +235,30 @@ test_that("source-vector Claim binds only the effective local release", {
   expect_false(identical(changed_claim$source_vector_commitment,
     claim$source_vector_commitment))
 
-  for (k in c(3L, 5L)) {
-    expect_match(mint(.synopsis_test_fixture(k = k))$
-                   source_vector_commitment, "^[0-9a-f]{64}$")
+  for (k in c(2L, 3L, 5L)) {
+    input <- .synopsis_test_fixture(k = k)
+    source_claim <- mint(input)
+    claim_set <- .dsvert_dp_synopsis_source_claim_set_v1(
+      input$policy, input$manifest, list(source_claim),
+      .verifier = function(...) TRUE)
+    expect_named(claim_set, c(
+      "version", "sha256", "projection", "claims"))
+    expect_named(claim_set$claims, "peer_a")
+    expect_match(claim_set$sha256, "^[0-9a-f]{64}$")
+    expect_identical(
+      .dsvert_dp_synopsis_source_claim_set_validate_v1(
+        claim_set, input$policy, input$manifest,
+        .verifier = function(...) TRUE),
+      claim_set)
+    if (k == 2L) {
+      tampered_set <- claim_set
+      tampered_set$sha256 <- strrep("f", 64L)
+      expect_error(
+        .dsvert_dp_synopsis_source_claim_set_validate_v1(
+          tampered_set, input$policy, input$manifest,
+          .verifier = function(...) TRUE),
+        "hash")
+    }
   }
 
   bad_signature <- claim

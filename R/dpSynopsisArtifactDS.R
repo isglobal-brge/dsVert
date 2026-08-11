@@ -727,18 +727,13 @@
     authority_ids = as.list(unname(pins[peers])))
 }
 
-.dsvert_dp_synopsis_artifact_v1 <- function(
-    policy, manifest, claim_set, .planner = NULL,
-    .verifier = .dsvert_relay_verify_message) {
-  claim_set <- .dsvert_dp_synopsis_source_claim_set_validate_v1(
-    claim_set, policy, manifest, .verifier = .verifier)
-  physical_plan <- .dsvert_dp_synopsis_physical_plan_v1(
-    policy, manifest, .planner = .planner)
+.dsvert_dp_synopsis_semantic_v1 <- function(
+    policy, manifest, claim_set, physical_plan) {
   release <- physical_plan[c(
     "version", "request", "profile", "lattice", "backend_selection",
     "draw_law", "draw_law_sha256")]
   profile <- physical_plan$profile
-  semantic <- .dsvert_dp_analysis_synopsis_semantic_validate_v1(list(
+  .dsvert_dp_analysis_synopsis_semantic_validate_v1(list(
     version = .DSVERT_DP_ANALYSIS_SYNOPSIS_SEMANTIC_VERSION,
     catalog_projection = claim_set$projection,
     source_claim_set_sha256 = claim_set$sha256,
@@ -780,8 +775,114 @@
     public_shape = list(
       version = "dsvert-stateless-catalog-synopsis-shape-v1",
       coordinates = physical_plan$lattice$coordinate_count)))
+}
+
+.dsvert_dp_synopsis_artifact_v1 <- function(
+    policy, manifest, claim_set, .planner = NULL,
+    .verifier = .dsvert_relay_verify_message) {
+  claim_set <- .dsvert_dp_synopsis_source_claim_set_validate_v1(
+    claim_set, policy, manifest, .verifier = .verifier)
+  physical_plan <- .dsvert_dp_synopsis_physical_plan_v1(
+    policy, manifest, .planner = .planner)
+  semantic <- .dsvert_dp_synopsis_semantic_v1(
+    policy, manifest, claim_set, physical_plan)
   list(
     semantic = semantic,
     artifact_key = .dsvert_dp_analysis_artifact_key_v1(semantic),
+    physical_plan = physical_plan)
+}
+
+.dsvert_dp_synopsis_physical_plan_validate_v1 <- function(
+    value, policy, manifest, projection) {
+  fields <- c(
+    "version", "request", "profile", "lattice", "backend_selection",
+    "draw_law", "draw_law_sha256", "full_plan", "full_plan_sha256")
+  if (!is.list(value) || is.null(names(value)) || anyNA(names(value)) ||
+      anyDuplicated(names(value)) || !setequal(names(value), fields)) {
+    stop("Invalid synopsis physical plan.", call. = FALSE)
+  }
+  identity_fields <- setdiff(fields, c("full_plan", "full_plan_sha256"))
+  identity <- .dsvert_dp_synopsis_physical_identity_validate_v1(
+    value[identity_fields], projection)
+  full_plan <- tryCatch(
+    .dsvert_dp_analysis_canonical_value_v1(value$full_plan),
+    error = function(error) stop("Invalid synopsis full plan.", call. = FALSE))
+  full_plan_sha256 <- .dsvert_dp_synopsis_hex_v1(
+    value$full_plan_sha256, "full-plan hash")
+  if (!identical(full_plan_sha256, .dsvert_joint_dp_hash(full_plan))) {
+    stop("The synopsis full-plan hash is invalid.", call. = FALSE)
+  }
+  validated <- .dsvert_dp_capsule_materializer_manifest(policy, manifest)
+  lattice <- .dsvert_joint_dp_vector_lattice_vectors(validated)
+  mechanism <- validated$manifest$workload$capsule_mechanism$mechanism
+  dimension <- as.integer(validated$layout$coordinate_count)
+  gaussian <- identical(mechanism, .DSVERT_JOINT_DP_GAUSSIAN_MECHANISM)
+  backend <- if (gaussian) NULL else
+    .dsvert_joint_dp_vector_public_backend_choice(dimension)$backend
+  profile <- .dsvert_joint_dp_vector_profile(mechanism, backend)
+  expected_profile <- .dsvert_dp_synopsis_profile_v1(
+    mechanism, profile$backend)
+  expected_lattice <- .dsvert_dp_synopsis_lattice_v1(
+    projection, validated, lattice)
+  expected_selection <- .dsvert_dp_synopsis_backend_selection_v1(
+    profile, dimension)
+  if (!identical(identity$profile, expected_profile) ||
+      !identical(identity$lattice, expected_lattice) ||
+      !identical(identity$backend_selection, expected_selection)) {
+    stop("The synopsis physical plan targets a different manifest.",
+         call. = FALSE)
+  }
+  contract <- .dsvert_dp_synopsis_plan_contract_v1(
+    manifest, mechanism, dimension, lattice, profile, full_plan)
+  .dsvert_joint_dp_vector_plan_validate(
+    full_plan, contract, identity$request)
+  if (isTRUE(profile$gaussian)) {
+    selection <- validated$manifest$workload$mechanism_selection
+    if (!identical(
+          .dsvert_dp_canonical_query_value(
+            selection$gaussian_calibration_request), identity$request) ||
+        !identical(selection$gaussian_plan_sha256, full_plan_sha256)) {
+      stop("The synopsis Gaussian plan is not certified by its manifest.",
+           call. = FALSE)
+    }
+  }
+  draw_law <- .dsvert_dp_synopsis_draw_law_v1(full_plan, profile)
+  if (!identical(draw_law, identity$draw_law) ||
+      !identical(identity$draw_law_sha256,
+        .dsvert_dp_synopsis_artifact_hash_v1(
+          .DSVERT_DP_SYNOPSIS_DRAW_LAW_DOMAIN, draw_law))) {
+    stop("The synopsis full plan disagrees with its draw law.",
+         call. = FALSE)
+  }
+  c(identity, list(
+    full_plan = full_plan, full_plan_sha256 = full_plan_sha256))
+}
+
+.dsvert_dp_synopsis_artifact_validate_v1 <- function(
+    value, policy, manifest, claim_set,
+    .verifier = .dsvert_relay_verify_message) {
+  fields <- c("semantic", "artifact_key", "physical_plan")
+  if (!is.list(value) || is.null(names(value)) || anyNA(names(value)) ||
+      anyDuplicated(names(value)) || !setequal(names(value), fields)) {
+    stop("Invalid synopsis artifact.", call. = FALSE)
+  }
+  claim_set <- .dsvert_dp_synopsis_source_claim_set_validate_v1(
+    claim_set, policy, manifest, .verifier = .verifier)
+  physical_plan <- .dsvert_dp_synopsis_physical_plan_validate_v1(
+    value$physical_plan, policy, manifest, claim_set$projection)
+  semantic <- .dsvert_dp_analysis_synopsis_semantic_validate_v1(
+    value$semantic)
+  expected <- .dsvert_dp_synopsis_semantic_v1(
+    policy, manifest, claim_set, physical_plan)
+  artifact_key <- .dsvert_dp_synopsis_hex_v1(
+    value$artifact_key, "artifact key")
+  if (!identical(semantic, expected) ||
+      !identical(artifact_key,
+                 .dsvert_dp_analysis_artifact_key_v1(expected))) {
+    stop("The synopsis artifact disagrees with its server contract.",
+         call. = FALSE)
+  }
+  list(
+    semantic = expected, artifact_key = artifact_key,
     physical_plan = physical_plan)
 }

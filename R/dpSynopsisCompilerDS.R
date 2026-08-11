@@ -74,7 +74,9 @@
   context <- .dsvert_dp_synopsis_source_claim_context_v1(policy, manifest)
   projection <- .dsvert_dp_synopsis_catalog_projection_validate_v1(
     value$projection)
-  if (!identical(projection, context$projection)) {
+  if (!identical(
+      .dsvert_dp_canonical_json(projection),
+      .dsvert_dp_canonical_json(context$projection))) {
     stop("The synopsis source Claim set targets a different catalog.",
          call. = FALSE)
   }

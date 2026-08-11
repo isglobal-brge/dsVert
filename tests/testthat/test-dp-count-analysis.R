@@ -659,6 +659,23 @@ test_that("Count authorization fails closed without partial session state", {
   expect_identical(
     frequency_first$.dp_frequency_authorization, frequency_marker)
 
+  synopsis_first <- new.env(parent = emptyenv())
+  synopsis_marker <- list(version = "foreign-synopsis")
+  synopsis_first$.dp_synopsis_authorization <- synopsis_marker
+  expect_error(.count_analysis_authorize(
+    synopsis_first, session_id, config, receipts, authorities[[1L]]),
+    "synopsis")
+  expect_null(synopsis_first$.dp_count_authorization)
+  expect_identical(
+    synopsis_first$.dp_synopsis_authorization, synopsis_marker)
+
+  synopsis_null <- new.env(parent = emptyenv())
+  synopsis_null$.dp_synopsis_authorization <- NULL
+  expect_error(.count_analysis_authorize(
+    synopsis_null, session_id, config, receipts, authorities[[1L]]),
+    "synopsis")
+  expect_null(synopsis_null$.dp_count_authorization)
+
   count_first <- new.env(parent = emptyenv())
   count_before <- .count_analysis_authorize(
     count_first, session_id, config, receipts, authorities[[1L]])
@@ -668,6 +685,14 @@ test_that("Count authorization fails closed without partial session state", {
     "Frequency")
   expect_identical(count_first$.dp_count_authorization, count_before)
   expect_identical(count_first$.dp_frequency_authorization, frequency_marker)
+
+  count_first$.dp_frequency_authorization <- NULL
+  count_first$.dp_synopsis_authorization <- synopsis_marker
+  expect_error(.count_analysis_authorize(
+    count_first, session_id, config, rev(receipts), authorities[[1L]]),
+    "synopsis")
+  expect_identical(count_first$.dp_count_authorization, count_before)
+  expect_identical(count_first$.dp_synopsis_authorization, synopsis_marker)
 
   ss <- new.env(parent = emptyenv())
   installed <- .count_analysis_authorize(

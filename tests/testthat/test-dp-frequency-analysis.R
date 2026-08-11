@@ -1084,8 +1084,16 @@ test_that("Frequency authorization preserves incompatible session state", {
   expect_identical(foreign$.dp_count_authorization, before)
   expect_null(foreign$.dp_frequency_authorization)
 
+  synopsis_null <- new.env(parent = emptyenv())
+  synopsis_null$.dp_synopsis_authorization <- NULL
+  expect_error(.frequency_authorize(
+    fixture, compiled, fixture$source_peer, ss = synopsis_null),
+    "existing session state")
+  expect_null(synopsis_null$.dp_frequency_authorization)
+
   for (field in c(
-      ".dp_count_authorization", ".exact_gc_peer_binding_digest",
+      ".dp_count_authorization", ".dp_synopsis_authorization",
+      ".exact_gc_peer_binding_digest",
       ".exact_gc_analysis_binding", ".typed_blob_peer_binding_digest")) {
     installed <- .frequency_authorize(
       fixture, compiled, fixture$source_peer)

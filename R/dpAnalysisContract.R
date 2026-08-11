@@ -1578,24 +1578,15 @@
     algo = "sha256", serialize = FALSE, raw = FALSE)
 }
 
-.dsvert_dp_sticky_subseed_v1 <- function(
-    contract, lane) {
-  contract <- .dsvert_dp_analysis_contract_validate_v1(contract)
+.dsvert_dp_sticky_subseed_from_artifact_v1 <- function(
+    artifact_key, lanes, noise_authorities, lane) {
   .dsvert_dp_analysis_scalar_id(lane, "sticky randomness lane")
-  lanes <- contract$semantic$privacy$mechanism$randomness$lanes
   if (!lane %in% names(lanes)) {
     stop("The sticky randomness lane is not declared by the analysis",
          call. = FALSE)
   }
   noise_authority <- .dsvert_dp_analysis_identity_pk(
     .get_identity_keypair()$identity_pk, "local noise authority")
-  noise_authorities <- if (identical(
-      contract$semantic$version,
-      .DSVERT_DP_ANALYSIS_FREQUENCY_SEMANTIC_VERSION)) {
-    contract$semantic$noise_authority_roles$authority_ids
-  } else {
-    contract$semantic$noise_authorities
-  }
   if (!noise_authority %in% unlist(noise_authorities, use.names = FALSE)) {
     stop("The local identity is not a designated noise authority",
          call. = FALSE)
@@ -1603,7 +1594,7 @@
   message <- .dsvert_dp_canonical_json(
     .dsvert_dp_analysis_canonical_value_v1(list(
       version = "dsvert-sticky-artifact-subseed-v1",
-      artifact_key = contract$artifact_key,
+      artifact_key = artifact_key,
       lane = lane,
       lane_descriptor = lanes[[lane]],
       noise_authority = noise_authority)))
@@ -1611,4 +1602,20 @@
     key = .dsvert_dp_sticky_noise_key_v1(),
     object = charToRaw(paste0(.DSVERT_DP_STICKY_SUBSEED_DOMAIN, message)),
     algo = "sha256", serialize = FALSE, raw = FALSE)
+}
+
+.dsvert_dp_sticky_subseed_v1 <- function(
+    contract, lane) {
+  contract <- .dsvert_dp_analysis_contract_validate_v1(contract)
+  noise_authorities <- if (identical(
+      contract$semantic$version,
+      .DSVERT_DP_ANALYSIS_FREQUENCY_SEMANTIC_VERSION)) {
+    contract$semantic$noise_authority_roles$authority_ids
+  } else {
+    contract$semantic$noise_authorities
+  }
+  .dsvert_dp_sticky_subseed_from_artifact_v1(
+    contract$artifact_key,
+    contract$semantic$privacy$mechanism$randomness$lanes,
+    noise_authorities, lane)
 }

@@ -310,7 +310,8 @@
     local_authority = local)
   candidate$authorization_sha256 <-
     .dsvert_dp_frequency_authorization_hash_v1(candidate)
-  if (!is.null(ss$.dp_count_authorization) ||
+  if (exists(".dp_synopsis_authorization", envir = ss, inherits = FALSE) ||
+      !is.null(ss$.dp_count_authorization) ||
       !is.null(ss$.exact_gc_peer_binding_digest) ||
       !is.null(ss$.exact_gc_analysis_binding) ||
       !is.null(ss$.typed_blob_peer_binding_digest)) stop(

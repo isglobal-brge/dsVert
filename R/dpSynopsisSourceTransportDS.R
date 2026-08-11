@@ -46,3 +46,77 @@
   .dsvert_dp_capsule_source_contract_validate(
     .dsvert_dp_canonical_query_value(base))
 }
+
+.dsvert_dp_synopsis_source_transport_context_v1 <- function(
+    manifest_sha256, artifact, claim_set, receipts,
+    .policy = NULL, .secret = NULL,
+    .cache_get = .dsvert_dp_capsule_manifest_cache_get,
+    .verifier = .dsvert_relay_verify_message) {
+  if (!is.function(.verifier)) {
+    stop("Invalid synopsis source transport verifier.", call. = FALSE)
+  }
+  if (is.null(.policy)) .policy <- .dsvert_dp_policy()
+  if (is.null(.secret)) .secret <- .dsvert_dp_secret()
+  manifest_json <- .dsvert_dp_synopsis_cached_manifest_v1(
+    manifest_sha256, .policy, .secret, .cache_get)
+  manifest <- .dsvert_dp_capsule_source_manifest(manifest_json)
+  claim_set <- .dsvert_dp_synopsis_source_claim_set_validate_v1(
+    claim_set, .policy, manifest, .verifier = .verifier)
+  compilation <- .dsvert_dp_synopsis_compile_v1(
+    receipts, artifact, claim_set, .policy, manifest,
+    .verifier = .verifier)
+  source_contract <- .dsvert_dp_synopsis_source_contract_v1(
+    .policy, manifest, compilation$artifact, claim_set,
+    .verifier = .verifier)
+  peer <- .dsvert_dp_analysis_scalar_id(
+    .policy$peer_name, "local synopsis source peer")
+  local_claim <- if (peer %in% names(claim_set$claims)) {
+    claim_set$claims[[peer]]
+  } else {
+    NULL
+  }
+  list(
+    manifest_json = manifest_json, source_contract = source_contract,
+    local_claim = local_claim)
+}
+
+.dsvert_dp_synopsis_source_transport_gate_v1 <- function(
+    manifest_sha256, artifact, claim_set, receipts,
+    .policy = NULL, .secret = NULL,
+    .cache_get = .dsvert_dp_capsule_manifest_cache_get,
+    .verifier = .dsvert_relay_verify_message) {
+  context <- .dsvert_dp_synopsis_source_transport_context_v1(
+    manifest_sha256, artifact, claim_set, receipts,
+    .policy = .policy, .secret = .secret,
+    .cache_get = .cache_get, .verifier = .verifier)
+  if (is.null(context$local_claim)) {
+    stop("The local peer is not a source for this synopsis artifact.",
+         call. = FALSE)
+  }
+  source_contract <- context$source_contract
+  expected <- context$local_claim[
+    setdiff(names(context$local_claim), "signature")]
+  public_fields <- setdiff(names(expected), "source_vector_commitment")
+  materializer <- function(
+      policy, manifest, resolved_snapshots,
+      compute_commitment, include_release) {
+    .dsvert_dp_gaussian_cross_source_producer(
+      policy, manifest, resolved_snapshots,
+      compute_commitment = compute_commitment,
+      include_release = include_release)
+  }
+  producer_validator <- function(producer, policy, manifest, contract) {
+    if (!identical(contract, source_contract)) return(FALSE)
+    actual <- .dsvert_dp_synopsis_source_vector_unsigned_from_producer_v1(
+      policy, manifest, producer, expected$source_identity_pk)
+    identical(actual[public_fields], expected[public_fields]) &&
+      .dsvert_joint_dp_dsi_hex_equal(
+        actual$source_vector_commitment,
+        expected$source_vector_commitment)
+  }
+  list(
+    manifest_json = context$manifest_json,
+    source_contract = source_contract,
+    materializer = materializer,
+    producer_validator = producer_validator)
+}

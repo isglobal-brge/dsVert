@@ -24,10 +24,16 @@
   "dsVert/exact-gc/cleanup-capability/v1|"
 .DSVERT_EXACT_GC_CROSS_CLEANUP_PURPOSE <-
   "dp.cross-owner.exact-session.v1"
+.DSVERT_EXACT_GC_FREQUENCY_CLEANUP_PURPOSE <-
+  "dp.frequency.exact-session.v1"
 .DSVERT_EXACT_GC_ANALYSIS_BINDING_VERSION <-
   "dsvert-exact-gc-analysis-binding-v1"
 .DSVERT_EXACT_GC_ANALYSIS_PEER_BINDING_VERSION <-
   "dsvert-exact-gc-analysis-peer-binding-v1"
+.DSVERT_EXACT_GC_FREQUENCY_BINDING_VERSION <-
+  "dsvert-exact-gc-frequency-binding-v1"
+.DSVERT_EXACT_GC_FREQUENCY_PEER_BINDING_VERSION <-
+  "dsvert-exact-gc-frequency-peer-binding-v1"
 .DSVERT_EXACT_GC_FAILURE_CODES <- c(
   "infrastructure_unavailable", "non_identifiable", "bound_exceeded",
   "numeric_backend_unavailable")
@@ -611,6 +617,90 @@
     sha256 = .exact_gc_peer_binding_contract_digest(contract))
 }
 
+.exact_gc_frequency_contract_binding <- function(authorization, public) {
+  common <- c(
+    "artifact_key", "config_sha256", "source_claim_sha256",
+    "receipt_set_sha256", "psi_run_sha256", "contract_sha256",
+    "analysis_binding_sha256", "worker_static_sha256")
+  roles <- tryCatch(unlist(
+    authorization$analysis_binding$authority_roles, use.names = TRUE),
+    error = function(error) character())
+  role_names <- c("source_owner", "secondary_noise_authority")
+  pins <- tryCatch(vapply(
+    authorization$config$peer_pins, .dsvert_relay_normalize_identity_pk,
+    character(1L), USE.NAMES = TRUE), error = function(error) character())
+  owner <- authorization$config$source_owner
+  local <- authorization$local_authority
+  worker <- authorization$worker_static
+  hashes_valid <- tryCatch(all(vapply(c(
+    authorization[common], public[common],
+    list(worker$release_contract_hash)), function(value) {
+      is.character(value) && length(value) == 1L && !is.na(value) &&
+        grepl("^[0-9a-f]{64}$", value)
+    }, logical(1L))), error = function(error) FALSE)
+  if (!is.list(authorization) || !is.list(public) ||
+      !identical(names(roles), role_names) || anyDuplicated(roles) ||
+      length(pins) < 2L || is.null(names(pins)) || anyDuplicated(pins) ||
+      any(!roles %in% unname(pins)) || !isTRUE(hashes_valid) ||
+      !identical(public[common], authorization[common]) ||
+      !identical(.dsvert_dp_analysis_canonical_value_v1(
+        public$local_authority),
+        .dsvert_dp_analysis_canonical_value_v1(local)) ||
+      !identical(worker$authority_roles,
+                 authorization$analysis_binding$authority_roles) ||
+      !identical(worker$ring_bits, 128L) ||
+      !identical(worker$frac_bits, 0L) ||
+      !identical(worker$source_share_policy, list(
+        source_owner = "private_frequency_vector_ring128_v1",
+        secondary_noise_authority = "zero_vector_ring128_v1")) ||
+      !is.list(owner) || !identical(owner$identity_pk, roles[[1L]]) ||
+      !identical(unname(pins[[owner$peer_name]]), roles[[1L]]) ||
+      !is.list(local) || !local$role %in% role_names ||
+      !identical(local$identity_pk, roles[[local$role]]) ||
+      !identical(unname(pins[[local$peer_name]]), local$identity_pk)) {
+    stop("Invalid server-held Frequency transport authorization.",
+         call. = FALSE)
+  }
+  pins <- pins[order(names(pins), method = "radix")]
+  authority_names <- names(pins)[match(roles, unname(pins))]
+  binding <- .dsvert_dp_analysis_canonical_value_v1(c(
+    list(version = .DSVERT_EXACT_GC_FREQUENCY_BINDING_VERSION),
+    authorization[common], list(
+      authority_roles = as.list(roles),
+      release_contract_hash = worker$release_contract_hash)))
+  list(
+    contract = list(artifact_key = authorization$artifact_key),
+    full_pins = pins, authority_names = unname(authority_names),
+    binding = binding,
+    sha256 = .exact_gc_peer_binding_contract_digest(binding))
+}
+
+.exact_gc_frequency_authorization_binding <- function(ss, session_id) {
+  authorization <- .dsvert_dp_frequency_session_authorization_validate_v1(
+    ss, session_id)
+  public <- .dsvert_dp_frequency_public_authorization_validate_v1(
+    ss$.dp_frequency_public_authorization, ss)
+  .exact_gc_frequency_contract_binding(authorization, public)
+}
+
+.exact_gc_frequency_peer_binding_digest <- function(
+    session_id, frequency, policy_context, verified) {
+  contract <- list(
+    version = .DSVERT_EXACT_GC_FREQUENCY_PEER_BINDING_VERSION,
+    capability_id = .DSVERT_EXACT_GC_CAPABILITY,
+    session_id = session_id,
+    consortium_id = policy_context$consortium_id,
+    full_peer_pinset_sha256 = policy_context$full_pinset_sha256,
+    designated_peers = as.list(policy_context$designated),
+    designated_peer_pinset = as.list(policy_context$pins),
+    identity_pks = as.list(verified$identity_pks),
+    transport_pks = as.list(verified$transport_pks),
+    frequency_binding = frequency$binding,
+    frequency_binding_sha256 = frequency$sha256)
+  list(contract = contract,
+       sha256 = .exact_gc_peer_binding_contract_digest(contract))
+}
+
 .exact_gc_analysis_count_worker_validate_v1 <- function(
     ss, session_id, joint_dp, ring, frac_bits, vector_len, purpose,
     .compiler = NULL) {
@@ -736,15 +826,21 @@
     "designated_peer_pinset", "identity_pks", "transport_pks")
   analysis_bound <- identical(
     contract$version, .DSVERT_EXACT_GC_ANALYSIS_PEER_BINDING_VERSION)
+  frequency_bound <- identical(
+    contract$version, .DSVERT_EXACT_GC_FREQUENCY_PEER_BINDING_VERSION)
   if (analysis_bound) {
     required <- c(required, "analysis_binding", "analysis_binding_sha256")
+  }
+  if (frequency_bound) {
+    required <- c(required, "frequency_binding", "frequency_binding_sha256")
   }
   if (is.null(names(contract)) || anyNA(names(contract)) ||
       anyDuplicated(names(contract)) || !setequal(names(contract), required) ||
       !contract$version %in% c(
         "dsvert-exact-gc-designated-binding-v2",
         "dsvert-exact-gc-psi-binding-v1",
-        .DSVERT_EXACT_GC_ANALYSIS_PEER_BINDING_VERSION) ||
+        .DSVERT_EXACT_GC_ANALYSIS_PEER_BINDING_VERSION,
+        .DSVERT_EXACT_GC_FREQUENCY_PEER_BINDING_VERSION) ||
       !identical(contract$capability_id, .DSVERT_EXACT_GC_CAPABILITY) ||
       !identical(contract$session_id, session_id) ||
       !is.character(contract$consortium_id) ||
@@ -805,7 +901,7 @@
 
   if (identical(contract$version,
                 "dsvert-exact-gc-designated-binding-v2") ||
-      analysis_bound) {
+      analysis_bound || frequency_bound) {
     # exactGCBindPeersDS installs the typed producer manifest as a child of
     # this policy/session binding. Recompute its digest from the immutable
     # contract instead of trusting the cached value consumed by ticket minting.
@@ -835,7 +931,28 @@
       stop("Exact-gc typed transport disagrees with the authenticated peer ",
            "binding.", call. = FALSE)
     }
-    if (analysis_bound) {
+    if (frequency_bound) {
+      frequency <- .exact_gc_frequency_authorization_binding(ss, session_id)
+      identity_info <- lapply(as.list(bound_identities), function(identity_pk) {
+        list(identity_pk = identity_pk)
+      })
+      context <- .exact_gc_analysis_policy_context(
+        frequency, identity_info, .key_get("identity_pk", ss))
+      if (!identical(ss$.exact_gc_frequency_binding, frequency$binding) ||
+          !identical(ss$.exact_gc_frequency_binding_sha256,
+                     frequency$sha256) ||
+          !identical(contract$frequency_binding, frequency$binding) ||
+          !identical(contract$frequency_binding_sha256, frequency$sha256) ||
+          !identical(context$peer_name, self_name) ||
+          !identical(context$designated, designated) ||
+          !identical(context$consortium_id, contract$consortium_id) ||
+          !identical(context$full_pinset_sha256,
+                     contract$full_peer_pinset_sha256) ||
+          !identical(context$pins[designated], bound_pins)) {
+        stop("Frequency authorization conflicts with the authenticated ",
+             "exact-gc peer binding.", call. = FALSE)
+      }
+    } else if (analysis_bound) {
       authorization <-
         .dsvert_dp_count_session_authorization_validate_v1(
           ss, session_id, contract$consortium_id)
@@ -3028,6 +3145,10 @@
     stop("Unexpected joint-DP worker material.", call. = FALSE)
   }
   peer_binding_digest <- .exact_gc_validate_bound_peer_context(ss, session_id)
+  if (identical(ss$.exact_gc_peer_binding_contract$version,
+                .DSVERT_EXACT_GC_FREQUENCY_PEER_BINDING_VERSION)) {
+    stop("Frequency bindings cannot start an exact-gc worker.", call. = FALSE)
+  }
   analysis_bound <- identical(
     ss$.exact_gc_peer_binding_contract$version,
     .DSVERT_EXACT_GC_ANALYSIS_PEER_BINDING_VERSION)
@@ -3618,8 +3739,13 @@
     ss, session_id, cleanup_purpose) {
   cleanup_purpose <- .exact_gc_scalar(
     cleanup_purpose, "exact-gc cleanup purpose")
-  if (!identical(cleanup_purpose,
-                 .DSVERT_EXACT_GC_CROSS_CLEANUP_PURPOSE) ||
+  frequency_cleanup <- identical(
+    cleanup_purpose, .DSVERT_EXACT_GC_FREQUENCY_CLEANUP_PURPOSE) &&
+    identical(ss$.exact_gc_peer_binding_contract$version,
+              .DSVERT_EXACT_GC_FREQUENCY_PEER_BINDING_VERSION)
+  if ((!identical(cleanup_purpose,
+                  .DSVERT_EXACT_GC_CROSS_CLEANUP_PURPOSE) &&
+       !frequency_cleanup) ||
       !is.character(ss$.exact_gc_peer_binding_digest) ||
       length(ss$.exact_gc_peer_binding_digest) != 1L ||
       !grepl("^[0-9a-f]{64}$", ss$.exact_gc_peer_binding_digest)) {
@@ -3675,8 +3801,9 @@
       !identical(envelope$contract$version,
                  .DSVERT_EXACT_GC_CLEANUP_CAPABILITY_VERSION) ||
       !identical(envelope$contract$session_id, session_id) ||
-      !identical(envelope$contract$cleanup_purpose,
-                 .DSVERT_EXACT_GC_CROSS_CLEANUP_PURPOSE) ||
+      !envelope$contract$cleanup_purpose %in% c(
+        .DSVERT_EXACT_GC_CROSS_CLEANUP_PURPOSE,
+        .DSVERT_EXACT_GC_FREQUENCY_CLEANUP_PURPOSE) ||
       !identical(envelope$contract$operation_scope,
                  "all_and_only_operations_in_bound_exact_session_v1") ||
       !is.character(envelope$contract$peer_binding_digest) ||
@@ -3704,6 +3831,11 @@
     result$analysis_binding_sha256 <-
       ss$.exact_gc_analysis_binding_sha256
   }
+  if (!is.null(ss$.exact_gc_frequency_binding)) {
+    result$frequency_binding <- ss$.exact_gc_frequency_binding
+    result$frequency_binding_sha256 <-
+      ss$.exact_gc_frequency_binding_sha256
+  }
   if (is.character(cleanup_purpose) && length(cleanup_purpose) == 1L &&
       !is.na(cleanup_purpose) && nzchar(cleanup_purpose)) {
     result$cleanup_purpose <- cleanup_purpose
@@ -3723,6 +3855,10 @@
 exactGCTransportInitDS <- function(session_id) {
   session_id <- .dsvert_relay_validate_session_id(session_id)
   ss <- .S(session_id)
+  if (!is.null(ss$.dp_frequency_authorization) ||
+      !is.null(ss$.dp_frequency_public_authorization)) {
+    .exact_gc_frequency_authorization_binding(ss, session_id)
+  }
   if (isTRUE(ss$.exact_gc_transport_initialized)) {
     return(.exact_gc_transport_public(ss))
   }
@@ -3783,8 +3919,21 @@ exactGCBindPeersDS <- function(transport_keys_b64, identity_info_b64,
        !grepl("^[0-9a-f]{64}$", artifact_key))) {
     stop("Invalid exact-gc analysis artifact key.", call. = FALSE)
   }
-  analysis <- NULL
-  if (identical(artifact_key, "")) {
+  analysis <- frequency <- NULL
+  frequency_state <- !is.null(ss$.dp_frequency_authorization) ||
+    !is.null(ss$.dp_frequency_public_authorization)
+  if (frequency_state) {
+    if (!identical(artifact_key, "")) {
+      stop("Frequency transport rejects an analyst-selected artifact.",
+           call. = FALSE)
+    }
+    frequency <- .exact_gc_frequency_authorization_binding(ss, session_id)
+    if (!cleanup_purpose %in% c(
+        "", .DSVERT_EXACT_GC_FREQUENCY_CLEANUP_PURPOSE)) {
+      stop("Invalid Frequency exact-gc cleanup purpose.", call. = FALSE)
+    }
+    cleanup_purpose <- .DSVERT_EXACT_GC_FREQUENCY_CLEANUP_PURPOSE
+  } else if (identical(artifact_key, "")) {
     if (!is.null(ss$.dp_count_authorization)) {
       stop("An authorized Count session requires its analysis artifact key.",
            call. = FALSE)
@@ -3798,13 +3947,18 @@ exactGCBindPeersDS <- function(transport_keys_b64, identity_info_b64,
   }
   transport_keys <- .exact_gc_validate_handshake_map(
     transport_keys_b64, "exact-gc transport-key map",
-    expected_names = if (is.null(analysis)) policy_context$designated else NULL)
+    expected_names = if (is.null(analysis) && is.null(frequency)) {
+      policy_context$designated
+    } else NULL)
   identity_info <- .exact_gc_validate_handshake_map(
     identity_info_b64, "exact-gc identity map",
-    expected_names = if (is.null(analysis)) policy_context$designated else NULL)
-  if (!is.null(analysis)) {
+    expected_names = if (is.null(analysis) && is.null(frequency)) {
+      policy_context$designated
+    } else NULL)
+  authorized <- analysis %||% frequency
+  if (!is.null(authorized)) {
     policy_context <- .exact_gc_analysis_policy_context(
-      analysis, identity_info, .key_get("identity_pk", ss))
+      authorized, identity_info, .key_get("identity_pk", ss))
     if (length(transport_keys) != 2L ||
         !setequal(names(transport_keys), policy_context$designated)) {
       stop("Exact-gc handshake must contain exactly the two noise ",
@@ -3836,7 +3990,10 @@ exactGCBindPeersDS <- function(transport_keys_b64, identity_info_b64,
   verified <- .exact_gc_verify_designated_pair(
     identity_info, transport_keys, own_identity, own_transport,
     policy_context)
-  binding <- if (is.null(analysis)) {
+  binding <- if (!is.null(frequency)) {
+    .exact_gc_frequency_peer_binding_digest(
+      session_id, frequency, policy_context, verified)
+  } else if (is.null(analysis)) {
     .exact_gc_designated_binding_digest(
       session_id, policy_context, verified)
   } else {
@@ -3876,6 +4033,10 @@ exactGCBindPeersDS <- function(transport_keys_b64, identity_info_b64,
     ss$.exact_gc_analysis_contract <- analysis$contract
     ss$.exact_gc_analysis_binding <- analysis$binding
     ss$.exact_gc_analysis_binding_sha256 <- analysis$sha256
+  }
+  if (!is.null(frequency)) {
+    ss$.exact_gc_frequency_binding <- frequency$binding
+    ss$.exact_gc_frequency_binding_sha256 <- frequency$sha256
   }
   ss$.exact_gc_peer_binding_contract <- binding$contract
   ss$.exact_gc_peer_binding_digest <- canonical_digest

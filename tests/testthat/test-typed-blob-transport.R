@@ -1245,6 +1245,27 @@ test_that("failed first-frame admission rolls back file and accounting", {
     recipient = "peer")
 }
 
+.typed_blob_frequency_context <- function() {
+  list(
+    version = "dsvert-dp-frequency-typed-context-v1",
+    purpose = "analysis-dp.frequency-source-to-finalizer.v1",
+    artifact_key = strrep("1", 64L),
+    contract_sha256 = strrep("2", 64L),
+    analysis_binding_sha256 = strrep("3", 64L),
+    worker_static_sha256 = strrep("4", 64L),
+    authorization_set_sha256 = strrep("5", 64L),
+    release_contract_hash = strrep("6", 64L),
+    operation_id = paste0("op_", strrep("7", 32L)),
+    window_index = "0", window_count = "1",
+    first_chunk_index = "0", chunks_in_window = "1",
+    coordinate_offset = "0", coordinate_count = "3",
+    padded_coordinate_count = "65536",
+    ring_bits = "128", frac_bits = "0",
+    roles = list(
+      source_owner = "self", secondary_noise_authority = "peer"),
+    sender = "self", recipient = "peer")
+}
+
 test_that("analysis Count capabilities reject context and route tampering", {
   context <- .typed_blob_count_analysis_context()
   capabilities <- "blob.analysis-dp.count-final-share.v1"
@@ -1407,4 +1428,189 @@ test_that("analysis Count transfers are typed, replay-safe and ephemeral", {
       .dsvert_typed_blob_operation_replay(
         pair$sender$ss, spec$producer, request))$hit)
   }
+})
+
+test_that("Frequency typed context and fixed header are closed and public", {
+  context <- .typed_blob_frequency_context()
+  resolved <- .dsvert_typed_blob_destination(
+    "blob.analysis-dp.frequency-source-to-finalizer.v1", "self", context)
+  expect_identical(resolved$ring, "128")
+  expect_identical(resolved$count, "65536")
+  expect_identical(resolved$producer, "dsvertDPFrequencySourceWindowDS")
+  expect_identical(resolved$consumer, "dsvertDPFrequencyFinalizeWindowDS")
+
+  header <- .dsvert_typed_blob_frequency_header_v1(
+    context, strrep("a", 64L))
+  expect_identical(header$header_bytes, 8192L)
+  expect_identical(header$capability_id,
+                   "blob.analysis-dp.frequency-source-to-finalizer.v1")
+  expect_identical(header$peer_binding_digest, strrep("a", 64L))
+  expect_lte(nchar(.dsvert_dp_canonical_json(header), type = "bytes"),
+             header$header_bytes)
+  expect_identical(.DSVERT_TYPED_BLOB_FREQUENCY_CIPHERTEXT_CHARS,
+                   as.integer(4 * (8192 + 65536 * 16 + 60) / 3))
+  for (field in setdiff(names(context), "version")) {
+    expect_identical(header[[field]], context[[field]], info = field)
+  }
+  wire <- .dsvert_dp_canonical_json(list(context = context, header = header))
+  expect_false(any(vapply(c(
+    "histogram", "noised_share", "source_window_sha256", "chunk_hash",
+    "preclamp", "plaintext_sha256", "plaintext_bytes"), grepl,
+    logical(1L), x = wire, fixed = TRUE)))
+
+  legacy <- c(context, list(noised_share_sha256 = strrep("b", 64L)))
+  expect_error(.dsvert_typed_blob_destination(
+    .DSVERT_TYPED_BLOB_FREQUENCY_SOURCE_CAPABILITY, "self", legacy),
+    "producer context")
+  expect_error(.dsvert_typed_blob_destination(
+    "blob.joint-dp.vector-final-share.v3", "self", context),
+    "producer context")
+  changed <- context
+  changed$roles$secondary_noise_authority <- "other-peer"
+  expect_error(.dsvert_typed_blob_destination(
+    .DSVERT_TYPED_BLOB_FREQUENCY_SOURCE_CAPABILITY, "self", changed),
+    "Frequency route")
+  changed <- context
+  changed$first_chunk_index <- "1"
+  expect_error(.dsvert_typed_blob_destination(
+    .DSVERT_TYPED_BLOB_FREQUENCY_SOURCE_CAPABILITY, "self", changed),
+    "Frequency geometry")
+})
+
+test_that("Frequency inline transfer is fixed, replay-safe and released", {
+  pair <- .typed_blob_test_pair()
+  on.exit(.session_dir_cleanup(pair$sender$ss), add = TRUE)
+  on.exit(.session_dir_cleanup(pair$recipient$ss), add = TRUE)
+  context <- .typed_blob_frequency_context()
+  payload <- strrep("A", .DSVERT_TYPED_BLOB_FREQUENCY_CIPHERTEXT_CHARS)
+  producer <- "dsvertDPFrequencySourceWindowDS"
+  request <- list(
+    operation_id = context$operation_id, window_index = context$window_index)
+
+  produced <- .typed_blob_with_crypto(pair$sender, {
+    transfer <- .dsvert_typed_blob_mint(
+      pair$sender$ss, pair$sender$session_id,
+      .DSVERT_TYPED_BLOB_FREQUENCY_SOURCE_CAPABILITY,
+      pair$sender$peer_transport, payload, context, producer = producer)
+    .dsvert_typed_blob_operation_commit(
+      pair$sender$ss, producer, request,
+      list(ciphertext_chars = payload, transfer = transfer))
+  })
+  expect_null(pair$sender$ss$.typed_blob_outbound[[
+    produced$transfer$transfer_id]]$source_path)
+  expect_identical(.dsvert_typed_blob_retained_bytes(pair$sender$ss),
+                   as.numeric(.DSVERT_TYPED_BLOB_FREQUENCY_CIPHERTEXT_CHARS))
+  replay <- .dsvert_typed_blob_operation_replay(
+    pair$sender$ss, producer, request)
+  expect_true(replay$hit)
+  expect_identical(replay$result, produced)
+  expect_identical(replay$result$ciphertext_chars, payload)
+
+  expect_error(.typed_blob_with_crypto(pair$sender,
+    .dsvert_typed_blob_mint(
+      pair$sender$ss, pair$sender$session_id,
+      .DSVERT_TYPED_BLOB_FREQUENCY_SOURCE_CAPABILITY,
+      pair$sender$peer_transport, substr(payload, 1L, nchar(payload) - 1L),
+      context, producer = producer)), "fixed ciphertext")
+
+  receipt <- .typed_blob_with_crypto(pair$recipient, {
+    sealed <- .mpcTypedBlobStoreDS_impl(
+      produced$transfer$ticket, payload, 0, pair$recipient$session_id)
+    expect_true(sealed$sealed)
+    expect_identical(.dsvert_typed_blob_consume(
+      pair$recipient$ss, .DSVERT_TYPED_BLOB_FREQUENCY_SOURCE_CAPABILITY,
+      context, sender_name = "self", consume = FALSE), payload)
+    expect_identical(.dsvert_typed_blob_consume(
+      pair$recipient$ss, .DSVERT_TYPED_BLOB_FREQUENCY_SOURCE_CAPABILITY,
+      context, sender_name = "self", consume = TRUE), payload)
+    expect_false(.dsvert_typed_blob_destination_present(
+      pair$recipient$ss, .dsvert_typed_blob_destination(
+        .DSVERT_TYPED_BLOB_FREQUENCY_SOURCE_CAPABILITY,
+        "self", context)$slot))
+    sealed$receipt
+  })
+  confirmation <- .typed_blob_with_crypto(pair$sender,
+    .mpcTypedBlobReceiptDS_impl(receipt, pair$sender$session_id))
+  expect_true(confirmation$confirmed)
+  expect_null(pair$sender$ss$.typed_blob_outbound[[
+    produced$transfer$transfer_id]])
+  expect_identical(.dsvert_typed_blob_retained_bytes(pair$sender$ss), 0)
+  expect_false(.dsvert_typed_blob_operation_replay(
+    pair$sender$ss, producer, request)$hit)
+})
+
+test_that("Frequency tickets reject TTL, recipient, binding and purpose tamper", {
+  pair <- .typed_blob_test_pair()
+  on.exit(.session_dir_cleanup(pair$sender$ss), add = TRUE)
+  on.exit(.session_dir_cleanup(pair$recipient$ss), add = TRUE)
+  context <- .typed_blob_frequency_context()
+  payload <- strrep("A", .DSVERT_TYPED_BLOB_FREQUENCY_CIPHERTEXT_CHARS)
+  minted <- .typed_blob_with_crypto(pair$sender,
+    .dsvert_typed_blob_mint(
+      pair$sender$ss, pair$sender$session_id,
+      .DSVERT_TYPED_BLOB_FREQUENCY_SOURCE_CAPABILITY,
+      pair$sender$peer_transport, payload, context,
+      producer = "dsvertDPFrequencySourceWindowDS"))
+
+  mutations <- list(
+    ttl = function(body) {
+      body$expires_at <- as.character(as.numeric(body$expires_at) + 1)
+      body
+    },
+    recipient = function(body) {
+      body$recipient_name <- "other-peer"
+      body
+    },
+    binding = function(body) {
+      body$peer_binding_digest <- strrep("b", 64L)
+      body
+    },
+    purpose = function(body) {
+      decoded <- jsonlite::fromJSON(rawToChar(.dsvert_relay_b64url_decode(
+        body$context, "test Frequency context")), simplifyVector = FALSE)
+      decoded$purpose <- "analysis-dp.count-final-share.v1"
+      body$context <- .dsvert_typed_blob_context_token(decoded)
+      body
+    })
+  for (name in names(mutations)) {
+    tampered <- .typed_blob_mutate_envelope(minted$ticket, mutations[[name]])
+    expect_error(.typed_blob_with_crypto(pair$recipient,
+      .mpcTypedBlobStoreDS_impl(
+        tampered, payload, 0, pair$recipient$session_id)),
+      "lifetime|pinned-peer|Frequency purpose", info = name)
+  }
+
+  expect_true(.typed_blob_with_crypto(pair$recipient,
+    .mpcTypedBlobStoreDS_impl(
+      minted$ticket, payload, 0, pair$recipient$session_id))$sealed)
+})
+
+test_that("expiry sweep releases an unstarted inline Frequency operation", {
+  pair <- .typed_blob_test_pair()
+  on.exit(.session_dir_cleanup(pair$sender$ss), add = TRUE)
+  clock <- 1000
+  context <- .typed_blob_frequency_context()
+  payload <- strrep("A", .DSVERT_TYPED_BLOB_FREQUENCY_CIPHERTEXT_CHARS)
+  producer <- "dsvertDPFrequencySourceWindowDS"
+  request <- list(kind = "inline-expiry")
+  produced <- testthat::with_mocked_bindings(
+    .typed_blob_with_crypto(pair$sender, {
+      transfer <- .dsvert_typed_blob_mint(
+        pair$sender$ss, pair$sender$session_id,
+        .DSVERT_TYPED_BLOB_FREQUENCY_SOURCE_CAPABILITY,
+        pair$sender$peer_transport, payload, context, producer = producer)
+      .dsvert_typed_blob_operation_commit(
+        pair$sender$ss, producer, request,
+        list(ciphertext_chars = payload, transfer = transfer))
+    }),
+    .dsvert_typed_blob_now = function() clock, .package = "dsVert")
+  expect_null(pair$sender$ss$.typed_blob_outbound[[
+    produced$transfer$transfer_id]]$source_path)
+
+  clock <- clock + .DSVERT_TYPED_BLOB_TICKET_TTL_SECONDS + 1
+  expect_true(.dsvert_typed_blob_sweep_expired(
+    pair$sender$ss, now = clock, maximum = 1L))
+  expect_null(pair$sender$ss$.typed_blob_outbound[[
+    produced$transfer$transfer_id]])
+  expect_length(pair$sender$ss$.typed_blob_pending_operations, 0L)
 })

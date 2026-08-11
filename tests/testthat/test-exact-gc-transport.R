@@ -421,6 +421,46 @@
   .exact_gc_analysis_test_fixture(k, pins)$contract
 }
 
+.exact_gc_frequency_test_fixture <- function(
+    k = 3L, local_role = "source_owner") {
+  peers <- paste0("site_", seq_len(k))
+  pins <- stats::setNames(vapply(
+    seq_len(k), .exact_gc_analysis_test_identity_pk, character(1L)), peers)
+  role_peers <- c(source_owner = peers[[2L]],
+                  secondary_noise_authority = peers[[1L]])
+  roles <- stats::setNames(
+    as.list(unname(pins[role_peers])), names(role_peers))
+  hashes <- list(
+    artifact_key = strrep("1", 64L), config_sha256 = strrep("2", 64L),
+    source_claim_sha256 = strrep("3", 64L),
+    receipt_set_sha256 = strrep("4", 64L),
+    psi_run_sha256 = strrep("5", 64L),
+    contract_sha256 = strrep("6", 64L),
+    analysis_binding_sha256 = strrep("7", 64L),
+    worker_static_sha256 = strrep("8", 64L))
+  local <- list(
+    peer_name = unname(role_peers[[local_role]]),
+    identity_pk = unname(roles[[local_role]]), role = local_role)
+  authorization <- c(list(
+    session_id = "00000000-0000-4000-8000-000000000001",
+    config = list(
+      peer_pins = pins,
+      source_owner = list(peer_name = unname(role_peers[["source_owner"]]),
+                          identity_pk = unname(roles$source_owner))),
+    analysis_binding = list(authority_roles = roles),
+    worker_static = list(
+      ring_bits = 128L, frac_bits = 0L, authority_roles = roles,
+      release_contract_hash = strrep("9", 64L),
+      source_share_policy = list(
+        source_owner = "private_frequency_vector_ring128_v1",
+        secondary_noise_authority = "zero_vector_ring128_v1")),
+    local_authority = local), hashes)
+  public <- c(hashes, list(local_authority = local))
+  list(
+    authorization = authorization, public = public, pins = pins,
+    peers = peers, roles = roles, role_peers = role_peers)
+}
+
 test_that("Ring128 decimal residues use exact canonical little-endian records", {
   values <- c(
     "0", "1", "9223372036854775807", "9223372036854775808",
@@ -2857,6 +2897,162 @@ test_that("analysis-bound Count binding is K-generic and execution-free", {
   expect_error(.exact_gc_analysis_policy_context(
     binding, relabelled, pins[[authority_names[[1L]]]]),
     "peer name|pin")
+})
+
+test_that("Frequency binding is K-generic and rejects role or pin substitution", {
+  for (k in c(2L, 3L, 5L)) {
+    fixture <- .exact_gc_frequency_test_fixture(k)
+    binding <- .exact_gc_frequency_contract_binding(
+      fixture$authorization, fixture$public)
+    expect_identical(length(binding$full_pins), k)
+    expect_identical(binding$authority_names,
+                     unname(fixture$role_peers[names(fixture$roles)]))
+    expect_identical(binding$binding$authority_roles,
+                     .dsvert_dp_analysis_canonical_value_v1(fixture$roles))
+    expect_identical(binding$binding$release_contract_hash, strrep("9", 64L))
+    wire <- .dsvert_dp_canonical_json(binding$binding)
+    expect_false(any(vapply(c(
+      "garbler", "evaluator", "ring127", "capsule", "final-share",
+      "operation", "histogram", "noised_share", "preclamp"), grepl,
+      logical(1L), x = wire, fixed = TRUE)))
+
+    swapped <- fixture$authorization
+    swapped$analysis_binding$authority_roles <-
+      rev(swapped$analysis_binding$authority_roles)
+    swapped$worker_static$authority_roles <-
+      swapped$analysis_binding$authority_roles
+    expect_error(.exact_gc_frequency_contract_binding(swapped, fixture$public),
+                 "Frequency")
+
+    relabelled <- fixture$authorization
+    relabelled$config$peer_pins <- relabelled$config$peer_pins[c(
+      seq.int(2L, length(fixture$pins)), 1L)]
+    names(relabelled$config$peer_pins) <- names(fixture$pins)
+    expect_error(.exact_gc_frequency_contract_binding(
+      relabelled, fixture$public), "Frequency")
+
+    wrong_public <- fixture$public
+    wrong_public$local_authority$peer_name <- fixture$peers[[
+      if (identical(fixture$authorization$local_authority$peer_name,
+                    fixture$peers[[1L]])) 2L else 1L]]
+    expect_error(.exact_gc_frequency_contract_binding(
+      fixture$authorization, wrong_public), "Frequency")
+  }
+})
+
+test_that("Frequency init, bind and cleanup use only resident authorization", {
+  session_id <- "00000000-0000-4000-8000-000000000001"
+  source_fixture <- .exact_gc_frequency_test_fixture(
+    3L, "source_owner")
+  secondary_fixture <- .exact_gc_frequency_test_fixture(
+    3L, "secondary_noise_authority")
+  designated <- unname(source_fixture$role_peers)
+  transports <- stats::setNames(lapply(c(20L, 21L), function(byte) {
+    .dsvert_relay_b64url_encode(as.raw(rep(byte, 32L)))
+  }), designated)
+  identities <- stats::setNames(lapply(designated, function(peer) list(
+    identity_pk = unname(source_fixture$pins[[peer]]),
+    signature = .dsvert_relay_b64url_encode(raw(64L)))), designated)
+  encode <- function(value) .exact_gc_b64url_encode(charToRaw(as.character(
+    jsonlite::toJSON(value, auto_unbox = TRUE, null = "null"))))
+  transport_map <- encode(as.list(transports))
+  identity_map <- encode(identities)
+  signature <- .base64url_to_base64(
+    .dsvert_relay_b64url_encode(raw(64L)))
+
+  make_state <- function(fixture) {
+    ss <- new.env(parent = emptyenv())
+    local <- fixture$authorization$local_authority$peer_name
+    ss$.dp_frequency_authorization <- fixture$authorization
+    ss$.dp_frequency_public_authorization <- fixture$public
+    ss$keys <- list(
+      transport_sk = .base64url_to_base64(transports[[local]]),
+      transport_pk = .base64url_to_base64(transports[[local]]),
+      identity_pk = .base64url_to_base64(fixture$pins[[local]]))
+    ss
+  }
+  source <- make_state(source_fixture)
+  secondary <- make_state(secondary_fixture)
+
+  call_as <- function(ss, expression) {
+    peer <- ss$.dp_frequency_authorization$local_authority$peer_name
+    withr::with_options(list(dsvert.peer_name = peer),
+      testthat::with_mocked_bindings(
+        expression(),
+        .S = function(id) ss,
+        .dsvert_dp_frequency_session_authorization_validate_v1 =
+          function(state, id, artifact_key = NULL) {
+            expect_identical(state, ss)
+            expect_identical(id, session_id)
+            state$.dp_frequency_authorization
+          },
+        .dsvert_dp_frequency_public_authorization_validate_v1 =
+          function(value, state, ...) value,
+        .get_identity_keypair = function() list(
+          identity_pk = .key_get("identity_pk", ss), identity_sk = "test"),
+        .sign_transport_pk = function(...) signature,
+        .verify_peer_identity = function(...) TRUE,
+        .dsvert_relay_sign_message = function(...) {
+          .dsvert_relay_b64url_encode(raw(64L))
+        },
+        .dsvert_relay_verify_message = function(...) TRUE,
+        .dsvert_dp_policy = function(...) stop("policy must not be called"),
+        .package = "dsVert"))
+  }
+  bind <- function(ss) call_as(ss, function() exactGCBindPeersDS(
+    transport_keys_b64 = transport_map,
+    identity_info_b64 = identity_map, session_id = session_id))
+
+  expect_identical(call_as(source, function() exactGCTransportInitDS(
+    session_id))$capability_id, .DSVERT_EXACT_GC_CAPABILITY)
+  expect_identical(call_as(secondary, function() exactGCTransportInitDS(
+    session_id))$capability_id, .DSVERT_EXACT_GC_CAPABILITY)
+  bound_source <- bind(source)
+  bound_secondary <- bind(secondary)
+  expect_true(bound_source$bound)
+  expect_identical(bound_source$frequency_binding,
+                   bound_secondary$frequency_binding)
+  expect_identical(source$.exact_gc_peer_binding_digest,
+                   secondary$.exact_gc_peer_binding_digest)
+  expect_identical(bound_source$cleanup_purpose,
+                   .DSVERT_EXACT_GC_FREQUENCY_CLEANUP_PURPOSE)
+  expect_match(bound_source$cleanup_capability_json, "cleanup_purpose")
+  expect_null(source$.exact_gc_analysis_binding)
+  expect_true(bind(source)$bound)
+  expect_error(call_as(source, function() exactGCBindPeersDS(
+    transport_keys_b64 = transport_map,
+    identity_info_b64 = identity_map, session_id = session_id,
+    artifact_key = source_fixture$authorization$artifact_key)),
+    "Frequency.*artifact")
+
+  inputs_exist <- exists(".exact_gc_inputs", envir = source, inherits = FALSE)
+  inputs <- if (inputs_exist) source$.exact_gc_inputs else NULL
+  if (inputs_exist) rm(".exact_gc_inputs", envir = source)
+  makeActiveBinding(".exact_gc_inputs", function(value) {
+    stop("source lookup reached", call. = FALSE)
+  }, source)
+  expect_error(call_as(source, function() .exact_gc_init_impl(
+    source, session_id, "op_ffffffffffffffffffffffffffffffff",
+    .DSVERT_EXACT_GC_CAPABILITY,
+    "exact_gc_in_ffffffffffffffffffffffffffffffff",
+    "exact_gc_out_ffffffffffffffffffffffffffffffff",
+    "compare-signed", 127L, 0L, 1L, "frequency.transport-only",
+    threshold = "0")), "Frequency.*exact-gc worker")
+  rm(".exact_gc_inputs", envir = source)
+  if (inputs_exist) source$.exact_gc_inputs <- inputs
+
+  storage <- new.env(parent = emptyenv())
+  storage[[session_id]] <- source
+  cleaned <- call_as(source, function() testthat::with_mocked_bindings(
+    exactGCCleanupDS(session_id, .dsvert_dsi_text_encode(
+      bound_source$cleanup_capability_json)),
+    .session_storage = function() storage,
+    .cleanup_session = function(id) storage[[id]] <- NULL,
+    .package = "dsVert"))
+  expect_identical(cleaned$state, "cleaned")
+  expect_identical(cleaned$cleanup_purpose,
+                   .DSVERT_EXACT_GC_FREQUENCY_CLEANUP_PURPOSE)
+  expect_null(storage[[session_id]])
 })
 
 test_that("dynamic residue records reject non-zero unused high bits", {

@@ -25,6 +25,14 @@
 .DSVERT_TYPED_BLOB_SWEEP_MAX_RECORDS <- 256L
 .DSVERT_TYPED_BLOB_ANALYSIS_COUNT_FINAL_CAPABILITY <-
   "blob.analysis-dp.count-final-share.v1"
+.DSVERT_TYPED_BLOB_FREQUENCY_SOURCE_CAPABILITY <-
+  "blob.analysis-dp.frequency-source-to-finalizer.v1"
+.DSVERT_TYPED_BLOB_FREQUENCY_CONTEXT_VERSION <-
+  "dsvert-dp-frequency-typed-context-v1"
+.DSVERT_TYPED_BLOB_FREQUENCY_PURPOSE <-
+  "analysis-dp.frequency-source-to-finalizer.v1"
+.DSVERT_TYPED_BLOB_FREQUENCY_HEADER_BYTES <- 8192L
+.DSVERT_TYPED_BLOB_FREQUENCY_CIPHERTEXT_CHARS <- 1409104L
 
 .dsvert_typed_blob_spool_max_bytes <- function() {
   value <- getOption("dsvert.typed_blob.spool_max_bytes", 1024^3)
@@ -127,7 +135,8 @@
   material <- list(
     version = "dsvert-typed-blob-accounting-v1",
     total = as.numeric(total),
-    active_count = as.numeric(length(ss$.typed_blob_transfers %||% list())),
+    active_count = as.numeric(length(ss$.typed_blob_transfers %||% list()) +
+      length(ss$.typed_blob_outbound %||% list())),
     stamps = .dsvert_typed_blob_accounting_stamps(ss),
     next_orphan_expiry = as.numeric(next_orphan_expiry))
   material$mac <- .dsvert_typed_blob_accounting_mac(secret, material)
@@ -239,7 +248,6 @@
   ss$.typed_blob_source_sweep_cursor <- selected$cursor
   for (selected_index in seq_along(selected$keys)) {
     state <- outbound[[selected$indices[[selected_index]]]]
-    if (is.null(state$source_path)) next
     expired <- if (is.null(state$source_admitted_at)) {
       if (!is.numeric(state$expires_at) || length(state$expires_at) != 1L ||
           is.na(state$expires_at) || !is.finite(state$expires_at)) {
@@ -297,6 +305,19 @@
       active_paths[[index]] <- normalizePath(state$path, mustWork = FALSE)
     }
   }
+  outbound <- ss$.typed_blob_outbound %||% list()
+  inline_retained <- sum(vapply(outbound, function(record) {
+    if (!is.list(record)) {
+      stop("Typed-blob outbound state is malformed.", call. = FALSE)
+    }
+    if (!is.null(record$source_path)) return(0)
+    value <- record$payload_chars
+    if (!is.numeric(value) || length(value) != 1L || is.na(value) ||
+        !is.finite(value) || value < 1 || value != floor(value)) {
+      stop("Typed-blob outbound state is malformed.", call. = FALSE)
+    }
+    as.numeric(value)
+  }, numeric(1L)))
   disk_retained <- 0
   source_retained <- 0
   next_orphan_expiry <- Inf
@@ -394,7 +415,7 @@
       source_retained <- sum(as.numeric(source_inventory$info$size))
     }
   }
-  total <- active_reserved + disk_retained + source_retained
+  total <- active_reserved + disk_retained + source_retained + inline_retained
   if (!is.finite(total) || total < 0 || total > 2^53 - 1) {
     stop("Typed-blob retained-byte accounting overflowed.", call. = FALSE)
   }
@@ -412,8 +433,10 @@
   }
   cache <- ss$.typed_blob_retained_head
   active <- ss$.typed_blob_transfers %||% list()
+  outbound <- ss$.typed_blob_outbound %||% list()
   if (.dsvert_typed_blob_accounting_authentic(ss, cache) &&
-      identical(cache$active_count, as.numeric(length(active))) &&
+      identical(cache$active_count,
+                as.numeric(length(active) + length(outbound))) &&
       identical(cache$stamps,
                 .dsvert_typed_blob_accounting_stamps(ss)) &&
       now <= cache$next_orphan_expiry) {
@@ -498,6 +521,110 @@
       (!identical(resolved$context$sender, sender_name) ||
        !identical(resolved$context$recipient, recipient_name))) {
     stop("Invalid typed-blob analysis Count route.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+.dsvert_typed_blob_frequency_context_v1 <- function(context, sender_name) {
+  required <- c(
+    "version", "purpose", "artifact_key", "contract_sha256",
+    "analysis_binding_sha256", "worker_static_sha256",
+    "authorization_set_sha256", "release_contract_hash", "operation_id",
+    "window_index", "window_count", "first_chunk_index",
+    "chunks_in_window", "coordinate_offset", "coordinate_count",
+    "padded_coordinate_count", "ring_bits", "frac_bits", "roles",
+    "sender", "recipient")
+  context <- .dsvert_typed_blob_context_fields(context, required)
+  if (!identical(context$version,
+                 .DSVERT_TYPED_BLOB_FREQUENCY_CONTEXT_VERSION) ||
+      !identical(context$purpose, .DSVERT_TYPED_BLOB_FREQUENCY_PURPOSE)) {
+    stop("Invalid typed-blob Frequency purpose.", call. = FALSE)
+  }
+  hashes <- context[c(
+    "artifact_key", "contract_sha256", "analysis_binding_sha256",
+    "worker_static_sha256", "authorization_set_sha256",
+    "release_contract_hash")]
+  if (any(!vapply(hashes, function(value) {
+    is.character(value) && length(value) == 1L && !is.na(value) &&
+      grepl("^[0-9a-f]{64}$", value)
+  }, logical(1L))) || !is.character(context$operation_id) ||
+      length(context$operation_id) != 1L || is.na(context$operation_id) ||
+      !grepl("^op_[0-9a-f]{32}$", context$operation_id)) {
+    stop("Invalid typed-blob Frequency context.", call. = FALSE)
+  }
+  integer_fields <- c(
+    window_index = 2^31 - 1, window_count = 2^31 - 1,
+    first_chunk_index = 2^34, chunks_in_window = 8,
+    coordinate_offset = 2^53 - 1, coordinate_count = 65536,
+    padded_coordinate_count = 65536, ring_bits = 128, frac_bits = 0)
+  minimums <- c(
+    window_index = 0, window_count = 1, first_chunk_index = 0,
+    chunks_in_window = 1, coordinate_offset = 0, coordinate_count = 1,
+    padded_coordinate_count = 65536, ring_bits = 128, frac_bits = 0)
+  for (field in names(integer_fields)) {
+    context[[field]] <- .dsvert_typed_blob_integer_string(
+      context[[field]], paste("Frequency", gsub("_", " ", field)),
+      minimum = minimums[[field]], maximum = integer_fields[[field]])
+  }
+  numeric <- vapply(context[names(integer_fields)], as.numeric, numeric(1L))
+  final_window <- numeric[["window_index"]] + 1 ==
+    numeric[["window_count"]]
+  geometry_valid <-
+    numeric[["window_index"]] < numeric[["window_count"]] &&
+    numeric[["first_chunk_index"]] == 8 * numeric[["window_index"]] &&
+    numeric[["coordinate_offset"]] ==
+      8192 * numeric[["first_chunk_index"]] &&
+    numeric[["chunks_in_window"]] ==
+      ceiling(numeric[["coordinate_count"]] / 8192) &&
+    numeric[["padded_coordinate_count"]] == 65536 &&
+    numeric[["ring_bits"]] == 128 && numeric[["frac_bits"]] == 0 &&
+    (isTRUE(final_window) ||
+       (numeric[["coordinate_count"]] == 65536 &&
+        numeric[["chunks_in_window"]] == 8))
+  if (!isTRUE(geometry_valid)) {
+    stop("Invalid typed-blob Frequency geometry.", call. = FALSE)
+  }
+  roles <- .dsvert_typed_blob_context_fields(
+    context$roles, c("source_owner", "secondary_noise_authority"))
+  roles <- lapply(roles, .dsvert_validate_logical_peer_name)
+  context$sender <- .dsvert_validate_logical_peer_name(context$sender)
+  context$recipient <- .dsvert_validate_logical_peer_name(context$recipient)
+  if (identical(roles$source_owner, roles$secondary_noise_authority) ||
+      !identical(context$sender, sender_name) ||
+      !identical(context$sender, roles$source_owner) ||
+      !identical(context$recipient, roles$secondary_noise_authority)) {
+    stop("Invalid typed-blob Frequency route.", call. = FALSE)
+  }
+  context$roles <- roles
+  context
+}
+
+.dsvert_typed_blob_frequency_header_v1 <- function(
+    context, peer_binding_digest) {
+  context <- .dsvert_typed_blob_frequency_context_v1(
+    context, context$sender)
+  if (!is.character(peer_binding_digest) ||
+      length(peer_binding_digest) != 1L || is.na(peer_binding_digest) ||
+      !grepl("^[0-9a-f]{64}$", peer_binding_digest)) {
+    stop("Invalid typed-blob Frequency peer binding.", call. = FALSE)
+  }
+  header <- c(list(
+    version = "dsvert-dp-frequency-source-window-header-v1",
+    header_bytes = .DSVERT_TYPED_BLOB_FREQUENCY_HEADER_BYTES,
+    capability_id = .DSVERT_TYPED_BLOB_FREQUENCY_SOURCE_CAPABILITY,
+    context_version = context$version,
+    peer_binding_digest = peer_binding_digest),
+    context[setdiff(names(context), "version")])
+  header
+}
+
+.dsvert_typed_blob_validate_frequency_route <- function(
+    capability_id, resolved, sender_name, recipient_name) {
+  if (identical(
+      capability_id, .DSVERT_TYPED_BLOB_FREQUENCY_SOURCE_CAPABILITY) &&
+      (!identical(resolved$context$sender, sender_name) ||
+       !identical(resolved$context$recipient, recipient_name))) {
+    stop("Invalid typed-blob Frequency route.", call. = FALSE)
   }
   invisible(TRUE)
 }
@@ -738,6 +865,20 @@
       "dsvertDPCountFinalShareDS", "dsvertDPCountReleaseDS",
       "analysis-dp.count-final-share",
       "encrypted-post-clamp-ring127-share", 1, ring = "127"))
+  }
+  if (identical(
+      capability_id, .DSVERT_TYPED_BLOB_FREQUENCY_SOURCE_CAPABILITY)) {
+    context <- .dsvert_typed_blob_frequency_context_v1(context, sender_name)
+    tag <- substr(digest::digest(
+      .dsvert_dp_canonical_json(context), algo = "sha256",
+      serialize = FALSE), 1L, 24L)
+    return(.dsvert_typed_blob_metadata(
+      capability_id, paste0("analysis_dp_frequency_source_", tag), context,
+      "analysis-dp", "dsvertDPFrequencySourceWindowDS",
+      "dsvertDPFrequencyFinalizeWindowDS",
+      "analysis-dp.frequency-source-to-finalizer",
+      "recipient-encrypted-fixed-frequency-window-v1", 65536,
+      ring = "128"))
   }
   if (identical(capability_id, "blob.joint-dp.vector-final-share.v3")) {
     required <- c(
@@ -1190,6 +1331,8 @@
     capability_id, session$self_name, context)
   .dsvert_typed_blob_validate_analysis_count_route(
     capability_id, resolved, session$self_name, recipient_name)
+  .dsvert_typed_blob_validate_frequency_route(
+    capability_id, resolved, session$self_name, recipient_name)
   allowed_producers <- resolved$producer
   if (is.null(producer) && length(allowed_producers) == 1L) {
     producer <- allowed_producers[[1L]]
@@ -1210,6 +1353,12 @@
     .dsvert_resource_oversize(
       payload_chars, .DSVERT_TYPED_BLOB_MAX_PAYLOAD_CHARS,
       "typed-blob payload object")
+  }
+  if (identical(capability_id,
+                .DSVERT_TYPED_BLOB_FREQUENCY_SOURCE_CAPABILITY) &&
+      payload_chars != .DSVERT_TYPED_BLOB_FREQUENCY_CIPHERTEXT_CHARS) {
+    stop("Frequency transport requires one fixed ciphertext geometry.",
+         call. = FALSE)
   }
   if (xor(is.null(source_path), is.null(source_descriptor))) {
     stop("Typed-source spool and descriptor must be supplied together.",
@@ -1744,6 +1893,8 @@ mpcTypedBlobReadDS <- function(ticket, offset, max_chars, session_id) {
     body$capability_id, sender, context)
   .dsvert_typed_blob_validate_analysis_count_route(
     body$capability_id, resolved, sender, recipient)
+  .dsvert_typed_blob_validate_frequency_route(
+    body$capability_id, resolved, sender, recipient)
   metadata_valid <-
     identical(body$family, resolved$family) &&
     is.character(body$producer) && length(body$producer) == 1L &&
@@ -1756,6 +1907,12 @@ mpcTypedBlobReadDS <- function(ticket, offset, max_chars, session_id) {
     identical(body$destination, resolved$slot)
   if (!metadata_valid) {
     stop("Typed-blob ticket metadata conflicts with its capability.",
+         call. = FALSE)
+  }
+  if (identical(body$capability_id,
+                .DSVERT_TYPED_BLOB_FREQUENCY_SOURCE_CAPABILITY) &&
+      payload_chars != .DSVERT_TYPED_BLOB_FREQUENCY_CIPHERTEXT_CHARS) {
+    stop("Frequency transport requires one fixed ciphertext geometry.",
          call. = FALSE)
   }
   sequence <- .dsvert_typed_blob_integer_string(

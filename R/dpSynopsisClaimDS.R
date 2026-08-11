@@ -3,7 +3,7 @@
 # bindings and protected objects are obtained inside the server process.
 
 .DSVERT_DP_SYNOPSIS_LOCAL_CLAIM_VERSION <-
-  "dsvert-stateless-catalog-synopsis-local-claim-v1"
+  "dsvert-stateless-catalog-synopsis-local-source-vector-claim-v1"
 
 .dsvert_dp_synopsis_cached_manifest_v1 <- function(
     manifest_sha256, policy, secret,
@@ -92,9 +92,9 @@
       !identical(identity_pk, unname(pins[[.policy$peer_name]]))) {
     stop("The local synopsis source identity is not pinned.", call. = FALSE)
   }
-  # The immutable synopsis snapshot is the full custodian-registered local
-  # dataset set.  A different registered snapshot is a different DP artifact;
-  # no global privacy bound is claimed across distinct snapshots.
+  # The producer currently validates the full local registry, but the Claim
+  # below commits only effective release/source-vector coordinates.  Unused
+  # columns and datasets therefore cannot create a distinct artifact.
   dataset_names <- names(.policy$datasets)
   if (!is.character(dataset_names) || !length(dataset_names) ||
       length(dataset_names) > 4096L || anyNA(dataset_names) ||
@@ -107,7 +107,7 @@
     .resolver(.policy, data_name, .envir, .secret)
   })
   names(snapshots) <- dataset_names
-  claim <- .dsvert_dp_synopsis_snapshot_claim_v1(
+  claim <- .dsvert_dp_synopsis_source_vector_claim_v1(
     .policy, manifest, snapshots, .identity,
     .signer = .signer, .verifier = .verifier)
   list(

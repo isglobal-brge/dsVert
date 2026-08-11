@@ -121,7 +121,7 @@
                          use.names = FALSE))
 }
 
-test_that("stateless synopsis Claim binds one catalog to the real snapshot", {
+test_that("source-vector Claim binds only the effective local release", {
   fixture <- .synopsis_test_fixture()
   projection <- testthat::with_mocked_bindings(
     .dsvert_dp_synopsis_catalog_projection_v1(
@@ -155,173 +155,276 @@ test_that("stateless synopsis Claim binds one catalog to the real snapshot", {
     different_grid_projection$sha256,
     projection$sha256))
   # This is intentionally only the catalog-and-layout projection.  The final
-  # artifact compiler must add calibration, sampler plan and authority roles.
+  # compiler must add calibration, draw-law/backend and authority roles.
   different_epsilon <- .synopsis_test_fixture(epsilon = 0.5)
   expect_identical(
     .dsvert_dp_synopsis_catalog_projection_v1(
       different_epsilon$policy, different_epsilon$manifest),
     projection)
 
-  signed_message <- NULL
-  test_signature <- .synopsis_test_b64url(as.raw(rep(83L, 64L)))
-  signer <- function(message, identity_sk) {
-    signed_message <<- message
-    test_signature
-  }
-  verifier <- function(message, identity_pk, signature) {
-      identical(message, signed_message) &&
-      identical(identity_pk, unname(fixture$pins[["peer_a"]])) &&
-      identical(signature, test_signature)
-  }
-  identity <- list(
-    identity_pk = fixture$pins[["peer_a"]], identity_sk = "test-secret")
-  claim <- testthat::with_mocked_bindings(
-    .dsvert_dp_synopsis_snapshot_claim_v1(
-      fixture$policy, fixture$manifest, fixture$resolved, identity,
-      .signer = signer, .verifier = verifier),
-    .dsvert_dp_analysis_snapshot_key_v1 = function() {
-      as.raw(seq_len(32L))
-    },
-    .dsvert_dp_admit_units = function(...) {
-      stop("snapshot Claim materialized protected coordinates")
-    },
-    .package = "dsVert")
-  expect_identical(
-    .dsvert_dp_synopsis_snapshot_claim_validate_v1(
-      claim, projection, fixture$pins, .verifier = verifier),
-    claim)
-  expect_named(claim, c(
-    "version", "source_peer_name", "source_identity_pk",
-    "peer_pinset_sha256", "catalog_sha256", "datasets",
-    "snapshot_set_commitment", "signature"))
-  expect_named(claim$datasets$protected, c(
-    "dataset_key", "dataset_id", "dataset_version",
-    "alignment_attested", "alignment_protocol_version"))
-  expect_false(any(.synopsis_test_names(claim) %in% c(
-    "fingerprint", "protected_fingerprint", "snapshot_sha256",
-    "alignment_manifest_hash", "values")))
-
-  bad_signature <- claim
-  bad_signature$signature <- .synopsis_test_b64url(as.raw(rep(84L, 64L)))
-  expect_error(
-    .dsvert_dp_synopsis_snapshot_claim_validate_v1(
-      bad_signature, projection, fixture$pins, .verifier = verifier),
-    "signature")
-  expect_error(
-    .dsvert_dp_synopsis_snapshot_claim_validate_v1(
-      claim, different_grid_projection, fixture$pins,
-      .verifier = verifier),
-    "catalog")
-
-  aligned <- .synopsis_test_fixture(aligned = TRUE)
-  alignment_sentinel <-
-    aligned$policy$datasets$protected$alignment_manifest_hash
-  signed_message <- NULL
-  aligned_claim <- testthat::with_mocked_bindings(
-    .dsvert_dp_synopsis_snapshot_claim_v1(
-      aligned$policy, aligned$manifest, aligned$resolved, identity,
-      .signer = signer, .verifier = verifier),
-    .dsvert_dp_analysis_snapshot_key_v1 = function() {
-      as.raw(seq_len(32L))
-    },
-    .package = "dsVert")
-  expect_true(aligned_claim$datasets$protected$alignment_attested)
-  expect_false(grepl(
-    alignment_sentinel, .dsvert_dp_canonical_json(aligned_claim),
-    fixed = TRUE))
-
-  changed <- fixture$data
-  changed$x[[1L]] <- changed$x[[1L]] + 1
-  changed_fixture <- .synopsis_test_fixture(data = changed)
-  signed_message <- NULL
-  changed_claim <- testthat::with_mocked_bindings(
-    .dsvert_dp_synopsis_snapshot_claim_v1(
-      changed_fixture$policy, changed_fixture$manifest,
-      changed_fixture$resolved, identity,
-      .signer = signer, .verifier = verifier),
-    .dsvert_dp_analysis_snapshot_key_v1 = function() {
-      as.raw(seq_len(32L))
-    },
-    .package = "dsVert")
-  expect_identical(changed_claim$catalog_sha256, claim$catalog_sha256)
-  expect_false(identical(
-    changed_claim$snapshot_set_commitment,
-    claim$snapshot_set_commitment))
-
-  tampered <- claim
-  tampered$catalog_sha256 <- strrep("f", 64L)
-  expect_error(
-    .dsvert_dp_synopsis_snapshot_claim_validate_v1(
-      tampered, projection, fixture$pins, .verifier = verifier),
-    "catalog")
-  wrong_pins <- fixture$pins
-  wrong_pins[["peer_a"]] <- fixture$pins[["peer_b"]]
-  expect_error(
-    .dsvert_dp_synopsis_snapshot_claim_validate_v1(
-      claim, projection, wrong_pins, .verifier = verifier),
-    "pinned|pinset")
-})
-
-test_that("synopsis Claims canonicalize K peers and multiple local datasets", {
-  mint <- function(fixture) {
+  mint <- function(input) {
     state <- new.env(parent = emptyenv())
     state$message <- NULL
     signature <- .synopsis_test_b64url(as.raw(rep(83L, 64L)))
     signer <- function(message, identity_sk) {
-      state$message <- message
-      signature
+      state$message <- message; signature
     }
     verifier <- function(message, identity_pk, signed) {
       identical(message, state$message) &&
-        identical(identity_pk, unname(fixture$pins[["peer_a"]])) &&
+        identical(identity_pk, unname(input$pins[["peer_a"]])) &&
         identical(signed, signature)
     }
-    projection <- .dsvert_dp_synopsis_catalog_projection_v1(
-      fixture$policy, fixture$manifest)
     claim <- testthat::with_mocked_bindings(
-      .dsvert_dp_synopsis_snapshot_claim_v1(
-        fixture$policy, fixture$manifest, fixture$resolved,
+      .dsvert_dp_synopsis_source_vector_claim_v1(
+        input$policy, input$manifest, input$resolved,
         list(
-          identity_pk = fixture$pins[["peer_a"]],
+          identity_pk = input$pins[["peer_a"]],
           identity_sk = "test-secret"),
         .signer = signer, .verifier = verifier),
-      .dsvert_dp_analysis_snapshot_key_v1 = function() {
-        as.raw(seq_len(32L))
-      },
+      .dsvert_dp_analysis_snapshot_key_v1 = function() as.raw(seq_len(32L)),
       .package = "dsVert")
     expect_identical(
-      .dsvert_dp_synopsis_snapshot_claim_validate_v1(
-        claim, projection, fixture$pins, .verifier = verifier),
+      .dsvert_dp_synopsis_source_vector_claim_validate_v1(
+        claim, .dsvert_dp_synopsis_catalog_projection_v1(
+          input$policy, input$manifest), input$pins,
+        .verifier = verifier),
       claim)
     claim
   }
 
-  for (k in c(3L, 5L)) {
-    fixture <- .synopsis_test_fixture(k = k)
-    claim <- mint(fixture)
-    expect_identical(
-      claim$peer_pinset_sha256,
-      .dsvert_dp_synopsis_pinset_hash_v1(fixture$pins))
-  }
+  expect_named(claim <- mint(fixture), c(
+    "version", "source_peer_name", "source_identity_pk",
+    "catalog_sha256", "source_vector_commitment", "signature"))
+  expect_false(any(.synopsis_test_names(claim) %in% c(
+    "datasets", "fingerprint", "protected_fingerprint",
+    "snapshot_binding_sha256", "capsule_id", "source_context_hash",
+    "release_blocks", "cross_blocks", "block_hashes", "values_sha256",
+    "values")))
+
+  ignored <- fixture$data
+  ignored$unused <- c("changed", "but", "irrelevant")
+  ignored_fixture <- .synopsis_test_fixture(data = ignored)
+  expect_identical(
+    mint(ignored_fixture)$source_vector_commitment,
+    claim$source_vector_commitment)
 
   auxiliary <- data.frame(
     patient_id = c("u1", "u2", "u3"), y = c(-2, 0, 2),
     stringsAsFactors = FALSE)
   multi <- .synopsis_test_fixture(
     auxiliary_data = auxiliary, reverse_resolved = TRUE)
-  first <- mint(multi)
-  expect_identical(names(first$datasets), c("auxiliary", "protected"))
-
+  multi_commitment <- mint(multi)$source_vector_commitment
+  ordered <- .synopsis_test_fixture(auxiliary_data = auxiliary)
+  expect_identical(names(multi$resolved), rev(names(ordered$resolved)))
+  expect_identical(
+    mint(ordered)$source_vector_commitment,
+    multi_commitment)
   auxiliary$y[[2L]] <- 1
-  changed <- .synopsis_test_fixture(
+  unused_changed <- .synopsis_test_fixture(
     auxiliary_data = auxiliary, reverse_resolved = TRUE)
-  second <- mint(changed)
-  expect_identical(first$catalog_sha256, second$catalog_sha256)
   expect_false(identical(
-    first$snapshot_set_commitment, second$snapshot_set_commitment))
-  expect_false(any(.synopsis_test_names(first) %in% c(
-    "fingerprint", "protected_fingerprint", "snapshot_sha256",
-    "alignment_manifest_hash", "values")))
+    multi$resolved$auxiliary$dataset$fingerprint,
+    unused_changed$resolved$auxiliary$dataset$fingerprint))
+  expect_identical(
+    mint(unused_changed)$source_vector_commitment,
+    multi_commitment)
+
+  changed <- fixture$data
+  changed$x[[1L]] <- changed$x[[1L]] + 1
+  changed_claim <- mint(.synopsis_test_fixture(data = changed))
+  expect_false(identical(changed_claim$source_vector_commitment,
+    claim$source_vector_commitment))
+
+  for (k in c(3L, 5L)) {
+    expect_match(mint(.synopsis_test_fixture(k = k))$
+                   source_vector_commitment, "^[0-9a-f]{64}$")
+  }
+
+  bad_signature <- claim
+  bad_signature$signature <- .synopsis_test_b64url(as.raw(rep(84L, 64L)))
+  expect_error(
+    .dsvert_dp_synopsis_source_vector_claim_validate_v1(
+      bad_signature, projection, fixture$pins,
+      .verifier = function(...) FALSE),
+    "signature")
+  expect_error(
+    .dsvert_dp_synopsis_source_vector_claim_validate_v1(
+      claim, different_grid_projection, fixture$pins,
+      .verifier = function(...) TRUE),
+    "catalog")
+})
+
+test_that("catalog projection namespaces signed catalog analysis IDs", {
+  fixture <- .synopsis_test_fixture()
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  project <- function(entry_id) {
+    manifest <- fixture$manifest
+    manifest$workload$families$gaussian_models$artifacts$cross_probe <- list(
+      analysis_id = entry_id)
+    manifest$workload$vertical_crosses$cross_probe <- list(
+      analysis_id = entry_id)
+    testthat::with_mocked_bindings(
+      .dsvert_dp_synopsis_catalog_projection_v1(fixture$policy, manifest),
+      .dsvert_dp_capsule_materializer_manifest = function(...) {
+        list(manifest = manifest, layout = layout)
+      },
+      .package = "dsVert")
+  }
+
+  first <- project("cross_a")
+  second <- project("cross_b")
+  expect_false("analysis_id" %in% .synopsis_test_names(first$catalog))
+  expect_true("catalog_entry_id" %in% .synopsis_test_names(first$catalog))
+  expect_false(identical(first$sha256, second$sha256))
+  expect_error(.dsvert_dp_synopsis_catalog_ids_v1(list(
+    analysis_id = "a", catalog_entry_id = "b")), "collision")
+  raw <- first
+  probe <- raw$catalog$families$gaussian_models$artifacts$cross_probe
+  probe$analysis_id <- probe$catalog_entry_id
+  probe$catalog_entry_id <- NULL
+  raw$catalog$families$gaussian_models$artifacts$cross_probe <- probe
+  raw$sha256 <- .dsvert_dp_synopsis_catalog_hash_v1(raw$catalog)
+  expect_error(.dsvert_dp_synopsis_catalog_projection_validate_v1(raw),
+               "Operational request fields")
+})
+
+test_that("source-vector HMAC selects semantic blocks, not transport shape", {
+  fixture <- .synopsis_test_fixture()
+  projection <- .dsvert_dp_synopsis_catalog_projection_v1(
+    fixture$policy, fixture$manifest)
+  release <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  identity <- list(identity_pk = fixture$pins[["peer_a"]],
+                   identity_sk = "test-secret")
+  signature <- .synopsis_test_b64url(as.raw(rep(83L, 64L)))
+
+  mint <- function(shift = 0L, local_delta = 0, release_delta = 0,
+                   remote_delta = 0, owns_release = TRUE) {
+    semantic_release <- release
+    if (!isTRUE(owns_release)) {
+      semantic_release$blocks <- lapply(semantic_release$blocks,
+        function(block) { block$owner_peer <- "peer_b"; block })
+    }
+    local_one_hot <- "categorical::analysis::left::one_hot"
+    local_validity <- "categorical::analysis::left::validity"
+    remote_validity <- "categorical::analysis::right::validity"
+    private <- list(
+      categorical..analysis..right..validity = list(
+        start = release$coordinate_count + shift + 7L, length = 2L,
+        owner_peer = "peer_b"), categorical..analysis..left..validity = list(
+        start = release$coordinate_count + shift + 5L, length = 2L,
+        owner_peer = "peer_a"), categorical..analysis..left..one_hot = list(
+        start = release$coordinate_count + shift + 3L, length = 2L,
+        owner_peer = "peer_a"))
+    names(private) <- c(remote_validity, local_validity, local_one_hot)
+    cross <- list(
+      release_coordinate_count = release$coordinate_count,
+      release_coordinate_order_sha256 = release$sha256,
+      transport_coordinate_count = max(vapply(
+        private, function(block) block$start + block$length - 1L,
+        numeric(1L))),
+      transport_coordinate_order_sha256 = strrep("9", 64L),
+      padding_coordinates = shift + 2L, blocks = private)
+    block_values <- c(
+      stats::setNames(lapply(names(semantic_release$blocks), function(key) {
+        values <- rep(match(key, sort(names(release$blocks))),
+                      semantic_release$blocks[[key]]$length)
+        if (identical(key, sort(names(release$blocks))[[1L]])) {
+          values[[1L]] <- values[[1L]] + release_delta
+        }
+        values
+      }), names(release$blocks)),
+      stats::setNames(list(
+        c(11 + local_delta, 12), c(21, 22),
+        c(31 + remote_delta, 32)),
+        c(local_one_hot, local_validity, remote_validity)))
+    calls <- character()
+    include_release_seen <- NULL
+    producer <- function(
+        policy, manifest, resolved_snapshots, compute_commitment,
+        include_release) {
+      include_release_seen <<- include_release
+      release_values <- numeric(semantic_release$coordinate_count)
+      for (key in names(semantic_release$blocks)) {
+        block <- semantic_release$blocks[[key]]
+        release_values[block$start:block$end] <- block_values[[key]]
+      }
+      list(
+        coordinate_count = cross$transport_coordinate_count,
+        coordinate_order_sha256 = cross$transport_coordinate_order_sha256,
+        read_range = function(start, count) {
+          if (start <= semantic_release$coordinate_count) {
+            if (!isTRUE(include_release) ||
+                start + count - 1L > semantic_release$coordinate_count) {
+              stop("unexpected source-vector release range")
+            }
+            calls <<- c(calls, paste(
+              "release", start, count, sep = ":"))
+            return(release_values[seq.int(start, length.out = count)])
+          }
+          key <- names(private)[vapply(private, function(block) {
+            identical(as.numeric(block$start), as.numeric(start)) &&
+              identical(as.numeric(block$length), as.numeric(count))
+          }, logical(1L))]
+          if (length(key) != 1L) stop("unexpected source-vector range")
+          calls <<- c(calls, key)
+          block_values[[key]]
+        },
+        reset = function() invisible(NULL))
+    }
+    claim <- testthat::with_mocked_bindings(
+      .dsvert_dp_synopsis_source_vector_claim_v1(
+        fixture$policy, fixture$manifest, fixture$resolved, identity,
+        .signer = function(...) signature,
+        .verifier = function(...) TRUE),
+      .dsvert_dp_synopsis_catalog_projection_v1 = function(...) projection,
+      .dsvert_dp_capsule_coordinate_layout = function(...) semantic_release,
+      .dsvert_dp_gaussian_cross_layout = function(...) cross,
+      .dsvert_dp_gaussian_cross_source_producer = producer,
+      .dsvert_dp_analysis_snapshot_key_v1 = function() as.raw(seq_len(32L)),
+      .package = "dsVert")
+    list(claim = claim, calls = calls,
+         include_release = include_release_seen)
+  }
+
+  baseline <- mint()
+  expect_identical(baseline$calls, c(paste(
+    "release", 1L, release$coordinate_count, sep = ":"),
+    "categorical::analysis::left::one_hot",
+    "categorical::analysis::left::validity"))
+  expect_identical(
+    mint(shift = 19L, remote_delta = 100)$claim$source_vector_commitment,
+    baseline$claim$source_vector_commitment)
+  expect_false(identical(
+    mint(local_delta = 1)$claim$source_vector_commitment,
+    baseline$claim$source_vector_commitment))
+  expect_false(identical(
+    mint(release_delta = 1)$claim$source_vector_commitment,
+    baseline$claim$source_vector_commitment))
+
+  cross_only <- mint(owns_release = FALSE)
+  expect_false(cross_only$include_release)
+  expect_false(any(names(release$blocks) %in% cross_only$calls))
+  expect_identical(
+    mint(owns_release = FALSE, release_delta = 100)$claim$
+      source_vector_commitment,
+    cross_only$claim$source_vector_commitment)
+
+  ranges <- matrix(numeric(), ncol = 2L)
+  large <- .dsvert_dp_synopsis_source_vector_blocks_v1(
+    list(read_range = function(start, count) {
+      ranges <<- rbind(ranges, c(start, count))
+      rep(7, count)
+    }),
+    list(large = list(start = 17L, length = 65539L)), "large")
+  expect_equal(ranges, rbind(c(17, 65536), c(65553, 3)))
+  expect_length(large$large$block_hashes, 2L)
+  different_transport_block <- testthat::with_mocked_bindings(
+    .dsvert_dp_synopsis_source_vector_blocks_v1(list(
+      read_range = function(start, count) rep(7, count)), list(
+        large = list(start = 17L, length = 65539L)), "large"),
+    .DSVERT_DP_CAPSULE_VALUE_BLOCK = 2L,
+    .package = "dsVert")
+  expect_identical(different_transport_block, large)
 })
 
 test_that("local synopsis Claim authorizes the manifest before source access", {

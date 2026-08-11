@@ -1,26 +1,29 @@
-# Internal snapshot-and-catalog identity for a stateless sticky DP synopsis.
+# Internal source-vector-and-catalog identity for a stateless sticky DP synopsis.
 #
 # This file deliberately defines no remote endpoint.  It binds an existing
-# custodian-authoritative catalog_v1 manifest to opaque, owner-minted snapshot
-# commitments.  Execution and public method rewiring are separate milestones.
-# The catalog hash is not an artifact key: privacy calibration, the physical
-# sampler plan, and both pinned noise-authority roles must be added before any
-# sticky subseed can be derived.
+# custodian-authoritative catalog_v1 manifest to opaque, owner-minted effective
+# source-vector commitments.  Execution and public method rewiring are separate
+# milestones.  The catalog hash is not an artifact key: privacy calibration,
+# the normative draw law/backend, and both pinned noise-authority roles must be
+# added before any sticky subseed can be derived.
 
 .DSVERT_DP_SYNOPSIS_CATALOG_VERSION <-
   "dsvert-stateless-catalog-synopsis-catalog-v1"
 .DSVERT_DP_SYNOPSIS_PROJECTION_VERSION <-
   "dsvert-stateless-catalog-synopsis-projection-v1"
-.DSVERT_DP_SYNOPSIS_CLAIM_VERSION <-
-  "dsvert-stateless-catalog-synopsis-source-claim-v1"
-.DSVERT_DP_SYNOPSIS_SNAPSHOT_VERSION <-
-  "dsvert-stateless-catalog-synopsis-snapshot-commitment-v1"
+.DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_CLAIM_VERSION <-
+  "dsvert-stateless-catalog-synopsis-source-vector-claim-v1"
+.DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_PROFILE <-
+  "dsvert-stateless-catalog-synopsis-source-vector-profile-v1"
+.DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_HASH_BLOCK <- 65536L
 .DSVERT_DP_SYNOPSIS_CATALOG_DOMAIN <-
   "dsVert/stateless-catalog-synopsis/catalog/v1|"
-.DSVERT_DP_SYNOPSIS_CLAIM_DOMAIN <-
-  "dsVert/stateless-catalog-synopsis/source-claim/v1|"
-.DSVERT_DP_SYNOPSIS_SNAPSHOT_DOMAIN <-
-  "dsVert/stateless-catalog-synopsis/dataset-snapshot/v1|"
+.DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_CLAIM_DOMAIN <-
+  "dsVert/stateless-catalog-synopsis/source-vector-claim/v1|"
+.DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_HMAC_DOMAIN <-
+  "dsVert/stateless-catalog-synopsis/source-vector-hmac/v1|"
+.DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_BLOCK_DOMAIN <-
+  "dsVert/stateless-catalog-synopsis/source-vector-block/v1|"
 
 .dsvert_dp_synopsis_hex_v1 <- function(value, what) {
   if (!is.character(value) || length(value) != 1L || is.na(value) ||
@@ -80,6 +83,22 @@
       .dsvert_dp_canonical_json(
         .dsvert_dp_canonical_query_value(catalog))),
     algo = "sha256", serialize = FALSE)
+}
+
+.dsvert_dp_synopsis_catalog_ids_v1 <- function(value) {
+  if (!is.list(value)) return(value)
+  fields <- names(value)
+  if (!is.null(fields)) {
+    renamed <- fields
+    renamed[renamed == "analysis_id"] <- "catalog_entry_id"
+    if (anyNA(fields) || any(!nzchar(fields)) || anyDuplicated(fields) ||
+        anyDuplicated(renamed)) {
+      stop("The synopsis catalog ID namespace has a collision.",
+           call. = FALSE)
+    }
+    names(value) <- renamed
+  }
+  lapply(value, .dsvert_dp_synopsis_catalog_ids_v1)
 }
 
 .dsvert_dp_synopsis_catalog_projection_validate_v1 <- function(value) {
@@ -156,64 +175,38 @@
     coordinate_count = manifest$workload$coordinate_count,
     coordinate_order_sha256 = validated$layout$sha256,
     clipping_sha256 = manifest$workload$capsule_mechanism$clipping_hash)
+  # `analysis_id` inside the signed custodian catalog is a semantic entry ID,
+  # not an analyst request field.  Namespace it only in this projection so
+  # the global operational-field rejection remains strict.
+  catalog <- .dsvert_dp_synopsis_catalog_ids_v1(catalog)
   .dsvert_dp_synopsis_catalog_projection_validate_v1(list(
     version = .DSVERT_DP_SYNOPSIS_PROJECTION_VERSION,
     sha256 = .dsvert_dp_synopsis_catalog_hash_v1(catalog),
     catalog = catalog))
 }
 
-.dsvert_dp_synopsis_claim_message_v1 <- function(value) {
+.dsvert_dp_synopsis_source_vector_claim_message_v1 <- function(value) {
   unsigned <- value[setdiff(names(value), "signature")]
   charToRaw(paste0(
-    .DSVERT_DP_SYNOPSIS_CLAIM_DOMAIN,
+    .DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_CLAIM_DOMAIN,
     .dsvert_dp_canonical_json(
       .dsvert_dp_canonical_query_value(unsigned))))
 }
 
-.dsvert_dp_synopsis_dataset_claim_validate_v1 <- function(value, key) {
-  fields <- c(
-    "dataset_key", "dataset_id", "dataset_version",
-    "alignment_attested", "alignment_protocol_version")
-  if (!is.list(value) || is.null(names(value)) || anyNA(names(value)) ||
-      anyDuplicated(names(value)) || !setequal(names(value), fields) ||
-      !identical(value$dataset_key, key)) {
-    stop("Invalid synopsis dataset Claim.", call. = FALSE)
-  }
-  .dsvert_dp_analysis_scalar_id(value$dataset_key, "synopsis dataset key")
-  .dsvert_dp_analysis_scalar_id(value$dataset_id, "synopsis dataset ID")
-  .dsvert_dp_analysis_scalar_id(
-    value$dataset_version, "synopsis dataset version")
-  if (!is.logical(value$alignment_attested) ||
-      length(value$alignment_attested) != 1L ||
-      is.na(value$alignment_attested)) {
-    stop("Invalid synopsis dataset Claim.", call. = FALSE)
-  }
-  .dsvert_dp_analysis_positive_integer(
-    value$alignment_protocol_version, "synopsis alignment version")
-  list(
-    dataset_key = value$dataset_key, dataset_id = value$dataset_id,
-    dataset_version = value$dataset_version,
-    alignment_attested = value$alignment_attested,
-    alignment_protocol_version = value$alignment_protocol_version)
-}
-
-.dsvert_dp_synopsis_snapshot_claim_validate_v1 <- function(
+.dsvert_dp_synopsis_source_vector_claim_validate_v1 <- function(
     claim, projection, peer_pins,
     .verifier = .dsvert_relay_verify_message) {
-  # Signature validation authenticates the claimed set.  Exact K-peer and
-  # owner-dataset coverage must additionally be checked by the later compiler
-  # against the server-built manifest before materialization.
   projection <- .dsvert_dp_synopsis_catalog_projection_validate_v1(projection)
   pins <- .dsvert_dp_synopsis_peer_pins_v1(peer_pins)
   required <- c(
     "version", "source_peer_name", "source_identity_pk",
-    "peer_pinset_sha256", "catalog_sha256", "datasets",
-    "snapshot_set_commitment", "signature")
+    "catalog_sha256", "source_vector_commitment", "signature")
   if (!is.list(claim) || is.null(names(claim)) || anyNA(names(claim)) ||
       anyDuplicated(names(claim)) || !setequal(names(claim), required) ||
-      !identical(claim$version, .DSVERT_DP_SYNOPSIS_CLAIM_VERSION) ||
+      !identical(
+        claim$version, .DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_CLAIM_VERSION) ||
       !is.function(.verifier)) {
-    stop("Invalid signed synopsis Claim.", call. = FALSE)
+    stop("Invalid signed synopsis source-vector Claim.", call. = FALSE)
   }
   peer <- .dsvert_dp_analysis_scalar_id(
     claim$source_peer_name, "synopsis source peer")
@@ -223,12 +216,9 @@
       !identical(identity_pk, unname(pins[[peer]]))) {
     stop("The synopsis Claim source identity is not pinned.", call. = FALSE)
   }
-  pinset_sha256 <- .dsvert_dp_synopsis_hex_v1(
-    claim$peer_pinset_sha256, "Claim pinset hash")
-  expected_pinset <- .dsvert_dp_synopsis_pinset_hash_v1(pins)
-  if (!identical(pinset_sha256, expected_pinset) ||
-      !identical(pinset_sha256,
-                 projection$catalog$peer_pinset_sha256)) {
+  if (!identical(
+        .dsvert_dp_synopsis_pinset_hash_v1(pins),
+        projection$catalog$peer_pinset_sha256)) {
     stop("The synopsis Claim targets a different peer pinset.",
          call. = FALSE)
   }
@@ -237,44 +227,90 @@
   if (!identical(catalog_sha256, projection$sha256)) {
     stop("The synopsis Claim targets a different catalog.", call. = FALSE)
   }
-  if (!is.list(claim$datasets) || !length(claim$datasets) ||
-      length(claim$datasets) > 4096L || is.null(names(claim$datasets)) ||
-      anyNA(names(claim$datasets)) || any(!nzchar(names(claim$datasets))) ||
-      anyDuplicated(names(claim$datasets)) ||
-      !identical(names(claim$datasets),
-                 sort(names(claim$datasets), method = "radix"))) {
-    stop("Invalid signed synopsis Claim datasets.", call. = FALSE)
-  }
-  datasets <- Map(
-    .dsvert_dp_synopsis_dataset_claim_validate_v1,
-    claim$datasets, names(claim$datasets))
-  names(datasets) <- names(claim$datasets)
-  snapshot_set_commitment <- .dsvert_dp_synopsis_hex_v1(
-    claim$snapshot_set_commitment, "snapshot-set commitment")
+  commitment <- .dsvert_dp_synopsis_hex_v1(
+    claim$source_vector_commitment, "source-vector commitment")
   signature <- .dsvert_dp_synopsis_signature_v1(claim$signature)
   normalized <- list(
-    version = .DSVERT_DP_SYNOPSIS_CLAIM_VERSION,
+    version = .DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_CLAIM_VERSION,
     source_peer_name = peer, source_identity_pk = identity_pk,
-    peer_pinset_sha256 = pinset_sha256,
-    catalog_sha256 = catalog_sha256, datasets = datasets,
-    snapshot_set_commitment = snapshot_set_commitment,
+    catalog_sha256 = catalog_sha256,
+    source_vector_commitment = commitment,
     signature = signature)
   if (!isTRUE(tryCatch(
       .verifier(
-        .dsvert_dp_synopsis_claim_message_v1(normalized),
+        .dsvert_dp_synopsis_source_vector_claim_message_v1(normalized),
         identity_pk, signature), error = function(error) FALSE))) {
-    stop("Synopsis Claim signature verification failed.", call. = FALSE)
+    stop("Synopsis source-vector Claim signature verification failed.",
+         call. = FALSE)
   }
   normalized
 }
 
-.dsvert_dp_synopsis_snapshot_claim_v1 <- function(
+.dsvert_dp_synopsis_source_vector_blocks_v1 <- function(
+    producer, blocks, what, order_by_start = FALSE) {
+  if (!is.list(blocks) || (length(blocks) &&
+      (is.null(names(blocks)) || anyNA(names(blocks)) ||
+       any(!nzchar(names(blocks))) || anyDuplicated(names(blocks)))) ||
+      !is.logical(order_by_start) || length(order_by_start) != 1L ||
+      is.na(order_by_start)) {
+    stop("Invalid synopsis source-vector ", what, " layout.", call. = FALSE)
+  }
+  if (!length(blocks)) return(list())
+  keys <- if (isTRUE(order_by_start)) {
+    starts <- vapply(blocks, function(block) {
+      .dsvert_dp_analysis_positive_integer(
+        block$start, paste("synopsis", what, "block start"))
+    }, numeric(1L))
+    names(blocks)[order(starts, method = "radix")]
+  } else {
+    sort(names(blocks), method = "radix")
+  }
+  result <- lapply(keys, function(key) {
+    block <- blocks[[key]]
+    start <- .dsvert_dp_analysis_positive_integer(
+      block$start, paste("synopsis", what, "block start"))
+    block_length <- .dsvert_dp_analysis_positive_integer(
+      block$length, paste("synopsis", what, "block length"))
+    chunk_starts <- seq.int(
+      0, block_length - 1L,
+      by = .DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_HASH_BLOCK)
+    chunk_hashes <- vapply(seq_along(chunk_starts), function(chunk_index) {
+      offset <- chunk_starts[[chunk_index]]
+      count <- min(
+        .DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_HASH_BLOCK,
+        block_length - offset)
+      values <- .dsvert_dp_integer_vector(
+        producer$read_range(start + offset, count),
+        paste("synopsis", what, "block values"))
+      if (length(values) != count) {
+        stop("The synopsis source-vector block has the wrong length.",
+             call. = FALSE)
+      }
+      digest::digest(
+        paste0(
+          .DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_BLOCK_DOMAIN,
+          .dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(list(
+            profile = .DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_PROFILE,
+            semantic_block_key = key, block_length = block_length,
+            chunk_index = as.integer(chunk_index),
+            chunk_count = length(chunk_starts), values = values)))),
+        algo = "sha256", serialize = FALSE)
+    }, character(1L))
+    list(
+      length = block_length,
+      block_hashes = unname(chunk_hashes))
+  })
+  names(result) <- keys
+  result[order(names(result), method = "radix")]
+}
+
+.dsvert_dp_synopsis_source_vector_claim_v1 <- function(
     policy, manifest, resolved_snapshots, identity,
     .signer = .dsvert_relay_sign_message,
     .verifier = .dsvert_relay_verify_message) {
-  # This low-level helper accepts only server-resolved snapshots.  A future
-  # endpoint must obtain the cached manifest and snapshots itself; neither
-  # object may come from an analyst request.
+  # This is a low-level, server-only Claim.  A future K-peer compiler must
+  # validate its plan and authority roles before invoking it.  It is not an
+  # endpoint and the catalog hash alone is not a sticky artifact key.
   projection <- .dsvert_dp_synopsis_catalog_projection_v1(policy, manifest)
   pins <- .dsvert_dp_synopsis_peer_pins_v1(policy$peer_pinset)
   peer <- .dsvert_dp_analysis_scalar_id(
@@ -289,60 +325,102 @@
   if (!identical(identity_pk, unname(pins[[peer]]))) {
     stop("The synopsis Claim source identity is not pinned.", call. = FALSE)
   }
-  snapshots <- .dsvert_dp_capsule_resolved_snapshots(
-    policy, resolved_snapshots)
-  snapshot_key <- .dsvert_dp_analysis_snapshot_key_v1()
-  if (!is.raw(snapshot_key) || length(snapshot_key) != 32L) {
-    stop("The synopsis snapshot commitment key is invalid.", call. = FALSE)
+  release <- .dsvert_dp_capsule_coordinate_layout(manifest)
+  if (!identical(as.numeric(release$coordinate_count),
+                 as.numeric(projection$catalog$coordinate_count)) ||
+      !identical(release$sha256,
+                 projection$catalog$coordinate_order_sha256)) {
+    stop("The synopsis release layout disagrees with its catalog.",
+         call. = FALSE)
   }
-  protected_datasets <- lapply(names(snapshots), function(dataset_key) {
-    snapshot <- snapshots[[dataset_key]]
-    descriptor <- policy$datasets[[dataset_key]]
-    expected_public <- list(
-      data_name = dataset_key, id = descriptor$id,
-      version = descriptor$version,
-      alignment_manifest_hash = descriptor$alignment_manifest_hash,
-      alignment_manifest_version = descriptor$alignment_manifest_version)
-    if (!identical(snapshot$dataset$public, expected_public)) {
-      stop("The synopsis snapshot binding disagrees with local policy.",
-           call. = FALSE)
-    }
-    list(
-      dataset_key = dataset_key, dataset = snapshot$dataset$public,
-      protected_fingerprint = snapshot$dataset$fingerprint)
-  })
-  names(protected_datasets) <- names(snapshots)
-  snapshot_set_commitment <- digest::hmac(
-    key = snapshot_key,
+  cross <- .dsvert_dp_gaussian_cross_layout(manifest, release)
+  owns_release <- any(vapply(release$blocks, function(block) {
+    identical(block$owner_peer, peer)
+  }, logical(1L)))
+  producer <- .dsvert_dp_gaussian_cross_source_producer(
+    policy, manifest, resolved_snapshots, compute_commitment = FALSE,
+    include_release = owns_release)
+  if (!is.list(producer) || !is.function(producer$read_range) ||
+      !is.function(producer$reset) ||
+      !identical(as.numeric(producer$coordinate_count),
+                 as.numeric(cross$transport_coordinate_count)) ||
+      !identical(producer$coordinate_order_sha256,
+                 cross$transport_coordinate_order_sha256) ||
+      !identical(as.numeric(cross$release_coordinate_count),
+                 as.numeric(release$coordinate_count)) ||
+      !identical(cross$release_coordinate_order_sha256, release$sha256)) {
+    stop("The synopsis source-vector producer has the wrong layout.",
+         call. = FALSE)
+  }
+  on.exit(producer$reset(), add = TRUE)
+  release_cache <- new.env(parent = emptyenv())
+  release_reader <- if (!isTRUE(owns_release)) list(
+    read_range = function(start, count) numeric(count)) else list(
+    read_range = function(start, count) {
+      result <- numeric(count)
+      position <- start
+      last <- start + count - 1L
+      while (position <= last) {
+        chunk_start <- floor(
+          (position - 1L) /
+            .DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_HASH_BLOCK) *
+          .DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_HASH_BLOCK + 1L
+        chunk_count <- min(
+          .DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_HASH_BLOCK,
+          release$coordinate_count - chunk_start + 1L)
+        if (!identical(release_cache$start, chunk_start)) {
+          values <- .dsvert_dp_integer_vector(
+            producer$read_range(chunk_start, chunk_count),
+            "synopsis release source chunk")
+          if (length(values) != chunk_count) {
+            stop("The synopsis release source chunk has the wrong length.",
+                 call. = FALSE)
+          }
+          release_cache$start <- chunk_start
+          release_cache$values <- values
+        }
+        take <- min(last - position + 1L,
+                    chunk_start + chunk_count - position)
+        result[seq.int(position - start + 1L, length.out = take)] <-
+          release_cache$values[
+            seq.int(position - chunk_start + 1L, length.out = take)]
+        position <- position + take
+      }
+      result
+    })
+  release_blocks <- .dsvert_dp_synopsis_source_vector_blocks_v1(
+    release_reader, release$blocks, "release", order_by_start = TRUE)
+  cross_blocks <- cross$blocks[vapply(cross$blocks, function(block) {
+    identical(block$owner_peer, peer)
+  }, logical(1L))]
+  cross_blocks <- .dsvert_dp_synopsis_source_vector_blocks_v1(
+    producer, cross_blocks, "private cross")
+  hmac_key <- .dsvert_dp_analysis_snapshot_key_v1()
+  if (!is.raw(hmac_key) || length(hmac_key) != 32L) {
+    stop("The synopsis source-vector HMAC key is invalid.", call. = FALSE)
+  }
+  commitment <- digest::hmac(
+    key = hmac_key,
     object = charToRaw(paste0(
-      .DSVERT_DP_SYNOPSIS_SNAPSHOT_DOMAIN,
+      .DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_HMAC_DOMAIN,
       .dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(list(
-        version = .DSVERT_DP_SYNOPSIS_SNAPSHOT_VERSION,
-        domain = projection$catalog$domain,
-        cohort_id = projection$catalog$cohort_id,
-        source_identity_pk = identity_pk,
-        peer_pinset_sha256 = projection$catalog$peer_pinset_sha256,
+        version = .DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_CLAIM_VERSION,
+        profile = .DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_PROFILE,
         catalog_sha256 = projection$sha256,
-        datasets = protected_datasets))))),
+        source_identity = list(
+          peer_name = peer, identity_pk = identity_pk),
+        release_blocks = release_blocks,
+        local_cross_blocks = cross_blocks))))),
     algo = "sha256", serialize = FALSE, raw = FALSE)
-  datasets <- lapply(names(snapshots), function(dataset_key) {
-    public <- snapshots[[dataset_key]]$dataset$public
-    list(
-      dataset_key = dataset_key, dataset_id = public$id,
-      dataset_version = public$version,
-      alignment_attested = !is.null(public$alignment_manifest_hash),
-      alignment_protocol_version = public$alignment_manifest_version)
-  })
-  names(datasets) <- names(snapshots)
   unsigned <- list(
-    version = .DSVERT_DP_SYNOPSIS_CLAIM_VERSION,
+    version = .DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_CLAIM_VERSION,
     source_peer_name = peer, source_identity_pk = identity_pk,
-    peer_pinset_sha256 = projection$catalog$peer_pinset_sha256,
-    catalog_sha256 = projection$sha256, datasets = datasets,
-    snapshot_set_commitment = snapshot_set_commitment)
+    catalog_sha256 = projection$sha256,
+    source_vector_commitment = commitment)
   signature <- .signer(
-    .dsvert_dp_synopsis_claim_message_v1(unsigned), identity$identity_sk)
-  .dsvert_dp_synopsis_snapshot_claim_validate_v1(
+    .dsvert_dp_synopsis_source_vector_claim_message_v1(unsigned),
+    identity$identity_sk)
+  .dsvert_dp_synopsis_source_vector_claim_validate_v1(
     c(unsigned, list(signature = signature)), projection, pins,
     .verifier = .verifier)
 }

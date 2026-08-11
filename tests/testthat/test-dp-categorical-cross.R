@@ -28,7 +28,8 @@
 }
 
 .cross_cat_fixture <- function(
-    peer = "peer_a", adjacency = "add_remove_patient", padded_v3 = FALSE) {
+    peer = "peer_a", adjacency = "add_remove_patient", padded_v3 = FALSE,
+    workload_scope = NULL) {
   stopifnot(peer %in% c("peer_a", "peer_b"))
   pins <- c(
     peer_a = .cross_cat_b64url(as.raw(seq_len(32L))),
@@ -80,6 +81,9 @@
     noise_root = list(epoch = 1, key_id = "cross-categorical-test-root"),
     ledger_path = tempfile("cross-categorical-ledger-"),
     ledger_private = FALSE, lock_timeout_ms = 30000)
+  if (!is.null(workload_scope)) {
+    policy$capsule_workload_scope <- workload_scope
+  }
   store_path <- .dsvert_dp_capsule_source_store_path(policy)
   resource_owner <- .dsvert_dp_capsule_source_resource_owner(policy)
   withr::defer({
@@ -362,6 +366,48 @@ test_that("cross categorical source is capacity padded and never fills release c
   block <- release$blocks[["categorical_pairs::cross::cross_table"]]
   expect_true(all(material_left$values[block$start:block$end] == 0))
   expect_true(all(material_right$values[block$start:block$end] == 0))
+})
+
+test_that("source-vector Claims bind both categorical cross owners", {
+  scope <- list(
+    mode = "catalog_v1", numeric_moments = character(),
+    categorical_marginals = character(), categorical_pairs = list(),
+    correlations = list())
+  peers <- c("peer_a", "peer_b")
+  fixtures <- stats::setNames(lapply(
+    peers, .cross_cat_fixture, workload_scope = scope), peers)
+  signature <- .cross_cat_b64url(as.raw(rep(83L, 64L)))
+  mint <- function(fixture) {
+    peer <- fixture$policy$peer_name
+    testthat::with_mocked_bindings(
+      .dsvert_dp_synopsis_source_vector_claim_v1(
+        fixture$policy, fixture$manifest, fixture$resolved,
+        list(identity_pk = fixture$policy$peer_pinset[[peer]],
+             identity_sk = "test-secret"),
+        .signer = function(...) signature,
+        .verifier = function(...) TRUE),
+      .dsvert_dp_analysis_snapshot_key_v1 = function()
+        as.raw(seq_len(32L)),
+      .package = "dsVert")
+  }
+  baseline <- lapply(fixtures, mint)
+  expect_identical(
+    baseline$peer_a$catalog_sha256, baseline$peer_b$catalog_sha256)
+
+  for (peer in names(fixtures)) {
+    fixture <- fixtures[[peer]]
+    data_name <- names(fixture$resolved)[[1L]]
+    variable <- if (identical(peer, "peer_a")) "left_cat" else "right_cat"
+    base <- baseline[[peer]]$source_vector_commitment
+    changed <- missing <- fixture
+    changed$resolved[[data_name]]$data[[variable]][[1L]] <-
+      if (identical(peer, "peer_a")) "B" else "Y"
+    missing$resolved[[data_name]]$data[[variable]][[1L]] <- NA_character_
+    expect_false(identical(
+      mint(changed)$source_vector_commitment, base))
+    expect_false(identical(
+      mint(missing)$source_vector_commitment, base))
+  }
 })
 
 test_that("cross categorical private input binding requires signed allocation first", {

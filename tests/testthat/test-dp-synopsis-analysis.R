@@ -323,3 +323,154 @@ test_that("synopsis Claims canonicalize K peers and multiple local datasets", {
     "fingerprint", "protected_fingerprint", "snapshot_sha256",
     "alignment_manifest_hash", "values")))
 })
+
+test_that("local synopsis Claim authorizes the manifest before source access", {
+  fixture <- .synopsis_test_fixture()
+  manifest_json <- .dsvert_dp_canonical_json(fixture$manifest)
+  manifest_sha256 <- digest::digest(
+    manifest_json, algo = "sha256", serialize = FALSE)
+  secret <- as.raw(seq_len(32L))
+  events <- character()
+  cache_get <- function(
+      policy, secret, cache_key = NULL, manifest_sha256 = NULL) {
+    events <<- c(events, "manifest_authorized")
+    .dsvert_dp_capsule_manifest_cache_record(
+      cache_key = strrep("1", 64L),
+      public_capsule_key = strrep("2", 64L),
+      local_authority_sha256 =
+        .dsvert_dp_capsule_manifest_local_authority(policy, secret),
+      schema_sha256 = strrep("3", 64L),
+      workload_contract_sha256 = strrep("4", 64L),
+      manifest_json = manifest_json)
+  }
+  resolver <- function(policy, data_name, envir, secret) {
+    events <<- c(events, paste0("resolved:", data_name))
+    fixture$resolved[[data_name]]
+  }
+  state <- new.env(parent = emptyenv())
+  state$message <- NULL
+  signature <- .synopsis_test_b64url(as.raw(rep(83L, 64L)))
+  signer <- function(message, identity_sk) {
+    state$message <- message
+    signature
+  }
+  verifier <- function(message, identity_pk, signed) {
+    identical(message, state$message) &&
+      identical(identity_pk, unname(fixture$pins[["peer_a"]])) &&
+      identical(signed, signature)
+  }
+  identity <- list(
+    identity_pk = fixture$pins[["peer_a"]], identity_sk = "test-secret")
+
+  result <- testthat::with_mocked_bindings(
+    .dsvert_dp_synopsis_local_claim_v1(
+      manifest_sha256, .policy = fixture$policy,
+      .secret = secret, .envir = environment(),
+      .identity = identity, .cache_get = cache_get,
+      .resolver = resolver, .signer = signer, .verifier = verifier),
+    .dsvert_dp_analysis_snapshot_key_v1 = function() {
+      as.raw(seq_len(32L))
+    },
+    .dsvert_dp_capsule_manifest_local_authority = function(...) {
+      strrep("a", 64L)
+    },
+    .package = "dsVert")
+  expect_named(result, c("version", "projection", "claim"))
+  expect_identical(events, c("manifest_authorized", "resolved:protected"))
+  expect_identical(result$claim$catalog_sha256, result$projection$sha256)
+
+  events <- character()
+  expect_error(
+    .dsvert_dp_synopsis_local_claim_v1(
+      manifest_sha256, .policy = fixture$policy,
+      .secret = secret, .envir = environment(),
+      .identity = identity,
+      .cache_get = function(...) {
+        events <<- c(events, "manifest_rejected")
+        NULL
+      },
+      .resolver = function(...) {
+        events <<- c(events, "source_accessed")
+        stop("source accessed")
+      },
+      .signer = signer, .verifier = verifier),
+    "not emitted|not server authorized")
+  expect_identical(events, "manifest_rejected")
+
+  events <- character()
+  expect_error(
+    testthat::with_mocked_bindings(
+      .dsvert_dp_synopsis_local_claim_v1(
+        manifest_sha256, .policy = fixture$policy,
+        .secret = secret, .envir = environment(),
+        .identity = list(
+          identity_pk = fixture$pins[["peer_b"]],
+          identity_sk = "wrong-source-secret"),
+        .cache_get = cache_get,
+        .resolver = function(...) {
+          events <<- c(events, "source_accessed")
+          stop("source accessed")
+        },
+        .signer = signer, .verifier = verifier),
+      .dsvert_dp_capsule_manifest_local_authority = function(...) {
+        strrep("a", 64L)
+      },
+      .package = "dsVert"),
+    "not pinned")
+  expect_identical(events, "manifest_authorized")
+
+  events <- character()
+  expect_error(
+    testthat::with_mocked_bindings(
+      .dsvert_dp_synopsis_local_claim_v1(
+        manifest_sha256, .policy = fixture$policy,
+        .secret = secret, .envir = environment(),
+        .identity = identity,
+        .cache_get = function(...) {
+          record <- cache_get(...)
+          record$version <- rep(record$version, 2L)
+          record
+        },
+        .resolver = function(...) {
+          events <<- c(events, "source_accessed")
+          stop("source accessed")
+        },
+        .signer = signer, .verifier = verifier),
+      .dsvert_dp_capsule_manifest_local_authority = function(...) {
+        strrep("a", 64L)
+      },
+      .package = "dsVert"),
+    "not emitted|not server authorized")
+  expect_identical(events, "manifest_authorized")
+
+  oversized_policy <- fixture$policy
+  oversized_policy$datasets <- stats::setNames(
+    rep(list(fixture$policy$datasets$protected), 4097L),
+    sprintf("dataset_%04d", seq_len(4097L)))
+  events <- character()
+  expect_error(
+    testthat::with_mocked_bindings(
+      .dsvert_dp_synopsis_local_claim_v1(
+        manifest_sha256, .policy = oversized_policy,
+        .secret = secret, .envir = environment(),
+        .identity = identity, .cache_get = cache_get,
+        .resolver = function(...) {
+          events <<- c(events, "source_accessed")
+          stop("source accessed")
+        },
+        .signer = signer, .verifier = verifier),
+      .dsvert_dp_capsule_manifest_local_authority = function(...) {
+        strrep("a", 64L)
+      },
+      .dsvert_dp_synopsis_catalog_projection_v1 = function(...) {
+        result$projection
+      },
+      .dsvert_dp_capsule_source_contract = function(...) {
+        list(source_peers = list("peer_a"))
+      },
+      .package = "dsVert"),
+    "dataset registry")
+  expect_identical(events, "manifest_authorized")
+  expect_false(any(c("manifest_json", "resolved_snapshots") %in%
+                     names(formals(.dsvert_dp_synopsis_local_claim_v1))))
+})

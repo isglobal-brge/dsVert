@@ -10,6 +10,8 @@
 .DSVERT_DP_ANALYSIS_CONTRACT_VERSION <- "dsvert-analysis-contract-v1"
 .DSVERT_DP_ANALYSIS_SEMANTIC_VERSION <- "dsvert-analysis-semantic-v1"
 .DSVERT_DP_ANALYSIS_FREQUENCY_SEMANTIC_VERSION <- "dsvert-analysis-semantic-fixed-categorical-vector-v2"
+.DSVERT_DP_ANALYSIS_SYNOPSIS_SEMANTIC_VERSION <-
+  "dsvert-analysis-semantic-stateless-catalog-synopsis-v1"
 .DSVERT_DP_ANALYSIS_EXECUTION_VERSION <- "dsvert-analysis-execution-v1"
 .DSVERT_DP_ANALYSIS_SNAPSHOT_VERSION <- "dsvert-analysis-snapshot-v1"
 .DSVERT_DP_ANALYSIS_ARTIFACT_DOMAIN <-
@@ -1125,6 +1127,10 @@
   if (is.list(value) && identical(
       value$version, .DSVERT_DP_ANALYSIS_FREQUENCY_SEMANTIC_VERSION)) {
     return(.dsvert_dp_analysis_frequency_semantic_validate_v1(value))
+  }
+  if (is.list(value) && identical(
+      value$version, .DSVERT_DP_ANALYSIS_SYNOPSIS_SEMANTIC_VERSION)) {
+    return(.dsvert_dp_analysis_synopsis_semantic_validate_v1(value))
   }
   value <- tryCatch(
     .dsvert_dp_analysis_canonical_value_v1(value),

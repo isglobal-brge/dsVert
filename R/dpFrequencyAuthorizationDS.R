@@ -6,6 +6,10 @@
 .DSVERT_DP_FREQUENCY_RECEIPT_SET_DOMAIN <- "dsVert/dp-frequency/receipt-set/v1|"
 .DSVERT_DP_FREQUENCY_CONTRACT_DOMAIN <- "dsVert/dp-frequency/compiled-contract/v1|"
 .DSVERT_DP_FREQUENCY_AUTHORIZATION_DOMAIN <- "dsVert/dp-frequency/session-authorization/v1|"
+.DSVERT_DP_FREQUENCY_PUBLIC_AUTHORIZATION_VERSION <-
+  "dsvert-dp-frequency-public-authorization-v1"
+.DSVERT_DP_FREQUENCY_PUBLIC_AUTHORIZATION_SIGNATURE_DOMAIN <-
+  "dsVert/dp-frequency/public-authorization-signature/v1|"
 .dsvert_dp_frequency_analysis_binding_v1 <- function(contract) {
   contract <- .dsvert_dp_analysis_contract_validate_v1(contract)
   roles <- contract$semantic$noise_authority_roles
@@ -99,6 +103,109 @@
     authorization$contract, "final_noise")
   list(role = role, commitment_context = context,
        sha256 = .dsvert_joint_dp_vector_seed_commitment(context, sticky))
+}
+
+.dsvert_dp_frequency_public_authorization_message_v1 <- function(value) {
+  fields <- sort(c(
+    "version", "session_id", "artifact_key", "config_sha256",
+    "source_claim_sha256", "receipt_set_sha256", "psi_run_sha256",
+    "contract_sha256", "analysis_binding_sha256", "worker_static_sha256",
+    "local_authority", "commitment_context", "seed_commitment",
+    "authorization_sha256"), method = "radix")
+  if (!is.list(value) || !identical(names(value), fields) ||
+      !identical(value, .dsvert_dp_analysis_canonical_value_v1(value))) {
+    stop("Invalid Frequency public authorization message.", call. = FALSE)
+  }
+  charToRaw(paste0(
+    .DSVERT_DP_FREQUENCY_PUBLIC_AUTHORIZATION_SIGNATURE_DOMAIN,
+    .dsvert_dp_canonical_json(value)))
+}
+
+.dsvert_dp_frequency_public_authorization_core_v1 <- function(authorization) {
+  seed <- .dsvert_dp_frequency_seed_material_v1(authorization)
+  .dsvert_dp_analysis_canonical_value_v1(list(
+    version = .DSVERT_DP_FREQUENCY_PUBLIC_AUTHORIZATION_VERSION,
+    session_id = authorization$session_id,
+    artifact_key = authorization$artifact_key,
+    config_sha256 = authorization$config_sha256,
+    source_claim_sha256 = authorization$source_claim_sha256,
+    receipt_set_sha256 = authorization$receipt_set_sha256,
+    psi_run_sha256 = authorization$psi_run_sha256,
+    contract_sha256 = authorization$contract_sha256,
+    analysis_binding_sha256 = authorization$analysis_binding_sha256,
+    worker_static_sha256 = authorization$worker_static_sha256,
+    local_authority = authorization$local_authority,
+    commitment_context = seed$commitment_context,
+    seed_commitment = seed$sha256,
+    authorization_sha256 = authorization$authorization_sha256))
+}
+
+.dsvert_dp_frequency_public_authorization_validate_v1 <- function(
+    value, ss, .verifier = .dsvert_relay_verify_message) {
+  fields <- sort(c(
+    "version", "session_id", "artifact_key", "config_sha256",
+    "source_claim_sha256", "receipt_set_sha256", "psi_run_sha256",
+    "contract_sha256", "analysis_binding_sha256", "worker_static_sha256",
+    "local_authority", "commitment_context", "seed_commitment",
+    "authorization_sha256", "signature"), method = "radix")
+  if (!is.environment(ss) || !is.function(.verifier) || !is.list(value) ||
+      !identical(names(value), fields) ||
+      !identical(value$version,
+                 .DSVERT_DP_FREQUENCY_PUBLIC_AUTHORIZATION_VERSION)) {
+    stop("Invalid Frequency public authorization.", call. = FALSE)
+  }
+  value$session_id <- .dsvert_relay_validate_session_id(value$session_id)
+  for (field in c(
+      "artifact_key", "config_sha256", "source_claim_sha256",
+      "receipt_set_sha256", "psi_run_sha256", "contract_sha256",
+      "analysis_binding_sha256", "worker_static_sha256",
+      "commitment_context", "seed_commitment", "authorization_sha256")) {
+    value[[field]] <- .dsvert_dp_frequency_hex_v1(
+      value[[field]], paste("public authorization", field))
+  }
+  value$signature <- .dsvert_dp_frequency_signature_v1(value$signature)
+  local <- value$local_authority
+  local_fields <- sort(c("peer_name", "identity_pk", "role"),
+                       method = "radix")
+  if (!is.list(local) || !identical(names(local), local_fields) ||
+      !is.character(local$role) || length(local$role) != 1L ||
+      is.na(local$role) || !local$role %in%
+        c("source_owner", "secondary_noise_authority")) {
+    stop("Invalid Frequency public authorization.", call. = FALSE)
+  }
+  local$peer_name <- .dsvert_dp_frequency_peer_name_v1(local$peer_name)
+  local$identity_pk <- tryCatch(.dsvert_dp_frequency_identity_pk_v1(
+    local$identity_pk, "public authorization identity"),
+    error = function(error) stop(
+      "Invalid Frequency public authorization.", call. = FALSE))
+  value$local_authority <- local
+  normalized <- .dsvert_dp_analysis_canonical_value_v1(value)
+  if (!identical(value, normalized)) stop(
+    "Invalid Frequency public authorization.", call. = FALSE)
+  unsigned <- value[setdiff(names(value), "signature")]
+  valid <- tryCatch(if (identical(
+      .verifier, .dsvert_relay_verify_message)) {
+    .verifier(.dsvert_dp_frequency_public_authorization_message_v1(unsigned),
+              local$identity_pk, value$signature)
+  } else .verifier(
+    .dsvert_dp_frequency_public_authorization_message_v1(unsigned),
+    local$identity_pk, value$signature, local$peer_name),
+    error = function(error) FALSE)
+  if (!isTRUE(valid)) stop(
+    "Frequency public authorization signature verification failed.",
+    call. = FALSE)
+  authorization <- tryCatch(
+    .dsvert_dp_frequency_session_authorization_validate_v1(
+      ss, value$session_id, value$artifact_key),
+    error = function(error) stop(
+      "Frequency public authorization does not match server state.",
+      call. = FALSE))
+  if (!identical(unsigned,
+      .dsvert_dp_frequency_public_authorization_core_v1(authorization))) {
+    stop("Frequency public authorization does not match server state.",
+         call. = FALSE)
+  }
+  value
 }
 
 .dsvert_dp_frequency_authorization_hash_v1 <- function(value) {
@@ -217,4 +324,51 @@
   }
   ss$.dp_frequency_authorization <- candidate
   candidate
+}
+
+.dsvert_dp_frequency_public_authorization_v1 <- function(
+    ss, session_id, config, receipts, source_claim,
+    .verifier = .dsvert_relay_verify_message,
+    .signer = .dsvert_relay_sign_message) {
+  if (!is.environment(ss)) stop(
+    "Invalid Frequency public authorization state.", call. = FALSE)
+  prior_authorization <- ss$.dp_frequency_authorization
+  prior_public <- ss$.dp_frequency_public_authorization
+  if (!is.null(prior_public) && is.null(prior_authorization)) stop(
+    "Conflicting Frequency public authorization state.", call. = FALSE)
+  committed <- FALSE
+  on.exit(if (!committed) {
+    if (is.null(prior_authorization)) ss$.dp_frequency_authorization <- NULL
+    if (is.null(prior_public)) ss$.dp_frequency_public_authorization <- NULL
+  }, add = TRUE)
+  authorization <- .dsvert_dp_frequency_authorize_session_v1(
+    ss, session_id, config, receipts, source_claim,
+    .verifier = .verifier)
+  if (!is.null(prior_public)) {
+    value <- .dsvert_dp_frequency_public_authorization_validate_v1(
+      prior_public, ss, .verifier = .verifier)
+    committed <- TRUE
+    return(value)
+  }
+  identity <- .get_identity_keypair()
+  identity_pk <- tryCatch(.dsvert_dp_frequency_identity_pk_v1(
+    identity$identity_pk, "public authorization signer"),
+    error = function(error) NULL)
+  if (!is.function(.signer) || is.null(identity_pk) ||
+      !identical(identity_pk,
+                 authorization$local_authority$identity_pk)) stop(
+    "The Frequency public authorization signer is not the local authority.",
+    call. = FALSE)
+  unsigned <- .dsvert_dp_frequency_public_authorization_core_v1(authorization)
+  signature <- .signer(
+    .dsvert_dp_frequency_public_authorization_message_v1(unsigned),
+    identity$identity_sk)
+  signature <- .dsvert_dp_frequency_signature_v1(signature)
+  value <- .dsvert_dp_analysis_canonical_value_v1(c(
+    unsigned, list(signature = signature)))
+  value <- .dsvert_dp_frequency_public_authorization_validate_v1(
+    value, ss, .verifier = .verifier)
+  ss$.dp_frequency_public_authorization <- value
+  committed <- TRUE
+  value
 }

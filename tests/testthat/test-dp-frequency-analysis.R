@@ -625,6 +625,34 @@ test_that("Frequency receipt consensus rejects partial and mixed evidence", {
        state = ss)
 }
 
+.frequency_public_authorize <- function(
+    fixture, compiled, peer_name,
+    session_id = "00000000-0000-4000-8000-000000000001",
+    ss = new.env(parent = emptyenv()), receipts = compiled$receipts,
+    signer = .frequency_analysis_signer) {
+  index <- match(peer_name, names(fixture$pins))
+  identity_pk <- unname(fixture$pins[[peer_name]])
+  value <- testthat::with_mocked_bindings(
+    .dsvert_dp_frequency_public_authorization_v1(
+      ss, session_id, compiled$config, receipts, fixture$claim,
+      .verifier = .frequency_analysis_verifier, .signer = signer),
+    .get_identity_keypair = function() list(
+      identity_pk = identity_pk, identity_sk = identity_pk),
+    .get_identity_seed = function() jsonlite::base64_enc(
+      as.raw(rep(index + 70L, 32L))),
+    .package = "dsVert")
+  list(value = value, state = ss)
+}
+
+.frequency_resign_public_authorization <- function(value) {
+  unsigned <- value[setdiff(names(value), "signature")]
+  signature <- .frequency_analysis_signer(
+    .dsvert_dp_frequency_public_authorization_message_v1(unsigned),
+    value$local_authority$identity_pk)
+  .dsvert_dp_analysis_canonical_value_v1(c(
+    unsigned, list(signature = signature)))
+}
+
 test_that("Frequency PSI reruns do not reroll the sticky artifact", {
   original_fixture <- .frequency_compile_fixture()
   rerun_fixture <- .frequency_psi_rerun(original_fixture)
@@ -724,6 +752,172 @@ test_that("Frequency authorization is two-role, sticky and atomic", {
   }
 })
 
+test_that("Frequency public authorization is closed, signed and K-generic", {
+  common_fields <- c(
+    "session_id", "artifact_key", "config_sha256", "source_claim_sha256",
+    "receipt_set_sha256", "psi_run_sha256", "contract_sha256",
+    "analysis_binding_sha256", "worker_static_sha256")
+  for (k in c(2L, 3L, 5L)) {
+    fixture <- .frequency_compile_fixture(k)
+    compiled <- .frequency_compiled(fixture)
+    authority_ids <- compiled$contract$semantic$
+      noise_authority_roles$authority_ids
+    authority_peers <- vapply(authority_ids, function(identity_pk) {
+      names(fixture$pins)[match(identity_pk, unname(fixture$pins))]
+    }, character(1L))
+    public <- lapply(authority_peers, function(peer) {
+      result <- .frequency_public_authorize(fixture, compiled, peer)
+      index <- match(peer, names(fixture$pins))
+      expect_identical(result$value$local_authority$peer_name, peer)
+      expect_identical(result$value$local_authority$identity_pk,
+                       unname(fixture$pins[[peer]]))
+      expect_identical(testthat::with_mocked_bindings(
+        .dsvert_dp_frequency_public_authorization_validate_v1(
+          result$value, result$state,
+          .verifier = .frequency_analysis_verifier),
+        .get_identity_keypair = function() list(
+          identity_pk = unname(fixture$pins[[peer]])),
+        .get_identity_seed = function() jsonlite::base64_enc(
+          as.raw(rep(index + 70L, 32L))),
+        .package = "dsVert"), result$value)
+      result$value
+    })
+    expect_true(all(vapply(public[-1L], function(value) {
+      identical(value[common_fields], public[[1L]][common_fields])
+    }, logical(1L))))
+    expect_false(identical(public[[1L]]$local_authority$role,
+                           public[[2L]]$local_authority$role))
+    for (field in c("commitment_context", "seed_commitment",
+                    "authorization_sha256", "signature")) {
+      expect_false(identical(public[[1L]][[field]], public[[2L]][[field]]))
+    }
+    wire <- .dsvert_dp_canonical_json(public)
+    expect_false(grepl(
+      "\\\"(config|contract|worker_static|snapshot|seed_raw|seed_b64|private_seed|raw_source)\\\"",
+      wire))
+    expect_false(grepl(
+      "p-1|secret-1|private-a|private_value|unrelated", wire))
+
+    witness <- setdiff(names(fixture$pins), authority_peers)
+    if (length(witness)) expect_error(
+      .frequency_public_authorize(fixture, compiled, witness[[1L]]),
+      "noise authority")
+  }
+})
+
+test_that("Frequency public authorization rejects tampering and oversize", {
+  fixture <- .frequency_compile_fixture()
+  compiled <- .frequency_compiled(fixture)
+  peer <- fixture$source_peer
+  result <- .frequency_public_authorize(fixture, compiled, peer)
+  value <- result$value
+  index <- match(peer, names(fixture$pins))
+  validate <- function(candidate) testthat::with_mocked_bindings(
+    .dsvert_dp_frequency_public_authorization_validate_v1(
+      candidate, result$state, .verifier = .frequency_analysis_verifier),
+    .get_identity_keypair = function() list(
+      identity_pk = unname(fixture$pins[[peer]])),
+    .get_identity_seed = function() jsonlite::base64_enc(
+      as.raw(rep(index + 70L, 32L))),
+    .package = "dsVert")
+  alternate_hex <- function(current) if (identical(current, strrep("f", 64L)))
+    strrep("e", 64L) else strrep("f", 64L)
+
+  replacements <- list(
+    version = "dsvert-dp-frequency-public-authorization-v2",
+    session_id = "00000000-0000-4000-8000-000000000002")
+  for (field in c(
+      "artifact_key", "config_sha256", "source_claim_sha256",
+      "receipt_set_sha256", "psi_run_sha256", "contract_sha256",
+      "analysis_binding_sha256", "worker_static_sha256",
+      "commitment_context", "seed_commitment", "authorization_sha256")) {
+    replacements[[field]] <- alternate_hex(value[[field]])
+  }
+  for (field in names(replacements)) {
+    tampered <- value
+    tampered[[field]] <- replacements[[field]]
+    tampered <- .frequency_resign_public_authorization(tampered)
+    expect_error(validate(tampered), "Frequency public authorization")
+  }
+  local_replacements <- list(
+    peer_name = setdiff(names(fixture$pins), peer)[[1L]],
+    identity_pk = unname(fixture$pins[[setdiff(
+      names(fixture$pins), peer)[[1L]]]]),
+    role = "secondary_noise_authority")
+  for (field in names(local_replacements)) {
+    tampered <- value
+    tampered$local_authority[[field]] <- local_replacements[[field]]
+    tampered <- .frequency_resign_public_authorization(tampered)
+    expect_error(validate(tampered), "Frequency public authorization")
+  }
+  bad_signature <- value
+  bad_signature$signature <- paste0(
+    if (substr(value$signature, 1L, 1L) == "A") "B" else "A",
+    substring(value$signature, 2L))
+  expect_error(validate(bad_signature), "signature")
+  expect_error(validate(value[-1L]), "Frequency public authorization")
+  expect_error(validate(c(value, list(extra = TRUE))),
+               "Frequency public authorization")
+  expect_error(validate(value[rev(names(value))]),
+               "Frequency public authorization")
+
+  oversized_pk <- value
+  oversized_pk$local_authority$identity_pk <- strrep("A", 100000L)
+  expect_error(testthat::with_mocked_bindings(
+    validate(oversized_pk),
+    .dsvert_relay_normalize_identity_pk = function(...) stop(
+      "identity decoder reached"), .package = "dsVert"),
+    "Frequency public authorization")
+  oversized_signature <- value
+  oversized_signature$signature <- strrep("A", 100000L)
+  expect_error(testthat::with_mocked_bindings(
+    validate(oversized_signature),
+    .dsvert_relay_b64url_decode = function(...) stop(
+      "signature decoder reached"), .package = "dsVert"),
+    "signature")
+})
+
+test_that("Frequency public authorization is idempotent and fail-closed", {
+  fixture <- .frequency_compile_fixture()
+  compiled <- .frequency_compiled(fixture)
+  peer <- fixture$source_peer
+  first <- .frequency_public_authorize(fixture, compiled, peer)
+  expect_identical(.frequency_public_authorize(
+    fixture, compiled, peer, ss = first$state,
+    receipts = rev(compiled$receipts),
+    signer = function(...) stop("receipt was re-signed"))$value,
+    first$value)
+
+  authorization_before <- first$state$.dp_frequency_authorization
+  public_before <- first$state$.dp_frequency_public_authorization
+  conflicting <- compiled$receipts
+  conflicting[[1L]]$psi_run_sha256 <- strrep("f", 64L)
+  conflicting[[1L]] <- .frequency_resign_receipt(conflicting[[1L]])
+  expect_error(.frequency_public_authorize(
+    fixture, compiled, peer, ss = first$state, receipts = conflicting),
+    "PSI run")
+  expect_identical(first$state$.dp_frequency_authorization,
+                   authorization_before)
+  expect_identical(first$state$.dp_frequency_public_authorization,
+                   public_before)
+
+  first$state$.dp_frequency_public_authorization$seed_commitment <-
+    strrep("f", 64L)
+  tampered_before <- first$state$.dp_frequency_public_authorization
+  expect_error(.frequency_public_authorize(
+    fixture, compiled, peer, ss = first$state),
+    "Frequency public authorization")
+  expect_identical(
+    first$state$.dp_frequency_public_authorization, tampered_before)
+
+  empty <- new.env(parent = emptyenv())
+  expect_error(.frequency_public_authorize(
+    fixture, compiled, peer, ss = empty,
+    signer = function(...) stop("signer failed")), "signer failed")
+  expect_null(empty$.dp_frequency_authorization)
+  expect_null(empty$.dp_frequency_public_authorization)
+})
+
 test_that("Frequency authorization never partially overwrites state", {
   fixture <- .frequency_compile_fixture()
   compiled <- .frequency_compiled(fixture)
@@ -764,6 +958,20 @@ test_that("Frequency sticky authorization is invariant across sessions", {
   expect_identical(first$seed_commitment, second$seed_commitment)
   expect_false(identical(first$value$authorization_sha256,
                          second$value$authorization_sha256))
+
+  first_public <- .frequency_public_authorize(
+    fixture, compiled, fixture$source_peer)
+  second_public <- .frequency_public_authorize(
+    fixture, compiled, fixture$source_peer,
+    session_id = "00000000-0000-4000-8000-000000000002")
+  expect_identical(first_public$value$commitment_context,
+                   second_public$value$commitment_context)
+  expect_identical(first_public$value$seed_commitment,
+                   second_public$value$seed_commitment)
+  expect_false(identical(first_public$value$authorization_sha256,
+                         second_public$value$authorization_sha256))
+  expect_false(identical(first_public$value$signature,
+                         second_public$value$signature))
 })
 
 test_that("Frequency authorization preserves incompatible session state", {

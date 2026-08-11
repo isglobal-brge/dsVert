@@ -4,7 +4,7 @@
   "authoritative_registration_source": "dsVert/DESCRIPTION: AggregateMethods and AssignMethods",
   "authoritative_client_source": "dsVertClient/R parsed as R ASTs",
   "counts": {
-    "registered_ds_endpoints": 64,
+    "registered_ds_endpoints": 65,
     "registered_argument_constructor_aliases": 0,
     "direct_literal_call_endpoints": 150,
     "as_call_as_name_endpoints": 7,
@@ -28,6 +28,7 @@
       "dsvertIdentityPkDS",
       "dsvertJointDPCapsuleStatusDS",
       "dsvertPublicFixedCohortCountDS",
+      "dsvertDPCountCompileDS",
       "dsvertSecurityProfileDS",
       "dsvertTransportProbeDS",
       "dsvertNumericPolicyDS",
@@ -239,7 +240,9 @@
     "unregistered_client_endpoints": "retired_registered_surface.* (94 distinct endpoint constructions)",
     "reachable_unregistered_endpoints": [],
     "unreachable_quarantined_or_test_only_endpoints": "retired_registered_surface.*",
-    "registered_without_product_call_builder": [],
+    "registered_without_product_call_builder": [
+      "dsvertDPCountCompileDS"
+    ],
     "diagnostic_only_endpoints": {
       "mpcTypedSourceProbeDS": "unregistered data-free typed source-stream validation in server/client transport tests; it is not a statistical producer"
     },

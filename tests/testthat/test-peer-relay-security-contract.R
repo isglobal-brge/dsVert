@@ -82,7 +82,8 @@ test_that("the peer-relay security matrix covers the complete active surface", {
   local_only <- c(
     "dsvertSecurityProfileDS", "dsvertTransportProbeDS",
     "dsvertIdentityPkDS", "dsvertNumericPolicyDS", "dsvertColNamesDS",
-    "dsvertJointDPCapsuleStatusDS", "dsvertPublicFixedCohortCountDS")
+    "dsvertJointDPCapsuleStatusDS", "dsvertPublicFixedCohortCountDS",
+    "dsvertDPCountCompileDS")
   expect_setequal(
     exposed,
     setdiff(.dsvert_disclosure_safe_remote_methods, local_only))

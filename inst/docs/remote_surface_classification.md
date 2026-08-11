@@ -9,7 +9,7 @@ The current client/server registration contract is internally complete:
 
 | Check | Result |
 |---|---:|
-| Registered `*DS` endpoints | 64 |
+| Registered `*DS` endpoints | 65 |
 | Direct `call(name = "...")` endpoints | 150 |
 | `as.call()` / `as.name()` exact-GC endpoints | 7 |
 | Dynamically named endpoints behind one closed runtime allowlist | 1 |
@@ -23,10 +23,12 @@ This audit removed a further 94 endpoints from `AggregateMethods` and
 MPC, score, cluster-model and mutating-analysis primitives. Six obsolete
 per-query DP wrappers and their bare SQLite release engine are now hard-deleted;
 the remaining R closures stay internal solely for source compatibility and
-focused regression tests. None is exported or remotely invocable. All 64 endpoints that remain
-registered belong to the promoted purpose-bound allowlist and have a real
-repository consumer after resolving literal calls, seven `as.call()` / `as.name()`
-constructions and the closed dynamic branch. The latter still names
+focused regression tests. None is exported or remotely invocable. All 65 endpoints that remain
+registered belong to the promoted purpose-bound allowlist. Sixty-four have a
+product call builder after resolving literal calls, seven `as.call()` / `as.name()`
+constructions and the closed dynamic branch; `dsvertDPCountCompileDS` is the
+server-side compiler milestone and is covered by focused server tests while its
+client orchestration lands separately. The dynamic branch still names
 `mpcStoreBlobDS`, but only below quarantined legacy frontdoors; it cannot be
 reached by an installed public route. Any other dynamic name fails before a
 DSI expression is constructed.
@@ -127,7 +129,7 @@ and is rejected during service bootstrap and Opal allowlist reconciliation.
 
 | Class | Count | Meaning |
 |---|---:|---|
-| Production-safe / purpose-bound | 64 | Fixed status/schema, padded PSI, typed-store, transport, capsule manifest/source, cross-signed allocation, cross-owner checked-vector-multiplication and joint vector-release routes admitted by the default guard |
+| Production-safe / purpose-bound | 65 | Fixed status/schema, padded PSI, Count compilation, typed-store, transport, capsule manifest/source, cross-signed allocation, cross-owner checked-vector-multiplication and joint vector-release routes admitted by the default guard |
 | Retired diagnostic/migration internals | 4 | Generic typed read/source diagnostics plus generic exact-GC bind and GLM softplus helpers; unregistered, unexported and test-only or locally guarded |
 | Retired quarantined compatibility internals | 90 | Legacy exact/MPC endpoints below stable local frontdoor errors; unregistered, unexported and carrying no DP or non-reconstruction claim |
 | Registered orphan/dangerous candidates | 0 | Every registered endpoint is promoted and consumed |
@@ -139,8 +141,13 @@ root secrecy, healthy global accountant/ledger, pinned-peer assumptions and the
 documented transcript boundary. `dsvertColNamesDS` returns only the
 custodian-approved policy schema and never resolves the protected object;
 `dsvertPublicFixedCohortCountDS` likewise returns only the published fixed
-cohort constant. The remaining status endpoints must stay data-independent and
-may reveal operational policy progress but no protected statistic.
+cohort constant. `dsvertDPCountCompileDS(data_name)` resolves only an already
+attested padded-PSI object and returns the closed `{config, receipt}` envelope:
+privacy parameters, stable count bound, source semantics, complete pinset and
+runtime protocol digest are all server-authoritative, and the local receipt
+signs the canonical configuration hash. The remaining status endpoints must
+stay data-independent and may reveal operational policy progress but no
+protected statistic.
 
 ## Risks isolated below the public remote boundary
 

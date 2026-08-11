@@ -1,9 +1,8 @@
 # Persistent root for deterministic, replay-stable DP randomness. The root is
-# bootstrapped from the operating-system CSPRNG on the first service-runtime
-# load, unless a custodian configured an HSM/KMS provider. A complete enabled
-# DP policy performs the full ledger/anchor bootstrap check; an otherwise
-# inactive service still creates the independent root after checking any
-# configured promoted joint stores. The root is never returned through
+# bootstrapped from the operating-system CSPRNG on the first legacy DP policy
+# invocation, unless a custodian configured an HSM/KMS provider. That complete
+# policy performs the full ledger/anchor bootstrap check; identity-only service
+# initialization does not create the root. The root is never returned through
 # DSI, written into the package/library, or stored in the DP ledger.
 
 .DSVERT_DP_NOISE_ROOT_PROTOCOL <- "dsvert-dp-noise-root-v1"
@@ -1975,5 +1974,11 @@
   identity_seed <- .dsvert_validate_identity_seed_file(identity_path)
   invisible(.dsvert_ensure_identity_recovery(
     identity_path, identity_seed, policy$noise_root))
+  if (isTRUE(policy$noise_root$external)) {
+    # File roots commit a pending identity replacement while opening the lazy
+    # root. An external root has no file transition hook, so complete it only
+    # after the replacement identity is durably wrapped by the real HMAC call.
+    invisible(.dsvert_complete_external_identity_replacement())
+  }
   seed
 }

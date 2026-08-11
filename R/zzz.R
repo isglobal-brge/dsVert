@@ -1,11 +1,12 @@
 #' Package Load Hook
 #'
 #' Package loading validates the executable surface but never creates secret
-#' material. Independent Ed25519 identity and sticky-noise roots are generated
-#' on the first cryptographic service operation, preventing image-build loads
-#' from baking one deployment identity into every clone. A recovered identity
-#' is preferred; an unrecoverable replacement remains untrusted by its peers
-#' until their administrators verify and update the name-bound pin.
+#' material. The persistent Ed25519 identity is generated on the first protected
+#' service operation, preventing image-build loads from baking one deployment
+#' identity into every clone. Legacy DP policy creates its independent
+#' sticky-noise root only when that policy is invoked. A recovered identity is
+#' preferred; an unrecoverable replacement remains untrusted by its peers until
+#' their administrators verify and update the name-bound pin.
 #'
 #' @name dsVert-package
 #' @encoding UTF-8
@@ -1179,32 +1180,15 @@
 .dsvert_initialize_service_state <- function() {
   invisible(.dsvert_identity_seed_configuration(allow_test = FALSE))
   seed_path <- .dsvert_identity_seed_path()
+  # Preserve migration continuity when an old root already exists, but do not
+  # create or restore a noise root at the global service boundary. The helper
+  # returns NULL for an absent file root; legacy DP policy owns lazy bootstrap.
   recovery_root <- if (!file.exists(seed_path)) {
     .dsvert_dp_noise_root_for_identity_recovery()
   } else NULL
   .dsvert_init_identity_seed(
     seed_path = seed_path,
     noise_root_for_recovery = recovery_root)
-  # Bootstrap the independent sticky-noise root before admitting any DP
-  # dataset policy. Identity, peer pinning and service status must remain
-  # available when statistical policy options are incomplete; the complete
-  # policy is therefore validated only by the first DP operation.
-  active_root <- .dsvert_dp_noise_root(
-    .bootstrap_state = .dsvert_noise_bootstrap_state_from_options())
-  # Both active roots now exist and have passed their normal continuity
-  # checks. Keep the reciprocal recovery pair complete on every real service
-  # startup. If neither old root can be recovered, the replacement identity is
-  # deliberately untrusted until the other server administrators verify and
-  # update its name-bound pin; no analyst/relay autoaccept path exists.
-  identity_seed <- .dsvert_validate_identity_seed_file(seed_path)
-  invisible(.dsvert_ensure_identity_recovery(
-    seed_path, identity_seed, active_root))
-  if (isTRUE(active_root$external)) {
-    # A surviving HSM/KMS root is not managed by the file-root transition
-    # helper. Commit the identity transition only after the replacement
-    # identity has a durable recovery envelope under that external root.
-    invisible(.dsvert_complete_external_identity_replacement())
-  }
   invisible(NULL)
 }
 

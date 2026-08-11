@@ -12,6 +12,7 @@ test_that("the remotely invocable aggregate surface is an exact allowlist", {
     "k2GradientR1DS", "k2GradientR2DS",
     "k2IdentityLinkDS", "dsvertColNamesDS", "dsvertIdentityPkDS",
     "dsvertJointDPCapsuleStatusDS", "dsvertPublicFixedCohortCountDS",
+    "dsvertDPCountCompileDS",
     "dsvertDPCapsuleManifestDraftDS",
     "dsvertDPCapsuleManifestSignDS",
     "dsvertDPCapsuleManifestBuildDS",
@@ -184,6 +185,8 @@ test_that("legacy per-query DP and scalar-count endpoints are not remote", {
   expect_false(any(retired %in% exports))
   expect_true("dsvertPublicFixedCohortCountDS" %in% aggregate)
   expect_true("dsvertPublicFixedCohortCountDS" %in% exports)
+  expect_true("dsvertDPCountCompileDS" %in% aggregate)
+  expect_true("dsvertDPCountCompileDS" %in% exports)
 })
 
 test_that("the retired bare local SQLite release engine is absent", {

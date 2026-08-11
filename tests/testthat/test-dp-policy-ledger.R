@@ -311,6 +311,33 @@
 }
 
 
+test_that("legacy DP policy lazily initializes its noise root", {
+  ledger <- file.path(
+    tempdir(), paste0("dp-lazy-noise-root-", Sys.getpid(), ".sqlite"))
+  .dp_test_policy(ledger)
+  calls <- 0L
+  expected_root <- list(
+    protocol = .DSVERT_DP_NOISE_ROOT_PROTOCOL,
+    provider_id = "test-provider", key_id = "test-lazy-root",
+    epoch = 1, external = TRUE, storage = "hsm_kms_provider",
+    hmac = function(message) strrep("a", 64L))
+
+  policy <- testthat::with_mocked_bindings(
+    .dsvert_dp_policy(),
+    .dsvert_dp_noise_root = function(.bootstrap_state = NULL) {
+      calls <<- calls + 1L
+      expect_true(is.list(.bootstrap_state))
+      expect_identical(
+        basename(.bootstrap_state$ledger_path), basename(ledger))
+      expected_root
+    },
+    .package = "dsVert")
+
+  expect_identical(calls, 1L)
+  expect_identical(policy$noise_root, expected_root)
+})
+
+
 test_that("DP configuration has one custodian-owned safe mode", {
   ledger <- file.path(tempdir(), paste0("dp-policy-", Sys.getpid(), ".sqlite"))
   manifest <- .dp_test_policy(ledger)

@@ -14,7 +14,8 @@ Description: Server-side DataSHIELD functions for privacy-aware analysis
     of vertically partitioned federated data. The audited remotely invocable
     surface is an exact allowlist containing only fixed-capacity pinned PSI,
     data-independent identity/schema/status replies, typed authenticated peer
-    transport and fixed-shape biomedical DP capsule lifecycles. Historical
+    transport, server-authoritative signed Count compilation and fixed-shape
+    biomedical DP capsule lifecycles. Historical
     GLM, Cox PH, negative-binomial, multinomial, ordinal, LMM, GEE, GLMM, IPW,
     multiple-imputation and iterative-LASSO kernels remain namespace-internal
     for migration regression tests, but are neither registered nor exported.
@@ -64,6 +65,7 @@ AggregateMethods:
     dsvertIdentityPkDS,
     dsvertJointDPCapsuleStatusDS,
     dsvertPublicFixedCohortCountDS,
+    dsvertDPCountCompileDS,
     dsvertSecurityProfileDS,
     dsvertTransportProbeDS,
     dsvertNumericPolicyDS,
@@ -140,6 +142,9 @@ Options:
     default.dsvert.psi.require_keyed_pseudonyms=FALSE,
     default.dsvert.psi.max_input_ids=1000000,
     default.dsvert.psi.audit_log_path="",
+    default.dsvert.dp.epsilon=1,
+    default.dsvert.dp.delta=1e-6,
+    default.dsvert.dp.implementation_delta=1e-9,
     default.dsvert.dp.total_epsilon=1,
     default.dsvert.dp.total_delta=7.888609052210118e-31,
     default.dsvert.dp.domain="",

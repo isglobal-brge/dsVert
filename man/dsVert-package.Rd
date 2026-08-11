@@ -8,11 +8,12 @@
 \title{Package Load Hook}
 \description{
 Package loading validates the executable surface but never creates secret
-material. Independent Ed25519 identity and sticky-noise roots are generated
-on the first cryptographic service operation, preventing image-build loads
-from baking one deployment identity into every clone. A recovered identity
-is preferred; an unrecoverable replacement remains untrusted by its peers
-until their administrators verify and update the name-bound pin.
+material. The persistent Ed25519 identity is generated on the first protected
+service operation, preventing image-build loads from baking one deployment
+identity into every clone. Legacy DP policy creates its independent
+sticky-noise root only when that policy is invoked. A recovered identity is
+preferred; an unrecoverable replacement remains untrusted by its peers until
+their administrators verify and update the name-bound pin.
 }
 \seealso{
 Useful links:

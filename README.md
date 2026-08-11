@@ -105,26 +105,35 @@ retroactively DP and remain unavailable behind the single profile; no absolute
 non-reconstruction claim is made. See the client security
 contract and `ds.vertMethodStatus()`.
 
-The promoted Count release uses one jointly sampled, finite-support discrete
-Laplace mechanism inside exact GC. Each of the two designated pinned peers
-derives a separate sticky seed; neither seed, the realised noise nor an
-intermediate share appears in a DSI response. The signed certificate charges
-the finite-tail implementation distance to the capsule delta, and 128 durable
-replays return byte-identical releases without resampling. A dedicated secret
-root derives every private seed by domain-separated HMAC-SHA256. An HSM/KMS
-provider has precedence. Otherwise the first cryptographic service operation
-bootstraps exactly 32 bytes from the OS CSPRNG into persistent owner-only
-service state; there is no statistical RNG fallback and production rejects a
-literal seed in a package image or service profile. `DSVERT_STATE_DIR` selects
+`dsvertDPCountCompileDS(data_name)` is the server-side Count compiler
+frontdoor. It accepts only the name of an already attested padded-PSI result
+and returns `{config, receipt}`. The canonical configuration is derived from
+the custodian's authorized source mapping, privacy options, stable capacity,
+complete name-bound pinset and validated exact-GC runtime protocol; the local
+Ed25519 receipt signs its hash. The object name contributes no dataset
+semantics, and this compile step does not open a statistic.
+
+The currently promoted capsule Count release uses one jointly sampled,
+finite-support discrete Laplace mechanism inside exact GC and still obtains
+its sticky seeds from the legacy independent noise root. The new compiler
+above does not yet replace that product route or publish a Count; its executor
+will instead derive each private Count seed from the persistent Ed25519
+`identity.seed` by domain-separated HMAC-SHA256. The first protected service
+operation bootstraps exactly 32 identity bytes from the OS CSPRNG into
+persistent owner-only service state; there is no statistical RNG fallback and
+production rejects a literal seed in a package image or service profile.
+`DSVERT_STATE_DIR` selects
 the state volume explicitly; in Rock, `ROCK_HOME/.dsvert` is used before the
 ephemeral container `HOME` fallback. `configure`, package installation and
 `.onLoad()` never generate a key, including when an image build loads the
-package for a smoke test. If DP is enabled, the complete policy
-performs the ledger/anchor guard before minting its independent noise root.
+package for a smoke test. A legacy DP route invokes its complete policy, which
+performs the ledger/anchor guard before lazily minting its independent noise
+root; identity-only routes and `dsvertDPCountCompileDS` do not initialize that
+root.
 Production fails closed if secure persistence or the compiled runtime is
 unavailable. The independent Ed25519 `identity.seed` is created at the first
-protected service boundary, not at package load. Once both roots exist, dsVert durably
-stores two authenticated,
+protected service boundary, not at package load. Once a legacy DP policy has
+created both roots, dsVert durably stores two authenticated,
 encrypted recovery envelopes: the identity is wrapped under keys derived by
 the non-extractable noise-root HMAC interface, and a file-backed noise root is
 wrapped under the identity. Losing either primary file therefore restores the
@@ -311,6 +320,10 @@ select or rename its members.
 
 ```r
 options(
+  # Per-analysis Count compilation; independent of the lifetime capsule pool.
+  dsvert.dp.epsilon = 1,
+  dsvert.dp.delta = 1e-6,
+  dsvert.dp.implementation_delta = 1e-9,
   # Fixed per immutable capsule. The separate N bound is a lifetime privacy
   # gate, not a request counter; its default is 1.
   dsvert.dp.total_epsilon = 1,
@@ -540,9 +553,9 @@ must be restored or fail closed. After publication only exact replay/restore is
 allowed, never resampling or a second instance.
 
 The noise-root provider contract exposes only public provider/key identifiers
-and HMAC-SHA256. Package installation and `configure` make no changes outside
-the package library; the first cryptographic service operation atomically
-creates or validates `~/.dsvert/privacy/noise_root` (or
+and HMAC-SHA256. Package installation, `configure` and identity-only service
+operations make no changes to noise-root state; the first legacy DP policy
+invocation atomically creates or validates `~/.dsvert/privacy/noise_root` (or
 `$DSVERT_STATE_DIR/privacy/noise_root`; Rock falls back to
 `$ROCK_HOME/.dsvert/privacy/noise_root`) under an interprocess lock. The key is
 32 bytes encoded as lowercase hex in a `0600` single-link regular file below a

@@ -150,6 +150,89 @@
     .package = "dsVert")
 }
 
+.count_compile_runtime_manifest <- function() {
+  list(
+    schema_version = 1L,
+    protocol_version = "dsvert-mpc-runtime-v1",
+    runtime_version = "1.1.0",
+    api_version = "1.1.0",
+    capabilities = list(exact_gc = list(
+      available = TRUE,
+      capability_id = "exact_gc_v1",
+      protocol_version = "dsvert-exact-gc-worker-v4",
+      commands = c(
+        "joint-dp-laplace-plan-v2",
+        "joint-dp-laplace-worker-contract-v2",
+        "exact-gc-worker"),
+      operations = c("count-guard", "clamp-count", "joint-dp-laplace-v2"),
+      core_operations = c(
+        "compare-signed", "count-guard", "clamp-count",
+        "joint-dp-laplace-v2"))))
+}
+
+.count_compile_source_descriptor <- function(config) {
+  list(
+    id = config$dataset_id,
+    version = config$dataset_version,
+    id_col = config$privacy_unit_column,
+    purpose = config$alignment_purpose,
+    snapshot_sha256 = strrep("b", 64L))
+}
+
+.count_compile_server_options <- function(
+    config, peer_name, source_name = "custodian_source") {
+  trusted <- config$peer_pins[names(config$peer_pins) != peer_name]
+  list(
+    dsvert.peer_name = peer_name,
+    dsvert.trusted_peers = trusted,
+    dsvert.psi.authorized_sources = stats::setNames(
+      list(.count_compile_source_descriptor(config)), source_name),
+    dsvert.dp.domain = config$domain,
+    dsvert.dp.cohort_id = config$cohort_id,
+    dsvert.dp.unit_capacity = config$count_upper_bound,
+    dsvert.dp.epsilon = config$privacy$epsilon,
+    dsvert.dp.delta = config$privacy$delta,
+    dsvert.dp.implementation_delta =
+      config$calibration$implementation_delta)
+}
+
+.count_compile_endpoint <- function(
+    data, config, peer_name, data_name = "D", signer_state = NULL,
+    server_options = .count_compile_server_options(config, peer_name)) {
+  assign(data_name, data, envir = environment())
+  withr::local_options(server_options)
+  peer_index <- match(peer_name, names(config$peer_pins))
+  identity <- list(
+    identity_pk = unname(config$peer_pins[[peer_name]]),
+    identity_sk = paste0("test-secret-", peer_name))
+  testthat::with_mocked_bindings(
+    dsvertDPCountCompileDS(data_name),
+    .get_identity_keypair = function() identity,
+    .get_identity_seed = function() jsonlite::base64_enc(
+      as.raw(rep(peer_index + 40L, 32L))),
+    .dsvert_mpc_require_capabilities = function(capabilities) {
+      expect_identical(capabilities, "exact_gc")
+      .count_compile_runtime_manifest()
+    },
+    .dsvert_joint_dp_laplace_plan_v2 = .count_analysis_plan,
+    .dsvert_relay_sign_message = function(message, identity_sk) {
+      expect_identical(identity_sk, identity$identity_sk)
+      if (!is.null(signer_state)) {
+        signer_state$calls <- signer_state$calls + 1L
+      }
+      .count_analysis_signature(message, identity_sk)
+    },
+    .dsvert_dp_policy = function(...) stop("policy must not be called"),
+    .dsvert_dp_alignment_registry_commit = function(...) {
+      stop("registry commit must not be called")
+    },
+    .dsvert_dp_alignment_registry_resolve_templates = function(...) {
+      stop("registry resolve must not be called")
+    },
+    .dsvert_dp_noise_root = function(...) stop("noise root must not be called"),
+    .package = "dsVert")
+}
+
 test_that("Count config is closed and stateless", {
   config <- .count_analysis_config(3L)
   validated <- .dsvert_dp_count_config_validate_v1(config)
@@ -543,4 +626,189 @@ test_that("Count authorization fails closed without partial session state", {
     .get_identity_keypair = function() list(
       identity_pk = authorities[[1L]]),
     .package = "dsVert"), "authorization")
+})
+
+test_that("server-authoritative Count compile envelopes agree for K=2,3,5", {
+  expect_identical(names(formals(dsvertDPCountCompileDS)), "data_name")
+
+  for (k in c(2L, 3L, 5L)) {
+    config <- .count_analysis_config(k, count_upper_bound = 17L)
+    data <- .count_analysis_aligned(c("p1", "p2", "p3"), config)
+    signer_states <- lapply(seq_len(k), function(index) {
+      state <- new.env(parent = emptyenv())
+      state$calls <- 0L
+      state
+    })
+    envelopes <- lapply(seq_len(k), function(index) {
+      .count_compile_endpoint(
+        data, config, names(config$peer_pins)[[index]],
+        data_name = paste0("analyst_alias_", index),
+        signer_state = signer_states[[index]])
+    })
+
+    expect_true(all(vapply(
+      envelopes, function(value) identical(names(value), c("config", "receipt")),
+      logical(1L))))
+    expect_true(all(vapply(
+      envelopes[-1L], function(value) identical(value$config,
+                                                 envelopes[[1L]]$config),
+      logical(1L))))
+    expect_true(all(vapply(signer_states, function(state) {
+      identical(state$calls, 1L)
+    }, logical(1L))))
+    expected_hash <- .dsvert_dp_count_config_hash_v1(envelopes[[1L]]$config)
+    expect_true(all(vapply(envelopes, function(value) {
+      identical(value$receipt$config_sha256, expected_hash)
+    }, logical(1L))))
+
+    receipts <- lapply(envelopes, `[[`, "receipt")
+    contract <- .dsvert_dp_count_compile_v1(
+      receipts, envelopes[[1L]]$config,
+      .verifier = function(...) TRUE)
+    expect_identical(contract$semantic$public_shape, list(count = 1))
+    expect_length(contract$semantic$owner_snapshots, k)
+
+    tampered <- envelopes[[1L]]$config
+    tampered$privacy$epsilon <- tampered$privacy$epsilon + 1
+    expect_error(
+      .dsvert_dp_count_receipt_verify_v1(
+        envelopes[[1L]]$receipt, tampered,
+        .verifier = function(...) TRUE),
+      "different configuration")
+  }
+})
+
+test_that("Count server config uses only direct per-analysis options", {
+  config <- .count_analysis_config(3L)
+  attestation <- .psi_padded_validate_persistent_attestation(
+    .count_analysis_aligned(c("p1", "p2"), config))
+  peer <- names(config$peer_pins)[[1L]]
+  server_options <- .count_compile_server_options(config, peer)
+  server_options$dsvert.dp.unit_capacity <- NULL
+  server_options$dsvert.psi.max_input_ids <- 4321L
+  server_options$dsvert.dp.epsilon <- NULL
+  server_options$dsvert.dp.delta <- NULL
+  server_options$dsvert.dp.implementation_delta <- NULL
+  server_options$default.dsvert.dp.epsilon <- 1
+  server_options$default.dsvert.dp.delta <- 1e-6
+  server_options$default.dsvert.dp.implementation_delta <- 1e-9
+  server_options$dsvert.dp.total_epsilon <- 99
+  server_options$dsvert.dp.total_delta <- 0.25
+  server_options$dsvert.dp.lifetime_max_distinct_capsules <- 2L
+  withr::local_options(server_options)
+
+  loaded <- testthat::with_mocked_bindings(
+    .dsvert_dp_count_server_config_v1(
+      attestation, peer, unname(config$peer_pins[[peer]])),
+    .dsvert_mpc_require_capabilities = function(...) {
+      .count_compile_runtime_manifest()
+    },
+    .dsvert_dp_policy = function(...) stop("policy must not be called"),
+    .package = "dsVert")
+  expect_identical(loaded$count_upper_bound, 4321)
+  expect_identical(loaded$privacy, list(delta = 1e-6, epsilon = 1))
+  expect_identical(
+    loaded$calibration, list(implementation_delta = 1e-9))
+  expect_identical(loaded$max_records_per_unit, 1)
+  expect_identical(loaded$overflow_policy, "reject_operation")
+
+  withr::local_options(list(dsvert.dp.epsilon = 8))
+  expect_silent(testthat::with_mocked_bindings(
+    .dsvert_dp_count_server_config_v1(
+      attestation, peer, unname(config$peer_pins[[peer]])),
+    .dsvert_mpc_require_capabilities = function(...) {
+      .count_compile_runtime_manifest()
+    },
+    .package = "dsVert"))
+  withr::local_options(list(dsvert.dp.epsilon = 8 + 1e-12))
+  expect_error(testthat::with_mocked_bindings(
+    .dsvert_dp_count_server_config_v1(
+      attestation, peer, unname(config$peer_pins[[peer]])),
+    .dsvert_mpc_require_capabilities = function(...) {
+      .count_compile_runtime_manifest()
+    },
+    .package = "dsVert"), "privacy parameters")
+
+  withr::local_options(list(
+    dsvert.dp.unit_capacity = 23L,
+    dsvert.psi.max_input_ids = 999L,
+    dsvert.dp.epsilon = 0.5,
+    dsvert.dp.delta = 2e-6,
+    dsvert.dp.implementation_delta = 2e-9))
+  overridden <- testthat::with_mocked_bindings(
+    .dsvert_dp_count_server_config_v1(
+      attestation, peer, unname(config$peer_pins[[peer]])),
+    .dsvert_mpc_require_capabilities = function(...) {
+      .count_compile_runtime_manifest()
+    },
+    .package = "dsVert")
+  expect_identical(overridden$count_upper_bound, 23)
+  expect_identical(overridden$privacy, list(delta = 2e-6, epsilon = 0.5))
+  expect_identical(
+    overridden$calibration, list(implementation_delta = 2e-9))
+
+  withr::local_options(list(dsvert.dp.unit_capacity = 1000001L))
+  expect_error(testthat::with_mocked_bindings(
+    .dsvert_dp_count_server_config_v1(
+      attestation, peer, unname(config$peer_pins[[peer]])),
+    .dsvert_mpc_require_capabilities = function(...) {
+      .count_compile_runtime_manifest()
+    },
+    .package = "dsVert"), "upper bound")
+})
+
+test_that("Count source authorization matches attested semantics exactly", {
+  config <- .count_analysis_config(3L)
+  data <- .count_analysis_aligned(c("p1", "p2"), config)
+  attestation <- .psi_padded_validate_persistent_attestation(data)
+  peer <- names(config$peer_pins)[[1L]]
+  server_options <- .count_compile_server_options(config, peer)
+  withr::local_options(server_options)
+  runtime <- function(...) .count_compile_runtime_manifest()
+
+  expect_silent(testthat::with_mocked_bindings(
+    .dsvert_dp_count_server_config_v1(
+      attestation, peer, unname(config$peer_pins[[peer]])),
+    .dsvert_mpc_require_capabilities = runtime,
+    .package = "dsVert"))
+
+  mismatched <- .count_compile_source_descriptor(config)
+  mismatched$purpose <- "different-purpose"
+  withr::local_options(list(
+    dsvert.psi.authorized_sources = list(other = mismatched)))
+  expect_error(testthat::with_mocked_bindings(
+    .dsvert_dp_count_server_config_v1(
+      attestation, peer, unname(config$peer_pins[[peer]])),
+    .dsvert_mpc_require_capabilities = runtime,
+    .package = "dsVert"), "source authorization")
+
+  descriptor <- .count_compile_source_descriptor(config)
+  withr::local_options(list(dsvert.psi.authorized_sources = list(
+    first = descriptor, second = descriptor)))
+  expect_error(testthat::with_mocked_bindings(
+    .dsvert_dp_count_server_config_v1(
+      attestation, peer, unname(config$peer_pins[[peer]])),
+    .dsvert_mpc_require_capabilities = runtime,
+    .package = "dsVert"), "source authorization")
+
+  altered <- attestation
+  altered$source_binding_id <- paste0("source_", strrep("f", 64L))
+  withr::local_options(server_options)
+  expect_error(testthat::with_mocked_bindings(
+    .dsvert_dp_count_server_config_v1(
+      altered, peer, unname(config$peer_pins[[peer]])),
+    .dsvert_mpc_require_capabilities = runtime,
+    .package = "dsVert"), "source authorization")
+})
+
+test_that("Count compile endpoint has no policy, database or registry path", {
+  source <- paste(
+    deparse(body(.dsvert_dp_count_server_config_v1)),
+    deparse(body(dsvertDPCountCompileDS)), collapse = "\n")
+  forbidden <- c(
+    ".dsvert_dp_policy", "DBI::", "RSQLite::",
+    ".dsvert_dp_alignment_registry_", ".dsvert_dp_noise_root")
+  for (token in forbidden) {
+    expect_false(grepl(token, source, fixed = TRUE), info = token)
+  }
 })

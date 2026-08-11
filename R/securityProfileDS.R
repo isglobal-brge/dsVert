@@ -85,6 +85,7 @@
   "dsvertColNamesDS",
   "dsvertJointDPCapsuleStatusDS",
   "dsvertPublicFixedCohortCountDS",
+  "dsvertDPCountCompileDS",
   "psiPaddedInitDS",
   "psiPaddedBindDS",
   "psiPaddedConfirmDS",
@@ -147,8 +148,9 @@
 .dsvert_enforce_release_mode <- function(entry = NULL) {
   # This is the first real server-operation boundary. Package installation and
   # .onLoad remain secret-write-free, while every production DSI entrypoint
-  # atomically guarantees the persistent identity and independent noise root
-  # before it can return any response.
+  # atomically guarantees the persistent identity before it can return any
+  # response. Legacy DP routes initialize their independent noise root lazily
+  # through the complete policy boundary.
   .dsvert_ensure_service_state()
 
   if (is.null(entry)) {

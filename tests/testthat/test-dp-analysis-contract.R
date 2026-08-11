@@ -530,6 +530,9 @@ test_that("sticky subseeds derive only from identity.seed and declared lanes", {
       .dsvert_dp_sticky_subseed_v1(contract, lane),
       .get_identity_seed = function() jsonlite::base64_enc(seed),
       .get_identity_keypair = function() list(identity_pk = identity),
+      .dsvert_dp_noise_root = function(...) {
+        stop("noise root must not be called", call. = FALSE)
+      },
       .package = "dsVert")
   }
   first <- derive(as.raw(rep(1L, 32L)), authorities[[1L]])
@@ -562,6 +565,9 @@ test_that("sticky subseeds derive only from identity.seed and declared lanes", {
       .dsvert_dp_analysis_snapshot_key_v1(),
       .dsvert_dp_sticky_noise_key_v1()))
   }, .get_identity_seed = function() jsonlite::base64_enc(seed),
+  .dsvert_dp_noise_root = function(...) {
+    stop("noise root must not be called", call. = FALSE)
+  },
   .package = "dsVert")
   expect_identical(
     names(formals(.dsvert_dp_sticky_subseed_v1)), c("contract", "lane"))

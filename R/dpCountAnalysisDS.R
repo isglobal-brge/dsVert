@@ -9,6 +9,8 @@
 .DSVERT_DP_COUNT_RECEIPT_VERSION <- "dsvert-dp-count-receipt-v1"
 .DSVERT_DP_COUNT_RECEIPT_DOMAIN <- "dsVert/dp-count/receipt/v1|"
 .DSVERT_DP_COUNT_CONFIG_DOMAIN <- "dsVert/dp-count/config/v1|"
+.DSVERT_DP_COUNT_RUNTIME_PROTOCOL_DOMAIN <-
+  "dsVert/dp-count/runtime-protocol/v1|"
 .DSVERT_DP_COUNT_MEMBERSHIP_DOMAIN <- "dsVert/dp-count/membership/v1|"
 .DSVERT_DP_COUNT_ALIGNMENT_DOMAIN <- "dsVert/dp-count/alignment/v1|"
 .DSVERT_DP_COUNT_ALIGNMENT_VERSION <- "dsvert-count-alignment-v1"
@@ -167,6 +169,7 @@
       !is.list(calibration) ||
       !identical(names(calibration), "implementation_delta") ||
       !numeric_scalar(privacy$epsilon) || privacy$epsilon <= 0 ||
+      privacy$epsilon > 8 ||
       !numeric_scalar(privacy$delta) || privacy$delta <= 0 ||
       privacy$delta >= 1 ||
       !numeric_scalar(calibration$implementation_delta) ||
@@ -225,6 +228,171 @@
   config <- .dsvert_dp_count_config_validate_v1(config)
   config$peer_pins <- as.list(config$peer_pins)
   .dsvert_dp_count_hash_v1(.DSVERT_DP_COUNT_CONFIG_DOMAIN, config)
+}
+
+.dsvert_dp_count_option_v1 <- function(name, default = NULL) {
+  value <- getOption(paste0("dsvert.dp.", name))
+  if (is.null(value)) {
+    value <- getOption(paste0("default.dsvert.dp.", name))
+  }
+  if (is.null(value)) default else value
+}
+
+.dsvert_dp_count_source_descriptor_v1 <- function(value) {
+  required <- c("id", "version", "id_col", "purpose", "snapshot_sha256")
+  if (!is.list(value) || is.null(names(value)) || anyNA(names(value)) ||
+      anyDuplicated(names(value)) || !setequal(names(value), required)) {
+    stop("Invalid Count server source authorization.", call. = FALSE)
+  }
+  label <- function(value, what, pattern) {
+    .psi_padded_scalar(value, what, pattern)
+  }
+  snapshot <- tolower(label(
+    value$snapshot_sha256, "authorized snapshot digest",
+    "^[0-9a-fA-F]{64}$"))
+  if (!nzchar(snapshot)) {
+    stop("Invalid Count server source authorization.", call. = FALSE)
+  }
+  public <- list(
+    alignment_purpose = label(
+      value$purpose, "alignment purpose",
+      "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"),
+    dataset_id = label(
+      value$id, "dataset id",
+      "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"),
+    dataset_version = label(
+      value$version, "dataset version",
+      "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"),
+    id_column = label(
+      value$id_col, "authorized identifier column",
+      "^[A-Za-z._][A-Za-z0-9._]{0,127}$"))
+  public$source_binding_id <- paste0("source_", digest::digest(
+    .psi_padded_canonical_json(public), algo = "sha256", serialize = FALSE))
+  .psi_padded_validate_source_public(public)
+}
+
+.dsvert_dp_count_authorized_source_v1 <- function(attestation) {
+  source_fields <- c(
+    "alignment_purpose", "dataset_id", "dataset_version", "id_column",
+    "source_binding_id")
+  attested <- tryCatch(
+    .psi_padded_validate_source_public(attestation[source_fields]),
+    error = function(error) stop(
+      "The Count PSI source authorization is unavailable or ambiguous.",
+      call. = FALSE))
+  sources <- getOption(
+    "dsvert.psi.authorized_sources",
+    getOption("default.dsvert.psi.authorized_sources"))
+  if (is.null(sources)) {
+    datasets <- getOption(
+      "dsvert.dp.datasets", getOption("default.dsvert.dp.datasets"))
+    patient_column <- getOption(
+      "dsvert.dp.patient_column",
+      getOption("default.dsvert.dp.patient_column"))
+    eligible <- if (is.list(datasets)) {
+      vapply(datasets, function(value) {
+        is.list(value) &&
+          all(c("id", "version", "snapshot_sha256") %in% names(value))
+      }, logical(1L))
+    } else {
+      logical()
+    }
+    if (length(eligible) && any(eligible) &&
+        is.character(patient_column) && length(patient_column) == 1L &&
+        !is.na(patient_column) && nzchar(patient_column)) {
+      datasets <- datasets[eligible]
+      sources <- lapply(datasets, function(value) list(
+        id = value$id,
+        version = value$version,
+        id_col = patient_column,
+        purpose = "patient-record-alignment-v1",
+        snapshot_sha256 = value$snapshot_sha256))
+      names(sources) <- names(datasets)
+    }
+  }
+  if (!is.list(sources) || !length(sources) || is.null(names(sources)) ||
+      anyNA(names(sources)) || any(!nzchar(names(sources))) ||
+      anyDuplicated(names(sources))) {
+    stop("The Count PSI source authorization is unavailable or ambiguous.",
+         call. = FALSE)
+  }
+  normalized <- tryCatch(
+    lapply(sources, .dsvert_dp_count_source_descriptor_v1),
+    error = function(error) stop(
+      "The Count PSI source authorization is unavailable or ambiguous.",
+      call. = FALSE))
+  matches <- vapply(normalized, identical, logical(1L), attested)
+  if (sum(matches) != 1L) {
+    stop("The Count PSI source authorization is unavailable or ambiguous.",
+         call. = FALSE)
+  }
+  normalized[[which(matches)]]
+}
+
+.dsvert_dp_count_peer_pins_v1 <- function(peer_name, identity_pk) {
+  peer_name <- .dsvert_dp_count_peer_name_v1(peer_name)
+  local_pk <- tryCatch(
+    .dsvert_relay_normalize_identity_pk(identity_pk),
+    error = function(error) stop(
+      "Invalid Count local peer identity.", call. = FALSE))
+  trusted <- .get_trusted_peers()
+  if (peer_name %in% names(trusted)) {
+    stop("The Count trusted-peer map contains the local peer name.",
+         call. = FALSE)
+  }
+  trusted <- tryCatch(vapply(
+    trusted, .dsvert_relay_normalize_identity_pk, character(1L)),
+    error = function(error) stop("Invalid Count peer pins.", call. = FALSE))
+  pins <- c(stats::setNames(local_pk, peer_name), trusted)
+  pins[order(names(pins), method = "radix")]
+}
+
+.dsvert_dp_count_runtime_protocol_sha256_v1 <- function() {
+  manifest <- .dsvert_mpc_require_capabilities("exact_gc")
+  protocol <- list(
+    schema_version = manifest$schema_version,
+    protocol_version = manifest$protocol_version,
+    runtime_version = manifest$runtime_version,
+    api_version = manifest$api_version,
+    exact_gc = manifest$capabilities$exact_gc)
+  .dsvert_dp_count_hash_v1(
+    .DSVERT_DP_COUNT_RUNTIME_PROTOCOL_DOMAIN, protocol)
+}
+
+.dsvert_dp_count_server_config_v1 <- function(
+    attestation, peer_name, identity_pk) {
+  source <- .dsvert_dp_count_authorized_source_v1(attestation)
+  pins <- .dsvert_dp_count_peer_pins_v1(peer_name, identity_pk)
+  count_upper_bound <- .dsvert_dp_count_option_v1("unit_capacity")
+  if (is.null(count_upper_bound)) {
+    count_upper_bound <- getOption(
+      "dsvert.psi.max_input_ids",
+      getOption("default.dsvert.psi.max_input_ids", 1000000L))
+  }
+  count_upper_bound <- .dsvert_dp_count_positive_integer_v1(
+    count_upper_bound, "upper bound", 1000000)
+  config <- list(
+    version = .DSVERT_DP_COUNT_CONFIG_VERSION,
+    domain = .dsvert_dp_count_option_v1("domain", ""),
+    cohort_id = .dsvert_dp_count_option_v1("cohort_id", ""),
+    dataset_id = source$dataset_id,
+    dataset_version = source$dataset_version,
+    privacy_unit_column = source$id_column,
+    alignment_purpose = source$alignment_purpose,
+    count_upper_bound = count_upper_bound,
+    max_records_per_unit = 1L,
+    overflow_policy = "reject_operation",
+    privacy = list(
+      epsilon = .dsvert_dp_count_option_v1("epsilon", 1),
+      delta = .dsvert_dp_count_option_v1("delta", 1e-6)),
+    calibration = list(
+      implementation_delta = .dsvert_dp_count_option_v1(
+        "implementation_delta", 1e-9)),
+    peer_pins = pins,
+    backend_build_sha256 =
+      .dsvert_dp_count_runtime_protocol_sha256_v1(),
+    transport_chunk_coordinates = 4096L)
+  .dsvert_dp_count_config_validate_v1(config)
 }
 
 .dsvert_dp_count_plan_certificate_validate_v1 <- function(
@@ -517,6 +685,49 @@
     draft$peer_name, draft$peer_identity_pk)
   .dsvert_dp_count_signature_v1(signature)
   .dsvert_dp_canonical_query_value(c(draft, list(signature = signature)))
+}
+
+#' Compile a local signed Count analysis receipt
+#'
+#' The protected object name is used only to resolve an already padded-PSI
+#' aligned data frame. Dataset semantics, privacy parameters, bounds, pinned
+#' peers and runtime protocol identity all come from custodian-owned server
+#' configuration. The returned canonical configuration is closed by the
+#' signed receipt's `config_sha256` field.
+#'
+#' @param data_name Name of an already padded-PSI aligned data frame in the
+#'   server evaluation environment.
+#' @return A list containing the canonical server configuration and this
+#'   peer's signed receipt.
+#' @export
+dsvertDPCountCompileDS <- function(data_name) {
+  data_name <- .psi_padded_data_name(data_name)
+  data <- get(data_name, envir = parent.frame(), inherits = TRUE)
+  if (!is.data.frame(data)) {
+    stop("The Count source must be a padded-PSI aligned data frame.",
+         call. = FALSE)
+  }
+  attestation <- .psi_padded_validate_persistent_attestation(data)
+  identity <- .get_identity_keypair()
+  peer_name <- .dsvert_require_configured_local_peer_name()
+  config <- .dsvert_dp_count_server_config_v1(
+    attestation, peer_name, identity$identity_pk)
+  draft <- .dsvert_dp_count_local_draft_v1(data, config, peer_name)
+  signer <- function(message, signed_peer_name, signed_identity_pk) {
+    expected_pk <- .dsvert_relay_normalize_identity_pk(identity$identity_pk)
+    actual_pk <- tryCatch(
+      .dsvert_relay_normalize_identity_pk(signed_identity_pk),
+      error = function(error) NULL)
+    if (!identical(signed_peer_name, peer_name) || is.null(actual_pk) ||
+        !identical(actual_pk, expected_pk) ||
+        !identical(actual_pk, unname(config$peer_pins[[peer_name]]))) {
+      stop("The Count receipt signer identity is not the local pinned peer.",
+           call. = FALSE)
+    }
+    .dsvert_relay_sign_message(message, identity$identity_sk)
+  }
+  receipt <- .dsvert_dp_count_sign_receipt_v1(draft, signer)
+  list(config = config, receipt = receipt)
 }
 
 .dsvert_dp_count_receipt_verify_v1 <- function(

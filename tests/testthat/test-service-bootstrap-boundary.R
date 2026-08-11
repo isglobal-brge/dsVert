@@ -127,7 +127,7 @@ test_that("every production release gate crosses the service bootstrap", {
   expect_identical(calls, 1L)
 })
 
-test_that("the first production release gate persists both deployment roots", {
+test_that("the first production release gate persists identity state only", {
   skip_on_os("windows")
   state <- withr::local_tempdir(pattern = "dsvert-first-service-call-")
   noise_path <- file.path(state, "privacy", "noise_root")
@@ -160,11 +160,11 @@ test_that("the first production release gate persists both deployment roots", {
   expect_invisible(.dsvert_enforce_release_mode("dsvertSecurityProfileDS"))
   identity_path <- file.path(state, "identity.seed")
   expect_true(file.exists(identity_path))
-  expect_true(file.exists(noise_path))
+  expect_false(file.exists(noise_path))
   expect_identical(as.integer(file.info(identity_path)$mode), 384L)
-  expect_identical(as.integer(file.info(noise_path)$mode), 384L)
   expect_true(file.exists(.dsvert_identity_receipt_path(identity_path)))
-  expect_true(file.exists(.dsvert_dp_noise_receipt_path(noise_path)))
-  expect_true(file.exists(.dsvert_identity_recovery_path(identity_path)))
-  expect_true(file.exists(.dsvert_dp_noise_recovery_path(noise_path)))
+  expect_false(file.exists(.dsvert_dp_noise_receipt_path(noise_path)))
+  expect_false(file.exists(.dsvert_identity_recovery_path(identity_path)))
+  expect_false(file.exists(.dsvert_dp_noise_recovery_path(noise_path)))
+  expect_false(file.exists(.dsvert_dp_noise_epoch_path(noise_path)))
 })

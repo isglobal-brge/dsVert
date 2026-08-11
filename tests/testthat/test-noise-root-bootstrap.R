@@ -370,12 +370,12 @@ test_that("package load is secret-write-free outside install environments", {
   expect_false(file.exists(file.path(state, "privacy", "noise_root")))
 })
 
-test_that("service initialization bootstraps roots before dataset policy", {
+test_that("service initialization defers the noise root with dataset policy", {
   withr::local_options(list(
     dsvert.dp.enabled = TRUE,
     dsvert.dp.datasets = NULL))
   identity_calls <- policy_calls <- root_calls <- recovery_root_calls <- 0L
-  reciprocal_calls <- 0L
+  reciprocal_calls <- completion_calls <- 0L
   early_root <- list(key_id = "original-root-for-identity-recovery")
   testthat::local_mocked_bindings(
     .dsvert_identity_seed_path = function(...) "/missing/identity.seed",
@@ -408,20 +408,26 @@ test_that("service initialization bootstraps roots before dataset policy", {
         "bootstrapped", "bootstrapped-before-policy"))
       invisible("/missing/identity.seed.recovery")
     },
+    .dsvert_complete_external_identity_replacement = function(...) {
+      completion_calls <<- completion_calls + 1L
+      invisible(NULL)
+    },
     .package = "dsVert")
   expect_silent(.dsvert_initialize_service_state())
   expect_identical(identity_calls, 1L)
   expect_identical(policy_calls, 0L)
-  expect_identical(root_calls, 1L)
+  expect_identical(root_calls, 0L)
   expect_identical(recovery_root_calls, 1L)
-  expect_identical(reciprocal_calls, 1L)
+  expect_identical(reciprocal_calls, 0L)
+  expect_identical(completion_calls, 0L)
 
   expect_silent(.dsvert_initialize_service_state())
   expect_identical(identity_calls, 2L)
   expect_identical(policy_calls, 0L)
-  expect_identical(root_calls, 2L)
+  expect_identical(root_calls, 0L)
   expect_identical(recovery_root_calls, 2L)
-  expect_identical(reciprocal_calls, 2L)
+  expect_identical(reciprocal_calls, 0L)
+  expect_identical(completion_calls, 0L)
 
   expect_true(.dsvert_is_install_or_development_load(
     file.path(tempdir(), "00LOCK-dsVert", "00new")))
@@ -456,10 +462,12 @@ test_that("enabled service bootstrap tolerates an absent dataset policy", {
 
   expect_invisible(.dsvert_initialize_service_state())
   expect_true(file.exists(file.path(directory, "identity.seed")))
-  expect_true(file.exists(noise_path))
+  expect_false(file.exists(noise_path))
   expect_silent(.dsvert_validate_identity_seed_file(
     file.path(directory, "identity.seed")))
-  expect_silent(.dsvert_dp_noise_validate_file(noise_path))
+  expect_false(file.exists(.dsvert_dp_noise_receipt_path(noise_path)))
+  expect_false(file.exists(.dsvert_dp_noise_recovery_path(noise_path)))
+  expect_false(file.exists(.dsvert_dp_noise_epoch_path(noise_path)))
 })
 
 test_that("service startup restores identity from its original file noise root", {
@@ -491,6 +499,10 @@ test_that("service startup restores identity from its original file noise root",
   seed_path <- file.path(directory, "identity.seed")
   seed <- .dsvert_validate_identity_seed_file(seed_path)
   public_before <- .get_identity_keypair()$identity_pk
+  active_root <- .dsvert_dp_noise_root()
+  identity_recovery <- .dsvert_ensure_identity_recovery(
+    seed_path, seed, active_root)
+  expect_true(file.exists(identity_recovery))
   noise_before <- .dsvert_dp_noise_validate_file(noise_path)
   expect_true(file.exists(.dsvert_identity_recovery_path(seed_path)))
   expect_true(file.exists(.dsvert_dp_noise_recovery_path(noise_path)))
@@ -530,10 +542,15 @@ test_that("service startup regenerates both irrecoverably lost roots", {
   expect_invisible(.dsvert_initialize_service_state())
   seed_path <- file.path(directory, "identity.seed")
   identity_before <- .get_identity_keypair()$identity_pk
+  active_root <- .dsvert_dp_noise_root()
+  identity_recovery <- .dsvert_ensure_identity_recovery(
+    seed_path, .dsvert_validate_identity_seed_file(seed_path), active_root)
+  expect_true(file.exists(identity_recovery))
   noise_before <- .dsvert_dp_noise_validate_file(noise_path)
 
   unlink(c(seed_path, noise_path), force = TRUE)
   expect_invisible(.dsvert_initialize_service_state())
+  expect_type(.dsvert_dp_noise_root(), "list")
   expect_false(identical(.get_identity_keypair()$identity_pk,
                          identity_before))
   expect_false(identical(.dsvert_dp_noise_validate_file(noise_path),
@@ -765,10 +782,22 @@ test_that("service startup can restore identity through an original HSM root", {
   seed_path <- file.path(directory, "identity.seed")
   seed <- .dsvert_validate_identity_seed_file(seed_path)
   public_before <- .get_identity_keypair()$identity_pk
+  activate_legacy_policy <- function() {
+    root <- .dsvert_dp_noise_root()
+    .dsvert_dp_noise_seed(
+      list(
+        peer_name = "site-a", domain = "test-domain", cohort_id = "test-cohort",
+        noise_root = root),
+      query_hash = strrep("a", 64L), release_index = 1L,
+      mechanism = "test-mechanism", epsilon = 1, delta = 0,
+      sensitivity = 1)
+    root
+  }
+  active_root <- activate_legacy_policy()
   recovery <- .dsvert_identity_recovery_path(seed_path)
   expect_true(file.exists(recovery))
   expect_identical(.dsvert_identity_open_recovery(
-    recovery, .dsvert_dp_noise_root()), seed)
+    recovery, active_root), seed)
 
   unlink(seed_path, force = TRUE)
   expect_invisible(.dsvert_initialize_service_state())
@@ -782,7 +811,7 @@ test_that("service startup can restore identity through an original HSM root", {
          force = TRUE)
   expect_invisible(.dsvert_initialize_service_state())
   expect_false(identical(.get_identity_keypair()$identity_pk, public_before))
-  expect_identical(.dsvert_dp_noise_root()$key_id,
+  expect_identical(activate_legacy_policy()$key_id,
                    "persistent-hsm-root-v1")
   identity_archive <- file.path(
     directory, ".retired-identity-continuity")

@@ -304,24 +304,19 @@
   result[order(names(result), method = "radix")]
 }
 
-.dsvert_dp_synopsis_source_vector_claim_v1 <- function(
-    policy, manifest, resolved_snapshots, identity,
-    .signer = .dsvert_relay_sign_message,
-    .verifier = .dsvert_relay_verify_message) {
-  # This is a low-level, server-only Claim.  A future K-peer compiler must
-  # validate its plan and authority roles before invoking it.  It is not an
-  # endpoint and the catalog hash alone is not a sticky artifact key.
+.dsvert_dp_synopsis_source_vector_unsigned_from_producer_v1 <- function(
+    policy, manifest, producer, identity_pk) {
+  # The caller owns the producer.  This helper only borrows read_range and
+  # must never reset or retain the producer on success or failure.
   projection <- .dsvert_dp_synopsis_catalog_projection_v1(policy, manifest)
   pins <- .dsvert_dp_synopsis_peer_pins_v1(policy$peer_pinset)
   peer <- .dsvert_dp_analysis_scalar_id(
     policy$peer_name, "synopsis source peer")
-  if (!peer %in% names(pins) || !is.list(identity) ||
-      is.null(identity$identity_pk) || is.null(identity$identity_sk) ||
-      !is.function(.signer) || !is.function(.verifier)) {
+  if (!peer %in% names(pins)) {
     stop("Invalid synopsis Claim source identity.", call. = FALSE)
   }
   identity_pk <- .dsvert_dp_analysis_identity_pk(
-    identity$identity_pk, "synopsis source identity")
+    identity_pk, "synopsis source identity")
   if (!identical(identity_pk, unname(pins[[peer]]))) {
     stop("The synopsis Claim source identity is not pinned.", call. = FALSE)
   }
@@ -337,9 +332,6 @@
   owns_release <- any(vapply(release$blocks, function(block) {
     identical(block$owner_peer, peer)
   }, logical(1L)))
-  producer <- .dsvert_dp_gaussian_cross_source_producer(
-    policy, manifest, resolved_snapshots, compute_commitment = FALSE,
-    include_release = owns_release)
   if (!is.list(producer) || !is.function(producer$read_range) ||
       !is.function(producer$reset) ||
       !identical(as.numeric(producer$coordinate_count),
@@ -352,7 +344,6 @@
     stop("The synopsis source-vector producer has the wrong layout.",
          call. = FALSE)
   }
-  on.exit(producer$reset(), add = TRUE)
   release_cache <- new.env(parent = emptyenv())
   release_reader <- if (!isTRUE(owns_release)) list(
     read_range = function(start, count) numeric(count)) else list(
@@ -417,6 +408,47 @@
     source_peer_name = peer, source_identity_pk = identity_pk,
     catalog_sha256 = projection$sha256,
     source_vector_commitment = commitment)
+  unsigned
+}
+
+.dsvert_dp_synopsis_source_vector_claim_v1 <- function(
+    policy, manifest, resolved_snapshots, identity,
+    .signer = .dsvert_relay_sign_message,
+    .verifier = .dsvert_relay_verify_message) {
+  # This is a low-level, server-only Claim.  A future K-peer compiler must
+  # validate its plan and authority roles before invoking it.  It is not an
+  # endpoint and the catalog hash alone is not a sticky artifact key.
+  pins <- .dsvert_dp_synopsis_peer_pins_v1(policy$peer_pinset)
+  peer <- .dsvert_dp_analysis_scalar_id(
+    policy$peer_name, "synopsis source peer")
+  if (!peer %in% names(pins) || !is.list(identity) ||
+      is.null(identity$identity_pk) || is.null(identity$identity_sk) ||
+      !is.function(.signer) || !is.function(.verifier)) {
+    stop("Invalid synopsis Claim source identity.", call. = FALSE)
+  }
+  identity_pk <- .dsvert_dp_analysis_identity_pk(
+    identity$identity_pk, "synopsis source identity")
+  if (!identical(identity_pk, unname(pins[[peer]]))) {
+    stop("The synopsis Claim source identity is not pinned.", call. = FALSE)
+  }
+  projection <- .dsvert_dp_synopsis_catalog_projection_v1(policy, manifest)
+  release <- .dsvert_dp_capsule_coordinate_layout(manifest)
+  if (!identical(as.numeric(release$coordinate_count),
+                 as.numeric(projection$catalog$coordinate_count)) ||
+      !identical(release$sha256,
+                 projection$catalog$coordinate_order_sha256)) {
+    stop("The synopsis release layout disagrees with its catalog.",
+         call. = FALSE)
+  }
+  owns_release <- any(vapply(release$blocks, function(block) {
+    identical(block$owner_peer, peer)
+  }, logical(1L)))
+  producer <- .dsvert_dp_gaussian_cross_source_producer(
+    policy, manifest, resolved_snapshots, compute_commitment = FALSE,
+    include_release = owns_release)
+  on.exit(producer$reset(), add = TRUE)
+  unsigned <- .dsvert_dp_synopsis_source_vector_unsigned_from_producer_v1(
+    policy, manifest, producer, identity_pk)
   signature <- .signer(
     .dsvert_dp_synopsis_source_vector_claim_message_v1(unsigned),
     identity$identity_sk)

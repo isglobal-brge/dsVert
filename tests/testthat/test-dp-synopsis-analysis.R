@@ -275,6 +275,71 @@ test_that("source-vector Claim binds only the effective local release", {
     "catalog")
 })
 
+test_that("source-vector evidence borrows its producer without owning it", {
+  fixture <- .synopsis_test_fixture()
+  identity <- list(
+    identity_pk = fixture$pins[["peer_a"]], identity_sk = "test-secret")
+  signature <- .synopsis_test_b64url(as.raw(rep(83L, 64L)))
+  claim <- testthat::with_mocked_bindings(
+    .dsvert_dp_synopsis_source_vector_claim_v1(
+      fixture$policy, fixture$manifest, fixture$resolved, identity,
+      .signer = function(...) signature,
+      .verifier = function(...) TRUE),
+    .dsvert_dp_analysis_snapshot_key_v1 = function() as.raw(seq_len(32L)),
+    .package = "dsVert")
+
+  producer <- .dsvert_dp_gaussian_cross_source_producer(
+    fixture$policy, fixture$manifest, fixture$resolved,
+    compute_commitment = FALSE, include_release = TRUE)
+  reset_count <- 0L
+  borrowed <- producer
+  borrowed$reset <- function() {
+    reset_count <<- reset_count + 1L
+    producer$reset()
+  }
+  unsigned <- testthat::with_mocked_bindings(
+    .dsvert_dp_synopsis_source_vector_unsigned_from_producer_v1(
+      fixture$policy, fixture$manifest, borrowed,
+      fixture$pins[["peer_a"]]),
+    .dsvert_dp_analysis_snapshot_key_v1 = function() as.raw(seq_len(32L)),
+    .package = "dsVert")
+  expect_identical(unsigned, claim[setdiff(names(claim), "signature")])
+  expect_identical(reset_count, 0L)
+
+  wrong_layout <- borrowed
+  wrong_layout$coordinate_order_sha256 <- strrep("f", 64L)
+  expect_error(
+    .dsvert_dp_synopsis_source_vector_unsigned_from_producer_v1(
+      fixture$policy, fixture$manifest, wrong_layout,
+      fixture$pins[["peer_a"]]),
+    "layout")
+  expect_identical(reset_count, 0L)
+  producer$reset()
+
+  invalid_projection <- .dsvert_dp_synopsis_catalog_projection_v1(
+    fixture$policy, fixture$manifest)
+  invalid_projection$catalog$coordinate_count <-
+    invalid_projection$catalog$coordinate_count + 1L
+  events <- character()
+  expect_error(testthat::with_mocked_bindings(
+    .dsvert_dp_synopsis_source_vector_claim_v1(
+      fixture$policy, fixture$manifest, fixture$resolved, identity,
+      .signer = function(...) signature,
+      .verifier = function(...) TRUE),
+    .dsvert_dp_synopsis_catalog_projection_v1 = function(...) {
+      events <<- c(events, "catalog_validation")
+      invalid_projection
+    },
+    .dsvert_dp_gaussian_cross_source_producer = function(...) {
+      events <<- c(events, "producer_materialization")
+      list(reset = function() {
+        events <<- c(events, "producer_reset")
+      })
+    },
+    .package = "dsVert"), "release layout")
+  expect_identical(events, "catalog_validation")
+})
+
 test_that("catalog projection namespaces signed catalog analysis IDs", {
   fixture <- .synopsis_test_fixture()
   layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)

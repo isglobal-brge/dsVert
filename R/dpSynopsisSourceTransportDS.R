@@ -120,3 +120,69 @@
     materializer = materializer,
     producer_validator = producer_validator)
 }
+
+.dsvert_dp_synopsis_source_transport_ticket_v1 <- function(
+    manifest_sha256, artifact, claim_set, receipts,
+    .policy = NULL, .secret = NULL,
+    .cache_get = .dsvert_dp_capsule_manifest_cache_get,
+    .verifier = .dsvert_relay_verify_message) {
+  if (is.null(.policy)) .policy <- .dsvert_dp_policy()
+  if (is.null(.secret)) .secret <- .dsvert_dp_secret()
+  context <- .dsvert_dp_synopsis_source_transport_context_v1(
+    manifest_sha256, artifact, claim_set, receipts,
+    .policy = .policy, .secret = .secret,
+    .cache_get = .cache_get, .verifier = .verifier)
+  .dsvert_dp_capsule_source_ticket_impl(
+    context$manifest_json, .policy = .policy, .secret = .secret,
+    .verifier = .verifier, source_contract = context$source_contract)
+}
+
+.dsvert_dp_synopsis_source_transport_prepare_v1 <- function(
+    manifest_sha256, artifact, claim_set, receipts,
+    first_ticket_json, second_ticket_json,
+    first_opening_json, second_opening_json,
+    .policy = NULL, .secret = NULL, .envir = parent.frame(),
+    .cache_get = .dsvert_dp_capsule_manifest_cache_get,
+    .verifier = .dsvert_relay_verify_message) {
+  if (is.null(.policy)) .policy <- .dsvert_dp_policy()
+  if (is.null(.secret)) .secret <- .dsvert_dp_secret()
+  gate <- .dsvert_dp_synopsis_source_transport_gate_v1(
+    manifest_sha256, artifact, claim_set, receipts,
+    .policy = .policy, .secret = .secret,
+    .cache_get = .cache_get, .verifier = .verifier)
+  .dsvert_dp_capsule_source_prepare_negotiated_impl(
+    gate$manifest_json,
+    first_ticket_json, second_ticket_json,
+    first_opening_json, second_opening_json,
+    .policy = .policy, .secret = .secret, .envir = .envir,
+    .materializer = gate$materializer, .verifier = .verifier,
+    .producer_validator = gate$producer_validator,
+    source_contract = gate$source_contract)
+}
+
+.dsvert_dp_synopsis_source_transport_chunk_v1 <- function(
+    manifest_sha256, artifact, claim_set, receipts,
+    source_transfer_id, chunk_index,
+    .policy = NULL, .secret = NULL, .envir = parent.frame(),
+    .cache_get = .dsvert_dp_capsule_manifest_cache_get,
+    .verifier = .dsvert_relay_verify_message) {
+  if (is.null(.policy)) .policy <- .dsvert_dp_policy()
+  if (is.null(.secret)) .secret <- .dsvert_dp_secret()
+  source_transfer_id <- .dsvert_dp_capsule_source_scalar(
+    source_transfer_id, "transfer id",
+    pattern = "^csrc_[0-9a-f]{64}$", maximum_bytes = 69L)
+  gate <- .dsvert_dp_synopsis_source_transport_gate_v1(
+    manifest_sha256, artifact, claim_set, receipts,
+    .policy = .policy, .secret = .secret,
+    .cache_get = .cache_get, .verifier = .verifier)
+  expected <- .dsvert_dp_capsule_source_transfer_id(
+    gate$source_contract, .policy$peer_name)
+  if (!identical(source_transfer_id, expected)) {
+    stop("The synopsis source transfer targets a different artifact.",
+         call. = FALSE)
+  }
+  .dsvert_dp_capsule_source_chunk_impl(
+    source_transfer_id, chunk_index,
+    .policy = .policy, .secret = .secret, .envir = .envir,
+    .materializer = gate$materializer, .verifier = .verifier)
+}

@@ -107,7 +107,7 @@ test_that("the remotely invocable aggregate surface is an exact allowlist", {
   expect_identical(anyDuplicated(actual), 0L)
   deregistered <- setdiff(pre_audit_registered, expected)
   exports <- getNamespaceExports("dsVert")
-  expect_length(deregistered, 98L)
+  expect_length(deregistered, 99L)
   expect_false(any(deregistered %in% actual))
   expect_false(any(deregistered %in% exports))
 
@@ -161,7 +161,7 @@ test_that("remote aliases fail closed instead of bypassing the central gate", {
     "Remote method aliases are forbidden")
 })
 
-test_that("legacy per-query DP and scalar-count endpoints are not remote", {
+test_that("only the stateless Count lifecycle remains remote", {
   retired <- c(
     "dsvertDPStatusDS", "dsvertDPCountDS", "dsvertDPContingencyDS",
     "dsvertDPMeanVarDS", "dsvertDPDescribeDS", "dsvertDPSurvivalDS",
@@ -173,7 +173,7 @@ test_that("legacy per-query DP and scalar-count endpoints are not remote", {
     "dsvertJointDPCountBackendPrepareDS",
     "dsvertJointDPCountBackendTokenDS", "dsvertJointDPCountStartDS",
     "dsvertJointDPCountResultDS", "dsvertJointDPCountFinalShareDS",
-    "dsvertJointDPCountReleaseDS")
+    "dsvertJointDPCountReleaseDS", "dsvertPublicFixedCohortCountDS")
   description <- .dsvert_test_package_file("DESCRIPTION")
   aggregate <- trimws(strsplit(
     read.dcf(description)[1L, "AggregateMethods"],
@@ -183,10 +183,12 @@ test_that("legacy per-query DP and scalar-count endpoints are not remote", {
                    .dsvert_test_package_file("NAMESPACE")), value = TRUE))
   expect_false(any(retired %in% aggregate))
   expect_false(any(retired %in% exports))
-  expect_true("dsvertPublicFixedCohortCountDS" %in% aggregate)
-  expect_true("dsvertPublicFixedCohortCountDS" %in% exports)
-  expect_true("dsvertDPCountCompileDS" %in% aggregate)
-  expect_true("dsvertDPCountCompileDS" %in% exports)
+  active <- c(
+    "dsvertDPCountCompileDS", "dsvertDPCountAuthorizeDS",
+    "dsvertDPCountStartDS", "dsvertDPCountFinalShareDS",
+    "dsvertDPCountReleaseDS")
+  expect_true(all(active %in% aggregate))
+  expect_true(all(active %in% exports))
 })
 
 test_that("the retired bare local SQLite release engine is absent", {

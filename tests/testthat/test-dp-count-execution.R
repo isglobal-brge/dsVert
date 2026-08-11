@@ -1,17 +1,39 @@
 test_that("Count execution exposes only the new stateless phases", {
+  public <- c(
+    "dsvertDPCountAuthorizeDS", "dsvertDPCountStartDS",
+    "dsvertDPCountFinalShareDS", "dsvertDPCountReleaseDS")
+  expect_true(all(vapply(
+    public, exists, logical(1L), envir = asNamespace("dsVert"),
+    mode = "function", inherits = FALSE)))
   expect_identical(
     names(formals(.dsvert_dp_count_authorize_endpoint_v1)),
+    c("config_json", "receipts_json", "session_id"))
+  expect_identical(
+    names(formals(dsvertDPCountAuthorizeDS)),
     c("config_json", "receipts_json", "session_id"))
   expect_identical(
     names(formals(.dsvert_dp_count_start_endpoint_v1)),
     c("data_name", "session_id", "operation_id", "source_key",
       "output_key", "authorizations_json"))
   expect_identical(
+    names(formals(dsvertDPCountStartDS)),
+    c("data_name", "session_id", "operation_id", "source_key",
+      "output_key", "authorizations_json"))
+  expect_identical(
     names(formals(.dsvert_dp_count_final_share_endpoint_v1)),
+    c("session_id", "operation_id", "output_key", "recipient_pk"))
+  expect_identical(
+    names(formals(dsvertDPCountFinalShareDS)),
     c("session_id", "operation_id", "output_key", "recipient_pk"))
   expect_identical(
     names(formals(.dsvert_dp_count_release_endpoint_v1)),
     c("session_id", "operation_id", "output_key"))
+  expect_identical(
+    names(formals(dsvertDPCountReleaseDS)),
+    c("session_id", "operation_id", "output_key"))
+  expect_false(exists(
+    "dsvertPublicFixedCohortCountDS", envir = asNamespace("dsVert"),
+    inherits = FALSE))
 })
 
 test_that("Count source encoding counts aligned membership once", {

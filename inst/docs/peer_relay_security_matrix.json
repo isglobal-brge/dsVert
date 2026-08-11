@@ -1,6 +1,6 @@
 {
   "schema_version": "dsvert-peer-relay-security-matrix-v1",
-  "generated_at": "2026-08-02",
+  "generated_at": "2026-08-11",
   "threat_model": {
     "relay": "fully_malicious",
     "relay_capabilities": [
@@ -255,18 +255,19 @@
     {
       "id": "joint_dp_vector_final_shares",
       "status": "production_active",
-      "payload_class": "designated-peer joint-DP vector computation and final-share transfer",
+      "payload_class": "designated-peer DP computation and recipient-encrypted final-share transfer",
       "remote_endpoints": [
         "dsvertJointDPVectorPrepareDS",
         "dsvertJointDPVectorStartDS",
         "dsvertJointDPVectorResultDS",
-        "dsvertJointDPVectorFinalShareDS"
+        "dsvertJointDPVectorFinalShareDS",
+        "dsvertDPCountFinalShareDS"
       ],
       "private_payload": true,
       "confidentiality": "recipient_aead",
       "relay_plaintext_private_data": false,
       "sender_pinned": true,
-      "recipient_scope": "custodian_policy_designated_noise_pair",
+      "recipient_scope": "signed_contract_designated_noise_pair",
       "recipient_scope_bound": true,
       "cryptographic_integrity": true,
       "session_bound": true,
@@ -274,15 +275,17 @@
       "ordering_bound": true,
       "replay_safe": true,
       "idempotent_retry": true,
-      "binding": "signed result contracts and typed final-share tickets bind capsule, query, release instance, allocation opening, exact peer binding, vector root, coordinate layout, sender, recipient and payload hash",
-      "retry_contract": "durable prepared/result/final-share records return exactly the same receipt or ciphertext for an identical request; conflicting release instances or roots abort",
+      "binding": "signed result contracts and typed final-share tickets bind either the capsule query, release instance, allocation opening, exact peer binding, vector root and coordinate layout, or the Count artifact, full semantic contract, analysis binding, circuit, bounds and exact-GC context; both bind sender, recipient and payload hash",
+      "retry_contract": "vector records durably replay and Count session records replay the same recipient ciphertext for an identical request; conflicting release instances, contracts, contexts or roots abort",
       "relay_tamper_outcome": "authentic_delivery_exact_duplicate_or_abort",
       "metadata_visibility": "public capsule/release identifiers, vector dimensions and ciphertext shape are visible; unreleased shares remain recipient encrypted",
       "malicious_peer_security": "not_claimed",
       "evidence_files": [
         "R/jointDPVectorCapsuleDS.R",
+        "R/dpCountExecutionDS.R",
         "R/typedBlobTransportDS.R",
-        "tests/testthat/test-joint-dp-vector-capsule.R"
+        "tests/testthat/test-joint-dp-vector-capsule.R",
+        "tests/testthat/test-dp-count-execution.R"
       ]
     },
     {

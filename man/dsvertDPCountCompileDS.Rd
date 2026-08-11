@@ -11,13 +11,14 @@ dsvertDPCountCompileDS(data_name)
 server evaluation environment.}
 }
 \value{
-A list containing the canonical server configuration and this peer's signed
-receipt.
+A closed compile envelope containing either an add/remove analysis
+payload or a signed fixed-cohort public declaration.
 }
 \description{
 The protected object name is used only to resolve an already padded-PSI
-aligned data frame. Dataset semantics, privacy parameters, bounds, pinned
-peers and runtime protocol identity all come from custodian-owned server
-configuration. The returned canonical configuration is closed by the signed
-receipt's \code{config_sha256} field.
+aligned data frame. Under add/remove adjacency, dataset semantics, privacy
+parameters, bounds, pinned peers and runtime protocol identity all come
+from custodian-owned server configuration. Under fixed-cohort adjacency,
+the server signs the exact public cohort declaration only after validating
+the current aligned cohort against it.
 }

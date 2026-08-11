@@ -1033,3 +1033,57 @@
   .dsvert_dp_count_release_impl_v1(
     .S(session_id), session_id, operation_id, output_key)
 }
+
+#' Execute one stateless sticky Count release
+#'
+#' These purpose-bound DataSHIELD phases authorize two identity-bound noise
+#' authorities, stage one aligned Count in exact GC, transfer only the
+#' recipient-encrypted final share, and open one signed post-clamp release.
+#' The configuration, receipt, and authorization JSON arguments are already
+#' framed by the client for safe DSI transport.
+#'
+#' @param config_json,receipts_json Canonical, DSI-framed Count configuration
+#'   and signed receipt array.
+#' @param session_id Canonical exact-GC session identifier.
+#' @param data_name Name of the already padded-PSI aligned data frame.
+#' @param operation_id Exact-GC operation identifier.
+#' @param source_key,output_key Exact-GC input and output keys.
+#' @param authorizations_json Canonical, DSI-framed public authorization array.
+#' @param recipient_pk Evaluator transport public key.
+#' @return A phase-specific closed public record or recipient-encrypted
+#'   ciphertext envelope. No source count, seed, intermediate share, sampled
+#'   noise, or pre-clamp value is returned.
+#' @name dsvertDPCountExecutionDS
+NULL
+
+#' @rdname dsvertDPCountExecutionDS
+#' @export
+dsvertDPCountAuthorizeDS <- function(config_json, receipts_json, session_id) {
+  .dsvert_dp_count_authorize_endpoint_v1(
+    config_json, receipts_json, session_id)
+}
+
+#' @rdname dsvertDPCountExecutionDS
+#' @export
+dsvertDPCountStartDS <- function(
+    data_name, session_id, operation_id, source_key, output_key,
+    authorizations_json) {
+  .dsvert_dp_count_start_endpoint_v1(
+    data_name, session_id, operation_id, source_key, output_key,
+    authorizations_json)
+}
+
+#' @rdname dsvertDPCountExecutionDS
+#' @export
+dsvertDPCountFinalShareDS <- function(
+    session_id, operation_id, output_key, recipient_pk) {
+  .dsvert_dp_count_final_share_endpoint_v1(
+    session_id, operation_id, output_key, recipient_pk)
+}
+
+#' @rdname dsvertDPCountExecutionDS
+#' @export
+dsvertDPCountReleaseDS <- function(session_id, operation_id, output_key) {
+  .dsvert_dp_count_release_endpoint_v1(
+    session_id, operation_id, output_key)
+}

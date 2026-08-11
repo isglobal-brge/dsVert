@@ -1,12 +1,12 @@
 {
   "schema": "dsvert-remote-surface-classification-v3",
-  "audit_date": "2026-08-09",
+  "audit_date": "2026-08-11",
   "authoritative_registration_source": "dsVert/DESCRIPTION: AggregateMethods and AssignMethods",
   "authoritative_client_source": "dsVertClient/R parsed as R ASTs",
   "counts": {
-    "registered_ds_endpoints": 65,
+    "registered_ds_endpoints": 68,
     "registered_argument_constructor_aliases": 0,
-    "direct_literal_call_endpoints": 150,
+    "direct_literal_call_endpoints": 154,
     "as_call_as_name_endpoints": 7,
     "bounded_dynamic_call_endpoints": 1,
     "unregistered_client_endpoint_literals": 94,
@@ -15,7 +15,7 @@
     "internal_unregistered_ds_functions": 158
   },
   "classification_semantics": {
-    "production_safe_purpose_bound": "Callable through the current default gate. A DP label is conditional on the published policy, immutable snapshot, healthy global accountant, persistent sticky-noise root and stated threat model.",
+    "production_safe_purpose_bound": "Callable through the current default gate. A DP label is conditional on the route-specific signed policy, immutable snapshot and stated threat model. Capsule routes additionally depend on their accountant and persistent capsule root; stateless Count derives sticky noise from the persistent peer identity seed and has no lifetime ledger.",
     "test_or_guarded_migration_internals": "Retired from registration and export. These closures remain namespace-internal only for transport diagnostics or migration regression tests and have no production public route.",
     "quarantined_compatibility_internals": "Retired from registration and export. Historical client implementations remain only behind a non-configurable local frontdoor guard for source-level migration tests; they carry no DP or non-reconstruction claim.",
     "orphan_remove_candidate": "Registered but has no resolved client expression. Removal would still require a compatibility decision.",
@@ -27,8 +27,11 @@
       "dsvertColNamesDS",
       "dsvertIdentityPkDS",
       "dsvertJointDPCapsuleStatusDS",
-      "dsvertPublicFixedCohortCountDS",
       "dsvertDPCountCompileDS",
+      "dsvertDPCountAuthorizeDS",
+      "dsvertDPCountStartDS",
+      "dsvertDPCountFinalShareDS",
+      "dsvertDPCountReleaseDS",
       "dsvertSecurityProfileDS",
       "dsvertTransportProbeDS",
       "dsvertNumericPolicyDS",
@@ -218,7 +221,7 @@
   },
   "registered_argument_constructor_aliases": [],
   "client_ast_resolution": {
-    "direct_literal_call": "150 distinct endpoints constructed with call(name = <one string>)",
+    "direct_literal_call": "154 distinct endpoints constructed with call(name = <one string>)",
     "as_call_as_name": [
       "dsvertDPAlignmentMaskStartDS",
       "dsvertDPAlignmentMaskStoreDS",
@@ -240,9 +243,7 @@
     "unregistered_client_endpoints": "retired_registered_surface.* (94 distinct endpoint constructions)",
     "reachable_unregistered_endpoints": [],
     "unreachable_quarantined_or_test_only_endpoints": "retired_registered_surface.*",
-    "registered_without_product_call_builder": [
-      "dsvertDPCountCompileDS"
-    ],
+    "registered_without_product_call_builder": [],
     "diagnostic_only_endpoints": {
       "mpcTypedSourceProbeDS": "unregistered data-free typed source-stream validation in server/client transport tests; it is not a statistical producer"
     },

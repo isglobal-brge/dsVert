@@ -1,6 +1,6 @@
 # dsVert remote surface audit
 
-Audit date: 2026-08-09. The machine-readable source of truth is
+Audit date: 2026-08-11. The machine-readable source of truth is
 [`remote_surface_classification.json`](remote_surface_classification.json).
 
 ## Result
@@ -9,8 +9,8 @@ The current client/server registration contract is internally complete:
 
 | Check | Result |
 |---|---:|
-| Registered `*DS` endpoints | 65 |
-| Direct `call(name = "...")` endpoints | 150 |
+| Registered `*DS` endpoints | 68 |
+| Direct `call(name = "...")` endpoints | 154 |
 | `as.call()` / `as.name()` exact-GC endpoints | 7 |
 | Dynamically named endpoints behind one closed runtime allowlist | 1 |
 | Unregistered endpoint names retained below guarded/test-only client code | 94 |
@@ -23,12 +23,11 @@ This audit removed a further 94 endpoints from `AggregateMethods` and
 MPC, score, cluster-model and mutating-analysis primitives. Six obsolete
 per-query DP wrappers and their bare SQLite release engine are now hard-deleted;
 the remaining R closures stay internal solely for source compatibility and
-focused regression tests. None is exported or remotely invocable. All 65 endpoints that remain
-registered belong to the promoted purpose-bound allowlist. Sixty-four have a
-product call builder after resolving literal calls, seven `as.call()` / `as.name()`
-constructions and the closed dynamic branch; `dsvertDPCountCompileDS` is the
-server-side compiler milestone and is covered by focused server tests while its
-client orchestration lands separately. The dynamic branch still names
+focused regression tests. None is exported or remotely invocable. All 68
+endpoints that remain registered belong to the promoted purpose-bound
+allowlist and have a product call builder after resolving literal calls, seven
+`as.call()` / `as.name()` constructions and the closed dynamic branch. The
+dynamic branch still names
 `mpcStoreBlobDS`, but only below quarantined legacy frontdoors; it cannot be
 reached by an installed public route. Any other dynamic name fails before a
 DSI expression is constructed.
@@ -60,8 +59,19 @@ as the namespace prefix for promoted stores.
 diagnostic call builders, but both are now unregistered and unexported. They
 are test-plane tools, not statistical producers.
 
-The retired generic and scalar Count control planes have been superseded by the
-manifest-bound biomedical vector capsule. Five product-bound allocation
+The retired generic and scalar Count control planes have been superseded by a
+five-phase stateless Count route: signed compilation, two-authority public
+authorization, exact-GC Start, recipient-encrypted final-share transfer and one
+signed Release. Compilation binds the full K-peer pinset, padded-PSI snapshot,
+public bounds and mechanism; only the two identity-selected authorities enter
+exact GC. Sticky noise is derived from each authority's persistent identity
+seed and the semantic analysis contract. Session identifiers, attempts and
+signatures do not reroll the semantic release, and no Count lifetime ledger,
+request quota or durable cache exists. Fixed-cohort Count is represented by the
+signed zero-sensitivity Compile variant and does not enter exact GC.
+
+The biomedical vector capsule remains the route for its other promoted
+artifacts. Five product-bound allocation
 endpoints first derive, cross-sign, register and durably replay the immutable
 capsule authorization without accepting analyst-selected proposal fields. Its
 seven registered release endpoints then prepare and commit the fixed vector
@@ -129,25 +139,25 @@ and is rejected during service bootstrap and Opal allowlist reconciliation.
 
 | Class | Count | Meaning |
 |---|---:|---|
-| Production-safe / purpose-bound | 65 | Fixed status/schema, padded PSI, Count compilation, typed-store, transport, capsule manifest/source, cross-signed allocation, cross-owner checked-vector-multiplication and joint vector-release routes admitted by the default guard |
+| Production-safe / purpose-bound | 68 | Fixed status/schema, padded PSI, complete stateless Count execution, typed-store, transport, capsule manifest/source, cross-signed allocation, cross-owner checked-vector-multiplication and joint vector-release routes admitted by the default guard |
 | Retired diagnostic/migration internals | 4 | Generic typed read/source diagnostics plus generic exact-GC bind and GLM softplus helpers; unregistered, unexported and test-only or locally guarded |
 | Retired quarantined compatibility internals | 90 | Legacy exact/MPC endpoints below stable local frontdoor errors; unregistered, unexported and carrying no DP or non-reconstruction claim |
 | Registered orphan/dangerous candidates | 0 | Every registered endpoint is promoted and consumed |
 | Internal-unregistered total | 158 | The 94 above plus 64 previously retired compatibility/test closures |
 
 “Production-safe” is not an unconditional theorem. A DP claim still depends on
-the advertised adjacency and contribution bounds, immutable snapshot, sticky
-root secrecy, healthy global accountant/ledger, pinned-peer assumptions and the
-documented transcript boundary. `dsvertColNamesDS` returns only the
-custodian-approved policy schema and never resolves the protected object;
-`dsvertPublicFixedCohortCountDS` likewise returns only the published fixed
-cohort constant. `dsvertDPCountCompileDS(data_name)` resolves only an already
-attested padded-PSI object and returns the closed `{config, receipt}` envelope:
-privacy parameters, stable count bound, source semantics, complete pinset and
-runtime protocol digest are all server-authoritative, and the local receipt
-signs the canonical configuration hash. The remaining status endpoints must
-stay data-independent and may reveal operational policy progress but no
-protected statistic.
+the advertised adjacency and contribution bounds, immutable snapshot,
+pinned-peer assumptions and the documented transcript boundary. Capsule routes
+add their own sticky-root and accountant assumptions; Count does not use that
+lifetime state. `dsvertColNamesDS` returns only the custodian-approved policy
+schema and never resolves the protected object. `dsvertDPCountCompileDS` emits
+one of two closed signed variants: an add/remove analysis configuration and
+receipt for an already attested padded-PSI object, or a fixed-cohort
+zero-sensitivity public declaration. The four execution endpoints accept only
+the add/remove variant, keep seeds and intermediate shares private, and return
+one signed clamped Count.
+The remaining status endpoints must stay data-independent and may reveal
+operational policy progress but no protected statistic.
 
 ## Risks isolated below the public remote boundary
 
@@ -227,7 +237,7 @@ includes:
 - test-only data mutation helpers for injected NAs, synthetic survival,
   quartiles, factors and clusters.
 
-The executable tests assert this exact set, the exact 64-endpoint registration
+The executable tests assert this exact set, the exact 68-endpoint registration
 allowlist and all guarded public frontdoors. Merely leaving one of these
 functions defined in package source does not make it a DataSHIELD endpoint.
 The removed legacy PSI functions, `psiGetMatchedIndicesDS`,

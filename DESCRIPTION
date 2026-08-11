@@ -14,16 +14,16 @@ Description: Server-side DataSHIELD functions for privacy-aware analysis
     of vertically partitioned federated data. The audited remotely invocable
     surface is an exact allowlist containing only fixed-capacity pinned PSI,
     data-independent identity/schema/status replies, typed authenticated peer
-    transport, server-authoritative signed Count compilation and fixed-shape
-    biomedical DP capsule lifecycles. Historical
+    transport, server-authoritative stateless sticky Count execution and
+    fixed-shape biomedical DP capsule lifecycles. Historical
     GLM, Cox PH, negative-binomial, multinomial, ordinal, LMM, GEE, GLMM, IPW,
     multiple-imputation and iterative-LASSO kernels remain namespace-internal
     for migration regression tests, but are neither registered nor exported.
     The promoted add/remove mechanisms use two pinned peers, exact-GC joint
     discrete-Laplace draws, fixed public clamps, bilateral signatures and
-    durable byte-identical replay. Ring128 encrypted source transport prepares
-    bounded biomedical vectors, and no vector is released before its joint
-    sampler and finalizer are attested. MPC protects protocol intermediates;
+    deterministic byte-identical replay. Ring128 encrypted source transport
+    prepares bounded biomedical vectors, and no vector is released before its
+    joint sampler and finalizer are attested. MPC protects protocol intermediates;
     malicious-peer security and absolute non-reconstruction outside each
     documented mechanism and threat model are not claimed.
     Identity discovery can bootstrap without a logical site name, while every
@@ -64,8 +64,11 @@ AggregateMethods:
     dsvertColNamesDS,
     dsvertIdentityPkDS,
     dsvertJointDPCapsuleStatusDS,
-    dsvertPublicFixedCohortCountDS,
     dsvertDPCountCompileDS,
+    dsvertDPCountAuthorizeDS,
+    dsvertDPCountStartDS,
+    dsvertDPCountFinalShareDS,
+    dsvertDPCountReleaseDS,
     dsvertSecurityProfileDS,
     dsvertTransportProbeDS,
     dsvertNumericPolicyDS,

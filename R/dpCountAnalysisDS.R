@@ -25,6 +25,18 @@
   "dsVert/dp-count/receipt-set/v1|"
 .DSVERT_DP_COUNT_COMPILED_CONTRACT_DOMAIN <-
   "dsVert/dp-count/compiled-contract/v1|"
+.DSVERT_DP_COUNT_COMPILE_ENVELOPE_VERSION <-
+  "dsvert-dp-count-compile-envelope-v1"
+.DSVERT_DP_COUNT_COMPILE_MODE_ADD_REMOVE <- "add_remove_dp"
+.DSVERT_DP_COUNT_COMPILE_MODE_FIXED <- "fixed_cohort_public"
+.DSVERT_DP_COUNT_FIXED_DECLARATION_VERSION <-
+  "dsvert-fixed-cohort-count-declaration-v1"
+.DSVERT_DP_COUNT_FIXED_DECLARATION_DOMAIN <-
+  "dsVert/dp-count/fixed-cohort-declaration/v1|"
+.DSVERT_DP_COUNT_FIXED_RECEIPT_VERSION <-
+  "dsvert-fixed-cohort-count-receipt-v1"
+.DSVERT_DP_COUNT_FIXED_RECEIPT_SIGNATURE_DOMAIN <-
+  "dsVert/dp-count/fixed-cohort-receipt-signature/v1|"
 
 .dsvert_dp_count_hash_v1 <- function(domain, value) {
   digest::digest(
@@ -236,6 +248,31 @@
     value <- getOption(paste0("default.dsvert.dp.", name))
   }
   if (is.null(value)) default else value
+}
+
+.dsvert_dp_count_adjacency_v1 <- function() {
+  value <- .dsvert_dp_count_option_v1(
+    "adjacency", "add_remove_patient")
+  if (!is.character(value) || length(value) != 1L || is.na(value) ||
+      !value %in% c("add_remove_patient", "replace_one_fixed_cohort")) {
+    stop("Count adjacency must be add_remove_patient or ",
+         "replace_one_fixed_cohort.", call. = FALSE)
+  }
+  value
+}
+
+.dsvert_dp_count_fixed_capacity_v1 <- function() {
+  unit_capacity <- .dsvert_dp_count_positive_integer_v1(
+    .dsvert_dp_count_option_v1("unit_capacity"),
+    "unit capacity", 1000000)
+  fixed_cohort_size <- .dsvert_dp_count_positive_integer_v1(
+    .dsvert_dp_count_option_v1("fixed_cohort_size"),
+    "fixed cohort size", 1000000)
+  if (!identical(unit_capacity, fixed_cohort_size)) {
+    stop("Count fixed cohort size must equal its unit capacity.",
+         call. = FALSE)
+  }
+  fixed_cohort_size
 }
 
 .dsvert_dp_count_source_descriptor_v1 <- function(value) {
@@ -687,21 +724,169 @@
   .dsvert_dp_canonical_query_value(c(draft, list(signature = signature)))
 }
 
+.dsvert_dp_count_compile_envelope_v1 <- function(mode, payload) {
+  valid_payload <- if (identical(
+      mode, .DSVERT_DP_COUNT_COMPILE_MODE_ADD_REMOVE)) {
+    is.list(payload) && !is.null(names(payload)) &&
+      identical(sort(names(payload), method = "radix"),
+                c("config", "receipt"))
+  } else if (identical(mode, .DSVERT_DP_COUNT_COMPILE_MODE_FIXED)) {
+    is.list(payload) && !is.null(names(payload)) &&
+      identical(sort(names(payload), method = "radix"),
+                c("declaration", "receipt"))
+  } else {
+    FALSE
+  }
+  if (!isTRUE(valid_payload) || anyNA(names(payload)) ||
+      anyDuplicated(names(payload))) {
+    stop("Invalid Count compile envelope.", call. = FALSE)
+  }
+  list(
+    mode = mode,
+    payload = payload[order(names(payload), method = "radix")],
+    version = .DSVERT_DP_COUNT_COMPILE_ENVELOPE_VERSION)
+}
+
+.dsvert_dp_count_fixed_receipt_message_v1 <- function(value) {
+  fields <- c(
+    "version", "peer_name", "peer_identity_pk", "declaration_sha256",
+    "psi_run_sha256")
+  if (!is.list(value) || is.null(names(value)) || anyNA(names(value)) ||
+      anyDuplicated(names(value)) || !setequal(names(value), fields) ||
+      !identical(value$version,
+                 .DSVERT_DP_COUNT_FIXED_RECEIPT_VERSION)) {
+    stop("Invalid fixed-cohort Count receipt.", call. = FALSE)
+  }
+  value$peer_name <- .dsvert_dp_count_peer_name_v1(value$peer_name)
+  value$peer_identity_pk <- tryCatch(
+    .dsvert_relay_normalize_identity_pk(value$peer_identity_pk),
+    error = function(error) stop(
+      "Invalid fixed-cohort Count receipt identity.", call. = FALSE))
+  value$declaration_sha256 <- .dsvert_dp_count_hash_scalar_v1(
+    value$declaration_sha256, "fixed declaration hash")
+  value$psi_run_sha256 <- .dsvert_dp_count_hash_scalar_v1(
+    value$psi_run_sha256, "fixed PSI-run hash")
+  value <- .dsvert_dp_canonical_query_value(value)
+  charToRaw(paste0(
+    .DSVERT_DP_COUNT_FIXED_RECEIPT_SIGNATURE_DOMAIN,
+    .dsvert_dp_canonical_json(value)))
+}
+
+.dsvert_dp_count_fixed_compile_v1 <- function(
+    data, alignment, attestation, peer_name, identity, fixed_cohort_size) {
+  peer_name <- .dsvert_dp_count_peer_name_v1(peer_name)
+  identity_pk <- tryCatch(
+    .dsvert_relay_normalize_identity_pk(identity$identity_pk),
+    error = function(error) stop(
+      "Invalid fixed-cohort Count local identity.", call. = FALSE))
+  source <- .dsvert_dp_count_authorized_source_v1(attestation)
+  pins <- .dsvert_dp_count_peer_pins_v1(peer_name, identity_pk)
+  if (length(pins) < 2L || length(pins) > 4096L ||
+      anyDuplicated(unname(pins))) {
+    stop("Invalid fixed-cohort Count peer pins.", call. = FALSE)
+  }
+  fixed_cohort_size <- .dsvert_dp_count_positive_integer_v1(
+    fixed_cohort_size,
+    "fixed cohort size", 1000000)
+  alignment_fields <- c("version", "hash", "n", "id_col")
+  expected_pinset <- .psi_padded_pinset_id(as.list(pins))
+  capacity <- .psi_padded_validate_capacity(attestation$capacity_bucket)
+  valid_alignment <- is.list(alignment) &&
+    !is.null(names(alignment)) &&
+    setequal(names(alignment), alignment_fields) &&
+    identical(alignment$version, .PSI_ALIGNMENT_VERSION) &&
+    identical(alignment$id_col, source$id_column) &&
+    identical(as.numeric(alignment$n), as.numeric(nrow(data))) &&
+    is.character(alignment$hash) && length(alignment$hash) == 1L &&
+    !is.na(alignment$hash) && grepl("^[0-9a-f]{64}$", alignment$hash)
+  valid_attestation <-
+    identical(attestation$alignment_purpose, source$alignment_purpose) &&
+    identical(attestation$dataset_id, source$dataset_id) &&
+    identical(attestation$dataset_version, source$dataset_version) &&
+    identical(attestation$id_column, source$id_column) &&
+    identical(attestation$source_binding_id, source$source_binding_id) &&
+    identical(attestation$pinset_id, expected_pinset) &&
+    identical(as.numeric(attestation$peer_count),
+              as.numeric(length(pins))) &&
+    attestation$reference_peer %in% names(pins) &&
+    all(attestation$compute_peers %in% names(pins)) &&
+    nrow(data) <= capacity
+  if (!isTRUE(valid_alignment) || !isTRUE(valid_attestation)) {
+    stop("The fixed-cohort Count PSI attestation does not match its ",
+         "configured federation.", call. = FALSE)
+  }
+  identifiers <- .dsvert_canonical_label_values(
+    .subset2(data, source$id_column),
+    "fixed-cohort Count privacy-unit identifiers",
+    allow_na = FALSE, allow_blank = FALSE)
+  if (anyNA(identifiers) || any(!nzchar(identifiers)) ||
+      anyDuplicated(identifiers)) {
+    stop("Count requires one aligned record per privacy unit.",
+         call. = FALSE)
+  }
+  if (!identical(as.numeric(nrow(data)), fixed_cohort_size)) {
+    stop("The aligned Count does not equal the configured fixed cohort ",
+         "size.", call. = FALSE)
+  }
+  domain <- .dsvert_dp_count_option_v1("domain", "")
+  cohort_id <- .dsvert_dp_count_option_v1("cohort_id", "")
+  .dsvert_dp_analysis_scalar_id(domain, "fixed-cohort Count domain")
+  .dsvert_dp_analysis_scalar_id(cohort_id, "fixed-cohort Count cohort ID")
+  declaration <- .dsvert_dp_canonical_query_value(list(
+    version = .DSVERT_DP_COUNT_FIXED_DECLARATION_VERSION,
+    domain = domain,
+    cohort_id = cohort_id,
+    dataset_id = source$dataset_id,
+    dataset_version = source$dataset_version,
+    privacy_unit_column = source$id_column,
+    alignment_purpose = source$alignment_purpose,
+    adjacency = "replace_one_fixed_cohort",
+    fixed_cohort_size = fixed_cohort_size,
+    peer_pins = as.list(pins)))
+  unsigned <- .dsvert_dp_canonical_query_value(list(
+    version = .DSVERT_DP_COUNT_FIXED_RECEIPT_VERSION,
+    peer_name = peer_name,
+    peer_identity_pk = identity_pk,
+    declaration_sha256 = .dsvert_dp_count_hash_v1(
+      .DSVERT_DP_COUNT_FIXED_DECLARATION_DOMAIN, declaration),
+    psi_run_sha256 = .dsvert_dp_count_hash_v1(
+      .DSVERT_DP_COUNT_PSI_RUN_DOMAIN,
+      list(alignment = alignment, attestation = attestation))))
+  signature <- .dsvert_relay_sign_message(
+    .dsvert_dp_count_fixed_receipt_message_v1(unsigned),
+    identity$identity_sk)
+  .dsvert_dp_count_signature_v1(signature)
+  list(
+    declaration = declaration,
+    receipt = .dsvert_dp_canonical_query_value(c(
+      unsigned, list(signature = signature))))
+}
+
 #' Compile a local signed Count analysis receipt
 #'
 #' The protected object name is used only to resolve an already padded-PSI
-#' aligned data frame. Dataset semantics, privacy parameters, bounds, pinned
-#' peers and runtime protocol identity all come from custodian-owned server
-#' configuration. The returned canonical configuration is closed by the
-#' signed receipt's `config_sha256` field.
+#' aligned data frame. Under add/remove adjacency, dataset semantics, privacy
+#' parameters, bounds, pinned peers and runtime protocol identity all come
+#' from custodian-owned server configuration. Under fixed-cohort adjacency,
+#' the server signs the exact public cohort declaration only after validating
+#' the current aligned cohort against it.
 #'
 #' @param data_name Name of an already padded-PSI aligned data frame in the
 #'   server evaluation environment.
-#' @return A list containing the canonical server configuration and this
-#'   peer's signed receipt.
+#' @return A closed compile envelope containing either an add/remove analysis
+#'   payload or a signed fixed-cohort public declaration.
 #' @export
 dsvertDPCountCompileDS <- function(data_name) {
   data_name <- .psi_padded_data_name(data_name)
+  adjacency <- .dsvert_dp_count_adjacency_v1()
+  fixed_cohort_size <- NULL
+  if (identical(adjacency, "replace_one_fixed_cohort")) {
+    fixed_cohort_size <- .dsvert_dp_count_fixed_capacity_v1()
+  } else if (!is.null(
+      .dsvert_dp_count_option_v1("fixed_cohort_size"))) {
+    stop("Count fixed cohort size must be absent under add/remove ",
+         "adjacency.", call. = FALSE)
+  }
   data <- get(data_name, envir = parent.frame(), inherits = TRUE)
   if (!is.data.frame(data)) {
     stop("The Count source must be a padded-PSI aligned data frame.",
@@ -710,6 +895,13 @@ dsvertDPCountCompileDS <- function(data_name) {
   attestation <- .psi_padded_validate_persistent_attestation(data)
   identity <- .get_identity_keypair()
   peer_name <- .dsvert_require_configured_local_peer_name()
+  if (identical(adjacency, "replace_one_fixed_cohort")) {
+    alignment <- .psi_validate_alignment_manifest(data)
+    payload <- .dsvert_dp_count_fixed_compile_v1(
+      data, alignment, attestation, peer_name, identity, fixed_cohort_size)
+    return(.dsvert_dp_count_compile_envelope_v1(
+      .DSVERT_DP_COUNT_COMPILE_MODE_FIXED, payload))
+  }
   config <- .dsvert_dp_count_server_config_v1(
     attestation, peer_name, identity$identity_pk)
   draft <- .dsvert_dp_count_local_draft_v1(data, config, peer_name)
@@ -727,7 +919,9 @@ dsvertDPCountCompileDS <- function(data_name) {
     .dsvert_relay_sign_message(message, identity$identity_sk)
   }
   receipt <- .dsvert_dp_count_sign_receipt_v1(draft, signer)
-  list(config = config, receipt = receipt)
+  .dsvert_dp_count_compile_envelope_v1(
+    .DSVERT_DP_COUNT_COMPILE_MODE_ADD_REMOVE,
+    list(config = config, receipt = receipt))
 }
 
 .dsvert_dp_count_receipt_verify_v1 <- function(

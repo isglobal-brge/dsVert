@@ -34,7 +34,8 @@ test_that("typed blob migration inventory is machine-readable and complete", {
     "gradient.peer_r1", "beaver.vector_share", "beaver.vecmul_masked",
     "iknp.base_points", "iknp.base_ciphertexts", "iknp.u_matrix",
     "iknp.ciphertexts",
-    "glm.weight_share", "glm.sqrt_weight_share"
+    "glm.weight_share", "glm.sqrt_weight_share",
+    "analysis_dp.count_final_share"
   ) %in% ids))
   first_wave <- inventory$records[ids %in% c(
     "input.peer_x", "input.peer_y", "input.extra_x",

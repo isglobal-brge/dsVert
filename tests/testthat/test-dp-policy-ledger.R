@@ -981,35 +981,6 @@ test_that("the runtime accounts for approximate-Gaussian TV error", {
 })
 
 
-test_that("fixed-cohort public constant never waits for a private allocator", {
-  root <- tempfile("dp-fixed-count-pending-allocator-")
-  dir.create(root, mode = "0700")
-  Sys.chmod(root, mode = "0700")
-  on.exit(unlink(root, recursive = TRUE, force = TRUE), add = TRUE)
-  ledger <- file.path(root, "ledger.sqlite")
-  protected <- .dp_test_align(data.frame(
-    patient_id = c("p1", "p2"), stringsAsFactors = FALSE))
-  .dp_test_strict_policy(
-    ledger, list(protected = protected), anchor_provider = NULL,
-    dsvert.dp.adjacency = "replace_one_fixed_cohort",
-    dsvert.dp.unit_capacity = 2L,
-    dsvert.dp.fixed_cohort_size = 2L,
-    dsvert.dp.max_records_per_unit = 1L)
-
-  release <- dsvertPublicFixedCohortCountDS("protected")
-  replay <- dsvertPublicFixedCohortCountDS("protected")
-
-  expect_identical(release, replay)
-  expect_identical(release$value, 2)
-  expect_identical(release$mechanism, "public_fixed_cohort_size_v1")
-  expect_identical(release$sensitivity, 0)
-  expect_identical(release$epsilon, 0)
-  expect_identical(release$delta, 0)
-  expect_identical(release$peer_count, 2L)
-  expect_false(file.exists(ledger))
-})
-
-
 test_that("fixed-domain tables bound each patient to one contribution", {
   ledger <- file.path(tempdir(), paste0("dp-table-", Sys.getpid(), ".sqlite"))
   unlink(c(ledger, paste0(ledger, "-wal"), paste0(ledger, "-shm"),

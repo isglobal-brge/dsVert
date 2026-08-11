@@ -1,10 +1,21 @@
 {
   "schema_version": "dsvert-typed-blob-inventory-v1",
-  "generated_at": "2026-07-31",
+  "generated_at": "2026-08-11",
   "legacy_endpoint": "mpcStoreBlobDS",
   "typed_endpoint": "mpcTypedBlobStoreDS",
   "receipt_endpoint": "mpcTypedBlobReceiptDS",
   "records": [
+    {
+      "id": "analysis_dp.count_final_share",
+      "families": ["dp-count"],
+      "callers": ["ds.vertDPCount"],
+      "slot": "analysis_dp_count_final_<24-hex canonical-context digest>",
+      "producer": "dsvertDPCountFinalShareDS.ciphertext",
+      "recipient": "dsvertDPCountReleaseDS",
+      "shape": "recipient-sealed post-clamp Ring127 scalar share and one validity bit",
+      "confidentiality": "recipient-sealed",
+      "migration": "migrated-typed-v1"
+    },
     {
       "id": "input.peer_x",
       "families": ["cor", "cox", "glm", "multinomial", "negative-binomial", "ordinal"],

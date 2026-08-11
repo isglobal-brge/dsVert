@@ -233,6 +233,46 @@
     .package = "dsVert")
 }
 
+.count_fixed_compile_endpoint <- function(
+    data, config, peer_name, fixed_cohort_size = nrow(data),
+    data_name = "D", signer_state = NULL, server_options = NULL) {
+  if (is.null(server_options)) {
+    server_options <- .count_compile_server_options(config, peer_name)
+    server_options$dsvert.dp.adjacency <- "replace_one_fixed_cohort"
+    server_options$dsvert.dp.unit_capacity <- fixed_cohort_size
+    server_options$dsvert.dp.fixed_cohort_size <- fixed_cohort_size
+  }
+  assign(data_name, data, envir = environment())
+  withr::local_options(server_options)
+  identity <- list(
+    identity_pk = unname(config$peer_pins[[peer_name]]),
+    identity_sk = paste0("test-secret-", peer_name))
+  testthat::with_mocked_bindings(
+    dsvertDPCountCompileDS(data_name),
+    .get_identity_keypair = function() identity,
+    .dsvert_relay_sign_message = function(message, identity_sk) {
+      expect_identical(identity_sk, identity$identity_sk)
+      if (!is.null(signer_state)) signer_state$calls <- signer_state$calls + 1L
+      .count_analysis_signature(message, identity_sk)
+    },
+    .get_identity_seed = function() stop("identity seed must not be read"),
+    .dsvert_mpc_require_capabilities = function(...) {
+      stop("MPC capabilities must not be read")
+    },
+    .dsvert_joint_dp_laplace_plan_v2 = function(...) {
+      stop("planner must not be called")
+    },
+    .dsvert_dp_policy = function(...) stop("policy must not be called"),
+    .dsvert_dp_alignment_registry_commit = function(...) {
+      stop("registry commit must not be called")
+    },
+    .dsvert_dp_alignment_registry_resolve_templates = function(...) {
+      stop("registry resolve must not be called")
+    },
+    .dsvert_dp_noise_root = function(...) stop("noise root must not be called"),
+    .package = "dsVert")
+}
+
 test_that("Count config is closed and stateless", {
   config <- .count_analysis_config(3L)
   validated <- .dsvert_dp_count_config_validate_v1(config)
@@ -646,36 +686,190 @@ test_that("server-authoritative Count compile envelopes agree for K=2,3,5", {
         signer_state = signer_states[[index]])
     })
 
+    expect_true(all(vapply(envelopes, function(value) {
+      identical(names(value), c("mode", "payload", "version")) &&
+        identical(value$version, "dsvert-dp-count-compile-envelope-v1") &&
+        identical(value$mode, "add_remove_dp") &&
+        identical(names(value$payload), c("config", "receipt"))
+    }, logical(1L))))
     expect_true(all(vapply(
-      envelopes, function(value) identical(names(value), c("config", "receipt")),
-      logical(1L))))
-    expect_true(all(vapply(
-      envelopes[-1L], function(value) identical(value$config,
-                                                 envelopes[[1L]]$config),
+      envelopes[-1L], function(value) identical(value$payload$config,
+                                                 envelopes[[1L]]$payload$config),
       logical(1L))))
     expect_true(all(vapply(signer_states, function(state) {
       identical(state$calls, 1L)
     }, logical(1L))))
-    expected_hash <- .dsvert_dp_count_config_hash_v1(envelopes[[1L]]$config)
+    expected_hash <- .dsvert_dp_count_config_hash_v1(
+      envelopes[[1L]]$payload$config)
     expect_true(all(vapply(envelopes, function(value) {
-      identical(value$receipt$config_sha256, expected_hash)
+      identical(value$payload$receipt$config_sha256, expected_hash)
     }, logical(1L))))
 
-    receipts <- lapply(envelopes, `[[`, "receipt")
+    receipts <- lapply(envelopes, function(value) value$payload$receipt)
     contract <- .dsvert_dp_count_compile_v1(
-      receipts, envelopes[[1L]]$config,
+      receipts, envelopes[[1L]]$payload$config,
       .verifier = function(...) TRUE)
     expect_identical(contract$semantic$public_shape, list(count = 1))
     expect_length(contract$semantic$owner_snapshots, k)
 
-    tampered <- envelopes[[1L]]$config
+    tampered <- envelopes[[1L]]$payload$config
     tampered$privacy$epsilon <- tampered$privacy$epsilon + 1
     expect_error(
       .dsvert_dp_count_receipt_verify_v1(
-        envelopes[[1L]]$receipt, tampered,
+        envelopes[[1L]]$payload$receipt, tampered,
         .verifier = function(...) TRUE),
       "different configuration")
   }
+})
+
+test_that("fixed-cohort Count Compile is exact, signed and K-generic", {
+  for (k in c(2L, 3L, 5L)) {
+    config <- .count_analysis_config(k, count_upper_bound = 3L)
+    data <- .count_analysis_aligned(c("p1", "p2", "p3"), config)
+    signer_states <- lapply(seq_len(k), function(index) {
+      state <- new.env(parent = emptyenv())
+      state$calls <- 0L
+      state
+    })
+    envelopes <- lapply(seq_len(k), function(index) {
+      .count_fixed_compile_endpoint(
+        data, config, names(config$peer_pins)[[index]],
+        data_name = paste0("fixed_alias_", index),
+        signer_state = signer_states[[index]])
+    })
+
+    expect_true(all(vapply(envelopes, function(value) {
+      identical(names(value), c("mode", "payload", "version")) &&
+        identical(value$version, "dsvert-dp-count-compile-envelope-v1") &&
+        identical(value$mode, "fixed_cohort_public") &&
+        identical(names(value$payload), c("declaration", "receipt"))
+    }, logical(1L))))
+    declaration <- envelopes[[1L]]$payload$declaration
+    expect_identical(names(declaration), c(
+      "adjacency", "alignment_purpose", "cohort_id", "dataset_id",
+      "dataset_version", "domain", "fixed_cohort_size", "peer_pins",
+      "privacy_unit_column", "version"))
+    expect_identical(
+      declaration$version, "dsvert-fixed-cohort-count-declaration-v1")
+    expect_identical(declaration$adjacency, "replace_one_fixed_cohort")
+    expect_identical(declaration$fixed_cohort_size, 3)
+    expect_identical(declaration$peer_pins, as.list(config$peer_pins))
+    expect_true(all(vapply(envelopes[-1L], function(value) {
+      identical(value$payload$declaration, declaration)
+    }, logical(1L))))
+    expect_true(all(vapply(signer_states, function(state) {
+      identical(state$calls, 1L)
+    }, logical(1L))))
+
+    expected_declaration_sha256 <- .dsvert_dp_count_hash_v1(
+      "dsVert/dp-count/fixed-cohort-declaration/v1|", declaration)
+    receipts <- lapply(envelopes, function(value) value$payload$receipt)
+    expect_true(all(vapply(receipts, function(receipt) {
+      identical(names(receipt), c(
+        "declaration_sha256", "peer_identity_pk", "peer_name",
+        "psi_run_sha256", "signature", "version")) &&
+        identical(receipt$version,
+                  "dsvert-fixed-cohort-count-receipt-v1") &&
+        identical(receipt$declaration_sha256,
+                  expected_declaration_sha256)
+    }, logical(1L))))
+    expect_setequal(
+      vapply(receipts, `[[`, character(1L), "peer_name"),
+      names(config$peer_pins))
+    expect_length(unique(vapply(
+      receipts, `[[`, character(1L), "psi_run_sha256")), 1L)
+    for (index in seq_len(k)) {
+      receipt <- receipts[[index]]
+      unsigned <- receipt[setdiff(names(receipt), "signature")]
+      expect_true(.count_analysis_verifier(
+        .dsvert_dp_count_fixed_receipt_message_v1(unsigned),
+        paste0("test-secret-", receipt$peer_name), receipt$signature,
+        receipt$peer_name))
+    }
+
+    tampered <- receipts[[1L]]
+    tampered$psi_run_sha256 <- strrep("f", 64L)
+    expect_false(.count_analysis_verifier(
+      .dsvert_dp_count_fixed_receipt_message_v1(
+        tampered[setdiff(names(tampered), "signature")]),
+      paste0("test-secret-", tampered$peer_name), tampered$signature,
+      tampered$peer_name))
+  }
+})
+
+test_that("fixed-cohort Compile rejects invalid contracts without DP state", {
+  config <- .count_analysis_config(3L, count_upper_bound = 3L)
+  data <- .count_analysis_aligned(c("p1", "p2", "p3"), config)
+  peer <- names(config$peer_pins)[[1L]]
+
+  expect_error(.count_fixed_compile_endpoint(
+    data[-1L, , drop = FALSE], config, peer, fixed_cohort_size = 3L),
+    "alignment manifest row count|fixed cohort size")
+
+  tampered_alignment <- data
+  manifest <- attr(
+    tampered_alignment, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE)
+  manifest$hash <- strrep("f", 64L)
+  attr(tampered_alignment, .PSI_ALIGNMENT_ATTRIBUTE) <- manifest
+  expect_error(.count_fixed_compile_endpoint(
+    tampered_alignment, config, peer),
+    "alignment manifest authentication")
+
+  options <- .count_compile_server_options(config, peer)
+  options$dsvert.dp.adjacency <- "replace_one_fixed_cohort"
+  options$dsvert.dp.unit_capacity <- 3L
+  options$dsvert.dp.fixed_cohort_size <- 2L
+  expect_error(.count_fixed_compile_endpoint(
+    data, config, peer, server_options = options),
+    "fixed cohort size must equal")
+
+  options$dsvert.dp.adjacency <- "unsupported"
+  expect_error(.count_fixed_compile_endpoint(
+    data, config, peer, server_options = options), "adjacency")
+
+  incomplete_pins <- .count_compile_server_options(config, peer)
+  incomplete_pins$dsvert.dp.adjacency <- "replace_one_fixed_cohort"
+  incomplete_pins$dsvert.dp.unit_capacity <- 3L
+  incomplete_pins$dsvert.dp.fixed_cohort_size <- 3L
+  incomplete_pins$dsvert.trusted_peers <-
+    incomplete_pins$dsvert.trusted_peers[-1L]
+  expect_error(.count_fixed_compile_endpoint(
+    data, config, peer, server_options = incomplete_pins),
+    "configured federation")
+
+  add <- .count_compile_endpoint(data, config, peer)
+  fixed <- .count_fixed_compile_endpoint(data, config, peer)
+  expect_identical(add$mode, "add_remove_dp")
+  expect_identical(fixed$mode, "fixed_cohort_public")
+  expect_false(identical(add$mode, fixed$mode))
+  expect_error(.dsvert_dp_count_compile_envelope_v1(
+    "fixed_cohort_public", add$payload), "compile envelope")
+})
+
+test_that("Count Compile rejects invalid direct mode before source access", {
+  makeActiveBinding("D", function(value) {
+    stop("protected source must not be accessed", call. = FALSE)
+  }, environment())
+  on.exit(rm("D", envir = environment()), add = TRUE)
+  testthat::local_mocked_bindings(
+    .get_identity_keypair = function() {
+      stop("identity must not be accessed", call. = FALSE)
+    },
+    .package = "dsVert")
+
+  withr::local_options(list(dsvert.dp.adjacency = "unsupported"))
+  expect_error(dsvertDPCountCompileDS("D"), "adjacency")
+
+  withr::local_options(list(
+    dsvert.dp.adjacency = "replace_one_fixed_cohort",
+    dsvert.dp.unit_capacity = 3L,
+    dsvert.dp.fixed_cohort_size = 2L))
+  expect_error(dsvertDPCountCompileDS("D"), "fixed cohort size must equal")
+
+  withr::local_options(list(
+    dsvert.dp.adjacency = "add_remove_patient",
+    dsvert.dp.fixed_cohort_size = 3L))
+  expect_error(dsvertDPCountCompileDS("D"), "must be absent")
 })
 
 test_that("Count server config uses only direct per-analysis options", {
@@ -810,5 +1004,19 @@ test_that("Count compile endpoint has no policy, database or registry path", {
     ".dsvert_dp_alignment_registry_", ".dsvert_dp_noise_root")
   for (token in forbidden) {
     expect_false(grepl(token, source, fixed = TRUE), info = token)
+  }
+
+  fixed_source <- paste(
+    deparse(body(.dsvert_dp_count_fixed_capacity_v1)),
+    deparse(body(.dsvert_dp_count_fixed_compile_v1)),
+    deparse(body(.dsvert_dp_count_fixed_receipt_message_v1)),
+    collapse = "\n")
+  fixed_forbidden <- c(
+    ".dsvert_dp_policy", "DBI::", "RSQLite::", "ledger", "budget",
+    ".dsvert_dp_alignment_registry_", ".dsvert_dp_noise_root",
+    ".get_identity_seed", ".dsvert_mpc_require_capabilities",
+    ".dsvert_joint_dp_laplace_plan_v2")
+  for (token in fixed_forbidden) {
+    expect_false(grepl(token, fixed_source, fixed = TRUE), info = token)
   }
 })

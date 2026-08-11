@@ -121,6 +121,527 @@
   fixture
 }
 
+.analysis_frequency_contract_fixture <- function(
+    k = 2L, profile = c("convolution", "gaussian"),
+    levels = c("control", "caf\u00e9", "case"),
+    chunk_coordinates = min(8192L, length(levels))) {
+  profile <- match.arg(profile)
+  fixture <- .analysis_contract_fixture(k)
+  owner_ids <- sort(names(fixture$semantic$owner_snapshots), method = "radix")
+  source_owner <- owner_ids[[min(2L, length(owner_ids))]]
+  secondary <- sort(setdiff(owner_ids, source_owner), method = "radix")[[1L]]
+  dimension <- length(levels)
+  convolution <- identical(profile, "convolution")
+  primitive <- if (convolution) {
+    "independent_full_global_draw_convolution_ring128_v3"
+  } else {
+    paste0("independent_full_global_dyadic_discrete_gaussian_",
+           "tv_bounded_ring128_v2")
+  }
+  registry <- .dsvert_dp_analysis_frequency_profile_v1(primitive)
+  plan_version <- registry$plan
+  sampler <- registry$sampler
+  mechanism_version <- if (convolution) {
+    "two-independent-complete-vector-discrete-laplace-draws-v3"
+  } else {
+    paste0("two-independent-complete-vector-dyadic-discrete-gaussian-",
+           "tv-bounded-draws-v2")
+  }
+  full_plan_sha256 <- strrep(if (convolution) "4" else "5", 64L)
+  planner_request <- .dsvert_dp_analysis_frequency_planner_request_v1(
+    registry, list(epsilon = 1), list(implementation_delta = 0.001),
+    list(value = 1), dimension)
+  planner_request_sha256 <- .dsvert_dp_analysis_frequency_hash_v1(
+    registry$request_domain, planner_request)
+  allocated <- .dsvert_dp_analysis_frequency_decimal_fraction_v1(
+    planner_request$delta)
+  allocated_delta <- list(
+    numerator = as.character(allocated$numerator),
+    denominator = as.character(allocated$denominator))
+  no_wrap_sha256 <- .dsvert_dp_analysis_frequency_hash_v1(
+    "dsVert/frequency/ring128-no-wrap/v1|", list(
+      version = "dsvert-frequency-ring128-no-wrap-v1",
+      coordinate_upper_bound = "1000",
+      maximum_noise_per_peer = "100",
+      maximum_noise_release = "200"))
+  fixture$semantic$version <-
+    "dsvert-analysis-semantic-fixed-categorical-vector-v1"
+  fixture$semantic$noise_authorities <- NULL
+  fixture$semantic$noise_authority_roles <- list(
+    version = "dsvert-frequency-noise-authority-roles-v1",
+    role_order = list("source_owner", "secondary_noise_authority"),
+    authority_ids = list(source_owner, secondary))
+  fixture$semantic$analysis <- list(
+    primitive = primitive,
+    formula = NULL,
+    effective_arguments = list(
+      version = "dsvert-fixed-domain-categorical-frequency-v1",
+      statistic = "aligned_fixed_domain_categorical_frequency",
+      source_owner = source_owner,
+      dataset_id = "cohort_table",
+      dataset_version = "v1",
+      variable_id = "status",
+      levels = as.list(levels),
+      dimension = dimension,
+      repeated_record_policy = "consistent_level_else_exclude_v1",
+      missingness_policy = "missing_or_out_of_domain_rows_are_ignored",
+      coordinate_bounds = list(lower = 0, upper = 1000),
+      sampler_plan = list(
+        version = "dsvert-frequency-plan-summary-v1",
+        physical_plan_version = plan_version,
+        full_plan_sha256 = full_plan_sha256,
+        planner_request_sha256 = planner_request_sha256,
+        coordinate_order_sha256 =
+          .dsvert_dp_analysis_frequency_coordinate_order_sha256_v1(
+            as.list(levels)),
+        d = dimension,
+        chunk_coordinates = chunk_coordinates,
+        implementation_delta = list(
+          numerator = "1", denominator = "1000000"),
+        allocated_delta = allocated_delta,
+        core_delta = list(
+          numerator = if (convolution) "0" else "1",
+          denominator = if (convolution) "1" else "2000"),
+        maximum_noise_per_peer = "100",
+        no_wrap_sha256 = no_wrap_sha256,
+        profile_sha256 = .dsvert_dp_analysis_frequency_hash_v1(
+          "dsVert/frequency/physical-profile/v1|", registry),
+        backend_selection = list(
+          version = "dsvert-frequency-backend-selection-v1",
+          policy_sha256 =
+            .dsvert_dp_analysis_frequency_policy_sha256_v1(registry)))))
+  fixture$semantic$privacy$adjacency <- "add_remove_patient"
+  fixture$semantic$privacy$mechanism <- list(
+    family = if (convolution) "discrete_laplace" else "gaussian",
+    version = mechanism_version,
+    sensitivity = list(
+      version = "dsvert-sensitivity-v1",
+      norm = if (convolution) "l1" else "l2",
+      value = 1),
+    calibration = list(
+      version = "dsvert-calibration-v1",
+      sampler = sampler,
+      implementation_delta = 0.001),
+    randomness = list(
+      version = "dsvert-randomness-plan-v1",
+      lanes = list(final_noise = list(
+        version = "dsvert-randomness-lane-v1",
+        purpose = "privatize_final_vector",
+        primitive = sampler,
+        coordinates = dimension))))
+  fixture$semantic$privacy$epsilon <- 1
+  fixture$semantic$privacy$delta <- 0.01
+  fixture$semantic$numeric <- list(
+    version = "dsvert-numeric-semantics-v1",
+    value_bits = 128,
+    fractional_bits = 0,
+    rounding = "toward_zero",
+    overflow = "reject",
+    output_encoding = "twos_complement_integer_v1")
+  fixture$semantic$public_shape <- list(counts = dimension)
+  fixture$execution$backend$kernel <- primitive
+  fixture$execution$backend$ring <- "ring128"
+  fixture$execution$transport$chunk_coordinates <- chunk_coordinates
+  fixture
+}
+
+test_that("Frequency contracts are fixed categorical vectors for K=2,3,5", {
+  contracts <- lapply(c(2L, 3L, 5L), function(k) {
+    fixture <- .analysis_frequency_contract_fixture(k)
+    .dsvert_dp_analysis_contract_v1(fixture$semantic, fixture$execution)
+  })
+  expect_true(all(vapply(contracts, function(contract) {
+    arguments <- contract$semantic$analysis$effective_arguments
+    identical(arguments$dimension, 3) &&
+      identical(arguments$source_owner,
+                contract$semantic$noise_authority_roles$authority_ids[[1L]]) &&
+      identical(contract$semantic$privacy$mechanism$randomness$lanes$
+                  final_noise$coordinates, 3)
+  }, logical(1L))))
+  expect_identical(
+    contracts[[2L]]$artifact_key,
+    "c3d3b47bbd9f8b9f9d4b0ebfd967332496df3c564ec618c54f3007d464e83e4c")
+
+  singleton <- .analysis_frequency_contract_fixture(
+    3L, levels = "only", chunk_coordinates = 1L)
+  singleton <- .dsvert_dp_analysis_contract_v1(
+    singleton$semantic, singleton$execution)
+  expect_identical(singleton$semantic$public_shape, list(counts = 1))
+  expect_identical(singleton$semantic$analysis$primitive,
+                   "independent_full_global_draw_convolution_ring128_v3")
+  expect_identical(
+    singleton$semantic$analysis$effective_arguments$sampler_plan$allocated_delta,
+    list(denominator = "1000", numerator = "1"))
+  gaussian_singleton <- .analysis_frequency_contract_fixture(
+    3L, "gaussian", levels = "only", chunk_coordinates = 1L)
+  expect_silent(.dsvert_dp_analysis_contract_v1(
+    gaussian_singleton$semantic, gaussian_singleton$execution))
+
+  convolution_profile <- .dsvert_dp_analysis_frequency_profile_v1(
+    singleton$semantic$analysis$primitive)
+  expect_identical(convolution_profile$chunk_partition_version,
+                   "contiguous_full_chunks_except_last_v1")
+  expect_identical(
+    .dsvert_dp_analysis_frequency_planner_request_v1(
+      convolution_profile, list(epsilon = 1),
+      list(implementation_delta = 0.001), list(value = 1), 1),
+    list(
+      epsilon = .dsvert_joint_dp_decimal(1, "Frequency epsilon"),
+      delta = .dsvert_joint_dp_decimal(0.001, "Frequency delta"),
+      sensitivity_steps = "1", total_coordinate_count = 1L))
+
+  gaussian_fixture <- .analysis_frequency_contract_fixture(5L, "gaussian")
+  gaussian <- .dsvert_dp_analysis_contract_v1(
+    gaussian_fixture$semantic, gaussian_fixture$execution)
+  expect_identical(
+    gaussian$semantic$privacy$mechanism$calibration$sampler,
+    paste0("cks-target-outward-rational-dyadic-cdf-hkdf-sha256-",
+           "chacha20-coordinate-domain-v2"))
+  expect_identical(
+    gaussian$semantic$analysis$effective_arguments$sampler_plan$allocated_delta,
+    list(denominator = "100000000000000000000",
+         numerator = "99999999999997161"))
+  expect_identical(
+    gaussian$artifact_key,
+    "2864afbf9954701c31b074352cc68159457d0ca5e47752712964ed03217bb17b")
+  expect_identical(
+    .dsvert_dp_analysis_frequency_planner_request_v1(
+      .dsvert_dp_analysis_frequency_profile_v1(
+        gaussian$semantic$analysis$primitive),
+      list(epsilon = 1), list(implementation_delta = 0.001),
+      list(value = 1), 3),
+    .dsvert_dp_capsule_exact_gaussian_request(1, 0.001, 1, 3))
+
+  original <- contracts[[2L]]
+  source <- original$semantic$analysis$effective_arguments$source_owner
+  expect_false(identical(
+    source, sort(names(original$semantic$owner_snapshots),
+                 method = "radix")[[1L]]))
+  expect_identical(original$semantic$noise_authority_roles$role_order,
+                   list("source_owner", "secondary_noise_authority"))
+
+  for (kind in c("convolution", "gaussian")) {
+    replace_one <- .analysis_frequency_contract_fixture(3L, kind)
+    replace_one$semantic$privacy$adjacency <- "replace_one_fixed_cohort"
+    sensitivity <- replace_one$semantic$privacy$mechanism$sensitivity
+    sensitivity$value <- if (identical(kind, "gaussian")) sqrt(2) else 2
+    replace_one$semantic$privacy$mechanism$sensitivity <- sensitivity
+    registry <- .dsvert_dp_analysis_frequency_profile_v1(
+      replace_one$semantic$analysis$primitive)
+    request <- .dsvert_dp_analysis_frequency_planner_request_v1(
+      registry, replace_one$semantic$privacy,
+      replace_one$semantic$privacy$mechanism$calibration, sensitivity, 3)
+    plan <- replace_one$semantic$analysis$effective_arguments$sampler_plan
+    plan$planner_request_sha256 <- .dsvert_dp_analysis_frequency_hash_v1(
+      registry$request_domain, request)
+    plan$full_plan_sha256 <- strrep("d", 64L)
+    replace_one$semantic$analysis$effective_arguments$sampler_plan <- plan
+    expect_silent(.dsvert_dp_analysis_contract_v1(
+      replace_one$semantic, replace_one$execution))
+  }
+
+  for (kind in c("convolution", "gaussian")) {
+    under <- .analysis_frequency_contract_fixture(3L, kind)
+    sensitivity <- under$semantic$privacy$mechanism$sensitivity
+    sensitivity$value <- 1 - 512 * .Machine$double.eps
+    under$semantic$privacy$mechanism$sensitivity <- sensitivity
+    registry <- .dsvert_dp_analysis_frequency_profile_v1(
+      under$semantic$analysis$primitive)
+    request <- .dsvert_dp_analysis_frequency_planner_request_v1(
+      registry, under$semantic$privacy,
+      under$semantic$privacy$mechanism$calibration, sensitivity, 3)
+    under$semantic$analysis$effective_arguments$sampler_plan$
+      planner_request_sha256 <- .dsvert_dp_analysis_frequency_hash_v1(
+        registry$request_domain, request)
+    expect_error(.dsvert_dp_analysis_contract_v1(
+      under$semantic, under$execution), "Frequency", info = kind)
+  }
+  expect_error(.dsvert_dp_sticky_subseed_v1(
+    contracts[[2L]], "final_noise"), "not promoted")
+})
+
+test_that("Frequency artifact identity is canonical and fully semantic", {
+  fixture <- .analysis_frequency_contract_fixture(3L)
+  original <- .dsvert_dp_analysis_contract_v1(
+    fixture$semantic, fixture$execution)
+
+  aliased <- fixture
+  source <- aliased$semantic$analysis$effective_arguments$source_owner
+  alias <- paste0(" \n", chartr("-_", "+/", source), "=\t")
+  source_index <- match(source, names(aliased$semantic$owner_snapshots))
+  names(aliased$semantic$owner_snapshots)[[source_index]] <- alias
+  aliased$semantic$analysis$effective_arguments$source_owner <- alias
+  aliased$semantic$noise_authority_roles$authority_ids[[1L]] <- alias
+  pin_index <- which(vapply(
+    aliased$execution$peer_pins, identical, logical(1L), source))
+  aliased$execution$peer_pins[[pin_index]] <- alias
+  aliased <- .dsvert_dp_analysis_contract_v1(
+    aliased$semantic, aliased$execution)
+  expect_identical(aliased$artifact_key, original$artifact_key)
+
+  operational <- fixture$execution
+  operational$backend$build_sha256 <- strrep("b", 64L)
+  names(operational$peer_pins) <- paste0(
+    "connection_", seq_along(operational$peer_pins))
+  changed_execution <- .dsvert_dp_analysis_contract_v1(
+    fixture$semantic, operational)
+  expect_identical(changed_execution$artifact_key, original$artifact_key)
+
+  rechunked <- .analysis_frequency_contract_fixture(
+    3L, chunk_coordinates = 1L)
+  expect_error(.dsvert_dp_analysis_contract_v1(
+    rechunked$semantic, rechunked$execution), "Frequency")
+  gaussian_rechunked <- .analysis_frequency_contract_fixture(
+    3L, "gaussian", chunk_coordinates = 2L)
+  expect_error(.dsvert_dp_analysis_contract_v1(
+    gaussian_rechunked$semantic, gaussian_rechunked$execution), "Frequency")
+
+  replanned <- fixture
+  replanned$semantic$analysis$effective_arguments$sampler_plan$
+    full_plan_sha256 <- strrep("e", 64L)
+  replanned <- .dsvert_dp_analysis_contract_v1(
+    replanned$semantic, replanned$execution)
+  expect_false(identical(replanned$artifact_key, original$artifact_key))
+
+  looser_total_delta <- fixture
+  looser_total_delta$semantic$privacy$delta <- 0.02
+  looser_total_delta <- .dsvert_dp_analysis_contract_v1(
+    looser_total_delta$semantic, looser_total_delta$execution)
+  expect_false(identical(
+    looser_total_delta$artifact_key, original$artifact_key))
+
+  nfc <- .analysis_frequency_contract_fixture(
+    3L, levels = c("\u00e9", "x"), chunk_coordinates = 2L)
+  nfd <- .analysis_frequency_contract_fixture(
+    3L, levels = c("e\u0301", "x"), chunk_coordinates = 2L)
+  nfc <- .dsvert_dp_analysis_contract_v1(nfc$semantic, nfc$execution)
+  nfd <- .dsvert_dp_analysis_contract_v1(nfd$semantic, nfd$execution)
+  expect_false(identical(nfc$artifact_key, nfd$artifact_key))
+
+  latin1_label <- iconv("caf\u00e9", from = "UTF-8", to = "latin1")
+  Encoding(latin1_label) <- "latin1"
+  non_utf8 <- .analysis_frequency_contract_fixture(
+    3L, levels = c(latin1_label, "x"), chunk_coordinates = 2L)
+  expect_error(.dsvert_dp_analysis_contract_v1(
+    non_utf8$semantic, non_utf8$execution), "Frequency")
+
+  large <- fixture
+  large$semantic$analysis$effective_arguments$sampler_plan$
+    implementation_delta <- list(
+      numerator = "9007199254740993",
+      denominator = "9007199254740993000000001")
+  expect_silent(.dsvert_dp_analysis_contract_v1(
+    large$semantic, large$execution))
+
+  boundary <- fixture
+  boundary_plan <- boundary$semantic$analysis$effective_arguments$sampler_plan
+  boundary_plan$maximum_noise_per_peer <-
+    "85070591730234615865843651857942052363"
+  boundary_plan$no_wrap_sha256 <- .dsvert_dp_analysis_frequency_hash_v1(
+    "dsVert/frequency/ring128-no-wrap/v1|", list(
+      version = "dsvert-frequency-ring128-no-wrap-v1",
+      coordinate_upper_bound = "1000",
+      maximum_noise_per_peer =
+        "85070591730234615865843651857942052363",
+      maximum_noise_release =
+        "170141183460469231731687303715884104726"))
+  boundary$semantic$analysis$effective_arguments$sampler_plan <- boundary_plan
+  expect_silent(.dsvert_dp_analysis_contract_v1(
+    boundary$semantic, boundary$execution))
+
+  million_bound <- fixture
+  million_plan <-
+    million_bound$semantic$analysis$effective_arguments$sampler_plan
+  million_bound$semantic$analysis$effective_arguments$coordinate_bounds$upper <-
+    1000000
+  million_plan$no_wrap_sha256 <- .dsvert_dp_analysis_frequency_hash_v1(
+    "dsVert/frequency/ring128-no-wrap/v1|", list(
+      version = "dsvert-frequency-ring128-no-wrap-v1",
+      coordinate_upper_bound = "1000000",
+      maximum_noise_per_peer = "100", maximum_noise_release = "200"))
+  million_bound$semantic$analysis$effective_arguments$sampler_plan <-
+    million_plan
+  expect_silent(.dsvert_dp_analysis_contract_v1(
+    million_bound$semantic, million_bound$execution))
+
+  overflow <- boundary
+  overflow_plan <- overflow$semantic$analysis$effective_arguments$sampler_plan
+  overflow_plan$maximum_noise_per_peer <-
+    "85070591730234615865843651857942052364"
+  overflow_plan$no_wrap_sha256 <- .dsvert_dp_analysis_frequency_hash_v1(
+    "dsVert/frequency/ring128-no-wrap/v1|", list(
+      version = "dsvert-frequency-ring128-no-wrap-v1",
+      coordinate_upper_bound = "1000",
+      maximum_noise_per_peer =
+        "85070591730234615865843651857942052364",
+      maximum_noise_release =
+        "170141183460469231731687303715884104728"))
+  overflow$semantic$analysis$effective_arguments$sampler_plan <- overflow_plan
+  expect_error(.dsvert_dp_analysis_contract_v1(
+    overflow$semantic, overflow$execution))
+})
+
+test_that("Frequency contracts fail closed on every bound dimension", {
+  fixture <- .analysis_frequency_contract_fixture(3L)
+  invalid_semantic <- list(
+    roles = function(x) {
+      x$noise_authority_roles$role_order <-
+        list("secondary_noise_authority", "source_owner"); x
+    },
+    role_identity = function(x) {
+      x$noise_authority_roles$authority_ids <-
+        rev(x$noise_authority_roles$authority_ids); x
+    },
+    source = function(x) {
+      x$analysis$effective_arguments$source_owner <-
+        .analysis_contract_identity_pk(99L); x
+    },
+    source_dataset = function(x) {
+      x$analysis$effective_arguments$dataset_version <- "v2"; x
+    },
+    dimension = function(x) {
+      x$analysis$effective_arguments$dimension <- 2; x
+    },
+    duplicate_level = function(x) {
+      x$analysis$effective_arguments$levels[[2L]] <-
+        x$analysis$effective_arguments$levels[[1L]]; x
+    },
+    oversized_level = function(x) {
+      x$analysis$effective_arguments$levels[[1L]] <- strrep("x", 1025L); x
+    },
+    lane = function(x) {
+      x$privacy$mechanism$randomness$lanes$final_noise$coordinates <- 2; x
+    },
+    shape = function(x) { x$public_shape$counts <- 2; x },
+    primitive = function(x) {
+      x$analysis$primitive <- "exact_gc_one_joint_discrete_laplace_draw_ring128_v3"; x
+    },
+    numeric_primitive = function(x) { x$analysis$primitive <- 1; x },
+    mechanism = function(x) {
+      x$privacy$mechanism$version <-
+        "discrete-laplace-output-perturbation-v1"; x
+    },
+    sampler = function(x) {
+      x$privacy$mechanism$calibration$sampler <-
+        "discrete-laplace-one-draw-v1"; x
+    },
+    legacy_noise_scale = function(x) {
+      x$privacy$mechanism$calibration$noise_scale <- 1; x
+    },
+    plan_dimension = function(x) {
+      x$analysis$effective_arguments$sampler_plan$d <- 2; x
+    },
+    physical_plan = function(x) {
+      x$analysis$effective_arguments$sampler_plan$physical_plan_version <-
+        "dsvert-joint-dp-vector-laplace-plan-v3"; x
+    },
+    planner_request = function(x) {
+      x$analysis$effective_arguments$sampler_plan$planner_request_sha256 <-
+        strrep("f", 64L); x
+    },
+    profile = function(x) {
+      x$analysis$effective_arguments$sampler_plan$profile_sha256 <-
+        strrep("f", 64L); x
+    },
+    order = function(x) {
+      x$analysis$effective_arguments$sampler_plan$coordinate_order_sha256 <-
+        strrep("f", 64L); x
+    },
+    derived_lattice = function(x) {
+      x$analysis$effective_arguments$sampler_plan$output_lattice_bits <- 2; x
+    },
+    raw_bound = function(x) {
+      x$analysis$effective_arguments$coordinate_bounds$upper <- 999; x
+    },
+    partition = function(x) {
+      x$analysis$effective_arguments$sampler_plan$chunk_coordinates <- 1; x
+    },
+    stream = function(x) {
+      x$analysis$effective_arguments$sampler_plan$stream_binding <-
+        list(mode = "absolute_coordinate_per_peer"); x
+    },
+    stream_role = function(x) {
+      x$analysis$effective_arguments$sampler_plan$stream_binding$
+        peer_role_binding <- "connection_alias"; x
+    },
+    runtime_claim = function(x) {
+      x$analysis$effective_arguments$sampler_plan$stream_binding$
+        runtime_sticky_claimed <- TRUE; x
+    },
+    fraction = function(x) {
+      x$analysis$effective_arguments$sampler_plan$implementation_delta <- list(
+          numerator = "2", denominator = "2000000"); x
+    },
+    allocation = function(x) {
+      x$analysis$effective_arguments$sampler_plan$allocated_delta <-
+        list(numerator = "1", denominator = "10"); x
+    },
+    selection = function(x) {
+      x$analysis$effective_arguments$sampler_plan$backend_selection$
+        runtime_failure_consulted <- TRUE; x
+    },
+    selection_backend = function(x) {
+      x$analysis$effective_arguments$sampler_plan$backend_selection$
+        policy_sha256 <- strrep("f", 64L); x
+    },
+    output = function(x) {
+      x$analysis$effective_arguments$sampler_plan$output_transform <-
+        "unclamped"; x
+    },
+    preimage = function(x) {
+      x$analysis$effective_arguments$sampler_plan$preimage_validation$
+        server_replan_required <- FALSE; x
+    },
+    no_wrap = function(x) {
+      x$analysis$effective_arguments$sampler_plan$maximum_noise_per_peer <-
+          "170141183460469231731687303715884105728"; x
+    },
+    no_wrap_hash = function(x) {
+      x$analysis$effective_arguments$sampler_plan$no_wrap_sha256 <-
+        strrep("f", 64L); x
+    },
+    zero_noise = function(x) {
+      plan <- x$analysis$effective_arguments$sampler_plan
+      plan$maximum_noise_per_peer <- "0"
+      plan$no_wrap_sha256 <- .dsvert_dp_analysis_frequency_hash_v1(
+        "dsVert/frequency/ring128-no-wrap/v1|", list(
+          version = "dsvert-frequency-ring128-no-wrap-v1",
+          coordinate_upper_bound = "1000",
+          maximum_noise_per_peer = "0", maximum_noise_release = "0"))
+      x$analysis$effective_arguments$sampler_plan <- plan
+      x
+    },
+    excessive_epsilon = function(x) { x$privacy$epsilon <- 8.1; x },
+    excessive_bound = function(x) {
+      x$analysis$effective_arguments$coordinate_bounds$upper <- 1000001; x
+    },
+    vector_adjacency = function(x) {
+      x$privacy$adjacency <- c("add_remove_patient", "add_remove_patient"); x
+    },
+    vector_snapshot_hash = function(x) {
+      x$owner_snapshots[[1L]]$snapshot_commitment <-
+        c(strrep("a", 64L), strrep("b", 64L)); x
+    },
+    vector_policy_hash = function(x) {
+      x$privacy$contribution$constraints$policy_sha256 <-
+        c(strrep("a", 64L), strrep("b", 64L)); x
+    },
+    numeric = function(x) { x$numeric$value_bits <- 127; x })
+  for (mutate in invalid_semantic) {
+    expect_error(.dsvert_dp_analysis_artifact_key_v1(
+      mutate(fixture$semantic)))
+  }
+
+  wrong_kernel <- fixture$execution
+  wrong_kernel$backend$kernel <- "other-backend-v1"
+  expect_error(.dsvert_dp_analysis_contract_v1(
+    fixture$semantic, wrong_kernel), "execution backend")
+  wrong_chunk <- fixture$execution
+  wrong_chunk$transport$chunk_coordinates <- 1
+  expect_error(.dsvert_dp_analysis_contract_v1(
+    fixture$semantic, wrong_chunk), "execution transport")
+})
+
 test_that("Count TV contracts are canonical and fail closed for K=2,3,5", {
   contracts <- lapply(c(2L, 3L, 5L), function(k) {
     fixture <- .analysis_count_contract_fixture(k)

@@ -256,9 +256,32 @@
   .dsvert_dp_canonical_query_value(contract)
 }
 
-.dsvert_dp_capsule_source_contract_json <- function(policy, manifest_json) {
+.dsvert_dp_capsule_source_contract_json <- function(
+    policy, manifest_json, source_contract = NULL) {
   manifest <- .dsvert_dp_capsule_source_manifest(manifest_json)
-  contract <- .dsvert_dp_capsule_source_contract(policy, manifest)
+  base <- .dsvert_dp_capsule_source_contract(policy, manifest)
+  contract <- if (is.null(source_contract)) {
+    base
+  } else {
+    supplied <- tryCatch(
+      .dsvert_dp_capsule_source_contract_validate(
+        .dsvert_dp_canonical_query_value(source_contract)),
+      error = function(error) NULL)
+    binding <- if (is.list(supplied)) supplied$synopsis_binding else NULL
+    detached <- supplied
+    if (is.list(detached)) {
+      detached$synopsis_binding <- NULL
+      detached$capsule_id <- binding$manifest_capsule_id
+      detached <- tryCatch(
+        .dsvert_dp_canonical_query_value(detached),
+        error = function(error) NULL)
+    }
+    if (is.null(binding) || !identical(detached, base)) {
+      stop("The synopsis source contract targets a different manifest.",
+           call. = FALSE)
+    }
+    supplied
+  }
   list(
     manifest = manifest, contract = contract,
     contract_json = .dsvert_dp_canonical_json(contract),
@@ -411,6 +434,12 @@
     }
   }
   contract
+}
+
+.dsvert_dp_capsule_source_manifest_capsule_id <- function(contract) {
+  contract <- .dsvert_dp_capsule_source_contract_validate(contract)
+  if (is.null(contract$synopsis_binding)) contract$capsule_id else
+    contract$synopsis_binding$manifest_capsule_id
 }
 
 .dsvert_dp_capsule_source_store_path <- function(policy) {
@@ -1278,10 +1307,12 @@
     manifest_json, .policy = NULL, .secret = NULL, .keygen = NULL,
     .signer = NULL, .verifier = NULL,
     .allocation_require =
-      .dsvert_joint_dp_vector_allocation_require) {
+      .dsvert_joint_dp_vector_allocation_require,
+    source_contract = NULL) {
   if (is.null(.policy)) .policy <- .dsvert_dp_policy()
   if (is.null(.secret)) .secret <- .dsvert_dp_secret()
-  parsed <- .dsvert_dp_capsule_source_contract_json(.policy, manifest_json)
+  parsed <- .dsvert_dp_capsule_source_contract_json(
+    .policy, manifest_json, source_contract)
   contract <- .dsvert_dp_capsule_source_contract_validate(parsed$contract)
   recipient <- .policy$peer_name
   if (!recipient %in% .dsvert_dp_capsule_source_names(
@@ -1814,11 +1845,20 @@
     .random_bytes = .dsvert_secure_random_bytes, .encryptor = NULL,
     .signer = NULL, .verifier = NULL,
     .allocation_observer =
-      .dsvert_joint_dp_vector_allocation_observer_require) {
+      .dsvert_joint_dp_vector_allocation_observer_require,
+    .producer_validator = NULL, source_contract = NULL) {
   if (is.null(.policy)) .policy <- .dsvert_dp_policy()
   if (is.null(.secret)) .secret <- .dsvert_dp_secret()
-  parsed <- .dsvert_dp_capsule_source_contract_json(.policy, manifest_json)
+  parsed <- .dsvert_dp_capsule_source_contract_json(
+    .policy, manifest_json, source_contract)
   contract <- .dsvert_dp_capsule_source_contract_validate(parsed$contract)
+  synopsis <- !is.null(contract$synopsis_binding)
+  if ((!is.null(.producer_validator) &&
+       !is.function(.producer_validator)) ||
+      (synopsis && !is.function(.producer_validator))) {
+    stop("A synopsis source contract requires a producer validator.",
+         call. = FALSE)
+  }
   sources <- .dsvert_dp_capsule_source_names(
     contract$source_peers, "source peer list")
   if (!.policy$peer_name %in% sources) {
@@ -1851,11 +1891,13 @@
       connection, transfer_id, .secret)
     if (!is.null(existing) && existing$status %in% c("ready", "complete")) {
       if (!identical(existing$contract_hash, parsed$contract_hash) ||
-          !identical(existing$ticket_set_hash, ticket_set_hash)) {
+          !identical(existing$ticket_set_hash, ticket_set_hash) ||
+          (synopsis && !identical(
+            existing$contract_json, parsed$contract_json))) {
         stop("The persisted capsule source conflicts with this retry.",
              call. = FALSE)
       }
-      return(existing$summary_json)
+      if (!synopsis) return(existing$summary_json)
     }
 
     if (!is.function(.allocation_observer)) {
@@ -1882,24 +1924,33 @@
       .dsvert_dp_gaussian_cross_source_producer(
         .policy, parsed$manifest, snapshots, compute_commitment = TRUE)
     } else {
-      .materializer(.policy, parsed$manifest, snapshots)
+      .materializer(
+        .policy, parsed$manifest, snapshots,
+        compute_commitment = TRUE, include_release = TRUE)
+    }
+    if (!is.list(producer) || !is.function(producer$reset)) {
+      stop("The biomedical capsule source producer cannot be released.",
+           call. = FALSE)
+    }
+    on.exit(try(producer$reset(), silent = TRUE), add = TRUE)
+    if (is.function(.producer_validator) && !isTRUE(
+        .producer_validator(
+          producer = producer, policy = .policy,
+          manifest = parsed$manifest, contract = contract))) {
+      stop("The synopsis source producer failed validation.",
+           call. = FALSE)
     }
     private <- .dsvert_dp_capsule_source_producer_private(
       .secret, producer, parsed$contract_hash,
       require_commitment = TRUE)
-    on.exit(try(private$reset(), silent = TRUE), add = TRUE)
     release_count <- if (.dsvert_dp_capsule_source_cross_contract(contract)) {
       as.integer(contract$release_coordinate_count)
     } else {
       as.integer(contract$coordinate_count)
     }
-    release_values <- private$read_range(1L, release_count)
-    .dsvert_dp_capsule_assert_signed_coordinate_bounds(
-      release_values,
-      list(
-        manifest = parsed$manifest,
-        layout = .dsvert_dp_capsule_coordinate_layout(parsed$manifest)))
-    if (!identical(producer$capsule_id, contract$capsule_id) ||
+    if (!identical(
+          producer$capsule_id,
+          .dsvert_dp_capsule_source_manifest_capsule_id(contract)) ||
         !identical(producer$peer_name, .policy$peer_name) ||
         !identical(producer$source_context_hash,
                    contract$source_context_hash) ||
@@ -1910,6 +1961,24 @@
       stop("The local capsule source material does not match its transport contract.",
            call. = FALSE)
     }
+    if (synopsis && !is.null(existing)) {
+      stable <- tryCatch(
+        .dsvert_joint_dp_dsi_hex_equal(
+          private$snapshot_mac, existing$private_snapshot_mac) &&
+        .dsvert_joint_dp_dsi_hex_equal(
+          private$value_mac, existing$private_value_mac) &&
+        identical(private$alignment_consensus_hash,
+                  existing$private_alignment_consensus_hash),
+        error = function(error) FALSE)
+      if (!isTRUE(stable)) .dsvert_dp_capsule_source_snapshot_changed()
+      return(existing$summary_json)
+    }
+    release_values <- private$read_range(1L, release_count)
+    .dsvert_dp_capsule_assert_signed_coordinate_bounds(
+      release_values,
+      list(
+        manifest = parsed$manifest,
+        layout = .dsvert_dp_capsule_coordinate_layout(parsed$manifest)))
     unsigned <- list(
       version = .DSVERT_DP_CAPSULE_SOURCE_SUMMARY_VERSION,
       phase = "source_chunk_stream_ready",
@@ -1942,6 +2011,7 @@
       source_name = .policy$peer_name,
       ticket_set_hash = ticket_set_hash,
       manifest_json = manifest_json,
+      contract_json = parsed$contract_json,
       ticket_jsons = unname(lapply(tickets, `[[`, "json")),
       private_snapshot_mac = private$snapshot_mac,
       private_value_mac = private$value_mac,
@@ -1975,7 +2045,9 @@
     .random_bytes = .dsvert_secure_random_bytes, .encryptor = NULL,
     .signer = NULL, .verifier = NULL,
     .allocation_observer =
-      .dsvert_joint_dp_vector_allocation_observer_require) {
+      .dsvert_joint_dp_vector_allocation_observer_require,
+    .producer_validator = NULL,
+    source_contract = NULL) {
   if (is.null(.policy)) .policy <- .dsvert_dp_policy()
   if (is.null(.secret)) .secret <- .dsvert_dp_secret()
   previews <- lapply(
@@ -1995,13 +2067,16 @@
       .resolved_snapshots = .resolved_snapshots,
       .materializer = .materializer, .random_bytes = .random_bytes,
       .encryptor = .encryptor, .signer = .signer, .verifier = .verifier,
-      .allocation_observer = .allocation_observer))
+      .allocation_observer = .allocation_observer,
+      .producer_validator = .producer_validator,
+      source_contract = source_contract))
   }
   if (!all(negotiated)) {
     stop("Capsule source transport negotiation must cover both recipients.",
          call. = FALSE)
   }
-  parsed <- .dsvert_dp_capsule_source_contract_json(.policy, manifest_json)
+  parsed <- .dsvert_dp_capsule_source_contract_json(
+    .policy, manifest_json, source_contract)
   contract <- .dsvert_dp_capsule_source_contract_validate(parsed$contract)
   negotiations <- lapply(
     list(first_ticket_json, second_ticket_json),
@@ -2033,7 +2108,9 @@
     .resolved_snapshots = .resolved_snapshots,
     .materializer = .materializer, .random_bytes = .random_bytes,
     .encryptor = .encryptor, .signer = .signer, .verifier = .verifier,
-    .allocation_observer = .allocation_observer)
+    .allocation_observer = .allocation_observer,
+    .producer_validator = .producer_validator,
+    source_contract = source_contract)
   summary <- .dsvert_dp_capsule_source_decode_json(
     summary_json, "source summary", 64L * 1024L)
   negotiation_set_sha256 <- .dsvert_joint_dp_hash(list(
@@ -2076,6 +2153,26 @@
       stop("The biomedical capsule source chunk stream is not ready.",
            call. = FALSE)
     }
+    durable_contract <- if (is.null(source$contract_json)) NULL else
+      .dsvert_dp_capsule_source_decode_json(
+        source$contract_json, "persisted source contract", 256L * 1024L)
+    supplied <- if (is.list(durable_contract) &&
+        !is.null(durable_contract$synopsis_binding)) {
+      durable_contract
+    } else {
+      NULL
+    }
+    parsed <- .dsvert_dp_capsule_source_contract_json(
+      .policy, source$manifest_json, supplied)
+    contract <- .dsvert_dp_capsule_source_contract_validate(parsed$contract)
+    if (!identical(parsed$contract_hash, source$contract_hash) ||
+        !identical(contract$capsule_id, source$capsule_id) ||
+        (!is.null(source$contract_json) &&
+         !identical(parsed$contract_json, source$contract_json)) ||
+        chunk_index >= contract$chunk_count) {
+      stop("The persisted capsule source stream contract is invalid.",
+           call. = FALSE)
+    }
     rows <- DBI::dbGetQuery(connection, paste(
       "SELECT recipient_name, record_json, row_mac",
       "FROM source_outbound_chunks",
@@ -2089,16 +2186,6 @@
     if (nrow(rows) == 0L) {
       if (identical(source$status, "complete")) {
         stop("The completed capsule source stream lost a durable chunk.",
-             call. = FALSE)
-      }
-      parsed <- .dsvert_dp_capsule_source_contract_json(
-        .policy, source$manifest_json)
-      contract <- .dsvert_dp_capsule_source_contract_validate(
-        parsed$contract)
-      if (!identical(parsed$contract_hash, source$contract_hash) ||
-          !identical(contract$capsule_id, source$capsule_id) ||
-          chunk_index >= contract$chunk_count) {
-        stop("The persisted capsule source stream contract is invalid.",
              call. = FALSE)
       }
       if (!is.list(source$ticket_jsons) ||
@@ -2147,15 +2234,24 @@
             .policy, parsed$manifest, snapshots, compute_commitment = FALSE,
             include_release = requested$offset < release_count)
         } else {
-          .materializer(.policy, parsed$manifest, snapshots)
+          .materializer(
+            .policy, parsed$manifest, snapshots,
+            compute_commitment = FALSE,
+            include_release = requested$offset < release_count)
         },
         error = .dsvert_dp_capsule_source_snapshot_error)
+      if (!is.list(producer) || !is.function(producer$reset)) {
+        stop("The biomedical capsule source producer cannot be released.",
+             call. = FALSE)
+      }
+      on.exit(try(producer$reset(), silent = TRUE), add = TRUE)
       private <- .dsvert_dp_capsule_source_producer_private(
         .secret, producer, parsed$contract_hash,
         require_commitment = FALSE)
-      on.exit(try(private$reset(), silent = TRUE), add = TRUE)
       binding_valid <-
-        identical(producer$capsule_id, contract$capsule_id) &&
+        identical(
+          producer$capsule_id,
+          .dsvert_dp_capsule_source_manifest_capsule_id(contract)) &&
         identical(producer$peer_name, .policy$peer_name) &&
         identical(producer$source_context_hash,
                   contract$source_context_hash) &&
@@ -2948,9 +3044,11 @@
 }
 
 .dsvert_dp_capsule_source_aggregate_range_internal <- function(
-    policy, manifest_json, start, count, secret = NULL) {
+    policy, manifest_json, start, count, secret = NULL,
+    source_contract = NULL) {
   if (is.null(secret)) secret <- .dsvert_dp_secret()
-  parsed <- .dsvert_dp_capsule_source_contract_json(policy, manifest_json)
+  parsed <- .dsvert_dp_capsule_source_contract_json(
+    policy, manifest_json, source_contract)
   contract <- .dsvert_dp_capsule_source_contract_validate(parsed$contract)
   if (!policy$peer_name %in% .dsvert_dp_capsule_source_names(
         contract$designated_noise_peers, "noise-peer list")) {
@@ -2960,7 +3058,8 @@
   .dsvert_dp_capsule_source_with_store(policy, secret, function(connection) {
     state <- .dsvert_dp_capsule_source_incoming_load(
       connection, contract$capsule_id, secret)
-    if (is.null(state) || !isTRUE(state$complete)) {
+    if (is.null(state) || !isTRUE(state$complete) ||
+        !identical(state$contract_hash, parsed$contract_hash)) {
       stop("The biomedical capsule source aggregate is incomplete.",
            call. = FALSE)
     }
@@ -2970,9 +3069,11 @@
 }
 
 .dsvert_dp_capsule_source_aggregate_chunk_internal <- function(
-    policy, manifest_json, chunk_index, secret = NULL) {
+    policy, manifest_json, chunk_index, secret = NULL,
+    source_contract = NULL) {
   if (is.null(secret)) secret <- .dsvert_dp_secret()
-  parsed <- .dsvert_dp_capsule_source_contract_json(policy, manifest_json)
+  parsed <- .dsvert_dp_capsule_source_contract_json(
+    policy, manifest_json, source_contract)
   contract <- .dsvert_dp_capsule_source_contract_validate(parsed$contract)
   if (!policy$peer_name %in% .dsvert_dp_capsule_source_names(
         contract$designated_noise_peers, "noise-peer list")) {
@@ -2995,7 +3096,8 @@
   .dsvert_dp_capsule_source_with_store(policy, secret, function(connection) {
     state <- .dsvert_dp_capsule_source_incoming_load(
       connection, contract$capsule_id, secret)
-    if (is.null(state) || !isTRUE(state$complete)) {
+    if (is.null(state) || !isTRUE(state$complete) ||
+        !identical(state$contract_hash, parsed$contract_hash)) {
       stop("The biomedical capsule source aggregate is incomplete.",
            call. = FALSE)
     }

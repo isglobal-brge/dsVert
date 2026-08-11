@@ -1075,12 +1075,8 @@ test_that("dynamic exact truncation and count guard complete over opaque spools"
   clamp_op <- "op_12121212121212121212121212121212"
   clamp_in <- "exact_gc_in_12121212121212121212121212121212"
   clamp_out <- "exact_gc_out_12121212121212121212121212121212"
-  query <- strrep("1", 64L)
-  capsule <- strrep("2", 64L)
-  source_hash <- strrep("3", 64L)
-  result_hash <- strrep("4", 64L)
-  clamp_purpose <- .dsvert_joint_dp_count_purpose(
-    query, capsule, 7, source_hash, result_hash)
+  clamp_purpose <- "test.joint.dp.count.clamp"
+  clamp_producer <- "test.joint.dp.count.noised-share"
   clamp_values <- c(
     # signed minimum, -1, zero, U, U+1, signed maximum
     "170141183460469231731687303715884105728",
@@ -1089,15 +1085,14 @@ test_that("dynamic exact truncation and count guard complete over opaque spools"
     "170141183460469231731687303715884105727")
   .exact_gc_stage_share(
     ss_a, clamp_in, .exact_gc_decimal_residues_b64(clamp_values, 128L),
-    128L, length(clamp_values), .DSVERT_JOINT_DP_COUNT_GC_PRODUCER,
+    128L, length(clamp_values), clamp_producer,
     "clamp-count", clamp_purpose, 0L, "ring-share")
   .exact_gc_stage_share(
     ss_b, clamp_in,
     .exact_gc_decimal_residues_b64(rep("0", length(clamp_values)), 128L),
-    128L, length(clamp_values), .DSVERT_JOINT_DP_COUNT_GC_PRODUCER,
+    128L, length(clamp_values), clamp_producer,
     "clamp-count", clamp_purpose, 0L, "ring-share")
-  wrong_query_purpose <- .dsvert_joint_dp_count_purpose(
-    strrep("5", 64L), capsule, 7, source_hash, result_hash)
+  wrong_query_purpose <- "test.joint.dp.count.clamp.wrong-query"
   count_output_seeds <- list(
     gsub("[\r\n]", "", jsonlite::base64_enc(as.raw(rep(81L, 32L)))),
     gsub("[\r\n]", "", jsonlite::base64_enc(as.raw(rep(82L, 32L)))))
@@ -1126,7 +1121,7 @@ test_that("dynamic exact truncation and count guard complete over opaque spools"
   expect_error(.exact_gc_consume_output(
     ss_a, clamp_out, clamp_op, "ring-share", "clamp-count",
     wrong_query_purpose, 128L, 0L, length(clamp_values),
-    .DSVERT_JOINT_DP_COUNT_GC_PRODUCER), "wrong context")
+    clamp_producer), "wrong context")
   expect_error(.exact_gc_consume_output(
     ss_a, clamp_out, clamp_op, "ring-share", "clamp-count",
     clamp_purpose, 128L, 0L, length(clamp_values),
@@ -1134,11 +1129,11 @@ test_that("dynamic exact truncation and count guard complete over opaque spools"
   clamp_a <- .exact_gc_consume_output(
     ss_a, clamp_out, clamp_op, "ring-share", "clamp-count",
     clamp_purpose, 128L, 0L, length(clamp_values),
-    .DSVERT_JOINT_DP_COUNT_GC_PRODUCER)
+    clamp_producer)
   clamp_b <- .exact_gc_consume_output(
     ss_b, clamp_out, clamp_op, "ring-share", "clamp-count",
     clamp_purpose, 128L, 0L, length(clamp_values),
-    .DSVERT_JOINT_DP_COUNT_GC_PRODUCER)
+    clamp_producer)
   clamped <- .exact_gc_test_add_le(
     jsonlite::base64_dec(clamp_a$share),
     jsonlite::base64_dec(clamp_b$share), 128L)
@@ -1158,12 +1153,12 @@ test_that("dynamic exact truncation and count guard complete over opaque spools"
   replay_out <- "exact_gc_out_15151515151515151515151515151515"
   .exact_gc_stage_share(
     ss_a, replay_in, .exact_gc_decimal_residues_b64(clamp_values, 128L),
-    128L, length(clamp_values), .DSVERT_JOINT_DP_COUNT_GC_PRODUCER,
+    128L, length(clamp_values), clamp_producer,
     "clamp-count", clamp_purpose, 0L, "ring-share")
   .exact_gc_stage_share(
     ss_b, replay_in,
     .exact_gc_decimal_residues_b64(rep("0", length(clamp_values)), 128L),
-    128L, length(clamp_values), .DSVERT_JOINT_DP_COUNT_GC_PRODUCER,
+    128L, length(clamp_values), clamp_producer,
     "clamp-count", clamp_purpose, 0L, "ring-share")
   init_pair(
     replay_op, replay_in, replay_out, "clamp-count", 128L, 0L,
@@ -1174,11 +1169,11 @@ test_that("dynamic exact truncation and count guard complete over opaque spools"
   replay_a <- .exact_gc_consume_output(
     ss_a, replay_out, replay_op, "ring-share", "clamp-count",
     clamp_purpose, 128L, 0L, length(clamp_values),
-    .DSVERT_JOINT_DP_COUNT_GC_PRODUCER)
+    clamp_producer)
   replay_b <- .exact_gc_consume_output(
     ss_b, replay_out, replay_op, "ring-share", "clamp-count",
     clamp_purpose, 128L, 0L, length(clamp_values),
-    .DSVERT_JOINT_DP_COUNT_GC_PRODUCER)
+    clamp_producer)
   expect_identical(replay_a$share, clamp_a$share)
   expect_identical(replay_b$share, clamp_b$share)
 

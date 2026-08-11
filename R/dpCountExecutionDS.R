@@ -4,6 +4,12 @@
 # persistent identity seed. Everything below is confined to one MPC session
 # and the bounded exact-GC / typed-blob spools owned by that session.
 
+.DSVERT_JOINT_DP_COUNT_WORKER_CONTRACT_INPUT <-
+  "dsvert-joint-dp-laplace-worker-contract-input-v2"
+.DSVERT_JOINT_DP_COUNT_WORKER_CONTRACT <-
+  "dsvert-joint-dp-laplace-worker-contract-v2"
+.DSVERT_JOINT_DP_COUNT_EXACT_CAPABILITY <-
+  "joint_dp_count_exact_gc_v1"
 .DSVERT_DP_COUNT_PUBLIC_AUTHORIZATION_VERSION <-
   "dsvert-dp-count-public-authorization-v1"
 .DSVERT_DP_COUNT_PUBLIC_AUTHORIZATION_DOMAIN <-

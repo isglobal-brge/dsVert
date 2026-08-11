@@ -162,18 +162,20 @@ test_that("remote aliases fail closed instead of bypassing the central gate", {
 })
 
 test_that("only the stateless Count lifecycle remains remote", {
+  hard_deleted_count <- c(
+    "dsvertJointDPCountReplayDS", "dsvertJointDPCountProposalDS",
+    "dsvertJointDPCountSourceDS", "dsvertJointDPCountBackendPrepareDS",
+    "dsvertJointDPCountBackendTokenDS", "dsvertJointDPCountStartDS",
+    "dsvertJointDPCountResultDS", "dsvertJointDPCountFinalShareDS",
+    "dsvertJointDPCountReleaseDS")
   retired <- c(
     "dsvertDPStatusDS", "dsvertDPCountDS", "dsvertDPContingencyDS",
     "dsvertDPMeanVarDS", "dsvertDPDescribeDS", "dsvertDPSurvivalDS",
     "dsvertJointDPPrepareDS", "dsvertJointDPCommitDS",
     "dsvertJointDPAuthorizeDS", "dsvertJointDPOpenDS",
     "dsvertJointDPResultReceiptDS", "dsvertJointDPDeliveryDS",
-    "dsvertJointDPDeliveryContractDS", "dsvertJointDPCountReplayDS",
-    "dsvertJointDPCountProposalDS", "dsvertJointDPCountSourceDS",
-    "dsvertJointDPCountBackendPrepareDS",
-    "dsvertJointDPCountBackendTokenDS", "dsvertJointDPCountStartDS",
-    "dsvertJointDPCountResultDS", "dsvertJointDPCountFinalShareDS",
-    "dsvertJointDPCountReleaseDS", "dsvertPublicFixedCohortCountDS")
+    "dsvertJointDPDeliveryContractDS", hard_deleted_count,
+    "dsvertPublicFixedCohortCountDS")
   description <- .dsvert_test_package_file("DESCRIPTION")
   aggregate <- trimws(strsplit(
     read.dcf(description)[1L, "AggregateMethods"],
@@ -183,6 +185,9 @@ test_that("only the stateless Count lifecycle remains remote", {
                    .dsvert_test_package_file("NAMESPACE")), value = TRUE))
   expect_false(any(retired %in% aggregate))
   expect_false(any(retired %in% exports))
+  expect_false(any(vapply(
+    hard_deleted_count, exists, logical(1L),
+    envir = asNamespace("dsVert"), inherits = FALSE)))
   active <- c(
     "dsvertDPCountCompileDS", "dsvertDPCountAuthorizeDS",
     "dsvertDPCountStartDS", "dsvertDPCountFinalShareDS",

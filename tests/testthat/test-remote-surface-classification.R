@@ -152,7 +152,7 @@ test_that("internal DS compatibility functions stay outside the remote surface",
       retired_legacy_chisq, retired_correlation),
     unlist(inventory$immediate_removal_decision$removed_in_this_audit,
            use.names = FALSE))
-  expect_length(retired, 16L)
+  expect_length(retired, 7L)
   expect_identical(retired_histogram, "dsvertHistogramDS")
   expect_identical(retired_contingency, "dsvertContingencyDS")
   expect_length(retired_legacy_chisq, 10L)
@@ -164,6 +164,19 @@ test_that("internal DS compatibility functions stay outside the remote surface",
   expect_false(any(c(retired, retired_histogram, retired_contingency,
                      retired_legacy_chisq, retired_correlation) %in%
                      getNamespaceExports("dsVert")))
+
+  hard_deleted_count <- c(
+    "dsvertJointDPCountReplayDS", "dsvertJointDPCountProposalDS",
+    "dsvertJointDPCountSourceDS", "dsvertJointDPCountBackendPrepareDS",
+    "dsvertJointDPCountBackendTokenDS", "dsvertJointDPCountStartDS",
+    "dsvertJointDPCountResultDS", "dsvertJointDPCountFinalShareDS",
+    "dsvertJointDPCountReleaseDS")
+  expect_true(all(hard_deleted_count %in% unlist(
+    inventory$immediate_removal_decision$hard_deleted_in_this_audit,
+    use.names = FALSE)))
+  expect_false(any(vapply(
+    hard_deleted_count, exists, logical(1L),
+    envir = namespace, inherits = FALSE)))
 })
 
 test_that("the retired exact histogram is not remotely reachable", {

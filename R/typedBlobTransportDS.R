@@ -23,9 +23,8 @@
 .DSVERT_TYPED_BLOB_SOURCE_DESCRIPTOR_VERSION <-
   "dsvert-typed-source-descriptor-v1"
 .DSVERT_TYPED_BLOB_SWEEP_MAX_RECORDS <- 256L
-.DSVERT_TYPED_BLOB_ANALYSIS_COUNT_CAPABILITIES <- c(
-  "blob.analysis-dp.count-source.v1",
-  "blob.analysis-dp.count-final-share.v1")
+.DSVERT_TYPED_BLOB_ANALYSIS_COUNT_FINAL_CAPABILITY <-
+  "blob.analysis-dp.count-final-share.v1"
 
 .dsvert_typed_blob_spool_max_bytes <- function() {
   value <- getOption("dsvert.typed_blob.spool_max_bytes", 1024^3)
@@ -494,7 +493,8 @@
 
 .dsvert_typed_blob_validate_analysis_count_route <- function(
     capability_id, resolved, sender_name, recipient_name) {
-  if (capability_id %in% .DSVERT_TYPED_BLOB_ANALYSIS_COUNT_CAPABILITIES &&
+  if (identical(
+      capability_id, .DSVERT_TYPED_BLOB_ANALYSIS_COUNT_FINAL_CAPABILITY) &&
       (!identical(resolved$context$sender, sender_name) ||
        !identical(resolved$context$recipient, recipient_name))) {
     stop("Invalid typed-blob analysis Count route.", call. = FALSE)
@@ -724,109 +724,20 @@
       "transport.source-probe", "opaque-base64url-stream",
       as.numeric(context$raw_bytes)))
   }
-  if (capability_id %in% .DSVERT_TYPED_BLOB_ANALYSIS_COUNT_CAPABILITIES) {
+  if (identical(
+      capability_id, .DSVERT_TYPED_BLOB_ANALYSIS_COUNT_FINAL_CAPABILITY)) {
     context <- .dsvert_typed_blob_analysis_count_context(
       context, sender_name)
-    final_share <- identical(
-      capability_id, "blob.analysis-dp.count-final-share.v1")
     tag <- substr(digest::digest(
       .dsvert_dp_canonical_json(context),
       algo = "sha256", serialize = FALSE), 1L, 24L)
-    slot <- paste0(
-      if (final_share) {
-        "analysis_dp_count_final_"
-      } else {
-        "analysis_dp_count_source_"
-      }, tag)
+    slot <- paste0("analysis_dp_count_final_", tag)
     .validate_storage_component(slot, "typed-blob destination")
     return(.dsvert_typed_blob_metadata(
       capability_id, slot, context, "analysis-dp",
-      if (final_share) {
-        "dsvertDPCountFinalShareDS"
-      } else {
-        "dsvertDPCountPrepareDS"
-      },
-      if (final_share) {
-        "dsvertDPCountReleaseDS"
-      } else {
-        "dsvertDPCountStartDS"
-      },
-      if (final_share) {
-        "analysis-dp.count-final-share"
-      } else {
-        "analysis-dp.count-source"
-      },
-      if (final_share) {
-        "encrypted-post-clamp-ring127-share"
-      } else {
-        "encrypted-ring127-scalar-share"
-      }, 1, ring = "127"))
-  }
-  if (identical(capability_id, "blob.joint-dp.count-source.v1")) {
-    required <- c(
-      "query_id", "capsule_release_id", "allocation_index", "source_contract_hash",
-      "purpose_hash", "ring")
-    context <- .dsvert_typed_blob_context_fields(context, required)
-    hashes <- context[c(
-      "query_id", "capsule_release_id", "source_contract_hash",
-      "purpose_hash")]
-    if (any(!vapply(hashes, function(value) {
-      is.character(value) && length(value) == 1L && !is.na(value) &&
-        grepl("^[0-9a-f]{64}$", value)
-    }, logical(1L)))) {
-      stop("Invalid typed-blob joint-DP count context.", call. = FALSE)
-    }
-    context$allocation_index <- .dsvert_typed_blob_integer_string(
-      context$allocation_index, "joint-DP allocation index",
-      minimum = 0, maximum = 2^53 - 1)
-    if (!is.character(context$ring) || length(context$ring) != 1L ||
-        !identical(context$ring, "128")) {
-      stop("Joint-DP count source shares require Ring128.", call. = FALSE)
-    }
-    tag <- substr(digest::digest(
-      .dsvert_dp_canonical_json(
-        .dsvert_dp_canonical_query_value(context)),
-      algo = "sha256", serialize = FALSE), 1L, 24L)
-    slot <- paste0("joint_dp_count_source_", tag)
-    .validate_storage_component(slot, "typed-blob destination")
-    return(.dsvert_typed_blob_metadata(
-      capability_id, slot, context, "joint-dp",
-      ".dsvert_joint_dp_count_mint_transfer",
-      ".dsvert_joint_dp_count_receive_transfer",
-      "joint-dp.count-source", "encrypted-ring128-scalar-share", 1))
-  }
-  if (identical(capability_id, "blob.joint-dp.count-final-share.v1")) {
-    required <- c(
-      "query_id", "capsule_release_id", "allocation_index",
-      "source_contract_hash", "purpose_hash", "ring",
-      "result_contract_hash", "result_set_hash",
-      "delivery_commit_set_hash")
-    context <- .dsvert_typed_blob_context_fields(context, required)
-    hashes <- context[setdiff(required, c("allocation_index", "ring"))]
-    if (any(!vapply(hashes, function(value) {
-      is.character(value) && length(value) == 1L && !is.na(value) &&
-        grepl("^[0-9a-f]{64}$", value)
-    }, logical(1L)))) {
-      stop("Invalid typed-blob joint-DP Count final context.", call. = FALSE)
-    }
-    context$allocation_index <- .dsvert_typed_blob_integer_string(
-      context$allocation_index, "joint-DP allocation index",
-      minimum = 0, maximum = 2^53 - 1)
-    if (!is.character(context$ring) || length(context$ring) != 1L ||
-        !identical(context$ring, "127")) {
-      stop("Joint-DP Count final shares require Ring127.", call. = FALSE)
-    }
-    tag <- substr(digest::digest(
-      .dsvert_dp_canonical_json(
-        .dsvert_dp_canonical_query_value(context)),
-      algo = "sha256", serialize = FALSE), 1L, 24L)
-    slot <- paste0("joint_dp_count_final_", tag)
-    .validate_storage_component(slot, "typed-blob destination")
-    return(.dsvert_typed_blob_metadata(
-      capability_id, slot, context, "joint-dp",
-      ".dsvert_joint_dp_count_mint_final_transfer",
-      ".dsvert_joint_dp_count_release",
-      "joint-dp.count-final-share", "encrypted-post-clamp-ring127-share", 1))
+      "dsvertDPCountFinalShareDS", "dsvertDPCountReleaseDS",
+      "analysis-dp.count-final-share",
+      "encrypted-post-clamp-ring127-share", 1, ring = "127"))
   }
   if (identical(capability_id, "blob.joint-dp.vector-final-share.v3")) {
     required <- c(

@@ -16,14 +16,15 @@ The current client/server registration contract is internally complete:
 | Unregistered endpoint names retained below guarded/test-only client code | 94 |
 | Production-reachable client expressions naming an unregistered endpoint | 0 |
 | Registered endpoints with no repository consumer | 0 |
-| Unregistered, unexported internal `*DS` functions | 158 |
+| Unregistered, unexported internal `*DS` functions | 149 |
 
 This audit removed a further 94 endpoints from `AggregateMethods` and
 `NAMESPACE`: four diagnostic/migration helpers and 90 legacy exact, generic
 MPC, score, cluster-model and mutating-analysis primitives. Six obsolete
-per-query DP wrappers and their bare SQLite release engine are now hard-deleted;
-the remaining R closures stay internal solely for source compatibility and
-focused regression tests. None is exported or remotely invocable. All 68
+per-query DP wrappers, their bare SQLite release engine and the nine superseded
+scalar Count capsule/ledger phases are now hard-deleted; the remaining R
+closures stay internal solely for source compatibility and focused regression
+tests. None is exported or remotely invocable. All 68
 endpoints that remain registered belong to the promoted purpose-bound
 allowlist and have a product call builder after resolving literal calls, seven
 `as.call()` / `as.name()` constructions and the closed dynamic branch. The
@@ -59,8 +60,9 @@ as the namespace prefix for promoted stores.
 diagnostic call builders, but both are now unregistered and unexported. They
 are test-plane tools, not statistical producers.
 
-The retired generic and scalar Count control planes have been superseded by a
-five-phase stateless Count route: signed compilation, two-authority public
+The retired scalar Count capsule/ledger adapter is hard-deleted, while the
+older generic scalar control plane remains unregistered. Count is served by a
+five-phase stateless route: signed compilation, two-authority public
 authorization, exact-GC Start, recipient-encrypted final-share transfer and one
 signed Release. Compilation binds the full K-peer pinset, padded-PSI snapshot,
 public bounds and mechanism; only the two identity-selected authorities enter
@@ -143,7 +145,7 @@ and is rejected during service bootstrap and Opal allowlist reconciliation.
 | Retired diagnostic/migration internals | 4 | Generic typed read/source diagnostics plus generic exact-GC bind and GLM softplus helpers; unregistered, unexported and test-only or locally guarded |
 | Retired quarantined compatibility internals | 90 | Legacy exact/MPC endpoints below stable local frontdoor errors; unregistered, unexported and carrying no DP or non-reconstruction claim |
 | Registered orphan/dangerous candidates | 0 | Every registered endpoint is promoted and consumed |
-| Internal-unregistered total | 158 | The 94 above plus 64 previously retired compatibility/test closures |
+| Internal-unregistered total | 149 | The 94 above plus 55 previously retired compatibility/test closures |
 
 “Production-safe” is not an unconditional theorem. A DP claim still depends on
 the advertised adjacency and contribution bounds, immutable snapshot,
@@ -220,10 +222,10 @@ destination, operation and one permitted opening.
 
 ## Already outside the remote surface
 
-The 158 internal `*DS` functions are both unregistered and unexported. This set
+The 149 internal `*DS` functions are both unregistered and unexported. This set
 includes:
 
-- the 16 retired generic scalar control-plane and Count lifecycle functions;
+- the 7 retired generic scalar control-plane functions;
 - the retired exact adaptive `dsvertHistogramDS` helper, now replaced in
   `ds.vertDesc` by the sticky fixed-grid DP capsule;
 - the orphaned exact `dsvertContingencyDS` table, replaced by the signed DP

@@ -1247,22 +1247,22 @@ test_that("failed first-frame admission rolls back file and accounting", {
 
 test_that("analysis Count capabilities reject context and route tampering", {
   context <- .typed_blob_count_analysis_context()
-  capabilities <- c(
-    "blob.analysis-dp.count-source.v1",
-    "blob.analysis-dp.count-final-share.v1")
+  capabilities <- "blob.analysis-dp.count-final-share.v1"
 
   resolved <- lapply(capabilities, function(capability) {
     .dsvert_typed_blob_destination(capability, "self", context)
   })
   expect_identical(vapply(resolved, `[[`, character(1L), "ring"),
-                   c("127", "127"))
+                   "127")
   expect_identical(vapply(resolved, `[[`, character(1L), "count"),
-                   c("1", "1"))
-  expect_identical(vapply(resolved, `[[`, character(1L), "producer"), c(
-    "dsvertDPCountPrepareDS", "dsvertDPCountFinalShareDS"))
-  expect_identical(vapply(resolved, `[[`, character(1L), "consumer"), c(
-    "dsvertDPCountStartDS", "dsvertDPCountReleaseDS"))
-  expect_false(identical(resolved[[1L]]$slot, resolved[[2L]]$slot))
+                   "1")
+  expect_identical(vapply(resolved, `[[`, character(1L), "producer"),
+                   "dsvertDPCountFinalShareDS")
+  expect_identical(vapply(resolved, `[[`, character(1L), "consumer"),
+                   "dsvertDPCountReleaseDS")
+  expect_error(.dsvert_typed_blob_destination(
+    "blob.analysis-dp.count-source.v1", "self", context),
+    "not present in the server registry")
 
   mutate <- function(field, value) {
     changed <- context
@@ -1303,13 +1303,9 @@ test_that("analysis Count capabilities reject context and route tampering", {
 })
 
 test_that("analysis Count transfers are typed, replay-safe and ephemeral", {
-  specs <- list(
-    list(
-      capability = "blob.analysis-dp.count-source.v1",
-      producer = "dsvertDPCountPrepareDS"),
-    list(
-      capability = "blob.analysis-dp.count-final-share.v1",
-      producer = "dsvertDPCountFinalShareDS"))
+  specs <- list(list(
+    capability = "blob.analysis-dp.count-final-share.v1",
+    producer = "dsvertDPCountFinalShareDS"))
 
   for (spec in specs) {
     pair <- .typed_blob_test_pair()
@@ -1345,26 +1341,15 @@ test_that("analysis Count transfers are typed, replay-safe and ephemeral", {
         pair$sender$ss, pair$sender$session_id, spec$capability,
         pair$sender$peer_transport, payload, wrong_recipient,
         producer = spec$producer)), "analysis Count route")
-    wrong_producer <- if (identical(
-      spec$producer, "dsvertDPCountPrepareDS")) {
-      "dsvertDPCountFinalShareDS"
-    } else {
-      "dsvertDPCountPrepareDS"
-    }
     expect_error(.typed_blob_with_crypto(pair$sender,
       .dsvert_typed_blob_mint(
         pair$sender$ss, pair$sender$session_id, spec$capability,
         pair$sender$peer_transport, payload, context,
-        producer = wrong_producer)), "does not own")
+        producer = "otherCountProducerDS")), "does not own")
 
     wrong_type_ticket <- .typed_blob_mutate_envelope(
       produced$transfer$ticket, function(body) {
-        body$capability_id <- if (identical(
-          spec$capability, "blob.analysis-dp.count-source.v1")) {
-          "blob.analysis-dp.count-final-share.v1"
-        } else {
-          "blob.analysis-dp.count-source.v1"
-        }
+        body$capability_id <- "blob.analysis-dp.count-source.v1"
         body
       })
     tampered_context_ticket <- .typed_blob_mutate_envelope(
@@ -1379,7 +1364,7 @@ test_that("analysis Count transfers are typed, replay-safe and ephemeral", {
     receipt <- .typed_blob_with_crypto(pair$recipient, {
       expect_error(.mpcTypedBlobStoreDS_impl(
         wrong_type_ticket, payload, 0, pair$recipient$session_id),
-        "metadata conflicts")
+        "not present in the server registry")
       expect_error(.mpcTypedBlobStoreDS_impl(
         tampered_context_ticket, payload, 0, pair$recipient$session_id),
         "metadata conflicts")

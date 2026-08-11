@@ -9,7 +9,7 @@
 
 .DSVERT_DP_ANALYSIS_CONTRACT_VERSION <- "dsvert-analysis-contract-v1"
 .DSVERT_DP_ANALYSIS_SEMANTIC_VERSION <- "dsvert-analysis-semantic-v1"
-.DSVERT_DP_ANALYSIS_FREQUENCY_SEMANTIC_VERSION <- "dsvert-analysis-semantic-fixed-categorical-vector-v1"
+.DSVERT_DP_ANALYSIS_FREQUENCY_SEMANTIC_VERSION <- "dsvert-analysis-semantic-fixed-categorical-vector-v2"
 .DSVERT_DP_ANALYSIS_EXECUTION_VERSION <- "dsvert-analysis-execution-v1"
 .DSVERT_DP_ANALYSIS_SNAPSHOT_VERSION <- "dsvert-analysis-snapshot-v1"
 .DSVERT_DP_ANALYSIS_ARTIFACT_DOMAIN <-
@@ -36,6 +36,8 @@
   "dsVert/frequency/backend-selection/accuracy-certificate/v1|"
 .DSVERT_DP_ANALYSIS_FREQUENCY_SELECTION_DOMAIN_V1 <-
   "dsVert/frequency/backend-selection/certificate/v1|"
+.DSVERT_DP_ANALYSIS_FREQUENCY_CONTRIBUTION_DOMAIN_V1 <-
+  "dsVert/dp-frequency/contribution/v1|"
 
 .DSVERT_DP_ANALYSIS_RESERVED_FIELDS <- c(
   "analysis_id", "attempt_id", "connection_id", "epoch", "key_id", "nonce",
@@ -153,6 +155,35 @@
 .dsvert_dp_analysis_frequency_named_list_v1 <- function(value) tryCatch({.dsvert_dp_analysis_named_list(value, "Frequency list"); TRUE}, error = function(error) FALSE)
 .dsvert_dp_analysis_frequency_identity_pk_v1 <- function(value) .dsvert_dp_analysis_identity_pk(value, "Frequency identity")
 .dsvert_dp_analysis_frequency_positive_integer_v1 <- function(value) .dsvert_dp_analysis_positive_integer(value, "Frequency integer")
+.dsvert_dp_analysis_frequency_levels_dimension_v1 <- function(
+    levels, dimension, prefix = NULL) {
+  dimension <- tryCatch(
+    .dsvert_dp_analysis_frequency_positive_integer_v1(dimension),
+    error = function(error) NULL)
+  if (!is.list(levels) || !is.null(names(levels)) || is.null(dimension) ||
+      dimension > .DSVERT_PSI_PADDED_FACTOR_MAX_LEVELS ||
+      length(levels) != dimension) return(NULL)
+  total_bytes <- 0
+  if (!is.null(prefix)) {
+    if (!is.character(prefix) || length(prefix) != 1L || is.na(prefix)) {
+      return(NULL)
+    }
+    total_bytes <- tryCatch(
+      nchar(prefix, type = "bytes"), error = function(error) NA_integer_)
+    if (is.na(total_bytes) ||
+        total_bytes > .DSVERT_PSI_PADDED_FACTOR_MAX_METADATA_BYTES) return(NULL)
+  }
+  for (level in levels) {
+    if (!is.character(level) || length(level) != 1L || is.na(level)) return(NULL)
+    level_bytes <- tryCatch(
+      nchar(level, type = "bytes"), error = function(error) NA_integer_)
+    if (length(level_bytes) != 1L || is.na(level_bytes) ||
+        level_bytes > .DSVERT_PSI_PADDED_FACTOR_MAX_METADATA_BYTES -
+          total_bytes) return(NULL)
+    total_bytes <- total_bytes + level_bytes
+  }
+  dimension
+}
 .dsvert_dp_analysis_frequency_object_v1 <- function(value, fields,
                                                      fixed = list()) {
   is.list(value) && !is.null(names(value)) &&
@@ -218,6 +249,17 @@
   .dsvert_dp_analysis_frequency_hash_v1(
     .DSVERT_DP_ANALYSIS_FREQUENCY_ORDER_DOMAIN, list(
       version = "dsvert-frequency-coordinate-order-v1", levels = levels))
+}
+.dsvert_dp_analysis_frequency_contribution_sha256_v1 <- function() {
+  .dsvert_dp_analysis_frequency_hash_v1(
+    .DSVERT_DP_ANALYSIS_FREQUENCY_CONTRIBUTION_DOMAIN_V1, list(
+      alignment_protocol = "dsvert-pinned-padded-psi-v4",
+      duplicate_policy = "first",
+      repeated_record_policy =
+        "psi_v4_first_eligible_source_record_per_privacy_unit_v1",
+      max_records_per_unit = 1,
+      overflow_policy =
+        "clip_to_psi_v4_first_eligible_source_record_v1"))
 }
 .dsvert_dp_analysis_frequency_uint_v1 <- function(value, positive = FALSE) {
   if (!is.character(value) || length(value) != 1L || is.na(value) ||
@@ -788,17 +830,26 @@
 }
 .dsvert_dp_analysis_frequency_semantic_validate_v1 <- function(value) {
   fail <- function() stop("Invalid fixed categorical Frequency semantic contract", call. = FALSE)
-  raw_levels <- tryCatch(value$analysis$effective_arguments$levels,
+  raw_arguments <- tryCatch(value$analysis$effective_arguments,
     error = function(error) NULL)
-  utf8_exact <- is.list(raw_levels) && is.null(names(raw_levels)) &&
-    length(raw_levels) >= 1L && all(vapply(raw_levels, function(level) {
+  raw_levels <- if (is.list(raw_arguments)) raw_arguments$levels else NULL
+  dimension <- if (is.list(raw_arguments)) {
+    .dsvert_dp_analysis_frequency_levels_dimension_v1(
+      raw_levels, raw_arguments$dimension)
+  } else NULL
+  if (is.null(dimension)) fail()
+  utf8_exact <- all(vapply(raw_levels, function(level) {
       is.character(level) && length(level) == 1L && !is.na(level) &&
         nzchar(level) && nchar(level, type = "bytes") <= 1024L &&
         isTRUE(validUTF8(level)) &&
         tryCatch(identical(charToRaw(level), charToRaw(enc2utf8(level))),
                  error = function(error) FALSE)
     }, logical(1L)))
-  if (!utf8_exact || anyDuplicated(unlist(raw_levels, use.names = FALSE))) fail()
+  canonical_levels <- if (utf8_exact) {
+    as.list(sort(unlist(raw_levels, use.names = FALSE), method = "radix"))
+  } else NULL
+  if (!utf8_exact || anyDuplicated(unlist(raw_levels, use.names = FALSE)) ||
+      !identical(raw_levels, canonical_levels)) fail()
   value <- tryCatch(.dsvert_dp_analysis_canonical_value_v1(value),
     error = function(error) fail())
   if (!.dsvert_dp_analysis_frequency_object_v1(value, c(
@@ -819,24 +870,20 @@
         "dataset_version", "variable_id", "levels", "dimension",
         "repeated_record_policy", "missingness_policy", "coordinate_bounds",
         "sampler_plan"), list(
-          version = "dsvert-fixed-domain-categorical-frequency-v1",
+          version = "dsvert-fixed-domain-categorical-frequency-v2",
           statistic = "aligned_fixed_domain_categorical_frequency",
-          repeated_record_policy = "consistent_level_else_exclude_v1",
+          repeated_record_policy =
+            "psi_v4_first_eligible_source_record_per_privacy_unit_v1",
           missingness_policy =
             "missing_or_out_of_domain_rows_are_ignored"))) fail()
   profile <- .dsvert_dp_analysis_frequency_profile_v1(analysis$primitive)
   if (is.null(profile) ||
       !all(vapply(arguments[c("dataset_id", "dataset_version", "variable_id")],
                   .dsvert_dp_analysis_frequency_scalar_id_v1, logical(1L)))) fail()
-  dimension <- tryCatch(
-    .dsvert_dp_analysis_frequency_positive_integer_v1(arguments$dimension),
-    error = function(error) NULL)
   bounds <- arguments$coordinate_bounds
   bound <- tryCatch(.dsvert_dp_analysis_frequency_positive_integer_v1(bounds$upper),
                     error = function(error) NULL)
-  if (is.null(dimension) || dimension > 1000000 ||
-      dimension != length(arguments$levels) ||
-      !.dsvert_dp_analysis_frequency_object_v1(
+  if (!.dsvert_dp_analysis_frequency_object_v1(
         bounds, c("lower", "upper"), list(lower = 0)) ||
       is.null(bound) || bound > 1000000) fail()
   snapshots <- value$owner_snapshots
@@ -895,12 +942,13 @@
       contribution, c("version", "max_records_per_unit", "overflow_policy",
                       "constraints"), list(
         version = "dsvert-contribution-policy-v1", max_records_per_unit = 1,
-        overflow_policy = "reject_operation")) ||
+        overflow_policy =
+          "clip_to_psi_v4_first_eligible_source_record_v1")) ||
       !.dsvert_dp_analysis_frequency_object_v1(
         constraints, c("version", "policy_sha256"), list(
           version = "dsvert-contribution-constraints-v1")) ||
-      !.dsvert_dp_analysis_frequency_hex_v1(
-        constraints$policy_sha256)) fail()
+      !identical(constraints$policy_sha256,
+                 .dsvert_dp_analysis_frequency_contribution_sha256_v1())) fail()
   mechanism <- privacy$mechanism
   sensitivity <- if (is.list(mechanism)) mechanism$sensitivity else NULL
   calibration <- if (is.list(mechanism)) mechanism$calibration else NULL
@@ -1527,11 +1575,6 @@
 .dsvert_dp_sticky_subseed_v1 <- function(
     contract, lane) {
   contract <- .dsvert_dp_analysis_contract_validate_v1(contract)
-  if (identical(contract$semantic$version,
-                .DSVERT_DP_ANALYSIS_FREQUENCY_SEMANTIC_VERSION)) {
-    stop("Frequency sticky execution is not promoted by this contract-only schema",
-         call. = FALSE)
-  }
   .dsvert_dp_analysis_scalar_id(lane, "sticky randomness lane")
   lanes <- contract$semantic$privacy$mechanism$randomness$lanes
   if (!lane %in% names(lanes)) {
@@ -1540,8 +1583,14 @@
   }
   noise_authority <- .dsvert_dp_analysis_identity_pk(
     .get_identity_keypair()$identity_pk, "local noise authority")
-  if (!noise_authority %in% unlist(
-      contract$semantic$noise_authorities, use.names = FALSE)) {
+  noise_authorities <- if (identical(
+      contract$semantic$version,
+      .DSVERT_DP_ANALYSIS_FREQUENCY_SEMANTIC_VERSION)) {
+    contract$semantic$noise_authority_roles$authority_ids
+  } else {
+    contract$semantic$noise_authorities
+  }
+  if (!noise_authority %in% unlist(noise_authorities, use.names = FALSE)) {
     stop("The local identity is not a designated noise authority",
          call. = FALSE)
   }

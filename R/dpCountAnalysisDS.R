@@ -1267,6 +1267,10 @@ dsvertDPCountCompileDS <- function(data_name) {
     local_authority = local_authority)
   candidate$authorization_sha256 <-
     .dsvert_dp_count_authorization_sha256_v1(candidate)
+  if (!is.null(ss$.dp_frequency_authorization)) {
+    stop("Count authorization conflicts with Frequency session state.",
+         call. = FALSE)
+  }
   previous <- ss$.dp_count_authorization
   if (!is.null(previous)) {
     previous <- .dsvert_dp_count_session_authorization_validate_v1(

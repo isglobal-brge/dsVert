@@ -649,6 +649,26 @@ test_that("Count authorization fails closed without partial session state", {
     "must precede exact-gc peer binding")
   expect_null(late$.dp_count_authorization)
 
+  frequency_first <- new.env(parent = emptyenv())
+  frequency_marker <- list(version = "foreign-frequency")
+  frequency_first$.dp_frequency_authorization <- frequency_marker
+  expect_error(.count_analysis_authorize(
+    frequency_first, session_id, config, receipts, authorities[[1L]]),
+    "Frequency")
+  expect_null(frequency_first$.dp_count_authorization)
+  expect_identical(
+    frequency_first$.dp_frequency_authorization, frequency_marker)
+
+  count_first <- new.env(parent = emptyenv())
+  count_before <- .count_analysis_authorize(
+    count_first, session_id, config, receipts, authorities[[1L]])
+  count_first$.dp_frequency_authorization <- frequency_marker
+  expect_error(.count_analysis_authorize(
+    count_first, session_id, config, rev(receipts), authorities[[1L]]),
+    "Frequency")
+  expect_identical(count_first$.dp_count_authorization, count_before)
+  expect_identical(count_first$.dp_frequency_authorization, frequency_marker)
+
   ss <- new.env(parent = emptyenv())
   installed <- .count_analysis_authorize(
     ss, session_id, config, receipts, authorities[[1L]])

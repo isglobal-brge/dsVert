@@ -109,3 +109,65 @@ test_that("global accounting includes relay, typed, and exact-gc bytes", {
   expect_identical(totals$session, 606)
   expect_identical(totals$global, baseline + 606 + 404)
 })
+
+test_that("Frequency persistent estimates are fixed, bounded, and role exact", {
+  for (role in c("source_owner", "secondary_noise_authority")) {
+    expect_identical(
+      .dsvert_dp_frequency_resource_estimate_v1(1L, 65536L, role),
+      8)
+    expect_identical(
+      .dsvert_dp_frequency_resource_estimate_v1(1000000L, 65536L, role),
+      8000000)
+  }
+  expect_identical(
+    .dsvert_dp_frequency_resource_estimate_v1(
+      1000000L, 65536L, "witness"), 0)
+  expect_error(.dsvert_dp_frequency_resource_estimate_v1(
+    0, 65536L, "source_owner"), "geometry")
+  expect_error(.dsvert_dp_frequency_resource_estimate_v1(
+    1000001, 65536L, "source_owner"), "geometry")
+  expect_error(.dsvert_dp_frequency_resource_estimate_v1(
+    1L, 65535L, "source_owner"), "geometry")
+  expect_error(.dsvert_dp_frequency_resource_estimate_v1(
+    1L, 65536L, "source"), "role")
+})
+
+test_that("Frequency reservations bind once and generic cleanup releases", {
+  storage <- new.env(parent = emptyenv())
+  session_id <- "11111111-1111-4111-8111-111111111111"
+  artifact <- strrep("a", 64L)
+  session <- new.env(parent = emptyenv())
+  session$.session_id <- session_id
+  storage[[session_id]] <- session
+  baseline <- .dsvert_resource_retained_bytes()
+
+  testthat::with_mocked_bindings({
+    reservation <- .dsvert_dp_frequency_resource_reserve_v1(
+      session, session_id, artifact, "source_owner", 3L, 65536L)
+    expect_identical(reservation$bytes, 24)
+    expect_identical(reservation[c("session_id", "artifact_key", "role")],
+                     list(session_id = session_id, artifact_key = artifact,
+                          role = "source_owner"))
+    expect_identical(.dsvert_resource_session_bytes(session),
+                     reservation$bytes)
+    expect_identical(.dsvert_resource_retained_bytes(),
+                     baseline + reservation$bytes)
+    session$.typed_blob_retained_head <- list(total = 1409104)
+    combined <- testthat::with_mocked_bindings(
+      .dsvert_resource_session_bytes(session),
+      .dsvert_typed_blob_accounting_authentic = function(...) TRUE,
+      .package = "dsVert")
+    session$.typed_blob_retained_head <- NULL
+    expect_identical(combined, reservation$bytes + 1409104)
+    expect_identical(.dsvert_dp_frequency_resource_reserve_v1(
+      session, session_id, artifact, "source_owner", 3L, 65536L),
+      reservation)
+    expect_error(.dsvert_dp_frequency_resource_reserve_v1(
+      session, session_id, strrep("b", 64L), "source_owner", 3L, 65536L),
+      "Conflicting Frequency resource reservation")
+
+    .cleanup_session(session_id)
+    expect_identical(.dsvert_resource_retained_bytes(), baseline)
+    expect_false(exists(session_id, envir = storage, inherits = FALSE))
+  }, .session_storage = function() storage, .package = "dsVert")
+})

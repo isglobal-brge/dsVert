@@ -161,6 +161,25 @@ NULL
   invisible(TRUE)
 }
 
+.dsvert_dp_frequency_resource_estimate_v1 <- function(
+    dimension, window_coordinates, role) {
+  valid_geometry <- is.numeric(dimension) && length(dimension) == 1L &&
+    !is.na(dimension) && is.finite(dimension) &&
+    dimension == floor(dimension) && dimension >= 1 && dimension <= 1000000 &&
+    is.numeric(window_coordinates) && length(window_coordinates) == 1L &&
+    !is.na(window_coordinates) && is.finite(window_coordinates) &&
+    window_coordinates == 65536
+  if (!valid_geometry) stop("Invalid Frequency resource geometry.", call. = FALSE)
+  if (!is.character(role) || length(role) != 1L || is.na(role) || !role %in%
+      c("source_owner", "secondary_noise_authority", "witness"))
+    stop("Invalid Frequency resource role.", call. = FALSE)
+  if (identical(role, "witness")) return(0)
+  retained <- dimension * 8
+  if (!is.finite(retained) || retained != floor(retained) || retained > 2^53) stop(
+    "Frequency resource estimate overflowed.", call. = FALSE)
+  as.numeric(retained)
+}
+
 .dsvert_resource_session_bytes <- function(ss) {
   relay <- 0
   if (is.environment(ss$.dsvert_dsi_relay)) {
@@ -234,7 +253,25 @@ NULL
       alignment_mask <- alignment_mask + reservation
     }
   }
-  values <- c(relay, typed, legacy, exact, alignment_mask)
+  frequency <- 0
+  record <- ss$.dp_frequency_resource_reservation
+  if (!is.null(record)) {
+    required <- c("artifact_key", "bytes", "dimension", "role", "session_id",
+                  "window_coordinates")
+    estimate <- tryCatch(.dsvert_dp_frequency_resource_estimate_v1(
+      record$dimension, record$window_coordinates, record$role),
+      error = function(error) NA_real_)
+    valid <- is.list(record) && !is.null(names(record)) &&
+      !anyDuplicated(names(record)) && identical(sort(names(record)), required) &&
+      is.character(record$artifact_key) && length(record$artifact_key) == 1L &&
+      grepl("^[0-9a-f]{64}$", record$artifact_key) &&
+      isTRUE(tryCatch({ .validate_session_id(record$session_id); TRUE },
+                      error = function(error) FALSE)) &&
+      identical(record$bytes, estimate)
+    if (!isTRUE(valid)) return(Inf)
+    frequency <- estimate
+  }
+  values <- c(relay, typed, legacy, exact, alignment_mask, frequency)
   if (anyNA(values) || any(!is.finite(values)) || any(values < 0)) return(Inf)
   sum(values)
 }
@@ -352,6 +389,30 @@ NULL
     admitted = TRUE, code = "ok", retryable = FALSE,
     retained_bytes = retained, requested_bytes = additional,
     capacity_bytes = capacity))
+}
+
+.dsvert_dp_frequency_resource_reserve_v1 <- function(
+    ss, session_id, artifact_key, role, dimension, window_coordinates) {
+  if (!is.environment(ss)) stop("Invalid Frequency resource owner.", call. = FALSE)
+  .validate_session_id(session_id)
+  if (!is.character(artifact_key) || length(artifact_key) != 1L ||
+      is.na(artifact_key) || !grepl("^[0-9a-f]{64}$", artifact_key)) {
+    stop("Invalid Frequency resource artifact.", call. = FALSE)
+  }
+  bytes <- .dsvert_dp_frequency_resource_estimate_v1(
+    dimension, window_coordinates, role)
+  candidate <- list(
+    session_id = session_id, artifact_key = artifact_key, role = role,
+    dimension = as.numeric(dimension),
+    window_coordinates = as.numeric(window_coordinates), bytes = bytes)
+  prior <- ss$.dp_frequency_resource_reservation
+  if (!is.null(prior)) {
+    if (identical(prior, candidate)) return(invisible(prior))
+    stop("Conflicting Frequency resource reservation.", call. = FALSE)
+  }
+  .dsvert_resource_admit(ss, bytes)
+  ss$.dp_frequency_resource_reservation <- candidate
+  invisible(candidate)
 }
 
 # Session inactivity lease: 24 hours.  Total session age is deliberately not a

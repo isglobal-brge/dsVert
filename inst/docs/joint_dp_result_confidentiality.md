@@ -3,8 +3,10 @@
 Status: the registered biomedical-vector path carries allocation, bounded
 source materialization, joint sampling, finalization, durable publication and
 replay end to end. Its productive receipts report
-`capability_available=TRUE`. The older generic scalar receipt state machine is
-unregistered and is not a statistical release route.
+`capability_available=TRUE`. The older generic scalar DSI frontdoor is
+hard-deleted. Its pre-release result-store internals remain outside the remote
+surface pending a separate schema-removal decision and are not a statistical
+release route.
 
 ## Current product flow
 

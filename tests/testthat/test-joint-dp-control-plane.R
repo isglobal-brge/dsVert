@@ -347,16 +347,6 @@ test_that("the joint ledger rechecks sidecars after acquiring its lock", {
 
 test_that("joint allocator uses one global allocation and exact replay", {
   fixture <- .joint_test_fixture()
-  registered <- .dsvert_registered_remote_methods(
-    .dsvert_test_package_file("DESCRIPTION"))
-  dsi_control <- c(
-    "dsvertJointDPPrepareDS", "dsvertJointDPCommitDS",
-    "dsvertJointDPAuthorizeDS", "dsvertJointDPOpenDS",
-    "dsvertJointDPResultReceiptDS", "dsvertJointDPDeliveryDS",
-    "dsvertJointDPDeliveryContractDS")
-  expect_length(intersect(dsi_control, registered), 0L)
-  expect_length(intersect(
-    dsi_control, .dsvert_test_disclosure_safe_methods), 0L)
   proposals <- .joint_test_proposals(fixture)
   expect_identical(proposals$peer_a$query_id, proposals$peer_b$query_id)
 

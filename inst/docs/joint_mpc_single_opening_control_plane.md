@@ -1,16 +1,14 @@
 # Joint MPC single-opening DP control plane
 
-Status: implemented and adversarially unit-tested as a control plane with a
-private durable result spool. A purpose-bound DSI signed-receipt bridge is now
-registered, but remains **provisional, default-gate blocked and not promoted**.
-It has no remote proposal minter, statistic/sampler input, result stager or
-payload getter. The exact-GC sampler-to-result adapter and real multi-node DSI
-delivery are not E2E verified. Consequently every opening and delivery token
-says `capability_available = FALSE`, and every delivery contract also says
-`payload_delivery_available = FALSE`. Every production policy is inspectable
-but fails before an informative sampling request until the full adapter is
-promoted, whether or not the optional external CAS is present. The CAS never
-selects a separate local `epsilon/K` release path.
+Status: implemented and adversarially unit-tested as the durable allocator
+underlying the manifest-bound biomedical vector route. Its registered product
+surface is the five `dsvertJointDPVectorAllocation*DS` endpoints. The former
+seven-phase generic scalar DSI frontdoor and its result/delivery contracts are
+hard-deleted. The shared receipt codec and commit/authorize/open helpers remain
+internal because the vector allocator uses them. The generic result-spool
+schema remains historical internal state pending a separate schema-removal
+decision; no service endpoint stages or retrieves a payload through it. The
+stateless Count route does not use this control plane.
 
 ## Objective and threat model
 
@@ -158,15 +156,14 @@ abort, refund, seed-read or generic state-write endpoint.
    Lost acknowledgements and restarts replay byte-identical receipts. A
    conflicting payload for the same query is rejected, including after a
    one-peer rollback when the other peer retains its commitment. There is no
-   remote payload getter. The DSI bridge starts only from the two already-signed
-   `result_prepared` receipts; it has no payload argument or result-preparation
-   endpoint. Legacy v1 result receipts and their enumerable public hashes are
-   rejected. A future producer must still use uniformly masked additive result
-   shares or the authenticated exact-GC peer channel: the HMAC closes the
-   receipt oracle but does not make an exact unmasked statistic safe to deliver.
-9. **Single payload delivery (not implemented).** The DSI control bridge can
-   cross-sign result receipts and verify redacted delivery contracts, but the
-   future producer adapter must
+   remote payload getter. The generic scalar DSI bridge and its seven
+   unregistered frontdoors are hard-deleted. Legacy v1 result receipts and
+   their enumerable public hashes are rejected. A future producer must still
+   use uniformly masked additive result shares or the authenticated exact-GC
+   peer channel: the HMAC closes the receipt oracle but does not make an exact
+   unmasked statistic safe to deliver.
+9. **Single payload delivery (not implemented).** A future product-bound
+   adapter must
    prove that the persisted bytes are the purpose-bound, already-noised output
    of the attested sampler and must verify both delivery tokens before one
    payload is returned. It may never persist or pass an exact statistic as a
@@ -356,11 +353,10 @@ every leader and follower durable prepare crash phase, every later allocation an
 result durable crash phase, lost acknowledgements, one-peer allocation and
 payload rollback, external-anchor rollback, concurrent identical
 allocation/result prepares, and exhaustive enumeration of the former public
-SHA commitment over a one-byte output domain. The DSI-focused tests additionally cover K=3 with
-a non-adjacent designated pair, authenticated proposal tampering, canonical
-message rejection, real client-side Ed25519 verification, analyst peer-pair
-substitution, exact retry after lost prepare and result ACKs, rejection of v1
-result receipts, and absence of payload commitments from the final public
-contract. These are in-process/mock-connector tests, not a claim of real
-Opal/Armadillo multi-host E2E validation. No test opens protected data, a
-statistic share, a seed, noise, or a persisted payload through a service API.
+SHA commitment over a one-byte output domain. The product-bound vector
+allocation tests additionally cover K=3 with a non-designated observer,
+server-derived proposals, tampered signed allocation receipts, peer
+substitution, exact replay and history gating. These are
+in-process/mock-connector tests, not a claim of real Opal/Armadillo multi-host
+E2E validation. No test opens protected data, a statistic share, a seed, noise,
+or a persisted payload through a service API.

@@ -209,8 +209,8 @@ error estimate should be substituted for these proofs.
 
 - a server-local v2 token-to-worker attestation bridge that writes the exact
   worker output bytes into the existing durable result state machine;
-- an end-to-end DSI bridge test (the independent packaged two-process tests
-  already pass for Ring63 and Ring127);
+- an end-to-end product-bound adapter test (the independent packaged
+  two-process tests already pass for Ring63 and Ring127);
 - end-to-end crash injection across worker completion, durable result
   persistence, DSI acknowledgement, and replay (the control-plane-only crash
   and lost-acknowledgement tests already pass);

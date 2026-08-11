@@ -276,12 +276,10 @@
   mechanism and selector contracts are versioned to v3 so releases produced
   under the former, insufficient reserve cannot be mistaken for corrected
   certificates.
-* Added a provisional purpose-bound DSI bridge for the cross-signed global-DP
-  control plane. Seven narrowly typed phases relay only canonical signed
-  receipts between two custodian-designated peers from the complete K-peer
-  pinset. Proposals require a server-local HMAC; no endpoint accepts or returns
-  a statistic, seed, noise sample, share, or result payload. Exact retries are
-  durable, while capability and payload delivery remain disabled.
+* Hard-deleted the provisional seven-phase generic scalar DSI frontdoor after
+  the manifest-bound vector allocation and release routes replaced it. The
+  shared canonical receipt codec and allocation phases remain internal solely
+  for those product-bound routes.
 * Replaced the relay-visible unkeyed result-payload hash with a v2,
   domain-separated HMAC-SHA256 commitment under the persistent private ledger
   key. This removes the offline dictionary oracle for low-entropy result

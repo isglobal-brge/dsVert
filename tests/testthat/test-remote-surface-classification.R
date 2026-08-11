@@ -152,7 +152,7 @@ test_that("internal DS compatibility functions stay outside the remote surface",
       retired_legacy_chisq, retired_correlation),
     unlist(inventory$immediate_removal_decision$removed_in_this_audit,
            use.names = FALSE))
-  expect_length(retired, 7L)
+  expect_length(retired, 0L)
   expect_identical(retired_histogram, "dsvertHistogramDS")
   expect_identical(retired_contingency, "dsvertContingencyDS")
   expect_length(retired_legacy_chisq, 10L)
@@ -171,11 +171,17 @@ test_that("internal DS compatibility functions stay outside the remote surface",
     "dsvertJointDPCountBackendTokenDS", "dsvertJointDPCountStartDS",
     "dsvertJointDPCountResultDS", "dsvertJointDPCountFinalShareDS",
     "dsvertJointDPCountReleaseDS")
-  expect_true(all(hard_deleted_count %in% unlist(
+  hard_deleted_scalar_control <- c(
+    "dsvertJointDPPrepareDS", "dsvertJointDPCommitDS",
+    "dsvertJointDPAuthorizeDS", "dsvertJointDPOpenDS",
+    "dsvertJointDPResultReceiptDS", "dsvertJointDPDeliveryDS",
+    "dsvertJointDPDeliveryContractDS")
+  hard_deleted <- c(hard_deleted_count, hard_deleted_scalar_control)
+  expect_true(all(hard_deleted %in% unlist(
     inventory$immediate_removal_decision$hard_deleted_in_this_audit,
     use.names = FALSE)))
   expect_false(any(vapply(
-    hard_deleted_count, exists, logical(1L),
+    hard_deleted, exists, logical(1L),
     envir = namespace, inherits = FALSE)))
 })
 

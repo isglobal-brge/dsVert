@@ -162,6 +162,11 @@ test_that("remote aliases fail closed instead of bypassing the central gate", {
 })
 
 test_that("only the stateless Count lifecycle remains remote", {
+  hard_deleted_scalar_control <- c(
+    "dsvertJointDPPrepareDS", "dsvertJointDPCommitDS",
+    "dsvertJointDPAuthorizeDS", "dsvertJointDPOpenDS",
+    "dsvertJointDPResultReceiptDS", "dsvertJointDPDeliveryDS",
+    "dsvertJointDPDeliveryContractDS")
   hard_deleted_count <- c(
     "dsvertJointDPCountReplayDS", "dsvertJointDPCountProposalDS",
     "dsvertJointDPCountSourceDS", "dsvertJointDPCountBackendPrepareDS",
@@ -171,10 +176,7 @@ test_that("only the stateless Count lifecycle remains remote", {
   retired <- c(
     "dsvertDPStatusDS", "dsvertDPCountDS", "dsvertDPContingencyDS",
     "dsvertDPMeanVarDS", "dsvertDPDescribeDS", "dsvertDPSurvivalDS",
-    "dsvertJointDPPrepareDS", "dsvertJointDPCommitDS",
-    "dsvertJointDPAuthorizeDS", "dsvertJointDPOpenDS",
-    "dsvertJointDPResultReceiptDS", "dsvertJointDPDeliveryDS",
-    "dsvertJointDPDeliveryContractDS", hard_deleted_count,
+    hard_deleted_scalar_control, hard_deleted_count,
     "dsvertPublicFixedCohortCountDS")
   description <- .dsvert_test_package_file("DESCRIPTION")
   aggregate <- trimws(strsplit(
@@ -186,7 +188,8 @@ test_that("only the stateless Count lifecycle remains remote", {
   expect_false(any(retired %in% aggregate))
   expect_false(any(retired %in% exports))
   expect_false(any(vapply(
-    hard_deleted_count, exists, logical(1L),
+    c(hard_deleted_scalar_control, hard_deleted_count),
+    exists, logical(1L),
     envir = asNamespace("dsVert"), inherits = FALSE)))
   active <- c(
     "dsvertDPCountCompileDS", "dsvertDPCountAuthorizeDS",

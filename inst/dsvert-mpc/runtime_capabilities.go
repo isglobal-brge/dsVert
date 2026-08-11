@@ -1,19 +1,22 @@
 package main
 
 const (
-	runtimeManifestSchemaVersion = 1
-	runtimeProtocolVersion       = "dsvert-mpc-runtime-v1"
-	runtimeAPIVersion            = "1.1.0"
-	dpNoiseProtocolVersion       = "dsvert-dp-noise-int64-v2"
-	dpGaussianProtocolVersion    = "dsvert-dp-gaussian-int64-v3"
-	typedSourceProtocolVersion   = "dsvert-typed-source-stream-v1"
-	jointDPVectorProtocolVersion = "dsvert-joint-dp-vector-hybrid-v5"
+	runtimeManifestSchemaVersion    = 1
+	runtimeProtocolVersion          = "dsvert-mpc-runtime-v1"
+	runtimePackageVersion           = "1.1.0"
+	runtimeAPIVersion               = "1.2.0"
+	dpNoiseProtocolVersion          = "dsvert-dp-noise-int64-v2"
+	dpGaussianProtocolVersion       = "dsvert-dp-gaussian-int64-v3"
+	typedSourceProtocolVersion      = "dsvert-typed-source-stream-v1"
+	jointDPVectorProtocolVersion    = "dsvert-joint-dp-vector-hybrid-v5"
+	jointDPFrequencyProtocolVersion = "dsvert-joint-dp-frequency-backend-selection-v1"
 )
 
 // runtimeVersion is intentionally a variable so release builds can inject the
 // package version with -X main.runtimeVersion. The source-build default stays
-// aligned with the dsVert and dsVertClient package versions.
-var runtimeVersion = runtimeAPIVersion
+// aligned with the dsVert and dsVertClient package versions. The runtime API
+// version changes independently when the exact bilateral manifest changes.
+var runtimeVersion = runtimePackageVersion
 
 type runtimeFeatureManifest struct {
 	Available       bool     `json:"available"`
@@ -25,11 +28,12 @@ type runtimeFeatureManifest struct {
 }
 
 type runtimeFeatureSet struct {
-	DPNoiseInt64      runtimeFeatureManifest `json:"dp_noise_int64"`
-	DPGaussianInt64   runtimeFeatureManifest `json:"dp_gaussian_int64"`
-	ExactGC           runtimeFeatureManifest `json:"exact_gc"`
-	TypedSourceStream runtimeFeatureManifest `json:"typed_source_stream"`
-	JointDPVector     runtimeFeatureManifest `json:"joint_dp_vector_convolution"`
+	DPNoiseInt64                     runtimeFeatureManifest `json:"dp_noise_int64"`
+	DPGaussianInt64                  runtimeFeatureManifest `json:"dp_gaussian_int64"`
+	ExactGC                          runtimeFeatureManifest `json:"exact_gc"`
+	TypedSourceStream                runtimeFeatureManifest `json:"typed_source_stream"`
+	JointDPVector                    runtimeFeatureManifest `json:"joint_dp_vector_convolution"`
+	JointDPFrequencyBackendSelection runtimeFeatureManifest `json:"joint_dp_frequency_backend_selection"`
 }
 
 type runtimeCapabilitiesOutput struct {
@@ -115,6 +119,17 @@ func runtimeCapabilities() runtimeCapabilitiesOutput {
 					"sticky-independent-complete-vector-discrete-laplace-ring128-v3",
 					"sticky-independent-complete-vector-dyadic-discrete-gaussian-tv-bounded-ring128-v2",
 					"signed-decode-fixed-public-clamp-no-wrap-v3",
+				},
+			},
+			JointDPFrequencyBackendSelection: runtimeFeatureManifest{
+				Available:       true,
+				CapabilityID:    "joint_dp_frequency_backend_selection_v1",
+				ProtocolVersion: jointDPFrequencyProtocolVersion,
+				Commands: []string{
+					"joint-dp-frequency-backend-select-v1",
+				},
+				Operations: []string{
+					"public-data-free-certified-frequency-backend-selection-v1",
 				},
 			},
 		},

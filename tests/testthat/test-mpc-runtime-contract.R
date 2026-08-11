@@ -48,12 +48,12 @@ test_that("runtime discovery never repairs unsafe executable permissions", {
   expect_true(file.access(binary, mode = 1L) != 0L)
 })
 
-test_that("malformed or incomplete capability manifests fail closed", {
+test_that("old-API, malformed or incomplete manifests fail closed", {
   old <- list(
     schema_version = 1L,
     protocol_version = "dsvert-mpc-runtime-v1",
-    runtime_version = "1.0.0",
-    api_version = "1.0.0",
+    runtime_version = "1.1.0",
+    api_version = "1.1.0",
     capabilities = list())
   expect_error(
     .dsvert_mpc_validate_runtime_manifest(old),
@@ -183,10 +183,30 @@ test_that("the current compiled runtime satisfies a deterministic contract", {
                     stderr = TRUE)
   expect_identical(first, second)
   manifest <- .dsvert_mpc_runtime_manifest()
+  old_manifest <- manifest
+  old_manifest$api_version <- "1.1.0"
+  old_manifest$capabilities$joint_dp_frequency_backend_selection <- NULL
+  expect_error(
+    .dsvert_mpc_validate_runtime_manifest(old_manifest),
+    "unsupported manifest schema or API version")
   expect_identical(manifest$runtime_version, "1.1.0")
-  expect_identical(manifest$api_version, "1.1.0")
+  expect_identical(manifest$api_version, "1.2.0")
   expect_true(manifest$capabilities$dp_noise_int64$available)
   expect_true(manifest$capabilities$exact_gc$available)
+  frequency <- manifest$capabilities$joint_dp_frequency_backend_selection
+  expect_identical(frequency$available, TRUE)
+  expect_identical(
+    frequency$capability_id,
+    "joint_dp_frequency_backend_selection_v1")
+  expect_identical(
+    frequency$protocol_version,
+    "dsvert-joint-dp-frequency-backend-selection-v1")
+  expect_identical(
+    as.character(frequency$commands),
+    "joint-dp-frequency-backend-select-v1")
+  expect_identical(
+    as.character(frequency$operations),
+    "public-data-free-certified-frequency-backend-selection-v1")
   expect_identical(mpcVersion(), "1.1.0")
   expect_true(mpcAvailable())
 })
@@ -200,6 +220,10 @@ test_that("release Makefile pins reproducible pure-Go flags", {
   makefile <- paste(readLines(file.path(source_dir, "Makefile"), warn = FALSE),
                     collapse = "\n")
   expect_match(makefile, "VERSION \\?= 1\\.1\\.0")
+  expect_match(
+    makefile, "override GO_VERSION_REQUIRED := go1\\.25\\.7")
+  expect_match(makefile, "deps: check-go-version", fixed = TRUE)
+  expect_match(makefile, "go env GOVERSION", fixed = TRUE)
   expect_match(makefile, "CGO_ENABLED=0", fixed = TRUE)
   expect_match(makefile, "-trimpath", fixed = TRUE)
   expect_match(makefile, "-buildvcs=false", fixed = TRUE)
@@ -209,4 +233,19 @@ test_that("release Makefile pins reproducible pure-Go flags", {
   expect_match(makefile, "SHA256SUMS.tmp", fixed = TRUE)
   expect_match(makefile, "test -x", fixed = TRUE)
   expect_false(grepl("go mod tidy", makefile, fixed = TRUE))
+
+  make <- Sys.which("make")
+  if (nzchar(make) && .Platform$OS.type != "windows") {
+    fake_bin <- withr::local_tempdir(pattern = "dsvert-fake-go-")
+    fake_go <- file.path(fake_bin, "go")
+    writeLines(c("#!/bin/sh", "printf 'go0.0.0\\n'"), fake_go)
+    Sys.chmod(fake_go, mode = "0700")
+    rejected <- withr::with_envvar(c(
+      PATH = paste(fake_bin, Sys.getenv("PATH"),
+                   sep = .Platform$path.sep)), suppressWarnings(
+        withr::with_dir(source_dir, system2(
+          make, "check-go-version", stdout = TRUE, stderr = TRUE))))
+    expect_true((attr(rejected, "status") %||% 0L) != 0L)
+    expect_match(paste(rejected, collapse = "\n"), "requires exactly")
+  }
 })

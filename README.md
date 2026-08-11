@@ -201,11 +201,11 @@ the maintained implementation is `inst/dsvert-mpc`.
 ## Installation
 
 ```bash
-# 1. Build the Go runtime (one-off; per-platform binaries already shipped)
+# 1. Rebuild all four release runtimes and their SHA-256 manifest.
+# Release artifacts require Go 1.25.7.
 cd inst/dsvert-mpc
-go build -o dsvert-mpc .
-GOOS=linux GOARCH=amd64 go build -o ../bin/linux-amd64/dsvert-mpc .
-# repeat for darwin-amd64, darwin-arm64, windows-amd64 if cross-building
+go version
+make all
 
 cd ../..
 

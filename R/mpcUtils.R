@@ -1,4 +1,5 @@
 .DSVERT_MPC_RUNTIME_VERSION <- "1.1.0"
+.DSVERT_MPC_API_VERSION <- "1.2.0"
 .DSVERT_MPC_RUNTIME_PROTOCOL <- "dsvert-mpc-runtime-v1"
 .DSVERT_MPC_RUNTIME_SCHEMA <- 1L
 .DSVERT_MPC_PACKAGED_PATHS <- c(
@@ -52,14 +53,15 @@
   if (!valid_top || !valid_schema ||
       !identical(value$protocol_version, .DSVERT_MPC_RUNTIME_PROTOCOL) ||
       !identical(value$runtime_version, .DSVERT_MPC_RUNTIME_VERSION) ||
-      !identical(value$api_version, .DSVERT_MPC_RUNTIME_VERSION)) {
+      !identical(value$api_version, .DSVERT_MPC_API_VERSION)) {
     .dsvert_mpc_runtime_error("unsupported manifest schema or API version")
   }
   capabilities <- value$capabilities
   if (!.dsvert_mpc_runtime_exact_names(
         capabilities, c(
           "dp_noise_int64", "dp_gaussian_int64", "exact_gc",
-          "typed_source_stream", "joint_dp_vector_convolution")) ||
+          "typed_source_stream", "joint_dp_vector_convolution",
+          "joint_dp_frequency_backend_selection")) ||
       !.dsvert_mpc_validate_feature(
         capabilities$dp_noise_int64,
         "dp_noise_int64_v2", "dsvert-dp-noise-int64-v2",
@@ -103,7 +105,13 @@
         c("sticky-independent-complete-vector-discrete-laplace-ring128-v3",
           paste0("sticky-independent-complete-vector-dyadic-discrete-",
                  "gaussian-tv-bounded-ring128-v2"),
-          "signed-decode-fixed-public-clamp-no-wrap-v3"))) {
+          "signed-decode-fixed-public-clamp-no-wrap-v3")) ||
+      !.dsvert_mpc_validate_feature(
+        capabilities$joint_dp_frequency_backend_selection,
+        "joint_dp_frequency_backend_selection_v1",
+        "dsvert-joint-dp-frequency-backend-selection-v1",
+        "joint-dp-frequency-backend-select-v1",
+        "public-data-free-certified-frequency-backend-selection-v1")) {
     .dsvert_mpc_runtime_error("required capability contract is absent")
   }
   value
@@ -182,7 +190,8 @@
 .dsvert_mpc_require_capabilities <- function(capabilities) {
   known <- c(
     "dp_noise_int64", "dp_gaussian_int64", "exact_gc",
-    "typed_source_stream", "joint_dp_vector_convolution")
+    "typed_source_stream", "joint_dp_vector_convolution",
+    "joint_dp_frequency_backend_selection")
   if (!is.character(capabilities) || !length(capabilities) ||
       anyNA(capabilities) || anyDuplicated(capabilities) ||
       length(setdiff(capabilities, known))) {

@@ -3,6 +3,7 @@
 
 BINARY_NAME = dsvert-mpc
 VERSION ?= 1.1.0
+override GO_VERSION_REQUIRED := go1.25.7
 
 # Output directories
 BIN_DIR = ../bin
@@ -19,12 +20,19 @@ GO_LDFLAGS = -s -w -buildid= -X main.runtimeVersion=$(VERSION)
 GO_FLAGS = -trimpath -buildvcs=false -ldflags="$(GO_LDFLAGS)"
 GO_ENV = CGO_ENABLED=0
 
-.PHONY: all clean deps linux darwin-amd64 darwin-arm64 windows checksums
+.PHONY: all clean check-go-version deps linux darwin-amd64 darwin-arm64 windows checksums
 
 all: checksums
 	@echo "Build complete! Binaries in $(BIN_DIR)/"
 
-deps:
+check-go-version:
+	@actual="$$(go env GOVERSION 2>/dev/null || true)"; \
+	if [ "$$actual" != "$(GO_VERSION_REQUIRED)" ]; then \
+		echo "dsvert-mpc release build requires exactly $(GO_VERSION_REQUIRED); found $${actual:-unavailable}" >&2; \
+		exit 1; \
+	fi
+
+deps: check-go-version
 	@echo "Downloading dependencies..."
 	go mod download
 	go mod verify

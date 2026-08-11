@@ -2,6 +2,18 @@
 
 ### Security hardening
 
+* Promoted only the public-data-free Frequency backend selector in the new
+  bilateral runtime API 1.2 manifest as
+  `joint_dp_frequency_backend_selection_v1`. The advertised command
+  `joint-dp-frequency-backend-select-v1` chooses between two certified public
+  planner results without consulting source material, private randomness or
+  runtime failure. The package/runtime release remains 1.1.0; API 1.1 peers
+  fail closed instead of silently accepting the enlarged exact manifest. All
+  four packaged runtimes and `SHA256SUMS` were rebuilt reproducibly with the
+  Makefile-enforced Go 1.25.7 toolchain. This selector-only promotion does not
+  promote a Frequency sampler, protected-data release route or analyst-facing
+  product.
+
 * Persistent peer identity is now unambiguously runtime-owned: production
   rejects a literal `dsvert.identity_seed` supplied by an image or service
   profile, while tests may still inject deterministic entropy internally.

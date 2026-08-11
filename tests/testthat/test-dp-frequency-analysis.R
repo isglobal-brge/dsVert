@@ -385,6 +385,7 @@ test_that("Frequency local compiler gates and selects before source access", {
       source_called <<- TRUE
       stop("source must not be resolved")
     },
+    .capability = function(...) list(capabilities = list()),
     .registry_verifier = .frequency_analysis_verifier,
     .signer = .frequency_analysis_signer), "capability")
   expect_false(source_called)

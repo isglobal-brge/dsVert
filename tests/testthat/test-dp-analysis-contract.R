@@ -664,6 +664,43 @@ test_that("Frequency backend selector requests shape-preserving Go JSON", {
   expect_identical(result$selected_plan$bernoulli_thresholds, list("1"))
 })
 
+test_that("packaged native runtime executes the Frequency backend selector", {
+  machine <- unname(Sys.info()[["machine"]])
+  subdir <- if (.Platform$OS.type == "windows") {
+    "windows-amd64"
+  } else if (identical(Sys.info()[["sysname"]], "Darwin")) {
+    if (identical(machine, "arm64")) "darwin-arm64" else "darwin-amd64"
+  } else {
+    skip_if(!machine %in% c("x86_64", "amd64"),
+            "the packaged Linux runtime is amd64-only")
+    "linux-amd64"
+  }
+  binary_name <- if (.Platform$OS.type == "windows") {
+    "dsvert-mpc.exe"
+  } else {
+    "dsvert-mpc"
+  }
+  bin_root <- dirname(.dsvert_test_package_file(
+    "inst", "bin", "SHA256SUMS", source_only = TRUE))
+  relative_path <- file.path(subdir, binary_name)
+  binary <- file.path(bin_root, relative_path)
+  expect_true(.dsvert_mpc_verify_packaged_binary(
+    binary, bin_root, gsub("\\\\", "/", relative_path)))
+  withr::local_options(dsvert.mpc_binary = binary)
+
+  result <- .dsvert_dp_analysis_frequency_backend_selection_v2(
+    privacy = list(epsilon = 1, adjacency = "add_remove_patient"),
+    calibration = list(implementation_delta = 0.001),
+    dimension = 3L, coordinate_upper_bound = 1000)
+
+  expect_identical(
+    result$selection_certificate$source_material_consulted, FALSE)
+  expect_identical(
+    result$selection_certificate$private_randomness_consulted, FALSE)
+  expect_true(result$summary$selected_primitive %in%
+    unlist(.dsvert_dp_analysis_frequency_primitives_v2(), use.names = FALSE))
+})
+
 test_that("Frequency artifact identity is canonical and fully semantic", {
   fixture <- .analysis_frequency_contract_fixture(3L)
   original <- .dsvert_dp_analysis_contract_v1(

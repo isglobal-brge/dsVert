@@ -30,6 +30,7 @@ test_that("Go runtime includes only high-level DP noise commands", {
     "dp-noise-int64", "dp-gaussian-int64", "dp-noise-select-int64") %in%
       cmds))
   expect_true("runtime-capabilities" %in% cmds)
+  expect_true("joint-dp-frequency-backend-select-v1" %in% cmds)
   expect_false(any(grepl("dp-(uniform|seed|raw|debug)", cmds)))
   expect_true("joint-dp-laplace-plan-v2" %in% cmds)
   expect_false(any(grepl("joint-dp-(seed|raw|sample|open)", cmds)))
@@ -54,6 +55,19 @@ test_that("packaged native runtime advertises the same DP command surface", {
   expect_true(all(c(
     "joint-dp-laplace-plan-v2",
     "joint-dp-laplace-worker-contract-v2") %in% commands))
+  frequency <- manifest$capabilities$joint_dp_frequency_backend_selection
+  expect_identical(
+    frequency$capability_id,
+    "joint_dp_frequency_backend_selection_v1")
+  expect_identical(
+    frequency$protocol_version,
+    "dsvert-joint-dp-frequency-backend-selection-v1")
+  expect_identical(
+    unlist(frequency$commands, use.names = FALSE),
+    "joint-dp-frequency-backend-select-v1")
+  expect_identical(
+    unlist(frequency$operations, use.names = FALSE),
+    "public-data-free-certified-frequency-backend-selection-v1")
   expect_false(any(grepl("joint-dp-(seed|share|sample|open)", commands)))
 })
 

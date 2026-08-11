@@ -11,7 +11,9 @@ func TestRuntimeCapabilitiesContract(t *testing.T) {
 	manifest := runtimeCapabilities()
 	if manifest.SchemaVersion != 1 ||
 		manifest.ProtocolVersion != "dsvert-mpc-runtime-v1" ||
-		manifest.APIVersion != "1.1.0" || manifest.RuntimeVersion != runtimeVersion {
+		manifest.APIVersion != "1.2.0" ||
+		manifest.RuntimeVersion != "1.1.0" ||
+		manifest.RuntimeVersion != runtimeVersion {
 		t.Fatalf("unexpected runtime manifest header: %+v", manifest)
 	}
 	if !manifest.Capabilities.DPNoiseInt64.Available ||
@@ -86,6 +88,21 @@ func TestRuntimeCapabilitiesContract(t *testing.T) {
 				"signed-decode-fixed-public-clamp-no-wrap-v3"}) {
 		t.Fatalf("invalid joint-DP vector capability: %+v",
 			manifest.Capabilities.JointDPVector)
+	}
+	if !manifest.Capabilities.JointDPFrequencyBackendSelection.Available ||
+		manifest.Capabilities.JointDPFrequencyBackendSelection.CapabilityID !=
+			"joint_dp_frequency_backend_selection_v1" ||
+		manifest.Capabilities.JointDPFrequencyBackendSelection.ProtocolVersion !=
+			"dsvert-joint-dp-frequency-backend-selection-v1" ||
+		!reflect.DeepEqual(
+			manifest.Capabilities.JointDPFrequencyBackendSelection.Commands,
+			[]string{"joint-dp-frequency-backend-select-v1"}) ||
+		!reflect.DeepEqual(
+			manifest.Capabilities.JointDPFrequencyBackendSelection.Operations,
+			[]string{
+				"public-data-free-certified-frequency-backend-selection-v1"}) {
+		t.Fatalf("invalid joint-DP Frequency selector capability: %+v",
+			manifest.Capabilities.JointDPFrequencyBackendSelection)
 	}
 }
 

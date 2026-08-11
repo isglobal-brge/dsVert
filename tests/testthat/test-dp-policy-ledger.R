@@ -127,7 +127,7 @@
     schema_version = 1L,
     protocol_version = "dsvert-mpc-runtime-v1",
     runtime_version = "1.1.0",
-    api_version = "1.1.0",
+    api_version = "1.2.0",
     capabilities = list(
       dp_noise_int64 = list(
         available = TRUE,
@@ -182,7 +182,15 @@
           "sticky-independent-complete-vector-discrete-laplace-ring128-v3",
           paste0("sticky-independent-complete-vector-dyadic-discrete-",
                  "gaussian-tv-bounded-ring128-v2"),
-          "signed-decode-fixed-public-clamp-no-wrap-v3"))))
+          "signed-decode-fixed-public-clamp-no-wrap-v3")),
+      joint_dp_frequency_backend_selection = list(
+        available = TRUE,
+        capability_id = "joint_dp_frequency_backend_selection_v1",
+        protocol_version =
+          "dsvert-joint-dp-frequency-backend-selection-v1",
+        commands = "joint-dp-frequency-backend-select-v1",
+        operations =
+          "public-data-free-certified-frequency-backend-selection-v1")))
 }
 
 .dp_test_pk <- function(offset) {

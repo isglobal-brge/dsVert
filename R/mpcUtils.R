@@ -629,13 +629,17 @@ base64_to_base64url <- function(x) {
 }
 
 #' @keywords internal
-.callMpcTool <- function(command, input_data) {
+.callMpcTool <- function(command, input_data, simplify_output = TRUE) {
   if (!is.character(command) || length(command) != 1L || is.na(command) ||
       !grepl("^[a-z0-9][a-z0-9-]{0,63}$", command)) {
     stop("Invalid dsvert-mpc command name", call. = FALSE)
   }
   if (!is.list(input_data)) {
     stop("dsvert-mpc input_data must be a list", call. = FALSE)
+  }
+  if (!is.logical(simplify_output) || length(simplify_output) != 1L ||
+      is.na(simplify_output)) {
+    stop("Invalid dsvert-mpc simplify_output", call. = FALSE)
   }
   # A transport key is meaningful only as an ephemeral child of the node's
   # persistent pinned identity.  Keep this check at the shared process
@@ -735,7 +739,8 @@ base64_to_base64url <- function(x) {
   }
 
   # Parse output from file (avoids loading huge string into R)
-  output <- jsonlite::read_json(output_file, simplifyVector = TRUE)
+  output <- jsonlite::read_json(
+    output_file, simplifyVector = simplify_output)
 
   # Normalize base64 strings: strip whitespace/encoding artifacts that
   # accumulate across chained Beaver rounds (round k output -> round k+1 input)

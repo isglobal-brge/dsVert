@@ -228,6 +228,8 @@ func main() {
 		handleJointDPVectorConvolutionFinalizeV3()
 	case "joint-dp-vector-gaussian-plan-v2":
 		handleJointDPVectorGaussianPlan()
+	case "joint-dp-frequency-backend-select-v1":
+		handleJointDPFrequencyBackendSelection()
 	case "joint-dp-vector-gaussian-share-v2":
 		handleJointDPVectorGaussianShare()
 	case "joint-dp-vector-gaussian-finalize-v2":

@@ -39,3 +39,22 @@ test_that("private per-call bridge directories are removed", {
   expect_true(isTRUE(result$ok))
   expect_setequal(after, before)
 })
+
+test_that("the MPC bridge preserves singleton arrays only when requested", {
+  skip_on_os("windows")
+  fake <- tempfile("dsvert-mpc-array-fake-")
+  writeLines(c("#!/bin/sh", "printf '{\"values\":[\"only\"]}\\n'"), fake)
+  Sys.chmod(fake, mode = "0700")
+  on.exit(unlink(fake, force = TRUE), add = TRUE)
+  old <- options(dsvert.mpc_binary = fake)
+  on.exit(options(old), add = TRUE)
+
+  legacy <- .callMpcTool("runtime-capabilities", list())
+  expect_identical(legacy$values, "only")
+  preserved <- .callMpcTool(
+    "runtime-capabilities", list(), simplify_output = FALSE)
+  expect_identical(preserved$values, list("only"))
+  expect_error(.callMpcTool(
+    "runtime-capabilities", list(), simplify_output = NA),
+    "simplify_output")
+})

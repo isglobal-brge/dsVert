@@ -28,6 +28,14 @@
 .DSVERT_DP_ANALYSIS_COUNT_TV_SAMPLER <-
   "hkdf-sha256-aes128ctr-two-geometric-tv-v2"
 .DSVERT_DP_ANALYSIS_FREQUENCY_ORDER_DOMAIN <- "dsVert/fixed-categorical-frequency/coordinate-order/v1|"
+.DSVERT_DP_ANALYSIS_FREQUENCY_POLICY_DOMAIN_V2 <-
+  "dsVert/frequency/backend-selection-policy/v2|"
+.DSVERT_DP_ANALYSIS_FREQUENCY_PLAN_DOMAIN_V1 <-
+  "dsVert/frequency/full-plan/v1|"
+.DSVERT_DP_ANALYSIS_FREQUENCY_ACCURACY_DOMAIN_V1 <-
+  "dsVert/frequency/backend-selection/accuracy-certificate/v1|"
+.DSVERT_DP_ANALYSIS_FREQUENCY_SELECTION_DOMAIN_V1 <-
+  "dsVert/frequency/backend-selection/certificate/v1|"
 
 .DSVERT_DP_ANALYSIS_RESERVED_FIELDS <- c(
   "analysis_id", "attempt_id", "connection_id", "epoch", "key_id", "nonce",
@@ -301,18 +309,410 @@
   isTRUE(left$numerator * right$denominator <=
            right$numerator * left$denominator)
 }
-.dsvert_dp_analysis_frequency_policy_sha256_v1 <- function(profile) {
+.dsvert_dp_analysis_frequency_primitives_v2 <- function() list(
+  convolution = "independent_full_global_draw_convolution_ring128_v3",
+  gaussian = paste0("independent_full_global_dyadic_discrete_gaussian_",
+                    "tv_bounded_ring128_v2"))
+
+.dsvert_dp_analysis_frequency_candidate_requests_v2 <- function(
+    privacy, calibration, dimension) {
+  if (!is.list(privacy) || !is.list(calibration) ||
+      !.dsvert_dp_analysis_frequency_number_v1(dimension) ||
+      dimension < 1 || dimension != floor(dimension) || dimension > 1000000) {
+    stop("Invalid Frequency backend-selection request", call. = FALSE)
+  }
+  sensitivities <- switch(privacy$adjacency,
+    add_remove_patient = list(convolution = 1, gaussian = 1),
+    replace_one_fixed_cohort = list(convolution = 2, gaussian = sqrt(2)),
+    stop("Invalid Frequency backend-selection adjacency", call. = FALSE))
+  primitives <- .dsvert_dp_analysis_frequency_primitives_v2()
+  stats::setNames(lapply(names(primitives), function(kind) {
+    .dsvert_dp_analysis_frequency_planner_request_v1(
+      .dsvert_dp_analysis_frequency_profile_v1(primitives[[kind]]),
+      privacy, calibration, list(value = sensitivities[[kind]]), dimension)
+  }), names(primitives))
+}
+
+.dsvert_dp_analysis_frequency_policy_sha256_v2 <- function() {
+  primitives <- .dsvert_dp_analysis_frequency_primitives_v2()
   .dsvert_dp_analysis_frequency_hash_v1(
-    "dsVert/frequency/backend-selection-policy/v1|", list(
-      version = "dsvert-frequency-backend-selection-policy-v1",
-      candidate_primitives = list(
-        "independent_full_global_draw_convolution_ring128_v3",
-        paste0("independent_full_global_dyadic_discrete_gaussian_",
-          "tv_bounded_ring128_v2")),
-      selected_before_private_material = TRUE,
+    .DSVERT_DP_ANALYSIS_FREQUENCY_POLICY_DOMAIN_V2, list(
+      version = "dsvert-frequency-backend-selection-policy-v2",
+      oracle_policy =
+        "minimum_certified_simultaneous_95_abs_convolution_tie_v1",
+      candidate_primitives = unname(primitives),
+      objective = "minimum_certified_simultaneous_95_abs",
+      accuracy_event = "max_j_abs_error_gt_radius",
+      tie_break = "convolution_laplace_v3_on_equal_certified_radius",
+      input_scope = paste0(
+        "public_adjacency_planner_requests_and_coordinate_upper_bound_only"),
+      source_material_consulted = FALSE,
+      private_randomness_consulted = FALSE,
       runtime_failure_consulted = FALSE,
       automatic_fallback = FALSE,
-      selection_semantics = profile$selection_semantics))
+      utility_optimality_claimed = FALSE))
+}
+
+.dsvert_dp_analysis_frequency_selection_validate_v2 <- function(
+    selection, selected_primitive, plan, privacy, calibration,
+    dimension, bound) {
+  fail <- function() stop("Invalid Frequency backend selection", call. = FALSE)
+  fields <- c("version", "policy_sha256", "selection_certificate_sha256",
+    "objective", "tie_break", "candidates", "selected_primitive",
+    "selected_simultaneous_95_abs")
+  if (!.dsvert_dp_analysis_frequency_object_v1(selection, fields, list(
+      version = "dsvert-frequency-backend-selection-v2",
+      policy_sha256 = .dsvert_dp_analysis_frequency_policy_sha256_v2(),
+      objective = "minimum_certified_simultaneous_95_abs",
+      tie_break = "convolution_laplace_v3_on_equal_certified_radius")) ||
+      !.dsvert_dp_analysis_frequency_hex_v1(
+        selection$selection_certificate_sha256)) fail()
+  primitives <- .dsvert_dp_analysis_frequency_primitives_v2()
+  candidates <- selection$candidates
+  candidate_fields <- c("planner_request_sha256", "full_plan_sha256",
+    "accuracy_certificate_sha256", "simultaneous_95_abs",
+    "absolute_support")
+  if (!.dsvert_dp_analysis_frequency_object_v1(
+      candidates, names(primitives))) fail()
+  requests <- tryCatch(
+    .dsvert_dp_analysis_frequency_candidate_requests_v2(
+      privacy, calibration, dimension), error = function(error) NULL)
+  parsed <- lapply(names(primitives), function(kind) {
+    candidate <- candidates[[kind]]
+    profile <- .dsvert_dp_analysis_frequency_profile_v1(primitives[[kind]])
+    if (!.dsvert_dp_analysis_frequency_object_v1(candidate,
+        candidate_fields) ||
+        !.dsvert_dp_analysis_frequency_hex_v1(candidate$full_plan_sha256) ||
+        !.dsvert_dp_analysis_frequency_hex_v1(
+          candidate$accuracy_certificate_sha256) || is.null(requests) ||
+        !identical(candidate$planner_request_sha256,
+          .dsvert_dp_analysis_frequency_hash_v1(
+            profile$request_domain, requests[[kind]]))) fail()
+    values <- tryCatch(list(
+      radius = .dsvert_dp_analysis_frequency_uint_v1(
+        candidate$simultaneous_95_abs),
+      support = .dsvert_dp_analysis_frequency_uint_v1(
+        candidate$absolute_support, TRUE)), error = function(error) NULL)
+    if (is.null(values) || !isTRUE(values$radius <= values$support)) fail()
+    values
+  })
+  names(parsed) <- names(primitives)
+  bound_text <- format(bound, scientific = FALSE, trim = TRUE, digits = 22L)
+  upper <- tryCatch(.dsvert_dp_analysis_frequency_uint_v1(
+    bound_text, TRUE), error = function(error) NULL)
+  max_signed <- openssl::bignum("2") ^ 127 - 1
+  if (is.null(upper) || !all(vapply(parsed, function(candidate) isTRUE(
+      upper + candidate$support <= max_signed), logical(1L)))) fail()
+  winner <- if (isTRUE(parsed$gaussian$radius <
+                       parsed$convolution$radius)) "gaussian" else "convolution"
+  if (!identical(selection$selected_primitive, primitives[[winner]]) ||
+      !identical(selected_primitive, primitives[[winner]]) ||
+      !identical(selection$selected_simultaneous_95_abs,
+                 candidates[[winner]]$simultaneous_95_abs) ||
+      !identical(plan$full_plan_sha256,
+                 candidates[[winner]]$full_plan_sha256) ||
+      !identical(plan$planner_request_sha256,
+                 candidates[[winner]]$planner_request_sha256)) fail()
+  peer_noise <- tryCatch(.dsvert_dp_analysis_frequency_uint_v1(
+    plan$maximum_noise_per_peer, TRUE), error = function(error) NULL)
+  if (is.null(peer_noise) || !identical(
+      candidates[[winner]]$absolute_support,
+      as.character(2 * peer_noise))) fail()
+  invisible(TRUE)
+}
+
+.dsvert_dp_analysis_frequency_reduce_v2 <- function(numerator, denominator) {
+  left <- numerator
+  right <- denominator
+  while (!identical(as.character(right), "0")) {
+    remainder <- left %% right
+    left <- right
+    right <- remainder
+  }
+  list(numerator = as.character(numerator %/% left),
+       denominator = as.character(denominator %/% left))
+}
+
+.dsvert_dp_analysis_frequency_backend_selection_v2 <- function(
+    privacy, calibration, dimension, coordinate_upper_bound,
+    .selector = NULL) {
+  fail <- function() stop("Invalid Frequency backend selector output",
+                          call. = FALSE)
+  if (!.dsvert_dp_analysis_frequency_number_v1(coordinate_upper_bound) ||
+      coordinate_upper_bound < 1 ||
+      coordinate_upper_bound != floor(coordinate_upper_bound) ||
+      coordinate_upper_bound > 1000000) fail()
+  requests <- .dsvert_dp_analysis_frequency_candidate_requests_v2(
+    privacy, calibration, dimension)
+  request <- list(
+    version = "dsvert-joint-dp-frequency-backend-selection-request-v1",
+    adjacency = privacy$adjacency,
+    coordinate_upper_bound = format(
+      coordinate_upper_bound, scientific = FALSE, trim = TRUE, digits = 22L),
+    convolution_request = requests$convolution,
+    gaussian_request = requests$gaussian)
+  if (is.null(.selector)) .selector <- function(value) {
+    .callMpcTool("joint-dp-frequency-backend-select-v1", value,
+                 simplify_output = FALSE)
+  }
+  if (!is.function(.selector)) fail()
+  output <- tryCatch(.selector(request), error = function(error) fail())
+  if (!.dsvert_dp_analysis_frequency_object_v1(output, c(
+      "version", "request", "convolution_plan", "gaussian_plan",
+      "convolution_certificate", "gaussian_certificate",
+      "selection_certificate"), list(
+        version = "dsvert-joint-dp-frequency-backend-selection-v1")) ||
+      !identical(output$request, request)) fail()
+  primitives <- .dsvert_dp_analysis_frequency_primitives_v2()
+  plans <- list(convolution = output$convolution_plan,
+                gaussian = output$gaussian_plan)
+  certificates <- list(convolution = output$convolution_certificate,
+                       gaussian = output$gaussian_certificate)
+  certificate_fields <- c("primitive", "plan_sha256", "event", "method",
+    "release_tv_upper_numerator", "release_tv_upper_denominator",
+    "simultaneous_95_abs", "absolute_support")
+  methods <- list(
+    convolution = c("exact_two_discrete_laplace_convolution_tail_v1",
+      "dyadic_exponential_envelope_v1", "finite_support_v1"),
+    gaussian = "gaussian_plan_v2_subgaussian_mgf_tv_transfer")
+  plan_fields <- list(
+    convolution = c(
+      "version", "sampler", "stop_bits", "stop_numerator", "uniform_bits",
+      "binary_geometric_bits", "bernoulli_thresholds", "sensitivity_steps",
+      "total_coordinate_count", "epsilon_effective_upper_numerator",
+      "epsilon_effective_upper_denominator", "one_geometric_tv_numerator",
+      "one_geometric_tv_denominator", "tail_upper_numerator",
+      "tail_upper_denominator", "rounding_upper_numerator",
+      "rounding_upper_denominator", "implementation_delta_numerator",
+      "implementation_delta_denominator", "implementation_delta_bound",
+      "maximum_noise_magnitude", "maximum_chunk_coordinates",
+      "private_stream_bytes_per_coordinate", "accounting",
+      "capability_available", "independent_noise_peer_count",
+      "complete_epsilon_per_peer", "epsilon_divided_by_peer_count",
+      "geometric_variables_per_peer_per_coordinate",
+      "geometric_variables_total_per_coordinate",
+      "per_peer_implementation_delta_numerator",
+      "per_peer_implementation_delta_denominator",
+      "per_peer_implementation_delta_bound",
+      "release_implementation_delta_aggregation",
+      "two_peer_ideal_transfer_delta_numerator",
+      "two_peer_ideal_transfer_delta_denominator",
+      "two_peer_ideal_transfer_delta_bound", "threat_model",
+      "privacy_argument"),
+    gaussian = c(
+      "version", "mechanism", "sampler", "reference",
+      "total_coordinate_count", "maximum_chunk_coordinates",
+      "request_binding_sha256", "epsilon_numerator", "epsilon_denominator",
+      "allocated_delta_numerator", "allocated_delta_denominator",
+      "core_delta_numerator", "core_delta_denominator",
+      "tail_delta_numerator", "tail_delta_denominator",
+      "l2_sensitivity_numerator", "l2_sensitivity_denominator",
+      "rho_numerator", "rho_denominator", "zcdp_log_upper_integer",
+      "zcdp_conversion_exponent_numerator",
+      "zcdp_conversion_exponent_denominator", "sigma_squared_numerator",
+      "sigma_squared_denominator", "proposal_scale",
+      "maximum_noise_magnitude_per_peer",
+      "maximum_noise_magnitude_two_peers", "tail_proof_exponent_numerator",
+      "tail_proof_exponent_denominator", "tail_proof_target_numerator",
+      "tail_proof_target_denominator", "vector_tail_tv_upper_numerator",
+      "vector_tail_tv_upper_denominator",
+      "vector_sampler_tv_upper_numerator",
+      "vector_sampler_tv_upper_denominator",
+      "vector_total_tv_upper_numerator",
+      "vector_total_tv_upper_denominator",
+      "per_peer_implementation_delta_numerator",
+      "per_peer_implementation_delta_denominator", "simultaneous_95_abs",
+      "sampler_candidate_count", "sampler_random_bits_per_coordinate",
+      "sampler_random_bytes_per_coordinate", "sampler_table_precision_bits",
+      "sampler_magnitude_count", "sampler_search_steps",
+      "sampler_full_scan_steps", "sampler_cdf_table_bytes",
+      "accuracy_accounting", "accounting", "privacy_theorem",
+      "independent_noise_peer_count", "complete_epsilon_per_peer",
+      "epsilon_divided_by_peer_count", "release_delta_aggregation",
+      "nominal_variance_multiplier", "nominal_standard_deviation_factor",
+      "at_least_one_honest_noise_peer", "maximum_colluding_noise_peers",
+      "adversary_view", "adversary_view_privacy_argument",
+      "source_share_hiding_precondition", "exact_rational_sampler",
+      "finite_support_transfer_charged", "fixed_work_sampler",
+      "sampler_branches_on_protected_values",
+      "sampler_branches_on_private_randomness", "host_constant_time_claim",
+      "transcript_dp_claim", "logical_transcript_fixed_shape",
+      "physical_timing_dp_claim", "observable_worker_shape",
+      "capability_available", "unavailable_reason"))
+  integer_is <- function(value, expected) {
+    .dsvert_dp_analysis_frequency_number_v1(value) &&
+      value == floor(value) && identical(as.numeric(value), as.numeric(expected))
+  }
+  expected_support <- expected_tv <- plan_hashes <- parsed <- list()
+  accuracy_exhausted <- list()
+  for (kind in names(primitives)) {
+    plan <- plans[[kind]]
+    certificate <- certificates[[kind]]
+    profile <- .dsvert_dp_analysis_frequency_profile_v1(primitives[[kind]])
+    if (!.dsvert_dp_analysis_frequency_object_v1(
+          plan, plan_fields[[kind]]) || anyDuplicated(names(plan)) ||
+        !identical(plan$version, profile$plan) ||
+        !identical(plan$sampler, profile$sampler) ||
+        !integer_is(plan$total_coordinate_count, dimension) ||
+        !integer_is(plan$maximum_chunk_coordinates,
+                    min(profile$max_chunk_coordinates, dimension)) ||
+        !integer_is(plan$independent_noise_peer_count, profile$draw_count) ||
+        !identical(plan$complete_epsilon_per_peer, TRUE) ||
+        !identical(plan$epsilon_divided_by_peer_count, FALSE) ||
+        !identical(plan$capability_available, TRUE)) fail()
+    if (kind == "convolution") {
+      thresholds <- plan$bernoulli_thresholds
+      bits <- plan$binary_geometric_bits
+      threshold_shape <-
+        .dsvert_dp_analysis_frequency_number_v1(bits) &&
+        bits == floor(bits) && bits >= 1 && bits <= 63 &&
+        is.list(thresholds) && is.null(names(thresholds)) &&
+        identical(as.numeric(length(thresholds)), as.numeric(bits)) &&
+        all(vapply(thresholds, function(value) {
+          is.character(value) && length(value) == 1L && !is.na(value) &&
+            grepl("^(0|[1-9][0-9]*)$", value)
+        }, logical(1L)))
+      if (!isTRUE(threshold_shape) ||
+          !identical(plan$sensitivity_steps,
+                     requests$convolution$sensitivity_steps) ||
+          !integer_is(plan$geometric_variables_per_peer_per_coordinate, 2) ||
+          !integer_is(plan$geometric_variables_total_per_coordinate, 4) ||
+          !identical(plan$release_implementation_delta_aggregation,
+                     profile$delta_aggregation)) fail()
+      peer <- tryCatch(.dsvert_dp_analysis_frequency_uint_v1(
+        plan$maximum_noise_magnitude, TRUE), error = function(error) NULL)
+      tv <- tryCatch(.dsvert_dp_analysis_frequency_fraction_v1(list(
+        numerator = plan$one_geometric_tv_numerator,
+        denominator = plan$one_geometric_tv_denominator), TRUE),
+        error = function(error) NULL)
+      if (is.null(peer) || is.null(tv)) fail()
+      numerator <- tv$numerator * (4 * as.numeric(dimension))
+      denominator <- tv$denominator
+      accuracy_exhausted[[kind]] <- isTRUE(20 * numerator >= denominator)
+      expected_tv[[kind]] <- if (isTRUE(numerator >= denominator)) {
+        list(numerator = "1", denominator = "1")
+      } else .dsvert_dp_analysis_frequency_reduce_v2(numerator, denominator)
+      expected_support[[kind]] <- as.character(2 * peer)
+    } else {
+      if (!identical(plan$mechanism,
+                     "dyadic_discrete_gaussian_truncated_tv_bounded") ||
+          !identical(plan$release_delta_aggregation,
+                     profile$delta_aggregation)) fail()
+      peer <- tryCatch(.dsvert_dp_analysis_frequency_uint_v1(
+        plan$maximum_noise_magnitude_per_peer, TRUE),
+        error = function(error) NULL)
+      release <- tryCatch(.dsvert_dp_analysis_frequency_uint_v1(
+        plan$maximum_noise_magnitude_two_peers, TRUE),
+        error = function(error) NULL)
+      tv <- tryCatch(.dsvert_dp_analysis_frequency_fraction_v1(list(
+        numerator = plan$vector_total_tv_upper_numerator,
+        denominator = plan$vector_total_tv_upper_denominator), TRUE),
+        error = function(error) NULL)
+      sensitivity <- tryCatch(.dsvert_dp_analysis_frequency_fraction_v1(list(
+        numerator = plan$l2_sensitivity_numerator,
+        denominator = plan$l2_sensitivity_denominator), TRUE),
+        error = function(error) NULL)
+      requested_sensitivity <- tryCatch(
+        .dsvert_dp_analysis_frequency_decimal_fraction_v1(
+          requests$gaussian$l2_sensitivity_steps),
+        error = function(error) NULL)
+      if (is.null(peer) || is.null(release) || is.null(tv) ||
+          is.null(sensitivity) || is.null(requested_sensitivity) ||
+          !isTRUE(sensitivity$numerator * requested_sensitivity$denominator ==
+            requested_sensitivity$numerator * sensitivity$denominator) ||
+          !isTRUE(release == 2 * peer)) fail()
+      expected_tv[[kind]] <- .dsvert_dp_analysis_frequency_reduce_v2(
+        2 * tv$numerator, tv$denominator)
+      if (!isTRUE(40 * tv$numerator < tv$denominator)) fail()
+      expected_support[[kind]] <- as.character(release)
+    }
+    plan_hashes[[kind]] <- .dsvert_dp_analysis_frequency_hash_v1(
+      .DSVERT_DP_ANALYSIS_FREQUENCY_PLAN_DOMAIN_V1, plan)
+    if (!.dsvert_dp_analysis_frequency_object_v1(
+        certificate, certificate_fields, list(
+          primitive = primitives[[kind]], plan_sha256 = plan_hashes[[kind]],
+          event = "max_j_abs_error_gt_radius")) ||
+        !certificate$method %in% methods[[kind]] ||
+        !identical(certificate$release_tv_upper_numerator,
+                   expected_tv[[kind]]$numerator) ||
+        !identical(certificate$release_tv_upper_denominator,
+                   expected_tv[[kind]]$denominator) ||
+        !identical(certificate$absolute_support,
+                   expected_support[[kind]])) fail()
+    values <- tryCatch(list(
+      radius = .dsvert_dp_analysis_frequency_uint_v1(
+        certificate$simultaneous_95_abs),
+      support = .dsvert_dp_analysis_frequency_uint_v1(
+        certificate$absolute_support, TRUE)), error = function(error) NULL)
+    if (is.null(values) || !isTRUE(values$radius <= values$support) ||
+        (kind == "convolution" &&
+         ((isTRUE(accuracy_exhausted[[kind]]) &&
+           !identical(certificate$method, "finite_support_v1")) ||
+          (identical(certificate$method, "finite_support_v1") &&
+           !isTRUE(values$radius == values$support)) ||
+          (!identical(certificate$method, "finite_support_v1") &&
+           !isTRUE(values$radius < values$support)))) ||
+        (kind == "gaussian" && !identical(
+          certificate$simultaneous_95_abs, plan$simultaneous_95_abs))) fail()
+    parsed[[kind]] <- values
+  }
+  upper <- openssl::bignum(request$coordinate_upper_bound)
+  max_signed <- openssl::bignum("2") ^ 127 - 1
+  if (!all(vapply(parsed, function(value) isTRUE(
+      upper + value$support <= max_signed), logical(1L)))) fail()
+  winner <- if (isTRUE(parsed$gaussian$radius <
+                       parsed$convolution$radius)) "gaussian" else "convolution"
+  selection <- output$selection_certificate
+  selection_fields <- c("version", "policy", "objective",
+    "selected_primitive", "selected_plan_sha256",
+    "selected_simultaneous_95_abs", "tie_break", "input_scope",
+    "source_material_consulted", "private_randomness_consulted",
+    "runtime_failure_consulted", "automatic_fallback",
+    "utility_optimality_claimed")
+  if (!.dsvert_dp_analysis_frequency_object_v1(selection,
+      selection_fields, list(
+        version = paste0("dsvert-joint-dp-frequency-backend-selection-",
+                         "certificate-v1"),
+        policy = "minimum_certified_simultaneous_95_abs_convolution_tie_v1",
+        objective = "minimum_certified_simultaneous_95_abs",
+        selected_primitive = primitives[[winner]],
+        selected_plan_sha256 = plan_hashes[[winner]],
+        selected_simultaneous_95_abs =
+          certificates[[winner]]$simultaneous_95_abs,
+        tie_break = "convolution_laplace_v3_on_equal_certified_radius",
+        input_scope = paste0(
+          "public_adjacency_planner_requests_and_coordinate_upper_bound_only"),
+        source_material_consulted = FALSE,
+        private_randomness_consulted = FALSE,
+        runtime_failure_consulted = FALSE,
+        automatic_fallback = FALSE,
+        utility_optimality_claimed = FALSE))) fail()
+  candidates <- stats::setNames(lapply(names(primitives), function(kind) {
+    profile <- .dsvert_dp_analysis_frequency_profile_v1(primitives[[kind]])
+    list(
+      planner_request_sha256 = .dsvert_dp_analysis_frequency_hash_v1(
+        profile$request_domain, requests[[kind]]),
+      full_plan_sha256 = plan_hashes[[kind]],
+      accuracy_certificate_sha256 = .dsvert_dp_analysis_frequency_hash_v1(
+        .DSVERT_DP_ANALYSIS_FREQUENCY_ACCURACY_DOMAIN_V1,
+        certificates[[kind]]),
+      simultaneous_95_abs = certificates[[kind]]$simultaneous_95_abs,
+      absolute_support = certificates[[kind]]$absolute_support)
+  }), names(primitives))
+  summary <- list(
+    version = "dsvert-frequency-backend-selection-v2",
+    policy_sha256 = .dsvert_dp_analysis_frequency_policy_sha256_v2(),
+    selection_certificate_sha256 = .dsvert_dp_analysis_frequency_hash_v1(
+      .DSVERT_DP_ANALYSIS_FREQUENCY_SELECTION_DOMAIN_V1, selection),
+    objective = "minimum_certified_simultaneous_95_abs",
+    tie_break = "convolution_laplace_v3_on_equal_certified_radius",
+    candidates = candidates, selected_primitive = primitives[[winner]],
+    selected_simultaneous_95_abs =
+      certificates[[winner]]$simultaneous_95_abs)
+  list(summary = summary, selected_request = requests[[winner]],
+       selected_plan = plans[[winner]],
+       selected_accuracy_certificate = certificates[[winner]],
+       selection_certificate = selection)
 }
 .dsvert_dp_analysis_frequency_plan_validate_v1 <- function(
     plan, profile, privacy, sensitivity, dimension, bound, calibration) {
@@ -363,12 +763,12 @@
       fractions$allocated$numerator * fractions$core$denominator *
         fractions$implementation$denominator)) fail()
   selection <- plan$backend_selection
-  if (!.dsvert_dp_analysis_frequency_object_v1(
-      selection, c("version", "policy_sha256"), list(
-        version = "dsvert-frequency-backend-selection-v1")) ||
-      !identical(selection$policy_sha256,
-                 .dsvert_dp_analysis_frequency_policy_sha256_v1(profile)))
-    fail()
+  tryCatch(.dsvert_dp_analysis_frequency_selection_validate_v2(
+    selection, selected_primitive =
+      .dsvert_dp_analysis_frequency_primitives_v2()[[
+        if (profile$gaussian) "gaussian" else "convolution"]], plan = plan,
+    privacy = privacy, calibration = calibration, dimension = dimension,
+    bound = bound), error = function(error) fail())
   peer_noise <- tryCatch(.dsvert_dp_analysis_frequency_uint_v1(
     plan$maximum_noise_per_peer, TRUE), error = function(error) NULL)
   max_signed <- openssl::bignum("2") ^ 127 - 1

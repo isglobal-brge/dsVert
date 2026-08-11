@@ -3,6 +3,10 @@
 Status: internal research implementation; no R export, DSI command, runtime
 capability, result opening, or production claim.
 
+The provisional R Phase-1.9 schedule adapter and its
+`formal-glm-phase19-v1` private state/output store were hard-deleted. This note
+describes retained Go component evidence only.
+
 ## Implemented boundary
 
 Phase 1.9 starts from an internal `verified-source-block` type. A block can be

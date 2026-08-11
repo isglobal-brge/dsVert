@@ -170,6 +170,10 @@
   monotonic rollback anchor. The authenticated history can deny a new capsule,
   but `request_limit` remains false and exact replay is free.
 
+* Hard-deleted the provisional R Phase-1.9 schedule adapter and its
+  `formal-glm-phase19-v1` private state/output store. The retained Phase-1.9
+  component evidence is Go-only and remains internal and unregistered.
+
 * Added an internal, unregistered Phase20a handoff from the protected formal
   GLM Phase19 worker to the existing one-draw and full-release backends. Each
   peer durably seals only its own Ring128 share with authenticated encryption,

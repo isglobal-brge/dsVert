@@ -233,6 +233,33 @@ test_that("the retired bare local SQLite release engine is absent", {
   }
 })
 
+test_that("the unpromoted Phase-1.9 R schedule adapter is hard-deleted", {
+  source_root <- .dsvert_test_source_root()
+  expect_false(file.exists(file.path(
+    source_root, "R", "formalGLMPhase19ScheduleTransport.R")))
+  expect_false(file.exists(file.path(
+    source_root, "tests", "testthat",
+    "test-formal-glm-phase19-schedule-transport.R")))
+
+  retired <- c(
+    ".DSVERT_FORMAL_GLM_PHASE19_SCHEDULE_WORKER_KIND",
+    ".dsvert_formal_glm_phase19_drop_output",
+    ".dsvert_formal_glm_phase19_finish",
+    ".dsvert_formal_glm_phase19_recipient_ticket")
+  namespace <- asNamespace("dsVert")
+  expect_false(any(vapply(
+    retired, exists, logical(1L), envir = namespace, inherits = FALSE)))
+
+  exact_gc <- paste(readLines(file.path(
+    source_root, "R", "exactGCTransportDS.R"), warn = FALSE),
+    collapse = "\n")
+  expect_false(grepl(
+    ".DSVERT_FORMAL_GLM_PHASE19_SCHEDULE_WORKER_KIND",
+    exact_gc, fixed = TRUE))
+  expect_false(grepl(
+    ".dsvert_formal_glm_phase19_", exact_gc, fixed = TRUE))
+})
+
 test_that("retired remote primitives are not namespace exports", {
   retired <- c(
     "dsvertClusterBinomialMomentsDS", "dsvertLMMExactClusterR2DS",

@@ -2242,12 +2242,6 @@
   if (!is.null(ss$.exact_gc_outputs)) {
     ss$.exact_gc_outputs[[state$output_key]] <- NULL
   }
-  if (identical(state$worker_kind %||% "",
-                .DSVERT_FORMAL_GLM_PHASE19_SCHEDULE_WORKER_KIND) &&
-      exists(".dsvert_formal_glm_phase19_drop_output",
-             mode = "function", inherits = TRUE)) {
-    .dsvert_formal_glm_phase19_drop_output(ss, state$operation_id)
-  }
   for (name in c("result.json", "done")) {
     path <- file.path(state$spool, name)
     if (file.exists(path)) unlink(path)
@@ -2341,10 +2335,6 @@
     return(.exact_gc_mark_failed(ss, state, code))
   }
   if (done) {
-    if (identical(state$worker_kind %||% "",
-                  .DSVERT_FORMAL_GLM_PHASE19_SCHEDULE_WORKER_KIND)) {
-      return(.dsvert_formal_glm_phase19_finish(ss, state))
-    }
     result_path <- file.path(state$spool, "result.json")
     result <- tryCatch(
       jsonlite::read_json(result_path, simplifyVector = TRUE),
@@ -2411,12 +2401,6 @@
   }
   if (isTRUE(release_source)) .exact_gc_release_source(ss, state)
   if (!is.null(ss$.exact_gc_outputs)) ss$.exact_gc_outputs[[state$output_key]] <- NULL
-  if (identical(state$worker_kind %||% "",
-                .DSVERT_FORMAL_GLM_PHASE19_SCHEDULE_WORKER_KIND) &&
-      exists(".dsvert_formal_glm_phase19_drop_output",
-             mode = "function", inherits = TRUE)) {
-    .dsvert_formal_glm_phase19_drop_output(ss, state$operation_id)
-  }
   if (!is.null(state$spool) && dir.exists(state$spool)) {
     unlink(state$spool, recursive = TRUE)
   }
@@ -2491,12 +2475,6 @@
   .exact_gc_release_source(ss, state)
   if (!is.null(ss$.exact_gc_outputs)) {
     ss$.exact_gc_outputs[[state$output_key]] <- NULL
-  }
-  if (identical(state$worker_kind %||% "",
-                .DSVERT_FORMAL_GLM_PHASE19_SCHEDULE_WORKER_KIND) &&
-      exists(".dsvert_formal_glm_phase19_drop_output",
-             mode = "function", inherits = TRUE)) {
-    .dsvert_formal_glm_phase19_drop_output(ss, state$operation_id)
   }
   if (!is.null(state$spool) && dir.exists(state$spool)) {
     unlink(state$spool, recursive = TRUE)

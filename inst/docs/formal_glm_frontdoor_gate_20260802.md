@@ -55,11 +55,11 @@ Promotion requires all five items below in the real R/DSI lifecycle:
 4. `signed_public_release_adapter_bound_to_phase19_validity_v1`;
 5. `local_multiprocess_dsi_e2e_restart_tamper_k2_k3_k4_k5_v1`.
 
-In particular, the current Phase-1.9 command-line worker processes one block;
-there is no promoted R coordinator that drives the complete durable schedule,
-resumes it after process loss, consumes its final DP shares exactly once and
-returns the signed common release through DSI.  Passing an in-memory Go test
-cannot substitute for that lifecycle evidence.
+The retained internal Go workers include the private durable Phase-1.9
+schedule, but no R/DSI coordinator exposes or orchestrates it, consumes its
+final DP shares exactly once and returns the signed common release through
+DSI. Passing an in-memory Go test cannot substitute for that lifecycle
+evidence.
 
 ## Promotion criteria
 

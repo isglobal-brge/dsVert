@@ -881,36 +881,3 @@ test_that("Phase-1.8 private plaintext matches the Go golden vector", {
     digest::digest(packed, algo = "sha256", serialize = FALSE),
     "a3bcfcfda23017b96785bef73660f8206bf97705106279e7b4392a43fc4182af")
 })
-
-test_that("Phase-1.9 signed recipient ticket contains no persistent secret", {
-  fixture <- .phase18_fixture(2L)
-  authorization <- fixture$authorizations[[fixture$designated[[1L]]]]
-  root <- tempfile("formal-glm-phase19-ticket-")
-  dir.create(root, mode = "0700")
-  key_b64 <- gsub("[\r\n]", "", jsonlite::base64_enc(
-    as.raw(rep(29L, 32L))))
-  keygen <- function(command, input) {
-    list(public_key = key_b64, secret_key = key_b64)
-  }
-  derive <- function(command, input) {
-    if (!identical(input$local_secret, input$local_public)) stop("mismatch")
-    list(
-      master_key = key_b64,
-      context_hash = digest::digest(
-        input$session_id, algo = "sha256", serialize = FALSE))
-  }
-  ticket <- .dsvert_formal_glm_phase19_recipient_ticket(
-    authorization, root = root, signer = .phase18_signer,
-    verifier = .phase18_verifier, keygen = keygen, derive = derive)
-  parsed <- jsonlite::fromJSON(ticket$ticket_json, simplifyVector = FALSE)
-  expect_identical(parsed$recipient_name, authorization$policy$peer_name)
-  expect_true(grepl("^[A-Za-z0-9_-]{43}$", parsed$transport_pk))
-  expect_false(any(grepl("secret|private", names(parsed), ignore.case = TRUE)))
-  expect_false(grepl("secret_key", ticket$ticket_json, fixed = TRUE))
-  expect_identical(
-    .dsvert_formal_glm_phase19_recipient_ticket(
-      authorization, root = root, signer = .phase18_signer,
-      verifier = .phase18_verifier, keygen = keygen,
-      derive = derive)$ticket_json,
-    ticket$ticket_json)
-})

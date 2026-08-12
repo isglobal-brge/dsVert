@@ -230,7 +230,7 @@ test_that("FINAL_SHARE public geometry is stable at 8192 coordinates", {
   expect_error(geometry(8193L, 2L), "chunk index|geometry")
 })
 
-test_that("FINAL_SHARE rejects duplicate RESULT and exact-GC", {
+test_that("FINAL_SHARE rejects duplicate and malformed RESULT sets", {
   .synopsis_final_share_require()
   built <- .synopsis_final_share_setup()
   peer <- built$setup$authorities[[1L]]
@@ -277,5 +277,5 @@ test_that("FINAL_SHARE rejects duplicate RESULT and exact-GC", {
       exact$input$fixture$pins[[exact_peer]])),
     .cache_get = exact$input$cache_get,
     .verifier = exact$input$verifier,
-    .encryptor = forbidden), "exact-GC|exact GC")
+    .encryptor = forbidden), "RESULT records do not agree")
 })

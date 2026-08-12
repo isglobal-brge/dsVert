@@ -2631,6 +2631,114 @@
       segments = unname(segments)))
 }
 
+.dsvert_dp_synopsis_execution_exact_segment_v1 <- function(
+    segment, expected) {
+  fields <- c(
+    "execution_chunk_index", "coordinate_offset", "coordinate_count",
+    "noised_share_b64", "noised_share_sha256", "validity_share_b64",
+    "validity_share_sha256", "binding_sha256",
+    "chunk_commitment_sha256")
+  expected_fields <- c(
+    "execution_chunk_index", "coordinate_offset", "coordinate_count",
+    "chunk_commitment_sha256")
+  valid <- is.list(segment) && !is.null(names(segment)) &&
+    !anyNA(names(segment)) && !anyDuplicated(names(segment)) &&
+    setequal(names(segment), fields) && is.list(expected) &&
+    setequal(names(expected), expected_fields) && identical(
+      .dsvert_dp_canonical_query_value(segment[expected_fields]),
+      .dsvert_dp_canonical_query_value(expected[expected_fields]))
+  if (!isTRUE(valid)) {
+    stop("Invalid synopsis exact-GC FINAL_SHARE segment.",
+         call. = FALSE)
+  }
+  noised <- .exact_gc_standard_b64_raw(
+    segment$noised_share_b64, expected$coordinate_count * 16L,
+    "synopsis exact-GC peer share")
+  validity <- .exact_gc_standard_b64_raw(
+    segment$validity_share_b64, 1L,
+    "synopsis exact-GC peer validity share")
+  if (!as.integer(validity[[1L]]) %in% 0:1) {
+    stop("Non-canonical synopsis exact-GC peer validity share.",
+         call. = FALSE)
+  }
+  noised_sha256 <- digest::digest(
+    noised, algo = "sha256", serialize = FALSE)
+  validity_sha256 <- digest::digest(
+    validity, algo = "sha256", serialize = FALSE)
+  binding_sha256 <- .dsvert_dp_synopsis_hex_v1(
+    segment$binding_sha256, "exact-GC peer binding hash")
+  commitment <- .dsvert_dp_synopsis_execution_exact_local_commitment_v1(
+    noised_sha256, validity_sha256, binding_sha256)
+  if (!.dsvert_joint_dp_dsi_hex_equal(
+        segment$noised_share_sha256, noised_sha256) ||
+      !.dsvert_joint_dp_dsi_hex_equal(
+        segment$validity_share_sha256, validity_sha256) ||
+      !.dsvert_joint_dp_dsi_hex_equal(
+        segment$chunk_commitment_sha256, commitment) ||
+      !.dsvert_joint_dp_dsi_hex_equal(
+        expected$chunk_commitment_sha256, commitment)) {
+    stop("The synopsis exact-GC peer segment failed authentication.",
+         call. = FALSE)
+  }
+  c(expected[c(
+    "execution_chunk_index", "coordinate_offset", "coordinate_count")],
+  list(
+    noised_share_b64 = segment$noised_share_b64,
+    noised_share_sha256 = noised_sha256,
+    validity_share_b64 = segment$validity_share_b64,
+    validity_share_sha256 = validity_sha256,
+    binding_sha256 = binding_sha256,
+    chunk_commitment_sha256 = commitment))
+}
+
+.dsvert_dp_synopsis_execution_exact_final_values_v1 <- function(
+    output, binding_sha256, scaled_upper_bounds) {
+  fields <- c(
+    "version", "backend", "operation", "binding_sha256",
+    "clamped_scaled_values", "validity", "signed_decode", "clamping",
+    "preclamp_values_returned", "source_share_exposed",
+    "private_seed_exposed")
+  binding_sha256 <- .dsvert_dp_synopsis_hex_v1(
+    binding_sha256, "exact-GC final binding hash")
+  upper_valid <- is.character(scaled_upper_bounds) &&
+    length(scaled_upper_bounds) >= 1L && !anyNA(scaled_upper_bounds) &&
+    all(grepl("^(0|[1-9][0-9]*)$", scaled_upper_bounds))
+  valid <- isTRUE(upper_valid) && is.list(output) &&
+    !is.null(names(output)) &&
+    !anyNA(names(output)) && !anyDuplicated(names(output)) &&
+    setequal(names(output), fields) && identical(
+      output$version, .DSVERT_JOINT_DP_VECTOR_EXACT_GC_FINAL_VERSION) &&
+    identical(output$backend, .DSVERT_JOINT_DP_VECTOR_EXACT_GC_BACKEND) &&
+    identical(output$operation, .DSVERT_JOINT_DP_VECTOR_EXACT_GC_OPERATION) &&
+    .dsvert_joint_dp_dsi_hex_equal(
+      output$binding_sha256, binding_sha256) &&
+    is.list(output$clamped_scaled_values) &&
+    is.null(names(output$clamped_scaled_values)) &&
+    length(output$clamped_scaled_values) == length(scaled_upper_bounds) &&
+    identical(output$validity, TRUE) &&
+    identical(output$signed_decode,
+              "not_required_nonnegative_clamped_gc_output") &&
+    identical(output$clamping,
+              "inside_exact_gc_before_selective_additive_sharing") &&
+    identical(output$preclamp_values_returned, FALSE) &&
+    identical(output$source_share_exposed, FALSE) &&
+    identical(output$private_seed_exposed, FALSE)
+  values <- if (isTRUE(valid)) vapply(
+    output$clamped_scaled_values, function(value) {
+      if (!is.character(value) || length(value) != 1L || is.na(value) ||
+          !grepl("^(0|[1-9][0-9]*)$", value)) "" else value
+    }, character(1L)) else character()
+  if (!isTRUE(valid) || any(!nzchar(values)) || any(vapply(
+      seq_along(values), function(index) {
+        openssl::bignum(values[[index]]) >
+          openssl::bignum(scaled_upper_bounds[[index]])
+      }, logical(1L)))) {
+    stop("The synopsis exact-GC finalizer returned an invalid certificate.",
+         call. = FALSE)
+  }
+  as.list(values)
+}
+
 .dsvert_dp_synopsis_execution_final_share_context_v1 <- function(
     context, result_set_sha256, public_chunk, segment_set_sha256,
     sender, recipient) {
@@ -2664,7 +2772,9 @@
     first_execution_chunk_index = as.character(
       public_chunk$first_execution_chunk_index),
     segment_count = as.character(public_chunk$segment_count),
-    share_format = "ring128-local-chunk-segments-v1",
+    share_format = if (isTRUE(context$vector$profile$exact_gc)) {
+      "ring128-exact-gc-local-chunk-segments-v1"
+    } else "ring128-local-chunk-segments-v1",
     segment_set_sha256 = segment_set_sha256,
     ring_bits = "128", frac_bits = "0")
   .dsvert_typed_blob_synopsis_context_v1(value, sender)
@@ -2683,11 +2793,7 @@
   }
   context <- .dsvert_dp_synopsis_execution_context_v1(
     ss, session_id, .policy, .secret, .identity, .cache_get)
-  if (isTRUE(context$vector$profile$exact_gc)) {
-    stop(paste(
-      "Synopsis exact-GC FINAL_SHARE requires its dedicated validity and",
-      "binding adapter."), call. = FALSE)
-  }
+  exact <- isTRUE(context$vector$profile$exact_gc)
   results <- .dsvert_dp_synopsis_execution_result_set_v1(
     first_result, second_result, context, .policy, .verifier)
   result_set_sha256 <-
@@ -2724,10 +2830,16 @@
   }
   typed <- .dsvert_typed_blob_session_context(ss)
   pins <- .dsvert_dp_synopsis_peer_pins_v1(.policy$peer_pinset)
-  expected_peers <- as.list(pins[setdiff(names(pins), sender)])
+  expected_names <- if (exact) recipient else setdiff(names(pins), sender)
+  expected_peers <- as.list(pins[expected_names])
   transport_pks <- ss$peer_transport_pks %||% list()
   recipient_pk <- transport_pks[[recipient]]
+  exact_binding <- !exact || isTRUE(tryCatch({
+    .exact_gc_validate_bound_peer_context(ss, session_id)
+    setequal(ss$.exact_gc_designated_peers, c(sender, recipient))
+  }, error = function(error) FALSE))
   if (!identical(typed$self_name, sender) ||
+      !isTRUE(exact_binding) ||
       !identical(
         .dsvert_dp_canonical_query_value(typed$peer_identity_pks),
         .dsvert_dp_canonical_query_value(expected_peers)) ||
@@ -2787,13 +2899,21 @@
       stop("The durable LOCAL chunk disagrees with RESULT.",
            call. = FALSE)
     }
-    c(descriptor[c(
+    segment <- c(descriptor[c(
       "execution_chunk_index", "coordinate_offset",
       "coordinate_count")], list(
         noised_share_b64 = value$noised_share_b64,
-        noised_share_sha256 = value$noised_share_sha256,
+        noised_share_sha256 = value$noised_share_sha256),
+      if (exact) list(
+        validity_share_b64 = value$validity_share_b64,
+        validity_share_sha256 = value$validity_share_sha256,
+        binding_sha256 = value$binding_sha256) else list(), list(
         chunk_commitment_sha256 =
           descriptor$chunk_commitment_sha256))
+    if (exact) {
+      .dsvert_dp_synopsis_execution_exact_segment_v1(
+        segment, descriptor)
+    } else segment
   })
   covered_offsets <- vapply(segments, `[[`, numeric(1L),
                             "coordinate_offset")
@@ -3180,6 +3300,15 @@
       length(payload$segments) != length(expected_segments)) {
     stop("Invalid synopsis FINAL_SHARE payload.", call. = FALSE)
   }
+  if (identical(
+      typed_context$share_format,
+      "ring128-exact-gc-local-chunk-segments-v1")) {
+    segments <- lapply(seq_along(expected_segments), function(index) {
+      .dsvert_dp_synopsis_execution_exact_segment_v1(
+        payload$segments[[index]], expected_segments[[index]])
+    })
+    return(list(segments = segments, encrypted = encrypted))
+  }
   bytes <- lapply(seq_along(expected_segments), function(index) {
     segment <- payload$segments[[index]]
     expected <- expected_segments[[index]]
@@ -3223,11 +3352,7 @@
   }
   context <- .dsvert_dp_synopsis_execution_context_v1(
     ss, session_id, .policy, .secret, .identity, .cache_get)
-  if (isTRUE(context$vector$profile$exact_gc)) {
-    stop(paste(
-      "Synopsis exact-GC RELEASE requires its dedicated validity and",
-      "binding adapter."), call. = FALSE)
-  }
+  exact <- isTRUE(context$vector$profile$exact_gc)
   results <- .dsvert_dp_synopsis_execution_result_set_v1(
     first_result, second_result, context, .policy, .verifier)
   result_set_sha256 <-
@@ -3278,11 +3403,11 @@
     stop("The synopsis RELEASE conflicts with durable execution state.",
          call. = FALSE)
   }
-  if (!identical(
+  if (!exact && (!identical(
       as.numeric(context$attempt$value$execution_geometry$chunk_coordinates),
       as.numeric(context$contract$value$geometry$public_chunk_coordinates)) ||
       !identical(as.numeric(expected_execution_count),
-                 as.numeric(expected_public_count))) {
+                 as.numeric(expected_public_count)))) {
     stop("Non-exact synopsis RELEASE requires canonical public chunks.",
          call. = FALSE)
   }
@@ -3297,7 +3422,11 @@
       !is.environment(.session)) {
     stop("Invalid synopsis RELEASE peer-share reader.", call. = FALSE)
   }
-  if (is.null(.finalizer)) .finalizer <- function(input) {
+  default_finalizer <- is.null(.finalizer)
+  if (default_finalizer) .finalizer <- if (exact) {
+    function(input) do.call(
+      .dsvert_joint_dp_vector_exact_gc_finalize, input)
+  } else function(input) {
     .callMpcTool(context$vector$profile$finalizer_command, input)
   }
   if (!is.function(.finalizer)) {
@@ -3318,22 +3447,21 @@
         .dsvert_dp_synopsis_execution_public_load_v1(
           connection, .secret, context, result_set_sha256, public_chunk)
       })
-    execution_index <- public_chunk$first_execution_chunk_index
-    own_descriptor <- list(
-      execution_chunk_index = execution_index,
-      coordinate_offset = public_chunk$offset,
-      coordinate_count = public_chunk$count,
-      chunk_commitment_sha256 =
-        own_commitments[[execution_index + 1L]])
-    peer_descriptor <- list(
-      execution_chunk_index = execution_index,
-      coordinate_offset = public_chunk$offset,
-      coordinate_count = public_chunk$count,
-      chunk_commitment_sha256 =
-        peer_commitments[[execution_index + 1L]])
+    indices <- unlist(
+      public_chunk$execution_chunk_indices, use.names = FALSE)
+    descriptors <- function(commitments) lapply(indices, function(index) {
+      chunk <- .dsvert_dp_synopsis_execution_chunk_v1(context, index)
+      list(
+        execution_chunk_index = chunk$index,
+        coordinate_offset = chunk$offset,
+        coordinate_count = chunk$count,
+        chunk_commitment_sha256 = commitments[[index + 1L]])
+    })
+    own_descriptors <- descriptors(own_commitments)
+    peer_descriptors <- descriptors(peer_commitments)
     peer_segment_set_sha256 <-
       .dsvert_dp_synopsis_execution_segment_set_hash_v1(
-        context, result_set_sha256, public_chunk, list(peer_descriptor))
+        context, result_set_sha256, public_chunk, peer_descriptors)
     typed_context <-
       .dsvert_dp_synopsis_execution_final_share_context_v1(
         context, result_set_sha256, public_chunk,
@@ -3346,81 +3474,163 @@
       next
     }
 
-    execution_chunk <- .dsvert_dp_synopsis_execution_chunk_v1(
-      context, execution_index)
-    own <- .dsvert_dp_synopsis_execution_with_store_v1(
+    own_chunks <- .dsvert_dp_synopsis_execution_with_store_v1(
       .policy, .secret, function(connection) {
-        .dsvert_dp_synopsis_execution_local_load_v1(
-          connection, .secret, context, NULL, execution_chunk,
-          .policy, .verifier)
+        lapply(indices, function(execution_index) {
+          execution_chunk <- .dsvert_dp_synopsis_execution_chunk_v1(
+            context, execution_index)
+          .dsvert_dp_synopsis_execution_local_load_v1(
+            connection, .secret, context, NULL, execution_chunk,
+            .policy, .verifier)
+        })
       })
-    if (is.null(own) || !identical(
-        own$receipt$local_chunk_sha256,
-        own_descriptor$chunk_commitment_sha256)) {
+    own_ready <- length(own_chunks) == length(own_descriptors) &&
+      all(vapply(seq_along(own_chunks), function(position) {
+        !is.null(own_chunks[[position]]) && identical(
+          own_chunks[[position]]$receipt$local_chunk_sha256,
+          own_descriptors[[position]]$chunk_commitment_sha256)
+      }, logical(1L)))
+    if (!isTRUE(own_ready)) {
       stop(.dsvert_phase_not_ready_condition())
     }
     peer_share <- .peer_share_reader(
       .session, typed_context, peer, public_chunk,
-      list(peer_descriptor))
-    if (!is.list(peer_share) || !is.character(peer_share$share_b64) ||
-        length(peer_share$share_b64) != 1L ||
-        is.na(peer_share$share_b64)) {
-      stop("Invalid synopsis RELEASE peer share.", call. = FALSE)
-    }
-    peer_raw <- .dsvert_joint_dp_vector_standard_b64(
-      peer_share$share_b64, "synopsis peer noised share",
-      public_chunk$count * 16L)
-    if (!.dsvert_joint_dp_dsi_hex_equal(
-        digest::digest(peer_raw, algo = "sha256", serialize = FALSE),
-        peer_descriptor$chunk_commitment_sha256)) {
-      stop("The synopsis peer share disagrees with signed RESULT.",
-           call. = FALSE)
-    }
-    positions <- seq.int(
-      public_chunk$offset + 1L,
-      public_chunk$offset + public_chunk$count)
+      peer_descriptors)
     release <- context$vector$release_contract
-    input <- c(list(
-      version = context$vector$profile$finalizer_input_version,
-      ring_bits = 128L, frac_bits = 0L,
-      total_coordinate_count = release$coordinate_count,
-      chunk_start = public_chunk$offset,
-      coordinate_count = public_chunk$count,
-      output_lattice_bits = release$output_lattice_bits,
-      epsilon = release$epsilon,
-      allocated_delta = release$allocated_delta),
-    if (isTRUE(context$vector$profile$gaussian)) {
-      list(l2_sensitivity_steps = release$sensitivity_steps)
-    } else list(sensitivity_steps = release$sensitivity_steps), list(
-      scale_shifts = as.list(
-        context$vector$lattice$scale_shifts[positions]),
-      raw_upper_bounds = as.list(
-        context$vector$lattice$raw_upper_bounds[positions]),
-      release_contract_hash = context$contract$sha256,
-      transcript_hash = context$contract$sha256,
-      left_noised_share = if (identical(
-        local_peer, authority_peers[[1L]])) {
-        own$noised_share_b64
-      } else peer_share$share_b64,
-      right_noised_share = if (identical(
-        local_peer, authority_peers[[1L]])) {
-        peer_share$share_b64
-      } else own$noised_share_b64))
-    output <- .finalizer(input)
-    input$left_noised_share <- NULL
-    input$right_noised_share <- NULL
-    if (is.list(output) && is.list(output$plan)) {
-      output$plan <- .dsvert_dp_analysis_canonical_value_v1(output$plan)
+    if (exact) {
+      if (!is.list(peer_share) || !is.list(peer_share$segments) ||
+          !is.null(names(peer_share$segments)) ||
+          length(peer_share$segments) != length(peer_descriptors)) {
+        stop("Invalid synopsis exact-GC RELEASE peer segments.",
+             call. = FALSE)
+      }
+      peer_segments <- lapply(seq_along(peer_descriptors),
+        function(position) {
+          .dsvert_dp_synopsis_execution_exact_segment_v1(
+            peer_share$segments[[position]],
+            peer_descriptors[[position]])
+        })
+      finalized <- lapply(seq_along(indices), function(position) {
+        own <- own_chunks[[position]]
+        descriptor <- own_descriptors[[position]]
+        own_segment <- .dsvert_dp_synopsis_execution_exact_segment_v1(
+          c(descriptor[c(
+            "execution_chunk_index", "coordinate_offset",
+            "coordinate_count")], list(
+              noised_share_b64 = own$noised_share_b64,
+              noised_share_sha256 = own$noised_share_sha256,
+              validity_share_b64 = own$validity_share_b64,
+              validity_share_sha256 = own$validity_share_sha256,
+              binding_sha256 = own$binding_sha256,
+              chunk_commitment_sha256 =
+                own$output_commitment_sha256)), descriptor)
+        peer_segment <- peer_segments[[position]]
+        if (!.dsvert_joint_dp_dsi_hex_equal(
+            own_segment$binding_sha256,
+            peer_segment$binding_sha256)) {
+          stop("The exact-GC synopsis shares use different bindings.",
+               call. = FALSE)
+        }
+        chunk <- .dsvert_dp_synopsis_execution_chunk_v1(
+          context, indices[[position]])
+        positions <- seq.int(
+          chunk$offset + 1L, chunk$offset + chunk$count)
+        raw_upper <- context$vector$lattice$raw_upper_bounds[positions]
+        shifts <- context$vector$lattice$scale_shifts[positions]
+        scaled_upper <- vapply(seq_along(positions), function(index) {
+          as.character(
+            openssl::bignum(as.character(raw_upper[[index]])) *
+              (openssl::bignum(2) ^ as.integer(shifts[[index]])))
+        }, character(1L))
+        finalizer_input <- list(
+          own = own_segment[c(
+            "noised_share_b64", "validity_share_b64",
+            "binding_sha256")],
+          peer = peer_segment[c(
+            "noised_share_b64", "validity_share_b64",
+            "binding_sha256")],
+          scaled_upper_bounds = scaled_upper,
+          binding_sha256 = own_segment$binding_sha256)
+        output <- .finalizer(finalizer_input)
+        values <- .dsvert_dp_synopsis_execution_exact_final_values_v1(
+          output, own_segment$binding_sha256, scaled_upper)
+        oracle <- if (default_finalizer) output else {
+          .dsvert_joint_dp_vector_exact_gc_finalize(
+            own = finalizer_input$own, peer = finalizer_input$peer,
+            scaled_upper_bounds = scaled_upper,
+            binding_sha256 = own_segment$binding_sha256)
+        }
+        expected <- .dsvert_dp_synopsis_execution_exact_final_values_v1(
+          oracle, own_segment$binding_sha256, scaled_upper)
+        if (!identical(values, expected)) {
+          stop("The synopsis exact-GC finalizer changed the exact result.",
+               call. = FALSE)
+        }
+        values
+      })
+      values <- as.list(unlist(finalized, use.names = FALSE))
+    } else {
+      own <- own_chunks[[1L]]
+      peer_descriptor <- peer_descriptors[[1L]]
+      if (!is.list(peer_share) || !is.character(peer_share$share_b64) ||
+          length(peer_share$share_b64) != 1L ||
+          is.na(peer_share$share_b64)) {
+        stop("Invalid synopsis RELEASE peer share.", call. = FALSE)
+      }
+      peer_raw <- .dsvert_joint_dp_vector_standard_b64(
+        peer_share$share_b64, "synopsis peer noised share",
+        public_chunk$count * 16L)
+      if (!.dsvert_joint_dp_dsi_hex_equal(
+          digest::digest(peer_raw, algo = "sha256", serialize = FALSE),
+          peer_descriptor$chunk_commitment_sha256)) {
+        stop("The synopsis peer share disagrees with signed RESULT.",
+             call. = FALSE)
+      }
+      positions <- seq.int(
+        public_chunk$offset + 1L,
+        public_chunk$offset + public_chunk$count)
+      input <- c(list(
+        version = context$vector$profile$finalizer_input_version,
+        ring_bits = 128L, frac_bits = 0L,
+        total_coordinate_count = release$coordinate_count,
+        chunk_start = public_chunk$offset,
+        coordinate_count = public_chunk$count,
+        output_lattice_bits = release$output_lattice_bits,
+        epsilon = release$epsilon,
+        allocated_delta = release$allocated_delta),
+      if (isTRUE(context$vector$profile$gaussian)) {
+        list(l2_sensitivity_steps = release$sensitivity_steps)
+      } else list(sensitivity_steps = release$sensitivity_steps), list(
+        scale_shifts = as.list(
+          context$vector$lattice$scale_shifts[positions]),
+        raw_upper_bounds = as.list(
+          context$vector$lattice$raw_upper_bounds[positions]),
+        release_contract_hash = context$contract$sha256,
+        transcript_hash = context$contract$sha256,
+        left_noised_share = if (identical(
+          local_peer, authority_peers[[1L]])) {
+          own$noised_share_b64
+        } else peer_share$share_b64,
+        right_noised_share = if (identical(
+          local_peer, authority_peers[[1L]])) {
+          peer_share$share_b64
+        } else own$noised_share_b64))
+      output <- .finalizer(input)
+      input$left_noised_share <- NULL
+      input$right_noised_share <- NULL
+      if (is.list(output) && is.list(output$plan)) {
+        output$plan <- .dsvert_dp_analysis_canonical_value_v1(output$plan)
+      }
+      if (!is.list(output) || is.null(names(output)) ||
+          anyNA(names(output)) || anyDuplicated(names(output))) {
+        stop("The synopsis finalizer returned an invalid certificate.",
+             call. = FALSE)
+      }
+      values <- .dsvert_joint_dp_vector_finalizer_validate(
+        output, context$vector, public_chunk,
+        context$vector$lattice$raw_upper_bounds[positions],
+        context$vector$lattice$scale_shifts[positions])
     }
-    if (!is.list(output) || is.null(names(output)) ||
-        anyNA(names(output)) || anyDuplicated(names(output))) {
-      stop("The synopsis finalizer returned an invalid certificate.",
-           call. = FALSE)
-    }
-    values <- .dsvert_joint_dp_vector_finalizer_validate(
-      output, context$vector, public_chunk,
-      context$vector$lattice$raw_upper_bounds[positions],
-      context$vector$lattice$scale_shifts[positions])
     public <- list(
       version = .DSVERT_DP_SYNOPSIS_EXECUTION_PUBLIC_VERSION,
       artifact_key = context$authorization$artifact_key,
@@ -3452,16 +3662,24 @@
         .dsvert_dp_synopsis_execution_transaction_v1(connection, {
           claim <- .dsvert_dp_synopsis_execution_artifact_load_v1(
             connection, .secret, context$authorization$artifact_key)
-          local <- .dsvert_dp_synopsis_execution_local_load_v1(
-            connection, .secret, context, NULL, execution_chunk,
-            .policy, .verifier)
-          if (is.null(claim) || is.null(local) ||
+          locals <- lapply(indices, function(execution_index) {
+            execution_chunk <- .dsvert_dp_synopsis_execution_chunk_v1(
+              context, execution_index)
+            .dsvert_dp_synopsis_execution_local_load_v1(
+              connection, .secret, context, NULL, execution_chunk,
+              .policy, .verifier)
+          })
+          locals_agree <- length(locals) == length(own_descriptors) &&
+            all(vapply(seq_along(locals), function(position) {
+              !is.null(locals[[position]]) && identical(
+                locals[[position]]$receipt$local_chunk_sha256,
+                own_descriptors[[position]]$chunk_commitment_sha256)
+            }, logical(1L)))
+          if (is.null(claim) || !isTRUE(locals_agree) ||
               !identical(claim$sticky_core_sha256,
                          context$contract$sha256) ||
               !identical(claim$run_binding_sha256,
-                         context$attempt$sha256) ||
-              !identical(local$receipt$local_chunk_sha256,
-                         own_descriptor$chunk_commitment_sha256)) {
+                         context$attempt$sha256)) {
             stop("The synopsis RELEASE state changed before persistence.",
                  call. = FALSE)
           }
@@ -3621,10 +3839,6 @@
   }
   context <- .dsvert_dp_synopsis_execution_context_v1(
     ss, session_id, .policy, .secret, .identity, .cache_get)
-  if (isTRUE(context$vector$profile$exact_gc)) {
-    stop("Synopsis exact-GC REPLAY requires its dedicated adapter.",
-         call. = FALSE)
-  }
   public_chunk <- .dsvert_dp_synopsis_execution_public_chunk_v1(
     context, public_chunk_index)
   releases <- .dsvert_dp_synopsis_execution_release_set_v1(

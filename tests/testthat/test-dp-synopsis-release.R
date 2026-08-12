@@ -281,7 +281,7 @@ test_that("RELEASE runs convolution/Gaussian and routes K=2/3/5 authorities", {
       .callMpcTool(context$vector$profile$finalizer_command, input)))
 })
 
-test_that("RELEASE rejects bad RESULT sets and exact-GC before dependencies", {
+test_that("RELEASE rejects malformed RESULT sets before dependencies", {
   .synopsis_release_require()
   built <- .synopsis_release_helpers$.synopsis_final_share_setup()
   peer <- built$setup$authorities[[1L]]
@@ -325,7 +325,8 @@ test_that("RELEASE rejects bad RESULT sets and exact-GC before dependencies", {
     .cache_get = exact$input$cache_get,
     .verifier = exact$input$verifier, .signer = forbidden,
     .peer_share_reader = forbidden, .finalizer = forbidden,
-    .session = new.env(parent = emptyenv())), "exact-GC|exact GC")
+    .session = new.env(parent = emptyenv())),
+  "RESULT records do not agree")
 })
 
 test_that("RELEASE public geometry fixes D=1 and D=8193", {

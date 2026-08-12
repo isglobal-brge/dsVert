@@ -658,8 +658,11 @@
   if (any(!vapply(hashes, function(value) {
     is.character(value) && length(value) == 1L && !is.na(value) &&
       grepl("^[0-9a-f]{64}$", value)
-  }, logical(1L))) || !identical(
-      context$share_format, "ring128-local-chunk-segments-v1")) {
+  }, logical(1L))) || !is.character(context$share_format) ||
+      length(context$share_format) != 1L || is.na(context$share_format) ||
+      !context$share_format %in% c(
+      "ring128-local-chunk-segments-v1",
+      "ring128-exact-gc-local-chunk-segments-v1")) {
     stop("Invalid typed-blob synopsis binding.", call. = FALSE)
   }
   maxima <- c(
@@ -689,6 +692,9 @@
   execution_count <- numeric[["execution_chunk_count"]]
   first <- numeric[["first_execution_chunk_index"]]
   segment_count <- numeric[["segment_count"]]
+  exact <- identical(
+    context$share_format,
+    "ring128-exact-gc-local-chunk-segments-v1")
   expected_count <- min(8192, total - 8192 * public_index)
   last <- floor((offset + count - 1) / execution_size)
   valid_geometry <-
@@ -699,7 +705,8 @@
     first == floor(offset / execution_size) &&
     segment_count == last - first + 1 &&
     last < execution_count && numeric[["ring_bits"]] == 128 &&
-    numeric[["frac_bits"]] == 0
+    numeric[["frac_bits"]] == 0 &&
+    (!exact || execution_size == min(64, total))
   roles <- .dsvert_typed_blob_context_fields(
     context$roles,
     c("primary_noise_authority", "secondary_noise_authority"))

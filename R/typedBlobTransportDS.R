@@ -33,6 +33,12 @@
   "analysis-dp.frequency-source-to-finalizer.v1"
 .DSVERT_TYPED_BLOB_FREQUENCY_HEADER_BYTES <- 8192L
 .DSVERT_TYPED_BLOB_FREQUENCY_CIPHERTEXT_CHARS <- 1409104L
+.DSVERT_TYPED_BLOB_SYNOPSIS_FINAL_CAPABILITY <-
+  "blob.analysis-dp.synopsis-final-share.v1"
+.DSVERT_TYPED_BLOB_SYNOPSIS_CONTEXT_VERSION <-
+  "dsvert-stateless-catalog-synopsis-final-share-context-v1"
+.DSVERT_TYPED_BLOB_SYNOPSIS_PURPOSE <-
+  "analysis_dp_synopsis_final_share"
 
 .dsvert_typed_blob_spool_max_bytes <- function() {
   value <- getOption("dsvert.typed_blob.spool_max_bytes", 1024^3)
@@ -629,6 +635,100 @@
   invisible(TRUE)
 }
 
+.dsvert_typed_blob_synopsis_context_v1 <- function(context, sender_name) {
+  required <- c(
+    "version", "purpose", "artifact_key", "execution_id",
+    "contract_sha256", "attempt_sha256", "result_set_sha256", "roles",
+    "sender", "recipient", "total_coordinate_count",
+    "public_chunk_index", "public_chunk_count", "coordinate_offset",
+    "coordinate_count", "execution_chunk_coordinates",
+    "execution_chunk_count", "first_execution_chunk_index",
+    "segment_count", "share_format", "segment_set_sha256",
+    "ring_bits", "frac_bits")
+  context <- .dsvert_typed_blob_context_fields(context, required)
+  if (!identical(context$version,
+                 .DSVERT_TYPED_BLOB_SYNOPSIS_CONTEXT_VERSION) ||
+      !identical(context$purpose,
+                 .DSVERT_TYPED_BLOB_SYNOPSIS_PURPOSE)) {
+    stop("Invalid typed-blob synopsis purpose.", call. = FALSE)
+  }
+  hashes <- context[c(
+    "artifact_key", "execution_id", "contract_sha256", "attempt_sha256",
+    "result_set_sha256", "segment_set_sha256")]
+  if (any(!vapply(hashes, function(value) {
+    is.character(value) && length(value) == 1L && !is.na(value) &&
+      grepl("^[0-9a-f]{64}$", value)
+  }, logical(1L))) || !identical(
+      context$share_format, "ring128-local-chunk-segments-v1")) {
+    stop("Invalid typed-blob synopsis binding.", call. = FALSE)
+  }
+  maxima <- c(
+    total_coordinate_count = 1000000, public_chunk_index = 2^31 - 1,
+    public_chunk_count = 2^31 - 1, coordinate_offset = 1000000,
+    coordinate_count = 8192, execution_chunk_coordinates = 8192,
+    execution_chunk_count = 1000000,
+    first_execution_chunk_index = 1000000, segment_count = 15625,
+    ring_bits = 128, frac_bits = 0)
+  minima <- c(
+    total_coordinate_count = 1, public_chunk_index = 0,
+    public_chunk_count = 1, coordinate_offset = 0,
+    coordinate_count = 1, execution_chunk_coordinates = 1,
+    execution_chunk_count = 1, first_execution_chunk_index = 0,
+    segment_count = 1, ring_bits = 128, frac_bits = 0)
+  for (field in names(maxima)) context[[field]] <-
+    .dsvert_typed_blob_integer_string(
+      context[[field]], paste("synopsis", gsub("_", " ", field)),
+      minima[[field]], maxima[[field]])
+  numeric <- vapply(context[names(maxima)], as.numeric, numeric(1L))
+  total <- numeric[["total_coordinate_count"]]
+  public_index <- numeric[["public_chunk_index"]]
+  public_count <- numeric[["public_chunk_count"]]
+  offset <- numeric[["coordinate_offset"]]
+  count <- numeric[["coordinate_count"]]
+  execution_size <- numeric[["execution_chunk_coordinates"]]
+  execution_count <- numeric[["execution_chunk_count"]]
+  first <- numeric[["first_execution_chunk_index"]]
+  segment_count <- numeric[["segment_count"]]
+  expected_count <- min(8192, total - 8192 * public_index)
+  last <- floor((offset + count - 1) / execution_size)
+  valid_geometry <-
+    public_count == ceiling(total / 8192) &&
+    public_index < public_count && offset == 8192 * public_index &&
+    expected_count >= 1 && count == expected_count &&
+    execution_count == ceiling(total / execution_size) &&
+    first == floor(offset / execution_size) &&
+    segment_count == last - first + 1 &&
+    last < execution_count && numeric[["ring_bits"]] == 128 &&
+    numeric[["frac_bits"]] == 0
+  roles <- .dsvert_typed_blob_context_fields(
+    context$roles,
+    c("primary_noise_authority", "secondary_noise_authority"))
+  roles <- lapply(roles, .dsvert_validate_logical_peer_name)
+  context$sender <- .dsvert_validate_logical_peer_name(context$sender)
+  context$recipient <- .dsvert_validate_logical_peer_name(
+    context$recipient)
+  if (!isTRUE(valid_geometry) || identical(
+      roles$primary_noise_authority,
+      roles$secondary_noise_authority) ||
+      !identical(context$sender, sender_name) ||
+      !setequal(c(context$sender, context$recipient), unname(roles))) {
+    stop("Invalid typed-blob synopsis geometry or route.", call. = FALSE)
+  }
+  context$roles <- roles
+  context
+}
+
+.dsvert_typed_blob_validate_synopsis_route <- function(
+    capability_id, resolved, sender_name, recipient_name) {
+  if (identical(
+      capability_id, .DSVERT_TYPED_BLOB_SYNOPSIS_FINAL_CAPABILITY) &&
+      (!identical(resolved$context$sender, sender_name) ||
+       !identical(resolved$context$recipient, recipient_name))) {
+    stop("Invalid typed-blob synopsis route.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
 .dsvert_typed_blob_storage_name <- function(value, what) {
   if (!is.character(value) || length(value) != 1L || is.na(value)) {
     stop("Invalid typed-blob ", what, ".", call. = FALSE)
@@ -879,6 +979,22 @@
       "analysis-dp.frequency-source-to-finalizer",
       "recipient-encrypted-fixed-frequency-window-v1", 65536,
       ring = "128"))
+  }
+  if (identical(
+      capability_id, .DSVERT_TYPED_BLOB_SYNOPSIS_FINAL_CAPABILITY)) {
+    context <- .dsvert_typed_blob_synopsis_context_v1(
+      context, sender_name)
+    tag <- substr(digest::digest(
+      .dsvert_dp_canonical_json(
+        .dsvert_dp_canonical_query_value(context)),
+      algo = "sha256", serialize = FALSE), 1L, 24L)
+    return(.dsvert_typed_blob_metadata(
+      capability_id, paste0("analysis_dp_synopsis_final_", tag), context,
+      "analysis-dp", ".dsvert_dp_synopsis_execution_final_share_v1",
+      ".dsvert_dp_synopsis_execution_release_v1",
+      "analysis-dp.synopsis-final-share",
+      "recipient-encrypted-ring128-synopsis-public-chunk-v1",
+      as.numeric(context$coordinate_count), ring = "128"))
   }
   if (identical(capability_id, "blob.joint-dp.vector-final-share.v3")) {
     required <- c(
@@ -1332,6 +1448,8 @@
   .dsvert_typed_blob_validate_analysis_count_route(
     capability_id, resolved, session$self_name, recipient_name)
   .dsvert_typed_blob_validate_frequency_route(
+    capability_id, resolved, session$self_name, recipient_name)
+  .dsvert_typed_blob_validate_synopsis_route(
     capability_id, resolved, session$self_name, recipient_name)
   allowed_producers <- resolved$producer
   if (is.null(producer) && length(allowed_producers) == 1L) {
@@ -1894,6 +2012,8 @@ mpcTypedBlobReadDS <- function(ticket, offset, max_chars, session_id) {
   .dsvert_typed_blob_validate_analysis_count_route(
     body$capability_id, resolved, sender, recipient)
   .dsvert_typed_blob_validate_frequency_route(
+    body$capability_id, resolved, sender, recipient)
+  .dsvert_typed_blob_validate_synopsis_route(
     body$capability_id, resolved, sender, recipient)
   metadata_valid <-
     identical(body$family, resolved$family) &&

@@ -41,6 +41,12 @@
   "dsVert/stateless-catalog-synopsis/local-chunk-set/v1|"
 .DSVERT_DP_SYNOPSIS_EXECUTION_RESULT_RECORD_VERSION <-
   "dsvert-stateless-catalog-synopsis-result-record-v1"
+.DSVERT_DP_SYNOPSIS_EXECUTION_RESULT_SET_DOMAIN <-
+  "dsVert/stateless-catalog-synopsis/result-set/v1|"
+.DSVERT_DP_SYNOPSIS_EXECUTION_SEGMENT_SET_DOMAIN <-
+  "dsVert/stateless-catalog-synopsis/final-share-segment-set/v1|"
+.DSVERT_DP_SYNOPSIS_EXECUTION_FINAL_SHARE_PAYLOAD_VERSION <-
+  "dsvert-stateless-catalog-synopsis-final-share-payload-v1"
 .DSVERT_DP_SYNOPSIS_EXECUTION_STORE_MAX_RECORD_BYTES <- 512L * 1024L
 .DSVERT_DP_SYNOPSIS_EXECUTION_RESULT_MAX_RECORD_BYTES <- 2L * 1024L^2
 
@@ -680,6 +686,9 @@
     attempt_sha256 = context$attempt$sha256,
     source_contract_sha256 =
       context$attempt$value$source_contract_sha256)
+  expected_seed_commitment <- if (is.null(prepare)) {
+    receipt$seed_commitment
+  } else prepare$seed_commitment
   valid <- is.function(.verifier) && is.list(receipt) &&
     !is.null(names(receipt)) && !anyNA(names(receipt)) &&
     !anyDuplicated(names(receipt)) && setequal(names(receipt), fields) &&
@@ -702,7 +711,7 @@
               as.numeric(chunk$count)) &&
     identical(receipt$backend, context$vector$profile$backend) &&
     identical(receipt$sampler, context$vector$profile$sampler) &&
-    identical(receipt$seed_commitment, prepare$seed_commitment) &&
+    identical(receipt$seed_commitment, expected_seed_commitment) &&
     identical(receipt$local_chunk_durable, TRUE) &&
     identical(receipt$intermediate_payload_exposed, FALSE)
   if (!isTRUE(valid)) {
@@ -1042,9 +1051,34 @@
       .dsvert_dp_canonical_query_value(unsigned))))
 }
 
+.dsvert_dp_synopsis_execution_result_authorities_v1 <- function(
+    context, policy) {
+  pins <- .dsvert_dp_synopsis_peer_pins_v1(policy$peer_pinset)
+  peers <- unlist(
+    context$contract$value$authority_peers, use.names = FALSE)
+  identities <- unlist(
+    context$contract$value$authority_roles$authority_ids,
+    use.names = FALSE)
+  roles <- unlist(
+    context$contract$value$authority_roles$role_order,
+    use.names = FALSE)
+  if (length(peers) != 2L || length(identities) != 2L ||
+      length(roles) != 2L || anyNA(peers) || anyDuplicated(peers) ||
+      !all(peers %in% names(pins)) ||
+      !identical(unname(pins[peers]), identities)) {
+    stop("Invalid synopsis RESULT authorities.", call. = FALSE)
+  }
+  values <- lapply(seq_len(2L), function(index) list(
+    peer_name = peers[[index]], identity_pk = identities[[index]],
+    role = roles[[index]]))
+  names(values) <- peers
+  values
+}
+
 .dsvert_dp_synopsis_execution_result_validate_v1 <- function(
     receipt, context, prepares, policy,
-    .verifier = .dsvert_relay_verify_message) {
+    .verifier = .dsvert_relay_verify_message,
+    expected_authority = NULL, expected_prepare_set_sha256 = NULL) {
   fields <- c(
     "version", "phase", "execution_id", "artifact_key",
     "contract_sha256", "attempt_sha256", "source_contract_sha256",
@@ -1052,7 +1086,18 @@
     "public_chunk_count", "local_chunk_commitments",
     "local_chunk_set_root", "local_chunk_set_sha256",
     "all_chunks_durable", "intermediate_payload_exposed", "signature")
-  authority <- context$authorization$local_authority
+  authorities <- .dsvert_dp_synopsis_execution_result_authorities_v1(
+    context, policy)
+  authority <- expected_authority %||%
+    context$authorization$local_authority
+  authority_peer <- if (is.list(authority)) authority$peer_name else NULL
+  if (!is.character(authority_peer) || length(authority_peer) != 1L ||
+      is.na(authority_peer) || is.null(authorities[[authority_peer]]) ||
+      !identical(
+        .dsvert_dp_canonical_query_value(authority),
+        .dsvert_dp_canonical_query_value(authorities[[authority_peer]]))) {
+    stop("Invalid synopsis RESULT authority.", call. = FALSE)
+  }
   execution_count <-
     context$attempt$value$execution_geometry$chunk_count
   public_count <- context$contract$value$geometry$public_chunk_count
@@ -1073,6 +1118,13 @@
     attempt_sha256 = context$attempt$sha256,
     source_contract_sha256 =
       context$attempt$value$source_contract_sha256)
+  prepare_set_sha256 <- if (!is.null(prepares)) {
+    .dsvert_dp_synopsis_execution_prepare_set_hash_v1(prepares)
+  } else {
+    tryCatch(.dsvert_dp_synopsis_hex_v1(
+      expected_prepare_set_sha256, "RESULT PREPARE-set hash"),
+    error = function(error) "")
+  }
   valid <- is.function(.verifier) && is.list(receipt) &&
     !is.null(names(receipt)) && !anyNA(names(receipt)) &&
     !anyDuplicated(names(receipt)) && setequal(names(receipt), fields) &&
@@ -1094,8 +1146,7 @@
     is.character(commitments) && !anyNA(commitments) &&
     all(nchar(commitments, type = "bytes") == 64L) &&
     all(grepl("^[0-9a-f]{64}$", commitments)) &&
-    identical(receipt$prepare_set_sha256,
-              .dsvert_dp_synopsis_execution_prepare_set_hash_v1(prepares)) &&
+    identical(receipt$prepare_set_sha256, prepare_set_sha256) &&
     identical(receipt$local_chunk_set_root,
               .dsvert_joint_dp_vector_merkle_root(commitments)) &&
     identical(receipt$local_chunk_set_sha256,
@@ -1116,8 +1167,8 @@
   receipt$local_authority <- authority
   signature <- .dsvert_dp_synopsis_signature_v1(receipt$signature)
   unsigned <- receipt[setdiff(fields, "signature")]
-  pins <- .dsvert_dp_synopsis_peer_pins_v1(policy$peer_pinset)
   identity_pk <- authority$identity_pk
+  pins <- .dsvert_dp_synopsis_peer_pins_v1(policy$peer_pinset)
   if (!identical(identity_pk, unname(pins[[authority$peer_name]])) ||
       !isTRUE(tryCatch(.verifier(
         .dsvert_dp_synopsis_execution_result_message_v1(unsigned),
@@ -1129,7 +1180,8 @@
 }
 
 .dsvert_dp_synopsis_execution_result_load_v1 <- function(
-    connection, secret, context, prepares, policy, .verifier) {
+    connection, secret, context, prepares, policy, .verifier,
+    expected_prepare_set_sha256 = NULL) {
   artifact_key <- context$authorization$artifact_key
   row <- DBI::dbGetQuery(connection, paste(
     "SELECT receipt_sha256,record_json,row_mac FROM synopsis_results",
@@ -1152,7 +1204,9 @@
   value$receipt_sha256 <- .dsvert_dp_synopsis_hex_v1(
     value$receipt_sha256, "RESULT receipt hash")
   value$receipt <- .dsvert_dp_synopsis_execution_result_validate_v1(
-    value$receipt, context, prepares, policy, .verifier)
+    value$receipt, context, prepares, policy, .verifier,
+    expected_authority = context$authorization$local_authority,
+    expected_prepare_set_sha256 = expected_prepare_set_sha256)
   if (!identical(value$receipt_sha256, row$receipt_sha256[[1L]]) ||
       !identical(value$receipt_sha256,
                  .dsvert_joint_dp_hash(value$receipt))) {
@@ -1317,4 +1371,316 @@
       })
     })
   persisted$receipt
+}
+
+.dsvert_dp_synopsis_execution_result_set_hash_v1 <- function(results) {
+  unsigned <- unname(lapply(results, function(value) {
+    value[setdiff(names(value), "signature")]
+  }))
+  .dsvert_dp_synopsis_execution_hash_v1(
+    .DSVERT_DP_SYNOPSIS_EXECUTION_RESULT_SET_DOMAIN, list(
+      version = "dsvert-stateless-catalog-synopsis-result-set-v1",
+      results = unsigned))
+}
+
+.dsvert_dp_synopsis_execution_result_set_v1 <- function(
+    first_result, second_result, context, policy,
+    .verifier = .dsvert_relay_verify_message) {
+  values <- list(first_result, second_result)
+  prepare_hashes <- vapply(values, function(value) tryCatch(
+    .dsvert_dp_synopsis_hex_v1(
+      if (is.list(value)) value$prepare_set_sha256 else NULL,
+      "RESULT PREPARE-set hash"), error = function(error) ""),
+  character(1L))
+  if (length(unique(prepare_hashes)) != 1L || !nzchar(
+      prepare_hashes[[1L]])) {
+    stop("The synopsis RESULT records do not agree.", call. = FALSE)
+  }
+  authorities <- .dsvert_dp_synopsis_execution_result_authorities_v1(
+    context, policy)
+  peers <- vapply(values, function(value) {
+    peer <- if (is.list(value) && is.list(value$local_authority)) {
+      value$local_authority$peer_name
+    } else NULL
+    if (!is.character(peer) || length(peer) != 1L || is.na(peer)) ""
+    else peer
+  }, character(1L))
+  if (anyDuplicated(peers) || !setequal(peers, names(authorities))) {
+    stop("Invalid synopsis RESULT authority coverage.", call. = FALSE)
+  }
+  verified <- lapply(seq_along(values), function(index) {
+    .dsvert_dp_synopsis_execution_result_validate_v1(
+      values[[index]], context, NULL, policy, .verifier,
+      expected_authority = authorities[[peers[[index]]]],
+      expected_prepare_set_sha256 = prepare_hashes[[1L]])
+  })
+  names(verified) <- peers
+  verified[names(authorities)]
+}
+
+.dsvert_dp_synopsis_execution_public_chunk_v1 <- function(
+    context, public_chunk_index) {
+  geometry <- context$contract$value$geometry
+  execution <- context$attempt$value$execution_geometry
+  dimension <- geometry$coordinate_count
+  public_size <- geometry$public_chunk_coordinates
+  public_count <- geometry$public_chunk_count
+  execution_size <- execution$chunk_coordinates
+  execution_count <- execution$chunk_count
+  valid <- .dsvert_dp_synopsis_integer_v1(
+      dimension, 1, .DSVERT_DP_MAX_COORDINATES) &&
+    .dsvert_dp_synopsis_integer_v1(public_size, 1, 8192) &&
+    .dsvert_dp_synopsis_integer_v1(public_count, 1, 1000000) &&
+    .dsvert_dp_synopsis_integer_v1(execution_size, 1, 8192) &&
+    .dsvert_dp_synopsis_integer_v1(execution_count, 1, 1000000) &&
+    identical(as.numeric(public_size),
+              as.numeric(min(8192L, dimension))) &&
+    identical(as.numeric(public_count),
+              as.numeric(ceiling(dimension / public_size))) &&
+    identical(as.numeric(execution_count),
+              as.numeric(ceiling(dimension / execution_size)))
+  if (!isTRUE(valid)) {
+    stop("Invalid synopsis public chunk geometry.", call. = FALSE)
+  }
+  index <- .dsvert_joint_dp_vector_index(
+    public_chunk_index, "synopsis public chunk index", 0,
+    public_count - 1L)
+  offset <- index * public_size
+  count <- min(public_size, dimension - offset)
+  first <- floor(offset / execution_size)
+  last <- floor((offset + count - 1L) / execution_size)
+  list(
+    index = as.integer(index), offset = as.integer(offset),
+    count = as.integer(count),
+    first_execution_chunk_index = as.integer(first),
+    segment_count = as.integer(last - first + 1L),
+    execution_chunk_indices = as.list(as.integer(seq.int(first, last))))
+}
+
+.dsvert_dp_synopsis_execution_segment_set_hash_v1 <- function(
+    context, result_set_sha256, public_chunk, segments) {
+  .dsvert_dp_synopsis_execution_hash_v1(
+    .DSVERT_DP_SYNOPSIS_EXECUTION_SEGMENT_SET_DOMAIN, list(
+      version = "dsvert-stateless-catalog-synopsis-segment-set-v1",
+      artifact_key = context$authorization$artifact_key,
+      contract_sha256 = context$contract$sha256,
+      attempt_sha256 = context$attempt$sha256,
+      result_set_sha256 = result_set_sha256,
+      public_chunk_index = public_chunk$index,
+      coordinate_offset = public_chunk$offset,
+      coordinate_count = public_chunk$count,
+      segments = unname(segments)))
+}
+
+.dsvert_dp_synopsis_execution_final_share_context_v1 <- function(
+    context, result_set_sha256, public_chunk, segment_set_sha256,
+    sender, recipient) {
+  role_names <- unlist(
+    context$contract$value$authority_roles$role_order,
+    use.names = FALSE)
+  authority_peers <- unlist(
+    context$contract$value$authority_peers, use.names = FALSE)
+  roles <- as.list(authority_peers)
+  names(roles) <- role_names
+  value <- list(
+    version = .DSVERT_TYPED_BLOB_SYNOPSIS_CONTEXT_VERSION,
+    purpose = .DSVERT_TYPED_BLOB_SYNOPSIS_PURPOSE,
+    artifact_key = context$authorization$artifact_key,
+    execution_id = context$execution_id,
+    contract_sha256 = context$contract$sha256,
+    attempt_sha256 = context$attempt$sha256,
+    result_set_sha256 = result_set_sha256, roles = roles,
+    sender = sender, recipient = recipient,
+    total_coordinate_count = as.character(
+      context$contract$value$geometry$coordinate_count),
+    public_chunk_index = as.character(public_chunk$index),
+    public_chunk_count = as.character(
+      context$contract$value$geometry$public_chunk_count),
+    coordinate_offset = as.character(public_chunk$offset),
+    coordinate_count = as.character(public_chunk$count),
+    execution_chunk_coordinates = as.character(
+      context$attempt$value$execution_geometry$chunk_coordinates),
+    execution_chunk_count = as.character(
+      context$attempt$value$execution_geometry$chunk_count),
+    first_execution_chunk_index = as.character(
+      public_chunk$first_execution_chunk_index),
+    segment_count = as.character(public_chunk$segment_count),
+    share_format = "ring128-local-chunk-segments-v1",
+    segment_set_sha256 = segment_set_sha256,
+    ring_bits = "128", frac_bits = "0")
+  .dsvert_typed_blob_synopsis_context_v1(value, sender)
+}
+
+.dsvert_dp_synopsis_execution_final_share_v1 <- function(
+    ss, session_id, first_result, second_result, public_chunk_index,
+    .policy = NULL, .secret = NULL, .identity = NULL,
+    .cache_get = .dsvert_dp_capsule_manifest_cache_get,
+    .verifier = .dsvert_relay_verify_message, .encryptor = NULL) {
+  if (is.null(.policy)) .policy <- .dsvert_dp_policy()
+  if (is.null(.secret)) .secret <- .dsvert_dp_secret()
+  if (is.null(.identity)) .identity <- .get_identity_keypair()
+  if (!is.function(.verifier)) {
+    stop("Invalid synopsis FINAL_SHARE verifier.", call. = FALSE)
+  }
+  context <- .dsvert_dp_synopsis_execution_context_v1(
+    ss, session_id, .policy, .secret, .identity, .cache_get)
+  if (isTRUE(context$vector$profile$exact_gc)) {
+    stop(paste(
+      "Synopsis exact-GC FINAL_SHARE requires its dedicated validity and",
+      "binding adapter."), call. = FALSE)
+  }
+  results <- .dsvert_dp_synopsis_execution_result_set_v1(
+    first_result, second_result, context, .policy, .verifier)
+  result_set_sha256 <-
+    .dsvert_dp_synopsis_execution_result_set_hash_v1(results)
+  public_chunk <- .dsvert_dp_synopsis_execution_public_chunk_v1(
+    context, public_chunk_index)
+  sender <- context$authorization$local_authority$peer_name
+  recipient <- setdiff(names(results), sender)
+  if (length(recipient) != 1L) {
+    stop("Invalid synopsis FINAL_SHARE recipient.", call. = FALSE)
+  }
+  own <- results[[sender]]
+  commitments <- unlist(
+    own$local_chunk_commitments, use.names = FALSE)
+  indices <- unlist(
+    public_chunk$execution_chunk_indices, use.names = FALSE)
+  descriptors <- lapply(indices, function(index) {
+    chunk <- .dsvert_dp_synopsis_execution_chunk_v1(context, index)
+    list(
+      execution_chunk_index = chunk$index,
+      coordinate_offset = chunk$offset,
+      coordinate_count = chunk$count,
+      chunk_commitment_sha256 = commitments[[index + 1L]])
+  })
+  segment_set_sha256 <-
+    .dsvert_dp_synopsis_execution_segment_set_hash_v1(
+      context, result_set_sha256, public_chunk, descriptors)
+  typed_context <- .dsvert_dp_synopsis_execution_final_share_context_v1(
+    context, result_set_sha256, public_chunk, segment_set_sha256,
+    sender, recipient)
+
+  if (!is.environment(ss) || !identical(ss, .S(session_id))) {
+    stop("Invalid synopsis FINAL_SHARE session.", call. = FALSE)
+  }
+  typed <- .dsvert_typed_blob_session_context(ss)
+  pins <- .dsvert_dp_synopsis_peer_pins_v1(.policy$peer_pinset)
+  expected_peers <- as.list(pins[setdiff(names(pins), sender)])
+  transport_pks <- ss$peer_transport_pks %||% list()
+  recipient_pk <- transport_pks[[recipient]]
+  if (!identical(typed$self_name, sender) ||
+      !identical(
+        .dsvert_dp_canonical_query_value(typed$peer_identity_pks),
+        .dsvert_dp_canonical_query_value(expected_peers)) ||
+      is.null(names(transport_pks)) || anyDuplicated(names(transport_pks)) ||
+      !setequal(names(transport_pks), names(expected_peers)) ||
+      is.null(recipient_pk)) {
+    stop("The synopsis FINAL_SHARE recipient is not pinned.",
+         call. = FALSE)
+  }
+  request <- list(
+    session_id = session_id,
+    artifact_key = context$authorization$artifact_key,
+    contract_sha256 = context$contract$sha256,
+    attempt_sha256 = context$attempt$sha256,
+    result_set_sha256 = result_set_sha256,
+    public_chunk_index = public_chunk$index,
+    segment_set_sha256 = segment_set_sha256,
+    recipient_name = recipient,
+    recipient_identity_pk = unname(pins[[recipient]]),
+    typed_peer_binding_digest = typed$peer_binding_digest)
+  replay <- .dsvert_typed_blob_operation_replay(
+    ss, ".dsvert_dp_synopsis_execution_final_share_v1", request)
+  if (isTRUE(replay$hit)) return(replay$result)
+
+  durable_result <- .dsvert_dp_synopsis_execution_with_store_v1(
+    .policy, .secret, function(connection) {
+      .dsvert_dp_synopsis_execution_result_load_v1(
+        connection, .secret, context, NULL, .policy, .verifier,
+        expected_prepare_set_sha256 = own$prepare_set_sha256)
+    })
+  if (is.null(durable_result)) stop(.dsvert_phase_not_ready_condition())
+  local_unsigned <- own[setdiff(names(own), "signature")]
+  durable_unsigned <- durable_result$receipt[setdiff(
+    names(durable_result$receipt), "signature")]
+  if (!identical(
+      .dsvert_dp_synopsis_execution_record_json_v1(local_unsigned),
+      .dsvert_dp_synopsis_execution_record_json_v1(durable_unsigned))) {
+    stop("The synopsis FINAL_SHARE is not bound to the durable RESULT.",
+         call. = FALSE)
+  }
+  chunks <- .dsvert_dp_synopsis_execution_with_store_v1(
+    .policy, .secret, function(connection) lapply(indices, function(index) {
+      chunk <- .dsvert_dp_synopsis_execution_chunk_v1(context, index)
+      .dsvert_dp_synopsis_execution_local_load_v1(
+        connection, .secret, context, NULL, chunk,
+        .policy, .verifier)
+    }))
+  if (any(vapply(chunks, is.null, logical(1L)))) {
+    stop(.dsvert_phase_not_ready_condition())
+  }
+  segments <- lapply(seq_along(chunks), function(position) {
+    value <- chunks[[position]]
+    descriptor <- descriptors[[position]]
+    if (!identical(
+        value$receipt$local_chunk_sha256,
+        descriptor$chunk_commitment_sha256)) {
+      stop("The durable LOCAL chunk disagrees with RESULT.",
+           call. = FALSE)
+    }
+    c(descriptor[c(
+      "execution_chunk_index", "coordinate_offset",
+      "coordinate_count")], list(
+        noised_share_b64 = value$noised_share_b64,
+        noised_share_sha256 = value$noised_share_sha256,
+        chunk_commitment_sha256 =
+          descriptor$chunk_commitment_sha256))
+  })
+  covered_offsets <- vapply(segments, `[[`, numeric(1L),
+                            "coordinate_offset")
+  covered_counts <- vapply(segments, `[[`, numeric(1L),
+                           "coordinate_count")
+  if (!identical(as.numeric(covered_offsets[[1L]]),
+                 as.numeric(public_chunk$offset)) ||
+      !identical(as.numeric(sum(covered_counts)),
+                 as.numeric(public_chunk$count)) ||
+      (length(segments) > 1L && any(
+        covered_offsets[-1L] != head(covered_offsets + covered_counts, -1L)))) {
+    stop("The synopsis FINAL_SHARE segments do not cover the public chunk.",
+         call. = FALSE)
+  }
+  payload <- list(
+    version =
+      .DSVERT_DP_SYNOPSIS_EXECUTION_FINAL_SHARE_PAYLOAD_VERSION,
+    context = typed_context, segments = segments)
+  plaintext <- charToRaw(.dsvert_dp_canonical_json(
+    .dsvert_dp_canonical_query_value(payload)))
+  sealed <- if (is.null(.encryptor)) {
+    .callMpcTool("transport-encrypt", list(
+      data = gsub("[\r\n]", "", jsonlite::base64_enc(plaintext)),
+      recipient_pk = recipient_pk))$sealed
+  } else {
+    if (!is.function(.encryptor)) {
+      stop("Invalid synopsis FINAL_SHARE encryptor.", call. = FALSE)
+    }
+    .encryptor(plaintext, recipient_pk)
+  }
+  ciphertext <- base64_to_base64url(
+    .dsvert_joint_dp_vector_scalar(
+      sealed, "encrypted synopsis final share",
+      maximum_bytes = 32L * 1024L^2))
+  transfer <- .dsvert_typed_blob_mint(
+    ss, session_id, .DSVERT_TYPED_BLOB_SYNOPSIS_FINAL_CAPABILITY,
+    base64_to_base64url(recipient_pk), ciphertext, typed_context,
+    producer = ".dsvert_dp_synopsis_execution_final_share_v1")
+  result <- list(
+    ciphertext = ciphertext, transfer = transfer,
+    artifact_key = context$authorization$artifact_key,
+    contract_sha256 = context$contract$sha256,
+    attempt_sha256 = context$attempt$sha256,
+    result_set_sha256 = result_set_sha256,
+    public_chunk_index = public_chunk$index,
+    intermediate_payload_exposed = FALSE, capability_available = TRUE)
+  .dsvert_typed_blob_operation_commit(
+    ss, ".dsvert_dp_synopsis_execution_final_share_v1", request, result)
 }

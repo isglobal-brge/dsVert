@@ -523,10 +523,14 @@
   .exact_gc_validate_residue_records(
     source_b64, 128L, count, "joint-DP vector source share")
   seed_b64 <- .dsvert_joint_dp_vector_exact_gc_seed_b64(private_seed)
-  .stage(
-    ss, binding$source_key, source_b64, 128L, count,
-    binding$source_producer, binding$operation, binding$purpose, 0L,
-    binding$output_kind)
+  previous <- .exact_gc_operation_state(
+    ss, binding$operation_id, required = FALSE)
+  if (is.null(previous)) {
+    .stage(
+      ss, binding$source_key, source_b64, 128L, count,
+      binding$source_producer, binding$operation, binding$purpose, 0L,
+      binding$output_kind)
+  }
   init_args <- list(
     ss = ss, session_id = session_id,
     operation_id = binding$operation_id,

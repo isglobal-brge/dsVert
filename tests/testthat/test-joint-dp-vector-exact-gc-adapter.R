@@ -320,6 +320,37 @@ test_that("server start stages secrets internally and returns metadata only", {
                      names(result)))
 })
 
+test_that("server start leaves retryable exact state to the initializer", {
+  fixture <- .exact_gc_vector_adapter_fixture()
+  session <- new.env(parent = emptyenv())
+  session$.exact_gc_ops <- new.env(parent = emptyenv())
+  state <- new.env(parent = emptyenv())
+  state$status <- "failed"
+  state$retryable <- TRUE
+  state$attempt <- 1L
+  session$.exact_gc_ops[[fixture$binding$operation_id]] <- state
+  staged <- 0L
+  initialized <- 0L
+  result <- .dsvert_joint_dp_vector_exact_gc_start(
+    session, "00000000-0000-4000-8000-000000000001",
+    fixture$binding, fixture$selection, fixture$manifest,
+    fixture$release, fixture$transcript, 0L, fixture$worker,
+    source_share = as.raw(seq.int(0L, 15L)),
+    private_seed = strrep("1", 64L),
+    .stage = function(...) staged <<- staged + 1L,
+    .initialize = function(...) {
+      initialized <<- initialized + 1L
+      expect_identical(.exact_gc_operation_state(
+        session, fixture$binding$operation_id), state)
+      list(capability_id = "exact_gc_v1", state = "running",
+           stored = FALSE, context_hash = fixture$hex("retry-context"))
+    })
+  expect_identical(staged, 0L)
+  expect_identical(initialized, 1L)
+  expect_identical(state$attempt, 1L)
+  expect_identical(result$operation_id, fixture$binding$operation_id)
+})
+
 test_that("durable consume never returns an output or validity share", {
   fixture <- .exact_gc_vector_adapter_fixture()
   share <- gsub("[\r\n]", "", jsonlite::base64_enc(raw(16L)))

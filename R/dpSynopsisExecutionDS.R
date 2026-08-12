@@ -57,6 +57,8 @@
   "dsVert/stateless-catalog-synopsis/release/v1|"
 .DSVERT_DP_SYNOPSIS_EXECUTION_RELEASE_RECORD_VERSION <-
   "dsvert-stateless-catalog-synopsis-release-record-v1"
+.DSVERT_DP_SYNOPSIS_EXECUTION_REPLAY_VERSION <-
+  "dsvert-stateless-catalog-synopsis-replay-v1"
 .DSVERT_DP_SYNOPSIS_EXECUTION_STORE_MAX_RECORD_BYTES <- 512L * 1024L
 .DSVERT_DP_SYNOPSIS_EXECUTION_RESULT_MAX_RECORD_BYTES <- 2L * 1024L^2
 
@@ -2428,4 +2430,118 @@
       })
     })
   persisted$receipt
+}
+
+.dsvert_dp_synopsis_execution_release_set_v1 <- function(
+    first_release, second_release, context, policy,
+    .verifier = .dsvert_relay_verify_message) {
+  values <- list(first_release, second_release)
+  result_hashes <- vapply(values, function(value) tryCatch(
+    .dsvert_dp_synopsis_hex_v1(
+      if (is.list(value)) value$result_set_sha256 else NULL,
+      "RELEASE RESULT-set hash"), error = function(error) ""),
+  character(1L))
+  if (length(unique(result_hashes)) != 1L ||
+      !nzchar(result_hashes[[1L]])) {
+    stop("The synopsis RELEASE records do not agree.", call. = FALSE)
+  }
+  authorities <- .dsvert_dp_synopsis_execution_result_authorities_v1(
+    context, policy)
+  peers <- vapply(values, function(value) {
+    peer <- if (is.list(value) && is.list(value$local_authority)) {
+      value$local_authority$peer_name
+    } else NULL
+    if (!is.character(peer) || length(peer) != 1L || is.na(peer)) ""
+    else peer
+  }, character(1L))
+  if (anyDuplicated(peers) || !setequal(peers, names(authorities))) {
+    stop("Invalid synopsis RELEASE authority coverage.", call. = FALSE)
+  }
+  verified <- lapply(seq_along(values), function(index) {
+    .dsvert_dp_synopsis_execution_release_validate_v1(
+      values[[index]], context, result_hashes[[1L]], policy, .verifier,
+      expected_authority = authorities[[peers[[index]]]])
+  })
+  names(verified) <- peers
+  verified <- verified[names(authorities)]
+  roots <- vapply(verified, `[[`, character(1L), "final_vector_root")
+  chunk_sets <- lapply(verified, `[[`, "final_chunk_hashes")
+  if (length(unique(roots)) != 1L ||
+      !identical(chunk_sets[[1L]], chunk_sets[[2L]])) {
+    stop("The two synopsis RELEASE records do not commit the same vector.",
+         call. = FALSE)
+  }
+  verified
+}
+
+.dsvert_dp_synopsis_execution_replay_v1 <- function(
+    ss, session_id, first_release, second_release, public_chunk_index,
+    .policy = NULL, .secret = NULL, .identity = NULL,
+    .cache_get = .dsvert_dp_capsule_manifest_cache_get,
+    .verifier = .dsvert_relay_verify_message) {
+  if (is.null(.policy)) .policy <- .dsvert_dp_policy()
+  if (is.null(.secret)) .secret <- .dsvert_dp_secret()
+  if (is.null(.identity)) .identity <- .get_identity_keypair()
+  if (!is.function(.verifier)) {
+    stop("Invalid synopsis REPLAY verifier.", call. = FALSE)
+  }
+  context <- .dsvert_dp_synopsis_execution_context_v1(
+    ss, session_id, .policy, .secret, .identity, .cache_get)
+  if (isTRUE(context$vector$profile$exact_gc)) {
+    stop("Synopsis exact-GC REPLAY requires its dedicated adapter.",
+         call. = FALSE)
+  }
+  public_chunk <- .dsvert_dp_synopsis_execution_public_chunk_v1(
+    context, public_chunk_index)
+  releases <- .dsvert_dp_synopsis_execution_release_set_v1(
+    first_release, second_release, context, .policy, .verifier)
+  own <- releases[[context$authorization$local_authority$peer_name]]
+  result_set_sha256 <- own$result_set_sha256
+  if (!file.exists(.dsvert_dp_synopsis_execution_store_path_v1(.policy))) {
+    stop(.dsvert_phase_not_ready_condition())
+  }
+  durable <- .dsvert_dp_synopsis_execution_with_store_v1(
+    .policy, .secret, function(connection) list(
+      release = .dsvert_dp_synopsis_execution_release_load_v1(
+        connection, .secret, context, result_set_sha256,
+        .policy, .verifier),
+      public = .dsvert_dp_synopsis_execution_public_load_v1(
+        connection, .secret, context, result_set_sha256, public_chunk)))
+  if (is.null(durable$release)) stop(.dsvert_phase_not_ready_condition())
+  if (is.null(durable$public)) {
+    stop("The durable synopsis RELEASE is missing its PUBLIC chunk.",
+         call. = FALSE)
+  }
+  if (!identical(
+      .dsvert_dp_synopsis_execution_record_json_v1(own),
+      .dsvert_dp_synopsis_execution_record_json_v1(
+        durable$release$receipt))) {
+    stop("The replay receipts do not include the durable local RELEASE.",
+         call. = FALSE)
+  }
+  hashes <- unlist(own$final_chunk_hashes, use.names = FALSE)
+  chunk_sha256 <- durable$public$chunk_sha256
+  if (!identical(chunk_sha256, hashes[[public_chunk$index + 1L]])) {
+    stop("The durable PUBLIC chunk conflicts with signed RELEASE.",
+         call. = FALSE)
+  }
+  list(
+    version = .DSVERT_DP_SYNOPSIS_EXECUTION_REPLAY_VERSION,
+    phase = "synopsis_public_chunk_replayed",
+    execution_id = context$execution_id,
+    artifact_key = context$authorization$artifact_key,
+    contract_sha256 = context$contract$sha256,
+    attempt_sha256 = context$attempt$sha256,
+    source_contract_sha256 =
+      context$attempt$value$source_contract_sha256,
+    result_set_sha256 = result_set_sha256,
+    final_vector_root = own$final_vector_root,
+    public_chunk_index = public_chunk$index,
+    public_chunk_count = as.integer(
+      context$contract$value$geometry$public_chunk_count),
+    chunk_sha256 = chunk_sha256, chunk = durable$public$public_chunk,
+    merkle_proof = .dsvert_joint_dp_vector_merkle_proof(
+      hashes, public_chunk$index), durable_replay = TRUE,
+    source_store_read = FALSE, sampler_invoked = FALSE,
+    finalizer_invoked = FALSE, transport_read = FALSE)
 }

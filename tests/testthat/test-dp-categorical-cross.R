@@ -158,6 +158,20 @@
     resolved = resolved, alignment = alignment)
 }
 
+.cross_cat_synopsis_contract <- function(fixture) {
+  base <- .dsvert_dp_capsule_source_contract(
+    fixture$policy, fixture$manifest)
+  binding <- list(
+    version = .DSVERT_DP_SYNOPSIS_SOURCE_CONTRACT_VERSION,
+    manifest_capsule_id = base$capsule_id,
+    artifact_key = strrep("c", 64L),
+    source_claim_set_sha256 = strrep("d", 64L))
+  base$capsule_id <- .dsvert_dp_synopsis_source_namespace_id_v1(binding)
+  base$synopsis_binding <- binding
+  .dsvert_dp_capsule_source_contract_validate(
+    .dsvert_dp_canonical_query_value(base))
+}
+
 test_that("one capsule recipient never decrypts a complete alignment hash", {
   left <- .cross_cat_fixture("peer_a")
   right <- .cross_cat_fixture("peer_b")
@@ -487,12 +501,82 @@ test_that("categorical exact producer accepts only the active fixed stage", {
     .DSVERT_DP_CATEGORICAL_CROSS_PRODUCER, purpose, ss), "provenance")
 })
 
+test_that("cross categorical binding preserves a synopsis source namespace", {
+  fixture <- .cross_cat_fixture("peer_a")
+  contract <- .cross_cat_synopsis_contract(fixture)
+  contract_hash <- .dsvert_joint_dp_hash(contract)
+  session_id <- "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+  make_session <- function() {
+    result <- new.env(parent = emptyenv())
+    result$.exact_gc_peer_binding_digest <- strrep("d", 64L)
+    result
+  }
+  active <- make_session()
+  observed <- new.env(parent = emptyenv())
+  observed$ranges <- list()
+  bind <- function(ss, source_contract) {
+    arguments <- list(
+      manifest_json = fixture$manifest_json, analysis_id = "cross_table",
+      session_id = session_id, first_opening_json = NULL,
+      second_opening_json = NULL, .policy = fixture$policy,
+      .secret = fixture$secret, .signer = .cross_cat_signer,
+      .allocation_observer = function(...) invisible(TRUE))
+    if (!missing(source_contract)) {
+      arguments$source_contract <- source_contract
+    }
+    testthat::with_mocked_bindings(
+      do.call(.dsvert_dp_categorical_cross_bind_impl, arguments),
+      .S = function(...) ss,
+      .exact_gc_vecmul_party_context = function(...) list(
+        self_name = "peer_a", peer_name = "peer_b"),
+      .dsvert_dp_capsule_source_with_store = function(policy, secret, code) {
+        code(NULL)
+      },
+      .dsvert_dp_categorical_cross_result_load = function(...) NULL,
+      .dsvert_dp_alignment_mask_complete_batch = function(
+          session, capsule_id, source_contract_hash) {
+        observed$complete <- c(capsule_id, source_contract_hash)
+      },
+      .dsvert_dp_alignment_mask_range = function(
+          session, capsule_id, source_contract_hash, start, count) {
+        observed$ranges[[length(observed$ranges) + 1L]] <-
+          c(capsule_id, source_contract_hash)
+        raw(count * 16L)
+      },
+      .package = "dsVert")
+  }
+
+  receipt_json <- bind(active, contract)
+  binding <- active$.dp_categorical_cross_bindings$cross_table
+  expect_identical(binding$capsule_id, contract$capsule_id)
+  expect_identical(binding$source_contract_hash, contract_hash)
+  expect_identical(
+    binding$tag,
+    .dsvert_dp_categorical_cross_tag(contract$capsule_id, "cross_table"))
+  expect_identical(observed$complete,
+                   c(contract$capsule_id, contract_hash))
+  expect_true(all(vapply(observed$ranges, identical, logical(1L),
+                         c(contract$capsule_id, contract_hash))))
+  expect_identical(bind(active, contract), receipt_json)
+
+  legacy <- make_session()
+  omitted <- bind(legacy)
+  expect_identical(bind(legacy, NULL), omitted)
+  expect_identical(tail(names(formals(
+    .dsvert_dp_categorical_cross_load_inputs)), 1L), "source_contract")
+  expect_identical(tail(names(formals(
+    .dsvert_dp_categorical_cross_bind_impl)), 1L), "source_contract")
+  expect_identical(tail(names(formals(
+    .dsvert_dp_categorical_cross_finalize_impl)), 1L), "source_contract")
+})
+
 test_that("categorical finalizer persists, authenticates and replays only shares", {
   fixture <- .cross_cat_fixture("peer_a")
   artifact <- .dsvert_dp_categorical_cross_artifacts(
     fixture$manifest)$cross_table
+  source_contract <- .cross_cat_synopsis_contract(fixture)
   parsed <- .dsvert_dp_capsule_source_contract_json(
-    fixture$policy, fixture$manifest_json)
+    fixture$policy, fixture$manifest_json, source_contract)
   contract <- parsed$contract
   release_layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
   private_layout <- .dsvert_dp_gaussian_cross_layout(fixture$manifest)
@@ -555,7 +639,7 @@ test_that("categorical finalizer persists, authenticates and replays only shares
         fixture$manifest_json, "cross_table", session_id,
         .policy = fixture$policy, .secret = fixture$secret,
         .signer = .cross_cat_signer, .verifier = .cross_cat_verifier,
-        .reducer = reducer),
+        .reducer = reducer, source_contract = source_contract),
       .S = function(id) {
         expect_identical(id, session_id)
         ss

@@ -5,6 +5,10 @@
   "dsvert-stateless-catalog-synopsis-physical-plan-v1"
 .DSVERT_DP_SYNOPSIS_DRAW_LAW_DOMAIN <-
   "dsVert/stateless-catalog-synopsis/draw-law/v1|"
+.DSVERT_DP_SYNOPSIS_RING_CERTIFICATE_VERSION <-
+  "dsvert-stateless-catalog-synopsis-ring128-certificate-v1"
+.DSVERT_DP_SYNOPSIS_RING_CERTIFICATE_DOMAIN <-
+  "dsVert/stateless-catalog-synopsis/ring128-certificate/v1|"
 
 .DSVERT_DP_SYNOPSIS_LAPLACE_DRAW_FIELDS <- c(
   "version", "sampler", "stop_bits", "stop_numerator", "uniform_bits",
@@ -67,6 +71,61 @@
       domain, .dsvert_dp_canonical_json(
         .dsvert_dp_analysis_canonical_value_v1(value)))),
     algo = "sha256", serialize = FALSE)
+}
+
+.dsvert_dp_synopsis_execution_support_v1 <- function(plan, profile) {
+  field <- if (isTRUE(profile$gaussian)) {
+    "maximum_noise_magnitude_two_peers"
+  } else {
+    "maximum_noise_magnitude"
+  }
+  value <- plan[[field]]
+  if (!is.character(value) || length(value) != 1L || is.na(value) ||
+      !grepl("^(0|[1-9][0-9]*)$", value)) {
+    stop("Invalid synopsis released-noise support.", call. = FALSE)
+  }
+  support <- tryCatch(openssl::bignum(value), error = function(error) NULL)
+  if (is.null(support)) {
+    stop("Invalid synopsis released-noise support.", call. = FALSE)
+  }
+  if (!isTRUE(profile$gaussian) && !isTRUE(profile$exact_gc)) {
+    support <- support * openssl::bignum(2)
+  }
+  support
+}
+
+.dsvert_dp_synopsis_ring_certificate_v1 <- function(lattice, plan, profile) {
+  bounds <- lattice$raw_upper_bounds
+  shifts <- lattice$scale_shifts
+  if (!is.character(bounds) || !length(bounds) ||
+      length(bounds) != length(shifts) || anyNA(bounds) ||
+      any(!grepl("^(0|[1-9][0-9]*)$", bounds)) ||
+      !is.numeric(shifts) || anyNA(shifts) ||
+      any(!is.finite(shifts)) || any(shifts != floor(shifts)) ||
+      any(shifts < 0) || any(shifts > 62)) {
+    stop("Invalid synopsis Ring128 lattice.", call. = FALSE)
+  }
+  maximum <- openssl::bignum(0)
+  for (index in seq_along(bounds)) {
+    scaled <- openssl::bignum(bounds[[index]]) *
+      (openssl::bignum(2) ^ as.integer(shifts[[index]]))
+    if (scaled > maximum) maximum <- scaled
+  }
+  support <- .dsvert_dp_synopsis_execution_support_v1(plan, profile)
+  limit <- (openssl::bignum(2) ^ 127L) - openssl::bignum(1)
+  if (support > limit || maximum + support > limit) {
+    stop(paste(
+      "The synopsis Ring128 headroom cannot prevent signed wrap for",
+      "the complete released-noise support."), call. = FALSE)
+  }
+  unsigned <- list(
+    version = .DSVERT_DP_SYNOPSIS_RING_CERTIFICATE_VERSION,
+    ring_bits = 128L, fractional_bits = 0L,
+    maximum_scaled_source_coordinate = as.character(maximum),
+    maximum_release_noise_magnitude = as.character(support),
+    positive_limit = as.character(limit), no_wrap_certified = TRUE)
+  c(unsigned, list(sha256 = .dsvert_dp_synopsis_artifact_hash_v1(
+    .DSVERT_DP_SYNOPSIS_RING_CERTIFICATE_DOMAIN, unsigned)))
 }
 
 .dsvert_dp_synopsis_draw_fields_v1 <- function(profile) {
@@ -234,6 +293,7 @@
   contract <- .dsvert_dp_synopsis_plan_contract_v1(
     manifest, mechanism, dimension, lattice, profile, plan)
   .dsvert_joint_dp_vector_plan_validate(plan, contract, request)
+  .dsvert_dp_synopsis_ring_certificate_v1(lattice, plan, profile)
   full_plan_sha256 <- .dsvert_joint_dp_hash(plan)
   if (gaussian) {
     selection <- validated$manifest$workload$mechanism_selection
@@ -836,6 +896,7 @@
     manifest, mechanism, dimension, lattice, profile, full_plan)
   .dsvert_joint_dp_vector_plan_validate(
     full_plan, contract, identity$request)
+  .dsvert_dp_synopsis_ring_certificate_v1(lattice, full_plan, profile)
   if (isTRUE(profile$gaussian)) {
     selection <- validated$manifest$workload$mechanism_selection
     if (!identical(

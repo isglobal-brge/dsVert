@@ -51,9 +51,8 @@ test_that("synopsis source wrappers expose only the closed internal ABI", {
         evidence, ".policy", ".secret", ".cache_get", ".verifier"))
     expect_identical(names(formals(
       .dsvert_dp_synopsis_source_transport_prepare_v1)), c(
-        evidence, "first_ticket_json", "second_ticket_json",
-        "first_opening_json", "second_opening_json", ".policy", ".secret",
-        ".envir", ".cache_get", ".verifier"))
+        evidence, "first_ticket_json", "second_ticket_json", ".policy",
+        ".secret", ".envir", ".cache_get", ".verifier"))
     expect_identical(names(formals(
       .dsvert_dp_synopsis_source_transport_chunk_v1)), c(
         evidence, "source_transfer_id", "chunk_index", ".policy", ".secret",
@@ -75,13 +74,17 @@ test_that("ticket derives its namespace from context before durable work", {
   authority <- .synopsis_wrapper_authority_mock(
     fixture, peer, context, state, "context")
   ticket_impl <- function(
-      manifest_json, .policy, .secret, .verifier, source_contract, ...) {
+      manifest_json, .policy, .secret, .verifier, .allocation_require,
+      source_contract, ...) {
     state$events <- c(state$events, "ticket")
     expect_identical(manifest_json, context$manifest_json)
     expect_identical(.policy, fixture$input$policies[[peer]])
     expect_identical(.secret, fixture$input$secrets[[peer]])
     expect_identical(.verifier, fixture$input$verifier)
     expect_identical(source_contract, context$source_contract)
+    expect_true(is.function(.allocation_require))
+    expect_true(isTRUE(.allocation_require(
+      .policy, manifest_json, .secret, .verifier)))
     expect_length(list(...), 0L)
     "ticket-json"
   }
@@ -118,16 +121,20 @@ test_that("prepare installs only gate-owned producer callbacks", {
   prepare_impl <- function(
       manifest_json, first_ticket_json, second_ticket_json,
       first_opening_json, second_opening_json, .policy, .secret, .envir,
-      .materializer, .verifier, .producer_validator, source_contract, ...) {
+      .materializer, .verifier, .allocation_observer,
+      .producer_validator, source_contract, ...) {
     state$events <- c(state$events, "prepare")
     expect_identical(manifest_json, gate$manifest_json)
     expect_identical(c(first_ticket_json, second_ticket_json), c("t1", "t2"))
-    expect_identical(c(first_opening_json, second_opening_json), c("o1", "o2"))
+    expect_null(first_opening_json); expect_null(second_opening_json)
     expect_identical(.policy, fixture$input$policies[[peer]])
     expect_identical(.secret, fixture$input$secrets[[peer]])
     expect_identical(.envir, source_envir)
     expect_identical(.materializer, gate$materializer)
     expect_identical(.producer_validator, gate$producer_validator)
+    expect_true(is.function(.allocation_observer))
+    expect_true(isTRUE(.allocation_observer(
+      .policy, manifest_json, NULL, NULL, .secret, .verifier)))
     expect_identical(source_contract, gate$source_contract)
     expect_identical(.verifier, fixture$input$verifier)
     expect_length(list(...), 0L)
@@ -135,7 +142,7 @@ test_that("prepare installs only gate-owned producer callbacks", {
   }
   invoke <- function() .dsvert_dp_synopsis_source_transport_prepare_v1(
     fixture$input$manifest_sha256, fixture$artifact,
-    fixture$input$claim_set, fixture$receipts, "t1", "t2", "o1", "o2",
+    fixture$input$claim_set, fixture$receipts, "t1", "t2",
     .policy = fixture$input$policies[[peer]],
     .secret = fixture$input$secrets[[peer]], .envir = source_envir,
     .cache_get = fixture$input$cache_get,
@@ -228,7 +235,7 @@ test_that("wrappers resolve one policy and secret for authority and core", {
       ".dsvert_dp_synopsis_source_transport_ticket_v1"), "ticket")
     expect_identical(invoke(
       ".dsvert_dp_synopsis_source_transport_prepare_v1",
-      "t1", "t2", "o1", "o2"), "prepare")
+      "t1", "t2"), "prepare")
     expect_identical(invoke(
       ".dsvert_dp_synopsis_source_transport_chunk_v1",
       transfer_id, 0L), "chunk")

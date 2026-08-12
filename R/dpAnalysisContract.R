@@ -1578,15 +1578,15 @@
     algo = "sha256", serialize = FALSE, raw = FALSE)
 }
 
-.dsvert_dp_sticky_subseed_from_artifact_v1 <- function(
-    artifact_key, lanes, noise_authorities, lane) {
+.dsvert_dp_sticky_subseed_material_v1 <- function(
+    artifact_key, lanes, noise_authorities, lane, noise_authority) {
   .dsvert_dp_analysis_scalar_id(lane, "sticky randomness lane")
   if (!lane %in% names(lanes)) {
     stop("The sticky randomness lane is not declared by the analysis",
          call. = FALSE)
   }
   noise_authority <- .dsvert_dp_analysis_identity_pk(
-    .get_identity_keypair()$identity_pk, "local noise authority")
+    noise_authority, "local noise authority")
   if (!noise_authority %in% unlist(noise_authorities, use.names = FALSE)) {
     stop("The local identity is not a designated noise authority",
          call. = FALSE)
@@ -1602,6 +1602,13 @@
     key = .dsvert_dp_sticky_noise_key_v1(),
     object = charToRaw(paste0(.DSVERT_DP_STICKY_SUBSEED_DOMAIN, message)),
     algo = "sha256", serialize = FALSE, raw = FALSE)
+}
+
+.dsvert_dp_sticky_subseed_from_artifact_v1 <- function(
+    artifact_key, lanes, noise_authorities, lane) {
+  .dsvert_dp_sticky_subseed_material_v1(
+    artifact_key, lanes, noise_authorities, lane,
+    .get_identity_keypair()$identity_pk)
 }
 
 .dsvert_dp_sticky_subseed_v1 <- function(

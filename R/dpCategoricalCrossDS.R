@@ -225,9 +225,11 @@
 }
 
 .dsvert_dp_categorical_cross_load_inputs <- function(
-    policy, secret, manifest, artifact, analysis_id, ss) {
+    policy, secret, manifest, artifact, analysis_id, ss,
+    source_contract = NULL) {
   manifest_json <- .dsvert_dp_canonical_json(manifest)
-  parsed <- .dsvert_dp_capsule_source_contract_json(policy, manifest_json)
+  parsed <- .dsvert_dp_capsule_source_contract_json(
+    policy, manifest_json, source_contract)
   contract <- .dsvert_dp_capsule_source_contract_validate(parsed$contract)
   if (!identical(
         contract$version,
@@ -304,7 +306,8 @@
     first_opening_json, second_opening_json,
     .policy = NULL, .secret = NULL, .signer = NULL, .verifier = NULL,
     .allocation_observer =
-      .dsvert_joint_dp_vector_allocation_observer_require) {
+      .dsvert_joint_dp_vector_allocation_observer_require,
+    source_contract = NULL) {
   if (is.null(.policy)) .policy <- .dsvert_dp_policy()
   if (is.null(.secret)) .secret <- .dsvert_dp_secret()
   analysis_id <- .dsvert_dp_capsule_id(
@@ -317,6 +320,9 @@
     stop("The signed capsule has no cross-owner categorical artifact.",
          call. = FALSE)
   }
+  parsed <- .dsvert_dp_capsule_source_contract_json(
+    .policy, manifest_json, source_contract)
+  contract <- .dsvert_dp_capsule_source_contract_validate(parsed$contract)
   computation <- .dsvert_dp_gaussian_cross_names(
     artifact$computation_peers, "categorical computation-peer list")
   ss <- .S(session_id)
@@ -332,7 +338,7 @@
   previous <- ss$.dp_categorical_cross_bindings[[analysis_id]]
   artifact_hash <- .dsvert_joint_dp_hash(artifact)
   if (!is.null(previous)) {
-    if (!identical(previous$capsule_id, validated$identity$capsule_id) ||
+    if (!identical(previous$capsule_id, contract$capsule_id) ||
         !identical(previous$artifact_sha256, artifact_hash) ||
         !identical(previous$peer_binding_digest,
                    ss$.exact_gc_peer_binding_digest)) {
@@ -343,8 +349,6 @@
       .dsvert_dp_categorical_cross_binding_public(
         previous, .policy, .signer)))
   }
-  parsed <- .dsvert_dp_capsule_source_contract_json(.policy, manifest_json)
-  contract <- .dsvert_dp_capsule_source_contract_validate(parsed$contract)
   release_block <- validated$layout$blocks[[paste(
     "categorical_pairs", "cross", analysis_id, sep = "::")]]
   if (!is.function(.allocation_observer)) {
@@ -363,11 +367,11 @@
     })
   base <- list(
     version = .DSVERT_DP_CATEGORICAL_CROSS_BIND_VERSION,
-    capsule_id = validated$identity$capsule_id,
+    capsule_id = contract$capsule_id,
     analysis_id = analysis_id, artifact = artifact,
     artifact_sha256 = artifact_hash,
     tag = .dsvert_dp_categorical_cross_tag(
-      validated$identity$capsule_id, analysis_id),
+      contract$capsule_id, analysis_id),
     source_contract_hash = parsed$contract_hash,
     private_layout_sha256 = contract$private_layout_sha256,
     transcript_sha256 = .dsvert_joint_dp_hash(artifact$transcript),
@@ -392,7 +396,8 @@
         binding, .policy, .signer)))
   }
   loaded <- .dsvert_dp_categorical_cross_load_inputs(
-    .policy, .secret, manifest, artifact, analysis_id, ss)
+    .policy, .secret, manifest, artifact, analysis_id, ss,
+    source_contract = source_contract)
   binding <- c(base, list(
     left_key = "", right_key = "", left_validity_key = "",
     right_validity_key = "", state = "bound"))
@@ -624,7 +629,7 @@ dsvertDPCategoricalCrossPrepareDS <- function(analysis_id, session_id) {
 .dsvert_dp_categorical_cross_finalize_impl <- function(
     manifest_json, analysis_id, session_id,
     .policy = NULL, .secret = NULL, .signer = NULL, .verifier = NULL,
-    .reducer = NULL) {
+    .reducer = NULL, source_contract = NULL) {
   if (is.null(.policy)) .policy <- .dsvert_dp_policy()
   if (is.null(.secret)) .secret <- .dsvert_dp_secret()
   analysis_id <- .dsvert_dp_capsule_id(
@@ -633,7 +638,8 @@ dsvertDPCategoricalCrossPrepareDS <- function(analysis_id, session_id) {
   manifest <- .dsvert_dp_capsule_source_manifest(manifest_json)
   validated <- .dsvert_dp_capsule_materializer_manifest(.policy, manifest)
   artifact <- .dsvert_dp_categorical_cross_artifacts(manifest)[[analysis_id]]
-  parsed <- .dsvert_dp_capsule_source_contract_json(.policy, manifest_json)
+  parsed <- .dsvert_dp_capsule_source_contract_json(
+    .policy, manifest_json, source_contract)
   contract <- .dsvert_dp_capsule_source_contract_validate(parsed$contract)
   block <- validated$layout$blocks[[paste(
     "categorical_pairs", "cross", analysis_id, sep = "::")]]

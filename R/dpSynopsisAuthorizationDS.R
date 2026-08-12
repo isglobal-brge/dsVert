@@ -7,16 +7,28 @@
 .DSVERT_DP_SYNOPSIS_AUTHORIZATION_DOMAIN <-
   "dsVert/stateless-catalog-synopsis/authorization/v1|"
 
-.dsvert_dp_synopsis_authorization_state_v1 <- function(ss) {
+.dsvert_dp_synopsis_authorization_state_v1 <- function(
+    ss, installing = FALSE) {
   if (!is.environment(ss)) {
     stop("Invalid synopsis session authorization state.", call. = FALSE)
   }
-  allowed <- c(
-    ".created_at", ".last_activity", ".session_id",
-    ".dsvert_resource_owner", ".dp_synopsis_authorization")
-  if (length(setdiff(ls(ss, all.names = TRUE), allowed))) {
-    stop("Synopsis authorization conflicts with existing session state.",
-         call. = FALSE)
+  bindings <- ls(ss, all.names = TRUE)
+  if (isTRUE(installing)) {
+    allowed <- c(
+      ".created_at", ".last_activity", ".session_id",
+      ".dsvert_resource_owner", ".dp_synopsis_authorization")
+    if (length(setdiff(bindings, allowed))) {
+      stop("Synopsis authorization conflicts with existing session state.",
+           call. = FALSE)
+    }
+  } else {
+    rival <- grep(
+      "^\\.dp_.*_authorization$", bindings, value = TRUE)
+    rival <- setdiff(rival, ".dp_synopsis_authorization")
+    if (length(rival)) {
+      stop("Synopsis authorization conflicts with another DP protocol.",
+           call. = FALSE)
+    }
   }
   invisible(ss)
 }
@@ -93,7 +105,7 @@
 .dsvert_dp_synopsis_session_authorization_validate_v1 <- function(
     ss, session_id, .policy = NULL, .secret = NULL, .identity = NULL,
     .cache_get = .dsvert_dp_capsule_manifest_cache_get) {
-  .dsvert_dp_synopsis_authorization_state_v1(ss)
+  .dsvert_dp_synopsis_authorization_state_v1(ss, installing = FALSE)
   session_id <- .dsvert_relay_validate_session_id(session_id)
   authorization <- ss$.dp_synopsis_authorization
   fields <- c(
@@ -145,7 +157,10 @@
     .policy = NULL, .secret = NULL, .identity = NULL,
     .cache_get = .dsvert_dp_capsule_manifest_cache_get,
     .verifier = .dsvert_relay_verify_message) {
-  .dsvert_dp_synopsis_authorization_state_v1(ss)
+  prior_exists <- is.environment(ss) && exists(
+    ".dp_synopsis_authorization", envir = ss, inherits = FALSE)
+  .dsvert_dp_synopsis_authorization_state_v1(
+    ss, installing = !prior_exists)
   session_id <- .dsvert_relay_validate_session_id(session_id)
   if (!is.function(.verifier)) {
     stop("Invalid synopsis authorization verifier.", call. = FALSE)
@@ -174,8 +189,7 @@
     local_authority = local_authority)
   candidate$authorization_sha256 <-
     .dsvert_dp_synopsis_authorization_hash_v1(candidate, .secret)
-  if (exists(
-      ".dp_synopsis_authorization", envir = ss, inherits = FALSE)) {
+  if (prior_exists) {
     previous <- .dsvert_dp_synopsis_session_authorization_validate_v1(
       ss, session_id, .policy, .secret, .identity, .cache_get)
     if (!identical(previous, candidate)) {

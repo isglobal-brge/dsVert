@@ -28,23 +28,32 @@
   algo = "sha256", serialize = FALSE)
 }
 
+.dsvert_dp_synopsis_source_contract_from_hashes_v1 <- function(
+    policy, manifest, artifact_key, source_claim_set_sha256) {
+  artifact_key <- .dsvert_dp_synopsis_hex_v1(
+    artifact_key, "source artifact key")
+  source_claim_set_sha256 <- .dsvert_dp_synopsis_hex_v1(
+    source_claim_set_sha256, "source Claim-set hash")
+  base <- .dsvert_dp_capsule_source_contract(policy, manifest)
+  binding <- list(
+    version = .DSVERT_DP_SYNOPSIS_SOURCE_CONTRACT_VERSION,
+    manifest_capsule_id = base$capsule_id,
+    artifact_key = artifact_key,
+    source_claim_set_sha256 = source_claim_set_sha256)
+  base$capsule_id <- .dsvert_dp_synopsis_source_namespace_id_v1(binding)
+  base$synopsis_binding <- binding
+  .dsvert_dp_capsule_source_contract_validate(
+    .dsvert_dp_canonical_query_value(base))
+}
+
 .dsvert_dp_synopsis_source_contract_v1 <- function(
     policy, manifest, artifact, claim_set,
     .verifier = .dsvert_relay_verify_message) {
   artifact <- .dsvert_dp_synopsis_artifact_validate_v1(
     artifact, policy, manifest, claim_set, .verifier = .verifier)
-  base <- .dsvert_dp_capsule_source_contract(policy, manifest)
-  binding <- list(
-    version = .DSVERT_DP_SYNOPSIS_SOURCE_CONTRACT_VERSION,
-    manifest_capsule_id = base$capsule_id,
-    artifact_key = artifact$artifact_key,
-    source_claim_set_sha256 =
-      artifact$semantic$source_claim_set_sha256)
-  base$capsule_id <-
-    .dsvert_dp_synopsis_source_namespace_id_v1(binding)
-  base$synopsis_binding <- binding
-  .dsvert_dp_capsule_source_contract_validate(
-    .dsvert_dp_canonical_query_value(base))
+  .dsvert_dp_synopsis_source_contract_from_hashes_v1(
+    policy, manifest, artifact$artifact_key,
+    artifact$semantic$source_claim_set_sha256)
 }
 
 .dsvert_dp_synopsis_source_transport_context_v1 <- function(
@@ -78,6 +87,32 @@
   list(
     manifest_json = manifest_json, source_contract = source_contract,
     local_claim = local_claim)
+}
+
+.dsvert_dp_synopsis_source_transport_allocation_gates_v1 <- function(
+    manifest_json, policy, secret) {
+  check <- function(candidate_policy, candidate_manifest, candidate_secret) {
+    if (!identical(candidate_policy, policy) ||
+        !identical(candidate_manifest, manifest_json) ||
+        !identical(candidate_secret, secret)) {
+      stop("The synopsis source authorization context changed.",
+           call. = FALSE)
+    }
+    invisible(TRUE)
+  }
+  list(
+    require = function(policy, manifest_json, secret, verifier) {
+      check(policy, manifest_json, secret)
+    },
+    observe = function(
+        policy, manifest_json, first_opening_json,
+        second_opening_json, secret, verifier) {
+      if (!is.null(first_opening_json) || !is.null(second_opening_json)) {
+        stop("Synopsis source transport does not accept allocation openings.",
+             call. = FALSE)
+      }
+      check(policy, manifest_json, secret)
+    })
 }
 
 .dsvert_dp_synopsis_source_transport_gate_v1 <- function(
@@ -132,15 +167,17 @@
     manifest_sha256, artifact, claim_set, receipts,
     .policy = .policy, .secret = .secret,
     .cache_get = .cache_get, .verifier = .verifier)
+  gates <- .dsvert_dp_synopsis_source_transport_allocation_gates_v1(
+    context$manifest_json, .policy, .secret)
   .dsvert_dp_capsule_source_ticket_impl(
     context$manifest_json, .policy = .policy, .secret = .secret,
-    .verifier = .verifier, source_contract = context$source_contract)
+    .verifier = .verifier, .allocation_require = gates$require,
+    source_contract = context$source_contract)
 }
 
 .dsvert_dp_synopsis_source_transport_prepare_v1 <- function(
     manifest_sha256, artifact, claim_set, receipts,
     first_ticket_json, second_ticket_json,
-    first_opening_json, second_opening_json,
     .policy = NULL, .secret = NULL, .envir = parent.frame(),
     .cache_get = .dsvert_dp_capsule_manifest_cache_get,
     .verifier = .dsvert_relay_verify_message) {
@@ -150,12 +187,15 @@
     manifest_sha256, artifact, claim_set, receipts,
     .policy = .policy, .secret = .secret,
     .cache_get = .cache_get, .verifier = .verifier)
+  gates <- .dsvert_dp_synopsis_source_transport_allocation_gates_v1(
+    gate$manifest_json, .policy, .secret)
   .dsvert_dp_capsule_source_prepare_negotiated_impl(
     gate$manifest_json,
     first_ticket_json, second_ticket_json,
-    first_opening_json, second_opening_json,
+    NULL, NULL,
     .policy = .policy, .secret = .secret, .envir = .envir,
     .materializer = gate$materializer, .verifier = .verifier,
+    .allocation_observer = gates$observe,
     .producer_validator = gate$producer_validator,
     source_contract = gate$source_contract)
 }

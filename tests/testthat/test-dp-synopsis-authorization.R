@@ -292,3 +292,35 @@ test_that("synopsis sticky seed excludes sessions, signatures and full plans", {
     .synopsis_seed_test(fixture, first, peer, lane = "undeclared"),
     "not declared")
 })
+
+test_that("authorized synopsis sessions admit only their bound transport state", {
+  fixture <- .synopsis_authorization_fixture(2L)
+  peer <- fixture$peers[[1L]]
+  authorized <- .synopsis_authorize_test(fixture, peer)
+  authorized$state$.exact_gc_ops <- new.env(parent = emptyenv())
+  authorized$state$.typed_blob_outbound <- list()
+  authorized$state$peer_transport_pks <- list()
+  identity_pk <- unname(fixture$input$fixture$pins[[peer]])
+  expect_identical(
+    .dsvert_dp_synopsis_session_authorization_validate_v1(
+      authorized$state, authorized$value$session_id,
+      .policy = fixture$input$policies[[peer]],
+      .secret = fixture$input$secrets[[peer]],
+      .identity = list(identity_pk = identity_pk),
+      .cache_get = fixture$input$cache_get),
+    authorized$value)
+  expect_identical(
+    .synopsis_authorize_test(
+      fixture, peer, ss = authorized$state)$value,
+    authorized$value)
+
+  authorized$state$.dp_frequency_authorization <- list(foreign = TRUE)
+  expect_error(
+    .dsvert_dp_synopsis_session_authorization_validate_v1(
+      authorized$state, authorized$value$session_id,
+      .policy = fixture$input$policies[[peer]],
+      .secret = fixture$input$secrets[[peer]],
+      .identity = list(identity_pk = identity_pk),
+      .cache_get = fixture$input$cache_get),
+    "another DP protocol")
+})

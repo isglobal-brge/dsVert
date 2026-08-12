@@ -701,9 +701,11 @@
 }
 
 .dsvert_dp_gaussian_cross_load_inputs <- function(
-    policy, secret, manifest, artifact, analysis_id, ss) {
+    policy, secret, manifest, artifact, analysis_id, ss,
+    source_contract = NULL) {
   manifest_json <- .dsvert_dp_canonical_json(manifest)
-  parsed <- .dsvert_dp_capsule_source_contract_json(policy, manifest_json)
+  parsed <- .dsvert_dp_capsule_source_contract_json(
+    policy, manifest_json, source_contract)
   contract <- .dsvert_dp_capsule_source_contract_validate(parsed$contract)
   if (!.dsvert_dp_capsule_source_cross_contract(contract) ||
       !policy$peer_name %in% .dsvert_dp_capsule_source_names(
@@ -779,7 +781,8 @@
 
 .dsvert_dp_gaussian_cross_bind_impl <- function(
     manifest_json, analysis_id, session_id,
-    .policy = NULL, .secret = NULL, .signer = NULL, .verifier = NULL) {
+    .policy = NULL, .secret = NULL, .signer = NULL, .verifier = NULL,
+    source_contract = NULL) {
   if (is.null(.policy)) .policy <- .dsvert_dp_policy()
   if (is.null(.secret)) .secret <- .dsvert_dp_secret()
   analysis_id <- .dsvert_dp_capsule_id(
@@ -792,6 +795,9 @@
     stop("The signed capsule has no cross-owner Gaussian artifact.",
          call. = FALSE)
   }
+  parsed <- .dsvert_dp_capsule_source_contract_json(
+    .policy, manifest_json, source_contract)
+  contract <- .dsvert_dp_capsule_source_contract_validate(parsed$contract)
   computation <- .dsvert_dp_gaussian_cross_names(
     artifact$computation_peers, "computation-peer list")
   ss <- .S(session_id)
@@ -803,13 +809,13 @@
   }
   artifact_hash <- .dsvert_joint_dp_hash(artifact)
   tag <- .dsvert_dp_gaussian_cross_tag(
-    validated$identity$capsule_id, analysis_id)
+    contract$capsule_id, analysis_id)
   if (is.null(ss$.dp_gaussian_cross_bindings)) {
     ss$.dp_gaussian_cross_bindings <- list()
   }
   previous <- ss$.dp_gaussian_cross_bindings[[analysis_id]]
   if (!is.null(previous)) {
-    if (!identical(previous$capsule_id, validated$identity$capsule_id) ||
+    if (!identical(previous$capsule_id, contract$capsule_id) ||
         !identical(previous$artifact_sha256, artifact_hash) ||
         !identical(previous$peer_binding_digest,
                    ss$.exact_gc_peer_binding_digest)) {
@@ -820,8 +826,6 @@
       previous, .policy, .signer)
     return(.dsvert_dp_capsule_source_encode_json(public))
   }
-  parsed <- .dsvert_dp_capsule_source_contract_json(.policy, manifest_json)
-  contract <- .dsvert_dp_capsule_source_contract_validate(parsed$contract)
   release_block <- validated$layout$blocks[[paste(
     "gaussian_models", analysis_id, sep = "::")]]
   prior <- .dsvert_dp_capsule_source_with_store(
@@ -834,7 +838,7 @@
       prior, .policy, contract, artifact, release_block, .verifier)
     binding <- list(
       version = .DSVERT_DP_GAUSSIAN_CROSS_BIND_VERSION,
-      capsule_id = validated$identity$capsule_id,
+      capsule_id = contract$capsule_id,
       analysis_id = analysis_id, artifact = artifact,
       artifact_sha256 = artifact_hash, tag = tag,
       source_contract_hash = parsed$contract_hash,
@@ -857,12 +861,13 @@
     return(public)
   }
   loaded <- .dsvert_dp_gaussian_cross_load_inputs(
-    .policy, .secret, manifest, artifact, analysis_id, ss)
+    .policy, .secret, manifest, artifact, analysis_id, ss,
+    source_contract = source_contract)
   capacity <- as.integer(artifact$transcript$padded_units)
   variables <- unname(as.character(artifact$input_variable_order))
   binding <- list(
     version = .DSVERT_DP_GAUSSIAN_CROSS_BIND_VERSION,
-    capsule_id = validated$identity$capsule_id,
+    capsule_id = contract$capsule_id,
     analysis_id = analysis_id, artifact = artifact,
     artifact_sha256 = artifact_hash, tag = tag,
     source_contract_hash = loaded$contract_hash,
@@ -1503,7 +1508,7 @@ dsvertDPGaussianCrossPrepareDS <- function(
 .dsvert_dp_gaussian_cross_finalize_impl <- function(
     manifest_json, analysis_id, session_id,
     .policy = NULL, .secret = NULL, .signer = NULL, .verifier = NULL,
-    .reducer = NULL) {
+    .reducer = NULL, source_contract = NULL) {
   if (is.null(.policy)) .policy <- .dsvert_dp_policy()
   if (is.null(.secret)) .secret <- .dsvert_dp_secret()
   analysis_id <- .dsvert_dp_capsule_id(
@@ -1516,7 +1521,8 @@ dsvertDPGaussianCrossPrepareDS <- function(
     stop("The signed capsule has no cross-owner Gaussian artifact.",
          call. = FALSE)
   }
-  parsed <- .dsvert_dp_capsule_source_contract_json(.policy, manifest_json)
+  parsed <- .dsvert_dp_capsule_source_contract_json(
+    .policy, manifest_json, source_contract)
   contract <- .dsvert_dp_capsule_source_contract_validate(parsed$contract)
   layout <- validated$layout
   block <- layout$blocks[[paste("gaussian_models", analysis_id, sep = "::")]]

@@ -3068,8 +3068,8 @@
   })
 }
 
-.dsvert_dp_capsule_source_aggregate_chunk_internal <- function(
-    policy, manifest_json, chunk_index, secret = NULL,
+.dsvert_dp_capsule_source_aggregate_release_range_internal <- function(
+    policy, manifest_json, offset, count, secret = NULL,
     source_contract = NULL) {
   if (is.null(secret)) secret <- .dsvert_dp_secret()
   parsed <- .dsvert_dp_capsule_source_contract_json(
@@ -3085,14 +3085,11 @@
   } else {
     as.numeric(contract$coordinate_count)
   }
-  release_chunk_count <- ceiling(
-    release_count / contract$chunk_coordinates)
-  chunk_index <- .dsvert_dp_capsule_source_index(
-    chunk_index, "release chunk index", 0, release_chunk_count - 1)
-  offset <- chunk_index * contract$chunk_coordinates
-  chunk <- list(
-    index = chunk_index, offset = offset,
-    count = min(contract$chunk_coordinates, release_count - offset))
+  offset <- .dsvert_dp_capsule_source_index(
+    offset, "release coordinate offset", 0, release_count - 1)
+  count <- .dsvert_dp_capsule_source_index(
+    count, "release coordinate count", 1, release_count - offset)
+  chunk <- list(index = 0L, offset = offset, count = count)
   .dsvert_dp_capsule_source_with_store(policy, secret, function(connection) {
     state <- .dsvert_dp_capsule_source_incoming_load(
       connection, contract$capsule_id, secret)
@@ -3117,6 +3114,29 @@
     }
     share
   })
+}
+
+.dsvert_dp_capsule_source_aggregate_chunk_internal <- function(
+    policy, manifest_json, chunk_index, secret = NULL,
+    source_contract = NULL) {
+  if (is.null(secret)) secret <- .dsvert_dp_secret()
+  parsed <- .dsvert_dp_capsule_source_contract_json(
+    policy, manifest_json, source_contract)
+  contract <- .dsvert_dp_capsule_source_contract_validate(parsed$contract)
+  release_count <- if (.dsvert_dp_capsule_source_cross_contract(contract)) {
+    as.numeric(contract$release_coordinate_count)
+  } else {
+    as.numeric(contract$coordinate_count)
+  }
+  release_chunk_count <- ceiling(
+    release_count / contract$chunk_coordinates)
+  chunk_index <- .dsvert_dp_capsule_source_index(
+    chunk_index, "release chunk index", 0, release_chunk_count - 1)
+  offset <- chunk_index * contract$chunk_coordinates
+  .dsvert_dp_capsule_source_aggregate_release_range_internal(
+    policy, manifest_json, offset,
+    min(contract$chunk_coordinates, release_count - offset), secret,
+    source_contract)
 }
 
 .dsvert_dp_capsule_source_public <- function(phase, code) {

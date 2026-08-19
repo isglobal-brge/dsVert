@@ -542,6 +542,31 @@ func startFormalGLMRegisteredPhase20JobWorkerControllerV1(
 	accept formalGLMRegisteredPhase19ClaimAcceptV1,
 	epoch formalGLMRegisteredPhase20JobTransportEpochV1,
 ) (*formalGLMRegisteredPhase20JobWorkerControllerV1, error) {
+	if attempts == nil {
+		return nil, fmt.Errorf("formal-glm registered Phase20 worker controller: invalid start")
+	}
+	fence, err := formalGLMRegisteredPhase20AcquireAttemptFenceV1(
+		attempts, proposal.Binding.AttemptID)
+	if err != nil {
+		return nil, err
+	}
+	defer fence.Close()
+	return startFormalGLMRegisteredPhase20JobWorkerControllerWithFenceV1(
+		fence, attempts, jobKeys, proposal, accept, epoch)
+}
+
+func startFormalGLMRegisteredPhase20JobWorkerControllerWithFenceV1(
+	fence *formalGLMRegisteredPhase20AttemptFenceV1,
+	attempts *formalGLMRegisteredPhase19AttemptStoreV1,
+	jobKeys *formalGLMRegisteredPhase20JobKeyProviderV1,
+	proposal formalGLMRegisteredPhase19ClaimProposalV1,
+	accept formalGLMRegisteredPhase19ClaimAcceptV1,
+	epoch formalGLMRegisteredPhase20JobTransportEpochV1,
+) (*formalGLMRegisteredPhase20JobWorkerControllerV1, error) {
+	if err := formalGLMRegisteredPhase20AttemptPairV1(
+		attempts, fence, proposal, accept, true); err != nil {
+		return nil, err
+	}
 	root, attemptRelative, binding, err :=
 		formalGLMRegisteredPhase20JobWorkerStartBindingV1(
 			attempts, jobKeys, proposal, accept, epoch)

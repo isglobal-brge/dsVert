@@ -678,10 +678,20 @@ func TestFormalGLMRegisteredPhase20TerminalStoreK2PrepareSelectRestartAndFailClo
 		!status.abandonChosen || status.prepareReceipt != nil {
 		t.Fatalf("abandon-choice-only prefix did not restart: %v", err)
 	}
+	fence, err := formalGLMRegisteredPhase20AcquireAttemptFenceV1(
+		garblerAbandon.attempts, proposal.Binding.AttemptID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := formalGLMRegisteredPhase20AttemptVoteQuiescenceV1(
+		garblerAbandon.attempts, fence, proposal, accept); err != nil {
+		t.Fatal(err)
+	}
 	garblerAbandon.attempts.mu.Lock()
 	remoteReplayed, err := garblerAbandon.attempts.commitVoteV1(
-		proposal, accept, evaluatorVote)
+		fence, proposal, accept, evaluatorVote)
 	garblerAbandon.attempts.mu.Unlock()
+	fence.Close()
 	if err != nil || remoteReplayed {
 		t.Fatalf("persist evaluator-only crash prefix: replay=%v err=%v",
 			remoteReplayed, err)

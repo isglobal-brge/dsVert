@@ -220,40 +220,11 @@ func (owner *formalGLMRegisteredPhase20JobOwnerV1) activeV1() (
 	return accepted, nil
 }
 
-func (owner *formalGLMRegisteredPhase20JobOwnerV1) attemptRootV1(
-	attemptID string,
-) (*os.Root, error) {
-	owner.attempts.mu.Lock()
-	root := owner.attempts.root
-	relative := owner.attempts.attemptRelativeDirV1(attemptID)
-	owner.attempts.mu.Unlock()
-	if root == nil || relative == "" ||
-		formalGLMRegisteredPhase18TicketStoreValidateDirV1(root, relative) != nil {
-		return nil, fmt.Errorf("formal-glm registered Phase20 job owner: invalid attempt root")
-	}
-	return root.OpenRoot(relative)
-}
-
 func (owner *formalGLMRegisteredPhase20JobOwnerV1) fenceV1(
 	attemptID string,
-) (*os.Root, *os.File, error) {
-	root, err := owner.attemptRootV1(attemptID)
-	if err != nil {
-		return nil, nil, err
-	}
-	lock, err := formalGLMRegisteredPhase20JobOwnerAcquireFlockV1(root)
-	if err != nil {
-		_ = root.Close()
-		return nil, nil, err
-	}
-	return root, lock, nil
-}
-
-func formalGLMRegisteredPhase20JobOwnerReleaseFenceV1(root *os.Root, lock *os.File) {
-	formalGLMRegisteredPhase20JobOwnerReleaseFlockV1(lock)
-	if root != nil {
-		_ = root.Close()
-	}
+) (*formalGLMRegisteredPhase20AttemptFenceV1, error) {
+	return formalGLMRegisteredPhase20AcquireAttemptFenceV1(
+		owner.attempts, attemptID)
 }
 
 func formalGLMRegisteredPhase20JobOwnerResultFromControlV1(
@@ -305,11 +276,11 @@ func (owner *formalGLMRegisteredPhase20JobOwnerV1) StartOrInspectV1() (
 	if err != nil {
 		return zero, err
 	}
-	root, fence, err := owner.fenceV1(accepted.proposal.Binding.AttemptID)
+	fence, err := owner.fenceV1(accepted.proposal.Binding.AttemptID)
 	if err != nil {
 		return zero, err
 	}
-	defer formalGLMRegisteredPhase20JobOwnerReleaseFenceV1(root, fence)
+	defer fence.Close()
 	// The fence covers the only pre-burn window. Re-read the active attempt
 	// after acquiring it; a conforming abandon path cannot race this point.
 	accepted, err = owner.activeV1()
@@ -342,8 +313,9 @@ func (owner *formalGLMRegisteredPhase20JobOwnerV1) StartOrInspectV1() (
 			state: observation.state, inspectOnly: true,
 		}, nil
 	}
-	controller, err := startFormalGLMRegisteredPhase20JobWorkerControllerV1(
-		owner.attempts, owner.jobKeys, accepted.proposal, accepted.accept, accepted.epoch)
+	controller, err := startFormalGLMRegisteredPhase20JobWorkerControllerWithFenceV1(
+		fence, owner.attempts, owner.jobKeys,
+		accepted.proposal, accepted.accept, accepted.epoch)
 	if err != nil {
 		return zero, err
 	}
@@ -365,7 +337,8 @@ func (owner *formalGLMRegisteredPhase20JobOwnerV1) StartOrInspectV1() (
 }
 
 func (owner *formalGLMRegisteredPhase20JobOwnerV1) runControlV1(
-	fn func(formalGLMRegisteredPhase20JobControlAcceptedV1) error,
+	fn func(formalGLMRegisteredPhase20JobControlAcceptedV1,
+		*formalGLMRegisteredPhase20AttemptFenceV1) error,
 ) error {
 	if err := owner.closedV1(); err != nil {
 		return err
@@ -374,11 +347,11 @@ func (owner *formalGLMRegisteredPhase20JobOwnerV1) runControlV1(
 	if err != nil {
 		return err
 	}
-	root, fence, err := owner.fenceV1(accepted.proposal.Binding.AttemptID)
+	fence, err := owner.fenceV1(accepted.proposal.Binding.AttemptID)
 	if err != nil {
 		return err
 	}
-	defer formalGLMRegisteredPhase20JobOwnerReleaseFenceV1(root, fence)
+	defer fence.Close()
 	accepted, err = owner.activeV1()
 	if err != nil {
 		return err
@@ -391,7 +364,7 @@ func (owner *formalGLMRegisteredPhase20JobOwnerV1) runControlV1(
 	if err := owner.controller.HeartbeatV1(); err != nil {
 		return err
 	}
-	return fn(accepted)
+	return fn(accepted, fence)
 }
 
 func (owner *formalGLMRegisteredPhase20JobOwnerV1) JobRefV1() (
@@ -405,9 +378,11 @@ func (owner *formalGLMRegisteredPhase20JobOwnerV1) JobRefV1() (
 	defer owner.mu.Unlock()
 	var ref formalGLMRegisteredPhase20JobRefV1
 	var frame []byte
-	err := owner.runControlV1(func(_ formalGLMRegisteredPhase20JobControlAcceptedV1) error {
+	err := owner.runControlV1(func(_ formalGLMRegisteredPhase20JobControlAcceptedV1,
+		fence *formalGLMRegisteredPhase20AttemptFenceV1) error {
 		var callErr error
-		ref, frame, callErr = owner.control.JobRefV1(owner.controller)
+		ref, frame, callErr = owner.control.jobRefWithFenceV1(
+			fence, owner.controller)
 		return callErr
 	})
 	if err != nil {
@@ -424,8 +399,10 @@ func (owner *formalGLMRegisteredPhase20JobOwnerV1) BindPeerJobRefV1(
 	}
 	owner.mu.Lock()
 	defer owner.mu.Unlock()
-	return owner.runControlV1(func(_ formalGLMRegisteredPhase20JobControlAcceptedV1) error {
-		return owner.control.BindPeerJobRefV1(owner.controller, encoded)
+	return owner.runControlV1(func(_ formalGLMRegisteredPhase20JobControlAcceptedV1,
+		fence *formalGLMRegisteredPhase20AttemptFenceV1) error {
+		return owner.control.bindPeerJobRefWithFenceV1(
+			fence, owner.controller, encoded)
 	})
 }
 
@@ -435,7 +412,8 @@ func (owner *formalGLMRegisteredPhase20JobOwnerV1) HeartbeatV1() error {
 	}
 	owner.mu.Lock()
 	defer owner.mu.Unlock()
-	return owner.runControlV1(func(_ formalGLMRegisteredPhase20JobControlAcceptedV1) error {
+	return owner.runControlV1(func(_ formalGLMRegisteredPhase20JobControlAcceptedV1,
+		_ *formalGLMRegisteredPhase20AttemptFenceV1) error {
 		return nil
 	})
 }
@@ -578,11 +556,11 @@ func (owner *formalGLMRegisteredPhase20JobOwnerV1) InitiateAbandonV1() (
 	if err != nil || index != 1 {
 		return zero, fmt.Errorf("formal-glm registered Phase20 job owner: evaluator initiates abandonment")
 	}
-	root, fence, err := owner.fenceV1(proposal.Binding.AttemptID)
+	fence, err := owner.fenceV1(proposal.Binding.AttemptID)
 	if err != nil {
 		return zero, err
 	}
-	defer formalGLMRegisteredPhase20JobOwnerReleaseFenceV1(root, fence)
+	defer fence.Close()
 	head, proposal, accept, err := owner.pairForAbandonV1()
 	if err != nil {
 		return zero, err
@@ -613,9 +591,15 @@ func (owner *formalGLMRegisteredPhase20JobOwnerV1) InitiateAbandonV1() (
 				state: formalGLMRegisteredPhase20JobOwnerPendingStateV1,
 			}, nil
 		}
-		defer formalGLMRegisteredPhase20JobWorkerReleaseLifetimeLockV1(lifetime)
+		formalGLMRegisteredPhase20JobWorkerReleaseLifetimeLockV1(lifetime)
 	}
-	vote, _, err := owner.attempts.VoteAbandon(proposal, accept)
+	vote, _, err := owner.attempts.voteAbandonWithFenceV1(
+		fence, proposal, accept)
+	if errors.Is(err, errFormalGLMRegisteredPhase20JobWorkerOwnerLockBusyV1) {
+		return formalGLMRegisteredPhase20JobOwnerResultV1{
+			state: formalGLMRegisteredPhase20JobOwnerPendingStateV1,
+		}, nil
+	}
 	if err != nil {
 		return zero, err
 	}
@@ -651,19 +635,36 @@ func (owner *formalGLMRegisteredPhase20JobOwnerV1) AcceptEvaluatorAbandonV1(
 	if len(encoded) == 0 || formalGLMPhase21RockStrictDecode(encoded, &evaluatorVote) != nil {
 		return zero, fmt.Errorf("formal-glm registered Phase20 job owner: invalid evaluator vote")
 	}
-	root, fence, err := owner.fenceV1(proposal.Binding.AttemptID)
+	fence, err := owner.fenceV1(proposal.Binding.AttemptID)
 	if err != nil {
 		return zero, err
 	}
-	defer formalGLMRegisteredPhase20JobOwnerReleaseFenceV1(root, fence)
+	defer fence.Close()
 	_, proposal, accept, err = owner.pairForAbandonV1()
 	if err != nil {
 		return zero, err
 	}
 	owner.attempts.mu.Lock()
 	voteIndex, voteErr := owner.attempts.validateVoteV1(proposal, accept, evaluatorVote)
+	owner.attempts.mu.Unlock()
+	if voteErr != nil || voteIndex != 1 {
+		return zero, fmt.Errorf("formal-glm registered Phase20 job owner: invalid evaluator vote")
+	}
+	if err := formalGLMRegisteredPhase20AttemptVoteQuiescenceV1(
+		owner.attempts, fence, proposal, accept); err != nil {
+		if errors.Is(err, errFormalGLMRegisteredPhase20JobWorkerOwnerLockBusyV1) {
+			return formalGLMRegisteredPhase20JobOwnerResultV1{
+				state: formalGLMRegisteredPhase20JobOwnerPendingStateV1,
+			}, nil
+		}
+		return zero, err
+	}
+	owner.attempts.mu.Lock()
+	voteIndex, voteErr = owner.attempts.validateVoteV1(
+		proposal, accept, evaluatorVote)
 	if voteErr == nil && voteIndex == 1 {
-		_, voteErr = owner.attempts.commitVoteV1(proposal, accept, evaluatorVote)
+		_, voteErr = owner.attempts.commitVoteV1(
+			fence, proposal, accept, evaluatorVote)
 	}
 	if voteErr != nil || voteIndex != 1 {
 		owner.attempts.mu.Unlock()
@@ -678,7 +679,8 @@ func (owner *formalGLMRegisteredPhase20JobOwnerV1) AcceptEvaluatorAbandonV1(
 		} else {
 			local.Signature = ed25519.Sign(owner.attempts.signingKey, message)
 			clear(message)
-			_, localErr = owner.attempts.commitVoteV1(proposal, accept, local)
+			_, localErr = owner.attempts.commitVoteV1(
+				fence, proposal, accept, local)
 		}
 	}
 	owner.attempts.mu.Unlock()
@@ -709,11 +711,11 @@ func (owner *formalGLMRegisteredPhase20JobOwnerV1) CommitAbandonedV1(
 	if err != nil {
 		return zero, err
 	}
-	root, fence, err := owner.fenceV1(proposal.Binding.AttemptID)
+	fence, err := owner.fenceV1(proposal.Binding.AttemptID)
 	if err != nil {
 		return zero, err
 	}
-	defer formalGLMRegisteredPhase20JobOwnerReleaseFenceV1(root, fence)
+	defer fence.Close()
 	index, err := formalGLMRegisteredPhase20JobOwnerLocalIndexV1(owner.attempts)
 	if err != nil {
 		return zero, err
@@ -736,7 +738,8 @@ func (owner *formalGLMRegisteredPhase20JobOwnerV1) CommitAbandonedV1(
 		}
 		votes[1] = *owner.votes[1]
 	}
-	abandoned, _, err := owner.attempts.CommitAbandoned(proposal, accept, votes[:])
+	abandoned, _, err := owner.attempts.commitAbandonedWithFenceV1(
+		fence, proposal, accept, votes[:])
 	if err != nil {
 		return zero, err
 	}

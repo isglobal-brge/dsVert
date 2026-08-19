@@ -1797,12 +1797,22 @@ func (owner *formalGLMRegisteredPhase20TerminalOwnerV1) VoteAbandonBeforePrepare
 	if owner.closed || owner.role != "evaluator" {
 		return zero, false, fmt.Errorf("formal-glm registered Phase20 terminal: only evaluator initiates abandonment")
 	}
+	fence, err := formalGLMRegisteredPhase20AcquireAttemptFenceV1(
+		owner.attempts, owner.proposal.Binding.AttemptID)
+	if err != nil {
+		return zero, false, err
+	}
+	defer fence.Close()
+	if err := formalGLMRegisteredPhase20AttemptVoteQuiescenceV1(
+		owner.attempts, fence, owner.proposal, owner.accept); err != nil {
+		return zero, false, err
+	}
 	choiceReplayed, err := owner.chooseAbandonV1()
 	if err != nil {
 		return zero, false, err
 	}
-	vote, voteReplayed, err := owner.attempts.VoteAbandon(
-		owner.proposal, owner.accept)
+	vote, voteReplayed, err := owner.attempts.voteAbandonWithFenceV1(
+		fence, owner.proposal, owner.accept)
 	return vote, choiceReplayed && voteReplayed, err
 }
 
@@ -1818,6 +1828,12 @@ func (owner *formalGLMRegisteredPhase20TerminalOwnerV1) AcceptEvaluatorAbandonV1
 	if owner.closed || owner.role != "garbler" {
 		return zero, false, fmt.Errorf("formal-glm registered Phase20 terminal: only garbler co-signs abandonment")
 	}
+	fence, err := formalGLMRegisteredPhase20AcquireAttemptFenceV1(
+		owner.attempts, owner.proposal.Binding.AttemptID)
+	if err != nil {
+		return zero, false, err
+	}
+	defer fence.Close()
 	store := owner.attempts
 	store.mu.Lock()
 	if store.root == nil || store.validateAcceptV1(owner.proposal, owner.accept) != nil ||
@@ -1831,6 +1847,10 @@ func (owner *formalGLMRegisteredPhase20TerminalOwnerV1) AcceptEvaluatorAbandonV1
 	if err != nil || index != 1 {
 		return zero, false, fmt.Errorf("formal-glm registered Phase20 terminal: invalid evaluator abandonment vote")
 	}
+	if err := formalGLMRegisteredPhase20AttemptVoteQuiescenceV1(
+		store, fence, owner.proposal, owner.accept); err != nil {
+		return zero, false, err
+	}
 	choiceReplayed, err := owner.chooseAbandonV1()
 	if err != nil {
 		return zero, false, err
@@ -1842,7 +1862,7 @@ func (owner *formalGLMRegisteredPhase20TerminalOwnerV1) AcceptEvaluatorAbandonV1
 		return zero, false, fmt.Errorf("formal-glm registered Phase20 terminal: accepted attempt changed")
 	}
 	remoteReplayed, err := store.commitVoteV1(
-		owner.proposal, owner.accept, evaluatorVote)
+		fence, owner.proposal, owner.accept, evaluatorVote)
 	if err != nil {
 		return zero, false, err
 	}
@@ -1858,7 +1878,7 @@ func (owner *formalGLMRegisteredPhase20TerminalOwnerV1) AcceptEvaluatorAbandonV1
 	garblerVote.Signature = ed25519.Sign(store.signingKey, message)
 	clear(message)
 	localReplayed, err := store.commitVoteV1(
-		owner.proposal, owner.accept, garblerVote)
+		fence, owner.proposal, owner.accept, garblerVote)
 	if err != nil {
 		return zero, false, err
 	}
@@ -1877,12 +1897,19 @@ func (owner *formalGLMRegisteredPhase20TerminalOwnerV1) CommitAbandonedBeforePre
 	if owner.closed {
 		return zero, false, fmt.Errorf("formal-glm registered Phase20 terminal: owner is closed")
 	}
+	fence, err := formalGLMRegisteredPhase20AcquireAttemptFenceV1(
+		owner.attempts, owner.proposal.Binding.AttemptID)
+	if err != nil {
+		return zero, false, err
+	}
+	defer fence.Close()
 	choice, found, err := owner.readChoiceV1()
 	if err != nil || !found ||
 		choice.Decision != formalGLMRegisteredPhase20TerminalAbandonChoiceV1 {
 		return zero, false, fmt.Errorf("formal-glm registered Phase20 terminal: abandonment choice is not durable")
 	}
-	return owner.attempts.CommitAbandoned(owner.proposal, owner.accept, votes)
+	return owner.attempts.commitAbandonedWithFenceV1(
+		fence, owner.proposal, owner.accept, votes)
 }
 
 func (owner *formalGLMRegisteredPhase20TerminalOwnerV1) Close() error {

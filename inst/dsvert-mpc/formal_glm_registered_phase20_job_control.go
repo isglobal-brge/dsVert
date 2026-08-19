@@ -610,6 +610,10 @@ func formalGLMRegisteredPhase20JobControlControllerLockedV1(
 	if !running {
 		return fmt.Errorf("formal-glm registered Phase20 job control: controller is not running")
 	}
+	if formalGLMRegisteredPhase20JobTransportAbortValidV1(
+		controller.transport.scratch) {
+		return fmt.Errorf("formal-glm registered Phase20 job control: controller is stopping")
+	}
 	return nil
 }
 
@@ -620,10 +624,46 @@ func (control *formalGLMRegisteredPhase20JobControlV1) JobRefV1(
 	if control == nil || controller == nil {
 		return zero, nil, fmt.Errorf("formal-glm registered Phase20 job control: controller unavailable")
 	}
+	fence, err := control.controllerFenceV1(controller)
+	if err != nil {
+		return zero, nil, err
+	}
+	defer fence.Close()
+	return control.jobRefWithFenceV1(fence, controller)
+}
+
+func (control *formalGLMRegisteredPhase20JobControlV1) controllerFenceV1(
+	controller *formalGLMRegisteredPhase20JobWorkerControllerV1,
+) (*formalGLMRegisteredPhase20AttemptFenceV1, error) {
+	if control == nil || control.attempts == nil || controller == nil {
+		return nil, fmt.Errorf("formal-glm registered Phase20 job control: controller unavailable")
+	}
+	controller.mu.Lock()
+	attemptID := ""
+	if !controller.closed && controller.transport != nil {
+		attemptID = controller.transport.ref.AttemptID
+	}
+	controller.mu.Unlock()
+	if attemptID == "" {
+		return nil, fmt.Errorf("formal-glm registered Phase20 job control: controller unavailable")
+	}
+	return formalGLMRegisteredPhase20AcquireAttemptFenceV1(
+		control.attempts, attemptID)
+}
+
+func (control *formalGLMRegisteredPhase20JobControlV1) jobRefWithFenceV1(
+	fence *formalGLMRegisteredPhase20AttemptFenceV1,
+	controller *formalGLMRegisteredPhase20JobWorkerControllerV1,
+) (formalGLMRegisteredPhase20JobRefV1, []byte, error) {
+	var zero formalGLMRegisteredPhase20JobRefV1
 	control.mu.Lock()
 	defer control.mu.Unlock()
 	accepted, err := control.acceptedV1()
 	if err != nil {
+		return zero, nil, err
+	}
+	if err := formalGLMRegisteredPhase20AttemptPairV1(
+		control.attempts, fence, accepted.proposal, accepted.accept, true); err != nil {
 		return zero, nil, err
 	}
 	controller.mu.Lock()
@@ -648,10 +688,27 @@ func (control *formalGLMRegisteredPhase20JobControlV1) BindPeerJobRefV1(
 	if control == nil || controller == nil {
 		return fmt.Errorf("formal-glm registered Phase20 job control: controller unavailable")
 	}
+	fence, err := control.controllerFenceV1(controller)
+	if err != nil {
+		return err
+	}
+	defer fence.Close()
+	return control.bindPeerJobRefWithFenceV1(fence, controller, encoded)
+}
+
+func (control *formalGLMRegisteredPhase20JobControlV1) bindPeerJobRefWithFenceV1(
+	fence *formalGLMRegisteredPhase20AttemptFenceV1,
+	controller *formalGLMRegisteredPhase20JobWorkerControllerV1,
+	encoded []byte,
+) error {
 	control.mu.Lock()
 	defer control.mu.Unlock()
 	accepted, err := control.acceptedV1()
 	if err != nil {
+		return err
+	}
+	if err := formalGLMRegisteredPhase20AttemptPairV1(
+		control.attempts, fence, accepted.proposal, accepted.accept, true); err != nil {
 		return err
 	}
 	claim, err := formalGLMRegisteredPhase20JobControlDecodePeerJobRefClaimV1(
@@ -673,9 +730,6 @@ func (control *formalGLMRegisteredPhase20JobControlV1) BindPeerJobRefV1(
 		!reflect.DeepEqual(claim.JobRef, accepted.ref) {
 		return fmt.Errorf("formal-glm registered Phase20 job control: peer JobRef mismatch")
 	}
-	// This A2.1 seam does not fence a concurrent multi-handle VoteAbandon.
-	// The JobOwner milestone must serialize that transition with controller
-	// lifetime ownership before this bind can authorize worker bytes.
 	controller.mu.Lock()
 	defer controller.mu.Unlock()
 	if err := formalGLMRegisteredPhase20JobControlControllerLockedV1(

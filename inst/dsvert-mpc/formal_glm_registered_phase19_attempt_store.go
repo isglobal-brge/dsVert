@@ -677,10 +677,14 @@ func (store *formalGLMRegisteredPhase19AttemptStoreV1) commitAcceptV1(
 }
 
 func (store *formalGLMRegisteredPhase19AttemptStoreV1) commitVoteV1(
+	fence *formalGLMRegisteredPhase20AttemptFenceV1,
 	proposal formalGLMRegisteredPhase19ClaimProposalV1,
 	accept formalGLMRegisteredPhase19ClaimAcceptV1,
 	vote formalGLMRegisteredPhase19DecisionVoteV1,
 ) (bool, error) {
+	if !fence.validLockedV1(store, proposal.Binding.AttemptID) || !fence.voteReady {
+		return false, fmt.Errorf("formal-glm registered Phase19 attempt: attempt fence required")
+	}
 	index, err := store.validateVoteV1(proposal, accept, vote)
 	if err != nil {
 		return false, err
@@ -773,11 +777,30 @@ func (store *formalGLMRegisteredPhase19AttemptStoreV1) VoteAbandon(
 	if store == nil {
 		return zero, false, fmt.Errorf("formal-glm registered Phase19 attempt: store unavailable")
 	}
+	fence, err := formalGLMRegisteredPhase20AcquireAttemptFenceV1(
+		store, proposal.Binding.AttemptID)
+	if err != nil {
+		return zero, false, err
+	}
+	defer fence.Close()
+	return store.voteAbandonWithFenceV1(fence, proposal, accept)
+}
+
+func (store *formalGLMRegisteredPhase19AttemptStoreV1) voteAbandonWithFenceV1(
+	fence *formalGLMRegisteredPhase20AttemptFenceV1,
+	proposal formalGLMRegisteredPhase19ClaimProposalV1,
+	accept formalGLMRegisteredPhase19ClaimAcceptV1,
+) (formalGLMRegisteredPhase19DecisionVoteV1, bool, error) {
+	var zero formalGLMRegisteredPhase19DecisionVoteV1
+	if err := formalGLMRegisteredPhase20AttemptVoteQuiescenceV1(
+		store, fence, proposal, accept); err != nil {
+		return zero, false, err
+	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
-	if store.root == nil || store.localIndex < 0 || store.localIndex > 1 ||
-		store.requirePreviousBindingV1(proposal.Binding) != nil ||
-		store.validateAcceptV1(proposal, accept) != nil {
+	if store.localIndex < 0 || store.localIndex > 1 ||
+		formalGLMRegisteredPhase20AttemptPairLockedV1(
+			store, fence, proposal, accept, false) != nil {
 		return zero, false, fmt.Errorf("formal-glm registered Phase19 attempt: claim pair is not admissible")
 	}
 	vote, err := store.voteV1(proposal, accept, store.localIndex)
@@ -791,7 +814,7 @@ func (store *formalGLMRegisteredPhase19AttemptStoreV1) VoteAbandon(
 	}
 	vote.Signature = ed25519.Sign(store.signingKey, message)
 	clear(message)
-	replayed, err := store.commitVoteV1(proposal, accept, vote)
+	replayed, err := store.commitVoteV1(fence, proposal, accept, vote)
 	if err != nil {
 		return zero, false, err
 	}
@@ -807,9 +830,30 @@ func (store *formalGLMRegisteredPhase19AttemptStoreV1) CommitAbandoned(
 	if store == nil {
 		return zero, false, fmt.Errorf("formal-glm registered Phase19 attempt: store unavailable")
 	}
+	fence, err := formalGLMRegisteredPhase20AcquireAttemptFenceV1(
+		store, proposal.Binding.AttemptID)
+	if err != nil {
+		return zero, false, err
+	}
+	defer fence.Close()
+	return store.commitAbandonedWithFenceV1(fence, proposal, accept, votes)
+}
+
+func (store *formalGLMRegisteredPhase19AttemptStoreV1) commitAbandonedWithFenceV1(
+	fence *formalGLMRegisteredPhase20AttemptFenceV1,
+	proposal formalGLMRegisteredPhase19ClaimProposalV1,
+	accept formalGLMRegisteredPhase19ClaimAcceptV1,
+	votes []formalGLMRegisteredPhase19DecisionVoteV1,
+) (formalGLMRegisteredPhase19AbandonedV1, bool, error) {
+	var zero formalGLMRegisteredPhase19AbandonedV1
+	if err := formalGLMRegisteredPhase20AttemptVoteQuiescenceV1(
+		store, fence, proposal, accept); err != nil {
+		return zero, false, err
+	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
-	if store.root == nil || store.requirePreviousBindingV1(proposal.Binding) != nil {
+	if formalGLMRegisteredPhase20AttemptPairLockedV1(
+		store, fence, proposal, accept, false) != nil {
 		return zero, false, fmt.Errorf("formal-glm registered Phase19 attempt: claim pair is not admissible")
 	}
 	abandoned, err := store.abandonedV1(proposal, accept, votes)
@@ -817,7 +861,7 @@ func (store *formalGLMRegisteredPhase19AttemptStoreV1) CommitAbandoned(
 		return zero, false, err
 	}
 	for _, vote := range abandoned.DecisionVotes {
-		if _, err := store.commitVoteV1(proposal, accept, vote); err != nil {
+		if _, err := store.commitVoteV1(fence, proposal, accept, vote); err != nil {
 			return zero, false, err
 		}
 	}

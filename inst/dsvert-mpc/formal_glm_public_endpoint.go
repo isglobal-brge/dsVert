@@ -236,6 +236,7 @@ type formalGLMPublicEndpointV1 struct {
 	signerKey      ed25519.PrivateKey
 	advance        formalGLMPublicAdvanceFuncV1
 	provisioner    *formalGLMPublicProvisionerV1
+	advanceStore   *formalGLMPublicAdvanceStoreV1
 	advanceMu      sync.Mutex
 	advanceInputs  map[string]string
 	advanceCache   map[string]formalGLMPublicAdvanceResponseV1
@@ -1030,6 +1031,55 @@ func newFormalGLMPublicEndpointV1(
 	return endpoint, nil
 }
 
+// newFormalGLMPublicEndpointWithAdvanceStoreV1 is the re-openable variant of
+// the closed endpoint.  The store owns the public replay fence; callers still
+// supply no path, action, source value, or protected relay payload.
+func newFormalGLMPublicEndpointWithAdvanceStoreV1(
+	registry *formalGLMArtifactRegistryStoreV1,
+	bridgeReceipts []formalGLMPSISourceBridgeReceiptV1,
+	pins map[string]ed25519.PublicKey,
+	signerPeer string,
+	signerKey ed25519.PrivateKey,
+	advance formalGLMPublicAdvanceFuncV1,
+	advanceStore *formalGLMPublicAdvanceStoreV1,
+	provisioners ...formalGLMPublicProvisionerV1,
+) (*formalGLMPublicEndpointV1, error) {
+	if advanceStore == nil || !advanceStore.validForEndpointV1(pins, signerPeer) {
+		return nil, fmt.Errorf("formal-glm public endpoint: invalid durable advance store")
+	}
+	endpoint, err := newFormalGLMPublicEndpointV1(
+		registry, bridgeReceipts, pins, signerPeer, signerKey, advance,
+		provisioners...)
+	if err != nil {
+		return nil, err
+	}
+	endpoint.advanceStore = advanceStore
+	return endpoint, nil
+}
+
+func (endpoint *formalGLMPublicEndpointV1) commitAdvanceV1(
+	receipt formalGLMPublicReceiptFrameV1,
+	receiptSHA256, peerSHA256, cacheKey string,
+	response formalGLMPublicAdvanceResponseV1,
+) (formalGLMPublicAdvanceResponseV1, error) {
+	if endpoint.advanceStore != nil {
+		response.Replayed = false
+		stored, replayed, err := endpoint.advanceStore.CommitV1(
+			receipt, receiptSHA256, peerSHA256, response)
+		if err != nil {
+			return formalGLMPublicAdvanceResponseV1{}, err
+		}
+		stored.Replayed = replayed
+		if stored.Relay != nil {
+			relay := *stored.Relay
+			stored.Relay = &relay
+		}
+		return stored, nil
+	}
+	endpoint.advanceCache[cacheKey] = response
+	return response, nil
+}
+
 func (endpoint *formalGLMPublicEndpointV1) localizeSamplerV2Prepare(
 	prepare *formalGLMPublicProvisionPrepareV1,
 ) error {
@@ -1231,24 +1281,41 @@ func (endpoint *formalGLMPublicEndpointV1) Advance(
 	cacheKey := receiptSHA256 + "\x00" + peerSHA256
 	endpoint.advanceMu.Lock()
 	defer endpoint.advanceMu.Unlock()
-	if previousPeerSHA256, exists := endpoint.advanceInputs[receiptSHA256]; exists && previousPeerSHA256 != peerSHA256 {
-		return zero, fmt.Errorf("formal-glm public endpoint: receipt already consumed")
-	}
-	if cached, exists := endpoint.advanceCache[cacheKey]; exists {
-		cached.Replayed = true
-		if cached.Relay != nil {
-			relay := *cached.Relay
-			cached.Relay = &relay
+	if endpoint.advanceStore != nil {
+		cached, exists, durableErr := endpoint.advanceStore.BeginV1(
+			receipt, receiptSHA256, peerSHA256)
+		if durableErr != nil {
+			return zero, durableErr
 		}
-		return cached, nil
+		if exists {
+			cached.Replayed = true
+			if cached.Relay != nil {
+				relay := *cached.Relay
+				cached.Relay = &relay
+			}
+			return cached, nil
+		}
+	} else {
+		if previousPeerSHA256, exists := endpoint.advanceInputs[receiptSHA256]; exists && previousPeerSHA256 != peerSHA256 {
+			return zero, fmt.Errorf("formal-glm public endpoint: receipt already consumed")
+		}
+		if cached, exists := endpoint.advanceCache[cacheKey]; exists {
+			cached.Replayed = true
+			if cached.Relay != nil {
+				relay := *cached.Relay
+				cached.Relay = &relay
+			}
+			return cached, nil
+		}
+		endpoint.advanceInputs[receiptSHA256] = peerSHA256
 	}
-	endpoint.advanceInputs[receiptSHA256] = peerSHA256
 	if receipt.State == formalGLMPublicStateProvisionPrepare ||
 		receipt.State == formalGLMPublicStateProvisionApprove {
 		response, advanceErr := endpoint.advanceProvision(
 			receipt, receiptSHA256, peerSHA256, peerFrameJSON)
 		if advanceErr == nil {
-			endpoint.advanceCache[cacheKey] = response
+			return endpoint.commitAdvanceV1(
+				receipt, receiptSHA256, peerSHA256, cacheKey, response)
 		}
 		return response, advanceErr
 	}
@@ -1319,8 +1386,8 @@ func (endpoint *formalGLMPublicEndpointV1) Advance(
 		response.PublicV2JSON = string(publicJSON)
 		response.CertificateSHA256 = certificateSHA256
 	}
-	endpoint.advanceCache[cacheKey] = response
-	return response, nil
+	return endpoint.commitAdvanceV1(
+		receipt, receiptSHA256, peerSHA256, cacheKey, response)
 }
 
 func (endpoint *formalGLMPublicEndpointV1) advanceProvision(

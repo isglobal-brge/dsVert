@@ -39,44 +39,45 @@ const (
 // point number is a canonical signed decimal integer in units of 2^-FracBits.
 // SourceShare itself is never part of this object or its digest.
 type formalGLMPhase1Policy struct {
-	Version          string   `json:"version"`
-	ArtifactSHA256   string   `json:"artifact_sha256"`
-	CapsuleSHA256    string   `json:"capsule_sha256"`
-	SnapshotSHA256   string   `json:"snapshot_sha256"`
-	PinsetSHA256     string   `json:"pinset_sha256"`
-	CompilerSHA256   string   `json:"compiler_sha256"`
-	TheoremSHA256    string   `json:"theorem_sha256"`
-	CustodianPeers   []string `json:"custodian_peers"`
-	ComputePeers     []string `json:"compute_peers"`
-	Family           string   `json:"family"`
-	Adjacency        string   `json:"adjacency"`
-	Capacity         int      `json:"capacity"`
-	CoefficientCount int      `json:"coefficient_count"`
-	Iterations       int      `json:"iterations"`
-	FracBits         int      `json:"frac_bits"`
-	XKind            []string `json:"x_kind"`
-	XLower           []string `json:"x_lower"`
-	XUpper           []string `json:"x_upper"`
-	WeightUpper      string   `json:"weight_upper"`
-	OutcomeUpper     string   `json:"outcome_upper"`
-	OffsetLower      string   `json:"offset_lower"`
-	OffsetUpper      string   `json:"offset_upper"`
-	BetaStart        []string `json:"beta_start"`
-	Ridge            []string `json:"ridge"`
-	CoefficientBox   []string `json:"coefficient_box"`
-	Alpha            string   `json:"alpha"`
-	LinkKnots        []string `json:"link_knots"`
-	LinkValues       []string `json:"link_values"`
-	LinkSlopes       []string `json:"link_slopes"`
-	LinkErrorUpper   string   `json:"link_error_upper"`
-	LinkTableSHA256  string   `json:"link_table_sha256"`
-	Missingness      string   `json:"missingness"`
-	PatientCollapse  string   `json:"patient_collapse"`
-	ReductionOrder   string   `json:"reduction_order"`
-	Truncation       string   `json:"truncation"`
-	InputLayout      string   `json:"input_layout"`
-	InputSharing     string   `json:"input_sharing"`
-	Output           string   `json:"output"`
+	Version                string   `json:"version"`
+	ArtifactSHA256         string   `json:"artifact_sha256"`
+	CanonicalScienceSHA256 string   `json:"canonical_science_sha256"`
+	CapsuleSHA256          string   `json:"capsule_sha256"`
+	SnapshotSHA256         string   `json:"snapshot_sha256"`
+	PinsetSHA256           string   `json:"pinset_sha256"`
+	CompilerSHA256         string   `json:"compiler_sha256"`
+	TheoremSHA256          string   `json:"theorem_sha256"`
+	CustodianPeers         []string `json:"custodian_peers"`
+	ComputePeers           []string `json:"compute_peers"`
+	Family                 string   `json:"family"`
+	Adjacency              string   `json:"adjacency"`
+	Capacity               int      `json:"capacity"`
+	CoefficientCount       int      `json:"coefficient_count"`
+	Iterations             int      `json:"iterations"`
+	FracBits               int      `json:"frac_bits"`
+	XKind                  []string `json:"x_kind"`
+	XLower                 []string `json:"x_lower"`
+	XUpper                 []string `json:"x_upper"`
+	WeightUpper            string   `json:"weight_upper"`
+	OutcomeUpper           string   `json:"outcome_upper"`
+	OffsetLower            string   `json:"offset_lower"`
+	OffsetUpper            string   `json:"offset_upper"`
+	BetaStart              []string `json:"beta_start"`
+	Ridge                  []string `json:"ridge"`
+	CoefficientBox         []string `json:"coefficient_box"`
+	Alpha                  string   `json:"alpha"`
+	LinkKnots              []string `json:"link_knots"`
+	LinkValues             []string `json:"link_values"`
+	LinkSlopes             []string `json:"link_slopes"`
+	LinkErrorUpper         string   `json:"link_error_upper"`
+	LinkTableSHA256        string   `json:"link_table_sha256"`
+	Missingness            string   `json:"missingness"`
+	PatientCollapse        string   `json:"patient_collapse"`
+	ReductionOrder         string   `json:"reduction_order"`
+	Truncation             string   `json:"truncation"`
+	InputLayout            string   `json:"input_layout"`
+	InputSharing           string   `json:"input_sharing"`
+	Output                 string   `json:"output"`
 }
 
 type formalGLMPhase1Plan struct {
@@ -230,7 +231,8 @@ func parseFormalGLMPhase1Policy(policy formalGLMPhase1Policy) (formalGLMParsedPo
 		return result, fmt.Errorf("formal-glm: unsupported Phase-1 policy shape")
 	}
 	for _, value := range []string{
-		policy.ArtifactSHA256, policy.CapsuleSHA256, policy.SnapshotSHA256,
+		policy.ArtifactSHA256, policy.CanonicalScienceSHA256,
+		policy.CapsuleSHA256, policy.SnapshotSHA256,
 		policy.PinsetSHA256, policy.CompilerSHA256, policy.TheoremSHA256,
 		policy.LinkTableSHA256,
 	} {
@@ -239,8 +241,7 @@ func parseFormalGLMPhase1Policy(policy formalGLMPhase1Policy) (formalGLMParsedPo
 		}
 	}
 	if len(policy.CustodianPeers) < 2 || len(policy.ComputePeers) != 2 ||
-		!sort.StringsAreSorted(policy.CustodianPeers) ||
-		!sort.StringsAreSorted(policy.ComputePeers) {
+		!sort.StringsAreSorted(policy.CustodianPeers) {
 		return result, fmt.Errorf("formal-glm: invalid custodian/compute peer set")
 	}
 	seen := make(map[string]bool)

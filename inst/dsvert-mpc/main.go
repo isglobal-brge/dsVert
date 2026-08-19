@@ -57,6 +57,47 @@ func main() {
 		handleTransportDecrypt()
 	case "typed-source-stream-probe":
 		handleTypedSourceStreamProbe()
+	// Internal typed GLM/Cox finalizer handoff. The statistical lifecycle
+	// frontdoors remain sealed while the ticket-only transport is registered.
+	case "typed-finalizer-handoff-capability":
+		handleFormalFinalizerHandoffCapabilities()
+	case "typed-finalizer-handoff-source-descriptor":
+		handleFormalFinalizerHandoffSourceDescriptor()
+	case "typed-finalizer-handoff-import-ingress":
+		handleFormalFinalizerHandoffImportIngress()
+	case "typed-finalizer-lifecycle":
+		if len(os.Args) != 3 {
+			mpcFatalError("typed-finalizer lifecycle configuration is required")
+		}
+		if err := handleFormalTypedFinalizerLifecycle(os.Args[2]); err != nil {
+			mpcFatalError("typed-finalizer lifecycle failed")
+		}
+	// Closed, server-directed relay for the signed formal-GLM lifecycle
+	// records. These commands expose neither a record selector nor a path.
+	case "formal-glm-control-source":
+		handleFormalGLMOneDrawControlSource()
+	case "formal-glm-control-import":
+		handleFormalGLMOneDrawControlImport()
+	case "formal-glm-control-delivery":
+		handleFormalGLMOneDrawControlDelivery()
+	// Closed pre-source projections for the first public formal-binomial
+	// slice. Scientific/privacy inputs are taken only from signed server state.
+	case "formal-glm-public-canonical-dp":
+		handleFormalGLMPublicCanonicalDPV1()
+	case "formal-glm-public-model-project":
+		handleFormalGLMPublicModelProjectV1()
+	case "formal-glm-public-provision-template":
+		handleFormalGLMPublicProvisionTemplateV1()
+	case "formal-glm-phase18-source-project":
+		handleFormalGLMPhase18SourceProjectV1()
+	// Closed, server-directed relay for the signed formal-Cox blockwise
+	// lifecycle. The family-typed command derives every record from Rock.
+	case "formal-cox-control-source":
+		handleFormalCoxBlockwiseControlSource()
+	case "formal-cox-control-import":
+		handleFormalCoxBlockwiseControlImport()
+	case "formal-cox-control-delivery":
+		handleFormalCoxBlockwiseControlDelivery()
 
 	// PSI (EC-DH on P-256)
 	case "psi-mask":

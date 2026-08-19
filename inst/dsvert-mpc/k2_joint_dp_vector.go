@@ -252,9 +252,13 @@ func jointDPPlanVectorLaplaceAccounting(
 	if err != nil {
 		return zero, err
 	}
-	delta, err := jointDPParseDecimalRat(input.Delta, "delta", false)
+	delta, err := jointDPParseDecimalRat(input.Delta, "delta", true)
 	if err != nil || (err == nil && delta.Cmp(big.NewRat(1, 1)) >= 0) {
-		return zero, fmt.Errorf("delta must be in (0,1)")
+		return zero, fmt.Errorf("delta must be in [0,1)")
+	}
+	if delta.Sign() == 0 {
+		return zero, fmt.Errorf(
+			"pure-DP is unavailable: the finite binary-geometric sampler has positive implementation delta")
 	}
 	sensitivity, err := jointDPParseDecimalRat(
 		input.SensitivitySteps, "sensitivity_steps", false)

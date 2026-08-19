@@ -42,7 +42,8 @@ func formalGLMTestPolicy(family string, custodians int) formalGLMPhase1Policy {
 	return formalGLMPhase1Policy{
 		Version:        formalGLMPhase1PolicyVersion,
 		ArtifactSHA256: hash('1'), CapsuleSHA256: hash('2'),
-		SnapshotSHA256: hash('3'), PinsetSHA256: hash('4'),
+		CanonicalScienceSHA256: hash('8'),
+		SnapshotSHA256:         hash('3'), PinsetSHA256: hash('4'),
 		CompilerSHA256: hash('5'), TheoremSHA256: hash('6'),
 		LinkTableSHA256: hash('7'), LinkErrorUpper: "8",
 		CustodianPeers: peers, ComputePeers: []string{"peer-a", "peer-b"},

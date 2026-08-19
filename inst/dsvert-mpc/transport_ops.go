@@ -59,6 +59,12 @@ func transportKeygen() (*TransportKeygenOutput, error) {
 // transportEncryptBytes encrypts arbitrary data under a recipient's X25519 public key.
 // Returns: ephemeral_pk (32) || nonce (12) || ciphertext || tag (16)
 func transportEncryptBytes(data []byte, recipientPKBytes []byte) ([]byte, error) {
+	return transportEncryptBytesAAD(data, recipientPKBytes, nil)
+}
+
+// transportEncryptBytesAAD is the same X25519/HKDF/AES-GCM primitive with a
+// caller-supplied, protocol-canonical additional-data binding.
+func transportEncryptBytesAAD(data, recipientPKBytes, aad []byte) ([]byte, error) {
 	curve := ecdh.X25519()
 
 	recipientPK, err := curve.NewPublicKey(recipientPKBytes)
@@ -100,7 +106,7 @@ func transportEncryptBytes(data []byte, recipientPKBytes []byte) ([]byte, error)
 		return nil, fmt.Errorf("nonce generation failed: %v", err)
 	}
 
-	ciphertext := gcm.Seal(nil, nonce, data, nil)
+	ciphertext := gcm.Seal(nil, nonce, data, aad)
 
 	// Format: ephemeral_pk (32) || nonce (12) || ciphertext+tag
 	result := make([]byte, 0, 32+12+len(ciphertext))
@@ -113,6 +119,10 @@ func transportEncryptBytes(data []byte, recipientPKBytes []byte) ([]byte, error)
 
 // transportDecryptBytes decrypts data encrypted by transportEncryptBytes.
 func transportDecryptBytes(sealed []byte, recipientSKBytes []byte) ([]byte, error) {
+	return transportDecryptBytesAAD(sealed, recipientSKBytes, nil)
+}
+
+func transportDecryptBytesAAD(sealed, recipientSKBytes, aad []byte) ([]byte, error) {
 	if len(sealed) < 32+12+16 {
 		return nil, fmt.Errorf("sealed data too short: %d bytes", len(sealed))
 	}
@@ -157,7 +167,7 @@ func transportDecryptBytes(sealed []byte, recipientSKBytes []byte) ([]byte, erro
 		return nil, fmt.Errorf("GCM failed: %v", err)
 	}
 
-	plaintext, err := gcm.Open(nil, nonce, ciphertextWithTag, nil)
+	plaintext, err := gcm.Open(nil, nonce, ciphertextWithTag, aad)
 	if err != nil {
 		return nil, fmt.Errorf("decryption failed (authentication error): %v", err)
 	}

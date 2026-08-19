@@ -158,6 +158,100 @@ func formalGLMPhase21RunFullLocal(
 	}, nil
 }
 
+func formalGLMPhase21RunFullLocalV2(
+	rw io.ReadWriter,
+	store *formalGLMPhase20HandoffStore,
+	capsule formalGLMPhase16CapsuleBinding,
+	request formalGLMPhase16ProductiveRequest,
+	backendSignatures []jointDPBiomedicalGaussianSignature,
+	fullRequest formalGLMPhase16FullFallbackRequest,
+	attestation formalGLMPhase16FullFallbackContractAttestation,
+	authorityRoot [32]byte,
+	signer ed25519.PrivateKey,
+	contract formalGLMPhase21SamplerV2Contract,
+	authorizations []formalGLMPhase21SamplerV2Authorization,
+) (formalGLMPhase21FullLocalOutput, error) {
+	var zero formalGLMPhase21FullLocalOutput
+	if rw == nil || store == nil {
+		return zero, fmt.Errorf("formal-glm: nil sampler-v2 full boundary")
+	}
+	if contract.SamplerMode != formalGLMPhase21SamplerV2Full {
+		return zero, fmt.Errorf("formal-glm: sampler-v2 full mode mismatch")
+	}
+	if err := formalGLMPhase21ValidateSamplerV2Authorizations(
+		contract, authorizations, store.pins); err != nil {
+		return zero, err
+	}
+	runtime, commit, err := formalGLMPhase21LoadAndAdmitFull(
+		store, capsule, request, backendSignatures, fullRequest, attestation)
+	if err != nil {
+		return zero, err
+	}
+	defer runtime.clear()
+	if runtime.Admission.Full == nil ||
+		runtime.Admission.Full.formalBinding == nil {
+		return zero, fmt.Errorf("formal-glm: sampler-v2 full binding is missing")
+	}
+	artifact, artifactID, err := formalGLMPhase21BuildCanonicalArtifact(
+		*runtime.Admission.Full.formalBinding, runtime.Source.Plan, store.pins)
+	if err != nil || artifactID != contract.ArtifactID ||
+		!reflect.DeepEqual(artifact, contract.Artifact) {
+		return zero, fmt.Errorf("formal-glm: sampler-v2 full artifact mismatch")
+	}
+	role, encoded, source, session, err :=
+		formalGLMPhase21FullSourceMaterialWithPins(runtime, store.pins)
+	if err != nil {
+		return zero, err
+	}
+	position := 0
+	if role == "evaluator" {
+		position = 1
+	}
+	authority := contract.Artifact.NoiseAuthorities[position]
+	maskRoot, commitment, err := formalGLMPhase21SamplerV2Derive(
+		authorityRoot, contract.ArtifactID, contract.SamplerMode,
+		role, authority.PeerName, authority.PeerID)
+	if err != nil || !reflect.DeepEqual(
+		commitment, contract.NoiseCommitments[position]) {
+		clear(maskRoot[:])
+		return zero, fmt.Errorf("formal-glm: sampler-v2 full root mismatch")
+	}
+	defer clear(maskRoot[:])
+	admission := *runtime.Admission.Full
+	binding := admission.formalBinding
+	var guard formalGLMPhase16FullRangeGuardReceipt
+	if role == "garbler" {
+		guard, err = formalGLMPhase16RunFullRangeGuardGarbler(
+			rw, admission, store.pins, session, runtime.Source.DPShares,
+			binding.ShiftedUpperBounds, source.source.BindingSHA256, 0,
+			maskRoot, signer)
+	} else {
+		guard, err = formalGLMPhase16RunFullRangeGuardEvaluator(
+			rw, admission, store.pins, session, runtime.Source.DPShares,
+			binding.ShiftedUpperBounds, source.source.BindingSHA256, 0,
+			signer)
+	}
+	if err != nil {
+		return zero, err
+	}
+	peerShare, err := jointDPBiomedicalGaussianRunFullPhase19PeerV2(
+		admission, store.pins, source, runtime.Source.backend,
+		authorityRoot, signer, encoded, contract)
+	if err != nil {
+		return zero, err
+	}
+	return formalGLMPhase21FullLocalOutput{
+		Version: formalGLMPhase21FullBoundReleaseVersion,
+		Peer:    runtime.Source.Result.Peer, Role: role,
+		HandoffSHA256: commit.SHA256, HandoffBytes: commit.Bytes,
+		Productive: runtime.Admission.Productive,
+		Admission:  admission, RangeGuard: guard, PeerShare: peerShare,
+		capsule: capsule, request: request,
+		fullRequest: fullRequest, attestation: attestation,
+		sourceBindingSHA: source.source.BindingSHA256,
+	}, nil
+}
+
 func formalGLMPhase21FullSourceMaterialWithPins(
 	runtime formalGLMPhase20LocalRuntime,
 	pins map[string]ed25519.PublicKey,

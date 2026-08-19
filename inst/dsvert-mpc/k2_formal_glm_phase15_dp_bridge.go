@@ -499,13 +499,6 @@ func buildFormalGLMPhase15DPBridgePlan(plan formalGLMPhase15Plan,
 	outputLatticeBits int) (formalGLMPhase15DPBridgePlan, error) {
 
 	var zero formalGLMPhase15DPBridgePlan
-	parsed, err := formalGLMPhase15ValidateShape(plan)
-	if err != nil {
-		return zero, err
-	}
-	if err := validateFormalGLMPhase15Plan(plan); err != nil {
-		return zero, err
-	}
 	if err := formalGLMPhase15VerifyReceiptPair(plan, receipts, pins); err != nil {
 		return zero, err
 	}
@@ -517,36 +510,8 @@ func buildFormalGLMPhase15DPBridgePlan(plan formalGLMPhase15Plan,
 		!storeStepIsFinalizer(plan, receipts[0].StepIndex) {
 		return zero, fmt.Errorf("formal-glm: receipts do not attest the final fixed step")
 	}
-	if outputLatticeBits < 1 || outputLatticeBits > 62 ||
-		outputLatticeBits > plan.Kernel.FracBits {
-		return zero, fmt.Errorf("formal-glm: invalid DP output lattice")
-	}
-	quantizationShift := plan.Kernel.FracBits - outputLatticeBits
-	denominator := new(big.Int).Lsh(big.NewInt(1), uint(quantizationShift))
-	upper := make([]string, len(parsed.box))
-	shiftedUpper := make([]*big.Int, len(parsed.box))
-	maxRing128 := exactGCMaxSigned(128)
-	for index, box := range parsed.box {
-		quantizedBox := exactGCCeilDiv(box, denominator)
-		shiftedUpper[index] = new(big.Int).Lsh(new(big.Int).Set(quantizedBox), 1)
-		if shiftedUpper[index].Cmp(maxRing128) > 0 {
-			return zero, &formalGLMNumericBackendError{
-				Code:         "dp_projection_ring128_unrepresentable",
-				RequiredBits: shiftedUpper[index].BitLen() + 1}
-		}
-		upper[index] = shiftedUpper[index].String()
-	}
-	planDigest, err := formalGLMPhase15PlanDigest(plan)
-	if err != nil {
-		return zero, err
-	}
-	certificate, err := buildFormalGLMPhase15L2SensitivityCertificate(
-		plan, parsed, outputLatticeBits, shiftedUpper, planDigest)
-	if err != nil {
-		return zero, err
-	}
-	certificateDigest, err := formalGLMPhase15DPSensitivityCertificateDigest(
-		certificate)
+	projection, err := buildFormalGLMPreSourceDPProjectionForLatticeV1(
+		plan, outputLatticeBits)
 	if err != nil {
 		return zero, err
 	}
@@ -555,26 +520,28 @@ func buildFormalGLMPhase15DPBridgePlan(plan formalGLMPhase15Plan,
 		return zero, err
 	}
 	transcript := receipts[0].TranscriptSHA256
+	certificate := projection.SelectedSensitivityCertificate
 	return formalGLMPhase15DPBridgePlan{
 		Version:                   formalGLMPhase15DPBridgeVersion,
-		Phase15PlanSHA256:         hex.EncodeToString(planDigest[:]),
+		Phase15PlanSHA256:         projection.Phase15PlanSHA256,
 		FinalReceiptPairSHA256:    hex.EncodeToString(receiptDigest[:]),
 		ExecutionTranscriptSHA256: transcript,
-		SnapshotSHA256:            plan.Kernel.SnapshotSHA256,
-		PinsetSHA256:              plan.Kernel.PinsetSHA256,
+		SnapshotSHA256:            projection.SnapshotSHA256,
+		PinsetSHA256:              projection.PinsetSHA256,
 		GarblerPeerName:           roles.garblerName,
 		GarblerPeerID:             roles.garblerID,
 		EvaluatorPeerName:         roles.evaluatorName,
 		EvaluatorPeerID:           roles.evaluatorID,
 		RoleSelection:             formalGLMPhase16RoleSelection,
-		Adjacency:                 plan.Kernel.Adjacency,
-		SourceRingBits:            plan.RingBits,
-		SourceFracBits:            plan.Kernel.FracBits,
-		OutputRingBits:            128,
-		OutputLatticeBits:         outputLatticeBits,
-		QuantizationShift:         quantizationShift,
-		CoordinateCount:           plan.Kernel.CoefficientCount,
-		ShiftedUpperBounds:        upper,
+		Adjacency:                 projection.Adjacency,
+		SourceRingBits:            projection.SourceRingBits,
+		SourceFracBits:            projection.SourceFracBits,
+		OutputRingBits:            projection.OutputRingBits,
+		OutputLatticeBits:         projection.OutputLatticeBits,
+		QuantizationShift:         projection.QuantizationShift,
+		CoordinateCount:           projection.CoordinateCount,
+		ShiftedUpperBounds: append([]string(nil),
+			projection.ShiftedUpperBounds...),
 		UniversalSensitivity: formalGLMPhase15DPSensitivity{
 			Version:       formalGLMPhase15DPSensitivityVersion,
 			Status:        "machine_proven",
@@ -589,12 +556,12 @@ func buildFormalGLMPhase15DPBridgePlan(plan formalGLMPhase15Plan,
 			BoundSteps:    certificate.RecurrenceBoundSteps,
 			TheoremSHA256: plan.Kernel.TheoremSHA256,
 		},
-		SelectedSensitivitySteps:             certificate.SelectedBoundSteps,
-		SelectedSensitivityProof:             certificate.SelectedProof,
+		SelectedSensitivitySteps:             projection.SelectedSensitivitySteps,
+		SelectedSensitivityProof:             projection.SelectedSensitivityProof,
 		SelectedSensitivityCertificate:       certificate,
-		SelectedSensitivityCertificateSHA256: hex.EncodeToString(certificateDigest[:]),
+		SelectedSensitivityCertificateSHA256: projection.SelectedSensitivityCertificateSHA256,
 		SensitivitySelection:                 "minimum_of_machine_proven_bounds_only_v1",
-		Quantization:                         "signed_floor_then_public_box_translation_inside_exact_gc_v1",
+		Quantization:                         projection.Quantization,
 		IntermediateOutput:                   "sealed_nonnegative_ring128_additive_shares_only_v1",
 		AuthenticatedOpening:                 "blocked_until_common_glm_release_capsule_e2e_v1",
 		ProductionReady:                      false,

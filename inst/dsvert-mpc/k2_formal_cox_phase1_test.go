@@ -604,12 +604,36 @@ func TestFormalCoxPhase1RemainsAbsentFromGenericCompilerWorkerCLIAndSurface(t *t
 		t.Fatal("runtime capability advertises internal formal Cox")
 	}
 	mainSource, err := os.ReadFile("main.go")
-	if err != nil || strings.Contains(string(mainSource), "formal-cox") {
-		t.Fatalf("CLI exposes formal Cox: %v", err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var formalCoxCommands []string
+	for _, line := range strings.Split(string(mainSource), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, `case "formal-cox-`) {
+			formalCoxCommands = append(formalCoxCommands, line)
+		}
+	}
+	wantControlCommands := []string{
+		`case "formal-cox-control-source":`,
+		`case "formal-cox-control-import":`,
+		`case "formal-cox-control-delivery":`,
+	}
+	if strings.Join(formalCoxCommands, "\n") !=
+		strings.Join(wantControlCommands, "\n") {
+		t.Fatalf("CLI formal Cox commands = %q; want private control relay only",
+			formalCoxCommands)
 	}
 	namespace, err := os.ReadFile("../../NAMESPACE")
-	if err != nil || strings.Contains(string(namespace), "formalCox") ||
-		strings.Contains(string(namespace), "formal_cox") {
-		t.Fatalf("R surface exports formal Cox: %v", err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	namespaceText := string(namespace)
+	const controlExport = "export(dsvertFormalCoxControlSourceDS)"
+	remainingNamespace := strings.Replace(namespaceText, controlExport, "", 1)
+	if strings.Count(namespaceText, controlExport) != 1 ||
+		strings.Contains(remainingNamespace, "formalCox") ||
+		strings.Contains(remainingNamespace, "formal_cox") {
+		t.Fatal("R formal Cox surface is not the private control source only")
 	}
 }

@@ -86,18 +86,54 @@ func formalGLMPhase19ScheduleWriteConfig(t testing.TB, spool string,
 	return path
 }
 
-func formalGLMPhase19ScheduleReadResult(t testing.TB, spool string) (
-	formalGLMPhase19ScheduleResult, []byte) {
+func formalGLMPhase19ScheduleReadCompletion(t testing.TB, spool string) (
+	formalGLMPhase19ScheduleCompletion, []byte) {
 	t.Helper()
 	encoded, err := os.ReadFile(filepath.Join(spool, "result.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var result formalGLMPhase19ScheduleResult
+	var result formalGLMPhase19ScheduleCompletion
 	if err := json.Unmarshal(encoded, &result); err != nil {
 		t.Fatal(err)
 	}
 	return result, encoded
+}
+
+func formalGLMPhase19ScheduleLoadHandoff(t testing.TB,
+	config formalGLMPhase19ScheduleWorkerConfig,
+) (formalGLMPhase20HandoffSource, *formalGLMPhase20HandoffStore) {
+	t.Helper()
+	checkpoint, err := formalGLMPhase19RuntimeDecodeKey(
+		config.Durable.CheckpointKey, "test checkpoint key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend, err := formalGLMPhase19RuntimeDecodeKey(
+		config.LocalTemplate.BackendKey, "test backend key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pins, err := formalGLMPhase19ScheduleDecodePins(
+		config.Durable.PinnedPublicKeys,
+		config.LocalTemplate.Plan.Kernel.CustodianPeers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := newFormalGLMPhase20HandoffStore(
+		config.HandoffDir, config.SemanticRootSHA256,
+		config.LocalTemplate.Recipient, checkpoint, backend, pins)
+	clear(checkpoint[:])
+	clear(backend[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, _, err := store.Load()
+	if err != nil {
+		store.close()
+		t.Fatal(err)
+	}
+	return source, store
 }
 
 func TestFormalGLMPhase19DurableScheduleWorkerOverSegmentedSpoolK2K3K4K5(
@@ -157,54 +193,56 @@ func TestFormalGLMPhase19DurableScheduleWorkerOverSegmentedSpoolK2K3K4K5(
 						t.Fatalf("durable schedule worker: %v", err)
 					}
 				}
-				garbler, garblerJSON := formalGLMPhase19ScheduleReadResult(
+				garblerCompletion, garblerJSON := formalGLMPhase19ScheduleReadCompletion(
 					t, garblerDir)
-				evaluator, evaluatorJSON := formalGLMPhase19ScheduleReadResult(
+				evaluatorCompletion, evaluatorJSON := formalGLMPhase19ScheduleReadCompletion(
 					t, evaluatorDir)
-				for _, result := range []formalGLMPhase19ScheduleResult{
-					garbler, evaluator,
+				for _, result := range []formalGLMPhase19ScheduleCompletion{
+					garblerCompletion, evaluatorCompletion,
 				} {
-					if result.Version != formalGLMPhase19ScheduleResultVersion ||
-						result.Kind != formalGLMPhase19ScheduleResultKind ||
+					if result.Version != formalGLMPhase19ScheduleCompletionVersion ||
+						result.Kind != formalGLMPhase19ScheduleCompletionKind ||
 						!formalGLMIsSHA256(result.HandoffSHA256) ||
 						result.HandoffBytes < 64 || result.HandoffReplayed ||
 						!result.ExecutionValidSealed ||
 						result.ExecutionValidityOpened ||
-						result.OpeningsPerformed != 0 || result.ProductionReady ||
-						result.PostExecutionToken.TokenSHA256 == "" {
+						result.OpeningsPerformed != 0 || result.ProductionReady {
 						t.Fatalf("invalid private schedule result: %#v", result)
 					}
 				}
-				if garbler.PostExecutionToken.TokenSHA256 !=
-					evaluator.PostExecutionToken.TokenSHA256 ||
-					garbler.DPBridge.FinalReceiptPairSHA256 !=
-						evaluator.DPBridge.FinalReceiptPairSHA256 ||
+				if garblerCompletion.ContextSHA256 !=
+					evaluatorCompletion.ContextSHA256 ||
+					garblerCompletion.PlanSHA256 != evaluatorCompletion.PlanSHA256 ||
 					garblerOffset == 0 || evaluatorOffset == 0 {
 					t.Fatal("durable schedule peers did not commit one transcript")
 				}
 				for _, encoded := range [][]byte{garblerJSON, evaluatorJSON} {
-					if bytes.Contains(encoded, []byte(`"betaShares"`)) ||
+					if bytes.Contains(encoded, []byte(`"dp_share"`)) ||
+						bytes.Contains(encoded, []byte(`"betaShares"`)) ||
 						bytes.Contains(encoded, []byte(`"backend_key"`)) ||
 						bytes.Contains(encoded, []byte(`"signing_secret_key"`)) ||
 						bytes.Contains(encoded, []byte(`"local_ingress_key"`)) {
 						t.Fatal("private schedule result serialized an upstream secret")
 					}
 				}
-				spec := exactGCCircuitSpec{
-					Operation: exactGCFormalGLMDPBridge,
-					RingBits:  128, FracBits: 0,
-					VectorLen: fixture.plan.Kernel.CoefficientCount,
+				garblerSource, garblerStore := formalGLMPhase19ScheduleLoadHandoff(
+					t, garblerConfig)
+				defer garblerSource.clear()
+				defer garblerStore.close()
+				evaluatorSource, evaluatorStore := formalGLMPhase19ScheduleLoadHandoff(
+					t, evaluatorConfig)
+				defer evaluatorSource.clear()
+				defer evaluatorStore.close()
+				garbler := garblerSource.Result
+				evaluator := evaluatorSource.Result
+				if garbler.PostExecutionToken.TokenSHA256 !=
+					evaluator.PostExecutionToken.TokenSHA256 ||
+					garbler.DPBridge.FinalReceiptPairSHA256 !=
+						evaluator.DPBridge.FinalReceiptPairSHA256 {
+					t.Fatal("encrypted handoffs did not bind one transcript")
 				}
-				garblerShares, err := exactGCDecodeWorkerCanonicalShares(
-					garbler.DPShare, spec)
-				if err != nil {
-					t.Fatal(err)
-				}
-				evaluatorShares, err := exactGCDecodeWorkerCanonicalShares(
-					evaluator.DPShare, spec)
-				if err != nil {
-					t.Fatal(err)
-				}
+				garblerShares := garblerSource.DPShares
+				evaluatorShares := evaluatorSource.DPShares
 				complete := formalGLMPhase19RuntimeExpected(fixture)
 				beta, err := referenceFormalGLMPhase15(fixture.plan, complete)
 				if err != nil {
@@ -238,18 +276,15 @@ func TestFormalGLMPhase19DurableScheduleWorkerOverSegmentedSpoolK2K3K4K5(
 					if err := handleFormalGLMPhase19ScheduleWorker(replayPath); err != nil {
 						t.Fatal(err)
 					}
-					replayed, _ := formalGLMPhase19ScheduleReadResult(t, replayDir)
+					replayed, _ := formalGLMPhase19ScheduleReadCompletion(t, replayDir)
 					if !replayed.HandoffReplayed ||
-						replayed.HandoffSHA256 != garbler.HandoffSHA256 ||
-						replayed.DPShare != garbler.DPShare ||
+						replayed.HandoffSHA256 != garblerCompletion.HandoffSHA256 ||
 						replayed.ScheduleRootSHA256 !=
 							replayConfig.ScheduleRootSHA256 ||
 						replayed.AttemptID != replayConfig.AttemptID {
 						t.Fatal("worker restart did not reuse the committed handoff")
 					}
 				}
-				exactGCZeroBigInts(garblerShares)
-				exactGCZeroBigInts(evaluatorShares)
 				exactGCZeroBigInts(beta)
 				exactGCZeroBigInts(want)
 			})
@@ -278,5 +313,113 @@ func TestFormalGLMPhase19ScheduleWorkerRejectsUnsafeOrRoleChangedConfig(
 	config.Role = "evaluator"
 	if _, err := formalGLMPhase19ScheduleValidateConfig(config); err == nil {
 		t.Fatal("schedule worker accepted a role/recipient substitution")
+	}
+}
+
+func TestFormalGLMPhase19ScheduleWorkerBindsCryptographicRoleOrderK2K3K5(
+	t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		name := "K" + string(rune('0'+custodians))
+		t.Run(name, func(t *testing.T) {
+			fixture := formalGLMPhase18TestBuildFinalizerFixtureFamily(
+				t, custodians, "binomial")
+			inputs := formalGLMPhase19RuntimeTestInputs(t, fixture)
+			spool := exactGCTestSpool(t, "formal-schedule-role-binding")
+			config := formalGLMPhase19ScheduleTestConfig(
+				t, fixture, inputs, fixture.ctx.ComputePeers[0],
+				"garbler", spool)
+
+			computeNames := append([]string(nil),
+				config.LocalTemplate.Plan.Kernel.ComputePeers...)
+			signingSecrets := map[string]string{
+				computeNames[0]: base64.StdEncoding.EncodeToString(
+					fixture.identities.private[computeNames[0]]),
+				computeNames[1]: base64.StdEncoding.EncodeToString(
+					fixture.identities.private[computeNames[1]]),
+			}
+			pins, err := formalGLMPhase19ScheduleDecodePins(
+				config.Durable.PinnedPublicKeys,
+				config.LocalTemplate.Plan.Kernel.CustodianPeers)
+			if err != nil {
+				t.Fatal(err)
+			}
+			roles, err := formalGLMPhase15DPBridgePinnedRoles(
+				config.LocalTemplate.Plan, pins)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if roles.garblerName == computeNames[0] {
+				config.Durable.PinnedPublicKeys[computeNames[0]],
+					config.Durable.PinnedPublicKeys[computeNames[1]] =
+					config.Durable.PinnedPublicKeys[computeNames[1]],
+					config.Durable.PinnedPublicKeys[computeNames[0]]
+				signingSecrets[computeNames[0]], signingSecrets[computeNames[1]] =
+					signingSecrets[computeNames[1]], signingSecrets[computeNames[0]]
+				pins, err = formalGLMPhase19ScheduleDecodePins(
+					config.Durable.PinnedPublicKeys,
+					config.LocalTemplate.Plan.Kernel.CustodianPeers)
+				if err != nil {
+					t.Fatal(err)
+				}
+				roles, err = formalGLMPhase15DPBridgePinnedRoles(
+					config.LocalTemplate.Plan, pins)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if roles.garblerName != computeNames[1] ||
+				roles.evaluatorName != computeNames[0] {
+				t.Fatal("test did not invert logical-name and cryptographic role order")
+			}
+			config.LocalTemplate.Plan.Kernel.ComputePeers = []string{
+				roles.garblerName, roles.evaluatorName,
+			}
+			config.LocalTemplate.Recipient = roles.garblerName
+			config.Durable.SigningSecretKey = signingSecrets[roles.garblerName]
+
+			if _, err := formalGLMPhase19ScheduleValidateConfig(config); err != nil {
+				t.Fatalf("canonical cryptographic role order: %v", err)
+			}
+			canonicalDigest, err := formalGLMPhase15PlanDigest(
+				config.LocalTemplate.Plan)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			tampered := config
+			tampered.LocalTemplate.Plan.Kernel.ComputePeers = append(
+				[]string(nil), config.LocalTemplate.Plan.Kernel.ComputePeers...)
+			tampered.LocalTemplate.Plan.Kernel.ComputePeers[0],
+				tampered.LocalTemplate.Plan.Kernel.ComputePeers[1] =
+				tampered.LocalTemplate.Plan.Kernel.ComputePeers[1],
+				tampered.LocalTemplate.Plan.Kernel.ComputePeers[0]
+			tampered.LocalTemplate.Recipient =
+				tampered.LocalTemplate.Plan.Kernel.ComputePeers[0]
+			tamperedDigest, err := formalGLMPhase15PlanDigest(
+				tampered.LocalTemplate.Plan)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if canonicalDigest == tamperedDigest {
+				t.Fatal("compute-role order was not bound into the signed plan digest")
+			}
+			if _, err := formalGLMPhase19ScheduleValidateConfig(tampered); err == nil {
+				t.Fatal("schedule worker accepted name-ordered role tampering")
+			}
+
+			pinTampered := config
+			pinTampered.Durable.PinnedPublicKeys = make(map[string]string,
+				len(config.Durable.PinnedPublicKeys))
+			for peer, pin := range config.Durable.PinnedPublicKeys {
+				pinTampered.Durable.PinnedPublicKeys[peer] = pin
+			}
+			pinTampered.Durable.PinnedPublicKeys[computeNames[0]],
+				pinTampered.Durable.PinnedPublicKeys[computeNames[1]] =
+				pinTampered.Durable.PinnedPublicKeys[computeNames[1]],
+				pinTampered.Durable.PinnedPublicKeys[computeNames[0]]
+			if _, err := formalGLMPhase19ScheduleValidateConfig(pinTampered); err == nil {
+				t.Fatal("schedule worker accepted identity-pin role tampering")
+			}
+		})
 	}
 }

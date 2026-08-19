@@ -380,6 +380,51 @@ func jointDPBiomedicalGaussianRunFullPhase19Peer(
 	return value, nil
 }
 
+func jointDPBiomedicalGaussianRunFullPhase19PeerV2(
+	admission jointDPBiomedicalGaussianFullAdmission,
+	pins map[string]ed25519.PublicKey,
+	binding jointDPBiomedicalGaussianFullPhase19SourceBinding,
+	backendKey, root [32]byte, signer ed25519.PrivateKey,
+	sourceShare string,
+	contract formalGLMPhase21SamplerV2Contract,
+) (jointDPBiomedicalGaussianFullPhase19PeerShare, error) {
+	var zero jointDPBiomedicalGaussianFullPhase19PeerShare
+	if err := jointDPBiomedicalGaussianValidateFullPhase19Source(
+		admission, pins, binding, backendKey, sourceShare); err != nil {
+		return zero, err
+	}
+	share, err := jointDPBiomedicalGaussianRunFullPeerV2(
+		admission, pins, binding.source, binding.PeerName, root,
+		signer, sourceShare, contract)
+	if err != nil {
+		return zero, err
+	}
+	value := jointDPBiomedicalGaussianFullPhase19PeerShare{
+		Version:               jointDPBiomedicalGaussianFullPhase19PeerVersion,
+		Backend:               jointDPGaussianBackend,
+		ReleaseInstanceID:     share.ReleaseInstanceID,
+		ReleaseContractSHA256: share.ReleaseContractSHA256,
+		PeerName:              share.PeerName, ChunkStart: share.ChunkStart,
+		CoordinateCount:                   share.CoordinateCount,
+		Phase19PostExecutionRootSHA256:    binding.Phase19PostExecutionRootSHA256,
+		Phase19ExecutionReceiptPairSHA256: binding.Phase19ExecutionReceiptPairSHA256,
+		OpeningsPerformed:                 0, ProductionReady: false,
+		share: share, source: binding, verified: true,
+	}
+	message, err := jointDPBiomedicalGaussianFullPhase19PeerMessage(value)
+	if err != nil {
+		return zero, err
+	}
+	value.Signature = ed25519.Sign(signer, message)
+	value.seal = formalGLMPhase19MAC(backendKey,
+		jointDPBiomedicalGaussianFullPhase19PeerDomain+"/seal", message)
+	if err := jointDPBiomedicalGaussianValidateFullPhase19PeerShare(
+		admission, pins, value, backendKey); err != nil {
+		return zero, err
+	}
+	return value, nil
+}
+
 func jointDPBiomedicalGaussianValidateFullPhase19PeerShare(
 	admission jointDPBiomedicalGaussianFullAdmission,
 	pins map[string]ed25519.PublicKey,

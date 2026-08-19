@@ -60,6 +60,11 @@ func formalGLMPhase18TestBuildFinalizerFixtureFamily(t testing.TB,
 	t.Helper()
 	plan := formalGLMPhase15TestPlan(t, family, custodians, 1, 1, 1, 2)
 	identities := formalGLMPhase15TestIdentitySet(t, plan.Kernel.CustodianPeers)
+	roles, err := formalGLMPhase15DPBridgePinnedRoles(plan, identities.public)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan.Kernel.ComputePeers = []string{roles.garblerName, roles.evaluatorName}
 	pinset, err := formalGLMPhase16PinsetSHA256(identities.public)
 	if err != nil {
 		t.Fatal(err)

@@ -1,9 +1,9 @@
 package main
 
 // Multiprocess boundary for the complete durable Phase-1.9 -> Phase-1.5 ->
-// DP-bridge schedule.  It reuses the exact-GC bounded spool and publishes its
-// additive Ring128 DP share only to a private server-local result file.  The
-// command remains internal and is not advertised by runtime-capabilities.
+// DP-bridge schedule. It reuses the exact-GC bounded spool and persists its
+// additive Ring128 DP share only inside the authenticated encrypted Phase-2.0
+// handoff. The command remains internal and is not advertised by capabilities.
 
 import (
 	"bufio"
@@ -22,9 +22,11 @@ import (
 )
 
 const (
-	formalGLMPhase19ScheduleWorkerVersion = "dsvert-formal-glm-phase19-durable-schedule-worker-v1"
-	formalGLMPhase19ScheduleResultVersion = "dsvert-formal-glm-phase19-durable-schedule-result-v1"
-	formalGLMPhase19ScheduleResultKind    = "formal-glm-phase19-ring128-dp-bridge-share-v1"
+	formalGLMPhase19ScheduleWorkerVersion     = "dsvert-formal-glm-phase19-durable-schedule-worker-v1"
+	formalGLMPhase19ScheduleResultVersion     = "dsvert-formal-glm-phase19-durable-schedule-result-v1"
+	formalGLMPhase19ScheduleResultKind        = "formal-glm-phase19-ring128-dp-bridge-share-v1"
+	formalGLMPhase19ScheduleCompletionVersion = "dsvert-formal-glm-phase19-durable-schedule-completion-v1"
+	formalGLMPhase19ScheduleCompletionKind    = "formal-glm-phase20-encrypted-handoff-only-v1"
 )
 
 type formalGLMPhase19ScheduleManifestBlock struct {
@@ -82,6 +84,27 @@ type formalGLMPhase19ScheduleResult struct {
 	ExecutionValidityOpened  bool                                 `json:"execution_validity_opened"`
 	OpeningsPerformed        int                                  `json:"openings_performed"`
 	ProductionReady          bool                                 `json:"production_ready"`
+}
+
+// formalGLMPhase19ScheduleCompletion is the only cleartext terminal record.
+// The DP share and its evidence remain inside the authenticated encrypted
+// Phase-2.0 handoff and therefore have no worker-spool JSON representation.
+type formalGLMPhase19ScheduleCompletion struct {
+	Version                 string `json:"version"`
+	Kind                    string `json:"kind"`
+	ContextSHA256           string `json:"context_sha256"`
+	PlanSHA256              string `json:"plan_sha256"`
+	SemanticRootSHA256      string `json:"semantic_root_sha256"`
+	ScheduleRootSHA256      string `json:"schedule_root_sha256"`
+	Peer                    string `json:"peer"`
+	AttemptID               string `json:"attempt_id"`
+	HandoffSHA256           string `json:"handoff_sha256"`
+	HandoffBytes            int64  `json:"handoff_bytes"`
+	HandoffReplayed         bool   `json:"handoff_replayed"`
+	ExecutionValidSealed    bool   `json:"execution_valid_sealed"`
+	ExecutionValidityOpened bool   `json:"execution_validity_opened"`
+	OpeningsPerformed       int    `json:"openings_performed"`
+	ProductionReady         bool   `json:"production_ready"`
 }
 
 type formalGLMPhase19ScheduleWorkerDecoded struct {
@@ -252,6 +275,17 @@ func (reader *formalGLMPhase19ScheduleManifestReader) Close() error {
 	return err
 }
 
+func formalGLMPhase19ScheduleValidateRoleBinding(
+	plan formalGLMPhase15Plan, pins map[string]ed25519.PublicKey) error {
+	roles, err := formalGLMPhase15DPBridgePinnedRoles(plan, pins)
+	if err != nil || roles.garblerName != plan.Kernel.ComputePeers[0] ||
+		roles.evaluatorName != plan.Kernel.ComputePeers[1] {
+		return fmt.Errorf(
+			"formal-glm: signed plan changed pinned cryptographic role order")
+	}
+	return nil
+}
+
 func formalGLMPhase19ScheduleValidateConfig(
 	config formalGLMPhase19ScheduleWorkerConfig) (
 	formalGLMPhase19ScheduleWorkerDecoded, error) {
@@ -314,6 +348,15 @@ func formalGLMPhase19ScheduleValidateConfig(
 	if err != nil {
 		clear(checkpointKey[:])
 		clear(signingKey)
+		return zero, err
+	}
+	if err := formalGLMPhase19ScheduleValidateRoleBinding(plan, pins); err != nil {
+		clear(checkpointKey[:])
+		clear(signingKey)
+		for name, pin := range pins {
+			clear(pin)
+			delete(pins, name)
+		}
 		return zero, err
 	}
 	durable := formalGLMPhase19RuntimeDurableConfig{
@@ -402,6 +445,58 @@ func formalGLMPhase19ScheduleEncodeResult(
 		ExecutionValidSealed:     true, ExecutionValidityOpened: false,
 		OpeningsPerformed: 0, ProductionReady: false,
 	}, nil
+}
+
+func formalGLMPhase19ScheduleCompletionFromResult(
+	result formalGLMPhase19ScheduleResult,
+) (formalGLMPhase19ScheduleCompletion, error) {
+	var zero formalGLMPhase19ScheduleCompletion
+	if result.Version != formalGLMPhase19ScheduleResultVersion ||
+		result.Kind != formalGLMPhase19ScheduleResultKind ||
+		!formalGLMIsSHA256(result.ContextSHA256) ||
+		!formalGLMIsSHA256(result.PlanSHA256) ||
+		!formalGLMIsSHA256(result.SemanticRootSHA256) ||
+		!formalGLMIsSHA256(result.ScheduleRootSHA256) ||
+		!formalGLMIsSHA256(result.AttemptID) ||
+		!formalGLMIsSHA256(result.HandoffSHA256) ||
+		result.HandoffBytes < 64 ||
+		result.HandoffBytes > formalGLMPhase20HandoffMaxBytes ||
+		exactGCValidateLabel("formal schedule completion peer", result.Peer, 128) != nil ||
+		!result.ExecutionValidSealed || result.ExecutionValidityOpened ||
+		result.OpeningsPerformed != 0 || result.ProductionReady {
+		return zero, fmt.Errorf("formal-glm: invalid durable schedule completion")
+	}
+	return formalGLMPhase19ScheduleCompletion{
+		Version:                 formalGLMPhase19ScheduleCompletionVersion,
+		Kind:                    formalGLMPhase19ScheduleCompletionKind,
+		ContextSHA256:           result.ContextSHA256,
+		PlanSHA256:              result.PlanSHA256,
+		SemanticRootSHA256:      result.SemanticRootSHA256,
+		ScheduleRootSHA256:      result.ScheduleRootSHA256,
+		Peer:                    result.Peer,
+		AttemptID:               result.AttemptID,
+		HandoffSHA256:           result.HandoffSHA256,
+		HandoffBytes:            result.HandoffBytes,
+		HandoffReplayed:         result.HandoffReplayed,
+		ExecutionValidSealed:    true,
+		ExecutionValidityOpened: false,
+		OpeningsPerformed:       0,
+		ProductionReady:         false,
+	}, nil
+}
+
+func formalGLMPhase19ScheduleWriteCompletion(spool string,
+	result formalGLMPhase19ScheduleResult,
+) error {
+	completion, err := formalGLMPhase19ScheduleCompletionFromResult(result)
+	if err != nil {
+		return err
+	}
+	encoded, err := json.Marshal(completion)
+	if err != nil {
+		return err
+	}
+	return exactGCPrivateMarker(spool, "result.json", encoded)
 }
 
 func formalGLMPhase19ScheduleReadWorkerConfig(path string) (
@@ -495,16 +590,12 @@ func handleFormalGLMPhase19ScheduleWorker(configPath string) (returnErr error) {
 		result.HandoffSHA256 = committed.SHA256
 		result.HandoffBytes = committed.Bytes
 		result.HandoffReplayed = true
-		encoded, marshalErr := json.Marshal(result)
-		if marshalErr != nil {
-			return marshalErr
-		}
 		if err := stopHeartbeat(); err != nil {
 			return err
 		}
 		heartbeatStopped = true
-		if err := exactGCPrivateMarker(
-			config.SpoolDir, "result.json", encoded); err != nil {
+		if err := formalGLMPhase19ScheduleWriteCompletion(
+			config.SpoolDir, result); err != nil {
 			return err
 		}
 		return exactGCPrivateMarker(config.SpoolDir, "done", []byte("1"))
@@ -569,15 +660,12 @@ func handleFormalGLMPhase19ScheduleWorker(configPath string) (returnErr error) {
 	result.HandoffSHA256 = committed.SHA256
 	result.HandoffBytes = committed.Bytes
 	result.HandoffReplayed = committed.Replayed
-	encoded, err := json.Marshal(result)
-	if err != nil {
-		return err
-	}
 	if err := stopHeartbeat(); err != nil {
 		return err
 	}
 	heartbeatStopped = true
-	if err := exactGCPrivateMarker(config.SpoolDir, "result.json", encoded); err != nil {
+	if err := formalGLMPhase19ScheduleWriteCompletion(
+		config.SpoolDir, result); err != nil {
 		return err
 	}
 	if err := exactGCPrivateMarker(config.SpoolDir, "done", []byte("1")); err != nil {

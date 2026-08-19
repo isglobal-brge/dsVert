@@ -11,6 +11,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/big"
@@ -18,6 +19,80 @@ import (
 )
 
 const formalGLMPhase21BoundReleaseVersion = "dsvert-formal-glm-phase21-source-bound-release-v1"
+
+func formalGLMPhase21OneDrawSamplerV2Spec(
+	legacy jointDPGaussianOneDrawSpec,
+	contract formalGLMPhase21SamplerV2Contract,
+) (jointDPGaussianOneDrawSpec, error) {
+	var zero jointDPGaussianOneDrawSpec
+	artifact := contract.Artifact
+	if contract.SamplerMode != formalGLMPhase21SamplerV2OneDraw ||
+		legacy.TotalCoordinateCount != artifact.CoordinateCount ||
+		legacy.OutputLatticeBits != artifact.OutputLatticeBits ||
+		legacy.Epsilon == nil ||
+		legacy.Epsilon.RatString() != artifact.EpsilonRational ||
+		legacy.AllocatedDelta == nil ||
+		legacy.AllocatedDelta.RatString() != artifact.DeltaRational ||
+		legacy.L2SensitivitySteps == nil ||
+		legacy.L2SensitivitySteps.String() != artifact.SensitivitySteps ||
+		legacy.GarblerPeerID != artifact.NoiseAuthorities[0].PeerID ||
+		legacy.EvaluatorPeerID != artifact.NoiseAuthorities[1].PeerID ||
+		legacy.CustodianCount != artifact.CustodianCount {
+		return zero, fmt.Errorf("formal-glm: sampler-v2 one-draw semantics mismatch")
+	}
+	artifactDigest, err := jointDPDecodeHex32(
+		contract.ArtifactID, "sampler-v2 artifact id")
+	if err != nil {
+		return zero, err
+	}
+	pinset, err := jointDPDecodeHex32(
+		artifact.PinsetSHA256, "sampler-v2 pinset")
+	if err != nil {
+		return zero, err
+	}
+	garblerContext, err := jointDPDecodeHex32(
+		contract.NoiseCommitments[0].CommitmentContextSHA256,
+		"sampler-v2 garbler context")
+	if err != nil {
+		return zero, err
+	}
+	evaluatorContext, err := jointDPDecodeHex32(
+		contract.NoiseCommitments[1].CommitmentContextSHA256,
+		"sampler-v2 evaluator context")
+	if err != nil {
+		return zero, err
+	}
+	garblerCommitment, err := jointDPDecodeHex32(
+		contract.NoiseCommitments[0].SeedCommitmentSHA256,
+		"sampler-v2 garbler commitment")
+	if err != nil {
+		return zero, err
+	}
+	evaluatorCommitment, err := jointDPDecodeHex32(
+		contract.NoiseCommitments[1].SeedCommitmentSHA256,
+		"sampler-v2 evaluator commitment")
+	if err != nil {
+		return zero, err
+	}
+	canonicalArtifact, err := json.Marshal(artifact)
+	if err != nil {
+		return zero, err
+	}
+	spec := legacy
+	spec.ReleaseBindingCanonicalJSON = string(canonicalArtifact)
+	spec.TranscriptHash = artifactDigest
+	spec.ReleaseBinding = artifactDigest
+	spec.CrossSignedPolicy = artifactDigest
+	spec.PinsetSHA256 = pinset
+	spec.GarblerCommitmentContext = garblerContext
+	spec.EvaluatorCommitmentContext = evaluatorContext
+	spec.GarblerSeedCommitment = garblerCommitment
+	spec.EvaluatorSeedCommitment = evaluatorCommitment
+	if err := spec.validate(); err != nil {
+		return zero, err
+	}
+	return spec, nil
+}
 
 // formalGLMPhase21OneDrawLocalOutput is process-local.  Shares and the local
 // source-binding digest are deliberately excluded from JSON by having no JSON
@@ -217,6 +292,132 @@ func formalGLMPhase21RunOneDrawLocal(
 		Shares:           shares,
 		capsule:          capsule,
 		request:          request,
+		sourceBindingSHA: binding.BindingSHA256,
+	}, nil
+}
+
+// formalGLMPhase21RunOneDrawLocalV2 retains the K-signed legacy envelope as
+// source/admission evidence, but it never uses that envelope's run, epoch or
+// release-instance hashes as sampler input. The authority root is first
+// checked against the legacy commitment, then a distinct seed is derived from
+// the canonical artifact ID and the exact v2 role/purpose.
+func formalGLMPhase21RunOneDrawLocalV2(
+	rw io.ReadWriter,
+	store *formalGLMPhase20HandoffStore,
+	capsule formalGLMPhase16CapsuleBinding,
+	request formalGLMPhase16ProductiveRequest,
+	backendSignatures, workerSignatures []jointDPBiomedicalGaussianSignature,
+	authorityRoot [32]byte,
+	signer ed25519.PrivateKey,
+	contract formalGLMPhase21SamplerV2Contract,
+	authorizations []formalGLMPhase21SamplerV2Authorization,
+	registryResolution *formalGLMArtifactRegistryResolutionV1,
+) (formalGLMPhase21OneDrawLocalOutput, error) {
+	var zero formalGLMPhase21OneDrawLocalOutput
+	if err := formalGLMPhase21RequireProductiveOneDraw(
+		contract.SamplerMode); err != nil {
+		return zero, err
+	}
+	if rw == nil || store == nil {
+		return zero, fmt.Errorf("formal-glm: nil sampler-v2 one-draw boundary")
+	}
+	if err := formalGLMPhase21ValidateSamplerV2Authorizations(
+		contract, authorizations, store.pins); err != nil {
+		return zero, err
+	}
+	runtime, commit, err := formalGLMPhase21LoadAndAdmit(
+		store, capsule, request, backendSignatures, workerSignatures)
+	if err != nil {
+		return zero, err
+	}
+	defer runtime.clear()
+	artifact, artifactID, err := formalGLMPhase21BuildCanonicalArtifact(
+		runtime.Admission.Productive.Compiled.Binding,
+		runtime.Source.Plan, store.pins)
+	if err == nil && contract.Artifact.DescriptorCoreSHA256 != "" {
+		if registryResolution == nil {
+			return zero, fmt.Errorf(
+				"formal-glm: registered sampler lacks registry resolution")
+		}
+		artifact, artifactID, err = formalGLMPhase21ProjectRegisteredArtifactV1(
+			artifact, contract.Artifact, *registryResolution, store.pins)
+	} else if err == nil && registryResolution != nil {
+		return zero, fmt.Errorf(
+			"formal-glm: broad sampler cannot use registry resolution")
+	}
+	if err != nil || artifactID != contract.ArtifactID ||
+		!reflect.DeepEqual(artifact, contract.Artifact) {
+		return zero, fmt.Errorf("formal-glm: sampler-v2 one-draw artifact mismatch")
+	}
+	legacySpec, session, role, encoded, binding, err :=
+		formalGLMPhase21SourceMaterial(runtime)
+	if err != nil {
+		return zero, err
+	}
+	legacyRoot := base64.StdEncoding.EncodeToString(authorityRoot[:])
+	_, legacySeed, err := jointDPBiomedicalGaussianVerifyProductiveWorkerInput(
+		runtime.Admission.Productive.Envelope,
+		runtime.Admission.Productive.Trust, binding, session,
+		role, encoded, legacyRoot)
+	clear(legacySeed[:])
+	if err != nil {
+		return zero, err
+	}
+	spec, err := formalGLMPhase21OneDrawSamplerV2Spec(legacySpec, contract)
+	if err != nil {
+		return zero, err
+	}
+	position := 0
+	if role == "evaluator" {
+		position = 1
+	}
+	authority := contract.Artifact.NoiseAuthorities[position]
+	seed, commitment, err := formalGLMPhase21SamplerV2Derive(
+		authorityRoot, contract.ArtifactID, contract.SamplerMode,
+		role, authority.PeerName, authority.PeerID)
+	if err != nil || !reflect.DeepEqual(
+		commitment, contract.NoiseCommitments[position]) {
+		clear(seed[:])
+		return zero, fmt.Errorf("formal-glm: sampler-v2 one-draw root mismatch")
+	}
+	defer clear(seed[:])
+	shares, err := exactGCDecodeWorkerShares(encoded, session.Spec)
+	if err != nil {
+		return zero, err
+	}
+	defer exactGCZeroBigInts(shares)
+	v2Session := session
+	v2Session.Purpose = spec.purpose()
+	productiveStream, err := jointDPDecodeHex32(
+		contract.ArtifactID, "sampler-v2 productive stream")
+	if err != nil {
+		return zero, err
+	}
+	var outputShares []*big.Int
+	if role == "garbler" {
+		outputShares, err = jointDPGaussianOneDrawRunGarblerBound(
+			rw, v2Session, spec, shares, seed, &productiveStream)
+	} else {
+		outputShares, err = jointDPGaussianOneDrawRunEvaluatorBound(
+			rw, v2Session, spec, shares, seed, &productiveStream)
+	}
+	if err != nil {
+		exactGCZeroBigInts(outputShares)
+		return zero, err
+	}
+	receipt, err := jointDPBiomedicalGaussianBuildOneDrawChunkReceipt(
+		runtime.Admission.Productive.Envelope,
+		runtime.Admission.Productive.Trust, role, outputShares, signer)
+	if err != nil {
+		exactGCZeroBigInts(outputShares)
+		return zero, err
+	}
+	return formalGLMPhase21OneDrawLocalOutput{
+		Version: formalGLMPhase21BoundReleaseVersion,
+		Peer:    runtime.Source.Result.Peer, Role: role,
+		HandoffSHA256: commit.SHA256, HandoffBytes: commit.Bytes,
+		Admission: runtime.Admission.Productive, Receipt: receipt,
+		Shares: outputShares, capsule: capsule, request: request,
 		sourceBindingSHA: binding.BindingSHA256,
 	}, nil
 }

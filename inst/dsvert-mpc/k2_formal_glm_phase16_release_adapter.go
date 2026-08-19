@@ -347,27 +347,13 @@ func buildFormalGLMPhase16ReleaseBinding(plan formalGLMPhase15Plan,
 	bridgeDigest, _ := formalGLMPhase15DPBridgePlanDigest(bridge)
 	receiptDigest, _ := formalGLMPhase15FinalReceiptPairDigest(receipts)
 	policyDigest, _ := formalGLMPolicyDigest(plan.Kernel)
-	boundsDigest, err := formalGLMPhase16DomainDigest(
-		"dsVert/formal-glm/phase16/bounds/v1", struct {
-			XKind, XLower, XUpper                               []string
-			WeightUpper, OutcomeUpper, OffsetLower, OffsetUpper string
-			Ridge, CoefficientBox                               []string
-			Adjacency, Missingness, PatientCollapse             string
-		}{plan.Kernel.XKind, plan.Kernel.XLower, plan.Kernel.XUpper,
-			plan.Kernel.WeightUpper, plan.Kernel.OutcomeUpper,
-			plan.Kernel.OffsetLower, plan.Kernel.OffsetUpper,
-			plan.Kernel.Ridge, plan.Kernel.CoefficientBox,
-			plan.Kernel.Adjacency, plan.Kernel.Missingness,
-			plan.Kernel.PatientCollapse})
+	boundsDigest, err := formalGLMPhase16BoundsSHA256V1(plan)
 	if err != nil {
 		return zero, err
 	}
-	quantDigest, err := formalGLMPhase16DomainDigest(
-		"dsVert/formal-glm/phase16/quantization/v1", struct {
-			SourceFracBits, OutputLatticeBits, QuantizationShift int
-			Quantization                                         string
-		}{bridge.SourceFracBits, bridge.OutputLatticeBits,
-			bridge.QuantizationShift, bridge.Quantization})
+	quantDigest, err := formalGLMPhase16QuantizationSHA256V1(
+		bridge.SourceFracBits, bridge.OutputLatticeBits,
+		bridge.QuantizationShift, bridge.Quantization)
 	if err != nil {
 		return zero, err
 	}

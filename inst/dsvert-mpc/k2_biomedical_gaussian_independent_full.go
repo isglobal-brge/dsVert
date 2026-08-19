@@ -281,6 +281,7 @@ type jointDPBiomedicalGaussianFullPeerShare struct {
 	Signature             []byte `json:"-"`
 	output                jointDPGaussianShareOutput
 	binding               jointDPBiomedicalGaussianFullLocalSourceBinding
+	samplerV2             *formalGLMPhase21SamplerV2Contract
 }
 
 func jointDPBiomedicalGaussianFullManifestAttestationSHA256(
@@ -1296,6 +1297,80 @@ func jointDPBiomedicalGaussianFullShareInput(
 	}, nil
 }
 
+func jointDPBiomedicalGaussianFullShareInputV2(
+	admission jointDPBiomedicalGaussianFullAdmission,
+	binding jointDPBiomedicalGaussianFullLocalSourceBinding,
+	peerName string, root [32]byte, sourceShare string,
+	contract formalGLMPhase21SamplerV2Contract,
+	pins map[string]ed25519.PublicKey,
+) (jointDPGaussianShareInput, error) {
+	if err := formalGLMPhase21ValidateSamplerV2Contract(
+		contract, pins); err != nil {
+		return jointDPGaussianShareInput{}, err
+	}
+	if contract.SamplerMode != formalGLMPhase21SamplerV2Full {
+		return jointDPGaussianShareInput{},
+			fmt.Errorf("joint-dp-biomedical-gaussian-full: wrong sampler-v2 mode")
+	}
+	input, err := jointDPBiomedicalGaussianFullShareInput(
+		admission, binding, peerName, root, sourceShare)
+	if err != nil {
+		return jointDPGaussianShareInput{}, err
+	}
+	artifact := contract.Artifact
+	epsilon, epsilonErr := formalGLMPhase21CanonicalRational(
+		input.Epsilon, "sampler-v2 full epsilon")
+	delta, deltaErr := formalGLMPhase21CanonicalRational(
+		input.AllocatedDelta, "sampler-v2 full delta")
+	if epsilonErr != nil || deltaErr != nil ||
+		input.TotalCoordinateCount != artifact.CoordinateCount ||
+		input.OutputLatticeBits != artifact.OutputLatticeBits ||
+		epsilon != artifact.EpsilonRational ||
+		delta != artifact.DeltaRational ||
+		input.L2SensitivitySteps != artifact.SensitivitySteps {
+		input.PrivateSeed = ""
+		input.SourceShare = ""
+		return jointDPGaussianShareInput{},
+			fmt.Errorf("joint-dp-biomedical-gaussian-full: sampler-v2 semantics mismatch")
+	}
+	position := -1
+	for index, authority := range artifact.NoiseAuthorities {
+		if authority.PeerName == peerName {
+			position = index
+		}
+	}
+	if position < 0 {
+		input.PrivateSeed = ""
+		input.SourceShare = ""
+		return jointDPGaussianShareInput{},
+			fmt.Errorf("joint-dp-biomedical-gaussian-full: unknown sampler-v2 authority")
+	}
+	authority := artifact.NoiseAuthorities[position]
+	seed, commitment, err := formalGLMPhase21SamplerV2Derive(
+		root, contract.ArtifactID, contract.SamplerMode, authority.Role,
+		authority.PeerName, authority.PeerID)
+	if err != nil || !reflect.DeepEqual(
+		commitment, contract.NoiseCommitments[position]) {
+		clear(seed[:])
+		input.PrivateSeed = ""
+		input.SourceShare = ""
+		return jointDPGaussianShareInput{},
+			fmt.Errorf("joint-dp-biomedical-gaussian-full: sampler-v2 root mismatch")
+	}
+	input.ReleaseContractHash = contract.ArtifactID
+	input.TranscriptHash = contract.ArtifactID
+	input.CommitmentContext = commitment.CommitmentContextSHA256
+	input.SeedCommitment = commitment.SeedCommitmentSHA256
+	input.PrivateSeed = hex.EncodeToString(seed[:])
+	clear(seed[:])
+	if _, err := jointDPGaussianParseSpec(input); err != nil {
+		input.PrivateSeed = ""
+		input.SourceShare = ""
+		return jointDPGaussianShareInput{}, err
+	}
+	return input, nil
+}
+
 func jointDPBiomedicalGaussianValidateFullPeerOutput(
 	admission jointDPBiomedicalGaussianFullAdmission,
 	output jointDPGaussianShareOutput,
@@ -1353,6 +1428,73 @@ func jointDPBiomedicalGaussianValidateFullPeerOutput(
 	return nil
 }
 
+func jointDPBiomedicalGaussianValidateFullPeerOutputV2(
+	admission jointDPBiomedicalGaussianFullAdmission,
+	output jointDPGaussianShareOutput,
+	contract formalGLMPhase21SamplerV2Contract,
+	pins map[string]ed25519.PublicKey,
+) error {
+	if err := formalGLMPhase21ValidateSamplerV2Contract(
+		contract, pins); err != nil {
+		return err
+	}
+	position := -1
+	for index, authority := range contract.Artifact.NoiseAuthorities {
+		if authority.PeerName == output.PeerName {
+			position = index
+		}
+	}
+	if position < 0 || contract.SamplerMode != formalGLMPhase21SamplerV2Full ||
+		output.Version != jointDPGaussianOutputVersion ||
+		output.Backend != jointDPGaussianBackend ||
+		output.Mechanism != jointDPGaussianMechanism ||
+		output.Sampler != jointDPGaussianSampler ||
+		output.ReleaseContractHash != contract.ArtifactID ||
+		output.TranscriptHash != contract.ArtifactID ||
+		output.SeedCommitment !=
+			contract.NoiseCommitments[position].SeedCommitmentSHA256 ||
+		output.RingBits != 128 || output.FracBits != 0 ||
+		output.TotalCoordinateCount != contract.Artifact.CoordinateCount ||
+		output.CoordinateCount < 1 || output.ChunkStart < 0 ||
+		output.ChunkStart > output.TotalCoordinateCount-output.CoordinateCount ||
+		!output.FullCapsuleParametersPerPeer || output.EpsilonDividedByPeerCount ||
+		output.SourceValuesReturned || output.NoiseValuesReturned ||
+		output.PrivateSeedReturned || output.PreclampValuesReturned ||
+		!output.NoWrapHeadroomCertified || !output.TailTruncationApplied ||
+		!output.FixedWorkShapeVerified || output.NominalVarianceMultiplier != 2 ||
+		!reflect.DeepEqual(output.Plan, admission.plan) {
+		return fmt.Errorf("joint-dp-biomedical-gaussian-full: malformed sampler-v2 output")
+	}
+	shifts := make([]int, output.CoordinateCount)
+	bounds := append([]string(nil),
+		admission.certificate.ShiftedUpperBounds[output.ChunkStart:output.ChunkStart+output.CoordinateCount]...)
+	expectedDigest := jointDPGaussianContractDigest(jointDPGaussianShareInput{
+		RingBits: 128, FracBits: 0,
+		TotalCoordinateCount: output.TotalCoordinateCount,
+		OutputLatticeBits:    contract.Artifact.OutputLatticeBits,
+		Epsilon:              admission.selection.Contract.Epsilon,
+		AllocatedDelta:       admission.selection.Contract.Delta,
+		L2SensitivitySteps:   admission.certificate.SelectedBoundSteps,
+		ScaleShifts:          shifts, RawUpperBounds: bounds,
+		ReleaseContractHash: contract.ArtifactID,
+		TranscriptHash:      contract.ArtifactID,
+		PeerName:            output.PeerName,
+		CommitmentContext:   contract.NoiseCommitments[position].CommitmentContextSHA256,
+		SeedCommitment:      contract.NoiseCommitments[position].SeedCommitmentSHA256,
+	}, admission.plan)
+	if output.SamplerContractHash != hex.EncodeToString(expectedDigest[:]) {
+		return fmt.Errorf("joint-dp-biomedical-gaussian-full: sampler-v2 contract substitution")
+	}
+	decoded, err := jointDPVectorConvolutionCanonicalBase64(
+		output.NoisedShare, "biomedical Gaussian sampler-v2 noised share",
+		16*output.CoordinateCount)
+	if err != nil {
+		return err
+	}
+	clear(decoded)
+	return nil
+}
+
 func jointDPBiomedicalGaussianFullPeerShareMessage(
 	share jointDPBiomedicalGaussianFullPeerShare,
 ) ([]byte, error) {
@@ -1398,8 +1540,13 @@ func jointDPBiomedicalGaussianValidateFullPeerShare(
 		len(share.Signature) != ed25519.SignatureSize {
 		return fmt.Errorf("joint-dp-biomedical-gaussian-full: malformed signed peer share")
 	}
-	if err := jointDPBiomedicalGaussianValidateFullPeerOutput(
-		admission, share.output); err != nil {
+	if share.samplerV2 == nil {
+		if err := jointDPBiomedicalGaussianValidateFullPeerOutput(
+			admission, share.output); err != nil {
+			return err
+		}
+	} else if err := jointDPBiomedicalGaussianValidateFullPeerOutputV2(
+		admission, share.output, *share.samplerV2, pins); err != nil {
 		return err
 	}
 	outputSHA256, err := jointDPBiomedicalGaussianHash(share.output)
@@ -1469,6 +1616,68 @@ func jointDPBiomedicalGaussianRunFullPeer(
 		OutputSHA256:        outputSHA256,
 		SourceBindingSHA256: binding.BindingSHA256,
 		output:              output, binding: binding,
+	}
+	message, err := jointDPBiomedicalGaussianFullPeerShareMessage(share)
+	if err != nil {
+		return zero, err
+	}
+	share.Signature = ed25519.Sign(signer, message)
+	if err := jointDPBiomedicalGaussianValidateFullPeerShare(
+		admission, pins, share); err != nil {
+		return zero, err
+	}
+	return share, nil
+}
+
+func jointDPBiomedicalGaussianRunFullPeerV2(
+	admission jointDPBiomedicalGaussianFullAdmission,
+	pins map[string]ed25519.PublicKey,
+	binding jointDPBiomedicalGaussianFullLocalSourceBinding,
+	peerName string, root [32]byte, signer ed25519.PrivateKey,
+	sourceShare string,
+	contract formalGLMPhase21SamplerV2Contract,
+) (jointDPBiomedicalGaussianFullPeerShare, error) {
+	var zero jointDPBiomedicalGaussianFullPeerShare
+	if err := jointDPBiomedicalGaussianValidateFullAdmissionCached(
+		admission, pins); err != nil {
+		return zero, err
+	}
+	if len(signer) != ed25519.PrivateKeySize {
+		return zero, fmt.Errorf("joint-dp-biomedical-gaussian-full: invalid sampler-v2 signer")
+	}
+	publicKey, ok := signer.Public().(ed25519.PublicKey)
+	if !ok || !hmac.Equal(publicKey, pins[peerName]) {
+		return zero, fmt.Errorf("joint-dp-biomedical-gaussian-full: sampler-v2 signer is not pinned")
+	}
+	input, err := jointDPBiomedicalGaussianFullShareInputV2(
+		admission, binding, peerName, root, sourceShare, contract, pins)
+	if err != nil {
+		return zero, err
+	}
+	output, err := jointDPGaussianSampleShare(input)
+	input.PrivateSeed = ""
+	input.SourceShare = ""
+	if err != nil {
+		return zero, err
+	}
+	if err := jointDPBiomedicalGaussianValidateFullPeerOutputV2(
+		admission, output, contract, pins); err != nil {
+		return zero, err
+	}
+	outputSHA256, err := jointDPBiomedicalGaussianHash(output)
+	if err != nil {
+		return zero, err
+	}
+	contractCopy := contract
+	share := jointDPBiomedicalGaussianFullPeerShare{
+		Version:               jointDPBiomedicalGaussianFullPeerShareVersion,
+		Backend:               jointDPGaussianBackend,
+		ReleaseInstanceID:     admission.selection.Contract.ReleaseInstanceID,
+		ReleaseContractSHA256: admission.selection.Contract.ReleaseContractSHA256,
+		PeerName:              peerName, ChunkStart: binding.ChunkStart,
+		CoordinateCount: binding.CoordinateCount, OutputSHA256: outputSHA256,
+		SourceBindingSHA256: binding.BindingSHA256,
+		output:              output, binding: binding, samplerV2: &contractCopy,
 	}
 	message, err := jointDPBiomedicalGaussianFullPeerShareMessage(share)
 	if err != nil {

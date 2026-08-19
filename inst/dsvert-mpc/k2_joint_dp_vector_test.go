@@ -220,6 +220,22 @@ func TestJointDPVectorPlanRejectsUnsafeOrUnrepresentableInputs(t *testing.T) {
 	}
 }
 
+func TestJointDPVectorFiniteSamplersRejectPureDPRequest(t *testing.T) {
+	input := jointDPVectorPlanInput{
+		Epsilon: "1", Delta: "0.000000000000000000e+00",
+		SensitivitySteps:     "1",
+		TotalCoordinateCount: 2,
+	}
+	if _, err := jointDPPlanVectorLaplace(input); err == nil ||
+		!strings.Contains(err.Error(), "pure-DP") {
+		t.Fatalf("exact-GC delta=0 error=%v, want explicit pure-DP unavailability", err)
+	}
+	if _, err := jointDPPlanVectorConvolutionLaplace(input); err == nil ||
+		!strings.Contains(err.Error(), "pure-DP") {
+		t.Fatalf("convolution delta=0 error=%v, want explicit pure-DP unavailability", err)
+	}
+}
+
 func TestJointDPVectorPrivateStreamsAreStickyAndDomainSeparated(t *testing.T) {
 	plan := jointDPVectorTestPlan(t, "1", "7.888609052210118e-31", "1", 4)
 	gseed := sha256.Sum256([]byte("garbler-vector-seed"))

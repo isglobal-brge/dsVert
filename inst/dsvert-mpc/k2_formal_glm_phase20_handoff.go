@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/hkdf"
@@ -81,6 +82,7 @@ func (source *formalGLMPhase20HandoffSource) clear() {
 }
 
 type formalGLMPhase20HandoffStore struct {
+	mu           sync.Mutex
 	dir          string
 	recordPath   string
 	semanticRoot string
@@ -419,6 +421,14 @@ func formalGLMPhase20ReadHandoffRecordInfo(path string) (
 			if reaped {
 				continue
 			}
+			// The winning CAS writer may have removed its temporary name
+			// between Lstat and the reaper scan. Re-read the same inode before
+			// treating that completed transition as an unrelated hard link.
+			current, currentErr := os.Lstat(path)
+			if currentErr == nil && os.SameFile(info, current) &&
+				exactGCPrivateOwnedRegular(current) {
+				continue
+			}
 			return nil, nil, fmt.Errorf("formal-glm: unsafe linked Phase-2.0 handoff record")
 		}
 		file, err := os.Open(path)
@@ -673,6 +683,8 @@ func (store *formalGLMPhase20HandoffStore) Commit(
 	plan formalGLMPhase15Plan, ctx formalGLMPhase19Context,
 	result formalGLMPhase19ScheduleResult) (
 	formalGLMPhase20HandoffCommit, error) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
 
 	payload := formalGLMPhase20HandoffPayload{
 		Version:            formalGLMPhase20HandoffPayloadVersion,

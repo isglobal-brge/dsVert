@@ -103,6 +103,24 @@ func planFormalCoxDP(policy formalCoxPhase1Policy) (formalCoxDPPlan, error) {
 	if err != nil {
 		return zero, err
 	}
+	return planFormalCoxDPFromParsed(policy, parsed)
+}
+
+func planFormalCoxBlockwiseDP(policy formalCoxPhase1Policy) (
+	formalCoxDPPlan, error,
+) {
+	var zero formalCoxDPPlan
+	parsed, err := parseFormalCoxBlockwisePolicy(policy)
+	if err != nil {
+		return zero, err
+	}
+	return planFormalCoxDPFromParsed(policy, parsed)
+}
+
+func planFormalCoxDPFromParsed(policy formalCoxPhase1Policy,
+	parsed formalCoxParsedPolicy,
+) (formalCoxDPPlan, error) {
+	var zero formalCoxDPPlan
 	policyDigest, err := formalCoxPolicyDigest(policy)
 	if err != nil {
 		return zero, err

@@ -47,13 +47,14 @@ func newFormalGLMRegisteredPhase19BlockStreamV1(
 	record formalGLMRegisteredPhase19BindingRecordV1,
 	contract formalGLMSourceContractV1,
 	pins map[string]ed25519.PublicKey,
+	attemptStore *formalGLMRegisteredPhase19AttemptStoreV1,
 	proposal formalGLMRegisteredPhase19ClaimProposalV1,
 	accept formalGLMRegisteredPhase19ClaimAcceptV1,
 	ingress *formalGLMRegisteredPhase18IngressStoreV3,
 	recipientPrivateKey []byte,
 	accumulator *formalGLMRegisteredPhase19AccumulatorStoreV1,
 ) (*formalGLMRegisteredPhase19BlockStreamV1, error) {
-	if runtime == nil || ingress == nil || accumulator == nil ||
+	if runtime == nil || attemptStore == nil || ingress == nil || accumulator == nil ||
 		len(recipientPrivateKey) != 32 || proposal.Binding != accept.Binding {
 		return nil, fmt.Errorf("formal-glm registered Phase19 block stream: invalid preparation")
 	}
@@ -96,6 +97,10 @@ func newFormalGLMRegisteredPhase19BlockStreamV1(
 	}
 	role, err := formalGLMRegisteredPhase19AccumulatorRoleV1(context, peer)
 	if err != nil {
+		return nil, err
+	}
+	if err := formalGLMRegisteredPhase19ScheduleTailPersistClaimV1(
+		attemptStore, record, contract, pins, peer, proposal, accept); err != nil {
 		return nil, err
 	}
 	rootAttempt, err := formalGLMPhase19ScheduleDecodeHex32(

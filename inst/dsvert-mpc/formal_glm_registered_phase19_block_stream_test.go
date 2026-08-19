@@ -82,7 +82,7 @@ func TestFormalGLMRegisteredPhase19BlockStreamK2Accumulator(t *testing.T) {
 		}
 		streams[index], err = newFormalGLMRegisteredPhase19BlockStreamV1(
 			runtimes[index], fixture.loader.record, source.contract,
-			source.inputs.identities.public, proposal, accept, ingress[index],
+			source.inputs.identities.public, attempts[index], proposal, accept, ingress[index],
 			fixture.loader.recipientSK[peer], accumulators[index])
 		if err != nil {
 			t.Fatal(err)

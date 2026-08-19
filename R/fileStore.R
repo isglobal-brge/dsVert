@@ -12,7 +12,7 @@
 #   - Persistent keys: memory only
 #
 # Directory structure (created lazily, only when first large blob arrives):
-#   <tempdir()>/dsvert_<session_id>/
+#   <Rock state root>/transient-sessions-v1/dsvert_<session_id>/
 #     blobs/   -- large transient blobs
 
 .DISK_THRESHOLD <- 50000L  # nchar threshold for disk storage
@@ -150,10 +150,77 @@
   invisible(TRUE)
 }
 
+.dsvert_session_storage_state_root <- function() {
+  configured <- getOption(
+    "dsvert.state_dir", getOption("default.dsvert.state_dir"))
+  environment <- Sys.getenv("DSVERT_STATE_DIR", unset = "")
+  rock_home <- Sys.getenv("ROCK_HOME", unset = "")
+  if (isTRUE(.dsvert_identity_test_mode()) && is.null(configured) &&
+      !nzchar(environment) && !nzchar(rock_home)) {
+    return(file.path(tempdir(), "dsvert-test-state-v1"))
+  }
+  .dsvert_state_root()
+}
+
+.dsvert_session_storage_root <- function() {
+  root <- .dsvert_session_storage_state_root()
+  if (!is.character(root) || length(root) != 1L || is.na(root) ||
+      !nzchar(root) || !grepl("^/", path.expand(root))) {
+    stop("The private session storage root is unavailable", call. = FALSE)
+  }
+  root <- path.expand(root)
+  if (!isTRUE(.dsvert_identity_test_mode())) {
+    .dsvert_dp_reject_ephemeral_or_library_path(
+      root, "private session storage root")
+  }
+  if (!dir.exists(root) && !dir.create(root, recursive = TRUE,
+                                       showWarnings = FALSE, mode = "0700")) {
+    stop("Could not create the private session storage root", call. = FALSE)
+  }
+  if (.dsvert_dp_path_is_link(root)) {
+    stop("The private session storage root must not be a symbolic link",
+         call. = FALSE)
+  }
+  Sys.chmod(root, mode = "0700")
+  if (!.dsvert_dp_private_mode(root, directory = TRUE)) {
+    stop("The private session storage root must be owner-only", call. = FALSE)
+  }
+  root <- normalizePath(root, winslash = "/", mustWork = TRUE)
+  if (!isTRUE(.dsvert_identity_test_mode())) {
+    .dsvert_dp_reject_ephemeral_or_library_path(
+      root, "private session storage root")
+  }
+  sessions <- file.path(root, "transient-sessions-v1")
+  if (!dir.exists(sessions) && !dir.create(sessions, recursive = FALSE,
+                                            showWarnings = FALSE, mode = "0700")) {
+    stop("Could not create the private session storage directory",
+         call. = FALSE)
+  }
+  if (.dsvert_dp_path_is_link(sessions)) {
+    stop("The private session storage directory must not be a symbolic link",
+         call. = FALSE)
+  }
+  Sys.chmod(sessions, mode = "0700")
+  if (!.dsvert_dp_private_mode(sessions, directory = TRUE)) {
+    stop("The private session storage directory must be owner-only",
+         call. = FALSE)
+  }
+  normalizePath(sessions, winslash = "/", mustWork = TRUE)
+}
+
+.dsvert_session_private_directory <- function(path, label) {
+  if (.dsvert_dp_path_is_link(path) || !dir.exists(path) ||
+      !.dsvert_dp_private_mode(path, directory = TRUE)) {
+    stop("The ", label, " must be an owner-only directory, not a symbolic link",
+         call. = FALSE)
+  }
+  invisible(path)
+}
+
 .expected_session_dir <- function(ss) {
   sid <- ss$.session_id
   .validate_storage_component(sid, "session storage identifier")
-  file.path(tempdir(), paste0("dsvert_", sid))
+  file.path(.dsvert_session_storage_root(), paste0("dsvert_", sid))
 }
 
 .assert_session_dir <- function(ss) {
@@ -163,6 +230,9 @@
       normalizePath(actual, mustWork = FALSE),
       normalizePath(expected, mustWork = FALSE))) {
     stop("Invalid session storage path", call. = FALSE)
+  }
+  if (!is.null(actual)) {
+    .dsvert_session_private_directory(actual, "private session directory")
   }
   expected
 }
@@ -174,10 +244,22 @@
 .ensure_session_dir <- function(ss) {
   if (is.null(ss$.session_dir)) {
     ss$.session_dir <- .expected_session_dir(ss)
-    dir.create(file.path(ss$.session_dir, "blobs"), recursive = TRUE,
-               showWarnings = FALSE, mode = "0700")
+    if (!dir.exists(ss$.session_dir) && !dir.create(
+        ss$.session_dir, recursive = FALSE, showWarnings = FALSE,
+        mode = "0700")) {
+      stop("Could not create the private session directory", call. = FALSE)
+    }
     Sys.chmod(ss$.session_dir, mode = "0700")
-    Sys.chmod(file.path(ss$.session_dir, "blobs"), mode = "0700")
+    .dsvert_session_private_directory(
+      ss$.session_dir, "private session directory")
+    blob_dir <- file.path(ss$.session_dir, "blobs")
+    if (!dir.exists(blob_dir) && !dir.create(
+        blob_dir, recursive = FALSE, showWarnings = FALSE, mode = "0700")) {
+      stop("Could not create the private session blob directory", call. = FALSE)
+    }
+    Sys.chmod(blob_dir, mode = "0700")
+    .dsvert_session_private_directory(
+      blob_dir, "private session blob directory")
   } else {
     .assert_session_dir(ss)
   }

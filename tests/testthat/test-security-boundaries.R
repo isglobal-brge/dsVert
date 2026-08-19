@@ -76,6 +76,74 @@ test_that("session identifiers and disk-store keys reject path traversal", {
   unlink(outside, recursive = TRUE)
 })
 
+test_that("session blobs stay below a private persistent Rock root", {
+  skip_on_os("windows")
+  root <- withr::local_tempdir(pattern = "dsvert-session-rock-")
+  Sys.chmod(root, mode = "0700")
+  withr::local_options(list(dsvert.state_dir = root))
+  ss <- new.env(parent = emptyenv())
+  ss$.session_id <- "security-rock-session"
+  on.exit(.session_dir_cleanup(ss), add = TRUE)
+
+  .blob_put("ciphertext", strrep("x", .DISK_THRESHOLD + 1L), ss)
+  state_root <- normalizePath(root, winslash = "/", mustWork = TRUE)
+  session_dir <- normalizePath(ss$.session_dir, winslash = "/", mustWork = TRUE)
+  expect_identical(
+    session_dir,
+    file.path(state_root, "transient-sessions-v1", "dsvert_security-rock-session"))
+  expect_true(file.exists(file.path(session_dir, "blobs", "ciphertext")))
+  for (path in c(state_root, dirname(session_dir), session_dir,
+                 file.path(session_dir, "blobs"))) {
+    expect_false(nzchar(Sys.readlink(path)))
+    expect_true(.dsvert_dp_private_mode(path, directory = TRUE))
+  }
+})
+
+test_that("test-only session blobs stay outside the service state root", {
+  skip_on_os("windows")
+  withr::local_options(list(
+    dsvert.state_dir = NULL,
+    default.dsvert.state_dir = NULL))
+  withr::local_envvar(c(DSVERT_STATE_DIR = NA_character_,
+                         ROCK_HOME = NA_character_))
+  ss <- new.env(parent = emptyenv())
+  ss$.session_id <- "security-test-session"
+  on.exit(.session_dir_cleanup(ss), add = TRUE)
+  path <- .ensure_session_dir(ss)
+  expect_true(startsWith(
+    normalizePath(path, winslash = "/", mustWork = TRUE),
+    paste0(normalizePath(tempdir(), winslash = "/", mustWork = TRUE), "/")))
+  expect_match(path, "/dsvert-test-state-v1/transient-sessions-v1/")
+})
+
+test_that("production session blobs reject temporary and linked state roots", {
+  skip_on_os("windows")
+  temporary_root <- withr::local_tempdir(pattern = "dsvert-session-temp-")
+  Sys.chmod(temporary_root, mode = "0700")
+  withr::local_options(list(dsvert.state_dir = temporary_root))
+  ss <- new.env(parent = emptyenv())
+  ss$.session_id <- "security-temp-session"
+  testthat::local_mocked_bindings(
+    .dsvert_identity_test_mode = function() FALSE,
+    .package = "dsVert")
+  expect_error(
+    .blob_put("ciphertext", strrep("x", .DISK_THRESHOLD + 1L), ss),
+    "outside temporary")
+  expect_null(ss$.session_dir)
+
+  parent <- withr::local_tempdir(pattern = "dsvert-session-alias-")
+  target <- file.path(parent, "target")
+  alias <- file.path(parent, "alias")
+  expect_true(dir.create(target, mode = "0700"))
+  expect_true(file.symlink(target, alias))
+  withr::local_options(list(dsvert.state_dir = alias))
+  expect_error(testthat::with_mocked_bindings(
+    .ensure_session_dir(ss),
+    .dsvert_identity_test_mode = function() TRUE,
+    .package = "dsVert"), "must not be a symbolic link")
+  expect_null(ss$.session_dir)
+})
+
 test_that("DSLite host metadata is hashed before entering disk paths", {
   bridge <- function() {
     ss <- .S("security-dslite-marker")

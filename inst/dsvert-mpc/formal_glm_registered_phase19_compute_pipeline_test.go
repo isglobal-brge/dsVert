@@ -13,7 +13,27 @@ import (
 func TestFormalGLMRegisteredPhase19ComputePipelineK2SealsTerminal(
 	t *testing.T,
 ) {
-	fixture := formalGLMRegisteredPhase19FanInTestCached(t, 2)
+	formalGLMRegisteredPhase19ComputePipelineSealsTerminalV1(t, 2)
+}
+
+func TestFormalGLMRegisteredPhase19ComputePipelineK3SealsTerminal(
+	t *testing.T,
+) {
+	formalGLMRegisteredPhase19ComputePipelineSealsTerminalV1(t, 3)
+}
+
+func TestFormalGLMRegisteredPhase19ComputePipelineK5SealsTerminal(
+	t *testing.T,
+) {
+	formalGLMRegisteredPhase19ComputePipelineSealsTerminalV1(t, 5)
+}
+
+func formalGLMRegisteredPhase19ComputePipelineSealsTerminalV1(
+	t *testing.T,
+	custodians int,
+) {
+	t.Helper()
+	fixture := formalGLMRegisteredPhase19FanInTestCached(t, custodians)
 	source := fixture.loader.provenance.source
 	plan := source.plan
 	peers := plan.DesignatedComputePeers

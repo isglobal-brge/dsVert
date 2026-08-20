@@ -39,6 +39,15 @@
   "dsvert-stateless-catalog-synopsis-final-share-context-v1"
 .DSVERT_TYPED_BLOB_SYNOPSIS_PURPOSE <-
   "analysis_dp_synopsis_final_share"
+# These identifiers are shared with optional formal bridges. Keep them here
+# because generic typed-blob routing consults each identifier for every
+# capability; bridge implementations remain separately gated.
+.DSVERT_FORMAL_FINALIZER_HANDOFF_CAPABILITY <-
+  "blob.formal-finalizer-handoff.v1"
+.DSVERT_FORMAL_GLM_CONTROL_CAPABILITY <-
+  "blob.formal-glm-one-draw-control.v1"
+.DSVERT_FORMAL_COX_CONTROL_CAPABILITY <-
+  "blob.formal-cox-blockwise-control.v1"
 
 .dsvert_typed_blob_spool_max_bytes <- function() {
   value <- getOption("dsvert.typed_blob.spool_max_bytes", 1024^3)

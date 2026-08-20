@@ -1,14 +1,14 @@
 # Joint-DP result confidentiality and release boundary
 
-Status: the registered biomedical-vector path carries allocation, bounded
-source materialization, joint sampling, finalization, durable publication and
-replay end to end. Its productive receipts report
-`capability_available=TRUE`. The older generic scalar DSI frontdoor is
-hard-deleted. Its pre-release result-store internals remain outside the remote
-surface pending a separate schema-removal decision and are not a statistical
-release route.
+Status: this is an internal legacy regression path, not a registered
+biomedical-vector product. Its allocation and release endpoints are
+unregistered and unexported because their ledger imposes a
+maximum-distinct-capsule boundary. The registered public route is the
+stateless Synopsis lifecycle, which uses sticky replay for one canonical
+artifact and has no request, rate or catalogue admission gate. The older
+generic scalar DSI frontdoor is hard-deleted.
 
-## Current product flow
+## Legacy internal flow
 
 The server-authoritative manifest fixes the cohort/snapshot, adjacency,
 contribution bounds, coordinate layout, mechanism, privacy parameters, complete
@@ -65,7 +65,9 @@ This is the pre-release baseline:
 | Replay response | `dsvert-joint-dp-vector-replay-v4` |
 
 Every signed phase receipt and replay response attests exactly
-`history_gate=TRUE`, `request_limit=FALSE`, and `operation_limit=TRUE`.
+`history_gate=TRUE`, `request_limit=FALSE`, and `operation_limit=TRUE`. Those
+fields describe only this retired internal ABI and must never be interpreted as
+an admission policy for a public analysis.
 Signatures bind the complete public receipt to its pinned peer; STORE rows are
 separately HMAC-authenticated durable state and are not relay-minted receipts.
 

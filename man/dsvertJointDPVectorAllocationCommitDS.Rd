@@ -15,3 +15,4 @@ A signed durable commit receipt.
 \description{
 Commit the biomedical capsule allocation (AGGREGATE)
 }
+\keyword{internal}

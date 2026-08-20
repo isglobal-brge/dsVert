@@ -4499,7 +4499,7 @@
 #' @param first_allocation_opening_json,second_allocation_opening_json The two
 #'   pinned peers' signed, capability-free allocation opening proofs.
 #' @return Canonical signed prepare receipt; no source value or seed.
-#' @export
+#' @keywords internal
 dsvertJointDPVectorPrepareDS <- function(
     manifest_json, release_instance_json,
     first_allocation_opening_json, second_allocation_opening_json) {
@@ -4541,7 +4541,7 @@ dsvertJointDPVectorPrepareDS <- function(
 #' @param session_id Active pinned-peer exact-GC session for one-draw Laplace
 #'   releases. Ignored by the Gaussian route.
 #' @return Signed commitment receipt; the noised share stays private.
-#' @export
+#' @keywords internal
 dsvertJointDPVectorStartDS <- function(
     manifest_json, first_prepare_json, second_prepare_json, chunk_index,
     session_id = NULL) {
@@ -4564,7 +4564,7 @@ dsvertJointDPVectorStartDS <- function(
 #' Commit the complete private noised-vector share (AGGREGATE)
 #' @inheritParams dsvertJointDPVectorStartDS
 #' @return Signed root of all durable local noised chunks.
-#' @export
+#' @keywords internal
 dsvertJointDPVectorResultDS <- function(
     manifest_json, first_prepare_json, second_prepare_json,
     session_id = NULL) {
@@ -4590,7 +4590,7 @@ dsvertJointDPVectorResultDS <- function(
 #' @param first_result_json,second_result_json Signed peer result receipts.
 #' @param chunk_index Zero-based public chunk index.
 #' @return Opaque ciphertext and a purpose-bound typed transfer ticket.
-#' @export
+#' @keywords internal
 dsvertJointDPVectorFinalShareDS <- function(
     session_id, manifest_json, first_result_json, second_result_json,
     chunk_index) {
@@ -4613,7 +4613,7 @@ dsvertJointDPVectorFinalShareDS <- function(
 #' Finalize and durably commit the public DP vector root (AGGREGATE)
 #' @inheritParams dsvertJointDPVectorFinalShareDS
 #' @return Canonical signed release-root receipt, never an intermediate share.
-#' @export
+#' @keywords internal
 dsvertJointDPVectorReleaseDS <- function(
     session_id, manifest_json, first_result_json, second_result_json) {
   .dsvert_joint_dp_vector_public("release", {
@@ -4636,7 +4636,7 @@ dsvertJointDPVectorReleaseDS <- function(
 #' @param first_release_json,second_release_json Signed peer release receipts.
 #' @param chunk_index Zero-based public chunk index.
 #' @return Canonical final DP chunk and Merkle proof only.
-#' @export
+#' @keywords internal
 dsvertJointDPVectorReplayDS <- function(
     manifest_json, first_release_json, second_release_json, chunk_index) {
   .dsvert_joint_dp_vector_public("replay", {
@@ -4657,7 +4657,7 @@ dsvertJointDPVectorReplayDS <- function(
 #' Compact source and sampler intermediates after bilateral release (AGGREGATE)
 #' @inheritParams dsvertJointDPVectorReplayDS
 #' @return Canonical signed idempotent compaction acknowledgement.
-#' @export
+#' @keywords internal
 dsvertJointDPVectorFinalizeAckDS <- function(
     manifest_json, first_release_json, second_release_json) {
   .dsvert_joint_dp_vector_public("finalization acknowledgement", {

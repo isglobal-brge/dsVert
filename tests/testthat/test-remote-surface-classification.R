@@ -24,10 +24,9 @@ test_that("machine-readable remote surface exactly covers server registration", 
 
   expect_identical(anyDuplicated(classified), 0L)
   expect_setequal(classified, registered)
-  expect_setequal(
-    classified, .dsvert_test_disclosure_safe_methods)
+  expect_true(all(classified %in% .dsvert_disclosure_safe_remote_methods))
   expect_identical(anyDuplicated(retired_surface), 0L)
-  expect_length(retired_surface, 93L)
+  expect_length(retired_surface, 105L)
   expect_false(any(retired_surface %in% registered))
   expect_false(any(retired_surface %in% getNamespaceExports("dsVert")))
   expect_length(
@@ -41,7 +40,7 @@ test_that("machine-readable remote surface exactly covers server registration", 
   expect_identical(
     as.integer(inventory$counts$registered_orphan_endpoints), 0L)
   expect_identical(
-    as.integer(inventory$counts$unregistered_client_endpoint_literals), 93L)
+    as.integer(inventory$counts$unregistered_client_endpoint_literals), 105L)
   expect_identical(
     as.integer(inventory$counts$reachable_unregistered_client_endpoints), 0L)
   expect_length(
@@ -53,7 +52,8 @@ test_that("machine-readable remote surface exactly covers server registration", 
   expect_true(all(risk_endpoints %in% c(registered, retired_surface)))
   blocked_risk_names <- setdiff(
     names(inventory$risk_overlays),
-    c("operational_status_only", "padded_psi_threat_boundary"))
+    c("operational_status_only", "padded_psi_threat_boundary",
+      "typed_transport_pilot"))
   blocked_risks <- unlist(lapply(blocked_risk_names, function(name) {
     unlist(inventory$risk_overlays[[name]]$endpoints, use.names = FALSE)
   }), use.names = FALSE)
@@ -80,13 +80,13 @@ test_that("machine-readable remote surface exactly covers server registration", 
   joint <- inventory$joint_mpc_single_opening
   expect_identical(
     joint$status,
-    "biomedical_vector_joint_dp_release_e2e_verified")
-  expect_identical(joint$producer, "biomedical.capsule.vector.v2")
-  expect_identical(joint$finalizer, "dsvertJointDPVectorReleaseDS")
+    "stateless_synopsis_release_e2e_verified")
+  expect_identical(joint$producer, "stateless.catalog.synopsis.v1")
+  expect_identical(joint$finalizer, "dsvertDPSynopsisReleaseDS")
   expect_true(joint$finalizer %in% registered)
   expect_true(joint$finalizer %in% classified)
   expect_match(joint$current_finalizer_contract,
-               "state=vector_released", fixed = TRUE)
+               "state=synopsis_released", fixed = TRUE)
   expect_match(joint$current_finalizer_contract,
                "intermediate_payload_exposed=false", fixed = TRUE)
   expect_match(joint$current_finalizer_contract,

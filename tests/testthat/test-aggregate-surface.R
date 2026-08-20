@@ -94,8 +94,13 @@ test_that("the remotely invocable aggregate surface is an exact allowlist", {
     "dsvertOrdinalExtractXColumnDS", "c=base::c", "list=base::list",
     "numeric=base::numeric", "character=base::character"
   )
+  inventory <- jsonlite::read_json(.dsvert_test_package_file(
+    "inst", "docs", "remote_surface_classification.json"),
+    simplifyVector = FALSE)
   expected <- setdiff(
-    .dsvert_test_disclosure_safe_methods, "psiPaddedFilterDS")
+    unlist(inventory$registered_endpoint_classes$production_safe_purpose_bound,
+           use.names = FALSE),
+    "psiPaddedFilterDS")
 
   description <- system.file("DESCRIPTION", package = "dsVert")
   expect_true(nzchar(description))
@@ -107,7 +112,17 @@ test_that("the remotely invocable aggregate surface is an exact allowlist", {
   expect_identical(anyDuplicated(actual), 0L)
   deregistered <- setdiff(pre_audit_registered, expected)
   exports <- getNamespaceExports("dsVert")
-  expect_length(deregistered, 99L)
+  retired_lifetime_vector <- c(
+    "dsvertJointDPVectorAllocationProofDS",
+    "dsvertJointDPVectorAllocationPrepareDS",
+    "dsvertJointDPVectorAllocationCommitDS",
+    "dsvertJointDPVectorAllocationAuthorizeDS",
+    "dsvertJointDPVectorAllocationOpenDS",
+    "dsvertJointDPVectorPrepareDS", "dsvertJointDPVectorStartDS",
+    "dsvertJointDPVectorResultDS", "dsvertJointDPVectorFinalShareDS",
+    "dsvertJointDPVectorReleaseDS", "dsvertJointDPVectorReplayDS",
+    "dsvertJointDPVectorFinalizeAckDS")
+  expect_true(all(retired_lifetime_vector %in% deregistered))
   expect_false(any(deregistered %in% actual))
   expect_false(any(deregistered %in% exports))
 

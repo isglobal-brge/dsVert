@@ -166,19 +166,7 @@
   "dsvertDPCategoricalCrossFinalizeDS",
   "dsvertDPGaussianCrossBindDS",
   "dsvertDPGaussianCrossPrepareDS",
-  "dsvertDPGaussianCrossFinalizeDS",
-  "dsvertJointDPVectorAllocationProofDS",
-  "dsvertJointDPVectorAllocationPrepareDS",
-  "dsvertJointDPVectorAllocationCommitDS",
-  "dsvertJointDPVectorAllocationAuthorizeDS",
-  "dsvertJointDPVectorAllocationOpenDS",
-  "dsvertJointDPVectorPrepareDS",
-  "dsvertJointDPVectorStartDS",
-  "dsvertJointDPVectorResultDS",
-  "dsvertJointDPVectorFinalShareDS",
-  "dsvertJointDPVectorReleaseDS",
-  "dsvertJointDPVectorReplayDS",
-  "dsvertJointDPVectorFinalizeAckDS"
+  "dsvertDPGaussianCrossFinalizeDS"
 )
 
 .dsvert_enforce_release_mode <- function(entry = NULL) {

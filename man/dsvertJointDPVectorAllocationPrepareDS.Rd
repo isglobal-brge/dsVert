@@ -18,3 +18,4 @@ A signed allocation prepare receipt. No protected value is read.
 \description{
 Prepare the server-authoritative biomedical capsule allocation (AGGREGATE)
 }
+\keyword{internal}

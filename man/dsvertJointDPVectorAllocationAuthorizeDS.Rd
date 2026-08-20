@@ -15,3 +15,4 @@ A signed authorization receipt.
 \description{
 Authorize the biomedical capsule allocation (AGGREGATE)
 }
+\keyword{internal}

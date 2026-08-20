@@ -40,9 +40,10 @@ test_that("the peer-relay security matrix covers the complete active surface", {
     "exact_gc_peer_frames",
     "dp_capsule_source_shares",
     "dp_cross_owner_share_frames",
-    "joint_dp_vector_final_shares",
-    "dp_manifest_allocation_control",
-    "dp_release_control",
+    "dp_final_share_transport",
+    "dp_manifest_control",
+    "dp_frequency_release_control",
+    "dp_synopsis_lifecycle",
     "legacy_generic_blob_routes",
     "legacy_transport_key_routes",
     "legacy_unpadded_psi_routes"))
@@ -87,9 +88,9 @@ test_that("the peer-relay security matrix covers the complete active surface", {
     "dsvertDPCountReleaseDS", "dsvertDPFrequencyClaimDS",
     "dsvertDPFrequencyCompileDS", "dsvertDPFrequencyAuthorizeDS",
     "dsvertDPFrequencyCleanupDS")
-  expect_setequal(
-    exposed,
-    setdiff(.dsvert_disclosure_safe_remote_methods, local_only))
+  registered <- .dsvert_registered_remote_methods(
+    .dsvert_test_package_file("DESCRIPTION"))
+  expect_setequal(exposed, setdiff(registered, local_only))
 
   blocked <- Filter(function(channel) {
     identical(channel$status, "blocked_by_single_profile")

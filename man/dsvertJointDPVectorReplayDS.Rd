@@ -24,3 +24,4 @@ Canonical final DP chunk and Merkle proof only.
 \description{
 Replay one final DP vector chunk with its Merkle proof (AGGREGATE)
 }
+\keyword{internal}

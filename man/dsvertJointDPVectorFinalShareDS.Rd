@@ -27,3 +27,4 @@ Opaque ciphertext and a purpose-bound typed transfer ticket.
 \description{
 Encrypt one noised vector share for its pinned peer (AGGREGATE)
 }
+\keyword{internal}

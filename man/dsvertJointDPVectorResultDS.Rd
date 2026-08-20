@@ -25,3 +25,4 @@ Signed root of all durable local noised chunks.
 \description{
 Commit the complete private noised-vector share (AGGREGATE)
 }
+\keyword{internal}

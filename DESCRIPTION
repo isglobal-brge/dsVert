@@ -146,19 +146,7 @@ AggregateMethods:
     dsvertDPCategoricalCrossFinalizeDS,
     dsvertDPGaussianCrossBindDS,
     dsvertDPGaussianCrossPrepareDS,
-    dsvertDPGaussianCrossFinalizeDS,
-    dsvertJointDPVectorAllocationProofDS,
-    dsvertJointDPVectorAllocationPrepareDS,
-    dsvertJointDPVectorAllocationCommitDS,
-    dsvertJointDPVectorAllocationAuthorizeDS,
-    dsvertJointDPVectorAllocationOpenDS,
-    dsvertJointDPVectorPrepareDS,
-    dsvertJointDPVectorStartDS,
-    dsvertJointDPVectorResultDS,
-    dsvertJointDPVectorFinalShareDS,
-    dsvertJointDPVectorReleaseDS,
-    dsvertJointDPVectorReplayDS,
-    dsvertJointDPVectorFinalizeAckDS
+    dsvertDPGaussianCrossFinalizeDS
 AssignMethods:
     psiPaddedFilterDS
 Options:

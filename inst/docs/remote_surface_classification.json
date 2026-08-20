@@ -4,18 +4,18 @@
   "authoritative_registration_source": "dsVert/DESCRIPTION: AggregateMethods and AssignMethods",
   "authoritative_client_source": "dsVertClient/R parsed as R ASTs",
   "counts": {
-    "registered_ds_endpoints": 75,
+    "registered_ds_endpoints": 86,
     "registered_argument_constructor_aliases": 0,
     "direct_literal_call_endpoints": 161,
     "as_call_as_name_endpoints": 7,
     "bounded_dynamic_call_endpoints": 1,
-    "unregistered_client_endpoint_literals": 94,
+    "unregistered_client_endpoint_literals": 105,
     "reachable_unregistered_client_endpoints": 0,
     "registered_orphan_endpoints": 0,
-    "internal_unregistered_ds_functions": 142
+    "internal_unregistered_ds_functions": 153
   },
   "classification_semantics": {
-    "production_safe_purpose_bound": "Callable through the current default gate. A DP label is conditional on the route-specific signed policy, immutable snapshot and stated threat model. Capsule routes additionally depend on their accountant and persistent capsule root; stateless Count and fixed-domain Frequency derive sticky noise from persistent peer identity seeds and have no lifetime ledger.",
+    "production_safe_purpose_bound": "Callable through the current default gate. A DP label is conditional on the route-specific signed policy, immutable snapshot and stated threat model. Registered Count, Frequency and Synopsis releases derive sticky noise from persistent peer identity seeds and have no lifetime ledger; retained capsule source/ticket endpoints are not statistical releases.",
     "test_or_guarded_migration_internals": "Retired from registration and export. These closures remain namespace-internal only for transport diagnostics or migration regression tests and have no production public route.",
     "quarantined_compatibility_internals": "Retired from registration and export. Historical client implementations remain only behind a non-configurable local frontdoor guard for source-level migration tests; they carry no DP or non-reconstruction claim.",
     "orphan_remove_candidate": "Registered but has no resolved client expression. Removal would still require a compatibility decision.",
@@ -39,6 +39,28 @@
       "dsvertDPFrequencyFinalizeWindowDS",
       "dsvertDPFrequencyReplayDS",
       "dsvertDPFrequencyCleanupDS",
+      "dsvertDPSynopsisBootstrapDS",
+      "dsvertDPSynopsisBindDS",
+      "dsvertDPSynopsisClaimDS",
+      "dsvertDPSynopsisCompileDS",
+      "dsvertDPSynopsisPrepareDS",
+      "dsvertDPSynopsisStartDS",
+      "dsvertDPSynopsisResultDS",
+      "dsvertDPSynopsisFinalShareDS",
+      "dsvertDPSynopsisReleaseDS",
+      "dsvertDPSynopsisSourceTicketDS",
+      "dsvertDPSynopsisSourcePrepareDS",
+      "dsvertDPSynopsisSourceChunkDS",
+      "dsvertDPSynopsisSourceAcceptDS",
+      "dsvertDPSynopsisPublicationDS",
+      "dsvertDPSynopsisPublishedReplayDS",
+      "dsvertDPSynopsisFinalizeAckDS",
+      "dsvertDPSynopsisCategoricalCrossBindDS",
+      "dsvertDPSynopsisCategoricalCrossFinalizeDS",
+      "dsvertDPSynopsisAlignmentMaskStartDS",
+      "dsvertDPSynopsisAlignmentMaskStoreDS",
+      "dsvertDPSynopsisAlignmentMaskSealDS",
+      "dsvertDPSynopsisAlignmentMaskReceiveDS",
       "dsvertSecurityProfileDS",
       "dsvertTransportProbeDS",
       "dsvertNumericPolicyDS",
@@ -58,6 +80,7 @@
       "psiPaddedAttestationDS",
       "psiPaddedRelayExchangeDS",
       "psiPaddedFilterDS",
+      "mpcTypedBlobReadDS",
       "mpcTypedBlobStoreDS",
       "mpcTypedBlobReceiptDS",
       "exactGCTransportInitDS",
@@ -86,7 +109,16 @@
       "dsvertDPCategoricalCrossFinalizeDS",
       "dsvertDPGaussianCrossBindDS",
       "dsvertDPGaussianCrossPrepareDS",
-      "dsvertDPGaussianCrossFinalizeDS",
+      "dsvertDPGaussianCrossFinalizeDS"
+    ]
+  },
+  "retired_registered_surface": {
+    "test_or_guarded_migration_internals": [
+      "mpcTypedSourceProbeDS",
+      "exactGCGLMSoftplusPrepareDS",
+      "exactGCVecmulBindInputsDS"
+    ],
+    "quarantined_compatibility_internals": [
       "dsvertJointDPVectorAllocationProofDS",
       "dsvertJointDPVectorAllocationPrepareDS",
       "dsvertJointDPVectorAllocationCommitDS",
@@ -98,17 +130,7 @@
       "dsvertJointDPVectorFinalShareDS",
       "dsvertJointDPVectorReleaseDS",
       "dsvertJointDPVectorReplayDS",
-      "dsvertJointDPVectorFinalizeAckDS"
-    ]
-  },
-  "retired_registered_surface": {
-    "test_or_guarded_migration_internals": [
-      "mpcTypedBlobReadDS",
-      "mpcTypedSourceProbeDS",
-      "exactGCGLMSoftplusPrepareDS",
-      "exactGCVecmulBindInputsDS"
-    ],
-    "quarantined_compatibility_internals": [
+      "dsvertJointDPVectorFinalizeAckDS",
       "getObsCountDS",
       "glmStandardizeDS",
       "mpcCleanupDS",
@@ -204,9 +226,8 @@
     "dangerous_remove_candidate": []
   },
   "retired_surface_consumer_audit": {
-    "coverage_contract": "The union of retired_registered_surface arrays is exactly the 94 formerly registered endpoints. Every executable client construction of one of these endpoints is either test-only or dominated by a local dsvert_route_unavailable:v1 guard before connection discovery and DSI expression submission.",
+    "coverage_contract": "The union of retired_registered_surface arrays is exactly the 105 formerly registered endpoints. Every executable client construction of one of these endpoints is either test-only or dominated by a local dsvert_route_unavailable:v1 guard before connection discovery and DSI expression submission.",
     "test_only_or_internal_consumers": {
-      "mpcTypedBlobReadDS": "typed transport read regression and diagnostic helpers only",
       "mpcTypedSourceProbeDS": "data-free typed source-stream diagnostics only",
       "exactGCGLMSoftplusPrepareDS": "producer-bound legacy GLM softplus helper, locally guarded",
       "exactGCVecmulBindInputsDS": "manifest-free legacy exact multiplication branch, locally guarded"
@@ -247,7 +268,7 @@
       "runtime_guard": "any other value is rejected before a DSI expression is built"
     },
     "unresolved_dynamic_symbols": [],
-    "unregistered_client_endpoints": "retired_registered_surface.* (94 distinct endpoint constructions)",
+    "unregistered_client_endpoints": "retired_registered_surface.* (105 distinct endpoint constructions)",
     "reachable_unregistered_endpoints": [],
     "unreachable_quarantined_or_test_only_endpoints": "retired_registered_surface.*",
     "registered_without_product_call_builder": [],
@@ -352,8 +373,8 @@
         "mpcTypedBlobReadDS",
         "mpcTypedSourceProbeDS"
       ],
-      "risk": "Generic typed reads and the data-free source probe are not authorized statistical openings. The promoted vector capsule uses only producer-minted store/receipt tickets and never exposes these generic reads.",
-      "required_action": "Keep generic typed reads and the diagnostic probe blocked; add each future producer through its own fixed capability and independently audited opening contract."
+      "risk": "A ticket-bound typed read and the data-free source probe are transport primitives, not authorized statistical openings. Their payloads must remain producer-minted and purpose-bound.",
+      "required_action": "Keep the source probe internal; admit a typed read only with its fixed capability and independently audited opening contract."
     },
     "operational_status_only": {
       "endpoints": [
@@ -489,11 +510,11 @@
     "important_limit": "There is one installed disclosure-safe profile. Retired compatibility and migration endpoints are unregistered and unexported, cannot be enabled by a runtime option, and retain an internal server gate plus a local client frontdoor guard as defence in depth."
   },
   "joint_mpc_single_opening": {
-    "status": "biomedical_vector_joint_dp_release_e2e_verified",
-    "dsi_control_plane": "purpose-bound signed two-peer preparation and commitments, typed encrypted already-noised Ring128 shares, two independent complete vector discrete-Laplace draws, one fixed public coordinate clamp, durable bilateral release roots and Merkle-proved replay chunks",
-    "producer": "biomedical.capsule.vector.v2",
-    "finalizer": "dsvertJointDPVectorReleaseDS",
-    "current_finalizer_contract": "state=vector_released,intermediate_payload_exposed=false,durable_replay=true,final_chunks=merkle-proved",
+    "status": "stateless_synopsis_release_e2e_verified",
+    "dsi_control_plane": "purpose-bound signed two-authority execution with durable sticky replay, authenticated final chunks and no request, rate or catalogue admission gate",
+    "producer": "stateless.catalog.synopsis.v1",
+    "finalizer": "dsvertDPSynopsisReleaseDS",
+    "current_finalizer_contract": "state=synopsis_released,intermediate_payload_exposed=false,durable_replay=true,final_chunks=authenticated",
     "current_guarantee": "The relay receives no private source share, sticky seed, sampled noise, pre-clamp value or noised share; the public release is the signed, replayable final DP vector only."
   },
   "immediate_removal_decision": {

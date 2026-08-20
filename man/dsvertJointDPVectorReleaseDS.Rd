@@ -24,3 +24,4 @@ Canonical signed release-root receipt, never an intermediate share.
 \description{
 Finalize and durably commit the public DP vector root (AGGREGATE)
 }
+\keyword{internal}

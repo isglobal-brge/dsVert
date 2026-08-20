@@ -21,3 +21,4 @@ Canonical signed idempotent compaction acknowledgement.
 \description{
 Compact source and sampler intermediates after bilateral release (AGGREGATE)
 }
+\keyword{internal}

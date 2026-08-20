@@ -27,3 +27,4 @@ Canonical signed prepare receipt; no source value or seed.
 PREPARE persists an authenticated candidate without claiming the capsule, so
 sibling candidates may coexist until the first valid START at that peer.
 }
+\keyword{internal}

@@ -9,24 +9,25 @@ The current client/server registration contract is internally complete:
 
 | Check | Result |
 |---|---:|
-| Registered `*DS` endpoints | 75 |
+| Registered `*DS` endpoints | 86 |
 | Direct `call(name = "...")` endpoints | 161 |
 | `as.call()` / `as.name()` exact-GC endpoints | 7 |
 | Dynamically named endpoints behind one closed runtime allowlist | 1 |
-| Unregistered endpoint names retained below guarded/test-only client code | 94 |
+| Unregistered endpoint names retained below guarded/test-only client code | 105 |
 | Production-reachable client expressions naming an unregistered endpoint | 0 |
 | Registered endpoints with no repository consumer | 0 |
-| Unregistered, unexported internal `*DS` functions | 142 |
+| Unregistered, unexported internal `*DS` functions | 153 |
 
-This audit removed a further 94 endpoints from `AggregateMethods` and
-`NAMESPACE`: four diagnostic/migration helpers and 90 legacy exact, generic
-MPC, score, cluster-model and mutating-analysis primitives. Six obsolete
+This audit keeps 105 formerly registered endpoints out of `AggregateMethods`
+and `NAMESPACE`: three diagnostic/migration helpers and 102 legacy exact,
+generic MPC, score, cluster-model, mutating-analysis and lifetime-gated vector
+primitives. Six obsolete
 per-query DP wrappers, their bare SQLite release engine and the nine superseded
 scalar Count capsule/ledger phases are now hard-deleted. The seven generic
 scalar control-plane frontdoors and their endpoint-only DSI adapters are also
 hard-deleted; the remaining R closures stay internal solely for source
 compatibility and focused regression tests. None is exported or remotely
-invocable. All 75
+invocable. All 86
 endpoints that remain registered belong to the promoted purpose-bound
 allowlist and have a product call builder after resolving literal calls, seven
 `as.call()` / `as.name()` constructions and the closed dynamic branch. The
@@ -58,13 +59,14 @@ The retired `dsvertDPStatusDS`, `dsvertDPCountDS`,
 SQLite engine had no production consumer; `dsvert.dp.ledger_path` remains only
 as the namespace prefix for promoted stores.
 
-`mpcTypedSourceProbeDS` and `mpcTypedBlobReadDS` retain concrete internal
-diagnostic call builders, but both are now unregistered and unexported. They
-are test-plane tools, not statistical producers.
+`mpcTypedSourceProbeDS` remains an unregistered internal diagnostic helper.
+`mpcTypedBlobReadDS` is registered only as a ticket-bound authenticated
+transport primitive; neither is a statistical producer or an opening.
 
 The retired scalar Count capsule/ledger adapter and generic scalar
-control-plane frontdoor are hard-deleted. The shared receipt codec and
-allocation phases remain only for the product-bound biomedical vector route.
+control-plane frontdoor are hard-deleted. The shared receipt codec and the
+older allocation phases remain namespace-internal for regression only; neither
+is a remotely invocable product route.
 Count is served by a five-phase stateless route: signed compilation,
 two-authority public
 authorization, exact-GC Start, recipient-encrypted final-share transfer and one
@@ -86,18 +88,13 @@ one signed terminal vector release; Replay returns committed chunks without a
 new draw. Cleanup is authenticated, idempotent and invoked only on those two
 authorities. The K-2 witnesses retain no session state for this lifecycle.
 
-The biomedical vector capsule remains the route for its other promoted
-artifacts. Five product-bound allocation
-endpoints first derive, cross-sign, register and durably replay the immutable
-capsule authorization without accepting analyst-selected proposal fields. Its
-seven registered release endpoints then prepare and commit the fixed vector
-mechanism,
-draws, exchange only typed encrypted already-noised Ring128 shares, apply one
-fixed public coordinate clamp, and release a signed root plus Merkle-proved DP
-chunks. The analyst receives no private source share, sticky seed, sampled
-noise, noised share or pre-clamp value. Completed state is durably replayed
-without another lifetime charge or a request-quota gate. A new capsule is
-separately subject to the authenticated lifetime reservation boundary.
+The former biomedical vector allocation and release lifecycle is retained only
+as an unregistered internal regression path. Its authenticated ledger imposed
+a maximum-distinct-capsule boundary, so it is not an admissible public route.
+The registered Synopsis lifecycle instead binds one canonical signed artifact
+to sticky deterministic replay and explicitly has no request, rate or catalog
+admission gate. Distinct artifacts are separate analyses; this does not claim
+finite global DP composition.
 
 The exact-GC/typed-store route is production-classified only for its fixed
 capabilities and consumers. For categorical and Gaussian cross-owner products,
@@ -120,7 +117,7 @@ IDs, exact values, masks, seeds, private snapshot/value commitments and
 plaintext shares are forbidden. This raw-source stage deliberately remains
 `ready_for_sampling = FALSE`: it is a confidential input boundary and never an
   independent DP release. The v7 manifest authorizes its output only as input to
-the registered joint sampler and confidential finalizer.
+an internal regression sampler and never creates a public release by itself.
 
 The four private-alignment gate endpoints and six categorical/Gaussian
 cross-owner endpoints are production-classified as one indivisible route.
@@ -137,14 +134,11 @@ durably replay one byte-identical server-authoritative manifest. They do not
 resolve protected objects, expose snapshot/alignment hashes or accept
 analyst-selected bounds, domains, owners, versions or workload specifications.
 
-The seven vector-release endpoints are the fixed sampler/finalizer lifecycle
-for that server-authoritative manifest. They expose signed commitments,
-encrypted typed noised shares, one final Merkle root and replayable final DP
-chunks only. Private source shares, sticky seeds, noise-root/private-key
-material, sampled noise and pre-clamp values remain internal; repeat requests
-for the same capsule/release instance replay durable state and are never denied
-by a history or request counter. A previously unseen capsule may be denied only
-by the earlier authenticated lifetime gate.
+The registered Synopsis release lifecycle exposes signed commitments and
+replayable final DP chunks only. Private source shares, sticky seeds,
+noise-root/private-key material, sampled noise and pre-clamp values remain
+internal; repeat requests for the same canonical artifact replay durable state
+and are never denied by a history or request counter.
 
 No non-DS alias is registered. In particular, `c`, `list`, `numeric`, and
 `character` must remain ordinary client-side constructors: registering their
@@ -155,11 +149,11 @@ and is rejected during service bootstrap and Opal allowlist reconciliation.
 
 | Class | Count | Meaning |
 |---|---:|---|
-| Production-safe / purpose-bound | 75 | Fixed status/schema, padded PSI, complete stateless Count and Frequency execution, typed-store, transport, capsule manifest/source, cross-signed allocation, cross-owner checked-vector-multiplication and joint vector-release routes admitted by the default guard |
-| Retired diagnostic/migration internals | 4 | Generic typed read/source diagnostics plus generic exact-GC bind and GLM softplus helpers; unregistered, unexported and test-only or locally guarded |
-| Retired quarantined compatibility internals | 90 | Legacy exact/MPC endpoints below stable local frontdoor errors; unregistered, unexported and carrying no DP or non-reconstruction claim |
+| Production-safe / purpose-bound | 86 | Fixed status/schema, padded PSI, complete stateless Count, Frequency and Synopsis execution, typed-store, transport, capsule manifest/source, and cross-owner checked-vector-multiplication routes admitted by the default guard |
+| Retired diagnostic/migration internals | 3 | A data-free source probe plus generic exact-GC bind and GLM softplus helpers; unregistered, unexported and test-only or locally guarded |
+| Retired quarantined compatibility internals | 102 | Legacy exact/MPC endpoints, including the lifetime-gated vector lifecycle, below stable local frontdoor errors; unregistered, unexported and carrying no DP or non-reconstruction claim |
 | Registered orphan/dangerous candidates | 0 | Every registered endpoint is promoted and consumed |
-| Internal-unregistered total | 142 | The 94 above plus 48 previously retired compatibility/test closures |
+| Internal-unregistered total | 153 | The 105 above plus 48 previously retired compatibility/test closures |
 
 “Production-safe” is not an unconditional theorem. A DP claim still depends on
 the advertised adjacency and contribution bounds, immutable snapshot,
@@ -236,7 +230,7 @@ destination, operation and one permitted opening.
 
 ## Already outside the remote surface
 
-The 142 internal `*DS` functions are both unregistered and unexported. This set
+The 153 internal `*DS` functions are both unregistered and unexported. This set
 includes:
 
 - the retired exact adaptive `dsvertHistogramDS` helper, now replaced in
@@ -252,7 +246,7 @@ includes:
 - test-only data mutation helpers for injected NAs, synthetic survival,
   quartiles, factors and clusters.
 
-The executable tests assert this exact set, the exact 75-endpoint registration
+The executable tests assert this exact set, the exact 86-endpoint registration
 allowlist and all guarded public frontdoors. Merely leaving one of these
 functions defined in package source does not make it a DataSHIELD endpoint.
 The removed legacy PSI functions, `psiGetMatchedIndicesDS`,

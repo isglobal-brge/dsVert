@@ -19,3 +19,4 @@ A signed opening proof. It contains no sampling capability.
 \description{
 Finalize the biomedical capsule allocation (AGGREGATE)
 }
+\keyword{internal}

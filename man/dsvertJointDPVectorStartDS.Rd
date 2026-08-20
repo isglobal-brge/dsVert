@@ -35,3 +35,4 @@ so split sibling claims cannot produce a release while at least one
 designated peer is non-colluding and retains its authenticated history.
 Same-instance retry is idempotent; a sibling instance fails closed.
 }
+\keyword{internal}

@@ -280,7 +280,7 @@
 #' @param leader_prepare_json Empty on the deterministic leader; otherwise the
 #'   leader's signed prepare receipt.
 #' @return A signed allocation prepare receipt. No protected value is read.
-#' @export
+#' @keywords internal
 dsvertJointDPVectorAllocationPrepareDS <- function(
     manifest_json, leader_prepare_json = "DSV1R_") {
   .dsvert_joint_dp_vector_allocation_public("prepare", {
@@ -298,7 +298,7 @@ dsvertJointDPVectorAllocationPrepareDS <- function(
 #' Commit the biomedical capsule allocation (AGGREGATE)
 #' @param first_prepare_json,second_prepare_json Signed prepare receipts.
 #' @return A signed durable commit receipt.
-#' @export
+#' @keywords internal
 dsvertJointDPVectorAllocationCommitDS <- function(
     first_prepare_json, second_prepare_json) {
   .dsvert_joint_dp_vector_allocation_public("commit", {
@@ -316,7 +316,7 @@ dsvertJointDPVectorAllocationCommitDS <- function(
 #' Authorize the biomedical capsule allocation (AGGREGATE)
 #' @param first_commit_json,second_commit_json Signed commit receipts.
 #' @return A signed authorization receipt.
-#' @export
+#' @keywords internal
 dsvertJointDPVectorAllocationAuthorizeDS <- function(
     first_commit_json, second_commit_json) {
   .dsvert_joint_dp_vector_allocation_public("authorization", {
@@ -335,7 +335,7 @@ dsvertJointDPVectorAllocationAuthorizeDS <- function(
 #' @param first_authorization_json,second_authorization_json Signed
 #'   authorization receipts.
 #' @return A signed opening proof. It contains no sampling capability.
-#' @export
+#' @keywords internal
 dsvertJointDPVectorAllocationOpenDS <- function(
     first_authorization_json, second_authorization_json) {
   .dsvert_joint_dp_vector_allocation_public("opening", {
@@ -355,7 +355,7 @@ dsvertJointDPVectorAllocationOpenDS <- function(
 #' Replay the durable biomedical capsule allocation proof (AGGREGATE)
 #' @param manifest_json Canonical manifest memoized by this server.
 #' @return The local signed opening proof. It contains no sampling capability.
-#' @export
+#' @keywords internal
 dsvertJointDPVectorAllocationProofDS <- function(manifest_json) {
   .dsvert_joint_dp_vector_allocation_public("proof replay", {
     manifest_json <- .dsvert_dsi_text_decode(

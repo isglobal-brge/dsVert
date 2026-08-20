@@ -15,3 +15,4 @@ The local signed opening proof. It contains no sampling capability.
 \description{
 Replay the durable biomedical capsule allocation proof (AGGREGATE)
 }
+\keyword{internal}

@@ -13,13 +13,16 @@
 #' @param version Stable logical snapshot version agreed by the consortium.
 #' @param purpose Public purpose identifier. All vertical peers must use the
 #'   same value for one alignment.
+#' @param privacy_unit_id Public semantic identifier for the privacy unit. Use
+#'   the same value at every vertical peer even when local `id_col` aliases
+#'   differ. It defaults to `id_col` for existing deployments.
 #'
 #' @return A descriptor suitable for one entry of the server-owned
 #'   `dsvert.psi.authorized_sources` option.
 #' @export
 dsvertPSISourceDescriptor <- function(
     data, id_col, id, version,
-    purpose = "patient-record-alignment-v1") {
+    purpose = "patient-record-alignment-v1", privacy_unit_id = id_col) {
   if (!is.data.frame(data) || !is.character(id_col) ||
       length(id_col) != 1L || is.na(id_col) || !nzchar(id_col) ||
       !id_col %in% names(data)) {
@@ -39,6 +42,7 @@ dsvertPSISourceDescriptor <- function(
     id = label(id, "dataset id"),
     version = label(version, "dataset version"),
     id_col = id_col,
+    privacy_unit_id = label(privacy_unit_id, "privacy-unit identifier"),
     purpose = label(purpose, "alignment purpose"),
     snapshot_sha256 = .dsvert_dp_snapshot_digest(data))
 }

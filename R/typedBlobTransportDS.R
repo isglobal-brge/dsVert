@@ -53,9 +53,10 @@
 # Reserve the signed final length of every admitted transfer, rather than only
 # bytes received so far.  This makes backpressure effective before an attacker
 # can open many sparse partial transfers. Completed and legacy disk blobs are
-# charged at their actual retained size until consumed. The authenticated
-# in-memory head makes the normal admission path O(1); a directory identity
-# change, missing head or invalid MAC triggers a complete reconciliation.
+# charged at their actual retained size until consumed, as are private inline
+# producer payloads. The authenticated in-memory head makes the normal
+# admission path O(1); a directory identity change, missing head or invalid MAC
+# triggers a complete reconciliation.
 .dsvert_typed_blob_accounting_secret <- function(ss) {
   secret <- tryCatch(.key_get("transport_sk", ss), error = function(e) NULL)
   if (is.null(secret) || !length(secret)) NULL else secret
@@ -312,14 +313,42 @@
     }
   }
   outbound <- ss$.typed_blob_outbound %||% list()
+  pending_operations <- ss$.typed_blob_pending_operations %||% list()
+  if (!is.list(pending_operations)) {
+    stop("Typed-blob pending operation state is malformed.", call. = FALSE)
+  }
+  result_retained <- sum(vapply(
+    pending_operations, .dsvert_typed_blob_operation_reserved_bytes,
+    numeric(1L)))
   inline_retained <- sum(vapply(outbound, function(record) {
     if (!is.list(record)) {
       stop("Typed-blob outbound state is malformed.", call. = FALSE)
     }
-    if (!is.null(record$source_path)) return(0)
+    if (!is.null(record$source_path)) {
+      if (!is.null(record$source_payload)) {
+        stop("Typed-blob outbound state is malformed.", call. = FALSE)
+      }
+      return(0)
+    }
     value <- record$payload_chars
     if (!is.numeric(value) || length(value) != 1L || is.na(value) ||
         !is.finite(value) || value < 1 || value != floor(value)) {
+      stop("Typed-blob outbound state is malformed.", call. = FALSE)
+    }
+    if (is.null(record$source_payload)) {
+      if (is.null(record$operation_key)) return(as.numeric(value))
+      if (!is.character(record$operation_key) ||
+          length(record$operation_key) != 1L ||
+          is.na(record$operation_key) ||
+          is.null(pending_operations[[record$operation_key]])) {
+        stop("Typed-blob outbound state is malformed.", call. = FALSE)
+      }
+      return(0)
+    }
+    if (!is.character(record$source_payload) ||
+        length(record$source_payload) != 1L ||
+        is.na(record$source_payload) ||
+        nchar(record$source_payload, type = "bytes") != value) {
       stop("Typed-blob outbound state is malformed.", call. = FALSE)
     }
     as.numeric(value)
@@ -421,7 +450,8 @@
       source_retained <- sum(as.numeric(source_inventory$info$size))
     }
   }
-  total <- active_reserved + disk_retained + source_retained + inline_retained
+  total <- active_reserved + disk_retained + source_retained +
+    inline_retained + result_retained
   if (!is.finite(total) || total < 0 || total > 2^53 - 1) {
     stop("Typed-blob retained-byte accounting overflowed.", call. = FALSE)
   }
@@ -736,6 +766,39 @@
   invisible(TRUE)
 }
 
+.dsvert_typed_blob_validate_formal_finalizer_route <- function(
+    capability_id, resolved, sender_name, recipient_name) {
+  if (identical(
+      capability_id, .DSVERT_FORMAL_FINALIZER_HANDOFF_CAPABILITY) &&
+      (!identical(resolved$context$sender_peer_name, sender_name) ||
+       !identical(resolved$context$finalizer_peer_name, recipient_name))) {
+    stop("Invalid typed-blob formal-finalizer route.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+.dsvert_typed_blob_validate_formal_glm_control_route <- function(
+    capability_id, resolved, sender_name, recipient_name) {
+  if (identical(capability_id, .DSVERT_FORMAL_GLM_CONTROL_CAPABILITY) &&
+      (!identical(resolved$context$aad$sender_peer_name, sender_name) ||
+       !identical(resolved$context$aad$recipient_peer_name,
+                  recipient_name))) {
+    stop("Invalid typed-blob formal GLM control route.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+.dsvert_typed_blob_validate_formal_cox_control_route <- function(
+    capability_id, resolved, sender_name, recipient_name) {
+  if (identical(capability_id, .DSVERT_FORMAL_COX_CONTROL_CAPABILITY) &&
+      (!identical(resolved$context$aad$sender_peer_name, sender_name) ||
+       !identical(resolved$context$aad$recipient_peer_name,
+                  recipient_name))) {
+    stop("Invalid typed-blob formal Cox control route.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
 .dsvert_typed_blob_storage_name <- function(value, what) {
   if (!is.character(value) || length(value) != 1L || is.na(value)) {
     stop("Invalid typed-blob ", what, ".", call. = FALSE)
@@ -818,6 +881,7 @@
     stop("Typed-blob pending producer result is malformed; abort the session.",
          call. = FALSE)
   }
+  .dsvert_typed_blob_operation_reserved_bytes(record)
   list(hit = TRUE, key = key, result = record$result)
 }
 
@@ -840,6 +904,31 @@
   unique(found)
 }
 
+.dsvert_typed_blob_operation_reserved_bytes <- function(operation) {
+  if (!is.list(operation)) {
+    stop("Typed-blob pending operation state is malformed.", call. = FALSE)
+  }
+  reservations <- operation$result_payload_chars
+  if (!is.character(operation$transfer_ids) ||
+      !length(operation$transfer_ids) || anyNA(operation$transfer_ids) ||
+      any(!nzchar(operation$transfer_ids)) ||
+      anyDuplicated(operation$transfer_ids) || !is.list(reservations) ||
+      (length(reservations) && (is.null(names(reservations)) ||
+        anyNA(names(reservations)) || any(!nzchar(names(reservations))) ||
+        anyDuplicated(names(reservations)) ||
+        any(!names(reservations) %in% operation$transfer_ids)))) {
+    stop("Typed-blob pending operation state is malformed.", call. = FALSE)
+  }
+  values <- vapply(reservations, function(value) {
+    if (!is.numeric(value) || length(value) != 1L || is.na(value) ||
+        !is.finite(value) || value < 1 || value != floor(value)) {
+      stop("Typed-blob pending operation state is malformed.", call. = FALSE)
+    }
+    as.numeric(value)
+  }, numeric(1L))
+  as.numeric(sum(values))
+}
+
 .dsvert_typed_blob_operation_commit <- function(
     ss, producer, request, result) {
   key <- .dsvert_typed_blob_request_key(producer, request)
@@ -853,6 +942,15 @@
     stop("Typed-blob producer result references an unknown transfer.",
          call. = FALSE)
   }
+  result_payload_chars <- vapply(transfer_ids, function(transfer_id) {
+    record <- outbound[[transfer_id]]
+    if (is.null(record$source_path) && is.null(record$source_payload)) {
+      return(as.numeric(record$payload_chars))
+    }
+    0
+  }, numeric(1L))
+  result_payload_chars <- as.list(
+    result_payload_chars[result_payload_chars > 0])
   if (is.null(ss$.typed_blob_pending_operations)) {
     ss$.typed_blob_pending_operations <- list()
   }
@@ -870,7 +968,8 @@
   ss$.typed_blob_outbound <- outbound
   ss$.typed_blob_pending_operations[[key]] <- list(
     producer = producer, request = request, result = result,
-    transfer_ids = transfer_ids)
+    transfer_ids = transfer_ids,
+    result_payload_chars = result_payload_chars)
   result
 }
 
@@ -1002,6 +1101,51 @@
       "analysis-dp.synopsis-final-share",
       "recipient-encrypted-ring128-synopsis-public-chunk-v1",
       as.numeric(context$coordinate_count), ring = "128"))
+  }
+  if (identical(
+      capability_id, .DSVERT_FORMAL_FINALIZER_HANDOFF_CAPABILITY)) {
+    context <- .dsvert_formal_finalizer_handoff_context_v1(
+      context, sender_name)
+    tag <- substr(digest::digest(
+      .dsvert_dp_canonical_json(context),
+      algo = "sha256", serialize = FALSE), 1L, 24L)
+    return(.dsvert_typed_blob_metadata(
+      capability_id, paste0("formal_finalizer_handoff_", tag), context,
+      "formal-finalizer", "dsvertFormalFinalizerHandoffSourceDS",
+      ".dsvert_formal_finalizer_handoff_import_ingress_v1",
+      "formal-finalizer-handoff",
+      "signed-recipient-encrypted-finalizer-envelope-v1",
+      as.numeric(context$envelope_bytes), ring = "opaque"))
+  }
+  if (identical(capability_id,
+                .DSVERT_FORMAL_GLM_CONTROL_CAPABILITY)) {
+    context <- .dsvert_formal_glm_control_context_v1(
+      context, sender_name)
+    tag <- substr(digest::digest(
+      .dsvert_dp_canonical_json(context),
+      algo = "sha256", serialize = FALSE), 1L, 24L)
+    return(.dsvert_typed_blob_metadata(
+      capability_id, paste0("formal_glm_control_", tag), context,
+      "formal-glm-control", "dsvertFormalGLMControlSourceDS",
+      ".dsvert_formal_glm_control_import_ingress_v1",
+      "formal-glm-one-draw-control",
+      "authenticated-recipient-encrypted-lifecycle-record-v1",
+      as.numeric(context$envelope_bytes), ring = "opaque"))
+  }
+  if (identical(capability_id,
+                .DSVERT_FORMAL_COX_CONTROL_CAPABILITY)) {
+    context <- .dsvert_formal_cox_control_context_v1(
+      context, sender_name)
+    tag <- substr(digest::digest(
+      .dsvert_dp_canonical_json(context),
+      algo = "sha256", serialize = FALSE), 1L, 24L)
+    return(.dsvert_typed_blob_metadata(
+      capability_id, paste0("formal_cox_control_", tag), context,
+      "formal-cox-control", "dsvertFormalCoxControlSourceDS",
+      ".dsvert_formal_cox_control_import_ingress_v1",
+      "formal-cox-blockwise-control",
+      "authenticated-recipient-encrypted-lifecycle-record-v1",
+      as.numeric(context$envelope_bytes), ring = "opaque"))
   }
   if (identical(capability_id, "blob.joint-dp.vector-final-share.v3")) {
     required <- c(
@@ -1176,9 +1320,15 @@
 }
 
 .dsvert_typed_blob_install_peer_manifest <- function(
-    ss, identity_info, transport_keys, parent_binding_digest = NULL) {
+    ss, identity_info, transport_keys, parent_binding_digest = NULL,
+    expected_own_name = NULL) {
   if (!is.environment(ss)) stop("Invalid typed-blob session.", call. = FALSE)
-  configured_own_name <- .dsvert_require_configured_local_peer_name()
+  if (is.null(expected_own_name)) {
+    expected_own_name <- .dsvert_require_configured_local_peer_name()
+  } else {
+    expected_own_name <- .dsvert_dp_analysis_scalar_id(
+      expected_own_name, "typed-blob expected own peer")
+  }
   own <- .dsvert_normalize_crypto_b64(
     .key_get("identity_pk", ss), 32L, "own identity public key")
   normalized <- vapply(names(identity_info), function(name) {
@@ -1186,15 +1336,25 @@
       identity_info[[name]]$identity_pk, 32L,
       paste0("identity public key for '", name, "'"))
   }, character(1L), USE.NAMES = TRUE)
+  signatures <- vapply(names(identity_info), function(name) {
+    info <- identity_info[[name]]
+    if (!is.list(info) || is.null(info$signature)) {
+      stop("Typed-blob peer manifest lacks a transport signature.",
+           call. = FALSE)
+    }
+    .dsvert_normalize_crypto_b64(
+      info$signature, 64L,
+      paste0("transport signature for '", name, "'"))
+  }, character(1L), USE.NAMES = TRUE)
   own_names <- names(normalized)[normalized == own]
   if (length(own_names) != 1L) {
     stop("Typed-blob peer manifest must bind this server exactly once.",
          call. = FALSE)
   }
-  if (!identical(own_names[[1L]], configured_own_name)) {
+  if (!identical(own_names[[1L]], expected_own_name)) {
     stop("Typed-blob peer manifest relabels this server: the own identity ",
          "must be bound to configured dsvert.peer_name '",
-         configured_own_name, "'.", call. = FALSE)
+         expected_own_name, "'.", call. = FALSE)
   }
   peers <- normalized[names(normalized) != own_names[[1L]]]
   if (!length(peers)) {
@@ -1210,6 +1370,8 @@
   }
   ss$.typed_blob_self_name <- own_names[[1L]]
   ss$.typed_blob_peer_identity_pks <- as.list(peers)
+  ss$.typed_blob_peer_transport_signatures <- as.list(
+    signatures[names(peers)])
   ss$.typed_blob_parent_binding_digest <- parent_binding_digest
   ss$.typed_blob_peer_binding_digest <- binding
   invisible(TRUE)
@@ -1458,6 +1620,12 @@
     capability_id, resolved, session$self_name, recipient_name)
   .dsvert_typed_blob_validate_synopsis_route(
     capability_id, resolved, session$self_name, recipient_name)
+  .dsvert_typed_blob_validate_formal_finalizer_route(
+    capability_id, resolved, session$self_name, recipient_name)
+  .dsvert_typed_blob_validate_formal_glm_control_route(
+    capability_id, resolved, session$self_name, recipient_name)
+  .dsvert_typed_blob_validate_formal_cox_control_route(
+    capability_id, resolved, session$self_name, recipient_name)
   allowed_producers <- resolved$producer
   if (is.null(producer) && length(allowed_producers) == 1L) {
     producer <- allowed_producers[[1L]]
@@ -1483,6 +1651,27 @@
                 .DSVERT_TYPED_BLOB_FREQUENCY_SOURCE_CAPABILITY) &&
       payload_chars != .DSVERT_TYPED_BLOB_FREQUENCY_CIPHERTEXT_CHARS) {
     stop("Frequency transport requires one fixed ciphertext geometry.",
+         call. = FALSE)
+  }
+  if (identical(
+      capability_id, .DSVERT_FORMAL_FINALIZER_HANDOFF_CAPABILITY) &&
+      payload_chars != .dsvert_formal_finalizer_handoff_outer_chars_v1(
+        resolved$context$envelope_bytes)) {
+    stop("Formal-finalizer handoff payload conflicts with its envelope size.",
+         call. = FALSE)
+  }
+  if (identical(capability_id,
+                .DSVERT_FORMAL_GLM_CONTROL_CAPABILITY) &&
+      payload_chars != .dsvert_formal_glm_control_outer_chars_v1(
+        resolved$context$envelope_bytes)) {
+    stop("Formal GLM control payload conflicts with its envelope size.",
+         call. = FALSE)
+  }
+  if (identical(capability_id,
+                .DSVERT_FORMAL_COX_CONTROL_CAPABILITY) &&
+      payload_chars != .dsvert_formal_cox_control_outer_chars_v1(
+        resolved$context$envelope_bytes)) {
+    stop("Formal Cox control payload conflicts with its envelope size.",
          call. = FALSE)
   }
   if (xor(is.null(source_path), is.null(source_descriptor))) {
@@ -1607,11 +1796,13 @@
     producer = producer, sender_name = session$self_name,
     recipient_name = recipient_name, sequence = sequence,
     peer_binding_digest = session$peer_binding_digest,
+    context = resolved$context,
     payload_chars = as.numeric(payload_chars),
     payload_sha256 = body$payload_sha256, operation_key = NULL,
     issued_at = issued_at, expires_at = expires_at,
     source_path = committed_source,
     source_identity = committed_source_identity,
+    source_payload = NULL,
     source_frame_chars = NULL,
     source_high_water = 0, source_admitted_at = NULL,
     source_last_activity = NULL)
@@ -1623,11 +1814,7 @@
   transfer
 }
 
-# Internal only. A purpose-specific server producer calls this with a fixed
-# capability after creating the complete in-memory opaque payload.
-.dsvert_typed_blob_mint <- function(ss, session_id, capability_id,
-                                    recipient_pk, payload, context,
-                                    producer = NULL) {
+.dsvert_typed_blob_payload_descriptor <- function(payload) {
   if (!is.character(payload) || length(payload) != 1L || is.na(payload) ||
       !nzchar(payload) ||
       !grepl("^[A-Za-z0-9_-]+$", payload,
@@ -1635,11 +1822,55 @@
     stop("Typed-blob producer emitted a non-canonical opaque payload.",
          call. = FALSE)
   }
+  list(
+    payload_chars = as.numeric(nchar(payload, type = "bytes")),
+    payload_sha256 = digest::digest(
+      payload, algo = "sha256", serialize = FALSE))
+}
+
+# Internal only. A purpose-specific server producer calls this with a fixed
+# capability after creating the complete in-memory opaque payload.
+.dsvert_typed_blob_mint <- function(ss, session_id, capability_id,
+                                    recipient_pk, payload, context,
+                                    producer = NULL) {
+  descriptor <- .dsvert_typed_blob_payload_descriptor(payload)
   .dsvert_typed_blob_mint_descriptor(
     ss, session_id, capability_id, recipient_pk,
-    nchar(payload, type = "bytes"),
-    digest::digest(payload, algo = "sha256", serialize = FALSE),
+    descriptor$payload_chars, descriptor$payload_sha256,
     context, producer = producer)
+}
+
+# Internal only. Unlike legacy in-memory producers, this source-stream form
+# retains the opaque payload exclusively in private producer session state and
+# lets the aggregate result contain only its signed transfer contract.
+.dsvert_typed_blob_mint_inline_source <- function(
+    ss, session_id, capability_id, recipient_pk, payload, context,
+    producer = NULL) {
+  descriptor <- .dsvert_typed_blob_payload_descriptor(payload)
+  .dsvert_typed_blob_sweep_expired(ss)
+  retained <- .dsvert_typed_blob_retained_bytes(ss)
+  capacity <- .dsvert_typed_blob_spool_max_bytes()
+  if (descriptor$payload_chars > capacity) {
+    .dsvert_resource_oversize(
+      descriptor$payload_chars, capacity, "inline typed-source session spool")
+  }
+  if (retained > capacity - descriptor$payload_chars) {
+    .dsvert_resource_backpressure(
+      retained, descriptor$payload_chars, capacity,
+      "inline typed-source session spool")
+  }
+  .dsvert_resource_admit(ss, descriptor$payload_chars)
+  accounting_head <- ss$.typed_blob_retained_head
+  transfer <- .dsvert_typed_blob_mint_descriptor(
+    ss, session_id, capability_id, recipient_pk,
+    descriptor$payload_chars, descriptor$payload_sha256,
+    context, producer = producer)
+  outbound <- ss$.typed_blob_outbound[[transfer$transfer_id]]
+  outbound$source_payload <- payload
+  ss$.typed_blob_outbound[[transfer$transfer_id]] <- outbound
+  .dsvert_typed_blob_accounting_adjust(
+    ss, accounting_head, descriptor$payload_chars)
+  transfer
 }
 
 .dsvert_typed_blob_mint_file <- function(
@@ -1779,7 +2010,19 @@ mpcTypedSourceProbeDS <- function(recipient_pk, payload_bytes, session_id) {
   source_records <- Filter(function(record) {
     is.list(record) && !is.null(record$source_path)
   }, records)
-  released_bytes <- 0
+  released_bytes <- if (is.null(operation)) 0 else
+    .dsvert_typed_blob_operation_reserved_bytes(operation)
+  released_bytes <- released_bytes + sum(vapply(records, function(record) {
+    if (!is.list(record) || !is.null(record$source_path) ||
+        (!is.null(operation) && is.null(record$source_payload))) return(0)
+    value <- record$payload_chars
+    if (!is.numeric(value) || length(value) != 1L || is.na(value) ||
+        !is.finite(value) || value < 1 || value != floor(value)) {
+      stop("Typed-source inactivity cleanup found invalid inline state.",
+           call. = FALSE)
+    }
+    as.numeric(value)
+  }, numeric(1L)))
   if (length(source_records)) {
     root <- .dsvert_typed_blob_source_root(ss, create = FALSE)
     paths <- character()
@@ -1837,6 +2080,7 @@ mpcTypedSourceProbeDS <- function(recipient_pk, payload_bytes, session_id) {
 #' @param max_chars Immutable frame geometry selected before the first read.
 #' @param session_id Active MPC session identifier.
 #' @return One typed Base64url frame with length and SHA-256 commitments.
+#' @export
 mpcTypedBlobReadDS <- function(ticket, offset, max_chars, session_id) {
   tryCatch(
     .mpcTypedBlobReadDS_impl(ticket, offset, max_chars, session_id),
@@ -1866,10 +2110,16 @@ mpcTypedBlobReadDS <- function(ticket, offset, max_chars, session_id) {
   transfer_id <- (ss$.typed_blob_outbound_ticket_index %||%
                     list())[[ticket_digest]]
   outbound <- (ss$.typed_blob_outbound %||% list())[[transfer_id]]
+  has_path <- !is.null(outbound$source_path)
+  has_payload <- !is.null(outbound$source_payload)
   if (is.null(outbound) || !identical(outbound$ticket, ticket) ||
       !identical(outbound$ticket_digest, ticket_digest) ||
-      !is.character(outbound$source_path) ||
-      length(outbound$source_path) != 1L || is.na(outbound$source_path)) {
+      identical(has_path, has_payload) ||
+      (has_path && (!is.character(outbound$source_path) ||
+        length(outbound$source_path) != 1L || is.na(outbound$source_path))) ||
+      (has_payload && (!is.character(outbound$source_payload) ||
+        length(outbound$source_payload) != 1L ||
+        is.na(outbound$source_payload)))) {
     stop("Typed-source ticket has no pending producer spool.", call. = FALSE)
   }
   total <- .dsvert_typed_blob_uint(
@@ -1885,6 +2135,15 @@ mpcTypedBlobReadDS <- function(ticket, offset, max_chars, session_id) {
     if (!identical(offset, 0) || now > outbound$expires_at) {
       stop("Typed-source transfer is expired or did not start at zero.",
            call. = FALSE)
+    }
+    if (has_payload) {
+      descriptor <- .dsvert_typed_blob_payload_descriptor(
+        outbound$source_payload)
+      if (!identical(descriptor$payload_chars, as.numeric(total)) ||
+          !identical(descriptor$payload_sha256,
+                     outbound$payload_sha256)) {
+        stop("Typed-source inline spool integrity changed.", call. = FALSE)
+      }
     }
     outbound$source_admitted_at <- now
     outbound$source_last_activity <- now
@@ -1904,29 +2163,36 @@ mpcTypedBlobReadDS <- function(ticket, offset, max_chars, session_id) {
   if (offset > high_water || offset %% max_chars != 0) {
     stop("Typed-source read is out of order.", call. = FALSE)
   }
-  path <- outbound$source_path
-  root <- .dsvert_typed_blob_source_root(ss, create = FALSE)
-  if (!dir.exists(root) || !file.exists(path) || nzchar(Sys.readlink(path)) ||
-      !identical(normalizePath(dirname(path), mustWork = TRUE), root) ||
-      !grepl("^tb_[0-9a-f]{32}\\.b64$", basename(path)) ||
-      !identical(.dsvert_typed_blob_source_identity(path),
-                 outbound$source_identity) ||
-      !identical(outbound$source_identity$size, as.numeric(total))) {
-    stop("Typed-source spool integrity changed.", call. = FALSE)
-  }
   count <- min(max_chars, total - offset)
-  con <- file(path, "rb")
-  on.exit(close(con), add = TRUE)
-  seek(con, where = offset, origin = "start")
-  bytes <- readBin(con, "raw", n = count)
-  if (length(bytes) != count) {
-    stop("Typed-source frame was truncated.", call. = FALSE)
+  if (has_path) {
+    path <- outbound$source_path
+    root <- .dsvert_typed_blob_source_root(ss, create = FALSE)
+    if (!dir.exists(root) || !file.exists(path) || nzchar(Sys.readlink(path)) ||
+        !identical(normalizePath(dirname(path), mustWork = TRUE), root) ||
+        !grepl("^tb_[0-9a-f]{32}\\.b64$", basename(path)) ||
+        !identical(.dsvert_typed_blob_source_identity(path),
+                   outbound$source_identity) ||
+        !identical(outbound$source_identity$size, as.numeric(total))) {
+      stop("Typed-source spool integrity changed.", call. = FALSE)
+    }
+    con <- file(path, "rb")
+    on.exit(close(con), add = TRUE)
+    seek(con, where = offset, origin = "start")
+    bytes <- readBin(con, "raw", n = count)
+    if (length(bytes) != count) {
+      stop("Typed-source frame was truncated.", call. = FALSE)
+    }
+    if (!identical(.dsvert_typed_blob_source_identity(path),
+                   outbound$source_identity)) {
+      stop("Typed-source spool changed during frame read.", call. = FALSE)
+    }
+    chunk <- rawToChar(bytes)
+  } else {
+    chunk <- substr(outbound$source_payload, offset + 1, offset + count)
+    if (nchar(chunk, type = "bytes") != count) {
+      stop("Typed-source inline frame was truncated.", call. = FALSE)
+    }
   }
-  if (!identical(.dsvert_typed_blob_source_identity(path),
-                 outbound$source_identity)) {
-    stop("Typed-source spool changed during frame read.", call. = FALSE)
-  }
-  chunk <- rawToChar(bytes)
   if (identical(offset, high_water)) {
     outbound$source_high_water <- as.numeric(offset + count)
     outbound$source_last_activity <- now
@@ -2022,6 +2288,12 @@ mpcTypedBlobReadDS <- function(ticket, offset, max_chars, session_id) {
     body$capability_id, resolved, sender, recipient)
   .dsvert_typed_blob_validate_synopsis_route(
     body$capability_id, resolved, sender, recipient)
+  .dsvert_typed_blob_validate_formal_finalizer_route(
+    body$capability_id, resolved, sender, recipient)
+  .dsvert_typed_blob_validate_formal_glm_control_route(
+    body$capability_id, resolved, sender, recipient)
+  .dsvert_typed_blob_validate_formal_cox_control_route(
+    body$capability_id, resolved, sender, recipient)
   metadata_valid <-
     identical(body$family, resolved$family) &&
     is.character(body$producer) && length(body$producer) == 1L &&
@@ -2040,6 +2312,27 @@ mpcTypedBlobReadDS <- function(ticket, offset, max_chars, session_id) {
                 .DSVERT_TYPED_BLOB_FREQUENCY_SOURCE_CAPABILITY) &&
       payload_chars != .DSVERT_TYPED_BLOB_FREQUENCY_CIPHERTEXT_CHARS) {
     stop("Frequency transport requires one fixed ciphertext geometry.",
+         call. = FALSE)
+  }
+  if (identical(
+      body$capability_id, .DSVERT_FORMAL_FINALIZER_HANDOFF_CAPABILITY) &&
+      payload_chars != .dsvert_formal_finalizer_handoff_outer_chars_v1(
+        resolved$context$envelope_bytes)) {
+    stop("Formal-finalizer handoff payload conflicts with its envelope size.",
+         call. = FALSE)
+  }
+  if (identical(body$capability_id,
+                .DSVERT_FORMAL_GLM_CONTROL_CAPABILITY) &&
+      payload_chars != .dsvert_formal_glm_control_outer_chars_v1(
+        resolved$context$envelope_bytes)) {
+    stop("Formal GLM control payload conflicts with its envelope size.",
+         call. = FALSE)
+  }
+  if (identical(body$capability_id,
+                .DSVERT_FORMAL_COX_CONTROL_CAPABILITY) &&
+      payload_chars != .dsvert_formal_cox_control_outer_chars_v1(
+        resolved$context$envelope_bytes)) {
+    stop("Formal Cox control payload conflicts with its envelope size.",
          call. = FALSE)
   }
   sequence <- .dsvert_typed_blob_integer_string(
@@ -2511,6 +2804,14 @@ mpcTypedBlobReceiptDS <- function(receipt, session_id) {
     stop("Typed-blob receipt has no matching producer invocation.",
          call. = FALSE)
   }
+  if (identical(outbound$capability_id,
+                .DSVERT_FORMAL_GLM_CONTROL_CAPABILITY)) {
+    .dsvert_formal_glm_control_mark_delivered_v1(ss, outbound, parsed)
+  }
+  if (identical(outbound$capability_id,
+                .DSVERT_FORMAL_COX_CONTROL_CAPABILITY)) {
+    .dsvert_formal_cox_control_mark_delivered_v1(ss, outbound, parsed)
+  }
   receipt_record <- list(
     receipt_digest = parsed$receipt_digest,
     stream_key = outbound$stream_key,
@@ -2540,6 +2841,8 @@ mpcTypedBlobReceiptDS <- function(receipt, session_id) {
       stop("Could not release the completed typed-source spool.",
            call. = FALSE)
     }
+  } else if (!is.null(outbound$source_payload)) {
+    released_bytes <- as.numeric(outbound$payload_chars)
   }
   if (!is.null(ss$.typed_blob_outbound_ticket_index)) {
     ss$.typed_blob_outbound_ticket_index[[outbound$ticket_digest]] <- NULL
@@ -2548,6 +2851,8 @@ mpcTypedBlobReceiptDS <- function(receipt, session_id) {
   confirmed <- operation$transfer_ids %in%
     names(ss$.typed_blob_outbound_receipts)
   if (all(confirmed)) {
+    released_bytes <- released_bytes +
+      .dsvert_typed_blob_operation_reserved_bytes(operation)
     ss$.typed_blob_pending_operations[[operation_key]] <- NULL
   }
   if (released_bytes > 0) {
@@ -2784,7 +3089,6 @@ mpcTypedBlobStoreDS <- function(ticket, chunk, offset, session_id) {
     stop("Typed-blob payload hash does not match its producer ticket.",
          call. = FALSE)
   }
-  signed_receipt <- .dsvert_typed_blob_mint_receipt(plan, ss)
   existing_memory <- !is.null(ss$blobs[[plan$destination]])
   destination_path <- file.path(
     .ensure_session_dir(ss), "blobs", plan$destination)
@@ -2801,6 +3105,15 @@ mpcTypedBlobStoreDS <- function(ticket, chunk, offset, session_id) {
     rollback <- FALSE
     stop("Typed-blob destination is already populated.", call. = FALSE)
   }
+  if (identical(plan$capability_id,
+                .DSVERT_FORMAL_GLM_CONTROL_CAPABILITY)) {
+    .dsvert_formal_glm_control_import_ingress_v1(ss, plan, state$path)
+  }
+  if (identical(plan$capability_id,
+                .DSVERT_FORMAL_COX_CONTROL_CAPABILITY)) {
+    .dsvert_formal_cox_control_import_ingress_v1(ss, plan, state$path)
+  }
+  signed_receipt <- .dsvert_typed_blob_mint_receipt(plan, ss)
   if (!file.rename(state$path, destination_path)) {
     stop("Could not commit typed-blob payload atomically.", call. = FALSE)
   }

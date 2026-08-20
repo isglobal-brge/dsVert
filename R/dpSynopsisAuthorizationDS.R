@@ -152,6 +152,34 @@
   expected
 }
 
+.dsvert_dp_synopsis_session_context_v1 <- function(ss, session_id) {
+  .dsvert_dp_synopsis_authorization_state_v1(ss, installing = FALSE)
+  session_id <- .dsvert_relay_validate_session_id(session_id)
+  authorization <- ss$.dp_synopsis_authorization
+  fields <- c(
+    "version", "session_id", "manifest_sha256", "artifact",
+    "artifact_key", "source_claim_set_sha256", "receipt_peers",
+    "receipt_set_sha256", "local_authority", "authorization_sha256")
+  if (!is.list(authorization) || is.null(names(authorization)) ||
+      anyNA(names(authorization)) || anyDuplicated(names(authorization)) ||
+      !setequal(names(authorization), fields) || !identical(
+        authorization$version, .DSVERT_DP_SYNOPSIS_AUTHORIZATION_VERSION) ||
+      !identical(authorization$session_id, session_id)) {
+    stop("Invalid synopsis session authorization.", call. = FALSE)
+  }
+  manifest_sha256 <- .dsvert_dp_synopsis_hex_v1(
+    authorization$manifest_sha256, "authorization manifest selector")
+  secret <- .dsvert_dp_secret()
+  policy <- .dsvert_dp_synopsis_policy_for_manifest_v1(
+    manifest_sha256, secret)
+  cache_get <- .dsvert_dp_synopsis_manifest_cache_get_readonly_v1
+  authorization <- .dsvert_dp_synopsis_session_authorization_validate_v1(
+    ss, session_id, policy, secret, .cache_get = cache_get)
+  list(
+    ss = ss, policy = policy, secret = secret,
+    cache_get = cache_get, authorization = authorization)
+}
+
 .dsvert_dp_synopsis_authorize_session_v1 <- function(
     ss, session_id, manifest_sha256, artifact, claim_set, receipts,
     .policy = NULL, .secret = NULL, .identity = NULL,

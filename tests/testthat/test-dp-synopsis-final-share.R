@@ -32,7 +32,7 @@
 
 .synopsis_final_share_session <- function(built, peer) {
   ss <- built$setup$authorized[[peer]]$state
-  peers <- setdiff(built$fixture$peers, peer)
+  peers <- setdiff(built$setup$authorities, peer)
   transport <- lapply(seq_along(peers), function(index) {
     gsub("[\r\n]", "", jsonlite::base64_enc(as.raw(
       rep((index + 10L) %% 255L, 32L))))
@@ -41,9 +41,12 @@
   ss$.session_id <- built$setup$session_id
   ss$peer_transport_pks <- transport
   ss$.typed_blob_self_name <- peer
-  ss$.typed_blob_peer_identity_pks <- as.list(
-    built$fixture$input$fixture$pins[peers])
+  ss$.typed_blob_peer_identity_pks <- lapply(
+    as.list(built$fixture$input$fixture$pins[peers]),
+    .base64url_to_base64)
   ss$.typed_blob_peer_binding_digest <- strrep("a", 64L)
+  ss$.exact_gc_designated_peers <- sort(
+    built$setup$authorities, method = "radix")
   ss
 }
 
@@ -102,6 +105,7 @@ test_that("FINAL_SHARE transports the exact durable Ring128 bytes", {
     .S = function(...) ss,
     .dsvert_typed_blob_operation_replay = function(...) list(
       hit = FALSE, key = "key"),
+    .exact_gc_validate_bound_peer_context = function(...) strrep("b", 64L),
     .dsvert_typed_blob_mint = function(
         ss, session_id, capability_id, recipient_pk, payload, context,
         producer = NULL) {
@@ -157,6 +161,7 @@ test_that("FINAL_SHARE transports the exact durable Ring128 bytes", {
     .S = function(...) ss,
     .dsvert_typed_blob_operation_replay = function(...) list(
       hit = TRUE, result = result),
+    .exact_gc_validate_bound_peer_context = function(...) strrep("b", 64L),
     .dsvert_dp_synopsis_execution_with_store_v1 = forbidden,
     .dsvert_typed_blob_mint = forbidden,
     .dsvert_typed_blob_operation_commit = forbidden,
@@ -172,7 +177,11 @@ test_that("FINAL_SHARE routes K=3/5 only between the two authorities", {
     recipient <- built$setup$authorities[[2L]]
     witnesses <- setdiff(built$fixture$peers, built$setup$authorities)
     ss <- .synopsis_final_share_session(built, peer)
+    expect_identical(names(ss$peer_transport_pks), recipient)
+    expect_identical(names(ss$.typed_blob_peer_identity_pks), recipient)
     observed <- list()
+    binding_checks <- 0L
+    binding_valid <- TRUE
     sentinel <- list(done = TRUE)
     run <- function(first, second) testthat::with_mocked_bindings(
       .dsvert_dp_synopsis_execution_final_share_v1(
@@ -188,6 +197,11 @@ test_that("FINAL_SHARE routes K=3/5 only between the two authorities", {
       .dsvert_typed_blob_operation_replay = function(ss, producer, request) {
         observed[[length(observed) + 1L]] <<- request
         list(hit = TRUE, result = sentinel)
+      },
+      .exact_gc_validate_bound_peer_context = function(...) {
+        binding_checks <<- binding_checks + 1L
+        if (!isTRUE(binding_valid)) stop("invalid full-K binding")
+        strrep("b", 64L)
       }, .package = "dsVert")
     expect_identical(run(built$results[[1L]], built$results[[2L]]),
                      sentinel)
@@ -199,12 +213,22 @@ test_that("FINAL_SHARE routes K=3/5 only between the two authorities", {
       value$recipient_name %in% witnesses, logical(1L))))
     expect_identical(observed[[1L]]$result_set_sha256,
                      observed[[2L]]$result_set_sha256)
-    changed <- ss$.typed_blob_peer_identity_pks[[witnesses[[1L]]]]
-    ss$.typed_blob_peer_identity_pks[[witnesses[[1L]]]] <-
+    expect_identical(binding_checks, 2L)
+    original_recipient_pk <-
       ss$.typed_blob_peer_identity_pks[[recipient]]
+    ss$.typed_blob_peer_identity_pks[[recipient]] <-
+      unname(built$fixture$input$fixture$pins[[witnesses[[1L]]]])
     expect_error(run(built$results[[1L]], built$results[[2L]]),
                  "recipient is not pinned")
-    ss$.typed_blob_peer_identity_pks[[witnesses[[1L]]]] <- changed
+    ss$.typed_blob_peer_identity_pks[[recipient]] <- original_recipient_pk
+    ss$.typed_blob_peer_identity_pks[[witnesses[[1L]]]] <-
+      unname(built$fixture$input$fixture$pins[[witnesses[[1L]]]])
+    expect_error(run(built$results[[1L]], built$results[[2L]]),
+                 "recipient is not pinned")
+    ss$.typed_blob_peer_identity_pks[[witnesses[[1L]]]] <- NULL
+    binding_valid <- FALSE
+    expect_error(run(built$results[[1L]], built$results[[2L]]),
+                 "recipient is not pinned")
   }
 })
 

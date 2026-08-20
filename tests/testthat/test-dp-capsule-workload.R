@@ -179,6 +179,51 @@
                          use.names = FALSE))
 }
 
+test_that("a local categorical scope materializes a true projected vector", {
+  fixture <- .capsule_test_fixture()
+  build <- function(pair, schema = fixture$schema) {
+    .dsvert_dp_capsule_workload_manifest(
+      fixture$policy, fixture$snapshot, schema,
+      describe_specs = list(), survival_specs = list(),
+      gaussian_specs = list(), vertical_cross_specs = list(),
+      .signature_verifier = function(...) TRUE,
+      .noise_selector = .capsule_test_noise_selector,
+      .gaussian_planner = function(...) {
+        stop("test exact-Gaussian backend unavailable", call. = FALSE)
+      },
+      .primitive_scope = list(
+        mode = "catalog_v1", numeric_moments = character(),
+        categorical_marginals = character(),
+        categorical_pairs = list(pair), correlations = list()))
+  }
+  projected <- build(c("status", "sex"))
+  families <- projected$workload$families
+  expect_identical(projected$workload$coordinate_count, 12)
+  expect_length(families$numeric_moments$artifacts, 0L)
+  expect_length(families$numeric_pair_moments$artifacts, 0L)
+  expect_length(families$gaussian_models$artifacts, 0L)
+  expect_length(families$fixed_numeric_histograms$artifacts, 0L)
+  expect_length(families$describe_artifacts, 0L)
+  expect_length(families$survival_artifacts, 0L)
+  expect_length(families$categorical_marginals$artifacts, 2L)
+  expect_length(families$categorical_pairs$sets, 1L)
+  expect_length(families$categorical_pairs$cross_artifacts, 0L)
+  expect_identical(
+    projected$workload$primitive_scope$selection$explicit_catalog$
+      categorical_pairs,
+    list(c("sex", "status")))
+  expect_identical(
+    projected$workload$vertical_crosses$included_coordinate_count, 0)
+
+  permuted <- fixture$schema
+  permuted$datasets$protected$columns$sex$levels <- c("male", "female")
+  permuted$datasets$protected$columns$status$levels <-
+    c("event_b", "censor", "event_a")
+  equivalent <- build(c("sex", "status"), permuted)
+  expect_identical(equivalent$capsule_identity$capsule_id,
+                   projected$capsule_identity$capsule_id)
+})
+
 test_that("biomedical capsule manifest covers every supported family", {
   fixture <- .capsule_test_fixture()
   manifest <- testthat::with_mocked_bindings(
@@ -1037,7 +1082,8 @@ test_that("ambiguous malformed and oversized metadata is rejected", {
   ambiguous$schema$datasets$second <-
     ambiguous$schema$datasets$protected
   ambiguous$schema$datasets$second$dataset_id <- "second-cohort"
-  expect_error(.capsule_test_build(ambiguous), "globally unique")
+  expect_error(
+    .capsule_test_build(ambiguous), "owner/dataset/column triplet")
 
   invalid_spec <- fixture
   invalid_spec$specs$survival$primary$time_grid <- c(1, 3, 2, 5)
@@ -1145,4 +1191,100 @@ test_that("eligible Gaussian still loses on a tie or worse utility", {
   expect_identical(mechanism$sensitivity_norm, "l1")
   expect_true(mechanism$uses_delta)
   expect_match(selection$decision, "Laplace|laplace")
+})
+
+.qualified_gaussian_fixture <- function(k) {
+  if (identical(k, 2L)) {
+    fixture <- .capsule_test_fixture(vertical = TRUE)
+    remote_owner <- "peer_b"
+  } else if (identical(k, 3L)) {
+    fixture <- .capsule_test_k3_fixture("peer_a", 3L)
+    remote_owner <- "peer_c"
+  } else {
+    stop("invalid qualified Gaussian fixture")
+  }
+
+  fixture$policy$numeric_bounds$x <- c(-2, 2)
+  fixture$policy$capsule_workload_scope <- list(
+    mode = "catalog_v1", numeric_moments = character(),
+    categorical_marginals = character(), categorical_pairs = list(),
+    correlations = list())
+  fixture$schema$datasets$protected$columns[["peer_a$x"]] <- list(
+    kind = "numeric", owner_peer = "peer_a", lower = -2, upper = 2)
+  fixture$schema$datasets$remote$columns <- stats::setNames(list(list(
+    kind = "numeric", owner_peer = remote_owner, lower = -1, upper = 1)),
+    paste0(remote_owner, "$x"))
+  fixture$specs$describe <- list()
+  fixture$specs$survival <- list()
+  fixture$specs$gaussian <- list(duplicate_x = list(
+    version = "v2", dataset = "protected", outcome = "age",
+    predictors = c("peer_a$x", paste0(remote_owner, "$x")),
+    intercept = TRUE))
+  fixture
+}
+
+test_that("signed Gaussian columns distinguish duplicate physical names at K=2/3", {
+  for (k in c(2L, 3L)) {
+    fixture <- .qualified_gaussian_fixture(k)
+    fixture$policy$capsule_workload_specs <- list(
+      describe = list(), survival = list(),
+      gaussian = fixture$specs$gaussian, vertical_cross = list())
+    local_specs <- .dsvert_dp_capsule_manifest_local_specs(fixture$policy)
+    expect_identical(
+      local_specs$gaussian$duplicate_x$predictors,
+      fixture$specs$gaussian$duplicate_x$predictors,
+      info = paste("local draft K =", k))
+    manifest <- .capsule_test_build(fixture)
+    artifact <- manifest$workload$families$gaussian_models$
+      artifacts$duplicate_x
+    remote_owner <- if (k == 2L) "peer_b" else "peer_c"
+    references <- c("peer_a$x", paste0(remote_owner, "$x"))
+    owners <- sub("\\$x$", "", references)
+
+    expect_identical(artifact$predictor_order, references,
+                     info = paste("K =", k))
+    expect_identical(names(artifact$predictors), references,
+                     info = paste("K =", k))
+    expect_true(all(vapply(
+      artifact$predictors, function(value) identical(value$column, "x"),
+      logical(1L))), info = paste("K =", k))
+    expect_identical(
+      unname(vapply(
+        artifact$predictors, `[[`, character(1L), "owner_peer")),
+      owners, info = paste("K =", k))
+
+    layout <- .dsvert_dp_gaussian_cross_layout(manifest)
+    blocks <- layout$blocks[grepl("^duplicate_x::", names(layout$blocks))]
+    expect_length(blocks, 6L)
+    predictor_blocks <- blocks[vapply(
+      blocks, function(block) identical(block$variable, "x"), logical(1L))]
+    expect_length(predictor_blocks, 4L)
+    expect_setequal(vapply(
+      predictor_blocks, `[[`, character(1L), "owner_peer"), owners)
+
+    reordered <- fixture
+    reordered$schema$datasets <- rev(reordered$schema$datasets)
+    reordered$schema$datasets$protected$columns <-
+      rev(reordered$schema$datasets$protected$columns)
+    expect_identical(
+      .capsule_test_build(reordered)$capsule_identity$capsule_id,
+      manifest$capsule_identity$capsule_id,
+      info = paste("K =", k))
+
+    wrong_owner <- fixture
+    names(wrong_owner$schema$datasets$protected$columns)[
+      names(wrong_owner$schema$datasets$protected$columns) == "peer_a$x"] <-
+      "peer_b$x"
+    expect_error(
+      .capsule_test_build(wrong_owner), "names the wrong owner",
+      info = paste("K =", k))
+  }
+})
+
+test_that("qualified Gaussian references reject malformed owner bindings", {
+  for (reference in c("peer_a$", "$x", "peer_a$$x")) {
+    expect_error(
+      .dsvert_dp_capsule_column_reference(reference, "test reference"),
+      "Invalid biomedical capsule", info = reference)
+  }
 })

@@ -4130,13 +4130,14 @@
 
 .dsvert_dp_capsule_source_compact_after_vector_release_internal <- function(
     policy, manifest_json, authorization, secret = NULL,
-    .phase_hook = NULL) {
+    .phase_hook = NULL, source_contract = NULL) {
   if (is.null(secret)) secret <- .dsvert_dp_secret()
   if (!is.null(.phase_hook) && !is.function(.phase_hook)) {
     stop("Invalid biomedical capsule source compaction phase hook.",
          call. = FALSE)
   }
-  parsed <- .dsvert_dp_capsule_source_contract_json(policy, manifest_json)
+  parsed <- .dsvert_dp_capsule_source_contract_json(
+    policy, manifest_json, source_contract)
   contract <- .dsvert_dp_capsule_source_contract_validate(parsed$contract)
   authorization <-
     .dsvert_dp_capsule_source_compaction_authorization_validate(
@@ -4314,6 +4315,30 @@
       DBI::dbExecute(connection,
         "DELETE FROM source_cross_categorical_results WHERE capsule_id = ?",
         params = list(capsule_id))
+      capsule_tables <- c(
+        "source_aggregate_chunks", "source_incoming_state",
+        "source_outbound", "source_recipient_keys",
+        "source_cross_gaussian_results",
+        "source_cross_categorical_results")
+      retained_capsule_rows <- sum(vapply(capsule_tables, function(table) {
+        DBI::dbGetQuery(connection, paste(
+          "SELECT COUNT(*) AS n FROM", table, "WHERE capsule_id = ?"),
+          params = list(capsule_id))$n[[1L]]
+      }, numeric(1L)))
+      retained_transfer_rows <- 0
+      if (length(transfers)) {
+        placeholders <- paste(rep("?", length(transfers)), collapse = ",")
+        retained_transfer_rows <- sum(vapply(c(
+          "source_outbound_chunks", "source_incoming_receipts"),
+        function(table) DBI::dbGetQuery(connection, paste0(
+          "SELECT COUNT(*) AS n FROM ", table,
+          " WHERE transfer_id IN (", placeholders, ")"),
+        params = unname(as.list(transfers)))$n[[1L]], numeric(1L)))
+      }
+      if (retained_capsule_rows != 0 || retained_transfer_rows != 0) {
+        stop("The capsule source compaction left private state behind.",
+             call. = FALSE)
+      }
       if (released > 0) {
         state$reserved_bytes <- as.numeric(state$reserved_bytes) - released
         .dsvert_dp_capsule_source_record_update(

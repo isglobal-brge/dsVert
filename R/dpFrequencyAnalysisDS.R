@@ -1,14 +1,14 @@
 # K-wide compiler for one fixed-domain categorical Frequency analysis.
 
-.DSVERT_DP_FREQUENCY_CONFIG_VERSION <- "dsvert-dp-frequency-config-v1"
+.DSVERT_DP_FREQUENCY_CONFIG_VERSION <- "dsvert-dp-frequency-config-v2"
 .DSVERT_DP_FREQUENCY_RECEIPT_VERSION <- "dsvert-dp-frequency-receipt-v1"
-.DSVERT_DP_FREQUENCY_CONFIG_DOMAIN <- "dsVert/dp-frequency/config/v1|"
+.DSVERT_DP_FREQUENCY_CONFIG_DOMAIN <- "dsVert/dp-frequency/config/v2|"
 .DSVERT_DP_FREQUENCY_RECEIPT_DOMAIN <- "dsVert/dp-frequency/receipt/v1|"
 .DSVERT_DP_FREQUENCY_CLAIM_HASH_DOMAIN <- "dsVert/dp-frequency/source-claim/v1|"
 .DSVERT_DP_FREQUENCY_RUNTIME_DOMAIN <- "dsVert/dp-frequency/runtime-protocol/v1|"
 .DSVERT_DP_FREQUENCY_MEMBERSHIP_DOMAIN <- "dsVert/dp-frequency/membership/v1|"
 .DSVERT_DP_FREQUENCY_VECTOR_DOMAIN <- "dsVert/dp-frequency/fixed-categorical-vector/v1|"
-.DSVERT_DP_FREQUENCY_ALIGNMENT_DOMAIN <- "dsVert/dp-frequency/semantic-alignment/v1|"
+.DSVERT_DP_FREQUENCY_ALIGNMENT_DOMAIN <- "dsVert/dp-frequency/semantic-alignment/v2|"
 
 .dsvert_dp_frequency_number_v1 <- function(
     value, what, lower, upper, integer = FALSE) {
@@ -210,9 +210,9 @@
       .psi_padded_factor_entry_hash_v1(entry)) ||
       !identical(as.numeric(config$max_records_per_unit), 1) ||
       !identical(config$repeated_record_policy,
-        "psi_v4_first_eligible_source_record_per_privacy_unit_v1") ||
+        "psi_v5_first_eligible_source_record_per_privacy_unit_v1") ||
       !identical(config$overflow_policy,
-        "clip_to_psi_v4_first_eligible_source_record_v1") ||
+        "clip_to_psi_v5_first_eligible_source_record_v1") ||
       !identical(config$missingness_policy,
         "missing_or_out_of_domain_rows_are_ignored")) {
     stop("Invalid Frequency contribution policy.", call. = FALSE)
@@ -301,8 +301,8 @@
     coordinate_upper_bound = settings$coordinate_upper_bound,
     max_records_per_unit = 1L,
     repeated_record_policy =
-      "psi_v4_first_eligible_source_record_per_privacy_unit_v1",
-    overflow_policy = "clip_to_psi_v4_first_eligible_source_record_v1",
+      "psi_v5_first_eligible_source_record_per_privacy_unit_v1",
+    overflow_policy = "clip_to_psi_v5_first_eligible_source_record_v1",
     missingness_policy = "missing_or_out_of_domain_rows_are_ignored",
     privacy = settings$privacy, calibration = settings$calibration,
     peer_pins = .dsvert_dp_frequency_peer_pins_v1(peer_pins),
@@ -317,12 +317,7 @@
     data, config, peer_name, claim, .registry_verifier) {
   alignment <- .psi_validate_alignment_manifest(data)
   attestation <- .psi_padded_validate_persistent_attestation(data)
-  raw_alignment <- attr(data, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE)
-  raw_attestation <- attr(
-    data, .PSI_PADDED_ATTESTATION_ATTRIBUTE, exact = TRUE)$public
-  psi_run <- .dsvert_dp_frequency_hash_v1(
-    .DSVERT_DP_FREQUENCY_PSI_RUN_DOMAIN,
-    list(alignment = raw_alignment, attestation = raw_attestation))
+  psi <- .dsvert_dp_frequency_psi_run_v2(attestation)
   expected <- list(
     attestation_id = claim$attestation_id,
     contract_hash = claim$contract_hash,
@@ -336,21 +331,22 @@
     attestation_id = attestation$attestation_id,
     contract_hash = attestation$contract_hash,
     source_binding_id = attestation$source_binding_id,
-    alignment_hash = alignment$hash,
+    alignment_hash = psi$alignment_sha256,
     alignment_purpose = attestation$alignment_purpose,
     dataset_id = attestation$dataset_id,
     dataset_version = attestation$dataset_version,
     id_column = attestation$id_column, pinset_id = attestation$pinset_id)
   capacity <- tryCatch(.psi_padded_validate_capacity(
     attestation$capacity_bucket), error = function(error) NA_integer_)
-  if (!identical(actual, expected) || !identical(psi_run, claim$psi_run_sha256) ||
+  if (!identical(actual, expected) ||
+      !identical(psi$psi_run_sha256, claim$psi_run_sha256) ||
       nrow(data) > config$coordinate_upper_bound || is.na(capacity) ||
       nrow(data) > capacity) {
     stop("The Frequency PSI run does not match its signed Claim.",
          call. = FALSE)
   }
   identifiers <- .dsvert_canonical_label_values(
-    .subset2(data, config$privacy_unit_column),
+    .subset2(data, alignment$id_col),
     "Frequency privacy-unit identifiers", allow_na = FALSE,
     allow_blank = FALSE)
   if (anyNA(identifiers) || any(!nzchar(identifiers)) ||
@@ -407,7 +403,7 @@
       alignment_purpose = config$alignment_purpose,
       membership_sha256 = membership_sha256,
       source_binding_id = config$source_binding_id))
-  list(psi_run_sha256 = psi_run, snapshot_commitment =
+  list(psi_run_sha256 = psi$psi_run_sha256, snapshot_commitment =
     .dsvert_dp_analysis_snapshot_commitment_v1(list(
       domain = config$domain, cohort_id = config$cohort_id,
       owner_identity_pk = unname(config$peer_pins[[peer_name]]),

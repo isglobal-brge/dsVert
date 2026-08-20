@@ -59,9 +59,11 @@
   ss$.dp_alignment_mask_batches
 }
 
-.dsvert_dp_alignment_mask_contract <- function(policy, manifest_json) {
+.dsvert_dp_alignment_mask_contract <- function(
+    policy, manifest_json, source_contract = NULL) {
   manifest <- .dsvert_dp_capsule_source_manifest(manifest_json)
-  parsed <- .dsvert_dp_capsule_source_contract_json(policy, manifest_json)
+  parsed <- .dsvert_dp_capsule_source_contract_json(
+    policy, manifest_json, source_contract)
   contract <- .dsvert_dp_capsule_source_contract_validate(parsed$contract)
   if (!.dsvert_dp_capsule_source_cross_contract(contract) ||
       !identical(as.numeric(contract$ring_bits), 128) ||
@@ -209,14 +211,16 @@
 .dsvert_dp_alignment_mask_start_impl <- function(
     manifest_json, batch_operation_id, operation_id,
     chunk_index, chunk_count, session_id,
-    .policy = NULL, .secret = NULL, binary = .findMpcBinary()) {
+    .policy = NULL, .secret = NULL, binary = .findMpcBinary(),
+    source_contract = NULL) {
   if (is.null(.policy)) .policy <- .dsvert_dp_policy()
   if (is.null(.secret)) .secret <- .dsvert_dp_secret()
   session_id <- .dsvert_relay_validate_session_id(session_id)
   batch_operation_id <- .dsvert_relay_validate_operation_id(
     batch_operation_id)
   operation_id <- .dsvert_relay_validate_operation_id(operation_id)
-  parsed <- .dsvert_dp_alignment_mask_contract(.policy, manifest_json)
+  parsed <- .dsvert_dp_alignment_mask_contract(
+    .policy, manifest_json, source_contract)
   geometry <- .dsvert_dp_alignment_mask_geometry(
     parsed, batch_operation_id, operation_id, chunk_index, chunk_count)
   ss <- .S(session_id)
@@ -376,10 +380,11 @@ dsvertDPAlignmentMaskStartDS <- function(
 .dsvert_dp_alignment_mask_store_impl <- function(
     manifest_json, batch_operation_id, operation_id,
     chunk_index, chunk_count, session_id,
-    .policy = NULL) {
+    .policy = NULL, source_contract = NULL) {
   if (is.null(.policy)) .policy <- .dsvert_dp_policy()
   session_id <- .dsvert_relay_validate_session_id(session_id)
-  parsed <- .dsvert_dp_alignment_mask_contract(.policy, manifest_json)
+  parsed <- .dsvert_dp_alignment_mask_contract(
+    .policy, manifest_json, source_contract)
   geometry <- .dsvert_dp_alignment_mask_geometry(
     parsed, batch_operation_id, operation_id, chunk_index, chunk_count)
   ss <- .S(session_id)
@@ -475,10 +480,12 @@ dsvertDPAlignmentMaskStoreDS <- function(
 }
 
 .dsvert_dp_alignment_mask_seal_impl <- function(
-    manifest_json, batch_operation_id, session_id, .policy = NULL) {
+    manifest_json, batch_operation_id, session_id, .policy = NULL,
+    source_contract = NULL) {
   if (is.null(.policy)) .policy <- .dsvert_dp_policy()
   session_id <- .dsvert_relay_validate_session_id(session_id)
-  parsed <- .dsvert_dp_alignment_mask_contract(.policy, manifest_json)
+  parsed <- .dsvert_dp_alignment_mask_contract(
+    .policy, manifest_json, source_contract)
   k <- length(parsed$sources)
   geometry <- list(
     batch_operation_id = .dsvert_relay_validate_operation_id(
@@ -551,10 +558,11 @@ dsvertDPAlignmentMaskSealDS <- function(
 
 .dsvert_dp_alignment_mask_receive_impl <- function(
     peer_blob, manifest_json, batch_operation_id, session_id,
-    .policy = NULL) {
+    .policy = NULL, source_contract = NULL) {
   if (is.null(.policy)) .policy <- .dsvert_dp_policy()
   session_id <- .dsvert_relay_validate_session_id(session_id)
-  parsed <- .dsvert_dp_alignment_mask_contract(.policy, manifest_json)
+  parsed <- .dsvert_dp_alignment_mask_contract(
+    .policy, manifest_json, source_contract)
   k <- length(parsed$sources)
   geometry <- list(
     batch_operation_id = .dsvert_relay_validate_operation_id(

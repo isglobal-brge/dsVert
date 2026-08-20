@@ -80,19 +80,37 @@
 
 .count_analysis_aligned <- function(
     ids, config, token_index = 1L, run_index = 1L,
-    private_offset = 0L, capacity_bucket = 64L) {
+    private_offset = 0L, capacity_bucket = 64L,
+    local_id_column = config$privacy_unit_column) {
   data <- data.frame(
     privacy_unit_id = ids,
     private_value = private_offset + seq_along(ids),
     stringsAsFactors = FALSE)
-  names(data)[[1L]] <- config$privacy_unit_column
+  names(data)[[1L]] <- local_id_column
   .psi_padded_attach_attestation(
     .psi_attach_alignment_manifest(
-      data, config$privacy_unit_column,
+      data, local_id_column,
       .count_analysis_token(token_index)),
     .count_analysis_psi_contract(
       config, run_index, capacity_bucket = capacity_bucket))
 }
+
+test_that("Count uses a local id alias under one semantic privacy unit", {
+  config <- .count_analysis_config(3L, id_column = "person:v1")
+  data <- .count_analysis_aligned(
+    c("p1", "p2"), config, local_id_column = "subject_id")
+
+  for (peer in names(config$peer_pins)) {
+    expect_silent(testthat::with_mocked_bindings(
+      .dsvert_dp_count_local_draft_v1(
+        data, config, peer, .planner = .count_analysis_plan),
+      .get_identity_seed = function() jsonlite::base64_enc(
+        as.raw(rep(match(peer, names(config$peer_pins)) + 20L, 32L))),
+      .get_identity_keypair = function() list(
+        identity_pk = unname(config$peer_pins[[peer]])),
+      .package = "dsVert"))
+  }
+})
 
 .count_analysis_signature <- function(message, identity_pk) {
   .dsvert_relay_b64url_encode(digest::hmac(
@@ -170,23 +188,29 @@
         "joint-dp-laplace-v2"))))
 }
 
-.count_compile_source_descriptor <- function(config) {
+.count_compile_source_descriptor <- function(
+    config, local_id_column = config$privacy_unit_column,
+    privacy_unit_id = config$privacy_unit_column) {
   list(
     id = config$dataset_id,
     version = config$dataset_version,
-    id_col = config$privacy_unit_column,
+    id_col = local_id_column,
     purpose = config$alignment_purpose,
-    snapshot_sha256 = strrep("b", 64L))
+    snapshot_sha256 = strrep("b", 64L),
+    privacy_unit_id = privacy_unit_id)
 }
 
 .count_compile_server_options <- function(
-    config, peer_name, source_name = "custodian_source") {
+    config, peer_name, source_name = "custodian_source",
+    local_id_column = config$privacy_unit_column,
+    privacy_unit_id = config$privacy_unit_column) {
   trusted <- config$peer_pins[names(config$peer_pins) != peer_name]
   list(
     dsvert.peer_name = peer_name,
     dsvert.trusted_peers = trusted,
     dsvert.psi.authorized_sources = stats::setNames(
-      list(.count_compile_source_descriptor(config)), source_name),
+      list(.count_compile_source_descriptor(
+        config, local_id_column, privacy_unit_id)), source_name),
     dsvert.dp.domain = config$domain,
     dsvert.dp.cohort_id = config$cohort_id,
     dsvert.dp.unit_capacity = config$count_upper_bound,
@@ -1038,6 +1062,29 @@ test_that("Count source authorization matches attested semantics exactly", {
       altered, peer, unname(config$peer_pins[[peer]])),
     .dsvert_mpc_require_capabilities = runtime,
     .package = "dsVert"), "source authorization")
+})
+
+test_that("Count server authorization separates local id aliases from privacy semantics", {
+  config <- .count_analysis_config(3L, id_column = "person:v1")
+  data <- .count_analysis_aligned(
+    c("p1", "p2"), config, local_id_column = "subject_id")
+  attestation <- .psi_padded_validate_persistent_attestation(data)
+  peer <- names(config$peer_pins)[[1L]]
+  withr::local_options(.count_compile_server_options(
+    config, peer, local_id_column = "subject_id",
+    privacy_unit_id = "person:v1"))
+
+  loaded <- testthat::with_mocked_bindings(
+    .dsvert_dp_count_server_config_v1(
+      attestation, peer, unname(config$peer_pins[[peer]])),
+    .dsvert_mpc_require_capabilities = function(...) {
+      .count_compile_runtime_manifest()
+    },
+    .package = "dsVert")
+
+  expect_identical(loaded$privacy_unit_column, "person:v1")
+  expect_identical(attestation$id_column, "person:v1")
+  expect_identical(attr(data, "dsvert.psi.alignment")$id_col, "subject_id")
 })
 
 test_that("Count compile endpoint has no policy, database or registry path", {

@@ -825,7 +825,7 @@ test_that("cross Gaussian source inputs are fixed-capacity private tail blocks",
     class = "dsvert_non_prealigned_cohort")
 })
 
-test_that("padded v3 bindings drive one cross Gaussian alignment consensus", {
+test_that("padded v4 bindings drive one cross Gaussian alignment consensus", {
   gaussian <- list(cross = list(
     version = "v2", dataset = "protected", outcome = "x",
     predictors = "z", intercept = TRUE))
@@ -860,7 +860,7 @@ test_that("padded v3 bindings drive one cross Gaussian alignment consensus", {
     context_a$private_alignment_consensus_hash,
     peer_a$policy$datasets$protected$alignment_manifest_hash)
   expect_identical(
-    peer_a$policy$datasets$protected$alignment_manifest_version, 3L)
+    peer_a$policy$datasets$protected$alignment_manifest_version, 4L)
 })
 
 test_that("incremental commitments cross value-block boundaries exactly", {

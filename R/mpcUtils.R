@@ -811,7 +811,9 @@ mpcVersion <- function() {
 #' It is used by the client for automatic variable-to-server mapping.
 #'
 #' @param data_name Character. Name of the data frame in the DataSHIELD session.
-#' @return List with columns (character vector of column names).
+#' @return A versioned public catalogue containing the logical dataset,
+#'   columns, policy-declared kinds and identifier/data roles. The legacy
+#'   `columns` member is retained for compatible clients.
 #' @export
 dsvertColNamesDS <- function(data_name) {
   .validate_data_name(data_name)
@@ -824,7 +826,41 @@ dsvertColNamesDS <- function(data_name) {
   }
   columns <- sort(
     unique(c(policy$patient_column, mapping[[data_name]])), method = "radix")
-  list(columns = columns)
+  dataset <- policy$datasets[[data_name]]
+  scalar_string <- function(value) {
+    is.character(value) && length(value) == 1L && !is.na(value) &&
+      nzchar(value)
+  }
+  if (!scalar_string(policy$peer_name) || !is.list(dataset) ||
+      !scalar_string(dataset$id) || !scalar_string(dataset$version)) {
+    .dsvert_dp_capsule_manifest_abort(
+      "invalid_policy_dataset",
+      "The custodian public dataset catalogue is invalid")
+  }
+  kinds <- stats::setNames(vapply(columns, function(column) {
+    if (identical(column, policy$patient_column)) {
+      "identifier"
+    } else if (column %in% names(policy$numeric_bounds)) {
+      "numeric"
+    } else if (column %in% names(policy$categorical_levels)) {
+      "categorical"
+    } else {
+      .dsvert_dp_capsule_manifest_abort(
+        "invalid_policy_dataset",
+        "A published column has no custodian-declared public kind")
+    }
+  }, character(1L)), columns)
+  roles <- stats::setNames(ifelse(
+    columns == policy$patient_column, "id", "data"), columns)
+  list(
+    version = "dsvert-public-column-catalog-v1",
+    peer_name = policy$peer_name,
+    dataset_id = dataset$id,
+    dataset_version = dataset$version,
+    columns = columns,
+    kinds = kinds,
+    roles = roles,
+    data_access = FALSE)
 }
 
 #' Legacy in-place NA omission helper

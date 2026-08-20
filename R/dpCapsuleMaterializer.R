@@ -313,8 +313,13 @@
   }
   logical_snapshot <- .dsvert_joint_dp_logical_snapshot(
     manifest$logical_snapshot)
-  identity <- .dsvert_joint_dp_capsule_identity_validate(
-    policy, logical_snapshot, manifest$capsule_identity)
+  identity <- if (.dsvert_dp_synopsis_policy_is_v1(policy)) {
+    .dsvert_dp_synopsis_capsule_identity_validate_v1(
+      policy, logical_snapshot, manifest$capsule_identity)
+  } else {
+    .dsvert_joint_dp_capsule_identity_validate(
+      policy, logical_snapshot, manifest$capsule_identity)
+  }
   contract <- identity$contract
   if (!identical(contract$logical_snapshot, logical_snapshot) ||
       !identical(contract$admission, manifest$admission) ||
@@ -632,7 +637,7 @@
     }
     outcome <- bounded_for(block$dataset, artifact$outcome$column)
     predictors <- lapply(artifact$predictor_order, function(variable) {
-      bounded_for(block$dataset, variable)
+      bounded_for(block$dataset, artifact$predictors[[variable]]$column)
     })
     names(predictors) <- artifact$predictor_order
     complete <- outcome$valid

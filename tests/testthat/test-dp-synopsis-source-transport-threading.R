@@ -10,7 +10,27 @@
 })
 
 .synopsis_threading_fixture <- function() {
+  retained_before <- .dsvert_resource_retained_bytes()
   fixture <- .synopsis_threading_helpers$.capsule_source_test_fixture(2L)
+  store_paths <- vapply(fixture$policies, function(policy) {
+    paste0(policy$ledger_path, ".capsule-source-v3.sqlite")
+  }, character(1L))
+  owners <- vapply(
+    fixture$policies, .dsvert_dp_capsule_source_resource_owner,
+    character(1L))
+  withr::defer({
+    for (owner in owners) {
+      .dsvert_resource_external_unregister(owner)
+    }
+    unlink(c(
+      store_paths, paste0(store_paths, ".lock"),
+      paste0(store_paths, "-wal"), paste0(store_paths, "-shm")),
+      force = TRUE)
+    expect_length(intersect(
+      owners, names(.dsvert_resource_registry$external)), 0L)
+    expect_identical(
+      .dsvert_resource_retained_bytes(), retained_before)
+  }, envir = parent.frame())
   base <- .dsvert_dp_capsule_source_contract(
     fixture$policies$peer_a, fixture$manifests$peer_a)
   binding <- list(

@@ -232,9 +232,10 @@
 }
 
 .dsvert_dp_synopsis_declared_decimal_v1 <- function(
-    value, what, maximum, open_maximum = FALSE) {
+    value, what, maximum, open_maximum = FALSE, allow_zero = FALSE) {
   if (!is.numeric(value) || length(value) != 1L || is.na(value) ||
-      !is.finite(value) || value <= 0 ||
+      !is.finite(value) || value < 0 ||
+      (!isTRUE(allow_zero) && value == 0) ||
       (isTRUE(open_maximum) && value >= maximum) ||
       (!isTRUE(open_maximum) && value > maximum)) {
     stop("Invalid synopsis ", what, ".", call. = FALSE)
@@ -268,12 +269,13 @@
   dimension <- as.integer(validated$layout$coordinate_count)
   lattice_identity <- .dsvert_dp_synopsis_lattice_v1(
     projection, validated, lattice)
+  mechanism <- validated$manifest$workload$capsule_mechanism$mechanism
+  gaussian <- identical(mechanism, .DSVERT_JOINT_DP_GAUSSIAN_MECHANISM)
   declared_epsilon <- .dsvert_dp_synopsis_declared_decimal_v1(
     policy$global_total_epsilon, "epsilon", 8)
   declared_delta <- .dsvert_dp_synopsis_declared_decimal_v1(
-    policy$global_total_delta, "delta", 1, open_maximum = TRUE)
-  mechanism <- validated$manifest$workload$capsule_mechanism$mechanism
-  gaussian <- identical(mechanism, .DSVERT_JOINT_DP_GAUSSIAN_MECHANISM)
+    policy$global_total_delta, "delta", 1, open_maximum = TRUE,
+    allow_zero = !gaussian)
   request <- if (gaussian) {
     .dsvert_dp_capsule_exact_gaussian_request(
       as.numeric(declared_epsilon), as.numeric(declared_delta),
@@ -323,20 +325,22 @@
 }
 
 .dsvert_dp_synopsis_decimal_v1 <- function(
-    value, what, maximum, open_maximum = FALSE) {
+    value, what, maximum, open_maximum = FALSE, allow_zero = FALSE) {
   if (!is.character(value) || length(value) != 1L || is.na(value) ||
       nchar(value, type = "bytes") > 64L ||
       !grepl("^[0-9](?:\\.[0-9]+)?e[+-][0-9]{2,3}$", value)) {
     stop("Invalid synopsis ", what, ".", call. = FALSE)
   }
   number <- suppressWarnings(as.numeric(value))
-  if (!is.finite(number) || number <= 0 ||
+  if (!is.finite(number) || number < 0 ||
+      (!isTRUE(allow_zero) && number == 0) ||
       (isTRUE(open_maximum) && number >= maximum) ||
       (!isTRUE(open_maximum) && number > maximum)) {
     stop("Invalid synopsis ", what, ".", call. = FALSE)
   }
   canonical <- .dsvert_dp_synopsis_declared_decimal_v1(
-    number, what, maximum, open_maximum = open_maximum)
+    number, what, maximum, open_maximum = open_maximum,
+    allow_zero = allow_zero)
   if (!identical(value, canonical)) {
     stop("Invalid synopsis ", what, ".", call. = FALSE)
   }
@@ -623,6 +627,25 @@
        !identical(request$sensitivity_steps, lattice$sensitivity_steps))) {
     stop("Invalid synopsis planner request.", call. = FALSE)
   }
+  request_decimals_valid <- isTRUE(expected_raw$gaussian) ||
+    isTRUE(tryCatch(
+      identical(.dsvert_dp_synopsis_decimal_v1(
+        request$epsilon, "planner epsilon", 8), request$epsilon) &&
+        identical(.dsvert_dp_synopsis_decimal_v1(
+          request$delta, "planner delta", 1, open_maximum = TRUE,
+          allow_zero = TRUE), request$delta),
+      error = function(error) FALSE))
+  if (!request_decimals_valid) {
+    stop("Invalid synopsis planner request.", call. = FALSE)
+  }
+  if (!isTRUE(expected_raw$gaussian) && identical(
+      request$delta, .dsvert_dp_synopsis_declared_decimal_v1(
+        0, "planner delta", 1, open_maximum = TRUE,
+        allow_zero = TRUE))) {
+    stop(paste(
+      "The finite synopsis Laplace v3 backend has positive implementation",
+      "delta and cannot certify pure DP."), call. = FALSE)
+  }
   expected_draw_fields <- .dsvert_dp_synopsis_draw_fields_v1(expected_raw)
   if (!is.list(value$draw_law) || is.null(names(value$draw_law)) ||
       !setequal(names(value$draw_law), expected_draw_fields)) {
@@ -717,7 +740,8 @@
     identical(.dsvert_dp_synopsis_decimal_v1(
       privacy$epsilon, "epsilon", 8), privacy$epsilon) &&
     identical(.dsvert_dp_synopsis_decimal_v1(
-      privacy$delta, "delta", 1, open_maximum = TRUE), privacy$delta) &&
+      privacy$delta, "delta", 1, open_maximum = TRUE,
+      allow_zero = !identical(family, "gaussian")), privacy$delta) &&
     is.list(mechanism) && !is.null(names(mechanism)) &&
     setequal(names(mechanism), c(
       "version", "family", "sensitivity", "randomness")) &&
@@ -806,7 +830,8 @@
       epsilon = .dsvert_dp_synopsis_declared_decimal_v1(
         policy$global_total_epsilon, "epsilon", 8),
       delta = .dsvert_dp_synopsis_declared_decimal_v1(
-        policy$global_total_delta, "delta", 1, open_maximum = TRUE),
+        policy$global_total_delta, "delta", 1, open_maximum = TRUE,
+        allow_zero = !isTRUE(profile$gaussian)),
       mechanism = list(
         version = profile$release_mechanism,
         family = if (identical(

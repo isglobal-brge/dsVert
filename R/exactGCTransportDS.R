@@ -419,6 +419,26 @@
     consortium_id = context$consortium_id)
 }
 
+.exact_gc_synopsis_policy_context <- function(ss, session_id) {
+  context <- .dsvert_dp_synopsis_session_context_v1(ss, session_id)
+  policy <- .dsvert_dp_synopsis_policy_context_v1(context$policy)
+  designated <- sort(policy$designated, method = "radix")
+  pins <- policy$pins[designated]
+  authorization <- context$authorization
+  binding <- .dsvert_dp_canonical_query_value(list(
+    version = "dsvert-stateless-catalog-synopsis-exact-gc-binding-v1",
+    policy_consortium_id = policy$consortium_id,
+    manifest_sha256 = authorization$manifest_sha256,
+    artifact_key = authorization$artifact_key,
+    source_claim_set_sha256 = authorization$source_claim_set_sha256,
+    receipt_set_sha256 = authorization$receipt_set_sha256))
+  list(
+    peer_name = policy$peer_name, designated = designated, pins = pins,
+    full_pinset_sha256 = policy$common$peer_pinset_sha256,
+    consortium_id = paste0(
+      "dpsxgc1_", .dsvert_joint_dp_hash(binding)))
+}
+
 .exact_gc_verify_designated_pair <- function(
     identity_info, transport_keys, own_identity_pk, own_transport_pk,
     policy_context) {
@@ -980,7 +1000,12 @@
              "exact-gc peer binding.", call. = FALSE)
       }
     } else {
-      context <- .exact_gc_designated_policy_context()
+      context <- if (exists(
+          ".dp_synopsis_authorization", envir = ss, inherits = FALSE)) {
+        .exact_gc_synopsis_policy_context(ss, session_id)
+      } else {
+        .exact_gc_designated_policy_context()
+      }
       current_pins <- vapply(
         context$pins[context$designated],
         .dsvert_relay_normalize_identity_pk, character(1L),
@@ -3920,6 +3945,8 @@ exactGCBindPeersDS <- function(transport_keys_b64, identity_info_b64,
     stop("Invalid exact-gc analysis artifact key.", call. = FALSE)
   }
   analysis <- frequency <- NULL
+  synopsis_state <- exists(
+    ".dp_synopsis_authorization", envir = ss, inherits = FALSE)
   frequency_state <- !is.null(ss$.dp_frequency_authorization) ||
     !is.null(ss$.dp_frequency_public_authorization)
   if (frequency_state) {
@@ -3938,8 +3965,16 @@ exactGCBindPeersDS <- function(transport_keys_b64, identity_info_b64,
       stop("An authorized Count session requires its analysis artifact key.",
            call. = FALSE)
     }
-    policy_context <- .exact_gc_designated_policy_context()
+    policy_context <- if (synopsis_state) {
+      .exact_gc_synopsis_policy_context(ss, session_id)
+    } else {
+      .exact_gc_designated_policy_context()
+    }
   } else {
+    if (synopsis_state) {
+      stop("Synopsis exact-gc binding rejects a caller-selected artifact.",
+           call. = FALSE)
+    }
     authorization <- .dsvert_dp_count_session_authorization_validate_v1(
       ss, session_id, artifact_key)
     analysis <- .exact_gc_analysis_contract_binding(
@@ -4019,7 +4054,8 @@ exactGCBindPeersDS <- function(transport_keys_b64, identity_info_b64,
   # transport keys cannot mint cross-policy-equivalent typed tickets.
   .dsvert_typed_blob_install_peer_manifest(
     ss, identity_info = identity_info, transport_keys = transport_keys,
-    parent_binding_digest = canonical_digest)
+    parent_binding_digest = canonical_digest,
+    expected_own_name = policy_context$peer_name)
   ss$peer_transport_pks <- as.list(verified$peer_transport)
   peer_names <- names(verified$peer_transport)
   ss$.exact_gc_peer_identity_pks <- stats::setNames(

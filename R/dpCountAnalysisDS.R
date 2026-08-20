@@ -156,9 +156,9 @@
   if (!is.character(config$privacy_unit_column) ||
       length(config$privacy_unit_column) != 1L ||
       is.na(config$privacy_unit_column) ||
-      !grepl("^[A-Za-z._][A-Za-z0-9._]{0,127}$",
+      !grepl("^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
              config$privacy_unit_column)) {
-    stop("Invalid Count privacy-unit column.", call. = FALSE)
+    stop("Invalid Count privacy-unit identifier.", call. = FALSE)
   }
   records <- .dsvert_dp_count_positive_integer_v1(
     config$max_records_per_unit, "maximum records per privacy unit",
@@ -277,8 +277,11 @@
 
 .dsvert_dp_count_source_descriptor_v1 <- function(value) {
   required <- c("id", "version", "id_col", "purpose", "snapshot_sha256")
+  extended <- c(required, "privacy_unit_id")
   if (!is.list(value) || is.null(names(value)) || anyNA(names(value)) ||
-      anyDuplicated(names(value)) || !setequal(names(value), required)) {
+      anyDuplicated(names(value)) ||
+      !(setequal(names(value), required) && length(value) == length(required)) &&
+      !(setequal(names(value), extended) && length(value) == length(extended))) {
     stop("Invalid Count server source authorization.", call. = FALSE)
   }
   label <- function(value, what, pattern) {
@@ -290,6 +293,15 @@
   if (!nzchar(snapshot)) {
     stop("Invalid Count server source authorization.", call. = FALSE)
   }
+  local_id_column <- label(
+    value$id_col, "authorized identifier column",
+    "^[A-Za-z._][A-Za-z0-9._]{0,127}$")
+  privacy_unit_id <- if ("privacy_unit_id" %in% names(value)) {
+    label(value$privacy_unit_id, "privacy-unit identifier",
+          "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+  } else {
+    local_id_column
+  }
   public <- list(
     alignment_purpose = label(
       value$purpose, "alignment purpose",
@@ -300,12 +312,11 @@
     dataset_version = label(
       value$version, "dataset version",
       "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"),
-    id_column = label(
-      value$id_col, "authorized identifier column",
-      "^[A-Za-z._][A-Za-z0-9._]{0,127}$"))
+    id_column = privacy_unit_id)
   public$source_binding_id <- paste0("source_", digest::digest(
     .psi_padded_canonical_json(public), algo = "sha256", serialize = FALSE))
-  .psi_padded_validate_source_public(public)
+  c(.psi_padded_validate_source_public(public),
+    list(local_id_column = local_id_column))
 }
 
 .dsvert_dp_count_authorized_source_v1 <- function(attestation) {
@@ -358,7 +369,9 @@
     error = function(error) stop(
       "The Count PSI source authorization is unavailable or ambiguous.",
       call. = FALSE))
-  matches <- vapply(normalized, identical, logical(1L), attested)
+  matches <- vapply(normalized, function(source) {
+    identical(source[source_fields], attested)
+  }, logical(1L))
   if (sum(matches) != 1L) {
     stop("The Count PSI source authorization is unavailable or ambiguous.",
          call. = FALSE)
@@ -543,9 +556,9 @@
 }
 
 .dsvert_dp_count_membership_commitment_v1 <- function(
-    data, config, peer_name) {
+    data, config, peer_name, local_id_column) {
   identifiers <- .dsvert_canonical_label_values(
-    .subset2(data, config$privacy_unit_column),
+    .subset2(data, local_id_column),
     "Count privacy-unit identifiers",
     allow_na = FALSE, allow_blank = FALSE)
   if (anyNA(identifiers) || any(!nzchar(identifiers)) ||
@@ -602,7 +615,6 @@
       !identical(alignment$version, .PSI_ALIGNMENT_VERSION) ||
       !is.character(alignment$hash) || length(alignment$hash) != 1L ||
       is.na(alignment$hash) || !grepl("^[0-9a-f]{64}$", alignment$hash) ||
-      !identical(alignment$id_col, config$privacy_unit_column) ||
       !identical(as.numeric(alignment$n), as.numeric(nrow(data)))) {
     stop("The Count PSI alignment does not match the configuration.",
          call. = FALSE)
@@ -620,7 +632,7 @@
     "inline_max_bytes", "peer_count", "reference_peer", "compute_peers")
   if (!is.list(attestation) || !identical(names(attestation),
                                           attestation_fields) ||
-      !identical(attestation$attestation_version, 2L) ||
+      !identical(attestation$attestation_version, 3L) ||
       !identical(attestation$alignment_attested, TRUE) ||
       !identical(attestation$alignment_protocol,
                  .DSVERT_PSI_PADDED_PROTOCOL) ||
@@ -647,7 +659,7 @@
          call. = FALSE)
   }
   snapshot <- .dsvert_dp_count_membership_commitment_v1(
-    data, config, peer_name)
+    data, config, peer_name, alignment$id_col)
   psi_run <- .dsvert_dp_count_hash_v1(
     .DSVERT_DP_COUNT_PSI_RUN_DOMAIN,
     list(alignment = alignment, attestation = attestation))
@@ -795,7 +807,7 @@
     !is.null(names(alignment)) &&
     setequal(names(alignment), alignment_fields) &&
     identical(alignment$version, .PSI_ALIGNMENT_VERSION) &&
-    identical(alignment$id_col, source$id_column) &&
+    identical(alignment$id_col, source$local_id_column) &&
     identical(as.numeric(alignment$n), as.numeric(nrow(data))) &&
     is.character(alignment$hash) && length(alignment$hash) == 1L &&
     !is.na(alignment$hash) && grepl("^[0-9a-f]{64}$", alignment$hash)
@@ -816,7 +828,7 @@
          "configured federation.", call. = FALSE)
   }
   identifiers <- .dsvert_canonical_label_values(
-    .subset2(data, source$id_column),
+    .subset2(data, source$local_id_column),
     "fixed-cohort Count privacy-unit identifiers",
     allow_na = FALSE, allow_blank = FALSE)
   if (anyNA(identifiers) || any(!nzchar(identifiers)) ||

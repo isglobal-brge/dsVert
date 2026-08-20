@@ -10,6 +10,7 @@ test_that("typed blob migration inventory is machine-readable and complete", {
     inventory$schema_version, "dsvert-typed-blob-inventory-v1")
   expect_identical(inventory$legacy_endpoint, "mpcStoreBlobDS")
   expect_identical(inventory$typed_endpoint, "mpcTypedBlobStoreDS")
+  expect_identical(inventory$source_endpoint, "mpcTypedBlobReadDS")
   expect_identical(inventory$receipt_endpoint, "mpcTypedBlobReceiptDS")
   expect_gte(length(inventory$records), 20L)
 
@@ -36,7 +37,10 @@ test_that("typed blob migration inventory is machine-readable and complete", {
     "iknp.ciphertexts",
     "glm.weight_share", "glm.sqrt_weight_share",
     "analysis_dp.count_final_share",
-    "analysis_dp.frequency_source_window"
+    "analysis_dp.frequency_source_window",
+    "analysis_dp.synopsis_final_share", "formal_finalizer.handoff",
+    "formal_glm.one_draw_lifecycle_control",
+    "formal_cox.blockwise_lifecycle_control"
   ) %in% ids))
   first_wave <- inventory$records[ids %in% c(
     "input.peer_x", "input.peer_y", "input.extra_x",

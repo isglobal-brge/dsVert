@@ -32,7 +32,7 @@
   session_id <- .dsvert_relay_validate_session_id(session_id)
   peer_id <- .dsvert_relay_validate_peer_id(peer_id)
   candidate <- file.path(
-    .dsvert_state_root(), "psi-padded-v4", peer_id,
+    .dsvert_state_root(), "psi-padded-v5", peer_id,
     paste0(session_id, ".state"))
   .dsvert_dp_noise_private_directory(
     candidate, .allow_test_path = allow_test_path)

@@ -94,6 +94,46 @@
   c(unsigned, list(signature = signature))
 }
 
+.dsvert_dp_synopsis_compile_receipt_set_hash_v1 <- function(receipts) {
+  if (!is.list(receipts) || !length(receipts)) {
+    stop("Invalid synopsis compile receipt set.", call. = FALSE)
+  }
+  unsigned <- lapply(receipts, function(receipt) {
+    expected <- c(
+      "version", "peer_name", "peer_identity_pk", "manifest_sha256",
+      "artifact_key", "source_claim_set_sha256", "full_plan_sha256",
+      "signature")
+    if (!is.list(receipt) || is.null(names(receipt)) || anyNA(names(receipt)) ||
+        anyDuplicated(names(receipt)) || !setequal(names(receipt), expected)) {
+      stop("Invalid synopsis compile receipt set.", call. = FALSE)
+    }
+    .dsvert_dp_synopsis_signature_v1(receipt$signature)
+    .dsvert_dp_synopsis_unsigned_compile_receipt_v1(
+      receipt[setdiff(names(receipt), "signature")])
+  })
+  peers <- vapply(unsigned, `[[`, character(1L), "peer_name")
+  identities <- vapply(
+    unsigned, `[[`, character(1L), "peer_identity_pk")
+  common <- c(
+    "version", "manifest_sha256", "artifact_key",
+    "source_claim_set_sha256", "full_plan_sha256")
+  if (anyDuplicated(peers) || anyDuplicated(identities) ||
+      !all(vapply(unsigned, function(receipt) {
+        identical(receipt[common], unsigned[[1L]][common])
+      }, logical(1L)))) {
+    stop("Invalid synopsis compile receipt set.", call. = FALSE)
+  }
+  unsigned <- unname(unsigned[order(peers, method = "radix")])
+  digest::digest(
+    charToRaw(paste0(
+      .DSVERT_DP_SYNOPSIS_COMPILE_RECEIPT_SET_DOMAIN,
+      .dsvert_dp_canonical_json(
+        .dsvert_dp_analysis_canonical_value_v1(list(
+          version = .DSVERT_DP_SYNOPSIS_COMPILE_RECEIPT_SET_VERSION,
+          receipts = unsigned))))),
+    algo = "sha256", serialize = FALSE)
+}
+
 .dsvert_dp_synopsis_local_compile_v1 <- function(
     manifest_sha256, claim_set, .policy = NULL, .secret = NULL,
     .identity = NULL,
@@ -176,17 +216,8 @@
   }
   names(verified) <- peers
   verified <- verified[names(pins)]
-  unsigned <- unname(lapply(verified, function(receipt) {
-    receipt[setdiff(names(receipt), "signature")]
-  }))
-  receipt_set_sha256 <- digest::digest(
-    charToRaw(paste0(
-      .DSVERT_DP_SYNOPSIS_COMPILE_RECEIPT_SET_DOMAIN,
-      .dsvert_dp_canonical_json(
-        .dsvert_dp_analysis_canonical_value_v1(list(
-          version = .DSVERT_DP_SYNOPSIS_COMPILE_RECEIPT_SET_VERSION,
-          receipts = unsigned))))),
-    algo = "sha256", serialize = FALSE)
+  receipt_set_sha256 <-
+    .dsvert_dp_synopsis_compile_receipt_set_hash_v1(verified)
   list(
     version = .DSVERT_DP_SYNOPSIS_COMPILE_RECEIPT_SET_VERSION,
     artifact = artifact, receipts = verified,

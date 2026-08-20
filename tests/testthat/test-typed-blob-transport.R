@@ -176,6 +176,161 @@ test_that("typed source spool reads fixed idempotent frames and releases on rece
     digest::digest(minted$ticket, algo = "sha256", serialize = FALSE)]])
 })
 
+test_that("inline typed sources stream by ticket without entering producer results", {
+  pair <- .typed_blob_test_pair()
+  on.exit(.session_dir_cleanup(pair$sender$ss), add = TRUE)
+  on.exit(.session_dir_cleanup(pair$recipient$ss), add = TRUE)
+  payload <- paste(rep(c("A", "b", "1", "_"), 31L), collapse = "")
+  request <- list(kind = "inline-source-test")
+  result <- .typed_blob_with_crypto(pair$sender, {
+    transfer <- .dsvert_typed_blob_mint_inline_source(
+      pair$sender$ss, pair$sender$session_id,
+      "blob.transport.source-probe.v1", pair$sender$peer_transport,
+      payload, list(raw_bytes = "93", ring = "63"),
+      producer = "mpcTypedSourceProbeDS")
+    .dsvert_typed_blob_operation_commit(
+      pair$sender$ss, "mpcTypedSourceProbeDS", request,
+      list(source_transfer = transfer))
+  })
+  expect_identical(sort(names(result)), "source_transfer")
+  transfer <- result$source_transfer
+  outbound <- pair$sender$ss$.typed_blob_outbound[[transfer$transfer_id]]
+  expect_null(outbound$source_path)
+  expect_identical(outbound$source_payload, payload)
+  expect_identical(
+    .dsvert_typed_blob_retained_bytes(pair$sender$ss),
+    as.numeric(nchar(payload, type = "bytes")))
+
+  offset <- 0
+  receipt <- NULL
+  observed <- character()
+  while (offset < transfer$payload_chars) {
+    frame <- .typed_blob_with_crypto(pair$sender,
+      .mpcTypedBlobReadDS_impl(
+        transfer$ticket, offset, 17, pair$sender$session_id))
+    observed <- c(observed, frame$chunk)
+    ack <- .typed_blob_with_crypto(pair$recipient,
+      .mpcTypedBlobStoreDS_impl(
+        transfer$ticket, frame$chunk, offset,
+        pair$recipient$session_id))
+    offset <- offset + frame$chunk_chars
+    if (isTRUE(ack$sealed)) receipt <- ack$receipt
+  }
+  expect_identical(paste0(observed, collapse = ""), payload)
+  expect_match(receipt, "^[A-Za-z0-9_-]+$")
+  confirmed <- .typed_blob_with_crypto(pair$sender,
+    .mpcTypedBlobReceiptDS_impl(receipt, pair$sender$session_id))
+  expect_true(confirmed$confirmed)
+  expect_null(pair$sender$ss$.typed_blob_outbound[[transfer$transfer_id]])
+  expect_identical(.dsvert_typed_blob_retained_bytes(pair$sender$ss), 0)
+})
+
+test_that("inline typed sources fail closed on tamper and expire cleanly", {
+  pair <- .typed_blob_test_pair()
+  on.exit(.session_dir_cleanup(pair$sender$ss), add = TRUE)
+  clock <- 1000
+  payload <- strrep("A", 64L)
+  request <- list(kind = "inline-source-expiry")
+  result <- testthat::with_mocked_bindings(
+    .typed_blob_with_crypto(pair$sender, {
+      transfer <- .dsvert_typed_blob_mint_inline_source(
+        pair$sender$ss, pair$sender$session_id,
+        "blob.transport.source-probe.v1", pair$sender$peer_transport,
+        payload, list(raw_bytes = "48", ring = "63"),
+        producer = "mpcTypedSourceProbeDS")
+      .dsvert_typed_blob_operation_commit(
+        pair$sender$ss, "mpcTypedSourceProbeDS", request,
+        list(source_transfer = transfer))
+    }),
+    .dsvert_typed_blob_now = function() clock, .package = "dsVert")
+  transfer <- result$source_transfer
+  pair$sender$ss$.typed_blob_outbound[[
+    transfer$transfer_id]]$source_payload <- strrep("B", 64L)
+  expect_error(testthat::with_mocked_bindings(
+    .typed_blob_with_crypto(pair$sender,
+      .mpcTypedBlobReadDS_impl(
+        transfer$ticket, 0, 16, pair$sender$session_id)),
+    .dsvert_typed_blob_now = function() clock, .package = "dsVert"),
+    "integrity changed")
+
+  pair$sender$ss$.typed_blob_outbound[[
+    transfer$transfer_id]]$source_payload <- payload
+  clock <- clock + .DSVERT_TYPED_BLOB_TICKET_TTL_SECONDS + 1
+  expect_true(.dsvert_typed_blob_sweep_expired(
+    pair$sender$ss, now = clock, maximum = 1L))
+  expect_null(pair$sender$ss$.typed_blob_outbound[[transfer$transfer_id]])
+  expect_length(pair$sender$ss$.typed_blob_pending_operations, 0L)
+  expect_identical(
+    .dsvert_typed_blob_retained_bytes(pair$sender$ss, now = clock), 0)
+})
+
+test_that("inline typed sources reject empty payloads and enforce backpressure", {
+  pair <- .typed_blob_test_pair()
+  on.exit(.session_dir_cleanup(pair$sender$ss), add = TRUE)
+  mint <- function(payload) .typed_blob_with_crypto(pair$sender,
+    .dsvert_typed_blob_mint_inline_source(
+      pair$sender$ss, pair$sender$session_id,
+      "blob.transport.source-probe.v1", pair$sender$peer_transport,
+      payload, list(raw_bytes = "48", ring = "63"),
+      producer = "mpcTypedSourceProbeDS"))
+  expect_error(mint(""), "non-canonical opaque payload")
+
+  pressure <- tryCatch(testthat::with_mocked_bindings(
+    mint(strrep("A", 64L)),
+    .dsvert_typed_blob_spool_max_bytes = function() 100,
+    .dsvert_typed_blob_retained_bytes = function(ss) 50,
+    .package = "dsVert"), error = identity)
+  expect_s3_class(pressure, "dsvert_resource_backpressure")
+  expect_identical(pressure$requested_bytes, 64)
+
+  oversize <- tryCatch(testthat::with_mocked_bindings(
+    mint(strrep("A", 64L)),
+    .dsvert_typed_blob_spool_max_bytes = function() 32,
+    .package = "dsVert"), error = identity)
+  expect_s3_class(oversize, "dsvert_resource_oversize")
+  expect_identical(oversize$requested_bytes, 64)
+  expect_length(pair$sender$ss$.typed_blob_outbound, 0L)
+})
+
+test_that("legacy multi-transfer results stay reserved until every receipt", {
+  pair <- .typed_blob_test_pair()
+  on.exit(.session_dir_cleanup(pair$sender$ss), add = TRUE)
+  on.exit(.session_dir_cleanup(pair$recipient$ss), add = TRUE)
+  payload_x <- strrep("A", 60L)
+  payload_y <- strrep("B", 80L)
+  produced <- .typed_blob_with_crypto(pair$sender, {
+    transfer_x <- .dsvert_typed_blob_mint(
+      pair$sender$ss, pair$sender$session_id,
+      "blob.input.peer-x.v1", pair$sender$peer_transport, payload_x,
+      list(n = "1", p = "1", ring = "63"), producer = "k2ShareInputDS")
+    transfer_y <- .dsvert_typed_blob_mint(
+      pair$sender$ss, pair$sender$session_id,
+      "blob.input.peer-y.v1", pair$sender$peer_transport, payload_y,
+      list(n = "1", ring = "63"), producer = "k2ShareInputDS")
+    .dsvert_typed_blob_operation_commit(
+      pair$sender$ss, "k2ShareInputDS", list(round = 1L),
+      list(payload_x = payload_x, transfer_x = transfer_x,
+           payload_y = payload_y, transfer_y = transfer_y))
+  })
+  expect_identical(.dsvert_typed_blob_retained_bytes(pair$sender$ss), 140)
+
+  receipt_x <- .typed_blob_with_crypto(pair$recipient,
+    .mpcTypedBlobStoreDS_impl(
+      produced$transfer_x$ticket, payload_x, 0,
+      pair$recipient$session_id)$receipt)
+  .typed_blob_with_crypto(pair$sender,
+    .mpcTypedBlobReceiptDS_impl(receipt_x, pair$sender$session_id))
+  expect_identical(.dsvert_typed_blob_retained_bytes(pair$sender$ss), 140)
+
+  receipt_y <- .typed_blob_with_crypto(pair$recipient,
+    .mpcTypedBlobStoreDS_impl(
+      produced$transfer_y$ticket, payload_y, 0,
+      pair$recipient$session_id)$receipt)
+  .typed_blob_with_crypto(pair$sender,
+    .mpcTypedBlobReceiptDS_impl(receipt_y, pair$sender$session_id))
+  expect_identical(.dsvert_typed_blob_retained_bytes(pair$sender$ss), 0)
+})
+
 test_that("typed source lease follows progress, not absolute elapsed time", {
   pair <- .typed_blob_test_pair()
   on.exit(.session_dir_cleanup(pair$sender$ss), add = TRUE)

@@ -443,7 +443,7 @@ test_that("automatic aligned-dataset resolution is production-binding only", {
     lapply(datasets, function(descriptor) c(descriptor, list(
       snapshot_sha256 = strrep("a", 64L),
       alignment_manifest_hash = strrep("b", 64L),
-      alignment_manifest_version = 3L)))
+      alignment_manifest_version = 4L)))
   }
   testthat::with_mocked_bindings({
     bypass <- .dsvert_dp_policy_build(
@@ -462,7 +462,7 @@ test_that("automatic aligned-dataset resolution is production-binding only", {
     expect_identical(resolution_calls, 1L)
     expect_true(strict$require_snapshot_digest)
     expect_true(strict$require_alignment_manifest)
-    expect_identical(strict$datasets$protected$alignment_manifest_version, 3L)
+    expect_identical(strict$datasets$protected$alignment_manifest_version, 4L)
   },
   .dsvert_dp_alignment_registry_resolve_templates = resolve,
   .package = "dsVert")
@@ -759,6 +759,85 @@ test_that("snapshot canonicalization rejects executable column semantics", {
   expect_identical(
     .dsvert_dp_snapshot_digest(tabular),
     .dsvert_dp_snapshot_digest(ordinary))
+})
+
+test_that("snapshot canonicalization removes only validated Opal metadata", {
+  ordinary <- data.frame(
+    patient_id = c("p1", "p2"), value = c(1, 2),
+    stringsAsFactors = FALSE)
+  decorate <- function(data, optional = FALSE) {
+    for (name in names(data)) {
+      column <- data[[name]]
+      attr(column, "opal.value_type") <- if (is.character(column)) {
+        "text"
+      } else {
+        "decimal"
+      }
+      attr(column, "opal.entity_type") <- "Participant"
+      attr(column, "opal.repeatable") <- 0
+      attr(column, "opal.index") <- 0
+      attr(column, "opal.nature") <- if (is.character(column)) {
+        "CATEGORICAL"
+      } else {
+        "CONTINUOUS"
+      }
+      if (isTRUE(optional)) {
+        attr(column, "opal.unit") <- "unitless"
+        attr(column, "opal.referenced_entity_type") <- "Participant"
+        attr(column, "opal.mime_type") <- "text/plain"
+        attr(column, "opal.occurrence_group") <- "primary"
+      }
+      data[[name]] <- column
+    }
+    data
+  }
+
+  decorated <- decorate(ordinary)
+  expect_identical(
+    .dsvert_dp_snapshot_digest(decorated),
+    .dsvert_dp_snapshot_digest(ordinary))
+  expect_identical(
+    .dsvert_dp_snapshot_digest(decorate(ordinary, optional = TRUE)),
+    .dsvert_dp_snapshot_digest(ordinary))
+  canonical_attributes <- names(attributes(
+    .dsvert_dp_snapshot_columns(decorated)$value))
+  if (is.null(canonical_attributes)) canonical_attributes <- character()
+  expect_false(any(startsWith(canonical_attributes, "opal.")))
+
+  unknown <- decorated
+  attr(unknown$value, "opal.executable") <- new.env(parent = emptyenv())
+  expect_error(
+    .dsvert_dp_snapshot_digest(unknown), "invalid Opal metadata")
+
+  partial <- decorated
+  attr(partial$value, "opal.index") <- NULL
+  expect_error(
+    .dsvert_dp_snapshot_digest(partial), "incomplete Opal metadata")
+
+  invalid <- decorated
+  attr(invalid$value, "opal.repeatable") <- 2
+  expect_error(
+    .dsvert_dp_snapshot_digest(invalid), "invalid Opal metadata")
+
+  attributed <- decorated
+  value <- attr(attributed$value, "opal.entity_type", exact = TRUE)
+  attr(value, "payload") <- new.env(parent = emptyenv())
+  attr(attributed$value, "opal.entity_type") <- value
+  expect_error(
+    .dsvert_dp_snapshot_digest(attributed), "invalid Opal metadata")
+
+  dispatched <- FALSE
+  length.dsvert_opal_metadata_trap <- function(x) {
+    dispatched <<- TRUE
+    stop("metadata method executed")
+  }
+  on.exit(rm(length.dsvert_opal_metadata_trap), add = TRUE)
+  class(value) <- "dsvert_opal_metadata_trap"
+  trapped <- decorated
+  attr(trapped$value, "opal.entity_type") <- value
+  expect_error(
+    .dsvert_dp_snapshot_digest(trapped), "invalid Opal metadata")
+  expect_false(dispatched)
 })
 
 test_that("a production snapshot is validated once and then stays immutable", {

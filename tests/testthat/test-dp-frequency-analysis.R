@@ -17,7 +17,9 @@
   identical(signature, .frequency_analysis_signature(message, identity_pk))
 }
 
-.frequency_claim_fixture <- function(k = 3L, source_index = 2L) {
+.frequency_claim_fixture <- function(
+    k = 3L, source_index = 2L, local_id_column = "patient_id",
+    privacy_unit_id = local_id_column) {
   peers <- paste0("site_", seq_len(k))
   pins <- stats::setNames(vapply(
     seq_len(k), .frequency_analysis_pk, character(1L)), peers)
@@ -29,7 +31,7 @@
     alignment_purpose = "patient-record-alignment-v1",
     dataset_id = "frequency-table",
     dataset_version = "v1",
-    id_column = "patient_id")
+    id_column = privacy_unit_id)
   source$source_binding_id <- paste0("source_", digest::digest(
     .psi_padded_canonical_json(source), algo = "sha256", serialize = FALSE))
   token <- .dsvert_relay_b64url_encode(as.raw(0:31))
@@ -46,14 +48,15 @@
     reference_peer = peers[[1L]],
     compute_peers = peers[1:2]))
   data <- data.frame(
-    patient_id = c("p-1", "p-2", "p-3"),
+    local_id = c("p-1", "p-2", "p-3"),
     category = factor(
       c("z", "a", NA_character_), levels = c("z", "\u00e1", "a")),
     unrelated = factor(c("private-a", "private-b", "private-c")),
     private_value = c("secret-1", "secret-2", "secret-3"),
     stringsAsFactors = FALSE, check.names = FALSE)
+  names(data)[[1L]] <- local_id_column
   data <- .psi_padded_attach_attestation(
-    .psi_attach_alignment_manifest(data, "patient_id", token), contract)
+    .psi_attach_alignment_manifest(data, local_id_column, token), contract)
   data <- .psi_padded_attach_factor_registry_v1(
     data, source_peer, source_identity,
     .signer = .frequency_analysis_signer,
@@ -239,22 +242,36 @@ test_that("Frequency Claim rejects oversized crypto fields before decoding", {
     operations =
       "public-data-free-certified-frequency-backend-selection-v1")))
 
-.frequency_compile_fixture <- function(k = 3L) {
-  fixture <- .frequency_claim_fixture(k = k, source_index = 2L)
+.frequency_compile_fixture <- function(
+    k = 3L, local_id_columns = NULL, privacy_unit_id = NULL) {
+  peers <- paste0("site_", seq_len(k))
+  if (is.null(local_id_columns)) {
+    local_id_columns <- stats::setNames(rep("patient_id", k), peers)
+  }
+  if (is.null(privacy_unit_id)) {
+    privacy_unit_id <- unname(local_id_columns[[2L]])
+  }
+  fixture <- .frequency_claim_fixture(
+    k = k, source_index = 2L,
+    local_id_column = unname(local_id_columns[[2L]]),
+    privacy_unit_id = privacy_unit_id)
   peers <- names(fixture$pins)
   token <- attr(
     fixture$data, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE)$token
-  source_ids <- fixture$data$patient_id
+  source_ids <- fixture$data[[unname(local_id_columns[[fixture$source_peer]])]]
   data <- stats::setNames(lapply(peers, function(peer) {
     if (identical(peer, fixture$source_peer)) return(fixture$data)
     witness <- data.frame(
-      patient_id = source_ids,
+      local_id = source_ids,
       witness_private = paste0("private-", peer, "-", seq_along(source_ids)),
       stringsAsFactors = FALSE, check.names = FALSE)
+    names(witness)[[1L]] <- unname(local_id_columns[[peer]])
     .psi_padded_attach_attestation(
-      .psi_attach_alignment_manifest(witness, "patient_id", token),
+      .psi_attach_alignment_manifest(
+        witness, unname(local_id_columns[[peer]]), token),
       fixture$contract)
   }), peers)
+  fixture$local_id_columns <- local_id_columns
   fixture$data_by_peer <- data
   fixture$claim <- .frequency_claim(fixture)
   fixture$settings <- list(
@@ -291,8 +308,11 @@ test_that("Frequency Claim rejects oversized crypto fields before decoding", {
   contract$attestation_id <- paste0("attest_", strrep("e", 64L))
   token <- .dsvert_relay_b64url_encode(as.raw(31:0))
   data <- stats::setNames(lapply(names(fixture$pins), function(peer) {
+    local_id_column <- attr(
+      fixture$data_by_peer[[peer]], .PSI_ALIGNMENT_ATTRIBUTE,
+      exact = TRUE)$id_col
     value <- .psi_attach_alignment_manifest(
-      fixture$data_by_peer[[peer]], "patient_id", token)
+      fixture$data_by_peer[[peer]], local_id_column, token)
     value <- .psi_padded_attach_attestation(value, contract)
     attr(value, .PSI_PADDED_FACTOR_REGISTRY_ATTRIBUTE) <- NULL
     if (!identical(peer, fixture$source_peer)) return(value)
@@ -356,6 +376,20 @@ test_that("Frequency Claim rejects oversized crypto fields before decoding", {
        contract = contract)
 }
 
+test_that("Frequency uses local id aliases under one semantic privacy unit", {
+  local_ids <- c(
+    site_1 = "patient_id", site_2 = "subject_id", site_3 = "person_key")
+  fixture <- .frequency_compile_fixture(
+    k = 3L, local_id_columns = local_ids, privacy_unit_id = "person:v1")
+  compiled <- .frequency_compiled(fixture)
+
+  expect_identical(compiled$config$privacy_unit_column, "person:v1")
+  expect_length(compiled$receipts, 3L)
+  public <- .dsvert_dp_canonical_json(fixture$claim)
+  expect_false(any(vapply(
+    unname(local_ids), grepl, logical(1L), x = public, fixed = TRUE)))
+})
+
 .frequency_resign_receipt <- function(receipt) {
   unsigned <- receipt[setdiff(names(receipt), "signature")]
   c(unsigned, list(signature = .frequency_analysis_signer(
@@ -380,10 +414,10 @@ test_that("Frequency local compiler gates and selects before source access", {
   expect_identical(local$config$max_records_per_unit, 1)
   expect_identical(
     local$config$repeated_record_policy,
-    "psi_v4_first_eligible_source_record_per_privacy_unit_v1")
+    "psi_v5_first_eligible_source_record_per_privacy_unit_v1")
   expect_identical(
     local$config$overflow_policy,
-    "clip_to_psi_v4_first_eligible_source_record_v1")
+    "clip_to_psi_v5_first_eligible_source_record_v1")
   expect_identical(
     local$config$missingness_policy,
     "missing_or_out_of_domain_rows_are_ignored")

@@ -269,7 +269,7 @@ test_that("one capsule recipient never decrypts a complete alignment hash", {
   expect_false(identical(shares[[1L]], shares[[2L]]))
 })
 
-test_that("padded v3 bindings drive one cross categorical alignment consensus", {
+test_that("padded v4 bindings drive one cross categorical alignment consensus", {
   left <- .cross_cat_fixture("peer_a", padded_v3 = TRUE)
   right <- .cross_cat_fixture("peer_b", padded_v3 = TRUE)
 
@@ -284,7 +284,7 @@ test_that("padded v3 bindings drive one cross categorical alignment consensus", 
     context_left$private_alignment_consensus_hash,
     left$policy$datasets$leftdata$alignment_manifest_hash)
   expect_identical(
-    left$policy$datasets$leftdata$alignment_manifest_version, 3L)
+    left$policy$datasets$leftdata$alignment_manifest_version, 4L)
 })
 
 .cross_cat_records <- function(values) {

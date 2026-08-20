@@ -3,23 +3,20 @@
 # entry: the aligned symbol must already have an exact custodian-owned
 # dsvert.dp.datasets template and a live authenticated padded-PSI attestation.
 
-.DSVERT_DP_PADDED_ALIGNMENT_BINDING_VERSION <- 3L
+.DSVERT_DP_PADDED_ALIGNMENT_BINDING_VERSION <- 4L
 .DSVERT_DP_PADDED_ALIGNMENT_BINDING_PROTOCOL <-
-  "dsvert-padded-psi-dp-alignment-binding-v1"
+  "dsvert-padded-psi-dp-alignment-binding-v2"
 .DSVERT_DP_ALIGNED_REGISTRY_PROTOCOL <-
-  "dsvert-private-aligned-dataset-registry-v1"
+  "dsvert-private-aligned-dataset-registry-v2"
 .DSVERT_DP_ALIGNED_REGISTRY_HMAC_DOMAIN <-
-  "dsVert/private-aligned-dataset-registry/hmac-sha256/v1|"
+  "dsVert/private-aligned-dataset-registry/hmac-sha256/v2|"
 .DSVERT_DP_ALIGNED_REGISTRY_MAX_BYTES <- 256L * 1024L
 
 .dsvert_dp_padded_alignment_binding <- function(
     data, snapshot_sha256 = NULL) {
   alignment <- .psi_validate_alignment_manifest(data)
   attestation <- .psi_padded_validate_persistent_attestation(data)
-  if (!identical(alignment$id_col, attestation$id_column)) {
-    stop("The padded PSI attestation uses a different privacy-unit column",
-         call. = FALSE)
-  }
+  local_id_column <- alignment$id_col
   semantic <- list(
     version = .DSVERT_DP_PADDED_ALIGNMENT_BINDING_PROTOCOL,
     alignment_protocol = attestation$alignment_protocol,
@@ -49,6 +46,7 @@
     .psi_padded_canonical_json(list(
       protocol = .DSVERT_DP_ALIGNED_REGISTRY_PROTOCOL,
       snapshot_sha256 = snapshot_sha256,
+      local_id_column = local_id_column,
       alignment_sha256 = stable_hash,
       semantic = semantic)),
     algo = "sha256", serialize = FALSE)
@@ -62,6 +60,7 @@
         .DSVERT_DP_PADDED_ALIGNMENT_BINDING_VERSION),
     semantic = semantic,
     registry_binding_sha256 = private_binding,
+    local_id_column = local_id_column,
     alignment = list(
       version = .DSVERT_DP_PADDED_ALIGNMENT_BINDING_VERSION,
       hash = stable_hash, id_col = alignment$id_col))
@@ -234,7 +233,8 @@
 
 .dsvert_dp_alignment_registry_payload_validate <- function(value) {
   fields <- c(
-    "protocol", "data_name", "descriptor", "semantic", "binding_sha256")
+    "protocol", "data_name", "local_id_column", "descriptor", "semantic",
+    "binding_sha256")
   fail <- function() stop(
     "The private aligned-dataset registry record is invalid", call. = FALSE)
   if (!is.list(value) || !identical(names(value), fields) ||
@@ -242,6 +242,11 @@
       !is.character(value$data_name) || length(value$data_name) != 1L ||
       is.na(value$data_name) ||
       !grepl("^[A-Za-z.][A-Za-z0-9._]{0,127}$", value$data_name) ||
+      !is.character(value$local_id_column) ||
+      length(value$local_id_column) != 1L ||
+      is.na(value$local_id_column) ||
+      !grepl("^[A-Za-z._][A-Za-z0-9._]{0,127}$",
+             value$local_id_column) ||
       !is.list(value$descriptor) || !is.list(value$semantic) ||
       !is.character(value$binding_sha256) ||
       length(value$binding_sha256) != 1L || is.na(value$binding_sha256) ||
@@ -295,6 +300,7 @@
     .psi_padded_canonical_json(list(
       protocol = .DSVERT_DP_ALIGNED_REGISTRY_PROTOCOL,
       snapshot_sha256 = value$descriptor$snapshot_sha256,
+      local_id_column = value$local_id_column,
       alignment_sha256 = expected,
       semantic = value$semantic)),
     algo = "sha256", serialize = FALSE)
@@ -409,6 +415,7 @@
   payload <- list(
     protocol = .DSVERT_DP_ALIGNED_REGISTRY_PROTOCOL,
     data_name = data_name,
+    local_id_column = binding$local_id_column,
     descriptor = binding$descriptor,
     semantic = binding$semantic,
     binding_sha256 = binding$registry_binding_sha256)
@@ -502,7 +509,7 @@
     valid <- identical(payload$data_name, data_name) &&
       identical(payload$descriptor$id, template$id) &&
       identical(payload$descriptor$version, template$version) &&
-      identical(payload$semantic$id_column, patient_column) &&
+      identical(payload$local_id_column, patient_column) &&
       identical(payload$semantic$pinset_id, expected_pinset_id) &&
       identical(as.integer(payload$semantic$peer_count), length(pinset))
     compute_peers <- unlist(

@@ -54,6 +54,7 @@
 
 .vector_capsule_fixture <- function(
     gaussian = FALSE, k = 2L, count_only = FALSE) {
+  retained_before <- .dsvert_resource_retained_bytes()
   selector <- if (isTRUE(gaussian)) function(
       coordinate_count, laplace_epsilons, laplace_sensitivities,
       gaussian_epsilon, gaussian_delta, gaussian_l2_sensitivity,
@@ -76,6 +77,25 @@
   fixture <- .vector_capsule_helpers$.capsule_source_test_fixture(
     k, noise_selector = selector, gaussian_planner = gaussian_planner,
     count_only = count_only)
+  store_paths <- vapply(fixture$policies, function(policy) {
+    paste0(policy$ledger_path, ".capsule-source-v3.sqlite")
+  }, character(1L))
+  owners <- vapply(
+    fixture$policies, .dsvert_dp_capsule_source_resource_owner,
+    character(1L))
+  withr::defer({
+    for (owner in owners) {
+      .dsvert_resource_external_unregister(owner)
+    }
+    unlink(c(
+      store_paths, paste0(store_paths, ".lock"),
+      paste0(store_paths, "-wal"), paste0(store_paths, "-shm")),
+      force = TRUE)
+    expect_length(intersect(
+      owners, names(.dsvert_resource_registry$external)), 0L)
+    expect_identical(
+      .dsvert_resource_retained_bytes(), retained_before)
+  }, envir = parent.frame())
   for (peer in fixture$peers) {
     key <- fixture$secrets[[peer]]
     fixture$policies[[peer]]$lifetime_max_distinct_capsules <- 8
@@ -2665,4 +2685,46 @@ test_that("final vector compaction is authorized, crash-safe and replay-sticky",
     .verifier = .vector_capsule_helpers$.capsule_source_test_verifier,
     .allocation_observer = function(...) invisible(TRUE)),
     "durably finalized")
+})
+
+test_that("source compaction verifies that private rows were deleted", {
+  fixture <- .vector_capsule_fixture(k = 3L)
+  peer <- fixture$peers[[1L]]
+  policy <- fixture$policies[[peer]]
+  secret <- fixture$secrets[[peer]]
+  tickets <- .vector_capsule_helpers$.capsule_source_test_tickets(fixture)
+  summaries <- .vector_capsule_helpers$.capsule_source_test_prepare(
+    fixture, tickets)
+  for (recipient in fixture$peers[1:2]) {
+    for (source in fixture$peers) {
+      contract <- .dsvert_dp_capsule_source_contract_json(
+        fixture$policies[[source]], fixture$manifest_json)$contract
+      for (chunk in seq.int(0, contract$chunk_count - 1L)) {
+        envelope <- .vector_capsule_helpers$.capsule_source_test_envelope(
+          fixture, summaries, source, recipient, chunk)
+        .vector_capsule_helpers$.capsule_source_test_accept(
+          fixture, recipient, envelope)
+      }
+    }
+  }
+  .dsvert_dp_capsule_source_with_store(policy, secret, function(connection) {
+    DBI::dbExecute(connection, paste(
+      "CREATE TRIGGER ignore_compaction_delete BEFORE DELETE",
+      "ON source_aggregate_chunks BEGIN SELECT RAISE(IGNORE); END"))
+  })
+  expect_error(
+    .dsvert_dp_capsule_source_compact_after_vector_release_internal(
+      policy, fixture$manifest_json,
+      .vector_capsule_source_compaction_authorization(fixture, peer),
+      secret),
+    "left private state behind")
+  observed <- .dsvert_dp_capsule_source_with_store(
+    policy, secret, function(connection) list(
+      receipt = .dsvert_dp_capsule_source_compaction_load(
+        connection,
+        fixture$manifests[[1L]]$capsule_identity$capsule_id, secret),
+      retained = DBI::dbGetQuery(connection, paste(
+        "SELECT COUNT(*) AS n FROM source_aggregate_chunks"))$n[[1L]]))
+  expect_null(observed$receipt)
+  expect_gt(observed$retained, 0)
 })

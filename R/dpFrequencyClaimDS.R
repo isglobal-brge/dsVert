@@ -1,8 +1,8 @@
 # Server Claim compiler for one fixed-domain categorical Frequency analysis.
 
-.DSVERT_DP_FREQUENCY_CLAIM_VERSION <- "dsvert-dp-frequency-factor-claim-v1"
-.DSVERT_DP_FREQUENCY_CLAIM_DOMAIN <- "dsVert/dp-frequency/factor-claim/v1|"
-.DSVERT_DP_FREQUENCY_PSI_RUN_DOMAIN <- "dsVert/dp-frequency/psi-run/v1|"
+.DSVERT_DP_FREQUENCY_CLAIM_VERSION <- "dsvert-dp-frequency-factor-claim-v2"
+.DSVERT_DP_FREQUENCY_CLAIM_DOMAIN <- "dsVert/dp-frequency/factor-claim/v2|"
+.DSVERT_DP_FREQUENCY_PSI_RUN_DOMAIN <- "dsVert/dp-frequency/psi-run/v2|"
 .dsvert_dp_frequency_hash_v1 <- function(domain, value) {
   .dsvert_dp_analysis_frequency_hash_v1(domain, value)
 }
@@ -113,6 +113,38 @@
     .DSVERT_DP_FREQUENCY_CLAIM_DOMAIN,
     .dsvert_dp_canonical_json(
       .dsvert_dp_analysis_canonical_value_v1(unsigned))))
+}
+
+.dsvert_dp_frequency_psi_run_v2 <- function(attestation) {
+  fields <- c(
+    "attestation_version", "alignment_attested", "alignment_protocol",
+    "attestation_id", "contract_hash", "policy_id", "alignment_purpose",
+    "dataset_id", "dataset_version", "id_column", "source_binding_id",
+    "pinset_id", "capacity_bucket", "relay_frame_bytes",
+    "inline_max_bytes", "peer_count", "reference_peer", "compute_peers")
+  if (!is.list(attestation) || !identical(names(attestation), fields) ||
+      !identical(attestation$attestation_version, 3L) ||
+      !identical(attestation$alignment_protocol,
+                 .DSVERT_PSI_PADDED_PROTOCOL)) {
+    stop("Invalid Frequency padded PSI attestation.", call. = FALSE)
+  }
+  source <- .psi_padded_validate_source_public(attestation[c(
+    "alignment_purpose", "dataset_id", "dataset_version", "id_column",
+    "source_binding_id")])
+  semantic <- c(list(
+    version = "dsvert-dp-frequency-semantic-alignment-v2",
+    alignment_protocol = attestation$alignment_protocol), source, list(
+    pinset_id = attestation$pinset_id,
+    peer_count = as.integer(attestation$peer_count),
+    reference_peer = attestation$reference_peer,
+    compute_peers = as.list(unname(attestation$compute_peers))))
+  list(
+    psi_run_sha256 = .dsvert_dp_frequency_hash_v1(
+      .DSVERT_DP_FREQUENCY_PSI_RUN_DOMAIN,
+      list(version = "dsvert-dp-frequency-psi-run-v2",
+           attestation = attestation)),
+    alignment_sha256 = .dsvert_dp_frequency_hash_v1(
+      .DSVERT_DP_FREQUENCY_ALIGNMENT_DOMAIN, semantic))
 }
 
 .dsvert_dp_frequency_claim_validate_v1 <- function(
@@ -227,21 +259,17 @@
   }
   entry <- .dsvert_dp_frequency_factor_entry_validate_v1(
     registry$entries[[which(matches)]])
-  attestation <- attr(
-    data, .PSI_PADDED_ATTESTATION_ATTRIBUTE, exact = TRUE)$public
-  alignment <- attr(data, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE)
-  psi_run_sha256 <- .dsvert_dp_frequency_hash_v1(
-    .DSVERT_DP_FREQUENCY_PSI_RUN_DOMAIN,
-    list(alignment = alignment, attestation = attestation))
+  attestation <- .psi_padded_validate_persistent_attestation_metadata_v1(data)
+  psi <- .dsvert_dp_frequency_psi_run_v2(attestation)
   unsigned <- list(
     version = .DSVERT_DP_FREQUENCY_CLAIM_VERSION,
     source_peer_name = peer_name,
     source_identity_pk = identity_pk,
-    psi_run_sha256 = psi_run_sha256,
+    psi_run_sha256 = psi$psi_run_sha256,
     attestation_id = attestation$attestation_id,
     contract_hash = attestation$contract_hash,
     source_binding_id = attestation$source_binding_id,
-    alignment_hash = alignment$hash,
+    alignment_hash = psi$alignment_sha256,
     alignment_purpose = attestation$alignment_purpose,
     dataset_id = attestation$dataset_id,
     dataset_version = attestation$dataset_version,

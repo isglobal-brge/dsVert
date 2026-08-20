@@ -44,7 +44,8 @@ test_that("Frequency public ABI is exact and purpose-bound", {
     .dsvert_test_package_file("DESCRIPTION"))
   expect_true(all(.frequency_surface_names %in% registered))
   expect_true(all(.frequency_surface_names %in% getNamespaceExports("dsVert")))
-  expect_false("mpcTypedBlobReadDS" %in% registered)
+  expect_true("mpcTypedBlobReadDS" %in% registered)
+  expect_true("dsvertFormalFinalizerHandoffSourceDS" %in% registered)
 })
 
 test_that("Frequency settings require one explicit server-held source owner", {

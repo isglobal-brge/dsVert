@@ -360,6 +360,46 @@ test_that("declared synopsis decimals reproduce Gaussian guarded requests", {
       as.numeric(epsilon), as.numeric(delta), 256, 3L))
 })
 
+test_that("zero delta reaches Laplace planning but finite v3 plans fail closed", {
+  zero <- "0.000000000000000000e+00"
+  expect_identical(
+    .dsvert_dp_synopsis_declared_decimal_v1(
+      0, "delta", 1, open_maximum = TRUE, allow_zero = TRUE),
+    zero)
+  expect_identical(
+    .dsvert_dp_synopsis_decimal_v1(
+      zero, "delta", 1, open_maximum = TRUE, allow_zero = TRUE),
+    zero)
+  expect_error(
+    .dsvert_dp_synopsis_declared_decimal_v1(
+      0, "delta", 1, open_maximum = TRUE),
+    "delta")
+  expect_true(.dsvert_dp_synopsis_fraction_leq_decimal_v1(
+    "0", "1", zero))
+  expect_false(.dsvert_dp_synopsis_fraction_leq_decimal_v1(
+    "1", "1000000000000000000000000000000", zero))
+
+  fixtures <- list(
+    convolution = .synopsis_artifact_fixture(k = 2L, delta = 0))
+  commands <- c(
+    convolution = "joint-dp-vector-convolution-plan-v3")
+  for (kind in names(fixtures)) {
+    observed <- NULL
+    planner <- .synopsis_artifact_planner()
+    original <- planner[[commands[[kind]]]]
+    planner[[commands[[kind]]]] <- function(request) {
+      observed <<- request
+      original(request)
+    }
+    expect_error(
+      .dsvert_dp_synopsis_physical_plan_v1(
+        fixtures[[kind]]$policy, fixtures[[kind]]$manifest,
+        .planner = planner),
+      "pure DP|positive implementation delta|finite")
+    expect_identical(observed$delta, zero)
+  }
+})
+
 test_that("a manifest-certified Gaussian plan produces the same artifact", {
   value <- .synopsis_artifact_helpers$.vector_capsule_fixture(
     gaussian = TRUE, k = 2L, count_only = TRUE)

@@ -142,7 +142,11 @@
     peer_pinset_sha256 = policy$peer_pinset_sha256,
     designated_noise_peers = as.list(
       sort(policy$designated_noise_peers, method = "radix")),
-    privacy_epoch_scope = "per_peer_signed_receipts_v1",
+    privacy_epoch_scope = if (.dsvert_dp_synopsis_policy_is_v1(policy)) {
+      "per_canonical_artifact_sticky_v1"
+    } else {
+      "per_peer_signed_receipts_v1"
+    },
     epsilon = as.numeric(policy$global_total_epsilon),
     delta = as.numeric(policy$global_total_delta),
     adjacency = policy$adjacency,
@@ -385,11 +389,18 @@
     spec <- tryCatch(.dsvert_dp_capsule_gaussian_spec(
       policy, analysis_id, gaussian, require_public_bounds = FALSE),
       error = function(error) NULL)
-    variables <- if (is.null(spec)) character() else
-      c(spec$outcome, spec$predictors)
+    references <- if (is.null(spec)) list() else lapply(
+      c(spec$outcome, spec$predictors),
+      .dsvert_dp_capsule_column_reference, what = "Gaussian variable")
+    variables <- vapply(
+      references, `[[`, character(1L), "column")
+    owners <- vapply(references, function(reference) {
+      reference$owner_peer %||% policy$peer_name
+    }, character(1L))
     outcome_owned <- !is.null(spec) &&
       spec$dataset %in% names(mapping$datasets) &&
-      spec$outcome %in% mapping$datasets[[spec$dataset]]
+      identical(owners[[1L]], policy$peer_name) &&
+      variables[[1L]] %in% mapping$datasets[[spec$dataset]]
     valid_ownership <- if (is.null(spec)) {
       FALSE
     } else if (identical(spec$version, "v1")) {
@@ -398,7 +409,7 @@
     } else if (identical(spec$version, "v2")) {
       # The outcome custodian owns the one global cross-model fragment.  Its
       # remote predictor references are resolved only against the unanimously
-      # signed schema, where column names are globally unique and bounded.
+      # signed owner/dataset/column schema.
       isTRUE(outcome_owned) && length(spec$predictors) > 0L
     } else {
       FALSE
@@ -430,26 +441,33 @@
       }, logical(1L))) && raw$family %in% c(
         "categorical_pair", "numeric_cross_moment",
         "numeric_by_category") && !identical(raw$left, raw$right)
+    parsed <- list()
     if (isTRUE(valid)) {
       tryCatch({
         .dsvert_dp_capsule_id(analysis_id, "vertical-cross id")
         .dsvert_dp_capsule_id(raw$version, "vertical-cross version")
         .dsvert_dp_capsule_id(raw$left_dataset, "left dataset")
         .dsvert_dp_capsule_id(raw$right_dataset, "right dataset")
-        .dsvert_dp_capsule_id(raw$left, "left column")
-        .dsvert_dp_capsule_id(raw$right, "right column")
+        parsed$left <- .dsvert_dp_capsule_column_reference(
+          raw$left, "left column")
+        parsed$right <- .dsvert_dp_capsule_column_reference(
+          raw$right, "right column")
       }, error = function(error) valid <<- FALSE)
     }
     references <- if (isTRUE(valid)) list(
-      c(raw$left_dataset, raw$left),
-      c(raw$right_dataset, raw$right)) else list()
+      list(dataset = raw$left_dataset, value = parsed$left),
+      list(dataset = raw$right_dataset, value = parsed$right)) else list()
     locally_owned <- vapply(references, function(reference) {
-      reference[[1L]] %in% names(mapping$datasets) &&
-        reference[[2L]] %in% mapping$datasets[[reference[[1L]]]]
+      reference$dataset %in% names(mapping$datasets) &&
+        (is.null(reference$value$owner_peer) ||
+           identical(reference$value$owner_peer, policy$peer_name)) &&
+        reference$value$column %in% mapping$datasets[[reference$dataset]]
     }, logical(1L))
     locally_named <- vapply(references, function(reference) {
-      reference[[1L]] %in% names(mapping$datasets) ||
-        reference[[2L]] %in% local_columns
+      reference$dataset %in% names(mapping$datasets) ||
+        identical(reference$value$owner_peer, policy$peer_name) ||
+        (is.null(reference$value$owner_peer) &&
+           reference$value$column %in% local_columns)
     }, logical(1L))
     if (!isTRUE(valid) || !any(locally_owned) ||
         any(locally_named != locally_owned)) {
@@ -457,6 +475,8 @@
         "invalid_custodian_workload_specs",
         "A custodian vertical-cross specification is not locally owned")
     }
+    raw$left <- parsed$left$reference
+    raw$right <- parsed$right$reference
     normalized_vertical[[analysis_id]] <- raw[expected]
   }
   tryCatch(.dsvert_dp_canonical_query_value(list(
@@ -554,7 +574,7 @@
 }
 
 .dsvert_dp_capsule_manifest_workload_contract <- function(
-    workload_contract_json, policy) {
+    workload_contract_json, policy, .local_exact = TRUE) {
   value <- .dsvert_dp_capsule_manifest_decode(
     workload_contract_json, "biomedical capsule workload contract",
     .DSVERT_DP_CAPSULE_MANIFEST_MAX_WORKLOAD_BYTES)
@@ -607,26 +627,28 @@
     list(version = .DSVERT_DP_CAPSULE_WORKLOAD_CONTRACT_VERSION),
     normalized))
 
-  local <- .dsvert_dp_capsule_manifest_local_specs(policy)
-  peer <- policy$peer_name
-  for (family in families) {
-    owned <- normalized[[family]][vapply(
-      normalized[[family]], function(entry) {
-        identical(entry$owner_peer, peer)
-      }, logical(1L))]
-    owned_specs <- lapply(owned, `[[`, "spec")
-    same_names <- length(owned_specs) == length(local[[family]]) &&
-      setequal(names(owned_specs), names(local[[family]]))
-    same_specs <- isTRUE(same_names) && all(vapply(
-      names(local[[family]]), function(analysis_id) {
-        identical(
-          .dsvert_dp_canonical_json(owned_specs[[analysis_id]]),
-          .dsvert_dp_canonical_json(local[[family]][[analysis_id]]))
-      }, logical(1L)))
-    if (!isTRUE(same_specs)) {
-      .dsvert_dp_capsule_manifest_abort(
-        "local_workload_contract_conflict",
-        "The global workload contract changed a custodian-owned fragment")
+  if (isTRUE(.local_exact)) {
+    local <- .dsvert_dp_capsule_manifest_local_specs(policy)
+    peer <- policy$peer_name
+    for (family in families) {
+      owned <- normalized[[family]][vapply(
+        normalized[[family]], function(entry) {
+          identical(entry$owner_peer, peer)
+        }, logical(1L))]
+      owned_specs <- lapply(owned, `[[`, "spec")
+      same_names <- length(owned_specs) == length(local[[family]]) &&
+        setequal(names(owned_specs), names(local[[family]]))
+      same_specs <- isTRUE(same_names) && all(vapply(
+        names(local[[family]]), function(analysis_id) {
+          identical(
+            .dsvert_dp_canonical_json(owned_specs[[analysis_id]]),
+            .dsvert_dp_canonical_json(local[[family]][[analysis_id]]))
+        }, logical(1L)))
+      if (!isTRUE(same_specs)) {
+        .dsvert_dp_capsule_manifest_abort(
+          "local_workload_contract_conflict",
+          "The global workload contract changed a custodian-owned fragment")
+      }
     }
   }
 
@@ -782,9 +804,11 @@
 }
 
 .dsvert_dp_capsule_manifest_signed_schema <- function(
-    schema_json, workload_contract_json, policy, verifier = NULL) {
+    schema_json, workload_contract_json, policy, verifier = NULL,
+    .primitive_scope = NULL) {
   workload <- .dsvert_dp_capsule_manifest_workload_contract(
-    workload_contract_json, policy)
+    workload_contract_json, policy,
+    .local_exact = is.null(.primitive_scope))
   schema <- .dsvert_dp_capsule_manifest_decode(
     schema_json, "signed biomedical capsule schema",
     .DSVERT_DP_CAPSULE_MANIFEST_MAX_SCHEMA_BYTES)
@@ -806,11 +830,16 @@
       "logical_snapshot_conflict",
       "The signed schema has a non-authoritative logical snapshot")
   }
-  tryCatch(
-    .dsvert_dp_capsule_validate_local_schema(policy, validated$unsigned),
-    error = function(error) .dsvert_dp_capsule_manifest_abort(
-      "local_policy_conflict",
-      "The signed schema conflicts with the local custodian policy"))
+  tryCatch({
+    if (is.null(.primitive_scope)) {
+      .dsvert_dp_capsule_validate_local_schema(policy, validated$unsigned)
+    } else {
+      .dsvert_dp_capsule_validate_local_projection_schema(
+        policy, validated$unsigned, .primitive_scope)
+    }
+  }, error = function(error) .dsvert_dp_capsule_manifest_abort(
+    "local_policy_conflict",
+    "The signed schema conflicts with the local custodian policy"))
   list(value = schema, validated = validated, workload = workload)
 }
 

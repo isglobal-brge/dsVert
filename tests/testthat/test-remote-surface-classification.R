@@ -27,7 +27,7 @@ test_that("machine-readable remote surface exactly covers server registration", 
   expect_setequal(
     classified, .dsvert_test_disclosure_safe_methods)
   expect_identical(anyDuplicated(retired_surface), 0L)
-  expect_length(retired_surface, 94L)
+  expect_length(retired_surface, 93L)
   expect_false(any(retired_surface %in% registered))
   expect_false(any(retired_surface %in% getNamespaceExports("dsVert")))
   expect_length(
@@ -41,7 +41,7 @@ test_that("machine-readable remote surface exactly covers server registration", 
   expect_identical(
     as.integer(inventory$counts$registered_orphan_endpoints), 0L)
   expect_identical(
-    as.integer(inventory$counts$unregistered_client_endpoint_literals), 94L)
+    as.integer(inventory$counts$unregistered_client_endpoint_literals), 93L)
   expect_identical(
     as.integer(inventory$counts$reachable_unregistered_client_endpoints), 0L)
   expect_length(

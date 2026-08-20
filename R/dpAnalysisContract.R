@@ -255,13 +255,13 @@
 .dsvert_dp_analysis_frequency_contribution_sha256_v1 <- function() {
   .dsvert_dp_analysis_frequency_hash_v1(
     .DSVERT_DP_ANALYSIS_FREQUENCY_CONTRIBUTION_DOMAIN_V1, list(
-      alignment_protocol = "dsvert-pinned-padded-psi-v4",
+      alignment_protocol = "dsvert-pinned-padded-psi-v5",
       duplicate_policy = "first",
       repeated_record_policy =
-        "psi_v4_first_eligible_source_record_per_privacy_unit_v1",
+        "psi_v5_first_eligible_source_record_per_privacy_unit_v1",
       max_records_per_unit = 1,
       overflow_policy =
-        "clip_to_psi_v4_first_eligible_source_record_v1"))
+        "clip_to_psi_v5_first_eligible_source_record_v1"))
 }
 .dsvert_dp_analysis_frequency_uint_v1 <- function(value, positive = FALSE) {
   if (!is.character(value) || length(value) != 1L || is.na(value) ||
@@ -875,7 +875,7 @@
           version = "dsvert-fixed-domain-categorical-frequency-v2",
           statistic = "aligned_fixed_domain_categorical_frequency",
           repeated_record_policy =
-            "psi_v4_first_eligible_source_record_per_privacy_unit_v1",
+            "psi_v5_first_eligible_source_record_per_privacy_unit_v1",
           missingness_policy =
             "missing_or_out_of_domain_rows_are_ignored"))) fail()
   profile <- .dsvert_dp_analysis_frequency_profile_v1(analysis$primitive)
@@ -945,7 +945,7 @@
                       "constraints"), list(
         version = "dsvert-contribution-policy-v1", max_records_per_unit = 1,
         overflow_policy =
-          "clip_to_psi_v4_first_eligible_source_record_v1")) ||
+          "clip_to_psi_v5_first_eligible_source_record_v1")) ||
       !.dsvert_dp_analysis_frequency_object_v1(
         constraints, c("version", "policy_sha256"), list(
           version = "dsvert-contribution-constraints-v1")) ||

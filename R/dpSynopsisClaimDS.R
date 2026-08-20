@@ -13,18 +13,29 @@
   if (!is.function(cache_get)) {
     stop("Invalid synopsis manifest-cache reader.", call. = FALSE)
   }
+  synopsis_policy <- .dsvert_dp_synopsis_policy_is_v1(policy)
+  if (isTRUE(synopsis_policy) &&
+      identical(cache_get, .dsvert_dp_capsule_manifest_cache_get)) {
+    cache_get <- .dsvert_dp_synopsis_manifest_cache_get_v1
+  }
   record <- cache_get(
     policy, secret, manifest_sha256 = manifest_sha256)
   fields <- c(
     "version", "cache_key", "public_capsule_key",
     "local_authority_sha256", "schema_sha256",
     "workload_contract_sha256", "manifest_sha256", "manifest_json")
+  if (is.list(record) && identical(
+      record$version, .DSVERT_DP_SYNOPSIS_MANIFEST_CACHE_VERSION)) {
+    fields <- c(fields, "policy_snapshot")
+  }
   valid <- is.list(record) && !is.null(names(record)) &&
     !anyNA(names(record)) && !anyDuplicated(names(record)) &&
     setequal(names(record), fields) &&
     is.character(record$version) && length(record$version) == 1L &&
     !is.na(record$version) &&
-    record$version %in% .DSVERT_DP_CAPSULE_MANIFEST_REPLAY_CACHE_VERSIONS &&
+    record$version %in% c(
+      .DSVERT_DP_CAPSULE_MANIFEST_REPLAY_CACHE_VERSIONS,
+      .DSVERT_DP_SYNOPSIS_MANIFEST_CACHE_VERSION) &&
     identical(record$manifest_sha256, manifest_sha256) &&
     is.character(record$manifest_json) && length(record$manifest_json) == 1L &&
     !is.na(record$manifest_json) && nzchar(record$manifest_json) &&
@@ -36,7 +47,23 @@
       manifest_sha256) &&
     identical(
       record$local_authority_sha256,
-      .dsvert_dp_capsule_manifest_local_authority(policy, secret))
+      if (isTRUE(synopsis_policy)) {
+        .dsvert_dp_synopsis_manifest_local_authority_v1(policy, secret)
+      } else {
+        .dsvert_dp_capsule_manifest_local_authority(policy, secret)
+      })
+  if (isTRUE(valid)) {
+    if (isTRUE(synopsis_policy)) {
+      snapshot <- tryCatch(
+        .dsvert_dp_synopsis_policy_snapshot_validate_v1(
+          record$policy_snapshot, policy$synopsis_state_path),
+        error = function(error) NULL)
+      valid <- !is.null(snapshot) && identical(
+        .dsvert_dp_canonical_json(snapshot$wire),
+        .dsvert_dp_canonical_json(
+          .dsvert_dp_synopsis_policy_snapshot_v1(policy)))
+    }
+  }
   if (isTRUE(valid)) {
     valid <- all(vapply(c(
       "cache_key", "public_capsule_key", "local_authority_sha256",

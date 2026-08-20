@@ -3,12 +3,12 @@
 # This is the purpose-bound implementation behind the sole public PSI route.
 # Its registered surface is intentionally limited to the fixed protocol phases.
 
-.DSVERT_PSI_PADDED_PROTOCOL <- "dsvert-pinned-padded-psi-v4"
+.DSVERT_PSI_PADDED_PROTOCOL <- "dsvert-pinned-padded-psi-v5"
 .DSVERT_PSI_PADDED_MIN_CAPACITY <- 64L
 .DSVERT_PSI_PADDED_MAX_CAPACITY <- 1048576L
-.DSVERT_PSI_PADDED_SELECTION_MAGIC <- charToRaw("DVPSEL04")
-.DSVERT_PSI_PADDED_AND_PRODUCER <- "psi.padded.membership-sum.v4"
-.DSVERT_PSI_PADDED_AND_PURPOSE <- "psi-padded-and-v4"
+.DSVERT_PSI_PADDED_SELECTION_MAGIC <- charToRaw("DVPSEL05")
+.DSVERT_PSI_PADDED_AND_PRODUCER <- "psi.padded.membership-sum.v5"
+.DSVERT_PSI_PADDED_AND_PURPOSE <- "psi-padded-and-v5"
 .PSI_PADDED_ATTESTATION_ATTRIBUTE <- "dsvert.psi.padded.attestation"
 .PSI_PADDED_FACTOR_REGISTRY_ATTRIBUTE <- "dsvert.psi.padded.factor-registry"
 .DSVERT_PSI_PADDED_FACTOR_REGISTRY_VERSION <-
@@ -93,8 +93,13 @@
   }
   descriptor <- sources[[data_name]]
   required <- c("id", "version", "id_col", "purpose", "snapshot_sha256")
-  if (!is.list(descriptor) || length(descriptor) != length(required) ||
-      !setequal(names(descriptor), required)) {
+  extended <- c(required, "privacy_unit_id")
+  descriptor_names <- if (is.list(descriptor)) names(descriptor) else NULL
+  if (!is.list(descriptor) || is.null(descriptor_names) ||
+      !(setequal(descriptor_names, required) &&
+        length(descriptor) == length(required)) &&
+      !(setequal(descriptor_names, extended) &&
+        length(descriptor) == length(extended))) {
     stop("The requested padded PSI source is not custodian-authorized.",
          call. = FALSE)
   }
@@ -109,6 +114,11 @@
     stop("The requested padded PSI identifier column is not custodian-authorized.",
          call. = FALSE)
   }
+  privacy_unit_id <- if ("privacy_unit_id" %in% names(descriptor)) {
+    label(descriptor$privacy_unit_id, "privacy-unit identifier")
+  } else {
+    configured_id_col
+  }
   configured_snapshot <- tolower(.psi_padded_scalar(
     descriptor$snapshot_sha256, "authorized snapshot digest",
     "^[0-9a-fA-F]{64}$"))
@@ -121,7 +131,9 @@
     alignment_purpose = label(descriptor$purpose, "alignment purpose"),
     dataset_id = label(descriptor$id, "dataset id"),
     dataset_version = label(descriptor$version, "dataset version"),
-    id_column = configured_id_col)
+    # v5 binds this wire field to a semantic privacy unit, never to the local
+    # column alias. The physical id_col stays private and snapshot-authorized.
+    id_column = privacy_unit_id)
   public$source_binding_id <- paste0("source_", digest::digest(
     .psi_padded_canonical_json(public), algo = "sha256", serialize = FALSE))
   list(
@@ -147,8 +159,8 @@
       value$dataset_version, "dataset version",
       "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
     .psi_padded_scalar(
-      value$id_column, "identifier column",
-      "^[A-Za-z._][A-Za-z0-9._]{0,127}$")
+      value$id_column, "privacy-unit identifier",
+      "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
     .psi_padded_scalar(
       value$source_binding_id, "source binding id",
       "^source_[0-9a-f]{64}$")
@@ -1941,7 +1953,7 @@ psiPaddedMembershipAcceptDS <- function(
     stop("Invalid padded PSI attestation contract.", call. = FALSE)
   }
   list(
-    attestation_version = 2L,
+    attestation_version = 3L,
     alignment_attested = TRUE,
     alignment_protocol = .DSVERT_PSI_PADDED_PROTOCOL,
     attestation_id = contract$attestation_id,
@@ -1966,7 +1978,7 @@ psiPaddedMembershipAcceptDS <- function(
   digest::hmac(
     token,
     paste0(
-      "dsvert-pinned-padded-psi-attestation-v2|",
+      "dsvert-pinned-padded-psi-attestation-v3|",
       .psi_padded_canonical_json(public)),
     algo = "sha256", serialize = FALSE)
 }
@@ -2064,7 +2076,7 @@ psiPaddedMembershipAcceptDS <- function(
     stop("Padded PSI alignment attestation is unavailable.", call. = FALSE)
   }
   if (!identical(names(public), public_required) ||
-      !identical(public$attestation_version, 2L) ||
+      !identical(public$attestation_version, 3L) ||
       !identical(public$alignment_attested, TRUE) ||
       !identical(public$alignment_protocol, .DSVERT_PSI_PADDED_PROTOCOL) ||
       !is.character(public$compute_peers) ||
@@ -2326,7 +2338,7 @@ psiPaddedMembershipAcceptDS <- function(
     stop("Invalid padded PSI factor registry identity.", call. = FALSE)
   }
   entries <- .psi_padded_factor_entries_v1(
-    data, public_domains = .public_domains, exclude = public$id_column)
+    data, public_domains = .public_domains, exclude = alignment$id_col)
   public_levels_policy <- if (length(.public_domains)) {
     "custodian_named_public_factor_domains_v1"
   } else {
@@ -2417,7 +2429,7 @@ psiPaddedMembershipAcceptDS <- function(
     tryCatch({
       domains <- .psi_padded_factor_domains_from_entries_v1(record$entries)
       .psi_padded_factor_entries_v1(
-        data, public_domains = domains, exclude = public$id_column)
+        data, public_domains = domains, exclude = alignment$id_col)
     }, error = function(error) NULL)
   } else list()
   expected_hash <- if (!is.null(entries)) {
@@ -2649,7 +2661,7 @@ psiPaddedAttestationDS <- function(data_name, session_id = "") {
 
 .psi_padded_envelope_message <- function(context, payload_b64url) {
   .psi_padded_canonical_json(list(
-    domain = "dsvert-padded-psi-signed-envelope-v4",
+    domain = "dsvert-padded-psi-signed-envelope-v5",
     context = .psi_padded_validate_envelope_context(context),
     payload = payload_b64url))
 }
@@ -2766,7 +2778,7 @@ psiPaddedAttestationDS <- function(data_name, session_id = "") {
   offset <- as.integer((chunk_index - 1L) * 4096L)
   vector_len <- as.integer(min(4096L, capacity - offset))
   digest_input <- paste0(
-    "dsvert-psi-padded-and-operation-v4|", contract$contract_hash, "|",
+    "dsvert-psi-padded-and-operation-v5|", contract$contract_hash, "|",
     sprintf("%08d", chunk_index), "|", sprintf("%08d", chunk_count))
   operation_id <- paste0("op_", substr(digest::digest(
     digest_input, algo = "sha256", serialize = FALSE), 1L, 32L))

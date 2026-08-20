@@ -82,7 +82,7 @@ test_that("the aligned-dataset registry rechecks its directory after chmod", {
   expect_identical(root_checks, 2L)
 })
 
-test_that("a padded v3 descriptor is bound to the active peer pinset", {
+test_that("a padded v4 descriptor is bound to the active peer pinset", {
   pins <- c(
     site_a = base64_to_base64url(jsonlite::base64_enc(as.raw(0:31))),
     site_b = base64_to_base64url(jsonlite::base64_enc(as.raw(32:63))))
@@ -131,4 +131,43 @@ test_that("a padded v3 descriptor is bound to the active peer pinset", {
     .dsvert_dp_dataset_binding(
       policy, "DA", bound$data, as.raw(seq_len(32L))),
     "different pinned peer set")
+})
+
+test_that("padded v5 keeps local id aliases out of the semantic binding", {
+  pins <- c(
+    site_a = base64_to_base64url(jsonlite::base64_enc(as.raw(0:31))),
+    site_b = base64_to_base64url(jsonlite::base64_enc(as.raw(32:63))))
+  bound <- .dsvert_test_padded_dp_binding(
+    data.frame(
+      subject_id = c("p1", "p2"), value = c(1, 2),
+      stringsAsFactors = FALSE),
+    "subject_id", "cohort-main", "v1", pins,
+    privacy_unit_id = "person:v1")
+
+  binding <- .dsvert_dp_padded_alignment_binding(bound$data)
+  expect_identical(binding$semantic$id_column, "person:v1")
+  expect_identical(binding$alignment$id_col, "subject_id")
+  expect_identical(binding$local_id_column, "subject_id")
+
+  root <- withr::local_tempdir(pattern = "dsvert-registry-alias-")
+  Sys.chmod(root, mode = "0700")
+  withr::local_options(list(
+    dsvert.state_dir = root,
+    dsvert.identity_seed = jsonlite::base64_enc(as.raw(rep(7L, 32L))),
+    dsvert.peer_name = "site_a",
+    dsvert.trusted_peers = pins["site_b"],
+    dsvert.dp.patient_column = "subject_id",
+    dsvert.dp.datasets = list(
+      DA = list(id = "cohort-main", version = "v1"))))
+
+  path <- .dsvert_dp_alignment_registry_commit("DA", bound$data)
+  expect_true(file_test("-f", path))
+  expect_identical(
+    .dsvert_dp_alignment_registry_resolve_templates(
+      getOption("dsvert.dp.datasets"), "subject_id", pins)$DA,
+    binding$descriptor)
+  expect_error(
+    .dsvert_dp_alignment_registry_resolve_templates(
+      getOption("dsvert.dp.datasets"), "patient_id", pins),
+    "contradicts the active custodian policy")
 })

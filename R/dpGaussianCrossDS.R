@@ -54,13 +54,13 @@
 }
 
 .dsvert_dp_gaussian_cross_variable <- function(artifact, variable) {
-  if (identical(variable, artifact$outcome$column)) return(artifact$outcome)
   descriptor <- artifact$predictors[[variable]]
-  if (is.null(descriptor)) {
-    stop("The signed cross-owner Gaussian variable order is invalid.",
-         call. = FALSE)
+  if (is.list(descriptor)) return(descriptor)
+  if (.dsvert_dp_capsule_reference_matches(variable, artifact$outcome)) {
+    return(artifact$outcome)
   }
-  descriptor
+  stop("The signed cross-owner Gaussian variable order is invalid.",
+       call. = FALSE)
 }
 
 .dsvert_dp_gaussian_cross_layout <- function(manifest, release_layout = NULL) {
@@ -116,7 +116,7 @@
       required <- c("column", "dataset", "owner_peer", "lower", "upper")
       if (!is.list(descriptor) || is.null(names(descriptor)) ||
           !setequal(names(descriptor), required) ||
-          !identical(descriptor$column, variable) ||
+          !.dsvert_dp_capsule_reference_matches(variable, descriptor) ||
           !descriptor$owner_peer %in% participants) {
         stop("The signed cross-owner Gaussian input descriptor is invalid.",
              call. = FALSE)
@@ -137,7 +137,8 @@
         }
         key <- paste(analysis_id, variable, kind, sep = "::")
         blocks[[key]] <- list(
-          analysis_id = analysis_id, variable = variable, kind = kind,
+          analysis_id = analysis_id, variable = descriptor$column,
+          kind = kind,
           dataset = descriptor$dataset, owner_peer = descriptor$owner_peer,
           lower = descriptor$lower, upper = descriptor$upper,
           start = as.integer(cursor), end = as.integer(end),

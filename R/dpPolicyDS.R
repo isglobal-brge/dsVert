@@ -323,10 +323,69 @@
          call. = FALSE)
   }
   columns <- sort(names(data), method = "radix")
+  strip_opal_metadata <- function(column) {
+    metadata <- c(
+      "opal.value_type", "opal.entity_type", "opal.unit",
+      "opal.referenced_entity_type", "opal.mime_type", "opal.repeatable",
+      "opal.occurrence_group", "opal.index", "opal.nature")
+    required <- c(
+      "opal.value_type", "opal.entity_type", "opal.repeatable",
+      "opal.index", "opal.nature")
+    attribute_names <- names(attributes(column))
+    if (is.null(attribute_names)) return(column)
+    if (anyNA(attribute_names) || any(!nzchar(attribute_names)) ||
+        anyDuplicated(attribute_names)) {
+      stop("Protected DP snapshot columns contain invalid or executable attributes",
+           call. = FALSE)
+    }
+    opal_names <- attribute_names[startsWith(attribute_names, "opal.")]
+    if (!length(opal_names)) return(column)
+    if (any(!opal_names %in% metadata)) {
+      stop("Protected DP snapshot columns contain invalid Opal metadata",
+           call. = FALSE)
+    }
+    if (!all(required %in% opal_names)) {
+      stop("Protected DP snapshot columns contain incomplete Opal metadata",
+           call. = FALSE)
+    }
+
+    plain_scalar <- function(value, type) {
+      identical(typeof(value), type) && is.null(attributes(value)) &&
+        length(value) == 1L && !is.na(value)
+    }
+    bounded_text <- function(value) {
+      plain_scalar(value, "character") && nzchar(value) &&
+        nchar(value, type = "bytes") <= 1024L
+    }
+    value_type <- attr(column, "opal.value_type", exact = TRUE)
+    entity_type <- attr(column, "opal.entity_type", exact = TRUE)
+    repeatable <- attr(column, "opal.repeatable", exact = TRUE)
+    index <- attr(column, "opal.index", exact = TRUE)
+    nature <- attr(column, "opal.nature", exact = TRUE)
+    valid <- plain_scalar(value_type, "character") && value_type %in% c(
+      "binary", "boolean", "date", "datetime", "decimal", "integer",
+      "linestring", "locale", "point", "polygon", "text") &&
+      bounded_text(entity_type) &&
+      plain_scalar(repeatable, "double") && repeatable %in% c(0, 1) &&
+      plain_scalar(index, "double") && is.finite(index) &&
+      index >= 0 && index <= .Machine$integer.max && index == floor(index) &&
+      plain_scalar(nature, "character") && nature %in% c(
+        "CATEGORICAL", "CONTINUOUS", "TEMPORAL", "BINARY", "UNDETERMINED")
+    optional <- intersect(setdiff(metadata, required), opal_names)
+    valid <- isTRUE(valid) && all(vapply(optional, function(name) {
+      bounded_text(attr(column, name, exact = TRUE))
+    }, logical(1L)))
+    if (!valid) {
+      stop("Protected DP snapshot columns contain invalid Opal metadata",
+           call. = FALSE)
+    }
+    for (name in opal_names) attr(column, name) <- NULL
+    column
+  }
   # Bypass data-frame subclass methods: the committed columns must be the
   # same columns later consumed by the mechanisms.
   values <- stats::setNames(lapply(columns, function(column) {
-    .subset2(data, column)
+    strip_opal_metadata(.subset2(data, column))
   }), columns)
   unsupported <- vapply(values, function(column) {
     (is.list(column) && !is.data.frame(column)) ||
@@ -1200,7 +1259,7 @@
   sort(value, method = "radix")
 }
 
-.dsvert_dp_policy_build <- function(
+.dsvert_dp_policy_core_v1 <- function(
     .test_only_skip_snapshot_binding = FALSE,
     .test_only_skip_alignment_binding = FALSE,
     .test_only_allow_nonprivate_ledger = FALSE) {
@@ -1232,24 +1291,6 @@
     stop("dsvert.dp.total_epsilon must be <= 8 under the single safe policy",
          call. = FALSE)
   }
-  lifetime_max_distinct_capsules <- .dsvert_dp_option(
-    "lifetime_max_distinct_capsules",
-    .DSVERT_DP_DEFAULT_LIFETIME_MAX_DISTINCT_CAPSULES)
-  if (!is.numeric(lifetime_max_distinct_capsules) ||
-      length(lifetime_max_distinct_capsules) != 1L ||
-      is.na(lifetime_max_distinct_capsules) ||
-      !is.finite(lifetime_max_distinct_capsules) ||
-      lifetime_max_distinct_capsules < 1 ||
-      lifetime_max_distinct_capsules > 2^53 - 1 ||
-      lifetime_max_distinct_capsules !=
-        floor(lifetime_max_distinct_capsules)) {
-    stop(paste0(
-      "dsvert.dp.lifetime_max_distinct_capsules must be one positive ",
-      "integer <= 2^53 - 1"), call. = FALSE)
-  }
-  lifetime_max_distinct_capsules <-
-    as.numeric(lifetime_max_distinct_capsules)
-
   peer_count <- length(peer$pinset)
 
   adjacency <- tolower(.dsvert_dp_scalar_string(
@@ -1314,17 +1355,6 @@
   }
   require_snapshot_digest <- !isTRUE(.test_only_skip_snapshot_binding)
   require_alignment_manifest <- !isTRUE(.test_only_skip_alignment_binding)
-  anchor_provider <- .dsvert_dp_option("anchor_provider", NULL)
-  if (!is.null(anchor_provider) && !is.function(anchor_provider)) {
-    stop("dsvert.dp.anchor_provider must be a provider function",
-         call. = FALSE)
-  }
-  anchor_mode <- if (is.null(anchor_provider)) {
-    "pinned_peer_global_allocator_pending"
-  } else {
-    "pinned_peer_global_allocator_pending_plus_external_cas"
-  }
-
   configured_designated <- .dsvert_dp_option(
     "designated_noise_peers", NULL)
   designated_noise_peers <- .dsvert_dp_resolve_designated_noise_peers(
@@ -1345,12 +1375,6 @@
   if (!grepl("^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$", domain)) {
     stop("dsvert.dp.domain contains unsupported characters", call. = FALSE)
   }
-  anchor_id <- paste0("dpa1_", digest::digest(
-    .dsvert_dp_canonical_json(list(
-      domain = domain, cohort_id = cohort_id,
-      peer_name = peer$peer_name, pinset_sha256 = peer$sha256)),
-    algo = "sha256", serialize = FALSE))
-
   configured_datasets <- .dsvert_dp_option("datasets", NULL)
   if (isTRUE(require_snapshot_digest) &&
       isTRUE(require_alignment_manifest)) {
@@ -1359,10 +1383,10 @@
   }
 
   policy <- list(
-    schema_version = 9L,
+    schema_version = 1L,
     mechanism_version =
       "dsvert-dp-v7-contingency-unit-aggregation-1",
-    policy_contract = "single_disclosure_safe_capsule_policy_v2",
+    policy_contract = "unbound_dp_policy_core_v1",
     domain = domain,
     cohort_id = cohort_id,
     peer_name = peer$peer_name,
@@ -1372,8 +1396,6 @@
     peer_pinset_sha256 = peer$sha256,
     global_total_epsilon = total_epsilon,
     global_total_delta = total_delta,
-    lifetime_max_distinct_capsules =
-      lifetime_max_distinct_capsules,
     peer_count = as.integer(peer_count),
     designated_noise_peers = designated_noise_peers,
     numeric_grid_bits = as.integer(numeric_grid_bits),
@@ -1424,23 +1446,7 @@
     },
     require_snapshot_digest = isTRUE(require_snapshot_digest),
     require_alignment_manifest = isTRUE(require_alignment_manifest),
-    ledger_private = !isTRUE(.test_only_allow_nonprivate_ledger),
-    rollback_protection = list(
-      schema_version = 2L,
-      mode = anchor_mode,
-      anchor_id = anchor_id,
-      provider_contract = if (identical(
-          anchor_mode, "pinned_peer_global_allocator_pending")) {
-        "pinned_ed25519_cross_signed_global_allocator_v1"
-      } else {
-        paste0(
-          "pinned_ed25519_cross_signed_global_allocator_v1_",
-          "plus_external_cas_v2")
-      },
-      external = identical(
-        anchor_mode,
-        "pinned_peer_global_allocator_pending_plus_external_cas"),
-      monotonic = TRUE),
+    state_private = !isTRUE(.test_only_allow_nonprivate_ledger),
     datasets = .dsvert_dp_datasets(
       configured_datasets, require_snapshot_digest,
       require_alignment_manifest),
@@ -1467,13 +1473,68 @@
       gaussian = .dsvert_dp_option("gaussian_specs", list()),
       vertical_cross = .dsvert_dp_option("vertical_cross_specs", list()))
   )
-  # Reject an invalid custodian lifetime contract while constructing the
-  # policy, before any status, allocator, registry, or protected-data path.
+  policy$lock_timeout_ms <- as.integer(lock_timeout_ms)
+  policy
+}
+
+.dsvert_dp_policy_build <- function(
+    .test_only_skip_snapshot_binding = FALSE,
+    .test_only_skip_alignment_binding = FALSE,
+    .test_only_allow_nonprivate_ledger = FALSE) {
+  policy <- .dsvert_dp_policy_core_v1(
+    .test_only_skip_snapshot_binding,
+    .test_only_skip_alignment_binding,
+    .test_only_allow_nonprivate_ledger)
+  policy$schema_version <- 9L
+  policy$policy_contract <- "single_disclosure_safe_capsule_policy_v2"
+  lifetime <- .dsvert_dp_option(
+    "lifetime_max_distinct_capsules",
+    .DSVERT_DP_DEFAULT_LIFETIME_MAX_DISTINCT_CAPSULES)
+  if (!is.numeric(lifetime) || length(lifetime) != 1L || is.na(lifetime) ||
+      !is.finite(lifetime) || lifetime < 1 || lifetime > 2^53 - 1 ||
+      lifetime != floor(lifetime)) {
+    stop(paste0(
+      "dsvert.dp.lifetime_max_distinct_capsules must be one positive ",
+      "integer <= 2^53 - 1"), call. = FALSE)
+  }
+  policy$lifetime_max_distinct_capsules <- as.numeric(lifetime)
+  policy$ledger_private <- policy$state_private
+  policy$state_private <- NULL
+
+  anchor_provider <- .dsvert_dp_option("anchor_provider", NULL)
+  if (!is.null(anchor_provider) && !is.function(anchor_provider)) {
+    stop("dsvert.dp.anchor_provider must be a provider function",
+         call. = FALSE)
+  }
+  anchor_mode <- if (is.null(anchor_provider)) {
+    "pinned_peer_global_allocator_pending"
+  } else {
+    "pinned_peer_global_allocator_pending_plus_external_cas"
+  }
+  anchor_id <- paste0("dpa1_", digest::digest(
+    .dsvert_dp_canonical_json(list(
+      domain = policy$domain, cohort_id = policy$cohort_id,
+      peer_name = policy$peer_name,
+      pinset_sha256 = policy$peer_pinset_sha256)),
+    algo = "sha256", serialize = FALSE))
+  policy$rollback_protection <- list(
+    schema_version = 2L, mode = anchor_mode, anchor_id = anchor_id,
+    provider_contract = if (identical(
+        anchor_mode, "pinned_peer_global_allocator_pending")) {
+      "pinned_ed25519_cross_signed_global_allocator_v1"
+    } else {
+      paste0(
+        "pinned_ed25519_cross_signed_global_allocator_v1_",
+        "plus_external_cas_v2")
+    },
+    external = identical(
+      anchor_mode,
+      "pinned_peer_global_allocator_pending_plus_external_cas"),
+    monotonic = TRUE)
   invisible(.dsvert_joint_dp_lifetime_contract(policy))
   policy$ledger_path <- .dsvert_dp_ledger_path(
     .dsvert_dp_option("ledger_path", NULL),
     require_private = policy$ledger_private)
-  policy$lock_timeout_ms <- as.integer(lock_timeout_ms)
   policy$anchor_provider <- anchor_provider
   history_policy <- policy
   policy$noise_root <- .dsvert_dp_noise_root(list(

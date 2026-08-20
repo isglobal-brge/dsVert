@@ -448,10 +448,20 @@
   # replaying a v2 ciphertext would disclose the complete commitment to one
   # compute peer. Source coordinates remain semantic-capsule state, so v3
   # deliberately excludes the local noise-root epoch from its store binding.
-  path <- paste0(policy$ledger_path, ".capsule-source-v3.sqlite")
+  synopsis <- .dsvert_dp_synopsis_policy_is_v1(policy)
+  base <- if (isTRUE(synopsis)) {
+    policy$synopsis_state_path
+  } else {
+    policy$ledger_path
+  }
+  path <- paste0(base, ".capsule-source-v3.sqlite")
   .dsvert_dp_assert_private_file(
     path, "biomedical capsule source store",
-    require_private = isTRUE(policy$ledger_private))
+    require_private = if (isTRUE(synopsis)) {
+      isTRUE(policy$state_private)
+    } else {
+      isTRUE(policy$ledger_private)
+    })
   path
 }
 
@@ -1011,7 +1021,11 @@
     stop("Invalid biomedical capsule source store callback.", call. = FALSE)
   }
   path <- .dsvert_dp_capsule_source_store_path(policy)
-  require_private <- isTRUE(policy$ledger_private)
+  require_private <- if (.dsvert_dp_synopsis_policy_is_v1(policy)) {
+    isTRUE(policy$state_private)
+  } else {
+    isTRUE(policy$ledger_private)
+  }
   paths <- c(
     store = path, lock = paste0(path, ".lock"),
     wal = paste0(path, "-wal"), shm = paste0(path, "-shm"))
@@ -1025,7 +1039,10 @@
   lock <- filelock::lock(paths[["lock"]],
                          timeout = policy$lock_timeout_ms %||% 30000)
   if (is.null(lock)) {
-    stop("The biomedical capsule source store is busy.", call. = FALSE)
+    .dsvert_dp_synopsis_store_backpressure_v1(
+      "biomedical capsule source store lock",
+      simpleError(paste(
+        "The biomedical capsule source store lock acquisition timed out.")))
   }
   on.exit(try(filelock::unlock(lock), silent = TRUE), add = TRUE)
   for (name in names(paths)) {
@@ -1035,25 +1052,30 @@
   }
   connection <- DBI::dbConnect(RSQLite::SQLite(), path)
   on.exit(DBI::dbDisconnect(connection), add = TRUE)
-  # This must precede journal creation and the first schema statement. It is a
-  # no-op for historical stores, which remain logically reclaimable but are
-  # never subjected to an unbounded full VACUUM on a request path.
-  DBI::dbExecute(connection, "PRAGMA auto_vacuum=INCREMENTAL")
-  DBI::dbExecute(connection, "PRAGMA busy_timeout=30000")
-  DBI::dbExecute(connection, "PRAGMA journal_mode=WAL")
-  DBI::dbExecute(connection, "PRAGMA synchronous=FULL")
-  capacity_state <- .dsvert_dp_capsule_source_store_initialize(
-    connection, policy, secret)
-  capacity_state <- .dsvert_dp_capsule_source_recipient_reservations_migrate(
-    connection, policy, secret)
-  .dsvert_dp_capsule_source_resource_reconcile(policy, capacity_state)
-  .dsvert_dp_chmod_private_files(paths)
-  for (name in names(paths)) {
-    .dsvert_dp_assert_private_file(
-      paths[[name]], paste0("biomedical capsule source store ", name),
-      require_private)
-  }
-  code(connection)
+  tryCatch({
+    # This must precede journal creation and the first schema statement. It is
+    # a no-op for historical stores, which remain logically reclaimable but are
+    # never subjected to an unbounded full VACUUM on a request path.
+    DBI::dbExecute(connection, "PRAGMA auto_vacuum=INCREMENTAL")
+    DBI::dbExecute(connection, "PRAGMA busy_timeout=30000")
+    DBI::dbExecute(connection, "PRAGMA journal_mode=WAL")
+    DBI::dbExecute(connection, "PRAGMA synchronous=FULL")
+    capacity_state <- .dsvert_dp_capsule_source_store_initialize(
+      connection, policy, secret)
+    capacity_state <- .dsvert_dp_capsule_source_recipient_reservations_migrate(
+      connection, policy, secret)
+    .dsvert_dp_capsule_source_resource_reconcile(policy, capacity_state)
+    .dsvert_dp_chmod_private_files(paths)
+    for (name in names(paths)) {
+      .dsvert_dp_assert_private_file(
+        paths[[name]], paste0("biomedical capsule source store ", name),
+        require_private)
+    }
+    code(connection)
+  }, error = function(error) {
+    .dsvert_dp_synopsis_store_busy_v1(
+      error, "biomedical capsule source store")
+  })
 }
 
 .dsvert_dp_capsule_source_signature_message <- function(domain, unsigned) {

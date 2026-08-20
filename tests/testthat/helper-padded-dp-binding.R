@@ -1,10 +1,11 @@
 .dsvert_test_padded_dp_binding <- function(
-    data, id_col, dataset_id, dataset_version, pinset) {
+    data, id_col, dataset_id, dataset_version, pinset,
+    privacy_unit_id = id_col) {
   source <- list(
     alignment_purpose = "patient-record-alignment-v1",
     dataset_id = dataset_id,
     dataset_version = dataset_version,
-    id_column = id_col)
+    id_column = privacy_unit_id)
   source$source_binding_id <- paste0("source_", digest::digest(
     .psi_padded_canonical_json(source), algo = "sha256", serialize = FALSE))
   peers <- sort(names(pinset), method = "radix")

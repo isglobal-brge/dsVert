@@ -91,13 +91,20 @@
   authorization <-
     .dsvert_dp_synopsis_session_authorization_validate_v1(
       ss, session_id, .policy, .secret, .identity, .cache_get)
+  .dsvert_dp_synopsis_execution_context_from_authorization_v1(
+    authorization, .policy, .secret, .cache_get)
+}
+
+.dsvert_dp_synopsis_execution_context_from_authorization_v1 <- function(
+    authorization, policy, secret,
+    cache_get = .dsvert_dp_capsule_manifest_cache_get) {
   manifest_json <- .dsvert_dp_synopsis_cached_manifest_v1(
-    authorization$manifest_sha256, .policy, .secret, .cache_get)
+    authorization$manifest_sha256, policy, secret, cache_get)
   manifest <- .dsvert_dp_capsule_source_manifest(manifest_json)
   artifact <- authorization$artifact
   semantic <- artifact$semantic
   physical <- artifact$physical_plan
-  validated <- .dsvert_dp_capsule_materializer_manifest(.policy, manifest)
+  validated <- .dsvert_dp_capsule_materializer_manifest(policy, manifest)
   lattice <- .dsvert_joint_dp_vector_lattice_vectors(validated)
   if (!identical(lattice$transform_sha256,
                  semantic$release$lattice$transform_sha256) ||
@@ -108,7 +115,7 @@
   }
   source_contract <-
     .dsvert_dp_synopsis_source_contract_from_hashes_v1(
-      .policy, manifest, artifact$artifact_key,
+      policy, manifest, artifact$artifact_key,
       semantic$source_claim_set_sha256)
   profile <- .dsvert_joint_dp_vector_profile(
     physical$profile$mechanism, physical$profile$backend)
@@ -132,7 +139,7 @@
   }
   public_chunk_coordinates <- min(
     .DSVERT_DP_SYNOPSIS_PUBLIC_CHUNK_COORDINATES, dimension)
-  pins <- .dsvert_dp_synopsis_peer_pins_v1(.policy$peer_pinset)
+  pins <- .dsvert_dp_synopsis_peer_pins_v1(policy$peer_pinset)
   authority_ids <- unlist(
     semantic$noise_authority_roles$authority_ids, use.names = FALSE)
   authority_peers <- names(pins)[match(authority_ids, unname(pins))]
@@ -386,12 +393,21 @@
 }
 
 .dsvert_dp_synopsis_execution_store_path_v1 <- function(policy) {
-  base <- .dsvert_dp_ledger_path(
-    policy$ledger_path, require_private = isTRUE(policy$ledger_private))
+  synopsis <- .dsvert_dp_synopsis_policy_is_v1(policy)
+  base <- if (isTRUE(synopsis)) {
+    policy$synopsis_state_path
+  } else {
+    .dsvert_dp_ledger_path(
+      policy$ledger_path, require_private = isTRUE(policy$ledger_private))
+  }
   path <- paste0(base, ".synopsis-execution-v1.sqlite")
   .dsvert_dp_assert_private_file(
     path, "synopsis execution store",
-    require_private = isTRUE(policy$ledger_private))
+    require_private = if (isTRUE(synopsis)) {
+      isTRUE(policy$state_private)
+    } else {
+      isTRUE(policy$ledger_private)
+    })
   path
 }
 
@@ -557,6 +573,29 @@
     peer_pinset_sha256 = policy$peer_pinset_sha256))
 }
 
+.dsvert_dp_synopsis_execution_store_validate_v1 <- function(
+    connection, policy, secret) {
+  binding <- .dsvert_dp_synopsis_execution_store_binding_v1(policy)
+  mac <- .dsvert_dp_synopsis_execution_store_mac_v1(
+    secret, "meta", "policy_binding", binding)
+  if (!identical(
+      .dsvert_dp_synopsis_execution_schema_rows_v1(connection),
+      .dsvert_dp_synopsis_execution_schema_expected_v1())) {
+    stop("The synopsis execution store schema is invalid.", call. = FALSE)
+  }
+  observed <- DBI::dbGetQuery(connection, paste(
+    "SELECT key,value,row_mac FROM synopsis_meta ORDER BY key"))
+  if (nrow(observed) != 1L ||
+      !identical(observed$key[[1L]], "policy_binding") ||
+      !identical(observed$value[[1L]], binding) ||
+      !.dsvert_joint_dp_dsi_hex_equal(observed$row_mac[[1L]], mac)) {
+    stop(paste(
+      "The synopsis execution store belongs to another policy or failed",
+      "authentication."), call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
 .dsvert_dp_synopsis_execution_store_initialize_v1 <- function(
     connection, policy, secret) {
   binding <- .dsvert_dp_synopsis_execution_store_binding_v1(policy)
@@ -602,22 +641,8 @@
       invisible(TRUE)
     })
   }
-  if (!identical(
-      .dsvert_dp_synopsis_execution_schema_rows_v1(connection),
-      .dsvert_dp_synopsis_execution_schema_expected_v1())) {
-    stop("The synopsis execution store schema is invalid.", call. = FALSE)
-  }
-  observed <- DBI::dbGetQuery(connection, paste(
-    "SELECT value,row_mac FROM synopsis_meta",
-    "WHERE key='policy_binding'"))
-  if (nrow(observed) != 1L ||
-      !identical(observed$value[[1L]], binding) ||
-      !.dsvert_joint_dp_dsi_hex_equal(observed$row_mac[[1L]], mac)) {
-    stop(paste(
-      "The synopsis execution store belongs to another policy or failed",
-      "authentication."), call. = FALSE)
-  }
-  invisible(TRUE)
+  .dsvert_dp_synopsis_execution_store_validate_v1(
+    connection, policy, secret)
 }
 
 .dsvert_dp_synopsis_execution_with_store_v1 <- function(
@@ -626,7 +651,11 @@
     stop("Invalid synopsis execution store dependency.", call. = FALSE)
   }
   path <- .dsvert_dp_synopsis_execution_store_path_v1(policy)
-  private <- isTRUE(policy$ledger_private)
+  private <- if (.dsvert_dp_synopsis_policy_is_v1(policy)) {
+    isTRUE(policy$state_private)
+  } else {
+    isTRUE(policy$ledger_private)
+  }
   paths <- c(
     store = path, lock = paste0(path, ".lock"),
     wal = paste0(path, "-wal"), shm = paste0(path, "-shm"))
@@ -652,6 +681,25 @@
   for (name in names(paths)) .dsvert_dp_assert_private_file(
     paths[[name]], paste("synopsis execution store", name), private)
   code(connection)
+}
+
+.dsvert_dp_synopsis_execution_with_store_readonly_v1 <- function(
+    policy, secret, code) {
+  if (!is.raw(secret) || length(secret) != 32L || !is.function(code)) {
+    stop("Invalid synopsis execution store dependency.", call. = FALSE)
+  }
+  path <- .dsvert_dp_synopsis_execution_store_path_v1(policy)
+  private <- if (.dsvert_dp_synopsis_policy_is_v1(policy)) {
+    isTRUE(policy$state_private)
+  } else {
+    isTRUE(policy$ledger_private)
+  }
+  .dsvert_dp_synopsis_store_readonly_with_v1(
+    path, "synopsis execution store", private,
+    function(connection) {
+      .dsvert_dp_synopsis_execution_store_validate_v1(
+        connection, policy, secret)
+    }, code)
 }
 
 .dsvert_dp_synopsis_execution_artifact_load_v1 <- function(
@@ -1368,8 +1416,11 @@
       (!is.null(ss$session_id) && !identical(ss$session_id, session_id))) {
     stop("Invalid synopsis exact-GC authorization context.", call. = FALSE)
   }
-  policy_context <- .dsvert_joint_dp_policy_context(
-    .policy, require_designated = TRUE)
+  policy_context <- if (.dsvert_dp_synopsis_policy_is_v1(.policy)) {
+    .dsvert_dp_synopsis_policy_context_v1(.policy)
+  } else {
+    .dsvert_joint_dp_policy_context(.policy, require_designated = TRUE)
+  }
   if (!identical(sort(policy_context$common$designated_noise_peers,
                       method = "radix"),
                  sort(peers, method = "radix")) ||
@@ -2830,19 +2881,30 @@
   }
   typed <- .dsvert_typed_blob_session_context(ss)
   pins <- .dsvert_dp_synopsis_peer_pins_v1(.policy$peer_pinset)
-  expected_names <- if (exact) recipient else setdiff(names(pins), sender)
-  expected_peers <- as.list(pins[expected_names])
+  expected_peers <- as.list(pins[recipient])
+  normalize_identity_map <- function(value) {
+    if (!is.list(value) || is.null(names(value)) || anyNA(names(value)) ||
+        any(!nzchar(names(value))) || anyDuplicated(names(value))) {
+      return(NULL)
+    }
+    normalized <- tryCatch(vapply(
+      value, .dsvert_relay_normalize_identity_pk, character(1L)),
+    error = function(error) NULL)
+    if (is.null(normalized)) NULL else as.list(normalized)
+  }
+  typed_identity_pks <- normalize_identity_map(typed$peer_identity_pks)
+  expected_identity_pks <- normalize_identity_map(expected_peers)
   transport_pks <- ss$peer_transport_pks %||% list()
   recipient_pk <- transport_pks[[recipient]]
-  exact_binding <- !exact || isTRUE(tryCatch({
+  designated_binding <- isTRUE(tryCatch({
     .exact_gc_validate_bound_peer_context(ss, session_id)
     setequal(ss$.exact_gc_designated_peers, c(sender, recipient))
   }, error = function(error) FALSE))
   if (!identical(typed$self_name, sender) ||
-      !isTRUE(exact_binding) ||
+      !isTRUE(designated_binding) ||
       !identical(
-        .dsvert_dp_canonical_query_value(typed$peer_identity_pks),
-        .dsvert_dp_canonical_query_value(expected_peers)) ||
+        .dsvert_dp_canonical_query_value(typed_identity_pks),
+        .dsvert_dp_canonical_query_value(expected_identity_pks)) ||
       is.null(names(transport_pks)) || anyDuplicated(names(transport_pks)) ||
       !setequal(names(transport_pks), names(expected_peers)) ||
       is.null(recipient_pk)) {

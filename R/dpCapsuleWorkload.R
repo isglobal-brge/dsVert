@@ -46,6 +46,41 @@
   enc2utf8(value)
 }
 
+.dsvert_dp_capsule_column_reference <- function(value, what) {
+  if (!is.character(value) || length(value) != 1L || is.na(value)) {
+    stop("Invalid biomedical capsule ", what, ".", call. = FALSE)
+  }
+  value <- enc2utf8(value)
+  separator <- regexpr("$", value, fixed = TRUE)[[1L]]
+  if (separator > 0L && grepl(
+        "$", substring(value, separator + 1L), fixed = TRUE)) {
+    stop("Invalid biomedical capsule ", what, ".", call. = FALSE)
+  }
+  parts <- if (separator < 0L) value else c(
+    substring(value, 1L, separator - 1L),
+    substring(value, separator + 1L))
+  if (length(parts) == 1L) {
+    return(list(
+      reference = .dsvert_dp_capsule_id(parts[[1L]], what),
+      owner_peer = NULL,
+      column = .dsvert_dp_capsule_id(parts[[1L]], what)))
+  }
+  owner <- .dsvert_dp_capsule_id(parts[[1L]], paste(what, "owner"))
+  column <- .dsvert_dp_capsule_id(parts[[2L]], what)
+  list(reference = paste0(owner, "$", column), owner_peer = owner,
+       column = column)
+}
+
+.dsvert_dp_capsule_reference_matches <- function(reference, descriptor) {
+  parsed <- tryCatch(
+    .dsvert_dp_capsule_column_reference(reference, "column reference"),
+    error = function(error) NULL)
+  !is.null(parsed) && is.list(descriptor) &&
+    identical(parsed$column, descriptor$column) &&
+    (is.null(parsed$owner_peer) ||
+       identical(parsed$owner_peer, descriptor$owner_peer))
+}
+
 .dsvert_dp_capsule_named_list <- function(value, what, empty = TRUE) {
   if (is.null(value) && isTRUE(empty)) value <- list()
   if (isTRUE(empty) && is.list(value) && !length(value)) return(list())
@@ -714,7 +749,8 @@
     schema_manifest$datasets, "dataset schema", empty = FALSE)
   normalized <- vector("list", length(datasets))
   names(normalized) <- names(datasets)
-  seen_columns <- character()
+  seen_references <- character()
+  seen_physical <- character()
   for (data_name in names(datasets)) {
     .dsvert_dp_capsule_id(data_name, "dataset name")
     dataset <- datasets[[data_name]]
@@ -749,15 +785,24 @@
     normalized_columns <- vector("list", length(columns))
     names(normalized_columns) <- names(columns)
     for (column_name in names(columns)) {
-      .dsvert_dp_capsule_id(column_name, "column name")
-      if (column_name %in% seen_columns) {
-        stop("Biomedical capsule analysis columns must be globally unique; ",
-             "qualify ambiguous variables in the signed schema.",
+      reference <- .dsvert_dp_capsule_column_reference(
+        column_name, "column name")
+      column <- .dsvert_dp_capsule_column(
+        columns[[column_name]], names(pins))
+      if (!is.null(reference$owner_peer) &&
+          !identical(reference$owner_peer, column$owner_peer)) {
+        stop("A qualified biomedical capsule column names the wrong owner.",
              call. = FALSE)
       }
-      seen_columns <- c(seen_columns, column_name)
-      normalized_columns[[column_name]] <- .dsvert_dp_capsule_column(
-        columns[[column_name]], names(pins))
+      physical <- paste(
+        column$owner_peer, data_name, reference$column, sep = "\r")
+      if (column_name %in% seen_references || physical %in% seen_physical) {
+        stop("Biomedical capsule column references must identify one signed ",
+             "owner/dataset/column triplet.", call. = FALSE)
+      }
+      seen_references <- c(seen_references, column_name)
+      seen_physical <- c(seen_physical, physical)
+      normalized_columns[[column_name]] <- column
     }
     column_owners <- unique(vapply(
       normalized_columns, `[[`, character(1L), "owner_peer"))
@@ -831,10 +876,12 @@
     for (column_name in names(dataset$columns)) {
       column <- dataset$columns[[column_name]]
       if (!identical(column$owner_peer, local_peer)) next
+      physical_name <- .dsvert_dp_capsule_column_reference(
+        column_name, "column name")$column
       if (identical(column$kind, "numeric")) {
-        local_numeric[[column_name]] <- c(column$lower, column$upper)
+        local_numeric[[physical_name]] <- c(column$lower, column$upper)
       } else {
-        local_categorical[[column_name]] <- column$levels
+        local_categorical[[physical_name]] <- column$levels
       }
     }
   }
@@ -864,6 +911,112 @@
   invisible(TRUE)
 }
 
+.dsvert_dp_capsule_validate_local_projection_schema <- function(
+    policy, schema, primitive_scope) {
+  scope <- .dsvert_dp_capsule_scope_policy_binding(primitive_scope)
+  pair <- if (identical(scope$mode, "catalog_v1") &&
+      !length(scope$numeric_moments) &&
+      !length(scope$categorical_marginals) &&
+      length(scope$categorical_pairs) == 1L &&
+      !length(scope$correlations)) {
+    scope$categorical_pairs[[1L]]
+  } else NULL
+  columns <- tryCatch(
+    .dsvert_dp_capsule_qualified_columns(schema),
+    error = function(error) NULL)
+  selected <- if (is.list(columns) && !is.null(pair) &&
+      all(pair %in% names(columns))) columns[pair] else NULL
+  owners <- if (is.list(selected)) vapply(
+    selected, `[[`, character(1L), "owner_peer") else character()
+  datasets <- if (is.list(selected)) vapply(
+    selected, `[[`, character(1L), "dataset") else character()
+  same_owner <- is.list(schema$datasets) && length(schema$datasets) == 1L &&
+    is.list(selected) && length(selected) == 2L &&
+    all(vapply(selected, function(column) {
+      identical(column$kind, "categorical")
+    }, logical(1L))) && length(unique(owners)) == 1L &&
+    length(unique(datasets)) == 1L &&
+    identical(names(schema$datasets), unique(datasets)) &&
+    identical(names(schema$datasets[[1L]]$patient_keys), unique(owners))
+  empty_cross_scope <- identical(scope$mode, "catalog_v1") &&
+    !length(scope$numeric_moments) &&
+    !length(scope$categorical_marginals) &&
+    !length(scope$categorical_pairs) && !length(scope$correlations)
+  cross_selected <- if (isTRUE(empty_cross_scope) && is.list(columns) &&
+      length(columns) == 2L) columns else NULL
+  cross_owners <- if (is.list(cross_selected)) vapply(
+    cross_selected, `[[`, character(1L), "owner_peer") else character()
+  cross_datasets <- if (is.list(cross_selected)) vapply(
+    cross_selected, `[[`, character(1L), "dataset") else character()
+  cross_owner <- is.list(schema$datasets) &&
+    length(schema$datasets) %in% 1:2 &&
+    is.list(cross_selected) && length(cross_selected) == 2L &&
+    all(vapply(cross_selected, function(column) {
+      identical(column$kind, "categorical")
+    }, logical(1L))) && length(unique(cross_owners)) == 2L &&
+    setequal(names(schema$datasets), unique(cross_datasets)) &&
+    all(vapply(names(schema$datasets), function(data_name) {
+      expected <- sort(unique(cross_owners[cross_datasets == data_name]),
+                       method = "radix")
+      identical(names(schema$datasets[[data_name]]$patient_keys), expected)
+    }, logical(1L)))
+  if (!isTRUE(same_owner) && !isTRUE(cross_owner)) {
+    stop("The local Synopsis projection is not one same-owner pair.",
+         call. = FALSE)
+  }
+  if (isTRUE(same_owner)) {
+    configured <- .dsvert_dp_capsule_scope_policy_binding(
+      policy$capsule_workload_scope)
+    if (identical(configured$mode, "catalog_v1")) {
+      authorized <- any(vapply(configured$categorical_pairs, function(raw) {
+        length(raw) == 2L && (
+          (.dsvert_dp_capsule_reference_matches(raw[[1L]], selected[[1L]]) &&
+           .dsvert_dp_capsule_reference_matches(raw[[2L]], selected[[2L]])) ||
+          (.dsvert_dp_capsule_reference_matches(raw[[1L]], selected[[2L]]) &&
+           .dsvert_dp_capsule_reference_matches(raw[[2L]], selected[[1L]])))
+      }, logical(1L)))
+      if (!isTRUE(authorized)) {
+        stop("The local Synopsis pair is not in the custodian catalog.",
+             call. = FALSE)
+      }
+    }
+  }
+  local_peer <- .dsvert_dp_capsule_id(policy$peer_name, "local peer")
+  selected <- if (isTRUE(same_owner)) selected else cross_selected
+  local_columns <- selected[vapply(selected, function(column) {
+    identical(column$owner_peer, local_peer)
+  }, logical(1L))]
+  if (length(local_columns)) {
+    local_datasets <- unique(vapply(
+      local_columns, `[[`, character(1L), "dataset"))
+    for (data_name in local_datasets) {
+    descriptor <- policy$datasets[[data_name]]
+    dataset <- schema$datasets[[data_name]]
+    owned <- local_columns[vapply(local_columns, function(column) {
+      identical(column$dataset, data_name)
+    }, logical(1L))]
+    if (!is.list(descriptor) ||
+        !identical(descriptor$id, dataset$dataset_id) ||
+        !identical(descriptor$version, dataset$dataset_version) ||
+        !identical(dataset$patient_keys[[local_peer]],
+                   policy$patient_column)) {
+      stop("The projected dataset conflicts with its owner policy.",
+           call. = FALSE)
+    }
+    for (column in owned) {
+      physical <- column$column
+      expected <- policy$categorical_levels[[physical]]
+      if (is.null(expected) || !identical(
+          sort(unname(expected), method = "radix"), column$levels)) {
+        stop("A projected categorical domain conflicts with owner policy.",
+             call. = FALSE)
+      }
+    }
+    }
+  }
+  invisible(TRUE)
+}
+
 .dsvert_dp_capsule_specs <- function(value, what) {
   .dsvert_dp_capsule_named_list(value, what, empty = TRUE)
 }
@@ -880,7 +1033,8 @@
   }
   version <- .dsvert_dp_capsule_id(raw$version, "Gaussian version")
   dataset <- .dsvert_dp_capsule_id(raw$dataset, "Gaussian dataset")
-  outcome <- .dsvert_dp_capsule_id(raw$outcome, "Gaussian outcome")
+  outcome <- .dsvert_dp_capsule_column_reference(
+    raw$outcome, "Gaussian outcome")$reference
   predictors <- raw$predictors
   if (is.list(predictors) && is.null(names(predictors)) &&
       all(vapply(predictors, function(value) {
@@ -895,9 +1049,10 @@
       is.na(raw$intercept)) {
     stop("Invalid biomedical Gaussian model terms.", call. = FALSE)
   }
-  predictors <- sort(vapply(
-    predictors, .dsvert_dp_capsule_id, character(1L),
-    what = "Gaussian predictor"), method = "radix")
+  predictors <- sort(vapply(predictors, function(value) {
+    .dsvert_dp_capsule_column_reference(
+      value, "Gaussian predictor")$reference
+  }, character(1L)), method = "radix")
   variables <- c(outcome, predictors)
   if (!is.logical(require_public_bounds) ||
       length(require_public_bounds) != 1L || is.na(require_public_bounds)) {
@@ -918,8 +1073,10 @@
   result <- list()
   for (data_name in names(schema$datasets)) {
     dataset <- schema$datasets[[data_name]]
-    for (column_name in names(dataset$columns)) {
-      result[[column_name]] <- c(dataset$columns[[column_name]], list(
+    for (reference in names(dataset$columns)) {
+      column_name <- .dsvert_dp_capsule_column_reference(
+        reference, "column name")$column
+      result[[reference]] <- c(dataset$columns[[reference]], list(
         dataset = data_name, alignment_group = dataset$alignment_group,
         column = column_name))
     }
@@ -979,8 +1136,10 @@
       spec$left_dataset, "vertical-cross left dataset")
     right_dataset <- .dsvert_dp_capsule_id(
       spec$right_dataset, "vertical-cross right dataset")
-    left <- .dsvert_dp_capsule_id(spec$left, "vertical-cross left column")
-    right <- .dsvert_dp_capsule_id(spec$right, "vertical-cross right column")
+    left <- .dsvert_dp_capsule_column_reference(
+      spec$left, "vertical-cross left column")$reference
+    right <- .dsvert_dp_capsule_column_reference(
+      spec$right, "vertical-cross right column")$reference
     family <- spec$family
     if (!is.character(family) || length(family) != 1L || is.na(family) ||
         !family %in% c(
@@ -1006,8 +1165,10 @@
            call. = FALSE)
     }
     references <- c(
-      paste(left_dataset, left, sep = "::"),
-      paste(right_dataset, right, sep = "::"))
+      paste(columns[[left]]$owner_peer, left_dataset,
+            columns[[left]]$column, sep = "::"),
+      paste(columns[[right]]$owner_peer, right_dataset,
+            columns[[right]]$column, sep = "::"))
     order_index <- order(references, method = "radix")
     side_columns <- c(left, right)[order_index]
     side_datasets <- c(left_dataset, right_dataset)[order_index]
@@ -1310,14 +1471,23 @@
     vertical_cross_specs = .dsvert_dp_option("vertical_cross_specs", list()),
     .signature_verifier = .dsvert_relay_verify_message,
     .noise_selector = .dsvert_dp_noise_selection,
-    .gaussian_planner = NULL) {
+    .gaussian_planner = NULL, .primitive_scope = NULL) {
   logical_snapshot <- .dsvert_joint_dp_logical_snapshot(logical_snapshot)
-  policy_context <- .dsvert_joint_dp_policy_context(
-    policy, require_designated = FALSE)
+  synopsis_policy <- .dsvert_dp_synopsis_policy_is_v1(policy)
+  policy_context <- if (isTRUE(synopsis_policy)) {
+    .dsvert_dp_synopsis_policy_context_v1(policy)
+  } else {
+    .dsvert_joint_dp_policy_context(policy, require_designated = FALSE)
+  }
   signed <- .dsvert_dp_capsule_schema(
     policy, logical_snapshot, schema_manifest, .signature_verifier)
   schema <- signed$unsigned
-  .dsvert_dp_capsule_validate_local_schema(policy, schema)
+  if (is.null(.primitive_scope)) {
+    .dsvert_dp_capsule_validate_local_schema(policy, schema)
+  } else {
+    .dsvert_dp_capsule_validate_local_projection_schema(
+      policy, schema, .primitive_scope)
+  }
   columns <- .dsvert_dp_capsule_qualified_columns(schema)
 
   all_numeric_columns <- columns[vapply(
@@ -1340,8 +1510,13 @@
     gaussian_specs, "Gaussian specifications")
   configured_vertical <- .dsvert_dp_capsule_vertical_specs(
     vertical_cross_specs, columns)
+  scope_policy <- if (is.null(.primitive_scope)) {
+    policy$capsule_workload_scope
+  } else {
+    .dsvert_dp_capsule_scope_policy_binding(.primitive_scope)
+  }
   primitive_scope <- .dsvert_dp_capsule_workload_scope(
-    policy$capsule_workload_scope, columns, global_policy,
+    scope_policy, columns, global_policy,
     describe_specs, survival_specs, gaussian_specs, configured_vertical)
   numeric_columns <- all_numeric_columns[
     primitive_scope$numeric_moments]
@@ -1787,23 +1962,24 @@
       column <- columns[[variable]]
       if (cross_owner) {
         list(
-          column = variable, dataset = column$dataset,
+          column = column$column, dataset = column$dataset,
           owner_peer = column$owner_peer,
           lower = column$lower, upper = column$upper)
       } else {
-        list(column = variable, lower = column$lower, upper = column$upper)
+        list(column = column$column, lower = column$lower,
+             upper = column$upper)
       }
     })
     names(predictor_bounds) <- spec$predictors
     outcome <- columns[[spec$outcome]]
     outcome_bound <- if (cross_owner) {
       list(
-        column = spec$outcome, dataset = outcome$dataset,
+        column = outcome$column, dataset = outcome$dataset,
         owner_peer = outcome$owner_peer,
         lower = outcome$lower, upper = outcome$upper)
     } else {
       list(
-        column = spec$outcome, lower = outcome$lower,
+        column = outcome$column, lower = outcome$lower,
         upper = outcome$upper)
     }
     if (!cross_owner) {
@@ -2138,10 +2314,10 @@
       spec_version = spec$version, analysis_id = analysis_id,
       alignment_group = spec$alignment_group,
       left = list(
-        dataset = spec$left_dataset, column = spec$left,
+        dataset = spec$left_dataset, column = left$column,
         owner_peer = spec$left_owner, levels = left_levels),
       right = list(
-        dataset = spec$right_dataset, column = spec$right,
+        dataset = spec$right_dataset, column = right$column,
         owner_peer = spec$right_owner, levels = right_levels),
       participating_peers = as.list(participating),
       computation_peers = as.list(computation),
@@ -2431,31 +2607,52 @@
   mechanism <- .dsvert_joint_dp_mechanism(mechanism, policy)
   registered_release_lifecycle <-
     .dsvert_dp_capsule_registered_release_lifecycle()
-  reuse_and_composition <- list(
-    privacy_scope = "bounded_custodian_lifetime",
-    same_capsule = "unlimited_sticky_replay_and_postprocessing",
-    reuse_count_limit = "none",
-    prior_reuse_can_deny = FALSE,
-    prior_reuse_changes_accuracy = FALSE,
-    new_logical_snapshot = "new_capsule",
-    new_capsule_composition =
-      "exact_basic_composition_under_authenticated_lifetime_bound",
-    historical_composition_can_deny = TRUE,
-    request_limit = FALSE,
-    privacy_budget_gate = TRUE,
-    reservation_point = "cross_signed_allocator_commit_before_data_access",
-    release_instance_policy =
-      "at_most_one_public_release_instance_per_capsule_id",
-    lifetime_max_distinct_capsules = as.numeric(
-      policy_context$common$lifetime_max_distinct_capsules),
-    lifetime_epsilon_upper_bound =
-      policy_context$common$lifetime_epsilon_upper_bound,
-    lifetime_delta_upper_bound =
-      policy_context$common$lifetime_delta_upper_bound,
-    global_lifetime_dp_claim = TRUE,
-    claim_scope = paste0(
-      "bounded_dp_indistinguishability_not_probability_zero_",
-      "reconstruction"))
+  reuse_and_composition <- if (isTRUE(synopsis_policy)) {
+    list(
+      privacy_scope = "per_canonical_artifact_v1",
+      same_artifact = "unlimited_sticky_replay_and_postprocessing",
+      replay_count_limit = "none",
+      prior_replay_can_deny = FALSE,
+      prior_replay_changes_accuracy = FALSE,
+      distinct_artifact_composition =
+        "not_globally_bounded_by_this_protocol",
+      historical_composition_can_deny = FALSE,
+      request_limit = FALSE, rate_limit = FALSE,
+      privacy_budget_gate = FALSE,
+      release_instance_policy =
+        "one_sticky_publication_per_canonical_artifact_key",
+      global_composition_claim = FALSE,
+      claim_scope = paste0(
+        "per_artifact_dp_indistinguishability_not_probability_zero_",
+        "reconstruction"))
+  } else {
+    list(
+      privacy_scope = "bounded_custodian_lifetime",
+      same_capsule = "unlimited_sticky_replay_and_postprocessing",
+      reuse_count_limit = "none",
+      prior_reuse_can_deny = FALSE,
+      prior_reuse_changes_accuracy = FALSE,
+      new_logical_snapshot = "new_capsule",
+      new_capsule_composition =
+        "exact_basic_composition_under_authenticated_lifetime_bound",
+      historical_composition_can_deny = TRUE,
+      request_limit = FALSE,
+      privacy_budget_gate = TRUE,
+      reservation_point =
+        "cross_signed_allocator_commit_before_data_access",
+      release_instance_policy =
+        "at_most_one_public_release_instance_per_capsule_id",
+      lifetime_max_distinct_capsules = as.numeric(
+        policy_context$common$lifetime_max_distinct_capsules),
+      lifetime_epsilon_upper_bound =
+        policy_context$common$lifetime_epsilon_upper_bound,
+      lifetime_delta_upper_bound =
+        policy_context$common$lifetime_delta_upper_bound,
+      global_lifetime_dp_claim = TRUE,
+      claim_scope = paste0(
+        "bounded_dp_indistinguishability_not_probability_zero_",
+        "reconstruction"))
+  }
   workload <- .dsvert_dp_canonical_query_value(list(
     workload_version = .DSVERT_DP_CAPSULE_WORKLOAD_VERSION,
     schema_attestation = list(
@@ -2483,10 +2680,17 @@
     package_family_coverage_complete = FALSE,
     execution_state = .DSVERT_DP_CAPSULE_EXECUTION_STATE,
     capsule_mechanism = mechanism))
-  capsule_identity <- .dsvert_joint_dp_capsule_identity(
-    policy, logical_snapshot,
-    capsule_schema = .DSVERT_DP_CAPSULE_WORKLOAD_VERSION,
-    admission = admission, bounds = bounds, workload = workload)
+  capsule_identity <- if (isTRUE(synopsis_policy)) {
+    .dsvert_dp_synopsis_capsule_identity_v1(
+      policy, logical_snapshot,
+      capsule_schema = .DSVERT_DP_CAPSULE_WORKLOAD_VERSION,
+      admission = admission, bounds = bounds, workload = workload)
+  } else {
+    .dsvert_joint_dp_capsule_identity(
+      policy, logical_snapshot,
+      capsule_schema = .DSVERT_DP_CAPSULE_WORKLOAD_VERSION,
+      admission = admission, bounds = bounds, workload = workload)
+  }
   result <- list(
     version = .DSVERT_DP_CAPSULE_WORKLOAD_VERSION,
     logical_snapshot = logical_snapshot,

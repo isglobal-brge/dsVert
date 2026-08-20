@@ -63,6 +63,60 @@ relay_fixture <- function(frame_bytes = 3L, queue = TRUE) {
        operation_id = "op_0123456789abcdef0123456789abcdef")
 }
 
+test_that("relay spools stay below the private Rock session directory", {
+  skip_on_os("windows")
+  root <- withr::local_tempdir(pattern = "dsvert-relay-rock-")
+  Sys.chmod(root, mode = "0700")
+  withr::local_options(list(dsvert.state_dir = root))
+  ss <- new.env(parent = emptyenv())
+  session_id <- "01234567-89ab-cdef-0123-456789abcdef"
+  identity <- jsonlite::base64_enc(as.raw(seq_len(32L)))
+  on.exit(.session_dir_cleanup(ss), add = TRUE)
+
+  .dsvert_relay_init(ss, session_id, identity, identity, "mpc.share.v1")
+  state <- .dsvert_relay_state(ss)
+  session_dir <- file.path(
+    normalizePath(root, winslash = "/", mustWork = TRUE),
+    "transient-sessions-v1", paste0("dsvert_", session_id))
+
+  expect_identical(ss$.session_id, session_id)
+  expect_identical(dirname(dirname(state$spool)), session_dir)
+  expect_match(basename(dirname(state$spool)), "^relay$")
+  expect_match(basename(state$spool), "^relay-[0-9a-f]{16}-[A-Za-z0-9]+$")
+  for (path in c(session_dir, dirname(state$spool), state$spool)) {
+    expect_false(nzchar(Sys.readlink(path)))
+    expect_true(.dsvert_dp_private_mode(path, directory = TRUE))
+  }
+  .dsvert_relay_close(ss)
+  expect_false(dir.exists(state$spool))
+})
+
+test_that("relay initialisation rejects temporary roots and session aliases", {
+  skip_on_os("windows")
+  session_id <- "01234567-89ab-cdef-0123-456789abcdef"
+  identity <- jsonlite::base64_enc(as.raw(seq_len(32L)))
+  temporary_root <- withr::local_tempdir(pattern = "dsvert-relay-temp-")
+  Sys.chmod(temporary_root, mode = "0700")
+  withr::local_options(list(dsvert.state_dir = temporary_root))
+  transient <- new.env(parent = emptyenv())
+  testthat::local_mocked_bindings(
+    .dsvert_identity_test_mode = function() FALSE,
+    .package = "dsVert")
+  expect_error(
+    .dsvert_relay_init(
+      transient, session_id, identity, identity, "mpc.share.v1"),
+    "outside temporary")
+  expect_null(transient$.dsvert_dsi_relay)
+  expect_null(transient$.session_dir)
+
+  conflicting <- new.env(parent = emptyenv())
+  conflicting$.session_id <- "other-session"
+  expect_error(
+    .dsvert_relay_init(
+      conflicting, session_id, identity, identity, "mpc.share.v1"),
+    "does not match")
+})
+
 test_that("relay peer IDs are deterministic identity capabilities", {
   pk <- jsonlite::base64_enc(as.raw(seq_len(32L)))
   peer_id <- .dsvert_relay_peer_id(pk)

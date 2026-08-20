@@ -113,6 +113,12 @@
                                trusted_identity_pks, allowed_capabilities) {
   if (!is.environment(ss)) stop("ss must be an environment.", call. = FALSE)
   session_id <- .dsvert_relay_validate_session_id(session_id)
+  if (is.null(ss$.session_id)) {
+    ss$.session_id <- session_id
+  } else if (!identical(ss$.session_id, session_id)) {
+    stop("DSI relay session ID does not match the private session.",
+         call. = FALSE)
+  }
   own_pk <- .dsvert_relay_normalize_identity_pk(own_identity_pk)
   if (!is.character(trusted_identity_pks) || !length(trusted_identity_pks))
     stop("Pinned peer identities are required for the DSI relay.", call. = FALSE)
@@ -126,14 +132,24 @@
     allowed_capabilities, .dsvert_relay_validate_capability_id, character(1L)))
 
   if (is.environment(ss$.dsvert_dsi_relay)) .dsvert_relay_close(ss)
+  session_dir <- .ensure_session_dir(ss)
+  relay_root <- file.path(session_dir, "relay")
+  if (!dir.exists(relay_root) && !dir.create(
+      relay_root, recursive = FALSE, showWarnings = FALSE, mode = "0700")) {
+    stop("Could not create the private relay spool directory.", call. = FALSE)
+  }
+  Sys.chmod(relay_root, mode = "0700")
+  .dsvert_session_private_directory(
+    relay_root, "private relay spool directory")
   spool_tag <- substr(digest::digest(
     paste(session_id, .dsvert_relay_peer_id(own_pk), sep = "|"),
     algo = "sha256", serialize = FALSE), 1L, 16L)
-  spool <- tempfile(pattern = paste0("dsvert-relay-", spool_tag, "-"),
-                    tmpdir = tempdir())
+  spool <- tempfile(pattern = paste0("relay-", spool_tag, "-"),
+                    tmpdir = relay_root)
   if (!dir.create(spool, mode = "0700", showWarnings = FALSE))
     stop("Could not create the private relay spool.", call. = FALSE)
   Sys.chmod(spool, mode = "0700")
+  .dsvert_session_private_directory(spool, "private relay spool")
 
   state <- new.env(parent = emptyenv())
   state$session_id <- session_id
@@ -147,6 +163,7 @@
   state$outgoing <- list()
   state$outgoing_latest_receipt <- list()
   state$spool <- spool
+  state$spool_root <- relay_root
   state$retained_bytes <- 0
   state$spool_max_bytes <- .dsvert_relay_spool_max_bytes()
   state$metadata_max_bytes <- .dsvert_relay_metadata_max_bytes()
@@ -157,10 +174,12 @@
   .session_progress(ss, state$last_activity)
   reg.finalizer(state, function(value) {
     path <- value$spool
+    root <- value$spool_root
     if (is.character(path) && length(path) == 1L && dir.exists(path) &&
+        is.character(root) && length(root) == 1L &&
         identical(normalizePath(dirname(path), mustWork = FALSE),
-                  normalizePath(tempdir(), mustWork = FALSE)) &&
-        grepl("^dsvert-relay-[0-9a-f]{16}-[A-Za-z0-9]+$", basename(path))) {
+                  normalizePath(root, mustWork = FALSE)) &&
+        grepl("^relay-[0-9a-f]{16}-[A-Za-z0-9]+$", basename(path))) {
       unlink(path, recursive = TRUE)
     }
   }, onexit = TRUE)
@@ -347,11 +366,15 @@
   state <- if (is.environment(ss)) ss$.dsvert_dsi_relay else NULL
   if (!is.environment(state)) return(invisible(FALSE))
   path <- state$spool
+  session_dir <- .assert_session_dir(ss)
+  relay_root <- file.path(session_dir, "relay")
+  .dsvert_session_private_directory(
+    relay_root, "private relay spool directory")
   parent_ok <- is.character(path) && length(path) == 1L &&
     identical(normalizePath(dirname(path), mustWork = FALSE),
-              normalizePath(tempdir(), mustWork = FALSE))
+              normalizePath(relay_root, mustWork = FALSE))
   name_ok <- is.character(path) && length(path) == 1L &&
-    grepl("^dsvert-relay-[0-9a-f]{16}-[A-Za-z0-9]+$", basename(path))
+    grepl("^relay-[0-9a-f]{16}-[A-Za-z0-9]+$", basename(path))
   if (!parent_ok || !name_ok)
     stop("Refusing to remove an invalid relay spool path.", call. = FALSE)
   if (dir.exists(path)) unlink(path, recursive = TRUE)

@@ -104,6 +104,8 @@ func main() {
 		handleFormalCoxBlockwiseSourceProducer()
 	case "formal-cox-source-deliver":
 		handleFormalCoxBlockwiseSourceDelivery()
+	case "formal-cox-source-import":
+		handleFormalCoxBlockwiseSourceImport()
 
 	// PSI (EC-DH on P-256)
 	case "psi-mask":

@@ -578,7 +578,8 @@ test_that("formal Cox has only closed source and opaque control Go commands", {
     "formal-cox-control-import",
     "formal-cox-control-delivery",
     "formal-cox-source-produce",
-    "formal-cox-source-deliver"))
+    "formal-cox-source-deliver",
+    "formal-cox-source-import"))
 })
 
 test_that("Ring128 source bundles reject tamper, replay and wrong roots", {

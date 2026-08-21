@@ -85,9 +85,17 @@ func TestFormalCoxBlockwiseSourceDeliveryK2K3K5(t *testing.T) {
 						t.Fatalf("delivery source=%s recipient=%s: %+v %v",
 							source, recipient, delivery, err)
 					}
-					encoded, err := json.Marshal(delivery)
+					encoded, err := delivery.Encode(session)
 					if err != nil || !json.Valid(encoded) {
 						t.Fatalf("encode delivery: %v", err)
+					}
+					decoded, err := formalCoxBlockwiseSourceDecodeDelivery(session, encoded)
+					if err != nil {
+						t.Fatalf("decode delivery: %v", err)
+					}
+					decodedJSON, err := json.Marshal(decoded)
+					if err != nil || !bytes.Equal(decodedJSON, encoded) {
+						t.Fatalf("delivery codec changed canonical bytes: %v", err)
 					}
 					for _, forbidden := range []string{
 						"9007199254740993", "-9007199254740995", sourceDirs[source],
@@ -99,6 +107,10 @@ func TestFormalCoxBlockwiseSourceDeliveryK2K3K5(t *testing.T) {
 					}
 					if source == firstSource && recipientIndex == 0 {
 						firstDelivery = append([]byte(nil), encoded...)
+						if _, err := formalCoxBlockwiseSourceDecodeDelivery(
+							session, append(append([]byte(nil), encoded...), '\n')); err == nil {
+							t.Fatal("non-canonical source delivery was accepted")
+						}
 						tampered := delivery
 						tampered.Envelope = append([]byte(nil), delivery.Envelope...)
 						tampered.Envelope[len(tampered.Envelope)-1] ^= 1
@@ -116,7 +128,12 @@ func TestFormalCoxBlockwiseSourceDeliveryK2K3K5(t *testing.T) {
 							t.Fatal("tampered receipt digest reached the recipient store")
 						}
 					}
-					replayed, err := delivery.Accept(stores[recipient])
+					var replayed bool
+					if source == firstSource && recipientIndex == 0 {
+						replayed, err = stores[recipient].AcceptDelivery(encoded)
+					} else {
+						replayed, err = delivery.Accept(stores[recipient])
+					}
 					if err != nil || replayed {
 						t.Fatalf("accept source=%s recipient=%s: replay=%v err=%v",
 							source, recipient, replayed, err)
@@ -219,7 +236,7 @@ func TestFormalCoxBlockwiseSourceDeliveryJSONNeverSerializesProducerSecrets(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	encoded, err := json.Marshal(delivery)
+	encoded, err := delivery.Encode(session)
 	if err != nil {
 		t.Fatal(err)
 	}

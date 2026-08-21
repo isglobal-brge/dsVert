@@ -79,6 +79,51 @@ func (delivery formalCoxBlockwiseSourceDelivery) validate(
 	return nil
 }
 
+func formalCoxBlockwiseSourceDeliveryMaximum(
+	session *formalCoxBlockwiseSourceSession,
+) (int64, error) {
+	const wrapperSlack = 2*formalCoxBlockwiseSourceProducerMetadataMax +
+		formalCoxBlockwiseSourceJSONSlack
+	if session == nil || session.context == nil ||
+		session.context.maximum > exactGCMaxAbsoluteOffset-wrapperSlack {
+		return 0, fmt.Errorf("formal-cox: invalid source delivery bound")
+	}
+	return session.context.maximum + wrapperSlack, nil
+}
+
+func (delivery formalCoxBlockwiseSourceDelivery) Encode(
+	session *formalCoxBlockwiseSourceSession,
+) ([]byte, error) {
+	if err := delivery.validate(session); err != nil {
+		return nil, err
+	}
+	encoded, err := json.Marshal(delivery)
+	maximum, maximumErr := formalCoxBlockwiseSourceDeliveryMaximum(session)
+	if err != nil || maximumErr != nil || int64(len(encoded)) > maximum {
+		clear(encoded)
+		return nil, fmt.Errorf("formal-cox: source delivery exceeds its bound")
+	}
+	return encoded, nil
+}
+
+func formalCoxBlockwiseSourceDecodeDelivery(
+	session *formalCoxBlockwiseSourceSession, encoded []byte,
+) (formalCoxBlockwiseSourceDelivery, error) {
+	var delivery formalCoxBlockwiseSourceDelivery
+	maximum, err := formalCoxBlockwiseSourceDeliveryMaximum(session)
+	if err != nil {
+		return delivery, err
+	}
+	if err := formalCoxBlockwiseSourceDecodeCanonical(
+		encoded, maximum, "source delivery", &delivery); err != nil {
+		return delivery, err
+	}
+	if err := delivery.validate(session); err != nil {
+		return delivery, err
+	}
+	return delivery, nil
+}
+
 // Delivery returns a verified, recipient-specific ciphertext only after the
 // block's intent, two outbox bindings, signed receipt and durable cursor have
 // all committed.  This makes delivery restart-safe without materialising the
@@ -151,4 +196,27 @@ func (delivery formalCoxBlockwiseSourceDelivery) Accept(
 		return false, err
 	}
 	return store.Accept(delivery.Envelope, delivery.Binding)
+}
+
+// AcceptDelivery is the canonical wire entry point for a recipient-local
+// store.  It rejects non-canonical wrapper bytes before considering the
+// embedded ciphertext or changing durable state.
+func (store *formalCoxBlockwiseSourceStore) AcceptDelivery(
+	encoded []byte,
+) (bool, error) {
+	if store == nil {
+		return false, fmt.Errorf("formal-cox: source delivery store is absent")
+	}
+	store.mu.Lock()
+	closed := store.closed || store.owner == nil
+	session := store.session
+	store.mu.Unlock()
+	if closed {
+		return false, fmt.Errorf("formal-cox: source delivery store is closed")
+	}
+	delivery, err := formalCoxBlockwiseSourceDecodeDelivery(session, encoded)
+	if err != nil {
+		return false, err
+	}
+	return delivery.Accept(store)
 }

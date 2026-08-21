@@ -480,6 +480,13 @@ func TestFormalCoxBlockwiseCircuitCacheEvictsOnlyLeastRecentEntry(t *testing.T) 
 	if got := calls.Load(); got != 9 {
 		t.Fatalf("initial compiler calls = %d, want 9", got)
 	}
+	formalCoxBlockwiseCircuitCache.Lock()
+	entries := len(formalCoxBlockwiseCircuitCache.entries)
+	formalCoxBlockwiseCircuitCache.Unlock()
+	if entries != formalCoxBlockwiseCircuitCacheEntries {
+		t.Fatalf("cache entries = %d, want %d", entries,
+			formalCoxBlockwiseCircuitCacheEntries)
+	}
 	if got := compileSource(0); got != first || calls.Load() != 9 {
 		t.Fatalf("recent entry was evicted: circuit=%p calls=%d", got, calls.Load())
 	}

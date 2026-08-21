@@ -629,11 +629,8 @@ func TestFormalCoxPhase1RemainsAbsentFromGenericCompilerWorkerCLIAndSurface(t *t
 		t.Fatal(err)
 	}
 	namespaceText := string(namespace)
-	const controlExport = "export(dsvertFormalCoxControlSourceDS)"
-	remainingNamespace := strings.Replace(namespaceText, controlExport, "", 1)
-	if strings.Count(namespaceText, controlExport) != 1 ||
-		strings.Contains(remainingNamespace, "formalCox") ||
-		strings.Contains(remainingNamespace, "formal_cox") {
-		t.Fatal("R formal Cox surface is not the private control source only")
+	if strings.Contains(namespaceText, "formalCox") ||
+		strings.Contains(namespaceText, "formal_cox") {
+		t.Fatal("R formal Cox surface must remain absent until the full lifecycle exists")
 	}
 }

@@ -29,6 +29,7 @@ type formalCoxBlockwiseExchangeLease struct {
 	root     *os.Root
 	rootPath string
 	lock     *os.File
+	claimed  bool
 	closed   bool
 }
 
@@ -231,6 +232,72 @@ func (lease *formalCoxBlockwiseExchangeLease) Dir() (string, error) {
 	return lease.rootPath, nil
 }
 
+// claimTransportRoot transfers the sole live lease to the in-process spool
+// owner. It is deliberately private: a command may relay immutable segments,
+// but must never obtain an os.Root capable of creating a second spool.
+func (lease *formalCoxBlockwiseExchangeLease) claimTransportRoot() (*os.Root, string, error) {
+	if lease == nil {
+		return nil, "", fmt.Errorf("formal-cox: exchange lease is closed")
+	}
+	lease.mu.Lock()
+	defer lease.mu.Unlock()
+	if lease.root == nil || lease.lock == nil || lease.closed || lease.claimed ||
+		formalCoxBlockwiseExchangeLeaseValidateDir(lease.root, lease.rootPath) != nil {
+		return nil, "", fmt.Errorf("formal-cox: exchange lease is unavailable")
+	}
+	child, err := os.OpenRoot(lease.rootPath)
+	if err != nil {
+		return nil, "", err
+	}
+	owned, ownedErr := lease.root.Stat(".")
+	opened, openedErr := child.Stat(".")
+	if ownedErr != nil || openedErr != nil || !os.SameFile(owned, opened) ||
+		formalCoxBlockwiseExchangeLeaseValidateDir(child, lease.rootPath) != nil {
+		_ = child.Close()
+		return nil, "", fmt.Errorf("formal-cox: exchange lease directory changed")
+	}
+	lease.claimed = true
+	return child, lease.rootPath, nil
+}
+
+func (lease *formalCoxBlockwiseExchangeLease) releaseTransportClaim() error {
+	if lease == nil {
+		return nil
+	}
+	lease.mu.Lock()
+	defer lease.mu.Unlock()
+	if lease.closed {
+		return nil
+	}
+	lease.claimed = false
+	lease.closed = true
+	formalCoxBlockwiseExchangeLeaseRelease(lease.lock)
+	lease.lock = nil
+	if lease.root != nil {
+		err := lease.root.Close()
+		lease.root = nil
+		return err
+	}
+	return nil
+}
+
+func (lease *formalCoxBlockwiseExchangeLease) validTransportClaim() bool {
+	if lease == nil {
+		return false
+	}
+	lease.mu.Lock()
+	defer lease.mu.Unlock()
+	if lease.root == nil || lease.lock == nil || lease.closed || !lease.claimed ||
+		formalCoxBlockwiseExchangeLeaseValidateDir(lease.root, lease.rootPath) != nil {
+		return false
+	}
+	opened, openErr := lease.lock.Stat()
+	current, pathErr := lease.root.Lstat("owner.lock")
+	return openErr == nil && pathErr == nil && current.Mode().IsRegular() &&
+		current.Mode()&os.ModeSymlink == 0 && current.Mode().Perm() == 0o600 &&
+		exactGCPrivateOwnedRegular(current) && os.SameFile(opened, current)
+}
+
 func (lease *formalCoxBlockwiseExchangeLease) Close() error {
 	if lease == nil {
 		return nil
@@ -239,6 +306,9 @@ func (lease *formalCoxBlockwiseExchangeLease) Close() error {
 	defer lease.mu.Unlock()
 	if lease.closed {
 		return nil
+	}
+	if lease.claimed {
+		return fmt.Errorf("formal-cox: exchange lease is owned by a live spool")
 	}
 	lease.closed = true
 	formalCoxBlockwiseExchangeLeaseRelease(lease.lock)

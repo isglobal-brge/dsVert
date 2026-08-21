@@ -207,3 +207,69 @@
     context$schema, context$source_name, context$rows, block_index,
     context$block_capacity)
 }
+
+# Server-internal R-to-Go bridge for one already-authorized source block.  The
+# two recipient tickets are opaque signed protocol records; this function
+# neither creates them nor accepts a peer, path, data frame, key or block size
+# from a DataSHIELD caller.  Go validates their exact K=2 manifest before any
+# durable ciphertext is committed.
+.dsvert_formal_cox_server_source_produce_block <- function(
+    context, run_id, recipient_tickets, block_index) {
+  context <- .dsvert_formal_cox_server_source_context(context)
+  run_id <- .dsvert_formal_cox_sha256(run_id, "Cox source run id")
+  numeric <- .dsvert_formal_cox_schema_numeric(context$schema)
+  blocks <- as.integer(ceiling(numeric$capacity / context$block_capacity))
+  block_index <- .dsvert_formal_cox_integer(
+    block_index, "Cox source block index", 0L, blocks - 1L)
+  if (!is.list(recipient_tickets) || length(recipient_tickets) != 2L ||
+      !is.null(names(recipient_tickets))) {
+    .dsvert_formal_cox_abort(
+      "The formal Cox source recipient manifest is invalid.")
+  }
+
+  identity <- .get_identity_keypair()
+  if (!is.list(identity) || !identical(names(identity),
+                                       c("identity_pk", "identity_sk"))) {
+    .dsvert_formal_cox_abort("The local Cox source identity is invalid.")
+  }
+  peer_pinset <- context$schema$unsigned$peer_pinset
+  source_pin <- tryCatch(
+    .dsvert_normalize_crypto_b64(
+      .base64url_to_base64(peer_pinset[[context$source_name]]), 32L,
+      "configured Cox source identity"), error = function(error) NULL)
+  if (is.null(source_pin) || !identical(identity$identity_pk, source_pin)) {
+    .dsvert_formal_cox_abort(
+      "The local Cox source identity is not the signed source peer.")
+  }
+  pins <- vapply(peer_pinset[order(names(peer_pinset), method = "radix")],
+                 function(value) {
+    .dsvert_normalize_crypto_b64(
+      .base64url_to_base64(value), 32L, "signed Cox peer identity")
+  }, character(1L), USE.NAMES = TRUE)
+  lines <- .dsvert_formal_cox_server_source_block(context, block_index)
+  payload <- paste0(paste(lines, collapse = "\n"), "\n")
+  response <- .callMpcTool("formal-cox-source-produce", list(
+    version = "dsvert-formal-cox-blockwise-source-producer-command-v1",
+    schema = context$schema,
+    block_capacity = context$block_capacity,
+    run_id = run_id,
+    pins = as.list(pins),
+    recipient_tickets = recipient_tickets,
+    source_peer_name = context$source_name,
+    source_signing_key = identity$identity_sk,
+    block_index = block_index,
+    canonical_input_base64 = gsub(
+      "[\r\n[:space:]]", "", jsonlite::base64_enc(charToRaw(payload)))
+  ))
+  fields <- c("receipt", "receipt_sha256", "replayed")
+  if (!is.list(response) || !identical(names(response), fields) ||
+      !is.list(response$receipt) ||
+      !is.character(response$receipt_sha256) ||
+      length(response$receipt_sha256) != 1L ||
+      !grepl("^[0-9a-f]{64}$", response$receipt_sha256) ||
+      !is.logical(response$replayed) || length(response$replayed) != 1L ||
+      is.na(response$replayed)) {
+    .dsvert_formal_cox_abort("The formal Cox source producer returned invalid output.")
+  }
+  response
+}

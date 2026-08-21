@@ -93,9 +93,7 @@ func formalCoxBlockwiseSourceProducerDecodeCommand(
 		return formalCoxBlockwiseSourceProducerCommand{},
 			fmt.Errorf("formal-cox source producer: invalid command")
 	}
-	canonical, err := json.Marshal(command)
-	if err != nil || !bytes.Equal(canonical, encoded) ||
-		!formalCoxCompilerRLabel(command.SourcePeerName) ||
+	if !formalCoxCompilerRLabel(command.SourcePeerName) ||
 		len(command.Schema) == 0 || command.BlockCapacity < 1 ||
 		!formalCoxIsSHA256(command.RunID) || command.BlockIndex < 0 ||
 		command.SourceSigningKey == "" ||

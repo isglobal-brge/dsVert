@@ -212,7 +212,6 @@ func TestFormalCoxBlockwiseSourceProducerCommandRejectsOpenAndTamperedInput(t *t
 		"tampered schema":           tamperedSchema,
 		"tampered recipient ticket": tamperedTicket,
 		"trailing":                  append(append([]byte(nil), canonical...), []byte("{}")...),
-		"indented":                  []byte(strings.Replace(string(canonical), ",", ",\n", 1)),
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := formalCoxBlockwiseSourceProducerRunAtRoot(
@@ -220,6 +219,29 @@ func TestFormalCoxBlockwiseSourceProducerCommandRejectsOpenAndTamperedInput(t *t
 				t.Fatal("source producer command accepted open or invalid input")
 			}
 		})
+	}
+}
+
+func TestFormalCoxBlockwiseSourceProducerCommandAllowsOuterJSONFormatting(t *testing.T) {
+	command, _, _, _ := formalCoxBlockwiseSourceProducerCommandTestRequest(t, 2)
+	canonical, err := json.Marshal(command)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var formatted bytes.Buffer
+	if err := json.Indent(&formatted, canonical, "", "  "); err != nil {
+		t.Fatal(err)
+	}
+	root := formalCoxBlockwiseSourceProducerCommandTestRoot(t)
+	first, err := formalCoxBlockwiseSourceProducerRunAtRoot(canonical, root, false)
+	if err != nil || first.Replayed {
+		t.Fatalf("canonical source command: %+v / %v", first, err)
+	}
+	replayed, err := formalCoxBlockwiseSourceProducerRunAtRoot(
+		formatted.Bytes(), root, false)
+	if err != nil || !replayed.Replayed ||
+		replayed.ReceiptSHA256 != first.ReceiptSHA256 {
+		t.Fatalf("formatted source command replay: %+v / %v", replayed, err)
 	}
 }
 

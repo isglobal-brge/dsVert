@@ -93,6 +93,33 @@
   fixture[, columns, drop = FALSE]
 }
 
+.formal_cox_server_source_fixture <- function(
+    sealed, fixture, peer, block_capacity = 7L) {
+  rows <- .formal_cox_source_frame(fixture, sealed$schema, peer)
+  rows$patient_id <- sprintf("patient-%03d", seq_len(nrow(rows)))
+  binding <- .dsvert_test_padded_dp_binding(
+    rows, "patient_id", "cox-cohort", "v1",
+    sealed$schema$unsigned$peer_pinset)
+  source <- new.env(parent = emptyenv())
+  assign("cox_local", binding$data, envir = source)
+  lockBinding("cox_local", source)
+  list(
+    source = source,
+    rows = rows,
+    spec = list(
+      source_name = peer,
+      schema_sha256 = sealed$schema$schema_sha256,
+      logical_snapshot_id = sealed$schema$unsigned$logical_snapshot_id,
+      dataset = binding$descriptor,
+      data_name = "cox_local",
+      patient_column = "patient_id",
+      block_capacity = block_capacity,
+      columns = as.list(stats::setNames(
+        names(rows)[names(rows) != "patient_id"],
+        names(rows)[names(rows) != "patient_id"])))
+  )
+}
+
 test_that("formal Cox schema requires unanimous pinned signatures and a positive risk floor", {
   identity <- .formal_cox_keys(3L)
   args <- list(
@@ -403,6 +430,64 @@ test_that("formal Cox local source blocks preserve the canonical lattice layout"
       sealed$schema, "not-a-peer",
       .formal_cox_source_frame(fixture, sealed$schema, "site1"), 0L, 7L),
       class = "dsvert_formal_cox_error")
+  }
+})
+
+test_that("formal Cox server source admits only the configured PSI snapshot", {
+  fixture <- .formal_cox_fixture()
+  for (k in c(2L, 3L, 5L)) {
+    sealed <- .formal_cox_schema(k, fixture = fixture)
+    for (peer in names(sealed$schema$unsigned$peer_pinset)) {
+      configured <- .formal_cox_server_source_fixture(sealed, fixture, peer)
+      withr::local_options(list(
+        dsvert.peer_name = peer,
+        dsvert.formal_cox.source_specs = stats::setNames(
+          list(configured$spec), peer)))
+      context <- .dsvert_formal_cox_server_source_open(
+        sealed$schema, configured$source)
+      expected <- .dsvert_formal_cox_source_rows(
+        sealed$schema, peer, configured$rows[, names(configured$spec$columns),
+                                              drop = FALSE])
+      blocks <- ceiling(nrow(configured$rows) / configured$spec$block_capacity)
+      observed <- unlist(lapply(seq.int(0L, blocks - 1L), function(index) {
+        .dsvert_formal_cox_server_source_block(context, index)
+      }), use.names = FALSE)
+      expect_identical(observed, unname(sprintf("%.0f", as.vector(t(expected)))))
+      expect_true(is.environment(context))
+      expect_false(is.list(context))
+      expect_false(any(grepl("share|mask|opening|result", ls(context),
+                             ignore.case = TRUE)))
+      expect_error(.dsvert_formal_cox_server_source_block(context, blocks),
+                   class = "dsvert_formal_cox_error")
+
+      wrong_schema <- configured$spec
+      wrong_schema$schema_sha256 <- paste(rep("0", 64L), collapse = "")
+      withr::local_options(list(
+        dsvert.formal_cox.source_specs = stats::setNames(
+          list(wrong_schema), peer)))
+      expect_error(.dsvert_formal_cox_server_source_open(
+        sealed$schema, configured$source), class = "dsvert_formal_cox_error")
+
+      wrong_map <- configured$spec
+      wrong_map$columns[[1L]] <- "patient_id"
+      withr::local_options(list(
+        dsvert.formal_cox.source_specs = stats::setNames(
+          list(wrong_map), peer)))
+      expect_error(.dsvert_formal_cox_server_source_open(
+        sealed$schema, configured$source), class = "dsvert_formal_cox_error")
+
+      reordered <- new.env(parent = emptyenv())
+      reordered_data <- get("cox_local", envir = configured$source)
+      reordered_data <- reordered_data[rev(seq_len(nrow(reordered_data))), ,
+                                       drop = FALSE]
+      assign("cox_local", reordered_data, envir = reordered)
+      lockBinding("cox_local", reordered)
+      withr::local_options(list(
+        dsvert.formal_cox.source_specs = stats::setNames(
+          list(configured$spec), peer)))
+      expect_error(.dsvert_formal_cox_server_source_open(
+        sealed$schema, reordered), class = "dsvert_formal_cox_error")
+    }
   }
 })
 

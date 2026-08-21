@@ -1413,7 +1413,11 @@
   session_id <- .dsvert_relay_validate_session_id(session_id)
   authority <- context$authorization$local_authority
   pins <- .dsvert_dp_synopsis_peer_pins_v1(.policy$peer_pinset)
-  identity_pk <- if (is.list(.identity)) .identity$identity_pk else NULL
+  identity_pk <- if (is.list(.identity) && !is.null(.identity$identity_pk)) {
+    tryCatch(.dsvert_dp_analysis_identity_pk(
+      .identity$identity_pk, "local synopsis exact-GC identity"),
+    error = function(error) NULL)
+  } else NULL
   peers <- unlist(
     context$contract$value$authority_peers, use.names = FALSE)
   if (!is.environment(ss) || !is.raw(.secret) || length(.secret) != 32L ||
@@ -1429,7 +1433,11 @@
   } else {
     .dsvert_joint_dp_policy_context(.policy, require_designated = TRUE)
   }
-  if (!identical(sort(policy_context$common$designated_noise_peers,
+  policy_peers <- unlist(
+    policy_context$common$designated_noise_peers, use.names = FALSE)
+  if (!is.character(policy_peers) || length(policy_peers) != 2L ||
+      anyNA(policy_peers) || anyDuplicated(policy_peers) ||
+      !identical(sort(policy_peers,
                       method = "radix"),
                  sort(peers, method = "radix")) ||
       !identical(policy_context$common$peer_pinset_sha256,

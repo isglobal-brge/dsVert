@@ -147,6 +147,53 @@
     .exact_gc_validate_bound_peer_context = binding_validator,
     .package = "dsVert")
 }
+
+test_that("the remote exact-GC START response exposes only public liveness", {
+  ss <- new.env(parent = emptyenv())
+  operation_id <- paste0("op_", strrep("a", 32L))
+  receipt <- list(
+    version = .DSVERT_DP_SYNOPSIS_EXECUTION_EXACT_START_VERSION,
+    phase = "synopsis_exact_gc_initialized", operation_id = operation_id,
+    purpose = "joint-dp-vector-laplace-v3/fixture", coordinate_count = 1L)
+  state <- new.env(parent = emptyenv())
+  state$self_peer_id <- paste0("dsv1_", strrep("b", 64L))
+  state$peer_id <- paste0("dsv1_", strrep("c", 64L))
+  state$role <- "garbler"
+  state$context_hash <- strrep("d", 64L)
+  state$operation <- .DSVERT_JOINT_DP_VECTOR_EXACT_GC_OPERATION
+  state$output_kind <- .DSVERT_JOINT_DP_VECTOR_EXACT_GC_OUTPUT_KIND
+  state$purpose <- receipt$purpose
+  state$source_producer <- .DSVERT_JOINT_DP_VECTOR_EXACT_GC_PRODUCER
+  state$ring_bits <- 128L
+  state$frac_bits <- 0L
+  state$vector_len <- 1L
+  state$threshold <- "2"
+  state$chunk_bytes <- 16384L
+  state$ttl_seconds <- 180L
+  state$max_runtime_seconds <- 21600L
+  state$worker_heartbeat_counter <- 1L
+  state$status <- "running"
+  ops <- .exact_gc_ops(ss)
+  ops[[operation_id]] <- state
+  response <- .dsvert_dp_synopsis_remote_exact_start_response_v1(ss, receipt)
+  expect_named(response, c("version", "receipt", "initialization"),
+               ignore.order = FALSE)
+  expect_identical(response$version,
+                   .DSVERT_DP_SYNOPSIS_REMOTE_EXACT_START_RESPONSE_VERSION)
+  expect_identical(response$receipt, receipt)
+  expect_named(response$initialization, c(
+    "capability_id", "peer_id", "peer_peer_id", "role", "context_hash",
+    "operation", "output_kind", "purpose", "source_producer", "ring_bits",
+    "frac_bits", "vector_len", "threshold", "chunk_bytes", "ttl_seconds",
+    "max_runtime_seconds", "worker_heartbeat", "state", "stored"),
+    ignore.order = FALSE)
+  expect_false(any(c("source_share", "private_seed", "output_key") %in%
+                   names(response$initialization)))
+  state$status <- "failed"
+  expect_error(.dsvert_dp_synopsis_remote_exact_start_response_v1(ss, receipt),
+               "inconsistent")
+})
+
 test_that("synopsis exact-GC adds only dedicated internal adapters", {
   present <- vapply(.synopsis_exact_required, exists, logical(1L),
     mode = "function", inherits = TRUE)
@@ -294,6 +341,58 @@ test_that("pinned exact-GC roles and operation are authority-only for K=2/3/5", 
     }
   }
 })
+
+test_that("exact-GC normalizes the local Ed25519 public-key encoding", {
+  .synopsis_exact_require()
+  fixture <- .synopsis_exact_fixture(2L)
+  .synopsis_exact_cleanup(fixture)
+  setup <- .synopsis_exact_setup(fixture)
+  peer <- setup$authorities[[1L]]
+  context <- .synopsis_exact_context(fixture, setup, peer)
+  session <- .synopsis_exact_session(fixture, setup, peer)
+  standard_b64 <- gsub("[\r\n]", "", jsonlite::base64_enc(
+    .dsvert_relay_b64url_decode(
+      unname(fixture$input$fixture$pins[[peer]]),
+      "test identity public key")))
+  expect_false(identical(
+    standard_b64, unname(fixture$input$fixture$pins[[peer]])))
+  operation <- testthat::with_mocked_bindings(
+    .dsvert_dp_synopsis_execution_exact_gc_operation_v1(
+      session, setup$session_id, context, setup$prepared,
+      .dsvert_dp_synopsis_execution_chunk_v1(context, 0L),
+      fixture$input$policies[[peer]], fixture$input$secrets[[peer]],
+      list(identity_pk = standard_b64),
+      .synopsis_exact_compiler(context)),
+    .exact_gc_validate_bound_peer_context =
+      .synopsis_exact_validate_binding, .package = "dsVert")
+  expect_identical(operation$binding$transcript_hash, context$attempt$sha256)
+})
+
+test_that("exact-GC accepts canonical list-shaped Synopsis authority roles", {
+  .synopsis_exact_require()
+  fixture <- .synopsis_exact_fixture(2L)
+  .synopsis_exact_cleanup(fixture)
+  setup <- .synopsis_exact_setup(fixture)
+  peer <- setup$authorities[[1L]]
+  context <- .synopsis_exact_context(fixture, setup, peer)
+  session <- .synopsis_exact_session(fixture, setup, peer)
+  policy <- fixture$input$policies[[peer]]
+  policy$schema_version <- 1L
+  policy$policy_contract <- .DSVERT_DP_SYNOPSIS_POLICY_CONTRACT
+  policy_context <- .dsvert_dp_synopsis_policy_context_v1(policy)
+  expect_type(policy_context$common$designated_noise_peers, "list")
+  operation <- testthat::with_mocked_bindings(
+    .dsvert_dp_synopsis_execution_exact_gc_operation_v1(
+      session, setup$session_id, context, setup$prepared,
+      .dsvert_dp_synopsis_execution_chunk_v1(context, 0L), policy,
+      fixture$input$secrets[[peer]],
+      list(identity_pk = unname(fixture$input$fixture$pins[[peer]])),
+      .synopsis_exact_compiler(context)),
+    .exact_gc_validate_bound_peer_context =
+      .synopsis_exact_validate_binding, .package = "dsVert")
+  expect_identical(operation$binding$transcript_hash, context$attempt$sha256)
+})
+
 test_that("productive exact-GC worker preserves its signed plan shape", {
   skip_if_not(file.exists(.findMpcBinary()),
               "packaged dsvert-mpc binary is unavailable")

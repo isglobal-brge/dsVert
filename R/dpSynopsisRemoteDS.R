@@ -6,6 +6,8 @@
 .DSVERT_DP_SYNOPSIS_REMOTE_TICKET_MAX_BYTES <- 64L * 1024L
 .DSVERT_DP_SYNOPSIS_LOCAL_COMPILE_ENVELOPE_VERSION <-
   "dsvert-stateless-catalog-synopsis-local-compile-envelope-v1"
+.DSVERT_DP_SYNOPSIS_REMOTE_EXACT_START_RESPONSE_VERSION <-
+  "dsvert-stateless-catalog-synopsis-exact-gc-start-response-v1"
 
 .dsvert_dp_synopsis_remote_public_v1 <- function(code) {
   tryCatch(force(code), error = .dsvert_dp_transcript_stop)
@@ -56,6 +58,38 @@
          call. = FALSE)
   }
   encoded
+}
+
+.dsvert_dp_synopsis_remote_exact_start_response_v1 <- function(ss, receipt) {
+  is_exact <- is.list(receipt) && identical(
+    receipt$version, .DSVERT_DP_SYNOPSIS_EXECUTION_EXACT_START_VERSION) &&
+    identical(receipt$phase, "synopsis_exact_gc_initialized")
+  if (!isTRUE(is_exact)) return(receipt)
+  state <- .exact_gc_operation_state(ss, receipt$operation_id,
+                                     required = FALSE)
+  if (is.null(state)) {
+    stop("The synopsis exact-GC START operation is unavailable.",
+         call. = FALSE)
+  }
+  initialization <- .exact_gc_public_state(state)
+  valid <- is.list(initialization) &&
+    identical(initialization$operation,
+              .DSVERT_JOINT_DP_VECTOR_EXACT_GC_OPERATION) &&
+    identical(initialization$purpose, receipt$purpose) &&
+    identical(as.numeric(initialization$ring_bits), 128) &&
+    identical(as.numeric(initialization$frac_bits), 0) &&
+    identical(as.numeric(initialization$vector_len),
+              as.numeric(receipt$coordinate_count)) &&
+    initialization$state %in% c("running", "complete") &&
+    identical(isTRUE(initialization$stored),
+              identical(initialization$state, "complete"))
+  if (!isTRUE(valid)) {
+    stop("The synopsis exact-GC START initialization is inconsistent.",
+         call. = FALSE)
+  }
+  list(
+    version = .DSVERT_DP_SYNOPSIS_REMOTE_EXACT_START_RESPONSE_VERSION,
+    receipt = receipt, initialization = initialization)
 }
 
 .dsvert_dp_synopsis_remote_compilation_v1 <- function(value) {
@@ -310,10 +344,11 @@ dsvertDPSynopsisStartDS <- function(
       second_prepare_json, "second PREPARE",
       .DSVERT_DP_SYNOPSIS_EXECUTION_PREPARE_MAX_BYTES)
     .dsvert_dp_synopsis_remote_encode_v1(
-      .dsvert_dp_synopsis_execution_start_v1(
+      .dsvert_dp_synopsis_remote_exact_start_response_v1(
+        context$ss, .dsvert_dp_synopsis_execution_start_v1(
         context$ss, session_id, first, second, chunk_index,
         .policy = context$policy, .secret = context$secret,
-        .cache_get = context$cache_get), "START",
+        .cache_get = context$cache_get)), "START",
       .DSVERT_DP_SYNOPSIS_REMOTE_RECEIPT_MAX_BYTES)
   })
 }

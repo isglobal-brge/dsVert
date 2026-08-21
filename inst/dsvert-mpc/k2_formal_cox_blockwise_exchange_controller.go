@@ -8,10 +8,86 @@ package main
 
 import (
 	"crypto/ed25519"
+	"crypto/hmac"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sync"
 )
+
+const (
+	formalCoxBlockwiseExchangeRootClaimVersion = "dsvert-formal-cox-exchange-root-claim-v1"
+	formalCoxBlockwiseExchangeRootClaimPurpose = "formal_cox_blockwise_exact_gc_input_root_v1"
+	formalCoxBlockwiseExchangeRootClaimDomain  = "dsVert/formal-cox/exchange-root-claim/v1"
+	formalCoxBlockwiseExchangeRootClaimMax     = 4096
+)
+
+// formalCoxBlockwiseExchangeRootClaim is the only share-free wire value
+// needed before a live controller starts a source-bound GC step. It binds the
+// attempt, exact step, both designated compute identities and the public
+// source commitment; it never carries a path, key, ciphertext or share.
+type formalCoxBlockwiseExchangeRootClaim struct {
+	Version         string                       `json:"version"`
+	Purpose         string                       `json:"purpose"`
+	ArtifactID      string                       `json:"artifact_id"`
+	PlanSHA256      string                       `json:"plan_sha256"`
+	PinsetSHA256    string                       `json:"pinset_sha256"`
+	RunID           string                       `json:"run_id"`
+	AttemptID       string                       `json:"attempt_id"`
+	Step            formalCoxBlockwiseWorkerStep `json:"step"`
+	SenderPeer      string                       `json:"sender_peer"`
+	SenderPeerID    string                       `json:"sender_peer_id"`
+	SenderRole      string                       `json:"sender_role"`
+	RecipientPeer   string                       `json:"recipient_peer"`
+	RecipientPeerID string                       `json:"recipient_peer_id"`
+	RecipientRole   string                       `json:"recipient_role"`
+	InputRootSHA256 string                       `json:"input_root_sha256"`
+	Signature       []byte                       `json:"signature"`
+}
+
+func formalCoxBlockwiseExchangeRootClaimUnsigned(
+	claim formalCoxBlockwiseExchangeRootClaim,
+) ([]byte, error) {
+	claim.Signature = nil
+	encoded, err := json.Marshal(claim)
+	if err != nil {
+		return nil, err
+	}
+	return append([]byte(formalCoxBlockwiseExchangeRootClaimDomain+"|"), encoded...), nil
+}
+
+func formalCoxBlockwiseExchangeMarshalRootClaim(
+	claim formalCoxBlockwiseExchangeRootClaim,
+) ([]byte, error) {
+	if len(claim.Signature) != ed25519.SignatureSize {
+		return nil, fmt.Errorf("formal-cox: invalid exchange root claim")
+	}
+	encoded, err := json.Marshal(claim)
+	if err != nil {
+		return nil, err
+	}
+	var decoded formalCoxBlockwiseExchangeRootClaim
+	if err := formalCoxBlockwiseSourceDecodeCanonical(encoded,
+		formalCoxBlockwiseExchangeRootClaimMax, "exchange root claim", &decoded); err != nil {
+		clear(encoded)
+		return nil, err
+	}
+	return encoded, nil
+}
+
+func formalCoxBlockwiseExchangeDecodeRootClaim(encoded []byte) (
+	formalCoxBlockwiseExchangeRootClaim, error,
+) {
+	var claim formalCoxBlockwiseExchangeRootClaim
+	if err := formalCoxBlockwiseSourceDecodeCanonical(encoded,
+		formalCoxBlockwiseExchangeRootClaimMax, "exchange root claim", &claim); err != nil ||
+		len(claim.Signature) != ed25519.SignatureSize {
+		return formalCoxBlockwiseExchangeRootClaim{},
+			fmt.Errorf("formal-cox: invalid exchange root claim")
+	}
+	return claim, nil
+}
 
 type formalCoxBlockwiseExchangeController struct {
 	mu sync.Mutex
@@ -64,9 +140,134 @@ func (controller *formalCoxBlockwiseExchangeController) BindPeer(peer string) er
 	return controller.transport.BindPeer(peer)
 }
 
-// PublicInputRoot computes only the source's signed public commitment. The
-// caller must establish equality with the opposite compute role through its
-// authenticated control channel before passing that common value to Start.
+// rootClaimTemplateLocked returns the exact claim fields required for sender
+// to bind this controller's public source root to recipient. The caller holds
+// controller.mu; this helper takes bridge.mu only while it reads public state
+// and the local signing key/pinset stay private.
+func (controller *formalCoxBlockwiseExchangeController) rootClaimTemplateLocked(
+	step formalCoxBlockwiseWorkerStep, attempt [32]byte, sender, recipient string,
+) (formalCoxBlockwiseExchangeRootClaim, ed25519.PublicKey, error) {
+	var zero formalCoxBlockwiseExchangeRootClaim
+	if controller == nil || controller.closed || controller.started ||
+		controller.transport == nil || !controller.transport.peerBound ||
+		sender == "" || recipient == "" || sender == recipient {
+		return zero, nil, fmt.Errorf("formal-cox: exchange controller is not peer-bound")
+	}
+	bridge := controller.bridge
+	bridge.mu.Lock()
+	defer bridge.mu.Unlock()
+	if bridge.closed || bridge.source == nil || bridge.source.session == nil ||
+		bridge.source.session.context == nil || bridge.peer != controller.peer {
+		return zero, nil, fmt.Errorf("formal-cox: exchange controller bridge is unavailable")
+	}
+	context := bridge.source.session.context
+	if sender != controller.peer && recipient != controller.peer ||
+		(sender != controller.peer && sender != controller.transport.remotePeer) ||
+		(recipient != controller.peer && recipient != controller.transport.remotePeer) ||
+		context.peerIDs[sender] == "" || context.peerIDs[recipient] == "" ||
+		context.roles[sender] == "" || context.roles[recipient] == "" ||
+		len(context.pins[sender]) != ed25519.PublicKeySize {
+		return zero, nil, fmt.Errorf("formal-cox: invalid exchange root claim context")
+	}
+	localRoot, err := bridge.publicInputRootUnlocked(step)
+	if err != nil {
+		return zero, nil, err
+	}
+	if formalCoxBlockwiseWorkerStepNeedsInput(step) {
+		if !formalCoxIsSHA256(localRoot) {
+			return zero, nil, fmt.Errorf("formal-cox: invalid exchange source root")
+		}
+	} else if localRoot != "" {
+		return zero, nil, fmt.Errorf("formal-cox: internal exchange step has a source root")
+	}
+	return formalCoxBlockwiseExchangeRootClaim{
+		Version:    formalCoxBlockwiseExchangeRootClaimVersion,
+		Purpose:    formalCoxBlockwiseExchangeRootClaimPurpose,
+		ArtifactID: context.artifactID, PlanSHA256: context.planSHA256,
+		PinsetSHA256: context.pinsetSHA256, RunID: context.plan.RunID,
+		AttemptID: hex.EncodeToString(attempt[:]), Step: step,
+		SenderPeer: sender, SenderPeerID: context.peerIDs[sender], SenderRole: context.roles[sender],
+		RecipientPeer: recipient, RecipientPeerID: context.peerIDs[recipient], RecipientRole: context.roles[recipient],
+		InputRootSHA256: localRoot,
+	}, append(ed25519.PublicKey(nil), context.pins[sender]...), nil
+}
+
+// RootClaim signs the local public source-root commitment. It is available
+// only while the exact-GC owner is live, peer-bound and has not begun a step.
+func (controller *formalCoxBlockwiseExchangeController) RootClaim(
+	step formalCoxBlockwiseWorkerStep, attempt [32]byte,
+) (formalCoxBlockwiseExchangeRootClaim, error) {
+	var zero formalCoxBlockwiseExchangeRootClaim
+	if controller == nil {
+		return zero, fmt.Errorf("formal-cox: exchange controller is unavailable")
+	}
+	controller.mu.Lock()
+	defer controller.mu.Unlock()
+	claim, _, err := controller.rootClaimTemplateLocked(
+		step, attempt, controller.peer, controller.transport.remotePeer)
+	if err != nil {
+		return zero, err
+	}
+	bridge := controller.bridge
+	bridge.mu.Lock()
+	defer bridge.mu.Unlock()
+	if bridge.closed || len(bridge.signingKey) != ed25519.PrivateKeySize ||
+		!hmac.Equal(bridge.signingKey.Public().(ed25519.PublicKey),
+			controller.bridge.source.session.context.pins[controller.peer]) {
+		return zero, fmt.Errorf("formal-cox: exchange signing key is unavailable")
+	}
+	message, err := formalCoxBlockwiseExchangeRootClaimUnsigned(claim)
+	if err != nil {
+		return zero, err
+	}
+	defer clear(message)
+	claim.Signature = ed25519.Sign(bridge.signingKey, message)
+	return claim, nil
+}
+
+func (controller *formalCoxBlockwiseExchangeController) validatePeerRootClaimLocked(
+	step formalCoxBlockwiseWorkerStep, attempt [32]byte,
+	claim formalCoxBlockwiseExchangeRootClaim,
+) (string, error) {
+	expected, senderPin, err := controller.rootClaimTemplateLocked(
+		step, attempt, controller.transport.remotePeer, controller.peer)
+	if err != nil {
+		return "", err
+	}
+	candidate := claim
+	candidate.Signature = nil
+	if !reflect.DeepEqual(candidate, expected) {
+		return "", fmt.Errorf("formal-cox: exchange root claim binding mismatch")
+	}
+	message, err := formalCoxBlockwiseExchangeRootClaimUnsigned(claim)
+	if err != nil {
+		return "", err
+	}
+	defer clear(message)
+	if !ed25519.Verify(senderPin, message, claim.Signature) {
+		return "", fmt.Errorf("formal-cox: exchange root claim signature is invalid")
+	}
+	return expected.InputRootSHA256, nil
+}
+
+// ValidatePeerRootClaim checks a canonical signed peer claim before any
+// checkpoint mutation. Start repeats this check under the same controller
+// lock, so callers cannot replace the claim after preflight.
+func (controller *formalCoxBlockwiseExchangeController) ValidatePeerRootClaim(
+	step formalCoxBlockwiseWorkerStep, attempt [32]byte,
+	claim formalCoxBlockwiseExchangeRootClaim,
+) (string, error) {
+	if controller == nil {
+		return "", fmt.Errorf("formal-cox: exchange controller is unavailable")
+	}
+	controller.mu.Lock()
+	defer controller.mu.Unlock()
+	return controller.validatePeerRootClaimLocked(step, attempt, claim)
+}
+
+// PublicInputRoot computes only the local source commitment for diagnostics
+// and root-claim construction. It cannot start a worker: Start accepts only a
+// signed peer root claim and recomputes the local commitment itself.
 func (controller *formalCoxBlockwiseExchangeController) PublicInputRoot(
 	step formalCoxBlockwiseWorkerStep,
 ) (string, error) {
@@ -83,7 +284,8 @@ func (controller *formalCoxBlockwiseExchangeController) PublicInputRoot(
 }
 
 func (controller *formalCoxBlockwiseExchangeController) Start(
-	step formalCoxBlockwiseWorkerStep, attempt, master [32]byte, pairedRoot string,
+	step formalCoxBlockwiseWorkerStep, attempt, master [32]byte,
+	peerClaim formalCoxBlockwiseExchangeRootClaim,
 ) error {
 	if controller == nil {
 		return fmt.Errorf("formal-cox: exchange controller is unavailable")
@@ -93,6 +295,10 @@ func (controller *formalCoxBlockwiseExchangeController) Start(
 	if controller.closed || controller.started || controller.transport == nil ||
 		!controller.transport.peerBound {
 		return fmt.Errorf("formal-cox: exchange controller is not peer-bound")
+	}
+	pairedRoot, err := controller.validatePeerRootClaimLocked(step, attempt, peerClaim)
+	if err != nil {
+		return err
 	}
 	bound, err := controller.bridge.BeginAttempt(step, attempt, pairedRoot)
 	if err != nil {

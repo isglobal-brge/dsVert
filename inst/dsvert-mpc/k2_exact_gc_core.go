@@ -35,18 +35,19 @@ type exactGCOperation string
 type exactGCMulBackend string
 
 const (
-	exactGCCompareSigned        exactGCOperation  = "compare-signed"
-	exactGCTruncateFloor        exactGCOperation  = "truncate-floor"
-	exactGCTruncateNearestEven  exactGCOperation  = "truncate-nearest-ties-to-even"
-	exactGCMulTruncateChecked   exactGCOperation  = "mul-truncate-checked"
-	exactGCHybridMulFinalize    exactGCOperation  = "hybrid-mul-finalize"
-	exactGCCountGuard           exactGCOperation  = "count-guard"
-	exactGCClampCount           exactGCOperation  = "clamp-count"
-	exactGCJointDPLaplace       exactGCOperation  = "joint-dp-laplace-v2"
-	exactGCAlignmentMaskRing128 exactGCOperation  = "alignment-mask-ring128"
-	exactGCCRTToRingChecked     exactGCOperation  = "crt-to-ring-checked-v1"
-	exactGCMulBackendDirect     exactGCMulBackend = "direct-wide"
-	exactGCMulBackendHybrid     exactGCMulBackend = "ring127-ot"
+	exactGCCompareSigned             exactGCOperation  = "compare-signed"
+	exactGCTruncateFloor             exactGCOperation  = "truncate-floor"
+	exactGCTruncateNearestEven       exactGCOperation  = "truncate-nearest-ties-to-even"
+	exactGCMulTruncateChecked        exactGCOperation  = "mul-truncate-checked"
+	exactGCHybridMulFinalize         exactGCOperation  = "hybrid-mul-finalize"
+	exactGCCountGuard                exactGCOperation  = "count-guard"
+	exactGCClampCount                exactGCOperation  = "clamp-count"
+	exactGCJointDPLaplace            exactGCOperation  = "joint-dp-laplace-v2"
+	exactGCAlignmentMaskRing128      exactGCOperation  = "alignment-mask-ring128"
+	exactGCCategoricalProductRing128 exactGCOperation  = "categorical-product-ring128"
+	exactGCCRTToRingChecked          exactGCOperation  = "crt-to-ring-checked-v1"
+	exactGCMulBackendDirect          exactGCMulBackend = "direct-wide"
+	exactGCMulBackendHybrid          exactGCMulBackend = "ring127-ot"
 
 	exactGCMinRingBits           = 2
 	exactGCMaxRingBits           = 4096
@@ -266,6 +267,18 @@ func (s exactGCCircuitSpec) validate() error {
 			s.BoundX != nil || s.BoundY != nil || s.MulBackend != "" {
 			return fmt.Errorf("exact-gc: invalid alignment-mask Ring128 session shape")
 		}
+	case exactGCCategoricalProductRing128:
+		// The categorical cross-product producer emits only scaled indicator
+		// coordinates.  Keep that invariant inside the circuit: it is both
+		// cheaper than a generic 128-bit multiplication and stricter on a
+		// malformed producer/backend transcript.
+		scale := new(big.Int).Lsh(big.NewInt(1), uint(s.FracBits))
+		if s.RingBits != 128 || s.FracBits < 8 || s.FracBits > 18 ||
+			s.Threshold != nil || s.BoundX == nil || s.BoundY == nil ||
+			s.BoundX.Cmp(scale) != 0 || s.BoundY.Cmp(scale) != 0 ||
+			s.MulBackend != exactGCMulBackendDirect {
+			return fmt.Errorf("exact-gc: invalid categorical scaled-indicator product shape")
+		}
 	case jointDPVectorOperation:
 		// Bounds, global sensitivity, dyadic probabilities and exact delta
 		// accounting live in the specialised vector policy.  The generic
@@ -360,6 +373,10 @@ func exactGCCircuitInputBits(spec exactGCCircuitSpec) int {
 			k = int(spec.Threshold.Int64())
 		}
 		return exactGCTypeBits(spec.RingBits) * (3*spec.VectorLen + 4*k + 1)
+	case exactGCCategoricalProductRing128:
+		// Garbler: x/y shares, n output masks and one validity mask.
+		// Evaluator: x/y shares.  Inputs remain Ring128 throughout.
+		return exactGCTypeBits(spec.RingBits) * (5*spec.VectorLen + 1)
 	case jointDPVectorOperation:
 		// The specialised policy enforces the complete stream-input bound once
 		// J and R are known.  Account here for both source shares, the public
@@ -425,7 +442,8 @@ func exactGCValidateShares(shares []*big.Int, spec exactGCCircuitSpec) error {
 }
 
 func exactGCInputShareCount(spec exactGCCircuitSpec) int {
-	if spec.Operation == exactGCMulTruncateChecked {
+	if spec.Operation == exactGCMulTruncateChecked ||
+		spec.Operation == exactGCCategoricalProductRing128 {
 		return 2 * spec.VectorLen
 	}
 	if spec.Operation == exactGCHybridMulFinalize {
@@ -1130,6 +1148,8 @@ func exactGCRandomOutputShares(spec exactGCCircuitSpec) ([]*big.Int, error) {
 		n++
 	} else if spec.Operation == exactGCAlignmentMaskRing128 {
 		n++
+	} else if spec.Operation == exactGCCategoricalProductRing128 {
+		n++
 	}
 	result := make([]*big.Int, n)
 	for i := range result {
@@ -1140,7 +1160,8 @@ func exactGCRandomOutputShares(spec exactGCCircuitSpec) ([]*big.Int, error) {
 			spec.Operation != exactGCClampCount &&
 			spec.Operation != exactGCHybridMulFinalize &&
 			spec.Operation != exactGCMulTruncateChecked &&
-			spec.Operation != exactGCAlignmentMaskRing128 {
+			spec.Operation != exactGCAlignmentMaskRing128 &&
+			spec.Operation != exactGCCategoricalProductRing128 {
 			bits = 1
 		}
 		if spec.Operation == exactGCHybridMulFinalize && i == spec.VectorLen {
@@ -1150,6 +1171,9 @@ func exactGCRandomOutputShares(spec exactGCCircuitSpec) ([]*big.Int, error) {
 			bits = 1
 		}
 		if spec.Operation == exactGCAlignmentMaskRing128 && i == spec.VectorLen {
+			bits = 1
+		}
+		if spec.Operation == exactGCCategoricalProductRing128 && i == spec.VectorLen {
 			bits = 1
 		}
 		v, err := crand.Int(crand.Reader, exactGCModulus(bits))
@@ -1207,6 +1231,9 @@ func exactGCUnpackOutputs(value *big.Int, spec exactGCCircuitSpec) []*big.Int {
 	if spec.Operation == exactGCAlignmentMaskRing128 {
 		count++
 	}
+	if spec.Operation == exactGCCategoricalProductRing128 {
+		count++
+	}
 	result := make([]*big.Int, count)
 	for i := range result {
 		result[i] = new(big.Int).Rsh(new(big.Int).Set(value), uint(i*stride))
@@ -1218,6 +1245,9 @@ func exactGCUnpackOutputs(value *big.Int, spec exactGCCircuitSpec) []*big.Int {
 			bits = 1
 		}
 		if spec.Operation == exactGCAlignmentMaskRing128 && i == spec.VectorLen {
+			bits = 1
+		}
+		if spec.Operation == exactGCCategoricalProductRing128 && i == spec.VectorLen {
 			bits = 1
 		}
 		result[i].And(result[i], exactGCMask(bits))
@@ -1399,9 +1429,55 @@ func main(g [%d]%s, e [%d]%s) bool {
 		return exactGCClampCountCircuitSource(spec)
 	case exactGCAlignmentMaskRing128:
 		return exactGCAlignmentMaskCircuitSource(spec)
+	case exactGCCategoricalProductRing128:
+		return exactGCCategoricalProductRing128CircuitSource(spec)
 	default:
 		panic("validated exact-gc operation is missing a circuit")
 	}
+}
+
+// exactGCCategoricalProductRing128CircuitSource reconstructs scaled one-hot
+// categorical indicator shares only inside the circuit.  On a valid input it
+// returns floor(x*y/scale), which is scale exactly when both indicators are
+// selected.  Invalid coordinates mask every output to zero and flip the final
+// XOR-shared validity bit, never revealing which coordinate failed.
+func exactGCCategoricalProductRing128CircuitSource(spec exactGCCircuitSpec) string {
+	typeBits := exactGCTypeBits(spec.RingBits)
+	uintType := fmt.Sprintf("uint%d", typeBits)
+	mask := exactGCMask(spec.RingBits).Text(16)
+	scale := spec.BoundX.Text(10)
+	n := spec.VectorLen
+	inputCount := 2 * n
+	var source strings.Builder
+	fmt.Fprintf(&source,
+		"package main\nfunc main(g [%d]%s, e [%d]%s) [%d]%s {\n",
+		3*n+1, uintType, inputCount, uintType, n+1, uintType)
+	fmt.Fprintf(&source, "\tvar out [%d]%s\n", n+1, uintType)
+	fmt.Fprintf(&source, "\tvar x [%d]%s\n\tvar y [%d]%s\n", n, uintType, n, uintType)
+	source.WriteString("\tvalid := true\n")
+	for i := 0; i < n; i++ {
+		fmt.Fprintf(&source, "\tx[%d] = (g[%d] + e[%d]) & %s(0x%s)\n",
+			i, i, i, uintType, mask)
+		fmt.Fprintf(&source, "\ty[%d] = (g[%d] + e[%d]) & %s(0x%s)\n",
+			i, n+i, n+i, uintType, mask)
+		fmt.Fprintf(&source,
+			"\tvalid = valid && (x[%d] == %s(0) || x[%d] == %s(%s)) && (y[%d] == %s(0) || y[%d] == %s(%s))\n",
+			i, uintType, i, uintType, scale, i, uintType, i, uintType, scale)
+	}
+	for i := 0; i < n; i++ {
+		fmt.Fprintf(&source, "\tv%d := %s(0)\n", i, uintType)
+		fmt.Fprintf(&source,
+			"\tif valid && x[%d] == %s(%s) && y[%d] == %s(%s) { v%d = %s(%s) }\n",
+			i, uintType, scale, i, uintType, scale, i, uintType, scale)
+		fmt.Fprintf(&source, "\tout[%d] = (v%d - g[%d]) & %s(0x%s)\n",
+			i, i, inputCount+i, uintType, mask)
+	}
+	fmt.Fprintf(&source, "\tout[%d] = %s(0)\n", n, uintType)
+	fmt.Fprintf(&source,
+		"\tif valid != ((g[%d] & %s(1)) != 0) { out[%d] = %s(1) }\n",
+		inputCount+n, uintType, n, uintType)
+	source.WriteString("\treturn out\n}\n")
+	return source.String()
 }
 
 // exactGCAlignmentMaskCircuitSource reconstructs each private alignment

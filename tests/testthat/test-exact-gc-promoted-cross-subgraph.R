@@ -103,6 +103,33 @@ test_that("production vecmul authority requires a live cross producer manifest",
     policy_id, plan_id), "not promoted", fixed = TRUE)
 })
 
+test_that("categorical producer selects only the scaled-indicator circuit", {
+  testthat::local_mocked_bindings(
+    .dsvert_mpc_exact_gc_supports_core_operation = function(...) TRUE,
+    .package = "dsVert")
+  categorical <- list(producer = "dp.categorical-cross.v1")
+  generic <- list(producer = "dp.gaussian-cross.v1")
+  expect_identical(
+    .exact_gc_checked_mul_stage_operation(categorical),
+    "categorical-product-ring128")
+  expect_identical(
+    .exact_gc_checked_mul_stage_operation(generic),
+    "mul-truncate-checked")
+  expect_error(
+    .exact_gc_checked_mul_stage_operation(list(producer = NULL)),
+    "producer state is unavailable", fixed = TRUE)
+})
+
+test_that("categorical producer retains the generic circuit on an older runtime", {
+  testthat::local_mocked_bindings(
+    .dsvert_mpc_exact_gc_supports_core_operation = function(...) FALSE,
+    .package = "dsVert")
+  expect_identical(
+    .exact_gc_checked_mul_stage_operation(
+      list(producer = "dp.categorical-cross.v1")),
+    "mul-truncate-checked")
+})
+
 test_that("purpose-bound cleanup deletes only its signed exact session", {
   .dsvert_test_set_remote_gate("disclosure_safe")
   on.exit(.dsvert_test_set_remote_gate("compatibility_tests"), add = TRUE)

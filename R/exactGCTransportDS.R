@@ -302,6 +302,9 @@
   if (identical(operation, "mul-truncate-checked")) {
     return("checked-ring-share")
   }
+  if (identical(operation, "categorical-product-ring128")) {
+    return("checked-ring-share")
+  }
   if (identical(operation, "alignment-mask-ring128")) {
     return("alignment-masked-ring128-share-v1")
   }
@@ -1257,6 +1260,8 @@
   }
   input_containers <- if (identical(operation, "mul-truncate-checked")) {
     7L * vector_len + 1L
+  } else if (identical(operation, "categorical-product-ring128")) {
+    5L * vector_len + 1L
   } else if (identical(
       operation, "joint-dp-vector-gaussian-one-draw-v1")) {
     # Two 128-bit source shares, two private 128-bit sampler words and sign
@@ -1279,6 +1284,9 @@
     if (ring_bits == 127L && allowed_spec$frac_bits >= 1L &&
         allowed_spec$frac_bits <= 126L) 256L else
       .exact_gc_direct_mul_max_chunk(ring_bits)
+  } else if (identical(operation, "categorical-product-ring128")) {
+    as.integer(floor((.DSVERT_EXACT_GC_MAX_CIRCUIT_TYPE_BITS /
+      (.exact_gc_record_bytes(ring_bits) * 8L) - 1L) / 5L))
   } else 4096L
   if (vector_len > max_vector) {
     .dsvert_resource_oversize(
@@ -1290,7 +1298,8 @@
       circuit_bits, .DSVERT_EXACT_GC_MAX_CIRCUIT_TYPE_BITS,
       "exact-gc source circuit type")
   }
-  source_records <- if (identical(operation, "mul-truncate-checked")) {
+  source_records <- if (operation %in% c(
+      "mul-truncate-checked", "categorical-product-ring128")) {
     2L * vector_len
   } else if (identical(operation, "alignment-mask-ring128")) {
     vector_len + 2L * alignment_k
@@ -2273,7 +2282,8 @@
   if (!is.null(state$analysis_binding_sha256)) {
     result$analysis_binding_sha256 <- state$analysis_binding_sha256
   }
-  if (identical(state$operation, "mul-truncate-checked")) {
+  if (state$operation %in% c(
+      "mul-truncate-checked", "categorical-product-ring128")) {
     result$mul_plan_id <- state$mul_plan$plan_id
     result$mul_backend <- state$mul_plan$backend
     result$bound_x <- state$mul_plan$bound_x
@@ -2397,7 +2407,8 @@
   required <- c("version", "kind", "ring_bits", "vector_len", "share",
                 "context_hash")
   if (state$operation %in% c(
-      "mul-truncate-checked", "joint-dp-laplace-v2",
+      "mul-truncate-checked", "categorical-product-ring128",
+      "joint-dp-laplace-v2",
       "joint-dp-vector-laplace-v3",
       "joint-dp-vector-gaussian-one-draw-v1",
       "alignment-mask-ring128")) {
@@ -2949,6 +2960,7 @@
   operation <- .exact_gc_scalar(operation, "exact-gc operation")
   if (!operation %in% c(
       "compare-signed", "truncate-floor", "mul-truncate-checked",
+      "categorical-product-ring128",
       "count-guard", "clamp-count", "joint-dp-laplace-v2",
       "joint-dp-vector-laplace-v3",
       "joint-dp-vector-gaussian-one-draw-v1",
@@ -2992,6 +3004,8 @@
   }
   input_containers <- if (identical(operation, "mul-truncate-checked")) {
     7L * vector_len + 1L
+  } else if (identical(operation, "categorical-product-ring128")) {
+    5L * vector_len + 1L
   } else if (identical(
       operation, "joint-dp-vector-gaussian-one-draw-v1")) {
     7L * vector_len + 1L
@@ -3004,7 +3018,8 @@
   } else {
     3L * vector_len
   }
-  if (identical(operation, "mul-truncate-checked")) {
+  if (operation %in% c(
+      "mul-truncate-checked", "categorical-product-ring128")) {
     if (!is.list(mul_plan) ||
         !identical(as.integer(mul_plan$ring_bits), ring) ||
         !identical(as.integer(mul_plan$frac_bits), frac_bits) ||
@@ -3024,10 +3039,22 @@
     128L
   } else if (identical(operation, "mul-truncate-checked")) {
     as.integer(mul_plan$max_chunk)
+  } else if (identical(operation, "categorical-product-ring128")) {
+    as.integer(floor((.DSVERT_EXACT_GC_MAX_CIRCUIT_TYPE_BITS /
+      (.exact_gc_record_bytes(ring) * 8L) - 1L) / 5L))
   } else 4096L
   if (vector_len > max_vector) {
     .dsvert_resource_oversize(
       vector_len, max_vector, "exact-gc circuit vector shape")
+  }
+  if (identical(operation, "categorical-product-ring128")) {
+    expected_bound <- format(2^frac_bits, scientific = FALSE, trim = TRUE)
+    if (ring != 128L || frac_bits < 8L || frac_bits > 18L ||
+        !identical(mul_plan$backend, "direct-wide") ||
+        !identical(mul_plan$bound_x, expected_bound) ||
+        !identical(mul_plan$bound_y, expected_bound)) {
+      stop("Invalid categorical exact MPC product shape.", call. = FALSE)
+    }
   }
   circuit_bits <- .exact_gc_record_bytes(ring) * 8L * input_containers
   if (circuit_bits > .DSVERT_EXACT_GC_MAX_CIRCUIT_TYPE_BITS) {

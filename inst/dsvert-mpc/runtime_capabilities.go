@@ -92,6 +92,7 @@ func runtimeCapabilities() runtimeCapabilitiesOutput {
 				},
 				CoreOperations: []string{
 					"compare-signed", "truncate-floor", "mul-truncate-checked",
+					"categorical-product-ring128",
 					"count-guard", "clamp-count", "joint-dp-laplace-v2",
 					"joint-dp-vector-laplace-v3", "alignment-mask-ring128",
 				},

@@ -24,7 +24,8 @@
 .dsvert_mpc_validate_feature <- function(value, capability_id,
                                          protocol_version, commands,
                                          operations,
-                                         core_operations = NULL) {
+                                         core_operations = NULL,
+                                         optional_core_operations = NULL) {
   expected <- c("available", "capability_id", "protocol_version",
                 "commands", "operations")
   if (!is.null(core_operations)) expected <- c(expected, "core_operations")
@@ -34,8 +35,12 @@
     identical(value$protocol_version, protocol_version) &&
     identical(as.character(value$commands), commands) &&
     identical(as.character(value$operations), operations) &&
-    (is.null(core_operations) ||
-       identical(as.character(value$core_operations), core_operations))
+    (is.null(core_operations) || {
+      observed <- as.character(value$core_operations)
+      identical(observed, core_operations) ||
+        (!is.null(optional_core_operations) &&
+           identical(observed, optional_core_operations))
+    })
 }
 
 #' Validate the deterministic Go runtime compatibility manifest
@@ -87,7 +92,12 @@
           "alignment-mask-ring128"),
         c("compare-signed", "truncate-floor", "mul-truncate-checked",
           "count-guard", "clamp-count", "joint-dp-laplace-v2",
-          "joint-dp-vector-laplace-v3", "alignment-mask-ring128")) ||
+          "joint-dp-vector-laplace-v3", "alignment-mask-ring128"),
+        optional_core_operations = c(
+          "compare-signed", "truncate-floor", "mul-truncate-checked",
+          "categorical-product-ring128", "count-guard", "clamp-count",
+          "joint-dp-laplace-v2", "joint-dp-vector-laplace-v3",
+          "alignment-mask-ring128")) ||
       !.dsvert_mpc_validate_feature(
         capabilities$typed_source_stream,
         "typed_source_stream_probe_v1", "dsvert-typed-source-stream-v1",
@@ -204,6 +214,18 @@
     .dsvert_mpc_runtime_error("a required capability is unavailable")
   }
   manifest
+}
+
+.dsvert_mpc_exact_gc_supports_core_operation <- function(operation) {
+  operation <- as.character(operation)
+  if (length(operation) != 1L || is.na(operation) ||
+      !nzchar(operation)) {
+    return(FALSE)
+  }
+  manifest <- .dsvert_mpc_runtime_manifest()
+  identical(manifest$capabilities$exact_gc$available, TRUE) &&
+    operation %in% as.character(
+      manifest$capabilities$exact_gc$core_operations)
 }
 
 .dsvert_mpc_require_compatible_binary <- function(bin_path) {

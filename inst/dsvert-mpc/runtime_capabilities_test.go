@@ -53,6 +53,7 @@ func TestRuntimeCapabilitiesContract(t *testing.T) {
 				"alignment-mask-ring128"}) ||
 		!reflect.DeepEqual(manifest.Capabilities.ExactGC.CoreOperations,
 			[]string{"compare-signed", "truncate-floor", "mul-truncate-checked",
+				"categorical-product-ring128",
 				"count-guard", "clamp-count", "joint-dp-laplace-v2",
 				"joint-dp-vector-laplace-v3", "alignment-mask-ring128"}) {
 		t.Fatalf("invalid exact-GC capability: %+v", manifest.Capabilities.ExactGC)

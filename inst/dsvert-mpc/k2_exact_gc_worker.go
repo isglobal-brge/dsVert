@@ -455,7 +455,8 @@ func exactGCSessionFromWire(sessionHex, masterB64, garblerID, evaluatorID,
 		Operation: operationValue, RingBits: ringBits,
 		FracBits: fracBits, Threshold: threshold, VectorLen: vectorLen,
 	}
-	if operationValue == exactGCMulTruncateChecked {
+	if operationValue == exactGCMulTruncateChecked ||
+		operationValue == exactGCCategoricalProductRing128 {
 		spec.MulBackend = exactGCMulBackend(mulBackend)
 		spec.BoundX = new(big.Int)
 		spec.BoundY = new(big.Int)
@@ -516,7 +517,8 @@ func exactGCEncodeWorkerResult(shares []*big.Int,
 		result.Share = encoded
 		return result, nil
 	}
-	if session.Spec.Operation == exactGCMulTruncateChecked {
+	if session.Spec.Operation == exactGCMulTruncateChecked ||
+		session.Spec.Operation == exactGCCategoricalProductRing128 {
 		if len(shares) != session.Spec.VectorLen+1 {
 			return exactGCWorkerResult{}, fmt.Errorf("invalid checked multiplication result shape")
 		}

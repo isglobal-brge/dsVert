@@ -39,6 +39,20 @@
     y = paste0("k2_exact_vecmul_y_", suffix))
 }
 
+.exact_gc_checked_mul_stage_operation <- function(stage) {
+  if (!is.list(stage) || !is.character(stage$producer) ||
+      length(stage$producer) != 1L) {
+    stop("Exact-gc multiplication producer state is unavailable.",
+         call. = FALSE)
+  }
+  if (identical(stage$producer, "dp.categorical-cross.v1") &&
+      .dsvert_mpc_exact_gc_supports_core_operation(
+        "categorical-product-ring128")) {
+    return("categorical-product-ring128")
+  }
+  "mul-truncate-checked"
+}
+
 .exact_gc_checked_mul_contract <- function(
     ss, batch_operation_id, operation_id, n, total_n, chunk_index,
     chunk_count, policy_id, plan_id) {
@@ -90,7 +104,8 @@
     policy_id = policy_id, plan_id = plan_id, plan = input_stage$plan,
     chunk_size = chunk_size,
     ring_bits = as.integer(input_stage$plan$ring_bits),
-    frac_bits = as.integer(input_stage$plan$frac_bits))
+    frac_bits = as.integer(input_stage$plan$frac_bits),
+    operation = .exact_gc_checked_mul_stage_operation(input_stage))
 }
 
 .exact_gc_checked_mul_input_stage <- function(ss, contract) {
@@ -141,7 +156,7 @@
   source_share <- gsub("[\r\n]", "", jsonlite::base64_enc(c(x_chunk, y_chunk)))
   .exact_gc_stage_share(
     ss, keys$source, source_share, contract$ring_bits, contract$n,
-    .DSVERT_EXACT_GC_CHECKED_MUL_PRODUCER, "mul-truncate-checked",
+    .DSVERT_EXACT_GC_CHECKED_MUL_PRODUCER, contract$operation,
     contract$purpose, contract$frac_bits, "checked-ring-share")
   if (is.null(ss$.exact_gc_checked_mul_stages)) {
     ss$.exact_gc_checked_mul_stages <- list()
@@ -157,7 +172,7 @@
   ss$.exact_gc_checked_mul_stages[[operation_id]] <- stage_binding
   result <- .exact_gc_init_impl(
     ss, session_id, operation_id, .DSVERT_EXACT_GC_CAPABILITY,
-    keys$source, keys$output, "mul-truncate-checked",
+    keys$source, keys$output, contract$operation,
     contract$ring_bits, contract$frac_bits,
     contract$n, contract$purpose, mul_plan = contract$plan, binary = binary)
   result
@@ -254,7 +269,7 @@ exactGCVecmulStartDS <- function(
   output <- ss$.exact_gc_outputs[[keys$output]]
   if (is.null(output) || !identical(state$status, "complete") ||
       !identical(output$kind, "checked-ring-share") ||
-      !identical(output$operation, "mul-truncate-checked") ||
+      !identical(output$operation, contract$operation) ||
       !identical(output$purpose, contract$purpose) ||
       !identical(output$vector_len, contract$n) ||
       !is.character(output$validity_share)) {
@@ -548,7 +563,7 @@ exactGCVecmulValidityReceiveDS <- function(
   }
   value <- .exact_gc_consume_output(
     ss, keys$output, operation_id, "checked-ring-share",
-    "mul-truncate-checked", contract$purpose,
+    contract$operation, contract$purpose,
     contract$ring_bits, contract$frac_bits, contract$n,
     .DSVERT_EXACT_GC_CHECKED_MUL_PRODUCER)
   .exact_gc_validate_residue_records(

@@ -75,6 +75,26 @@ test_that("the dedicated synopsis execution API is explicit and minimal", {
   expect_identical(prepare$.signer, quote(NULL))
 })
 
+test_that("execution context authenticates one manifest record per request", {
+  fixture <- .synopsis_execution_helpers$.synopsis_authorization_fixture(2L)
+  peer <- .synopsis_execution_authorities(fixture)[[1L]]
+  authorized <- .synopsis_execution_authorize(fixture, peer)
+  calls <- 0L
+  counted_cache <- function(...) {
+    calls <<- calls + 1L
+    fixture$input$cache_get(...)
+  }
+  context <- .dsvert_dp_synopsis_execution_context_v1(
+    authorized$state, authorized$value$session_id,
+    .policy = fixture$input$policies[[peer]],
+    .secret = fixture$input$secrets[[peer]],
+    .identity = list(identity_pk = unname(
+      fixture$input$fixture$pins[[peer]])),
+    .cache_get = counted_cache)
+  expect_identical(calls, 1L)
+  expect_identical(context$authorization, authorized$value)
+})
+
 test_that("PREPARE is authority-only for K=2/3/5 and signs a closed receipt", {
   .synopsis_execution_require()
   receipt_fields <- c(

@@ -324,3 +324,52 @@ test_that("authorized synopsis sessions admit only their bound transport state",
       .cache_get = fixture$input$cache_get),
     "another DP protocol")
 })
+
+test_that("authorization reuses only a manifest authenticated in the same call", {
+  fixture <- .synopsis_authorization_fixture(2L)
+  peer <- fixture$peers[[1L]]
+  authorized <- .synopsis_authorize_test(fixture, peer)
+  policy <- fixture$input$policies[[peer]]
+  secret <- fixture$input$secrets[[peer]]
+  identity <- list(identity_pk = unname(fixture$input$fixture$pins[[peer]]))
+  calls <- 0L
+  counted_cache <- function(...) {
+    calls <<- calls + 1L
+    fixture$input$cache_get(...)
+  }
+  manifest_json <- .dsvert_dp_synopsis_authorized_manifest_v1(
+    authorized$value$manifest_sha256, policy, secret, counted_cache)
+  expect_identical(calls, 1L)
+  observed <- .dsvert_dp_synopsis_session_authorization_validate_v1(
+    authorized$state, authorized$value$session_id,
+    .policy = policy, .secret = secret, .identity = identity,
+    .cache_get = function(...) stop("manifest cache was read twice"),
+    .manifest_json = manifest_json)
+  expect_identical(observed, authorized$value)
+  expect_identical(calls, 1L)
+
+  tampered <- paste0("x", substr(manifest_json, 2L, nchar(manifest_json)))
+  expect_error(.dsvert_dp_synopsis_session_authorization_validate_v1(
+    authorized$state, authorized$value$session_id,
+    .policy = policy, .secret = secret, .identity = identity,
+    .cache_get = function(...) stop("manifest cache was read twice"),
+    .manifest_json = tampered), "manifest")
+
+  policy_calls <- 0L
+  context <- testthat::with_mocked_bindings(
+    .dsvert_dp_synopsis_session_context_v1(
+      authorized$state, authorized$value$session_id),
+    .dsvert_dp_secret = function() secret,
+    .get_identity_keypair = function() identity,
+    .dsvert_dp_synopsis_policy_for_manifest_v1 = function(
+        ..., .with_manifest = FALSE) {
+      expect_true(isTRUE(.with_manifest))
+      policy_calls <<- policy_calls + 1L
+      list(policy = policy, manifest_json = manifest_json)
+    },
+    .dsvert_dp_synopsis_manifest_cache_get_readonly_v1 = function(...) {
+      stop("manifest cache was read twice", call. = FALSE)
+    }, .package = "dsVert")
+  expect_identical(policy_calls, 1L)
+  expect_identical(context$authorization, authorized$value)
+})

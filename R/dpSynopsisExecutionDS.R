@@ -88,18 +88,26 @@
     .cache_get = .dsvert_dp_capsule_manifest_cache_get) {
   if (is.null(.policy)) .policy <- .dsvert_dp_policy()
   if (is.null(.secret)) .secret <- .dsvert_dp_secret()
+  header <- .dsvert_dp_synopsis_session_authorization_value_v1(
+    ss, session_id)
+  manifest_json <- .dsvert_dp_synopsis_authorized_manifest_v1(
+    header$manifest_sha256, .policy, .secret, .cache_get)
   authorization <-
     .dsvert_dp_synopsis_session_authorization_validate_v1(
-      ss, session_id, .policy, .secret, .identity, .cache_get)
+      ss, session_id, .policy, .secret, .identity, .cache_get,
+      .manifest_json = manifest_json)
   .dsvert_dp_synopsis_execution_context_from_authorization_v1(
-    authorization, .policy, .secret, .cache_get)
+    authorization, .policy, .secret, .cache_get,
+    .manifest_json = manifest_json)
 }
 
 .dsvert_dp_synopsis_execution_context_from_authorization_v1 <- function(
     authorization, policy, secret,
-    cache_get = .dsvert_dp_capsule_manifest_cache_get) {
-  manifest_json <- .dsvert_dp_synopsis_cached_manifest_v1(
-    authorization$manifest_sha256, policy, secret, cache_get)
+    cache_get = .dsvert_dp_capsule_manifest_cache_get,
+    .manifest_json = NULL) {
+  manifest_json <- .dsvert_dp_synopsis_authorized_manifest_v1(
+    authorization$manifest_sha256, policy, secret, cache_get,
+    .manifest_json)
   manifest <- .dsvert_dp_capsule_source_manifest(manifest_json)
   artifact <- authorization$artifact
   semantic <- artifact$semantic

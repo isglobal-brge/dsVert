@@ -1884,7 +1884,11 @@
 }
 
 .dsvert_dp_synopsis_policy_for_manifest_v1 <- function(
-    manifest_sha256, secret, state_path = NULL) {
+    manifest_sha256, secret, state_path = NULL, .with_manifest = FALSE) {
+  if (!is.logical(.with_manifest) || length(.with_manifest) != 1L ||
+      is.na(.with_manifest)) {
+    stop("Invalid synopsis policy-context selector.", call. = FALSE)
+  }
   if (is.null(state_path)) {
     state_path <- .dsvert_dp_synopsis_state_path_v1()
   }
@@ -1899,6 +1903,9 @@
   if (is.null(record)) stop(.dsvert_phase_not_ready_condition())
   snapshot <- .dsvert_dp_synopsis_policy_snapshot_validate_v1(
     record$policy_snapshot, locator$synopsis_state_path)
+  if (isTRUE(.with_manifest)) {
+    return(list(policy = snapshot$policy, manifest_json = record$manifest_json))
+  }
   snapshot$policy
 }
 

@@ -7,6 +7,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"os"
 	"sync"
 )
 
@@ -190,12 +191,18 @@ func (owner *formalGLMRegisteredPhase19AccumulatorStoreV1) validateLocked() erro
 	return nil
 }
 
-func newFormalGLMRegisteredPhase19AccumulatorStoreV1(
+func formalGLMRegisteredPhase19NewAccumulatorStoreV1(
 	runtime *formalGLMRegisteredPhase19EphemeralRuntimeV1,
-	peer, directory string, maxBytes int64,
+	peer string,
+	open func(formalGLMPhase15Plan, formalGLMPhase19Context, string, [32]byte) (
+		*formalGLMPhase19StreamStore, error,
+	),
 ) (*formalGLMRegisteredPhase19AccumulatorStoreV1, error) {
 	if runtime == nil {
 		return nil, fmt.Errorf("formal-glm registered Phase19: missing runtime")
+	}
+	if open == nil {
+		return nil, fmt.Errorf("formal-glm registered Phase19: missing accumulator store opener")
 	}
 	// Release the runtime mutex before the raw constructor touches disk.
 	runtime.mu.Lock()
@@ -219,8 +226,7 @@ func newFormalGLMRegisteredPhase19AccumulatorStoreV1(
 		backendKey:                    runtime.backendKey,
 	}
 	runtime.mu.Unlock()
-	store, err := newFormalGLMPhase19StreamStore(
-		directory, maxBytes, owner.plan, owner.context, peer, owner.backendKey)
+	store, err := open(owner.plan, owner.context, peer, owner.backendKey)
 	if err != nil {
 		clear(owner.backendKey[:])
 		return nil, err
@@ -232,6 +238,37 @@ func newFormalGLMRegisteredPhase19AccumulatorStoreV1(
 		return nil, err
 	}
 	return owner, nil
+}
+
+func newFormalGLMRegisteredPhase19AccumulatorStoreV1(
+	runtime *formalGLMRegisteredPhase19EphemeralRuntimeV1,
+	peer, directory string, maxBytes int64,
+) (*formalGLMRegisteredPhase19AccumulatorStoreV1, error) {
+	return formalGLMRegisteredPhase19NewAccumulatorStoreV1(
+		runtime, peer,
+		func(plan formalGLMPhase15Plan, context formalGLMPhase19Context,
+			storePeer string, backendKey [32]byte,
+		) (*formalGLMPhase19StreamStore, error) {
+			return newFormalGLMPhase19StreamStore(
+				directory, maxBytes, plan, context, storePeer, backendKey)
+		})
+}
+
+// newFormalGLMRegisteredPhase19AccumulatorStoreRootedV1 keeps the raw block
+// shares below a caller-owned Rock root. Live registered jobs must use this
+// constructor so replacing a pathname cannot redirect protected blocks.
+func newFormalGLMRegisteredPhase19AccumulatorStoreRootedV1(
+	runtime *formalGLMRegisteredPhase19EphemeralRuntimeV1,
+	peer string, root *os.Root, directory string, maxBytes int64,
+) (*formalGLMRegisteredPhase19AccumulatorStoreV1, error) {
+	return formalGLMRegisteredPhase19NewAccumulatorStoreV1(
+		runtime, peer,
+		func(plan formalGLMPhase15Plan, context formalGLMPhase19Context,
+			storePeer string, backendKey [32]byte,
+		) (*formalGLMPhase19StreamStore, error) {
+			return newFormalGLMPhase19StreamStoreRootedV1(
+				root, directory, maxBytes, plan, context, storePeer, backendKey)
+		})
 }
 
 func formalGLMRegisteredPhase19ValidateAccumulatorAppendLockedV1(

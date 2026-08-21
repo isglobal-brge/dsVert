@@ -6,6 +6,8 @@ import (
 	"io"
 	"math/big"
 	"net"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -235,6 +237,53 @@ func formalGLMRegisteredExecutionLegacyPlanMustForTest(
 		t.Fatal(err)
 	}
 	return legacy
+}
+
+func TestFormalGLMRegisteredPhase19AccumulatorRootedStorePinsRockDirectory(
+	t *testing.T,
+) {
+	base := formalGLMRegisteredPhase19FanInTestCached(t, 2)
+	runtime := formalGLMRegisteredPhase19FanInTestRuntime(t, base)
+	plan := base.loader.provenance.source.plan
+	legacy := formalGLMRegisteredExecutionLegacyPlanMustForTest(t, plan)
+	_, required, err := formalGLMPhase19StreamStoreRequiredBytes(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	parent := t.TempDir()
+	rock := filepath.Join(parent, "rock")
+	if err := os.Mkdir(rock, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.OpenRoot(rock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	anchored := filepath.Join(parent, "anchored")
+	if err := os.Rename(rock, anchored); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(rock, 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	owner, err := newFormalGLMRegisteredPhase19AccumulatorStoreRootedV1(
+		runtime, plan.DesignatedComputePeers[0], root, "accumulator", required)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer owner.Destroy()
+	path := filepath.Join(anchored, "accumulator", formalGLMPhase19StreamStoreName)
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 ||
+		info.Mode().Perm() != 0o600 || !exactGCPrivateOwnedRegular(info) {
+		t.Fatalf("rooted accumulator store escaped its opened Rock root: %+v / %v", info, err)
+	}
+	if _, err := os.Stat(filepath.Join(rock, "accumulator", formalGLMPhase19StreamStoreName)); !os.IsNotExist(err) {
+		t.Fatalf("rooted accumulator store followed replacement Rock path: %v", err)
+	}
 }
 
 func TestFormalGLMRegisteredPhase19AccumulatorK2DuplexAndFailClosed(

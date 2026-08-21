@@ -892,7 +892,8 @@ test_that("dynamic exact truncation and count guard complete over opaque spools"
     testthat::with_mocked_bindings(
       do.call(fun, c(list(...), list(.policy = policy_for(peer_name)))),
       .S = function(session_id) ss,
-      .dsvert_dp_alignment_mask_contract = function(policy, manifest_json) {
+      .dsvert_dp_alignment_mask_contract = function(
+          policy, manifest_json, source_contract = NULL) {
         parsed
       },
       .package = "dsVert")

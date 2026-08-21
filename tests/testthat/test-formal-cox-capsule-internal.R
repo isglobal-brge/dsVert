@@ -373,6 +373,39 @@ test_that("K=2/3/5 fixed Ring128 shares reconstruct only inside the fixture", {
   }
 })
 
+test_that("formal Cox local source blocks preserve the canonical lattice layout", {
+  fixture <- .formal_cox_fixture()
+  for (k in c(2L, 3L, 5L)) {
+    sealed <- .formal_cox_schema(k, fixture = fixture)
+    capacity <- as.integer(sealed$schema$unsigned$capacity)
+    for (peer in names(sealed$schema$unsigned$peer_pinset)) {
+      rows <- .formal_cox_source_frame(fixture, sealed$schema, peer)
+      expected <- .dsvert_formal_cox_source_rows(
+        sealed$schema, peer, rows)
+      expected_lines <- unname(sprintf("%.0f", as.vector(t(expected))))
+      for (block_capacity in c(1L, 7L, capacity)) {
+        blocks <- ceiling(capacity / block_capacity)
+        observed <- unlist(lapply(seq.int(0L, blocks - 1L), function(index) {
+          .dsvert_formal_cox_source_block_decimal_lines(
+            sealed$schema, peer, rows, index, block_capacity)
+        }), use.names = FALSE)
+        expect_identical(observed, expected_lines)
+        expect_false(any(observed == "-0"))
+        expect_lte(length(.dsvert_formal_cox_source_block_decimal_lines(
+          sealed$schema, peer, rows, 0L, block_capacity)),
+          block_capacity * ncol(expected))
+      }
+      expect_error(.dsvert_formal_cox_source_block_decimal_lines(
+        sealed$schema, peer, rows, blocks, 7L),
+        class = "dsvert_formal_cox_error")
+    }
+    expect_error(.dsvert_formal_cox_source_block_decimal_lines(
+      sealed$schema, "not-a-peer",
+      .formal_cox_source_frame(fixture, sealed$schema, "site1"), 0L, 7L),
+      class = "dsvert_formal_cox_error")
+  }
+})
+
 test_that("formal Cox plaintext fixture has no package or DSI surface", {
   exports <- getNamespaceExports("dsVert")
   expect_false(any(grepl("formal.*cox|cox.*formal", exports,

@@ -159,8 +159,17 @@
     serialize = FALSE, raw = TRUE)[seq_len(16L)]
 }
 
-.dsvert_formal_cox_source_rows <- function(schema, source_name, rows) {
+.dsvert_formal_cox_source_block_values <- function(
+    schema, source_name, rows, start, count) {
   numeric <- .dsvert_formal_cox_schema_numeric(schema)
+  source_name <- .dsvert_formal_cox_label(source_name, "Cox source name")
+  if (!source_name %in% names(schema$unsigned$peer_pinset)) {
+    .dsvert_formal_cox_abort("The Cox source is outside the pinned consortium.")
+  }
+  start <- .dsvert_formal_cox_integer(
+    start, "Cox source block start", 0, numeric$capacity - 1L)
+  count <- .dsvert_formal_cox_integer(
+    count, "Cox source block count", 1, numeric$capacity - start)
   owners <- unlist(schema$unsigned$covariate_owners, use.names = TRUE)
   outcome <- identical(source_name, schema$unsigned$outcome_owner)
   local_x <- names(owners)[owners == source_name]
@@ -178,8 +187,9 @@
   if (!is.logical(rows$valid) || anyNA(rows$valid)) {
     .dsvert_formal_cox_abort("The local Cox validity lane is malformed.")
   }
+  rows <- rows[seq.int(start + 1L, length.out = count), , drop = FALSE]
   valid <- rows$valid
-  values <- matrix(0, nrow = numeric$capacity,
+  values <- matrix(0, nrow = count,
                    ncol = length(.dsvert_formal_cox_layout(schema)),
                    dimnames = list(NULL, .dsvert_formal_cox_layout(schema)))
   values[, paste0("validity__", source_name)] <- as.numeric(valid)
@@ -189,7 +199,7 @@
     stop_index <- match(stop_value, numeric$grid)
     response_valid <- is.finite(stop_value) & !is.na(stop_index) &
       is.finite(status) & status %in% c(0, 1)
-    entry_index <- rep(0L, numeric$capacity)
+    entry_index <- rep(0L, count)
     if (schema$unsigned$entry_mode == "single_interval") {
       entry_value <- suppressWarnings(as.numeric(rows$entry_tick))
       entry_index <- match(entry_value, numeric$grid)
@@ -221,6 +231,37 @@
   # at-risk floor before a row can influence a score.
   values[, paste0("validity__", source_name)] <- as.numeric(valid)
   values
+}
+
+# The bridge to the recipient-encrypted Go producer consumes one local block
+# at a time.  This helper deliberately returns only canonical local lattice
+# lines: it neither derives masks nor materialises either recipient share.
+.dsvert_formal_cox_source_block_decimal_lines <- function(
+    schema, source_name, rows, block_index, block_capacity) {
+  numeric <- .dsvert_formal_cox_schema_numeric(schema)
+  block_capacity <- .dsvert_formal_cox_integer(
+    block_capacity, "Cox physical block capacity", 1, numeric$capacity)
+  blocks <- ceiling(numeric$capacity / block_capacity)
+  block_index <- .dsvert_formal_cox_integer(
+    block_index, "Cox source block index", 0, blocks - 1L)
+  start <- block_index * block_capacity
+  count <- min(block_capacity, numeric$capacity - start)
+  values <- .dsvert_formal_cox_source_block_values(
+    schema, source_name, rows, start, count)
+  lines <- as.vector(t(values))
+  if (any(!is.finite(lines)) || any(lines != floor(lines)) ||
+      any(abs(lines) > 2^53 - 1)) {
+    .dsvert_formal_cox_abort(
+      "The local Cox source block exceeds the exact decimal transport range.")
+  }
+  lines[lines == 0] <- 0
+  unname(sprintf("%.0f", lines))
+}
+
+.dsvert_formal_cox_source_rows <- function(schema, source_name, rows) {
+  numeric <- .dsvert_formal_cox_schema_numeric(schema)
+  .dsvert_formal_cox_source_block_values(
+    schema, source_name, rows, start = 0, count = numeric$capacity)
 }
 
 .dsvert_formal_cox_bundle_mac <- function(root, unsigned) {

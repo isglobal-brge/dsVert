@@ -11,10 +11,15 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/markkurossi/mpc/circuit"
 )
 
 type formalGLMPhase15TestIdentities struct {
@@ -61,6 +66,96 @@ func hexString(value []byte) string {
 		result[2*i], result[2*i+1] = digits[b>>4], digits[b&15]
 	}
 	return string(result)
+}
+
+func formalGLMPhase15TestIsolatedCircuitCache(t testing.TB) {
+	t.Helper()
+	formalGLMPhase15CircuitCache.Lock()
+	previousEntries := formalGLMPhase15CircuitCache.entries
+	previousFlights := formalGLMPhase15CircuitCache.flights
+	formalGLMPhase15CircuitCache.entries = make(map[string]*circuit.Circuit)
+	formalGLMPhase15CircuitCache.flights = make(map[string]*formalGLMPhase15CircuitFlight)
+	formalGLMPhase15CircuitCache.Unlock()
+	t.Cleanup(func() {
+		formalGLMPhase15CircuitCache.Lock()
+		formalGLMPhase15CircuitCache.entries = previousEntries
+		formalGLMPhase15CircuitCache.flights = previousFlights
+		formalGLMPhase15CircuitCache.Unlock()
+	})
+}
+
+func TestFormalGLMPhase15CircuitCompileCoalesces(t *testing.T) {
+	formalGLMPhase15TestIsolatedCircuitCache(t)
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	secondEntered := make(chan struct{})
+	var calls atomic.Int32
+	compile := func(string) (*circuit.Circuit, error) {
+		if calls.Add(1) == 1 {
+			close(started)
+			<-release
+		}
+		return &circuit.Circuit{}, nil
+	}
+	type result struct {
+		circ *circuit.Circuit
+		err  error
+	}
+	results := make(chan result, 2)
+	var workers sync.WaitGroup
+	workers.Add(2)
+	go func() {
+		defer workers.Done()
+		circ, err := compileFormalGLMPhase15SourceWith("package main", "test", compile)
+		results <- result{circ: circ, err: err}
+	}()
+	<-started
+	go func() {
+		defer workers.Done()
+		close(secondEntered)
+		circ, err := compileFormalGLMPhase15SourceWith("package main", "test", compile)
+		results <- result{circ: circ, err: err}
+	}()
+	<-secondEntered
+	for index := 0; index < 128; index++ {
+		runtime.Gosched()
+	}
+	if calls.Load() != 1 {
+		close(release)
+		workers.Wait()
+		t.Fatalf("identical circuit compiled %d times", calls.Load())
+	}
+	close(release)
+	workers.Wait()
+	close(results)
+	for value := range results {
+		if value.err != nil || value.circ == nil {
+			t.Fatalf("coalesced compile failed: circuit=%v error=%v", value.circ, value.err)
+		}
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("identical circuit compiled %d times", calls.Load())
+	}
+}
+
+func TestFormalGLMPhase15CircuitCompileFailureDoesNotPoisonCache(t *testing.T) {
+	formalGLMPhase15TestIsolatedCircuitCache(t)
+
+	var calls atomic.Int32
+	compile := func(string) (*circuit.Circuit, error) {
+		if calls.Add(1) == 1 {
+			return nil, errors.New("expected compiler failure")
+		}
+		return &circuit.Circuit{}, nil
+	}
+	if circ, err := compileFormalGLMPhase15SourceWith("package main", "test", compile); err == nil || circ != nil {
+		t.Fatalf("failing compile returned circuit=%v error=%v", circ, err)
+	}
+	circ, err := compileFormalGLMPhase15SourceWith("package main", "test", compile)
+	if err != nil || circ == nil || calls.Load() != 2 {
+		t.Fatalf("cache retained a compiler failure: circuit=%v calls=%d error=%v", circ, calls.Load(), err)
+	}
 }
 
 func formalGLMPhase15TestIdentitySet(t testing.TB,

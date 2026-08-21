@@ -385,12 +385,37 @@ func validateFormalGLMPhase15Plan(plan formalGLMPhase15Plan) error {
 	return nil
 }
 
+type formalGLMPhase15CircuitFlight struct {
+	done chan struct{}
+	circ *circuit.Circuit
+	err  error
+}
+
 var formalGLMPhase15CircuitCache = struct {
 	sync.Mutex
 	entries map[string]*circuit.Circuit
-}{entries: make(map[string]*circuit.Circuit)}
+	flights map[string]*formalGLMPhase15CircuitFlight
+}{
+	entries: make(map[string]*circuit.Circuit),
+	flights: make(map[string]*formalGLMPhase15CircuitFlight),
+}
 
 func compileFormalGLMPhase15Source(source, label string) (*circuit.Circuit, error) {
+	return compileFormalGLMPhase15SourceWith(source, label, func(source string) (*circuit.Circuit, error) {
+		circ, _, err := compiler.New(utils.NewParams()).Compile(source, nil)
+		return circ, err
+	})
+}
+
+// compileFormalGLMPhase15SourceWith coalesces compilation of deterministic,
+// public circuit source. It never keys or retains rows, shares, sessions, or
+// DP randomness.
+func compileFormalGLMPhase15SourceWith(source, label string,
+	compile func(string) (*circuit.Circuit, error),
+) (*circuit.Circuit, error) {
+	if compile == nil {
+		return nil, fmt.Errorf("formal-glm: missing circuit compiler")
+	}
 	digest := sha256.Sum256([]byte(source))
 	key := hex.EncodeToString(digest[:])
 	formalGLMPhase15CircuitCache.Lock()
@@ -398,21 +423,36 @@ func compileFormalGLMPhase15Source(source, label string) (*circuit.Circuit, erro
 		formalGLMPhase15CircuitCache.Unlock()
 		return cached, nil
 	}
+	if flight := formalGLMPhase15CircuitCache.flights[key]; flight != nil {
+		formalGLMPhase15CircuitCache.Unlock()
+		<-flight.done
+		return flight.circ, flight.err
+	}
+	flight := &formalGLMPhase15CircuitFlight{done: make(chan struct{})}
+	formalGLMPhase15CircuitCache.flights[key] = flight
 	formalGLMPhase15CircuitCache.Unlock()
-	circ, _, err := compiler.New(utils.NewParams()).Compile(source, nil)
+	circ, err := compile(source)
+	if err == nil && circ == nil {
+		err = fmt.Errorf("formal-glm: compiler returned no circuit")
+	}
 	if err != nil {
-		return nil, exactGCFailure(exactGCFailureNumericBackendUnavailable,
+		err = exactGCFailure(exactGCFailureNumericBackendUnavailable,
 			fmt.Errorf("formal-glm: compile %s: %w", label, err))
 	}
 	formalGLMPhase15CircuitCache.Lock()
-	// Two circuits per active plan are sufficient; cap this research cache so
-	// untrusted public plans cannot retain unbounded compiled circuits.
-	if len(formalGLMPhase15CircuitCache.entries) >= 4 {
-		formalGLMPhase15CircuitCache.entries = make(map[string]*circuit.Circuit)
+	if err == nil {
+		// Two circuits per active plan are sufficient; cap this research cache so
+		// untrusted public plans cannot retain unbounded compiled circuits.
+		if len(formalGLMPhase15CircuitCache.entries) >= 4 {
+			formalGLMPhase15CircuitCache.entries = make(map[string]*circuit.Circuit)
+		}
+		formalGLMPhase15CircuitCache.entries[key] = circ
 	}
-	formalGLMPhase15CircuitCache.entries[key] = circ
+	flight.circ, flight.err = circ, err
+	delete(formalGLMPhase15CircuitCache.flights, key)
+	close(flight.done)
 	formalGLMPhase15CircuitCache.Unlock()
-	return circ, nil
+	return circ, err
 }
 
 func formalGLMPhase15CircuitPreamble(parsed formalGLMParsedPolicy,

@@ -103,6 +103,14 @@ func formalGLMPhase19RunBoundedAccumulatorStream(
 		ctx, accumulator, backendKey); err != nil {
 		return zero, err
 	}
+	if store.root != nil {
+		return formalGLMPhase19RunBoundedAccumulatorExternalRootedV1(
+			rw, plan, ctx, accumulator, store.root,
+			func(index int) (byte, error) {
+				block, err := store.ReadMetadata(index)
+				return block.ExecutionShare, err
+			}, attempt, role, backendKey)
+	}
 	return formalGLMPhase19RunBoundedAccumulatorExternal(
 		rw, plan, ctx, accumulator, filepath.Dir(store.path),
 		func(index int) (byte, error) {
@@ -116,18 +124,46 @@ func formalGLMPhase19RunBoundedAccumulatorExternal(
 	accumulator formalGLMPhase19AccumulatorPlan, workDir string,
 	readShare func(int) (byte, error), attempt [32]byte,
 	role string, backendKey [32]byte) (formalGLMPhase19ExecutionSeal, error) {
+	return formalGLMPhase19RunBoundedAccumulatorExternalWithRootV1(
+		rw, plan, ctx, accumulator, nil, workDir, readShare, attempt, role, backendKey)
+}
+
+func formalGLMPhase19RunBoundedAccumulatorExternalRootedV1(
+	rw io.ReadWriter, plan formalGLMPhase15Plan, ctx formalGLMPhase19Context,
+	accumulator formalGLMPhase19AccumulatorPlan, root *os.Root,
+	readShare func(int) (byte, error), attempt [32]byte,
+	role string, backendKey [32]byte) (formalGLMPhase19ExecutionSeal, error) {
+	return formalGLMPhase19RunBoundedAccumulatorExternalWithRootV1(
+		rw, plan, ctx, accumulator, root, "", readShare, attempt, role, backendKey)
+}
+
+func formalGLMPhase19RunBoundedAccumulatorExternalWithRootV1(
+	rw io.ReadWriter, plan formalGLMPhase15Plan, ctx formalGLMPhase19Context,
+	accumulator formalGLMPhase19AccumulatorPlan, root *os.Root, workDir string,
+	readShare func(int) (byte, error), attempt [32]byte,
+	role string, backendKey [32]byte) (formalGLMPhase19ExecutionSeal, error) {
 
 	var zero formalGLMPhase19ExecutionSeal
-	if rw == nil || !filepath.IsAbs(workDir) || filepath.Clean(workDir) != workDir ||
-		readShare == nil ||
+	if rw == nil || readShare == nil ||
 		(role != "garbler" && role != "evaluator") ||
 		!formalGLMPhase19KeyValid(backendKey) {
 		return zero, fmt.Errorf("formal-glm: invalid external-memory accumulator")
 	}
-	info, err := os.Lstat(workDir)
-	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 ||
-		info.Mode().Perm()&0o077 != 0 {
-		return zero, fmt.Errorf("formal-glm: unsafe external-memory accumulator directory")
+	if root != nil {
+		info, err := root.Stat(".")
+		if err != nil || !info.IsDir() || info.Mode().Perm() != 0o700 ||
+			!formalFinalizerHandoffPrivateOwnedDirectory(info) {
+			return zero, fmt.Errorf("formal-glm: unsafe rooted external-memory accumulator directory")
+		}
+	} else {
+		if !filepath.IsAbs(workDir) || filepath.Clean(workDir) != workDir {
+			return zero, fmt.Errorf("formal-glm: invalid external-memory accumulator")
+		}
+		info, err := os.Lstat(workDir)
+		if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 ||
+			info.Mode().Perm()&0o077 != 0 {
+			return zero, fmt.Errorf("formal-glm: unsafe external-memory accumulator directory")
+		}
 	}
 	if err := formalGLMPhase19VerifyAccumulatorPlan(
 		ctx, accumulator, backendKey); err != nil {
@@ -200,16 +236,35 @@ func formalGLMPhase19RunBoundedAccumulatorExternal(
 	}
 
 	paths := make([]string, 0, 4)
+	removeState := func(path string) error {
+		if root != nil {
+			return root.Remove(path)
+		}
+		return os.Remove(path)
+	}
+	openState := func(path string) (*os.File, error) {
+		if root != nil {
+			return root.Open(path)
+		}
+		return os.Open(path)
+	}
 	defer func() {
 		for _, path := range paths {
-			_ = os.Remove(path)
+			_ = removeState(path)
 		}
 	}()
 	newLevel := func(level int) (*os.File, string, error) {
-		path := filepath.Join(workDir,
-			fmt.Sprintf("formal-phase19-acc-level-%03d.bin", level))
-		file, err := os.OpenFile(path,
-			os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+		path := fmt.Sprintf("formal-phase19-acc-level-%03d.bin", level)
+		if root == nil {
+			path = filepath.Join(workDir, path)
+		}
+		var file *os.File
+		var err error
+		if root != nil {
+			file, err = root.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+		} else {
+			file, err = os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+		}
 		if err == nil {
 			paths = append(paths, path)
 		}
@@ -264,7 +319,7 @@ func formalGLMPhase19RunBoundedAccumulatorExternal(
 
 	level := 1
 	for stateCount > 1 {
-		input, err := os.Open(currentPath)
+		input, err := openState(currentPath)
 		if err != nil {
 			return zero, err
 		}
@@ -318,13 +373,13 @@ func formalGLMPhase19RunBoundedAccumulatorExternal(
 		if err := next.Close(); err != nil {
 			return zero, err
 		}
-		if err := os.Remove(currentPath); err != nil {
+		if err := removeState(currentPath); err != nil {
 			return zero, err
 		}
 		currentPath, stateCount = nextPath, nextCount
 		level++
 	}
-	finalFile, err := os.Open(currentPath)
+	finalFile, err := openState(currentPath)
 	if err != nil {
 		return zero, err
 	}

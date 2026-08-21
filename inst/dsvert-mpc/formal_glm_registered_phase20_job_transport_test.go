@@ -127,6 +127,32 @@ func formalGLMRegisteredPhase20JobTransportTestWaitForBlockedIOV1(
 	t.Fatalf("%s I/O lease did not become observably blocked", operation)
 }
 
+func TestFormalGLMRegisteredPhase20JobTransportAllowsPrivateExactGCTemporary(
+	t *testing.T,
+) {
+	root, _ := formalGLMRegisteredPhase20JobTransportTestRootV1(t)
+	transport := formalGLMRegisteredPhase20JobTransportTestOpenV1(t, root,
+		formalGLMRegisteredPhase20JobTransportTestBindingV1("exact-gc-temp"),
+		"local-peer-0", formalGLMRegisteredPhase20JobTransportTestEpochV1(
+			formalGLMRegisteredPhase20JobRunTransportV1, "exact-gc-temp/run"))
+	temporary := filepath.Join(transport.scratchPath, "outbound.segments",
+		".exact-gc-segment-publish")
+	if err := os.WriteFile(temporary, []byte("private"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := formalGLMRegisteredPhase20JobTransportValidateScratchV1(
+		transport.scratch, transport.scratchPath, transport.segmentRoots); err != nil {
+		t.Fatalf("private exact-gc temporary was rejected: %v", err)
+	}
+	if err := os.Chmod(temporary, 0o400); err != nil {
+		t.Fatal(err)
+	}
+	if err := formalGLMRegisteredPhase20JobTransportValidateScratchV1(
+		transport.scratch, transport.scratchPath, transport.segmentRoots); err == nil {
+		t.Fatal("non-0600 exact-gc temporary was accepted")
+	}
+}
+
 func TestFormalGLMRegisteredPhase20JobTransportDTOBurnAndAsymmetricEpoch(
 	t *testing.T,
 ) {

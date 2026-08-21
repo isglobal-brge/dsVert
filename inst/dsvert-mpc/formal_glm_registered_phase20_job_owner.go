@@ -46,7 +46,12 @@ type formalGLMRegisteredPhase20JobOwnerV1 struct {
 	votes    [2]*formalGLMRegisteredPhase19DecisionVoteV1
 
 	controller *formalGLMRegisteredPhase20JobWorkerControllerV1
-	closed     bool
+	terminal   *formalGLMRegisteredPhase20TerminalOwnerV1
+
+	computeStarted bool
+	computeRunning bool
+	computeDone    chan struct{}
+	closed         bool
 }
 
 type formalGLMRegisteredPhase20JobOwnerResultV1 struct {
@@ -759,15 +764,34 @@ func (owner *formalGLMRegisteredPhase20JobOwnerV1) Close() error {
 		return nil
 	}
 	owner.closed = true
-	controller, attempts, jobKeys := owner.controller, owner.attempts, owner.jobKeys
-	owner.controller, owner.attempts, owner.jobKeys, owner.control = nil, nil, nil, nil
+	controller := owner.controller
+	if owner.computeRunning {
+		done := owner.computeDone
+		owner.mu.Unlock()
+		if controller != nil {
+			_ = controller.Close()
+		}
+		if done != nil {
+			<-done
+		}
+		owner.mu.Lock()
+	}
+	terminal, attempts, jobKeys := owner.terminal, owner.attempts, owner.jobKeys
+	owner.controller, owner.terminal, owner.attempts, owner.jobKeys, owner.control =
+		nil, nil, nil, nil, nil
+	owner.computeDone = nil
 	owner.proposal = formalGLMRegisteredPhase19ClaimProposalV1{}
 	owner.accept = formalGLMRegisteredPhase19ClaimAcceptV1{}
 	owner.votes = [2]*formalGLMRegisteredPhase19DecisionVoteV1{}
 	owner.mu.Unlock()
 	var closeErr error
+	if terminal != nil {
+		closeErr = terminal.Close()
+	}
 	if controller != nil {
-		closeErr = controller.Close()
+		if err := controller.Close(); closeErr == nil {
+			closeErr = err
+		}
 	}
 	if attempts != nil {
 		attempts.Close()

@@ -14,6 +14,8 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 )
@@ -283,6 +285,21 @@ func formalGLMRegisteredPhase20JobTransportValidateRootV1(
 func formalGLMRegisteredPhase20JobTransportValidateScratchV1(
 	root *os.Root, absolute string, segmentRoots [2]*os.Root,
 ) error {
+	var validationErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		validationErr = formalGLMRegisteredPhase20JobTransportValidateScratchOnceV1(
+			root, absolute, segmentRoots)
+		if validationErr == nil {
+			return nil
+		}
+		runtime.Gosched()
+	}
+	return validationErr
+}
+
+func formalGLMRegisteredPhase20JobTransportValidateScratchOnceV1(
+	root *os.Root, absolute string, segmentRoots [2]*os.Root,
+) error {
 	if err := formalGLMRegisteredPhase20JobTransportValidateRootV1(
 		root, absolute); err != nil {
 		return err
@@ -296,7 +313,7 @@ func formalGLMRegisteredPhase20JobTransportValidateScratchV1(
 		if err != nil || !info.Mode().IsRegular() ||
 			info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != 0o600 ||
 			!exactGCPrivateOwnedRegular(info) {
-			return fmt.Errorf("formal-glm registered Phase20 transport: unsafe scratch file")
+			return fmt.Errorf("formal-glm registered Phase20 transport: unsafe scratch file %q", name)
 		}
 	}
 	for index, name := range []string{"inbound.segments", "outbound.segments"} {
@@ -328,6 +345,18 @@ func formalGLMRegisteredPhase20JobTransportValidateScratchV1(
 		for _, entry := range entries {
 			entryInfo, err := entry.Info()
 			if os.IsNotExist(err) {
+				continue
+			}
+			// exactGC publishes a complete segment through an owner-only temporary
+			// inode. A concurrent validator must tolerate that bounded interval, but
+			// only for a regular, private, unlinked-by-others exactGC temporary.
+			if strings.HasPrefix(entry.Name(), ".exact-gc-segment-") {
+				if err != nil || !entryInfo.Mode().IsRegular() ||
+					entryInfo.Mode()&os.ModeSymlink != 0 ||
+					entryInfo.Mode().Perm() != 0o600 ||
+					!exactGCPrivateOwnedRegular(entryInfo) {
+					return fmt.Errorf("formal-glm registered Phase20 transport: unsafe segment file")
+				}
 				continue
 			}
 			if err != nil || !entryInfo.Mode().IsRegular() ||

@@ -1,0 +1,347 @@
+package main
+
+import (
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+)
+
+type formalGLMRegisteredPhase20JobComputeTestFixtureV1 struct {
+	provenance formalGLMRegisteredPhase18ProvenanceTestFixtureV1
+	record     formalGLMRegisteredPhase19BindingRecordV1
+	providers  [2]*formalGLMRegisteredPhase19PairKeyProviderV1
+	ingress    [2]*formalGLMRegisteredPhase18IngressStoreV3
+	owners     [2]*formalGLMRegisteredPhase20JobOwnerV1
+}
+
+func formalGLMRegisteredPhase20JobComputeTestBuild(
+	t *testing.T,
+) *formalGLMRegisteredPhase20JobComputeTestFixtureV1 {
+	t.Helper()
+	fixture := &formalGLMRegisteredPhase20JobComputeTestFixtureV1{
+		provenance: formalGLMRegisteredPhase18ProvenanceTestBuild(t, 2),
+	}
+	source := fixture.provenance.source
+	plan, contract := source.plan, source.contract
+	pins, private := source.inputs.identities.public,
+		source.inputs.identities.private
+	var roots [2]string
+	tickets := make([]formalGLMRegisteredPhase18RecipientTicketV1, 0, 2)
+	for index, peer := range plan.DesignatedComputePeers {
+		parent, err := filepath.EvalSymlinks(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+		roots[index] = filepath.Join(parent, "rock")
+		if err := os.Mkdir(roots[index], 0o700); err != nil {
+			t.Fatal(err)
+		}
+		provider, err := newFormalGLMRegisteredPhase19PairKeyProviderV1(
+			roots[index], peer, contract, pins)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fixture.providers[index] = provider
+		public, err := provider.PublicKeyV1()
+		if err != nil {
+			t.Fatal(err)
+		}
+		unsigned, err := formalGLMRegisteredPhase18BuildRecipientTicketV1(
+			contract, peer, public, pins)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ticket, err := formalGLMRegisteredPhase18SignRecipientTicketV1(
+			unsigned, contract, private[peer], pins)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tickets = append(tickets, ticket)
+	}
+
+	pairs := make(map[string][]formalGLMRegisteredPhase18BlockPairV1,
+		plan.CustodianCount)
+	receipts := make([]formalGLMRegisteredPhase18LocalReceiptV1, 0,
+		plan.CustodianCount)
+	for _, source := range plan.CustodianPeers {
+		authorization := fixture.provenance.authorizations[source]
+		pairs[source] = make([]formalGLMRegisteredPhase18BlockPairV1,
+			plan.TotalBlocks)
+		for blockIndex := 0; blockIndex < plan.TotalBlocks; blockIndex++ {
+			values, validity := formalGLMRegisteredPhase18MaterializedPairTestValues(
+				authorization, blockIndex)
+			consensus := sha256.Sum256([]byte(fmt.Sprintf(
+				"registered-job-compute/K2/%s/%d", source, blockIndex)))
+			pair, err := formalGLMRegisteredPhase18BuildMaterializedBlockPairV3(
+				contract, authorization, tickets, blockIndex, values, validity,
+				consensus[:], private[source], pins)
+			if err != nil {
+				t.Fatal(err)
+			}
+			pairs[source][blockIndex] = pair
+		}
+		receipt, err := formalGLMRegisteredPhase18BuildLocalReceiptV1(
+			contract, authorization, tickets, pairs[source], private[source], pins)
+		if err != nil {
+			t.Fatal(err)
+		}
+		receipts = append(receipts, receipt)
+	}
+	receiptSet, err := formalGLMRegisteredPhase18BuildReceiptSetV1(
+		contract, receipts, pins)
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding, err := formalGLMBuildRegisteredPhase19BindingV1(
+		contract, receiptSet, tickets, pins)
+	if err != nil {
+		t.Fatal(err)
+	}
+	orderedTickets, err := formalGLMRegisteredPhase18CanonicalTicketsV1(
+		tickets, contract, pins)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.record = formalGLMRegisteredPhase19BindingRecordV1{
+		Version: formalGLMRegisteredPhase19BindingRecordVersion,
+		Purpose: formalGLMRegisteredPhase19BindingRecordPurpose,
+		Binding: binding, ReceiptSet: receiptSet, RecipientTickets: orderedTickets,
+	}
+	if err := formalGLMValidateRegisteredPhase19BindingRecordV1(
+		fixture.record, contract, pins); err != nil {
+		t.Fatal(err)
+	}
+	ticketJSON := make([][]byte, len(orderedTickets))
+	for index := range orderedTickets {
+		ticketJSON[index], err = json.Marshal(orderedTickets[index])
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	receiptJSON, err := json.Marshal(receiptSet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index, peer := range plan.DesignatedComputePeers {
+		localKey := sha256.Sum256([]byte("registered-job-compute/ingress/" + peer))
+		ingress, ingressErr := newFormalGLMRegisteredPhase18IngressStoreV3(
+			roots[index], peer, localKey, contract,
+			receiptSet.GlobalMaterializationRootSHA256, pins)
+		if ingressErr != nil {
+			t.Fatal(ingressErr)
+		}
+		for _, source := range plan.CustodianPeers {
+			for blockIndex, pair := range pairs[source] {
+				pairJSON, marshalErr := json.Marshal(pair)
+				if marshalErr != nil {
+					t.Fatal(marshalErr)
+				}
+				frame, frameErr := formalGLMRegisteredPhase18ComposeIngressFrameV3(
+					contract, fixture.provenance.authorizations[source], ticketJSON, pairJSON,
+					receiptJSON, peer, pins, localKey)
+				if frameErr != nil {
+					t.Fatal(frameErr)
+				}
+				if _, replayed, commitErr := ingress.Commit(
+					frame, fixture.provenance.authorizations[source]); commitErr != nil || replayed {
+					t.Fatalf("commit %s/%d: replay=%v err=%v",
+						source, blockIndex, replayed, commitErr)
+				}
+			}
+		}
+		fixture.ingress[index] = ingress
+		attempts, attemptErr := newFormalGLMRegisteredPhase19AttemptStoreV1(
+			roots[index], fixture.record, contract, pins, peer, private[peer])
+		if attemptErr != nil {
+			t.Fatal(attemptErr)
+		}
+		jobKeys, keyErr := newFormalGLMRegisteredPhase20JobKeyProviderV1(
+			roots[index], contract, pins, fixture.record, peer)
+		if keyErr != nil {
+			t.Fatal(keyErr)
+		}
+		owner, ownerErr := newFormalGLMRegisteredPhase20JobOwnerV1(
+			attempts, jobKeys, formalGLMRegisteredPhase20JobStartV1{
+				ArtifactID:       fixture.record.Binding.ArtifactID,
+				ReceiptSetSHA256: fixture.record.Binding.ReceiptSetSHA256,
+			})
+		if ownerErr != nil {
+			t.Fatal(ownerErr)
+		}
+		fixture.owners[index] = owner
+	}
+	t.Cleanup(func() {
+		for index := range fixture.owners {
+			if fixture.owners[index] != nil {
+				_ = fixture.owners[index].Close()
+			}
+			if fixture.providers[index] != nil {
+				fixture.providers[index].Close()
+			}
+			if fixture.ingress[index] != nil {
+				fixture.ingress[index].Close()
+			}
+		}
+	})
+	return fixture
+}
+
+func (fixture *formalGLMRegisteredPhase20JobComputeTestFixtureV1) bind(
+	t *testing.T,
+) {
+	t.Helper()
+	proposal, err := fixture.owners[0].NegotiateV1(nil)
+	if err != nil || len(proposal.outbound) == 0 {
+		t.Fatalf("garbler proposal: %+v / %v", proposal, err)
+	}
+	accept, err := fixture.owners[1].NegotiateV1(proposal.outbound)
+	if err != nil || len(accept.outbound) == 0 {
+		t.Fatalf("evaluator accept: %+v / %v", accept, err)
+	}
+	if _, err := fixture.owners[0].NegotiateV1(accept.outbound); err != nil {
+		t.Fatal(err)
+	}
+	var refs [2]formalGLMRegisteredPhase20JobRefV1
+	var claims [2][]byte
+	for index := range fixture.owners {
+		if result, startErr := fixture.owners[index].StartOrInspectV1(); startErr != nil ||
+			result.state != formalGLMRegisteredPhase20JobOwnerRunningStateV1 {
+			t.Fatalf("worker %d start: %+v / %v", index, result, startErr)
+		}
+		refs[index], claims[index], err = fixture.owners[index].JobRefV1()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if refs[0] != refs[1] {
+		t.Fatal("paired workers derived different job refs")
+	}
+	for index := range fixture.owners {
+		if err := fixture.owners[index].BindPeerJobRefV1(claims[1-index]); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func formalGLMRegisteredPhase20JobComputeTestRelayV1(
+	stop <-chan struct{}, from, to *formalGLMRegisteredPhase20JobOwnerV1,
+	errCh chan<- error,
+) {
+	ack := int64(0)
+	for {
+		select {
+		case <-stop:
+			return
+		default:
+		}
+		from.controller.mu.Lock()
+		transport := from.controller.transport
+		from.controller.mu.Unlock()
+		result, err := transport.Poll(ack)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		if result.RelayChunk == nil {
+			time.Sleep(time.Millisecond)
+			continue
+		}
+		to.controller.mu.Lock()
+		peer := to.controller.transport
+		to.controller.mu.Unlock()
+		ack, err = peer.Relay(*result.RelayChunk)
+		if err != nil {
+			errCh <- err
+			return
+		}
+	}
+}
+
+func TestFormalGLMRegisteredPhase20JobComputeK2SealsWithoutRawOutput(
+	t *testing.T,
+) {
+	fixture := formalGLMRegisteredPhase20JobComputeTestBuild(t)
+	if err := fixture.owners[0].RunComputeV1(
+		fixture.providers[0], fixture.ingress[0]); err == nil {
+		t.Fatal("job compute ran before the peer epoch was bound")
+	}
+	fixture.bind(t)
+	stop := make(chan struct{})
+	errs := make(chan error, 2)
+	go formalGLMRegisteredPhase20JobComputeTestRelayV1(
+		stop, fixture.owners[0], fixture.owners[1], errs)
+	go formalGLMRegisteredPhase20JobComputeTestRelayV1(
+		stop, fixture.owners[1], fixture.owners[0], errs)
+	var run [2]error
+	finished := make(chan int, 2)
+	for index := range fixture.owners {
+		go func(index int) {
+			run[index] = fixture.owners[index].RunComputeV1(
+				fixture.providers[index], fixture.ingress[index])
+			finished <- index
+		}(index)
+	}
+	abort := func() {
+		close(stop)
+		for _, owner := range fixture.owners {
+			owner.mu.Lock()
+			controller := owner.controller
+			owner.mu.Unlock()
+			if controller != nil {
+				go func() { _ = controller.Close() }()
+			}
+		}
+	}
+	var first int
+	select {
+	case first = <-finished:
+	case relayErr := <-errs:
+		abort()
+		select {
+		case <-finished:
+		case <-time.After(30 * time.Second):
+		}
+		t.Fatalf("relay failed before compute completed: %v", relayErr)
+	}
+	if run[first] != nil {
+		abort()
+		select {
+		case second := <-finished:
+			t.Fatalf("registered job compute failed: %v / %v", run[first], run[second])
+		case <-time.After(30 * time.Second):
+			t.Fatalf("registered job compute left peer blocked after: %v", run[first])
+		}
+	}
+	<-finished
+	close(stop)
+	select {
+	case relayErr := <-errs:
+		t.Fatalf("relay failed: %v", relayErr)
+	default:
+	}
+	if run[0] != nil || run[1] != nil {
+		t.Fatalf("registered job compute failed: %v / %v", run[0], run[1])
+	}
+	for index, owner := range fixture.owners {
+		owner.mu.Lock()
+		terminal := owner.terminal
+		attempts, jobKeys := owner.attempts, owner.jobKeys
+		owner.mu.Unlock()
+		if terminal == nil || attempts != nil || jobKeys != nil {
+			t.Fatalf("role %d did not transfer only the terminal owner", index)
+		}
+		status, err := terminal.LoadStatusV1()
+		if err != nil || !status.draftSealed || status.selected != nil ||
+			status.prepareReceipt != nil || status.selectVote != nil {
+			t.Fatalf("role %d terminal status: %+v / %v", index, status, err)
+		}
+		encoded, err := json.Marshal(owner)
+		if err != nil || string(encoded) != "{}" {
+			t.Fatalf("job compute owner exposed private state: %s / %v", encoded, err)
+		}
+	}
+}

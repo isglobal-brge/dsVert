@@ -22,7 +22,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 )
 
 const (
@@ -1362,15 +1361,9 @@ func formalCoxBlockwiseSourceEnsurePrivateDir(path string) error {
 		}
 		info, err = os.Lstat(path)
 	}
-	owned := false
-	if info != nil {
-		if value, ok := info.Sys().(*syscall.Stat_t); ok {
-			owned = value.Uid == uint32(os.Geteuid())
-		}
-	}
 	if err != nil || info == nil || !info.IsDir() ||
 		info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o077 != 0 ||
-		!owned {
+		!formalFinalizerHandoffPrivateOwnedDirectory(info) {
 		return fmt.Errorf("formal-cox: unsafe private source directory")
 	}
 	return nil
@@ -1379,7 +1372,7 @@ func formalCoxBlockwiseSourceEnsurePrivateDir(path string) error {
 func formalCoxBlockwiseSourceAcquireOwner(path string) (*os.File, error) {
 	for attempt := 0; attempt < 4; attempt++ {
 		info, err := os.Lstat(path)
-		flags := os.O_RDWR | syscall.O_NOFOLLOW
+		flags := formalCoxBlockwiseSourceOwnerOpenFlags()
 		if os.IsNotExist(err) {
 			flags |= os.O_CREATE | os.O_EXCL
 		} else if err != nil || !info.Mode().IsRegular() ||
@@ -1407,8 +1400,7 @@ func formalCoxBlockwiseSourceAcquireOwner(path string) (*os.File, error) {
 			!os.SameFile(current, opened) {
 			return fail(fmt.Errorf("formal-cox: unsafe source owner lock"))
 		}
-		if err := syscall.Flock(
-			int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		if err := formalFinalizerHandoffTryAuthorityLock(file); err != nil {
 			return fail(fmt.Errorf("formal-cox: source spool already has an owner"))
 		}
 		return file, nil
@@ -2097,7 +2089,7 @@ func (store *formalCoxBlockwiseSourceStore) Close() error {
 	if store.owner == nil {
 		return nil
 	}
-	unlockErr := syscall.Flock(int(store.owner.Fd()), syscall.LOCK_UN)
+	unlockErr := formalFinalizerHandoffUnlockAuthority(store.owner)
 	closeErr := store.owner.Close()
 	store.owner = nil
 	if unlockErr != nil {

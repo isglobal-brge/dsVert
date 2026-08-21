@@ -20,7 +20,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 )
 
 const (
@@ -1343,7 +1342,7 @@ func (producer *formalCoxBlockwiseSourceProducer) Close() error {
 	if producer.owner == nil {
 		return nil
 	}
-	unlockErr := syscall.Flock(int(producer.owner.Fd()), syscall.LOCK_UN)
+	unlockErr := formalFinalizerHandoffUnlockAuthority(producer.owner)
 	closeErr := producer.owner.Close()
 	producer.owner = nil
 	if unlockErr != nil {

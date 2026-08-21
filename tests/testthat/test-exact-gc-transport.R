@@ -536,6 +536,13 @@ test_that("exact multiplication planner covers its full dynamic domain", {
   expect_identical(ring127$ring_bits, 127L)
   expect_identical(ring127$backend, "ring127-ot")
 
+  ring127_f16 <- .exact_gc_mul_plan(
+    "1073741824", "1073741824", 16L, fixed_ring_bits = 127L)
+  expect_identical(ring127_f16$ring_bits, 127L)
+  expect_identical(ring127_f16$frac_bits, 16L)
+  expect_identical(ring127_f16$backend, "ring127-ot")
+  expect_identical(ring127_f16$max_chunk, 256L)
+
   wide <- .exact_gc_mul_plan(
     "170141183460469231731687303715884105728", "1", 50L)
   expect_gt(wide$ring_bits, 127L)

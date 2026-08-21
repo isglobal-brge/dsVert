@@ -259,70 +259,75 @@ func TestExactGCMulTruncateCheckedResourcePolicy(t *testing.T) {
 }
 
 func TestExactGCHybridMulProtocolExactGuardedAndFresh(t *testing.T) {
-	spec := exactGCTestMulSpec(127, 50, 6)
-	scale := new(big.Int).Lsh(big.NewInt(1), 50)
-	x := []*big.Int{
-		big.NewInt(0), big.NewInt(1), big.NewInt(-1),
-		new(big.Int).Add(new(big.Int).Set(scale), big.NewInt(3)),
-		new(big.Int).Neg(new(big.Int).Add(new(big.Int).Set(scale), big.NewInt(7))),
-		new(big.Int).Set(spec.BoundX),
-	}
-	y := []*big.Int{
-		big.NewInt(-1), new(big.Int).Set(scale), new(big.Int).Neg(new(big.Int).Set(scale)),
-		big.NewInt(-3), big.NewInt(5), new(big.Int).Set(spec.BoundY),
-	}
-	xResidues := make([]*big.Int, spec.VectorLen)
-	yResidues := make([]*big.Int, spec.VectorLen)
-	for i := range x {
-		xResidues[i] = exactGCEncodeSigned(x[i], spec.RingBits)
-		yResidues[i] = exactGCEncodeSigned(y[i], spec.RingBits)
-	}
-	rng := rand.New(rand.NewSource(20260805))
-	xa, xb := exactGCTestSplit(rng, xResidues, spec.RingBits)
-	ya, yb := exactGCTestSplit(rng, yResidues, spec.RingBits)
-	garblerInput := append(append([]*big.Int{}, xa...), ya...)
-	evaluatorInput := append(append([]*big.Int{}, xb...), yb...)
-	g0, e0 := exactGCTestRunProtocol(t, spec, garblerInput, evaluatorInput)
-	g1, e1 := exactGCTestRunProtocol(t, spec, garblerInput, evaluatorInput)
-	if g0[spec.VectorLen].Bit(0) == e0[spec.VectorLen].Bit(0) ||
-		g1[spec.VectorLen].Bit(0) == e1[spec.VectorLen].Bit(0) {
-		t.Fatal("in-bound hybrid multiplication was not marked valid")
-	}
-	allGarblerSharesEqual := true
-	for i := range x {
-		want, valid := exactGCReferenceMulTruncateChecked(
-			xa[i], xb[i], ya[i], yb[i], spec)
-		if !valid {
-			t.Fatalf("fixture %d unexpectedly violates the raw-product guard", i)
-		}
-		for run, shares := range [][2][]*big.Int{{g0, e0}, {g1, e1}} {
-			got := exactGCReferenceReconstruct(shares[0][i], shares[1][i], spec.RingBits)
-			if got.Cmp(want) != 0 {
-				t.Fatalf("run %d element %d: got %s want %s", run, i, got, want)
+	for _, fracBits := range []int{16, 50} {
+		t.Run(fmt.Sprintf("f%d", fracBits), func(t *testing.T) {
+			spec := exactGCTestMulSpec(127, fracBits, 6)
+			spec.MulBackend = exactGCMulBackendHybrid
+			scale := new(big.Int).Lsh(big.NewInt(1), uint(fracBits))
+			x := []*big.Int{
+				big.NewInt(0), big.NewInt(1), big.NewInt(-1),
+				new(big.Int).Add(new(big.Int).Set(scale), big.NewInt(3)),
+				new(big.Int).Neg(new(big.Int).Add(new(big.Int).Set(scale), big.NewInt(7))),
+				new(big.Int).Set(spec.BoundX),
 			}
-		}
-		allGarblerSharesEqual = allGarblerSharesEqual && g0[i].Cmp(g1[i]) == 0
-	}
-	if allGarblerSharesEqual {
-		t.Fatal("hybrid multiplication reused every arithmetic output share")
-	}
+			y := []*big.Int{
+				big.NewInt(-1), new(big.Int).Set(scale), new(big.Int).Neg(new(big.Int).Set(scale)),
+				big.NewInt(-3), big.NewInt(5), new(big.Int).Set(spec.BoundY),
+			}
+			xResidues := make([]*big.Int, spec.VectorLen)
+			yResidues := make([]*big.Int, spec.VectorLen)
+			for i := range x {
+				xResidues[i] = exactGCEncodeSigned(x[i], spec.RingBits)
+				yResidues[i] = exactGCEncodeSigned(y[i], spec.RingBits)
+			}
+			rng := rand.New(rand.NewSource(20260805))
+			xa, xb := exactGCTestSplit(rng, xResidues, spec.RingBits)
+			ya, yb := exactGCTestSplit(rng, yResidues, spec.RingBits)
+			garblerInput := append(append([]*big.Int{}, xa...), ya...)
+			evaluatorInput := append(append([]*big.Int{}, xb...), yb...)
+			g0, e0 := exactGCTestRunProtocol(t, spec, garblerInput, evaluatorInput)
+			g1, e1 := exactGCTestRunProtocol(t, spec, garblerInput, evaluatorInput)
+			if g0[spec.VectorLen].Bit(0) == e0[spec.VectorLen].Bit(0) ||
+				g1[spec.VectorLen].Bit(0) == e1[spec.VectorLen].Bit(0) {
+				t.Fatal("in-bound hybrid multiplication was not marked valid")
+			}
+			allGarblerSharesEqual := true
+			for i := range x {
+				want, valid := exactGCReferenceMulTruncateChecked(
+					xa[i], xb[i], ya[i], yb[i], spec)
+				if !valid {
+					t.Fatalf("fixture %d unexpectedly violates the raw-product guard", i)
+				}
+				for run, shares := range [][2][]*big.Int{{g0, e0}, {g1, e1}} {
+					got := exactGCReferenceReconstruct(shares[0][i], shares[1][i], spec.RingBits)
+					if got.Cmp(want) != 0 {
+						t.Fatalf("run %d element %d: got %s want %s", run, i, got, want)
+					}
+				}
+				allGarblerSharesEqual = allGarblerSharesEqual && g0[i].Cmp(g1[i]) == 0
+			}
+			if allGarblerSharesEqual {
+				t.Fatal("hybrid multiplication reused every arithmetic output share")
+			}
 
-	invalidX := append([]*big.Int{}, xResidues...)
-	invalidX[0] = exactGCEncodeSigned(
-		new(big.Int).Add(spec.BoundX, big.NewInt(1)), spec.RingBits)
-	invalidXA, invalidXB := exactGCTestSplit(rng, invalidX, spec.RingBits)
-	invalidG := append(append([]*big.Int{}, invalidXA...), ya...)
-	invalidE := append(append([]*big.Int{}, invalidXB...), yb...)
-	gInvalid, eInvalid := exactGCTestRunProtocol(t, spec, invalidG, invalidE)
-	if gInvalid[spec.VectorLen].Bit(0) != eInvalid[spec.VectorLen].Bit(0) {
-		t.Fatal("out-of-bound hybrid multiplication was marked valid")
-	}
-	for i := 0; i < spec.VectorLen; i++ {
-		got := exactGCReferenceReconstruct(
-			gInvalid[i], eInvalid[i], spec.RingBits)
-		if got.Sign() != 0 {
-			t.Fatalf("invalid hybrid aggregate exposed element %d: %s", i, got)
-		}
+			invalidX := append([]*big.Int{}, xResidues...)
+			invalidX[0] = exactGCEncodeSigned(
+				new(big.Int).Add(spec.BoundX, big.NewInt(1)), spec.RingBits)
+			invalidXA, invalidXB := exactGCTestSplit(rng, invalidX, spec.RingBits)
+			invalidG := append(append([]*big.Int{}, invalidXA...), ya...)
+			invalidE := append(append([]*big.Int{}, invalidXB...), yb...)
+			gInvalid, eInvalid := exactGCTestRunProtocol(t, spec, invalidG, invalidE)
+			if gInvalid[spec.VectorLen].Bit(0) != eInvalid[spec.VectorLen].Bit(0) {
+				t.Fatal("out-of-bound hybrid multiplication was marked valid")
+			}
+			for i := 0; i < spec.VectorLen; i++ {
+				got := exactGCReferenceReconstruct(
+					gInvalid[i], eInvalid[i], spec.RingBits)
+				if got.Sign() != 0 {
+					t.Fatalf("invalid hybrid aggregate exposed element %d: %s", i, got)
+				}
+			}
+		})
 	}
 }
 

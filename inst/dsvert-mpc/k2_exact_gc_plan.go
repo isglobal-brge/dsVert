@@ -93,7 +93,7 @@ func exactGCPlanMul(input exactGCMulPlanInput) (exactGCMulPlanOutput, error) {
 			rawHeadroom := product.Cmp(maxSigned) <= 0
 			backend := exactGCMulBackendDirect
 			maxChunk := exactGCMaxDirectMulChunk(ringBits)
-			if ringBits == 127 && input.FracBits == 50 && rawHeadroom {
+			if ringBits == 127 && input.FracBits > 0 && rawHeadroom {
 				backend = exactGCMulBackendHybrid
 				maxChunk = exactGCMaxHybridVectorLen
 			}

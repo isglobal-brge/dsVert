@@ -35,6 +35,13 @@ func TestExactGCMulPlannerChoosesMinimumRingAndBackend(t *testing.T) {
 			maxChunk: exactGCMaxHybridVectorLen,
 		},
 		{
+			name: "Ring127 OT preserves non-default fixed scale",
+			input: exactGCMulPlanInput{BoundX: exactGCTestPow2(30),
+				BoundY: exactGCTestPow2(30), FracBits: 16, FixedRingBits: 127},
+			ring: 127, backend: exactGCMulBackendHybrid, rawFits: true,
+			maxChunk: exactGCMaxHybridVectorLen,
+		},
+		{
 			name: "Ring127 exact wide-product fallback",
 			input: exactGCMulPlanInput{BoundX: exactGCTestPow2(80),
 				BoundY: exactGCTestPow2(80), FracBits: 50, FixedRingBits: 127},
@@ -163,7 +170,7 @@ func TestExactGCMulPlannerRandomMinimumRingProperty(t *testing.T) {
 		}
 		backend := exactGCMulBackendDirect
 		maxChunk := exactGCMaxDirectMulChunk(wantRing)
-		if wantRing == 127 && fracBits == 50 && rawFits {
+		if wantRing == 127 && fracBits > 0 && rawFits {
 			backend = exactGCMulBackendHybrid
 			maxChunk = exactGCMaxHybridVectorLen
 		}

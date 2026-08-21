@@ -213,7 +213,7 @@
                  if (identical(result$backend, "ring127-ot")) 256L else
                    .exact_gc_direct_mul_max_chunk(ring_bits)) ||
       (identical(result$backend, "ring127-ot") &&
-       (ring_bits != 127L || frac_bits != 50L ||
+       (ring_bits != 127L || frac_bits < 1L || frac_bits > 126L ||
         !isTRUE(result$raw_product_headroom)))) {
     stop("The exact-gc multiplication planner returned a conflicting contract.",
          call. = FALSE)
@@ -1276,7 +1276,8 @@
       operation, "joint-dp-vector-gaussian-one-draw-v1")) {
     128L
   } else if (identical(operation, "mul-truncate-checked")) {
-    if (ring_bits == 127L && allowed_spec$frac_bits == 50L) 256L else
+    if (ring_bits == 127L && allowed_spec$frac_bits >= 1L &&
+        allowed_spec$frac_bits <= 126L) 256L else
       .exact_gc_direct_mul_max_chunk(ring_bits)
   } else 4096L
   if (vector_len > max_vector) {

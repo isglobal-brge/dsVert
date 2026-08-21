@@ -180,8 +180,8 @@ func (s exactGCCircuitSpec) validate() error {
 		}
 		maxVectorLen := exactGCMaxDirectMulChunk(s.RingBits)
 		if s.MulBackend == exactGCMulBackendHybrid {
-			if s.RingBits != 127 || s.FracBits != 50 {
-				return fmt.Errorf("exact-gc: OT multiplication requires Ring127 f50")
+			if s.RingBits != 127 || s.FracBits < 1 {
+				return fmt.Errorf("exact-gc: OT multiplication requires Ring127 with fractional scale")
 			}
 			maxVectorLen = exactGCMaxHybridVectorLen
 		}
@@ -217,7 +217,7 @@ func (s exactGCCircuitSpec) validate() error {
 			}
 		}
 	case exactGCHybridMulFinalize:
-		if s.Threshold != nil || s.RingBits != 127 || s.FracBits != 50 ||
+		if s.Threshold != nil || s.RingBits != 127 || s.FracBits < 1 ||
 			s.VectorLen > exactGCMaxHybridVectorLen {
 			return fmt.Errorf("exact-gc: invalid hybrid multiplication finalizer shape")
 		}
@@ -727,18 +727,17 @@ func exactGCHybridUint128Inputs(shares []*big.Int, n int) ([]Uint128, []Uint128)
 
 func exactGCHybridOTSend(conn *p2p.Conn, x []Uint128) ([]Uint128, error) {
 	const bits = 127
-	r := NewRing127(50)
 	wires := make([]ot.Wire, len(x)*bits)
 	share := make([]Uint128, len(x))
 	for i, value := range x {
 		for bit := 0; bit < bits; bit++ {
 			mask := cryptoRandUint128().ModPow127()
-			withTerm := r.Add(mask, value.Shl(uint(bit)).ModPow127())
+			withTerm := mask.Add(value.Shl(uint(bit))).ModPow127()
 			wires[i*bits+bit] = ot.Wire{
 				L0: labelFromUint128(mask),
 				L1: labelFromUint128(withTerm),
 			}
-			share[i] = r.Sub(share[i], mask)
+			share[i] = share[i].Sub(mask).ModPow127()
 		}
 	}
 	transfer := ot.NewCOT(ot.NewCO(crand.Reader), crand.Reader, true, false)
@@ -779,11 +778,10 @@ func exactGCHybridOTReceive(conn *p2p.Conn, y []Uint128) ([]Uint128, error) {
 }
 
 func exactGCHybridCombineProduct(x, y, sendShare, receiveShare []Uint128) []*big.Int {
-	r := NewRing127(50)
 	result := make([]*big.Int, len(x))
 	for i := range result {
 		local := x[i].Mul(y[i]).ModPow127()
-		value := r.Add(r.Add(local, sendShare[i]), receiveShare[i])
+		value := local.Add(sendShare[i]).Add(receiveShare[i]).ModPow127()
 		result[i] = value.ToBig()
 	}
 	return result

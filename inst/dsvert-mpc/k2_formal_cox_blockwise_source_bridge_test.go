@@ -393,10 +393,11 @@ func formalCoxBlockwiseSourceBridgeTestRunPair(t testing.TB,
 // from recipient-encrypted source slots and verifies that a cold restart sees
 // the same private completion. Only the two designated compute peers hold
 // worker shares; the remaining K=3/K=5 custodians are authenticated witnesses.
-func formalCoxBlockwiseSourceBridgeTestRunFullSchedule(t *testing.T,
+func formalCoxBlockwiseSourceBridgeTestRunFullScheduleSealed(t testing.TB,
 	fixture *formalCoxBlockwiseSourceBridgeTestFixture,
-) {
+) [2]formalCoxSealedOutput {
 	t.Helper()
+	var sealedOutputs [2]formalCoxSealedOutput
 	bridges, err := formalCoxBlockwiseSourceBridgeTestOpen(t, fixture)
 	if err != nil {
 		t.Fatal(err)
@@ -493,7 +494,7 @@ func formalCoxBlockwiseSourceBridgeTestRunFullSchedule(t *testing.T,
 		if err != nil {
 			t.Fatalf("peer %d sealed output: %v", index, err)
 		}
-		exactGCZeroBigInts(sealed.CoefficientShares)
+		sealedOutputs[index] = sealed
 	}
 	if !bytes.Equal(completion[0], completion[1]) {
 		t.Fatal("compute roles produced different durable completions")
@@ -510,6 +511,16 @@ func formalCoxBlockwiseSourceBridgeTestRunFullSchedule(t *testing.T,
 			t.Fatalf("peer %d restart changed durable completion: %v", index,
 				completionErr)
 		}
+	}
+	return sealedOutputs
+}
+
+func formalCoxBlockwiseSourceBridgeTestRunFullSchedule(t testing.TB,
+	fixture *formalCoxBlockwiseSourceBridgeTestFixture,
+) {
+	sealed := formalCoxBlockwiseSourceBridgeTestRunFullScheduleSealed(t, fixture)
+	for index := range sealed {
+		exactGCZeroBigInts(sealed[index].CoefficientShares)
 	}
 }
 

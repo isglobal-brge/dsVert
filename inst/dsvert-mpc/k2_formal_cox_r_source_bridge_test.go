@@ -198,6 +198,223 @@ func formalCoxRSourceBridgeExpected(t testing.TB, lines []string,
 	return values
 }
 
+func formalCoxRSourceBridgeReferenceRows(t testing.TB,
+	plan formalCoxBlockwisePlan, blocks map[string][][]string,
+) []*big.Int {
+	t.Helper()
+	rows := make([]*big.Int, plan.TotalCapacity*plan.RowWidth)
+	for index := range rows {
+		rows[index] = new(big.Int)
+	}
+	modulus := exactGCModulus(plan.RingBits)
+	for block := 0; block < plan.TotalBlocks; block++ {
+		rowCount := formalCoxBlockwiseSourceRowsInBlock(plan, block)
+		for _, source := range plan.Policy.CustodianPeers {
+			sourceBlocks, ok := blocks[source]
+			if !ok || len(sourceBlocks) != plan.TotalBlocks {
+				t.Fatalf("reference source %s has an invalid block schedule", source)
+			}
+			values := formalCoxRSourceBridgeExpected(t, sourceBlocks[block],
+				plan.BlockCapacity*plan.RowWidth, plan.RingBits)
+			for index := 0; index < rowCount*plan.RowWidth; index++ {
+				row := block*plan.BlockCapacity*plan.RowWidth + index
+				rows[row].Add(rows[row], values[index])
+				rows[row].Mod(rows[row], modulus)
+			}
+			exactGCZeroBigInts(values)
+		}
+	}
+	return rows
+}
+
+func formalCoxRSourceBridgeNoiseContract(t testing.TB,
+	plan formalCoxBlockwisePlan, pins map[string]ed25519.PublicKey,
+	private map[string]ed25519.PrivateKey,
+) (formalCoxBlockwiseSamplerContract,
+	[]formalCoxBlockwiseSamplerAuthorization) {
+	t.Helper()
+	artifact, artifactID, err := formalCoxBlockwiseBuildStickyArtifact(plan, pins)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roots := make(map[string][32]byte, len(artifact.NoiseAuthorities))
+	commitments := make([]formalCoxBlockwiseSamplerCommitment,
+		len(artifact.NoiseAuthorities))
+	for index, authority := range artifact.NoiseAuthorities {
+		roots[authority.PeerName] = sha256.Sum256([]byte(
+			"formal-cox-r-source-bridge/noise-root/" + authority.PeerName))
+		seed, commitment, deriveErr := formalCoxBlockwiseDeriveSamplerSeed(
+			roots[authority.PeerName], artifact, artifactID, authority.Role)
+		clear(seed[:])
+		if deriveErr != nil {
+			t.Fatal(deriveErr)
+		}
+		commitments[index] = commitment
+	}
+	contract, err := formalCoxBlockwiseBuildSamplerContract(
+		artifact, artifactID, commitments, pins)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signatures := make([]jointDPBiomedicalGaussianSignature,
+		len(artifact.CustodianPeers))
+	for index, peer := range artifact.CustodianPeers {
+		signatures[index], err = formalCoxBlockwiseSignSamplerContract(
+			contract, peer, private[peer], pins)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	contract, err = formalCoxBlockwiseSealSamplerContract(contract, signatures, pins)
+	if err != nil {
+		t.Fatal(err)
+	}
+	authorizations := make([]formalCoxBlockwiseSamplerAuthorization,
+		len(artifact.NoiseAuthorities))
+	for index, authority := range artifact.NoiseAuthorities {
+		storageKey := sha256.Sum256([]byte(
+			"formal-cox-r-source-bridge/noise-store/" + authority.PeerName))
+		store, storeErr := newFormalCoxBlockwiseSamplerGuardStore(
+			filepath.Join(t.TempDir(), authority.Role), authority.PeerName,
+			storageKey, pins)
+		if storeErr != nil {
+			t.Fatal(storeErr)
+		}
+		predecessors := authorizations[:index]
+		authorizations[index], _, err = store.AuthorizeOnce(
+			contract, roots[authority.PeerName], private[authority.PeerName],
+			predecessors)
+		closeErr := store.Close()
+		if err != nil || closeErr != nil {
+			t.Fatalf("R source noise authorization %s: %v / close=%v",
+				authority.Role, err, closeErr)
+		}
+	}
+	return contract, authorizations
+}
+
+func formalCoxRSourceBridgeStageZeroNoise(t testing.TB,
+	plan formalCoxBlockwisePlan, session *formalCoxBlockwiseSourceSession,
+	pins map[string]ed25519.PublicKey, private map[string]ed25519.PrivateKey,
+	stores map[string]*formalCoxBlockwiseSourceStore,
+) []*big.Int {
+	t.Helper()
+	contract, authorizations := formalCoxRSourceBridgeNoiseContract(
+		t, plan, pins, private)
+	noise := make([]*big.Int, 0,
+		plan.Iterations*plan.Policy.CovariateCount)
+	for iteration := 0; iteration < plan.Iterations; iteration++ {
+		step := formalCoxBlockwiseSourceTestStep(
+			t, plan, formalCoxBlockwiseStepUpdate, iteration)
+		values := make(map[string][]*big.Int, 2)
+		validity := make(map[string]bool, 2)
+		for recipientIndex, recipient := range plan.Policy.ComputePeers {
+			values[recipient] = make([]*big.Int, plan.Policy.CovariateCount)
+			for index := range values[recipient] {
+				values[recipient][index] = new(big.Int)
+			}
+			// The two compute roles carry XOR shares of the public execution
+			// validity bit.  These two values reconstruct to true.
+			validity[recipient] = recipientIndex == 1
+		}
+		envelopes := make(map[string][]byte, len(plan.Policy.ComputePeers))
+		ordered := make([][]byte, len(plan.Policy.ComputePeers))
+		for index, recipient := range plan.Policy.ComputePeers {
+			valid := validity[recipient]
+			envelopes[recipient] = formalCoxBlockwiseSourceTestSeal(
+				t, session, private, recipient, recipient, step,
+				values[recipient], &valid)
+			ordered[index] = envelopes[recipient]
+		}
+		barrier, err := formalCoxBlockwiseNewGuardedNoiseBarrier(
+			session, step, ordered, contract, authorizations)
+		if err != nil {
+			t.Fatal(err)
+		}
+		approvals := make([]formalCoxBlockwiseNoiseApproval,
+			len(plan.Policy.ComputePeers))
+		for index, signer := range plan.Policy.ComputePeers {
+			approvals[index], err = formalCoxBlockwiseSignNoiseBarrier(
+				session, barrier, ordered, signer, private[signer])
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		encodedBarrier, err := formalCoxBlockwiseFinalizeGuardedNoiseBarrier(
+			session, contract, authorizations, barrier, approvals)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, recipient := range plan.Policy.ComputePeers {
+			if _, err := stores[recipient].Accept(envelopes[recipient], encodedBarrier); err != nil {
+				t.Fatalf("zero-noise recipient=%s iteration=%d: %v",
+					recipient, iteration, err)
+			}
+		}
+		for range plan.Policy.CovariateCount {
+			noise = append(noise, new(big.Int))
+		}
+		for _, recipient := range plan.Policy.ComputePeers {
+			exactGCZeroBigInts(values[recipient])
+			clear(envelopes[recipient])
+		}
+		clear(encodedBarrier)
+	}
+	return noise
+}
+
+func formalCoxRSourceBridgeAssertFullSchedule(t testing.TB,
+	fixture *formalCoxBlockwiseSourceBridgeTestFixture,
+	rows, noise []*big.Int,
+) {
+	t.Helper()
+	// This reconstruction exists only inside the test process. Production keeps
+	// both sealed outputs private until the separately guarded release path.
+	sealed := formalCoxBlockwiseSourceBridgeTestRunFullScheduleSealed(
+		t, fixture)
+	defer func() {
+		for index := range sealed {
+			exactGCZeroBigInts(sealed[index].CoefficientShares)
+		}
+	}()
+	noiseValidity := make([]bool, fixture.plan.Iterations)
+	for index := range noiseValidity {
+		noiseValidity[index] = true
+	}
+	want, wantValid, err := referenceFormalCoxBlockwiseSchedule(
+		fixture.plan, rows, noise, noiseValidity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer exactGCZeroBigInts(want)
+	gotValid := sealed[0].ValidityShare != sealed[1].ValidityShare
+	if !wantValid || !gotValid {
+		t.Fatalf("configured R Cox schedule is not valid: got=%v want=%v",
+			gotValid, wantValid)
+	}
+	parsed, err := parseFormalCoxBlockwisePolicy(fixture.plan.Policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index := range want {
+		got := exactGCReferenceReconstruct(
+			sealed[0].CoefficientShares[index],
+			sealed[1].CoefficientShares[index], fixture.plan.RingBits)
+		if got.Cmp(want[index]) != 0 {
+			t.Fatalf("configured R Cox beta[%d]=%s, want independent oracle %s",
+				index, got, want[index])
+		}
+		gotSigned := exactGCReferenceSigned(got, fixture.plan.RingBits)
+		if gotSigned.Sign() == 0 {
+			continue
+		}
+		if new(big.Int).Abs(gotSigned).Cmp(parsed.betaNorm) > 0 {
+			t.Fatalf("configured R Cox beta[%d]=%s exceeds its signed bound",
+				index, gotSigned)
+		}
+	}
+}
+
 func TestFormalCoxRSourceBlocksFeedEncryptedProducerK2K3K5(t *testing.T) {
 	for _, custodians := range []int{2, 3, 5} {
 		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
@@ -258,12 +475,17 @@ func TestFormalCoxRSourceBlocksFeedEncryptedProducerK2K3K5(t *testing.T) {
 				len(plan.Policy.CustodianPeers))
 			storeDirs := make(map[string]string, len(plan.Policy.ComputePeers))
 			storeKeys := make(map[string][32]byte, len(plan.Policy.ComputePeers))
+			workerDirs := make(map[string]string, len(plan.Policy.ComputePeers))
+			workerKeys := make(map[string][32]byte, len(plan.Policy.ComputePeers))
 			stores := make(map[string]*formalCoxBlockwiseSourceStore,
 				len(plan.Policy.ComputePeers))
 			for _, recipient := range plan.Policy.ComputePeers {
 				storeDirs[recipient] = filepath.Join(root, "recipient", recipient)
 				storeKeys[recipient] = sha256.Sum256([]byte(
 					"formal-cox-r-source-bridge/store/" + recipient))
+				workerDirs[recipient] = filepath.Join(root, "worker", recipient)
+				workerKeys[recipient] = sha256.Sum256([]byte(
+					"formal-cox-r-source-bridge/worker/" + recipient))
 				stores[recipient], err = newFormalCoxBlockwiseSourceStore(
 					storeDirs[recipient], storeKeys[recipient], session, recipient,
 					transportPrivate[recipient])
@@ -345,24 +567,25 @@ func TestFormalCoxRSourceBlocksFeedEncryptedProducerK2K3K5(t *testing.T) {
 					}
 				}
 			}
+			referenceRows := formalCoxRSourceBridgeReferenceRows(
+				t, plan, fixture.Blocks)
+			defer exactGCZeroBigInts(referenceRows)
+			referenceNoise := formalCoxRSourceBridgeStageZeroNoise(
+				t, plan, session, pins, private, stores)
+			defer exactGCZeroBigInts(referenceNoise)
 			for _, store := range stores {
 				if err := store.Close(); err != nil {
 					t.Fatal(err)
 				}
 			}
-			bridges := make([]*formalCoxBlockwiseSourceBridge, 0,
-				len(plan.Policy.ComputePeers))
-			for _, recipient := range plan.Policy.ComputePeers {
-				bridge, err := newFormalCoxBlockwiseSourceBridge(
-					storeDirs[recipient], storeKeys[recipient], session, recipient,
-					transportPrivate[recipient], filepath.Join(root, "worker", recipient),
-					sha256.Sum256([]byte("formal-cox-r-source-bridge/worker/"+recipient)),
-					private[recipient])
-				if err != nil {
-					formalCoxBlockwiseSourceBridgeTestClose(bridges)
-					t.Fatal(err)
-				}
-				bridges = append(bridges, bridge)
+			bridgeFixture := &formalCoxBlockwiseSourceBridgeTestFixture{
+				plan: plan, pins: pins, signing: private, session: session,
+				transportSK: transportPrivate, sourceDir: storeDirs,
+				workerDir: workerDirs, sourceKey: storeKeys, workerKey: workerKeys,
+			}
+			bridges, err := formalCoxBlockwiseSourceBridgeTestOpen(t, bridgeFixture)
+			if err != nil {
+				t.Fatal(err)
 			}
 			defer formalCoxBlockwiseSourceBridgeTestClose(bridges)
 			for block := 0; block < plan.TotalBlocks; block++ {
@@ -380,6 +603,9 @@ func TestFormalCoxRSourceBlocksFeedEncryptedProducerK2K3K5(t *testing.T) {
 					t.Fatalf("R source block=%d delivery root mismatch: %v", block, err)
 				}
 			}
+			formalCoxBlockwiseSourceBridgeTestClose(bridges)
+			formalCoxRSourceBridgeAssertFullSchedule(
+				t, bridgeFixture, referenceRows, referenceNoise)
 			for _, key := range private {
 				clear(key)
 			}

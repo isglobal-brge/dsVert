@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 	"runtime"
 	"strings"
@@ -436,6 +437,55 @@ func TestFormalCoxBlockwiseCircuitCacheDoesNotRetainFailedCompilation(t *testing
 	if err != nil || got != compiled {
 		t.Fatalf("retry after failed compilation = (%p, %v), want (%p, nil)",
 			got, err, compiled)
+	}
+}
+
+func TestFormalCoxBlockwiseCircuitCacheEvictsOnlyLeastRecentEntry(t *testing.T) {
+	formalCoxBlockwiseCircuitCache.Lock()
+	previousEntries := formalCoxBlockwiseCircuitCache.entries
+	previousFlights := formalCoxBlockwiseCircuitCache.flights
+	previousOrder := formalCoxBlockwiseCircuitCache.order
+	formalCoxBlockwiseCircuitCache.entries = make(map[string]*circuit.Circuit)
+	formalCoxBlockwiseCircuitCache.flights = make(map[string]*formalCoxBlockwiseCircuitFlight)
+	formalCoxBlockwiseCircuitCache.order = nil
+	formalCoxBlockwiseCircuitCache.Unlock()
+	t.Cleanup(func() {
+		formalCoxBlockwiseCircuitCache.Lock()
+		formalCoxBlockwiseCircuitCache.entries = previousEntries
+		formalCoxBlockwiseCircuitCache.flights = previousFlights
+		formalCoxBlockwiseCircuitCache.order = previousOrder
+		formalCoxBlockwiseCircuitCache.Unlock()
+	})
+
+	var calls atomic.Int32
+	compile := func(string) (*circuit.Circuit, error) {
+		calls.Add(1)
+		return &circuit.Circuit{}, nil
+	}
+	compileSource := func(index int) *circuit.Circuit {
+		t.Helper()
+		circ, err := compileFormalCoxBlockwiseSourceWith(
+			fmt.Sprintf("formal-cox-blockwise-lru-%d", index), "LRU test", compile)
+		if err != nil || circ == nil {
+			t.Fatalf("compile %d = (%p, %v)", index, circ, err)
+		}
+		return circ
+	}
+
+	for index := 0; index < 8; index++ {
+		compileSource(index)
+	}
+	first := compileSource(0) // Refresh it before adding the ninth circuit.
+	compileSource(8)
+	if got := calls.Load(); got != 9 {
+		t.Fatalf("initial compiler calls = %d, want 9", got)
+	}
+	if got := compileSource(0); got != first || calls.Load() != 9 {
+		t.Fatalf("recent entry was evicted: circuit=%p calls=%d", got, calls.Load())
+	}
+	compileSource(1)
+	if got := calls.Load(); got != 10 {
+		t.Fatalf("least-recent entry was not evicted: compiler calls=%d", got)
 	}
 }
 

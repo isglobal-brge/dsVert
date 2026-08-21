@@ -1064,13 +1064,49 @@ type formalCoxBlockwiseCircuitFlight struct {
 	err  error
 }
 
+const formalCoxBlockwiseCircuitCacheEntries = 8
+
 var formalCoxBlockwiseCircuitCache = struct {
 	sync.Mutex
 	entries map[string]*circuit.Circuit
 	flights map[string]*formalCoxBlockwiseCircuitFlight
+	order   []string
 }{
 	entries: make(map[string]*circuit.Circuit),
 	flights: make(map[string]*formalCoxBlockwiseCircuitFlight),
+}
+
+// formalCoxBlockwiseCircuitCacheTouchLocked records a use of one public,
+// deterministic circuit.
+func formalCoxBlockwiseCircuitCacheTouchLocked(key string) {
+	for index, candidate := range formalCoxBlockwiseCircuitCache.order {
+		if candidate == key {
+			copy(formalCoxBlockwiseCircuitCache.order[index:],
+				formalCoxBlockwiseCircuitCache.order[index+1:])
+			formalCoxBlockwiseCircuitCache.order[len(formalCoxBlockwiseCircuitCache.order)-1] = key
+			return
+		}
+	}
+	formalCoxBlockwiseCircuitCache.order = append(formalCoxBlockwiseCircuitCache.order, key)
+}
+
+func formalCoxBlockwiseCircuitCacheStoreLocked(key string, circ *circuit.Circuit) {
+	if formalCoxBlockwiseCircuitCache.entries[key] == nil {
+		for len(formalCoxBlockwiseCircuitCache.entries) >= formalCoxBlockwiseCircuitCacheEntries {
+			if len(formalCoxBlockwiseCircuitCache.order) == 0 {
+				for stale := range formalCoxBlockwiseCircuitCache.entries {
+					delete(formalCoxBlockwiseCircuitCache.entries, stale)
+					break
+				}
+				continue
+			}
+			oldest := formalCoxBlockwiseCircuitCache.order[0]
+			formalCoxBlockwiseCircuitCache.order = formalCoxBlockwiseCircuitCache.order[1:]
+			delete(formalCoxBlockwiseCircuitCache.entries, oldest)
+		}
+	}
+	formalCoxBlockwiseCircuitCache.entries[key] = circ
+	formalCoxBlockwiseCircuitCacheTouchLocked(key)
 }
 
 func compileFormalCoxBlockwiseSource(source, label string) (*circuit.Circuit, error) {
@@ -1087,6 +1123,7 @@ func compileFormalCoxBlockwiseSourceWith(source, label string,
 	key := hex.EncodeToString(digest[:])
 	formalCoxBlockwiseCircuitCache.Lock()
 	if cached := formalCoxBlockwiseCircuitCache.entries[key]; cached != nil {
+		formalCoxBlockwiseCircuitCacheTouchLocked(key)
 		formalCoxBlockwiseCircuitCache.Unlock()
 		return cached, nil
 	}
@@ -1105,10 +1142,7 @@ func compileFormalCoxBlockwiseSourceWith(source, label string,
 	}
 	formalCoxBlockwiseCircuitCache.Lock()
 	if err == nil {
-		if len(formalCoxBlockwiseCircuitCache.entries) >= 8 {
-			formalCoxBlockwiseCircuitCache.entries = make(map[string]*circuit.Circuit)
-		}
-		formalCoxBlockwiseCircuitCache.entries[key] = circ
+		formalCoxBlockwiseCircuitCacheStoreLocked(key, circ)
 	}
 	flight.circ, flight.err = circ, err
 	delete(formalCoxBlockwiseCircuitCache.flights, key)

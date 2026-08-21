@@ -21,8 +21,14 @@ const formalCoxRSourceBridgeFixtureScript = `
 source("../../R/mpcUtils.R")
 source("../../R/dsiRelay.R")
 source("../../R/dpPolicyDS.R")
+source("../../R/psiProtocol.R")
+source("../../R/psiPaddedProtocolDS.R")
+source("../../R/dpAlignedDatasetRegistry.R")
+source("../../R/dpDatasetDescriptor.R")
 source("../../R/formalCoxCapsuleInternal.R")
 source("../../R/formalCoxRing128Materializer.R")
+source("../../R/formalCoxServerSource.R")
+source("../../tests/testthat/helper-padded-dp-binding.R")
 k <- as.integer(commandArgs(trailingOnly = TRUE)[[1L]])
 keys <- stats::setNames(
   replicate(k, openssl::ed25519_keygen(), simplify = FALSE),
@@ -60,11 +66,41 @@ source_rows <- function(peer) {
   data.frame(valid = valid)
 }
 blocks <- lapply(names(pins), function(peer) {
-  rows <- source_rows(peer)
-  lapply(0:2, function(index) {
-    .dsvert_formal_cox_source_block_decimal_lines(
-      schema, peer, rows, index, 2L)
+  source_values <- source_rows(peer)
+  rows <- source_values
+  rows$patient_id <- sprintf("patient-%03d", seq_len(nrow(rows)))
+  binding <- .dsvert_test_padded_dp_binding(
+    rows, "patient_id", paste0("cox-source-", peer), "v1", pins)
+  source_environment <- new.env(parent = emptyenv())
+  assign("cox_local", binding$data, envir = source_environment)
+  lockBinding("cox_local", source_environment)
+  previous_options <- options(
+    dsvert.peer_name = peer,
+    dsvert.formal_cox.source_specs = stats::setNames(list(list(
+      source_name = peer,
+      schema_sha256 = schema$schema_sha256,
+      logical_snapshot_id = schema$unsigned$logical_snapshot_id,
+      dataset = binding$descriptor,
+      data_name = "cox_local",
+      patient_column = "patient_id",
+      block_capacity = 2L,
+      columns = as.list(stats::setNames(
+        names(rows)[names(rows) != "patient_id"],
+        names(rows)[names(rows) != "patient_id"])))), peer))
+  on.exit(options(previous_options), add = TRUE)
+  context <- .dsvert_formal_cox_server_source_open(
+    schema, source_environment)
+  observed <- lapply(0:2, function(index) {
+    .dsvert_formal_cox_server_source_block(context, index)
   })
+  expected <- lapply(0:2, function(index) {
+    .dsvert_formal_cox_source_block_decimal_lines(
+      schema, peer, source_values, index, 2L)
+  })
+  if (!identical(observed, expected)) {
+    stop("Configured Cox source blocks differ from the pinned snapshot.")
+  }
+  observed
 })
 names(blocks) <- names(pins)
 seeds <- lapply(keys, function(key) {

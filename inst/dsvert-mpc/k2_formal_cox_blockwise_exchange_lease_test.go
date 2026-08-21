@@ -131,4 +131,12 @@ func TestFormalCoxBlockwiseExchangeLeaseRacesAndFailsClosed(t *testing.T) {
 		root, plan, "not-a-compute-peer", formalCoxBlockwiseExchangeLeaseTestAttempt("other")); err == nil {
 		t.Fatal("non-compute peer acquired exchange lease")
 	}
+	link := filepath.Join(t.TempDir(), "unsafe-root")
+	if err := os.Symlink(root, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if _, err := openFormalCoxBlockwiseExchangeLease(
+		link, plan, plan.Policy.ComputePeers[0], formalCoxBlockwiseExchangeLeaseTestAttempt("link")); err == nil {
+		t.Fatal("symbolic-link exchange root was accepted")
+	}
 }

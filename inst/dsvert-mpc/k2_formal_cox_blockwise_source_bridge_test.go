@@ -921,6 +921,29 @@ func TestFormalCoxBlockwiseSourceBridgeRejectsWrongKeysModesAndLinks(t *testing.
 	})
 }
 
+func TestFormalCoxBlockwiseSourceBridgeCloseClearsOwnedCheckpointKey(t *testing.T) {
+	fixture := newFormalCoxBlockwiseSourceBridgeTestFixture(t, 2,
+		map[string]bool{"peer-a": true, "peer-b": true})
+	peer := fixture.plan.Policy.ComputePeers[0]
+	bridge, err := newFormalCoxBlockwiseSourceBridge(
+		fixture.sourceDir[peer], fixture.sourceKey[peer], fixture.session, peer,
+		fixture.transportSK[peer], fixture.workerDir[peer], fixture.workerKey[peer],
+		fixture.signing[peer])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var zero [32]byte
+	if bridge.worker == nil || bridge.worker.key == zero {
+		t.Fatal("test bridge did not retain a checkpoint key")
+	}
+	if err := bridge.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if bridge.worker.key != zero {
+		t.Fatal("bridge close retained its checkpoint key")
+	}
+}
+
 func TestFormalCoxBlockwiseSourceBridgeOwnershipIsMultiprocess(t *testing.T) {
 	if helper := os.Getenv("DSVERT_COX_BRIDGE_LOCK_HELPER"); helper != "" {
 		owner, err := formalCoxBlockwiseSourceAcquireOwner(

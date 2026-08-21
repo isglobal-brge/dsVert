@@ -286,6 +286,9 @@ func (bridge *formalCoxBlockwiseSourceBridge) Close() error {
 	bridge.closed = true
 	clear(bridge.signingKey)
 	bridge.signingKey = nil
+	if bridge.worker != nil {
+		clear(bridge.worker.key[:])
+	}
 	if bridge.source == nil {
 		return nil
 	}

@@ -247,8 +247,9 @@
 #' }
 #'
 #' \subsection{File-based I/O}{
-#' The \code{.callMpcTool} function uses temporary files (not stdin/stdout
-#' pipes) for JSON I/O because encrypted data can be hundreds of KB.
+#' The \code{.callMpcTool} function uses private per-invocation files below
+#' the configured Rock state root (not stdin/stdout pipes) for JSON I/O
+#' because encrypted data can be hundreds of KB.
 #' Pipe-based I/O can cause R's C stack to overflow with large outputs.
 #' }
 #'
@@ -638,6 +639,78 @@ base64_to_base64url <- function(x) {
 }
 
 #' @keywords internal
+.dsvert_mpc_invocation_root <- function() {
+  root <- file.path(.dsvert_session_storage_root(), "mpc-invocations-v1")
+  if (!dir.exists(root) && !dir.create(root, recursive = FALSE,
+                                       showWarnings = FALSE, mode = "0700")) {
+    stop("Could not create the private dsvert-mpc invocation root",
+         call. = FALSE)
+  }
+  if (.dsvert_dp_path_is_link(root)) {
+    stop("The private dsvert-mpc invocation root must not be a symbolic link",
+         call. = FALSE)
+  }
+  Sys.chmod(root, mode = "0700")
+  if (!.dsvert_dp_private_mode(root, directory = TRUE)) {
+    stop("The private dsvert-mpc invocation root must be owner-only",
+         call. = FALSE)
+  }
+  normalizePath(root, winslash = "/", mustWork = TRUE)
+}
+
+#' @keywords internal
+.dsvert_mpc_private_file <- function(path) {
+  if (.dsvert_dp_path_is_link(path) || !file.exists(path) ||
+      isTRUE(file.info(path)$isdir) ||
+      !.dsvert_dp_private_mode(path, directory = FALSE)) {
+    return(FALSE)
+  }
+  if (identical(.Platform$OS.type, "unix") && !identical(
+      tryCatch(.dsvert_dp_noise_link_count(path), error = function(e) NA_real_),
+      1)) {
+    return(FALSE)
+  }
+  TRUE
+}
+
+#' @keywords internal
+.dsvert_mpc_private_invocation_dir <- function(
+    root = .dsvert_mpc_invocation_root()) {
+  for (attempt in seq_len(8L)) {
+    path <- tempfile("call-", tmpdir = root)
+    if (!dir.create(path, showWarnings = FALSE, mode = "0700")) next
+    Sys.chmod(path, mode = "0700")
+    if (!.dsvert_dp_path_is_link(path) &&
+        .dsvert_dp_private_mode(path, directory = TRUE) &&
+        identical(dirname(normalizePath(path, winslash = "/", mustWork = TRUE)),
+                  root)) {
+      return(path)
+    }
+    if (!.dsvert_dp_path_is_link(path)) unlink(path, force = TRUE)
+    stop("Could not create a safe private dsvert-mpc invocation directory",
+         call. = FALSE)
+  }
+  stop("Could not create a private dsvert-mpc invocation directory",
+       call. = FALSE)
+}
+
+#' @keywords internal
+.dsvert_mpc_remove_private_invocation_dir <- function(path, root) {
+  if (!is.character(path) || length(path) != 1L || is.na(path) ||
+      !is.character(root) || length(root) != 1L || is.na(root) ||
+      !dir.exists(path) || .dsvert_dp_path_is_link(path) ||
+      !.dsvert_dp_private_mode(path, directory = TRUE)) {
+    return(invisible(NULL))
+  }
+  if (!identical(dirname(normalizePath(path, winslash = "/", mustWork = TRUE)),
+                 root)) {
+    return(invisible(NULL))
+  }
+  unlink(path, recursive = TRUE, force = TRUE)
+  invisible(NULL)
+}
+
+#' @keywords internal
 .callMpcTool <- function(command, input_data, simplify_output = TRUE) {
   if (!is.character(command) || length(command) != 1L || is.na(command) ||
       !grepl("^[a-z0-9][a-z0-9-]{0,63}$", command)) {
@@ -669,28 +742,33 @@ base64_to_base64url <- function(x) {
   }
 
   # Requests and responses can contain private shares and ephemeral key
-  # material.  Put every invocation in its own private directory and create
-  # the files before use so their mode is fixed before any secret is written.
-  temp_dir <- tempfile("dsvert-mpc-")
-  if (!dir.create(temp_dir, mode = "0700") || !dir.exists(temp_dir)) {
-    stop("Could not create a private dsvert-mpc temporary directory",
-         call. = FALSE)
-  }
-  Sys.chmod(temp_dir, mode = "0700")
+  # material. Keep each invocation below the validated Rock root, not in the
+  # system temporary directory, and create the files before any secret is
+  # written so their modes are fixed first.
+  invocation_root <- .dsvert_mpc_invocation_root()
+  temp_dir <- .dsvert_mpc_private_invocation_dir(invocation_root)
   input_file <- file.path(temp_dir, "input.json")
   output_file <- file.path(temp_dir, "output.json")
   stderr_file <- file.path(temp_dir, "stderr.txt")
   paths <- c(input_file, output_file, stderr_file)
   if (!all(vapply(paths, file.create, logical(1L)))) {
-    unlink(temp_dir, recursive = TRUE, force = TRUE)
+    unlink(paths, force = TRUE)
+    .dsvert_mpc_remove_private_invocation_dir(temp_dir, invocation_root)
     stop("Could not create private dsvert-mpc temporary files",
          call. = FALSE)
   }
   Sys.chmod(paths, mode = "0600")
+  if (!all(vapply(paths, .dsvert_mpc_private_file, logical(1L)))) {
+    unlink(paths, force = TRUE)
+    .dsvert_mpc_remove_private_invocation_dir(temp_dir, invocation_root)
+    stop("Could not create private dsvert-mpc files", call. = FALSE)
+  }
 
   .secure_unlink <- function(path) {
     if (!file.exists(path) || isTRUE(file.info(path)$isdir) ||
-        nzchar(Sys.readlink(path))) return(invisible(NULL))
+        nzchar(Sys.readlink(path)) || !.dsvert_mpc_private_file(path)) {
+      return(invisible(NULL))
+    }
     # Best effort only: private permissions are the primary local protection;
     # flash media and journalled filesystems cannot promise physical erasure.
     wipe <- function() {
@@ -717,7 +795,7 @@ base64_to_base64url <- function(x) {
 
   on.exit({
     for (path in paths) .secure_unlink(path)
-    unlink(temp_dir, recursive = TRUE, force = TRUE)
+    .dsvert_mpc_remove_private_invocation_dir(temp_dir, invocation_root)
   })
 
   # Write input JSON to file using writeLines to avoid jsonlite::write_json

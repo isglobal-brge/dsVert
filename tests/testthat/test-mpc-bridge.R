@@ -21,23 +21,69 @@ test_that("the MPC bridge validates command/input before process execution", {
     "input_data must be a list")
 })
 
-test_that("private per-call bridge directories are removed", {
+test_that("private per-call bridge files use Rock and are removed", {
   skip_on_os("windows")
-  fake <- tempfile("dsvert-mpc-fake-")
+  root <- withr::local_tempdir(pattern = "dsvert-mpc-rock-")
+  withr::local_options(list(dsvert.state_dir = root))
+  fake <- file.path(root, "fake-mpc")
   writeLines(c("#!/bin/sh", "printf '{\"ok\":true}\\n'"), fake)
   Sys.chmod(fake, mode = "0700")
   on.exit(unlink(fake, force = TRUE), add = TRUE)
   old <- options(dsvert.mpc_binary = fake)
   on.exit(options(old), add = TRUE)
+  capture_name <- ".dsvert_mpc_bridge_trace_capture"
+  assign(capture_name, NULL, envir = .GlobalEnv)
+  on.exit(rm(list = capture_name, envir = .GlobalEnv), add = TRUE)
+  trace("system2", where = baseenv(), print = FALSE,
+        tracer = quote({
+          paths <- as.character(c(stdin, stdout, stderr))
+          private_file <- get(".dsvert_dp_private_mode",
+                              envir = asNamespace("dsVert"), inherits = FALSE)
+          assign(".dsvert_mpc_bridge_trace_capture", list(
+            command = as.character(command), args = as.character(args),
+            stdin = paths[[1L]], stdout = paths[[2L]], stderr = paths[[3L]],
+            files_private = vapply(paths, private_file, logical(1L),
+                                    directory = FALSE),
+            directory_private = private_file(dirname(paths[[1L]]),
+                                               directory = TRUE)),
+                 envir = .GlobalEnv)
+        }))
+  on.exit(untrace("system2", where = baseenv()), add = TRUE)
 
-  before <- list.dirs(tempdir(), recursive = FALSE, full.names = TRUE)
+  invocation_root <- .dsvert_mpc_invocation_root()
+  before <- list.dirs(invocation_root, recursive = FALSE, full.names = TRUE)
   # runtime-capabilities is the sole bootstrap command; all operational
   # commands require a validated manifest before execution.
   result <- .callMpcTool("runtime-capabilities", list(value = pi))
-  after <- list.dirs(tempdir(), recursive = FALSE, full.names = TRUE)
+  after <- list.dirs(invocation_root, recursive = FALSE, full.names = TRUE)
+  captured <- get(capture_name, envir = .GlobalEnv, inherits = FALSE)
 
   expect_true(isTRUE(result$ok))
   expect_setequal(after, before)
+  expect_true(all(grepl(
+    "/transient-sessions-v1/mpc-invocations-v1/call-[^/]+/(input\\.json|output\\.json|stderr\\.txt)$",
+    unlist(captured[c("stdin", "stdout", "stderr")]))) )
+  expect_true(all(captured$files_private))
+  expect_true(captured$directory_private)
+})
+
+test_that("the MPC bridge rejects a temporary invocation root in production", {
+  skip_on_os("windows")
+  root <- withr::local_tempdir(pattern = "dsvert-mpc-temporary-")
+  withr::local_options(list(dsvert.state_dir = root))
+  fake <- file.path(root, "fake-mpc")
+  writeLines(c("#!/bin/sh", "printf '{\"ok\":true}\\n'"), fake)
+  Sys.chmod(fake, mode = "0700")
+  on.exit(unlink(fake, force = TRUE), add = TRUE)
+  old <- options(dsvert.mpc_binary = fake)
+  on.exit(options(old), add = TRUE)
+  testthat::local_mocked_bindings(
+    .dsvert_identity_test_mode = function() FALSE,
+    .package = "dsVert")
+
+  expect_error(
+    .callMpcTool("runtime-capabilities", list()),
+    "outside temporary")
 })
 
 test_that("the MPC bridge preserves singleton arrays only when requested", {

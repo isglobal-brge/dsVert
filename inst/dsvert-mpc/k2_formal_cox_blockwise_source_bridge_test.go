@@ -540,6 +540,82 @@ func TestFormalCoxBlockwiseSourceBridgeRunsFullK3K5SchedulesAndReplays(t *testin
 	}
 }
 
+// TestFormalCoxBlockwiseSourceBridgeFeedsStickyOpeningK2K3K5 joins the two
+// private seams used by the future public route: recipient-encrypted source
+// slots feed the worker, and only its completed sealed shares reach the
+// sticky opening store. It is deliberately an integration proof, not a
+// registered analytical endpoint.
+func TestFormalCoxBlockwiseSourceBridgeFeedsStickyOpeningK2K3K5(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+			fixture := newFormalCoxBlockwiseSourceBridgeTestFixture(
+				t, custodians, map[string]bool{"peer-a": true, "peer-b": true})
+			sealed := formalCoxBlockwiseSourceBridgeTestRunFullScheduleSealed(t, fixture)
+			defer func() {
+				for index := range sealed {
+					exactGCZeroBigInts(sealed[index].CoefficientShares)
+				}
+			}()
+
+			openingKey := sha256.Sum256([]byte(t.Name() + "/opening"))
+			opening, err := newFormalCoxBlockwiseOpeningStore(
+				filepath.Join(t.TempDir(), "opening"), openingKey,
+				fixture.plan, fixture.pins)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer opening.Close()
+			for _, peer := range fixture.plan.Policy.ComputePeers {
+				checkpoint, err := newFormalCoxBlockwiseCheckpointStore(
+					fixture.workerDir[peer], fixture.workerKey[peer], fixture.plan, peer)
+				if err != nil {
+					t.Fatal(err)
+				}
+				header, replayed, err := opening.SubmitLocal(
+					checkpoint, fixture.signing[peer])
+				if err != nil || replayed || header.PeerName != peer {
+					t.Fatalf("submit %s: replay=%v header=%+v err=%v",
+						peer, replayed, header, err)
+				}
+			}
+			intent, existing, replayed, err := opening.Prepare(nil)
+			if err != nil || replayed || len(existing.Certificate) != 0 {
+				t.Fatalf("prepare: replay=%v publication=%+v err=%v",
+					replayed, existing, err)
+			}
+			peers := fixture.plan.Policy.ComputePeers
+			first, firstReplayed, err := opening.SignOnce(
+				intent, peers[0], fixture.signing[peers[0]], nil)
+			if err != nil || firstReplayed {
+				t.Fatalf("first sticky signature: replay=%v err=%v", firstReplayed, err)
+			}
+			second, secondReplayed, err := opening.SignOnce(
+				intent, peers[1], fixture.signing[peers[1]],
+				[]jointDPBiomedicalGaussianSignature{first})
+			if err != nil || secondReplayed {
+				t.Fatalf("second sticky signature: replay=%v err=%v", secondReplayed, err)
+			}
+			publication, err := opening.Publish(
+				intent, []jointDPBiomedicalGaussianSignature{first, second}, nil)
+			if err != nil || publication.Replayed {
+				t.Fatalf("publish: replay=%v err=%v", publication.Replayed, err)
+			}
+			certificate, err := formalCoxBlockwiseDecodeOpeningPublication(
+				publication, fixture.pins)
+			if err != nil || certificate.Candidate.ProductionReady ||
+				len(certificate.Candidate.Coefficients) != fixture.plan.Policy.CovariateCount {
+				t.Fatalf("invalid sticky certificate: %+v / %v", certificate, err)
+			}
+			replayedPublication, err := opening.Replay(opening.artifactID)
+			if err != nil || !replayedPublication.Replayed ||
+				!bytes.Equal(replayedPublication.Certificate, publication.Certificate) {
+				t.Fatalf("sticky replay changed the certificate: %+v / %v",
+					replayedPublication, err)
+			}
+		})
+	}
+}
+
 func TestFormalCoxBlockwiseSourceBridgeRunsAllShapesAndReplaysExactly(t *testing.T) {
 	cases := []struct {
 		name       string

@@ -242,10 +242,9 @@
       "gee": ["ds.vertGEE", "ds.vert.gee"],
       "glmm": ["ds.vertGLMM", "ds.vert.glmm"],
       "ipw": ["ds.vertIPW", "ds.vert.ipw"],
-      "mi": ["ds.vertMI", "ds.vert.mi"],
-      "lasso_iter": ["ds.vertLASSOIter", "ds.vert.lasso_iter"]
+      "mi": ["ds.vertMI", "ds.vert.mi"]
     },
-    "shared_legacy_consumers": "The generic session, Ring63/Ring127, Beaver/OT, score and cluster kernels are shared implementation dependencies of the quarantined GLM, Cox, NB, multinomial, ordinal, LMM, GEE, GLMM, IPW, MI and iterative-LASSO routes; none has an independent production public frontdoor."
+    "shared_legacy_consumers": "The generic session, Ring63/Ring127, Beaver/OT, score and cluster kernels are shared implementation dependencies of the quarantined GLM, Cox, NB, multinomial, ordinal, LMM, GEE, GLMM, IPW and MI routes; none has an independent production public frontdoor."
   },
   "registered_argument_constructor_aliases": [],
   "client_ast_resolution": {

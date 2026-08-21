@@ -388,6 +388,137 @@ func formalCoxBlockwiseSourceBridgeTestRunPair(t testing.TB,
 	}
 }
 
+// formalCoxBlockwiseSourceBridgeTestRunFullSchedule is deliberately a K=2
+// integration proof, not a public opening. It executes every canonical step
+// from recipient-encrypted source slots and verifies that a cold restart sees
+// the same private completion. K=3 and K=5 exercise each circuit shape above;
+// only the two designated compute peers hold worker shares.
+func formalCoxBlockwiseSourceBridgeTestRunFullSchedule(t *testing.T,
+	fixture *formalCoxBlockwiseSourceBridgeTestFixture,
+) {
+	t.Helper()
+	bridges, err := formalCoxBlockwiseSourceBridgeTestOpen(t, fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { formalCoxBlockwiseSourceBridgeTestClose(bridges) }()
+
+	for scheduleIndex := 0; scheduleIndex < fixture.plan.ScheduleSteps; scheduleIndex++ {
+		step, err := formalCoxBlockwiseWorkerStepAt(fixture.plan, scheduleIndex)
+		if err != nil {
+			t.Fatal(err)
+		}
+		roots := make([]string, len(bridges))
+		for index, bridge := range bridges {
+			roots[index], err = bridge.PublicInputRoot(step)
+			if err != nil {
+				t.Fatalf("step %d peer %d root: %v", scheduleIndex, index, err)
+			}
+		}
+		pairedRoot, err := formalCoxBlockwiseMatchPublicInputRoots(
+			fixture.plan, step, roots)
+		if err != nil {
+			t.Fatalf("step %d root pair: %v", scheduleIndex, err)
+		}
+		attempt := sha256.Sum256([]byte(fmt.Sprintf(
+			"%s/full-schedule-attempt/%d", t.Name(), scheduleIndex)))
+		master := sha256.Sum256([]byte(fmt.Sprintf(
+			"%s/full-schedule-master/%d", t.Name(), scheduleIndex)))
+		var bound [2]formalCoxBlockwiseWorkerStep
+		for index, bridge := range bridges {
+			bound[index], err = bridge.BeginAttempt(step, attempt, pairedRoot)
+			if err != nil {
+				t.Fatalf("step %d peer %d begin: %v", scheduleIndex, index, err)
+			}
+		}
+		if bound[0] != bound[1] {
+			t.Fatalf("step %d compute roles bound different workers", scheduleIndex)
+		}
+		session, err := formalCoxBlockwiseWorkerSession(
+			fixture.plan, bound[0], attempt, master)
+		if err != nil {
+			t.Fatalf("step %d session: %v", scheduleIndex, err)
+		}
+		left, right := net.Pipe()
+		_ = left.SetDeadline(time.Now().Add(180 * time.Second))
+		_ = right.SetDeadline(time.Now().Add(180 * time.Second))
+		type outcome struct {
+			receipt formalCoxBlockwiseStepReceipt
+			err     error
+		}
+		leftDone := make(chan outcome, 1)
+		go func() {
+			receipt, runErr := bridges[0].RunPendingWorkerStep(left, session)
+			leftDone <- outcome{receipt: receipt, err: runErr}
+		}()
+		rightReceipt, rightErr := bridges[1].RunPendingWorkerStep(right, session)
+		leftResult := <-leftDone
+		_ = left.Close()
+		_ = right.Close()
+		if leftResult.err != nil || rightErr != nil {
+			t.Fatalf("step %d GC: left=%v right=%v", scheduleIndex,
+				leftResult.err, rightErr)
+		}
+		receipts := []formalCoxBlockwiseStepReceipt{
+			leftResult.receipt, rightReceipt,
+		}
+		if err := formalCoxBlockwiseValidateReceiptPair(
+			fixture.plan, receipts, fixture.pins); err != nil {
+			t.Fatalf("step %d receipt pair: %v", scheduleIndex, err)
+		}
+		for index, bridge := range bridges {
+			if err := bridge.worker.CommitPending(receipts, fixture.pins); err != nil {
+				t.Fatalf("step %d peer %d commit: %v", scheduleIndex, index, err)
+			}
+		}
+
+		// A restart only happens at a commit boundary: no circuit can be
+		// resumed halfway, and the source slots remain recipient-encrypted.
+		if scheduleIndex == fixture.plan.ScheduleSteps/2 {
+			formalCoxBlockwiseSourceBridgeTestClose(bridges)
+			bridges, err = formalCoxBlockwiseSourceBridgeTestOpen(t, fixture)
+			if err != nil {
+				t.Fatalf("step %d restart: %v", scheduleIndex, err)
+			}
+		}
+	}
+
+	var completion [2][]byte
+	for index, bridge := range bridges {
+		_, completion[index], err = bridge.worker.Completion()
+		if err != nil {
+			t.Fatalf("peer %d completion: %v", index, err)
+		}
+		sealed, err := bridge.worker.FinalSealedOutput()
+		if err != nil {
+			t.Fatalf("peer %d sealed output: %v", index, err)
+		}
+		exactGCZeroBigInts(sealed.CoefficientShares)
+	}
+	if !bytes.Equal(completion[0], completion[1]) {
+		t.Fatal("compute roles produced different durable completions")
+	}
+
+	formalCoxBlockwiseSourceBridgeTestClose(bridges)
+	bridges, err = formalCoxBlockwiseSourceBridgeTestOpen(t, fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index, bridge := range bridges {
+		_, replay, completionErr := bridge.worker.Completion()
+		if completionErr != nil || !bytes.Equal(replay, completion[index]) {
+			t.Fatalf("peer %d restart changed durable completion: %v", index,
+				completionErr)
+		}
+	}
+}
+
+func TestFormalCoxBlockwiseSourceBridgeRunsFullK2ScheduleAndReplays(t *testing.T) {
+	fixture := newFormalCoxBlockwiseSourceBridgeTestFixture(
+		t, 2, map[string]bool{"peer-a": true, "peer-b": true})
+	formalCoxBlockwiseSourceBridgeTestRunFullSchedule(t, fixture)
+}
+
 func TestFormalCoxBlockwiseSourceBridgeRunsAllShapesAndReplaysExactly(t *testing.T) {
 	cases := []struct {
 		name       string

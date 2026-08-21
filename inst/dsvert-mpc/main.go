@@ -102,6 +102,8 @@ func main() {
 	// public Cox analytical route; it writes only recipient-encrypted outboxes.
 	case "formal-cox-source-produce":
 		handleFormalCoxBlockwiseSourceProducer()
+	case "formal-cox-source-deliver":
+		handleFormalCoxBlockwiseSourceDelivery()
 
 	// PSI (EC-DH on P-256)
 	case "psi-mask":

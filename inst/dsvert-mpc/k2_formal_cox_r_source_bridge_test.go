@@ -1,0 +1,271 @@
+package main
+
+import (
+	"bytes"
+	"crypto/ecdh"
+	"crypto/ed25519"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"math/big"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+const formalCoxRSourceBridgeFixtureScript = `
+source("../../R/mpcUtils.R")
+source("../../R/dsiRelay.R")
+source("../../R/dpPolicyDS.R")
+source("../../R/formalCoxCapsuleInternal.R")
+source("../../R/formalCoxRing128Materializer.R")
+k <- as.integer(commandArgs(trailingOnly = TRUE)[[1L]])
+keys <- stats::setNames(
+  replicate(k, openssl::ed25519_keygen(), simplify = FALSE),
+  paste0("site", seq_len(k)))
+pins <- lapply(keys, function(key) {
+  base64_to_base64url(jsonlite::base64_enc(as.list(as.list(key)$pubkey)$data))
+})
+unsigned <- .dsvert_formal_cox_schema_compile(
+  artifact_sha256 = paste(rep("1", 64L), collapse = ""),
+  logical_snapshot_id = paste0("r_source_bridge_k", k),
+  peer_pinset = pins, outcome_owner = "site1",
+  covariate_owners = c(x = "site2"), capacity = 5L,
+  time_grid_ticks = 0:3, x_lower = c(x = -0.125),
+  x_upper = c(x = 0.125), covariate_l2_bound = 0.125,
+  beta_l2_bound = 0.125, minimum_at_risk_per_event = 1L,
+  iterations = 1L, step_numerator = 1L, step_denominator = 16L,
+  ridge_numerator = 1L, ridge_denominator = 100L,
+  epsilon_numerator = 8L, epsilon_denominator = 1L,
+  delta_numerator = 1L, delta_denominator = 1000L,
+  frac_bits = 8L)
+message <- .dsvert_formal_cox_schema_message(unsigned)
+signatures <- lapply(keys, function(key) base64_to_base64url(gsub(
+  "[\\r\\n[:space:]]", "",
+  jsonlite::base64_enc(openssl::ed25519_sign(message, key)))))
+schema <- .dsvert_formal_cox_schema_seal(unsigned, signatures)
+valid <- c(TRUE, TRUE, TRUE, FALSE, TRUE)
+source_rows <- function(peer) {
+  if (identical(peer, "site1")) {
+    return(data.frame(valid = valid, stop_tick = c(1L, 2L, 3L, 1L, 2L),
+                      status = c(1, 0, 1, 0, 1)))
+  }
+  if (identical(peer, "site2")) {
+    return(data.frame(valid = valid, x = c(-0.125, 0.125, 0, 0, 0.125)))
+  }
+  data.frame(valid = valid)
+}
+blocks <- lapply(names(pins), function(peer) {
+  rows <- source_rows(peer)
+  lapply(0:2, function(index) {
+    .dsvert_formal_cox_source_block_decimal_lines(
+      schema, peer, rows, index, 2L)
+  })
+})
+names(blocks) <- names(pins)
+seeds <- lapply(keys, function(key) {
+  base64_to_base64url(jsonlite::base64_enc(as.list(key)$data))
+})
+output <- list(
+  schema_json = .dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(schema)),
+  seeds = seeds, blocks = blocks)
+cat(jsonlite::toJSON(output, auto_unbox = TRUE, null = "null"))
+`
+
+type formalCoxRSourceBridgeFixture struct {
+	SchemaJSON string                `json:"schema_json"`
+	Seeds      map[string]string     `json:"seeds"`
+	Blocks     map[string][][]string `json:"blocks"`
+}
+
+func formalCoxRSourceBridgeFixtureFor(t testing.TB,
+	custodians int) formalCoxRSourceBridgeFixture {
+
+	t.Helper()
+	if _, err := exec.LookPath("Rscript"); err != nil {
+		t.Skip("Rscript is required for the R-to-Go Cox source bridge test")
+	}
+	command := exec.Command("Rscript", "--vanilla", "-e",
+		formalCoxRSourceBridgeFixtureScript, fmt.Sprint(custodians))
+	command.Env = append(os.Environ(), "R_TESTS=")
+	encoded, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("R source bridge fixture K=%d: %v\n%s", custodians, err, encoded)
+	}
+	var fixture formalCoxRSourceBridgeFixture
+	if err := json.Unmarshal(encoded, &fixture); err != nil ||
+		!json.Valid([]byte(fixture.SchemaJSON)) || len(fixture.Seeds) != custodians ||
+		len(fixture.Blocks) != custodians {
+		t.Fatalf("invalid R source bridge fixture K=%d: %v", custodians, err)
+	}
+	return fixture
+}
+
+func formalCoxRSourceBridgePins(t testing.TB,
+	raw json.RawMessage) map[string]ed25519.PublicKey {
+
+	t.Helper()
+	schema, _, err := formalCoxSchemaDecode(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pins := make(map[string]ed25519.PublicKey, len(schema.Unsigned.PeerPinset))
+	for peer, encoded := range schema.Unsigned.PeerPinset {
+		decoded, err := base64.RawURLEncoding.DecodeString(encoded)
+		if err != nil || len(decoded) != ed25519.PublicKeySize {
+			t.Fatalf("invalid R pin for %s", peer)
+		}
+		pins[peer] = ed25519.PublicKey(decoded)
+	}
+	return pins
+}
+
+func formalCoxRSourceBridgePrivateKeys(t testing.TB,
+	seeds map[string]string) map[string]ed25519.PrivateKey {
+
+	t.Helper()
+	private := make(map[string]ed25519.PrivateKey, len(seeds))
+	for peer, encoded := range seeds {
+		seed, err := base64.RawURLEncoding.DecodeString(encoded)
+		if err != nil || len(seed) != ed25519.SeedSize {
+			t.Fatalf("invalid R signing seed for %s", peer)
+		}
+		private[peer] = ed25519.NewKeyFromSeed(seed)
+		clear(seed)
+	}
+	return private
+}
+
+func formalCoxRSourceBridgeExpected(t testing.TB, lines []string,
+	coordinateCount, ringBits int) []*big.Int {
+
+	t.Helper()
+	if len(lines) > coordinateCount {
+		t.Fatalf("R source line count %d exceeds %d", len(lines), coordinateCount)
+	}
+	values := make([]*big.Int, coordinateCount)
+	for index := range values {
+		values[index] = new(big.Int)
+		if index >= len(lines) {
+			continue
+		}
+		value, err := formalCoxCanonicalSigned(lines[index], "R source decimal")
+		if err != nil {
+			t.Fatal(err)
+		}
+		values[index] = formalCoxResidue(value, ringBits)
+	}
+	return values
+}
+
+func TestFormalCoxRSourceBlocksFeedEncryptedProducerK2K3K5(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+			fixture := formalCoxRSourceBridgeFixtureFor(t, custodians)
+			rawSchema := json.RawMessage(fixture.SchemaJSON)
+			compiled, err := formalCoxCompileSignedRSchema(rawSchema)
+			if err != nil {
+				t.Fatal(err)
+			}
+			runID := sha256.Sum256([]byte("formal-cox-r-source-bridge/" +
+				fmt.Sprint(custodians)))
+			plan, err := buildFormalCoxBlockwisePlan(compiled.Policy, 2,
+				hex.EncodeToString(runID[:]))
+			if err != nil || plan.BlockCapacity != 2 || plan.TotalBlocks != 3 {
+				t.Fatalf("unexpected R-derived block plan: %+v %v", plan, err)
+			}
+			pins := formalCoxRSourceBridgePins(t, rawSchema)
+			private := formalCoxRSourceBridgePrivateKeys(t, fixture.Seeds)
+			for peer, key := range private {
+				if !bytes.Equal(key.Public().(ed25519.PublicKey), pins[peer]) {
+					t.Fatalf("R signing key does not match pin for %s", peer)
+				}
+			}
+			context, err := newFormalCoxBlockwiseSourceContext(plan, pins)
+			if err != nil {
+				t.Fatal(err)
+			}
+			transportPublic := make(map[string][]byte, 2)
+			transportPrivate := make(map[string][]byte, 2)
+			for _, recipient := range plan.Policy.ComputePeers {
+				seed := sha256.Sum256([]byte("formal-cox-r-source-x25519/" + recipient))
+				key, err := ecdh.X25519().NewPrivateKey(seed[:])
+				if err != nil {
+					t.Fatal(err)
+				}
+				transportPrivate[recipient] = append([]byte(nil), key.Bytes()...)
+				transportPublic[recipient] = append([]byte(nil), key.PublicKey().Bytes()...)
+			}
+			tickets := make([]formalCoxBlockwiseSourceRecipientTicket, 2)
+			for index, recipient := range plan.Policy.ComputePeers {
+				tickets[index], err = context.signRecipientTicket(
+					recipient, transportPublic[recipient], private[recipient])
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			session, err := context.bindRecipientManifest(tickets)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, source := range plan.Policy.CustodianPeers {
+				blocks, ok := fixture.Blocks[source]
+				if !ok || len(blocks) != plan.TotalBlocks {
+					t.Fatalf("R source blocks for %s have wrong shape", source)
+				}
+				key := sha256.Sum256([]byte("formal-cox-r-source-producer/" + source))
+				producer, err := newFormalCoxBlockwiseSourceProducer(
+					filepath.Join(t.TempDir(), source), key, session, source, private[source])
+				if err != nil {
+					t.Fatal(err)
+				}
+				for block, lines := range blocks {
+					binding, err := producer.BlockBinding(block)
+					if err != nil {
+						producer.Close()
+						t.Fatal(err)
+					}
+					input := []byte(strings.Join(lines, "\n") + "\n")
+					result, err := producer.ProduceBlock(binding, bytes.NewReader(input))
+					if err != nil || result.Replayed {
+						producer.Close()
+						t.Fatalf("source=%s block=%d replay=%v err=%v", source,
+							block, result.Replayed, err)
+					}
+					opened := formalCoxBlockwiseSourceProducerTestOpen(
+						t, producer, session, transportPrivate, block)
+					want := formalCoxRSourceBridgeExpected(t, lines,
+						plan.BlockCapacity*plan.RowWidth, plan.RingBits)
+					modulus := exactGCModulus(plan.RingBits)
+					for index := range want {
+						got := new(big.Int).Add(
+							opened[plan.Policy.ComputePeers[0]][index],
+							opened[plan.Policy.ComputePeers[1]][index])
+						got.Mod(got, modulus)
+						if got.Cmp(want[index]) != 0 {
+							producer.Close()
+							t.Fatalf("source=%s block=%d coordinate=%d: got %s want %s",
+								source, block, index, got, want[index])
+						}
+					}
+					exactGCZeroBigInts(opened[plan.Policy.ComputePeers[0]])
+					exactGCZeroBigInts(opened[plan.Policy.ComputePeers[1]])
+					exactGCZeroBigInts(want)
+				}
+				if err := producer.Close(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for _, key := range private {
+				clear(key)
+			}
+			for _, key := range transportPrivate {
+				clear(key)
+			}
+		})
+	}
+}

@@ -22,7 +22,7 @@ import (
 
 const (
 	formalCoxSchemaCompilerInputVersion  = "dsvert-formal-cox-r-to-go-compiler-input-v1"
-	formalCoxSchemaCompilerOutputVersion = "dsvert-formal-cox-r-to-go-compiler-output-v1"
+	formalCoxSchemaCompilerOutputVersion = "dsvert-formal-cox-r-to-go-compiler-output-v2"
 	formalCoxRSchemaVersion              = "dsvert-formal-cox-schema-v1"
 	formalCoxRSealVersion                = "dsvert-formal-cox-seal-v1"
 	formalCoxRSignatureDomain            = "dsVert/formal-cox/schema-signature/v1|"
@@ -107,22 +107,21 @@ type formalCoxTheoremReconciliation struct {
 }
 
 type formalCoxSchemaCompilerOutput struct {
-	Version                    string                             `json:"version"`
-	SchemaSHA256               string                             `json:"schema_sha256"`
-	RSchemaSignaturesVerified  bool                               `json:"r_schema_signatures_verified"`
-	Policy                     formalCoxPhase1Policy              `json:"policy"`
-	PolicySHA256               string                             `json:"policy_sha256"`
-	Phase1Plan                 formalCoxPhase1Plan                `json:"phase1_plan"`
-	DPPlan                     formalCoxDPPlan                    `json:"dp_plan"`
-	NumericCertificate         formalCoxRuntimeNumericCertificate `json:"numeric_certificate"`
-	NumericCertificateSHA256   string                             `json:"numeric_certificate_sha256"`
-	TheoremReconciliation      formalCoxTheoremReconciliation     `json:"theorem_reconciliation"`
-	AnalystControlledOverrides bool                               `json:"analyst_controlled_overrides"`
-	SourceSharesAccepted       bool                               `json:"source_shares_accepted"`
-	NoiseSeedAccepted          bool                               `json:"noise_seed_accepted"`
-	OpeningsPerformed          int                                `json:"openings_performed"`
-	ProductionReady            bool                               `json:"production_ready"`
-	Blockers                   []string                           `json:"blockers"`
+	Version                    string                               `json:"version"`
+	SchemaSHA256               string                               `json:"schema_sha256"`
+	RSchemaSignaturesVerified  bool                                 `json:"r_schema_signatures_verified"`
+	Policy                     formalCoxPhase1Policy                `json:"policy"`
+	PolicySHA256               string                               `json:"policy_sha256"`
+	DPPlan                     formalCoxDPPlan                      `json:"dp_plan"`
+	NumericCertificate         formalCoxBlockwiseNumericCertificate `json:"blockwise_numeric_certificate"`
+	NumericCertificateSHA256   string                               `json:"blockwise_numeric_certificate_sha256"`
+	TheoremReconciliation      formalCoxTheoremReconciliation       `json:"theorem_reconciliation"`
+	AnalystControlledOverrides bool                                 `json:"analyst_controlled_overrides"`
+	SourceSharesAccepted       bool                                 `json:"source_shares_accepted"`
+	NoiseSeedAccepted          bool                                 `json:"noise_seed_accepted"`
+	OpeningsPerformed          int                                  `json:"openings_performed"`
+	ProductionReady            bool                                 `json:"production_ready"`
+	Blockers                   []string                             `json:"blockers"`
 }
 
 func formalCoxRejectDuplicateJSON(data []byte) error {
@@ -506,10 +505,10 @@ func formalCoxCompileSignedRSchema(raw json.RawMessage) (
 		return zero, fmt.Errorf("formal-cox: invalid signed iteration count")
 	}
 	iterations := int(iterationsBig.Int64())
-	if capacity < 2 || capacity > formalCoxPhase1MaxCapacity ||
+	if capacity < 2 || capacity > formalCoxBlockwiseMaxCapacity ||
 		minimumRisk < 1 || minimumRisk > capacity || fracBits < 8 || fracBits > 40 ||
 		iterations < 1 || iterations > formalCoxPhase1MaxIterations ||
-		len(u.TimeGridTicks) < 2 || len(u.TimeGridTicks) > formalCoxPhase1MaxGridTicks ||
+		len(u.TimeGridTicks) < 2 || len(u.TimeGridTicks) > formalCoxBlockwiseMaxGridTicks ||
 		len(u.CovariateOwners) < 1 || len(u.CovariateOwners) > formalCoxPhase1MaxCovariates {
 		return zero, fmt.Errorf("formal-cox: signed schema exceeds the reviewed compiler resource envelope")
 	}
@@ -667,7 +666,7 @@ func formalCoxCompileSignedRSchema(raw json.RawMessage) (
 	if err != nil {
 		return zero, err
 	}
-	preDP, err := planFormalCoxDP(policy)
+	preDP, err := planFormalCoxBlockwiseDP(policy)
 	if err != nil {
 		return zero, err
 	}
@@ -677,11 +676,7 @@ func formalCoxCompileSignedRSchema(raw json.RawMessage) (
 	if err != nil {
 		return zero, err
 	}
-	phase1, err := planFormalCoxPhase1(policy)
-	if err != nil {
-		return zero, err
-	}
-	dpPlan, err := planFormalCoxDP(policy)
+	dpPlan, err := planFormalCoxBlockwiseDP(policy)
 	if err != nil || !dpPlan.PrivacyPlanCertified || !dpPlan.PolicyNoiseBoundMatches ||
 		!dpPlan.PolicyNoiseChunkCountMatches {
 		if err == nil {
@@ -689,11 +684,11 @@ func formalCoxCompileSignedRSchema(raw json.RawMessage) (
 		}
 		return zero, err
 	}
-	numericCertificate, err := formalCoxRuntimeNumericCertificateForPolicy(policy, phase1)
+	numericCertificate, err := formalCoxBlockwiseNumericCertificateForPolicy(policy)
 	if err != nil {
 		return zero, err
 	}
-	numericCertificateSHA256, err := formalCoxRuntimeNumericCertificateSHA256(
+	numericCertificateSHA256, err := formalCoxBlockwiseNumericCertificateSHA256(
 		numericCertificate)
 	if err != nil {
 		return zero, err
@@ -712,7 +707,7 @@ func formalCoxCompileSignedRSchema(raw json.RawMessage) (
 		Version:      formalCoxSchemaCompilerOutputVersion,
 		SchemaSHA256: schema.SchemaSHA256, RSchemaSignaturesVerified: true,
 		Policy: policy, PolicySHA256: hex.EncodeToString(policyDigest[:]),
-		Phase1Plan: phase1, DPPlan: dpPlan,
+		DPPlan:                   dpPlan,
 		NumericCertificate:       numericCertificate,
 		NumericCertificateSHA256: numericCertificateSHA256,
 		TheoremReconciliation: formalCoxTheoremReconciliation{

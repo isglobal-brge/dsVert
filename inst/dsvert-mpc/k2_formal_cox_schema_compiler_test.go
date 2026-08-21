@@ -179,31 +179,64 @@ func TestFormalCoxSchemaCompilerAcceptsCanonicalRSealsK2ThroughK5(t *testing.T) 
 			if !compiled.RSchemaSignaturesVerified ||
 				len(compiled.Policy.CustodianPeers) != custodians ||
 				len(compiled.Policy.ComputePeers) != 2 ||
-				compiled.PolicySHA256 != compiled.Phase1Plan.PolicySHA256 ||
 				compiled.PolicySHA256 != compiled.DPPlan.PolicySHA256 ||
 				compiled.PolicySHA256 != compiled.NumericCertificate.PolicySHA256 {
 				t.Fatalf("K=%d compiler bindings diverged: %+v", custodians, compiled)
 			}
-			if !compiled.Phase1Plan.DeterministicNoWrap ||
-				!compiled.Phase1Plan.FiniteNoiseNoWrap ||
-				!compiled.NumericCertificate.DynamicRingSelectedFromBounds ||
+			if !compiled.NumericCertificate.DynamicRingSelectedFromBounds ||
 				!compiled.NumericCertificate.DeterministicNoWrapCertified ||
 				!compiled.NumericCertificate.FiniteNoiseNoWrapCertified ||
-				compiled.Phase1Plan.RingBits < 128 ||
-				compiled.Phase1Plan.RingBits > exactGCMaxRingBits {
+				!compiled.NumericCertificate.PerRunCircuitPlanValidationNeeded ||
+				compiled.NumericCertificate.RingBits < 128 ||
+				compiled.NumericCertificate.RingBits > exactGCMaxRingBits {
 				t.Fatalf("K=%d compiler did not close its dynamic no-wrap plan: %+v",
-					custodians, compiled.Phase1Plan)
+					custodians, compiled.NumericCertificate)
 			}
 			if compiled.AnalystControlledOverrides || compiled.SourceSharesAccepted ||
 				compiled.NoiseSeedAccepted || compiled.OpeningsPerformed != 0 ||
-				compiled.ProductionReady || compiled.Phase1Plan.ProductionReleaseReady ||
+				compiled.ProductionReady ||
 				compiled.DPPlan.ProductionReady ||
 				compiled.NumericCertificate.ProductionReady ||
 				len(compiled.Blockers) == 0 {
 				t.Fatalf("K=%d compiler overstated readiness or accepted private input: %+v",
 					custodians, compiled)
 			}
+			if err := formalCoxBlockwiseValidateNumericCertificate(
+				compiled.Policy, compiled.NumericCertificate); err != nil {
+				t.Fatalf("K=%d compiler emitted invalid blockwise certificate: %v",
+					custodians, err)
+			}
+			digest, err := formalCoxBlockwiseNumericCertificateSHA256(
+				compiled.NumericCertificate)
+			if err != nil || digest != compiled.NumericCertificateSHA256 {
+				t.Fatalf("K=%d compiler certificate digest diverged: %q %v",
+					custodians, digest, err)
+			}
 		})
+	}
+}
+
+func TestFormalCoxSchemaCompilerAdmitsBlockwiseCapacityBeyondLegacyCircuit(t *testing.T) {
+	resigned := formalCoxCompilerResignMutation(t,
+		formalCoxRSchemaFixture(t, 2), func(unsigned map[string]interface{}) {
+			unsigned["capacity"] = "5"
+		})
+	compiled, err := formalCoxCompileSignedRSchema(resigned)
+	if err != nil {
+		t.Fatalf("compile signed blockwise capacity: %v", err)
+	}
+	if compiled.Policy.Capacity != 5 {
+		t.Fatalf("compiler changed the signed blockwise capacity: %+v", compiled.Policy)
+	}
+	if _, err := parseFormalCoxPhase1Policy(compiled.Policy); err == nil {
+		t.Fatalf("compiler used the legacy whole-capacity circuit: %+v", compiled.Policy)
+	}
+	if _, err := parseFormalCoxBlockwisePolicy(compiled.Policy); err != nil {
+		t.Fatalf("compiler did not emit a valid blockwise policy: %v", err)
+	}
+	if err := formalCoxBlockwiseValidateNumericCertificate(
+		compiled.Policy, compiled.NumericCertificate); err != nil {
+		t.Fatalf("compiler did not bind its blockwise no-wrap certificate: %v", err)
 	}
 }
 
@@ -299,7 +332,7 @@ func TestFormalCoxSchemaCompilerDerivesSensitivityOnlyInGo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsed, err := parseFormalCoxPhase1Policy(compiled.Policy)
+	parsed, err := parseFormalCoxBlockwisePolicy(compiled.Policy)
 	if err != nil {
 		t.Fatal(err)
 	}

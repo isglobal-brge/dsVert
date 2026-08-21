@@ -14,6 +14,8 @@ import (
 
 const formalCoxRuntimeNumericCertificateVersion = "dsvert-formal-cox-runtime-numeric-certificate-v1"
 
+const formalCoxBlockwiseNumericCertificateVersion = "dsvert-formal-cox-blockwise-numeric-certificate-v1"
+
 var formalCoxRuntimeNumericCertificateBlockers = []string{
 	"continuous_cox_trajectory_error_bound_unavailable_v1",
 	"fixed_iteration_optimizer_distance_bound_unavailable_v1",
@@ -52,6 +54,108 @@ type formalCoxRuntimeNumericCertificate struct {
 	EndToEndNumericCertified           bool     `json:"end_to_end_numeric_certified"`
 	ProductionReady                    bool     `json:"production_ready"`
 	Blockers                           []string `json:"blockers"`
+}
+
+// formalCoxBlockwiseNumericCertificate covers the public lattice envelope
+// before a physical stream block has been selected.  The per-run blockwise
+// plan still authenticates the exact circuit costs and shape; this certificate
+// must not be confused with the legacy whole-capacity circuit certificate.
+type formalCoxBlockwiseNumericCertificate struct {
+	Version                           string   `json:"version"`
+	PolicySHA256                      string   `json:"policy_sha256"`
+	RingBits                          int      `json:"ring_bits"`
+	ContainerBits                     int      `json:"container_bits"`
+	FracBits                          int      `json:"frac_bits"`
+	Scale                             string   `json:"scale"`
+	MaximumSignedMagnitude            string   `json:"maximum_signed_magnitude"`
+	ProjectionRootUpper               string   `json:"projection_root_upper"`
+	ProjectionSearchSteps             int      `json:"projection_search_steps"`
+	DynamicRingSelectedFromBounds     bool     `json:"dynamic_ring_selected_from_bounds"`
+	DeterministicNoWrapCertified      bool     `json:"deterministic_no_wrap_certified"`
+	FiniteNoiseNoWrapCertified        bool     `json:"finite_noise_no_wrap_certified"`
+	Ring128InputLiftChecked           bool     `json:"ring128_input_lift_checked"`
+	FinalCarrierReductionChecked      bool     `json:"final_carrier_reduction_checked"`
+	ExpTableSHA256                    string   `json:"exp_table_sha256"`
+	ExpTableOutwardCertified          bool     `json:"exp_table_outward_certified"`
+	ExpAbsoluteErrorUpperSteps        string   `json:"exp_absolute_error_upper_steps"`
+	PerRunCircuitPlanValidationNeeded bool     `json:"per_run_circuit_plan_validation_needed"`
+	ContinuousCoxTrajectoryCertified  bool     `json:"continuous_cox_trajectory_certified"`
+	OptimizerDistanceCertified        bool     `json:"optimizer_distance_certified"`
+	EndToEndNumericCertified          bool     `json:"end_to_end_numeric_certified"`
+	ProductionReady                   bool     `json:"production_ready"`
+	Blockers                          []string `json:"blockers"`
+}
+
+func formalCoxBlockwiseNumericCertificateForPolicy(
+	policy formalCoxPhase1Policy,
+) (formalCoxBlockwiseNumericCertificate, error) {
+	var zero formalCoxBlockwiseNumericCertificate
+	parsed, err := parseFormalCoxBlockwisePolicy(policy)
+	if err != nil {
+		return zero, err
+	}
+	policyDigest, err := formalCoxPolicyDigest(policy)
+	if err != nil {
+		return zero, err
+	}
+	maximum, projectionRoot, ringBits, err := formalCoxBlockwiseNumericEnvelope(policy)
+	if err != nil {
+		return zero, err
+	}
+	return formalCoxBlockwiseNumericCertificate{
+		Version:                           formalCoxBlockwiseNumericCertificateVersion,
+		PolicySHA256:                      hex.EncodeToString(policyDigest[:]),
+		RingBits:                          ringBits,
+		ContainerBits:                     exactGCTypeBits(ringBits),
+		FracBits:                          policy.FracBits,
+		Scale:                             parsed.scale.String(),
+		MaximumSignedMagnitude:            maximum.String(),
+		ProjectionRootUpper:               projectionRoot.String(),
+		ProjectionSearchSteps:             projectionRoot.BitLen() + 1,
+		DynamicRingSelectedFromBounds:     true,
+		DeterministicNoWrapCertified:      true,
+		FiniteNoiseNoWrapCertified:        true,
+		Ring128InputLiftChecked:           true,
+		FinalCarrierReductionChecked:      true,
+		ExpTableSHA256:                    policy.ExpTableSHA256,
+		ExpTableOutwardCertified:          true,
+		ExpAbsoluteErrorUpperSteps:        parsed.expError.String(),
+		PerRunCircuitPlanValidationNeeded: true,
+		ContinuousCoxTrajectoryCertified:  false,
+		OptimizerDistanceCertified:        false,
+		EndToEndNumericCertified:          false,
+		ProductionReady:                   false,
+		Blockers:                          append([]string(nil), formalCoxRuntimeNumericCertificateBlockers...),
+	}, nil
+}
+
+func formalCoxBlockwiseNumericCertificateSHA256(
+	certificate formalCoxBlockwiseNumericCertificate,
+) (string, error) {
+	encoded, err := json.Marshal(certificate)
+	if err != nil {
+		return "", err
+	}
+	digest := formalCoxSHA256Domain(
+		"dsVert/formal-cox/blockwise-numeric-certificate/v1|", encoded)
+	return hex.EncodeToString(digest[:]), nil
+}
+
+func formalCoxBlockwiseValidateNumericCertificate(policy formalCoxPhase1Policy,
+	certificate formalCoxBlockwiseNumericCertificate,
+) error {
+	want, err := formalCoxBlockwiseNumericCertificateForPolicy(policy)
+	if err != nil {
+		return err
+	}
+	if !reflect.DeepEqual(certificate, want) || certificate.ProductionReady ||
+		certificate.EndToEndNumericCertified ||
+		certificate.ContinuousCoxTrajectoryCertified ||
+		certificate.OptimizerDistanceCertified ||
+		!certificate.PerRunCircuitPlanValidationNeeded {
+		return fmt.Errorf("formal-cox: invalid or overstated blockwise numeric certificate")
+	}
+	return nil
 }
 
 func formalCoxRuntimeNumericCertificateForPolicy(

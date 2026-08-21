@@ -98,6 +98,10 @@ func main() {
 		handleFormalCoxBlockwiseControlImport()
 	case "formal-cox-control-delivery":
 		handleFormalCoxBlockwiseControlDelivery()
+	// Closed local encryption of one signed Cox source block.  This is not a
+	// public Cox analytical route; it writes only recipient-encrypted outboxes.
+	case "formal-cox-source-produce":
+		handleFormalCoxBlockwiseSourceProducer()
 
 	// PSI (EC-DH on P-256)
 	case "psi-mask":

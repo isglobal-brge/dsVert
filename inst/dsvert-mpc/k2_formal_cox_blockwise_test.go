@@ -1,10 +1,23 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"math/big"
+	"runtime"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+
+	"github.com/markkurossi/mpc/circuit"
 )
+
+func formalCoxBlockwiseTestCircuitCacheKey(source string) string {
+	digest := sha256.Sum256([]byte(source))
+	return hex.EncodeToString(digest[:])
+}
 
 func formalCoxBlockwiseTestPolicy(t testing.TB, custodians, capacity int) formalCoxPhase1Policy {
 	t.Helper()
@@ -317,6 +330,112 @@ func TestFormalCoxBlockwisePlanCoversK2K3K5AndNonToyShape(t *testing.T) {
 			plan.ProjectionCost.EstimatedWorkingByte == 0 || plan.ProductionReady {
 			t.Fatalf("K=%d unexpected non-toy plan: %+v", custodians, plan)
 		}
+	}
+}
+
+func TestFormalCoxBlockwiseCircuitCacheCoalescesConcurrentCompilation(t *testing.T) {
+	const workers = 8
+	const source = "formal-cox-blockwise-single-flight-test-v1"
+	key := formalCoxBlockwiseTestCircuitCacheKey(source)
+	formalCoxBlockwiseCircuitCache.Lock()
+	delete(formalCoxBlockwiseCircuitCache.entries, key)
+	formalCoxBlockwiseCircuitCache.Unlock()
+	previousProcs := runtime.GOMAXPROCS(2)
+	defer runtime.GOMAXPROCS(previousProcs)
+
+	start := make(chan struct{})
+	ready := make(chan struct{}, workers)
+	release := make(chan struct{})
+	results := make(chan *circuit.Circuit, workers)
+	errorsOut := make(chan error, workers)
+	var calls atomic.Int32
+	compilerEntered := make(chan struct{}, workers)
+	compile := func(string) (*circuit.Circuit, error) {
+		calls.Add(1)
+		compilerEntered <- struct{}{}
+		<-release
+		return &circuit.Circuit{}, nil
+	}
+
+	var group sync.WaitGroup
+	for range workers {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			ready <- struct{}{}
+			<-start
+			circ, err := compileFormalCoxBlockwiseSourceWith(source,
+				"single-flight test", compile)
+			results <- circ
+			errorsOut <- err
+		}()
+	}
+	var releaseOnce sync.Once
+	releaseWorkers := func() { releaseOnce.Do(func() { close(release) }) }
+	defer func() {
+		releaseWorkers()
+		group.Wait()
+		formalCoxBlockwiseCircuitCache.Lock()
+		delete(formalCoxBlockwiseCircuitCache.entries, key)
+		formalCoxBlockwiseCircuitCache.Unlock()
+	}()
+	for range workers {
+		<-ready
+	}
+	close(start)
+	if <-compilerEntered; calls.Load() != 1 {
+		t.Fatalf("compiler calls before wait = %d, want 1", calls.Load())
+	}
+	for range 10000 {
+		runtime.Gosched()
+	}
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("identical concurrent source compiled %d times", got)
+	}
+	releaseWorkers()
+	group.Wait()
+	close(results)
+	close(errorsOut)
+	var first *circuit.Circuit
+	for circ := range results {
+		if circ == nil {
+			t.Fatal("coalesced compilation returned a nil circuit")
+		}
+		if first == nil {
+			first = circ
+		} else if circ != first {
+			t.Fatal("waiter received a different compiled circuit")
+		}
+	}
+	for err := range errorsOut {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestFormalCoxBlockwiseCircuitCacheDoesNotRetainFailedCompilation(t *testing.T) {
+	const source = "formal-cox-blockwise-failed-single-flight-test-v1"
+	key := formalCoxBlockwiseTestCircuitCacheKey(source)
+	formalCoxBlockwiseCircuitCache.Lock()
+	delete(formalCoxBlockwiseCircuitCache.entries, key)
+	formalCoxBlockwiseCircuitCache.Unlock()
+	defer func() {
+		formalCoxBlockwiseCircuitCache.Lock()
+		delete(formalCoxBlockwiseCircuitCache.entries, key)
+		formalCoxBlockwiseCircuitCache.Unlock()
+	}()
+	want := errors.New("compiler unavailable")
+	if _, err := compileFormalCoxBlockwiseSourceWith(source, "failure test",
+		func(string) (*circuit.Circuit, error) { return nil, want }); !errors.Is(err, want) {
+		t.Fatalf("failed compilation error = %v, want wrapped %v", err, want)
+	}
+	compiled := &circuit.Circuit{}
+	got, err := compileFormalCoxBlockwiseSourceWith(source, "retry test",
+		func(string) (*circuit.Circuit, error) { return compiled, nil })
+	if err != nil || got != compiled {
+		t.Fatalf("retry after failed compilation = (%p, %v), want (%p, nil)",
+			got, err, compiled)
 	}
 }
 

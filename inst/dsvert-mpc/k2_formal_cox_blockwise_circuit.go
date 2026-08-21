@@ -1058,12 +1058,31 @@ func projectTowardZero(a %[1]s, bound %[1]s, denominator %[1]s) %[1]s {
 	return source.String(), nil
 }
 
+type formalCoxBlockwiseCircuitFlight struct {
+	done chan struct{}
+	circ *circuit.Circuit
+	err  error
+}
+
 var formalCoxBlockwiseCircuitCache = struct {
 	sync.Mutex
 	entries map[string]*circuit.Circuit
-}{entries: make(map[string]*circuit.Circuit)}
+	flights map[string]*formalCoxBlockwiseCircuitFlight
+}{
+	entries: make(map[string]*circuit.Circuit),
+	flights: make(map[string]*formalCoxBlockwiseCircuitFlight),
+}
 
 func compileFormalCoxBlockwiseSource(source, label string) (*circuit.Circuit, error) {
+	return compileFormalCoxBlockwiseSourceWith(source, label, formalCoxCompileSource)
+}
+
+// compileFormalCoxBlockwiseSourceWith coalesces only a deterministic circuit
+// source.  It never keys or retains protected rows, session material, shares,
+// or DP randomness.
+func compileFormalCoxBlockwiseSourceWith(source, label string,
+	compile func(string) (*circuit.Circuit, error)) (*circuit.Circuit, error) {
+
 	digest := sha256.Sum256([]byte(source))
 	key := hex.EncodeToString(digest[:])
 	formalCoxBlockwiseCircuitCache.Lock()
@@ -1071,19 +1090,31 @@ func compileFormalCoxBlockwiseSource(source, label string) (*circuit.Circuit, er
 		formalCoxBlockwiseCircuitCache.Unlock()
 		return cached, nil
 	}
+	if flight := formalCoxBlockwiseCircuitCache.flights[key]; flight != nil {
+		formalCoxBlockwiseCircuitCache.Unlock()
+		<-flight.done
+		return flight.circ, flight.err
+	}
+	flight := &formalCoxBlockwiseCircuitFlight{done: make(chan struct{})}
+	formalCoxBlockwiseCircuitCache.flights[key] = flight
 	formalCoxBlockwiseCircuitCache.Unlock()
-	circ, err := formalCoxCompileSource(source)
+	circ, err := compile(source)
 	if err != nil {
-		return nil, exactGCFailure(exactGCFailureNumericBackendUnavailable,
+		err = exactGCFailure(exactGCFailureNumericBackendUnavailable,
 			fmt.Errorf("formal-cox: compile blockwise %s: %w", label, err))
 	}
 	formalCoxBlockwiseCircuitCache.Lock()
-	if len(formalCoxBlockwiseCircuitCache.entries) >= 8 {
-		formalCoxBlockwiseCircuitCache.entries = make(map[string]*circuit.Circuit)
+	if err == nil {
+		if len(formalCoxBlockwiseCircuitCache.entries) >= 8 {
+			formalCoxBlockwiseCircuitCache.entries = make(map[string]*circuit.Circuit)
+		}
+		formalCoxBlockwiseCircuitCache.entries[key] = circ
 	}
-	formalCoxBlockwiseCircuitCache.entries[key] = circ
+	flight.circ, flight.err = circ, err
+	delete(formalCoxBlockwiseCircuitCache.flights, key)
+	close(flight.done)
 	formalCoxBlockwiseCircuitCache.Unlock()
-	return circ, nil
+	return circ, err
 }
 
 func compileFormalCoxBlockwiseBlock(plan formalCoxBlockwisePlan) (*circuit.Circuit, error) {

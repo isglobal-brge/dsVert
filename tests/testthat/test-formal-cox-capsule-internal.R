@@ -394,10 +394,10 @@ test_that("formal Cox local source blocks preserve the canonical lattice layout"
         expect_lte(length(.dsvert_formal_cox_source_block_decimal_lines(
           sealed$schema, peer, rows, 0L, block_capacity)),
           block_capacity * ncol(expected))
+        expect_error(.dsvert_formal_cox_source_block_decimal_lines(
+          sealed$schema, peer, rows, blocks, block_capacity),
+          class = "dsvert_formal_cox_error")
       }
-      expect_error(.dsvert_formal_cox_source_block_decimal_lines(
-        sealed$schema, peer, rows, blocks, 7L),
-        class = "dsvert_formal_cox_error")
     }
     expect_error(.dsvert_formal_cox_source_block_decimal_lines(
       sealed$schema, "not-a-peer",

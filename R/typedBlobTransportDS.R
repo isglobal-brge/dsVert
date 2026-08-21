@@ -46,8 +46,6 @@
   "blob.formal-finalizer-handoff.v1"
 .DSVERT_FORMAL_GLM_CONTROL_CAPABILITY <-
   "blob.formal-glm-one-draw-control.v1"
-.DSVERT_FORMAL_COX_CONTROL_CAPABILITY <-
-  "blob.formal-cox-blockwise-control.v1"
 
 .dsvert_typed_blob_spool_max_bytes <- function() {
   value <- getOption("dsvert.typed_blob.spool_max_bytes", 1024^3)
@@ -797,17 +795,6 @@
   invisible(TRUE)
 }
 
-.dsvert_typed_blob_validate_formal_cox_control_route <- function(
-    capability_id, resolved, sender_name, recipient_name) {
-  if (identical(capability_id, .DSVERT_FORMAL_COX_CONTROL_CAPABILITY) &&
-      (!identical(resolved$context$aad$sender_peer_name, sender_name) ||
-       !identical(resolved$context$aad$recipient_peer_name,
-                  recipient_name))) {
-    stop("Invalid typed-blob formal Cox control route.", call. = FALSE)
-  }
-  invisible(TRUE)
-}
-
 .dsvert_typed_blob_storage_name <- function(value, what) {
   if (!is.character(value) || length(value) != 1L || is.na(value)) {
     stop("Invalid typed-blob ", what, ".", call. = FALSE)
@@ -1138,21 +1125,6 @@
       "formal-glm-control", "dsvertFormalGLMControlSourceDS",
       ".dsvert_formal_glm_control_import_ingress_v1",
       "formal-glm-one-draw-control",
-      "authenticated-recipient-encrypted-lifecycle-record-v1",
-      as.numeric(context$envelope_bytes), ring = "opaque"))
-  }
-  if (identical(capability_id,
-                .DSVERT_FORMAL_COX_CONTROL_CAPABILITY)) {
-    context <- .dsvert_formal_cox_control_context_v1(
-      context, sender_name)
-    tag <- substr(digest::digest(
-      .dsvert_dp_canonical_json(context),
-      algo = "sha256", serialize = FALSE), 1L, 24L)
-    return(.dsvert_typed_blob_metadata(
-      capability_id, paste0("formal_cox_control_", tag), context,
-      "formal-cox-control", "dsvertFormalCoxControlSourceDS",
-      ".dsvert_formal_cox_control_import_ingress_v1",
-      "formal-cox-blockwise-control",
       "authenticated-recipient-encrypted-lifecycle-record-v1",
       as.numeric(context$envelope_bytes), ring = "opaque"))
   }
@@ -1633,8 +1605,6 @@
     capability_id, resolved, session$self_name, recipient_name)
   .dsvert_typed_blob_validate_formal_glm_control_route(
     capability_id, resolved, session$self_name, recipient_name)
-  .dsvert_typed_blob_validate_formal_cox_control_route(
-    capability_id, resolved, session$self_name, recipient_name)
   allowed_producers <- resolved$producer
   if (is.null(producer) && length(allowed_producers) == 1L) {
     producer <- allowed_producers[[1L]]
@@ -1674,13 +1644,6 @@
       payload_chars != .dsvert_formal_glm_control_outer_chars_v1(
         resolved$context$envelope_bytes)) {
     stop("Formal GLM control payload conflicts with its envelope size.",
-         call. = FALSE)
-  }
-  if (identical(capability_id,
-                .DSVERT_FORMAL_COX_CONTROL_CAPABILITY) &&
-      payload_chars != .dsvert_formal_cox_control_outer_chars_v1(
-        resolved$context$envelope_bytes)) {
-    stop("Formal Cox control payload conflicts with its envelope size.",
          call. = FALSE)
   }
   if (xor(is.null(source_path), is.null(source_descriptor))) {
@@ -2301,8 +2264,6 @@ mpcTypedBlobReadDS <- function(ticket, offset, max_chars, session_id) {
     body$capability_id, resolved, sender, recipient)
   .dsvert_typed_blob_validate_formal_glm_control_route(
     body$capability_id, resolved, sender, recipient)
-  .dsvert_typed_blob_validate_formal_cox_control_route(
-    body$capability_id, resolved, sender, recipient)
   metadata_valid <-
     identical(body$family, resolved$family) &&
     is.character(body$producer) && length(body$producer) == 1L &&
@@ -2335,13 +2296,6 @@ mpcTypedBlobReadDS <- function(ticket, offset, max_chars, session_id) {
       payload_chars != .dsvert_formal_glm_control_outer_chars_v1(
         resolved$context$envelope_bytes)) {
     stop("Formal GLM control payload conflicts with its envelope size.",
-         call. = FALSE)
-  }
-  if (identical(body$capability_id,
-                .DSVERT_FORMAL_COX_CONTROL_CAPABILITY) &&
-      payload_chars != .dsvert_formal_cox_control_outer_chars_v1(
-        resolved$context$envelope_bytes)) {
-    stop("Formal Cox control payload conflicts with its envelope size.",
          call. = FALSE)
   }
   sequence <- .dsvert_typed_blob_integer_string(
@@ -2817,10 +2771,6 @@ mpcTypedBlobReceiptDS <- function(receipt, session_id) {
                 .DSVERT_FORMAL_GLM_CONTROL_CAPABILITY)) {
     .dsvert_formal_glm_control_mark_delivered_v1(ss, outbound, parsed)
   }
-  if (identical(outbound$capability_id,
-                .DSVERT_FORMAL_COX_CONTROL_CAPABILITY)) {
-    .dsvert_formal_cox_control_mark_delivered_v1(ss, outbound, parsed)
-  }
   receipt_record <- list(
     receipt_digest = parsed$receipt_digest,
     stream_key = outbound$stream_key,
@@ -3117,10 +3067,6 @@ mpcTypedBlobStoreDS <- function(ticket, chunk, offset, session_id) {
   if (identical(plan$capability_id,
                 .DSVERT_FORMAL_GLM_CONTROL_CAPABILITY)) {
     .dsvert_formal_glm_control_import_ingress_v1(ss, plan, state$path)
-  }
-  if (identical(plan$capability_id,
-                .DSVERT_FORMAL_COX_CONTROL_CAPABILITY)) {
-    .dsvert_formal_cox_control_import_ingress_v1(ss, plan, state$path)
   }
   signed_receipt <- .dsvert_typed_blob_mint_receipt(plan, ss)
   if (!file.rename(state$path, destination_path)) {

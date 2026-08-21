@@ -1,8 +1,9 @@
 {
   "schema_version": "dsvert-typed-blob-inventory-v1",
-  "generated_at": "2026-08-11",
+  "generated_at": "2026-08-21",
   "legacy_endpoint": "mpcStoreBlobDS",
   "typed_endpoint": "mpcTypedBlobStoreDS",
+  "source_endpoint": "mpcTypedBlobReadDS",
   "receipt_endpoint": "mpcTypedBlobReceiptDS",
   "records": [
     {
@@ -25,6 +26,17 @@
       "recipient": "dsvertDPFrequencyFinalizeWindowDS",
       "shape": "recipient-sealed fixed 65,536-coordinate Ring128 source-authority window",
       "confidentiality": "recipient-sealed",
+      "migration": "migrated-typed-v1"
+    },
+    {
+      "id": "analysis_dp.synopsis_final_share",
+      "families": ["analysis-dp"],
+      "callers": ["dsvertDPSynopsisFinalShareDS"],
+      "slot": "analysis_dp_synopsis_final_<24-hex canonical-context digest>",
+      "producer": ".dsvert_dp_synopsis_execution_final_share_v1",
+      "recipient": ".dsvert_dp_synopsis_execution_release_v1",
+      "shape": "recipient-encrypted Ring128 synopsis public chunk",
+      "confidentiality": "recipient-encrypted",
       "migration": "migrated-typed-v1"
     },
     {
@@ -246,6 +258,28 @@
       "shape": "sealed per-row fitted share or packed Gram/cross-product shares; method-specific",
       "confidentiality": "recipient-sealed",
       "migration": "quarantine-redesign-or-remove"
+    },
+    {
+      "id": "formal_finalizer.handoff",
+      "families": ["formal-finalizer"],
+      "callers": ["dsvertFormalFinalizerHandoffSourceDS"],
+      "slot": "formal_finalizer_handoff_<24-hex canonical-context digest>",
+      "producer": "dsvertFormalFinalizerHandoffSourceDS.ciphertext",
+      "recipient": ".dsvert_formal_finalizer_handoff_import_ingress_v1",
+      "shape": "signed recipient-encrypted finalizer envelope",
+      "confidentiality": "recipient-encrypted",
+      "migration": "internal-typed-v1"
+    },
+    {
+      "id": "formal_glm.one_draw_lifecycle_control",
+      "families": ["formal-glm"],
+      "callers": ["dsvertFormalGLMControlSourceDS"],
+      "slot": "formal_glm_control_<24-hex canonical-context digest>",
+      "producer": "dsvertFormalGLMControlSourceDS.ciphertext",
+      "recipient": ".dsvert_formal_glm_control_import_ingress_v1",
+      "shape": "authenticated recipient-encrypted lifecycle record",
+      "confidentiality": "recipient-encrypted",
+      "migration": "internal-typed-v1"
     }
   ]
 }

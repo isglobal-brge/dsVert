@@ -39,9 +39,9 @@ test_that("typed blob migration inventory is machine-readable and complete", {
     "analysis_dp.count_final_share",
     "analysis_dp.frequency_source_window",
     "analysis_dp.synopsis_final_share", "formal_finalizer.handoff",
-    "formal_glm.one_draw_lifecycle_control",
-    "formal_cox.blockwise_lifecycle_control"
+    "formal_glm.one_draw_lifecycle_control"
   ) %in% ids))
+  expect_false("formal_cox.blockwise_lifecycle_control" %in% ids)
   first_wave <- inventory$records[ids %in% c(
     "input.peer_x", "input.peer_y", "input.extra_x",
     "gradient.peer_r1", "beaver.vector_share", "beaver.vecmul_masked",

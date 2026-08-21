@@ -139,7 +139,6 @@
   "mpcTypedBlobReceiptDS",
   "dsvertFormalFinalizerHandoffSourceDS",
   "dsvertFormalGLMControlSourceDS",
-  "dsvertFormalCoxControlSourceDS",
   "exactGCTransportInitDS",
   "exactGCBindPeersDS",
   "exactGCExchangeDS",

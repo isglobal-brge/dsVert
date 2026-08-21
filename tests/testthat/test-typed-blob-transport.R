@@ -110,16 +110,17 @@ test_that("optional formal routing does not block Synopsis tickets", {
     .DSVERT_FORMAL_FINALIZER_HANDOFF_CAPABILITY =
       "blob.formal-finalizer-handoff.v1",
     .DSVERT_FORMAL_GLM_CONTROL_CAPABILITY =
-      "blob.formal-glm-one-draw-control.v1",
-    .DSVERT_FORMAL_COX_CONTROL_CAPABILITY =
-      "blob.formal-cox-blockwise-control.v1")
+      "blob.formal-glm-one-draw-control.v1")
   expect_identical(unname(vapply(names(expected), get,
                                   character(1L), inherits = TRUE)),
                    unname(expected))
+  expect_false(exists(".DSVERT_FORMAL_COX_CONTROL_CAPABILITY",
+                      inherits = TRUE))
+  expect_false("dsvertFormalCoxControlSourceDS" %in%
+                 .dsvert_disclosure_safe_remote_methods)
   for (validator in list(
       .dsvert_typed_blob_validate_formal_finalizer_route,
-      .dsvert_typed_blob_validate_formal_glm_control_route,
-      .dsvert_typed_blob_validate_formal_cox_control_route)) {
+      .dsvert_typed_blob_validate_formal_glm_control_route)) {
     expect_silent(validator(.DSVERT_TYPED_BLOB_SYNOPSIS_FINAL_CAPABILITY,
                             list(context = list()), "peer_a", "peer_b"))
   }

@@ -46,6 +46,8 @@ type formalGLMPhase19BlockScheduleSummary struct {
 
 type formalGLMPhase19StreamStore struct {
 	path        string
+	root        *os.Root
+	relative    string
 	file        *os.File
 	plan        formalGLMPhase15Plan
 	ctx         formalGLMPhase19Context
@@ -57,6 +59,36 @@ type formalGLMPhase19StreamStore struct {
 	required    int64
 	next        int
 	complete    bool
+}
+
+func formalGLMPhase19NewStreamStoreFromFileV1(
+	file *os.File, path string, root *os.Root, relative string,
+	maxBytes int64, plan formalGLMPhase15Plan, ctx formalGLMPhase19Context,
+	peer string, backendKey [32]byte,
+) (*formalGLMPhase19StreamStore, error) {
+	if file == nil || (root != nil && relative == "") ||
+		(root == nil && path == "") {
+		return nil, fmt.Errorf("formal-glm: invalid private block-store file")
+	}
+	recordBytes, required, err := formalGLMPhase19StreamStoreRequiredBytes(plan)
+	if err != nil {
+		return nil, err
+	}
+	if maxBytes < required || maxBytes > exactGCMaxAbsoluteOffset {
+		return nil, fmt.Errorf(
+			"formal-glm: private block store exceeds its declared resource bound")
+	}
+	ctxDigest, err := formalGLMPhase19ContextDigest(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &formalGLMPhase19StreamStore{
+		path: path, root: root, relative: relative, file: file,
+		plan: plan, ctx: ctx, peer: peer, key: backendKey, context: ctxDigest,
+		tupleBytes: plan.BlockCapacity * (plan.Kernel.CoefficientCount + 3) *
+			(plan.ContainerBits / 8),
+		recordBytes: recordBytes, required: required,
+	}, nil
 }
 
 func formalGLMPhase19StreamStoreRequiredBytes(plan formalGLMPhase15Plan) (
@@ -86,14 +118,6 @@ func newFormalGLMPhase19StreamStore(dir string, maxBytes int64,
 	if err := formalGLMPhase19ValidateContext(plan, ctx); err != nil {
 		return nil, err
 	}
-	recordBytes, required, err := formalGLMPhase19StreamStoreRequiredBytes(plan)
-	if err != nil {
-		return nil, err
-	}
-	if maxBytes < required || maxBytes > exactGCMaxAbsoluteOffset {
-		return nil, fmt.Errorf(
-			"formal-glm: private block store exceeds its declared resource bound")
-	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
@@ -110,19 +134,81 @@ func newFormalGLMPhase19StreamStore(dir string, maxBytes int64,
 	if err != nil {
 		return nil, err
 	}
-	ctxDigest, err := formalGLMPhase19ContextDigest(ctx)
+	store, err := formalGLMPhase19NewStreamStoreFromFileV1(
+		file, path, nil, "", maxBytes, plan, ctx, peer, backendKey)
 	if err != nil {
 		_ = file.Close()
 		_ = os.Remove(path)
 		return nil, err
 	}
-	return &formalGLMPhase19StreamStore{
-		path: path, file: file, plan: plan, ctx: ctx, peer: peer,
-		key: backendKey, context: ctxDigest,
-		tupleBytes: plan.BlockCapacity * (plan.Kernel.CoefficientCount + 3) *
-			(plan.ContainerBits / 8),
-		recordBytes: recordBytes, required: required,
-	}, nil
+	return store, nil
+}
+
+// newFormalGLMPhase19StreamStoreRootedV1 creates the private block-store
+// beneath a caller-owned, already-open Rock root. It is the only constructor
+// suitable for a live registered job: directory replacement cannot redirect
+// its block shares outside that root.
+func newFormalGLMPhase19StreamStoreRootedV1(
+	root *os.Root, directory string, maxBytes int64,
+	plan formalGLMPhase15Plan, ctx formalGLMPhase19Context, peer string,
+	backendKey [32]byte,
+) (*formalGLMPhase19StreamStore, error) {
+	if root == nil || directory == "" || filepath.IsAbs(directory) ||
+		filepath.Clean(directory) != directory ||
+		(peer != ctx.ComputePeers[0] && peer != ctx.ComputePeers[1]) ||
+		!formalGLMPhase19KeyValid(backendKey) {
+		return nil, fmt.Errorf("formal-glm: invalid rooted private block-store policy")
+	}
+	if err := formalGLMPhase19ValidateContext(plan, ctx); err != nil {
+		return nil, err
+	}
+	rootInfo, err := root.Stat(".")
+	if err != nil || !rootInfo.IsDir() || rootInfo.Mode().Perm() != 0o700 ||
+		!formalFinalizerHandoffPrivateOwnedDirectory(rootInfo) {
+		return nil, fmt.Errorf("formal-glm: unsafe rooted private block-store root")
+	}
+	if err := formalGLMPhase21EnsureRootPrivateDir(root, directory); err != nil {
+		return nil, err
+	}
+	current, err := root.Lstat(directory)
+	if err != nil || !current.IsDir() || current.Mode()&os.ModeSymlink != 0 ||
+		current.Mode().Perm() != 0o700 ||
+		!formalFinalizerHandoffPrivateOwnedDirectory(current) {
+		return nil, fmt.Errorf("formal-glm: unsafe rooted private block-store directory")
+	}
+	storeRoot, err := root.OpenRoot(directory)
+	if err != nil {
+		return nil, err
+	}
+	opened, openErr := storeRoot.Stat(".")
+	if openErr != nil || !os.SameFile(current, opened) ||
+		opened.Mode().Perm() != 0o700 ||
+		!formalFinalizerHandoffPrivateOwnedDirectory(opened) {
+		_ = storeRoot.Close()
+		return nil, fmt.Errorf("formal-glm: rooted private block-store directory changed")
+	}
+	file, err := storeRoot.OpenFile(formalGLMPhase19StreamStoreName,
+		os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		_ = storeRoot.Close()
+		return nil, err
+	}
+	if err := file.Chmod(0o600); err != nil {
+		_ = file.Close()
+		_ = storeRoot.Remove(formalGLMPhase19StreamStoreName)
+		_ = storeRoot.Close()
+		return nil, err
+	}
+	store, err := formalGLMPhase19NewStreamStoreFromFileV1(
+		file, "", storeRoot, formalGLMPhase19StreamStoreName,
+		maxBytes, plan, ctx, peer, backendKey)
+	if err != nil {
+		_ = file.Close()
+		_ = storeRoot.Remove(formalGLMPhase19StreamStoreName)
+		_ = storeRoot.Close()
+		return nil, err
+	}
+	return store, nil
 }
 
 func formalGLMPhase19StreamDecodeRoot(value, name string) ([32]byte, error) {
@@ -348,7 +434,17 @@ func (store *formalGLMPhase19StreamStore) Destroy() error {
 		closeErr = store.file.Close()
 		store.file = nil
 	}
-	removeErr := os.Remove(store.path)
+	var removeErr error
+	if store.root != nil {
+		removeErr = store.root.Remove(store.relative)
+		rootCloseErr := store.root.Close()
+		store.root = nil
+		if removeErr == nil {
+			removeErr = rootCloseErr
+		}
+	} else {
+		removeErr = os.Remove(store.path)
+	}
 	if os.IsNotExist(removeErr) {
 		removeErr = nil
 	}

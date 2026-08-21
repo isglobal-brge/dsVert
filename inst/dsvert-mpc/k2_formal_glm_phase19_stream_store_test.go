@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"math/big"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -103,5 +104,73 @@ func TestFormalGLMPhase19StreamStoreAuthenticatesAndMatchesLegacyRoots(
 	}
 	if _, err := store.ReadMetadata(0); err == nil {
 		t.Fatal("private stream store accepted a modified share record")
+	}
+}
+
+func TestFormalGLMPhase19StreamStoreRootedCreationPinsRockDirectory(
+	t *testing.T,
+) {
+	bundle := formalGLMPhase19TestBuild(t, 3, 1, 1, nil)
+	_, required, err := formalGLMPhase19StreamStoreRequiredBytes(bundle.plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent := t.TempDir()
+	rock := filepath.Join(parent, "rock")
+	if err := os.Mkdir(rock, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.OpenRoot(rock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+
+	if _, err := newFormalGLMPhase19StreamStoreRootedV1(
+		root, "../escape", required, bundle.plan, bundle.ctx,
+		bundle.ctx.ComputePeers[0], bundle.key); err == nil {
+		t.Fatal("rooted stream store accepted parent traversal")
+	}
+	if _, err := newFormalGLMPhase19StreamStoreRootedV1(
+		root, filepath.Join(parent, "escape"), required, bundle.plan,
+		bundle.ctx, bundle.ctx.ComputePeers[0], bundle.key); err == nil {
+		t.Fatal("rooted stream store accepted an absolute path")
+	}
+
+	// The caller retains the opened Root. Renaming its pathname must not cause
+	// the block store to appear under a replacement directory.
+	anchored := filepath.Join(parent, "anchored")
+	if err := os.Rename(rock, anchored); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(rock, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	store, err := newFormalGLMPhase19StreamStoreRootedV1(
+		root, "blocks", required, bundle.plan, bundle.ctx,
+		bundle.ctx.ComputePeers[0], bundle.key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	storePath := filepath.Join(anchored, "blocks",
+		formalGLMPhase19StreamStoreName)
+	info, err := os.Lstat(storePath)
+	if err != nil {
+		t.Fatalf("rooted store was not created beneath the pinned directory: %v", err)
+	}
+	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 ||
+		info.Mode().Perm() != 0o600 || !exactGCPrivateOwnedRegular(info) {
+		t.Fatal("rooted store created an unsafe private file")
+	}
+	if _, err := os.Stat(filepath.Join(rock, "blocks",
+		formalGLMPhase19StreamStoreName)); !os.IsNotExist(err) {
+		t.Fatalf("rooted store followed the replacement directory: %v", err)
+	}
+	if err := store.Destroy(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(anchored, "blocks",
+		formalGLMPhase19StreamStoreName)); !os.IsNotExist(err) {
+		t.Fatalf("rooted store did not remove its private file: %v", err)
 	}
 }

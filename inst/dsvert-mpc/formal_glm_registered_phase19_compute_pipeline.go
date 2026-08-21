@@ -330,6 +330,11 @@ func (pipeline *formalGLMRegisteredPhase19ComputePipelineV1) RunV1(
 	if err != nil {
 		return nil, err
 	}
+	if err = formalGLMRegisteredPhase20ExchangeComputeReadyV1(
+		rw, pipeline.runtime, pipeline.record, pipeline.contract, pipeline.pins,
+		pipeline.accept, evidence); err != nil {
+		return nil, err
+	}
 	if err = pipeline.checkRunningV1(); err != nil {
 		return nil, err
 	}

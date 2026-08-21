@@ -390,10 +390,21 @@ func TestFormalGLMRegisteredPhase20JobOwnerRoleOrderRestartAndCommit(
 	if err != nil || status.votes[0] != nil || status.votes[1] != nil {
 		t.Fatalf("rejected evaluator vote changed durable state: %+v / %v", status, err)
 	}
+	fence, err := formalGLMRegisteredPhase20AcquireAttemptFenceV1(
+		garbler.attempts, garbler.proposal.Binding.AttemptID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := formalGLMRegisteredPhase20AttemptVoteQuiescenceV1(
+		garbler.attempts, fence, garbler.proposal, garbler.accept); err != nil {
+		fence.Close()
+		t.Fatal(err)
+	}
 	garbler.attempts.mu.Lock()
 	_, err = garbler.attempts.commitVoteV1(
-		garbler.proposal, garbler.accept, evaluatorVote)
+		fence, garbler.proposal, garbler.accept, evaluatorVote)
 	garbler.attempts.mu.Unlock()
+	fence.Close()
 	if err != nil {
 		t.Fatal(err)
 	}

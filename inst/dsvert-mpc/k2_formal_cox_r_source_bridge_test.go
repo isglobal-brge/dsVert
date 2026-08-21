@@ -212,27 +212,63 @@ func TestFormalCoxRSourceBlocksFeedEncryptedProducerK2K3K5(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			root := t.TempDir()
+			for _, directory := range []string{"producer", "recipient", "worker"} {
+				if err := os.Mkdir(filepath.Join(root, directory), 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			producers := make(map[string]*formalCoxBlockwiseSourceProducer,
+				len(plan.Policy.CustodianPeers))
+			storeDirs := make(map[string]string, len(plan.Policy.ComputePeers))
+			storeKeys := make(map[string][32]byte, len(plan.Policy.ComputePeers))
+			stores := make(map[string]*formalCoxBlockwiseSourceStore,
+				len(plan.Policy.ComputePeers))
+			for _, recipient := range plan.Policy.ComputePeers {
+				storeDirs[recipient] = filepath.Join(root, "recipient", recipient)
+				storeKeys[recipient] = sha256.Sum256([]byte(
+					"formal-cox-r-source-bridge/store/" + recipient))
+				stores[recipient], err = newFormalCoxBlockwiseSourceStore(
+					storeDirs[recipient], storeKeys[recipient], session, recipient,
+					transportPrivate[recipient])
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			defer func() {
+				for _, store := range stores {
+					_ = store.Close()
+				}
+				for _, producer := range producers {
+					_ = producer.Close()
+				}
+			}()
 			for _, source := range plan.Policy.CustodianPeers {
 				blocks, ok := fixture.Blocks[source]
 				if !ok || len(blocks) != plan.TotalBlocks {
 					t.Fatalf("R source blocks for %s have wrong shape", source)
 				}
-				key := sha256.Sum256([]byte("formal-cox-r-source-producer/" + source))
+				key := sha256.Sum256([]byte(
+					"formal-cox-r-source-bridge/producer/" + source))
 				producer, err := newFormalCoxBlockwiseSourceProducer(
-					filepath.Join(t.TempDir(), source), key, session, source, private[source])
+					filepath.Join(root, "producer", source), key,
+					session, source, private[source])
 				if err != nil {
 					t.Fatal(err)
 				}
-				for block, lines := range blocks {
+				producers[source] = producer
+			}
+			for block := 0; block < plan.TotalBlocks; block++ {
+				for _, source := range plan.Policy.CustodianPeers {
+					lines := fixture.Blocks[source][block]
+					producer := producers[source]
 					binding, err := producer.BlockBinding(block)
 					if err != nil {
-						producer.Close()
 						t.Fatal(err)
 					}
 					input := []byte(strings.Join(lines, "\n") + "\n")
 					result, err := producer.ProduceBlock(binding, bytes.NewReader(input))
 					if err != nil || result.Replayed {
-						producer.Close()
 						t.Fatalf("source=%s block=%d replay=%v err=%v", source,
 							block, result.Replayed, err)
 					}
@@ -247,7 +283,6 @@ func TestFormalCoxRSourceBlocksFeedEncryptedProducerK2K3K5(t *testing.T) {
 							opened[plan.Policy.ComputePeers[1]][index])
 						got.Mod(got, modulus)
 						if got.Cmp(want[index]) != 0 {
-							producer.Close()
 							t.Fatalf("source=%s block=%d coordinate=%d: got %s want %s",
 								source, block, index, got, want[index])
 						}
@@ -255,9 +290,58 @@ func TestFormalCoxRSourceBlocksFeedEncryptedProducerK2K3K5(t *testing.T) {
 					exactGCZeroBigInts(opened[plan.Policy.ComputePeers[0]])
 					exactGCZeroBigInts(opened[plan.Policy.ComputePeers[1]])
 					exactGCZeroBigInts(want)
+					for _, recipient := range plan.Policy.ComputePeers {
+						delivery, err := producer.Delivery(block, recipient)
+						if err != nil || delivery.ReceiptSHA256 != result.ReceiptSHA256 {
+							t.Fatalf("R source delivery source=%s block=%d recipient=%s: %v",
+								source, block, recipient, err)
+						}
+						encoded, err := delivery.Encode(session)
+						if err != nil {
+							t.Fatal(err)
+						}
+						replayed, err := stores[recipient].AcceptDelivery(encoded)
+						clear(encoded)
+						if err != nil || replayed {
+							t.Fatalf("R source delivery accept source=%s block=%d recipient=%s replay=%v err=%v",
+								source, block, recipient, replayed, err)
+						}
+					}
 				}
-				if err := producer.Close(); err != nil {
+			}
+			for _, store := range stores {
+				if err := store.Close(); err != nil {
 					t.Fatal(err)
+				}
+			}
+			bridges := make([]*formalCoxBlockwiseSourceBridge, 0,
+				len(plan.Policy.ComputePeers))
+			for _, recipient := range plan.Policy.ComputePeers {
+				bridge, err := newFormalCoxBlockwiseSourceBridge(
+					storeDirs[recipient], storeKeys[recipient], session, recipient,
+					transportPrivate[recipient], filepath.Join(root, "worker", recipient),
+					sha256.Sum256([]byte("formal-cox-r-source-bridge/worker/"+recipient)),
+					private[recipient])
+				if err != nil {
+					formalCoxBlockwiseSourceBridgeTestClose(bridges)
+					t.Fatal(err)
+				}
+				bridges = append(bridges, bridge)
+			}
+			defer formalCoxBlockwiseSourceBridgeTestClose(bridges)
+			for block := 0; block < plan.TotalBlocks; block++ {
+				step := formalCoxBlockwiseSourceTestStep(
+					t, plan, formalCoxBlockwiseStepBlock, block)
+				roots := make([]string, len(bridges))
+				for index, bridge := range bridges {
+					roots[index], err = bridge.PublicInputRoot(step)
+					if err != nil {
+						t.Fatalf("R source public root block=%d peer=%d: %v",
+							block, index, err)
+					}
+				}
+				if _, err := formalCoxBlockwiseMatchPublicInputRoots(plan, step, roots); err != nil {
+					t.Fatalf("R source block=%d delivery root mismatch: %v", block, err)
 				}
 			}
 			for _, key := range private {

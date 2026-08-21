@@ -388,10 +388,16 @@ test_that("formal Cox plaintext fixture has no package or DSI surface", {
     "formalCoxRing128Materializer|formalCoxCapsuleInternal", namespace)))
 })
 
-test_that("formal Cox plaintext fixture has no Go command surface", {
+test_that("formal Cox has only its opaque control Go commands", {
   main <- readLines(.dsvert_test_package_file(
     "inst", "dsvert-mpc", "main.go", source_only = TRUE), warn = FALSE)
-  expect_false(any(grepl("formal-cox", main, fixed = TRUE)))
+  commands <- sub(
+    '^[[:space:]]*case "([^"]+)":.*$', "\\1",
+    grep('^[[:space:]]*case "formal-cox-', main, value = TRUE))
+  expect_setequal(commands, c(
+    "formal-cox-control-source",
+    "formal-cox-control-import",
+    "formal-cox-control-delivery"))
 })
 
 test_that("Ring128 source bundles reject tamper, replay and wrong roots", {

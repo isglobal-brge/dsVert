@@ -388,11 +388,11 @@ func formalCoxBlockwiseSourceBridgeTestRunPair(t testing.TB,
 	}
 }
 
-// formalCoxBlockwiseSourceBridgeTestRunFullSchedule is deliberately a K=2
+// formalCoxBlockwiseSourceBridgeTestRunFullSchedule is deliberately an
 // integration proof, not a public opening. It executes every canonical step
 // from recipient-encrypted source slots and verifies that a cold restart sees
-// the same private completion. K=3 and K=5 exercise each circuit shape above;
-// only the two designated compute peers hold worker shares.
+// the same private completion. Only the two designated compute peers hold
+// worker shares; the remaining K=3/K=5 custodians are authenticated witnesses.
 func formalCoxBlockwiseSourceBridgeTestRunFullSchedule(t *testing.T,
 	fixture *formalCoxBlockwiseSourceBridgeTestFixture,
 ) {
@@ -517,6 +517,16 @@ func TestFormalCoxBlockwiseSourceBridgeRunsFullK2ScheduleAndReplays(t *testing.T
 	fixture := newFormalCoxBlockwiseSourceBridgeTestFixture(
 		t, 2, map[string]bool{"peer-a": true, "peer-b": true})
 	formalCoxBlockwiseSourceBridgeTestRunFullSchedule(t, fixture)
+}
+
+func TestFormalCoxBlockwiseSourceBridgeRunsFullK3K5SchedulesAndReplays(t *testing.T) {
+	for _, custodians := range []int{3, 5} {
+		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+			fixture := newFormalCoxBlockwiseSourceBridgeTestFixture(
+				t, custodians, map[string]bool{"peer-a": true, "peer-b": true})
+			formalCoxBlockwiseSourceBridgeTestRunFullSchedule(t, fixture)
+		})
+	}
 }
 
 func TestFormalCoxBlockwiseSourceBridgeRunsAllShapesAndReplaysExactly(t *testing.T) {

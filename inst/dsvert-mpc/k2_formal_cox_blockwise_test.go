@@ -423,6 +423,66 @@ func TestFormalCoxBlockwisePlanCoversK2K3K5AndNonToyShape(t *testing.T) {
 	}
 }
 
+func TestFormalCoxBlockwiseInformationSensitivityIsCapacityInvariantAndPlanBound(t *testing.T) {
+	var want formalCoxBlockwiseInformationSensitivityCert
+	for _, custodians := range []int{2, 3, 5} {
+		for _, capacity := range []int{2, 100000} {
+			policy := formalCoxBlockwiseTestPolicy(t, custodians, capacity)
+			parsed, err := parseFormalCoxBlockwisePolicy(policy)
+			if err != nil {
+				t.Fatalf("K=%d N=%d policy: %v", custodians, capacity, err)
+			}
+			got, err := formalCoxBlockwiseBuildInformationSensitivityCertificate(parsed)
+			if err != nil {
+				t.Fatalf("K=%d N=%d certificate: %v", custodians, capacity, err)
+			}
+			if got.Version != formalCoxBlockwiseInformationSensitivityVersion ||
+				got.CoordinateCount != policy.CovariateCount*(policy.CovariateCount+1)/2 ||
+				got.Normalization != "divide_private_information_by_public_capacity_floor_v1" ||
+				got.PerCoordinateMaximumAbsSteps == "0" ||
+				got.PerCoordinateReplaceSensitivitySteps == "0" ||
+				got.JointL2ReplaceSensitivitySteps == "0" {
+				t.Fatalf("K=%d N=%d malformed certificate: %+v", custodians, capacity, got)
+			}
+			maximum, ok := new(big.Int).SetString(got.PerCoordinateMaximumAbsSteps, 10)
+			if !ok {
+				t.Fatalf("K=%d N=%d invalid maximum: %+v", custodians, capacity, got)
+			}
+			perCoordinate, ok := new(big.Int).SetString(
+				got.PerCoordinateReplaceSensitivitySteps, 10)
+			if !ok || perCoordinate.Cmp(new(big.Int).Mul(maximum, big.NewInt(2))) != 0 {
+				t.Fatalf("K=%d N=%d invalid coordinate sensitivity: %+v", custodians, capacity, got)
+			}
+			joint, ok := new(big.Int).SetString(got.JointL2ReplaceSensitivitySteps, 10)
+			wantJoint := formalCoxCeilSqrt(new(big.Int).Mul(
+				new(big.Int).Mul(perCoordinate, perCoordinate),
+				big.NewInt(int64(got.CoordinateCount))))
+			if !ok || joint.Cmp(wantJoint) != 0 {
+				t.Fatalf("K=%d N=%d invalid joint sensitivity: %+v", custodians, capacity, got)
+			}
+			if want == (formalCoxBlockwiseInformationSensitivityCert{}) {
+				want = got
+			} else if got != want {
+				t.Fatalf("information sensitivity changed with K/N: got=%+v want=%+v", got, want)
+			}
+		}
+	}
+
+	policy := formalCoxBlockwiseTestPolicy(t, 2, 2)
+	plan, err := buildFormalCoxBlockwisePlan(policy, 1, strings.Repeat("6", 64))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.InformationSensitivity != want {
+		t.Fatalf("plan certificate = %+v, want %+v", plan.InformationSensitivity, want)
+	}
+	tampered := plan
+	tampered.InformationSensitivity.JointL2ReplaceSensitivitySteps = "1"
+	if err := validateFormalCoxBlockwisePlan(tampered); err == nil {
+		t.Fatal("accepted a substituted information sensitivity certificate")
+	}
+}
+
 // The final Cox information matrix needs the weighted second risk moments
 // S2(t)=sum_R exp(eta) x x'.  This is intentionally a circuit/oracle test,
 // not a public opening: an exact S2 share must never become a release.

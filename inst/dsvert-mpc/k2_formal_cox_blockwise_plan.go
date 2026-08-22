@@ -18,7 +18,7 @@ import (
 const formalCoxBlockwiseScoreApproximationVersion = "dsvert-formal-cox-blockwise-score-approximation-v3"
 
 const (
-	formalCoxBlockwisePlanVersion = "dsvert-formal-cox-blockwise-plan-v8"
+	formalCoxBlockwisePlanVersion = "dsvert-formal-cox-blockwise-plan-v9"
 	formalCoxBlockwiseCostVersion = "dsvert-formal-cox-blockwise-cost-v1"
 	formalCoxBlockwiseMaxCapacity = 1_000_000
 	// The blockwise circuits have a separately reviewed three-coefficient
@@ -86,38 +86,55 @@ type formalCoxBlockwiseScoreCert struct {
 	NormalizedScoreMaximumAbsErrorSteps string `json:"normalized_score_maximum_abs_error_steps"`
 }
 
+// formalCoxBlockwiseInformationSensitivityCert is the public, conservative
+// bounded-output sensitivity certificate for a future DP release of the
+// post-fit observed-information lower triangle.  The information itself stays
+// secret: this commits only a bound for floor(H/N), where N is the signed
+// public capacity.  It is not an inference release or an allocation of DP
+// noise by itself.
+type formalCoxBlockwiseInformationSensitivityCert struct {
+	Version string `json:"version"`
+	// Normalization fixes the integer operation for which this bound applies.
+	Normalization                        string `json:"normalization"`
+	CoordinateCount                      int    `json:"coordinate_count"`
+	PerCoordinateMaximumAbsSteps         string `json:"per_coordinate_maximum_abs_steps"`
+	PerCoordinateReplaceSensitivitySteps string `json:"per_coordinate_replace_sensitivity_steps"`
+	JointL2ReplaceSensitivitySteps       string `json:"joint_l2_replace_sensitivity_steps"`
+}
+
 type formalCoxBlockwisePlan struct {
-	Version                 string                        `json:"version"`
-	RunID                   string                        `json:"run_id"`
-	Policy                  formalCoxPhase1Policy         `json:"policy"`
-	PolicySHA256            string                        `json:"policy_sha256"`
-	TotalCapacity           int                           `json:"total_capacity"`
-	BlockCapacity           int                           `json:"block_capacity"`
-	TotalBlocks             int                           `json:"total_blocks"`
-	Iterations              int                           `json:"iterations"`
-	RowWidth                int                           `json:"row_width"`
-	MomentCoordinates       int                           `json:"moment_coordinates"`
-	StateArithmetic         int                           `json:"state_arithmetic_coordinates"`
-	StateCoordinates        int                           `json:"state_coordinates"`
-	PeakResidentCoordinates int                           `json:"peak_private_resident_coordinates"`
-	ScheduleSteps           int                           `json:"schedule_steps"`
-	RingBits                int                           `json:"ring_bits"`
-	ContainerBits           int                           `json:"container_bits"`
-	MaximumSignedMagnitude  string                        `json:"maximum_signed_magnitude"`
-	ProjectionRootUpper     string                        `json:"projection_root_upper"`
-	ProjectionSearchSteps   int                           `json:"projection_search_steps"`
-	ScoreApproximation      formalCoxBlockwiseScoreCert   `json:"score_approximation"`
-	BlockCost               formalCoxBlockwiseCircuitCost `json:"block_cost"`
-	GridCost                formalCoxBlockwiseCircuitCost `json:"grid_reduction_cost"`
-	InformationMomentCost   formalCoxBlockwiseCircuitCost `json:"observed_information_moment_cost"`
-	InformationCost         formalCoxBlockwiseCircuitCost `json:"observed_information_cost"`
-	UpdateCost              formalCoxBlockwiseCircuitCost `json:"update_cost"`
-	ProjectionCost          formalCoxBlockwiseCircuitCost `json:"projection_coefficient_cost"`
-	BackendSelection        string                        `json:"backend_selection"`
-	TranscriptShape         string                        `json:"transcript_shape"`
-	CrashRecovery           string                        `json:"crash_recovery"`
-	Output                  string                        `json:"output"`
-	ProductionReady         bool                          `json:"production_ready"`
+	Version                 string                                       `json:"version"`
+	RunID                   string                                       `json:"run_id"`
+	Policy                  formalCoxPhase1Policy                        `json:"policy"`
+	PolicySHA256            string                                       `json:"policy_sha256"`
+	TotalCapacity           int                                          `json:"total_capacity"`
+	BlockCapacity           int                                          `json:"block_capacity"`
+	TotalBlocks             int                                          `json:"total_blocks"`
+	Iterations              int                                          `json:"iterations"`
+	RowWidth                int                                          `json:"row_width"`
+	MomentCoordinates       int                                          `json:"moment_coordinates"`
+	StateArithmetic         int                                          `json:"state_arithmetic_coordinates"`
+	StateCoordinates        int                                          `json:"state_coordinates"`
+	PeakResidentCoordinates int                                          `json:"peak_private_resident_coordinates"`
+	ScheduleSteps           int                                          `json:"schedule_steps"`
+	RingBits                int                                          `json:"ring_bits"`
+	ContainerBits           int                                          `json:"container_bits"`
+	MaximumSignedMagnitude  string                                       `json:"maximum_signed_magnitude"`
+	ProjectionRootUpper     string                                       `json:"projection_root_upper"`
+	ProjectionSearchSteps   int                                          `json:"projection_search_steps"`
+	ScoreApproximation      formalCoxBlockwiseScoreCert                  `json:"score_approximation"`
+	InformationSensitivity  formalCoxBlockwiseInformationSensitivityCert `json:"information_sensitivity"`
+	BlockCost               formalCoxBlockwiseCircuitCost                `json:"block_cost"`
+	GridCost                formalCoxBlockwiseCircuitCost                `json:"grid_reduction_cost"`
+	InformationMomentCost   formalCoxBlockwiseCircuitCost                `json:"observed_information_moment_cost"`
+	InformationCost         formalCoxBlockwiseCircuitCost                `json:"observed_information_cost"`
+	UpdateCost              formalCoxBlockwiseCircuitCost                `json:"update_cost"`
+	ProjectionCost          formalCoxBlockwiseCircuitCost                `json:"projection_coefficient_cost"`
+	BackendSelection        string                                       `json:"backend_selection"`
+	TranscriptShape         string                                       `json:"transcript_shape"`
+	CrashRecovery           string                                       `json:"crash_recovery"`
+	Output                  string                                       `json:"output"`
+	ProductionReady         bool                                         `json:"production_ready"`
 
 	// NumericCertificateSHA256 commits the finite fixed-grid numerical
 	// envelope used by this execution. It makes the plan digest, and therefore
@@ -189,6 +206,91 @@ func formalCoxBlockwiseBuildScoreApproximationCertificate(
 		NormalizedScoreMaximumAbsErrorSteps:                   score.String(),
 	}, nil
 }
+
+type formalCoxBlockwiseInformationBounds struct {
+	maximumCovariateAbs    *big.Int
+	weightedXAbs           *big.Int
+	weightedXXAbs          *big.Int
+	riskMeanAbs            *big.Int
+	riskSecondMomentAbs    *big.Int
+	riskMeanOuterAbs       *big.Int
+	perEventInformationAbs *big.Int
+}
+
+// formalCoxBlockwiseInformationBoundsForParsed returns the exact fixed-grid
+// magnitude envelope used both by the private observed-information worker and
+// by its future normalized-release sensitivity certificate.  Keeping this
+// arithmetic in one helper prevents the public certificate drifting away from
+// the Ring128 no-wrap envelope.
+func formalCoxBlockwiseInformationBoundsForParsed(
+	parsed formalCoxParsedPolicy,
+) (formalCoxBlockwiseInformationBounds, error) {
+	if len(parsed.expValues) == 0 || len(parsed.xLower) != parsed.policy.CovariateCount ||
+		len(parsed.xUpper) != parsed.policy.CovariateCount {
+		return formalCoxBlockwiseInformationBounds{},
+			fmt.Errorf("formal-cox: invalid observed-information bounds policy")
+	}
+	xMax := new(big.Int)
+	for index := 0; index < parsed.policy.CovariateCount; index++ {
+		xMax = formalCoxMax(xMax, formalCoxAbs(parsed.xLower[index]),
+			formalCoxAbs(parsed.xUpper[index]))
+	}
+	weightMin := parsed.expValues[0]
+	weightMax := parsed.expValues[len(parsed.expValues)-1]
+	if weightMin.Sign() <= 0 || weightMax.Sign() <= 0 {
+		return formalCoxBlockwiseInformationBounds{},
+			fmt.Errorf("formal-cox: non-positive observed-information weight")
+	}
+	weightedX := new(big.Int).Add(
+		formalCoxCeilMulMagnitude(weightMax, xMax, parsed.scale), big.NewInt(1))
+	weightedXX := new(big.Int).Add(
+		formalCoxCeilMulMagnitude(weightedX, xMax, parsed.scale), big.NewInt(1))
+	meanBound := exactGCCeilDiv(
+		new(big.Int).Mul(new(big.Int).Set(weightedX), parsed.scale), weightMin)
+	secondMeanBound := exactGCCeilDiv(
+		new(big.Int).Mul(new(big.Int).Set(weightedXX), parsed.scale), weightMin)
+	meanOuterBound := formalCoxCeilMulMagnitude(meanBound, meanBound, parsed.scale)
+	return formalCoxBlockwiseInformationBounds{
+		maximumCovariateAbs:    xMax,
+		weightedXAbs:           weightedX,
+		weightedXXAbs:          weightedXX,
+		riskMeanAbs:            meanBound,
+		riskSecondMomentAbs:    secondMeanBound,
+		riskMeanOuterAbs:       meanOuterBound,
+		perEventInformationAbs: new(big.Int).Add(secondMeanBound, meanOuterBound),
+	}, nil
+}
+
+func formalCoxBlockwiseBuildInformationSensitivityCertificate(
+	parsed formalCoxParsedPolicy,
+) (formalCoxBlockwiseInformationSensitivityCert, error) {
+	bounds, err := formalCoxBlockwiseInformationBoundsForParsed(parsed)
+	if err != nil {
+		return formalCoxBlockwiseInformationSensitivityCert{}, err
+	}
+	// One patient has at most one event.  Summing the per-event magnitude over
+	// the fixed grid and then dividing by the public capacity removes N from the
+	// output bound.  One extra lattice step covers the canonical integer floor
+	// that a future release circuit must apply.
+	maximum := new(big.Int).Mul(bounds.perEventInformationAbs,
+		big.NewInt(int64(parsed.policy.GridTickCount)))
+	maximum.Add(maximum, big.NewInt(1))
+	perCoordinateSensitivity := new(big.Int).Mul(maximum, big.NewInt(2))
+	coordinates := formalCoxBlockwiseInformationCoordinates(parsed.policy)
+	jointSquared := new(big.Int).Mul(perCoordinateSensitivity,
+		perCoordinateSensitivity)
+	jointSquared.Mul(jointSquared, big.NewInt(int64(coordinates)))
+	return formalCoxBlockwiseInformationSensitivityCert{
+		Version:                              formalCoxBlockwiseInformationSensitivityVersion,
+		Normalization:                        "divide_private_information_by_public_capacity_floor_v1",
+		CoordinateCount:                      coordinates,
+		PerCoordinateMaximumAbsSteps:         maximum.String(),
+		PerCoordinateReplaceSensitivitySteps: perCoordinateSensitivity.String(),
+		JointL2ReplaceSensitivitySteps:       formalCoxCeilSqrt(jointSquared).String(),
+	}, nil
+}
+
+const formalCoxBlockwiseInformationSensitivityVersion = "dsvert-formal-cox-blockwise-normalized-information-sensitivity-v1"
 
 type formalCoxBlockwiseResourceError struct {
 	Code                  string
@@ -306,32 +408,29 @@ func formalCoxBlockwiseNumericEnvelope(policy formalCoxPhase1Policy) (
 		return nil, nil, 0, err
 	}
 	n, p := policy.Capacity, policy.CovariateCount
-	xMax := new(big.Int)
-	for index := 0; index < p; index++ {
-		xMax = formalCoxMax(xMax, formalCoxAbs(parsed.xLower[index]),
-			formalCoxAbs(parsed.xUpper[index]))
+	informationBounds, err := formalCoxBlockwiseInformationBoundsForParsed(parsed)
+	if err != nil {
+		return nil, nil, 0, err
 	}
+	xMax := informationBounds.maximumCovariateAbs
 	weightMin := new(big.Int).Set(parsed.expValues[0])
 	weightMax := new(big.Int).Set(parsed.expValues[len(parsed.expValues)-1])
 	etaBound := formalCoxCeilMulMagnitude(
 		parsed.xNorm, parsed.betaNorm, parsed.scale)
-	weightedX := new(big.Int).Add(
-		formalCoxCeilMulMagnitude(weightMax, xMax, parsed.scale), big.NewInt(1))
-	weightedXX := new(big.Int).Add(
-		formalCoxCeilMulMagnitude(weightedX, xMax, parsed.scale), big.NewInt(1))
+	weightedX := informationBounds.weightedXAbs
+	weightedXX := informationBounds.weightedXXAbs
 	s0Bound := new(big.Int).Mul(big.NewInt(int64(n)), weightMax)
 	s1Bound := new(big.Int).Mul(big.NewInt(int64(n)), weightedX)
 	s2Bound := new(big.Int).Mul(big.NewInt(int64(n)), weightedXX)
-	// At every grid tick, the same r at-risk rows contribute to S0 and S1:
-	// |S1/S0| <= r*weightedX/(r*weightMin).  Cancelling r keeps the
-	// coefficient-update envelope independent of the public capacity N.
-	meanBound := exactGCCeilDiv(
-		new(big.Int).Mul(new(big.Int).Set(weightedX), parsed.scale), weightMin)
-	secondMeanBound := exactGCCeilDiv(
-		new(big.Int).Mul(new(big.Int).Set(weightedXX), parsed.scale), weightMin)
-	meanOuterBound := formalCoxCeilMulMagnitude(meanBound, meanBound, parsed.scale)
-	informationIncrementBound := new(big.Int).Add(secondMeanBound, meanOuterBound)
-	informationIncrementBound.Mul(informationIncrementBound, big.NewInt(int64(n)))
+	// At every grid tick, the same r at-risk rows contribute to S0 and S1.
+	// The helper cancels r, leaving a per-event information envelope that is
+	// independent of N; this raw worker bound then restores the at-most-N event
+	// accumulation for the private Ring128 computation.
+	meanBound := informationBounds.riskMeanAbs
+	secondMeanBound := informationBounds.riskSecondMomentAbs
+	meanOuterBound := informationBounds.riskMeanOuterAbs
+	informationIncrementBound := new(big.Int).Mul(
+		informationBounds.perEventInformationAbs, big.NewInt(int64(n)))
 	informationBound := new(big.Int).Mul(
 		informationIncrementBound, big.NewInt(int64(policy.GridTickCount)))
 	eventXBound := new(big.Int).Mul(big.NewInt(int64(n)), xMax)
@@ -432,6 +531,11 @@ func formalCoxBlockwiseValidateShape(plan formalCoxBlockwisePlan) (
 	if err != nil || plan.ScoreApproximation != scoreApproximation {
 		return zero, fmt.Errorf("formal-cox: invalid score approximation certificate")
 	}
+	informationSensitivity, err :=
+		formalCoxBlockwiseBuildInformationSensitivityCertificate(parsed)
+	if err != nil || plan.InformationSensitivity != informationSensitivity {
+		return zero, fmt.Errorf("formal-cox: invalid information sensitivity certificate")
+	}
 	return parsed, nil
 }
 
@@ -473,6 +577,11 @@ func buildFormalCoxBlockwisePlan(policy formalCoxPhase1Policy,
 	if err != nil {
 		return formalCoxBlockwisePlan{}, err
 	}
+	informationSensitivity, err :=
+		formalCoxBlockwiseBuildInformationSensitivityCertificate(parsed)
+	if err != nil {
+		return formalCoxBlockwisePlan{}, err
+	}
 	numericCertificate, err := formalCoxBlockwiseNumericCertificateForPolicy(policy)
 	if err != nil {
 		return formalCoxBlockwisePlan{}, err
@@ -505,6 +614,7 @@ func buildFormalCoxBlockwisePlan(policy formalCoxPhase1Policy,
 			ProjectionRootUpper:    projectionRoot.String(),
 			ProjectionSearchSteps:  projectionRoot.BitLen() + 1,
 			ScoreApproximation:     scoreApproximation,
+			InformationSensitivity: informationSensitivity,
 			BackendSelection:       "streamed_exact_gc_ot_no_runtime_fallback_v1",
 			TranscriptShape:        "fixed_public_iteration_and_postfit_information_schedule_v1",
 			CrashRecovery:          "commit_barrier_or_fresh_session_never_resume_mid_gc_v1",

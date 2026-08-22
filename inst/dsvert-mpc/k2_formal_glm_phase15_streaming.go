@@ -391,13 +391,52 @@ type formalGLMPhase15CircuitFlight struct {
 	err  error
 }
 
+const formalGLMPhase15CircuitCacheEntries = 8
+
 var formalGLMPhase15CircuitCache = struct {
 	sync.Mutex
 	entries map[string]*circuit.Circuit
 	flights map[string]*formalGLMPhase15CircuitFlight
+	order   []string
 }{
 	entries: make(map[string]*circuit.Circuit),
 	flights: make(map[string]*formalGLMPhase15CircuitFlight),
+}
+
+// formalGLMPhase15CircuitCacheTouchLocked records a use of one public,
+// deterministic circuit source. Callers hold formalGLMPhase15CircuitCache.
+func formalGLMPhase15CircuitCacheTouchLocked(key string) {
+	for index, candidate := range formalGLMPhase15CircuitCache.order {
+		if candidate == key {
+			copy(formalGLMPhase15CircuitCache.order[index:],
+				formalGLMPhase15CircuitCache.order[index+1:])
+			formalGLMPhase15CircuitCache.order[len(formalGLMPhase15CircuitCache.order)-1] = key
+			return
+		}
+	}
+	formalGLMPhase15CircuitCache.order = append(formalGLMPhase15CircuitCache.order, key)
+}
+
+// formalGLMPhase15CircuitCacheStoreLocked keeps a fixed-size LRU of public,
+// deterministic circuits. It never retains rows, shares, sessions, or DP
+// randomness.
+func formalGLMPhase15CircuitCacheStoreLocked(key string, circ *circuit.Circuit) {
+	if formalGLMPhase15CircuitCache.entries[key] == nil {
+		for len(formalGLMPhase15CircuitCache.entries) >= formalGLMPhase15CircuitCacheEntries {
+			if len(formalGLMPhase15CircuitCache.order) == 0 {
+				for stale := range formalGLMPhase15CircuitCache.entries {
+					delete(formalGLMPhase15CircuitCache.entries, stale)
+					break
+				}
+				continue
+			}
+			oldest := formalGLMPhase15CircuitCache.order[0]
+			formalGLMPhase15CircuitCache.order = formalGLMPhase15CircuitCache.order[1:]
+			delete(formalGLMPhase15CircuitCache.entries, oldest)
+		}
+	}
+	formalGLMPhase15CircuitCache.entries[key] = circ
+	formalGLMPhase15CircuitCacheTouchLocked(key)
 }
 
 func compileFormalGLMPhase15Source(source, label string) (*circuit.Circuit, error) {
@@ -420,6 +459,7 @@ func compileFormalGLMPhase15SourceWith(source, label string,
 	key := hex.EncodeToString(digest[:])
 	formalGLMPhase15CircuitCache.Lock()
 	if cached := formalGLMPhase15CircuitCache.entries[key]; cached != nil {
+		formalGLMPhase15CircuitCacheTouchLocked(key)
 		formalGLMPhase15CircuitCache.Unlock()
 		return cached, nil
 	}
@@ -441,12 +481,7 @@ func compileFormalGLMPhase15SourceWith(source, label string,
 	}
 	formalGLMPhase15CircuitCache.Lock()
 	if err == nil {
-		// Two circuits per active plan are sufficient; cap this research cache so
-		// untrusted public plans cannot retain unbounded compiled circuits.
-		if len(formalGLMPhase15CircuitCache.entries) >= 4 {
-			formalGLMPhase15CircuitCache.entries = make(map[string]*circuit.Circuit)
-		}
-		formalGLMPhase15CircuitCache.entries[key] = circ
+		formalGLMPhase15CircuitCacheStoreLocked(key, circ)
 	}
 	flight.circ, flight.err = circ, err
 	delete(formalGLMPhase15CircuitCache.flights, key)

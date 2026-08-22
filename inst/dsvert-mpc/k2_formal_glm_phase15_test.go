@@ -6,6 +6,7 @@ import (
 	crand "crypto/rand"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"math/big"
 	"math/rand"
 	"net"
@@ -73,13 +74,16 @@ func formalGLMPhase15TestIsolatedCircuitCache(t testing.TB) {
 	formalGLMPhase15CircuitCache.Lock()
 	previousEntries := formalGLMPhase15CircuitCache.entries
 	previousFlights := formalGLMPhase15CircuitCache.flights
+	previousOrder := formalGLMPhase15CircuitCache.order
 	formalGLMPhase15CircuitCache.entries = make(map[string]*circuit.Circuit)
 	formalGLMPhase15CircuitCache.flights = make(map[string]*formalGLMPhase15CircuitFlight)
+	formalGLMPhase15CircuitCache.order = nil
 	formalGLMPhase15CircuitCache.Unlock()
 	t.Cleanup(func() {
 		formalGLMPhase15CircuitCache.Lock()
 		formalGLMPhase15CircuitCache.entries = previousEntries
 		formalGLMPhase15CircuitCache.flights = previousFlights
+		formalGLMPhase15CircuitCache.order = previousOrder
 		formalGLMPhase15CircuitCache.Unlock()
 	})
 }
@@ -155,6 +159,59 @@ func TestFormalGLMPhase15CircuitCompileFailureDoesNotPoisonCache(t *testing.T) {
 	circ, err := compileFormalGLMPhase15SourceWith("package main", "test", compile)
 	if err != nil || circ == nil || calls.Load() != 2 {
 		t.Fatalf("cache retained a compiler failure: circuit=%v calls=%d error=%v", circ, calls.Load(), err)
+	}
+}
+
+func TestFormalGLMPhase15CircuitCacheRetainsRecentPublicSources(t *testing.T) {
+	formalGLMPhase15TestIsolatedCircuitCache(t)
+	const expectedEntries = 8
+
+	var calls atomic.Int32
+	compile := func(string) (*circuit.Circuit, error) {
+		calls.Add(1)
+		return &circuit.Circuit{}, nil
+	}
+	compileSource := func(source string) {
+		t.Helper()
+		circ, err := compileFormalGLMPhase15SourceWith(source, "test", compile)
+		if err != nil || circ == nil {
+			t.Fatalf("compile %q: circuit=%v error=%v", source, circ, err)
+		}
+	}
+
+	for index := 0; index < expectedEntries; index++ {
+		compileSource(fmt.Sprintf("package source%d", index))
+	}
+	if calls.Load() != expectedEntries {
+		t.Fatalf("initial public sources compiled %d times", calls.Load())
+	}
+	compileSource("package source0")
+	if calls.Load() != expectedEntries {
+		t.Fatalf("recent public source was evicted: calls=%d", calls.Load())
+	}
+	compileSource("package source8")
+	compileSource("package source0")
+	if calls.Load() != expectedEntries+1 {
+		t.Fatalf("most-recent public source was evicted: calls=%d", calls.Load())
+	}
+	compileSource("package source1")
+	if calls.Load() != expectedEntries+2 {
+		t.Fatalf("least-recent public source was not evicted: calls=%d", calls.Load())
+	}
+	formalGLMPhase15CircuitCache.Lock()
+	defer formalGLMPhase15CircuitCache.Unlock()
+	if len(formalGLMPhase15CircuitCache.entries) != expectedEntries ||
+		len(formalGLMPhase15CircuitCache.order) != expectedEntries {
+		t.Fatalf("circuit cache is not bounded: entries=%d order=%d",
+			len(formalGLMPhase15CircuitCache.entries),
+			len(formalGLMPhase15CircuitCache.order))
+	}
+	seen := make(map[string]bool, expectedEntries)
+	for _, key := range formalGLMPhase15CircuitCache.order {
+		if seen[key] || formalGLMPhase15CircuitCache.entries[key] == nil {
+			t.Fatalf("circuit cache order diverged")
+		}
+		seen[key] = true
 	}
 }
 

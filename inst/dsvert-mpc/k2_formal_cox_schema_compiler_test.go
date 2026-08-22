@@ -255,6 +255,26 @@ func TestFormalCoxSchemaCompilerAdmitsBlockwiseCapacityBeyondLegacyCircuit(t *te
 	}
 }
 
+func TestFormalCoxSchemaCompilerAdmitsSignedBlockwiseIterationRange(t *testing.T) {
+	resigned := formalCoxCompilerResignMutation(t,
+		formalCoxRSchemaFixture(t, 2), func(unsigned map[string]interface{}) {
+			unsigned["iterations"] = "12"
+		})
+	compiled, err := formalCoxCompileSignedRSchema(resigned)
+	if err != nil {
+		t.Fatalf("compile signed twelve-iteration schedule: %v", err)
+	}
+	if compiled.Policy.Iterations != 12 {
+		t.Fatalf("compiler changed signed iteration count: %+v", compiled.Policy)
+	}
+	if _, err := parseFormalCoxPhase1Policy(compiled.Policy); err == nil {
+		t.Fatalf("compiler used the legacy monolithic iteration limit: %+v", compiled.Policy)
+	}
+	if _, err := parseFormalCoxBlockwisePolicy(compiled.Policy); err != nil {
+		t.Fatalf("compiler did not emit a valid blockwise iteration schedule: %v", err)
+	}
+}
+
 func TestFormalCoxSchemaCompilerRejectsUnknownDuplicateTamperAndNonUnanimity(t *testing.T) {
 	raw := formalCoxRSchemaFixture(t, 3)
 

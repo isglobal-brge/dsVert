@@ -515,7 +515,7 @@ func formalCoxCompileSignedRSchema(raw json.RawMessage) (
 	iterations := int(iterationsBig.Int64())
 	if capacity < 2 || capacity > formalCoxBlockwiseMaxCapacity ||
 		minimumRisk < 1 || minimumRisk > capacity || fracBits < 8 || fracBits > 40 ||
-		iterations < 1 || iterations > formalCoxPhase1MaxIterations ||
+		iterations < 1 || iterations > formalCoxBlockwiseMaxIterations ||
 		len(u.TimeGridTicks) < 2 || len(u.TimeGridTicks) > formalCoxBlockwiseMaxGridTicks ||
 		len(u.CovariateOwners) < 1 || len(u.CovariateOwners) > formalCoxPhase1MaxCovariates {
 		return zero, fmt.Errorf("formal-cox: signed schema exceeds the reviewed compiler resource envelope")

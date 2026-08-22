@@ -39,6 +39,23 @@ func formalCoxBlockwiseTestPolicy(t testing.TB, custodians, capacity int) formal
 	return policy
 }
 
+func TestFormalCoxBlockwisePolicyAcceptsSignedIterationRange(t *testing.T) {
+	policy := formalCoxBlockwiseTestPolicy(t, 3, 64)
+	policy.Iterations = 12
+
+	if _, err := parseFormalCoxBlockwisePolicy(policy); err != nil {
+		t.Fatalf("blockwise policy rejected a signed twelve-iteration schedule: %v", err)
+	}
+	if _, err := parseFormalCoxPhase1Policy(policy); err == nil {
+		t.Fatal("legacy monolithic Phase-1 parser accepted a schedule above its physical limit")
+	}
+
+	policy.Iterations = 257
+	if _, err := parseFormalCoxBlockwisePolicy(policy); err == nil {
+		t.Fatal("blockwise policy accepted an iteration count beyond the signed schema limit")
+	}
+}
+
 func formalCoxBlockwiseTestRows(policy formalCoxPhase1Policy, ringBits int) []*big.Int {
 	rows := make([]*big.Int, 0, policy.Capacity*(len(policy.CustodianPeers)+3+policy.CovariateCount))
 	for row := 0; row < policy.Capacity; row++ {

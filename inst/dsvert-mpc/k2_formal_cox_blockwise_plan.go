@@ -22,6 +22,10 @@ const (
 	formalCoxBlockwiseCostVersion  = "dsvert-formal-cox-blockwise-cost-v1"
 	formalCoxBlockwiseMaxCapacity  = 1_000_000
 	formalCoxBlockwiseMaxGridTicks = 32
+	// The R-signed schema supports up to 256 fixed iterations.  Blockwise
+	// execution keeps each circuit physically bounded, so it must not inherit
+	// the three-iteration limit of the legacy monolithic prototype.
+	formalCoxBlockwiseMaxIterations = 256
 
 	// Public per-circuit resource envelopes.  They bound one physical worker
 	// step, never the number of rows, analyses, or future releases.
@@ -130,7 +134,8 @@ type formalCoxBlockwiseResourceError struct {
 func parseFormalCoxBlockwisePolicy(
 	policy formalCoxPhase1Policy) (formalCoxParsedPolicy, error) {
 	return parseFormalCoxPolicyWithLimits(policy,
-		formalCoxBlockwiseMaxCapacity, formalCoxBlockwiseMaxGridTicks)
+		formalCoxBlockwiseMaxCapacity, formalCoxBlockwiseMaxGridTicks,
+		formalCoxBlockwiseMaxIterations)
 }
 
 func (e *formalCoxBlockwiseResourceError) Error() string {

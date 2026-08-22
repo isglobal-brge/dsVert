@@ -78,6 +78,13 @@ type formalCoxBlockwiseNumericCertificate struct {
 	ExpTableSHA256                    string   `json:"exp_table_sha256"`
 	ExpTableOutwardCertified          bool     `json:"exp_table_outward_certified"`
 	ExpAbsoluteErrorUpperSteps        string   `json:"exp_absolute_error_upper_steps"`
+	IdealSmoothnessUpperNumerator     string   `json:"ideal_smoothness_upper_numerator"`
+	IdealSmoothnessUpperDenominator   string   `json:"ideal_smoothness_upper_denominator"`
+	IdealStrongConvexityNumerator     string   `json:"ideal_strong_convexity_numerator"`
+	IdealStrongConvexityDenominator   string   `json:"ideal_strong_convexity_denominator"`
+	IdealContractionFactorNumerator   string   `json:"ideal_contraction_factor_numerator"`
+	IdealContractionFactorDenominator string   `json:"ideal_contraction_factor_denominator"`
+	IdealGradientContractionCertified bool     `json:"ideal_gradient_contraction_certified"`
 	PerRunCircuitPlanValidationNeeded bool     `json:"per_run_circuit_plan_validation_needed"`
 	ContinuousCoxTrajectoryCertified  bool     `json:"continuous_cox_trajectory_certified"`
 	OptimizerDistanceCertified        bool     `json:"optimizer_distance_certified"`
@@ -86,11 +93,71 @@ type formalCoxBlockwiseNumericCertificate struct {
 	Blockers                          []string `json:"blockers"`
 }
 
+// formalCoxBlockwiseIdealGradientContract is a public, data-free stability
+// envelope for the exact grid-Breslow objective before table, lattice and DP
+// perturbations are applied.  For ||x|| <= Cz, its smoothness is bounded by
+// Cz² + ridge and positive ridge gives strong convexity ridge.  The actual
+// fixed-point/DP trajectory remains separately uncertified until its
+// accumulated perturbation bound is closed.
+type formalCoxBlockwiseIdealGradientContract struct {
+	SmoothnessUpperNumerator     string
+	SmoothnessUpperDenominator   string
+	StrongConvexityNumerator     string
+	StrongConvexityDenominator   string
+	ContractionFactorNumerator   string
+	ContractionFactorDenominator string
+}
+
+func formalCoxBlockwiseDeriveIdealGradientContract(
+	policy formalCoxPhase1Policy,
+) (formalCoxBlockwiseIdealGradientContract, error) {
+	var zero formalCoxBlockwiseIdealGradientContract
+	parsed, err := parseFormalCoxBlockwisePolicy(policy)
+	if err != nil {
+		return zero, err
+	}
+	return formalCoxBlockwiseIdealGradientContractFromParsed(parsed)
+}
+
+func formalCoxBlockwiseIdealGradientContractFromParsed(
+	parsed formalCoxParsedPolicy,
+) (formalCoxBlockwiseIdealGradientContract, error) {
+	var zero formalCoxBlockwiseIdealGradientContract
+	if parsed.ridge.Sign() <= 0 {
+		return zero, fmt.Errorf("formal-cox: blockwise ideal-gradient contract requires positive ridge")
+	}
+	scaleSquared := new(big.Int).Mul(parsed.scale, parsed.scale)
+	smoothness := new(big.Int).Mul(parsed.xNorm, parsed.xNorm)
+	smoothness.Add(smoothness, new(big.Int).Mul(parsed.ridge, parsed.scale))
+	stepProduct := new(big.Int).Mul(parsed.alpha, smoothness)
+	stepDenominator := new(big.Int).Mul(scaleSquared, parsed.scale)
+	if stepProduct.Cmp(stepDenominator) > 0 {
+		return zero, fmt.Errorf("formal-cox: step exceeds the ideal grid-Breslow smoothness limit")
+	}
+	contraction := new(big.Int).Mul(parsed.alpha, parsed.ridge)
+	contraction.Sub(scaleSquared, contraction)
+	if contraction.Sign() <= 0 {
+		return zero, fmt.Errorf("formal-cox: ideal grid-Breslow step is not contractive")
+	}
+	return formalCoxBlockwiseIdealGradientContract{
+		SmoothnessUpperNumerator:     smoothness.String(),
+		SmoothnessUpperDenominator:   scaleSquared.String(),
+		StrongConvexityNumerator:     parsed.ridge.String(),
+		StrongConvexityDenominator:   parsed.scale.String(),
+		ContractionFactorNumerator:   contraction.String(),
+		ContractionFactorDenominator: scaleSquared.String(),
+	}, nil
+}
+
 func formalCoxBlockwiseNumericCertificateForPolicy(
 	policy formalCoxPhase1Policy,
 ) (formalCoxBlockwiseNumericCertificate, error) {
 	var zero formalCoxBlockwiseNumericCertificate
 	parsed, err := parseFormalCoxBlockwisePolicy(policy)
+	if err != nil {
+		return zero, err
+	}
+	gradientContract, err := formalCoxBlockwiseIdealGradientContractFromParsed(parsed)
 	if err != nil {
 		return zero, err
 	}
@@ -120,6 +187,13 @@ func formalCoxBlockwiseNumericCertificateForPolicy(
 		ExpTableSHA256:                    policy.ExpTableSHA256,
 		ExpTableOutwardCertified:          true,
 		ExpAbsoluteErrorUpperSteps:        parsed.expError.String(),
+		IdealSmoothnessUpperNumerator:     gradientContract.SmoothnessUpperNumerator,
+		IdealSmoothnessUpperDenominator:   gradientContract.SmoothnessUpperDenominator,
+		IdealStrongConvexityNumerator:     gradientContract.StrongConvexityNumerator,
+		IdealStrongConvexityDenominator:   gradientContract.StrongConvexityDenominator,
+		IdealContractionFactorNumerator:   gradientContract.ContractionFactorNumerator,
+		IdealContractionFactorDenominator: gradientContract.ContractionFactorDenominator,
+		IdealGradientContractionCertified: true,
 		PerRunCircuitPlanValidationNeeded: true,
 		ContinuousCoxTrajectoryCertified:  false,
 		OptimizerDistanceCertified:        false,
@@ -152,6 +226,7 @@ func formalCoxBlockwiseValidateNumericCertificate(policy formalCoxPhase1Policy,
 		certificate.EndToEndNumericCertified ||
 		certificate.ContinuousCoxTrajectoryCertified ||
 		certificate.OptimizerDistanceCertified ||
+		!certificate.IdealGradientContractionCertified ||
 		!certificate.PerRunCircuitPlanValidationNeeded {
 		return fmt.Errorf("formal-cox: invalid or overstated blockwise numeric certificate")
 	}

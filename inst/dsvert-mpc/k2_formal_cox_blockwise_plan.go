@@ -298,6 +298,9 @@ func formalCoxBlockwiseValidateShape(plan formalCoxBlockwisePlan) (
 		plan.ProductionReady {
 		return zero, fmt.Errorf("formal-cox: invalid blockwise plan shape")
 	}
+	if _, err := formalCoxBlockwiseIdealGradientContractFromParsed(parsed); err != nil {
+		return zero, err
+	}
 	if plan.ScoreApproximation !=
 		formalCoxBlockwiseBuildScoreApproximationCertificate(parsed) {
 		return zero, fmt.Errorf("formal-cox: invalid score approximation certificate")

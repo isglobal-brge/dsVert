@@ -56,6 +56,29 @@ func TestFormalCoxBlockwisePolicyAcceptsSignedIterationRange(t *testing.T) {
 	}
 }
 
+func TestFormalCoxBlockwiseRequiresContractiveIdealStep(t *testing.T) {
+	policy := formalCoxBlockwiseTestPolicy(t, 3, 64)
+	contract, err := formalCoxBlockwiseDeriveIdealGradientContract(policy)
+	if err != nil {
+		t.Fatalf("derive ideal grid-Breslow contraction contract: %v", err)
+	}
+	if contract.SmoothnessUpperNumerator != "69632" ||
+		contract.SmoothnessUpperDenominator != "65536" ||
+		contract.ContractionFactorNumerator != "64512" ||
+		contract.ContractionFactorDenominator != "65536" {
+		t.Fatalf("unexpected exact contraction contract: %+v", contract)
+	}
+
+	policy.Alpha = "256"
+	if _, err := formalCoxBlockwiseDeriveIdealGradientContract(policy); err == nil {
+		t.Fatal("blockwise policy accepted a non-contractive ideal-gradient step")
+	}
+	if _, err := buildFormalCoxBlockwisePlan(policy, 1,
+		strings.Repeat("a", 64)); err == nil {
+		t.Fatal("blockwise planner accepted a non-contractive ideal-gradient step")
+	}
+}
+
 func formalCoxBlockwiseTestRows(policy formalCoxPhase1Policy, ringBits int) []*big.Int {
 	rows := make([]*big.Int, 0, policy.Capacity*(len(policy.CustodianPeers)+3+policy.CovariateCount))
 	for row := 0; row < policy.Capacity; row++ {

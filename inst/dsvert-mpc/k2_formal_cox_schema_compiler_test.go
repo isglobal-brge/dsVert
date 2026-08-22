@@ -22,6 +22,10 @@ source("../../R/dsiRelay.R")
 source("../../R/dpPolicyDS.R")
 source("../../R/formalCoxCapsuleInternal.R")
 k <- as.integer(commandArgs(trailingOnly = TRUE)[[1L]])
+covariates <- as.integer(commandArgs(trailingOnly = TRUE)[[2L]])
+covariate_names <- paste0("x", seq_len(covariates))
+x_lower <- stats::setNames(rep(-0.125, covariates), covariate_names)
+x_upper <- stats::setNames(rep(0.125, covariates), covariate_names)
 keys <- stats::setNames(
   replicate(k, openssl::ed25519_keygen(), simplify = FALSE),
   paste0("site", seq_len(k)))
@@ -33,9 +37,10 @@ unsigned <- .dsvert_formal_cox_schema_compile(
   artifact_sha256 = paste(rep("1", 64L), collapse = ""),
   logical_snapshot_id = paste0("go_compiler_k", k),
   peer_pinset = pins, outcome_owner = "site1",
-  covariate_owners = c(x = "site2"), capacity = 4L,
-  time_grid_ticks = 0:3, x_lower = c(x = -0.125),
-  x_upper = c(x = 0.125), covariate_l2_bound = 0.125,
+  covariate_owners = stats::setNames(rep("site2", covariates),
+    covariate_names), capacity = 4L,
+  time_grid_ticks = 0:3, x_lower = x_lower,
+  x_upper = x_upper, covariate_l2_bound = 0.125,
   beta_l2_bound = 0.125, minimum_at_risk_per_event = 1L,
   iterations = 1L, step_numerator = 1L, step_denominator = 16L,
   ridge_numerator = 1L, ridge_denominator = 100L,
@@ -52,17 +57,27 @@ schema <- .dsvert_formal_cox_schema_seal(unsigned, signatures)
 cat(.dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(schema)))
 `
 
-func formalCoxRSchemaFixture(t testing.TB, custodians int) []byte {
+func formalCoxRSchemaFixture(t testing.TB, custodians int,
+	covariates ...int) []byte {
 	t.Helper()
 	if custodians < 2 || custodians > 5 {
 		t.Fatalf("invalid R fixture consortium size %d", custodians)
+	}
+	p := 1
+	if len(covariates) == 1 {
+		p = covariates[0]
+	} else if len(covariates) > 1 {
+		t.Fatalf("invalid R fixture covariate arity %d", len(covariates))
+	}
+	if p < 1 || p > formalCoxBlockwiseMaxCovariates+1 {
+		t.Fatalf("invalid R fixture covariate count %d", p)
 	}
 	if _, err := exec.LookPath("Rscript"); err != nil {
 		t.Skip("Rscript is required for the real R-to-Go schema integration test")
 	}
 	command := exec.Command(
 		"Rscript", "--vanilla", "-e", formalCoxRSchemaFixtureScript,
-		strconv.Itoa(custodians))
+		strconv.Itoa(custodians), strconv.Itoa(p))
 	command.Env = append(os.Environ(), "R_TESTS=")
 	raw, err := command.CombinedOutput()
 	if err != nil {
@@ -73,6 +88,33 @@ func formalCoxRSchemaFixture(t testing.TB, custodians int) []byte {
 		t.Fatalf("R emitted non-JSON Cox schema for K=%d: %q", custodians, raw)
 	}
 	return bytes.TrimSpace(raw)
+}
+
+func TestFormalCoxSchemaCompilerAdmitsThreeCovariateBlockwiseSchemaK2K3K5(
+	t *testing.T,
+) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run("K"+strconv.Itoa(custodians), func(t *testing.T) {
+			compiled, err := formalCoxCompileSignedRSchema(
+				formalCoxRSchemaFixture(t, custodians, 3))
+			if err != nil {
+				t.Fatalf("compile signed three-covariate schema: %v", err)
+			}
+			if compiled.Policy.CovariateCount != 3 {
+				t.Fatalf("compiler changed signed covariate count: %+v", compiled.Policy)
+			}
+			if _, err := parseFormalCoxPhase1Policy(compiled.Policy); err == nil {
+				t.Fatalf("legacy monolithic parser admitted three covariates: %+v", compiled.Policy)
+			}
+			if _, err := parseFormalCoxBlockwisePolicy(compiled.Policy); err != nil {
+				t.Fatalf("blockwise parser rejected three covariates: %v", err)
+			}
+			if err := formalCoxBlockwiseValidateNumericCertificate(
+				compiled.Policy, compiled.NumericCertificate); err != nil {
+				t.Fatalf("three-covariate numeric certificate: %v", err)
+			}
+		})
+	}
 }
 
 func formalCoxCompilerRecommitGeneric(t testing.TB,

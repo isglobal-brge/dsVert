@@ -173,7 +173,7 @@ func formalCoxBlockwiseValidateOpeningTransit(
 		header.PeerName != authority.PeerName || header.PeerID != authority.PeerID ||
 		header.Role != authority.Role || header.ProductionReady ||
 		header.CoefficientCount < 1 ||
-		header.CoefficientCount > formalCoxPhase1MaxCovariates ||
+		header.CoefficientCount > formalCoxBlockwiseMaxCovariates ||
 		header.CoefficientCount != len(payload.Handoff.CoefficientShares) ||
 		header.RingBits < 128 || header.RingBits > exactGCMaxRingBits ||
 		header.FractionBits < 8 || header.FractionBits > 60 ||

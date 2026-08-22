@@ -56,6 +56,38 @@ func TestFormalCoxBlockwisePolicyAcceptsSignedIterationRange(t *testing.T) {
 	}
 }
 
+func TestFormalCoxBlockwisePolicyAdmitsThreeCovariatesOnlyWithinItsEnvelope(
+	t *testing.T,
+) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run("K"+fmt.Sprint(custodians), func(t *testing.T) {
+			compiled, err := formalCoxCompileSignedRSchema(
+				formalCoxRSchemaFixture(t, custodians, 3))
+			if err != nil {
+				t.Fatalf("compile signed three-covariate schema: %v", err)
+			}
+			policy := compiled.Policy
+			if _, err := parseFormalCoxBlockwisePolicy(policy); err != nil {
+				t.Fatalf("blockwise parser rejected three covariates: %v", err)
+			}
+			if _, err := buildFormalCoxBlockwisePlan(policy, 1,
+				strings.Repeat("3", 64)); err != nil {
+				t.Fatalf("three-covariate plan did not fit its public envelope: %v", err)
+			}
+			if _, err := parseFormalCoxPhase1Policy(policy); err == nil {
+				t.Fatal("legacy monolithic parser admitted three covariates")
+			}
+		})
+	}
+	policy := formalCoxBlockwiseTestPolicy(t, 2, 2)
+	policy.CovariateCount = 4
+	policy.XLower = []string{"-256", "-256", "-256", "-256"}
+	policy.XUpper = []string{"256", "256", "256", "256"}
+	if _, err := parseFormalCoxBlockwisePolicy(policy); err == nil {
+		t.Fatal("blockwise parser admitted covariates beyond its reviewed envelope")
+	}
+}
+
 func TestFormalCoxBlockwiseRequiresContractiveIdealStep(t *testing.T) {
 	policy := formalCoxBlockwiseTestPolicy(t, 3, 64)
 	contract, err := formalCoxBlockwiseDeriveIdealGradientContract(policy)
@@ -91,12 +123,13 @@ func formalCoxBlockwiseTestRows(policy formalCoxPhase1Policy, ringBits int) []*b
 			status = 1
 		}
 		rows = append(rows, big.NewInt(0), big.NewInt(stop), big.NewInt(status))
-		x0, x1 := big.NewInt(int64(96+row%3)), big.NewInt(int64(48-row%3))
-		if row%2 == 1 {
-			x0.Neg(x0)
+		for coefficient := 0; coefficient < policy.CovariateCount; coefficient++ {
+			x := big.NewInt(int64(96 - 16*coefficient + row%3))
+			if (row+coefficient)%2 == 1 {
+				x.Neg(x)
+			}
+			rows = append(rows, formalCoxResidue(x, ringBits))
 		}
-		rows = append(rows, formalCoxResidue(x0, ringBits),
-			formalCoxResidue(x1, ringBits))
 	}
 	return rows
 }
@@ -720,6 +753,47 @@ func TestFormalCoxBlockwiseCircuitsMatchIndependentOracleK2K3K5(t *testing.T) {
 					coefficient, got[coefficient], want[coefficient])
 			}
 		}
+	}
+}
+
+func TestFormalCoxBlockwiseThreeCovariateCircuitsMatchIndependentOracleK2K3K5(
+	t *testing.T,
+) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run("K"+fmt.Sprint(custodians), func(t *testing.T) {
+			compiled, err := formalCoxCompileSignedRSchema(
+				formalCoxRSchemaFixture(t, custodians, 3))
+			if err != nil {
+				t.Fatalf("compile signed three-covariate schema: %v", err)
+			}
+			plan, err := buildFormalCoxBlockwisePlan(compiled.Policy, 1,
+				strings.Repeat(string(rune('0'+custodians)), 64))
+			if err != nil {
+				t.Fatalf("K=%d plan: %v", custodians, err)
+			}
+			rows := formalCoxBlockwiseTestRows(plan.Policy, plan.RingBits)
+			noise := formalCoxBlockwiseTestNoise(plan)
+			noiseValidity := make([]bool, plan.Iterations)
+			for index := range noiseValidity {
+				noiseValidity[index] = true
+			}
+			want, wantValid, err := referenceFormalCoxBlockwiseSchedule(
+				plan, rows, noise, noiseValidity)
+			if err != nil {
+				t.Fatalf("K=%d oracle: %v", custodians, err)
+			}
+			got, gotValid := formalCoxBlockwiseTestCompute(t, plan, rows, noise)
+			if gotValid != wantValid || len(got) != len(want) {
+				t.Fatalf("K=%d validity/shape = (%v,%d), want (%v,%d)",
+					custodians, gotValid, len(got), wantValid, len(want))
+			}
+			for coefficient := range got {
+				if got[coefficient].Cmp(want[coefficient]) != 0 {
+					t.Fatalf("K=%d beta[%d]=%s want %s", custodians,
+						coefficient, got[coefficient], want[coefficient])
+				}
+			}
+		})
 	}
 }
 

@@ -18,10 +18,14 @@ import (
 const formalCoxBlockwiseScoreApproximationVersion = "dsvert-formal-cox-blockwise-score-approximation-v3"
 
 const (
-	formalCoxBlockwisePlanVersion  = "dsvert-formal-cox-blockwise-plan-v4"
-	formalCoxBlockwiseCostVersion  = "dsvert-formal-cox-blockwise-cost-v1"
-	formalCoxBlockwiseMaxCapacity  = 1_000_000
-	formalCoxBlockwiseMaxGridTicks = 32
+	formalCoxBlockwisePlanVersion = "dsvert-formal-cox-blockwise-plan-v4"
+	formalCoxBlockwiseCostVersion = "dsvert-formal-cox-blockwise-cost-v1"
+	formalCoxBlockwiseMaxCapacity = 1_000_000
+	// The blockwise circuits have a separately reviewed three-coefficient
+	// envelope.  The legacy monolithic Phase-1 circuit intentionally remains
+	// capped at two; callers cannot silently select it for this larger shape.
+	formalCoxBlockwiseMaxCovariates = 3
+	formalCoxBlockwiseMaxGridTicks  = 32
 	// The R-signed schema supports up to 256 fixed iterations.  Blockwise
 	// execution keeps each circuit physically bounded, so it must not inherit
 	// the three-iteration limit of the legacy monolithic prototype.
@@ -186,7 +190,8 @@ type formalCoxBlockwiseResourceError struct {
 func parseFormalCoxBlockwisePolicy(
 	policy formalCoxPhase1Policy) (formalCoxParsedPolicy, error) {
 	return parseFormalCoxPolicyWithLimits(policy,
-		formalCoxBlockwiseMaxCapacity, formalCoxBlockwiseMaxGridTicks,
+		formalCoxBlockwiseMaxCapacity, formalCoxBlockwiseMaxCovariates,
+		formalCoxBlockwiseMaxGridTicks,
 		formalCoxBlockwiseMaxIterations)
 }
 

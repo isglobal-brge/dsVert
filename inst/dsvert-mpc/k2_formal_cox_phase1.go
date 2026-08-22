@@ -335,12 +335,14 @@ func formalCoxValidateExpCertificate(parsed formalCoxParsedPolicy) error {
 func parseFormalCoxPhase1Policy(
 	policy formalCoxPhase1Policy) (formalCoxParsedPolicy, error) {
 	return parseFormalCoxPolicyWithLimits(policy,
-		formalCoxPhase1MaxCapacity, formalCoxPhase1MaxGridTicks,
+		formalCoxPhase1MaxCapacity, formalCoxPhase1MaxCovariates,
+		formalCoxPhase1MaxGridTicks,
 		formalCoxPhase1MaxIterations)
 }
 
 func parseFormalCoxPolicyWithLimits(policy formalCoxPhase1Policy,
-	maxCapacity, maxGridTicks, maxIterations int) (formalCoxParsedPolicy, error) {
+	maxCapacity, maxCovariates, maxGridTicks,
+	maxIterations int) (formalCoxParsedPolicy, error) {
 	var result formalCoxParsedPolicy
 	if policy.Version != formalCoxPhase1PolicyVersion ||
 		policy.Adjacency != "add_remove_patient" &&
@@ -351,7 +353,7 @@ func parseFormalCoxPolicyWithLimits(policy formalCoxPhase1Policy,
 		len(policy.ComputePeers) != 2 ||
 		policy.Capacity < 1 || policy.Capacity > maxCapacity ||
 		policy.CovariateCount < 1 ||
-		policy.CovariateCount > formalCoxPhase1MaxCovariates ||
+		policy.CovariateCount > maxCovariates ||
 		policy.GridTickCount < 2 ||
 		policy.GridTickCount > maxGridTicks ||
 		policy.Iterations < 1 ||

@@ -92,18 +92,16 @@ scope.
 
 Pinned identities prevent the analyst/relay from substituting a recipient key
 and opening shares. They do not make arbitrary exact outputs
-non-reconstructive. The production target materialises one patient/row
-add-remove DP analysis capsule per immutable snapshot/workload, with sticky
-memoisation and a durable publication ledger. Supported methods are unlimited
-post-processing of that capsule: there is no request counter, geometric
-accuracy decay or charge for exact replay. A new capsule is different: its
-allocator commit burns one of the finite authenticated lifetime units before
-protected data or the sampler are reached, and the burn is not refunded after
-an abandoned attempt. The default maximum is one distinct capsule. Historical
-exact implementations are not
-retroactively DP and remain unavailable behind the single profile; no absolute
-non-reconstruction claim is made. See the client security
-contract and `ds.vertMethodStatus()`.
+non-reconstructive. The promoted Synopsis surface materialises one bounded,
+signed DP artifact per canonical immutable snapshot/workload, with sticky
+memoisation and durable replay. Supported methods are unlimited
+post-processing of that artifact: there is no request counter, catalog limit,
+geometric accuracy decay or charge for exact replay. A distinct artifact is a
+separate DP release under its own declared scope; no finite global composition
+claim is made. Historical exact implementations are not retroactively DP and
+remain unavailable behind the single profile; no absolute non-reconstruction
+claim is made. See the client security contract and
+`ds.vertMethodStatus()`.
 
 `dsvertDPCountCompileDS(data_name)` is the server-side Count compiler
 frontdoor. It accepts only the name of an already attested padded-PSI result
@@ -320,30 +318,20 @@ select or rename its members.
 
 ```r
 options(
-  # Per-analysis Count compilation; independent of the lifetime capsule pool.
-  dsvert.dp.epsilon = 1,
-  dsvert.dp.delta = 1e-6,
-  dsvert.dp.implementation_delta = 1e-9,
-  # Fixed per immutable capsule. The separate N bound is a lifetime privacy
-  # gate, not a request counter; its default is 1.
+  # One independently sticky, canonical Synopsis artifact at a time.
+  # These are not a global privacy budget or a caller admission limit.
   dsvert.dp.total_epsilon = 1,
-  dsvert.dp.total_delta = 2^-100,
-  dsvert.dp.lifetime_max_distinct_capsules = 1L,
+  dsvert.dp.total_delta = 1e-6,
   dsvert.dp.domain = "cohort-release-v1",
   dsvert.dp.cohort_id = "cohort-2026-07",
-  dsvert.dp.ledger_path = "/var/lib/dsvert/privacy/cohort-release-v1.sqlite",
+  # Parent directory must already be persistent, owner-only Rock storage.
+  dsvert.dp.synopsis_state_path = "/var/lib/dsvert/rock/dp-synopsis",
   dsvert.peer_name = "site_a",
   dsvert.trusted_peers = c(site_b = "<Ed25519-PK>",
                            site_c = "<Ed25519-PK>"),
   # Required only when the complete pinset has K > 2. Every custodian must
   # publish the same canonical two-peer subset; the analyst never selects it.
   dsvert.dp.designated_noise_peers = c("site_a", "site_b"),
-  # Optional migration/defence-in-depth CAS outside this host. The final
-  # allocator uses the pinned peers and does not require this callback.
-  # dsvert.dp.anchor_provider = consortium_anchor,
-  # Prefer an HSM/KMS provider exposing HMAC-SHA256 but never the root key.
-  dsvert.dp.noise_key_provider = consortium_noise_root,
-  dsvert.dp.noise_key_epoch = 1L,
   dsvert.dp.adjacency = "add_remove_patient",
   dsvert.dp.patient_column = "patient_id",
   dsvert.dp.unit_capacity = 100000L,
@@ -364,49 +352,36 @@ options(
   # every pinned peer, never an analyst request argument.
   dsvert.dp.workload_scope = list(
     mode = "catalog_v1",
-    numeric_moments = c("age", "bmi"),
-    categorical_marginals = c("exposure", "outcome"),
-    categorical_pairs = list(c("exposure", "outcome")),
-    correlations = list(c("age", "bmi")))
+    selection = list(explicit_catalog = list(
+      numeric_moments = c("age", "bmi"),
+      categorical_marginals = c("exposure", "outcome"),
+      categorical_pairs = list(c("exposure", "outcome")),
+      correlations = list(c("age", "bmi")))))
 )
 ```
 
-DP is the sole production release mode and cannot be disabled with an R
-option. Reusing the same signed capsule and public release instance is unlimited
-and byte-sticky. Each previously unseen capsule consumes one unit at allocator
-commit, before protected-source access or sampling; an abort does not refund it.
-Once `dsvert.dp.lifetime_max_distinct_capsules` units have been consumed, a new
-capsule fails with the fixed
-`[dsvert_dp_lifetime_budget_exhausted:v1]` condition. Configuration is accepted
-only when exact decimal arithmetic proves `N * epsilon <= 8` and
-`N * delta < 1`. This operation/history gate is not a request quota and never
-changes the fixed noise of an admitted capsule. Resource, dimensional and
-mechanism-domain bounds remain separate fail-closed safety checks. Public
-joint-DP capsule status v5 scopes this claim to
-`at_most_N_immutable_snapshot_workload_capsules_per_stable_privacy_accountant_namespace`.
-It binds the assumptions that at least one non-colluding designated peer
-`retains_and_uses_complete_authenticated_monotonic_history` and that one
-stable, unique privacy accountant namespace spans domain, cohort, policy,
-pinset and ledger
-reconfiguration for each protected privacy universe. The latter is currently a
-custodial deployment obligation: dsVert neither enforces uniqueness across
-namespaces nor automatically migrates lifetime accounting during
-reconfiguration. Simultaneous rollback of both designated histories is not
-covered without an external linearizable CAS.
+DP is the sole production release mode and cannot be disabled by an analyst.
+Each canonical, signed Synopsis artifact has one deterministic sticky release:
+the same artifact replays byte-for-byte after restart without reading protected
+source or drawing new noise. There is deliberately no request counter, rate
+limit, catalog limit, lifetime admission limit, or global finite-composition
+claim. A distinct artifact is a distinct DP release and must be interpreted
+with its own declared `(epsilon, delta)` scope; dsVert does not pretend that an
+unlimited collection of distinct analyses has one finite global privacy bound.
 
-For privacy and compatibility that same terminal token also covers the case in
-which the requested capsule cannot safely advance because its irrevocable
-release-instance claim or sole publication slot is already bound and the exact
-instance cannot be continued or replayed. The token is deliberately an opaque
-union of those causes: observing it does not imply
-`remaining_distinct_capsules == 0`, and separate errors would reveal state.
+Physical safety bounds are separate from privacy admission. The signed capacity,
+per-unit contribution bound, lattice width, fixed work geometry and bounded
+spool sizes may reject an unsafe *declared computation* before source access;
+they never consume an entitlement or block a later canonical artifact. A
+durable conflict or corrupted state fails closed rather than producing a second
+sample or a silently different release.
 
 Without `dsvert.dp.workload_scope`, the compatibility default is exactly
-`list(mode = "all_schema")`: count/admission, every bounded numeric moment,
+`list(mode = "all_schema")`: count, every bounded numeric moment,
 every categorical marginal, and all same-owner/same-dataset categorical and
 correlation pairs are included. This preserves schema-wide results but its
 pair coordinates and sensitivity grow quadratically. `catalog_v1` always
-retains count/admission and automatically adds/deduplicates primitives required
+retains count and automatically adds/deduplicates primitives required
 by custodian-owned describe, Gaussian, survival, and signed vertical-cross
 specifications; undeclared primitives add neither coordinates nor sensitivity.
 The canonical selection and projected cost are signed into the manifest and
@@ -424,6 +399,20 @@ across all vertical peers; they must not be derived from patient data. Exact
 snapshot and ordered-ID commitments remain private server configuration and
 are validated locally. DP status and PSI responses expose only the stable
 cohort/dataset attestation, never those commitments or a row count.
+
+Synopsis manifests, execution records, encrypted transient sessions and public
+replay records live under the owner-only Rock state root. The service verifies
+the configured `synopsis_state_path` and its parent before creating state;
+temporary, shared-memory and installed-library paths are rejected in
+production. Ring128 values remain canonical integer strings until all signed
+bounds, hashes and reconstruction checks have passed.
+
+### Archived capsule-control record
+
+The remaining capsule-control discussion is retained only as an audit record
+for unregistered compatibility code. It is not deployment configuration,
+does not describe the promoted Synopsis paths, and must not be used to infer a
+lifetime admission, ledger setting, request limit or catalog limit.
 
 The ledger directory must already exist on persistent private storage, be
 owned by the service account and have mode `0700`. dsVert canonicalises the

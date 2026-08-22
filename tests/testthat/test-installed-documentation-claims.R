@@ -105,3 +105,14 @@ test_that("public schema-v4 profile docs keep readiness route-specific", {
   expect_match(readme, "never\\s+promotes either sealed model route",
                perl = TRUE)
 })
+
+test_that("README makes the no-admission Synopsis contract explicit", {
+  readme <- paste(readLines(.dsvert_test_package_file(
+    "README.md", source_only = TRUE), warn = FALSE), collapse = "\n")
+
+  expect_match(readme, "dsvert.dp.synopsis_state_path", fixed = TRUE)
+  expect_match(readme, "no request counter, rate", fixed = TRUE)
+  expect_match(readme, "catalog limit, lifetime admission limit", fixed = TRUE)
+  expect_match(readme, "### Archived capsule-control record", fixed = TRUE)
+  expect_match(readme, "not deployment configuration", fixed = TRUE)
+})

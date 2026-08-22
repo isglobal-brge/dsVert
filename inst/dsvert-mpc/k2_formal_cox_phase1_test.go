@@ -25,13 +25,17 @@ func formalCoxTestPolicy(t testing.TB, custodians int) formalCoxPhase1Policy {
 	}
 	knots := make([]string, 9)
 	values := make([]string, 8)
+	const expLower, expUpper = -258, 256
 	for index := range knots {
-		knots[index] = big.NewInt(int64(-256 + 64*index)).String()
-		if index < len(values) {
-			midpoint := float64(-256+64*index+32) / 256
-			values[index] = big.NewInt(int64(math.Round(
-				math.Exp(midpoint) * 256))).String()
-		}
+		knots[index] = big.NewInt(int64(expLower +
+			(expUpper-expLower)*index/len(values))).String()
+	}
+	for index := range values {
+		left := expLower + (expUpper-expLower)*index/len(values)
+		right := expLower + (expUpper-expLower)*(index+1)/len(values)
+		midpoint := float64(left+right) / (2 * 256)
+		values[index] = big.NewInt(int64(math.Round(
+			math.Exp(midpoint) * 256))).String()
 	}
 	hash := func(value byte) string { return strings.Repeat(string(value), 64) }
 	policy := formalCoxPhase1Policy{
@@ -186,6 +190,30 @@ func TestFormalCoxPhase1ExpCertificateIsOutwardAndCommitted(t *testing.T) {
 	if _, err := parseFormalCoxPhase1Policy(understated); err == nil ||
 		!strings.Contains(err.Error(), "outward error") {
 		t.Fatalf("understated exp error was accepted: %v", err)
+	}
+}
+
+func TestFormalCoxPhase1RequiresQuantizedEtaFloorMargin(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		policy := formalCoxTestPolicy(t, custodians)
+		parsed, err := parseFormalCoxPhase1Policy(policy)
+		if err != nil {
+			t.Fatalf("K=%d baseline policy: %v", custodians, err)
+		}
+		withoutMargin := policy
+		withoutMargin.ExpKnots = append([]string(nil), policy.ExpKnots...)
+		etaBound := formalCoxCeilMulMagnitude(
+			parsed.xNorm, parsed.betaNorm, parsed.scale)
+		withoutMargin.ExpKnots[0] = new(big.Int).Neg(etaBound).String()
+		withoutMargin.ExpTableSHA256, err = formalCoxExpTableDigest(withoutMargin)
+		if err != nil {
+			t.Fatalf("K=%d digest: %v", custodians, err)
+		}
+		if _, err := parseFormalCoxPhase1Policy(withoutMargin); err == nil ||
+			!strings.Contains(err.Error(), "quantized eta") {
+			t.Fatalf("K=%d accepted exp domain without eta-floor margin: %v",
+				custodians, err)
+		}
 	}
 }
 

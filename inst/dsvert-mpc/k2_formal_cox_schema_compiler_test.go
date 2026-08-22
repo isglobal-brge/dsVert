@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"math/big"
 	"os"
 	"os/exec"
 	"reflect"
@@ -205,6 +206,20 @@ func TestFormalCoxSchemaCompilerAcceptsCanonicalRSealsK2ThroughK5(t *testing.T) 
 				compiled.Policy, compiled.NumericCertificate); err != nil {
 				t.Fatalf("K=%d compiler emitted invalid blockwise certificate: %v",
 					custodians, err)
+			}
+			parsed, err := parseFormalCoxBlockwisePolicy(compiled.Policy)
+			if err != nil {
+				t.Fatalf("K=%d compiler emitted invalid blockwise policy: %v",
+					custodians, err)
+			}
+			etaBound := formalCoxCeilMulMagnitude(
+				parsed.xNorm, parsed.betaNorm, parsed.scale)
+			wantLower := new(big.Int).Add(etaBound,
+				big.NewInt(int64(compiled.Policy.CovariateCount)))
+			wantLower.Neg(wantLower)
+			if parsed.expKnots[0].Cmp(wantLower) > 0 {
+				t.Fatalf("K=%d compiler omitted quantized eta margin: %s > %s",
+					custodians, parsed.expKnots[0], wantLower)
 			}
 			digest, err := formalCoxBlockwiseNumericCertificateSHA256(
 				compiled.NumericCertificate)

@@ -485,10 +485,19 @@ func parseFormalCoxPolicyWithLimits(policy formalCoxPhase1Policy,
 	}
 	etaBound := formalCoxCeilMulMagnitude(
 		result.xNorm, result.betaNorm, result.scale)
-	if result.expKnots[0].Cmp(new(big.Int).Neg(
-		new(big.Int).Set(etaBound))) > 0 ||
+	// Every signed fixed-point product floors toward negative infinity before
+	// the terms are accumulated.  With p covariates that can move eta down by
+	// fewer than p lattice steps from its real L2 envelope.  Require that
+	// margin in the committed table rather than turning a valid bounded row
+	// into an invalid execution at the lower endpoint.
+	etaFloorLower := new(big.Int).Add(
+		new(big.Int).Set(etaBound),
+		big.NewInt(int64(policy.CovariateCount)))
+	etaFloorLower.Neg(etaFloorLower)
+	if result.expKnots[0].Cmp(etaFloorLower) > 0 ||
 		result.expKnots[len(result.expKnots)-1].Cmp(etaBound) < 0 {
-		return result, fmt.Errorf("formal-cox: exp domain does not cover the L2 eta bound")
+		return result, fmt.Errorf(
+			"formal-cox: exp domain does not cover the quantized eta floor margin")
 	}
 	result.policy = policy
 	if err := formalCoxValidateExpCertificate(result); err != nil {

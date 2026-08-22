@@ -414,12 +414,21 @@ func genericUnsignedPinset(unsigned interface{}) interface{} {
 }
 
 func formalCoxCompilerExpTable(xNorm, betaNorm, scale *big.Int,
-	fracBits int) ([]string, []string, string, int, error) {
+	fracBits, covariates int) ([]string, []string, string, int, error) {
+	if covariates < 1 {
+		return nil, nil, "", 0, fmt.Errorf("formal-cox: invalid exp table dimension")
+	}
 	eta := formalCoxCeilMulMagnitude(xNorm, betaNorm, scale)
 	if eta.Sign() <= 0 || !eta.IsInt64() {
 		return nil, nil, "", 0, fmt.Errorf("formal-cox: exp domain is unrepresentable")
 	}
-	width := new(big.Int).Lsh(new(big.Int).Set(eta), 1)
+	// One floor per covariate can make the quantized eta smaller than the
+	// continuous L2 bound.  The parser enforces the same lower margin.
+	lower := new(big.Int).Add(new(big.Int).Set(eta),
+		big.NewInt(int64(covariates)))
+	lower.Neg(lower)
+	upper := new(big.Int).Set(eta)
+	width := new(big.Int).Sub(upper, lower)
 	segments := formalCoxPhase1MaxExpSegments
 	if width.Cmp(big.NewInt(int64(segments))) < 0 {
 		segments = int(width.Int64())
@@ -428,11 +437,10 @@ func formalCoxCompilerExpTable(xNorm, betaNorm, scale *big.Int,
 		return nil, nil, "", 0, fmt.Errorf("formal-cox: empty exp domain")
 	}
 	knots := make([]*big.Int, segments+1)
-	low := new(big.Int).Neg(new(big.Int).Set(eta))
 	for index := 0; index <= segments; index++ {
 		offset := new(big.Int).Quo(new(big.Int).Mul(
 			width, big.NewInt(int64(index))), big.NewInt(int64(segments)))
-		knots[index] = new(big.Int).Add(new(big.Int).Set(low), offset)
+		knots[index] = new(big.Int).Add(new(big.Int).Set(lower), offset)
 		if index > 0 && knots[index].Cmp(knots[index-1]) <= 0 {
 			return nil, nil, "", 0, fmt.Errorf("formal-cox: exp knot quantization collapsed")
 		}
@@ -620,7 +628,7 @@ func formalCoxCompileSignedRSchema(raw json.RawMessage) (
 		return zero, err
 	}
 	knots, values, expError, certificateBits, err := formalCoxCompilerExpTable(
-		xNorm, betaNorm, scale, fracBits)
+		xNorm, betaNorm, scale, fracBits, len(covariates))
 	if err != nil {
 		return zero, err
 	}

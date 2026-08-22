@@ -3,10 +3,13 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"math/big"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/markkurossi/mpc/circuit"
 )
 
 var exactGCCRTTestPrimes = []uint64{
@@ -297,6 +300,55 @@ func TestExactGCCRTCircuitCostIsExplicitAndChunkable(t *testing.T) {
 		t.Logf("Ring%d lanes=%d coordinates=%d: gates=%d non-XOR=%d wires=%d input_bits=%d",
 			spec.RingBits, len(spec.Moduli), spec.VectorLen, circ.NumGates,
 			nonXOR, circ.NumWires, circ.Inputs.Size())
+	}
+}
+
+func TestExactGCCRTCircuitCacheRetainsRecentPublicSpecs(t *testing.T) {
+	exactGCCRTToRingCache.Lock()
+	saved := exactGCCRTToRingCache.entries
+	savedOrder := append([]string(nil), exactGCCRTToRingCache.order...)
+	exactGCCRTToRingCache.entries = make(map[string]*circuit.Circuit)
+	exactGCCRTToRingCache.order = nil
+	exactGCCRTToRingCache.Unlock()
+	t.Cleanup(func() {
+		exactGCCRTToRingCache.Lock()
+		exactGCCRTToRingCache.entries = saved
+		exactGCCRTToRingCache.order = savedOrder
+		exactGCCRTToRingCache.Unlock()
+	})
+
+	keys := make([]string, 5)
+	for width := 1; width <= len(keys); width++ {
+		spec := exactGCCRTTestSpec(63, 2, width, 0, width,
+			big.NewInt(1_000_000))
+		digest := spec.circuitDigest()
+		keys[width-1] = hex.EncodeToString(digest[:])
+		if _, err := exactGCCRTCompile(spec); err != nil {
+			t.Fatalf("compile public CRT spec %d: %v", width, err)
+		}
+		if width == exactGCCRTToRingCacheEntries {
+			if _, err := exactGCCRTCompile(exactGCCRTTestSpec(
+				63, 2, 1, 0, 1, big.NewInt(1_000_000))); err != nil {
+				t.Fatalf("touch first public CRT spec: %v", err)
+			}
+		}
+	}
+
+	exactGCCRTToRingCache.Lock()
+	defer exactGCCRTToRingCache.Unlock()
+	if got := len(exactGCCRTToRingCache.entries); got != 4 {
+		t.Fatalf("CRT circuit cache entries = %d, want 4", got)
+	}
+	if exactGCCRTToRingCache.entries[keys[0]] == nil {
+		t.Fatal("CRT circuit cache evicted the recently used public spec")
+	}
+	if _, ok := exactGCCRTToRingCache.entries[keys[1]]; ok {
+		t.Fatal("CRT circuit cache retained the least recently used public spec")
+	}
+	for _, key := range keys[2:] {
+		if exactGCCRTToRingCache.entries[key] == nil {
+			t.Fatalf("CRT circuit cache dropped recent public spec %s", key)
+		}
 	}
 }
 

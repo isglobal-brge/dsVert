@@ -285,10 +285,28 @@ func exactGCCRTValidateLocalShares(shares [][]uint64,
 	return nil
 }
 
+// CRT circuit source is derived entirely from the public arithmetic and
+// release binding specification. Cache only those immutable compiled circuits;
+// never cache shares, masks, sessions, or noise material.
+const exactGCCRTToRingCacheEntries = 4
+
 var exactGCCRTToRingCache = struct {
 	sync.Mutex
 	entries map[string]*circuit.Circuit
+	order   []string
 }{entries: make(map[string]*circuit.Circuit)}
+
+func exactGCCRTToRingCacheTouchLocked(key string) {
+	for index, value := range exactGCCRTToRingCache.order {
+		if value == key {
+			exactGCCRTToRingCache.order = append(
+				exactGCCRTToRingCache.order[:index],
+				exactGCCRTToRingCache.order[index+1:]...)
+			break
+		}
+	}
+	exactGCCRTToRingCache.order = append(exactGCCRTToRingCache.order, key)
+}
 
 func exactGCCRTCompile(spec exactGCCRTToRingSpec) (*circuit.Circuit, error) {
 	if err := spec.validate(); err != nil {
@@ -298,6 +316,7 @@ func exactGCCRTCompile(spec exactGCCRTToRingSpec) (*circuit.Circuit, error) {
 	key := hex.EncodeToString(digest[:])
 	exactGCCRTToRingCache.Lock()
 	if cached := exactGCCRTToRingCache.entries[key]; cached != nil {
+		exactGCCRTToRingCacheTouchLocked(key)
 		exactGCCRTToRingCache.Unlock()
 		return cached, nil
 	}
@@ -319,11 +338,18 @@ func exactGCCRTCompile(spec exactGCCRTToRingSpec) (*circuit.Circuit, error) {
 		return nil, fmt.Errorf("exact-gc-crt: compiler produced an invalid circuit shape")
 	}
 	exactGCCRTToRingCache.Lock()
-	if len(exactGCCRTToRingCache.entries) >= 2 {
-		exactGCCRTToRingCache.entries = make(map[string]*circuit.Circuit)
+	defer exactGCCRTToRingCache.Unlock()
+	if cached := exactGCCRTToRingCache.entries[key]; cached != nil {
+		exactGCCRTToRingCacheTouchLocked(key)
+		return cached, nil
+	}
+	if len(exactGCCRTToRingCache.order) >= exactGCCRTToRingCacheEntries {
+		oldest := exactGCCRTToRingCache.order[0]
+		delete(exactGCCRTToRingCache.entries, oldest)
+		exactGCCRTToRingCache.order = exactGCCRTToRingCache.order[1:]
 	}
 	exactGCCRTToRingCache.entries[key] = compiled
-	exactGCCRTToRingCache.Unlock()
+	exactGCCRTToRingCache.order = append(exactGCCRTToRingCache.order, key)
 	return compiled, nil
 }
 

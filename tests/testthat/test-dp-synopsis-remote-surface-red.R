@@ -351,7 +351,13 @@ test_that("the synopsis surface forwards canonical evidence and JSON outputs", {
     expected <- expected[names(observed)]
     expect_identical(observed, lapply(expected, .synopsis_remote_json))
   },
-  .dsvert_dp_synopsis_policy_for_manifest_v1 = function(...) policy,
+  .dsvert_dp_synopsis_policy_for_manifest_v1 = function(...) {
+    arguments <- list(...)
+    if (isTRUE(arguments$.with_manifest)) {
+      return(list(policy = policy, manifest_json = "manifest-json"))
+    }
+    policy
+  },
   .dsvert_dp_policy = function(...) stop("legacy policy reached"),
   .dsvert_dp_synopsis_policy_v1 = function(...) stop(
     "mutable synopsis policy reached"),

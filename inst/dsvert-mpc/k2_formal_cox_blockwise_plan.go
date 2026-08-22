@@ -18,7 +18,7 @@ import (
 const formalCoxBlockwiseScoreApproximationVersion = "dsvert-formal-cox-blockwise-score-approximation-v3"
 
 const (
-	formalCoxBlockwisePlanVersion = "dsvert-formal-cox-blockwise-plan-v4"
+	formalCoxBlockwisePlanVersion = "dsvert-formal-cox-blockwise-plan-v5"
 	formalCoxBlockwiseCostVersion = "dsvert-formal-cox-blockwise-cost-v1"
 	formalCoxBlockwiseMaxCapacity = 1_000_000
 	// The blockwise circuits have a separately reviewed three-coefficient
@@ -116,6 +116,12 @@ type formalCoxBlockwisePlan struct {
 	CrashRecovery           string                        `json:"crash_recovery"`
 	Output                  string                        `json:"output"`
 	ProductionReady         bool                          `json:"production_ready"`
+
+	// NumericCertificateSHA256 commits the finite fixed-grid numerical
+	// envelope used by this execution. It makes the plan digest, and therefore
+	// every final receipt bound to that digest, fail closed if that envelope is
+	// substituted. It is not a continuous-time Cox or inference certificate.
+	NumericCertificateSHA256 string `json:"numeric_certificate_sha256"`
 }
 
 func formalCoxBlockwiseBuildScoreApproximationCertificate(
@@ -403,6 +409,15 @@ func buildFormalCoxBlockwisePlan(policy formalCoxPhase1Policy,
 	if err != nil {
 		return formalCoxBlockwisePlan{}, err
 	}
+	numericCertificate, err := formalCoxBlockwiseNumericCertificateForPolicy(policy)
+	if err != nil {
+		return formalCoxBlockwisePlan{}, err
+	}
+	numericCertificateSHA256, err := formalCoxBlockwiseNumericCertificateSHA256(
+		numericCertificate)
+	if err != nil {
+		return formalCoxBlockwisePlan{}, err
+	}
 	policyDigest, _ := formalCoxPolicyDigest(policy)
 	var minimum uint64
 	for block := requestedBlock; block >= 1; block-- {
@@ -412,7 +427,8 @@ func buildFormalCoxBlockwisePlan(policy formalCoxPhase1Policy,
 		plan := formalCoxBlockwisePlan{
 			Version: formalCoxBlockwisePlanVersion, RunID: runID,
 			Policy: policy, PolicySHA256: hex.EncodeToString(policyDigest[:]),
-			TotalCapacity: policy.Capacity, BlockCapacity: block,
+			NumericCertificateSHA256: numericCertificateSHA256,
+			TotalCapacity:            policy.Capacity, BlockCapacity: block,
 			TotalBlocks: (policy.Capacity + block - 1) / block,
 			Iterations:  policy.Iterations, RowWidth: rowWidth,
 			MomentCoordinates: moments, StateArithmetic: stateArithmetic,
@@ -523,6 +539,16 @@ func validateFormalCoxBlockwisePlan(plan formalCoxBlockwisePlan) error {
 		plan.ProjectionRootUpper != projectionRoot.String() ||
 		plan.ProjectionSearchSteps != projectionRoot.BitLen()+1 {
 		return fmt.Errorf("formal-cox: invalid blockwise numeric certificate")
+	}
+	numericCertificate, err := formalCoxBlockwiseNumericCertificateForPolicy(
+		plan.Policy)
+	if err != nil {
+		return err
+	}
+	numericCertificateSHA256, err := formalCoxBlockwiseNumericCertificateSHA256(
+		numericCertificate)
+	if err != nil || plan.NumericCertificateSHA256 != numericCertificateSHA256 {
+		return fmt.Errorf("formal-cox: invalid blockwise numeric certificate commitment")
 	}
 	blockSource, err := formalCoxBlockwiseBlockCircuitSource(plan)
 	if err != nil {

@@ -391,6 +391,20 @@ func TestFormalCoxBlockwisePlanCoversK2K3K5AndNonToyShape(t *testing.T) {
 		if err := validateFormalCoxBlockwisePlan(plan); err != nil {
 			t.Fatalf("K=%d invalid plan: %v", custodians, err)
 		}
+		numericCertificate, err := formalCoxBlockwiseNumericCertificateForPolicy(policy)
+		if err != nil {
+			t.Fatalf("K=%d numeric certificate: %v", custodians, err)
+		}
+		numericCertificateSHA256, err := formalCoxBlockwiseNumericCertificateSHA256(
+			numericCertificate)
+		if err != nil || plan.NumericCertificateSHA256 != numericCertificateSHA256 {
+			t.Fatalf("K=%d plan did not commit its numeric certificate", custodians)
+		}
+		tampered := plan
+		tampered.NumericCertificateSHA256 = strings.Repeat("0", 64)
+		if err := validateFormalCoxBlockwisePlan(tampered); err == nil {
+			t.Fatalf("K=%d accepted a tampered numeric certificate commitment", custodians)
+		}
 		t.Logf("K=%d costs block=%d grid=%d update=%d projection=%d", custodians,
 			plan.BlockCost.EstimatedWorkingByte,
 			plan.GridCost.EstimatedWorkingByte,

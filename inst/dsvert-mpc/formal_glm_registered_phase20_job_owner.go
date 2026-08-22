@@ -48,10 +48,12 @@ type formalGLMRegisteredPhase20JobOwnerV1 struct {
 	controller *formalGLMRegisteredPhase20JobWorkerControllerV1
 	terminal   *formalGLMRegisteredPhase20TerminalOwnerV1
 
-	computeStarted bool
-	computeRunning bool
-	computeDone    chan struct{}
-	closed         bool
+	computeStarted  bool
+	computeRunning  bool
+	computeDone     chan struct{}
+	terminalRunning bool
+	terminalDone    chan struct{}
+	closed          bool
 }
 
 type formalGLMRegisteredPhase20JobOwnerResultV1 struct {
@@ -765,8 +767,11 @@ func (owner *formalGLMRegisteredPhase20JobOwnerV1) Close() error {
 	}
 	owner.closed = true
 	controller := owner.controller
-	if owner.computeRunning {
+	if owner.computeRunning || owner.terminalRunning {
 		done := owner.computeDone
+		if owner.terminalRunning {
+			done = owner.terminalDone
+		}
 		owner.mu.Unlock()
 		if controller != nil {
 			_ = controller.Close()
@@ -780,6 +785,7 @@ func (owner *formalGLMRegisteredPhase20JobOwnerV1) Close() error {
 	owner.controller, owner.terminal, owner.attempts, owner.jobKeys, owner.control =
 		nil, nil, nil, nil, nil
 	owner.computeDone = nil
+	owner.terminalDone = nil
 	owner.proposal = formalGLMRegisteredPhase19ClaimProposalV1{}
 	owner.accept = formalGLMRegisteredPhase19ClaimAcceptV1{}
 	owner.votes = [2]*formalGLMRegisteredPhase19DecisionVoteV1{}

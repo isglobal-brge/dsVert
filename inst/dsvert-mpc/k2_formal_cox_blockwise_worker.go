@@ -38,20 +38,24 @@ const (
 	formalCoxBlockwiseCheckpointMax     = 1 << 20
 	formalCoxBlockwiseCompletionMax     = 8 << 10
 
-	formalCoxBlockwiseStepBlock      = "block"
-	formalCoxBlockwiseStepGrid       = "grid_coefficient"
-	formalCoxBlockwiseStepUpdate     = "coefficient_update"
-	formalCoxBlockwiseStepProjection = "coefficient_projection"
+	formalCoxBlockwiseStepBlock             = "block"
+	formalCoxBlockwiseStepGrid              = "grid_coefficient"
+	formalCoxBlockwiseStepUpdate            = "coefficient_update"
+	formalCoxBlockwiseStepProjection        = "coefficient_projection"
+	formalCoxBlockwiseStepInformationBlock  = "information_block"
+	formalCoxBlockwiseStepInformationMoment = "observed_information_moment"
+	formalCoxBlockwiseStepInformation       = "observed_information"
 )
 
 type formalCoxBlockwiseWorkerStep struct {
-	ScheduleIndex int    `json:"schedule_index"`
-	Iteration     int    `json:"iteration"`
-	Kind          string `json:"kind"`
-	BlockIndex    int    `json:"block_index"`
-	GridIndex     int    `json:"grid_index"`
-	Coefficient   int    `json:"coefficient"`
-	InputRoot     string `json:"input_root,omitempty"`
+	ScheduleIndex   int    `json:"schedule_index"`
+	Iteration       int    `json:"iteration"`
+	Kind            string `json:"kind"`
+	BlockIndex      int    `json:"block_index"`
+	GridIndex       int    `json:"grid_index"`
+	Coefficient     int    `json:"coefficient"`
+	InformationPart int    `json:"information_part"`
+	InputRoot       string `json:"input_root,omitempty"`
 }
 
 type formalCoxBlockwiseStepOutput struct {
@@ -71,21 +75,23 @@ type formalCoxBlockwisePendingState struct {
 }
 
 type formalCoxBlockwiseCheckpoint struct {
-	Version           string                          `json:"version"`
-	PlanSHA256        string                          `json:"plan_sha256"`
-	Peer              string                          `json:"peer"`
-	Generation        uint64                          `json:"generation"`
-	NextStep          int                             `json:"next_step"`
-	State             []string                        `json:"state"`
-	Scores            []string                        `json:"scores"`
-	Candidate         []string                        `json:"candidate"`
-	Projected         []string                        `json:"projected"`
-	TranscriptSHA256  string                          `json:"transcript_sha256"`
-	Pending           *formalCoxBlockwisePendingState `json:"pending,omitempty"`
-	LastReceipt       *formalCoxBlockwiseStepReceipt  `json:"last_receipt,omitempty"`
-	FinalCommitSHA256 string                          `json:"final_commit_sha256,omitempty"`
-	PreviousMAC       string                          `json:"previous_mac"`
-	MAC               string                          `json:"mac"`
+	Version            string                          `json:"version"`
+	PlanSHA256         string                          `json:"plan_sha256"`
+	Peer               string                          `json:"peer"`
+	Generation         uint64                          `json:"generation"`
+	NextStep           int                             `json:"next_step"`
+	State              []string                        `json:"state"`
+	Scores             []string                        `json:"scores"`
+	Candidate          []string                        `json:"candidate"`
+	Projected          []string                        `json:"projected"`
+	Information        []string                        `json:"information"`
+	InformationScratch []string                        `json:"information_scratch"`
+	TranscriptSHA256   string                          `json:"transcript_sha256"`
+	Pending            *formalCoxBlockwisePendingState `json:"pending,omitempty"`
+	LastReceipt        *formalCoxBlockwiseStepReceipt  `json:"last_receipt,omitempty"`
+	FinalCommitSHA256  string                          `json:"final_commit_sha256,omitempty"`
+	PreviousMAC        string                          `json:"previous_mac"`
+	MAC                string                          `json:"mac"`
 }
 
 type formalCoxBlockwiseStepReceipt struct {
@@ -162,9 +168,35 @@ func formalCoxBlockwiseWorkerStepAt(plan formalCoxBlockwisePlan,
 		return zero, fmt.Errorf("formal-cox: invalid blockwise worker step index")
 	}
 	perIteration := formalCoxBlockwiseWorkerStepsPerIteration(plan)
+	normalSteps := plan.Iterations * perIteration
+	if index >= normalSteps {
+		within := index - normalSteps
+		step := formalCoxBlockwiseWorkerStep{
+			ScheduleIndex: index, Iteration: plan.Iterations,
+			BlockIndex: -1, GridIndex: -1, Coefficient: -1, InformationPart: -1,
+		}
+		if within < plan.TotalBlocks {
+			step.Kind, step.BlockIndex = formalCoxBlockwiseStepInformationBlock, within
+			return step, nil
+		}
+		within -= plan.TotalBlocks
+		information := formalCoxBlockwiseInformationCoordinates(plan.Policy)
+		if within < 4*plan.Policy.GridTickCount*information {
+			step.GridIndex = within / (4 * information)
+			part := (within / information) % 4
+			step.Coefficient = within % information
+			if part < 3 {
+				step.Kind, step.InformationPart = formalCoxBlockwiseStepInformationMoment, part
+			} else {
+				step.Kind = formalCoxBlockwiseStepInformation
+			}
+			return step, nil
+		}
+		return zero, fmt.Errorf("formal-cox: invalid observed-information step")
+	}
 	step := formalCoxBlockwiseWorkerStep{
 		ScheduleIndex: index, Iteration: index / perIteration,
-		BlockIndex: -1, GridIndex: -1, Coefficient: -1,
+		BlockIndex: -1, GridIndex: -1, Coefficient: -1, InformationPart: -1,
 	}
 	within := index % perIteration
 	if within < plan.TotalBlocks {
@@ -194,7 +226,8 @@ func formalCoxBlockwiseWorkerStepAt(plan formalCoxBlockwisePlan,
 
 func formalCoxBlockwiseWorkerStepNeedsInput(step formalCoxBlockwiseWorkerStep) bool {
 	return step.Kind == formalCoxBlockwiseStepBlock ||
-		step.Kind == formalCoxBlockwiseStepUpdate
+		step.Kind == formalCoxBlockwiseStepUpdate ||
+		step.Kind == formalCoxBlockwiseStepInformationBlock
 }
 
 func formalCoxBlockwiseValidateWorkerStep(plan formalCoxBlockwisePlan,
@@ -221,9 +254,10 @@ func formalCoxBlockwiseValidateWorkerStep(plan formalCoxBlockwisePlan,
 func formalCoxBlockwiseWorkerOutputCoordinates(plan formalCoxBlockwisePlan,
 	step formalCoxBlockwiseWorkerStep) int {
 	switch step.Kind {
-	case formalCoxBlockwiseStepBlock:
+	case formalCoxBlockwiseStepBlock, formalCoxBlockwiseStepInformationBlock:
 		return plan.StateArithmetic
-	case formalCoxBlockwiseStepGrid, formalCoxBlockwiseStepProjection:
+	case formalCoxBlockwiseStepGrid, formalCoxBlockwiseStepProjection,
+		formalCoxBlockwiseStepInformationMoment, formalCoxBlockwiseStepInformation:
 		return 1
 	case formalCoxBlockwiseStepUpdate:
 		return plan.Policy.CovariateCount
@@ -236,7 +270,7 @@ func formalCoxBlockwiseWorkerInputCoordinates(plan formalCoxBlockwisePlan,
 	step formalCoxBlockwiseWorkerStep) int {
 	p := plan.Policy.CovariateCount
 	switch step.Kind {
-	case formalCoxBlockwiseStepBlock:
+	case formalCoxBlockwiseStepBlock, formalCoxBlockwiseStepInformationBlock:
 		return plan.BlockCapacity*plan.RowWidth + plan.StateCoordinates
 	case formalCoxBlockwiseStepGrid:
 		return 7
@@ -244,19 +278,26 @@ func formalCoxBlockwiseWorkerInputCoordinates(plan formalCoxBlockwisePlan,
 		return 3*p + 2
 	case formalCoxBlockwiseStepProjection:
 		return p + 1
+	case formalCoxBlockwiseStepInformationMoment:
+		return 5
+	case formalCoxBlockwiseStepInformation:
+		return 6
 	default:
 		return 0
 	}
 }
 
 func formalCoxBlockwiseWorkerResidentCoordinates(plan formalCoxBlockwisePlan) int {
-	checkpoint := plan.StateCoordinates + 3*plan.Policy.CovariateCount
+	checkpoint := plan.StateCoordinates + 3*plan.Policy.CovariateCount +
+		4*formalCoxBlockwiseInformationCoordinates(plan.Policy)
 	peakStep := 0
 	for _, index := range []int{
 		0,
 		plan.TotalBlocks,
 		plan.TotalBlocks + plan.Policy.GridTickCount*plan.Policy.CovariateCount,
 		plan.TotalBlocks + plan.Policy.GridTickCount*plan.Policy.CovariateCount + 1,
+		plan.Iterations*formalCoxBlockwiseWorkerStepsPerIteration(plan) + plan.TotalBlocks,
+		plan.ScheduleSteps - 1,
 	} {
 		step, err := formalCoxBlockwiseWorkerStepAt(plan, index)
 		if err != nil {
@@ -335,7 +376,7 @@ func formalCoxBlockwiseValidateWorkerSession(plan formalCoxBlockwisePlan,
 func formalCoxBlockwiseCompileWorkerStep(plan formalCoxBlockwisePlan,
 	step formalCoxBlockwiseWorkerStep) (*circuit.Circuit, error) {
 	switch step.Kind {
-	case formalCoxBlockwiseStepBlock:
+	case formalCoxBlockwiseStepBlock, formalCoxBlockwiseStepInformationBlock:
 		return compileFormalCoxBlockwiseBlock(plan)
 	case formalCoxBlockwiseStepGrid:
 		return compileFormalCoxBlockwiseGridCoefficient(plan)
@@ -344,6 +385,10 @@ func formalCoxBlockwiseCompileWorkerStep(plan formalCoxBlockwisePlan,
 	case formalCoxBlockwiseStepProjection:
 		return compileFormalCoxBlockwiseProjectionCoefficient(
 			plan, step.Coefficient)
+	case formalCoxBlockwiseStepInformation:
+		return compileFormalCoxBlockwiseInformation(plan)
+	case formalCoxBlockwiseStepInformationMoment:
+		return compileFormalCoxBlockwiseInformationMoment(plan)
 	default:
 		return nil, fmt.Errorf("formal-cox: unsupported blockwise worker circuit")
 	}
@@ -371,11 +416,22 @@ func formalCoxBlockwiseWorkerLocalInput(plan formalCoxBlockwisePlan,
 	if err != nil {
 		return nil, err
 	}
+	information, err := formalCoxBlockwiseDecodeValues(
+		state.Information, formalCoxBlockwiseInformationCoordinates(plan.Policy),
+		plan.RingBits)
+	if err != nil {
+		return nil, err
+	}
+	scratch, err := formalCoxBlockwiseDecodeValues(state.InformationScratch,
+		3*formalCoxBlockwiseInformationCoordinates(plan.Policy), plan.RingBits)
+	if err != nil {
+		return nil, err
+	}
 	p := plan.Policy.CovariateCount
 	validity := stateValues[plan.StateArithmetic]
 	var input []*big.Int
 	switch step.Kind {
-	case formalCoxBlockwiseStepBlock:
+	case formalCoxBlockwiseStepBlock, formalCoxBlockwiseStepInformationBlock:
 		if len(external) != plan.BlockCapacity*plan.RowWidth ||
 			externalValidity != nil {
 			return nil, fmt.Errorf("formal-cox: pending block is missing its fixed padded input")
@@ -415,6 +471,44 @@ func formalCoxBlockwiseWorkerLocalInput(plan formalCoxBlockwisePlan,
 		}
 		input = append(input, candidate...)
 		input = append(input, validity)
+	case formalCoxBlockwiseStepInformationMoment:
+		if len(external) != 0 || externalValidity != nil {
+			return nil, fmt.Errorf("formal-cox: observed information moment received external input")
+		}
+		left, right, err := formalCoxBlockwiseSecondMomentPairAt(
+			plan.Policy, step.Coefficient)
+		if err != nil {
+			return nil, err
+		}
+		offsets := formalCoxBlockwiseStateOffsets(plan.Policy)
+		grid := step.GridIndex
+		moment := stateValues[offsets.s1+grid*p+left]
+		switch step.InformationPart {
+		case 0:
+		case 1:
+			moment = stateValues[offsets.s1+grid*p+right]
+		case 2:
+			moment = stateValues[offsets.s2+grid*formalCoxBlockwiseInformationCoordinates(plan.Policy)+step.Coefficient]
+		default:
+			return nil, fmt.Errorf("formal-cox: invalid observed-information moment part")
+		}
+		input = []*big.Int{
+			stateValues[offsets.riskCount+grid],
+			stateValues[offsets.eventCount+grid],
+			stateValues[offsets.s0+grid],
+			moment, validity,
+		}
+	case formalCoxBlockwiseStepInformation:
+		if len(external) != 0 || externalValidity != nil {
+			return nil, fmt.Errorf("formal-cox: observed information received external input")
+		}
+		width := formalCoxBlockwiseInformationCoordinates(plan.Policy)
+		input = []*big.Int{
+			stateValues[formalCoxBlockwiseStateOffsets(plan.Policy).eventCount+step.GridIndex],
+			scratch[step.Coefficient], scratch[width+step.Coefficient],
+			scratch[2*width+step.Coefficient],
+			information[step.Coefficient], validity,
+		}
 	default:
 		return nil, fmt.Errorf("formal-cox: unsupported blockwise worker input")
 	}
@@ -569,6 +663,8 @@ func formalCoxBlockwiseCloneCheckpoint(state formalCoxBlockwiseCheckpoint) forma
 	state.Scores = append([]string(nil), state.Scores...)
 	state.Candidate = append([]string(nil), state.Candidate...)
 	state.Projected = append([]string(nil), state.Projected...)
+	state.Information = append([]string(nil), state.Information...)
+	state.InformationScratch = append([]string(nil), state.InformationScratch...)
 	return state
 }
 
@@ -577,6 +673,7 @@ func formalCoxBlockwisePrivateStateSHA256(state formalCoxBlockwiseCheckpoint) st
 		"dsVert/formal-cox/blockwise-worker/private-state/v1")
 	for _, values := range [][]string{
 		state.State, state.Scores, state.Candidate, state.Projected,
+		state.Information, state.InformationScratch,
 	} {
 		message = formalCoxBlockwiseAppendUint64(message, uint64(len(values)))
 		for _, value := range values {
@@ -605,7 +702,7 @@ func formalCoxBlockwiseApplyOutput(plan formalCoxBlockwisePlan,
 	p := plan.Policy.CovariateCount
 	validityIndex := plan.StateArithmetic
 	switch step.Kind {
-	case formalCoxBlockwiseStepBlock:
+	case formalCoxBlockwiseStepBlock, formalCoxBlockwiseStepInformationBlock:
 		state.State = append(append([]string(nil), output...), validityValue)
 	case formalCoxBlockwiseStepGrid:
 		state.Scores[step.Coefficient] = output[0]
@@ -626,6 +723,13 @@ func formalCoxBlockwiseApplyOutput(plan formalCoxBlockwisePlan,
 			state.Candidate = formalCoxBlockwiseZeroStrings(p)
 			state.Projected = formalCoxBlockwiseZeroStrings(p)
 		}
+	case formalCoxBlockwiseStepInformationMoment:
+		width := formalCoxBlockwiseInformationCoordinates(plan.Policy)
+		state.InformationScratch[step.InformationPart*width+step.Coefficient] = output[0]
+		state.State[validityIndex] = validityValue
+	case formalCoxBlockwiseStepInformation:
+		state.Information[step.Coefficient] = output[0]
+		state.State[validityIndex] = validityValue
 	default:
 		return fmt.Errorf("formal-cox: unsupported blockwise checkpoint step")
 	}
@@ -865,6 +969,16 @@ func (store *formalCoxBlockwiseCheckpointStore) validateState(
 			return err
 		}
 	}
+	if _, err := formalCoxBlockwiseDecodeValues(state.Information,
+		formalCoxBlockwiseInformationCoordinates(store.plan.Policy),
+		store.plan.RingBits); err != nil {
+		return err
+	}
+	if _, err := formalCoxBlockwiseDecodeValues(state.InformationScratch,
+		3*formalCoxBlockwiseInformationCoordinates(store.plan.Policy),
+		store.plan.RingBits); err != nil {
+		return err
+	}
 	stateSHA := formalCoxBlockwisePrivateStateSHA256(state)
 	if state.NextStep == 0 {
 		if state.LastReceipt != nil {
@@ -1000,11 +1114,13 @@ func (store *formalCoxBlockwiseCheckpointStore) Bootstrap() error {
 	state := formalCoxBlockwiseCheckpoint{
 		Version:    formalCoxBlockwiseCheckpointVersion,
 		PlanSHA256: planSHA, Peer: store.peer, Generation: 1,
-		State:            formalCoxBlockwiseZeroStrings(store.plan.StateCoordinates),
-		Scores:           formalCoxBlockwiseZeroStrings(store.plan.Policy.CovariateCount),
-		Candidate:        formalCoxBlockwiseZeroStrings(store.plan.Policy.CovariateCount),
-		Projected:        formalCoxBlockwiseZeroStrings(store.plan.Policy.CovariateCount),
-		TranscriptSHA256: formalCoxBlockwiseInitialTranscript(planSHA),
+		State:              formalCoxBlockwiseZeroStrings(store.plan.StateCoordinates),
+		Scores:             formalCoxBlockwiseZeroStrings(store.plan.Policy.CovariateCount),
+		Candidate:          formalCoxBlockwiseZeroStrings(store.plan.Policy.CovariateCount),
+		Projected:          formalCoxBlockwiseZeroStrings(store.plan.Policy.CovariateCount),
+		Information:        formalCoxBlockwiseZeroStrings(formalCoxBlockwiseInformationCoordinates(store.plan.Policy)),
+		InformationScratch: formalCoxBlockwiseZeroStrings(3 * formalCoxBlockwiseInformationCoordinates(store.plan.Policy)),
+		TranscriptSHA256:   formalCoxBlockwiseInitialTranscript(planSHA),
 	}
 	// XOR shares 0 and 1 reconstruct the public initial execution-valid bit.
 	if store.peer == store.plan.Policy.ComputePeers[1] {
@@ -1241,6 +1357,8 @@ func (store *formalCoxBlockwiseCheckpointStore) CommitPending(
 	}
 	state.State, state.Scores = next.State, next.Scores
 	state.Candidate, state.Projected = next.Candidate, next.Projected
+	state.Information = next.Information
+	state.InformationScratch = next.InformationScratch
 	state.Pending = nil
 	state.TranscriptSHA256 = local.TranscriptSHA256
 	committed := *local

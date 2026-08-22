@@ -549,6 +549,15 @@ func formalCoxBlockwiseSourceStepAsset(plan formalCoxBlockwisePlan,
 				"formal-cox: source blocks are sealed once for canonical reuse")
 		}
 		return step.Kind, step.BlockIndex, nil
+	case formalCoxBlockwiseStepInformationBlock:
+		if sealing {
+			return "", 0, fmt.Errorf(
+				"formal-cox: observed information reuses an already sealed source block")
+		}
+		// The post-fit pass is a second authenticated use of the canonical
+		// iteration-zero encrypted block; it never generates a second input
+		// asset or a new sticky draw.
+		return formalCoxBlockwiseStepBlock, step.BlockIndex, nil
 	case formalCoxBlockwiseStepUpdate:
 		return step.Kind, step.Iteration, nil
 	default:
@@ -950,6 +959,7 @@ func formalCoxBlockwiseSourceValidatePairManifest(
 				ScheduleIndex: manifest.CanonicalScheduleIndex,
 				Iteration:     manifest.Iteration, Kind: manifest.StepKind,
 				BlockIndex: manifest.BlockIndex, GridIndex: -1, Coefficient: -1,
+				InformationPart: -1,
 			}, true)
 		if err != nil || entry.RecipientPeerName != recipient ||
 			entry.RecipientPeerID != session.context.peerIDs[recipient] ||

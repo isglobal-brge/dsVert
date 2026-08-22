@@ -17,7 +17,7 @@ import (
 )
 
 type formalCoxBlockwiseOffsets struct {
-	beta, riskCount, eventCount, s0, s1, eventX, total int
+	beta, riskCount, eventCount, s0, s1, s2, eventX, total int
 }
 
 func formalCoxBlockwiseStateOffsets(policy formalCoxPhase1Policy) formalCoxBlockwiseOffsets {
@@ -27,7 +27,8 @@ func formalCoxBlockwiseStateOffsets(policy formalCoxPhase1Policy) formalCoxBlock
 	o.eventCount = o.riskCount + g
 	o.s0 = o.eventCount + g
 	o.s1 = o.s0 + g
-	o.eventX = o.s1 + g*p
+	o.s2 = o.s1 + g*p
+	o.eventX = o.s2 + g*formalCoxBlockwiseSecondMomentCoordinates(policy)
 	o.total = o.eventX + g*p
 	return o
 }
@@ -250,6 +251,13 @@ func formalCoxBlockwiseBlockCircuitSource(plan formalCoxBlockwisePlan) (string, 
 				"\tweightedX%d_%d := mulFloor(weight%d, x%d_%d)\n",
 				row, coefficient, row, row, coefficient)
 		}
+		for left := 0; left < p; left++ {
+			for right := left; right < p; right++ {
+				fmt.Fprintf(&source,
+					"\tweightedXX%d_%d_%d := mulFloor(weightedX%d_%d, x%d_%d)\n",
+					row, left, right, row, left, row, right)
+			}
+		}
 	}
 
 	for grid := 1; grid <= g; grid++ {
@@ -271,6 +279,15 @@ func formalCoxBlockwiseBlockCircuitSource(plan formalCoxBlockwisePlan) (string, 
 				fmt.Fprintf(&source,
 					"\t\tstate%d = (state%d + weightedX%d_%d) & %s(0x%s)\n",
 					index, index, row, coefficient, uintType, mask)
+			}
+			for left := 0; left < p; left++ {
+				for right := left; right < p; right++ {
+					index := offsets.s2 + (grid-1)*formalCoxBlockwiseSecondMomentCoordinates(policy) +
+						formalCoxBlockwiseSecondMomentIndex(policy, left, right)
+					fmt.Fprintf(&source,
+						"\t\tstate%d = (state%d + weightedXX%d_%d_%d) & %s(0x%s)\n",
+						index, index, row, left, right, uintType, mask)
+				}
 			}
 			source.WriteString("\t}\n")
 			fmt.Fprintf(&source, "\tif event%d_%d {\n", grid, row)
@@ -414,6 +431,7 @@ func formalCoxBlockwiseGridCoefficientCircuitSource(plan formalCoxBlockwisePlan)
 	if negative { result = (%[1]s(0) - result) & %[1]s(0x%[3]s) }
 	return result
 }
+
 func mulInteger(a %[1]s, integer %[1]s) %[1]s {
 	negative := (a & %[1]s(0x%[2]s)) != 0
 	magnitude := a
@@ -455,6 +473,95 @@ func mulInteger(a %[1]s, integer %[1]s) %[1]s {
 		uintType, uintType)
 	source.WriteString("\tvar out [2]" + uintType + "\n")
 	source.WriteString("\tout[0] = outScore\n\tout[1] = outValidity\n")
+	source.WriteString("\treturn out\n}\n")
+	return source.String(), nil
+}
+
+// formalCoxBlockwiseInformationMomentCircuitSource computes one secret
+// normalized risk moment. Splitting the three divisions from the final
+// covariance product keeps every physical circuit below the signed memory
+// envelope while preserving the fixed Breslow arithmetic exactly.
+func formalCoxBlockwiseInformationMomentCircuitSource(plan formalCoxBlockwisePlan) (string, error) {
+	parsed, err := formalCoxBlockwiseValidateShape(plan)
+	if err != nil {
+		return "", err
+	}
+	const local = 5 // risk, events, S0, one moment, validity.
+	preamble, uintType, wideType, mask, _ := formalCoxBlockwiseCircuitPreamble(parsed, plan.RingBits)
+	sign := new(big.Int).Lsh(big.NewInt(1), uint(plan.RingBits-1)).Text(16)
+	var source strings.Builder
+	source.WriteString(preamble)
+	fmt.Fprintf(&source, `func divScaledFloor(a %[1]s, denominator %[1]s) %[1]s {
+	negative := (a & %[1]s(0x%[2]s)) != 0
+	magnitude := a
+	if negative { magnitude = (%[1]s(0) - a) & %[1]s(0x%[3]s) }
+	numerator := wideMul(magnitude, %[1]s(0x%[4]s))
+	wideDenominator := %[5]s(denominator)
+	quotient := numerator / wideDenominator
+	remainder := numerator %% wideDenominator
+	if negative && remainder != 0 { quotient = quotient + 1 }
+	result := %[1]s(quotient)
+	if negative { result = (%[1]s(0) - result) & %[1]s(0x%[3]s) }
+	return result
+}
+`, uintType, sign, mask, parsed.scale.Text(16), wideType)
+	fmt.Fprintf(&source, "func main(g [%d]%s, e [%d]%s) [2]%s {\n", local+2, uintType, local, uintType, uintType)
+	for index := 0; index < 4; index++ {
+		fmt.Fprintf(&source, "\tvalue%d := (g[%d] + e[%d]) & %s(0x%s)\n", index, index, index, uintType, mask)
+	}
+	fmt.Fprintf(&source, "\texecutionValid := (((g[4] + e[4]) & %s(1)) == %s(1))\n", uintType, uintType)
+	fmt.Fprintf(&source, "\triskFloorValid := value1 == %s(0) || value0 >= %s(%d)\n", uintType, uintType, plan.Policy.MinimumAtRisk)
+	source.WriteString("\texecutionValid = executionValid && riskFloorValid\n")
+	source.WriteString("\tdenominator := value2\n")
+	fmt.Fprintf(&source, "\tif denominator == %s(0) { denominator = %s(1) }\n", uintType, uintType)
+	source.WriteString("\tnewMoment := divScaledFloor(value3, denominator)\n")
+	fmt.Fprintf(&source, "\toutMoment := (newMoment - g[5]) & %s(0x%s)\n", uintType, mask)
+	fmt.Fprintf(&source, "\texecutionValue := %s(0)\n", uintType)
+	fmt.Fprintf(&source, "\tif executionValid { executionValue = %s(1) }\n", uintType)
+	fmt.Fprintf(&source, "\toutValidity := (executionValue + (g[6] & %s(1))) & %s(1)\n", uintType, uintType)
+	source.WriteString("\tvar out [2]" + uintType + "\n")
+	source.WriteString("\tout[0] = outMoment\n\tout[1] = outValidity\n")
+	source.WriteString("\treturn out\n}\n")
+	return source.String(), nil
+}
+
+// formalCoxBlockwiseInformationCircuitSource combines three already sealed
+// normalized moments into one lower-triangular observed-information entry.
+func formalCoxBlockwiseInformationCircuitSource(plan formalCoxBlockwisePlan) (string, error) {
+	parsed, err := formalCoxBlockwiseValidateShape(plan)
+	if err != nil {
+		return "", err
+	}
+	const local = 6 // events, left/right/S2 means, current information, validity.
+	preamble, uintType, _, mask, _ := formalCoxBlockwiseCircuitPreamble(parsed, plan.RingBits)
+	sign := new(big.Int).Lsh(big.NewInt(1), uint(plan.RingBits-1)).Text(16)
+	var source strings.Builder
+	source.WriteString(preamble)
+	fmt.Fprintf(&source, `func mulInteger(a %[1]s, integer %[1]s) %[1]s {
+	negative := (a & %[1]s(0x%[2]s)) != 0
+	magnitude := a
+	if negative { magnitude = (%[1]s(0) - a) & %[1]s(0x%[3]s) }
+	product := wideMul(magnitude, integer)
+	result := %[1]s(product)
+	if negative { result = (%[1]s(0) - result) & %[1]s(0x%[3]s) }
+	return result
+}
+`, uintType, sign, mask)
+	fmt.Fprintf(&source, "func main(g [%d]%s, e [%d]%s) [2]%s {\n", local+2, uintType, local, uintType, uintType)
+	for index := 0; index < 5; index++ {
+		fmt.Fprintf(&source, "\tvalue%d := (g[%d] + e[%d]) & %s(0x%s)\n", index, index, index, uintType, mask)
+	}
+	fmt.Fprintf(&source, "\texecutionValid := (((g[5] + e[5]) & %s(1)) == %s(1))\n", uintType, uintType)
+	source.WriteString("\tmeanOuter := mulFloor(value1, value2)\n")
+	fmt.Fprintf(&source, "\tvariance := (value3 - meanOuter) & %s(0x%s)\n", uintType, mask)
+	source.WriteString("\tincrement := mulInteger(variance, value0)\n")
+	fmt.Fprintf(&source, "\tnewInformation := (value4 + increment) & %s(0x%s)\n", uintType, mask)
+	fmt.Fprintf(&source, "\toutInformation := (newInformation - g[6]) & %s(0x%s)\n", uintType, mask)
+	fmt.Fprintf(&source, "\texecutionValue := %s(0)\n", uintType)
+	fmt.Fprintf(&source, "\tif executionValid { executionValue = %s(1) }\n", uintType)
+	fmt.Fprintf(&source, "\toutValidity := (executionValue + (g[7] & %s(1))) & %s(1)\n", uintType, uintType)
+	source.WriteString("\tvar out [2]" + uintType + "\n")
+	source.WriteString("\tout[0] = outInformation\n\tout[1] = outValidity\n")
 	source.WriteString("\treturn out\n}\n")
 	return source.String(), nil
 }
@@ -1173,6 +1280,22 @@ func compileFormalCoxBlockwiseGridCoefficient(plan formalCoxBlockwisePlan) (*cir
 		return nil, err
 	}
 	return compileFormalCoxBlockwiseSource(source, "grid coefficient reduction")
+}
+
+func compileFormalCoxBlockwiseInformationMoment(plan formalCoxBlockwisePlan) (*circuit.Circuit, error) {
+	source, err := formalCoxBlockwiseInformationMomentCircuitSource(plan)
+	if err != nil {
+		return nil, err
+	}
+	return compileFormalCoxBlockwiseSource(source, "observed information moment")
+}
+
+func compileFormalCoxBlockwiseInformation(plan formalCoxBlockwisePlan) (*circuit.Circuit, error) {
+	source, err := formalCoxBlockwiseInformationCircuitSource(plan)
+	if err != nil {
+		return nil, err
+	}
+	return compileFormalCoxBlockwiseSource(source, "observed information")
 }
 
 func compileFormalCoxBlockwiseUpdate(plan formalCoxBlockwisePlan) (*circuit.Circuit, error) {

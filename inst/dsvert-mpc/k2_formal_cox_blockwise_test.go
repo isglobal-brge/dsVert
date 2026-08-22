@@ -412,12 +412,202 @@ func TestFormalCoxBlockwisePlanCoversK2K3K5AndNonToyShape(t *testing.T) {
 			plan.ProjectionCost.EstimatedWorkingByte)
 		if plan.Policy.CovariateCount != 2 || plan.Policy.GridTickCount != 9 ||
 			plan.Iterations != 2 || plan.TotalCapacity != 2 ||
-			plan.StateCoordinates != 2+3*9+2*9*2+1 ||
+			plan.StateCoordinates != 2+3*9+2*9*2+9*3+1 ||
 			plan.BlockCost.EstimatedWorkingByte == 0 ||
+			plan.InformationMomentCost.EstimatedWorkingByte == 0 ||
+			plan.InformationCost.EstimatedWorkingByte == 0 ||
 			plan.UpdateCost.EstimatedWorkingByte == 0 ||
 			plan.ProjectionCost.EstimatedWorkingByte == 0 || plan.ProductionReady {
 			t.Fatalf("K=%d unexpected non-toy plan: %+v", custodians, plan)
 		}
+	}
+}
+
+// The final Cox information matrix needs the weighted second risk moments
+// S2(t)=sum_R exp(eta) x x'.  This is intentionally a circuit/oracle test,
+// not a public opening: an exact S2 share must never become a release.
+func TestFormalCoxBlockwiseSecondRiskMomentsMatchReferenceK2K3K5(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run("K"+fmt.Sprint(custodians), func(t *testing.T) {
+			policy := formalCoxBlockwiseTestPolicy(t, custodians, 2)
+			plan, err := buildFormalCoxBlockwisePlan(
+				policy, 2, strings.Repeat(fmt.Sprintf("%x", custodians), 64))
+			if err != nil {
+				t.Fatal(err)
+			}
+			rows := formalCoxBlockwiseTestRows(policy, plan.RingBits)
+			beta := make([]*big.Int, policy.CovariateCount)
+			for index := range beta {
+				beta[index] = new(big.Int)
+			}
+			initial, err := formalCoxBlockwiseReferenceInitial(plan, beta, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want, err := referenceFormalCoxBlockwiseBlock(plan, initial, rows)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantResidues, err := formalCoxBlockwiseReferenceStateResidues(plan, want)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			block, err := compileFormalCoxBlockwiseBlock(plan)
+			if err != nil {
+				t.Fatal(err)
+			}
+			state, err := formalCoxBlockwiseReferenceStateResidues(plan, initial)
+			if err != nil {
+				t.Fatal(err)
+			}
+			input := append(append([]*big.Int{}, rows...), state...)
+			left, right := formalCoxBlockwiseTestSplit(input, plan.RingBits, custodians)
+			masks := make([]*big.Int, plan.StateArithmetic)
+			for index := range masks {
+				masks[index] = big.NewInt(int64(1000 + index))
+			}
+			garbler := append(append([]*big.Int{}, left...), masks...)
+			garbler = append(garbler, big.NewInt(1))
+			computed, err := block.Compute([]*big.Int{
+				exactGCPackChunks(garbler, plan.ContainerBits),
+				exactGCPackChunks(right, plan.ContainerBits),
+			})
+			if err != nil || len(computed) != 1 {
+				t.Fatalf("run block circuit: %v", err)
+			}
+			got := formalCoxBlockwiseTestDecode(
+				computed[0], plan.StateCoordinates, plan.ContainerBits)
+			for index := 0; index < plan.StateArithmetic; index++ {
+				got[index] = exactGCReferenceReconstruct(
+					masks[index], got[index], plan.RingBits)
+				if got[index].Cmp(wantResidues[index]) != 0 {
+					t.Fatalf("state coordinate %d mismatch: got %s want %s",
+						index, got[index], wantResidues[index])
+				}
+			}
+			// The garbler chose the validity mask bit 1 above, so the evaluator
+			// output bit is complemented relative to the execution value.
+			if got[plan.StateArithmetic].Bit(0) != 0 {
+				t.Fatal("block circuit lost execution validity")
+			}
+
+			offsets := formalCoxBlockwiseStateOffsets(policy)
+			for grid := 0; grid < policy.GridTickCount; grid++ {
+				for leftIndex := 0; leftIndex < policy.CovariateCount; leftIndex++ {
+					for rightIndex := leftIndex; rightIndex < policy.CovariateCount; rightIndex++ {
+						index := offsets.s2 + grid*formalCoxBlockwiseSecondMomentCoordinates(policy) +
+							formalCoxBlockwiseSecondMomentIndex(policy, leftIndex, rightIndex)
+						if got[index].Sign() == 0 && wantResidues[index].Sign() != 0 {
+							t.Fatalf("K=%d lost S2 at grid=%d (%d,%d)",
+								custodians, grid, leftIndex, rightIndex)
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestFormalCoxBlockwiseObservedInformationMatchesReferenceK2K3K5(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run("K"+fmt.Sprint(custodians), func(t *testing.T) {
+			policy := formalCoxBlockwiseTestPolicy(t, custodians, 2)
+			plan, err := buildFormalCoxBlockwisePlan(
+				policy, 2, strings.Repeat(fmt.Sprintf("%x", custodians), 64))
+			if err != nil {
+				t.Fatal(err)
+			}
+			beta := make([]*big.Int, policy.CovariateCount)
+			for index := range beta {
+				beta[index] = new(big.Int)
+			}
+			initial, err := formalCoxBlockwiseReferenceInitial(plan, beta, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			state, err := referenceFormalCoxBlockwiseBlock(
+				plan, initial, formalCoxBlockwiseTestRows(policy, plan.RingBits))
+			if err != nil {
+				t.Fatal(err)
+			}
+			residues, err := formalCoxBlockwiseReferenceStateResidues(plan, state)
+			if err != nil {
+				t.Fatal(err)
+			}
+			momentCircuit, err := compileFormalCoxBlockwiseInformationMoment(plan)
+			if err != nil {
+				t.Fatal(err)
+			}
+			informationCircuit, err := compileFormalCoxBlockwiseInformation(plan)
+			if err != nil {
+				t.Fatal(err)
+			}
+			offsets := formalCoxBlockwiseStateOffsets(policy)
+			current := make([]*big.Int, formalCoxBlockwiseInformationCoordinates(policy))
+			scratch := make([]*big.Int, 3*len(current))
+			for index := range current {
+				current[index] = new(big.Int)
+			}
+			for index := range scratch {
+				scratch[index] = new(big.Int)
+			}
+			for grid := 0; grid < policy.GridTickCount; grid++ {
+				for coordinate := range current {
+					leftIndex, rightIndex, err := formalCoxBlockwiseSecondMomentPairAt(policy, coordinate)
+					if err != nil {
+						t.Fatal(err)
+					}
+					want, wantValid, err := referenceFormalCoxBlockwiseInformationStep(
+						plan, state, grid, coordinate, current[coordinate])
+					if err != nil || !wantValid {
+						t.Fatalf("grid=%d coordinate=%d reference: %v valid=%v", grid, coordinate, err, wantValid)
+					}
+					moments := []*big.Int{
+						residues[offsets.s1+grid*policy.CovariateCount+leftIndex],
+						residues[offsets.s1+grid*policy.CovariateCount+rightIndex],
+						residues[offsets.s2+grid*len(current)+coordinate],
+					}
+					for part, moment := range moments {
+						input := []*big.Int{residues[offsets.riskCount+grid], residues[offsets.eventCount+grid], residues[offsets.s0+grid], moment, big.NewInt(1)}
+						garblerInput, evaluatorInput := formalCoxBlockwiseTestSplit(input, plan.RingBits, custodians+grid+coordinate+part)
+						masks := []*big.Int{big.NewInt(2700 + int64(3*coordinate+part)), big.NewInt(1)}
+						garblerInput = append(garblerInput, masks...)
+						computed, err := momentCircuit.Compute([]*big.Int{
+							exactGCPackChunks(garblerInput, plan.ContainerBits),
+							exactGCPackChunks(evaluatorInput, plan.ContainerBits),
+						})
+						if err != nil || len(computed) != 1 {
+							t.Fatalf("grid=%d coordinate=%d part=%d moment: %v", grid, coordinate, part, err)
+						}
+						got := formalCoxBlockwiseTestDecode(computed[0], 2, plan.ContainerBits)
+						if got[1].Bit(0) != 0 {
+							t.Fatalf("grid=%d coordinate=%d part=%d lost moment validity", grid, coordinate, part)
+						}
+						scratch[part*len(current)+coordinate] = exactGCReferenceReconstruct(masks[0], got[0], plan.RingBits)
+					}
+					input := []*big.Int{residues[offsets.eventCount+grid], scratch[coordinate], scratch[len(current)+coordinate], scratch[2*len(current)+coordinate], formalCoxResidue(current[coordinate], plan.RingBits), big.NewInt(1)}
+					garblerInput, evaluatorInput := formalCoxBlockwiseTestSplit(input, plan.RingBits, custodians+grid+coordinate+7)
+					masks := []*big.Int{big.NewInt(3100 + int64(coordinate)), big.NewInt(1)}
+					garblerInput = append(garblerInput, masks...)
+					computed, err := informationCircuit.Compute([]*big.Int{
+						exactGCPackChunks(garblerInput, plan.ContainerBits),
+						exactGCPackChunks(evaluatorInput, plan.ContainerBits),
+					})
+					if err != nil || len(computed) != 1 {
+						t.Fatalf("grid=%d coordinate=%d information: %v", grid, coordinate, err)
+					}
+					got := formalCoxBlockwiseTestDecode(computed[0], 2, plan.ContainerBits)
+					if reconstructed := exactGCReferenceReconstruct(masks[0], got[0], plan.RingBits); reconstructed.Cmp(formalCoxResidue(want, plan.RingBits)) != 0 {
+						t.Fatalf("grid=%d coordinate=%d information mismatch: got %s want %s", grid, coordinate, reconstructed, formalCoxResidue(want, plan.RingBits))
+					}
+					if got[1].Bit(0) != 0 {
+						t.Fatalf("grid=%d coordinate=%d lost execution validity", grid, coordinate)
+					}
+					current[coordinate] = want
+				}
+			}
+		})
 	}
 }
 
@@ -836,6 +1026,8 @@ func TestFormalCoxBlockwiseResidentShapeIsIndependentOfN(t *testing.T) {
 		small.BlockCost.OutputBits != large.BlockCost.OutputBits ||
 		small.BlockCost.EstimatedWorkingByte != large.BlockCost.EstimatedWorkingByte ||
 		small.GridCost.EstimatedWorkingByte != large.GridCost.EstimatedWorkingByte ||
+		small.InformationMomentCost.EstimatedWorkingByte != large.InformationMomentCost.EstimatedWorkingByte ||
+		small.InformationCost.EstimatedWorkingByte != large.InformationCost.EstimatedWorkingByte ||
 		small.UpdateCost.EstimatedWorkingByte != large.UpdateCost.EstimatedWorkingByte ||
 		small.ProjectionCost.EstimatedWorkingByte != large.ProjectionCost.EstimatedWorkingByte ||
 		large.TotalBlocks <= small.TotalBlocks {

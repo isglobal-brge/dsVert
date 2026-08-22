@@ -18,7 +18,7 @@ import (
 const formalCoxBlockwiseScoreApproximationVersion = "dsvert-formal-cox-blockwise-score-approximation-v3"
 
 const (
-	formalCoxBlockwisePlanVersion = "dsvert-formal-cox-blockwise-plan-v5"
+	formalCoxBlockwisePlanVersion = "dsvert-formal-cox-blockwise-plan-v8"
 	formalCoxBlockwiseCostVersion = "dsvert-formal-cox-blockwise-cost-v1"
 	formalCoxBlockwiseMaxCapacity = 1_000_000
 	// The blockwise circuits have a separately reviewed three-coefficient
@@ -109,6 +109,8 @@ type formalCoxBlockwisePlan struct {
 	ScoreApproximation      formalCoxBlockwiseScoreCert   `json:"score_approximation"`
 	BlockCost               formalCoxBlockwiseCircuitCost `json:"block_cost"`
 	GridCost                formalCoxBlockwiseCircuitCost `json:"grid_reduction_cost"`
+	InformationMomentCost   formalCoxBlockwiseCircuitCost `json:"observed_information_moment_cost"`
+	InformationCost         formalCoxBlockwiseCircuitCost `json:"observed_information_cost"`
 	UpdateCost              formalCoxBlockwiseCircuitCost `json:"update_cost"`
 	ProjectionCost          formalCoxBlockwiseCircuitCost `json:"projection_coefficient_cost"`
 	BackendSelection        string                        `json:"backend_selection"`
@@ -217,9 +219,55 @@ func formalCoxBlockwisePlanDigest(plan formalCoxBlockwisePlan) ([32]byte, error)
 
 func formalCoxBlockwiseMomentCoordinates(policy formalCoxPhase1Policy) int {
 	// risk count, event count and S0 per tick, plus S1 and event-X for
-	// every tick/covariate pair.
+	// every tick/covariate pair, and the lower triangle of weighted S2 for
+	// each tick.  S2 remains private worker state; it is required later for
+	// a DP-protected observed-information release, never an exact opening.
 	return 3*policy.GridTickCount +
-		2*policy.GridTickCount*policy.CovariateCount
+		2*policy.GridTickCount*policy.CovariateCount +
+		policy.GridTickCount*formalCoxBlockwiseSecondMomentCoordinates(policy)
+}
+
+func formalCoxBlockwiseSecondMomentCoordinates(policy formalCoxPhase1Policy) int {
+	p := policy.CovariateCount
+	return p * (p + 1) / 2
+}
+
+// formalCoxBlockwiseInformationCoordinates is the lower-triangular observed
+// information shape. It is fixed by the signed covariate count, not by data.
+func formalCoxBlockwiseInformationCoordinates(policy formalCoxPhase1Policy) int {
+	return formalCoxBlockwiseSecondMomentCoordinates(policy)
+}
+
+// formalCoxBlockwiseSecondMomentIndex returns a canonical lower-triangular
+// coordinate. Callers with public coefficient indexes may pass either order.
+func formalCoxBlockwiseSecondMomentIndex(policy formalCoxPhase1Policy,
+	left, right int,
+) int {
+	if left > right {
+		left, right = right, left
+	}
+	p := policy.CovariateCount
+	return left*p - left*(left-1)/2 + (right - left)
+}
+
+// formalCoxBlockwiseSecondMomentPairAt is the inverse of the canonical
+// lower-triangular index. The shape is public and small (it is bounded by the
+// signed policy), so the direct scan avoids a second, subtly different index
+// formula in the worker.
+func formalCoxBlockwiseSecondMomentPairAt(policy formalCoxPhase1Policy,
+	index int,
+) (int, int, error) {
+	if index < 0 || index >= formalCoxBlockwiseSecondMomentCoordinates(policy) {
+		return 0, 0, fmt.Errorf("formal-cox: invalid observed-information coordinate")
+	}
+	for left := 0; left < policy.CovariateCount; left++ {
+		for right := left; right < policy.CovariateCount; right++ {
+			if formalCoxBlockwiseSecondMomentIndex(policy, left, right) == index {
+				return left, right, nil
+			}
+		}
+	}
+	return 0, 0, fmt.Errorf("formal-cox: unreachable observed-information coordinate")
 }
 
 func formalCoxBlockwiseCost(source string, circ *circuit.Circuit) (
@@ -269,13 +317,23 @@ func formalCoxBlockwiseNumericEnvelope(policy formalCoxPhase1Policy) (
 		parsed.xNorm, parsed.betaNorm, parsed.scale)
 	weightedX := new(big.Int).Add(
 		formalCoxCeilMulMagnitude(weightMax, xMax, parsed.scale), big.NewInt(1))
+	weightedXX := new(big.Int).Add(
+		formalCoxCeilMulMagnitude(weightedX, xMax, parsed.scale), big.NewInt(1))
 	s0Bound := new(big.Int).Mul(big.NewInt(int64(n)), weightMax)
 	s1Bound := new(big.Int).Mul(big.NewInt(int64(n)), weightedX)
+	s2Bound := new(big.Int).Mul(big.NewInt(int64(n)), weightedXX)
 	// At every grid tick, the same r at-risk rows contribute to S0 and S1:
 	// |S1/S0| <= r*weightedX/(r*weightMin).  Cancelling r keeps the
 	// coefficient-update envelope independent of the public capacity N.
 	meanBound := exactGCCeilDiv(
 		new(big.Int).Mul(new(big.Int).Set(weightedX), parsed.scale), weightMin)
+	secondMeanBound := exactGCCeilDiv(
+		new(big.Int).Mul(new(big.Int).Set(weightedXX), parsed.scale), weightMin)
+	meanOuterBound := formalCoxCeilMulMagnitude(meanBound, meanBound, parsed.scale)
+	informationIncrementBound := new(big.Int).Add(secondMeanBound, meanOuterBound)
+	informationIncrementBound.Mul(informationIncrementBound, big.NewInt(int64(n)))
+	informationBound := new(big.Int).Mul(
+		informationIncrementBound, big.NewInt(int64(policy.GridTickCount)))
 	eventXBound := new(big.Int).Mul(big.NewInt(int64(n)), xMax)
 	riskTermBound := new(big.Int).Mul(big.NewInt(int64(n)), meanBound)
 	scoreBound := new(big.Int).Add(eventXBound, riskTermBound)
@@ -293,8 +351,9 @@ func formalCoxBlockwiseNumericEnvelope(policy formalCoxPhase1Policy) (
 	maximum = formalCoxMax(
 		parsed.scale, big.NewInt(int64(n)), big.NewInt(int64(policy.GridTickCount)),
 		xMax, parsed.xNorm, parsed.betaNorm, parsed.alpha, parsed.ridge,
-		parsed.noiseBound, etaBound, weightMin, weightMax, weightedX,
-		s0Bound, s1Bound, meanBound, eventXBound, riskTermBound,
+		parsed.noiseBound, etaBound, weightMin, weightMax, weightedX, weightedXX,
+		s0Bound, s1Bound, s2Bound, meanBound, secondMeanBound, meanOuterBound,
+		informationIncrementBound, informationBound, eventXBound, riskTermBound,
 		scoreBound, averageScoreBound, ridgeBound, gradientBound,
 		updateBound, candidateBound, projectionRoot)
 	for _, value := range parsed.expKnots {
@@ -331,14 +390,18 @@ func formalCoxBlockwiseValidateShape(plan formalCoxBlockwisePlan) (
 	stepsPerIteration := plan.TotalBlocks +
 		plan.Policy.GridTickCount*plan.Policy.CovariateCount +
 		plan.Policy.CovariateCount + 1
+	informationSteps := plan.TotalBlocks + 4*
+		plan.Policy.GridTickCount*formalCoxBlockwiseInformationCoordinates(plan.Policy)
 	scheduleValid := plan.TotalBlocks >= 1 && plan.Iterations >= 1 &&
 		stepsPerIteration <= maxInt/plan.Iterations &&
-		plan.ScheduleSteps == plan.Iterations*stepsPerIteration
+		informationSteps <= maxInt-plan.Iterations*stepsPerIteration &&
+		plan.ScheduleSteps == plan.Iterations*stepsPerIteration+informationSteps
 	rowWidth := len(plan.Policy.CustodianPeers) + 3 + plan.Policy.CovariateCount
 	moments := formalCoxBlockwiseMomentCoordinates(plan.Policy)
 	stateArithmetic := plan.Policy.CovariateCount + moments
 	peak := plan.BlockCapacity*rowWidth + 3*(stateArithmetic+1) +
-		plan.Policy.CovariateCount + 1
+		plan.Policy.CovariateCount + 1 +
+		4*formalCoxBlockwiseInformationCoordinates(plan.Policy)
 	if plan.Version != formalCoxBlockwisePlanVersion ||
 		!formalCoxIsSHA256(plan.RunID) ||
 		plan.PolicySHA256 != hex.EncodeToString(policyDigest[:]) ||
@@ -355,7 +418,7 @@ func formalCoxBlockwiseValidateShape(plan formalCoxBlockwisePlan) (
 		plan.ContainerBits != exactGCTypeBits(plan.RingBits) ||
 		parsed.ridge.Sign() <= 0 ||
 		plan.BackendSelection != "streamed_exact_gc_ot_no_runtime_fallback_v1" ||
-		plan.TranscriptShape != "fixed_public_iteration_block_schedule_v1" ||
+		plan.TranscriptShape != "fixed_public_iteration_and_postfit_information_schedule_v1" ||
 		plan.CrashRecovery != "commit_barrier_or_fresh_session_never_resume_mid_gc_v1" ||
 		plan.Output != "sealed_coefficient_additive_shares_and_xor_execution_validity_v1" ||
 		plan.ProductionReady {
@@ -391,7 +454,8 @@ func buildFormalCoxBlockwisePlan(policy formalCoxPhase1Policy,
 		return formalCoxBlockwisePlan{},
 			fmt.Errorf("formal-cox: invalid requested blockwise schedule")
 	}
-	workPerRow := policy.GridTickCount * (policy.CovariateCount + 1)
+	workPerRow := policy.GridTickCount * (policy.CovariateCount + 1 +
+		formalCoxBlockwiseSecondMomentCoordinates(policy))
 	analyticBlock := formalCoxBlockwiseMaxGridRowWork / workPerRow
 	if analyticBlock < 1 {
 		analyticBlock = 1
@@ -434,21 +498,23 @@ func buildFormalCoxBlockwisePlan(policy formalCoxPhase1Policy,
 			MomentCoordinates: moments, StateArithmetic: stateArithmetic,
 			StateCoordinates: stateArithmetic + 1,
 			PeakResidentCoordinates: block*rowWidth + 3*(stateArithmetic+1) +
-				policy.CovariateCount + 1,
+				policy.CovariateCount + 1 +
+				4*formalCoxBlockwiseInformationCoordinates(policy),
 			RingBits: ringBits, ContainerBits: exactGCTypeBits(ringBits),
 			MaximumSignedMagnitude: maximum.String(),
 			ProjectionRootUpper:    projectionRoot.String(),
 			ProjectionSearchSteps:  projectionRoot.BitLen() + 1,
 			ScoreApproximation:     scoreApproximation,
 			BackendSelection:       "streamed_exact_gc_ot_no_runtime_fallback_v1",
-			TranscriptShape:        "fixed_public_iteration_block_schedule_v1",
+			TranscriptShape:        "fixed_public_iteration_and_postfit_information_schedule_v1",
 			CrashRecovery:          "commit_barrier_or_fresh_session_never_resume_mid_gc_v1",
 			Output:                 "sealed_coefficient_additive_shares_and_xor_execution_validity_v1",
 			ProductionReady:        false,
 		}
-		plan.ScheduleSteps = plan.Iterations * (plan.TotalBlocks +
-			policy.GridTickCount*policy.CovariateCount +
-			policy.CovariateCount + 1)
+		plan.ScheduleSteps = plan.Iterations*(plan.TotalBlocks+
+			policy.GridTickCount*policy.CovariateCount+
+			policy.CovariateCount+1) + plan.TotalBlocks + 4*
+			policy.GridTickCount*formalCoxBlockwiseInformationCoordinates(policy)
 		if _, err := formalCoxBlockwiseValidateShape(plan); err != nil {
 			return formalCoxBlockwisePlan{}, err
 		}
@@ -467,6 +533,23 @@ func buildFormalCoxBlockwisePlan(policy formalCoxPhase1Policy,
 		}
 		gridCircuit, err := compileFormalCoxBlockwiseSource(
 			gridSource, "grid reduction")
+		if err != nil {
+			return formalCoxBlockwisePlan{}, err
+		}
+		informationMomentSource, err := formalCoxBlockwiseInformationMomentCircuitSource(plan)
+		if err != nil {
+			return formalCoxBlockwisePlan{}, err
+		}
+		informationMomentCircuit, err := compileFormalCoxBlockwiseSource(
+			informationMomentSource, "observed information moment")
+		if err != nil {
+			return formalCoxBlockwisePlan{}, err
+		}
+		informationSource, err := formalCoxBlockwiseInformationCircuitSource(plan)
+		if err != nil {
+			return formalCoxBlockwisePlan{}, err
+		}
+		informationCircuit, err := compileFormalCoxBlockwiseSource(informationSource, "observed information")
 		if err != nil {
 			return formalCoxBlockwisePlan{}, err
 		}
@@ -497,6 +580,16 @@ func buildFormalCoxBlockwisePlan(policy formalCoxPhase1Policy,
 		if err != nil {
 			return formalCoxBlockwisePlan{}, err
 		}
+		plan.InformationMomentCost, err = formalCoxBlockwiseCost(
+			informationMomentSource, informationMomentCircuit)
+		if err != nil {
+			return formalCoxBlockwisePlan{}, err
+		}
+		plan.InformationCost, err = formalCoxBlockwiseCost(
+			informationSource, informationCircuit)
+		if err != nil {
+			return formalCoxBlockwisePlan{}, err
+		}
 		plan.UpdateCost, err = formalCoxBlockwiseCost(updateSource, updateCircuit)
 		if err != nil {
 			return formalCoxBlockwisePlan{}, err
@@ -509,6 +602,12 @@ func buildFormalCoxBlockwisePlan(policy formalCoxPhase1Policy,
 		minimum = plan.BlockCost.EstimatedWorkingByte
 		if plan.GridCost.EstimatedWorkingByte > minimum {
 			minimum = plan.GridCost.EstimatedWorkingByte
+		}
+		if plan.InformationCost.EstimatedWorkingByte > minimum {
+			minimum = plan.InformationCost.EstimatedWorkingByte
+		}
+		if plan.InformationMomentCost.EstimatedWorkingByte > minimum {
+			minimum = plan.InformationMomentCost.EstimatedWorkingByte
 		}
 		if plan.UpdateCost.EstimatedWorkingByte > minimum {
 			minimum = plan.UpdateCost.EstimatedWorkingByte
@@ -575,6 +674,33 @@ func validateFormalCoxBlockwisePlan(plan formalCoxBlockwisePlan) error {
 	if err != nil {
 		return err
 	}
+	informationMomentSource, err := formalCoxBlockwiseInformationMomentCircuitSource(plan)
+	if err != nil {
+		return err
+	}
+	informationMomentCircuit, err := compileFormalCoxBlockwiseSource(
+		informationMomentSource, "observed information moment")
+	if err != nil {
+		return err
+	}
+	wantInformationMoment, err := formalCoxBlockwiseCost(
+		informationMomentSource, informationMomentCircuit)
+	if err != nil {
+		return err
+	}
+	informationSource, err := formalCoxBlockwiseInformationCircuitSource(plan)
+	if err != nil {
+		return err
+	}
+	informationCircuit, err := compileFormalCoxBlockwiseSource(informationSource, "observed information")
+	if err != nil {
+		return err
+	}
+	wantInformation, err := formalCoxBlockwiseCost(
+		informationSource, informationCircuit)
+	if err != nil {
+		return err
+	}
 	updateSource, err := formalCoxBlockwiseUpdateCircuitSource(plan)
 	if err != nil {
 		return err
@@ -604,9 +730,13 @@ func validateFormalCoxBlockwisePlan(plan formalCoxBlockwisePlan) error {
 		return err
 	}
 	if plan.BlockCost != wantBlock || plan.GridCost != wantGrid ||
-		plan.UpdateCost != wantUpdate || plan.ProjectionCost != wantProjection ||
+		plan.InformationMomentCost != wantInformationMoment ||
+		plan.InformationCost != wantInformation || plan.UpdateCost != wantUpdate ||
+		plan.ProjectionCost != wantProjection ||
 		plan.BlockCost.EstimatedWorkingByte > formalCoxBlockwiseMaxEstimatedWorkingBytes ||
 		plan.GridCost.EstimatedWorkingByte > formalCoxBlockwiseMaxEstimatedWorkingBytes ||
+		plan.InformationMomentCost.EstimatedWorkingByte > formalCoxBlockwiseMaxEstimatedWorkingBytes ||
+		plan.InformationCost.EstimatedWorkingByte > formalCoxBlockwiseMaxEstimatedWorkingBytes ||
 		plan.UpdateCost.EstimatedWorkingByte > formalCoxBlockwiseMaxEstimatedWorkingBytes ||
 		plan.ProjectionCost.EstimatedWorkingByte > formalCoxBlockwiseMaxEstimatedWorkingBytes {
 		return fmt.Errorf("formal-cox: invalid or excessive blockwise circuit cost")

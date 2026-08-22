@@ -106,6 +106,7 @@ func referenceFormalCoxBlockwiseBlock(plan formalCoxBlockwisePlan,
 		valid               bool
 		entry, stop, status int
 		x, weightedX        []*big.Int
+		weightedXX          [][]*big.Int
 		weight              *big.Int
 	}
 	decodedRows := make([]rowValue, plan.BlockCapacity)
@@ -182,6 +183,14 @@ func referenceFormalCoxBlockwiseBlock(plan formalCoxBlockwisePlan,
 			current.weightedX[coefficient] = formalCoxFloorMul(
 				current.weight, current.x[coefficient], parsed.scale)
 		}
+		current.weightedXX = make([][]*big.Int, p)
+		for left := 0; left < p; left++ {
+			current.weightedXX[left] = make([]*big.Int, p)
+			for right := left; right < p; right++ {
+				current.weightedXX[left][right] = formalCoxFloorMul(
+					current.weightedX[left], current.x[right], parsed.scale)
+			}
+		}
 		decodedRows[row] = current
 	}
 	for grid := 1; grid <= g; grid++ {
@@ -198,6 +207,15 @@ func referenceFormalCoxBlockwiseBlock(plan formalCoxBlockwisePlan,
 					result.values[index].Add(result.values[index],
 						row.weightedX[coefficient])
 				}
+				for left := 0; left < p; left++ {
+					for right := left; right < p; right++ {
+						index := offsets.s2 +
+							(grid-1)*formalCoxBlockwiseSecondMomentCoordinates(policy) +
+							formalCoxBlockwiseSecondMomentIndex(policy, left, right)
+						result.values[index].Add(result.values[index],
+							row.weightedXX[left][right])
+					}
+				}
 			}
 			if event {
 				result.values[offsets.eventCount+grid-1].Add(
@@ -210,6 +228,48 @@ func referenceFormalCoxBlockwiseBlock(plan formalCoxBlockwisePlan,
 		}
 	}
 	return result, nil
+}
+
+// referenceFormalCoxBlockwiseInformationStep is deliberately independent of
+// the circuit generator. It evaluates one lower-triangular Breslow observed
+// information coordinate from private block moments, without opening them.
+func referenceFormalCoxBlockwiseInformationStep(plan formalCoxBlockwisePlan,
+	state formalCoxBlockwiseReferenceState, grid, coefficient int,
+	current *big.Int) (*big.Int, bool, error) {
+
+	parsed, err := formalCoxBlockwiseValidateShape(plan)
+	if err != nil {
+		return nil, false, err
+	}
+	if len(state.values) != plan.StateArithmetic || grid < 0 ||
+		grid >= plan.Policy.GridTickCount || current == nil {
+		return nil, false, fmt.Errorf("formal-cox: invalid observed-information reference state")
+	}
+	left, right, err := formalCoxBlockwiseSecondMomentPairAt(plan.Policy, coefficient)
+	if err != nil {
+		return nil, false, err
+	}
+	offsets := formalCoxBlockwiseStateOffsets(plan.Policy)
+	risk := state.values[offsets.riskCount+grid]
+	events := state.values[offsets.eventCount+grid]
+	denominator := new(big.Int).Set(state.values[offsets.s0+grid])
+	if denominator.Sign() == 0 {
+		denominator.SetInt64(1)
+	}
+	leftMean := formalCoxFloorDiv(new(big.Int).Mul(
+		new(big.Int).Set(state.values[offsets.s1+grid*plan.Policy.CovariateCount+left]),
+		parsed.scale), denominator)
+	rightMean := formalCoxFloorDiv(new(big.Int).Mul(
+		new(big.Int).Set(state.values[offsets.s1+grid*plan.Policy.CovariateCount+right]),
+		parsed.scale), denominator)
+	secondMean := formalCoxFloorDiv(new(big.Int).Mul(
+		new(big.Int).Set(state.values[offsets.s2+grid*formalCoxBlockwiseInformationCoordinates(plan.Policy)+coefficient]),
+		parsed.scale), denominator)
+	meanOuter := formalCoxFloorMul(leftMean, rightMean, parsed.scale)
+	increment := new(big.Int).Mul(new(big.Int).Sub(secondMean, meanOuter), events)
+	valid := state.valid && (events.Sign() == 0 ||
+		risk.Cmp(big.NewInt(int64(plan.Policy.MinimumAtRisk))) >= 0)
+	return new(big.Int).Add(current, increment), valid, nil
 }
 
 func referenceFormalCoxBlockwiseFinalize(plan formalCoxBlockwisePlan,

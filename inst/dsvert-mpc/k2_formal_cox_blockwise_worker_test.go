@@ -157,6 +157,29 @@ func formalCoxBlockwiseWorkerTestRun(t testing.TB, plan formalCoxBlockwisePlan,
 	if left != right || !bytes.Equal(leftBytes, rightBytes) {
 		t.Fatal("compute peers published different opaque completions")
 	}
+	for index, store := range stores {
+		state, err := store.Load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		information, err := formalCoxBlockwiseDecodeValues(state.Information,
+			formalCoxBlockwiseInformationCoordinates(plan.Policy), plan.RingBits)
+		if err != nil || len(information) == 0 {
+			t.Fatalf("peer %d did not retain its sealed observed information: %v", index, err)
+		}
+		scratch, err := formalCoxBlockwiseDecodeValues(state.InformationScratch,
+			3*formalCoxBlockwiseInformationCoordinates(plan.Policy), plan.RingBits)
+		if err != nil || len(scratch) != 3*len(information) {
+			t.Fatalf("peer %d did not retain its sealed moment state: %v", index, err)
+		}
+		allZero := true
+		for _, value := range information {
+			allZero = allZero && value.Sign() == 0
+		}
+		if allZero {
+			t.Fatalf("peer %d lost every observed-information share", index)
+		}
+	}
 	leftPath := stores[0].completionPath
 	rightPath := stores[1].completionPath
 	for index, peer := range peers {
@@ -195,7 +218,7 @@ func TestFormalCoxBlockwiseWorkerK2K3K5ColdRestartAndStickyReplay(t *testing.T) 
 			}
 			lower := bytes.ToLower(completion)
 			for _, forbidden := range [][]byte{
-				[]byte("share"), []byte("secret"), []byte("checkpoint_key"),
+				[]byte("share"), []byte("secret"), []byte("checkpoint_key"), []byte("information"),
 				[]byte("mac"), []byte("peer"), []byte("coefficient"),
 			} {
 				if bytes.Contains(lower, forbidden) {

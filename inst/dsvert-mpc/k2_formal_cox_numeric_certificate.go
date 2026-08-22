@@ -21,6 +21,13 @@ var formalCoxRuntimeNumericCertificateBlockers = []string{
 	"fixed_iteration_optimizer_distance_bound_unavailable_v1",
 }
 
+// The blockwise certificate closes the finite fixed-grid optimizer-distance
+// bound. Its remaining numeric blocker is only the unproved bridge from that
+// committed grid objective to the continuous Cox trajectory.
+var formalCoxBlockwiseNumericCertificateBlockers = []string{
+	"continuous_cox_trajectory_error_bound_unavailable_v1",
+}
+
 type formalCoxRuntimeNumericCertificate struct {
 	Version                            string   `json:"version"`
 	PolicySHA256                       string   `json:"policy_sha256"`
@@ -313,7 +320,7 @@ func formalCoxBlockwiseNumericCertificateForPolicy(
 		OptimizerDistanceCertified:                     false,
 		EndToEndNumericCertified:                       false,
 		ProductionReady:                                false,
-		Blockers:                                       append([]string(nil), formalCoxRuntimeNumericCertificateBlockers...),
+		Blockers:                                       append([]string(nil), formalCoxBlockwiseNumericCertificateBlockers...),
 	}, nil
 }
 

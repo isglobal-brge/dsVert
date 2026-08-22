@@ -543,6 +543,9 @@ func TestFormalCoxBlockwiseNumericCertificateCommitsLatticeTrajectoryBound(t *te
 		optimizer.Add(optimizer, trajectory)
 		if !certificate.FixedGridTrajectoryPerturbationCertified ||
 			!certificate.FixedGridOptimizerDistanceBoundCertified ||
+			len(certificate.Blockers) != 1 ||
+			certificate.Blockers[0] !=
+				"continuous_cox_trajectory_error_bound_unavailable_v1" ||
 			certificate.ImplementedGradientPerturbationMaximumAbsSteps != gradientError.String() ||
 			certificate.ImplementedUpdatePerturbationMaximumAbsSteps != updateError.String() ||
 			certificate.IntegerProjectionPerturbationMaximumAbsSteps != projectionError.String() ||

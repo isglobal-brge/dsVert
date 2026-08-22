@@ -15,8 +15,10 @@ import (
 	"github.com/markkurossi/mpc/circuit"
 )
 
+const formalCoxBlockwiseScoreApproximationVersion = "dsvert-formal-cox-blockwise-score-approximation-v1"
+
 const (
-	formalCoxBlockwisePlanVersion  = "dsvert-formal-cox-blockwise-plan-v1"
+	formalCoxBlockwisePlanVersion  = "dsvert-formal-cox-blockwise-plan-v2"
 	formalCoxBlockwiseCostVersion  = "dsvert-formal-cox-blockwise-cost-v1"
 	formalCoxBlockwiseMaxCapacity  = 1_000_000
 	formalCoxBlockwiseMaxGridTicks = 32
@@ -41,6 +43,27 @@ type formalCoxBlockwiseCircuitCost struct {
 	EstimatedWorkingByte uint64 `json:"estimated_working_bytes"`
 }
 
+// formalCoxBlockwiseScoreCert bounds the deterministic,
+// per-coordinate discrepancy before one normalized score update.  It does
+// not certify the final estimator: repeated updates, projection and DP noise
+// still require their own end-to-end accuracy proof.
+type formalCoxBlockwiseScoreCert struct {
+	Version string `json:"version"`
+	// ExpWeightMaximumAbsErrorSteps bounds |q - scale*exp(eta)| for the
+	// committed monotone step table.
+	ExpWeightMaximumAbsErrorSteps string `json:"exp_weight_maximum_abs_error_steps"`
+	MinimumTableWeightSteps       string `json:"minimum_table_weight_steps"`
+	// RiskMeanTableMaximumAbsErrorSteps bounds only the change in a
+	// positive-weight risk mean from using q rather than exp(eta).
+	RiskMeanTableMaximumAbsErrorSteps string `json:"risk_mean_table_maximum_abs_error_steps"`
+	// RiskMeanFixedPointRoundingMaximumAbsErrorSteps bounds the weighted-X
+	// floor and the final secret division floor.
+	RiskMeanFixedPointRoundingMaximumAbsErrorSteps string `json:"risk_mean_fixed_point_rounding_maximum_abs_error_steps"`
+	// Each patient has at most one event, so the normalized score inherits
+	// the sum of the two per-event risk-mean bounds.
+	NormalizedScoreMaximumAbsErrorSteps string `json:"normalized_score_maximum_abs_error_steps"`
+}
+
 type formalCoxBlockwisePlan struct {
 	Version                 string                        `json:"version"`
 	RunID                   string                        `json:"run_id"`
@@ -61,6 +84,7 @@ type formalCoxBlockwisePlan struct {
 	MaximumSignedMagnitude  string                        `json:"maximum_signed_magnitude"`
 	ProjectionRootUpper     string                        `json:"projection_root_upper"`
 	ProjectionSearchSteps   int                           `json:"projection_search_steps"`
+	ScoreApproximation      formalCoxBlockwiseScoreCert   `json:"score_approximation"`
 	BlockCost               formalCoxBlockwiseCircuitCost `json:"block_cost"`
 	GridCost                formalCoxBlockwiseCircuitCost `json:"grid_reduction_cost"`
 	UpdateCost              formalCoxBlockwiseCircuitCost `json:"update_cost"`
@@ -70,6 +94,32 @@ type formalCoxBlockwisePlan struct {
 	CrashRecovery           string                        `json:"crash_recovery"`
 	Output                  string                        `json:"output"`
 	ProductionReady         bool                          `json:"production_ready"`
+}
+
+func formalCoxBlockwiseBuildScoreApproximationCertificate(
+	parsed formalCoxParsedPolicy,
+) formalCoxBlockwiseScoreCert {
+	minimumWeight := parsed.expValues[0]
+	// For positive table weights q and exact weights w with |q-w| <= E,
+	// ||mean_q - mean_w|| is at most 2*Cz*E/q_min.  The expression is
+	// in lattice steps because Cz, E and q_min share the policy scale.
+	table := exactGCCeilDiv(new(big.Int).Mul(
+		new(big.Int).Mul(big.NewInt(2), parsed.xNorm), parsed.expError),
+		minimumWeight)
+	// Every weighted-X product floors by fewer than one lattice step.  With
+	// r at-risk rows, multiplying their total error by scale/(r*q_min)
+	// leaves scale/q_min; the final mean division contributes one more step.
+	rounding := exactGCCeilDiv(parsed.scale, minimumWeight)
+	rounding.Add(rounding, big.NewInt(1))
+	score := new(big.Int).Add(new(big.Int).Set(table), rounding)
+	return formalCoxBlockwiseScoreCert{
+		Version:                                        formalCoxBlockwiseScoreApproximationVersion,
+		ExpWeightMaximumAbsErrorSteps:                  parsed.expError.String(),
+		MinimumTableWeightSteps:                        minimumWeight.String(),
+		RiskMeanTableMaximumAbsErrorSteps:              table.String(),
+		RiskMeanFixedPointRoundingMaximumAbsErrorSteps: rounding.String(),
+		NormalizedScoreMaximumAbsErrorSteps:            score.String(),
+	}
 }
 
 type formalCoxBlockwiseResourceError struct {
@@ -243,6 +293,10 @@ func formalCoxBlockwiseValidateShape(plan formalCoxBlockwisePlan) (
 		plan.ProductionReady {
 		return zero, fmt.Errorf("formal-cox: invalid blockwise plan shape")
 	}
+	if plan.ScoreApproximation !=
+		formalCoxBlockwiseBuildScoreApproximationCertificate(parsed) {
+		return zero, fmt.Errorf("formal-cox: invalid score approximation certificate")
+	}
 	return parsed, nil
 }
 
@@ -278,6 +332,7 @@ func buildFormalCoxBlockwisePlan(policy formalCoxPhase1Policy,
 	if err != nil {
 		return formalCoxBlockwisePlan{}, err
 	}
+	scoreApproximation := formalCoxBlockwiseBuildScoreApproximationCertificate(parsed)
 	policyDigest, _ := formalCoxPolicyDigest(policy)
 	var minimum uint64
 	for block := requestedBlock; block >= 1; block-- {
@@ -298,6 +353,7 @@ func buildFormalCoxBlockwisePlan(policy formalCoxPhase1Policy,
 			MaximumSignedMagnitude: maximum.String(),
 			ProjectionRootUpper:    projectionRoot.String(),
 			ProjectionSearchSteps:  projectionRoot.BitLen() + 1,
+			ScoreApproximation:     scoreApproximation,
 			BackendSelection:       "streamed_exact_gc_ot_no_runtime_fallback_v1",
 			TranscriptShape:        "fixed_public_iteration_block_schedule_v1",
 			CrashRecovery:          "commit_barrier_or_fresh_session_never_resume_mid_gc_v1",

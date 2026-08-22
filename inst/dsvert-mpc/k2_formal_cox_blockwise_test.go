@@ -334,6 +334,45 @@ func TestFormalCoxBlockwisePlanCoversK2K3K5AndNonToyShape(t *testing.T) {
 	}
 }
 
+func TestFormalCoxBlockwisePlanCommitsScoreApproximationBounds(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		policy := formalCoxBlockwiseTestPolicy(t, custodians, 2)
+		plan, err := buildFormalCoxBlockwisePlan(
+			policy, 2, strings.Repeat(fmt.Sprintf("%x", custodians), 64))
+		if err != nil {
+			t.Fatalf("K=%d plan: %v", custodians, err)
+		}
+		parsed, err := parseFormalCoxBlockwisePolicy(policy)
+		if err != nil {
+			t.Fatalf("K=%d policy: %v", custodians, err)
+		}
+		weightMin := parsed.expValues[0]
+		wantTable := exactGCCeilDiv(new(big.Int).Mul(
+			new(big.Int).Mul(big.NewInt(2), parsed.xNorm),
+			parsed.expError), weightMin)
+		wantRounding := exactGCCeilDiv(parsed.scale, weightMin)
+		wantRounding.Add(wantRounding, big.NewInt(1))
+		wantScore := new(big.Int).Add(
+			new(big.Int).Set(wantTable), wantRounding)
+		certificate := plan.ScoreApproximation
+		if certificate.Version != formalCoxBlockwiseScoreApproximationVersion ||
+			certificate.ExpWeightMaximumAbsErrorSteps != parsed.expError.String() ||
+			certificate.MinimumTableWeightSteps != weightMin.String() ||
+			certificate.RiskMeanTableMaximumAbsErrorSteps != wantTable.String() ||
+			certificate.RiskMeanFixedPointRoundingMaximumAbsErrorSteps !=
+				wantRounding.String() ||
+			certificate.NormalizedScoreMaximumAbsErrorSteps != wantScore.String() {
+			t.Fatalf("K=%d score approximation certificate = %+v", custodians,
+				certificate)
+		}
+		tampered := plan
+		tampered.ScoreApproximation.NormalizedScoreMaximumAbsErrorSteps = "0"
+		if err := validateFormalCoxBlockwisePlan(tampered); err == nil {
+			t.Fatalf("K=%d accepted tampered score approximation certificate", custodians)
+		}
+	}
+}
+
 func TestFormalCoxBlockwiseCircuitCacheCoalescesConcurrentCompilation(t *testing.T) {
 	const workers = 8
 	const source = "formal-cox-blockwise-single-flight-test-v1"

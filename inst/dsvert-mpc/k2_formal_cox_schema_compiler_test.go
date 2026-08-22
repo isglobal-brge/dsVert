@@ -192,6 +192,13 @@ func TestFormalCoxSchemaCompilerAcceptsCanonicalRSealsK2ThroughK5(t *testing.T) 
 				compiled.NumericCertificate.IdealSmoothnessUpperDenominator == "" ||
 				compiled.NumericCertificate.IdealContractionFactorNumerator == "" ||
 				compiled.NumericCertificate.IdealContractionFactorDenominator == "" ||
+				!compiled.NumericCertificate.FixedGridTrajectoryPerturbationCertified ||
+				!compiled.NumericCertificate.FixedGridOptimizerDistanceBoundCertified ||
+				compiled.NumericCertificate.ImplementedIterationPerturbationL2Steps == "" ||
+				compiled.NumericCertificate.FixedGridTrajectoryErrorUpperNumerator == "" ||
+				compiled.NumericCertificate.FixedGridTrajectoryErrorUpperDenominator == "" ||
+				compiled.NumericCertificate.FixedGridOptimizerDistanceUpperNumerator == "" ||
+				compiled.NumericCertificate.FixedGridOptimizerDistanceUpperDenominator == "" ||
 				!compiled.NumericCertificate.PerRunCircuitPlanValidationNeeded ||
 				compiled.NumericCertificate.RingBits < 128 ||
 				compiled.NumericCertificate.RingBits > exactGCMaxRingBits {

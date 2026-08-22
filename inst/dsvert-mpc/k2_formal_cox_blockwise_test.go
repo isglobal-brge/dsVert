@@ -451,6 +451,87 @@ func TestFormalCoxBlockwisePlanCommitsScoreApproximationBounds(t *testing.T) {
 	}
 }
 
+func TestFormalCoxBlockwiseNumericCertificateCommitsLatticeTrajectoryBound(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		policy := formalCoxBlockwiseTestPolicy(t, custodians, 2)
+		parsed, err := parseFormalCoxBlockwisePolicy(policy)
+		if err != nil {
+			t.Fatalf("K=%d policy: %v", custodians, err)
+		}
+		certificate, err := formalCoxBlockwiseNumericCertificateForPolicy(policy)
+		if err != nil {
+			t.Fatalf("K=%d numeric certificate: %v", custodians, err)
+		}
+		scoreCertificate, err := formalCoxBlockwiseBuildScoreApproximationCertificate(parsed)
+		if err != nil {
+			t.Fatalf("K=%d score certificate: %v", custodians, err)
+		}
+		scoreError, ok := new(big.Int).SetString(
+			scoreCertificate.NormalizedScoreMaximumAbsErrorSteps, 10)
+		if !ok {
+			t.Fatalf("K=%d malformed score certificate", custodians)
+		}
+		gradientError := new(big.Int).Add(scoreError, big.NewInt(1))
+		gradientError.Add(gradientError, parsed.noiseBound)
+		updateError := exactGCCeilDiv(new(big.Int).Mul(parsed.alpha, gradientError),
+			parsed.scale)
+		updateError.Add(updateError, big.NewInt(1))
+		projectionError := big.NewInt(2)
+		iterationCoordinateError := new(big.Int).Add(updateError, projectionError)
+		iterationL2 := formalCoxCeilSqrt(new(big.Int).Mul(
+			new(big.Int).Mul(iterationCoordinateError, iterationCoordinateError),
+			big.NewInt(int64(policy.CovariateCount))))
+		contract, err := formalCoxBlockwiseDeriveIdealGradientContract(policy)
+		if err != nil {
+			t.Fatalf("K=%d contraction contract: %v", custodians, err)
+		}
+		contractionNumerator, ok := new(big.Int).SetString(
+			contract.ContractionFactorNumerator, 10)
+		if !ok {
+			t.Fatalf("K=%d malformed contraction numerator", custodians)
+		}
+		contractionDenominator, ok := new(big.Int).SetString(
+			contract.ContractionFactorDenominator, 10)
+		if !ok {
+			t.Fatalf("K=%d malformed contraction denominator", custodians)
+		}
+		iterations := big.NewInt(int64(policy.Iterations))
+		denominatorPower := new(big.Int).Exp(contractionDenominator, iterations, nil)
+		numeratorPower := new(big.Int).Exp(contractionNumerator, iterations, nil)
+		trajectory := new(big.Rat).SetFrac(
+			new(big.Int).Mul(new(big.Int).Set(iterationL2),
+				new(big.Int).Sub(new(big.Int).Set(denominatorPower), numeratorPower)),
+			new(big.Int).Mul(
+				new(big.Int).Exp(contractionDenominator,
+					big.NewInt(int64(policy.Iterations-1)), nil),
+				new(big.Int).Sub(new(big.Int).Set(contractionDenominator), contractionNumerator)))
+		optimizer := new(big.Rat).SetFrac(
+			new(big.Int).Mul(parsed.betaNorm, numeratorPower), denominatorPower)
+		optimizer.Add(optimizer, trajectory)
+		if !certificate.FixedGridTrajectoryPerturbationCertified ||
+			!certificate.FixedGridOptimizerDistanceBoundCertified ||
+			certificate.ImplementedGradientPerturbationMaximumAbsSteps != gradientError.String() ||
+			certificate.ImplementedUpdatePerturbationMaximumAbsSteps != updateError.String() ||
+			certificate.IntegerProjectionPerturbationMaximumAbsSteps != projectionError.String() ||
+			certificate.ImplementedIterationPerturbationL2Steps != iterationL2.String() ||
+			certificate.FixedGridTrajectoryErrorUpperNumerator != trajectory.Num().String() ||
+			certificate.FixedGridTrajectoryErrorUpperDenominator != trajectory.Denom().String() ||
+			certificate.FixedGridOptimizerDistanceUpperNumerator != optimizer.Num().String() ||
+			certificate.FixedGridOptimizerDistanceUpperDenominator != optimizer.Denom().String() ||
+			certificate.ContinuousCoxTrajectoryCertified ||
+			certificate.OptimizerDistanceCertified || certificate.EndToEndNumericCertified ||
+			certificate.ProductionReady {
+			t.Fatalf("K=%d numeric trajectory certificate = %+v", custodians,
+				certificate)
+		}
+		tampered := certificate
+		tampered.ImplementedUpdatePerturbationMaximumAbsSteps = "0"
+		if err := formalCoxBlockwiseValidateNumericCertificate(policy, tampered); err == nil {
+			t.Fatalf("K=%d accepted a tampered lattice trajectory bound", custodians)
+		}
+	}
+}
+
 func TestFormalCoxBlockwiseCircuitCacheCoalescesConcurrentCompilation(t *testing.T) {
 	const workers = 8
 	const source = "formal-cox-blockwise-single-flight-test-v1"

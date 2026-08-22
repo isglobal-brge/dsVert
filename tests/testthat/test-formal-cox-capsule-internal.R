@@ -623,6 +623,88 @@ test_that("formal Cox source bridge delivers only a committed encrypted block", 
   expect_null(captured$input$canonical_input_base64)
 })
 
+test_that("formal Cox recipient bridge imports only an opaque delivery", {
+  fixture <- .formal_cox_fixture(n = 12L, capacity = 16L)
+  sealed <- .formal_cox_schema(2L, fixture = fixture)
+  recipient <- .dsvert_formal_cox_compute_peers(
+    sealed$schema$unsigned$peer_pinset)[[1L]]
+  secret <- gsub("[\\r\\n[:space:]]", "", jsonlite::base64_enc(
+    as.raw(seq_len(32L))))
+  run_id <- paste(rep("f", 64L), collapse = "")
+  tickets <- list(list(ticket = "garbler"), list(ticket = "evaluator"))
+  delivery <- list(
+    version = "dsvert-formal-cox-blockwise-source-delivery-v1",
+    purpose = "formal-cox-recipient-encrypted-source-delivery-v1",
+    receipt = list(version = "receipt"),
+    receipt_sha256 = paste(rep("a", 64L), collapse = ""),
+    recipient_peer_name = recipient,
+    envelope = list(ciphertext = "opaque"),
+    binding = list(manifest = "opaque"))
+  captured <- new.env(parent = emptyenv())
+  captured$calls <- 0L
+  testthat::local_mocked_bindings(
+    .callMpcTool = function(command, input_data, simplify_output = TRUE) {
+      captured$calls <- captured$calls + 1L
+      captured$command <- command
+      captured$input <- input_data
+      list(
+        version = "dsvert-formal-cox-blockwise-source-import-receipt-v1",
+        purpose = "formal-cox-recipient-encrypted-source-delivery-v1",
+        receipt_sha256 = delivery$receipt_sha256,
+        recipient_peer_name = recipient,
+        replayed = FALSE)
+    },
+    .package = "dsVert")
+  withr::local_options(list(dsvert.peer_name = recipient))
+
+  result <- .dsvert_formal_cox_server_source_import_block(
+    schema = sealed$schema, block_capacity = 4L, run_id = run_id,
+    recipient_tickets = tickets, recipient_transport_secret = secret,
+    delivery = delivery)
+  expect_identical(captured$calls, 1L)
+  expect_identical(captured$command, "formal-cox-source-import")
+  expect_identical(names(captured$input), c(
+    "version", "schema", "block_capacity", "run_id", "pins",
+    "recipient_tickets", "recipient_peer_name",
+    "recipient_transport_secret", "delivery"))
+  expect_identical(captured$input$schema, sealed$schema)
+  expect_identical(captured$input$block_capacity, 4L)
+  expect_identical(captured$input$run_id, run_id)
+  expect_identical(captured$input$recipient_tickets, tickets)
+  expect_identical(captured$input$recipient_peer_name, recipient)
+  expect_identical(captured$input$recipient_transport_secret, secret)
+  expect_identical(captured$input$delivery, delivery)
+  expect_false(any(grepl(
+    "source|signing|input|path|row|share", names(captured$input),
+    ignore.case = TRUE)))
+  expect_identical(names(result), c(
+    "version", "purpose", "receipt_sha256", "recipient_peer_name",
+    "replayed"))
+  expect_false(any(grepl("secret|envelope|binding|path|share", names(result),
+                         ignore.case = TRUE)))
+
+  expect_error(.dsvert_formal_cox_server_source_import_block(
+    sealed$schema, 4L, run_id, tickets, "not-a-secret", delivery),
+    class = "dsvert_formal_cox_error")
+  wrong_recipient <- delivery
+  wrong_recipient$recipient_peer_name <- "outsider"
+  expect_error(.dsvert_formal_cox_server_source_import_block(
+    sealed$schema, 4L, run_id, tickets, secret, wrong_recipient),
+    class = "dsvert_formal_cox_error")
+  expect_error(.dsvert_formal_cox_server_source_import_block(
+    sealed$schema, 4L, "not-a-run-id", tickets, secret, delivery),
+    class = "dsvert_formal_cox_error")
+  expect_error(.dsvert_formal_cox_server_source_import_block(
+    sealed$schema, 4L, run_id, tickets[-1L], secret, delivery),
+    class = "dsvert_formal_cox_error")
+  expect_error(testthat::with_mocked_bindings(
+    .callMpcTool = function(...) list(),
+    .dsvert_formal_cox_server_source_import_block(
+      sealed$schema, 4L, run_id, tickets, secret, delivery),
+    .package = "dsVert"), class = "dsvert_formal_cox_error")
+  expect_identical(captured$calls, 1L)
+})
+
 test_that("formal Cox plaintext fixture has no package or DSI surface", {
   exports <- getNamespaceExports("dsVert")
   expect_false(any(grepl("formal.*cox|cox.*formal", exports,

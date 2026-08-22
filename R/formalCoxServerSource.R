@@ -320,3 +320,88 @@
   }
   response
 }
+
+# Server-internal recipient ingress for one delivery already committed by a
+# configured source. It receives no source frame or producer key: Go derives
+# the recipient Rock slot from the signed schema, the K=2 ticket manifest and
+# the recipient's local transport secret, then authenticates the opaque
+# delivery before accepting it.
+.dsvert_formal_cox_server_source_import_block <- function(
+    schema, block_capacity, run_id, recipient_tickets,
+    recipient_transport_secret, delivery) {
+  .dsvert_formal_cox_schema_validate(schema)
+  recipient <- tryCatch(
+    .dsvert_require_configured_local_peer_name(), error = function(error) NULL)
+  compute_peers <- .dsvert_formal_cox_compute_peers(
+    schema$unsigned$peer_pinset)
+  if (is.null(recipient) || !recipient %in% compute_peers) {
+    .dsvert_formal_cox_abort(
+      "The configured local peer is not a designated Cox recipient.")
+  }
+  numeric <- .dsvert_formal_cox_schema_numeric(schema)
+  block_capacity <- .dsvert_formal_cox_integer(
+    block_capacity, "Cox recipient block capacity", 1L, numeric$capacity)
+  run_id <- .dsvert_formal_cox_sha256(run_id, "Cox recipient run id")
+  if (!is.list(recipient_tickets) || length(recipient_tickets) != 2L ||
+      !is.null(names(recipient_tickets))) {
+    .dsvert_formal_cox_abort(
+      "The formal Cox recipient ticket manifest is invalid.")
+  }
+  recipient_transport_secret <- tryCatch(
+    .dsvert_normalize_crypto_b64(
+      recipient_transport_secret, 32L, "Cox recipient transport secret"),
+    error = function(error) NULL)
+  if (is.null(recipient_transport_secret)) {
+    .dsvert_formal_cox_abort("The local Cox recipient transport secret is invalid.")
+  }
+  delivery_fields <- c(
+    "version", "purpose", "receipt", "receipt_sha256",
+    "recipient_peer_name", "envelope", "binding")
+  if (!is.list(delivery) || !identical(names(delivery), delivery_fields) ||
+      !identical(delivery$version,
+                 "dsvert-formal-cox-blockwise-source-delivery-v1") ||
+      !identical(delivery$purpose,
+                 "formal-cox-recipient-encrypted-source-delivery-v1") ||
+      !is.list(delivery$receipt) ||
+      !is.character(delivery$receipt_sha256) ||
+      length(delivery$receipt_sha256) != 1L ||
+      !grepl("^[0-9a-f]{64}$", delivery$receipt_sha256) ||
+      !identical(delivery$recipient_peer_name, recipient) ||
+      !is.list(delivery$envelope) || !length(delivery$envelope) ||
+      !is.list(delivery$binding) || !length(delivery$binding)) {
+    .dsvert_formal_cox_abort("The formal Cox recipient delivery is invalid.")
+  }
+  pins <- vapply(
+    schema$unsigned$peer_pinset[order(names(schema$unsigned$peer_pinset),
+                                      method = "radix")],
+    function(value) {
+      .dsvert_normalize_crypto_b64(
+        .base64url_to_base64(value), 32L, "signed Cox peer identity")
+    }, character(1L), USE.NAMES = TRUE)
+  command <- list(
+    version = "dsvert-formal-cox-blockwise-source-import-command-v1",
+    schema = schema,
+    block_capacity = block_capacity,
+    run_id = run_id,
+    pins = as.list(pins),
+    recipient_tickets = recipient_tickets,
+    recipient_peer_name = recipient,
+    recipient_transport_secret = recipient_transport_secret,
+    delivery = delivery)
+  response <- .callMpcTool("formal-cox-source-import", command)
+  fields <- c(
+    "version", "purpose", "receipt_sha256", "recipient_peer_name",
+    "replayed")
+  if (!is.list(response) || !identical(names(response), fields) ||
+      !identical(response$version,
+                 "dsvert-formal-cox-blockwise-source-import-receipt-v1") ||
+      !identical(response$purpose,
+                 "formal-cox-recipient-encrypted-source-delivery-v1") ||
+      !identical(response$receipt_sha256, delivery$receipt_sha256) ||
+      !identical(response$recipient_peer_name, recipient) ||
+      !is.logical(response$replayed) || length(response$replayed) != 1L ||
+      is.na(response$replayed)) {
+    .dsvert_formal_cox_abort("The formal Cox recipient import returned invalid output.")
+  }
+  response
+}

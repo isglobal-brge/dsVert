@@ -105,6 +105,15 @@ type formalCoxBlockwiseExchangeDaemonClientV1 struct {
 	key        []byte
 }
 
+func (client *formalCoxBlockwiseExchangeDaemonClientV1) Close() {
+	if client == nil {
+		return
+	}
+	clear(client.key)
+	client.key = nil
+	client.socketPath = ""
+}
+
 func formalCoxBlockwiseExchangeDaemonCanonical(value any) ([]byte, error) {
 	encoded, err := json.Marshal(value)
 	if err != nil {
@@ -203,6 +212,39 @@ func formalCoxBlockwiseExchangeDaemonSocketValid(path string) error {
 	return nil
 }
 
+// formalCoxBlockwiseExchangeDaemonSocketLocation selects the nearest private
+// ancestor that fits a Unix-domain socket name. Attempt identifiers remain in
+// the durable spool tree; only the local control socket moves upward when a
+// long Rock root would exceed the platform address bound.
+func formalCoxBlockwiseExchangeDaemonSocketLocation(
+	transportRoot string,
+) (*os.Root, string, string, error) {
+	if !filepath.IsAbs(transportRoot) || filepath.Clean(transportRoot) != transportRoot {
+		return nil, "", "", fmt.Errorf("formal-cox: exchange daemon socket root is unsafe")
+	}
+	socketHash := sha256.Sum256([]byte(
+		formalCoxBlockwiseExchangeDaemonDomain + "|" + transportRoot))
+	name := "worker-" + hex.EncodeToString(socketHash[:8]) + ".sock"
+	for directory := filepath.Dir(transportRoot); ; directory = filepath.Dir(directory) {
+		root, err := os.OpenRoot(directory)
+		if err != nil || formalCoxBlockwiseExchangeLeaseValidateDir(root, directory) != nil {
+			if root != nil {
+				_ = root.Close()
+			}
+			return nil, "", "", fmt.Errorf("formal-cox: exchange daemon socket root is unsafe")
+		}
+		path := filepath.Join(directory, name)
+		if len(path) < 100 {
+			return root, directory, path, nil
+		}
+		_ = root.Close()
+		parent := filepath.Dir(directory)
+		if parent == directory {
+			return nil, "", "", fmt.Errorf("formal-cox: exchange daemon socket path is too long")
+		}
+	}
+}
+
 func newFormalCoxBlockwiseExchangeDaemonV1(
 	controller *formalCoxBlockwiseExchangeController, controlKey []byte,
 ) (*formalCoxBlockwiseExchangeDaemonV1, error) {
@@ -218,19 +260,10 @@ func newFormalCoxBlockwiseExchangeDaemonV1(
 	if !valid {
 		return nil, fmt.Errorf("formal-cox: exchange daemon controller is unavailable")
 	}
-	socketDir := filepath.Dir(transport.rootPath)
-	socketRoot, err := os.OpenRoot(socketDir)
-	if err != nil || formalCoxBlockwiseExchangeLeaseValidateDir(socketRoot, socketDir) != nil {
-		if socketRoot != nil {
-			_ = socketRoot.Close()
-		}
-		return nil, fmt.Errorf("formal-cox: exchange daemon socket root is unsafe")
-	}
-	socketHash := sha256.Sum256([]byte(formalCoxBlockwiseExchangeDaemonDomain + "|" + transport.rootPath))
-	path := filepath.Join(socketDir, "worker-"+hex.EncodeToString(socketHash[:8])+".sock")
-	if len(path) >= 100 {
-		_ = socketRoot.Close()
-		return nil, fmt.Errorf("formal-cox: exchange daemon socket path is too long")
+	socketRoot, socketDir, path, err := formalCoxBlockwiseExchangeDaemonSocketLocation(
+		transport.rootPath)
+	if err != nil {
+		return nil, err
 	}
 	if _, err := os.Lstat(path); !os.IsNotExist(err) {
 		_ = socketRoot.Close()

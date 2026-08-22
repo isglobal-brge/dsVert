@@ -29,11 +29,40 @@ func newFormalCoxBlockwiseSourceBridge(sourceDir string, sourceKey [32]byte,
 	session *formalCoxBlockwiseSourceSession, recipient string,
 	recipientSecretKey []byte, workerDir string, workerKey [32]byte,
 	signingKey ed25519.PrivateKey) (*formalCoxBlockwiseSourceBridge, error) {
-	if session == nil || session.context == nil ||
-		!filepath.IsAbs(workerDir) || filepath.Clean(workerDir) != workerDir ||
-		len(signingKey) != ed25519.PrivateKeySize ||
-		!hmac.Equal(signingKey.Public().(ed25519.PublicKey),
-			session.context.pins[recipient]) {
+	source, err := newFormalCoxBlockwiseSourceStore(
+		sourceDir, sourceKey, session, recipient, recipientSecretKey)
+	if err != nil {
+		return nil, err
+	}
+	bridge, err := newFormalCoxBlockwiseSourceBridgeFromOpenStore(
+		source, workerDir, workerKey, signingKey)
+	if err != nil {
+		_ = source.Close()
+		return nil, err
+	}
+	return bridge, nil
+}
+
+// newFormalCoxBlockwiseSourceBridgeFromOpenStore transfers the already
+// locked recipient source store to the bridge. It is used by the private
+// worker bootstrap, which must not reopen the source store while taking the
+// sole live exact-GC lease.
+func newFormalCoxBlockwiseSourceBridgeFromOpenStore(
+	source *formalCoxBlockwiseSourceStore, workerDir string, workerKey [32]byte,
+	signingKey ed25519.PrivateKey,
+) (*formalCoxBlockwiseSourceBridge, error) {
+	if source == nil || !filepath.IsAbs(workerDir) ||
+		filepath.Clean(workerDir) != workerDir ||
+		len(signingKey) != ed25519.PrivateKeySize {
+		return nil, fmt.Errorf("formal-cox: invalid source bridge policy")
+	}
+	source.mu.Lock()
+	session, recipient := source.session, source.recipient
+	valid := !source.closed && source.owner != nil && session != nil &&
+		session.context != nil && hmac.Equal(
+			signingKey.Public().(ed25519.PublicKey), session.context.pins[recipient])
+	source.mu.Unlock()
+	if !valid {
 		return nil, fmt.Errorf("formal-cox: invalid source bridge policy")
 	}
 	// The worker constructor historically normalizes and chmods its directory.
@@ -42,22 +71,13 @@ func newFormalCoxBlockwiseSourceBridge(sourceDir string, sourceKey [32]byte,
 	if err := formalCoxBlockwiseSourceEnsurePrivateDir(workerDir); err != nil {
 		return nil, err
 	}
-	source, err := newFormalCoxBlockwiseSourceStore(
-		sourceDir, sourceKey, session, recipient, recipientSecretKey)
-	if err != nil {
-		return nil, err
-	}
-	fail := func(err error) (*formalCoxBlockwiseSourceBridge, error) {
-		_ = source.Close()
-		return nil, err
-	}
 	worker, err := newFormalCoxBlockwiseCheckpointStore(
 		workerDir, workerKey, session.context.plan, recipient)
 	if err != nil {
-		return fail(err)
+		return nil, err
 	}
 	if err := worker.Bootstrap(); err != nil {
-		return fail(err)
+		return nil, err
 	}
 	return &formalCoxBlockwiseSourceBridge{
 		source: source, worker: worker, plan: session.context.plan,

@@ -27,7 +27,7 @@ func formalCoxBlockwiseSourceProducerCommandTestRoot(t testing.TB) string {
 func formalCoxBlockwiseSourceProducerCommandTestRequest(t testing.TB,
 	custodians int,
 ) (formalCoxBlockwiseSourceProducerCommand, *formalCoxBlockwiseSourceSession,
-	map[string][]byte, []*big.Int) {
+	map[string][]byte, []*big.Int, map[string]ed25519.PrivateKey) {
 	t.Helper()
 	fixture := formalCoxRSourceBridgeFixtureFor(t, custodians)
 	compiled, err := formalCoxCompileSignedRSchema(
@@ -70,7 +70,7 @@ func formalCoxBlockwiseSourceProducerCommandTestRequest(t testing.TB,
 		SourceSigningKey:     base64.StdEncoding.EncodeToString(signing[source]),
 		BlockIndex:           0,
 		CanonicalInputBase64: base64.StdEncoding.EncodeToString(input),
-	}, session, transportSecret, values
+	}, session, transportSecret, values, signing
 }
 
 func formalCoxBlockwiseSourceProducerCommandTestRun(t testing.TB,
@@ -91,7 +91,7 @@ func formalCoxBlockwiseSourceProducerCommandTestRun(t testing.TB,
 func TestFormalCoxBlockwiseSourceProducerCommandK2K3K5(t *testing.T) {
 	for _, custodians := range []int{2, 3, 5} {
 		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
-			command, session, transportSecret, values :=
+			command, session, transportSecret, values, _ :=
 				formalCoxBlockwiseSourceProducerCommandTestRequest(t, custodians)
 			defer exactGCZeroBigInts(values)
 			root := formalCoxBlockwiseSourceProducerCommandTestRoot(t)
@@ -155,7 +155,7 @@ func mustFormalCoxBlockwiseSourceProducerCommandTestKey(t testing.TB,
 }
 
 func TestFormalCoxBlockwiseSourceProducerCommandRejectsOpenAndTamperedInput(t *testing.T) {
-	command, _, _, _ := formalCoxBlockwiseSourceProducerCommandTestRequest(t, 2)
+	command, _, _, _, _ := formalCoxBlockwiseSourceProducerCommandTestRequest(t, 2)
 	canonical, err := json.Marshal(command)
 	if err != nil {
 		t.Fatal(err)
@@ -223,7 +223,7 @@ func TestFormalCoxBlockwiseSourceProducerCommandRejectsOpenAndTamperedInput(t *t
 }
 
 func TestFormalCoxBlockwiseSourceProducerCommandAllowsOuterJSONFormatting(t *testing.T) {
-	command, _, _, _ := formalCoxBlockwiseSourceProducerCommandTestRequest(t, 2)
+	command, _, _, _, _ := formalCoxBlockwiseSourceProducerCommandTestRequest(t, 2)
 	canonical, err := json.Marshal(command)
 	if err != nil {
 		t.Fatal(err)
@@ -246,7 +246,7 @@ func TestFormalCoxBlockwiseSourceProducerCommandAllowsOuterJSONFormatting(t *tes
 }
 
 func TestFormalCoxBlockwiseSourceProducerCommandResponseDoesNotExposeInput(t *testing.T) {
-	command, _, _, _ := formalCoxBlockwiseSourceProducerCommandTestRequest(t, 2)
+	command, _, _, _, _ := formalCoxBlockwiseSourceProducerCommandTestRequest(t, 2)
 	result, _ := formalCoxBlockwiseSourceProducerCommandTestRun(
 		t, command, formalCoxBlockwiseSourceProducerCommandTestRoot(t))
 	encoded, err := json.Marshal(result)

@@ -104,6 +104,8 @@ func main() {
 		handleFormalCoxBlockwiseSourceProducer()
 	case "formal-cox-source-deliver":
 		handleFormalCoxBlockwiseSourceDelivery()
+	case "formal-cox-source-recipient-key":
+		handleFormalCoxBlockwiseSourceRecipientKey()
 	case "formal-cox-source-import":
 		handleFormalCoxBlockwiseSourceImport()
 

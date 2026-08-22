@@ -321,14 +321,11 @@
   response
 }
 
-# Server-internal recipient ingress for one delivery already committed by a
-# configured source. It receives no source frame or producer key: Go derives
-# the recipient Rock slot from the signed schema, the K=2 ticket manifest and
-# the recipient's local transport secret, then authenticates the opaque
-# delivery before accepting it.
-.dsvert_formal_cox_server_source_import_block <- function(
-    schema, block_capacity, run_id, recipient_tickets,
-    recipient_transport_secret, delivery) {
+# Builds the private command fields common to local Cox recipient ticket
+# issuance and ingress. The identity secret remains in this server process and
+# is passed only to the closed local MPC command; it never enters a DSI DTO.
+.dsvert_formal_cox_server_source_recipient_command_input <- function(
+    schema, block_capacity, run_id) {
   .dsvert_formal_cox_schema_validate(schema)
   recipient <- tryCatch(
     .dsvert_require_configured_local_peer_name(), error = function(error) NULL)
@@ -339,20 +336,104 @@
       "The configured local peer is not a designated Cox recipient.")
   }
   numeric <- .dsvert_formal_cox_schema_numeric(schema)
-  block_capacity <- .dsvert_formal_cox_integer(
-    block_capacity, "Cox recipient block capacity", 1L, numeric$capacity)
+  block_capacity <- as.integer(.dsvert_formal_cox_integer(
+    block_capacity, "Cox recipient block capacity", 1L, numeric$capacity))
   run_id <- .dsvert_formal_cox_sha256(run_id, "Cox recipient run id")
+  identity <- .get_identity_keypair()
+  if (!is.list(identity) || !identical(names(identity),
+                                       c("identity_pk", "identity_sk"))) {
+    .dsvert_formal_cox_abort("The local Cox recipient identity is invalid.")
+  }
+  peer_pinset <- schema$unsigned$peer_pinset
+  recipient_pin <- tryCatch(
+    .dsvert_normalize_crypto_b64(
+      .base64url_to_base64(peer_pinset[[recipient]]), 32L,
+      "configured Cox recipient identity"), error = function(error) NULL)
+  if (is.null(recipient_pin) || !identical(identity$identity_pk, recipient_pin)) {
+    .dsvert_formal_cox_abort(
+      "The local Cox recipient identity is not the signed recipient peer.")
+  }
+  pins <- vapply(
+    peer_pinset[order(names(peer_pinset), method = "radix")],
+    function(value) {
+      .dsvert_normalize_crypto_b64(
+        .base64url_to_base64(value), 32L, "signed Cox peer identity")
+    }, character(1L), USE.NAMES = TRUE)
+  list(
+    schema = schema, block_capacity = block_capacity, run_id = run_id,
+    pins = as.list(pins), recipient = recipient,
+    recipient_signing_key = identity$identity_sk)
+}
+
+# Creates or reopens the recipient's Rock-local X25519 key and returns only
+# the signed public ticket needed by the configured source peer. It has no
+# public/DSI surface.
+.dsvert_formal_cox_server_source_recipient_ticket <- function(
+    schema, block_capacity, run_id) {
+  input <- .dsvert_formal_cox_server_source_recipient_command_input(
+    schema, block_capacity, run_id)
+  command <- list(
+    version = "dsvert-formal-cox-blockwise-source-recipient-key-command-v1",
+    schema = input$schema,
+    block_capacity = input$block_capacity,
+    run_id = input$run_id,
+    pins = input$pins,
+    recipient_peer_name = input$recipient,
+    recipient_signing_key = input$recipient_signing_key)
+  response <- .callMpcTool("formal-cox-source-recipient-key", command)
+  fields <- c(
+    "version", "purpose", "plan_sha256", "run_id", "pinset_sha256",
+    "recipient_peer_name", "recipient_peer_id", "recipient_role",
+    "transport_key_sha256", "transport_public_key", "signature")
+  if (!is.list(response) || !identical(names(response), fields) ||
+      !identical(response$version,
+                 "dsvert-formal-cox-blockwise-source-recipient-ticket-v1") ||
+      !identical(response$purpose, "formal-cox-blockwise-source-v1") ||
+      !identical(response$run_id, input$run_id) ||
+      !identical(response$recipient_peer_name, input$recipient) ||
+      !identical(response$recipient_role,
+                 if (identical(input$recipient,
+                               .dsvert_formal_cox_compute_peers(
+                                 input$schema$unsigned$peer_pinset)[[1L]])) {
+                   "garbler"
+                 } else {
+                   "evaluator"
+                 }) ||
+      !is.character(response$plan_sha256) ||
+      length(response$plan_sha256) != 1L ||
+      !grepl("^[0-9a-f]{64}$", response$plan_sha256) ||
+      !is.character(response$pinset_sha256) ||
+      length(response$pinset_sha256) != 1L ||
+      !grepl("^[0-9a-f]{64}$", response$pinset_sha256) ||
+      !is.character(response$recipient_peer_id) ||
+      length(response$recipient_peer_id) != 1L ||
+      !grepl("^dsv1_[0-9a-f]{64}$", response$recipient_peer_id) ||
+      !is.character(response$transport_key_sha256) ||
+      length(response$transport_key_sha256) != 1L ||
+      !grepl("^[0-9a-f]{64}$", response$transport_key_sha256) ||
+      is.null(tryCatch(.dsvert_normalize_crypto_b64(
+        response$transport_public_key, 32L, "Cox recipient transport key"),
+        error = function(error) NULL)) ||
+      is.null(tryCatch(.dsvert_normalize_crypto_b64(
+        response$signature, 64L, "Cox recipient ticket signature"),
+        error = function(error) NULL))) {
+    .dsvert_formal_cox_abort("The formal Cox recipient ticket is invalid.")
+  }
+  response
+}
+
+# Server-internal recipient ingress for one delivery already committed by a
+# configured source. It receives no source frame, producer key or X25519
+# secret: Go reopens the recipient's ticket-bound Rock key and authenticates
+# the opaque delivery before accepting it.
+.dsvert_formal_cox_server_source_import_block <- function(
+    schema, block_capacity, run_id, recipient_tickets, delivery) {
+  input <- .dsvert_formal_cox_server_source_recipient_command_input(
+    schema, block_capacity, run_id)
   if (!is.list(recipient_tickets) || length(recipient_tickets) != 2L ||
       !is.null(names(recipient_tickets))) {
     .dsvert_formal_cox_abort(
       "The formal Cox recipient ticket manifest is invalid.")
-  }
-  recipient_transport_secret <- tryCatch(
-    .dsvert_normalize_crypto_b64(
-      recipient_transport_secret, 32L, "Cox recipient transport secret"),
-    error = function(error) NULL)
-  if (is.null(recipient_transport_secret)) {
-    .dsvert_formal_cox_abort("The local Cox recipient transport secret is invalid.")
   }
   delivery_fields <- c(
     "version", "purpose", "receipt", "receipt_sha256",
@@ -366,27 +447,20 @@
       !is.character(delivery$receipt_sha256) ||
       length(delivery$receipt_sha256) != 1L ||
       !grepl("^[0-9a-f]{64}$", delivery$receipt_sha256) ||
-      !identical(delivery$recipient_peer_name, recipient) ||
+      !identical(delivery$recipient_peer_name, input$recipient) ||
       !is.list(delivery$envelope) || !length(delivery$envelope) ||
       !is.list(delivery$binding) || !length(delivery$binding)) {
     .dsvert_formal_cox_abort("The formal Cox recipient delivery is invalid.")
   }
-  pins <- vapply(
-    schema$unsigned$peer_pinset[order(names(schema$unsigned$peer_pinset),
-                                      method = "radix")],
-    function(value) {
-      .dsvert_normalize_crypto_b64(
-        .base64url_to_base64(value), 32L, "signed Cox peer identity")
-    }, character(1L), USE.NAMES = TRUE)
   command <- list(
-    version = "dsvert-formal-cox-blockwise-source-import-command-v1",
-    schema = schema,
-    block_capacity = block_capacity,
-    run_id = run_id,
-    pins = as.list(pins),
+    version = "dsvert-formal-cox-blockwise-source-import-command-v2",
+    schema = input$schema,
+    block_capacity = input$block_capacity,
+    run_id = input$run_id,
+    pins = input$pins,
     recipient_tickets = recipient_tickets,
-    recipient_peer_name = recipient,
-    recipient_transport_secret = recipient_transport_secret,
+    recipient_peer_name = input$recipient,
+    recipient_signing_key = input$recipient_signing_key,
     delivery = delivery)
   response <- .callMpcTool("formal-cox-source-import", command)
   fields <- c(
@@ -398,7 +472,7 @@
       !identical(response$purpose,
                  "formal-cox-recipient-encrypted-source-delivery-v1") ||
       !identical(response$receipt_sha256, delivery$receipt_sha256) ||
-      !identical(response$recipient_peer_name, recipient) ||
+      !identical(response$recipient_peer_name, input$recipient) ||
       !is.logical(response$replayed) || length(response$replayed) != 1L ||
       is.na(response$replayed)) {
     .dsvert_formal_cox_abort("The formal Cox recipient import returned invalid output.")

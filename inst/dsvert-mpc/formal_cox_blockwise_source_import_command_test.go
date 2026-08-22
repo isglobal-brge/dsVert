@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -13,7 +14,7 @@ import (
 func formalCoxBlockwiseSourceImportCommandTestRequest(
 	t testing.TB, source formalCoxBlockwiseSourceProducerCommand,
 	delivery formalCoxBlockwiseSourceDelivery, recipient string,
-	secret []byte,
+	signer ed25519.PrivateKey,
 ) formalCoxBlockwiseSourceImportCommand {
 	t.Helper()
 	return formalCoxBlockwiseSourceImportCommand{
@@ -25,18 +26,48 @@ func formalCoxBlockwiseSourceImportCommandTestRequest(
 		RecipientTickets: append(
 			[]formalCoxBlockwiseSourceRecipientTicket(nil),
 			source.RecipientTickets...),
-		RecipientPeerName:        recipient,
-		RecipientTransportSecret: base64.StdEncoding.EncodeToString(secret),
-		Delivery:                 delivery,
+		RecipientPeerName:   recipient,
+		RecipientSigningKey: base64.StdEncoding.EncodeToString(signer),
+		Delivery:            delivery,
 	}
+}
+
+func formalCoxBlockwiseSourceImportCommandTestSource(
+	t testing.TB, custodians int, root string,
+) (formalCoxBlockwiseSourceProducerCommand, *formalCoxBlockwiseSourceSession,
+	map[string]ed25519.PrivateKey) {
+	t.Helper()
+	source, session, _, _, signers :=
+		formalCoxBlockwiseSourceProducerCommandTestRequest(t, custodians)
+	tickets := make([]formalCoxBlockwiseSourceRecipientTicket, 2)
+	for index, recipient := range session.context.plan.Policy.ComputePeers {
+		request := formalCoxBlockwiseSourceRecipientKeyCommandTestRequest(
+			t, source, recipient, signers[recipient])
+		encoded, err := json.Marshal(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ticket, err := formalCoxBlockwiseSourceRecipientKeyCommandRunAtRoot(
+			encoded, root, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tickets[index] = ticket
+	}
+	bound, err := session.context.bindRecipientManifest(tickets)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source.RecipientTickets = tickets
+	return source, bound, signers
 }
 
 func TestFormalCoxBlockwiseSourceImportCommandK2K3K5(t *testing.T) {
 	for _, custodians := range []int{2, 3, 5} {
 		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
-			source, session, transportSecret, _ :=
-				formalCoxBlockwiseSourceProducerCommandTestRequest(t, custodians)
 			root := formalCoxBlockwiseSourceProducerCommandTestRoot(t)
+			source, session, signers :=
+				formalCoxBlockwiseSourceImportCommandTestSource(t, custodians, root)
 			formalCoxBlockwiseSourceProducerCommandTestRun(t, source, root)
 
 			for _, recipient := range session.context.plan.Policy.ComputePeers {
@@ -52,7 +83,7 @@ func TestFormalCoxBlockwiseSourceImportCommandK2K3K5(t *testing.T) {
 					t.Fatal(err)
 				}
 				command := formalCoxBlockwiseSourceImportCommandTestRequest(
-					t, source, delivery, recipient, transportSecret[recipient])
+					t, source, delivery, recipient, signers[recipient])
 				encoded, err := json.Marshal(command)
 				if err != nil {
 					t.Fatal(err)
@@ -77,7 +108,7 @@ func TestFormalCoxBlockwiseSourceImportCommandK2K3K5(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if bytes.Contains(public, transportSecret[recipient]) ||
+				if bytes.Contains(public, signers[recipient]) ||
 					bytes.Contains(public, delivery.Envelope) ||
 					bytes.Contains(public, []byte(root)) {
 					t.Fatal("source import receipt exposed private material")
@@ -88,9 +119,9 @@ func TestFormalCoxBlockwiseSourceImportCommandK2K3K5(t *testing.T) {
 }
 
 func TestFormalCoxBlockwiseSourceImportCommandRejectsTamperAndOpenInput(t *testing.T) {
-	source, session, transportSecret, _ :=
-		formalCoxBlockwiseSourceProducerCommandTestRequest(t, 2)
 	root := formalCoxBlockwiseSourceProducerCommandTestRoot(t)
+	source, session, signers :=
+		formalCoxBlockwiseSourceImportCommandTestSource(t, 2, root)
 	formalCoxBlockwiseSourceProducerCommandTestRun(t, source, root)
 	recipient := session.context.plan.Policy.ComputePeers[0]
 	deliveryInput, err := json.Marshal(
@@ -104,7 +135,7 @@ func TestFormalCoxBlockwiseSourceImportCommandRejectsTamperAndOpenInput(t *testi
 		t.Fatal(err)
 	}
 	command := formalCoxBlockwiseSourceImportCommandTestRequest(
-		t, source, delivery, recipient, transportSecret[recipient])
+		t, source, delivery, recipient, signers[recipient])
 	planSHA, err := formalCoxBlockwisePlanSHA256(session.context.plan)
 	if err != nil {
 		t.Fatal(err)
@@ -116,9 +147,9 @@ func TestFormalCoxBlockwiseSourceImportCommandRejectsTamperAndOpenInput(t *testi
 		"recipient": func(value *formalCoxBlockwiseSourceImportCommand) {
 			value.RecipientPeerName = "outsider"
 		},
-		"secret": func(value *formalCoxBlockwiseSourceImportCommand) {
-			value.RecipientTransportSecret = base64.StdEncoding.EncodeToString(
-				make([]byte, 32))
+		"signer": func(value *formalCoxBlockwiseSourceImportCommand) {
+			value.RecipientSigningKey = base64.StdEncoding.EncodeToString(
+				make([]byte, ed25519.PrivateKeySize))
 		},
 		"delivery": func(value *formalCoxBlockwiseSourceImportCommand) {
 			value.Delivery.ReceiptSHA256 =

@@ -35,7 +35,7 @@ func formalCoxBlockwiseSourceDeliveryCommandTestRequest(
 func TestFormalCoxBlockwiseSourceDeliveryCommandK2K3K5(t *testing.T) {
 	for _, custodians := range []int{2, 3, 5} {
 		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
-			source, session, transportSecret, _ :=
+			source, session, transportSecret, _, _ :=
 				formalCoxBlockwiseSourceProducerCommandTestRequest(t, custodians)
 			root := formalCoxBlockwiseSourceProducerCommandTestRoot(t)
 			produced, _ := formalCoxBlockwiseSourceProducerCommandTestRun(
@@ -111,7 +111,7 @@ func TestFormalCoxBlockwiseSourceDeliveryCommandK2K3K5(t *testing.T) {
 }
 
 func TestFormalCoxBlockwiseSourceDeliveryCommandRejectsTamperAndOpenInput(t *testing.T) {
-	source, session, _, _ := formalCoxBlockwiseSourceProducerCommandTestRequest(t, 2)
+	source, session, _, _, _ := formalCoxBlockwiseSourceProducerCommandTestRequest(t, 2)
 	root := formalCoxBlockwiseSourceProducerCommandTestRoot(t)
 	formalCoxBlockwiseSourceProducerCommandTestRun(t, source, root)
 	command := formalCoxBlockwiseSourceDeliveryCommandTestRequest(

@@ -1,16 +1,14 @@
 package main
 
 // Closed local command that imports one recipient-encrypted Cox source
-// envelope. The receiving peer supplies only its local X25519 secret; the
-// signed schema and recipient manifest derive the Rock slot and storage key.
+// envelope. The receiving peer authenticates with its local identity; Go
+// reopens the matching Rock-local X25519 key before deriving the source slot.
 // This is an internal ingress seam, not a DSI or public Cox endpoint.
 
 import (
 	"bytes"
-	"crypto/ecdh"
 	"crypto/hmac"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,22 +17,22 @@ import (
 )
 
 const (
-	formalCoxBlockwiseSourceImportCommandVersion = "dsvert-formal-cox-blockwise-source-import-command-v1"
+	formalCoxBlockwiseSourceImportCommandVersion = "dsvert-formal-cox-blockwise-source-import-command-v2"
 	formalCoxBlockwiseSourceImportReceiptVersion = "dsvert-formal-cox-blockwise-source-import-receipt-v1"
 	formalCoxBlockwiseSourceImportCommandMax     = 16 << 20
-	formalCoxBlockwiseSourceImportCommandDomain  = "dsVert/formal-cox/blockwise-source-import-command/v1"
+	formalCoxBlockwiseSourceImportCommandDomain  = "dsVert/formal-cox/blockwise-source-import-command/v2"
 )
 
 type formalCoxBlockwiseSourceImportCommand struct {
-	Version                  string                                    `json:"version"`
-	Schema                   json.RawMessage                           `json:"schema"`
-	BlockCapacity            int                                       `json:"block_capacity"`
-	RunID                    string                                    `json:"run_id"`
-	Pins                     map[string]string                         `json:"pins"`
-	RecipientTickets         []formalCoxBlockwiseSourceRecipientTicket `json:"recipient_tickets"`
-	RecipientPeerName        string                                    `json:"recipient_peer_name"`
-	RecipientTransportSecret string                                    `json:"recipient_transport_secret"`
-	Delivery                 formalCoxBlockwiseSourceDelivery          `json:"delivery"`
+	Version             string                                    `json:"version"`
+	Schema              json.RawMessage                           `json:"schema"`
+	BlockCapacity       int                                       `json:"block_capacity"`
+	RunID               string                                    `json:"run_id"`
+	Pins                map[string]string                         `json:"pins"`
+	RecipientTickets    []formalCoxBlockwiseSourceRecipientTicket `json:"recipient_tickets"`
+	RecipientPeerName   string                                    `json:"recipient_peer_name"`
+	RecipientSigningKey string                                    `json:"recipient_signing_key"`
+	Delivery            formalCoxBlockwiseSourceDelivery          `json:"delivery"`
 }
 
 type formalCoxBlockwiseSourceImportReceipt struct {
@@ -65,44 +63,11 @@ func formalCoxBlockwiseSourceImportDecodeCommand(
 		!formalCoxCompilerRLabel(command.RecipientPeerName) ||
 		len(command.Schema) == 0 || command.BlockCapacity < 1 ||
 		!formalCoxIsSHA256(command.RunID) ||
-		command.RecipientTransportSecret == "" {
+		command.RecipientSigningKey == "" {
 		return formalCoxBlockwiseSourceImportCommand{},
 			fmt.Errorf("formal-cox source import: non-canonical command")
 	}
 	return command, nil
-}
-
-func formalCoxBlockwiseSourceImportDecodeSecret(encoded string) ([]byte, error) {
-	secret, err := base64.StdEncoding.Strict().DecodeString(encoded)
-	if err != nil || len(secret) != 32 ||
-		base64.StdEncoding.EncodeToString(secret) != encoded {
-		clear(secret)
-		return nil, fmt.Errorf("formal-cox source import: invalid recipient transport secret")
-	}
-	return secret, nil
-}
-
-func formalCoxBlockwiseSourceImportValidateSecret(
-	session *formalCoxBlockwiseSourceSession, recipient string, secret []byte,
-) error {
-	if session == nil || session.context == nil || len(secret) != 32 {
-		return fmt.Errorf("formal-cox source import: invalid recipient key")
-	}
-	ticket, ok := session.tickets[recipient]
-	if !ok || ticket.RecipientRole != session.context.roles[recipient] {
-		return fmt.Errorf("formal-cox source import: invalid recipient key")
-	}
-	private, err := ecdh.X25519().NewPrivateKey(secret)
-	if err != nil {
-		return fmt.Errorf("formal-cox source import: invalid recipient key")
-	}
-	public := private.PublicKey().Bytes()
-	transportID, err := formalCoxBlockwiseSourceTransportKeyID(public)
-	if err != nil || transportID != ticket.TransportKeySHA256 ||
-		!hmac.Equal(public, ticket.TransportPublicKey) {
-		return fmt.Errorf("formal-cox source import: recipient key binding mismatch")
-	}
-	return nil
 }
 
 func formalCoxBlockwiseSourceImportCommandKey(
@@ -196,29 +161,36 @@ func formalCoxBlockwiseSourceImportOpen(
 		return nil, nil, err
 	}
 	clear(canonical)
-	secret, err := formalCoxBlockwiseSourceImportDecodeSecret(
-		command.RecipientTransportSecret)
+	signer, err := formalCoxBlockwiseSourceProducerCommandDecodeKey(
+		command.RecipientSigningKey)
 	if err != nil {
 		clearPins()
 		return nil, nil, err
 	}
-	if err := formalCoxBlockwiseSourceImportValidateSecret(
-		session, command.RecipientPeerName, secret); err != nil {
-		clear(secret)
+	defer clear(signer)
+	provider, err := newFormalCoxBlockwiseSourceRecipientKeyProvider(
+		stateRoot, production, context, command.RecipientPeerName, signer, false)
+	if err != nil {
+		clearPins()
+		return nil, nil, err
+	}
+	defer provider.Close()
+	secret, err := provider.secretForSessionV1(session)
+	if err != nil {
 		clearPins()
 		return nil, nil, err
 	}
 	root, key, err := formalCoxBlockwiseSourceImportCommandRoot(
-		stateRoot, production, plan, command.RecipientPeerName, secret)
+		stateRoot, production, plan, command.RecipientPeerName, secret[:])
 	if err != nil {
-		clear(secret)
+		clear(secret[:])
 		clearPins()
 		return nil, nil, err
 	}
 	store, err := newFormalCoxBlockwiseSourceStore(
-		root, key, session, command.RecipientPeerName, secret)
+		root, key, session, command.RecipientPeerName, secret[:])
 	clear(key[:])
-	clear(secret)
+	clear(secret[:])
 	if err != nil {
 		clearPins()
 		return nil, nil, err

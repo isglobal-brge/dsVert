@@ -15,10 +15,10 @@ import (
 	"github.com/markkurossi/mpc/circuit"
 )
 
-const formalCoxBlockwiseScoreApproximationVersion = "dsvert-formal-cox-blockwise-score-approximation-v2"
+const formalCoxBlockwiseScoreApproximationVersion = "dsvert-formal-cox-blockwise-score-approximation-v3"
 
 const (
-	formalCoxBlockwisePlanVersion  = "dsvert-formal-cox-blockwise-plan-v3"
+	formalCoxBlockwisePlanVersion  = "dsvert-formal-cox-blockwise-plan-v4"
 	formalCoxBlockwiseCostVersion  = "dsvert-formal-cox-blockwise-cost-v1"
 	formalCoxBlockwiseMaxCapacity  = 1_000_000
 	formalCoxBlockwiseMaxGridTicks = 32
@@ -74,8 +74,11 @@ type formalCoxBlockwiseScoreCert struct {
 	// RiskMeanFixedPointRoundingMaximumAbsErrorSteps bounds the weighted-X
 	// floor and the final secret division floor.
 	RiskMeanFixedPointRoundingMaximumAbsErrorSteps string `json:"risk_mean_fixed_point_rounding_maximum_abs_error_steps"`
+	// NormalizedScoreFixedPointRoundingMaximumAbsErrorSteps bounds the final
+	// floor when the accumulated score is divided by the public capacity.
+	NormalizedScoreFixedPointRoundingMaximumAbsErrorSteps string `json:"normalized_score_fixed_point_rounding_maximum_abs_error_steps"`
 	// Each patient has at most one event, so the normalized score inherits
-	// the sum of the two per-event risk-mean bounds.
+	// the sum of the two per-event risk-mean bounds and its final division.
 	NormalizedScoreMaximumAbsErrorSteps string `json:"normalized_score_maximum_abs_error_steps"`
 }
 
@@ -158,17 +161,20 @@ func formalCoxBlockwiseBuildScoreApproximationCertificate(
 	// leaves scale/q_min; the final mean division contributes one more step.
 	rounding := exactGCCeilDiv(parsed.scale, minimumTableWeight)
 	rounding.Add(rounding, big.NewInt(1))
-	score := new(big.Int).Add(new(big.Int).Set(table), rounding)
+	normalizedRounding := big.NewInt(1)
+	score := new(big.Int).Add(new(big.Int).Add(
+		new(big.Int).Set(table), rounding), normalizedRounding)
 	return formalCoxBlockwiseScoreCert{
 		Version: formalCoxBlockwiseScoreApproximationVersion,
-		LinearPredictorFixedPointRoundingMaximumAbsSteps: linearRoundingSteps.String(),
-		ExpWeightLinearPredictorMaximumAbsErrorSteps:     etaWeightError.String(),
-		ExpWeightMaximumAbsErrorSteps:                    weightError.String(),
-		MinimumExactWeightSteps:                          minimumExactWeight.String(),
-		MinimumTableWeightSteps:                          minimumTableWeight.String(),
-		RiskMeanTableMaximumAbsErrorSteps:                table.String(),
-		RiskMeanFixedPointRoundingMaximumAbsErrorSteps:   rounding.String(),
-		NormalizedScoreMaximumAbsErrorSteps:              score.String(),
+		LinearPredictorFixedPointRoundingMaximumAbsSteps:      linearRoundingSteps.String(),
+		ExpWeightLinearPredictorMaximumAbsErrorSteps:          etaWeightError.String(),
+		ExpWeightMaximumAbsErrorSteps:                         weightError.String(),
+		MinimumExactWeightSteps:                               minimumExactWeight.String(),
+		MinimumTableWeightSteps:                               minimumTableWeight.String(),
+		RiskMeanTableMaximumAbsErrorSteps:                     table.String(),
+		RiskMeanFixedPointRoundingMaximumAbsErrorSteps:        rounding.String(),
+		NormalizedScoreFixedPointRoundingMaximumAbsErrorSteps: normalizedRounding.String(),
+		NormalizedScoreMaximumAbsErrorSteps:                   score.String(),
 	}, nil
 }
 

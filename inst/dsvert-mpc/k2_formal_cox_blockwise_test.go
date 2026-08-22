@@ -411,8 +411,10 @@ func TestFormalCoxBlockwisePlanCommitsScoreApproximationBounds(t *testing.T) {
 			effectiveExpError), weightMin)
 		wantRounding := exactGCCeilDiv(parsed.scale, parsed.expValues[0])
 		wantRounding.Add(wantRounding, big.NewInt(1))
+		wantNormalizedRounding := big.NewInt(1)
 		wantScore := new(big.Int).Add(
-			new(big.Int).Set(wantTable), wantRounding)
+			new(big.Int).Add(new(big.Int).Set(wantTable), wantRounding),
+			wantNormalizedRounding)
 		certificate := plan.ScoreApproximation
 		if certificate.Version != formalCoxBlockwiseScoreApproximationVersion ||
 			certificate.LinearPredictorFixedPointRoundingMaximumAbsSteps !=
@@ -425,6 +427,8 @@ func TestFormalCoxBlockwisePlanCommitsScoreApproximationBounds(t *testing.T) {
 			certificate.RiskMeanTableMaximumAbsErrorSteps != wantTable.String() ||
 			certificate.RiskMeanFixedPointRoundingMaximumAbsErrorSteps !=
 				wantRounding.String() ||
+			certificate.NormalizedScoreFixedPointRoundingMaximumAbsErrorSteps !=
+				wantNormalizedRounding.String() ||
 			certificate.NormalizedScoreMaximumAbsErrorSteps != wantScore.String() {
 			t.Fatalf("K=%d score approximation certificate = %+v", custodians,
 				certificate)
@@ -433,6 +437,11 @@ func TestFormalCoxBlockwisePlanCommitsScoreApproximationBounds(t *testing.T) {
 		tampered.ScoreApproximation.ExpWeightLinearPredictorMaximumAbsErrorSteps = "0"
 		if err := validateFormalCoxBlockwisePlan(tampered); err == nil {
 			t.Fatalf("K=%d accepted omitted eta-rounding score bound", custodians)
+		}
+		tampered = plan
+		tampered.ScoreApproximation.NormalizedScoreFixedPointRoundingMaximumAbsErrorSteps = "0"
+		if err := validateFormalCoxBlockwisePlan(tampered); err == nil {
+			t.Fatalf("K=%d accepted omitted normalized-score rounding bound", custodians)
 		}
 		tampered = plan
 		tampered.ScoreApproximation.NormalizedScoreMaximumAbsErrorSteps = "0"

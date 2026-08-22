@@ -45,7 +45,10 @@ test_that("Frequency public ABI is exact and purpose-bound", {
   expect_true(all(.frequency_surface_names %in% registered))
   expect_true(all(.frequency_surface_names %in% getNamespaceExports("dsVert")))
   expect_true("mpcTypedBlobReadDS" %in% registered)
-  expect_true("dsvertFormalFinalizerHandoffSourceDS" %in% registered)
+  # The formal-finalizer relay is intentionally quarantined: Frequency has a
+  # closed lifecycle of its own and must not make an unrelated, incomplete
+  # statistical frontdoor remotely reachable.
+  expect_false("dsvertFormalFinalizerHandoffSourceDS" %in% registered)
 })
 
 test_that("Frequency settings require one explicit server-held source owner", {

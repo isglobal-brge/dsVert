@@ -5,6 +5,8 @@ import (
 	"math/big"
 	"math/rand"
 	"testing"
+
+	"github.com/markkurossi/mpc/circuit"
 )
 
 func exactGCTestMulSpec(bits, frac, n int) exactGCCircuitSpec {
@@ -342,5 +344,52 @@ func TestExactGCCircuitCacheIsBounded(t *testing.T) {
 	if got := len(exactGCCircuitCache.entries); got > exactGCCircuitCacheEntries {
 		t.Fatalf("circuit cache grew to %d entries, policy is %d", got,
 			exactGCCircuitCacheEntries)
+	}
+}
+
+func TestExactGCCircuitCacheRetainsRecentlyUsedPublicSpecs(t *testing.T) {
+	exactGCCircuitCache.Lock()
+	saved := exactGCCircuitCache.entries
+	savedOrder := append([]string(nil), exactGCCircuitCache.order...)
+	exactGCCircuitCache.entries = make(map[string]*circuit.Circuit)
+	exactGCCircuitCache.order = nil
+	exactGCCircuitCache.Unlock()
+	t.Cleanup(func() {
+		exactGCCircuitCache.Lock()
+		exactGCCircuitCache.entries = saved
+		exactGCCircuitCache.order = savedOrder
+		exactGCCircuitCache.Unlock()
+	})
+
+	keys := make([]string, exactGCCircuitCacheEntries+1)
+	for frac := range keys {
+		spec := exactGCTestMulSpec(63, frac, 1)
+		keys[frac] = exactGCCircuitCacheKey(spec)
+		if _, err := exactGCCompileCircuit(spec); err != nil {
+			t.Fatalf("compile public exact-GC spec %d: %v", frac, err)
+		}
+		if frac == exactGCCircuitCacheEntries-1 {
+			if _, err := exactGCCompileCircuit(exactGCTestMulSpec(63, 0, 1)); err != nil {
+				t.Fatalf("touch first public exact-GC spec: %v", err)
+			}
+		}
+	}
+
+	exactGCCircuitCache.Lock()
+	defer exactGCCircuitCache.Unlock()
+	if got := len(exactGCCircuitCache.entries); got != exactGCCircuitCacheEntries {
+		t.Fatalf("exact-GC circuit cache entries = %d, want %d", got,
+			exactGCCircuitCacheEntries)
+	}
+	if exactGCCircuitCache.entries[keys[0]] == nil {
+		t.Fatal("exact-GC circuit cache evicted the recently used public spec")
+	}
+	if _, ok := exactGCCircuitCache.entries[keys[1]]; ok {
+		t.Fatal("exact-GC circuit cache retained the least recently used public spec")
+	}
+	for _, key := range keys[2:] {
+		if exactGCCircuitCache.entries[key] == nil {
+			t.Fatalf("exact-GC circuit cache dropped recent public spec %s", key)
+		}
 	}
 }

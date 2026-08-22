@@ -97,6 +97,21 @@ var exactGCCircuitCache = struct {
 	order   []string
 }{entries: make(map[string]*circuit.Circuit)}
 
+// Exact-GC circuit source is derived solely from signed public arithmetic
+// parameters. The bounded cache holds compiled source only, never session
+// material, input shares, masks, or DP randomness.
+func exactGCCircuitCacheTouchLocked(key string) {
+	for index, value := range exactGCCircuitCache.order {
+		if value == key {
+			exactGCCircuitCache.order = append(
+				exactGCCircuitCache.order[:index],
+				exactGCCircuitCache.order[index+1:]...)
+			break
+		}
+	}
+	exactGCCircuitCache.order = append(exactGCCircuitCache.order, key)
+}
+
 func newExactGCSessionID() ([32]byte, error) {
 	var id [32]byte
 	_, err := io.ReadFull(crand.Reader, id[:])
@@ -1311,6 +1326,7 @@ func exactGCCompileCircuit(spec exactGCCircuitSpec) (*circuit.Circuit, error) {
 	key := exactGCCircuitCacheKey(spec)
 	exactGCCircuitCache.Lock()
 	if cached, ok := exactGCCircuitCache.entries[key]; ok {
+		exactGCCircuitCacheTouchLocked(key)
 		exactGCCircuitCache.Unlock()
 		return cached, nil
 	}
@@ -1336,9 +1352,10 @@ func exactGCCompileCircuit(spec exactGCCircuitSpec) (*circuit.Circuit, error) {
 	exactGCCircuitCache.Lock()
 	defer exactGCCircuitCache.Unlock()
 	if cached, ok := exactGCCircuitCache.entries[key]; ok {
+		exactGCCircuitCacheTouchLocked(key)
 		return cached, nil
 	}
-	if len(exactGCCircuitCache.order) == exactGCCircuitCacheEntries {
+	if len(exactGCCircuitCache.order) >= exactGCCircuitCacheEntries {
 		oldest := exactGCCircuitCache.order[0]
 		delete(exactGCCircuitCache.entries, oldest)
 		exactGCCircuitCache.order = exactGCCircuitCache.order[1:]

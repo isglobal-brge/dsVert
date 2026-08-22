@@ -208,12 +208,7 @@
     context$block_capacity)
 }
 
-# Server-internal R-to-Go bridge for one already-authorized source block.  The
-# two recipient tickets are opaque signed protocol records; this function
-# neither creates them nor accepts a peer, path, data frame, key or block size
-# from a DataSHIELD caller.  Go validates their exact K=2 manifest before any
-# durable ciphertext is committed.
-.dsvert_formal_cox_server_source_produce_block <- function(
+.dsvert_formal_cox_server_source_command_input <- function(
     context, run_id, recipient_tickets, block_index) {
   context <- .dsvert_formal_cox_server_source_context(context)
   run_id <- .dsvert_formal_cox_sha256(run_id, "Cox source run id")
@@ -246,9 +241,8 @@
     .dsvert_normalize_crypto_b64(
       .base64url_to_base64(value), 32L, "signed Cox peer identity")
   }, character(1L), USE.NAMES = TRUE)
-  lines <- .dsvert_formal_cox_server_source_block(context, block_index)
-  payload <- paste0(paste(lines, collapse = "\n"), "\n")
-  response <- .callMpcTool("formal-cox-source-produce", list(
+
+  list(
     version = "dsvert-formal-cox-blockwise-source-producer-command-v1",
     schema = context$schema,
     block_capacity = context$block_capacity,
@@ -257,10 +251,24 @@
     recipient_tickets = recipient_tickets,
     source_peer_name = context$source_name,
     source_signing_key = identity$identity_sk,
-    block_index = block_index,
-    canonical_input_base64 = gsub(
+    block_index = block_index)
+}
+
+# Server-internal R-to-Go bridge for one already-authorized source block. The
+# two recipient tickets are opaque signed protocol records; this function
+# neither creates them nor accepts a peer, path, data frame, key or block size
+# from a DataSHIELD caller. Go validates their exact K=2 manifest before any
+# durable ciphertext is committed.
+.dsvert_formal_cox_server_source_produce_block <- function(
+    context, run_id, recipient_tickets, block_index) {
+  command <- .dsvert_formal_cox_server_source_command_input(
+    context, run_id, recipient_tickets, block_index)
+  context <- .dsvert_formal_cox_server_source_context(context)
+  lines <- .dsvert_formal_cox_server_source_block(context, block_index)
+  payload <- paste0(paste(lines, collapse = "\n"), "\n")
+  command$canonical_input_base64 <- gsub(
       "[\r\n[:space:]]", "", jsonlite::base64_enc(charToRaw(payload)))
-  ))
+  response <- .callMpcTool("formal-cox-source-produce", command)
   fields <- c("receipt", "receipt_sha256", "replayed")
   if (!is.list(response) || !identical(names(response), fields) ||
       !is.list(response$receipt) ||
@@ -270,6 +278,45 @@
       !is.logical(response$replayed) || length(response$replayed) != 1L ||
       is.na(response$replayed)) {
     .dsvert_formal_cox_abort("The formal Cox source producer returned invalid output.")
+  }
+  response
+}
+
+# Returns only the already-committed recipient-encrypted source envelope for
+# one designated compute peer. It deliberately cannot accept a path, source
+# rows or recipient key; import remains a separate recipient-owned step.
+.dsvert_formal_cox_server_source_deliver_block <- function(
+    context, run_id, recipient_tickets, block_index, recipient_peer_name) {
+  command <- .dsvert_formal_cox_server_source_command_input(
+    context, run_id, recipient_tickets, block_index)
+  context <- .dsvert_formal_cox_server_source_context(context)
+  recipient_peer_name <- .dsvert_formal_cox_label(
+    recipient_peer_name, "Cox source delivery recipient")
+  if (!recipient_peer_name %in%
+      .dsvert_formal_cox_compute_peers(context$schema$unsigned$peer_pinset)) {
+    .dsvert_formal_cox_abort(
+      "The Cox source delivery recipient is not a designated compute peer.")
+  }
+  command$version <- "dsvert-formal-cox-blockwise-source-delivery-command-v1"
+  command$recipient_peer_name <- recipient_peer_name
+  response <- .callMpcTool("formal-cox-source-deliver", command)
+  fields <- c(
+    "version", "purpose", "receipt", "receipt_sha256",
+    "recipient_peer_name", "envelope", "binding")
+  if (!is.list(response) || !identical(names(response), fields) ||
+      !identical(response$version,
+                 "dsvert-formal-cox-blockwise-source-delivery-v1") ||
+      !identical(response$purpose,
+                 "formal-cox-recipient-encrypted-source-delivery-v1") ||
+      !is.list(response$receipt) ||
+      !is.character(response$receipt_sha256) ||
+      length(response$receipt_sha256) != 1L ||
+      !grepl("^[0-9a-f]{64}$", response$receipt_sha256) ||
+      !identical(response$recipient_peer_name, recipient_peer_name) ||
+      !is.list(response$envelope) || !length(response$envelope) ||
+      !is.list(response$binding) || !length(response$binding)) {
+    .dsvert_formal_cox_abort(
+      "The formal Cox source delivery returned invalid output.")
   }
   response
 }

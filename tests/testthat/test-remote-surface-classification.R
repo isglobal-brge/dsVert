@@ -40,7 +40,7 @@ test_that("machine-readable remote surface exactly covers server registration", 
   expect_identical(
     as.integer(inventory$counts$registered_orphan_endpoints), 0L)
   expect_identical(
-    as.integer(inventory$counts$unregistered_client_endpoint_literals), 105L)
+    as.integer(inventory$counts$unregistered_client_endpoint_literals), 108L)
   expect_identical(
     as.integer(inventory$counts$reachable_unregistered_client_endpoints), 0L)
   expect_length(

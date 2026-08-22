@@ -83,7 +83,6 @@
   "dsvertIdentityPkDS",
   "dsvertNumericPolicyDS",
   "dsvertColNamesDS",
-  "dsvertJointDPCapsuleStatusDS",
   "dsvertDPCountCompileDS",
   "dsvertDPCountAuthorizeDS",
   "dsvertDPCountStartDS",

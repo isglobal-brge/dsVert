@@ -4,7 +4,7 @@
   "authoritative_registration_source": "dsVert/DESCRIPTION: AggregateMethods and AssignMethods",
   "authoritative_client_source": "dsVertClient/R parsed as R ASTs",
   "counts": {
-    "registered_ds_endpoints": 86,
+    "registered_ds_endpoints": 85,
     "registered_argument_constructor_aliases": 0,
     "direct_literal_call_endpoints": 161,
     "as_call_as_name_endpoints": 7,
@@ -12,7 +12,7 @@
     "unregistered_client_endpoint_literals": 105,
     "reachable_unregistered_client_endpoints": 0,
     "registered_orphan_endpoints": 0,
-    "internal_unregistered_ds_functions": 153
+    "internal_unregistered_ds_functions": 154
   },
   "classification_semantics": {
     "production_safe_purpose_bound": "Callable through the current default gate. A DP label is conditional on the route-specific signed policy, immutable snapshot and stated threat model. Registered Count, Frequency and Synopsis releases derive sticky noise from persistent peer identity seeds and have no lifetime ledger; retained capsule source/ticket endpoints are not statistical releases.",
@@ -26,7 +26,6 @@
     "production_safe_purpose_bound": [
       "dsvertColNamesDS",
       "dsvertIdentityPkDS",
-      "dsvertJointDPCapsuleStatusDS",
       "dsvertDPCountCompileDS",
       "dsvertDPCountAuthorizeDS",
       "dsvertDPCountStartDS",
@@ -380,8 +379,7 @@
         "dsvertIdentityPkDS",
         "dsvertSecurityProfileDS",
         "dsvertTransportProbeDS",
-        "dsvertNumericPolicyDS",
-        "dsvertJointDPCapsuleStatusDS"
+        "dsvertNumericPolicyDS"
       ],
       "risk": "No protected statistic is intended, but DP status can reveal operational policy/accountant progress and all values must remain custodian-owned or public.",
       "required_action": "Keep schemas fixed and data-independent; never add snapshot-derived counts, hashes or failure detail to these replies."
@@ -395,6 +393,7 @@
     "dsvertContingencyDS",
     "dsvertHistogramDS",
     "dsvertInjectNADS",
+    "dsvertJointDPCapsuleStatusDS",
     "dsvertNaOmitDS",
     "dsvertNBSumShareDS",
     "dsvertOneHotDS",
@@ -439,6 +438,9 @@
   ],
   "internal_unregistered_risk_groups": {
     "retired_legacy_dp_and_scalar_control_plane": [],
+    "retired_lifetime_admission_status": [
+      "dsvertJointDPCapsuleStatusDS"
+    ],
     "retired_exact_descriptive_endpoint": [
       "dsvertHistogramDS"
     ],

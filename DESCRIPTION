@@ -64,7 +64,6 @@ Roxygen: list(markdown = TRUE)
 AggregateMethods:
     dsvertColNamesDS,
     dsvertIdentityPkDS,
-    dsvertJointDPCapsuleStatusDS,
     dsvertDPCountCompileDS,
     dsvertDPCountAuthorizeDS,
     dsvertDPCountStartDS,

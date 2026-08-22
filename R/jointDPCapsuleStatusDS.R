@@ -305,24 +305,10 @@
         release_summary, summary))
 }
 
-#' Inspect the Reusable Joint-DP Capsule Contract
-#'
-#' Returns the fixed per-capsule differential-privacy contract. Capsule history
-#' is authenticated lifetime-accounting state: it can deny a new capsule after
-#' the configured bound is exhausted, but cannot reduce accuracy or charge exact
-#' replay as a new request. Non-designated pinned peers attest the policy without
-#' opening an allocator ledger.
-#'
-#' @return A public policy attestation and, on the two designated noise peers,
-#'   authenticated composition telemetry plus the current data-independent
-#'   release domain. This domain may identify a new PREPARE candidate only
-#'   before the first valid START irrevocably claims an instance for that
-#'   capsule; a zero publication count does not prove that no such claim exists.
-#'   The response distinguishes remaining lifetime capsule reservations from
-#'   request quotas: history can deny a new capsule after exhaustion, while
-#'   exact replay never consumes a unit and accuracy is not scheduled by
-#'   request history.
-#' @export
+# Historical lifetime-gated status retained only to authenticate legacy stores
+# during migration tests. It is intentionally unregistered and unexported:
+# active Synopsis routes attest their per-artifact sticky contract through the
+# lifetime-independent bootstrap.
 dsvertJointDPCapsuleStatusDS <- function() {
   .dsvert_joint_dp_capsule_status()
 }

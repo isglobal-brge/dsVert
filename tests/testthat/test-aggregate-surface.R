@@ -113,6 +113,7 @@ test_that("the remotely invocable aggregate surface is an exact allowlist", {
   deregistered <- setdiff(pre_audit_registered, expected)
   exports <- getNamespaceExports("dsVert")
   retired_lifetime_vector <- c(
+    "dsvertJointDPCapsuleStatusDS",
     "dsvertJointDPVectorAllocationProofDS",
     "dsvertJointDPVectorAllocationPrepareDS",
     "dsvertJointDPVectorAllocationCommitDS",
@@ -125,6 +126,8 @@ test_that("the remotely invocable aggregate surface is an exact allowlist", {
   expect_true(all(retired_lifetime_vector %in% deregistered))
   expect_false(any(deregistered %in% actual))
   expect_false(any(deregistered %in% exports))
+  expect_false("dsvertJointDPCapsuleStatusDS" %in%
+               .dsvert_disclosure_safe_remote_methods)
 
   retired <- c(
     "dsvertNaOmitDS", "dsvertClusterBinomialMomentsDS",

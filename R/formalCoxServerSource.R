@@ -10,6 +10,17 @@
   "dsvert.formal_cox.source_specs"
 .DSVERT_FORMAL_COX_SOURCE_CONTEXT_CLASS <-
   "dsvert_formal_cox_server_source_context"
+.DSVERT_FORMAL_COX_SERVER_SOURCE_ROCK_ROOT <- "/srv/dsvert-synopsis"
+
+.dsvert_formal_cox_server_source_require_canonical_rock <- function() {
+  if (isTRUE(.dsvert_identity_test_mode())) return(invisible(NULL))
+  root <- tryCatch(.dsvert_state_root(), error = function(error) NULL)
+  if (!identical(root, .DSVERT_FORMAL_COX_SERVER_SOURCE_ROCK_ROOT)) {
+    .dsvert_formal_cox_abort(
+      "The formal Cox source bridge requires the canonical Rock root.")
+  }
+  invisible(NULL)
+}
 
 .dsvert_formal_cox_server_source_descriptor <- function(value) {
   fields <- c(
@@ -210,6 +221,7 @@
 
 .dsvert_formal_cox_server_source_command_input <- function(
     context, run_id, recipient_tickets, block_index) {
+  .dsvert_formal_cox_server_source_require_canonical_rock()
   context <- .dsvert_formal_cox_server_source_context(context)
   run_id <- .dsvert_formal_cox_sha256(run_id, "Cox source run id")
   numeric <- .dsvert_formal_cox_schema_numeric(context$schema)
@@ -326,6 +338,7 @@
 # is passed only to the closed local MPC command; it never enters a DSI DTO.
 .dsvert_formal_cox_server_source_recipient_command_input <- function(
     schema, block_capacity, run_id) {
+  .dsvert_formal_cox_server_source_require_canonical_rock()
   .dsvert_formal_cox_schema_validate(schema)
   recipient <- tryCatch(
     .dsvert_require_configured_local_peer_name(), error = function(error) NULL)

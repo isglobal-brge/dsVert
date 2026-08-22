@@ -120,6 +120,30 @@
   )
 }
 
+test_that("formal Cox source bridge rejects a split production Rock root before MPC", {
+  fixture <- .formal_cox_fixture(n = 12L, capacity = 16L)
+  sealed <- .formal_cox_schema(2L, fixture = fixture)
+  testthat::local_mocked_bindings(
+    .dsvert_identity_test_mode = function() FALSE,
+    .get_identity_keypair = function(...) {
+      fail("identity must not be read for a split Cox Rock root")
+    },
+    .callMpcTool = function(...) {
+      fail("MPC must not run for a split Cox Rock root")
+    },
+    .package = "dsVert")
+  withr::local_options(list(
+    dsvert.state_dir = tempfile("formal-cox-split-rock-"),
+    dsvert.peer_name = "site1"))
+  expect_error(
+    .dsvert_formal_cox_server_source_recipient_ticket(
+      sealed$schema, 4L, strrep("a", 64L)),
+    "canonical Rock root")
+  withr::with_options(
+    list(dsvert.state_dir = .DSVERT_FORMAL_COX_SERVER_SOURCE_ROCK_ROOT),
+    expect_silent(.dsvert_formal_cox_server_source_require_canonical_rock()))
+})
+
 test_that("formal Cox schema requires unanimous pinned signatures and a positive risk floor", {
   identity <- .formal_cox_keys(3L)
   args <- list(

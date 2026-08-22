@@ -13,12 +13,16 @@ test_that("alignment-mask geometry is exact for K=2,3,5", {
       sources = paste0("source_", seq_len(k)),
       contract_hash = contract_hash,
       contract = list(coordinate_count = total))
+    projection <- list(
+      version = "full-v1", source_offset = 0,
+      total = as.numeric(total),
+      contract = .DSVERT_DP_ALIGNMENT_MASK_FULL_CONTRACT)
     chunk_count <- 2L
     for (index in seq_len(chunk_count)) {
       operation_id <- .dsvert_dp_alignment_mask_operation_id(
         batch, contract_hash, index, chunk_count)
       geometry <- .dsvert_dp_alignment_mask_geometry(
-        parsed, batch, operation_id, index, chunk_count)
+        parsed, projection, batch, operation_id, index, chunk_count)
       expect_identical(geometry$source_count, k)
       expect_identical(geometry$chunk_count, 2L)
       expect_identical(geometry$n,
@@ -28,11 +32,43 @@ test_that("alignment-mask geometry is exact for K=2,3,5", {
           .DSVERT_EXACT_GC_MAX_CIRCUIT_TYPE_BITS, TRUE)
     }
     expect_error(.dsvert_dp_alignment_mask_geometry(
-      parsed, batch,
+      parsed, projection, batch,
       .dsvert_dp_alignment_mask_operation_id(
         batch, contract_hash, 1L, chunk_count),
       2L, chunk_count), "chunk contract")
   }
+})
+
+test_that("alignment projects only the signed contiguous private suffix", {
+  layout <- list(
+    enabled = TRUE, private_start = 8193L,
+    transport_coordinate_count = 8288L,
+    blocks = list(
+      left = list(start = 8193L, end = 8240L, length = 48L),
+      right = list(start = 8241L, end = 8288L, length = 48L)))
+  testthat::local_mocked_bindings(
+    .dsvert_dp_gaussian_cross_layout = function(...) layout,
+    .package = "dsVert")
+  parsed <- list(
+    manifest = list(), sources = c("source_a", "source_b"),
+    contract_hash = strrep("b", 64L),
+    contract = list(coordinate_count = 8288L))
+  projections <- .dsvert_dp_alignment_mask_projections(parsed)
+  private <- projections[[2L]]
+  expect_identical(private$source_offset, 8192)
+  expect_identical(private$total, 96)
+  expect_identical(private$contract,
+                   .DSVERT_DP_ALIGNMENT_MASK_PRIVATE_CONTRACT)
+  batch <- "op_11111111111111111111111111111111"
+  private_id <- .dsvert_dp_alignment_mask_operation_id(
+    batch, parsed$contract_hash, 1L, 1L)
+  expect_identical(.dsvert_dp_alignment_mask_projection_for_request(
+    parsed, batch, private_id, 1L, 1L), private)
+  full_count <- ceiling(8288 / .dsvert_dp_alignment_mask_chunk_size(2L))
+  full_id <- .dsvert_dp_alignment_mask_operation_id(
+    batch, parsed$contract_hash, 1L, full_count)
+  expect_identical(.dsvert_dp_alignment_mask_projection_for_request(
+    parsed, batch, full_id, 1L, full_count), projections[[1L]])
 })
 
 test_that("each computation peer sees only one XOR share per source", {
@@ -106,4 +142,26 @@ test_that("alignment batches cannot become readable before terminal success", {
   batch$status <- "complete"
   expect_identical(.dsvert_dp_alignment_mask_complete_batch(
     ss, batch$capsule_id, batch$contract_hash), batch)
+})
+
+test_that("private projection retains global private block coordinates", {
+  ss <- new.env(parent = emptyenv())
+  ss$.dp_alignment_mask_batches <- new.env(parent = emptyenv())
+  batch <- new.env(parent = emptyenv())
+  batch$status <- "complete"
+  batch$capsule_id <- "dpc_11111111111111111111111111111111"
+  batch$contract_hash <- strrep("a", 64L)
+  batch$source_offset <- 8192
+  batch$total <- 2
+  batch$path <- tempfile("dsvert-alignment-mask-")
+  on.exit(unlink(batch$path), add = TRUE)
+  writeBin(as.raw(seq_len(32L) %% 256L), batch$path)
+  ss$.dp_alignment_mask_batches[[
+    "op_11111111111111111111111111111111"]] <- batch
+  expect_identical(.dsvert_dp_alignment_mask_range(
+    ss, batch$capsule_id, batch$contract_hash, 8193L, 2L),
+    as.raw(seq_len(32L) %% 256L))
+  expect_error(.dsvert_dp_alignment_mask_range(
+    ss, batch$capsule_id, batch$contract_hash, 8192L, 1L),
+    "range start")
 })

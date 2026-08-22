@@ -13,8 +13,10 @@
 .DSVERT_DP_ALIGNMENT_MASK_VERSION <- "dsvert-alignment-mask-batch-v1"
 .DSVERT_DP_ALIGNMENT_MASK_TERMINAL_VERSION <-
   "dsvert-alignment-mask-terminal-v1"
-.DSVERT_DP_ALIGNMENT_MASK_CONTRACT <-
+.DSVERT_DP_ALIGNMENT_MASK_FULL_CONTRACT <-
   "all-k-private-xor-digest-equality-value-or-zero-fixed-shape-v1"
+.DSVERT_DP_ALIGNMENT_MASK_PRIVATE_CONTRACT <-
+  "all-k-private-xor-digest-equality-private-suffix-v2"
 
 .dsvert_dp_alignment_mask_chunk_size <- function(source_count) {
   source_count <- .exact_gc_alignment_source_count(source_count)
@@ -78,11 +80,100 @@
        contract_hash = parsed$contract_hash, sources = sources)
 }
 
-.dsvert_dp_alignment_mask_geometry <- function(
+# The encrypted source stream keeps the public release prefix aligned to its
+# 8192-coordinate transfer chunks.  That prefix and its deterministic zero
+# padding are never consumed by a cross-owner kernel, so sending them through
+# the private alignment GC only adds traffic.  Project exactly the contiguous
+# private suffix instead.  The layout is signed and the projection is derived
+# locally on every peer; callers cannot select a range.
+.dsvert_dp_alignment_mask_private_projection <- function(parsed) {
+  layout <- .dsvert_dp_gaussian_cross_layout(parsed$manifest)
+  blocks <- layout$blocks
+  start <- suppressWarnings(as.numeric(layout$private_start))
+  total <- suppressWarnings(as.numeric(layout$transport_coordinate_count))
+  if (!isTRUE(layout$enabled) || !is.list(blocks) || !length(blocks) ||
+      length(start) != 1L || is.na(start) || !is.finite(start) ||
+      start != floor(start) || start < 2 ||
+      length(total) != 1L || is.na(total) || !is.finite(total) ||
+      total != floor(total) || total < start ||
+      total != as.numeric(parsed$contract$coordinate_count)) {
+    stop("The private alignment-mask projection is invalid.", call. = FALSE)
+  }
+  ordered <- blocks[order(vapply(blocks, function(block) {
+    suppressWarnings(as.numeric(block$start))
+  }, numeric(1L)), method = "radix")]
+  expected <- start
+  for (block in ordered) {
+    first <- suppressWarnings(as.numeric(block$start))
+    last <- suppressWarnings(as.numeric(block$end))
+    size <- suppressWarnings(as.numeric(block$length))
+    if (length(first) != 1L || is.na(first) || !is.finite(first) ||
+        first != expected || length(last) != 1L || is.na(last) ||
+        !is.finite(last) || last < first || length(size) != 1L ||
+        is.na(size) || !is.finite(size) || size != last - first + 1) {
+      stop("The private alignment-mask blocks are not contiguous.",
+           call. = FALSE)
+    }
+    expected <- last + 1
+  }
+  if (!identical(as.numeric(expected - 1), total)) {
+    stop("The private alignment-mask projection is incomplete.",
+         call. = FALSE)
+  }
+  list(
+    version = "private-suffix-v2", source_offset = as.numeric(start - 1),
+    total = as.numeric(total - start + 1),
+    contract = .DSVERT_DP_ALIGNMENT_MASK_PRIVATE_CONTRACT)
+}
+
+.dsvert_dp_alignment_mask_projections <- function(parsed) {
+  list(
+    list(version = "full-v1", source_offset = 0,
+         total = as.numeric(parsed$contract$coordinate_count),
+         contract = .DSVERT_DP_ALIGNMENT_MASK_FULL_CONTRACT),
+    .dsvert_dp_alignment_mask_private_projection(parsed))
+}
+
+.dsvert_dp_alignment_mask_projection_for_request <- function(
     parsed, batch_operation_id, operation_id, chunk_index, chunk_count) {
+  candidates <- Filter(function(projection) {
+    chunk_size <- .dsvert_dp_alignment_mask_chunk_size(
+      length(parsed$sources))
+    expected_count <- ceiling(as.numeric(projection$total) / chunk_size)
+    identical(as.integer(chunk_count), as.integer(expected_count)) &&
+      identical(operation_id, .dsvert_dp_alignment_mask_operation_id(
+        batch_operation_id, parsed$contract_hash, chunk_index,
+        chunk_count))
+  }, .dsvert_dp_alignment_mask_projections(parsed))
+  if (length(candidates) != 1L) {
+    stop("Invalid private alignment-mask projection.", call. = FALSE)
+  }
+  candidates[[1L]]
+}
+
+.dsvert_dp_alignment_mask_projection_for_batch <- function(parsed, batch) {
+  if (!is.environment(batch)) {
+    stop("The private alignment-mask batch is unavailable.", call. = FALSE)
+  }
+  candidates <- Filter(function(projection) {
+    identical(batch$projection_version, projection$version) &&
+      identical(batch$source_offset, projection$source_offset) &&
+      identical(batch$total, projection$total) &&
+      identical(batch$alignment_contract, projection$contract)
+  }, .dsvert_dp_alignment_mask_projections(parsed))
+  if (length(candidates) != 1L) {
+    stop("The private alignment-mask batch projection is invalid.",
+         call. = FALSE)
+  }
+  candidates[[1L]]
+}
+
+.dsvert_dp_alignment_mask_geometry <- function(
+    parsed, projection, batch_operation_id, operation_id, chunk_index,
+    chunk_count, verify_operation = TRUE) {
   k <- length(parsed$sources)
   chunk_size <- .dsvert_dp_alignment_mask_chunk_size(k)
-  total <- as.numeric(parsed$contract$coordinate_count)
+  total <- as.numeric(projection$total)
   expected_count <- ceiling(total / chunk_size)
   chunk_count <- as.integer(.exact_gc_integer(
     chunk_count, "alignment-mask chunk count", 1, 2^31 - 1))
@@ -91,7 +182,8 @@
   expected_operation <- .dsvert_dp_alignment_mask_operation_id(
     batch_operation_id, parsed$contract_hash, chunk_index, chunk_count)
   if (chunk_count != expected_count ||
-      !identical(operation_id, expected_operation)) {
+      (isTRUE(verify_operation) &&
+       !identical(operation_id, expected_operation))) {
     stop("Invalid private alignment-mask chunk contract.", call. = FALSE)
   }
   offset <- (chunk_index - 1) * chunk_size
@@ -101,6 +193,9 @@
     operation_id = operation_id, chunk_index = chunk_index,
     chunk_count = chunk_count, chunk_size = chunk_size,
     offset = as.numeric(offset), n = n, total = total, source_count = k,
+    source_offset = as.numeric(projection$source_offset),
+    projection_version = projection$version,
+    alignment_contract = projection$contract,
     purpose = paste0(
       "dp.alignment-mask.", substr(parsed$contract_hash, 1L, 20L),
       ".c-", chunk_index, "-", chunk_count))
@@ -146,6 +241,9 @@
     source_count = geometry$source_count,
     total = geometry$total, chunk_count = geometry$chunk_count,
     chunk_size = geometry$chunk_size,
+    source_offset = geometry$source_offset,
+    projection_version = geometry$projection_version,
+    alignment_contract = geometry$alignment_contract,
     peer_binding_digest = ss$.exact_gc_peer_binding_digest)
   if (is.null(batch) && isTRUE(create)) {
     existing_ids <- ls(batches, all.names = TRUE)
@@ -188,6 +286,21 @@
   batch
 }
 
+.dsvert_dp_alignment_mask_loaded_batch <- function(
+    ss, parsed, batch_operation_id, session_id) {
+  batch_operation_id <- .dsvert_relay_validate_operation_id(
+    batch_operation_id)
+  batch <- .dsvert_dp_alignment_mask_batches(ss)[[batch_operation_id]]
+  projection <- .dsvert_dp_alignment_mask_projection_for_batch(parsed, batch)
+  geometry <- .dsvert_dp_alignment_mask_geometry(
+    parsed, projection, batch_operation_id, "", 1L,
+    batch$chunk_count, verify_operation = FALSE)
+  list(
+    batch = .dsvert_dp_alignment_mask_batch(
+      ss, parsed, geometry, session_id, create = FALSE),
+    geometry = geometry)
+}
+
 .dsvert_dp_alignment_mask_digest_records <- function(state, sources) {
   shares <- state$private_alignment_consensus_shares
   if (!is.list(shares) || is.null(names(shares)) ||
@@ -221,8 +334,11 @@
   operation_id <- .dsvert_relay_validate_operation_id(operation_id)
   parsed <- .dsvert_dp_alignment_mask_contract(
     .policy, manifest_json, source_contract)
-  geometry <- .dsvert_dp_alignment_mask_geometry(
+  projection <- .dsvert_dp_alignment_mask_projection_for_request(
     parsed, batch_operation_id, operation_id, chunk_index, chunk_count)
+  geometry <- .dsvert_dp_alignment_mask_geometry(
+    parsed, projection, batch_operation_id, operation_id, chunk_index,
+    chunk_count)
   ss <- .S(session_id)
   parties <- .exact_gc_vecmul_party_context(ss)
   designated <- .dsvert_dp_capsule_source_names(
@@ -261,7 +377,8 @@
         }
         values <- .dsvert_dp_capsule_source_aggregate_range_in_store(
           connection, parsed$contract, parsed$contract$capsule_id,
-          geometry$offset + 1, geometry$n, .secret)
+          geometry$source_offset + geometry$offset + 1, geometry$n,
+          .secret)
         c(values, .dsvert_dp_alignment_mask_digest_records(
           state, parsed$sources))
       })
@@ -385,8 +502,11 @@ dsvertDPAlignmentMaskStartDS <- function(
   session_id <- .dsvert_relay_validate_session_id(session_id)
   parsed <- .dsvert_dp_alignment_mask_contract(
     .policy, manifest_json, source_contract)
-  geometry <- .dsvert_dp_alignment_mask_geometry(
+  projection <- .dsvert_dp_alignment_mask_projection_for_request(
     parsed, batch_operation_id, operation_id, chunk_index, chunk_count)
+  geometry <- .dsvert_dp_alignment_mask_geometry(
+    parsed, projection, batch_operation_id, operation_id, chunk_index,
+    chunk_count)
   ss <- .S(session_id)
   batch <- .dsvert_dp_alignment_mask_batch(
     ss, parsed, geometry, session_id, create = FALSE)
@@ -463,7 +583,7 @@ dsvertDPAlignmentMaskStoreDS <- function(
     context_hashes = as.list(batch$context_hashes)))
   list(
     version = .DSVERT_DP_ALIGNMENT_MASK_TERMINAL_VERSION,
-    contract = .DSVERT_DP_ALIGNMENT_MASK_CONTRACT,
+    contract = batch$alignment_contract,
     session_id = batch$session_id,
     batch_operation_id = batch$batch_operation_id,
     capsule_id = batch$capsule_id,
@@ -471,6 +591,8 @@ dsvertDPAlignmentMaskStoreDS <- function(
     peer_binding_digest = batch$peer_binding_digest,
     source_count = batch$source_count,
     coordinate_count = batch$total,
+    source_offset = batch$source_offset,
+    projection_version = batch$projection_version,
     chunk_count = batch$chunk_count,
     transcript_sha256 = transcript,
     sender_name = sender, recipient_name = recipient,
@@ -486,17 +608,10 @@ dsvertDPAlignmentMaskStoreDS <- function(
   session_id <- .dsvert_relay_validate_session_id(session_id)
   parsed <- .dsvert_dp_alignment_mask_contract(
     .policy, manifest_json, source_contract)
-  k <- length(parsed$sources)
-  geometry <- list(
-    batch_operation_id = .dsvert_relay_validate_operation_id(
-      batch_operation_id), source_count = k,
-    total = as.numeric(parsed$contract$coordinate_count),
-    chunk_size = .dsvert_dp_alignment_mask_chunk_size(k))
-  geometry$chunk_count <- as.integer(ceiling(
-    geometry$total / geometry$chunk_size))
   ss <- .S(session_id)
-  batch <- .dsvert_dp_alignment_mask_batch(
-    ss, parsed, geometry, session_id, create = FALSE)
+  loaded <- .dsvert_dp_alignment_mask_loaded_batch(
+    ss, parsed, batch_operation_id, session_id)
+  batch <- loaded$batch
   complete_chunks <- all(nzchar(batch$chunk_digests)) &&
     all(nzchar(batch$context_hashes)) && all(nzchar(batch$operation_ids))
   info <- file.info(batch$path)
@@ -563,17 +678,10 @@ dsvertDPAlignmentMaskSealDS <- function(
   session_id <- .dsvert_relay_validate_session_id(session_id)
   parsed <- .dsvert_dp_alignment_mask_contract(
     .policy, manifest_json, source_contract)
-  k <- length(parsed$sources)
-  geometry <- list(
-    batch_operation_id = .dsvert_relay_validate_operation_id(
-      batch_operation_id), source_count = k,
-    total = as.numeric(parsed$contract$coordinate_count),
-    chunk_size = .dsvert_dp_alignment_mask_chunk_size(k))
-  geometry$chunk_count <- as.integer(ceiling(
-    geometry$total / geometry$chunk_size))
   ss <- .S(session_id)
-  batch <- .dsvert_dp_alignment_mask_batch(
-    ss, parsed, geometry, session_id, create = FALSE)
+  loaded <- .dsvert_dp_alignment_mask_loaded_batch(
+    ss, parsed, batch_operation_id, session_id)
+  batch <- loaded$batch
   payload_digest <- digest::digest(
     peer_blob, algo = "sha256", serialize = FALSE)
   if (batch$status %in% c("complete", "alignment_contract_invalid")) {
@@ -667,13 +775,16 @@ dsvertDPAlignmentMaskReceiveDS <- function(
     ss, capsule_id, contract_hash, start, count) {
   batch <- .dsvert_dp_alignment_mask_complete_batch(
     ss, capsule_id, contract_hash)
+  first <- as.numeric(batch$source_offset) + 1
+  last <- as.numeric(batch$source_offset) + as.numeric(batch$total)
   start <- .dsvert_dp_capsule_source_index(
-    start, "masked aggregate range start", 1, batch$total)
+    start, "masked aggregate range start", first, last)
   count <- .dsvert_dp_capsule_source_index(
-    count, "masked aggregate range length", 1, batch$total - start + 1)
+    count, "masked aggregate range length", 1, last - start + 1)
+  local_start <- start - as.numeric(batch$source_offset)
   connection <- file(batch$path, open = "rb")
   on.exit(close(connection), add = TRUE)
-  seek(connection, where = (start - 1) * 16, origin = "start")
+  seek(connection, where = (local_start - 1) * 16, origin = "start")
   result <- readBin(connection, what = "raw", n = count * 16L)
   if (!is.raw(result) || length(result) != count * 16L) {
     stop("The exact private alignment-mask output is incomplete.",

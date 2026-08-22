@@ -19,11 +19,12 @@ type formalGLMRegisteredPhase20JobComputeTestFixtureV1 struct {
 }
 
 func formalGLMRegisteredPhase20JobComputeTestBuild(
-	t *testing.T,
+	t *testing.T, custodians, totalCapacity int,
 ) *formalGLMRegisteredPhase20JobComputeTestFixtureV1 {
 	t.Helper()
 	fixture := &formalGLMRegisteredPhase20JobComputeTestFixtureV1{
-		provenance: formalGLMRegisteredPhase18ProvenanceTestBuild(t, 2),
+		provenance: formalGLMRegisteredPhase18ProvenanceTestBuildWithCapacity(
+			t, custodians, totalCapacity),
 	}
 	source := fixture.provenance.source
 	plan, contract := source.plan, source.contract
@@ -75,7 +76,7 @@ func formalGLMRegisteredPhase20JobComputeTestBuild(
 			values, validity := formalGLMRegisteredPhase18MaterializedPairTestValues(
 				authorization, blockIndex)
 			consensus := sha256.Sum256([]byte(fmt.Sprintf(
-				"registered-job-compute/K2/%s/%d", source, blockIndex)))
+				"registered-job-compute/K%d/%s/%d", custodians, source, blockIndex)))
 			pair, err := formalGLMRegisteredPhase18BuildMaterializedBlockPairV3(
 				contract, authorization, tickets, blockIndex, values, validity,
 				consensus[:], private[source], pins)
@@ -264,7 +265,29 @@ func formalGLMRegisteredPhase20JobComputeTestRelayV1(
 func TestFormalGLMRegisteredPhase20JobComputeK2SealsWithoutRawOutput(
 	t *testing.T,
 ) {
-	fixture := formalGLMRegisteredPhase20JobComputeTestBuild(t)
+	formalGLMRegisteredPhase20JobComputeSealsWithoutRawOutput(t, 2, 9)
+}
+
+func TestFormalGLMRegisteredPhase20JobComputeK3K5SealsWithoutRawOutput(
+	t *testing.T,
+) {
+	for _, custodians := range []int{3, 5} {
+		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+			formalGLMRegisteredPhase20JobComputeSealsWithoutRawOutput(t, custodians, 4)
+		})
+	}
+}
+
+func formalGLMRegisteredPhase20JobComputeSealsWithoutRawOutput(
+	t *testing.T, custodians, totalCapacity int,
+) {
+	t.Helper()
+	fixture := formalGLMRegisteredPhase20JobComputeTestBuild(t, custodians, totalCapacity)
+	plan := fixture.provenance.source.plan
+	if plan.TotalCapacity != totalCapacity ||
+		plan.TotalBlocks != (totalCapacity+plan.BlockCapacity-1)/plan.BlockCapacity {
+		t.Fatal("registered job compute changed its public block geometry")
+	}
 	if err := fixture.owners[0].RunComputeV1(
 		fixture.providers[0], fixture.ingress[0]); err == nil {
 		t.Fatal("job compute ran before the peer epoch was bound")

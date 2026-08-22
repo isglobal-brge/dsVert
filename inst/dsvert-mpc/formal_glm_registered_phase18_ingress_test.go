@@ -76,9 +76,15 @@ func TestFormalGLMRegisteredPhase18ValidationContextK2K5RepeatedChecksV3(
 func formalGLMRegisteredPhase18IngressTestSource(t testing.TB,
 	custodians int,
 ) formalGLMSourceContractTestFixtureV1 {
+	return formalGLMRegisteredPhase18IngressTestSourceWithCapacity(t, custodians, 9)
+}
+
+func formalGLMRegisteredPhase18IngressTestSourceWithCapacity(t testing.TB,
+	custodians, totalCapacity int,
+) formalGLMSourceContractTestFixtureV1 {
 	t.Helper()
 	legacy := formalGLMPhase15TestPlan(
-		t, "binomial", custodians, 4, 1, 9, 1)
+		t, "binomial", custodians, 4, 1, totalCapacity, 1)
 	identities := formalGLMPhase15TestIdentitySet(
 		t, legacy.Kernel.CustodianPeers)
 	pinsetSHA256, err := formalGLMPhase16PinsetSHA256(identities.public)

@@ -98,8 +98,15 @@ func TestFormalGLMRegisteredPhase18CanonicalDecoderClosed(t *testing.T) {
 func formalGLMRegisteredPhase18ProvenanceTestBuild(t testing.TB,
 	custodians int,
 ) formalGLMRegisteredPhase18ProvenanceTestFixtureV1 {
+	return formalGLMRegisteredPhase18ProvenanceTestBuildWithCapacity(t, custodians, 9)
+}
+
+func formalGLMRegisteredPhase18ProvenanceTestBuildWithCapacity(t testing.TB,
+	custodians, totalCapacity int,
+) formalGLMRegisteredPhase18ProvenanceTestFixtureV1 {
 	t.Helper()
-	source := formalGLMRegisteredPhase18IngressTestSource(t, custodians)
+	source := formalGLMRegisteredPhase18IngressTestSourceWithCapacity(
+		t, custodians, totalCapacity)
 	pins := source.inputs.identities.public
 	context, err := formalGLMRegisteredPhase18NewProvenanceContextV1(
 		source.contract, pins)

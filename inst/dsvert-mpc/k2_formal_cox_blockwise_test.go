@@ -386,18 +386,42 @@ func TestFormalCoxBlockwisePlanCommitsScoreApproximationBounds(t *testing.T) {
 		if err != nil {
 			t.Fatalf("K=%d policy: %v", custodians, err)
 		}
+		dyadic, err := formalCoxExpDyadic(parsed.expKnots[0], parsed.scale,
+			policy.ExpCertificateBits)
+		if err != nil {
+			t.Fatalf("K=%d exact lower exp weight: %v", custodians, err)
+		}
+		minimumExactWeight := new(big.Int).Quo(
+			new(big.Int).Mul(dyadic.low, parsed.scale),
+			jointDPGaussianDyadicScale(policy.ExpCertificateBits))
+		if minimumExactWeight.Sign() <= 0 {
+			t.Fatalf("K=%d non-positive exact lower exp weight", custodians)
+		}
 		weightMin := parsed.expValues[0]
+		if minimumExactWeight.Cmp(weightMin) < 0 {
+			weightMin = minimumExactWeight
+		}
+		etaRounding := exactGCCeilDiv(new(big.Int).Mul(
+			big.NewInt(int64(policy.CovariateCount)),
+			new(big.Int).Add(parsed.expValues[len(parsed.expValues)-1], parsed.expError)),
+			parsed.scale)
+		effectiveExpError := new(big.Int).Add(parsed.expError, etaRounding)
 		wantTable := exactGCCeilDiv(new(big.Int).Mul(
 			new(big.Int).Mul(big.NewInt(2), parsed.xNorm),
-			parsed.expError), weightMin)
-		wantRounding := exactGCCeilDiv(parsed.scale, weightMin)
+			effectiveExpError), weightMin)
+		wantRounding := exactGCCeilDiv(parsed.scale, parsed.expValues[0])
 		wantRounding.Add(wantRounding, big.NewInt(1))
 		wantScore := new(big.Int).Add(
 			new(big.Int).Set(wantTable), wantRounding)
 		certificate := plan.ScoreApproximation
 		if certificate.Version != formalCoxBlockwiseScoreApproximationVersion ||
-			certificate.ExpWeightMaximumAbsErrorSteps != parsed.expError.String() ||
-			certificate.MinimumTableWeightSteps != weightMin.String() ||
+			certificate.LinearPredictorFixedPointRoundingMaximumAbsSteps !=
+				big.NewInt(int64(policy.CovariateCount)).String() ||
+			certificate.ExpWeightLinearPredictorMaximumAbsErrorSteps !=
+				etaRounding.String() ||
+			certificate.ExpWeightMaximumAbsErrorSteps != effectiveExpError.String() ||
+			certificate.MinimumExactWeightSteps != minimumExactWeight.String() ||
+			certificate.MinimumTableWeightSteps != parsed.expValues[0].String() ||
 			certificate.RiskMeanTableMaximumAbsErrorSteps != wantTable.String() ||
 			certificate.RiskMeanFixedPointRoundingMaximumAbsErrorSteps !=
 				wantRounding.String() ||
@@ -406,6 +430,11 @@ func TestFormalCoxBlockwisePlanCommitsScoreApproximationBounds(t *testing.T) {
 				certificate)
 		}
 		tampered := plan
+		tampered.ScoreApproximation.ExpWeightLinearPredictorMaximumAbsErrorSteps = "0"
+		if err := validateFormalCoxBlockwisePlan(tampered); err == nil {
+			t.Fatalf("K=%d accepted omitted eta-rounding score bound", custodians)
+		}
+		tampered = plan
 		tampered.ScoreApproximation.NormalizedScoreMaximumAbsErrorSteps = "0"
 		if err := validateFormalCoxBlockwisePlan(tampered); err == nil {
 			t.Fatalf("K=%d accepted tampered score approximation certificate", custodians)

@@ -158,6 +158,10 @@ func TestFormalCoxBlockwiseExchangeControllerRejectsUnboundOrWrongRoots(t *testi
 		formalCoxBlockwiseExchangeRootClaim{}); err == nil {
 		t.Fatal("controller accepted an unsigned peer source root claim")
 	}
+	if _, err := os.Lstat(filepath.Join(controller.transport.rootPath,
+		formalCoxBlockwiseExchangePeerRootClaimFile)); !os.IsNotExist(err) {
+		t.Fatalf("rejected peer source root claim persisted a record: %v", err)
+	}
 	if _, done, err := controller.Result(); err != nil || done {
 		t.Fatalf("failed preflight changed worker state: done=%v err=%v", done, err)
 	}
@@ -259,6 +263,79 @@ func TestFormalCoxBlockwiseExchangeControllerRootClaimsK2K3K5(t *testing.T) {
 				}
 				if _, done, err := controllers[0].Result(); err != nil || done {
 					t.Fatalf("rejected root claim changed controller state: done=%v err=%v", done, err)
+				}
+			}
+		})
+	}
+}
+
+func TestFormalCoxBlockwiseExchangeControllerPersistsPeerRootClaimK2K3K5(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+			fixture := newFormalCoxBlockwiseSourceBridgeTestFixture(t, custodians,
+				map[string]bool{"peer-a": true, "peer-b": true})
+			step, err := formalCoxBlockwiseWorkerStepAt(fixture.plan, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			formalCoxBlockwiseSourceBridgeTestStageWorkers(t, fixture, step.ScheduleIndex)
+			bridges, err := formalCoxBlockwiseSourceBridgeTestOpen(t, fixture)
+			if err != nil {
+				t.Fatal(err)
+			}
+			root := filepath.Join(t.TempDir(), "exchange")
+			if err := os.Mkdir(root, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			attempt := sha256.Sum256([]byte(t.Name() + "/attempt"))
+			master := sha256.Sum256([]byte(t.Name() + "/master"))
+			controllers := make([]*formalCoxBlockwiseExchangeController, 2)
+			claims := make([]formalCoxBlockwiseExchangeRootClaim, 2)
+			for index, peer := range fixture.plan.Policy.ComputePeers {
+				peerRoot := filepath.Join(root, peer)
+				if err := os.Mkdir(peerRoot, 0o700); err != nil {
+					t.Fatal(err)
+				}
+				lease, err := openFormalCoxBlockwiseExchangeLease(
+					peerRoot, fixture.plan, peer, attempt)
+				if err != nil {
+					t.Fatal(err)
+				}
+				controllers[index], err = newFormalCoxBlockwiseExchangeController(
+					bridges[index], lease)
+				if err != nil {
+					_ = lease.Close()
+					t.Fatal(err)
+				}
+				defer controllers[index].Close()
+				if err := controllers[index].BindPeer(
+					fixture.plan.Policy.ComputePeers[1-index]); err != nil {
+					t.Fatal(err)
+				}
+				claims[index], err = controllers[index].RootClaim(step, attempt)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			for index, controller := range controllers {
+				if err := controller.Start(step, attempt, master, claims[1-index]); err != nil {
+					t.Fatal(err)
+				}
+				encoded, err := os.ReadFile(filepath.Join(
+					controller.transport.rootPath, "peer-root-claim.json"))
+				if err != nil {
+					t.Fatalf("peer root claim was not persisted: %v", err)
+				}
+				info, err := os.Lstat(filepath.Join(
+					controller.transport.rootPath, "peer-root-claim.json"))
+				if err != nil || !info.Mode().IsRegular() ||
+					info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != 0o600 ||
+					!exactGCPrivateOwnedRegular(info) {
+					t.Fatal("persisted peer root claim is not a private regular record")
+				}
+				stored, err := formalCoxBlockwiseExchangeDecodeRootClaim(encoded)
+				if err != nil || !reflect.DeepEqual(stored, claims[1-index]) {
+					t.Fatalf("persisted peer root claim changed: %v", err)
 				}
 			}
 		})

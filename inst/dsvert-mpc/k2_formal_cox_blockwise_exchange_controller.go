@@ -7,20 +7,24 @@ package main
 // accepts wire JSON nor restarts a burned worker attempt.
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/hmac"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"reflect"
 	"sync"
 )
 
 const (
-	formalCoxBlockwiseExchangeRootClaimVersion = "dsvert-formal-cox-exchange-root-claim-v1"
-	formalCoxBlockwiseExchangeRootClaimPurpose = "formal_cox_blockwise_exact_gc_input_root_v1"
-	formalCoxBlockwiseExchangeRootClaimDomain  = "dsVert/formal-cox/exchange-root-claim/v1"
-	formalCoxBlockwiseExchangeRootClaimMax     = 4096
+	formalCoxBlockwiseExchangeRootClaimVersion  = "dsvert-formal-cox-exchange-root-claim-v1"
+	formalCoxBlockwiseExchangeRootClaimPurpose  = "formal_cox_blockwise_exact_gc_input_root_v1"
+	formalCoxBlockwiseExchangeRootClaimDomain   = "dsVert/formal-cox/exchange-root-claim/v1"
+	formalCoxBlockwiseExchangeRootClaimMax      = 4096
+	formalCoxBlockwiseExchangePeerRootClaimFile = "peer-root-claim.json"
 )
 
 // formalCoxBlockwiseExchangeRootClaim is the only share-free wire value
@@ -265,6 +269,92 @@ func (controller *formalCoxBlockwiseExchangeController) ValidatePeerRootClaim(
 	return controller.validatePeerRootClaimLocked(step, attempt, claim)
 }
 
+func formalCoxBlockwiseExchangeReadPeerRootClaim(root *os.Root) ([]byte, error) {
+	if root == nil {
+		return nil, fmt.Errorf("formal-cox: exchange peer root claim is unavailable")
+	}
+	info, err := root.Lstat(formalCoxBlockwiseExchangePeerRootClaimFile)
+	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 ||
+		info.Mode().Perm() != 0o600 || !exactGCPrivateOwnedRegular(info) ||
+		info.Size() < 64 || info.Size() > formalCoxBlockwiseExchangeRootClaimMax {
+		return nil, fmt.Errorf("formal-cox: exchange peer root claim is unsafe")
+	}
+	file, err := root.Open(formalCoxBlockwiseExchangePeerRootClaimFile)
+	if err != nil {
+		return nil, err
+	}
+	opened, statErr := file.Stat()
+	if statErr != nil || !os.SameFile(info, opened) ||
+		opened.Mode().Perm() != 0o600 || !exactGCPrivateOwnedRegular(opened) ||
+		opened.Size() != info.Size() {
+		_ = file.Close()
+		return nil, fmt.Errorf("formal-cox: exchange peer root claim changed while opening")
+	}
+	encoded := make([]byte, opened.Size())
+	_, readErr := io.ReadFull(file, encoded)
+	closeErr := file.Close()
+	if readErr != nil {
+		clear(encoded)
+		return nil, readErr
+	}
+	if closeErr != nil {
+		clear(encoded)
+		return nil, closeErr
+	}
+	if _, err := formalCoxBlockwiseExchangeDecodeRootClaim(encoded); err != nil {
+		clear(encoded)
+		return nil, err
+	}
+	return encoded, nil
+}
+
+// persistPeerRootClaimLocked fixes the already-verified peer commitment before
+// the local checkpoint advances.  The claim is itself pinned and signed, so
+// this does not add a transport key or disclose a source share; it gives a
+// later relay opener one durable public binding for this burned worker slot.
+func (controller *formalCoxBlockwiseExchangeController) persistPeerRootClaimLocked(
+	claim formalCoxBlockwiseExchangeRootClaim,
+) error {
+	if controller == nil || controller.closed || controller.transport == nil ||
+		controller.transport.root == nil || controller.transport.closed {
+		return fmt.Errorf("formal-cox: exchange peer root claim is unavailable")
+	}
+	encoded, err := formalCoxBlockwiseExchangeMarshalRootClaim(claim)
+	if err != nil {
+		return err
+	}
+	defer clear(encoded)
+	root := controller.transport.root
+	err = formalCoxBlockwiseExchangeTransportWriteInitial(root,
+		formalCoxBlockwiseExchangePeerRootClaimFile, encoded)
+	if os.IsExist(err) {
+		existing, readErr := formalCoxBlockwiseExchangeReadPeerRootClaim(root)
+		if readErr != nil {
+			return readErr
+		}
+		defer clear(existing)
+		if !bytes.Equal(existing, encoded) {
+			return fmt.Errorf("formal-cox: exchange peer root claim conflicts")
+		}
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if err := formalCoxBlockwiseExchangeLeaseSyncRoot(root); err != nil {
+		return err
+	}
+	existing, err := formalCoxBlockwiseExchangeReadPeerRootClaim(root)
+	if err != nil {
+		return err
+	}
+	defer clear(existing)
+	if !bytes.Equal(existing, encoded) {
+		return fmt.Errorf("formal-cox: exchange peer root claim readback changed")
+	}
+	return nil
+}
+
 // PublicInputRoot computes only the local source commitment for diagnostics
 // and root-claim construction. It cannot start a worker: Start accepts only a
 // signed peer root claim and recomputes the local commitment itself.
@@ -298,6 +388,9 @@ func (controller *formalCoxBlockwiseExchangeController) Start(
 	}
 	pairedRoot, err := controller.validatePeerRootClaimLocked(step, attempt, peerClaim)
 	if err != nil {
+		return err
+	}
+	if err := controller.persistPeerRootClaimLocked(peerClaim); err != nil {
 		return err
 	}
 	bound, err := controller.bridge.BeginAttempt(step, attempt, pairedRoot)

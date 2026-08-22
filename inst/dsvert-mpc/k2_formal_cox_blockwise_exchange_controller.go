@@ -20,11 +20,12 @@ import (
 )
 
 const (
-	formalCoxBlockwiseExchangeRootClaimVersion  = "dsvert-formal-cox-exchange-root-claim-v1"
-	formalCoxBlockwiseExchangeRootClaimPurpose  = "formal_cox_blockwise_exact_gc_input_root_v1"
-	formalCoxBlockwiseExchangeRootClaimDomain   = "dsVert/formal-cox/exchange-root-claim/v1"
-	formalCoxBlockwiseExchangeRootClaimMax      = 4096
-	formalCoxBlockwiseExchangePeerRootClaimFile = "peer-root-claim.json"
+	formalCoxBlockwiseExchangeRootClaimVersion   = "dsvert-formal-cox-exchange-root-claim-v1"
+	formalCoxBlockwiseExchangeRootClaimPurpose   = "formal_cox_blockwise_exact_gc_input_root_v1"
+	formalCoxBlockwiseExchangeRootClaimDomain    = "dsVert/formal-cox/exchange-root-claim/v1"
+	formalCoxBlockwiseExchangeRootClaimMax       = 4096
+	formalCoxBlockwiseExchangeLocalRootClaimFile = "local-root-claim.json"
+	formalCoxBlockwiseExchangePeerRootClaimFile  = "peer-root-claim.json"
 )
 
 // formalCoxBlockwiseExchangeRootClaim is the only share-free wire value
@@ -207,6 +208,13 @@ func (controller *formalCoxBlockwiseExchangeController) RootClaim(
 	}
 	controller.mu.Lock()
 	defer controller.mu.Unlock()
+	return controller.localRootClaimLocked(step, attempt)
+}
+
+func (controller *formalCoxBlockwiseExchangeController) localRootClaimLocked(
+	step formalCoxBlockwiseWorkerStep, attempt [32]byte,
+) (formalCoxBlockwiseExchangeRootClaim, error) {
+	var zero formalCoxBlockwiseExchangeRootClaim
 	claim, _, err := controller.rootClaimTemplateLocked(
 		step, attempt, controller.peer, controller.transport.remotePeer)
 	if err != nil {
@@ -269,17 +277,21 @@ func (controller *formalCoxBlockwiseExchangeController) ValidatePeerRootClaim(
 	return controller.validatePeerRootClaimLocked(step, attempt, claim)
 }
 
-func formalCoxBlockwiseExchangeReadPeerRootClaim(root *os.Root) ([]byte, error) {
+func formalCoxBlockwiseExchangeReadRootClaim(root *os.Root, name string) ([]byte, error) {
 	if root == nil {
-		return nil, fmt.Errorf("formal-cox: exchange peer root claim is unavailable")
+		return nil, fmt.Errorf("formal-cox: exchange root claim is unavailable")
 	}
-	info, err := root.Lstat(formalCoxBlockwiseExchangePeerRootClaimFile)
+	if name != formalCoxBlockwiseExchangeLocalRootClaimFile &&
+		name != formalCoxBlockwiseExchangePeerRootClaimFile {
+		return nil, fmt.Errorf("formal-cox: exchange root claim name is invalid")
+	}
+	info, err := root.Lstat(name)
 	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 ||
 		info.Mode().Perm() != 0o600 || !exactGCPrivateOwnedRegular(info) ||
 		info.Size() < 64 || info.Size() > formalCoxBlockwiseExchangeRootClaimMax {
-		return nil, fmt.Errorf("formal-cox: exchange peer root claim is unsafe")
+		return nil, fmt.Errorf("formal-cox: exchange root claim is unsafe")
 	}
-	file, err := root.Open(formalCoxBlockwiseExchangePeerRootClaimFile)
+	file, err := root.Open(name)
 	if err != nil {
 		return nil, err
 	}
@@ -308,16 +320,19 @@ func formalCoxBlockwiseExchangeReadPeerRootClaim(root *os.Root) ([]byte, error) 
 	return encoded, nil
 }
 
-// persistPeerRootClaimLocked fixes the already-verified peer commitment before
-// the local checkpoint advances.  The claim is itself pinned and signed, so
-// this does not add a transport key or disclose a source share; it gives a
-// later relay opener one durable public binding for this burned worker slot.
-func (controller *formalCoxBlockwiseExchangeController) persistPeerRootClaimLocked(
-	claim formalCoxBlockwiseExchangeRootClaim,
+// persistRootClaimLocked fixes one already-verified public commitment before
+// the local checkpoint advances. The paired local and peer records let a
+// later relay opener reject a partially initialized burned worker slot.
+func (controller *formalCoxBlockwiseExchangeController) persistRootClaimLocked(
+	name string, claim formalCoxBlockwiseExchangeRootClaim,
 ) error {
 	if controller == nil || controller.closed || controller.transport == nil ||
 		controller.transport.root == nil || controller.transport.closed {
-		return fmt.Errorf("formal-cox: exchange peer root claim is unavailable")
+		return fmt.Errorf("formal-cox: exchange root claim is unavailable")
+	}
+	if name != formalCoxBlockwiseExchangeLocalRootClaimFile &&
+		name != formalCoxBlockwiseExchangePeerRootClaimFile {
+		return fmt.Errorf("formal-cox: exchange root claim name is invalid")
 	}
 	encoded, err := formalCoxBlockwiseExchangeMarshalRootClaim(claim)
 	if err != nil {
@@ -325,16 +340,15 @@ func (controller *formalCoxBlockwiseExchangeController) persistPeerRootClaimLock
 	}
 	defer clear(encoded)
 	root := controller.transport.root
-	err = formalCoxBlockwiseExchangeTransportWriteInitial(root,
-		formalCoxBlockwiseExchangePeerRootClaimFile, encoded)
+	err = formalCoxBlockwiseExchangeTransportWriteInitial(root, name, encoded)
 	if os.IsExist(err) {
-		existing, readErr := formalCoxBlockwiseExchangeReadPeerRootClaim(root)
+		existing, readErr := formalCoxBlockwiseExchangeReadRootClaim(root, name)
 		if readErr != nil {
 			return readErr
 		}
 		defer clear(existing)
 		if !bytes.Equal(existing, encoded) {
-			return fmt.Errorf("formal-cox: exchange peer root claim conflicts")
+			return fmt.Errorf("formal-cox: exchange root claim conflicts")
 		}
 		return nil
 	}
@@ -344,13 +358,13 @@ func (controller *formalCoxBlockwiseExchangeController) persistPeerRootClaimLock
 	if err := formalCoxBlockwiseExchangeLeaseSyncRoot(root); err != nil {
 		return err
 	}
-	existing, err := formalCoxBlockwiseExchangeReadPeerRootClaim(root)
+	existing, err := formalCoxBlockwiseExchangeReadRootClaim(root, name)
 	if err != nil {
 		return err
 	}
 	defer clear(existing)
 	if !bytes.Equal(existing, encoded) {
-		return fmt.Errorf("formal-cox: exchange peer root claim readback changed")
+		return fmt.Errorf("formal-cox: exchange root claim readback changed")
 	}
 	return nil
 }
@@ -390,7 +404,19 @@ func (controller *formalCoxBlockwiseExchangeController) Start(
 	if err != nil {
 		return err
 	}
-	if err := controller.persistPeerRootClaimLocked(peerClaim); err != nil {
+	localClaim, err := controller.localRootClaimLocked(step, attempt)
+	if err != nil {
+		return err
+	}
+	if localClaim.InputRootSHA256 != pairedRoot {
+		return fmt.Errorf("formal-cox: exchange root claim pairing mismatch")
+	}
+	if err := controller.persistRootClaimLocked(
+		formalCoxBlockwiseExchangeLocalRootClaimFile, localClaim); err != nil {
+		return err
+	}
+	if err := controller.persistRootClaimLocked(
+		formalCoxBlockwiseExchangePeerRootClaimFile, peerClaim); err != nil {
 		return err
 	}
 	bound, err := controller.bridge.BeginAttempt(step, attempt, pairedRoot)

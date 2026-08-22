@@ -158,9 +158,13 @@ func TestFormalCoxBlockwiseExchangeControllerRejectsUnboundOrWrongRoots(t *testi
 		formalCoxBlockwiseExchangeRootClaim{}); err == nil {
 		t.Fatal("controller accepted an unsigned peer source root claim")
 	}
-	if _, err := os.Lstat(filepath.Join(controller.transport.rootPath,
-		formalCoxBlockwiseExchangePeerRootClaimFile)); !os.IsNotExist(err) {
-		t.Fatalf("rejected peer source root claim persisted a record: %v", err)
+	for _, name := range []string{
+		formalCoxBlockwiseExchangeLocalRootClaimFile,
+		formalCoxBlockwiseExchangePeerRootClaimFile,
+	} {
+		if _, err := os.Lstat(filepath.Join(controller.transport.rootPath, name)); !os.IsNotExist(err) {
+			t.Fatalf("rejected peer source root claim persisted %s: %v", name, err)
+		}
 	}
 	if _, done, err := controller.Result(); err != nil || done {
 		t.Fatalf("failed preflight changed worker state: done=%v err=%v", done, err)
@@ -321,21 +325,29 @@ func TestFormalCoxBlockwiseExchangeControllerPersistsPeerRootClaimK2K3K5(t *test
 				if err := controller.Start(step, attempt, master, claims[1-index]); err != nil {
 					t.Fatal(err)
 				}
-				encoded, err := os.ReadFile(filepath.Join(
-					controller.transport.rootPath, "peer-root-claim.json"))
-				if err != nil {
-					t.Fatalf("peer root claim was not persisted: %v", err)
-				}
-				info, err := os.Lstat(filepath.Join(
-					controller.transport.rootPath, "peer-root-claim.json"))
-				if err != nil || !info.Mode().IsRegular() ||
-					info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != 0o600 ||
-					!exactGCPrivateOwnedRegular(info) {
-					t.Fatal("persisted peer root claim is not a private regular record")
-				}
-				stored, err := formalCoxBlockwiseExchangeDecodeRootClaim(encoded)
-				if err != nil || !reflect.DeepEqual(stored, claims[1-index]) {
-					t.Fatalf("persisted peer root claim changed: %v", err)
+				for _, want := range []struct {
+					name  string
+					claim formalCoxBlockwiseExchangeRootClaim
+				}{
+					{formalCoxBlockwiseExchangePeerRootClaimFile, claims[1-index]},
+					{formalCoxBlockwiseExchangeLocalRootClaimFile, claims[index]},
+				} {
+					encoded, err := os.ReadFile(filepath.Join(
+						controller.transport.rootPath, want.name))
+					if err != nil {
+						t.Fatalf("%s was not persisted: %v", want.name, err)
+					}
+					info, err := os.Lstat(filepath.Join(
+						controller.transport.rootPath, want.name))
+					if err != nil || !info.Mode().IsRegular() ||
+						info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != 0o600 ||
+						!exactGCPrivateOwnedRegular(info) {
+						t.Fatalf("persisted %s is not a private regular record", want.name)
+					}
+					stored, err := formalCoxBlockwiseExchangeDecodeRootClaim(encoded)
+					if err != nil || !reflect.DeepEqual(stored, want.claim) {
+						t.Fatalf("persisted %s changed: %v", want.name, err)
+					}
 				}
 			}
 		})

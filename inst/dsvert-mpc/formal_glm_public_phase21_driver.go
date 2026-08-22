@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/ed25519"
 	"fmt"
+	"os"
 	"sync"
 )
 
@@ -14,6 +15,7 @@ type formalGLMPublicPhase21TerminalDriverV1 struct {
 	mu sync.Mutex
 
 	root     string
+	rootInfo os.FileInfo
 	contract formalGLMPhase21SamplerV2Contract
 	pins     map[string]ed25519.PublicKey
 	closed   bool
@@ -31,7 +33,9 @@ func newFormalGLMPublicPhase21TerminalDriverV1(
 	if err != nil {
 		return nil, fmt.Errorf("formal-glm public Phase21 driver: invalid Rock root")
 	}
-	if err := opened.Close(); err != nil {
+	rootInfo, statErr := opened.Stat(".")
+	closeErr := opened.Close()
+	if statErr != nil || closeErr != nil || rootInfo == nil {
 		return nil, fmt.Errorf("formal-glm public Phase21 driver: Rock root close failed")
 	}
 	clonedContract, cloneErr := formalGLMRegisteredPhase20TerminalCloneV1(contract)
@@ -39,7 +43,7 @@ func newFormalGLMPublicPhase21TerminalDriverV1(
 		return nil, fmt.Errorf("formal-glm public Phase21 driver: contract clone failed")
 	}
 	return &formalGLMPublicPhase21TerminalDriverV1{
-		root: root, contract: clonedContract,
+		root: root, rootInfo: rootInfo, contract: clonedContract,
 		pins: formalGLMRegisteredPhase20TerminalClonePinsV1(pins),
 	}, nil
 }
@@ -56,13 +60,23 @@ func (driver *formalGLMPublicPhase21TerminalDriverV1) AdvanceV1(
 		driver.mu.Unlock()
 		return zero, fmt.Errorf("formal-glm public Phase21 driver: closed")
 	}
-	root := driver.root
+	root, rootInfo := driver.root, driver.rootInfo
 	contract, cloneErr := formalGLMRegisteredPhase20TerminalCloneV1(driver.contract)
 	pins := formalGLMRegisteredPhase20TerminalClonePinsV1(driver.pins)
 	driver.mu.Unlock()
 	defer formalGLMRegisteredPhase20TerminalClearPinsV1(pins)
 	if cloneErr != nil {
 		return zero, fmt.Errorf("formal-glm public Phase21 driver: contract clone failed")
+	}
+	opened, openErr := formalGLMPhase21RockOpenRoot(root)
+	if openErr != nil {
+		return zero, fmt.Errorf("formal-glm public Phase21 driver: Rock root unavailable")
+	}
+	currentInfo, statErr := opened.Stat(".")
+	closeErr := opened.Close()
+	if statErr != nil || closeErr != nil || currentInfo == nil || rootInfo == nil ||
+		!os.SameFile(rootInfo, currentInfo) {
+		return zero, fmt.Errorf("formal-glm public Phase21 driver: Rock root changed")
 	}
 	terminal, err := formalGLMPhase21RockLoadPublicTerminalEvidenceV1(
 		root, contract, pins, context.Resolution)
@@ -83,6 +97,7 @@ func (driver *formalGLMPublicPhase21TerminalDriverV1) Close() {
 	}
 	driver.closed = true
 	driver.root = ""
+	driver.rootInfo = nil
 	driver.contract = formalGLMPhase21SamplerV2Contract{}
 	formalGLMRegisteredPhase20TerminalClearPinsV1(driver.pins)
 	driver.pins = nil

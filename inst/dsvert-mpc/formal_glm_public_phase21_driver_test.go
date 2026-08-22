@@ -62,6 +62,18 @@ func TestFormalGLMPublicPhase21TerminalDriverK2K3K5(t *testing.T) {
 				t.Fatalf("public durable completion = %#v / %v", complete, err)
 			}
 			advanceStore.Close()
+			if err := os.Rename(root, root+"-replaced"); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Mkdir(root, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			formalGLMPhase21PublicTerminalTestPersistV1(t, root, fixture, terminal)
+			if _, err := driver.AdvanceV1(formalGLMPublicAdvanceContextV1{
+				Resolution: fixture.resolution,
+			}); err == nil {
+				t.Fatal("driver accepted a replaced Rock root")
+			}
 
 			cleanupPath, err := formalGLMPhase21RockCleanupRecordPath(
 				root, terminal.Contract.ArtifactID,

@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -118,6 +119,43 @@ type formalCoxRSourceBridgeFixture struct {
 	Blocks     map[string][][]string `json:"blocks"`
 }
 
+type formalCoxRSourceBridgeFixtureCacheEntry struct {
+	once    sync.Once
+	encoded []byte
+	err     error
+	loads   int
+}
+
+var formalCoxRSourceBridgeFixtureCache = map[int]*formalCoxRSourceBridgeFixtureCacheEntry{
+	2: {},
+	3: {},
+	5: {},
+}
+
+func formalCoxRSourceBridgeFixtureRun(custodians int) ([]byte, error) {
+	command := exec.Command("Rscript", "--vanilla", "-e",
+		formalCoxRSourceBridgeFixtureScript, fmt.Sprint(custodians))
+	command.Env = append(os.Environ(), "R_TESTS=")
+	encoded, err := command.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("%w\n%s", err, encoded)
+	}
+	return encoded, nil
+}
+
+func (entry *formalCoxRSourceBridgeFixtureCacheEntry) load(
+	custodians int,
+) ([]byte, error) {
+	entry.once.Do(func() {
+		entry.loads++
+		entry.encoded, entry.err = formalCoxRSourceBridgeFixtureRun(custodians)
+	})
+	if entry.err != nil {
+		return nil, entry.err
+	}
+	return append([]byte(nil), entry.encoded...), nil
+}
+
 func formalCoxRSourceBridgeFixtureFor(t testing.TB,
 	custodians int) formalCoxRSourceBridgeFixture {
 
@@ -125,13 +163,18 @@ func formalCoxRSourceBridgeFixtureFor(t testing.TB,
 	if _, err := exec.LookPath("Rscript"); err != nil {
 		t.Skip("Rscript is required for the R-to-Go Cox source bridge test")
 	}
-	command := exec.Command("Rscript", "--vanilla", "-e",
-		formalCoxRSourceBridgeFixtureScript, fmt.Sprint(custodians))
-	command.Env = append(os.Environ(), "R_TESTS=")
-	encoded, err := command.CombinedOutput()
+	entry := formalCoxRSourceBridgeFixtureCache[custodians]
+	var encoded []byte
+	var err error
+	if entry == nil {
+		encoded, err = formalCoxRSourceBridgeFixtureRun(custodians)
+	} else {
+		encoded, err = entry.load(custodians)
+	}
 	if err != nil {
 		t.Fatalf("R source bridge fixture K=%d: %v\n%s", custodians, err, encoded)
 	}
+	defer clear(encoded)
 	var fixture formalCoxRSourceBridgeFixture
 	if err := json.Unmarshal(encoded, &fixture); err != nil ||
 		!json.Valid([]byte(fixture.SchemaJSON)) || len(fixture.Seeds) != custodians ||
@@ -139,6 +182,44 @@ func formalCoxRSourceBridgeFixtureFor(t testing.TB,
 		t.Fatalf("invalid R source bridge fixture K=%d: %v", custodians, err)
 	}
 	return fixture
+}
+
+func TestFormalCoxRSourceBridgeFixtureCacheReturnsIndependentCopies(t *testing.T) {
+	if _, err := exec.LookPath("Rscript"); err != nil {
+		t.Skip("Rscript is required for the R-to-Go Cox source bridge test")
+	}
+	entry := &formalCoxRSourceBridgeFixtureCacheEntry{}
+	first, err := entry.load(2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := entry.load(2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(first)
+	defer clear(second)
+	if entry.loads != 1 || len(first) == 0 || len(second) == 0 {
+		t.Fatalf("fixture cache loads=%d, first=%d, second=%d", entry.loads,
+			len(first), len(second))
+	}
+	first[0] ^= 1
+	var fixture formalCoxRSourceBridgeFixture
+	if err := json.Unmarshal(second, &fixture); err != nil ||
+		len(fixture.Seeds) != 2 || len(fixture.Blocks) != 2 {
+		t.Fatalf("fixture cache returned aliased or invalid JSON: %v", err)
+	}
+	fixture.Seeds["site1"] = "tampered"
+	third, err := entry.load(2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(third)
+	var replay formalCoxRSourceBridgeFixture
+	if err := json.Unmarshal(third, &replay); err != nil ||
+		replay.Seeds["site1"] == "tampered" {
+		t.Fatalf("fixture cache retained caller mutation: %v", err)
+	}
 }
 
 func formalCoxRSourceBridgePins(t testing.TB,

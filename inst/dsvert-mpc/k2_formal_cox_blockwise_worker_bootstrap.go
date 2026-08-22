@@ -35,6 +35,16 @@ type formalCoxBlockwiseWorkerBootstrap struct {
 	closeSource func()
 }
 
+// formalCoxBlockwiseWorkerBootstrapAttachment reconnects to an already-live
+// local worker.  It intentionally owns only the short-lived daemon client:
+// it revalidates the signed recipient manifest and derives the same local
+// control key without reopening the source spool owned by that worker.  It
+// cannot start, replace, or recover a daemon after its exact-GC lease has
+// been burned.
+type formalCoxBlockwiseWorkerBootstrapAttachment struct {
+	client *formalCoxBlockwiseExchangeDaemonClientV1
+}
+
 func formalCoxBlockwiseWorkerBootstrapDecodeCommand(
 	encoded []byte,
 ) (formalCoxBlockwiseWorkerBootstrapCommand, error) {
@@ -222,6 +232,117 @@ func openFormalCoxBlockwiseWorkerBootstrapAtRoot(encoded []byte, stateRoot strin
 	return &formalCoxBlockwiseWorkerBootstrap{
 		daemon: daemon, client: client, closeSource: closeSource,
 	}, nil
+}
+
+func openFormalCoxBlockwiseWorkerBootstrapAttachmentAtRoot(encoded []byte,
+	stateRoot string, production bool,
+) (*formalCoxBlockwiseWorkerBootstrapAttachment, error) {
+	command, err := formalCoxBlockwiseWorkerBootstrapDecodeCommand(encoded)
+	if err != nil {
+		return nil, err
+	}
+	attempt, err := formalCoxBlockwiseWorkerBootstrapDecodeAttempt(command.AttemptID)
+	if err != nil {
+		return nil, err
+	}
+	compiled, err := formalCoxCompileSignedRSchema(command.Source.Schema)
+	if err != nil {
+		return nil, err
+	}
+	plan, err := buildFormalCoxBlockwisePlan(
+		compiled.Policy, command.Source.BlockCapacity, command.Source.RunID)
+	if err != nil {
+		return nil, err
+	}
+	pins, err := formalCoxBlockwiseSourceProducerCommandDecodePins(command.Source.Pins)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		for peer := range pins {
+			clear(pins[peer])
+		}
+	}()
+	context, err := newFormalCoxBlockwiseSourceContext(plan, pins)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		for peer := range context.pins {
+			clear(context.pins[peer])
+		}
+	}()
+	session, err := context.bindRecipientManifest(command.Source.RecipientTickets)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := formalCoxBlockwiseSourceDeliveryRecipientIndex(
+		session, command.Source.RecipientPeerName); err != nil {
+		return nil, err
+	}
+	canonicalDelivery, err := command.Source.Delivery.Encode(session)
+	if err != nil {
+		return nil, err
+	}
+	clear(canonicalDelivery)
+	signer, err := formalCoxBlockwiseSourceProducerCommandDecodeKey(
+		command.Source.RecipientSigningKey)
+	if err != nil {
+		return nil, err
+	}
+	defer clear(signer)
+	provider, err := newFormalCoxBlockwiseSourceRecipientKeyProvider(
+		stateRoot, production, context, command.Source.RecipientPeerName, signer, false)
+	if err != nil {
+		return nil, err
+	}
+	defer provider.Close()
+	secret, err := provider.secretForSessionV1(session)
+	if err != nil {
+		return nil, err
+	}
+	defer clear(secret[:])
+	planSHA, peer := context.planSHA256, command.Source.RecipientPeerName
+	_, exchangeDir, err := formalCoxBlockwiseWorkerBootstrapPaths(
+		stateRoot, production, planSHA, peer)
+	if err != nil {
+		return nil, err
+	}
+	slot, err := formalCoxBlockwiseExchangeLeaseSlot(plan, peer, attempt)
+	if err != nil {
+		return nil, err
+	}
+	controlKey, err := formalCoxBlockwiseWorkerBootstrapKey(
+		secret[:], "daemon-control", planSHA, peer, attempt)
+	if err != nil {
+		return nil, err
+	}
+	defer clear(controlKey[:])
+	socketRoot, socketDir, socketPath, err :=
+		formalCoxBlockwiseExchangeDaemonSocketLocation(filepath.Join(exchangeDir, slot))
+	if err != nil {
+		return nil, err
+	}
+	valid := formalCoxBlockwiseExchangeLeaseValidateDir(socketRoot, socketDir) == nil &&
+		formalCoxBlockwiseExchangeDaemonSocketValid(socketPath) == nil
+	closeErr := socketRoot.Close()
+	if !valid || closeErr != nil {
+		return nil, fmt.Errorf("formal-cox: worker attachment socket is unavailable")
+	}
+	client, err := newFormalCoxBlockwiseExchangeDaemonClientV1(socketPath, controlKey[:])
+	if err != nil {
+		return nil, err
+	}
+	return &formalCoxBlockwiseWorkerBootstrapAttachment{client: client}, nil
+}
+
+func (attachment *formalCoxBlockwiseWorkerBootstrapAttachment) Close() error {
+	if attachment == nil || attachment.client == nil {
+		return nil
+	}
+	attachment.client.Close()
+	attachment.client = nil
+	return nil
 }
 
 func (bootstrap *formalCoxBlockwiseWorkerBootstrap) Close() error {

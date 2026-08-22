@@ -108,6 +108,7 @@ func TestFormalCoxBlockwiseWorkerBootstrapK2K3K5(t *testing.T) {
 			}
 
 			bootstraps := make([]*formalCoxBlockwiseWorkerBootstrap, 2)
+			attachments := make([]*formalCoxBlockwiseWorkerBootstrapAttachment, 2)
 			clients := make([]*formalCoxBlockwiseExchangeDaemonClientV1, 2)
 			sockets := make([]string, 2)
 			for index, peer := range plan.Policy.ComputePeers {
@@ -125,6 +126,24 @@ func TestFormalCoxBlockwiseWorkerBootstrapK2K3K5(t *testing.T) {
 					string(public) != "{}" {
 					t.Fatalf("bootstrap exposed private state for %s: %q / %v", peer, public, marshalErr)
 				}
+				attachments[index], err = openFormalCoxBlockwiseWorkerBootstrapAttachmentAtRoot(
+					encoded[index], root, false)
+				if err != nil {
+					t.Fatalf("attach live worker for %s: %v", peer, err)
+				}
+				if public, marshalErr := json.Marshal(attachments[index]); marshalErr != nil ||
+					string(public) != "{}" {
+					t.Fatalf("attachment exposed private state for %s: %q / %v", peer, public, marshalErr)
+				}
+				wrongAttempt := sha256.Sum256([]byte(t.Name() + "/wrong-attachment"))
+				wrongCommand := formalCoxBlockwiseWorkerBootstrapTestCommand(
+					t, imports[peer], wrongAttempt)
+				if attached, attachErr := openFormalCoxBlockwiseWorkerBootstrapAttachmentAtRoot(
+					wrongCommand, root, false); attachErr == nil {
+					_ = attached.Close()
+					t.Fatal("worker attachment accepted a different attempt")
+				}
+				clients[index] = attachments[index].client
 			}
 
 			claims := make([]formalCoxBlockwiseExchangeRootClaim, 2)
@@ -182,12 +201,20 @@ func TestFormalCoxBlockwiseWorkerBootstrapK2K3K5(t *testing.T) {
 				}
 			}
 			for index, bootstrap := range bootstraps {
+				if err := attachments[index].Close(); err != nil {
+					t.Fatal(err)
+				}
 				if err := bootstrap.Close(); err != nil {
 					t.Fatal(err)
 				}
 				if _, err := os.Lstat(sockets[index]); !os.IsNotExist(err) {
 					t.Fatalf("worker daemon socket survived close: %v", err)
 				}
+			}
+			if attached, attachErr := openFormalCoxBlockwiseWorkerBootstrapAttachmentAtRoot(
+				encoded[0], root, false); attachErr == nil {
+				attached.Close()
+				t.Fatal("worker attachment reopened a closed daemon")
 			}
 			if reopened, reopenErr := openFormalCoxBlockwiseWorkerBootstrapAtRoot(
 				encoded[0], root, false); reopenErr == nil {

@@ -6,8 +6,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -113,6 +115,153 @@ func TestFormalCoxBlockwiseSourceImportCommandK2K3K5(t *testing.T) {
 					bytes.Contains(public, []byte(root)) {
 					t.Fatal("source import receipt exposed private material")
 				}
+			}
+		})
+	}
+}
+
+// TestFormalCoxBlockwiseSourceCommandsStageAllBlocksK2K3K5 exercises the
+// closed producer, delivery and recipient-import commands over the complete
+// static block prefix.  The update/noise slots are supplied by the separate
+// guarded sampler route; this test deliberately does not pretend otherwise.
+func TestFormalCoxBlockwiseSourceCommandsStageAllBlocksK2K3K5(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+			root := formalCoxBlockwiseSourceProducerCommandTestRoot(t)
+			source, session, signers :=
+				formalCoxBlockwiseSourceImportCommandTestSource(t, custodians, root)
+			fixture := formalCoxRSourceBridgeFixtureFor(t, custodians)
+			plan := session.context.plan
+			if len(fixture.Blocks) != len(plan.Policy.CustodianPeers) ||
+				plan.TotalBlocks < 2 {
+				t.Fatal("all-block command fixture is incomplete")
+			}
+
+			for block := 0; block < plan.TotalBlocks; block++ {
+				for _, peer := range plan.Policy.CustodianPeers {
+					lines, ok := fixture.Blocks[peer]
+					if !ok || len(lines) != plan.TotalBlocks {
+						t.Fatalf("source %s has incomplete blocks", peer)
+					}
+					command := source
+					command.SourcePeerName = peer
+					command.SourceSigningKey = base64.StdEncoding.EncodeToString(signers[peer])
+					command.BlockIndex = block
+					command.CanonicalInputBase64 = base64.StdEncoding.EncodeToString(
+						[]byte(strings.Join(lines[block], "\n") + "\n"))
+					formalCoxBlockwiseSourceProducerCommandTestRun(t, command, root)
+
+					for _, recipient := range plan.Policy.ComputePeers {
+						deliveryCommand := formalCoxBlockwiseSourceDeliveryCommandTestRequest(
+							t, command, recipient)
+						deliveryJSON, err := json.Marshal(deliveryCommand)
+						if err != nil {
+							t.Fatal(err)
+						}
+						delivery, err := formalCoxBlockwiseSourceDeliveryRunAtRoot(
+							deliveryJSON, root, false)
+						if err != nil || delivery.RecipientPeerName != recipient {
+							t.Fatalf("delivery %s/%d to %s: %+v / %v",
+								peer, block, recipient, delivery, err)
+						}
+						importCommand := formalCoxBlockwiseSourceImportCommandTestRequest(
+							t, command, delivery, recipient, signers[recipient])
+						importJSON, err := json.Marshal(importCommand)
+						if err != nil {
+							t.Fatal(err)
+						}
+						imported, err := formalCoxBlockwiseSourceImportRunAtRoot(
+							importJSON, root, false)
+						if err != nil || imported.Replayed ||
+							imported.ReceiptSHA256 != delivery.ReceiptSHA256 {
+							t.Fatalf("import %s/%d to %s: %+v / %v",
+								peer, block, recipient, imported, err)
+						}
+					}
+				}
+			}
+
+			stores := make(map[string]*formalCoxBlockwiseSourceStore, 2)
+			for _, recipient := range plan.Policy.ComputePeers {
+				last := source
+				last.SourcePeerName = plan.Policy.CustodianPeers[len(plan.Policy.CustodianPeers)-1]
+				last.SourceSigningKey = base64.StdEncoding.EncodeToString(
+					signers[last.SourcePeerName])
+				last.BlockIndex = plan.TotalBlocks - 1
+				last.CanonicalInputBase64 = base64.StdEncoding.EncodeToString([]byte(
+					strings.Join(fixture.Blocks[last.SourcePeerName][last.BlockIndex], "\n") + "\n"))
+				deliveryCommand := formalCoxBlockwiseSourceDeliveryCommandTestRequest(
+					t, last, recipient)
+				deliveryJSON, err := json.Marshal(deliveryCommand)
+				if err != nil {
+					t.Fatal(err)
+				}
+				delivery, err := formalCoxBlockwiseSourceDeliveryRunAtRoot(
+					deliveryJSON, root, false)
+				if err != nil {
+					t.Fatal(err)
+				}
+				importCommand := formalCoxBlockwiseSourceImportCommandTestRequest(
+					t, last, delivery, recipient, signers[recipient])
+				store, closeStore, err := formalCoxBlockwiseSourceImportOpen(
+					importCommand, root, false)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer closeStore()
+				stores[recipient] = store
+				state, err := store.readState()
+				if err != nil || state.NextSlot !=
+					plan.TotalBlocks*len(plan.Policy.CustodianPeers) {
+					t.Fatalf("recipient %s static source state: %+v / %v",
+						recipient, state, err)
+				}
+			}
+			modulus := exactGCModulus(plan.RingBits)
+			for block := 0; block < plan.TotalBlocks; block++ {
+				step := formalCoxBlockwiseSourceTestStep(
+					t, plan, formalCoxBlockwiseStepBlock, block)
+				want := make([]*big.Int, plan.BlockCapacity*plan.RowWidth)
+				got := make([]*big.Int, len(want))
+				for index := range want {
+					want[index], got[index] = new(big.Int), new(big.Int)
+				}
+				for _, sourcePeer := range plan.Policy.CustodianPeers {
+					values := formalCoxRSourceBridgeExpected(t,
+						fixture.Blocks[sourcePeer][block], len(want), plan.RingBits)
+					for index := range want {
+						want[index].Add(want[index], values[index])
+						want[index].Mod(want[index], modulus)
+					}
+					exactGCZeroBigInts(values)
+				}
+				for _, recipient := range plan.Policy.ComputePeers {
+					input, err := stores[recipient].Load(step)
+					if err != nil || len(input.Shares) != len(got) ||
+						!formalCoxIsSHA256(input.PairedInputRootSHA256) {
+						exactGCZeroBigInts(input.Shares)
+						exactGCZeroBigInts(want)
+						exactGCZeroBigInts(got)
+						t.Fatalf("recipient %s block %d source load: %+v / %v",
+							recipient, block, input, err)
+					}
+					for index := range got {
+						got[index].Add(got[index], input.Shares[index])
+						got[index].Mod(got[index], modulus)
+					}
+					exactGCZeroBigInts(input.Shares)
+				}
+				for index := range want {
+					if got[index].Cmp(want[index]) != 0 {
+						actual, expected := got[index].String(), want[index].String()
+						exactGCZeroBigInts(want)
+						exactGCZeroBigInts(got)
+						t.Fatalf("block %d coordinate %d: got %s want %s",
+							block, index, actual, expected)
+					}
+				}
+				exactGCZeroBigInts(want)
+				exactGCZeroBigInts(got)
 			}
 		})
 	}

@@ -1438,10 +1438,15 @@
       } else if (identical(family, "gaussian")) {
         spec$outcome <- resolve_reference(
           spec$dataset, spec$outcome, owner, "Gaussian outcome")
-        spec$predictors <- unname(vapply(spec$predictors, function(reference) {
-          resolve_reference(spec$dataset, reference, owner,
-                            "Gaussian predictor")
-        }, character(1L)))
+        if (identical(spec$version, "random_intercept_v1")) {
+          spec$cluster <- resolve_reference(
+            spec$dataset, spec$cluster, owner, "LMM cluster")
+        } else {
+          spec$predictors <- unname(vapply(spec$predictors, function(reference) {
+            resolve_reference(spec$dataset, reference, owner,
+                              "Gaussian predictor")
+          }, character(1L)))
+        }
       } else if (identical(family, "vertical_cross")) {
         spec$left <- resolve_reference(
           spec$left_dataset, spec$left, owner, "vertical-cross left column")

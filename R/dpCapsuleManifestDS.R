@@ -686,8 +686,10 @@
   }
   for (analysis_id in names(specs$gaussian)) {
     raw <- specs$gaussian[[analysis_id]]
-    raw$predictors <- unname(as.character(unlist(
-      raw$predictors, use.names = FALSE)))
+    if (!identical(raw$version, "random_intercept_v1")) {
+      raw$predictors <- unname(as.character(unlist(
+        raw$predictors, use.names = FALSE)))
+    }
     specs$gaussian[[analysis_id]] <- raw
   }
   list(

@@ -6,8 +6,11 @@ package main
 // share, a seed, or a transport private key.
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -400,4 +403,229 @@ func formalCoxBlockwiseValidateSamplerSourceOffer(
 		return fmt.Errorf("formal-cox: sampler source offer ciphertext mismatch")
 	}
 	return nil
+}
+
+func formalCoxBlockwiseSamplerSourceOfferSHA256(
+	offer formalCoxBlockwiseSamplerSourceOffer,
+) (string, error) {
+	encoded, err := json.Marshal(offer)
+	if err != nil {
+		return "", err
+	}
+	digest := sha256.Sum256(append(
+		[]byte(formalCoxBlockwiseSamplerSourceOfferDomain+"/commitment|"), encoded...))
+	return hex.EncodeToString(digest[:]), nil
+}
+
+func formalCoxBlockwiseSamplerSourceOfferCommitmentRoot(
+	commitments []formalCoxBlockwiseSamplerSourceOfferCommitment,
+) (string, error) {
+	if len(commitments) != 2 {
+		return "", fmt.Errorf("formal-cox: invalid sampler offer commitment count")
+	}
+	encoded, err := json.Marshal(commitments)
+	if err != nil {
+		return "", err
+	}
+	digest := sha256.Sum256(append(
+		[]byte(formalCoxBlockwiseSamplerSourceOfferDomain+"/barrier-root|"), encoded...))
+	return hex.EncodeToString(digest[:]), nil
+}
+
+func formalCoxBlockwiseSamplerSourceOfferCommitments(
+	session *formalCoxBlockwiseSourceSession, dpPlan formalCoxDPPlan,
+	trust jointDPBiomedicalGaussianWorkerTrustRoot,
+	offers []formalCoxBlockwiseSamplerSourceOffer,
+) ([]formalCoxBlockwiseSamplerSourceOfferCommitment, error) {
+	if session == nil || session.context == nil || len(offers) != 2 {
+		return nil, fmt.Errorf("formal-cox: invalid sampler offers")
+	}
+	commitments := make([]formalCoxBlockwiseSamplerSourceOfferCommitment, 2)
+	for index, recipient := range session.context.plan.Policy.ComputePeers {
+		offer := offers[index]
+		if offer.RecipientPeerName != recipient ||
+			formalCoxBlockwiseValidateSamplerSourceOffer(
+				session, dpPlan, trust, offer) != nil {
+			return nil, fmt.Errorf("formal-cox: invalid sampler offer commitment")
+		}
+		offerSHA256, err := formalCoxBlockwiseSamplerSourceOfferSHA256(offer)
+		if err != nil {
+			return nil, err
+		}
+		preimageSHA256, err := jointDPBiomedicalGaussianEnvelopePreimageSHA256(
+			offer.SamplerEnvelope.Preimage)
+		if err != nil {
+			return nil, err
+		}
+		commitments[index] = formalCoxBlockwiseSamplerSourceOfferCommitment{
+			RecipientPeerName:      offer.RecipientPeerName,
+			RecipientPeerID:        offer.RecipientPeerID,
+			RecipientRole:          offer.RecipientRole,
+			SourceEnvelopeSHA256:   offer.SourceEnvelopeSHA256,
+			SamplerOfferSHA256:     offerSHA256,
+			EnvelopePreimageSHA256: preimageSHA256,
+		}
+	}
+	return commitments, nil
+}
+
+// formalCoxBlockwiseNewGuardedSamplerSourceOfferBarrier couples the existing
+// sticky sampler contract to the exact two authenticated sampler offers. The
+// commitments become part of the existing barrier root and approvals.
+func formalCoxBlockwiseNewGuardedSamplerSourceOfferBarrier(
+	session *formalCoxBlockwiseSourceSession, dpPlan formalCoxDPPlan,
+	trust jointDPBiomedicalGaussianWorkerTrustRoot,
+	step formalCoxBlockwiseWorkerStep, offers []formalCoxBlockwiseSamplerSourceOffer,
+	contract formalCoxBlockwiseSamplerContract,
+	authorizations []formalCoxBlockwiseSamplerAuthorization,
+) (formalCoxBlockwiseNoiseBarrier, error) {
+	var zero formalCoxBlockwiseNoiseBarrier
+	commitments, err := formalCoxBlockwiseSamplerSourceOfferCommitments(
+		session, dpPlan, trust, offers)
+	if err != nil {
+		return zero, err
+	}
+	encoded := make([][]byte, len(offers))
+	for index := range offers {
+		encoded[index] = offers[index].SourceEnvelope
+	}
+	barrier, err := formalCoxBlockwiseNewGuardedNoiseBarrier(
+		session, step, encoded, contract, authorizations)
+	if err != nil {
+		return zero, err
+	}
+	barrier.SamplerOfferCommitments = commitments
+	barrier.SamplerOfferRootSHA256, err =
+		formalCoxBlockwiseSamplerSourceOfferCommitmentRoot(commitments)
+	if err != nil {
+		return zero, err
+	}
+	barrier.PairedNoiseRootSHA256, err = formalCoxBlockwiseNoiseBarrierRoot(barrier)
+	if err != nil || formalCoxBlockwiseValidateNoiseBarrierCore(session, barrier) != nil {
+		return zero, fmt.Errorf("formal-cox: invalid guarded sampler offer barrier")
+	}
+	return barrier, nil
+}
+
+func formalCoxBlockwiseValidateSamplerSourceOfferBarrier(
+	session *formalCoxBlockwiseSourceSession, dpPlan formalCoxDPPlan,
+	trust jointDPBiomedicalGaussianWorkerTrustRoot,
+	barrier formalCoxBlockwiseNoiseBarrier,
+	offers []formalCoxBlockwiseSamplerSourceOffer,
+) error {
+	if err := formalCoxBlockwiseValidateNoiseBarrierCore(session, barrier); err != nil {
+		return err
+	}
+	commitments, err := formalCoxBlockwiseSamplerSourceOfferCommitments(
+		session, dpPlan, trust, offers)
+	if err != nil || !reflect.DeepEqual(commitments, barrier.SamplerOfferCommitments) {
+		return fmt.Errorf("formal-cox: sampler offers do not match their barrier")
+	}
+	root, err := formalCoxBlockwiseSamplerSourceOfferCommitmentRoot(commitments)
+	if err != nil || root != barrier.SamplerOfferRootSHA256 {
+		return fmt.Errorf("formal-cox: sampler offer barrier root mismatch")
+	}
+	return nil
+}
+
+func formalCoxBlockwiseSignGuardedSamplerSourceOfferBarrier(
+	session *formalCoxBlockwiseSourceSession, dpPlan formalCoxDPPlan,
+	trust jointDPBiomedicalGaussianWorkerTrustRoot,
+	barrier formalCoxBlockwiseNoiseBarrier,
+	offers []formalCoxBlockwiseSamplerSourceOffer,
+	contract formalCoxBlockwiseSamplerContract,
+	authorizations []formalCoxBlockwiseSamplerAuthorization,
+	signer string, signingKey ed25519.PrivateKey,
+) (formalCoxBlockwiseNoiseApproval, error) {
+	var zero formalCoxBlockwiseNoiseApproval
+	if session == nil || session.context == nil {
+		return zero, fmt.Errorf("formal-cox: invalid guarded sampler offer signer")
+	}
+	step, err := formalCoxBlockwiseWorkerStepAt(
+		session.context.plan, barrier.CanonicalScheduleIndex)
+	if err != nil {
+		return zero, err
+	}
+	want, err := formalCoxBlockwiseNewGuardedSamplerSourceOfferBarrier(
+		session, dpPlan, trust, step, offers, contract, authorizations)
+	if err != nil {
+		return zero, err
+	}
+	wantEncoded, wantErr := json.Marshal(want)
+	barrierEncoded, barrierErr := json.Marshal(barrier)
+	if wantErr != nil || barrierErr != nil || len(barrier.Approvals) != 0 ||
+		!bytes.Equal(wantEncoded, barrierEncoded) ||
+		len(signingKey) != ed25519.PrivateKeySize ||
+		session.context.roles[signer] == "" ||
+		!hmac.Equal(signingKey.Public().(ed25519.PublicKey),
+			session.context.pins[signer]) {
+		return zero, fmt.Errorf("formal-cox: invalid guarded sampler offer signer")
+	}
+	message, err := formalCoxBlockwiseNoiseBarrierMessage(barrier)
+	if err != nil {
+		return zero, err
+	}
+	return formalCoxBlockwiseNoiseApproval{
+		SignerPeerName: signer, SignerPeerID: session.context.peerIDs[signer],
+		SignerRole: session.context.roles[signer],
+		Signature:  ed25519.Sign(signingKey, message),
+	}, nil
+}
+
+func formalCoxBlockwiseValidateGuardedSamplerSourceOfferBinding(
+	session *formalCoxBlockwiseSourceSession, dpPlan formalCoxDPPlan,
+	trust jointDPBiomedicalGaussianWorkerTrustRoot,
+	offers []formalCoxBlockwiseSamplerSourceOffer, encoded []byte,
+) error {
+	var binding formalCoxBlockwiseGuardedNoiseBarrier
+	if err := formalCoxBlockwiseSourceDecodeCanonical(encoded,
+		formalCoxBlockwiseSourceBindingMax, "guarded sampler offer binding", &binding); err != nil {
+		return err
+	}
+	if err := formalCoxBlockwiseValidateGuardedNoiseBarrier(session, binding); err != nil {
+		return err
+	}
+	return formalCoxBlockwiseValidateSamplerSourceOfferBarrier(
+		session, dpPlan, trust, binding.Barrier, offers)
+}
+
+func formalCoxBlockwiseFinalizeGuardedSamplerSourceOfferBarrier(
+	session *formalCoxBlockwiseSourceSession, dpPlan formalCoxDPPlan,
+	trust jointDPBiomedicalGaussianWorkerTrustRoot,
+	offers []formalCoxBlockwiseSamplerSourceOffer,
+	contract formalCoxBlockwiseSamplerContract,
+	authorizations []formalCoxBlockwiseSamplerAuthorization,
+	barrier formalCoxBlockwiseNoiseBarrier,
+	approvals []formalCoxBlockwiseNoiseApproval,
+) ([]byte, error) {
+	if session == nil || session.context == nil {
+		return nil, fmt.Errorf("formal-cox: invalid guarded sampler offer finalizer")
+	}
+	step, err := formalCoxBlockwiseWorkerStepAt(
+		session.context.plan, barrier.CanonicalScheduleIndex)
+	if err != nil {
+		return nil, err
+	}
+	want, err := formalCoxBlockwiseNewGuardedSamplerSourceOfferBarrier(
+		session, dpPlan, trust, step, offers, contract, authorizations)
+	if err != nil {
+		return nil, err
+	}
+	wantEncoded, wantErr := json.Marshal(want)
+	barrierEncoded, barrierErr := json.Marshal(barrier)
+	if wantErr != nil || barrierErr != nil || len(barrier.Approvals) != 0 ||
+		!bytes.Equal(wantEncoded, barrierEncoded) {
+		return nil, fmt.Errorf("formal-cox: invalid guarded sampler offer barrier")
+	}
+	encoded, err := formalCoxBlockwiseFinalizeGuardedNoiseBarrier(
+		session, contract, authorizations, barrier, approvals)
+	if err != nil {
+		return nil, err
+	}
+	if err := formalCoxBlockwiseValidateGuardedSamplerSourceOfferBinding(
+		session, dpPlan, trust, offers, encoded); err != nil {
+		clear(encoded)
+		return nil, err
+	}
+	return encoded, nil
 }

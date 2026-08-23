@@ -147,6 +147,52 @@ func formalCoxBlockwiseSamplerSourceOfferTestPreflight(t testing.TB,
 	return contract, authorizations
 }
 
+func formalCoxBlockwiseSamplerSourceOfferTestRejectBarrierCommitmentSwap(
+	t testing.TB, session *formalCoxBlockwiseSourceSession, dpPlan formalCoxDPPlan,
+	trust jointDPBiomedicalGaussianWorkerTrustRoot,
+	offers []formalCoxBlockwiseSamplerSourceOffer, binding []byte,
+	private map[string]ed25519.PrivateKey,
+) {
+	t.Helper()
+	var guarded formalCoxBlockwiseGuardedNoiseBarrier
+	if err := formalCoxBlockwiseSourceDecodeCanonical(binding,
+		formalCoxBlockwiseSourceBindingMax, "test guarded sampler offer", &guarded); err != nil {
+		t.Fatal(err)
+	}
+	guarded.Barrier.SamplerOfferCommitments[0].SamplerOfferSHA256 =
+		strings.Repeat("0", 64)
+	root, err := formalCoxBlockwiseSamplerSourceOfferCommitmentRoot(
+		guarded.Barrier.SamplerOfferCommitments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	guarded.Barrier.SamplerOfferRootSHA256 = root
+	guarded.Barrier.PairedNoiseRootSHA256, err =
+		formalCoxBlockwiseNoiseBarrierRoot(guarded.Barrier)
+	if err != nil {
+		t.Fatal(err)
+	}
+	message, err := formalCoxBlockwiseNoiseBarrierMessage(guarded.Barrier)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index, peer := range session.context.plan.Policy.ComputePeers {
+		guarded.Barrier.Approvals[index] = formalCoxBlockwiseNoiseApproval{
+			SignerPeerName: peer, SignerPeerID: session.context.peerIDs[peer],
+			SignerRole: session.context.roles[peer],
+			Signature:  ed25519.Sign(private[peer], message),
+		}
+	}
+	encoded, err := json.Marshal(guarded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := formalCoxBlockwiseValidateGuardedSamplerSourceOfferBinding(
+		session, dpPlan, trust, offers, encoded); err == nil {
+		t.Fatal("barrier accepted a substituted sampler offer commitment")
+	}
+}
+
 func TestFormalCoxBlockwiseSamplerSourceOfferK2K3K5(t *testing.T) {
 	for _, custodians := range []int{2, 3, 5} {
 		t.Run("K"+big.NewInt(int64(custodians)).String(), func(t *testing.T) {
@@ -181,32 +227,45 @@ func TestFormalCoxBlockwiseSamplerSourceOfferK2K3K5(t *testing.T) {
 				}
 				offers[peer] = offer
 			}
-			ordered := make([][]byte, 2)
+			ordered := make([]formalCoxBlockwiseSamplerSourceOffer, 2)
 			for index, peer := range fixture.plan.Policy.ComputePeers {
-				ordered[index] = offers[peer].SourceEnvelope
+				ordered[index] = offers[peer]
 			}
 			contract, authorizations := formalCoxBlockwiseSamplerSourceOfferTestPreflight(
 				t, fixture)
 			step := formalCoxBlockwiseSourceTestStep(
 				t, fixture.plan, formalCoxBlockwiseStepUpdate, 0)
-			barrier, err := formalCoxBlockwiseNewGuardedNoiseBarrier(
-				fixture.session, step, ordered, contract, authorizations)
+			barrier, err := formalCoxBlockwiseNewGuardedSamplerSourceOfferBarrier(
+				fixture.session, fixture.dpPlan, fixture.runtime.admission.Trust,
+				step, ordered, contract, authorizations)
 			if err != nil {
 				t.Fatal(err)
 			}
 			approvals := make([]formalCoxBlockwiseNoiseApproval, 2)
 			for index, peer := range fixture.plan.Policy.ComputePeers {
-				approvals[index], err = formalCoxBlockwiseSignNoiseBarrier(
-					fixture.session, barrier, ordered, peer,
+				approvals[index], err = formalCoxBlockwiseSignGuardedSamplerSourceOfferBarrier(
+					fixture.session, fixture.dpPlan, fixture.runtime.admission.Trust,
+					barrier, ordered, contract, authorizations, peer,
 					fixture.runtime.private[peer])
 				if err != nil {
 					t.Fatal(err)
 				}
 			}
-			binding, err := formalCoxBlockwiseFinalizeGuardedNoiseBarrier(
-				fixture.session, contract, authorizations, barrier, approvals)
+			binding, err := formalCoxBlockwiseFinalizeGuardedSamplerSourceOfferBarrier(
+				fixture.session, fixture.dpPlan, fixture.runtime.admission.Trust,
+				ordered, contract, authorizations, barrier, approvals)
 			if err != nil {
 				t.Fatal(err)
+			}
+			if err := formalCoxBlockwiseValidateGuardedSamplerSourceOfferBinding(
+				fixture.session, fixture.dpPlan, fixture.runtime.admission.Trust,
+				ordered, binding); err != nil {
+				t.Fatal(err)
+			}
+			if custodians == 2 {
+				formalCoxBlockwiseSamplerSourceOfferTestRejectBarrierCommitmentSwap(
+					t, fixture.session, fixture.dpPlan, fixture.runtime.admission.Trust,
+					ordered, binding, fixture.runtime.private)
 			}
 			for index, peer := range fixture.plan.Policy.ComputePeers {
 				store := formalCoxBlockwiseSourceTestStore(

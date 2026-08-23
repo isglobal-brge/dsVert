@@ -136,6 +136,18 @@ type formalCoxBlockwiseNoiseRootCommitment struct {
 	EnvelopeSHA256              string `json:"envelope_sha256"`
 }
 
+// SamplerOfferCommitments is optional for the legacy synthetic-source path.
+// When present, it binds a guarded barrier to the exact K-attested sampler
+// offers that created its two recipient ciphertexts.
+type formalCoxBlockwiseSamplerSourceOfferCommitment struct {
+	RecipientPeerName      string `json:"recipient_peer_name"`
+	RecipientPeerID        string `json:"recipient_peer_id"`
+	RecipientRole          string `json:"recipient_role"`
+	SourceEnvelopeSHA256   string `json:"source_envelope_sha256"`
+	SamplerOfferSHA256     string `json:"sampler_offer_sha256"`
+	EnvelopePreimageSHA256 string `json:"envelope_preimage_sha256"`
+}
+
 type formalCoxBlockwiseNoiseApproval struct {
 	SignerPeerName string `json:"signer_peer_name"`
 	SignerPeerID   string `json:"signer_peer_id"`
@@ -144,21 +156,23 @@ type formalCoxBlockwiseNoiseApproval struct {
 }
 
 type formalCoxBlockwiseNoiseBarrier struct {
-	Version                 string                                  `json:"version"`
-	Purpose                 string                                  `json:"purpose"`
-	CanonicalArtifactID     string                                  `json:"canonical_artifact_id,omitempty"`
-	SamplerContractSHA256   string                                  `json:"sampler_contract_sha256,omitempty"`
-	SamplerGuardRootSHA256  string                                  `json:"sampler_guard_root_sha256,omitempty"`
-	PlanSHA256              string                                  `json:"plan_sha256"`
-	RunID                   string                                  `json:"run_id"`
-	PinsetSHA256            string                                  `json:"pinset_sha256"`
-	RecipientManifestSHA256 string                                  `json:"recipient_manifest_sha256"`
-	StepKind                string                                  `json:"step_kind"`
-	CanonicalScheduleIndex  int                                     `json:"canonical_schedule_index"`
-	Iteration               int                                     `json:"iteration"`
-	NoiseRoots              []formalCoxBlockwiseNoiseRootCommitment `json:"noise_root_commitments"`
-	PairedNoiseRootSHA256   string                                  `json:"paired_noise_root_sha256"`
-	Approvals               []formalCoxBlockwiseNoiseApproval       `json:"approvals"`
+	Version                 string                                           `json:"version"`
+	Purpose                 string                                           `json:"purpose"`
+	CanonicalArtifactID     string                                           `json:"canonical_artifact_id,omitempty"`
+	SamplerContractSHA256   string                                           `json:"sampler_contract_sha256,omitempty"`
+	SamplerGuardRootSHA256  string                                           `json:"sampler_guard_root_sha256,omitempty"`
+	PlanSHA256              string                                           `json:"plan_sha256"`
+	RunID                   string                                           `json:"run_id"`
+	PinsetSHA256            string                                           `json:"pinset_sha256"`
+	RecipientManifestSHA256 string                                           `json:"recipient_manifest_sha256"`
+	StepKind                string                                           `json:"step_kind"`
+	CanonicalScheduleIndex  int                                              `json:"canonical_schedule_index"`
+	Iteration               int                                              `json:"iteration"`
+	NoiseRoots              []formalCoxBlockwiseNoiseRootCommitment          `json:"noise_root_commitments"`
+	SamplerOfferCommitments []formalCoxBlockwiseSamplerSourceOfferCommitment `json:"sampler_offer_commitments,omitempty"`
+	SamplerOfferRootSHA256  string                                           `json:"sampler_offer_root_sha256,omitempty"`
+	PairedNoiseRootSHA256   string                                           `json:"paired_noise_root_sha256"`
+	Approvals               []formalCoxBlockwiseNoiseApproval                `json:"approvals"`
 }
 
 type formalCoxBlockwiseBoundSourceSlot struct {
@@ -1036,6 +1050,16 @@ func formalCoxBlockwiseValidateNoiseBarrierCore(
 	if !guarded && !unguarded {
 		return fmt.Errorf("formal-cox: incomplete sampler guard binding")
 	}
+	noOffers := len(barrier.SamplerOfferCommitments) == 0 &&
+		barrier.SamplerOfferRootSHA256 == ""
+	withOffers := len(barrier.SamplerOfferCommitments) == 2 &&
+		formalCoxIsSHA256(barrier.SamplerOfferRootSHA256)
+	if !noOffers && !withOffers {
+		return fmt.Errorf("formal-cox: incomplete sampler offer barrier binding")
+	}
+	if withOffers && !guarded {
+		return fmt.Errorf("formal-cox: sampler offers require a sticky guard")
+	}
 	step, err := formalCoxBlockwiseWorkerStepAt(
 		session.context.plan, barrier.CanonicalScheduleIndex)
 	if err != nil || step.Kind != formalCoxBlockwiseStepUpdate ||
@@ -1054,6 +1078,24 @@ func formalCoxBlockwiseValidateNoiseBarrierCore(
 				session.tickets[recipient].TransportKeySHA256 ||
 			entry.AssetSlot != slot || !formalCoxIsSHA256(entry.EnvelopeSHA256) {
 			return fmt.Errorf("formal-cox: invalid paired noise commitment")
+		}
+		if withOffers {
+			offer := barrier.SamplerOfferCommitments[index]
+			if offer.RecipientPeerName != entry.RecipientPeerName ||
+				offer.RecipientPeerID != entry.RecipientPeerID ||
+				offer.RecipientRole != entry.RecipientRole ||
+				offer.SourceEnvelopeSHA256 != entry.EnvelopeSHA256 ||
+				!formalCoxIsSHA256(offer.SamplerOfferSHA256) ||
+				!formalCoxIsSHA256(offer.EnvelopePreimageSHA256) {
+				return fmt.Errorf("formal-cox: invalid sampler offer commitment")
+			}
+		}
+	}
+	if withOffers {
+		root, rootErr := formalCoxBlockwiseSamplerSourceOfferCommitmentRoot(
+			barrier.SamplerOfferCommitments)
+		if rootErr != nil || root != barrier.SamplerOfferRootSHA256 {
+			return fmt.Errorf("formal-cox: sampler offer root authentication failed")
 		}
 	}
 	want, err := formalCoxBlockwiseNoiseBarrierRoot(barrier)

@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"math/big"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -174,6 +176,123 @@ func formalCoxBlockwiseSamplerSourceOfferTestStageBlocks(t testing.TB,
 			exactGCZeroBigInts(values[fixture.plan.Policy.ComputePeers[1]])
 		}
 	}
+}
+
+// formalCoxBlockwiseSamplerSourceOfferTestBridgeFixture connects every Cox
+// update to the actual one-draw sampler outputs.  The older source-bridge
+// fixture uses synthetic sealed noise to test transport geometry; this helper
+// is deliberately separate so that an end-to-end worker run cannot mistake
+// those synthetic lanes for a privacy mechanism.
+func formalCoxBlockwiseSamplerSourceOfferTestBridgeFixture(t testing.TB,
+	fixture formalCoxBlockwiseSamplerSourceOfferTestFixture,
+) *formalCoxBlockwiseSourceBridgeTestFixture {
+	t.Helper()
+	root := t.TempDir()
+	for _, path := range []string{filepath.Join(root, "source"), filepath.Join(root, "worker")} {
+		if err := os.Mkdir(path, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	result := &formalCoxBlockwiseSourceBridgeTestFixture{
+		plan:        fixture.plan,
+		pins:        fixture.runtime.pins,
+		signing:     fixture.runtime.private,
+		session:     fixture.session,
+		transportSK: fixture.secret,
+		sourceDir:   make(map[string]string, 2),
+		workerDir:   make(map[string]string, 2),
+		sourceKey:   make(map[string][32]byte, 2),
+		workerKey:   make(map[string][32]byte, 2),
+	}
+	stores := make(map[string]*formalCoxBlockwiseSourceStore, 2)
+	for _, peer := range fixture.plan.Policy.ComputePeers {
+		result.sourceDir[peer] = filepath.Join(root, "source", peer)
+		result.workerDir[peer] = filepath.Join(root, "worker", peer)
+		result.sourceKey[peer] = sha256.Sum256([]byte(t.Name() + "/source/" + peer))
+		result.workerKey[peer] = sha256.Sum256([]byte(t.Name() + "/worker/" + peer))
+		store, err := newFormalCoxBlockwiseSourceStore(
+			result.sourceDir[peer], result.sourceKey[peer], fixture.session, peer,
+			fixture.secret[peer])
+		if err != nil {
+			t.Fatal(err)
+		}
+		stores[peer] = store
+	}
+	defer func() {
+		for _, store := range stores {
+			_ = store.Close()
+		}
+	}()
+
+	formalCoxBlockwiseSamplerSourceOfferTestStageBlocks(t, fixture, stores)
+	garbler, evaluator := formalCoxRuntimeTestSamplerPair(t, fixture.runtime)
+	defer func() {
+		for _, chunks := range [][]formalCoxRuntimeSamplerRoleChunk{garbler, evaluator} {
+			for index := range chunks {
+				exactGCZeroBigInts(chunks[index].RawOutputShares)
+				exactGCZeroBigInts(chunks[index].NoiseShares)
+			}
+		}
+	}()
+	contract, authorizations := formalCoxBlockwiseSamplerSourceOfferTestPreflight(t, fixture)
+	layout, err := formalCoxBlockwiseSamplerLayout(
+		fixture.dpPlan.NoiseCoordinates, fixture.dpPlan.CovariateCount,
+		fixture.dpPlan.CommonPlan.MaximumChunkCoordinates)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for iteration := 0; iteration < fixture.plan.Policy.Iterations; iteration++ {
+		step, chunkIndex, _, err := formalCoxBlockwiseSamplerSourceOfferChunk(
+			fixture.plan, layout, iteration)
+		if err != nil {
+			t.Fatal(err)
+		}
+		offers := make([]formalCoxBlockwiseSamplerSourceOffer, 2)
+		for index, peer := range fixture.plan.Policy.ComputePeers {
+			sampler := garbler[chunkIndex]
+			if index == 1 {
+				sampler = evaluator[chunkIndex]
+			}
+			offers[index], err = formalCoxBlockwiseBuildSamplerSourceOffer(
+				fixture.session, fixture.dpPlan, fixture.runtime.admission.Trust,
+				fixture.runtime.admission.NoiseCenter, peer, iteration,
+				fixture.runtime.admission.Envelopes[chunkIndex], sampler,
+				fixture.runtime.private[peer])
+			if err != nil {
+				t.Fatalf("iteration %d build %s sampler offer: %v", iteration, peer, err)
+			}
+		}
+		barrier, err := formalCoxBlockwiseNewGuardedSamplerSourceOfferBarrier(
+			fixture.session, fixture.dpPlan, fixture.runtime.admission.Trust,
+			step, offers, contract, authorizations)
+		if err != nil {
+			t.Fatalf("iteration %d sampler barrier: %v", iteration, err)
+		}
+		approvals := make([]formalCoxBlockwiseNoiseApproval, 2)
+		for index, peer := range fixture.plan.Policy.ComputePeers {
+			approvals[index], err = formalCoxBlockwiseSignGuardedSamplerSourceOfferBarrier(
+				fixture.session, fixture.dpPlan, fixture.runtime.admission.Trust,
+				barrier, offers, contract, authorizations, peer,
+				fixture.runtime.private[peer])
+			if err != nil {
+				t.Fatalf("iteration %d sign %s sampler barrier: %v", iteration, peer, err)
+			}
+		}
+		binding, err := formalCoxBlockwiseFinalizeGuardedSamplerSourceOfferBarrier(
+			fixture.session, fixture.dpPlan, fixture.runtime.admission.Trust,
+			offers, contract, authorizations, barrier, approvals)
+		if err != nil {
+			t.Fatalf("iteration %d finalize sampler barrier: %v", iteration, err)
+		}
+		for _, peer := range fixture.plan.Policy.ComputePeers {
+			if replayed, acceptErr := stores[peer].AcceptGuardedSamplerSourceOffers(
+				fixture.dpPlan, fixture.runtime.admission.Trust, offers, binding); acceptErr != nil || replayed {
+				t.Fatalf("iteration %d accept %s sampler offer: replay=%v err=%v",
+					iteration, peer, replayed, acceptErr)
+			}
+		}
+	}
+	return result
 }
 
 func formalCoxBlockwiseSamplerSourceOfferTestRejectBarrierCommitmentSwap(
@@ -359,6 +478,28 @@ func TestFormalCoxBlockwiseSamplerSourceOfferK2K3K5(t *testing.T) {
 				}
 				exactGCZeroBigInts(shares)
 				exactGCZeroBigInts(want)
+			}
+		})
+	}
+}
+
+// TestFormalCoxBlockwiseSamplerOffersDriveFullWorkerK2K3K5 proves the
+// private compute chain that a future public Cox route must inherit: every
+// update is produced by the certified fixed-work sampler, accepted through a
+// two-authority guarded barrier, consumed by the recipient-local source
+// store, and then used by the whole durable worker schedule.  It intentionally
+// stops before opening or promoting the resulting coefficients.
+func TestFormalCoxBlockwiseSamplerOffersDriveFullWorkerK2K3K5(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run("K"+big.NewInt(int64(custodians)).String(), func(t *testing.T) {
+			fixture := newFormalCoxBlockwiseSamplerSourceOfferTestFixture(t, custodians)
+			bridgeFixture := formalCoxBlockwiseSamplerSourceOfferTestBridgeFixture(t, fixture)
+			sealed := formalCoxBlockwiseSourceBridgeTestRunFullScheduleSealed(t, bridgeFixture)
+			for index := range sealed {
+				if len(sealed[index].CoefficientShares) != fixture.plan.Policy.CovariateCount {
+					t.Fatalf("K=%d peer=%d sealed coefficient shape escaped plan", custodians, index)
+				}
+				exactGCZeroBigInts(sealed[index].CoefficientShares)
 			}
 		})
 	}

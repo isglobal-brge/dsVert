@@ -67,6 +67,10 @@ func formalGLMPublicModelDecodeStrictV1(encoded []byte, value any) error {
 	return nil
 }
 
+func formalGLMPublicSupportedFamilyV1(family string) bool {
+	return family == "binomial" || family == "poisson"
+}
+
 func formalGLMRunPublicCanonicalDPV1(
 	encoded []byte,
 ) (formalGLMPublicCanonicalDPResponseV1, error) {
@@ -75,7 +79,7 @@ func formalGLMRunPublicCanonicalDPV1(
 	if err := formalGLMPublicModelDecodeStrictV1(encoded, &request); err != nil {
 		return zero, err
 	}
-	if request.Phase15Plan.Kernel.Family != "binomial" {
+	if !formalGLMPublicSupportedFamilyV1(request.Phase15Plan.Kernel.Family) {
 		return zero, fmt.Errorf("formal-glm public model: unsupported family")
 	}
 	canonical, err := buildFormalGLMCanonicalPreSourceDPV1(
@@ -126,7 +130,7 @@ func formalGLMRunPublicModelProjectV1(
 	if err := formalGLMPublicModelDecodeStrictV1(encoded, &request); err != nil {
 		return zero, err
 	}
-	if request.Model.Family != "binomial" {
+	if !formalGLMPublicSupportedFamilyV1(request.Model.Family) {
 		return zero, fmt.Errorf("formal-glm public model: unsupported family")
 	}
 	pins, err := formalGLMPublicModelDecodePinsV1(request.Pins)
@@ -181,7 +185,8 @@ func formalGLMRunPublicProvisionTemplateV1(
 	}
 	canonicalModel, err := json.Marshal(model)
 	if err != nil || string(canonicalModel) != request.UnsignedModelJSON ||
-		len(model.CustodianApprovals) != 0 || model.Model.Family != "binomial" {
+		len(model.CustodianApprovals) != 0 ||
+		!formalGLMPublicSupportedFamilyV1(model.Model.Family) {
 		return zero, fmt.Errorf("formal-glm public model: invalid unsigned model")
 	}
 	pins, err := formalGLMPublicModelDecodePinsV1(request.Pins)

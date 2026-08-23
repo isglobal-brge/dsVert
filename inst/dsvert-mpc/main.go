@@ -80,7 +80,7 @@ func main() {
 		handleFormalGLMOneDrawControlImport()
 	case "formal-glm-control-delivery":
 		handleFormalGLMOneDrawControlDelivery()
-	// Closed pre-source projections for the first public formal-binomial
+	// Closed pre-source projections for the first public formal-GLM
 	// slice. Scientific/privacy inputs are taken only from signed server state.
 	case "formal-glm-public-canonical-dp":
 		handleFormalGLMPublicCanonicalDPV1()

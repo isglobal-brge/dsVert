@@ -186,6 +186,60 @@ func TestFormalGLMPublicEndpointRejectsInvalidSourceContractStore(t *testing.T) 
 	}
 }
 
+func TestFormalGLMPublicEndpointAcceptsPoissonSelectorK2K3K5(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+			plan, identities := formalGLMPreSourceDescriptorTestPlan(
+				t, "poisson", custodians)
+			context := formalGLMPreSourceDescriptorTestBuild(
+				t, plan, identities,
+				`{"columns":["outcome","group"],"version":"v1"}`,
+				nil, nil)
+			columns := make([]formalGLMPublicSelectorColumnV1,
+				len(context.draft.DescriptorCore.UsedColumns))
+			for index, column := range context.draft.DescriptorCore.UsedColumns {
+				columns[index] = formalGLMPublicSelectorColumnV1{
+					Owner: column.Owner, Column: column.Column,
+					Kind: column.Kind, Role: column.Role,
+				}
+			}
+			selector := formalGLMPublicSelectorV1{
+				Version:                   formalGLMPublicSelectorVersion,
+				Purpose:                   formalGLMPublicSelectorPurpose,
+				Family:                    "poisson",
+				CanonicalQualifiedFormula: context.draft.DescriptorCore.CanonicalQualifiedFormula,
+				FormalAnalysisID:          "poisson-analysis",
+				Federation: formalGLMPublicFederationSelectorV1{
+					Version:     formalGLMPublicFederationSelectorVersion,
+					Symbol:      "study",
+					Attestation: context.receipts[0].Core.PSIAttestation,
+					UsedColumns: columns,
+				},
+			}
+			if err := formalGLMValidatePublicSelectorV1(
+				selector, context.receipts, identities.public); err != nil {
+				t.Fatal(err)
+			}
+			binomial := selector
+			binomial.Family = "binomial"
+			if err := formalGLMValidatePublicSelectorV1(
+				binomial, context.receipts, identities.public); err == nil {
+				t.Fatal("binomial selector accepted a count response")
+			}
+			invalid := selector
+			invalid.Federation.UsedColumns = append(
+				[]formalGLMPublicSelectorColumnV1(nil),
+				selector.Federation.UsedColumns...)
+			invalid.Federation.UsedColumns[0].Role = "predictor"
+			invalid.Federation.UsedColumns[1].Role = "response"
+			if err := formalGLMValidatePublicSelectorV1(
+				invalid, context.receipts, identities.public); err == nil {
+				t.Fatal("Poisson selector accepted a count predictor")
+			}
+		})
+	}
+}
+
 func TestFormalGLMPublicEndpointColdProvisionTwoRoundsK2K3K5(t *testing.T) {
 	for _, custodians := range []int{2, 3, 5} {
 		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {

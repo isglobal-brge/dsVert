@@ -290,7 +290,7 @@ func formalGLMValidatePublicSelectorV1(
 	}
 	if selector.Version != formalGLMPublicSelectorVersion ||
 		selector.Purpose != formalGLMPublicSelectorPurpose ||
-		selector.Family != "binomial" || formulaErr != nil ||
+		!formalGLMPublicSupportedFamilyV1(selector.Family) || formulaErr != nil ||
 		formula.Canonical != selector.CanonicalQualifiedFormula ||
 		(selector.FormalAnalysisID != "" &&
 			!formalGLMRegistryLabelV1(selector.FormalAnalysisID, 256)) ||
@@ -335,10 +335,13 @@ func formalGLMValidatePublicSelectorV1(
 	seen := make(map[string]bool, len(selector.Federation.UsedColumns))
 	for _, column := range selector.Federation.UsedColumns {
 		key := column.Owner + "\x00" + column.Column
+		validKind := column.Kind == "binary" || column.Kind == "numeric" ||
+			column.Kind == "categorical" || column.Kind == "factor" ||
+			(selector.Family == "poisson" && column.Role == "response" &&
+				column.Kind == "count")
 		if !formalGLMRegistryLabelV1(column.Owner, 128) ||
 			!formalGLMRegistryLabelV1(column.Column, 128) || seen[key] ||
-			(column.Kind != "binary" && column.Kind != "numeric" &&
-				column.Kind != "categorical" && column.Kind != "factor") ||
+			!validKind ||
 			(column.Role != "response" && column.Role != "predictor") {
 			return fmt.Errorf("formal-glm public endpoint: invalid selector column")
 		}

@@ -96,6 +96,81 @@ func TestFormalGLMPublicCanonicalDPCommandK2K3K5RunIDInvariant(t *testing.T) {
 	}
 }
 
+func TestFormalGLMPublicPoissonModelCommandsK2K3K5(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+			plan, identities := formalGLMPreSourceDescriptorTestPlan(
+				t, "poisson", custodians)
+			canonicalRequest, err := json.Marshal(
+				formalGLMPublicCanonicalDPRequestV1{Phase15Plan: plan})
+			if err != nil {
+				t.Fatal(err)
+			}
+			canonical, err := formalGLMRunPublicCanonicalDPV1(canonicalRequest)
+			if err != nil || canonical.CanonicalDP.Family != "poisson" {
+				t.Fatalf("Poisson canonical DP: %+v, %v", canonical, err)
+			}
+
+			model := formalGLMPreSourceDescriptorTestSignedModel(
+				t, plan, identities, sha256Hex([]byte("poisson-schema")), nil).Model
+			pins := make(map[string]string, len(identities.public))
+			for peer, pin := range identities.public {
+				pins[peer] = formalGLMIdentityPKV1(pin)
+			}
+			projectRequest, err := json.Marshal(formalGLMPublicModelProjectRequestV1{
+				Model: model, Pins: pins,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			projected, err := formalGLMRunPublicModelProjectV1(projectRequest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var unsigned formalGLMSignedPreSourceModelV1
+			if err := json.Unmarshal([]byte(projected.UnsignedModelJSON),
+				&unsigned); err != nil || unsigned.Model.Family != "poisson" {
+				t.Fatalf("Poisson unsigned model: %+v, %v", unsigned, err)
+			}
+
+			context := formalGLMPreSourceDescriptorTestBuild(
+				t, plan, identities,
+				`{"columns":["outcome","group"],"version":"v1"}`,
+				nil, nil)
+			unsigned = context.model
+			unsigned.CustodianApprovals = nil
+			unsignedJSON, err := json.Marshal(unsigned)
+			if err != nil {
+				t.Fatal(err)
+			}
+			bindings := make([]formalGLMPreSourceDatasetBindingV1,
+				len(context.receipts))
+			for index, receipt := range context.receipts {
+				bindings[index] = formalGLMPreSourceDatasetBindingV1{
+					Owner:          receipt.Core.SignerPeerName,
+					DatasetID:      receipt.Core.DatasetID,
+					DatasetVersion: receipt.Core.DatasetVersion,
+				}
+			}
+			templateRequest, err := json.Marshal(
+				formalGLMPublicProvisionTemplateRequestV1{
+					UnsignedModelJSON: string(unsignedJSON),
+					DatasetBindings:   bindings,
+					Phase15Plan:       plan,
+					Pins:              pins,
+					FormalAnalysisIDs: []string{"poisson-analysis"},
+				})
+			if err != nil {
+				t.Fatal(err)
+			}
+			template, err := formalGLMRunPublicProvisionTemplateV1(templateRequest)
+			if err != nil || template.ArtifactID != context.draft.ArtifactID {
+				t.Fatalf("Poisson provision template: %+v, %v", template, err)
+			}
+		})
+	}
+}
+
 func TestFormalGLMPublicModelCommandsFailClosed(t *testing.T) {
 	plan, identities := formalGLMPreSourceDescriptorTestPlan(t, "binomial", 2)
 	model := formalGLMPreSourceDescriptorTestSignedModel(
@@ -117,6 +192,13 @@ func TestFormalGLMPublicModelCommandsFailClosed(t *testing.T) {
 	unknownCanonical, _ := json.Marshal(canonicalObject)
 	if _, err := formalGLMRunPublicCanonicalDPV1(unknownCanonical); err == nil {
 		t.Fatal("canonical DP command accepted an unknown action")
+	}
+	unsupportedPlan := plan
+	unsupportedPlan.Kernel.Family = "gaussian"
+	unsupportedCanonical, _ := json.Marshal(
+		formalGLMPublicCanonicalDPRequestV1{Phase15Plan: unsupportedPlan})
+	if _, err := formalGLMRunPublicCanonicalDPV1(unsupportedCanonical); err == nil {
+		t.Fatal("canonical DP command accepted an unsupported family")
 	}
 
 	var projectObject map[string]any
@@ -152,11 +234,11 @@ func TestFormalGLMPublicModelCommandsFailClosed(t *testing.T) {
 		formalGLMPublicCanonicalDPRequestV1{Phase15Plan: poisson})
 	poissonProject, _ := json.Marshal(
 		formalGLMPublicModelProjectRequestV1{Model: poissonModel, Pins: poissonPins})
-	if _, err := formalGLMRunPublicCanonicalDPV1(poissonDP); err == nil {
-		t.Fatal("first public slice accepted Poisson canonical DP")
+	if _, err := formalGLMRunPublicCanonicalDPV1(poissonDP); err != nil {
+		t.Fatalf("Poisson canonical DP rejected: %v", err)
 	}
-	if _, err := formalGLMRunPublicModelProjectV1(poissonProject); err == nil {
-		t.Fatal("first public slice accepted Poisson model projection")
+	if _, err := formalGLMRunPublicModelProjectV1(poissonProject); err != nil {
+		t.Fatalf("Poisson model projection rejected: %v", err)
 	}
 }
 

@@ -1171,7 +1171,12 @@ type formalCoxBlockwiseCircuitFlight struct {
 	err  error
 }
 
-const formalCoxBlockwiseCircuitCacheEntries = 8
+// A maximum-shape worker uses one block circuit, one update circuit, one
+// information-moment circuit, one information circuit, plus one grid and one
+// projection circuit for every reviewed covariate.  Retaining that complete
+// public set avoids recompiling it on every iteration while keeping the cache
+// bounded independently of rows, sessions, shares and DP randomness.
+const formalCoxBlockwiseCircuitCacheEntries = 2*formalCoxBlockwiseMaxCovariates + 4
 
 var formalCoxBlockwiseCircuitCache = struct {
 	sync.Mutex

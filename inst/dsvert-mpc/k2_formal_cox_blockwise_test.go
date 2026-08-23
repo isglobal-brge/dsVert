@@ -1029,6 +1029,11 @@ func TestFormalCoxBlockwiseCircuitCacheDoesNotRetainFailedCompilation(t *testing
 }
 
 func TestFormalCoxBlockwiseCircuitCacheEvictsOnlyLeastRecentEntry(t *testing.T) {
+	if formalCoxBlockwiseCircuitCacheEntries !=
+		2*formalCoxBlockwiseMaxCovariates+4 {
+		t.Fatalf("worker circuit cache capacity = %d, want all maximum-shape circuits",
+			formalCoxBlockwiseCircuitCacheEntries)
+	}
 	formalCoxBlockwiseCircuitCache.Lock()
 	previousEntries := formalCoxBlockwiseCircuitCache.entries
 	previousFlights := formalCoxBlockwiseCircuitCache.flights
@@ -1060,13 +1065,14 @@ func TestFormalCoxBlockwiseCircuitCacheEvictsOnlyLeastRecentEntry(t *testing.T) 
 		return circ
 	}
 
-	for index := 0; index < 8; index++ {
+	for index := 0; index < formalCoxBlockwiseCircuitCacheEntries; index++ {
 		compileSource(index)
 	}
-	first := compileSource(0) // Refresh it before adding the ninth circuit.
-	compileSource(8)
-	if got := calls.Load(); got != 9 {
-		t.Fatalf("initial compiler calls = %d, want 9", got)
+	first := compileSource(0) // Refresh it before adding the first overflow.
+	compileSource(formalCoxBlockwiseCircuitCacheEntries)
+	if got := calls.Load(); got != int32(formalCoxBlockwiseCircuitCacheEntries+1) {
+		t.Fatalf("initial compiler calls = %d, want %d", got,
+			formalCoxBlockwiseCircuitCacheEntries+1)
 	}
 	formalCoxBlockwiseCircuitCache.Lock()
 	entries := len(formalCoxBlockwiseCircuitCache.entries)
@@ -1075,11 +1081,12 @@ func TestFormalCoxBlockwiseCircuitCacheEvictsOnlyLeastRecentEntry(t *testing.T) 
 		t.Fatalf("cache entries = %d, want %d", entries,
 			formalCoxBlockwiseCircuitCacheEntries)
 	}
-	if got := compileSource(0); got != first || calls.Load() != 9 {
+	if got := compileSource(0); got != first ||
+		calls.Load() != int32(formalCoxBlockwiseCircuitCacheEntries+1) {
 		t.Fatalf("recent entry was evicted: circuit=%p calls=%d", got, calls.Load())
 	}
 	compileSource(1)
-	if got := calls.Load(); got != 10 {
+	if got := calls.Load(); got != int32(formalCoxBlockwiseCircuitCacheEntries+2) {
 		t.Fatalf("least-recent entry was not evicted: compiler calls=%d", got)
 	}
 }

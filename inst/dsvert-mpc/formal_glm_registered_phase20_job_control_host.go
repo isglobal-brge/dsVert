@@ -34,9 +34,11 @@ type formalGLMRegisteredPhase20JobControlHostConfigV1 struct {
 // remains private too: callers receive only the same opaque frames that can
 // cross the authenticated peer relay.
 type formalGLMRegisteredPhase20JobControlHostV1 struct {
-	mu     sync.Mutex
-	owner  *formalGLMRegisteredPhase20JobOwnerV1
-	closed bool
+	mu        sync.Mutex
+	ops       sync.WaitGroup
+	owner     *formalGLMRegisteredPhase20JobOwnerV1
+	closed    bool
+	closeDone chan struct{}
 }
 
 func formalGLMRegisteredPhase20JobControlHostCloneV1(
@@ -135,106 +137,118 @@ func newFormalGLMRegisteredPhase20JobControlHostV1(
 	return &formalGLMRegisteredPhase20JobControlHostV1{owner: owner}, nil
 }
 
-func (host *formalGLMRegisteredPhase20JobControlHostV1) ownerV1() (
-	*formalGLMRegisteredPhase20JobOwnerV1, error,
+func (host *formalGLMRegisteredPhase20JobControlHostV1) beginOpV1() (
+	*formalGLMRegisteredPhase20JobOwnerV1, func(), error,
 ) {
 	if host == nil {
-		return nil, fmt.Errorf("formal-glm registered Phase20 job host: unavailable")
+		return nil, nil, fmt.Errorf("formal-glm registered Phase20 job host: unavailable")
 	}
 	host.mu.Lock()
 	owner := host.owner
 	closed := host.closed
+	if !closed && owner != nil {
+		host.ops.Add(1)
+	}
 	host.mu.Unlock()
 	if closed || owner == nil {
-		return nil, fmt.Errorf("formal-glm registered Phase20 job host: closed")
+		return nil, nil, fmt.Errorf("formal-glm registered Phase20 job host: closed")
 	}
-	return owner, nil
+	return owner, host.ops.Done, nil
 }
 
 func (host *formalGLMRegisteredPhase20JobControlHostV1) NegotiateV1(
 	inbound []byte,
 ) (formalGLMRegisteredPhase20JobOwnerResultV1, error) {
-	owner, err := host.ownerV1()
+	owner, done, err := host.beginOpV1()
 	if err != nil {
 		return formalGLMRegisteredPhase20JobOwnerResultV1{}, err
 	}
+	defer done()
 	return owner.NegotiateV1(inbound)
 }
 
 func (host *formalGLMRegisteredPhase20JobControlHostV1) StartOrInspectV1() (
 	formalGLMRegisteredPhase20JobOwnerResultV1, error,
 ) {
-	owner, err := host.ownerV1()
+	owner, done, err := host.beginOpV1()
 	if err != nil {
 		return formalGLMRegisteredPhase20JobOwnerResultV1{}, err
 	}
+	defer done()
 	return owner.StartOrInspectV1()
 }
 
 func (host *formalGLMRegisteredPhase20JobControlHostV1) JobRefV1() (
 	formalGLMRegisteredPhase20JobRefV1, []byte, error,
 ) {
-	owner, err := host.ownerV1()
+	owner, done, err := host.beginOpV1()
 	if err != nil {
 		return formalGLMRegisteredPhase20JobRefV1{}, nil, err
 	}
+	defer done()
 	return owner.JobRefV1()
 }
 
 func (host *formalGLMRegisteredPhase20JobControlHostV1) BindPeerJobRefV1(
 	encoded []byte,
 ) error {
-	owner, err := host.ownerV1()
+	owner, done, err := host.beginOpV1()
 	if err != nil {
 		return err
 	}
+	defer done()
 	return owner.BindPeerJobRefV1(encoded)
 }
 
 func (host *formalGLMRegisteredPhase20JobControlHostV1) HeartbeatV1() error {
-	owner, err := host.ownerV1()
+	owner, done, err := host.beginOpV1()
 	if err != nil {
 		return err
 	}
+	defer done()
 	return owner.HeartbeatV1()
 }
 
 func (host *formalGLMRegisteredPhase20JobControlHostV1) transportV1(
 	ref formalGLMRegisteredPhase20JobRefV1,
-) (*formalGLMRegisteredPhase20JobTransportV1, error) {
-	owner, err := host.ownerV1()
+) (*formalGLMRegisteredPhase20JobTransportV1, func(), error) {
+	owner, done, err := host.beginOpV1()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	owner.mu.Lock()
 	controller := owner.controller
 	owner.mu.Unlock()
 	if controller == nil {
-		return nil, fmt.Errorf("formal-glm registered Phase20 job host: controller unavailable")
+		done()
+		return nil, nil, fmt.Errorf("formal-glm registered Phase20 job host: controller unavailable")
 	}
 	controller.mu.Lock()
 	transport := controller.transport
 	controller.mu.Unlock()
 	if transport == nil {
-		return nil, fmt.Errorf("formal-glm registered Phase20 job host: transport unavailable")
+		done()
+		return nil, nil, fmt.Errorf("formal-glm registered Phase20 job host: transport unavailable")
 	}
 	transport.mu.Lock()
 	valid := !transport.closed && !ref.ProductionReady &&
 		reflect.DeepEqual(ref, transport.ref)
 	transport.mu.Unlock()
 	if !valid {
-		return nil, fmt.Errorf("formal-glm registered Phase20 job host: JobRef mismatch")
+		done()
+		return nil, nil, fmt.Errorf("formal-glm registered Phase20 job host: JobRef mismatch")
 	}
-	return transport, nil
+	return transport, done, nil
 }
 
 func (host *formalGLMRegisteredPhase20JobControlHostV1) PollV1(
 	ref formalGLMRegisteredPhase20JobRefV1, acknowledged int64,
 ) (formalGLMRegisteredPhase20JobPollResultV1, error) {
-	transport, err := host.transportV1(ref)
+	transport, done, err := host.transportV1(ref)
 	if err != nil {
 		return formalGLMRegisteredPhase20JobPollResultV1{}, err
 	}
+	defer done()
 	return transport.Poll(acknowledged)
 }
 
@@ -242,10 +256,11 @@ func (host *formalGLMRegisteredPhase20JobControlHostV1) RelayV1(
 	ref formalGLMRegisteredPhase20JobRefV1,
 	chunk formalGLMRegisteredPhase20RelayChunkV1,
 ) (int64, error) {
-	transport, err := host.transportV1(ref)
+	transport, done, err := host.transportV1(ref)
 	if err != nil {
 		return 0, err
 	}
+	defer done()
 	return transport.Relay(chunk)
 }
 
@@ -255,13 +270,21 @@ func (host *formalGLMRegisteredPhase20JobControlHostV1) Close() error {
 	}
 	host.mu.Lock()
 	if host.closed {
+		done := host.closeDone
 		host.mu.Unlock()
+		if done != nil {
+			<-done
+		}
 		return nil
 	}
 	host.closed = true
 	owner := host.owner
 	host.owner = nil
+	host.closeDone = make(chan struct{})
+	done := host.closeDone
 	host.mu.Unlock()
+	host.ops.Wait()
+	defer close(done)
 	if owner == nil {
 		return nil
 	}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/json"
+	"runtime"
 	"testing"
 )
 
@@ -135,5 +136,51 @@ func TestFormalGLMRegisteredPhase20JobControlHostRejectsCrossedAuthority(t *test
 			_ = host.Close()
 		}
 		t.Fatal("host accepted a signing key from the other compute authority")
+	}
+}
+
+func TestFormalGLMRegisteredPhase20JobControlHostCloseWaitsForOperation(t *testing.T) {
+	fixture := newFormalGLMRegisteredPhase20JobControlTestFixtureV1(t)
+	config := formalGLMRegisteredPhase20JobControlHostTestConfigV1(t, fixture, 0)
+	formalGLMRegisteredPhase20JobControlHostTestReleaseFixtureV1(t, fixture)
+	host, err := newFormalGLMRegisteredPhase20JobControlHostV1(fixture.roots[0], config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner, release, err := host.beginOpV1()
+	if err != nil || owner == nil || release == nil {
+		t.Fatalf("host did not issue an operation lease: %v", err)
+	}
+	closed := make(chan error, 1)
+	started := make(chan struct{})
+	go func() {
+		close(started)
+		closed <- host.Close()
+	}()
+	<-started
+	closing := false
+	for range 10000 {
+		host.mu.Lock()
+		closing = host.closed
+		host.mu.Unlock()
+		if closing {
+			break
+		}
+		runtime.Gosched()
+	}
+	if !closing {
+		t.Fatal("host close did not begin")
+	}
+	select {
+	case closeErr := <-closed:
+		t.Fatalf("host close raced an active operation: %v", closeErr)
+	default:
+	}
+	release()
+	if closeErr := <-closed; closeErr != nil {
+		t.Fatal(closeErr)
+	}
+	if _, release, beginErr := host.beginOpV1(); beginErr == nil || release != nil {
+		t.Fatal("closed host issued another operation lease")
 	}
 }

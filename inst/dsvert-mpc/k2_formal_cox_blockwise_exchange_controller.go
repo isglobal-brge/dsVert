@@ -388,7 +388,7 @@ func (controller *formalCoxBlockwiseExchangeController) PublicInputRoot(
 }
 
 func (controller *formalCoxBlockwiseExchangeController) Start(
-	step formalCoxBlockwiseWorkerStep, attempt, master [32]byte,
+	step formalCoxBlockwiseWorkerStep, attempt [32]byte,
 	peerClaim formalCoxBlockwiseExchangeRootClaim,
 ) error {
 	if controller == nil {
@@ -423,8 +423,13 @@ func (controller *formalCoxBlockwiseExchangeController) Start(
 	if err != nil {
 		return err
 	}
+	master, err := controller.bridge.deriveWorkerMasterV1(bound, attempt)
+	if err != nil {
+		return err
+	}
 	session, err := formalCoxBlockwiseWorkerSession(
 		controller.plan, bound, attempt, master)
+	clear(master[:])
 	if err != nil {
 		return err
 	}

@@ -6,14 +6,44 @@ package main
 // peer's spool or transport key.
 
 import (
+	"crypto/ecdh"
 	"crypto/ed25519"
 	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
 	"sync"
+
+	"golang.org/x/crypto/hkdf"
 )
+
+const (
+	formalCoxBlockwiseWorkerMasterVersion = "dsvert-formal-cox-blockwise-worker-master-v1"
+	formalCoxBlockwiseWorkerMasterPurpose = "formal_cox_blockwise_x25519_step_master_v1"
+	formalCoxBlockwiseWorkerMasterDomain  = "dsVert/formal-cox/blockwise-worker-master/v1"
+)
+
+// formalCoxBlockwiseWorkerMasterContext is public binding material only.  The
+// X25519 private keys remain in the two recipient-local source stores.
+type formalCoxBlockwiseWorkerMasterContext struct {
+	Version               string                       `json:"version"`
+	Purpose               string                       `json:"purpose"`
+	ArtifactID            string                       `json:"artifact_id"`
+	PlanSHA256            string                       `json:"plan_sha256"`
+	PinsetSHA256          string                       `json:"pinset_sha256"`
+	RunID                 string                       `json:"run_id"`
+	GarblerPeer           string                       `json:"garbler_peer"`
+	GarblerPeerID         string                       `json:"garbler_peer_id"`
+	GarblerTicketSHA256   string                       `json:"garbler_ticket_sha256"`
+	EvaluatorPeer         string                       `json:"evaluator_peer"`
+	EvaluatorPeerID       string                       `json:"evaluator_peer_id"`
+	EvaluatorTicketSHA256 string                       `json:"evaluator_ticket_sha256"`
+	Step                  formalCoxBlockwiseWorkerStep `json:"step"`
+	AttemptID             string                       `json:"attempt_id"`
+}
 
 type formalCoxBlockwiseSourceBridge struct {
 	mu         sync.Mutex
@@ -60,7 +90,7 @@ func newFormalCoxBlockwiseSourceBridgeFromOpenStore(
 	session, recipient := source.session, source.recipient
 	valid := !source.closed && source.owner != nil && session != nil &&
 		session.context != nil && hmac.Equal(
-			signingKey.Public().(ed25519.PublicKey), session.context.pins[recipient])
+		signingKey.Public().(ed25519.PublicKey), session.context.pins[recipient])
 	source.mu.Unlock()
 	if !valid {
 		return nil, fmt.Errorf("formal-cox: invalid source bridge policy")
@@ -242,6 +272,120 @@ func (bridge *formalCoxBlockwiseSourceBridge) BeginAttempt(
 			fmt.Errorf("formal-cox: internal worker step received a source root")
 	}
 	return bridge.worker.BeginAttempt(step, attempt)
+}
+
+func formalCoxBlockwiseWorkerMasterContextSHA256(
+	context formalCoxBlockwiseWorkerMasterContext,
+) ([32]byte, error) {
+	var zero [32]byte
+	encoded, err := json.Marshal(context)
+	if err != nil {
+		return zero, err
+	}
+	defer clear(encoded)
+	digest := sha256.Sum256(append(
+		[]byte(formalCoxBlockwiseWorkerMasterDomain+"|"), encoded...))
+	return digest, nil
+}
+
+// deriveWorkerMasterV1 derives the sole GC master for one already-bound Cox
+// step from the two signed recipient X25519 tickets.  It deliberately accepts
+// no caller-supplied master: changing the plan, compute pair, source root,
+// step, or attempt changes the HKDF context before a circuit can start.
+func (bridge *formalCoxBlockwiseSourceBridge) deriveWorkerMasterV1(
+	step formalCoxBlockwiseWorkerStep, attempt [32]byte,
+) ([32]byte, error) {
+	var zero [32]byte
+	if bridge == nil {
+		return zero, fmt.Errorf("formal-cox: source bridge is unavailable")
+	}
+	bridge.mu.Lock()
+	defer bridge.mu.Unlock()
+	if bridge.closed || bridge.source == nil ||
+		formalCoxBlockwiseValidateWorkerStep(bridge.plan, step) != nil {
+		return zero, fmt.Errorf("formal-cox: invalid worker master binding")
+	}
+	store := bridge.source
+	store.mu.Lock()
+	if store.closed || store.owner == nil || store.session == nil ||
+		store.session.context == nil || store.recipient != bridge.peer ||
+		len(store.recipientSK) != sha256.Size {
+		store.mu.Unlock()
+		return zero, fmt.Errorf("formal-cox: worker master source is unavailable")
+	}
+	context := store.session.context
+	computePeers := context.plan.Policy.ComputePeers
+	if len(computePeers) != 2 || computePeers[0] == computePeers[1] ||
+		(bridge.peer != computePeers[0] && bridge.peer != computePeers[1]) {
+		store.mu.Unlock()
+		return zero, fmt.Errorf("formal-cox: invalid worker master compute pair")
+	}
+	remote := computePeers[0]
+	if remote == bridge.peer {
+		remote = computePeers[1]
+	}
+	localTicket, localOK := store.session.tickets[bridge.peer]
+	remoteTicket, remoteOK := store.session.tickets[remote]
+	localTicketSHA := store.session.ticketSHA256[bridge.peer]
+	remoteTicketSHA := store.session.ticketSHA256[remote]
+	garblerTicketSHA := store.session.ticketSHA256[computePeers[0]]
+	evaluatorTicketSHA := store.session.ticketSHA256[computePeers[1]]
+	secret := append([]byte(nil), store.recipientSK...)
+	store.mu.Unlock()
+	defer clear(secret)
+	if !localOK || !remoteOK || !formalCoxIsSHA256(localTicketSHA) ||
+		!formalCoxIsSHA256(remoteTicketSHA) ||
+		localTicket.RecipientPeerName != bridge.peer ||
+		remoteTicket.RecipientPeerName != remote ||
+		localTicket.RecipientRole != context.roles[bridge.peer] ||
+		remoteTicket.RecipientRole != context.roles[remote] ||
+		localTicket.RecipientPeerID != context.peerIDs[bridge.peer] ||
+		remoteTicket.RecipientPeerID != context.peerIDs[remote] ||
+		len(localTicket.TransportPublicKey) != sha256.Size ||
+		len(remoteTicket.TransportPublicKey) != sha256.Size {
+		return zero, fmt.Errorf("formal-cox: invalid worker master tickets")
+	}
+	private, err := ecdh.X25519().NewPrivateKey(secret)
+	if err != nil || !hmac.Equal(private.PublicKey().Bytes(), localTicket.TransportPublicKey) {
+		return zero, fmt.Errorf("formal-cox: worker master local ticket mismatch")
+	}
+	masterContext := formalCoxBlockwiseWorkerMasterContext{
+		Version:               formalCoxBlockwiseWorkerMasterVersion,
+		Purpose:               formalCoxBlockwiseWorkerMasterPurpose,
+		ArtifactID:            context.artifactID,
+		PlanSHA256:            context.planSHA256,
+		PinsetSHA256:          context.pinsetSHA256,
+		RunID:                 context.plan.RunID,
+		GarblerPeer:           computePeers[0],
+		GarblerPeerID:         context.peerIDs[computePeers[0]],
+		GarblerTicketSHA256:   garblerTicketSHA,
+		EvaluatorPeer:         computePeers[1],
+		EvaluatorPeerID:       context.peerIDs[computePeers[1]],
+		EvaluatorTicketSHA256: evaluatorTicketSHA,
+		Step:                  step,
+		AttemptID:             hex.EncodeToString(attempt[:]),
+	}
+	contextDigest, err := formalCoxBlockwiseWorkerMasterContextSHA256(masterContext)
+	if err != nil {
+		return zero, err
+	}
+	peerKey, err := ecdh.X25519().NewPublicKey(remoteTicket.TransportPublicKey)
+	if err != nil {
+		return zero, fmt.Errorf("formal-cox: invalid worker master peer ticket")
+	}
+	shared, err := private.ECDH(peerKey)
+	if err != nil {
+		return zero, fmt.Errorf("formal-cox: worker master key agreement failed")
+	}
+	defer clear(shared)
+	var master [32]byte
+	reader := hkdf.New(sha256.New, shared, contextDigest[:],
+		[]byte(formalCoxBlockwiseWorkerMasterDomain))
+	if _, err := io.ReadFull(reader, master[:]); err != nil {
+		clear(master[:])
+		return zero, fmt.Errorf("formal-cox: worker master derivation failed")
+	}
+	return master, nil
 }
 
 // RunPendingWorkerStep verifies the public root again before SourceStore.Load

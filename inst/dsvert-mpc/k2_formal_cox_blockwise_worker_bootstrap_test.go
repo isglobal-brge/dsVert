@@ -86,7 +86,6 @@ func TestFormalCoxBlockwiseWorkerBootstrapK2K3K5(t *testing.T) {
 			plan, pins, imports := formalCoxBlockwiseWorkerBootstrapTestStage(
 				t, custodians, root)
 			attempt := sha256.Sum256([]byte(t.Name() + "/attempt"))
-			master := sha256.Sum256([]byte(t.Name() + "/master"))
 			step, err := formalCoxBlockwiseWorkerStepAt(plan, 0)
 			if err != nil {
 				t.Fatal(err)
@@ -154,7 +153,7 @@ func TestFormalCoxBlockwiseWorkerBootstrapK2K3K5(t *testing.T) {
 				}
 			}
 			for index := range clients {
-				if err := clients[index].StartV1(step, attempt, master, claims[1-index]); err != nil {
+				if err := clients[index].StartV1(step, attempt, claims[1-index]); err != nil {
 					t.Fatal(err)
 				}
 			}

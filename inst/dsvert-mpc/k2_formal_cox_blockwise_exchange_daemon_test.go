@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -29,7 +30,6 @@ func TestFormalCoxBlockwiseExchangeDaemonK2K3K5(t *testing.T) {
 			defer formalCoxBlockwiseSourceBridgeTestClose(bridges)
 
 			attempt := sha256.Sum256([]byte(t.Name() + "/attempt"))
-			master := sha256.Sum256([]byte(t.Name() + "/master"))
 			controlKey := sha256.Sum256([]byte(t.Name() + "/control"))
 			controllers := make([]*formalCoxBlockwiseExchangeController, 2)
 			daemons := make([]*formalCoxBlockwiseExchangeDaemonV1, 2)
@@ -88,8 +88,25 @@ func TestFormalCoxBlockwiseExchangeDaemonK2K3K5(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			injected, err := json.Marshal(struct {
+				Step      formalCoxBlockwiseWorkerStep        `json:"step"`
+				Attempt   string                              `json:"attempt"`
+				PeerClaim formalCoxBlockwiseExchangeRootClaim `json:"peer_claim"`
+				Master    string                              `json:"master"`
+			}{
+				Step: step, Attempt: fmt.Sprintf("%x", attempt),
+				PeerClaim: claims[1], Master: fmt.Sprintf("%064x", 1),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var start formalCoxBlockwiseExchangeDaemonStartV1
+			if err := formalCoxBlockwiseExchangeDaemonPayload(injected, &start); err == nil {
+				t.Fatal("daemon accepted a caller-supplied worker master")
+			}
+			clear(injected)
 			for index := range clients {
-				if err := clients[index].StartV1(step, attempt, master, claims[1-index]); err != nil {
+				if err := clients[index].StartV1(step, attempt, claims[1-index]); err != nil {
 					t.Fatal(err)
 				}
 			}

@@ -2,11 +2,13 @@ package main
 
 import (
 	"crypto/ed25519"
+	"crypto/hmac"
 	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -25,12 +27,57 @@ func TestFormalCoxBlockwiseExchangeControllerRunsBoundStepK2K3K5(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			attempt := sha256.Sum256([]byte(t.Name() + "/attempt"))
+			roots := make([]string, len(bridges))
+			for index, bridge := range bridges {
+				roots[index], err = bridge.PublicInputRoot(step)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			pairedRoot, err := formalCoxBlockwiseMatchPublicInputRoots(
+				fixture.plan, step, roots)
+			if err != nil {
+				t.Fatal(err)
+			}
+			bound := step
+			bound.InputRoot = pairedRoot
+			leftMaster, err := bridges[0].deriveWorkerMasterV1(bound, attempt)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer clear(leftMaster[:])
+			rightMaster, err := bridges[1].deriveWorkerMasterV1(bound, attempt)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer clear(rightMaster[:])
+			if !hmac.Equal(leftMaster[:], rightMaster[:]) {
+				t.Fatal("compute roles derived different bound worker masters")
+			}
+			otherAttempt := sha256.Sum256([]byte(t.Name() + "/other-attempt"))
+			otherMaster, err := bridges[0].deriveWorkerMasterV1(bound, otherAttempt)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer clear(otherMaster[:])
+			if hmac.Equal(leftMaster[:], otherMaster[:]) {
+				t.Fatal("worker master was reused across attempts")
+			}
+			otherRoot := bound
+			otherRoot.InputRoot = strings.Repeat("0", sha256.Size*2)
+			rootMaster, err := bridges[0].deriveWorkerMasterV1(otherRoot, attempt)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer clear(rootMaster[:])
+			if hmac.Equal(leftMaster[:], rootMaster[:]) {
+				t.Fatal("worker master was reused across authenticated input roots")
+			}
 			root := filepath.Join(t.TempDir(), "exchange")
 			if err := os.Mkdir(root, 0o700); err != nil {
 				t.Fatal(err)
 			}
-			attempt := sha256.Sum256([]byte(t.Name() + "/attempt"))
-			master := sha256.Sum256([]byte(t.Name() + "/master"))
 			controllers := make([]*formalCoxBlockwiseExchangeController, 2)
 			for index, peer := range fixture.plan.Policy.ComputePeers {
 				peerRoot := filepath.Join(root, peer)
@@ -62,7 +109,7 @@ func TestFormalCoxBlockwiseExchangeControllerRunsBoundStepK2K3K5(t *testing.T) {
 				}
 			}
 			for index, controller := range controllers {
-				if err := controller.Start(step, attempt, master, claims[1-index]); err != nil {
+				if err := controller.Start(step, attempt, claims[1-index]); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -153,8 +200,7 @@ func TestFormalCoxBlockwiseExchangeControllerRejectsUnboundOrWrongRoots(t *testi
 	if err := controller.BindPeer(fixture.plan.Policy.ComputePeers[1]); err != nil {
 		t.Fatal(err)
 	}
-	master := sha256.Sum256([]byte(t.Name() + "/master"))
-	if err := controller.Start(step, attempt, master,
+	if err := controller.Start(step, attempt,
 		formalCoxBlockwiseExchangeRootClaim{}); err == nil {
 		t.Fatal("controller accepted an unsigned peer source root claim")
 	}
@@ -292,7 +338,6 @@ func TestFormalCoxBlockwiseExchangeControllerPersistsPeerRootClaimK2K3K5(t *test
 				t.Fatal(err)
 			}
 			attempt := sha256.Sum256([]byte(t.Name() + "/attempt"))
-			master := sha256.Sum256([]byte(t.Name() + "/master"))
 			controllers := make([]*formalCoxBlockwiseExchangeController, 2)
 			claims := make([]formalCoxBlockwiseExchangeRootClaim, 2)
 			for index, peer := range fixture.plan.Policy.ComputePeers {
@@ -322,7 +367,7 @@ func TestFormalCoxBlockwiseExchangeControllerPersistsPeerRootClaimK2K3K5(t *test
 				}
 			}
 			for index, controller := range controllers {
-				if err := controller.Start(step, attempt, master, claims[1-index]); err != nil {
+				if err := controller.Start(step, attempt, claims[1-index]); err != nil {
 					t.Fatal(err)
 				}
 				for _, want := range []struct {

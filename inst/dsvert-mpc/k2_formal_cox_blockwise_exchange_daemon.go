@@ -56,7 +56,6 @@ type formalCoxBlockwiseExchangeDaemonRootV1 struct {
 type formalCoxBlockwiseExchangeDaemonStartV1 struct {
 	Step      formalCoxBlockwiseWorkerStep        `json:"step"`
 	Attempt   string                              `json:"attempt"`
-	Master    string                              `json:"master"`
 	PeerClaim formalCoxBlockwiseExchangeRootClaim `json:"peer_claim"`
 }
 
@@ -438,11 +437,7 @@ func (daemon *formalCoxBlockwiseExchangeDaemonV1) dispatchV1(action string,
 		if err != nil {
 			return nil, err
 		}
-		master, err := formalCoxBlockwiseExchangeDaemonDecodeHash(request.Master)
-		if err != nil {
-			return nil, err
-		}
-		if err := controller.Start(request.Step, attempt, master, request.PeerClaim); err != nil {
+		if err := controller.Start(request.Step, attempt, request.PeerClaim); err != nil {
 			return nil, err
 		}
 		return formalCoxBlockwiseExchangeDaemonResponsePayload(struct{}{})
@@ -591,12 +586,12 @@ func (client *formalCoxBlockwiseExchangeDaemonClientV1) RootClaimV1(
 }
 
 func (client *formalCoxBlockwiseExchangeDaemonClientV1) StartV1(
-	step formalCoxBlockwiseWorkerStep, attempt, master [32]byte,
+	step formalCoxBlockwiseWorkerStep, attempt [32]byte,
 	peerClaim formalCoxBlockwiseExchangeRootClaim,
 ) error {
 	return client.callV1("start", formalCoxBlockwiseExchangeDaemonStartV1{
 		Step: step, Attempt: hex.EncodeToString(attempt[:]),
-		Master: hex.EncodeToString(master[:]), PeerClaim: peerClaim,
+		PeerClaim: peerClaim,
 	}, &struct{}{})
 }
 

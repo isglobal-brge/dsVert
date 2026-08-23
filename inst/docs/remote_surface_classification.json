@@ -6,10 +6,10 @@
   "counts": {
     "registered_ds_endpoints": 85,
     "registered_argument_constructor_aliases": 0,
-    "direct_literal_call_endpoints": 179,
+    "direct_literal_call_endpoints": 178,
     "as_call_as_name_endpoints": 13,
     "bounded_dynamic_call_endpoints": 1,
-    "unregistered_client_endpoint_literals": 108,
+    "unregistered_client_endpoint_literals": 107,
     "reachable_unregistered_client_endpoints": 0,
     "registered_orphan_endpoints": 0,
     "internal_unregistered_ds_functions": 154
@@ -225,7 +225,7 @@
     "dangerous_remove_candidate": []
   },
   "retired_surface_consumer_audit": {
-    "coverage_contract": "The union of retired_registered_surface arrays is exactly the 105 formerly registered endpoints. Every executable client construction of one of these endpoints is either test-only or dominated by a local dsvert_route_unavailable:v1 guard before connection discovery and DSI expression submission. The three unregistered client constructions listed in client_ast_resolution.locally_quarantined_unregistered_endpoints are likewise locally blocked before DSI.",
+    "coverage_contract": "The union of retired_registered_surface arrays is exactly the 105 formerly registered endpoints. Every executable client construction of one of these endpoints is either test-only or dominated by a local dsvert_route_unavailable:v1 guard before connection discovery and DSI expression submission; dsvertImputeColumnDS has no executable client construction. The three unregistered client constructions listed in client_ast_resolution.locally_quarantined_unregistered_endpoints are likewise locally blocked before DSI.",
     "test_only_or_internal_consumers": {
       "mpcTypedSourceProbeDS": "data-free typed source-stream diagnostics only",
       "exactGCGLMSoftplusPrepareDS": "producer-bound legacy GLM softplus helper, locally guarded",
@@ -247,7 +247,7 @@
   },
   "registered_argument_constructor_aliases": [],
   "client_ast_resolution": {
-    "direct_literal_call": "179 distinct endpoints constructed with call(name = <one string>)",
+    "direct_literal_call": "178 distinct endpoints constructed with call(name = <one string>)",
     "as_call_as_name": [
       "dsvertDPAlignmentMaskReceiveDS",
       "dsvertDPAlignmentMaskSealDS",
@@ -272,7 +272,7 @@
       "runtime_guard": "any other value is rejected before a DSI expression is built"
     },
     "unresolved_dynamic_symbols": [],
-    "unregistered_client_endpoints": "retired_registered_surface.* plus locally_quarantined_unregistered_endpoints (108 distinct endpoint constructions)",
+    "unregistered_client_endpoints": "104 currently constructed retired_registered_surface endpoints plus locally_quarantined_unregistered_endpoints (107 distinct endpoint constructions)",
     "locally_quarantined_unregistered_endpoints": [
       "dsvertFormalFinalizerHandoffSourceDS",
       "dsvertFormalGLMControlSourceDS",

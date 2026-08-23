@@ -671,6 +671,21 @@ func TestFormalCoxBlockwiseDPPlanUsesWholeIterationSamplerChunks(t *testing.T) {
 	}
 }
 
+func TestFormalCoxBlockwiseDPPlanRejectsSamplerChunksThatSplitUpdates(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+			policy := formalCoxBlockwiseTestPolicy(t, custodians, 3)
+			// This bound admits a one-coordinate Gaussian circuit. It must not
+			// be repurposed as two half-validities for one Cox update.
+			policy.CovariateL2Bound = "128"
+			if _, err := planFormalCoxBlockwiseDP(policy); err == nil ||
+				!strings.Contains(err.Error(), "splits a Cox iteration") {
+				t.Fatalf("accepted a split sampler chunk: %v", err)
+			}
+		})
+	}
+}
+
 func TestFormalCoxPhase1RemainsAbsentFromGenericCompilerWorkerCLIAndSurface(t *testing.T) {
 	policy := formalCoxTestPolicy(t, 4)
 	session := formalCoxTestSession(t, policy)

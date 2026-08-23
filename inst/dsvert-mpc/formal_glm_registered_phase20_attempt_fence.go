@@ -119,9 +119,13 @@ func formalGLMRegisteredPhase20AttemptPairLockedV1(
 		formalGLMRegisteredPhase19AttemptReadV1[formalGLMRegisteredPhase19ClaimAcceptV1](
 			store.root, store.attemptRelativePathV1(proposal.Binding.AttemptID,
 				formalGLMRegisteredPhase19ClaimAcceptFileV1))
-	if proposalErr != nil || acceptErr != nil || !hasProposal || !hasAccept ||
+	// The evaluator writes its accept locally before it sends it.  The garbler
+	// may therefore hold a valid signed accept before its own Rock replica has
+	// been written; commitVoteV1 below atomically imports that exact accept
+	// under this fence.  A present replica must still be byte-for-byte the same.
+	if proposalErr != nil || acceptErr != nil || !hasProposal ||
 		!reflect.DeepEqual(persistedProposal, proposal) ||
-		!reflect.DeepEqual(persistedAccept, accept) {
+		(hasAccept && !reflect.DeepEqual(persistedAccept, accept)) {
 		return fmt.Errorf("formal-glm registered Phase20 attempt fence: durable pair changed")
 	}
 	if !rejectDecision {

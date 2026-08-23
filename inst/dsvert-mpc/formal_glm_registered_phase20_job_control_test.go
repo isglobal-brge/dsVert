@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 type formalGLMRegisteredPhase20JobControlTestFixtureV1 struct {
@@ -434,7 +435,6 @@ func TestFormalGLMRegisteredPhase20JobControlJobRefFencesConcurrentClose(
 	}
 	result := make(chan resultV1, 1)
 	started := make(chan struct{})
-	controller.mu.Lock()
 	fixture.jobKeys[0].mu.Lock()
 	go func() {
 		close(started)
@@ -453,17 +453,15 @@ func TestFormalGLMRegisteredPhase20JobControlJobRefFencesConcurrentClose(
 	}
 	if !controlLocked {
 		fixture.jobKeys[0].mu.Unlock()
-		controller.mu.Unlock()
 		t.Fatal("JobRef did not enter control ownership")
 	}
-	// JobRef now owns control.mu; let it reach the held JobKey lock, then
-	// release that stage so it queues behind the held controller lock.
-	runtime.Gosched()
+	// JobRef owns control.mu and is stopped before its controller check. Hold
+	// transport.mu before releasing JobKey so the check blocks while retaining
+	// controller.mu; this distinguishes the signing lifetime from mere entry.
 	controller.transport.mu.Lock()
 	fixture.jobKeys[0].mu.Unlock()
-	controller.mu.Unlock()
 	controllerOwned := false
-	for attempt := 0; attempt < 10_000; attempt++ {
+	for deadline := time.Now().Add(3 * time.Second); time.Now().Before(deadline); {
 		if !controller.mu.TryLock() {
 			controllerOwned = true
 			break
@@ -473,8 +471,16 @@ func TestFormalGLMRegisteredPhase20JobControlJobRefFencesConcurrentClose(
 	}
 	if !controllerOwned {
 		controller.transport.mu.Unlock()
+		select {
+		case got := <-result:
+			t.Fatalf("JobRef ended before controller ownership: %v", got.err)
+		default:
+		}
 		t.Fatal("JobRef did not acquire controller ownership")
 	}
+	// The final signature takes attempts.mu. Holding it makes the following
+	// Close race deterministic: JobRef has passed validation but cannot emit
+	// until it has signed while retaining controller.mu.
 	fixture.attempts[0].mu.Lock()
 	controller.transport.mu.Unlock()
 	heldThroughSign := true

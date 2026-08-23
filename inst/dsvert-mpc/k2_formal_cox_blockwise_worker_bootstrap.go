@@ -116,6 +116,25 @@ func formalCoxBlockwiseWorkerBootstrapKey(secret []byte, purpose, planSHA, peer 
 	return result, nil
 }
 
+// formalCoxBlockwiseWorkerCheckpointKey remains stable across committed
+// schedule steps. The exact-GC lease and daemon-control key stay bound to one
+// fresh attempt; only the authenticated private checkpoint intentionally
+// survives it.
+func formalCoxBlockwiseWorkerCheckpointKey(secret []byte, planSHA, peer string) (
+	[32]byte, error,
+) {
+	var result [32]byte
+	if len(secret) != sha256.Size || !formalCoxIsSHA256(planSHA) ||
+		!formalCoxCompilerRLabel(peer) {
+		return result, fmt.Errorf("formal-cox: invalid worker checkpoint key context")
+	}
+	mac := hmac.New(sha256.New, secret)
+	_, _ = mac.Write([]byte(formalCoxBlockwiseWorkerBootstrapDomain + "|checkpoint|"))
+	_, _ = mac.Write([]byte(planSHA + "|" + peer))
+	copy(result[:], mac.Sum(nil))
+	return result, nil
+}
+
 func formalCoxBlockwiseWorkerBootstrapPaths(stateRoot string, production bool,
 	planSHA, peer string,
 ) (string, string, error) {
@@ -182,8 +201,8 @@ func openFormalCoxBlockwiseWorkerBootstrapAtRoot(encoded []byte, stateRoot strin
 	if err != nil {
 		return nil, err
 	}
-	workerKey, err := formalCoxBlockwiseWorkerBootstrapKey(
-		secret, "checkpoint", planSHA, peer, attempt)
+	workerKey, err := formalCoxBlockwiseWorkerCheckpointKey(
+		secret, planSHA, peer)
 	if err != nil {
 		return nil, err
 	}

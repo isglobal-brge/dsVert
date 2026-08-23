@@ -90,6 +90,8 @@ func main() {
 		handleFormalGLMPublicProvisionTemplateV1()
 	case "formal-glm-public-result":
 		handleFormalGLMPublicResultV1()
+	case "formal-cox-public-result":
+		handleFormalCoxPublicResultV1()
 	case "formal-glm-phase18-source-project":
 		handleFormalGLMPhase18SourceProjectV1()
 	// Closed, server-directed relay for the signed formal-Cox blockwise

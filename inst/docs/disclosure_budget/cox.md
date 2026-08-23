@@ -1,19 +1,27 @@
-# Disclosure audit — `ds.vertCox` (quarantined)
+# Disclosure audit — formal Cox public result and legacy computation
 
-Release status: **quarantined**. No Cox client frontdoor is a promoted
-biomedical release route. `ds.vertCox()`, `ds.vertCoxProfileNonDisclosive()`,
-`ds.vertCoxDiscreteNonDisclosive()`, `ds.vert.cox()` and `ds.vert.coxph()`
-raise a typed migration error before any DSI call. The Cox-specific legacy
-server endpoints are absent from the registered `AggregateMethods` allowlist.
+`ds.vertCox()`, `ds.vert.cox()` and `ds.vert.coxph()` accept a
+custodian-configured `formal_analysis_id` only to read one already completed,
+two-authority-signed sticky formal Cox opening. The read-only response contains
+the certified coefficient lattice values and hazard-ratio point/range values;
+it cannot start a Cox computation or reveal source records, shares, paths,
+keys, retries or intermediate state.
 
-Security-profile schema v4 independently reports
+Security-profile schema v4 continues to report
 `route_claims$formal_cox_ready = FALSE` with state
-`sealed_no_recipient_encrypted_r_dsi_lifecycle_or_end_to_end_numeric_certificate`.
-The top-level client `ready` value and server compatibility alias
-`formal_dp_claim_eligible` apply only to the biomedical joint-DP capsule route;
-neither can promote this quarantined Cox frontdoor.
+`sealed_no_recipient_encrypted_r_dsi_lifecycle_or_end_to_end_numeric_certificate`:
+new formal Cox execution is not ready. It separately reports the completed
+read-only result boundary as
+`route_claims$formal_cox_public_result_ready = TRUE`. The top-level client
+`ready` value and server compatibility alias `formal_dp_claim_eligible` do not
+authorize a new Cox analysis.
 
-## Why the legacy route is not releasable
+Without `formal_analysis_id`, the compatibility frontdoors fail before any DSI
+call. `ds.vertCoxProfileNonDisclosive()` and
+`ds.vertCoxDiscreteNonDisclosive()` remain quarantined, and their legacy server
+endpoints are absent from the registered `AggregateMethods` allowlist.
+
+## Why new Cox computation remains unavailable
 
 The retained research implementation used exact score, information and
 likelihood aggregates and, in older variants, row-order risk-set metadata.
@@ -26,7 +34,7 @@ The discrete-time compatibility implementation targets a pooled-logistic
 hazard estimand, not a Cox partial-likelihood estimand, and therefore cannot be
 presented as an interchangeable fallback.
 
-## Promotion gate
+## Remaining promotion gate
 
 A releasable Cox route needs one purpose-bound, signed and sticky joint-DP
 capsule with explicit clipping and contribution bounds; private risk-set
@@ -35,5 +43,5 @@ identifiability certificates; and independent multi-process DSI validation for
 K=2 and K>=3. Internal prototype components are not release evidence until all
 of those gates are closed together.
 
-This note records the reason for quarantine. It is not authorization to call
-the legacy implementation or register any of its retired server endpoints.
+This note records the boundary: it is not authorization to call the legacy
+implementation or register any retired server endpoint.

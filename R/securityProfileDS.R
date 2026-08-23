@@ -139,6 +139,7 @@
   "dsvertFormalFinalizerHandoffSourceDS",
   "dsvertFormalGLMControlSourceDS",
   "dsvertFormalGLMPublicResultDS",
+  "dsvertFormalCoxPublicResultDS",
   "exactGCTransportInitDS",
   "exactGCBindPeersDS",
   "exactGCExchangeDS",
@@ -438,7 +439,11 @@ dsvertSecurityProfileDS <- function() {
       formal_cox_ready = FALSE,
       formal_cox_state = paste0(
         "sealed_no_recipient_encrypted_r_dsi_lifecycle_or_",
-        "end_to_end_numeric_certificate")),
+        "end_to_end_numeric_certificate"),
+      formal_cox_public_result_ready = TRUE,
+      formal_cox_public_result_state = paste0(
+        "read_only_completed_two_authority_signed_sticky_",
+        "opening_certificate")),
     unconditional_non_reconstruction_guarantee = FALSE,
     mpc_transport_is_opaque_to_analyst = TRUE,
     caveat = paste(

@@ -30,6 +30,7 @@ test_that("the installed package exposes one immutable disclosure-safe profile",
     "not_evaluated_requires_client_joint_dp_status_handshake")
   expect_false(profile$route_claims$formal_glm_ready)
   expect_false(profile$route_claims$formal_cox_ready)
+  expect_true(profile$route_claims$formal_cox_public_result_ready)
   expect_false(profile$unconditional_non_reconstruction_guarantee)
   expect_true(profile$mpc_transport_is_opaque_to_analyst)
 
@@ -59,6 +60,7 @@ test_that("surface readiness fails closed for missing or stale attestation", {
       "biomedical_joint_dp_capsule_profile_surface_eligible"]])
   expect_false(missing$route_claims$formal_glm_ready)
   expect_false(missing$route_claims$formal_cox_ready)
+  expect_true(missing$route_claims$formal_cox_public_result_ready)
   expect_identical(
     missing$remote_surface_attestation_state,
     "missing_custodian_attestation")

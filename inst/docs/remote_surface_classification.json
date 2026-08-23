@@ -4,9 +4,9 @@
   "authoritative_registration_source": "dsVert/DESCRIPTION: AggregateMethods and AssignMethods",
   "authoritative_client_source": "dsVertClient/R parsed as R ASTs",
   "counts": {
-    "registered_ds_endpoints": 85,
+    "registered_ds_endpoints": 86,
     "registered_argument_constructor_aliases": 0,
-    "direct_literal_call_endpoints": 178,
+    "direct_literal_call_endpoints": 179,
     "as_call_as_name_endpoints": 13,
     "bounded_dynamic_call_endpoints": 1,
     "unregistered_client_endpoint_literals": 107,
@@ -108,7 +108,8 @@
       "dsvertDPCategoricalCrossFinalizeDS",
       "dsvertDPGaussianCrossBindDS",
       "dsvertDPGaussianCrossPrepareDS",
-      "dsvertDPGaussianCrossFinalizeDS"
+      "dsvertDPGaussianCrossFinalizeDS",
+      "dsvertFormalGLMPublicResultDS"
     ]
   },
   "retired_registered_surface": {
@@ -247,7 +248,7 @@
   },
   "registered_argument_constructor_aliases": [],
   "client_ast_resolution": {
-    "direct_literal_call": "178 distinct endpoints constructed with call(name = <one string>)",
+    "direct_literal_call": "179 distinct endpoints constructed with call(name = <one string>)",
     "as_call_as_name": [
       "dsvertDPAlignmentMaskReceiveDS",
       "dsvertDPAlignmentMaskSealDS",

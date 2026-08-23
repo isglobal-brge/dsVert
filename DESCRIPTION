@@ -145,7 +145,8 @@ AggregateMethods:
     dsvertDPCategoricalCrossFinalizeDS,
     dsvertDPGaussianCrossBindDS,
     dsvertDPGaussianCrossPrepareDS,
-    dsvertDPGaussianCrossFinalizeDS
+    dsvertDPGaussianCrossFinalizeDS,
+    dsvertFormalGLMPublicResultDS
 AssignMethods:
     psiPaddedFilterDS
 Options:

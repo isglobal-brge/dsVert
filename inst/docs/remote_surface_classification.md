@@ -9,8 +9,8 @@ The current client/server registration contract is internally complete:
 
 | Check | Result |
 |---|---:|
-| Registered `*DS` endpoints | 85 |
-| Direct `call(name = "...")` endpoints | 178 |
+| Registered `*DS` endpoints | 86 |
+| Direct `call(name = "...")` endpoints | 179 |
 | `as.call()` / `as.name()` exact-GC endpoints | 13 |
 | Dynamically named endpoints behind one closed runtime allowlist | 1 |
 | Unregistered endpoint names retained below guarded/test-only client code | 107 |
@@ -29,7 +29,7 @@ scalar Count capsule/ledger phases are now hard-deleted. The seven generic
 scalar control-plane frontdoors and their endpoint-only DSI adapters are also
 hard-deleted; the remaining R closures stay internal solely for source
 compatibility and focused regression tests. None is exported or remotely
-invocable. All 85
+invocable. All 86
 endpoints that remain registered belong to the promoted purpose-bound
 allowlist and have a product call builder after resolving literal calls, seven
 `as.call()` / `as.name()` constructions and the closed dynamic branch. The

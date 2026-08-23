@@ -557,14 +557,14 @@ func formalCoxBlockwiseSourceBridgeTestPublishSticky(t testing.TB,
 	defer opening.Close()
 
 	var headers [2]formalCoxBlockwiseOpeningHandoffHeader
-	for index, peer := range fixture.plan.Policy.ComputePeers {
-		checkpoint, err := newFormalCoxBlockwiseCheckpointStore(
-			fixture.workerDir[peer], fixture.workerKey[peer], fixture.plan, peer)
-		if err != nil {
-			t.Fatal(err)
-		}
-		header, replayed, err := opening.SubmitLocal(
-			checkpoint, fixture.signing[peer])
+	bridges, err := formalCoxBlockwiseSourceBridgeTestOpen(t, fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer formalCoxBlockwiseSourceBridgeTestClose(bridges)
+	for index, bridge := range bridges {
+		peer := fixture.plan.Policy.ComputePeers[index]
+		header, replayed, err := bridge.SubmitStickyOpening(opening)
 		if err != nil || replayed || header.PeerName != peer {
 			t.Fatalf("submit %s: replay=%v header=%+v err=%v",
 				peer, replayed, header, err)
@@ -1061,6 +1061,16 @@ func TestFormalCoxBlockwiseSourceBridgeCloseClearsOwnedCheckpointKey(t *testing.
 	}
 	if bridge.worker.key != zero {
 		t.Fatal("bridge close retained its checkpoint key")
+	}
+	openingKey := sha256.Sum256([]byte(t.Name() + "/opening"))
+	opening, err := newFormalCoxBlockwiseOpeningStore(
+		filepath.Join(t.TempDir(), "opening"), openingKey, fixture.plan, fixture.pins)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer opening.Close()
+	if _, _, err := bridge.SubmitStickyOpening(opening); err == nil {
+		t.Fatal("closed bridge exported a sticky opening handoff")
 	}
 }
 

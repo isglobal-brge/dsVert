@@ -441,6 +441,26 @@ func (bridge *formalCoxBlockwiseSourceBridge) RunPendingWorkerStep(
 		rw, session, input.Shares, input.ValidityShare, bridge.signingKey)
 }
 
+// SubmitStickyOpening transfers only the signed public handoff from a
+// completed bridge to the owner-only finalizer.  Checkpoint state, the local
+// coefficient shares and the signing key remain bridge-owned; callers cannot
+// supply a different checkpoint or key at this boundary.
+func (bridge *formalCoxBlockwiseSourceBridge) SubmitStickyOpening(
+	opening *formalCoxBlockwiseOpeningStore,
+) (formalCoxBlockwiseOpeningHandoffHeader, bool, error) {
+	var zero formalCoxBlockwiseOpeningHandoffHeader
+	if bridge == nil || opening == nil {
+		return zero, false, fmt.Errorf("formal-cox: invalid sticky opening bridge")
+	}
+	bridge.mu.Lock()
+	defer bridge.mu.Unlock()
+	if bridge.closed || bridge.worker == nil || bridge.source == nil ||
+		len(bridge.signingKey) != ed25519.PrivateKeySize {
+		return zero, false, fmt.Errorf("formal-cox: sticky opening bridge is closed")
+	}
+	return opening.SubmitLocal(bridge.worker, bridge.signingKey)
+}
+
 func (bridge *formalCoxBlockwiseSourceBridge) Close() error {
 	bridge.mu.Lock()
 	defer bridge.mu.Unlock()

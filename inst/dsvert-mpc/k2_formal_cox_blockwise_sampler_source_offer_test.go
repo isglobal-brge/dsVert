@@ -147,6 +147,35 @@ func formalCoxBlockwiseSamplerSourceOfferTestPreflight(t testing.TB,
 	return contract, authorizations
 }
 
+func formalCoxBlockwiseSamplerSourceOfferTestStageBlocks(t testing.TB,
+	fixture formalCoxBlockwiseSamplerSourceOfferTestFixture,
+	stores map[string]*formalCoxBlockwiseSourceStore,
+) {
+	t.Helper()
+	for block := 0; block < fixture.plan.TotalBlocks; block++ {
+		step := formalCoxBlockwiseSourceTestStep(
+			t, fixture.plan, formalCoxBlockwiseStepBlock, block)
+		for sourceIndex, source := range fixture.plan.Policy.CustodianPeers {
+			values := make(map[string][]*big.Int, 2)
+			for recipientIndex, recipient := range fixture.plan.Policy.ComputePeers {
+				values[recipient], _ = formalCoxBlockwiseSourceTestShares(
+					fixture.plan, step, sourceIndex, recipientIndex)
+			}
+			envelopes, binding := formalCoxBlockwiseSourceTestSealBlockPair(
+				t, fixture.session, fixture.runtime.private, source, step, values)
+			for _, recipient := range fixture.plan.Policy.ComputePeers {
+				replayed, err := stores[recipient].Accept(envelopes[recipient], binding)
+				if err != nil || replayed {
+					t.Fatalf("stage block %d from %s to %s: replay=%v err=%v",
+						block, source, recipient, replayed, err)
+				}
+			}
+			exactGCZeroBigInts(values[fixture.plan.Policy.ComputePeers[0]])
+			exactGCZeroBigInts(values[fixture.plan.Policy.ComputePeers[1]])
+		}
+	}
+}
+
 func formalCoxBlockwiseSamplerSourceOfferTestRejectBarrierCommitmentSwap(
 	t testing.TB, session *formalCoxBlockwiseSourceSession, dpPlan formalCoxDPPlan,
 	trust jointDPBiomedicalGaussianWorkerTrustRoot,
@@ -198,6 +227,14 @@ func TestFormalCoxBlockwiseSamplerSourceOfferK2K3K5(t *testing.T) {
 		t.Run("K"+big.NewInt(int64(custodians)).String(), func(t *testing.T) {
 			fixture := newFormalCoxBlockwiseSamplerSourceOfferTestFixture(
 				t, custodians)
+			stores := make(map[string]*formalCoxBlockwiseSourceStore, 2)
+			for _, peer := range fixture.plan.Policy.ComputePeers {
+				stores[peer] = formalCoxBlockwiseSourceTestStore(
+					t, t.TempDir()+"/"+peer, fixture.session, peer,
+					fixture.secret[peer])
+				defer stores[peer].Close()
+			}
+			formalCoxBlockwiseSamplerSourceOfferTestStageBlocks(t, fixture, stores)
 			garbler, evaluator := formalCoxRuntimeTestSamplerPair(t, fixture.runtime)
 			offers := make(map[string]formalCoxBlockwiseSamplerSourceOffer, 2)
 			for index, peer := range fixture.plan.Policy.ComputePeers {
@@ -268,20 +305,42 @@ func TestFormalCoxBlockwiseSamplerSourceOfferK2K3K5(t *testing.T) {
 					ordered, binding, fixture.runtime.private)
 			}
 			for index, peer := range fixture.plan.Policy.ComputePeers {
-				store := formalCoxBlockwiseSourceTestStore(
-					t, t.TempDir()+"/"+peer, fixture.session, peer,
-					fixture.secret[peer])
-				bound, err := formalCoxBlockwiseSourceEncodeBoundSlot(
-					offers[peer].SourceEnvelope, binding)
+				state, err := stores[peer].readState()
 				if err != nil {
-					_ = store.Close()
-					t.Fatalf("bind %s offer: %v", peer, err)
+					t.Fatal(err)
 				}
-				_, _, _, shares, validity, err := store.validateBoundSlot(bound)
-				closeErr := store.Close()
-				if err != nil || closeErr != nil {
+				invalid := append([]formalCoxBlockwiseSamplerSourceOffer(nil), ordered...)
+				invalid[0].Signature = append([]byte(nil), invalid[0].Signature...)
+				invalid[0].Signature[0] ^= 1
+				if _, err := stores[peer].AcceptGuardedSamplerSourceOffers(
+					fixture.dpPlan, fixture.runtime.admission.Trust, invalid, binding); err == nil {
+					t.Fatal("tampered sampler offer reached the source store")
+				}
+				unchanged, err := stores[peer].readState()
+				if err != nil || unchanged.NextSlot != state.NextSlot {
+					t.Fatalf("tampered sampler offer mutated %s source state: %+v / %v",
+						peer, unchanged, err)
+				}
+				replayed, err := stores[peer].AcceptGuardedSamplerSourceOffers(
+					fixture.dpPlan, fixture.runtime.admission.Trust, ordered, binding)
+				if err != nil || replayed {
+					t.Fatalf("accept %s sampler offer: replay=%v err=%v", peer, replayed, err)
+				}
+				replayed, err = stores[peer].AcceptGuardedSamplerSourceOffers(
+					fixture.dpPlan, fixture.runtime.admission.Trust, ordered, binding)
+				if err != nil || !replayed {
+					t.Fatalf("replay %s sampler offer: replay=%v err=%v", peer, replayed, err)
+				}
+				current, err := stores[peer].readState()
+				if err != nil || current.NextSlot != state.NextSlot+1 {
+					t.Fatalf("sampler offer did not advance %s source state: %+v / %v",
+						peer, current, err)
+				}
+				input, err := stores[peer].Load(step)
+				shares, validity := input.Shares, input.ValidityShare
+				if err != nil {
 					exactGCZeroBigInts(shares)
-					t.Fatalf("open %s offer: %v / close=%v", peer, err, closeErr)
+					t.Fatalf("load %s sampler source: %v", peer, err)
 				}
 				sampler := garbler[0]
 				if index == 1 {

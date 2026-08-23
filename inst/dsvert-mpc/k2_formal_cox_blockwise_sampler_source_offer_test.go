@@ -505,6 +505,28 @@ func TestFormalCoxBlockwiseSamplerOffersDriveFullWorkerK2K3K5(t *testing.T) {
 	}
 }
 
+// TestFormalCoxBlockwiseSamplerOffersDriveDurableStickyPublicationK2K3K5
+// extends the real sampler-to-worker proof through the existing durable,
+// double-signed sticky opening.  The resulting certificate remains an
+// internal, non-production artifact: the test proves that its per-run plan,
+// transcript and final barrier came from the guarded DP source path, not that
+// Cox is ready to be exposed through DataSHIELD.
+func TestFormalCoxBlockwiseSamplerOffersDriveDurableStickyPublicationK2K3K5(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run("K"+big.NewInt(int64(custodians)).String(), func(t *testing.T) {
+			fixture := newFormalCoxBlockwiseSamplerSourceOfferTestFixture(t, custodians)
+			bridgeFixture := formalCoxBlockwiseSamplerSourceOfferTestBridgeFixture(t, fixture)
+			sealed := formalCoxBlockwiseSourceBridgeTestRunFullScheduleSealed(t, bridgeFixture)
+			defer func() {
+				for index := range sealed {
+					exactGCZeroBigInts(sealed[index].CoefficientShares)
+				}
+			}()
+			formalCoxBlockwiseSourceBridgeTestPublishSticky(t, bridgeFixture)
+		})
+	}
+}
+
 func TestFormalCoxBlockwiseSamplerSourceOfferRejectsTamper(t *testing.T) {
 	fixture := newFormalCoxBlockwiseSamplerSourceOfferTestFixture(t, 2)
 	garbler, _ := formalCoxRuntimeTestSamplerPair(t, fixture.runtime)

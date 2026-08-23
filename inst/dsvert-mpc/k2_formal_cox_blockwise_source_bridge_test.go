@@ -538,6 +538,91 @@ func formalCoxBlockwiseSourceBridgeTestRunFullSchedule(t testing.TB,
 	}
 }
 
+// formalCoxBlockwiseSourceBridgeTestPublishSticky drives the existing
+// owner-only opening protocol from completed worker checkpoints.  It is kept
+// in the bridge test seam so callers can change only the source producer
+// (synthetic transport geometry versus the real guarded DP sampler) while
+// exercising the same durable finalization and replay path.
+func formalCoxBlockwiseSourceBridgeTestPublishSticky(t testing.TB,
+	fixture *formalCoxBlockwiseSourceBridgeTestFixture,
+) {
+	t.Helper()
+	openingKey := sha256.Sum256([]byte(t.Name() + "/opening"))
+	opening, err := newFormalCoxBlockwiseOpeningStore(
+		filepath.Join(t.TempDir(), "opening"), openingKey,
+		fixture.plan, fixture.pins)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer opening.Close()
+
+	var headers [2]formalCoxBlockwiseOpeningHandoffHeader
+	for index, peer := range fixture.plan.Policy.ComputePeers {
+		checkpoint, err := newFormalCoxBlockwiseCheckpointStore(
+			fixture.workerDir[peer], fixture.workerKey[peer], fixture.plan, peer)
+		if err != nil {
+			t.Fatal(err)
+		}
+		header, replayed, err := opening.SubmitLocal(
+			checkpoint, fixture.signing[peer])
+		if err != nil || replayed || header.PeerName != peer {
+			t.Fatalf("submit %s: replay=%v header=%+v err=%v",
+				peer, replayed, header, err)
+		}
+		headers[index] = header
+	}
+	if headers[0].Completion.TranscriptSHA256 != headers[1].Completion.TranscriptSHA256 ||
+		headers[0].Completion.FinalCommitSHA256 != headers[1].Completion.FinalCommitSHA256 {
+		t.Fatal("completed worker checkpoints do not bind one execution")
+	}
+
+	intent, existing, replayed, err := opening.Prepare(nil)
+	if err != nil || replayed || len(existing.Certificate) != 0 {
+		t.Fatalf("prepare: replay=%v publication=%+v err=%v",
+			replayed, existing, err)
+	}
+	peers := fixture.plan.Policy.ComputePeers
+	first, firstReplayed, err := opening.SignOnce(
+		intent, peers[0], fixture.signing[peers[0]], nil)
+	if err != nil || firstReplayed {
+		t.Fatalf("first sticky signature: replay=%v err=%v", firstReplayed, err)
+	}
+	second, secondReplayed, err := opening.SignOnce(
+		intent, peers[1], fixture.signing[peers[1]],
+		[]jointDPBiomedicalGaussianSignature{first})
+	if err != nil || secondReplayed {
+		t.Fatalf("second sticky signature: replay=%v err=%v", secondReplayed, err)
+	}
+	publication, err := opening.Publish(
+		intent, []jointDPBiomedicalGaussianSignature{first, second}, nil)
+	if err != nil || publication.Replayed {
+		t.Fatalf("publish: replay=%v err=%v", publication.Replayed, err)
+	}
+	certificate, err := formalCoxBlockwiseDecodeOpeningPublication(
+		publication, fixture.pins)
+	planSHA256, planErr := formalCoxBlockwisePlanSHA256(fixture.plan)
+	if err != nil || planErr != nil || certificate.Candidate.ProductionReady ||
+		certificate.Candidate.PlanSHA256 != planSHA256 ||
+		certificate.Candidate.FinalTranscriptSHA256 != headers[0].Completion.TranscriptSHA256 ||
+		certificate.Candidate.FinalCommitSHA256 != headers[0].Completion.FinalCommitSHA256 ||
+		len(certificate.Candidate.Coefficients) != fixture.plan.Policy.CovariateCount {
+		t.Fatalf("invalid sticky certificate: %+v / %v / %v", certificate, err, planErr)
+	}
+	for _, privateField := range []string{
+		"coefficient_shares", "validity_share", "transport_secret", "private-v1",
+	} {
+		if bytes.Contains(publication.Certificate, []byte(privateField)) {
+			t.Fatalf("sticky certificate exposed private field %q", privateField)
+		}
+	}
+	replayedPublication, err := opening.Replay(opening.artifactID)
+	if err != nil || !replayedPublication.Replayed ||
+		!bytes.Equal(replayedPublication.Certificate, publication.Certificate) {
+		t.Fatalf("sticky replay changed the certificate: %+v / %v",
+			replayedPublication, err)
+	}
+}
+
 func TestFormalCoxBlockwiseSourceBridgeRunsFullK2ScheduleAndReplays(t *testing.T) {
 	fixture := newFormalCoxBlockwiseSourceBridgeTestFixture(
 		t, 2, map[string]bool{"peer-a": true, "peer-b": true})
@@ -570,62 +655,7 @@ func TestFormalCoxBlockwiseSourceBridgeFeedsStickyOpeningK2K3K5(t *testing.T) {
 					exactGCZeroBigInts(sealed[index].CoefficientShares)
 				}
 			}()
-
-			openingKey := sha256.Sum256([]byte(t.Name() + "/opening"))
-			opening, err := newFormalCoxBlockwiseOpeningStore(
-				filepath.Join(t.TempDir(), "opening"), openingKey,
-				fixture.plan, fixture.pins)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer opening.Close()
-			for _, peer := range fixture.plan.Policy.ComputePeers {
-				checkpoint, err := newFormalCoxBlockwiseCheckpointStore(
-					fixture.workerDir[peer], fixture.workerKey[peer], fixture.plan, peer)
-				if err != nil {
-					t.Fatal(err)
-				}
-				header, replayed, err := opening.SubmitLocal(
-					checkpoint, fixture.signing[peer])
-				if err != nil || replayed || header.PeerName != peer {
-					t.Fatalf("submit %s: replay=%v header=%+v err=%v",
-						peer, replayed, header, err)
-				}
-			}
-			intent, existing, replayed, err := opening.Prepare(nil)
-			if err != nil || replayed || len(existing.Certificate) != 0 {
-				t.Fatalf("prepare: replay=%v publication=%+v err=%v",
-					replayed, existing, err)
-			}
-			peers := fixture.plan.Policy.ComputePeers
-			first, firstReplayed, err := opening.SignOnce(
-				intent, peers[0], fixture.signing[peers[0]], nil)
-			if err != nil || firstReplayed {
-				t.Fatalf("first sticky signature: replay=%v err=%v", firstReplayed, err)
-			}
-			second, secondReplayed, err := opening.SignOnce(
-				intent, peers[1], fixture.signing[peers[1]],
-				[]jointDPBiomedicalGaussianSignature{first})
-			if err != nil || secondReplayed {
-				t.Fatalf("second sticky signature: replay=%v err=%v", secondReplayed, err)
-			}
-			publication, err := opening.Publish(
-				intent, []jointDPBiomedicalGaussianSignature{first, second}, nil)
-			if err != nil || publication.Replayed {
-				t.Fatalf("publish: replay=%v err=%v", publication.Replayed, err)
-			}
-			certificate, err := formalCoxBlockwiseDecodeOpeningPublication(
-				publication, fixture.pins)
-			if err != nil || certificate.Candidate.ProductionReady ||
-				len(certificate.Candidate.Coefficients) != fixture.plan.Policy.CovariateCount {
-				t.Fatalf("invalid sticky certificate: %+v / %v", certificate, err)
-			}
-			replayedPublication, err := opening.Replay(opening.artifactID)
-			if err != nil || !replayedPublication.Replayed ||
-				!bytes.Equal(replayedPublication.Certificate, publication.Certificate) {
-				t.Fatalf("sticky replay changed the certificate: %+v / %v",
-					replayedPublication, err)
-			}
+			formalCoxBlockwiseSourceBridgeTestPublishSticky(t, fixture)
 		})
 	}
 }

@@ -50,6 +50,33 @@ func formalCoxBlockwiseWorkerTestPlan(t testing.TB, custodians, capacity int) (
 	return plan, public, private
 }
 
+// formalCoxBlockwiseWorkerReplayPlan is the smallest signed schedule that
+// still visits every durable worker shape.  The cold-restart test below is a
+// K=2/K=3/K=5 replay test, not the numerical-envelope test: keeping it small
+// makes that regression practical without weakening the larger-grid circuit
+// and scale coverage elsewhere in this package.
+func formalCoxBlockwiseWorkerReplayPlan(t testing.TB, custodians int) (
+	formalCoxBlockwisePlan, map[string]ed25519.PublicKey,
+	map[string]ed25519.PrivateKey) {
+	t.Helper()
+	public, private := formalCoxBlockwiseWorkerTestIdentities(t, custodians)
+	policy := formalCoxBlockwiseTestPolicy(t, custodians, 2)
+	policy.GridTickCount = 2
+	policy.Iterations = 1
+	pinset, err := formalCoxBlockwisePinsetSHA256(public)
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy.PinsetSHA256 = pinset
+	runID := sha256.Sum256([]byte(t.Name() + "/replay-plan/" +
+		big.NewInt(int64(custodians)).String()))
+	plan, err := buildFormalCoxBlockwisePlan(policy, 2, hex.EncodeToString(runID[:]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return plan, public, private
+}
+
 func formalCoxBlockwiseWorkerTestKey(peer string) [32]byte {
 	return sha256.Sum256([]byte("formal-cox-blockwise-checkpoint-key/" + peer))
 }
@@ -203,7 +230,32 @@ func formalCoxBlockwiseWorkerTestRun(t testing.TB, plan formalCoxBlockwisePlan,
 func TestFormalCoxBlockwiseWorkerK2K3K5ColdRestartAndStickyReplay(t *testing.T) {
 	for _, custodians := range []int{2, 3, 5} {
 		t.Run("K"+big.NewInt(int64(custodians)).String(), func(t *testing.T) {
-			plan, pins, private := formalCoxBlockwiseWorkerTestPlan(t, custodians, 2)
+			plan, pins, private := formalCoxBlockwiseWorkerReplayPlan(t, custodians)
+			if plan.Policy.GridTickCount != 2 || plan.Iterations != 1 ||
+				plan.ScheduleSteps != 33 {
+				t.Fatalf("unexpected minimal replay schedule: %+v", plan)
+			}
+			kinds := make(map[string]bool)
+			for scheduleIndex := 0; scheduleIndex < plan.ScheduleSteps; scheduleIndex++ {
+				step, err := formalCoxBlockwiseWorkerStepAt(plan, scheduleIndex)
+				if err != nil {
+					t.Fatal(err)
+				}
+				kinds[step.Kind] = true
+			}
+			for _, kind := range []string{
+				formalCoxBlockwiseStepBlock,
+				formalCoxBlockwiseStepGrid,
+				formalCoxBlockwiseStepUpdate,
+				formalCoxBlockwiseStepProjection,
+				formalCoxBlockwiseStepInformationBlock,
+				formalCoxBlockwiseStepInformationMoment,
+				formalCoxBlockwiseStepInformation,
+			} {
+				if !kinds[kind] {
+					t.Fatalf("minimal replay schedule omitted %s", kind)
+				}
+			}
 			completion, leftPath, rightPath := formalCoxBlockwiseWorkerTestRun(
 				t, plan, pins, private)
 			var public formalCoxBlockwiseCompletion

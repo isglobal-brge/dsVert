@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"math/big"
@@ -604,6 +605,69 @@ func TestFormalCoxDPPlanFixedShapeAcrossK2K3K4K5(t *testing.T) {
 				reference.VectorTotalTVUpperDenominator {
 			t.Fatalf("K=%d changed the fixed scientific DP plan", custodians)
 		}
+	}
+}
+
+func TestFormalCoxBlockwiseSamplerLayoutKeepsValidityInsideIterations(t *testing.T) {
+	for _, test := range []struct {
+		name                                             string
+		total, covariates, maximum, wantChunk, wantCount int
+		wantErr                                          bool
+	}{
+		{"one sampler chunk", 4, 2, 4, 4, 1, false},
+		{"round down to iteration", 4, 2, 3, 2, 2, false},
+		{"last whole iteration", 6, 3, 4, 3, 2, false},
+		{"cannot fit iteration", 4, 2, 1, 0, 0, true},
+		{"invalid total", 5, 2, 4, 0, 0, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := formalCoxBlockwiseSamplerLayout(
+				test.total, test.covariates, test.maximum)
+			if test.wantErr {
+				if err == nil {
+					t.Fatal("accepted a sampler geometry that can split validity")
+				}
+				return
+			}
+			if err != nil || got.chunkCoordinates != test.wantChunk ||
+				got.chunkCount != test.wantCount {
+				t.Fatalf("layout=%+v err=%v, want chunk=%d count=%d",
+					got, err, test.wantChunk, test.wantCount)
+			}
+		})
+	}
+}
+
+func TestFormalCoxBlockwiseDPPlanUsesWholeIterationSamplerChunks(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+			policy := formalCoxBlockwiseTestPolicy(t, custodians, 3)
+			policy.CovariateL2Bound = "32"
+			parsed, err := parseFormalCoxBlockwisePolicy(policy)
+			if err != nil {
+				t.Fatal(err)
+			}
+			generic, err := planFormalCoxDPFromParsed(policy, parsed)
+			if err != nil {
+				t.Fatal(err)
+			}
+			layout, err := formalCoxBlockwiseSamplerLayout(
+				generic.NoiseCoordinates, policy.CovariateCount,
+				generic.CommonPlan.MaximumChunkCoordinates)
+			if err != nil {
+				t.Fatal(err)
+			}
+			plan, err := planFormalCoxBlockwiseDP(policy)
+			if err != nil || plan.SamplerChunkCount != layout.chunkCount ||
+				plan.PolicyNoiseChunkCountMatches {
+				t.Fatalf("blockwise sampler geometry was not closed: %+v %v", plan, err)
+			}
+			policy.NoiseChunkCount = layout.chunkCount
+			plan, err = planFormalCoxBlockwiseDP(policy)
+			if err != nil || !plan.PolicyNoiseChunkCountMatches {
+				t.Fatalf("whole-iteration sampler geometry did not close: %+v %v", plan, err)
+			}
+		})
 	}
 }
 

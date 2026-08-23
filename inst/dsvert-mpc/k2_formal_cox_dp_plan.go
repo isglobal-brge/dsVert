@@ -114,7 +114,54 @@ func planFormalCoxBlockwiseDP(policy formalCoxPhase1Policy) (
 	if err != nil {
 		return zero, err
 	}
-	return planFormalCoxDPFromParsed(policy, parsed)
+	plan, err := planFormalCoxDPFromParsed(policy, parsed)
+	if err != nil {
+		return zero, err
+	}
+	layout, err := formalCoxBlockwiseSamplerLayout(
+		plan.NoiseCoordinates, policy.CovariateCount,
+		plan.CommonPlan.MaximumChunkCoordinates)
+	if err != nil {
+		return zero, err
+	}
+	// The generic one-draw worker accepts any chunk no larger than its
+	// resource bound. Cox selects the largest whole-iteration chunk, so a
+	// later source adapter never has to reconstruct one iteration's validity
+	// from two sampler chunks.
+	plan.SamplerChunkCount = layout.chunkCount
+	plan.PolicyNoiseChunkCountMatches =
+		policy.NoiseChunkCount == layout.chunkCount
+	return plan, nil
+}
+
+type formalCoxBlockwiseSamplerChunkLayout struct {
+	chunkCoordinates int
+	chunkCount       int
+}
+
+// formalCoxBlockwiseSamplerLayout derives the fixed sampler geometry used by
+// the current blockwise source envelope. It carries one secret XOR validity
+// share per full Cox update, so no Cox update may straddle sampler chunks.
+func formalCoxBlockwiseSamplerLayout(totalCoordinates, covariateCount,
+	maximumChunkCoordinates int,
+) (formalCoxBlockwiseSamplerChunkLayout, error) {
+	var zero formalCoxBlockwiseSamplerChunkLayout
+	if totalCoordinates < 1 || covariateCount < 1 ||
+		totalCoordinates%covariateCount != 0 ||
+		maximumChunkCoordinates < 1 {
+		return zero, fmt.Errorf("formal-cox: invalid blockwise sampler geometry")
+	}
+	chunkCoordinates :=
+		(maximumChunkCoordinates / covariateCount) * covariateCount
+	if chunkCoordinates < covariateCount {
+		return zero, fmt.Errorf(
+			"formal-cox: sampler resource bound splits a Cox iteration")
+	}
+	return formalCoxBlockwiseSamplerChunkLayout{
+		chunkCoordinates: chunkCoordinates,
+		chunkCount: (totalCoordinates + chunkCoordinates - 1) /
+			chunkCoordinates,
+	}, nil
 }
 
 func planFormalCoxDPFromParsed(policy formalCoxPhase1Policy,

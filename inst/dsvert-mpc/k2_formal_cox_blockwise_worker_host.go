@@ -29,10 +29,13 @@ type formalCoxBlockwiseWorkerHostConfig struct {
 }
 
 type formalCoxBlockwiseWorkerControlCommand struct {
-	Version   string                                   `json:"version"`
-	Bootstrap formalCoxBlockwiseWorkerBootstrapCommand `json:"bootstrap"`
-	Action    string                                   `json:"action"`
-	Payload   json.RawMessage                          `json:"payload"`
+	Version             string          `json:"version"`
+	PeerName            string          `json:"peer_name"`
+	PlanSHA256          string          `json:"plan_sha256"`
+	AttemptID           string          `json:"attempt_id"`
+	RecipientSigningKey string          `json:"recipient_signing_key"`
+	Action              string          `json:"action"`
+	Payload             json.RawMessage `json:"payload"`
 }
 
 type formalCoxBlockwiseWorkerControlResponse struct {
@@ -136,9 +139,31 @@ func runFormalCoxBlockwiseWorkerHostAtRoot(path, stateRoot string, production bo
 	if err != nil {
 		return err
 	}
-	_, peer, _, _, err := formalCoxBlockwiseWorkerHostIdentity(config)
+	_, peer, attempt, planSHA, err := formalCoxBlockwiseWorkerHostIdentity(config)
 	if err != nil {
 		return err
+	}
+	wantAttachment, err := formalCoxBlockwiseWorkerAttachmentForConfig(config)
+	if err != nil {
+		return err
+	}
+	gotAttachment, err := formalCoxBlockwiseWorkerAttachmentReadAtRoot(
+		peer, planSHA, fmt.Sprintf("%x", attempt), stateRoot, production)
+	if err != nil {
+		return err
+	}
+	wantAttachmentJSON, err := json.Marshal(wantAttachment)
+	if err != nil {
+		return err
+	}
+	defer clear(wantAttachmentJSON)
+	gotAttachmentJSON, err := json.Marshal(gotAttachment)
+	if err != nil {
+		return err
+	}
+	defer clear(gotAttachmentJSON)
+	if !bytes.Equal(wantAttachmentJSON, gotAttachmentJSON) {
+		return fmt.Errorf("formal-cox: worker attachment does not match config")
 	}
 	rootPath := filepath.Join(stateRoot, peer)
 	if err := formalTypedFinalizerLifecycleRemoveConfig(path, rootPath); err != nil {
@@ -191,11 +216,35 @@ func formalCoxBlockwiseWorkerControlRunAtRoot(encoded []byte, stateRoot string,
 	if err := formalCoxBlockwiseSourceDecodeCanonical(encoded,
 		formalCoxBlockwiseWorkerHostMax, "worker control command", &command); err != nil ||
 		command.Version != formalCoxBlockwiseWorkerHostControlVersion ||
+		!formalCoxCompilerRLabel(command.PeerName) ||
+		!formalCoxIsSHA256(command.PlanSHA256) ||
+		!formalCoxIsSHA256(command.AttemptID) ||
+		command.RecipientSigningKey == "" ||
 		len(command.Payload) < 2 || command.Payload[0] != '{' ||
 		formalCoxBlockwiseWorkerControlValidate(command.Action, command.Payload) != nil {
 		return formalCoxBlockwiseWorkerControlResponse{}, fmt.Errorf("formal-cox: invalid worker control command")
 	}
-	bootstrapEncoded, err := json.Marshal(command.Bootstrap)
+	descriptor, err := formalCoxBlockwiseWorkerAttachmentReadAtRoot(
+		command.PeerName, command.PlanSHA256, command.AttemptID, stateRoot, production)
+	if err != nil {
+		return formalCoxBlockwiseWorkerControlResponse{}, err
+	}
+	source := descriptor.Source
+	source.RecipientSigningKey = command.RecipientSigningKey
+	bootstrap := formalCoxBlockwiseWorkerBootstrapCommand{
+		Version: formalCoxBlockwiseWorkerBootstrapVersion,
+		Source:  source, AttemptID: descriptor.AttemptID,
+	}
+	_, peer, attempt, planSHA, identityErr := formalCoxBlockwiseWorkerHostIdentity(
+		formalCoxBlockwiseWorkerHostConfig{
+			Version: formalCoxBlockwiseWorkerHostConfigVersion, Bootstrap: bootstrap,
+		})
+	if identityErr != nil || peer != command.PeerName || planSHA != command.PlanSHA256 ||
+		fmt.Sprintf("%x", attempt) != command.AttemptID {
+		return formalCoxBlockwiseWorkerControlResponse{},
+			fmt.Errorf("formal-cox: worker attachment selector mismatch")
+	}
+	bootstrapEncoded, err := json.Marshal(bootstrap)
 	if err != nil {
 		return formalCoxBlockwiseWorkerControlResponse{}, err
 	}

@@ -11,6 +11,11 @@ import (
 
 const formalCoxBlockwiseWorkerProvisionVersion = "dsvert-formal-cox-blockwise-worker-provision-v1"
 
+const (
+	formalCoxBlockwiseWorkerAttachmentVersion = "dsvert-formal-cox-blockwise-worker-attachment-v1"
+	formalCoxBlockwiseWorkerAttachmentFile    = "worker-attachment.json"
+)
+
 // The provision command is server-local.  It accepts the already-signed
 // recipient bootstrap, derives the only permitted Rock slot and returns a
 // non-secret selector for the host process.  A caller never chooses a path.
@@ -27,6 +32,15 @@ type formalCoxBlockwiseWorkerProvisionReceipt struct {
 	Replayed   bool   `json:"replayed"`
 }
 
+// The attachment descriptor is durable only while the attempt's Rock state
+// exists. It excludes the local Ed25519 private key; each control attachment
+// supplies that key through the server-local invocation boundary instead.
+type formalCoxBlockwiseWorkerAttachmentDescriptor struct {
+	Version   string                                `json:"version"`
+	Source    formalCoxBlockwiseSourceImportCommand `json:"source"`
+	AttemptID string                                `json:"attempt_id"`
+}
+
 func formalCoxBlockwiseWorkerHostConfigPathForSelector(stateRoot, peer,
 	planSHA, attempt string,
 ) (string, error) {
@@ -37,6 +51,91 @@ func formalCoxBlockwiseWorkerHostConfigPathForSelector(stateRoot, peer,
 	}
 	return filepath.Join(stateRoot, peer, formalCoxBlockwiseWorkerHostDir,
 		planSHA, attempt, "worker-config.json"), nil
+}
+
+func formalCoxBlockwiseWorkerAttachmentPath(configPath string) string {
+	return filepath.Join(filepath.Dir(configPath), formalCoxBlockwiseWorkerAttachmentFile)
+}
+
+func formalCoxBlockwiseWorkerAttachmentForConfig(
+	config formalCoxBlockwiseWorkerHostConfig,
+) (formalCoxBlockwiseWorkerAttachmentDescriptor, error) {
+	if _, _, _, _, err := formalCoxBlockwiseWorkerHostIdentity(config); err != nil {
+		return formalCoxBlockwiseWorkerAttachmentDescriptor{}, err
+	}
+	source := config.Bootstrap.Source
+	source.RecipientSigningKey = ""
+	return formalCoxBlockwiseWorkerAttachmentDescriptor{
+		Version: formalCoxBlockwiseWorkerAttachmentVersion,
+		Source:  source, AttemptID: config.Bootstrap.AttemptID,
+	}, nil
+}
+
+func formalCoxBlockwiseWorkerAttachmentDecode(encoded []byte) (
+	formalCoxBlockwiseWorkerAttachmentDescriptor, error,
+) {
+	var descriptor formalCoxBlockwiseWorkerAttachmentDescriptor
+	if len(encoded) < 2 || len(encoded) > formalCoxBlockwiseWorkerHostMax ||
+		encoded[0] != '{' {
+		return descriptor, fmt.Errorf("formal-cox: invalid worker attachment")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(encoded))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&descriptor); err != nil {
+		return formalCoxBlockwiseWorkerAttachmentDescriptor{},
+			fmt.Errorf("formal-cox: invalid worker attachment")
+	}
+	var trailing any
+	canonical, err := json.Marshal(descriptor)
+	if decoder.Decode(&trailing) != io.EOF || err != nil ||
+		!bytes.Equal(canonical, encoded) ||
+		descriptor.Version != formalCoxBlockwiseWorkerAttachmentVersion ||
+		descriptor.Source.RecipientSigningKey != "" ||
+		!formalCoxIsSHA256(descriptor.AttemptID) {
+		clear(canonical)
+		return formalCoxBlockwiseWorkerAttachmentDescriptor{},
+			fmt.Errorf("formal-cox: invalid worker attachment")
+	}
+	clear(canonical)
+	return descriptor, nil
+}
+
+func formalCoxBlockwiseWorkerAttachmentReadAtRoot(peer, planSHA, attempt,
+	stateRoot string, production bool,
+) (formalCoxBlockwiseWorkerAttachmentDescriptor, error) {
+	var zero formalCoxBlockwiseWorkerAttachmentDescriptor
+	configPath, err := formalCoxBlockwiseWorkerHostConfigPathForSelector(
+		stateRoot, peer, planSHA, attempt)
+	if err != nil {
+		return zero, err
+	}
+	rootPath, err := formalTypedFinalizerLifecycleRootAt(configPath, stateRoot)
+	if err != nil || rootPath != filepath.Join(stateRoot, peer) ||
+		(production && stateRoot != formalFinalizerHandoffStateRoot) {
+		return zero, fmt.Errorf("formal-cox: invalid worker attachment root")
+	}
+	root, err := os.OpenRoot(rootPath)
+	if err != nil {
+		return zero, err
+	}
+	defer root.Close()
+	attachmentPath := formalCoxBlockwiseWorkerAttachmentPath(configPath)
+	relative, err := filepath.Rel(rootPath, attachmentPath)
+	if err != nil || filepath.IsAbs(relative) || relative == "." ||
+		filepath.Clean(relative) != relative {
+		return zero, fmt.Errorf("formal-cox: invalid worker attachment path")
+	}
+	encoded, err := formalGLMPhase21RootReadRecord(
+		root, relative, formalCoxBlockwiseWorkerHostMax)
+	if err != nil {
+		return zero, fmt.Errorf("formal-cox: unavailable worker attachment")
+	}
+	defer clear(encoded)
+	descriptor, err := formalCoxBlockwiseWorkerAttachmentDecode(encoded)
+	if err != nil || descriptor.AttemptID != attempt {
+		return zero, fmt.Errorf("formal-cox: invalid worker attachment")
+	}
+	return descriptor, nil
 }
 
 func formalCoxBlockwiseWorkerHostDecodeConfig(encoded []byte) (
@@ -164,6 +263,38 @@ func formalCoxBlockwiseWorkerProvisionRunAtRoot(encoded []byte, stateRoot string
 		if !bytes.Equal(persisted, configJSON) {
 			clear(persisted)
 			return zero, fmt.Errorf("formal-cox: conflicting worker provision")
+		}
+		clear(persisted)
+	}
+	descriptor, err := formalCoxBlockwiseWorkerAttachmentForConfig(command.Config)
+	if err != nil {
+		return zero, err
+	}
+	descriptorJSON, err := json.Marshal(descriptor)
+	if err != nil {
+		return zero, err
+	}
+	defer clear(descriptorJSON)
+	attachmentRelative, err := filepath.Rel(rootPath,
+		formalCoxBlockwiseWorkerAttachmentPath(path))
+	if err != nil || filepath.IsAbs(attachmentRelative) || attachmentRelative == "." ||
+		filepath.Clean(attachmentRelative) != attachmentRelative {
+		return zero, fmt.Errorf("formal-cox: invalid worker attachment path")
+	}
+	attachmentCreated, err := formalGLMPhase21RootCreateRecord(
+		root, attachmentRelative, descriptorJSON)
+	if err != nil {
+		return zero, err
+	}
+	if !attachmentCreated {
+		persisted, readErr := formalGLMPhase21RootReadRecord(
+			root, attachmentRelative, formalCoxBlockwiseWorkerHostMax)
+		if readErr != nil {
+			return zero, readErr
+		}
+		if !bytes.Equal(persisted, descriptorJSON) {
+			clear(persisted)
+			return zero, fmt.Errorf("formal-cox: conflicting worker attachment")
 		}
 		clear(persisted)
 	}

@@ -72,6 +72,21 @@ func TestFormalCoxBlockwiseWorkerProvisionK2K3K5(t *testing.T) {
 				if _, err := formalCoxBlockwiseWorkerHostReadConfigAtRoot(path, root, false); err != nil {
 					t.Fatalf("provisioned config %s: %v", peer, err)
 				}
+				descriptor, err := formalCoxBlockwiseWorkerAttachmentReadAtRoot(
+					first.PeerName, first.PlanSHA256, first.AttemptID, root, false)
+				if err != nil || descriptor.Version != formalCoxBlockwiseWorkerAttachmentVersion ||
+					descriptor.AttemptID != first.AttemptID ||
+					descriptor.Source.RecipientSigningKey != "" {
+					t.Fatalf("provisioned attachment %s = %+v / %v", peer, descriptor, err)
+				}
+				descriptorJSON, err := json.Marshal(descriptor)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if bytes.Contains(descriptorJSON,
+					[]byte(config.Bootstrap.Source.RecipientSigningKey)) {
+					t.Fatal("worker attachment retained the recipient signing key")
+				}
 				replayed, err := formalCoxBlockwiseWorkerProvisionRunAtRoot(encoded, root, false)
 				if err != nil || !replayed.Replayed ||
 					replayed.Version != first.Version || replayed.PeerName != first.PeerName ||

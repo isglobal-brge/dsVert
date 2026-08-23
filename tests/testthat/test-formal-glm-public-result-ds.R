@@ -27,6 +27,14 @@
     production_ready = FALSE)
 }
 
+test_that("completed formal-model result readers are remotely exported", {
+  exports <- getNamespaceExports("dsVert")
+  expect_true(all(c(
+    "dsvertFormalGLMPublicResultDS",
+    "dsvertFormalCoxPublicResultDS",
+    "dsvertFormalCoxDiscretePublicResultDS") %in% exports))
+})
+
 test_that("formal public GLM results are read-only, bounded and redacted", {
   specs <- .formal_glm_public_result_specs()
   withr::local_options(list(dsvert.dp.formal_glm_public_results = specs))

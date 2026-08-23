@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"runtime"
 	"strings"
@@ -768,7 +769,26 @@ func TestFormalCoxBlockwiseNumericCertificateCommitsLatticeTrajectoryBound(t *te
 		if !ok {
 			t.Fatalf("K=%d malformed score certificate", custodians)
 		}
-		gradientError := new(big.Int).Add(scoreError, big.NewInt(1))
+		coordinateQuantization := big.NewInt(1)
+		rawCovariateNorm := new(big.Int).Add(
+			new(big.Int).Set(parsed.xNorm),
+			big.NewInt(int64(policy.CovariateCount)))
+		scaleSquared := new(big.Int).Mul(parsed.scale, parsed.scale)
+		logitNumerator := new(big.Int).Mul(
+			big.NewInt(int64(policy.CovariateCount)), parsed.betaNorm)
+		logitDenominator := new(big.Int).Sub(
+			new(big.Int).Set(scaleSquared),
+			new(big.Int).Mul(big.NewInt(2), logitNumerator))
+		if logitDenominator.Sign() <= 0 {
+			t.Fatalf("K=%d fixture does not admit a continuous quantization bound", custodians)
+		}
+		inputGradient := exactGCCeilDiv(new(big.Int).Mul(
+			new(big.Int).Mul(big.NewInt(4), rawCovariateNorm),
+			logitNumerator), logitDenominator)
+		inputGradient.Add(inputGradient,
+			big.NewInt(int64(2*policy.CovariateCount)))
+		gradientError := new(big.Int).Add(scoreError, inputGradient)
+		gradientError.Add(gradientError, big.NewInt(1))
 		gradientError.Add(gradientError, parsed.noiseBound)
 		updateError := exactGCCeilDiv(new(big.Int).Mul(parsed.alpha, gradientError),
 			parsed.scale)
@@ -778,19 +798,18 @@ func TestFormalCoxBlockwiseNumericCertificateCommitsLatticeTrajectoryBound(t *te
 		iterationL2 := formalCoxCeilSqrt(new(big.Int).Mul(
 			new(big.Int).Mul(iterationCoordinateError, iterationCoordinateError),
 			big.NewInt(int64(policy.CovariateCount))))
-		contract, err := formalCoxBlockwiseDeriveIdealGradientContract(policy)
-		if err != nil {
-			t.Fatalf("K=%d contraction contract: %v", custodians, err)
+		smoothness := new(big.Int).Mul(rawCovariateNorm, rawCovariateNorm)
+		smoothness.Add(smoothness, new(big.Int).Mul(parsed.ridge, parsed.scale))
+		if new(big.Int).Mul(parsed.alpha, smoothness).Cmp(
+			new(big.Int).Mul(scaleSquared, parsed.scale)) > 0 {
+			t.Fatalf("K=%d fixture does not admit a continuous contraction", custodians)
 		}
-		contractionNumerator, ok := new(big.Int).SetString(
-			contract.ContractionFactorNumerator, 10)
-		if !ok {
-			t.Fatalf("K=%d malformed contraction numerator", custodians)
-		}
-		contractionDenominator, ok := new(big.Int).SetString(
-			contract.ContractionFactorDenominator, 10)
-		if !ok {
-			t.Fatalf("K=%d malformed contraction denominator", custodians)
+		contractionNumerator := new(big.Int).Mul(parsed.alpha, parsed.ridge)
+		contractionNumerator.Sub(scaleSquared, contractionNumerator)
+		contractionDenominator := new(big.Int).Set(scaleSquared)
+		if contractionNumerator.Sign() <= 0 ||
+			contractionNumerator.Cmp(contractionDenominator) >= 0 {
+			t.Fatalf("K=%d malformed continuous contraction", custodians)
 		}
 		iterations := big.NewInt(int64(policy.Iterations))
 		denominatorPower := new(big.Int).Exp(contractionDenominator, iterations, nil)
@@ -805,11 +824,16 @@ func TestFormalCoxBlockwiseNumericCertificateCommitsLatticeTrajectoryBound(t *te
 		optimizer := new(big.Rat).SetFrac(
 			new(big.Int).Mul(parsed.betaNorm, numeratorPower), denominatorPower)
 		optimizer.Add(optimizer, trajectory)
-		if !certificate.FixedGridTrajectoryPerturbationCertified ||
+		if certificate.RawInputCoordinateQuantizationMaximumAbsSteps !=
+			coordinateQuantization.String() ||
+			certificate.RawInputCovariateL2UpperSteps != rawCovariateNorm.String() ||
+			certificate.ContinuousGradientQuantizationMaximumL2Steps !=
+				inputGradient.String() ||
+			!certificate.FixedGridTrajectoryPerturbationCertified ||
 			!certificate.FixedGridOptimizerDistanceBoundCertified ||
 			len(certificate.Blockers) != 1 ||
 			certificate.Blockers[0] !=
-				"continuous_cox_trajectory_error_bound_unavailable_v1" ||
+				"source_to_circuit_numeric_execution_validation_required_v1" ||
 			certificate.ImplementedGradientPerturbationMaximumAbsSteps != gradientError.String() ||
 			certificate.ImplementedUpdatePerturbationMaximumAbsSteps != updateError.String() ||
 			certificate.IntegerProjectionPerturbationMaximumAbsSteps != projectionError.String() ||
@@ -818,8 +842,8 @@ func TestFormalCoxBlockwiseNumericCertificateCommitsLatticeTrajectoryBound(t *te
 			certificate.FixedGridTrajectoryErrorUpperDenominator != trajectory.Denom().String() ||
 			certificate.FixedGridOptimizerDistanceUpperNumerator != optimizer.Num().String() ||
 			certificate.FixedGridOptimizerDistanceUpperDenominator != optimizer.Denom().String() ||
-			certificate.ContinuousCoxTrajectoryCertified ||
-			certificate.OptimizerDistanceCertified || certificate.EndToEndNumericCertified ||
+			!certificate.ContinuousCoxTrajectoryCertified ||
+			!certificate.OptimizerDistanceCertified || certificate.EndToEndNumericCertified ||
 			certificate.ProductionReady {
 			t.Fatalf("K=%d numeric trajectory certificate = %+v", custodians,
 				certificate)
@@ -829,6 +853,72 @@ func TestFormalCoxBlockwiseNumericCertificateCommitsLatticeTrajectoryBound(t *te
 		if err := formalCoxBlockwiseValidateNumericCertificate(policy, tampered); err == nil {
 			t.Fatalf("K=%d accepted a tampered lattice trajectory bound", custodians)
 		}
+	}
+}
+
+func TestFormalCoxBlockwiseContinuousInputBoundCoversRoundedRiskScore(t *testing.T) {
+	policy := formalCoxBlockwiseTestPolicy(t, 2, 3)
+	parsed, err := parseFormalCoxBlockwisePolicy(policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bound, err := formalCoxBlockwiseContinuousInputBoundFromParsed(parsed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beta := []float64{0.61, -0.47}
+	rawRows := [][]float64{
+		{0.997, -0.993},
+		{-0.751, 0.499},
+		{0.125, 0.875},
+	}
+	roundedRows := make([][]float64, len(rawRows))
+	for row, values := range rawRows {
+		roundedRows[row] = make([]float64, len(values))
+		for column, value := range values {
+			roundedRows[row][column] = math.Round(value*float64(parsed.scale.Int64())) /
+				float64(parsed.scale.Int64())
+		}
+	}
+	score := func(rows [][]float64) []float64 {
+		weights := make([]float64, len(rows))
+		total := 0.0
+		for row, values := range rows {
+			eta := 0.0
+			for column, value := range values {
+				eta += beta[column] * value
+			}
+			weights[row] = math.Exp(eta)
+			total += weights[row]
+		}
+		result := append([]float64(nil), rows[0]...)
+		for column := range result {
+			mean := 0.0
+			for row, values := range rows {
+				mean += weights[row] * values[column] / total
+			}
+			result[column] -= mean
+		}
+		return result
+	}
+	continuous, rounded := score(rawRows), score(roundedRows)
+	differenceSquared := 0.0
+	for column := range continuous {
+		difference := continuous[column] - rounded[column]
+		differenceSquared += difference * difference
+	}
+	differenceSteps := math.Sqrt(differenceSquared) * float64(parsed.scale.Int64())
+	maximum, ok := new(big.Int).SetString(bound.gradientL2.String(), 10)
+	if !ok || differenceSteps > float64(maximum.Int64())+1e-9 {
+		t.Fatalf("continuous score difference %.6f exceeded certified %s steps",
+			differenceSteps, bound.gradientL2)
+	}
+
+	unsupported := parsed
+	unsupported.betaNorm = new(big.Int).Mul(
+		new(big.Int).Mul(parsed.scale, parsed.scale), big.NewInt(2))
+	if _, err := formalCoxBlockwiseContinuousInputBoundFromParsed(unsupported); err == nil {
+		t.Fatal("continuous input certificate accepted an unbounded logit perturbation")
 	}
 }
 

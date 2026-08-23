@@ -14,18 +14,19 @@ import (
 
 const formalCoxRuntimeNumericCertificateVersion = "dsvert-formal-cox-runtime-numeric-certificate-v1"
 
-const formalCoxBlockwiseNumericCertificateVersion = "dsvert-formal-cox-blockwise-numeric-certificate-v2"
+const formalCoxBlockwiseNumericCertificateVersion = "dsvert-formal-cox-blockwise-numeric-certificate-v3"
 
 var formalCoxRuntimeNumericCertificateBlockers = []string{
 	"continuous_cox_trajectory_error_bound_unavailable_v1",
 	"fixed_iteration_optimizer_distance_bound_unavailable_v1",
 }
 
-// The blockwise certificate closes the finite fixed-grid optimizer-distance
-// bound. Its remaining numeric blocker is only the unproved bridge from that
-// committed grid objective to the continuous Cox trajectory.
+// This component proves a policy-level continuous-target error envelope.  It
+// deliberately does not attest that a concrete source, encrypted producer and
+// peer execution have run that policy; the runtime must establish that before
+// a public route can claim end-to-end numeric status.
 var formalCoxBlockwiseNumericCertificateBlockers = []string{
-	"continuous_cox_trajectory_error_bound_unavailable_v1",
+	"source_to_circuit_numeric_execution_validation_required_v1",
 }
 
 type formalCoxRuntimeNumericCertificate struct {
@@ -92,6 +93,13 @@ type formalCoxBlockwiseNumericCertificate struct {
 	IdealContractionFactorNumerator   string `json:"ideal_contraction_factor_numerator"`
 	IdealContractionFactorDenominator string `json:"ideal_contraction_factor_denominator"`
 	IdealGradientContractionCertified bool   `json:"ideal_gradient_contraction_certified"`
+	// The R source rounds every finite covariate coordinate to the committed
+	// lattice before it crosses into MPC. The following three fields make the
+	// resulting continuous-target perturbation explicit rather than treating
+	// the lattice objective as if it were the original Cox objective.
+	RawInputCoordinateQuantizationMaximumAbsSteps string `json:"raw_input_coordinate_quantization_maximum_abs_steps"`
+	RawInputCovariateL2UpperSteps                 string `json:"raw_input_covariate_l2_upper_steps"`
+	ContinuousGradientQuantizationMaximumL2Steps  string `json:"continuous_gradient_quantization_maximum_l2_steps"`
 	// The following finite bounds apply only to a valid execution, and compare
 	// the implemented noisy fixed-grid trajectory with the exact noiseless
 	// fixed-grid penalized Breslow trajectory under the same public policy.
@@ -129,9 +137,9 @@ type formalCoxBlockwiseIdealGradientContract struct {
 }
 
 // formalCoxBlockwiseLatticeTrajectoryBound is a data-free, valid-execution
-// perturbation envelope.  It deliberately stops at the committed fixed-grid
-// target: it does not infer a data-dependent continuous-model approximation
-// or authorize a public release.
+// perturbation envelope from the source's raw bounded covariates to the
+// finite fixed-point, DP-noised trajectory. It certifies numerical accuracy,
+// not public release authorization.
 type formalCoxBlockwiseLatticeTrajectoryBound struct {
 	gradientSteps       string
 	updateSteps         string
@@ -143,11 +151,102 @@ type formalCoxBlockwiseLatticeTrajectoryBound struct {
 	optimizerDenom      string
 }
 
+type formalCoxBlockwiseContinuousInputBound struct {
+	coordinateQuantization *big.Int
+	rawCovariateNorm       *big.Int
+	gradientL2             *big.Int
+}
+
+// formalCoxBlockwiseContinuousInputBoundFromParsed bounds the difference
+// between the private raw covariates and the lattice vector consumed by the
+// circuit. A source coordinate is rounded after multiplication by scale. For
+// accepted wire lanes below 2^53, IEEE-754 multiplication plus rounding is
+// bounded by one lattice step. The circuit separately rejects a lattice row
+// outside the signed L2 ball, so the raw row is within p additional lattice
+// steps by the triangle inequality.
+//
+// Let a = p*B/S^2, where B is the signed beta L2 bound in lattice steps and
+// S is the fixed-point scale. The log-weights of a raw and rounded risk set
+// differ by at most a. Their total variation is bounded by
+// 2a/(1-2a), provided 2a < 1. Adding the direct event/risk covariate error
+// gives the returned conservative L2 score bound. All calculations stay in
+// integers so the certificate does not depend on floating-point arithmetic.
+func formalCoxBlockwiseContinuousInputBoundFromParsed(
+	parsed formalCoxParsedPolicy,
+) (formalCoxBlockwiseContinuousInputBound, error) {
+	var zero formalCoxBlockwiseContinuousInputBound
+	if parsed.scale == nil || parsed.scale.Sign() <= 0 ||
+		parsed.xNorm == nil || parsed.xNorm.Sign() <= 0 ||
+		parsed.betaNorm == nil || parsed.betaNorm.Sign() <= 0 ||
+		parsed.policy.CovariateCount < 1 {
+		return zero, fmt.Errorf("formal-cox: invalid continuous input bound")
+	}
+	coordinates := big.NewInt(int64(parsed.policy.CovariateCount))
+	coordinateQuantization := big.NewInt(1)
+	rawCovariateNorm := new(big.Int).Add(
+		new(big.Int).Set(parsed.xNorm), coordinates)
+	scaleSquared := new(big.Int).Mul(parsed.scale, parsed.scale)
+	logitNumerator := new(big.Int).Mul(coordinates, parsed.betaNorm)
+	logitDenominator := new(big.Int).Sub(
+		new(big.Int).Set(scaleSquared),
+		new(big.Int).Mul(big.NewInt(2), logitNumerator))
+	if logitDenominator.Sign() <= 0 {
+		return zero, fmt.Errorf("formal-cox: fixed-point precision cannot certify continuous input rounding")
+	}
+	distribution := exactGCCeilDiv(new(big.Int).Mul(
+		new(big.Int).Mul(big.NewInt(4), rawCovariateNorm),
+		logitNumerator), logitDenominator)
+	gradientL2 := new(big.Int).Add(
+		distribution, new(big.Int).Mul(big.NewInt(2), coordinates))
+	return formalCoxBlockwiseContinuousInputBound{
+		coordinateQuantization: coordinateQuantization,
+		rawCovariateNorm:       rawCovariateNorm,
+		gradientL2:             gradientL2,
+	}, nil
+}
+
+func formalCoxBlockwiseContinuousGradientContractFromParsed(
+	parsed formalCoxParsedPolicy,
+	input formalCoxBlockwiseContinuousInputBound,
+) (formalCoxBlockwiseIdealGradientContract, error) {
+	var zero formalCoxBlockwiseIdealGradientContract
+	if parsed.ridge.Sign() <= 0 || input.rawCovariateNorm == nil ||
+		input.rawCovariateNorm.Sign() <= 0 {
+		return zero, fmt.Errorf("formal-cox: continuous gradient contract requires a positive public ridge")
+	}
+	scaleSquared := new(big.Int).Mul(parsed.scale, parsed.scale)
+	smoothness := new(big.Int).Mul(input.rawCovariateNorm,
+		input.rawCovariateNorm)
+	smoothness.Add(smoothness, new(big.Int).Mul(parsed.ridge, parsed.scale))
+	stepProduct := new(big.Int).Mul(parsed.alpha, smoothness)
+	stepDenominator := new(big.Int).Mul(scaleSquared, parsed.scale)
+	if stepProduct.Cmp(stepDenominator) > 0 {
+		return zero, fmt.Errorf("formal-cox: step exceeds the continuous Cox smoothness limit")
+	}
+	contraction := new(big.Int).Mul(parsed.alpha, parsed.ridge)
+	contraction.Sub(scaleSquared, contraction)
+	if contraction.Sign() <= 0 {
+		return zero, fmt.Errorf("formal-cox: continuous Cox step is not contractive")
+	}
+	return formalCoxBlockwiseIdealGradientContract{
+		SmoothnessUpperNumerator:     smoothness.String(),
+		SmoothnessUpperDenominator:   scaleSquared.String(),
+		StrongConvexityNumerator:     parsed.ridge.String(),
+		StrongConvexityDenominator:   parsed.scale.String(),
+		ContractionFactorNumerator:   contraction.String(),
+		ContractionFactorDenominator: scaleSquared.String(),
+	}, nil
+}
+
 func formalCoxBlockwiseDeriveLatticeTrajectoryBoundFromParsed(
 	parsed formalCoxParsedPolicy,
 ) (formalCoxBlockwiseLatticeTrajectoryBound, error) {
 	var zero formalCoxBlockwiseLatticeTrajectoryBound
 	scoreCertificate, err := formalCoxBlockwiseBuildScoreApproximationCertificate(parsed)
+	if err != nil {
+		return zero, err
+	}
+	inputBound, err := formalCoxBlockwiseContinuousInputBoundFromParsed(parsed)
 	if err != nil {
 		return zero, err
 	}
@@ -159,7 +258,8 @@ func formalCoxBlockwiseDeriveLatticeTrajectoryBoundFromParsed(
 	// The score certificate already includes its final score/capacity floor.
 	// The exact ridge product adds one more floor discrepancy below one step;
 	// finite support noise is bounded by the already signed policy value.
-	gradientError := new(big.Int).Add(scoreError, big.NewInt(1))
+	gradientError := new(big.Int).Add(scoreError, inputBound.gradientL2)
+	gradientError.Add(gradientError, big.NewInt(1))
 	gradientError.Add(gradientError, parsed.noiseBound)
 	updateError := exactGCCeilDiv(new(big.Int).Mul(parsed.alpha, gradientError),
 		parsed.scale)
@@ -173,7 +273,8 @@ func formalCoxBlockwiseDeriveLatticeTrajectoryBoundFromParsed(
 	iterationL2 := formalCoxCeilSqrt(new(big.Int).Mul(
 		new(big.Int).Mul(iterationCoordinateError, iterationCoordinateError),
 		big.NewInt(int64(parsed.policy.CovariateCount))))
-	contract, err := formalCoxBlockwiseIdealGradientContractFromParsed(parsed)
+	contract, err := formalCoxBlockwiseContinuousGradientContractFromParsed(
+		parsed, inputBound)
 	if err != nil {
 		return zero, err
 	}
@@ -264,7 +365,12 @@ func formalCoxBlockwiseNumericCertificateForPolicy(
 	if err != nil {
 		return zero, err
 	}
-	gradientContract, err := formalCoxBlockwiseIdealGradientContractFromParsed(parsed)
+	inputBound, err := formalCoxBlockwiseContinuousInputBoundFromParsed(parsed)
+	if err != nil {
+		return zero, err
+	}
+	gradientContract, err := formalCoxBlockwiseContinuousGradientContractFromParsed(
+		parsed, inputBound)
 	if err != nil {
 		return zero, err
 	}
@@ -305,6 +411,9 @@ func formalCoxBlockwiseNumericCertificateForPolicy(
 		IdealContractionFactorNumerator:                gradientContract.ContractionFactorNumerator,
 		IdealContractionFactorDenominator:              gradientContract.ContractionFactorDenominator,
 		IdealGradientContractionCertified:              true,
+		RawInputCoordinateQuantizationMaximumAbsSteps:  inputBound.coordinateQuantization.String(),
+		RawInputCovariateL2UpperSteps:                  inputBound.rawCovariateNorm.String(),
+		ContinuousGradientQuantizationMaximumL2Steps:   inputBound.gradientL2.String(),
 		ImplementedGradientPerturbationMaximumAbsSteps: trajectoryBound.gradientSteps,
 		ImplementedUpdatePerturbationMaximumAbsSteps:   trajectoryBound.updateSteps,
 		IntegerProjectionPerturbationMaximumAbsSteps:   trajectoryBound.projectionSteps,
@@ -316,11 +425,16 @@ func formalCoxBlockwiseNumericCertificateForPolicy(
 		FixedGridTrajectoryPerturbationCertified:       true,
 		FixedGridOptimizerDistanceBoundCertified:       true,
 		PerRunCircuitPlanValidationNeeded:              true,
-		ContinuousCoxTrajectoryCertified:               false,
-		OptimizerDistanceCertified:                     false,
-		EndToEndNumericCertified:                       false,
-		ProductionReady:                                false,
-		Blockers:                                       append([]string(nil), formalCoxBlockwiseNumericCertificateBlockers...),
+		ContinuousCoxTrajectoryCertified:               true,
+		OptimizerDistanceCertified:                     true,
+		// The analytic continuous-target bound is complete here, but this
+		// component certificate is not evidence that a particular R source,
+		// encrypted producer and peer execution have completed. That remains a
+		// per-run validation before any public route can claim end-to-end status.
+		EndToEndNumericCertified: false,
+		ProductionReady:          false,
+		Blockers: append([]string(nil),
+			formalCoxBlockwiseNumericCertificateBlockers...),
 	}, nil
 }
 
@@ -332,7 +446,7 @@ func formalCoxBlockwiseNumericCertificateSHA256(
 		return "", err
 	}
 	digest := formalCoxSHA256Domain(
-		"dsVert/formal-cox/blockwise-numeric-certificate/v2|", encoded)
+		"dsVert/formal-cox/blockwise-numeric-certificate/v3|", encoded)
 	return hex.EncodeToString(digest[:]), nil
 }
 
@@ -345,8 +459,8 @@ func formalCoxBlockwiseValidateNumericCertificate(policy formalCoxPhase1Policy,
 	}
 	if !reflect.DeepEqual(certificate, want) || certificate.ProductionReady ||
 		certificate.EndToEndNumericCertified ||
-		certificate.ContinuousCoxTrajectoryCertified ||
-		certificate.OptimizerDistanceCertified ||
+		!certificate.ContinuousCoxTrajectoryCertified ||
+		!certificate.OptimizerDistanceCertified ||
 		!certificate.IdealGradientContractionCertified ||
 		!certificate.FixedGridTrajectoryPerturbationCertified ||
 		!certificate.FixedGridOptimizerDistanceBoundCertified ||

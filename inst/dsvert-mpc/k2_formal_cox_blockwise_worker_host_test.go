@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,33 @@ import (
 	"testing"
 	"time"
 )
+
+func formalCoxBlockwiseWorkerHostTestControl(t testing.TB, root string,
+	bootstrap formalCoxBlockwiseWorkerBootstrapCommand, action string,
+	payload any, response any,
+) {
+	t.Helper()
+	encodedPayload, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(encodedPayload)
+	encoded, err := json.Marshal(formalCoxBlockwiseWorkerControlCommand{
+		Version:   formalCoxBlockwiseWorkerHostControlVersion,
+		Bootstrap: bootstrap, Action: action, Payload: encodedPayload,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(encoded)
+	result, err := formalCoxBlockwiseWorkerControlRunAtRoot(encoded, root, false)
+	if err != nil {
+		t.Fatalf("worker control %s: %v", action, err)
+	}
+	if err := json.Unmarshal(result.Payload, response); err != nil {
+		t.Fatalf("worker control %s response: %v", action, err)
+	}
+}
 
 // This is deliberately an internal, server-local proof.  A worker host owns
 // one burned exact-GC attempt; callers can only attach through the signed
@@ -23,7 +51,7 @@ func TestFormalCoxBlockwiseWorkerHostAttachesLiveK2K3K5(t *testing.T) {
 			if err := os.Chmod(root, 0o700); err != nil {
 				t.Fatal(err)
 			}
-			plan, _, imports := formalCoxBlockwiseWorkerBootstrapTestStage(t, custodians, root)
+			plan, pins, imports := formalCoxBlockwiseWorkerBootstrapTestStage(t, custodians, root)
 			attempt := sha256.Sum256([]byte(t.Name() + "/attempt"))
 			configs := make([]formalCoxBlockwiseWorkerHostConfig, len(plan.Policy.ComputePeers))
 			paths := make([]string, len(configs))
@@ -82,6 +110,67 @@ func TestFormalCoxBlockwiseWorkerHostAttachesLiveK2K3K5(t *testing.T) {
 				if _, err := os.Lstat(paths[index]); !os.IsNotExist(err) {
 					t.Fatalf("host %d retained sensitive config: %v", index, err)
 				}
+			}
+			step, err := formalCoxBlockwiseWorkerStepAt(plan, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			claims := make([]formalCoxBlockwiseExchangeRootClaim, len(configs))
+			for index := range configs {
+				formalCoxBlockwiseWorkerHostTestControl(t, root, configs[index].Bootstrap,
+					"root_claim", formalCoxBlockwiseExchangeDaemonRootV1{
+						Step: step, Attempt: fmt.Sprintf("%x", attempt),
+					}, &claims[index])
+			}
+			for index := range configs {
+				formalCoxBlockwiseWorkerHostTestControl(t, root, configs[index].Bootstrap,
+					"start", formalCoxBlockwiseExchangeDaemonStartV1{
+						Step: step, Attempt: fmt.Sprintf("%x", attempt), PeerClaim: claims[1-index],
+					}, &struct{}{})
+			}
+			var acknowledgements [2]int64
+			var receipts [2]formalCoxBlockwiseStepReceipt
+			var completed [2]bool
+			deadline := time.Now().Add(3 * time.Minute)
+			for !completed[0] || !completed[1] {
+				if time.Now().After(deadline) {
+					t.Fatal("worker host relay did not complete")
+				}
+				for _, direction := range []struct{ from, to int }{{0, 1}, {1, 0}} {
+					var poll formalCoxBlockwiseExchangeDaemonPollResultV1
+					formalCoxBlockwiseWorkerHostTestControl(t, root,
+						configs[direction.from].Bootstrap, "poll",
+						formalCoxBlockwiseExchangeDaemonPollV1{Acknowledged: acknowledgements[direction.from]}, &poll)
+					if poll.Chunk != nil {
+						var relayed formalCoxBlockwiseExchangeDaemonRelayResultV1
+						formalCoxBlockwiseWorkerHostTestControl(t, root,
+							configs[direction.to].Bootstrap, "relay",
+							formalCoxBlockwiseExchangeDaemonRelayV1{Chunk: *poll.Chunk}, &relayed)
+						acknowledgements[direction.from] = relayed.Accepted
+					}
+				}
+				for index := range configs {
+					var result formalCoxBlockwiseExchangeDaemonResultV1
+					formalCoxBlockwiseWorkerHostTestControl(t, root, configs[index].Bootstrap,
+						"result", struct{}{}, &result)
+					if result.Done {
+						receipts[index], completed[index] = result.Receipt, true
+					}
+				}
+			}
+			if err := formalCoxBlockwiseValidateReceiptPair(plan, receipts[:], pins); err != nil {
+				t.Fatal(err)
+			}
+			encodedPins := make(map[string][]byte, len(pins))
+			for peer, pin := range pins {
+				encodedPins[peer] = append([]byte(nil), ed25519.PublicKey(pin)...)
+			}
+			for index := range configs {
+				formalCoxBlockwiseWorkerHostTestControl(t, root, configs[index].Bootstrap,
+					"commit", formalCoxBlockwiseExchangeDaemonCommitV1{Receipts: receipts[:], Pins: encodedPins}, &struct{}{})
+			}
+			for peer := range encodedPins {
+				clear(encodedPins[peer])
 			}
 			for index := range stops {
 				close(stops[index])

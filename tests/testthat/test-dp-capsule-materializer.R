@@ -470,6 +470,10 @@ test_that("random-intercept LMM source coordinates are bounded patient moments",
   expect_equal(
     artifact$source_raw_l1_sensitivity,
     2 * artifact$max_patients_per_cluster + 2 + 3 * 256)
+  expect_equal(
+    artifact$quantization_contract$
+      cluster_mean_sq_max_abs_error_normalized,
+    3 * 5 / (2 * 256) + 5 / (4 * 256^2))
   expect_identical(artifact$implementation_state, "same_owner_materialized")
   expect_identical(artifact$cross_owner_state, "reserved_not_materialized")
 })

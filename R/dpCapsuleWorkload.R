@@ -2009,6 +2009,15 @@
         contribution_domain = paste(
           "one_bounded_patient_outcome_and_one_consistent_cluster_level",
           "with_public_cluster_size_cap_v1", sep = "_"),
+        quantization_contract = list(
+          version = "random-intercept-unit-moment-quantization-v1",
+          input_rounding = "nearest_integer_ties_to_even_r_v1",
+          sum_y_max_abs_error_normalized = capacity / (2 * grid_scale),
+          sum_y_sq_max_abs_error_normalized =
+            capacity / (2 * grid_scale),
+          cluster_mean_sq_max_abs_error_normalized =
+            3 * capacity / (2 * grid_scale) +
+              capacity / (4 * grid_scale^2)),
         statistic_maximum = c(
           capacity, capacity, capacity * cluster_capacity,
           rep(capacity * grid_scale, 3L)),

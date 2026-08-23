@@ -177,6 +177,17 @@ func TestFormalCoxBlockwiseWorkerHostAttachesLiveK2K3K5(t *testing.T) {
 				if err := <-done[index]; err != nil {
 					t.Fatalf("host %d close: %v", index, err)
 				}
+				encoded, err := json.Marshal(formalCoxBlockwiseWorkerControlCommand{
+					Version:   formalCoxBlockwiseWorkerHostControlVersion,
+					Bootstrap: configs[index].Bootstrap,
+					Action:    "result", Payload: json.RawMessage(`{}`),
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := formalCoxBlockwiseWorkerControlRunAtRoot(encoded, root, false); err == nil {
+					t.Fatalf("host %d accepted an attachment after close", index)
+				}
 			}
 		})
 	}

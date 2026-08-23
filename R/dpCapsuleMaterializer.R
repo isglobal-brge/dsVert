@@ -284,6 +284,57 @@
   unname(statistics)
 }
 
+.dsvert_dp_capsule_quantized_random_intercept_stats <- function(
+    outcome, cluster, grid_bits, max_patients_per_cluster) {
+  if (!is.numeric(outcome) || !is.numeric(cluster) ||
+      length(outcome) != length(cluster) || anyNA(outcome) ||
+      any(!is.finite(outcome)) || any(outcome < 0 | outcome > 1) ||
+      anyNA(cluster) || any(!is.finite(cluster)) || any(cluster < 1) ||
+      any(cluster != floor(cluster)) || !is.numeric(grid_bits) ||
+      length(grid_bits) != 1L || is.na(grid_bits) || !is.finite(grid_bits) ||
+      grid_bits != floor(grid_bits) || grid_bits < 8L || grid_bits > 18L ||
+      !is.numeric(max_patients_per_cluster) ||
+      length(max_patients_per_cluster) != 1L ||
+      is.na(max_patients_per_cluster) ||
+      !is.finite(max_patients_per_cluster) ||
+      max_patients_per_cluster != floor(max_patients_per_cluster) ||
+      max_patients_per_cluster < 2) {
+    stop("Invalid normalized random-intercept capsule values.",
+         call. = FALSE)
+  }
+  scale <- 2^as.integer(grid_bits)
+  if (length(outcome) > floor(.dsvert_dp_exact_integer_limit / scale)) {
+    stop("The random-intercept capsule cohort is too large for exact quantization.",
+         call. = FALSE)
+  }
+  if (!length(outcome)) return(rep.int(0, 6L))
+  sizes <- tabulate(cluster, nbins = max(cluster, 0L))
+  sizes <- sizes[sizes > 0L]
+  if (any(sizes > max_patients_per_cluster)) {
+    stop("The protected snapshot exceeds its signed LMM cluster capacity.",
+         call. = FALSE)
+  }
+  quantized <- round(outcome * scale)
+  quantized_sq <- round(outcome^2 * scale)
+  cluster_sum <- rowsum(quantized, cluster, reorder = FALSE)[, 1L]
+  cluster_size <- as.numeric(rowsum(
+    rep.int(1, length(cluster)), cluster, reorder = FALSE)[, 1L])
+  cluster_mean_sq <- sum(round(
+    cluster_sum^2 / (cluster_size * scale)))
+  statistics <- c(
+    n = length(outcome), clusters = length(sizes),
+    cluster_size_sq = sum(sizes^2), sum_y = sum(quantized),
+    sum_y_sq = sum(quantized_sq),
+    sum_cluster_mean_sq = cluster_mean_sq)
+  if (anyNA(statistics) || any(!is.finite(statistics)) ||
+      any(statistics < 0) || any(statistics != floor(statistics)) ||
+      any(statistics > .dsvert_dp_exact_integer_limit)) {
+    stop("The random-intercept capsule statistics are not representable.",
+         call. = FALSE)
+  }
+  unname(statistics)
+}
+
 .dsvert_dp_capsule_materializer_manifest <- function(policy, manifest) {
   .dsvert_dp_capsule_workload_require_materializable(manifest)
   required <- c(
@@ -633,6 +684,27 @@
       # Cross-owner coordinates are injected only after the fixed exact-GC
       # transcript.  Every ordinary source contributes the all-zero public
       # block here, so no exact moment can enter the sampler by accident.
+      next
+    }
+    if (identical(
+          artifact$version,
+          "bounded-normalized-random-intercept-moments-v1")) {
+      outcome <- bounded_for(block$dataset, artifact$outcome$column)
+      cluster <- .dsvert_dp_capsule_bounded_category(
+        snapshots[[block$dataset]]$data, policy, artifact$cluster$column,
+        artifact$cluster$levels, admission_for(block$dataset))
+      complete <- outcome$valid & !is.na(cluster$cell)
+      normalized_outcome <- pmin(1, pmax(
+        0, (outcome$unit_values[complete] - artifact$outcome$lower) /
+          (artifact$outcome$upper - artifact$outcome$lower)))
+      statistics <- .dsvert_dp_capsule_quantized_random_intercept_stats(
+        normalized_outcome, cluster$cell[complete],
+        artifact$numeric_grid_bits, artifact$max_patients_per_cluster)
+      if (length(statistics) != block$length) {
+        stop("The signed random-intercept capsule coordinate shape is invalid.",
+             call. = FALSE)
+      }
+      values[block$start:block$end] <- statistics
       next
     }
     outcome <- bounded_for(block$dataset, artifact$outcome$column)

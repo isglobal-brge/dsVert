@@ -390,7 +390,11 @@
       policy, analysis_id, gaussian, require_public_bounds = FALSE),
       error = function(error) NULL)
     references <- if (is.null(spec)) list() else lapply(
-      c(spec$outcome, spec$predictors),
+      c(spec$outcome, if (identical(spec$kind, "random_intercept")) {
+        spec$cluster
+      } else {
+        spec$predictors
+      }),
       .dsvert_dp_capsule_column_reference, what = "Gaussian variable")
     variables <- vapply(
       references, `[[`, character(1L), "column")
@@ -403,6 +407,10 @@
       variables[[1L]] %in% mapping$datasets[[spec$dataset]]
     valid_ownership <- if (is.null(spec)) {
       FALSE
+    } else if (identical(spec$kind, "random_intercept")) {
+      isTRUE(outcome_owned) && length(variables) == 2L &&
+        all(owners == policy$peer_name) &&
+        all(variables %in% mapping$datasets[[spec$dataset]])
     } else if (identical(spec$version, "v1")) {
       isTRUE(outcome_owned) &&
         all(variables %in% mapping$datasets[[spec$dataset]])
@@ -419,10 +427,18 @@
         "invalid_custodian_workload_specs",
         "A custodian Gaussian specification is not locally owned")
     }
-    normalized_gaussian[[analysis_id]] <- list(
-      version = spec$version, dataset = spec$dataset,
-      outcome = spec$outcome, predictors = unname(spec$predictors),
-      intercept = spec$intercept)
+    normalized_gaussian[[analysis_id]] <- if (identical(
+          spec$kind, "random_intercept")) {
+      list(
+        version = spec$version, dataset = spec$dataset,
+        outcome = spec$outcome, cluster = spec$cluster,
+        max_patients_per_cluster = spec$max_patients_per_cluster)
+    } else {
+      list(
+        version = spec$version, dataset = spec$dataset,
+        outcome = spec$outcome, predictors = unname(spec$predictors),
+        intercept = spec$intercept)
+    }
   }
 
   vertical <- .dsvert_dp_capsule_manifest_spec_list(

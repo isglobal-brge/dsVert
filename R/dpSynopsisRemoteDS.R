@@ -184,9 +184,9 @@
   gaussian <- if (is.list(gaussian_family)) gaussian_family$artifacts else NULL
   if (!is.null(gaussian) && !is.list(gaussian)) return(TRUE)
   if (is.list(gaussian) && any(vapply(gaussian, function(artifact) {
-        !is.list(artifact) || !identical(
-          artifact$version,
-          "bounded-normalized-gaussian-sufficient-statistics-v1")
+        !is.list(artifact) || !artifact$version %in% c(
+          "bounded-normalized-gaussian-sufficient-statistics-v1",
+          "bounded-normalized-random-intercept-moments-v1")
       }, logical(1L)))) return(TRUE)
   FALSE
 }

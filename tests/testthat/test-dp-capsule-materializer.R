@@ -443,6 +443,84 @@ test_that("local capsule coordinates have the exact canonical order", {
   }
 })
 
+test_that("random-intercept LMM source coordinates are bounded patient moments", {
+  lmm <- list(random_intercept = list(
+    version = "random_intercept_v1", dataset = "protected",
+    outcome = "time", cluster = "cat_a",
+    max_patients_per_cluster = 2L))
+  fixture <- .materializer_test_fixture(gaussian_specs = lmm)
+  artifact <- fixture$manifest$workload$families$gaussian_models$
+    artifacts$random_intercept
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["gaussian_models::random_intercept"]]
+  material <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)
+
+  expect_identical(
+    artifact$version, "bounded-normalized-random-intercept-moments-v1")
+  expect_identical(as.numeric(artifact$coordinate_count), 6)
+  expect_identical(as.numeric(artifact$statistic_maximum),
+                   c(5, 5, 10, 1280, 1280, 1280))
+  expect_identical(material$values[block$start:block$end],
+                   c(2, 2, 2, 410, 348, 349))
+  lattice <- .dsvert_joint_dp_vector_lattice_vectors(list(
+    manifest = fixture$manifest, layout = layout))
+  expect_identical(lattice$scale_shifts[block$start:block$end],
+                   c(8L, 8L, 8L, 0L, 0L, 0L))
+  expect_equal(
+    artifact$source_raw_l1_sensitivity,
+    2 * artifact$max_patients_per_cluster + 2 + 3 * 256)
+  expect_identical(artifact$implementation_state, "same_owner_materialized")
+  expect_identical(artifact$cross_owner_state, "reserved_not_materialized")
+})
+
+test_that("random-intercept LMM source rejects a cluster over its signed cap", {
+  lmm <- list(random_intercept = list(
+    version = "random_intercept_v1", dataset = "protected",
+    outcome = "time", cluster = "cat_a",
+    max_patients_per_cluster = 2L))
+  fixture <- .materializer_test_fixture(gaussian_specs = lmm)
+  extra <- fixture$data[rep(1L, 2L), , drop = FALSE]
+  extra$patient_id <- c("u4", "u5")
+  extra$time <- c(5, 7)
+  extra$cat_a <- "A"
+  fixture$resolved$protected$data <- rbind(fixture$data, extra)
+
+  expect_error(
+    .dsvert_dp_capsule_materialize_local(
+      fixture$policy, fixture$manifest, fixture$resolved),
+    "signed LMM cluster capacity")
+})
+
+test_that("random-intercept LMM source respects its one-patient sensitivity", {
+  lmm <- list(random_intercept = list(
+    version = "random_intercept_v1", dataset = "protected",
+    outcome = "time", cluster = "cat_a",
+    max_patients_per_cluster = 2L))
+  empty <- .materializer_test_data()[FALSE, , drop = FALSE]
+  fixture <- .materializer_test_fixture(
+    data = empty, capacity = 5L, gaussian_specs = lmm)
+  left <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  one_patient <- .materializer_test_data()[1L, , drop = FALSE]
+  one_patient$time <- 10
+  one_patient$cat_a <- "A"
+  fixture$resolved$protected$data <- one_patient
+  right <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  lattice <- .dsvert_joint_dp_vector_lattice_vectors(list(
+    manifest = fixture$manifest, layout = layout))
+  delta <- .materializer_test_family_delta(
+    layout, left, right, "gaussian_models")
+  family <- fixture$manifest$workload$families$gaussian_models
+
+  expect_lte(sum(abs(delta)), family$l1_sensitivity)
+  expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
+  expect_lte(sum(abs((right - left) * 2^lattice$scale_shifts)),
+             fixture$manifest$workload$sensitivity$l1)
+})
+
 test_that("numeric cache compaction preserves the full material byte for byte", {
   gaussian <- list(primary_gaussian = list(
     version = "v1", dataset = "protected", outcome = "time",

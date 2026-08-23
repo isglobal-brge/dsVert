@@ -294,7 +294,16 @@
       already_scaled <- identical(
         block$descriptor$source_coordinate_scaling,
         "all_coordinates_already_on_common_numeric_lattice_v1")
-      shifts[indices] <- if (already_scaled) {
+      random_intercept <- identical(
+        block$descriptor$version,
+        "bounded-normalized-random-intercept-moments-v1")
+      shifts[indices] <- if (random_intercept) {
+        if (length(indices) != 6L) {
+          stop("The random-intercept LMM lattice block is invalid.",
+               call. = FALSE)
+        }
+        c(rep(as.integer(bits), 3L), rep(0L, 3L))
+      } else if (already_scaled) {
         rep(0L, length(indices))
       } else {
         c(as.integer(bits), rep(0L, length(indices) - 1L))
@@ -361,7 +370,7 @@
   }
   gaussian_natural_l1 <- sum(vapply(
     families$gaussian_models$artifacts, function(artifact) {
-      as.numeric(artifact$coordinate_count)
+      as.numeric(artifact$natural_l1_sensitivity)
     }, numeric(1L)))
   if (!is.finite(gaussian_natural_l1) || !identical(
         as.numeric(families$gaussian_models$natural_l1_sensitivity),

@@ -83,8 +83,13 @@ func TestFormalCoxBlockwiseWorkerHostAttachesLiveK2K3K5(t *testing.T) {
 				}
 				stops[index], ready[index], done[index] = make(chan struct{}), make(chan struct{}), make(chan error, 1)
 				go func(index int) {
-					done[index] <- runFormalCoxBlockwiseWorkerHostAtRoot(
-						paths[index], root, false, stops[index], ready[index])
+					_, peer, attempt, planSHA, err := formalCoxBlockwiseWorkerHostIdentity(configs[index])
+					if err != nil {
+						done[index] <- err
+						return
+					}
+					done[index] <- runFormalCoxBlockwiseWorkerHostSelectorAtRoot(
+						peer, planSHA, fmt.Sprintf("%x", attempt), root, false, stops[index], ready[index])
 				}(index)
 			}
 			for index := range configs {

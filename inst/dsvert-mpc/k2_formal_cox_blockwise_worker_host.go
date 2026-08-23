@@ -80,15 +80,12 @@ func formalCoxBlockwiseWorkerHostIdentity(config formalCoxBlockwiseWorkerHostCon
 func formalCoxBlockwiseWorkerHostConfigPath(stateRoot string,
 	config formalCoxBlockwiseWorkerHostConfig,
 ) (string, error) {
-	if !filepath.IsAbs(stateRoot) || filepath.Clean(stateRoot) != stateRoot {
-		return "", fmt.Errorf("formal-cox: invalid worker host root")
-	}
 	_, peer, attempt, planSHA, err := formalCoxBlockwiseWorkerHostIdentity(config)
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(stateRoot, peer, formalCoxBlockwiseWorkerHostDir,
-		planSHA, fmt.Sprintf("%x", attempt), "worker-config.json"), nil
+	return formalCoxBlockwiseWorkerHostConfigPathForSelector(
+		stateRoot, peer, planSHA, fmt.Sprintf("%x", attempt))
 }
 
 func formalCoxBlockwiseWorkerHostConfigDir(path string) string { return filepath.Dir(path) }
@@ -117,8 +114,8 @@ func formalCoxBlockwiseWorkerHostReadConfigAtRoot(path, stateRoot string,
 		return config, fmt.Errorf("formal-cox: unreadable worker host config")
 	}
 	defer clear(encoded)
-	if err := formalCoxBlockwiseSourceDecodeCanonical(encoded,
-		formalCoxBlockwiseWorkerHostMax, "worker host config", &config); err != nil {
+	config, err = formalCoxBlockwiseWorkerHostDecodeConfig(encoded)
+	if err != nil {
 		return formalCoxBlockwiseWorkerHostConfig{}, err
 	}
 	_, peer, _, _, err := formalCoxBlockwiseWorkerHostIdentity(config)
@@ -215,13 +212,26 @@ func formalCoxBlockwiseWorkerControlRunAtRoot(encoded []byte, stateRoot string,
 	return formalCoxBlockwiseWorkerControlResponse{Version: formalCoxBlockwiseWorkerHostControlVersion, Payload: response}, nil
 }
 
-func handleFormalCoxBlockwiseWorkerHost(configPath string) error {
+func runFormalCoxBlockwiseWorkerHostSelectorAtRoot(peer, planSHA, attempt,
+	stateRoot string, production bool, stop <-chan struct{}, ready chan<- struct{},
+) error {
+	configPath, err := formalCoxBlockwiseWorkerHostConfigPathForSelector(
+		stateRoot, peer, planSHA, attempt)
+	if err != nil {
+		return err
+	}
+	return runFormalCoxBlockwiseWorkerHostAtRoot(
+		configPath, stateRoot, production, stop, ready)
+}
+
+func handleFormalCoxBlockwiseWorkerHost(peer, planSHA, attempt string) error {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(signals)
 	stop := make(chan struct{})
 	go func() { <-signals; close(stop) }()
-	return runFormalCoxBlockwiseWorkerHostAtRoot(configPath, formalFinalizerHandoffStateRoot, true, stop, nil)
+	return runFormalCoxBlockwiseWorkerHostSelectorAtRoot(
+		peer, planSHA, attempt, formalFinalizerHandoffStateRoot, true, stop, nil)
 }
 
 func handleFormalCoxBlockwiseWorkerControl() {

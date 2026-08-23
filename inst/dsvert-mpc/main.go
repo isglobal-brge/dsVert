@@ -108,13 +108,16 @@ func main() {
 		handleFormalCoxBlockwiseSourceRecipientKey()
 	case "formal-cox-source-import":
 		handleFormalCoxBlockwiseSourceImport()
-	// Internal owner and relay for one live Cox exact-GC worker.  Neither
-	// command is a public analytical route or a capability advertisement.
+	case "formal-cox-worker-provision":
+		handleFormalCoxBlockwiseWorkerProvision()
+	// Internal provisioner, owner and relay for one live Cox exact-GC worker.
+	// None is a public analytical route or a capability advertisement.
 	case "formal-cox-worker-host":
-		if len(os.Args) != 3 {
-			mpcFatalError("formal Cox worker host configuration is required")
+		if len(os.Args) != 5 {
+			mpcFatalError("formal Cox worker host selector is required")
 		}
-		if err := handleFormalCoxBlockwiseWorkerHost(os.Args[2]); err != nil {
+		if err := handleFormalCoxBlockwiseWorkerHost(
+			os.Args[2], os.Args[3], os.Args[4]); err != nil {
 			mpcFatalError("formal Cox worker host failed")
 		}
 	case "formal-cox-worker-control":

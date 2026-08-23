@@ -815,6 +815,7 @@ test_that("formal Cox has only closed source, worker and opaque control Go comma
     "formal-cox-source-deliver",
     "formal-cox-source-recipient-key",
     "formal-cox-source-import",
+	"formal-cox-worker-provision",
     "formal-cox-worker-host",
     "formal-cox-worker-control"))
 })

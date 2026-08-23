@@ -227,6 +227,94 @@ func formalCoxBlockwiseWorkerTestRun(t testing.TB, plan formalCoxBlockwisePlan,
 	return leftBytes, leftPath, rightPath
 }
 
+func TestFormalCoxBlockwiseCompletionPersistenceRecoversDeterministicNext(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "formal-cox-blockwise-completion.json")
+	nextPath := formalCoxBlockwiseCompletionNextPath(path)
+	encoded := []byte(`{"completion":"sticky"}`)
+	if err := formalCoxBlockwisePersistCompletion(path, encoded); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(nextPath); !os.IsNotExist(err) {
+		t.Fatalf("normal completion left deterministic predecessor: %v", err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(nextPath, encoded[:1], 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(nextPath, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := formalCoxBlockwisePersistCompletion(path, encoded); err != nil {
+		t.Fatalf("recover partial deterministic predecessor: %v", err)
+	}
+	if persisted, err := formalCoxBlockwiseReadCompletion(path); err != nil || !bytes.Equal(persisted, encoded) {
+		t.Fatalf("partial predecessor did not recover sticky completion: %v", err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(nextPath, encoded, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(nextPath, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := formalCoxBlockwisePersistCompletion(path, encoded); err != nil {
+		t.Fatalf("recover predecessor before link: %v", err)
+	}
+	if _, err := os.Lstat(nextPath); !os.IsNotExist(err) {
+		t.Fatalf("recovery left deterministic predecessor: %v", err)
+	}
+	if err := os.Link(path, nextPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := formalCoxBlockwisePersistCompletion(path, encoded); err != nil {
+		t.Fatalf("recover predecessor after link: %v", err)
+	}
+	info, err := os.Lstat(path)
+	if err != nil || !exactGCPrivateOwnedRegular(info) || info.Mode().Perm() != 0o600 {
+		t.Fatalf("recovered completion is not exactly private: %v %#v", err, info)
+	}
+	if _, err := os.Lstat(nextPath); !os.IsNotExist(err) {
+		t.Fatalf("linked recovery left deterministic predecessor: %v", err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	other := filepath.Join(root, "other-completion")
+	if err := os.WriteFile(other, encoded, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(other, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Link(other, nextPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := formalCoxBlockwisePersistCompletion(path, encoded); err == nil {
+		t.Fatal("accepted an unsafe linked deterministic predecessor")
+	}
+	if _, err := os.Lstat(path); !os.IsNotExist(err) {
+		t.Fatalf("unsafe predecessor unexpectedly finalized: %v", err)
+	}
+	if err := os.Remove(nextPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(other); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("completion persistence left unbounded temporary artifacts: %+v", entries)
+	}
+}
+
 func TestFormalCoxBlockwiseWorkerK2K3K5ColdRestartAndStickyReplay(t *testing.T) {
 	for _, custodians := range []int{2, 3, 5} {
 		t.Run("K"+big.NewInt(int64(custodians)).String(), func(t *testing.T) {

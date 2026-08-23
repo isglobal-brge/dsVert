@@ -37,6 +37,7 @@ const (
 	formalCoxBlockwiseCompletionVersion = "dsvert-formal-cox-blockwise-completion-v1"
 	formalCoxBlockwiseCheckpointMax     = 1 << 20
 	formalCoxBlockwiseCompletionMax     = 8 << 10
+	formalCoxBlockwiseCompletionNext    = ".next"
 
 	formalCoxBlockwiseStepBlock             = "block"
 	formalCoxBlockwiseStepGrid              = "grid_coefficient"
@@ -1398,46 +1399,161 @@ func formalCoxBlockwiseReadCompletion(path string) ([]byte, error) {
 		path, 2, formalCoxBlockwiseCompletionMax)
 }
 
-func formalCoxBlockwisePersistCompletion(path string, encoded []byte) error {
-	formalCoxBlockwiseCheckpointCAS.Lock()
-	defer formalCoxBlockwiseCheckpointCAS.Unlock()
-	if existing, err := formalCoxBlockwiseReadCompletion(path); err == nil {
-		if !bytes.Equal(existing, encoded) {
-			return fmt.Errorf("formal-cox: conflicting sticky blockwise completion")
-		}
-		return nil
-	} else if !os.IsNotExist(err) {
-		return err
+func formalCoxBlockwiseCompletionNextPath(path string) string {
+	return path + formalCoxBlockwiseCompletionNext
+}
+
+func formalCoxBlockwiseCompletionMatches(path string, encoded []byte) (bool, error) {
+	existing, err := formalCoxBlockwiseReadCompletion(path)
+	if os.IsNotExist(err) {
+		return false, nil
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".formal-cox-completion-")
+	if err != nil {
+		return false, err
+	}
+	if !bytes.Equal(existing, encoded) {
+		return false, fmt.Errorf("formal-cox: conflicting sticky blockwise completion")
+	}
+	return true, nil
+}
+
+func formalCoxBlockwiseValidateCompletionNext(path string, encoded []byte) error {
+	info, err := os.Lstat(path)
 	if err != nil {
 		return err
 	}
-	tmpPath := tmp.Name()
-	defer os.Remove(tmpPath)
-	if err := tmp.Chmod(0o600); err != nil {
-		_ = tmp.Close()
+	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 ||
+		info.Mode().Perm() != 0o600 || info.Size() != int64(len(encoded)) {
+		return fmt.Errorf("formal-cox: unsafe pending sticky completion")
+	}
+	pending, err := formalCoxBlockwiseReadCompletion(path)
+	if err != nil || !bytes.Equal(pending, encoded) {
+		return fmt.Errorf("formal-cox: invalid pending sticky completion")
+	}
+	return nil
+}
+
+// formalCoxBlockwiseRecoverCompletionNext repairs only the deterministic
+// predecessor left by a crash. It never scans a directory or accepts a
+// linked pending artifact other than the exact link window created below.
+func formalCoxBlockwiseRecoverCompletionNext(path string, encoded []byte) error {
+	nextPath := formalCoxBlockwiseCompletionNextPath(path)
+	nextInfo, err := os.Lstat(nextPath)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
 		return err
 	}
-	if err := exactGCWriteFull(tmp, encoded); err != nil {
-		_ = tmp.Close()
+	finalInfo, finalErr := os.Lstat(path)
+	if os.IsNotExist(finalErr) {
+		pending, err := formalCoxBlockwiseReadPrivateFile(
+			nextPath, 0, formalCoxBlockwiseCompletionMax)
+		if err != nil {
+			return err
+		}
+		if len(pending) < len(encoded) {
+			if err := os.Remove(nextPath); err != nil {
+				return err
+			}
+			return exactGCSyncDir(filepath.Dir(path))
+		}
+		if !bytes.Equal(pending, encoded) {
+			return fmt.Errorf("formal-cox: conflicting pending sticky completion")
+		}
+		if err := formalCoxBlockwiseValidateCompletionNext(nextPath, encoded); err != nil {
+			return err
+		}
+		if err := os.Link(nextPath, path); err != nil {
+			return err
+		}
+	} else if finalErr != nil {
+		return finalErr
+	} else if os.SameFile(nextInfo, finalInfo) {
+		if !nextInfo.Mode().IsRegular() || nextInfo.Mode()&os.ModeSymlink != 0 ||
+			nextInfo.Mode().Perm() != 0o600 || nextInfo.Size() != int64(len(encoded)) {
+			return fmt.Errorf("formal-cox: unsafe linked sticky completion")
+		}
+	} else {
+		matched, err := formalCoxBlockwiseCompletionMatches(path, encoded)
+		if err != nil {
+			return err
+		}
+		if !matched {
+			return fmt.Errorf("formal-cox: sticky completion disappeared during recovery")
+		}
+		if err := formalCoxBlockwiseValidateCompletionNext(nextPath, encoded); err != nil {
+			return err
+		}
+	}
+	if err := os.Remove(nextPath); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
+	if err := exactGCSyncDir(filepath.Dir(path)); err != nil {
 		return err
 	}
-	if err := tmp.Close(); err != nil {
+	matched, err := formalCoxBlockwiseCompletionMatches(path, encoded)
+	if err != nil || !matched {
+		return fmt.Errorf("formal-cox: sticky completion recovery did not stabilize")
+	}
+	return nil
+}
+
+func formalCoxBlockwisePersistCompletion(path string, encoded []byte) error {
+	if len(encoded) < 2 || len(encoded) > formalCoxBlockwiseCompletionMax {
+		return fmt.Errorf("formal-cox: invalid sticky blockwise completion")
+	}
+	formalCoxBlockwiseCheckpointCAS.Lock()
+	defer formalCoxBlockwiseCheckpointCAS.Unlock()
+	if err := formalCoxBlockwiseRecoverCompletionNext(path, encoded); err != nil {
 		return err
 	}
-	if err := os.Link(tmpPath, path); err != nil {
-		existing, readErr := formalCoxBlockwiseReadCompletion(path)
-		if readErr != nil || !bytes.Equal(existing, encoded) {
+	if matched, err := formalCoxBlockwiseCompletionMatches(path, encoded); err != nil {
+		return err
+	} else if matched {
+		return nil
+	}
+	nextPath := formalCoxBlockwiseCompletionNextPath(path)
+	tmp, err := os.OpenFile(nextPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if os.IsExist(err) {
+		if recoverErr := formalCoxBlockwiseRecoverCompletionNext(path, encoded); recoverErr != nil {
+			return recoverErr
+		}
+		if matched, matchErr := formalCoxBlockwiseCompletionMatches(path, encoded); matchErr != nil || !matched {
 			return fmt.Errorf("formal-cox: sticky completion CAS conflict")
 		}
 		return nil
 	}
-	if err := os.Remove(tmpPath); err != nil && !os.IsNotExist(err) {
+	if err != nil {
+		return err
+	}
+	if err := exactGCWriteFull(tmp, encoded); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(nextPath)
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(nextPath)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(nextPath)
+		return err
+	}
+	if err := formalCoxBlockwiseValidateCompletionNext(nextPath, encoded); err != nil {
+		return err
+	}
+	if err := os.Link(nextPath, path); err != nil {
+		if recoverErr := formalCoxBlockwiseRecoverCompletionNext(path, encoded); recoverErr != nil {
+			return recoverErr
+		}
+		if matched, matchErr := formalCoxBlockwiseCompletionMatches(path, encoded); matchErr != nil || !matched {
+			return fmt.Errorf("formal-cox: sticky completion CAS conflict")
+		}
+		return nil
+	}
+	if err := os.Remove(nextPath); err != nil {
 		return err
 	}
 	return exactGCSyncDir(filepath.Dir(path))

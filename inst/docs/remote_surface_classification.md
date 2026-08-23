@@ -205,11 +205,12 @@ DP artifact.
 
 ### Cluster-granular workflows
 
-The GEE/LMM/GLMM compatibility paths expose or reconstruct exact per-cluster
-sizes, levels, ordering metadata or share vectors. `dsvertClusterZtZDS` is
-especially broad because its reply includes the cluster-level labels alongside
-per-cluster matrices. Minimum cluster size does not close adaptive differencing.
-Cluster membership should remain inside authenticated peers and only a
+The retained legacy GEE/LMM/GLMM helper paths expose or reconstruct exact
+per-cluster sizes, levels, ordering metadata or share vectors. The signed
+Synopsis LMM/GLMM readers do not call them. `dsvertClusterZtZDS` is especially
+broad because its reply includes the cluster-level labels alongside per-cluster
+matrices. Minimum cluster size does not close adaptive differencing. Cluster
+membership should remain inside authenticated peers and only a
 contribution-bounded model-level DP result should open.
 
 ### Aggregate methods that mutate analysis data

@@ -242,11 +242,10 @@
       "ordinal": ["ds.vertOrdinal", "ds.vertOrdinalJointNewton", "ds.vert.ordinal"],
       "lmm": ["ds.vertLMM", "ds.vertLMM.k3", "ds.vert.lmm"],
       "gee": ["ds.vertGEE", "ds.vert.gee"],
-      "glmm": ["ds.vertGLMM", "ds.vert.glmm"],
       "ipw": ["ds.vertIPW", "ds.vert.ipw"],
       "mi": ["ds.vertMI", "ds.vert.mi"]
     },
-    "shared_legacy_consumers": "The generic session, Ring63/Ring127, Beaver/OT, score and cluster kernels are shared implementation dependencies of the quarantined GLM, Cox, NB, multinomial, ordinal, LMM, GEE, GLMM, IPW and MI routes; none has an independent production public frontdoor."
+    "shared_legacy_consumers": "The generic session, Ring63/Ring127, Beaver/OT, score and cluster kernels remain implementation dependencies of retained legacy GLM, Cox, NB, multinomial, ordinal, LMM, GEE, GLMM, IPW and MI helpers. The signed LMM/GLMM Synopsis readers do not invoke those helpers."
   },
   "registered_argument_constructor_aliases": [],
   "client_ast_resolution": {
@@ -355,7 +354,7 @@
         "k2SeedSingleClusterDS"
       ],
       "risk": "Exact per-cluster sizes, levels, order metadata or reconstructible shares create a granular differencing surface; a minimum cluster size is not a composition theorem.",
-      "required_action": "Keep cluster membership inside authenticated peers and open only model-level, contribution-bounded DP outputs; retain these endpoints only until quarantined LMM/GEE/GLMM consumers migrate."
+      "required_action": "Keep cluster membership inside authenticated peers and open only model-level, contribution-bounded DP outputs; retain these endpoints only for quarantined cluster-granular GEE and legacy LMM/GLMM helpers, never for the signed Synopsis readers."
     },
     "aggregate_method_mutates_server_data": {
       "endpoints": [

@@ -140,6 +140,7 @@
   "dsvertFormalGLMControlSourceDS",
   "dsvertFormalGLMPublicResultDS",
   "dsvertFormalCoxPublicResultDS",
+  "dsvertFormalCoxDiscretePublicResultDS",
   "exactGCTransportInitDS",
   "exactGCBindPeersDS",
   "exactGCExchangeDS",

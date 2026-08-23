@@ -423,8 +423,6 @@ func formalCoxBlockwiseSourceBridgeTestRunFullScheduleSealed(t testing.TB,
 		}
 		attempt := sha256.Sum256([]byte(fmt.Sprintf(
 			"%s/full-schedule-attempt/%d", t.Name(), scheduleIndex)))
-		master := sha256.Sum256([]byte(fmt.Sprintf(
-			"%s/full-schedule-master/%d", t.Name(), scheduleIndex)))
 		var bound [2]formalCoxBlockwiseWorkerStep
 		for index, bridge := range bridges {
 			bound[index], err = bridge.BeginAttempt(step, attempt, pairedRoot)
@@ -435,8 +433,24 @@ func formalCoxBlockwiseSourceBridgeTestRunFullScheduleSealed(t testing.TB,
 		if bound[0] != bound[1] {
 			t.Fatalf("step %d compute roles bound different workers", scheduleIndex)
 		}
+		master, err := bridges[0].deriveWorkerMasterV1(bound[0], attempt)
+		if err != nil {
+			t.Fatalf("step %d master: %v", scheduleIndex, err)
+		}
+		peerMaster, err := bridges[1].deriveWorkerMasterV1(bound[1], attempt)
+		if err != nil {
+			clear(master[:])
+			t.Fatalf("step %d peer master: %v", scheduleIndex, err)
+		}
+		if !bytes.Equal(master[:], peerMaster[:]) {
+			clear(master[:])
+			clear(peerMaster[:])
+			t.Fatalf("step %d compute roles derived different worker masters", scheduleIndex)
+		}
+		clear(peerMaster[:])
 		session, err := formalCoxBlockwiseWorkerSession(
 			fixture.plan, bound[0], attempt, master)
+		clear(master[:])
 		if err != nil {
 			t.Fatalf("step %d session: %v", scheduleIndex, err)
 		}

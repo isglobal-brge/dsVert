@@ -395,6 +395,38 @@ func TestFormalGLMRegisteredPhase18SourceCommandCommitsBindingK2K3K5(t *testing.
 			if !replayed.Replayed || replayed.BindingRecordJSON != committed.BindingRecordJSON {
 				t.Fatal("binding replay changed durable evidence")
 			}
+			request.Action = formalGLMRegisteredPhase18SourceCommandActionHostProvisionV1
+			request.RecipientTickets = nil
+			provisioned := formalGLMRegisteredPhase18SourceCommandTestRunV1(t, root, request)
+			if provisioned.JobHostReceipt == nil || provisioned.Replayed ||
+				provisioned.JobHostReceipt.Peer != peer ||
+				provisioned.JobHostReceipt.ArtifactID != record.Binding.ArtifactID ||
+				provisioned.JobHostReceipt.ReceiptSetSHA256 != record.Binding.ReceiptSetSHA256 ||
+				provisioned.JobHostReceipt.ProductionReady {
+				t.Fatal("host bootstrap was not derived from the registered binding")
+			}
+			host, hostErr := formalGLMRegisteredPhase20JobControlHostOpenProvisionedV1(
+				root, *provisioned.JobHostReceipt)
+			if hostErr != nil {
+				t.Fatal(hostErr)
+			}
+			if encodedHost, marshalErr := json.Marshal(host); marshalErr != nil || string(encodedHost) != "{}" {
+				_ = host.Close()
+				t.Fatalf("provisioned host exposed private state: %q / %v", encodedHost, marshalErr)
+			}
+			if err := host.Close(); err != nil {
+				t.Fatal(err)
+			}
+			replayedProvision := formalGLMRegisteredPhase18SourceCommandTestRunV1(t, root, request)
+			if replayedProvision.JobHostReceipt == nil || !replayedProvision.Replayed ||
+				replayedProvision.JobHostReceipt.Version != provisioned.JobHostReceipt.Version ||
+				replayedProvision.JobHostReceipt.Peer != provisioned.JobHostReceipt.Peer ||
+				replayedProvision.JobHostReceipt.ArtifactID != provisioned.JobHostReceipt.ArtifactID ||
+				replayedProvision.JobHostReceipt.ReceiptSetSHA256 != provisioned.JobHostReceipt.ReceiptSetSHA256 ||
+				replayedProvision.JobHostReceipt.ConfigSHA256 != provisioned.JobHostReceipt.ConfigSHA256 ||
+				replayedProvision.JobHostReceipt.ProductionReady {
+				t.Fatal("host bootstrap replay changed durable evidence")
+			}
 		})
 	}
 }

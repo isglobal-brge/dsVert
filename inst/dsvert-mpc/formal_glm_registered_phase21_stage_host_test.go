@@ -381,6 +381,27 @@ func TestFormalGLMRegisteredPhase21StageTaskK2K3K5(t *testing.T) {
 			if replayPublicationErr != nil || !reflect.DeepEqual(replayPublication, publication) {
 				t.Fatalf("publication replay changed: %#v / %#v / %v", replayPublication, publication, replayPublicationErr)
 			}
+			var commits [2]formalGLMPhase21RockCommitRecord
+			for index := range states {
+				commit, commitErr := formalGLMRegisteredPhase21CommitPublicationV1(states[index], publication)
+				if commitErr != nil || commit.ProductionReady || commit.Receipt.Role != contract.Artifact.NoiseAuthorities[index].Role {
+					t.Fatalf("authority %d did not commit publication: %#v / %v", index, commit, commitErr)
+				}
+				commits[index] = commit
+			}
+			tamperedCommit := commits[1]
+			tamperedCommit.Receipt.Signature = append([]byte(nil), commits[1].Receipt.Signature...)
+			tamperedCommit.Receipt.Signature[0] ^= 1
+			if err := formalGLMRegisteredPhase21ImportPeerCommitV1(states[0], tamperedCommit); err == nil {
+				t.Fatal("finalizer accepted a tampered peer commit")
+			}
+			if err := formalGLMRegisteredPhase21ImportPeerCommitV1(states[0], commits[1]); err != nil {
+				t.Fatalf("finalizer did not import peer commit: %v", err)
+			}
+			replayCommit, replayCommitErr := formalGLMRegisteredPhase21CommitPublicationV1(states[1], publication)
+			if replayCommitErr != nil || !reflect.DeepEqual(replayCommit, commits[1]) {
+				t.Fatalf("publication commit replay changed: %#v / %#v / %v", replayCommit, commits[1], replayCommitErr)
+			}
 		})
 	}
 }

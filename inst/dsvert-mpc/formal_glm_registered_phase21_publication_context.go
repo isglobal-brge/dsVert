@@ -31,6 +31,7 @@ type formalGLMRegisteredPhase21PublicationContextV1 struct {
 	Purpose                  string                                   `json:"purpose"`
 	SourceContractCoreSHA256 string                                   `json:"source_contract_core_sha256"`
 	SamplerContract          formalGLMPhase21SamplerV2Contract        `json:"sampler_contract"`
+	RegistryResolution       formalGLMArtifactRegistryResolutionV1    `json:"registry_resolution"`
 	Capsule                  formalGLMPhase16CapsuleBinding           `json:"capsule"`
 	Request                  formalGLMPhase16ProductiveRequest        `json:"request"`
 	BackendSignatures        []jointDPBiomedicalGaussianSignature     `json:"backend_signatures"`
@@ -59,6 +60,15 @@ func formalGLMRegisteredPhase21PublicationContextValidateV1(
 	if context.SamplerContract.ArtifactID != contract.Core.ArtifactID ||
 		!reflect.DeepEqual(unsigned, contract.Core.SamplerV2ContractCore) {
 		return fmt.Errorf("formal-glm registered Phase21 publication context: sampler differs from source contract")
+	}
+	artifact := context.SamplerContract.Artifact
+	if context.RegistryResolution.ArtifactID != context.SamplerContract.ArtifactID ||
+		context.RegistryResolution.Descriptor.ArtifactID != context.SamplerContract.ArtifactID ||
+		formalGLMValidateSignedPublicDescriptorV1(
+			context.RegistryResolution.Descriptor, pins) != nil ||
+		formalGLMValidatePublicDescriptorAgainstArtifactV1(
+			context.RegistryResolution.Descriptor, artifact) != nil {
+		return fmt.Errorf("formal-glm registered Phase21 publication context: invalid registry resolution")
 	}
 	return nil
 }
@@ -147,6 +157,9 @@ func formalGLMRegisteredPhase21PublicationContextClearV1(
 	}
 	for index := range context.SamplerContract.CustodianSignatures {
 		clear(context.SamplerContract.CustodianSignatures[index].Signature)
+	}
+	for index := range context.RegistryResolution.Descriptor.CustodianApprovals {
+		clear(context.RegistryResolution.Descriptor.CustodianApprovals[index].Signature)
 	}
 	*context = formalGLMRegisteredPhase21PublicationContextV1{}
 }

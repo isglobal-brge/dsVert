@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -16,6 +18,8 @@ func formalGLMRegisteredPhase20JobControlHostComputeConfigV1(
 	peer := fixture.provenance.source.plan.DesignatedComputePeers[index]
 	pins := formalGLMRegisteredPhase19ScheduleTailClonePinsV1(
 		fixture.provenance.source.inputs.identities.public)
+	publication := formalGLMRegisteredPhase21PublicationContextTestBuildV1(
+		t, fixture.provenance.source)
 	return formalGLMRegisteredPhase20JobControlHostConfigV1{
 		Version:  formalGLMRegisteredPhase20JobControlHostVersionV1,
 		Contract: fixture.provenance.source.contract,
@@ -27,6 +31,7 @@ func formalGLMRegisteredPhase20JobControlHostComputeConfigV1(
 			ArtifactID:       fixture.record.Binding.ArtifactID,
 			ReceiptSetSHA256: fixture.record.Binding.ReceiptSetSHA256,
 		},
+		Publication: &publication,
 	}
 }
 
@@ -249,6 +254,18 @@ func formalGLMRegisteredPhase20JobControlHostRunsFromPendingIngressV1(
 		if statusErr != nil || status.selected == nil ||
 			status.selected.OpeningsPerformed != 0 || status.selected.ProductionReady {
 			t.Fatalf("host %d terminal status: %#v / %v", index, status, statusErr)
+		}
+		assets, assetsErr := formalGLMRegisteredPhase21PublicationAssetsPathsV1(
+			filepath.Join(fixture.roots[index], owner.terminal.peer),
+			fixture.provenance.source.contract.Core.SamplerV2ContractCore.ArtifactID)
+		if assetsErr != nil {
+			t.Fatal(assetsErr)
+		}
+		for _, path := range []string{assets.contractPath, assets.pinsetPath, assets.resolutionPath} {
+			info, statErr := os.Lstat(path)
+			if statErr != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0o600 {
+				t.Fatalf("host %d did not persist Phase21 asset %q: %v / %#v", index, path, statErr, info)
+			}
 		}
 	}
 }

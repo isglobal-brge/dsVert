@@ -11,6 +11,7 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"sync"
 )
@@ -284,7 +285,56 @@ func (host *formalGLMRegisteredPhase20JobControlHostV1) RunTerminalV1() (
 		return zero, err
 	}
 	defer done()
-	return owner.RunTerminalV1()
+	commit, err := owner.RunTerminalV1()
+	if err != nil {
+		return zero, err
+	}
+	if err := host.persistSelectedPublicationAssetsV1(owner); err != nil {
+		return zero, err
+	}
+	return commit, nil
+}
+
+// persistSelectedPublicationAssetsV1 makes the signed Phase21 inputs
+// restartable only after the Phase20 terminal selected the encrypted handoff.
+// It writes no DP share, private key, backend key, or scheduler result.
+func (host *formalGLMRegisteredPhase20JobControlHostV1) persistSelectedPublicationAssetsV1(
+	owner *formalGLMRegisteredPhase20JobOwnerV1,
+) error {
+	if host == nil || owner == nil {
+		return fmt.Errorf("formal-glm registered Phase20 job host: publication unavailable")
+	}
+	host.mu.Lock()
+	publication := host.publication
+	host.mu.Unlock()
+	if publication == nil {
+		return nil
+	}
+	owner.mu.Lock()
+	terminal := owner.terminal
+	owner.mu.Unlock()
+	if terminal == nil {
+		return fmt.Errorf("formal-glm registered Phase20 job host: terminal unavailable")
+	}
+	terminal.mu.Lock()
+	if terminal.closed || terminal.attempts == nil || terminal.attempts.root == nil {
+		terminal.mu.Unlock()
+		return fmt.Errorf("formal-glm registered Phase20 job host: terminal unavailable")
+	}
+	rockRoot, peer := terminal.attempts.root.Name(), terminal.peer
+	contract := terminal.contract
+	pins := formalGLMRegisteredPhase20TerminalClonePinsV1(terminal.pins)
+	terminal.mu.Unlock()
+	defer formalGLMRegisteredPhase20TerminalClearPinsV1(pins)
+	context, err := formalGLMRegisteredPhase21PublicationContextCloneV1(
+		*publication, contract, pins)
+	if err != nil {
+		return err
+	}
+	defer formalGLMRegisteredPhase21PublicationContextClearV1(&context)
+	_, _, err = formalGLMRegisteredPhase21PersistPublicationAssetsV1(
+		filepath.Join(rockRoot, peer), context, contract, pins)
+	return err
 }
 
 func (host *formalGLMRegisteredPhase20JobControlHostV1) JobRefV1() (

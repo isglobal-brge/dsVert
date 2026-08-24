@@ -33,8 +33,16 @@ type formalGLMRegisteredPhase18SourceOutboxTestFixtureV3 struct {
 func formalGLMRegisteredPhase18SourceOutboxTestBuild(t testing.TB,
 	custodians int,
 ) formalGLMRegisteredPhase18SourceOutboxTestFixtureV3 {
+	return formalGLMRegisteredPhase18SourceOutboxTestBuildFamily(
+		t, custodians, "binomial")
+}
+
+func formalGLMRegisteredPhase18SourceOutboxTestBuildFamily(t testing.TB,
+	custodians int, family string,
+) formalGLMRegisteredPhase18SourceOutboxTestFixtureV3 {
 	t.Helper()
-	provenance := formalGLMRegisteredPhase18ProvenanceTestBuild(t, custodians)
+	provenance := formalGLMRegisteredPhase18ProvenanceTestBuildWithCapacityAndFamily(
+		t, family, custodians, 9)
 	source := provenance.source.plan.CustodianPeers[0]
 	if custodians == 5 {
 		for _, peer := range provenance.source.plan.CustodianPeers {

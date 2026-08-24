@@ -104,9 +104,16 @@ func formalGLMRegisteredPhase18ProvenanceTestBuild(t testing.TB,
 func formalGLMRegisteredPhase18ProvenanceTestBuildWithCapacity(t testing.TB,
 	custodians, totalCapacity int,
 ) formalGLMRegisteredPhase18ProvenanceTestFixtureV1 {
+	return formalGLMRegisteredPhase18ProvenanceTestBuildWithCapacityAndFamily(
+		t, "binomial", custodians, totalCapacity)
+}
+
+func formalGLMRegisteredPhase18ProvenanceTestBuildWithCapacityAndFamily(
+	t testing.TB, family string, custodians, totalCapacity int,
+) formalGLMRegisteredPhase18ProvenanceTestFixtureV1 {
 	t.Helper()
-	source := formalGLMRegisteredPhase18IngressTestSourceWithCapacity(
-		t, custodians, totalCapacity)
+	source := formalGLMRegisteredPhase18IngressTestSourceWithCapacityAndFamily(
+		t, family, custodians, totalCapacity)
 	pins := source.inputs.identities.public
 	context, err := formalGLMRegisteredPhase18NewProvenanceContextV1(
 		source.contract, pins)

@@ -19,6 +19,17 @@ func formalGLMRegisteredPhase18SourceCommandTestPinsV1(
 	return encoded
 }
 
+func formalGLMRegisteredPhase18SourceProjectTestPinsV1(
+	t testing.TB, pins map[string]ed25519.PublicKey,
+) map[string]string {
+	t.Helper()
+	encoded := make(map[string]string, len(pins))
+	for peer, pin := range pins {
+		encoded[peer] = base64.RawURLEncoding.EncodeToString(pin)
+	}
+	return encoded
+}
+
 func formalGLMRegisteredPhase18SourceCommandTestKeyV1(
 	t testing.TB, key ed25519.PrivateKey,
 ) string {
@@ -109,12 +120,28 @@ func TestFormalGLMRegisteredPhase18SourceCommandK2K3K5(t *testing.T) {
 			request := formalGLMRegisteredPhase18SourceCommandTestRequestV1(
 				t, formalGLMRegisteredPhase18SourceCommandActionProduceV1,
 				fixture.source, fixture)
-			authorizationJSON, err := json.Marshal(fixture.authorization)
+			contractJSON, err := json.Marshal(fixture.provenance.source.contract)
 			if err != nil {
 				t.Fatal(err)
 			}
-			request.AuthorizationJSON = string(authorizationJSON)
-			clear(authorizationJSON)
+			projectRequest, err := json.Marshal(
+				formalGLMPhase18SourceProjectRequestV1{
+					SourceContractJSON: string(contractJSON),
+					Pins: formalGLMRegisteredPhase18SourceProjectTestPinsV1(
+						t, fixture.provenance.source.inputs.identities.public),
+					LocalPeerName: fixture.source,
+				})
+			clear(contractJSON)
+			if err != nil {
+				t.Fatal(err)
+			}
+			projected, err := formalGLMRunPhase18SourceProjectV1(projectRequest)
+			clear(projectRequest)
+			if err != nil ||
+				projected.AuthorizationSHA256 != fixture.authorization.AuthorizationSHA256 {
+				t.Fatalf("source authorization projection: %#v / %v", projected, err)
+			}
+			request.AuthorizationJSON = projected.AuthorizationJSON
 			request.RecipientTickets = append(
 				[]formalGLMRegisteredPhase18RecipientTicketV1(nil), tickets...)
 			request.BlockIndex = fixture.blockIndex

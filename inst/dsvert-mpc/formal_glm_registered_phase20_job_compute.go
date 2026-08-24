@@ -7,6 +7,7 @@ package main
 import (
 	"crypto/ed25519"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -304,6 +305,10 @@ func formalGLMRegisteredPhase20JobComputePairSecretsV1(
 	return backend, private, nil
 }
 
+func formalGLMRegisteredPhase20JobComputeHeartbeatRetryableV1(err error) bool {
+	return errors.Is(err, errFormalGLMRegisteredPhase20JobRelayLockBusyV1)
+}
+
 func formalGLMRegisteredPhase20JobComputeHeartbeatV1(
 	controller *formalGLMRegisteredPhase20JobWorkerControllerV1,
 	stop <-chan struct{}, done chan<- struct{}, failure chan<- error,
@@ -311,16 +316,28 @@ func formalGLMRegisteredPhase20JobComputeHeartbeatV1(
 	defer close(done)
 	ticker := time.NewTicker(formalGLMRegisteredPhase20JobHeartbeatTTLV1 / 4)
 	defer ticker.Stop()
+	var relayBusySince time.Time
 	for {
 		select {
 		case <-stop:
 			return
 		case <-ticker.C:
 			if err := controller.HeartbeatV1(); err != nil {
+				if formalGLMRegisteredPhase20JobComputeHeartbeatRetryableV1(err) {
+					now := time.Now()
+					if relayBusySince.IsZero() {
+						relayBusySince = now
+						continue
+					}
+					if now.Sub(relayBusySince) < formalGLMRegisteredPhase20JobHeartbeatTTLV1/2 {
+						continue
+					}
+				}
 				failure <- err
 				_ = controller.Close()
 				return
 			}
+			relayBusySince = time.Time{}
 		}
 	}
 }

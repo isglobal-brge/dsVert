@@ -3,12 +3,29 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 )
+
+func TestFormalGLMRegisteredPhase20JobComputeHeartbeatRetriesOnlyRelayLockBusy(t *testing.T) {
+	if !formalGLMRegisteredPhase20JobComputeHeartbeatRetryableV1(
+		fmt.Errorf("wrapped: %w", errFormalGLMRegisteredPhase20JobRelayLockBusyV1),
+	) {
+		t.Fatal("relay lock contention was not retryable")
+	}
+	if formalGLMRegisteredPhase20JobComputeHeartbeatRetryableV1(
+		errFormalGLMRegisteredPhase20JobWorkerOwnerLockBusyV1,
+	) {
+		t.Fatal("worker ownership contention must not be treated as relay contention")
+	}
+	if formalGLMRegisteredPhase20JobComputeHeartbeatRetryableV1(errors.New("disk failure")) {
+		t.Fatal("storage failure must not be retryable")
+	}
+}
 
 type formalGLMRegisteredPhase20JobComputeTestFixtureV1 struct {
 	provenance formalGLMRegisteredPhase18ProvenanceTestFixtureV1

@@ -436,6 +436,10 @@ func TestFormalGLMRegisteredPhase21StageTaskK2K3K5(t *testing.T) {
 			if err := formalGLMRegisteredPhase21ImportPeerCleanupV1(states[0], cleanups[1]); err != nil {
 				t.Fatalf("finalizer did not import peer cleanup: %v", err)
 			}
+			terminal, terminalErr := formalGLMRegisteredPhase21TerminalEvidenceV1(states[0])
+			if terminalErr != nil || terminal.Publication.ArtifactID != contract.ArtifactID || terminal.Publication.ProductionReady {
+				t.Fatalf("terminal evidence did not rehydrate: %#v / %v", terminal, terminalErr)
+			}
 		})
 	}
 }

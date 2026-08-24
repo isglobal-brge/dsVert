@@ -6,11 +6,128 @@ package main
 
 import (
 	"crypto/ed25519"
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
 	"time"
 )
+
+const (
+	formalGLMRegisteredPhase20JobIngressKeyVersionV1 = "dsvert-formal-glm-registered-phase20-ingress-key-v1"
+	formalGLMRegisteredPhase20JobIngressKeyPurposeV1 = "formal_glm_registered_phase20_recipient_ingress_mac_v1"
+	formalGLMRegisteredPhase20JobIngressKeyDomainV1  = "dsVert/formal-glm/registered-phase20/ingress-key/v1"
+)
+
+// The outer ingress MAC is recipient-bound and derives from the already
+// authenticated compute-pair backend. It therefore needs no caller-provided
+// secret or second durable key slot.
+type formalGLMRegisteredPhase20JobIngressKeyInputV1 struct {
+	Version                       string `json:"version"`
+	Purpose                       string `json:"purpose"`
+	ArtifactID                    string `json:"artifact_id"`
+	SourceContractCoreSHA256      string `json:"source_contract_core_sha256"`
+	SourceContractSHA256          string `json:"source_contract_sha256"`
+	RegisteredExecutionPlanSHA256 string `json:"registered_execution_plan_sha256"`
+	PinsetSHA256                  string `json:"pinset_sha256"`
+	SemanticRootSHA256            string `json:"semantic_root_sha256"`
+	GlobalMaterializationRoot     string `json:"global_materialization_root_sha256"`
+	Recipient                     string `json:"recipient"`
+	RecipientTicketSHA256         string `json:"recipient_ticket_sha256"`
+}
+
+func formalGLMRegisteredPhase20JobIngressKeyV1(
+	backend [32]byte,
+	record formalGLMRegisteredPhase19BindingRecordV1,
+	recipient string,
+) ([32]byte, error) {
+	var zero [32]byte
+	binding := record.Binding
+	if !formalGLMPhase19KeyValid(backend) ||
+		record.Version != formalGLMRegisteredPhase19BindingRecordVersion ||
+		record.Purpose != formalGLMRegisteredPhase19BindingRecordPurpose ||
+		!formalGLMIsSHA256(binding.ArtifactID) ||
+		!formalGLMIsSHA256(binding.SourceContractCoreSHA256) ||
+		!formalGLMIsSHA256(binding.SourceContractSHA256) ||
+		!formalGLMIsSHA256(binding.RegisteredExecutionPlanSHA256) ||
+		!formalGLMIsSHA256(binding.PinsetSHA256) ||
+		!formalGLMIsSHA256(binding.SemanticRootSHA256) ||
+		!formalGLMIsSHA256(binding.GlobalMaterializationRootSHA256) ||
+		binding.ReceiptSetSHA256 != record.ReceiptSet.ReceiptSetSHA256 ||
+		binding.GlobalMaterializationRootSHA256 != record.ReceiptSet.GlobalMaterializationRootSHA256 ||
+		len(binding.DesignatedComputePeers) != 2 ||
+		len(binding.RecipientBindings) != 2 {
+		return zero, fmt.Errorf("formal-glm registered Phase20 job compute: invalid ingress key binding")
+	}
+	recipientIndex := -1
+	for index, peer := range binding.DesignatedComputePeers {
+		if peer == recipient {
+			recipientIndex = index
+		}
+	}
+	if recipientIndex < 0 || recipientIndex >= len(record.RecipientTickets) ||
+		record.RecipientTickets[recipientIndex].RecipientName != recipient {
+		return zero, fmt.Errorf("formal-glm registered Phase20 job compute: invalid ingress recipient")
+	}
+	ticketSHA256, err := formalGLMRegisteredPhase18RecipientTicketSHA256V1(
+		record.RecipientTickets[recipientIndex])
+	if err != nil ||
+		binding.RecipientBindings[recipientIndex].RecipientName != recipient ||
+		binding.RecipientBindings[recipientIndex].RecipientTicketSHA256 != ticketSHA256 {
+		return zero, fmt.Errorf("formal-glm registered Phase20 job compute: invalid ingress ticket")
+	}
+	encoded, err := json.Marshal(formalGLMRegisteredPhase20JobIngressKeyInputV1{
+		Version:                       formalGLMRegisteredPhase20JobIngressKeyVersionV1,
+		Purpose:                       formalGLMRegisteredPhase20JobIngressKeyPurposeV1,
+		ArtifactID:                    binding.ArtifactID,
+		SourceContractCoreSHA256:      binding.SourceContractCoreSHA256,
+		SourceContractSHA256:          binding.SourceContractSHA256,
+		RegisteredExecutionPlanSHA256: binding.RegisteredExecutionPlanSHA256,
+		PinsetSHA256:                  binding.PinsetSHA256,
+		SemanticRootSHA256:            binding.SemanticRootSHA256,
+		GlobalMaterializationRoot:     binding.GlobalMaterializationRootSHA256,
+		Recipient:                     recipient,
+		RecipientTicketSHA256:         ticketSHA256,
+	})
+	if err != nil {
+		return zero, err
+	}
+	defer clear(encoded)
+	key := formalGLMPhase19MAC(
+		backend, formalGLMRegisteredPhase20JobIngressKeyDomainV1, encoded)
+	if !formalGLMPhase19KeyValid(key) {
+		clear(key[:])
+		return zero, fmt.Errorf("formal-glm registered Phase20 job compute: invalid ingress key")
+	}
+	return key, nil
+}
+
+func formalGLMRegisteredPhase20JobComputeValidateIngressV1(
+	ingress *formalGLMRegisteredPhase18IngressStoreV3,
+	snapshot formalGLMRegisteredPhase20JobComputeSnapshotV1,
+	key [32]byte,
+) error {
+	if ingress == nil || snapshot.attempts == nil {
+		return fmt.Errorf("formal-glm registered Phase20 job compute: ingress unavailable")
+	}
+	snapshot.attempts.mu.Lock()
+	attemptRoot := snapshot.attempts.root
+	snapshot.attempts.mu.Unlock()
+	ingress.mu.Lock()
+	valid := ingress.root != nil &&
+		formalGLMRegisteredPhase19ScheduleTailSameRootV1(attemptRoot, ingress.root) &&
+		ingress.recipient == snapshot.peer &&
+		ingress.localKey == key &&
+		ingress.expectedGlobalMaterializationRoot ==
+			snapshot.record.ReceiptSet.GlobalMaterializationRootSHA256 &&
+		reflect.DeepEqual(ingress.contract, snapshot.contract) &&
+		reflect.DeepEqual(ingress.pins, snapshot.pins)
+	ingress.mu.Unlock()
+	if !valid {
+		return fmt.Errorf("formal-glm registered Phase20 job compute: ingress binding mismatch")
+	}
+	return nil
+}
 
 type formalGLMRegisteredPhase20JobComputeSnapshotV1 struct {
 	controller *formalGLMRegisteredPhase20JobWorkerControllerV1
@@ -241,6 +358,16 @@ func (owner *formalGLMRegisteredPhase20JobOwnerV1) RunComputeV1(
 	}
 	defer clear(backend[:])
 	defer clear(private[:])
+	ingressKey, err := formalGLMRegisteredPhase20JobIngressKeyV1(
+		backend, snapshot.record, snapshot.peer)
+	if err != nil {
+		return err
+	}
+	defer clear(ingressKey[:])
+	if err := formalGLMRegisteredPhase20JobComputeValidateIngressV1(
+		ingress, snapshot, ingressKey); err != nil {
+		return err
+	}
 	runtime, err := newFormalGLMRegisteredPhase19EphemeralRuntimeV1(
 		snapshot.record, snapshot.contract, snapshot.pins, backend)
 	if err != nil {

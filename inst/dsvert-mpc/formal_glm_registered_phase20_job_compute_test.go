@@ -128,7 +128,16 @@ func formalGLMRegisteredPhase20JobComputeTestBuild(
 		t.Fatal(err)
 	}
 	for index, peer := range plan.DesignatedComputePeers {
-		localKey := sha256.Sum256([]byte("registered-job-compute/ingress/" + peer))
+		backend, backendErr := fixture.providers[index].DeriveBackendV1(fixture.record)
+		if backendErr != nil {
+			t.Fatal(backendErr)
+		}
+		localKey, keyErr := formalGLMRegisteredPhase20JobIngressKeyV1(
+			backend, fixture.record, peer)
+		clear(backend[:])
+		if keyErr != nil {
+			t.Fatal(keyErr)
+		}
 		ingress, ingressErr := newFormalGLMRegisteredPhase18IngressStoreV3(
 			roots[index], peer, localKey, contract,
 			receiptSet.GlobalMaterializationRootSHA256, pins)
@@ -284,6 +293,57 @@ func formalGLMRegisteredPhase20JobComputeSealsWithoutRawOutput(
 	t.Helper()
 	fixture := formalGLMRegisteredPhase20JobComputeTestBuild(t, custodians, totalCapacity)
 	plan := fixture.provenance.source.plan
+	backend, err := fixture.providers[0].DeriveBackendV1(fixture.record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ingressKey, err := formalGLMRegisteredPhase20JobIngressKeyV1(
+		backend, fixture.record, plan.DesignatedComputePeers[0])
+	clear(backend[:])
+	if err != nil || ingressKey != fixture.ingress[0].localKey {
+		clear(ingressKey[:])
+		t.Fatalf("recipient ingress key did not bind the pair backend: %v", err)
+	}
+	otherBackend, err := fixture.providers[1].DeriveBackendV1(fixture.record)
+	if err != nil {
+		clear(ingressKey[:])
+		t.Fatal(err)
+	}
+	otherKey, err := formalGLMRegisteredPhase20JobIngressKeyV1(
+		otherBackend, fixture.record, plan.DesignatedComputePeers[1])
+	clear(otherBackend[:])
+	if err != nil || otherKey != fixture.ingress[1].localKey || otherKey == ingressKey {
+		clear(ingressKey[:])
+		clear(otherKey[:])
+		t.Fatalf("recipient ingress keys are not distinct and reproducible: %v", err)
+	}
+	snapshot := formalGLMRegisteredPhase20JobComputeSnapshotV1{
+		attempts: fixture.owners[0].attempts,
+		record:   fixture.record,
+		contract: fixture.provenance.source.contract,
+		pins:     fixture.provenance.source.inputs.identities.public,
+		peer:     plan.DesignatedComputePeers[0],
+	}
+	if err := formalGLMRegisteredPhase20JobComputeValidateIngressV1(
+		fixture.ingress[0], snapshot, ingressKey); err != nil {
+		clear(ingressKey[:])
+		clear(otherKey[:])
+		t.Fatal(err)
+	}
+	fixture.ingress[0].mu.Lock()
+	fixture.ingress[0].localKey[0] ^= 1
+	fixture.ingress[0].mu.Unlock()
+	if err := formalGLMRegisteredPhase20JobComputeValidateIngressV1(
+		fixture.ingress[0], snapshot, ingressKey); err == nil {
+		clear(ingressKey[:])
+		clear(otherKey[:])
+		t.Fatal("job compute accepted an ingress store with an arbitrary MAC key")
+	}
+	fixture.ingress[0].mu.Lock()
+	fixture.ingress[0].localKey[0] ^= 1
+	fixture.ingress[0].mu.Unlock()
+	clear(ingressKey[:])
+	clear(otherKey[:])
 	if plan.TotalCapacity != totalCapacity ||
 		plan.TotalBlocks != (totalCapacity+plan.BlockCapacity-1)/plan.BlockCapacity {
 		t.Fatal("registered job compute changed its public block geometry")

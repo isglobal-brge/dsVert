@@ -567,6 +567,56 @@ test_that("registered formal GLM source commits only the persisted binding", {
   expect_identical(calls, 1L)
 })
 
+test_that("registered formal GLM source provisions no worker input or result", {
+  fixture <- .formal_glm_registered_source_fixture()
+  receipt <- list(
+    version = "dsvert-formal-glm-registered-phase20-job-host-provision-v1",
+    peer = "site_a", artifact_id = strrep("a", 64L),
+    receipt_set_sha256 = strrep("b", 64L), config_sha256 = strrep("c", 64L),
+    replayed = TRUE, production_ready = FALSE)
+  calls <- 0L
+  testthat::local_mocked_bindings(
+    .dsvert_require_configured_local_peer_name = function() "site_a",
+    .get_identity_keypair = function(...) list(
+      identity_pk = fixture$pins[["site_a"]],
+      identity_sk = .formal_glm_registered_source_b64(raw(64L))),
+    .callMpcTool = function(command, input) {
+      if (identical(command, "formal-glm-phase18-source-project")) {
+        return(list(
+          version = "dsvert-formal-glm-phase18-source-project-response-v1",
+          authorization_json = jsonlite::toJSON(
+            fixture$authorization, auto_unbox = TRUE, null = "null", pretty = FALSE),
+          authorization_sha256 = fixture$authorization$authorization_sha256))
+      }
+      calls <<- calls + 1L
+      expect_identical(command, "formal-glm-registered-phase18-source")
+      expect_identical(input$version,
+                       "dsvert-formal-glm-registered-phase18-source-command-v1")
+      expect_identical(input$action, "host_provision")
+      expect_identical(input$source_contract_json, fixture$source_contract_json)
+      expect_identical(input$pins, fixture$spec$pins)
+      expect_identical(input$local_peer_name, "site_a")
+      expect_false(any(c(
+        "authorization_json", "recipient_tickets", "block_index", "values",
+        "validity", "private_consensus", "pair_json", "local_receipt_json",
+        "data", "path", "rows", "result") %in% names(input)))
+      list(
+        version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+        job_host_receipt = receipt, replayed = TRUE)
+    },
+    .package = "dsVert")
+  withr::local_options(list(
+    dsvert.peer_name = "site_a",
+    dsvert.formal_glm.registered_source_specs = stats::setNames(
+      list(fixture$spec), "site_a")))
+  context <- .dsvert_formal_glm_registered_source_open(
+    fixture$source_contract_json, fixture$source)
+  expect_identical(
+    .dsvert_formal_glm_registered_source_provision_job_host(context),
+    list(job_host_receipt = receipt, replayed = TRUE))
+  expect_identical(calls, 1L)
+})
+
 test_that("registered formal GLM source clamps numeric terms and expands factors", {
   fixture <- .formal_glm_registered_source_fixture(
     family = "binomial", predictors = TRUE)

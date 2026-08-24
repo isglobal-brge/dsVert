@@ -769,6 +769,49 @@
        replayed = response$replayed)
 }
 
+# Provisions the local Phase20 host from the binding already sealed in Rock.
+# The Go command derives the private bootstrap internally; R receives only the
+# public selector receipt and cannot set a host path, key, result, or worker.
+.dsvert_formal_glm_registered_source_provision_job_host <- function(context) {
+  context <- .dsvert_formal_glm_registered_source_context(context)
+  identity <- .dsvert_formal_glm_registered_source_identity(context)
+  response <- tryCatch(.callMpcTool(
+    "formal-glm-registered-phase18-source", list(
+      version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+      action = "host_provision", source_contract_json = context$contract_json,
+      pins = context$pins, local_peer_name = context$source_name,
+      local_signing_key = identity$identity_sk)), error = function(error) NULL)
+  fields <- c("version", "job_host_receipt", "replayed")
+  receipt_fields <- c(
+    "version", "peer", "artifact_id", "receipt_set_sha256", "config_sha256",
+    "replayed", "production_ready")
+  receipt <- if (is.list(response)) response$job_host_receipt else NULL
+  if (!is.list(response) || !identical(names(response), fields) ||
+      !identical(response$version,
+                 "dsvert-formal-glm-registered-phase18-source-command-v1") ||
+      !is.list(receipt) || !identical(names(receipt), receipt_fields) ||
+      !is.character(receipt$version) || length(receipt$version) != 1L ||
+	  !identical(receipt$version,
+	             "dsvert-formal-glm-registered-phase20-job-host-provision-v1") ||
+      !is.character(receipt$peer) || length(receipt$peer) != 1L ||
+      !identical(receipt$peer, context$source_name) ||
+      !is.character(receipt$artifact_id) || length(receipt$artifact_id) != 1L ||
+      !grepl("^[0-9a-f]{64}$", receipt$artifact_id) ||
+      !is.character(receipt$receipt_set_sha256) ||
+      length(receipt$receipt_set_sha256) != 1L ||
+      !grepl("^[0-9a-f]{64}$", receipt$receipt_set_sha256) ||
+      !is.character(receipt$config_sha256) || length(receipt$config_sha256) != 1L ||
+      !grepl("^[0-9a-f]{64}$", receipt$config_sha256) ||
+      !is.logical(receipt$replayed) || length(receipt$replayed) != 1L ||
+      is.na(receipt$replayed) || !identical(receipt$production_ready, FALSE) ||
+      !is.logical(response$replayed) || length(response$replayed) != 1L ||
+      is.na(response$replayed) || !identical(response$replayed, receipt$replayed)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM host provisioner returned invalid output.")
+  }
+  list(job_host_receipt = receipt, replayed = response$replayed)
+}
+
 # Sends one already materialized local block to the closed Go ingress.  Tickets
 # are signed protocol records from the two designated compute peers; this
 # bridge does not mint them and cannot select a recipient, source, path or

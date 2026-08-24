@@ -21,13 +21,14 @@ const formalGLMRegisteredPhase20JobControlHostVersionV1 = "dsvert-formal-glm-reg
 // public command DTO: a future Rock reader must strictly decode it from an
 // owner-only file before starting a host process.
 type formalGLMRegisteredPhase20JobControlHostConfigV1 struct {
-	Version  string                                    `json:"version"`
-	Contract formalGLMSourceContractV1                 `json:"contract"`
-	Record   formalGLMRegisteredPhase19BindingRecordV1 `json:"record"`
-	Pins     map[string]ed25519.PublicKey              `json:"pins"`
-	Peer     string                                    `json:"peer"`
-	Signing  ed25519.PrivateKey                        `json:"signing"`
-	Start    formalGLMRegisteredPhase20JobStartV1      `json:"start"`
+	Version     string                                          `json:"version"`
+	Contract    formalGLMSourceContractV1                       `json:"contract"`
+	Record      formalGLMRegisteredPhase19BindingRecordV1       `json:"record"`
+	Pins        map[string]ed25519.PublicKey                    `json:"pins"`
+	Peer        string                                          `json:"peer"`
+	Signing     ed25519.PrivateKey                              `json:"signing"`
+	Start       formalGLMRegisteredPhase20JobStartV1            `json:"start"`
+	Publication *formalGLMRegisteredPhase21PublicationContextV1 `json:"publication,omitempty"`
 }
 
 // All fields stay private so this handle marshals to `{}`.  The owner itself
@@ -73,6 +74,8 @@ func formalGLMRegisteredPhase20JobControlHostClearConfigV1(
 	config.Record = formalGLMRegisteredPhase19BindingRecordV1{}
 	config.Peer = ""
 	config.Start = formalGLMRegisteredPhase20JobStartV1{}
+	formalGLMRegisteredPhase21PublicationContextClearV1(config.Publication)
+	config.Publication = nil
 	config.Version = ""
 }
 
@@ -87,6 +90,11 @@ func formalGLMRegisteredPhase20JobControlHostValidateV1(
 		config.Start.ArtifactID != config.Record.Binding.ArtifactID ||
 		config.Start.ReceiptSetSHA256 != config.Record.Binding.ReceiptSetSHA256 {
 		return fmt.Errorf("formal-glm registered Phase20 job host: invalid bootstrap")
+	}
+	if config.Publication != nil &&
+		formalGLMRegisteredPhase21PublicationContextValidateV1(
+			*config.Publication, config.Contract, config.Pins) != nil {
+		return fmt.Errorf("formal-glm registered Phase20 job host: invalid publication context")
 	}
 	plan := config.Contract.Core.RegisteredExecutionPlan
 	local := -1

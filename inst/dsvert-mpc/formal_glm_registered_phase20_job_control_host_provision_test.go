@@ -12,6 +12,10 @@ import (
 func TestFormalGLMRegisteredPhase20JobControlHostProvisionRockReplayAndFailClosed(t *testing.T) {
 	fixture := newFormalGLMRegisteredPhase20JobControlTestFixtureV1(t)
 	config := formalGLMRegisteredPhase20JobControlHostTestConfigV1(t, fixture, 0)
+	publication := formalGLMRegisteredPhase21PublicationContextTestBuildV1(
+		t, fixture.core.source)
+	config.Publication = &publication
+	t.Cleanup(func() { formalGLMRegisteredPhase20JobControlHostClearConfigV1(&config) })
 	formalGLMRegisteredPhase20JobControlHostTestReleaseFixtureV1(t, fixture)
 
 	command, err := json.Marshal(formalGLMRegisteredPhase20JobControlHostProvisionV1{
@@ -55,6 +59,24 @@ func TestFormalGLMRegisteredPhase20JobControlHostProvisionRockReplayAndFailClose
 		!exactGCPrivateOwnedRegular(info) {
 		t.Fatalf("host bootstrap is not an exact private regular record: %v / %v", info, err)
 	}
+	relative, err := formalGLMRegisteredPhase20JobControlHostProvisionRelativePathV1(
+		config.Peer, config.Start.ArtifactID, config.Start.ReceiptSetSHA256)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := formalGLMRegisteredPhase19OpenRockRootV1(fixture.roots[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	persisted, _, err := formalGLMRegisteredPhase20JobControlHostProvisionReadConfigV1(
+		root, relative)
+	closeErr := root.Close()
+	if err != nil || closeErr != nil || persisted.Publication == nil ||
+		persisted.Publication.SourceContractCoreSHA256 != config.Contract.CoreSHA256 {
+		formalGLMRegisteredPhase20JobControlHostClearConfigV1(&persisted)
+		t.Fatalf("host bootstrap did not retain its private publication context: %v / %v", err, closeErr)
+	}
+	formalGLMRegisteredPhase20JobControlHostClearConfigV1(&persisted)
 
 	host, err := formalGLMRegisteredPhase20JobControlHostOpenProvisionedV1(
 		fixture.roots[0], receipt)

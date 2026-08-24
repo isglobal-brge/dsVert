@@ -228,7 +228,8 @@
   }
   value <- specs[[selector$analysis_id]]
   fields <- c("version", "analysis_id", "data_name", "family",
-              "formula_sha256", "source_contract_json")
+              "formula_sha256", "source_contract_json",
+              "publication_context_json")
   if (is.null(value) || !is.list(value) || is.null(names(value)) ||
       anyNA(names(value)) || anyDuplicated(names(value)) ||
       !identical(names(value), fields) ||
@@ -244,7 +245,15 @@
       nchar(value$source_contract_json, type = "bytes") >
         .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_DS_MAX_CONTRACT_BYTES ||
       !identical(enc2utf8(value$source_contract_json),
-                 value$source_contract_json)) {
+                 value$source_contract_json) ||
+      !is.character(value$publication_context_json) ||
+      length(value$publication_context_json) != 1L ||
+      is.na(value$publication_context_json) ||
+      nchar(value$publication_context_json, type = "bytes") < 2L ||
+      nchar(value$publication_context_json, type = "bytes") >
+        .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_DS_MAX_CONTRACT_BYTES ||
+      !identical(enc2utf8(value$publication_context_json),
+                 value$publication_context_json)) {
     .dsvert_formal_glm_registered_source_ds_abort(
       "The requested registered formal-GLM fresh analysis is unavailable.",
       "invalid_formal_glm_registered_fresh_registry")
@@ -348,7 +357,8 @@ dsvertFormalGLMRegisteredFreshSourceDS <- function(
   payload <- .dsvert_formal_glm_registered_source_ds_payload(action, payload)
   response <- tryCatch({
     context <- .dsvert_formal_glm_registered_source_open(
-      spec$source_contract_json, parent.frame())
+      spec$source_contract_json, parent.frame(),
+      publication_context_json = spec$publication_context_json)
     .dsvert_formal_glm_registered_source_ds_dispatch(context, action, payload)
   }, error = function(error) NULL)
   if (is.null(response)) .dsvert_formal_glm_registered_source_ds_abort()

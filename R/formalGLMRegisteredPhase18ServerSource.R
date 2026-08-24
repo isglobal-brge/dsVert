@@ -320,7 +320,17 @@
 # deliberately non-serializable and contains only the authenticated public
 # authorization plus the frozen private rows needed by the block producer.
 .dsvert_formal_glm_registered_source_open <- function(
-    source_contract_json, source_environment = parent.frame()) {
+    source_contract_json, source_environment = parent.frame(),
+    publication_context_json = "") {
+  if (!is.character(publication_context_json) ||
+      length(publication_context_json) != 1L ||
+      is.na(publication_context_json) ||
+      (nzchar(publication_context_json) &&
+       nchar(publication_context_json, type = "bytes") > 8L * 1024L^2) ||
+      !identical(enc2utf8(publication_context_json), publication_context_json)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM publication context is invalid.")
+  }
   source <- tryCatch(.dsvert_require_configured_local_peer_name(),
                      error = function(error) NULL)
   if (is.null(source)) {
@@ -350,6 +360,7 @@
   context$authorization <- projected$value
   context$authorization_json <- projected$json
   context$contract_json <- source_contract_json
+  context$publication_context_json <- publication_context_json
   context$pins <- spec$pins
   context$source_name <- source
   context$rows <- snapshot$rows
@@ -360,13 +371,16 @@
 .dsvert_formal_glm_registered_source_context <- function(value) {
   fields <- c(
     "alignment_consensus", "authorization", "authorization_json",
-    "contract_json", "pins", "rows", "source_name")
+    "contract_json", "pins", "publication_context_json", "rows", "source_name")
   if (!is.environment(value) ||
       !inherits(value, .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_CONTEXT_CLASS) ||
       !identical(sort(ls(value, all.names = TRUE)), sort(fields)) ||
       !is.raw(value$alignment_consensus) ||
       length(value$alignment_consensus) != 32L ||
       !is.list(value$authorization) || !is.list(value$pins) ||
+      !is.character(value$publication_context_json) ||
+      length(value$publication_context_json) != 1L ||
+      is.na(value$publication_context_json) ||
       !is.data.frame(value$rows)) {
     .dsvert_formal_glm_registered_source_abort(
       "The private registered formal-GLM source context is invalid.")
@@ -785,7 +799,9 @@
       version = "dsvert-formal-glm-registered-phase18-source-command-v1",
       action = "host_provision", source_contract_json = context$contract_json,
       pins = context$pins, local_peer_name = context$source_name,
-      local_signing_key = identity$identity_sk)), error = function(error) NULL)
+      local_signing_key = identity$identity_sk,
+      publication_context_json = context$publication_context_json)),
+    error = function(error) NULL)
   fields <- c("version", "job_host_receipt", "replayed")
   receipt <- if (is.list(response)) response$job_host_receipt else NULL
   if (!is.list(response) || !identical(names(response), fields) ||

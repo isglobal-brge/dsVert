@@ -30,6 +30,7 @@ const (
 	formalGLMRegisteredPhase18SourceCommandActionLocalReceiptV1  = "local_receipt"
 	formalGLMRegisteredPhase18SourceCommandActionReceiptCommitV1 = "receipt_commit"
 	formalGLMRegisteredPhase18SourceCommandActionReceiptSetV1    = "receipt_set"
+	formalGLMRegisteredPhase18SourceCommandActionBindingV1       = "binding"
 	formalGLMRegisteredPhase18SourceCommandActionImportV1        = "import"
 )
 
@@ -51,15 +52,16 @@ type formalGLMRegisteredPhase18SourceCommandV1 struct {
 }
 
 type formalGLMRegisteredPhase18SourceCommandResponseV1 struct {
-	Version          string                                               `json:"version"`
-	Ticket           *formalGLMRegisteredPhase18RecipientTicketV1         `json:"ticket,omitempty"`
-	TicketReceipts   []formalGLMRegisteredPhase18RecipientTicketReceiptV1 `json:"ticket_receipts,omitempty"`
-	SourceReceipt    *formalGLMRegisteredPhase18SourceOutboxReceiptV3     `json:"source_receipt,omitempty"`
-	PendingReceipt   *formalGLMRegisteredPhase18PendingPairReceiptV1      `json:"pending_receipt,omitempty"`
-	PairJSON         string                                               `json:"pair_json,omitempty"`
-	LocalReceiptJSON string                                               `json:"local_receipt_json,omitempty"`
-	ReceiptSetJSON   string                                               `json:"receipt_set_json,omitempty"`
-	Replayed         bool                                                 `json:"replayed"`
+	Version           string                                               `json:"version"`
+	Ticket            *formalGLMRegisteredPhase18RecipientTicketV1         `json:"ticket,omitempty"`
+	TicketReceipts    []formalGLMRegisteredPhase18RecipientTicketReceiptV1 `json:"ticket_receipts,omitempty"`
+	SourceReceipt     *formalGLMRegisteredPhase18SourceOutboxReceiptV3     `json:"source_receipt,omitempty"`
+	PendingReceipt    *formalGLMRegisteredPhase18PendingPairReceiptV1      `json:"pending_receipt,omitempty"`
+	PairJSON          string                                               `json:"pair_json,omitempty"`
+	LocalReceiptJSON  string                                               `json:"local_receipt_json,omitempty"`
+	ReceiptSetJSON    string                                               `json:"receipt_set_json,omitempty"`
+	BindingRecordJSON string                                               `json:"binding_record_json,omitempty"`
+	Replayed          bool                                                 `json:"replayed"`
 }
 
 func formalGLMRegisteredPhase18SourceCommandDecodePinsV1(
@@ -180,6 +182,13 @@ func formalGLMRegisteredPhase18SourceCommandDecodeV1(
 			command.PrivateConsensus != "" || command.PairJSON != "" ||
 			command.LocalReceiptJSON != "" {
 			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid receipt set command")
+		}
+	case formalGLMRegisteredPhase18SourceCommandActionBindingV1:
+		if command.AuthorizationJSON != "" || len(command.RecipientTickets) != 2 ||
+			command.BlockIndex != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
+			command.PrivateConsensus != "" || command.PairJSON != "" ||
+			command.LocalReceiptJSON != "" {
+			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid binding command")
 		}
 	case formalGLMRegisteredPhase18SourceCommandActionImportV1:
 		if len(command.RecipientTickets) != 2 || command.AuthorizationJSON != "" ||
@@ -491,6 +500,67 @@ func formalGLMRegisteredPhase18SourceCommandReceiptSetV1(
 	}, nil
 }
 
+// Binding commits the Phase19 restart record only after the exact recipient
+// ticket set and sealed K-source receipt set are already durable in Rock.
+func formalGLMRegisteredPhase18SourceCommandBindingV1(
+	rockRoot string, command formalGLMRegisteredPhase18SourceCommandV1,
+	contract formalGLMSourceContractV1, pins map[string]ed25519.PublicKey,
+) (formalGLMRegisteredPhase18SourceCommandResponseV1, error) {
+	var zero formalGLMRegisteredPhase18SourceCommandResponseV1
+	orderedTickets, err := formalGLMRegisteredPhase18CanonicalTicketsV1(
+		command.RecipientTickets, contract, pins)
+	if err != nil || !reflect.DeepEqual(command.RecipientTickets, orderedTickets) {
+		return zero, fmt.Errorf("formal-glm registered Phase18 source: non-canonical ticket set")
+	}
+	tickets, err := newFormalGLMRegisteredPhase18RecipientTicketStoreV1(
+		rockRoot, contract, pins)
+	if err != nil {
+		return zero, err
+	}
+	defer tickets.Close()
+	persistedTickets, err := tickets.LoadSet()
+	if err != nil || !reflect.DeepEqual(persistedTickets, orderedTickets) {
+		return zero, fmt.Errorf("formal-glm registered Phase18 source: ticket set mismatch")
+	}
+	assembler, err := newFormalGLMRegisteredPhase18ReceiptSetAssemblerV1(
+		rockRoot, contract, pins)
+	if err != nil {
+		return zero, err
+	}
+	defer assembler.Close()
+	encodedSet, err := assembler.LoadReceiptSet()
+	if err != nil {
+		return zero, err
+	}
+	defer clear(encodedSet)
+	receiptSet, err := formalGLMDecodeRegisteredPhase18ReceiptSetV1(
+		encodedSet, contract, pins)
+	if err != nil {
+		return zero, err
+	}
+	bindings, err := newFormalGLMRegisteredPhase19BindingStoreV1(
+		rockRoot, contract, pins)
+	if err != nil {
+		return zero, err
+	}
+	defer bindings.Close()
+	record, replayed, err := bindings.Commit(receiptSet, orderedTickets)
+	if err != nil {
+		return zero, err
+	}
+	encodedRecord, err := json.Marshal(record)
+	if err != nil || len(encodedRecord) > formalGLMRegisteredPhase19BindingMaxRecord {
+		clear(encodedRecord)
+		return zero, fmt.Errorf("formal-glm registered Phase18 source: invalid binding record")
+	}
+	defer clear(encodedRecord)
+	return formalGLMRegisteredPhase18SourceCommandResponseV1{
+		Version:           formalGLMRegisteredPhase18SourceCommandVersionV1,
+		BindingRecordJSON: string(encodedRecord),
+		Replayed:          replayed,
+	}, nil
+}
+
 func formalGLMRegisteredPhase18SourceCommandImportV1(
 	rockRoot string, command formalGLMRegisteredPhase18SourceCommandV1,
 	contract formalGLMSourceContractV1, pins map[string]ed25519.PublicKey,
@@ -556,6 +626,8 @@ func formalGLMRegisteredPhase18SourceCommandRunAtRootV1(
 		return formalGLMRegisteredPhase18SourceCommandReceiptCommitV1(rockRoot, command, contract, pins)
 	case formalGLMRegisteredPhase18SourceCommandActionReceiptSetV1:
 		return formalGLMRegisteredPhase18SourceCommandReceiptSetV1(rockRoot, contract, pins)
+	case formalGLMRegisteredPhase18SourceCommandActionBindingV1:
+		return formalGLMRegisteredPhase18SourceCommandBindingV1(rockRoot, command, contract, pins)
 	case formalGLMRegisteredPhase18SourceCommandActionImportV1:
 		return formalGLMRegisteredPhase18SourceCommandImportV1(rockRoot, command, contract, pins, key)
 	default:

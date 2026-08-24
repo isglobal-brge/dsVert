@@ -325,3 +325,76 @@ func TestFormalGLMRegisteredPhase18SourceCommandAssemblesReceiptSetK2K3K5(t *tes
 		})
 	}
 }
+
+func TestFormalGLMRegisteredPhase18SourceCommandCommitsBindingK2K3K5(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+			fixture := formalGLMRegisteredPhase18SourceOutboxTestBuild(t, custodians)
+			plan := fixture.provenance.source.contract.Core.RegisteredExecutionPlan
+			peer := plan.DesignatedComputePeers[0]
+			root := formalGLMRegisteredPhase18SourceOutboxTestRoot(t, "binding")
+			tickets := make([]formalGLMRegisteredPhase18RecipientTicketV1, len(plan.DesignatedComputePeers))
+			for index, recipient := range plan.DesignatedComputePeers {
+				ticketRoot := root
+				if index != 0 {
+					ticketRoot = formalGLMRegisteredPhase18SourceOutboxTestRoot(
+						t, fmt.Sprintf("binding-ticket-%d", index))
+				}
+				issued := formalGLMRegisteredPhase18SourceCommandTestRunV1(
+					t, ticketRoot,
+					formalGLMRegisteredPhase18SourceCommandTestRequestV1(
+						t, formalGLMRegisteredPhase18SourceCommandActionTicketV1,
+						recipient, fixture))
+				if issued.Ticket == nil || issued.Replayed {
+					t.Fatal("recipient ticket was not issued")
+				}
+				tickets[index] = *issued.Ticket
+			}
+			request := formalGLMRegisteredPhase18SourceCommandTestRequestV1(
+				t, formalGLMRegisteredPhase18SourceCommandActionTicketSetV1, peer, fixture)
+			request.RecipientTickets = append(
+				[]formalGLMRegisteredPhase18RecipientTicketV1(nil), tickets...)
+			if committed := formalGLMRegisteredPhase18SourceCommandTestRunV1(t, root, request); committed.Replayed {
+				t.Fatal("ticket set was unexpectedly replayed")
+			}
+			request.Action = formalGLMRegisteredPhase18SourceCommandActionReceiptCommitV1
+			request.RecipientTickets = nil
+			for _, receipt := range fixture.provenance.receipts {
+				receiptJSON, marshalErr := json.Marshal(receipt)
+				if marshalErr != nil {
+					t.Fatal(marshalErr)
+				}
+				request.LocalReceiptJSON = string(receiptJSON)
+				clear(receiptJSON)
+				if committed := formalGLMRegisteredPhase18SourceCommandTestRunV1(t, root, request); committed.Replayed {
+					t.Fatal("local receipt was unexpectedly replayed")
+				}
+			}
+			request.Action = formalGLMRegisteredPhase18SourceCommandActionReceiptSetV1
+			request.LocalReceiptJSON = ""
+			if sealed := formalGLMRegisteredPhase18SourceCommandTestRunV1(t, root, request); sealed.Replayed {
+				t.Fatal("receipt set was unexpectedly replayed")
+			}
+			request.Action = formalGLMRegisteredPhase18SourceCommandActionBindingV1
+			request.RecipientTickets = append(
+				[]formalGLMRegisteredPhase18RecipientTicketV1(nil), tickets...)
+			committed := formalGLMRegisteredPhase18SourceCommandTestRunV1(t, root, request)
+			if committed.BindingRecordJSON == "" || committed.Replayed {
+				t.Fatal("binding command did not persist registered evidence")
+			}
+			var record formalGLMRegisteredPhase19BindingRecordV1
+			if formalGLMPhase21RockStrictDecode(
+				[]byte(committed.BindingRecordJSON), &record) != nil ||
+				formalGLMValidateRegisteredPhase19BindingRecordV1(
+					record, fixture.provenance.source.contract,
+					fixture.provenance.source.inputs.identities.public) != nil ||
+				record.Binding.ReceiptSetSHA256 != fixture.provenance.receiptSet.ReceiptSetSHA256 {
+				t.Fatal("binding command returned invalid registered evidence")
+			}
+			replayed := formalGLMRegisteredPhase18SourceCommandTestRunV1(t, root, request)
+			if !replayed.Replayed || replayed.BindingRecordJSON != committed.BindingRecordJSON {
+				t.Fatal("binding replay changed durable evidence")
+			}
+		})
+	}
+}

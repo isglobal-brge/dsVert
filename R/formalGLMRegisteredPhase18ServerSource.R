@@ -731,6 +731,44 @@
        replayed = response$replayed)
 }
 
+# Commits the restart-safe Phase19 binding only from the sealed K receipt set
+# and the exact two recipient tickets already persisted by the Go ingress.
+# This remains an internal peer-control seam; it never exposes ingress keys,
+# encrypted blocks, source rows, or a fitted result.
+.dsvert_formal_glm_registered_source_commit_binding <- function(
+    context, recipient_tickets) {
+  context <- .dsvert_formal_glm_registered_source_context(context)
+  if (!is.list(recipient_tickets) || length(recipient_tickets) != 2L ||
+      !is.null(names(recipient_tickets))) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM recipient ticket set is invalid.")
+  }
+  identity <- .dsvert_formal_glm_registered_source_identity(context)
+  response <- tryCatch(.callMpcTool(
+    "formal-glm-registered-phase18-source", list(
+      version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+      action = "binding", source_contract_json = context$contract_json,
+      pins = context$pins, local_peer_name = context$source_name,
+      local_signing_key = identity$identity_sk,
+      recipient_tickets = recipient_tickets)), error = function(error) NULL)
+  fields <- c("version", "binding_record_json", "replayed")
+  if (!is.list(response) || !identical(names(response), fields) ||
+      !identical(response$version,
+                 "dsvert-formal-glm-registered-phase18-source-command-v1") ||
+      !is.character(response$binding_record_json) ||
+      length(response$binding_record_json) != 1L ||
+      is.na(response$binding_record_json) ||
+      nchar(response$binding_record_json, type = "bytes") < 2L ||
+      nchar(response$binding_record_json, type = "bytes") > 16L * 1024L^2 ||
+      !is.logical(response$replayed) || length(response$replayed) != 1L ||
+      is.na(response$replayed)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM binding store returned invalid output.")
+  }
+  list(binding_record_json = response$binding_record_json,
+       replayed = response$replayed)
+}
+
 # Sends one already materialized local block to the closed Go ingress.  Tickets
 # are signed protocol records from the two designated compute peers; this
 # bridge does not mint them and cannot select a recipient, source, path or

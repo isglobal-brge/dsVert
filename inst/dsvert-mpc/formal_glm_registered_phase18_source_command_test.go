@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/base64"
@@ -79,6 +80,59 @@ func formalGLMRegisteredPhase18SourceCommandTestRequestV1(
 		LocalSigningKey: formalGLMRegisteredPhase18SourceCommandTestKeyV1(
 			t, fixture.provenance.source.inputs.identities.private[peer]),
 	}
+}
+
+func TestFormalGLMRegisteredPhase18SourceCommandReadsBoundedChunk(t *testing.T) {
+	fixture := formalGLMRegisteredPhase18SourceOutboxTestBuild(t, 2)
+	root := formalGLMRegisteredPhase18SourceOutboxTestRoot(t, "source-command-chunk")
+	authorizationJSON, err := json.Marshal(fixture.authorization)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(authorizationJSON)
+	produce := formalGLMRegisteredPhase18SourceCommandTestRequestV1(
+		t, formalGLMRegisteredPhase18SourceCommandActionProduceV1, fixture.source, fixture)
+	produce.AuthorizationJSON = string(authorizationJSON)
+	produce.RecipientTickets = append([]formalGLMRegisteredPhase18RecipientTicketV1(nil), fixture.tickets...)
+	produce.BlockIndex = fixture.blockIndex
+	produce.Values = append([]string(nil), fixture.values...)
+	produce.Validity = append([]bool(nil), fixture.validity...)
+	produce.PrivateConsensus = base64.StdEncoding.EncodeToString(fixture.consensus[:])
+	produced := formalGLMRegisteredPhase18SourceCommandTestRunV1(t, root, produce)
+	if produced.SourceReceipt == nil || produced.PairJSON == "" {
+		t.Fatal("source did not produce a durable pair")
+	}
+
+	chunk := formalGLMRegisteredPhase18SourceCommandTestRequestV1(
+		t, formalGLMRegisteredPhase18SourceCommandActionChunkV1, fixture.source, fixture)
+	chunk.AuthorizationJSON = string(authorizationJSON)
+	chunk.RecipientTickets = append([]formalGLMRegisteredPhase18RecipientTicketV1(nil), fixture.tickets...)
+	chunk.BlockIndex = fixture.blockIndex
+	response := formalGLMRegisteredPhase18SourceCommandTestRunV1(t, root, chunk)
+	if response.ChunkReceipt == nil || response.PairChunkBase64 == "" ||
+		response.PairJSON != "" || response.Replayed ||
+		response.ChunkReceipt.PairBytes != len(produced.PairJSON) ||
+		response.ChunkReceipt.Offset != 0 || response.ChunkReceipt.ChunkBytes >
+		formalGLMRegisteredPhase18SourceOutboxChunkMaxV3 {
+		t.Fatalf("invalid bounded source chunk response: %#v", response)
+	}
+	decoded, err := base64.StdEncoding.Strict().DecodeString(response.PairChunkBase64)
+	if err != nil || base64.StdEncoding.EncodeToString(decoded) != response.PairChunkBase64 ||
+		!bytes.Equal(decoded, []byte(produced.PairJSON)) {
+		clear(decoded)
+		t.Fatal("source command chunk differs from durable pair")
+	}
+	clear(decoded)
+	chunk.ChunkOffset = int64(len(produced.PairJSON))
+	encoded, err := json.Marshal(chunk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := formalGLMRegisteredPhase18SourceCommandRunAtRootV1(encoded, root); err == nil {
+		clear(encoded)
+		t.Fatal("source command accepted an out-of-range chunk")
+	}
+	clear(encoded)
 }
 
 func TestFormalGLMRegisteredPhase18SourceCommandK2K3K5(t *testing.T) {

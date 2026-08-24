@@ -8,12 +8,14 @@ package main
 import (
 	"bytes"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 )
@@ -31,6 +33,9 @@ const (
 	formalGLMRegisteredPhase18SourceOutboxDomainV3    = "dsVert/formal-glm/registered-phase18/source-outbox/v3"
 	formalGLMRegisteredPhase18SourceOutboxIntentMaxV3 = 64 << 10
 	formalGLMRegisteredPhase18SourceOutboxPairMaxV3   = 16 << 20
+	// A pair is an authenticated opaque block payload.  The fixed frame limit
+	// is a physical transport bound, never a privacy or admission budget.
+	formalGLMRegisteredPhase18SourceOutboxChunkMaxV3 = 1 << 20
 )
 
 type formalGLMRegisteredPhase18SourceOutboxIntentV3 struct {
@@ -76,6 +81,27 @@ type formalGLMRegisteredPhase18SourceOutboxReceiptV3 struct {
 	PairCommitment       string `json:"pair_commitment"`
 	BlockCommitment      string `json:"block_commitment"`
 	PairBytes            int    `json:"pair_bytes"`
+	ProductionReady      bool   `json:"production_ready"`
+}
+
+// Chunk receipts bind an opaque bounded transport frame to one already
+// durable, source-signed pair. They intentionally contain neither the frame
+// itself nor values, validity, consensus, keys, or a local pathname.
+type formalGLMRegisteredPhase18SourceOutboxChunkReceiptV3 struct {
+	Version              string `json:"version"`
+	Purpose              string `json:"purpose"`
+	Handle               string `json:"handle"`
+	ArtifactID           string `json:"artifact_id"`
+	SourceContractSHA256 string `json:"source_contract_sha256"`
+	AuthorizationSHA256  string `json:"authorization_sha256"`
+	Source               string `json:"source"`
+	BlockIndex           int    `json:"block_index"`
+	PairSHA256           string `json:"pair_sha256"`
+	PairBytes            int    `json:"pair_bytes"`
+	Offset               int64  `json:"offset"`
+	ChunkSHA256          string `json:"chunk_sha256"`
+	ChunkBytes           int    `json:"chunk_bytes"`
+	Complete             bool   `json:"complete"`
 	ProductionReady      bool   `json:"production_ready"`
 }
 
@@ -456,7 +482,7 @@ func (outbox *formalGLMRegisteredPhase18SourceOutboxV3) pairRecordMACLocked(
 func (outbox *formalGLMRegisteredPhase18SourceOutboxV3) loadPairLocked(
 	relative string,
 	handle string,
-	inputCommitment string,
+	requiredInputCommitment string,
 	authorization formalGLMRegisteredPhase18AuthorizationV1,
 	tickets []formalGLMRegisteredPhase18RecipientTicketV1,
 ) (formalGLMRegisteredPhase18BlockPairV1, []byte, error) {
@@ -479,7 +505,9 @@ func (outbox *formalGLMRegisteredPhase18SourceOutboxV3) loadPairLocked(
 		record.SourceContractSHA256 != authorization.SourceContractSHA256 ||
 		record.AuthorizationSHA256 != authorization.AuthorizationSHA256 ||
 		record.Source != outbox.source ||
-		record.BlockIndex < 0 || record.InputCommitmentMAC != inputCommitment ||
+		record.BlockIndex < 0 ||
+		(requiredInputCommitment != "" &&
+			record.InputCommitmentMAC != requiredInputCommitment) ||
 		!formalGLMRegisteredPhase18SourceOutboxMACValidV3(record.RecordMAC) ||
 		record.RecordMAC != wantMAC || record.ProductionReady {
 		return zero, nil, fmt.Errorf(
@@ -493,6 +521,82 @@ func (outbox *formalGLMRegisteredPhase18SourceOutboxV3) loadPairLocked(
 			"formal-glm registered Phase-1.8 source outbox: invalid durable pair")
 	}
 	return pair, append([]byte(nil), record.PairJSON...), nil
+}
+
+// ReadBlockChunk returns at most one fixed-size opaque frame of a pair that
+// has already been sealed in this source's Rock outbox.  The caller cannot use
+// it to choose a source, a recipient, a path, or a different materialization:
+// the signed authorization and the exact two-ticket set select the sole
+// durable block slot.
+func (outbox *formalGLMRegisteredPhase18SourceOutboxV3) ReadBlockChunk(
+	authorization formalGLMRegisteredPhase18AuthorizationV1,
+	tickets []formalGLMRegisteredPhase18RecipientTicketV1,
+	blockIndex int,
+	offset int64,
+) (formalGLMRegisteredPhase18SourceOutboxChunkReceiptV3, []byte, bool, error) {
+	var zero formalGLMRegisteredPhase18SourceOutboxChunkReceiptV3
+	if outbox == nil || offset < 0 {
+		return zero, nil, false, fmt.Errorf(
+			"formal-glm registered Phase-1.8 source outbox: invalid chunk request")
+	}
+	outbox.mu.Lock()
+	defer outbox.mu.Unlock()
+	if outbox.root == nil ||
+		formalGLMValidateRegisteredPhase18AuthorizationV1(
+			authorization, outbox.contract, outbox.pins) != nil ||
+		authorization.LocalSource.SignerPeerName != outbox.source {
+		return zero, nil, false, fmt.Errorf(
+			"formal-glm registered Phase-1.8 source outbox: invalid chunk binding")
+	}
+	orderedTickets, err := formalGLMRegisteredPhase18CanonicalTicketsV1(
+		tickets, outbox.contract, outbox.pins)
+	if err != nil || !reflect.DeepEqual(tickets, orderedTickets) {
+		return zero, nil, false, fmt.Errorf(
+			"formal-glm registered Phase-1.8 source outbox: non-canonical chunk tickets")
+	}
+	if _, _, err := formalGLMRegisteredPhase18ExpectedShapeV3(
+		authorization, blockIndex); err != nil {
+		return zero, nil, false, err
+	}
+	handle, _, pairRelative, err := outbox.slotLocked(authorization, blockIndex, false)
+	if err != nil {
+		return zero, nil, false, err
+	}
+	pair, pairJSON, err := outbox.loadPairLocked(
+		pairRelative, handle, "", authorization, orderedTickets)
+	if err != nil {
+		return zero, nil, false, err
+	}
+	defer clear(pairJSON)
+	if offset >= int64(len(pairJSON)) {
+		return zero, nil, false, fmt.Errorf(
+			"formal-glm registered Phase-1.8 source outbox: chunk offset outside pair")
+	}
+	end := offset + formalGLMRegisteredPhase18SourceOutboxChunkMaxV3
+	if end > int64(len(pairJSON)) {
+		end = int64(len(pairJSON))
+	}
+	chunk := append([]byte(nil), pairJSON[offset:end]...)
+	pairDigest := sha256.Sum256(pairJSON)
+	chunkDigest := sha256.Sum256(chunk)
+	receipt := formalGLMRegisteredPhase18SourceOutboxChunkReceiptV3{
+		Version:              formalGLMRegisteredPhase18SourceOutboxReceiptVersionV3,
+		Purpose:              "formal_glm_owner_local_bounded_signed_pair_chunk_v3",
+		Handle:               handle,
+		ArtifactID:           pair.ArtifactID,
+		SourceContractSHA256: pair.SourceContractSHA256,
+		AuthorizationSHA256:  pair.RegisteredPhase18AuthorizationSHA256,
+		Source:               pair.SourceName,
+		BlockIndex:           pair.BlockIndex,
+		PairSHA256:           hex.EncodeToString(pairDigest[:]),
+		PairBytes:            len(pairJSON),
+		Offset:               offset,
+		ChunkSHA256:          hex.EncodeToString(chunkDigest[:]),
+		ChunkBytes:           len(chunk),
+		Complete:             end == int64(len(pairJSON)),
+		ProductionReady:      false,
+	}
+	return receipt, chunk, receipt.Complete, nil
 }
 
 func formalGLMRegisteredPhase18SourceOutboxReceiptForPairV3(

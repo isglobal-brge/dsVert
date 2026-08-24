@@ -249,6 +249,58 @@ func TestFormalGLMRegisteredPhase18SourceOutboxV3K2K5RestartReplay(
 	}
 }
 
+func TestFormalGLMRegisteredPhase18SourceOutboxV3ReadsBoundedChunksK2K5(
+	t *testing.T,
+) {
+	for _, custodians := range []int{2, 5} {
+		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+			fixture := formalGLMRegisteredPhase18SourceOutboxTestBuild(t, custodians)
+			root := formalGLMRegisteredPhase18SourceOutboxTestRoot(t, "source-outbox-chunks")
+			outbox := formalGLMRegisteredPhase18SourceOutboxTestNew(t, root, fixture)
+			_, pairJSON, _ := formalGLMRegisteredPhase18SourceOutboxTestCommit(t, outbox, fixture)
+			defer clear(pairJSON)
+
+			var restored []byte
+			for offset := int64(0); ; {
+				receipt, chunk, complete, err := outbox.ReadBlockChunk(
+					fixture.authorization, fixture.tickets, fixture.blockIndex, offset)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if receipt.PairBytes != len(pairJSON) || receipt.Offset != offset ||
+					receipt.ChunkBytes != len(chunk) || len(chunk) == 0 ||
+					len(chunk) > formalGLMRegisteredPhase18SourceOutboxChunkMaxV3 ||
+					receipt.ProductionReady {
+					t.Fatalf("invalid bounded chunk receipt: %+v", receipt)
+				}
+				restored = append(restored, chunk...)
+				clear(chunk)
+				if complete {
+					break
+				}
+				offset = int64(len(restored))
+			}
+			defer clear(restored)
+			if !bytes.Equal(restored, pairJSON) {
+				t.Fatal("chunk stream did not restore the signed pair")
+			}
+			if _, _, _, err := outbox.ReadBlockChunk(
+				fixture.authorization, fixture.tickets, fixture.blockIndex, int64(len(pairJSON))); err == nil {
+				t.Fatal("accepted an out-of-range chunk offset")
+			}
+			forbidden := []string{"Value", "Validity", "Consensus", "Key", "Path", "PairJSON"}
+			typeOfReceipt := reflect.TypeOf(formalGLMRegisteredPhase18SourceOutboxChunkReceiptV3{})
+			for index := 0; index < typeOfReceipt.NumField(); index++ {
+				for _, name := range forbidden {
+					if strings.Contains(typeOfReceipt.Field(index).Name, name) {
+						t.Fatalf("chunk receipt leaks %s", name)
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestFormalGLMRegisteredPhase18SourceOutboxV3CrashConflictTamperAndRace(
 	t *testing.T,
 ) {

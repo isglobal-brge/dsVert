@@ -27,6 +27,7 @@ const (
 	formalGLMRegisteredPhase18SourceCommandActionTicketV1        = "ticket"
 	formalGLMRegisteredPhase18SourceCommandActionTicketSetV1     = "ticket_set"
 	formalGLMRegisteredPhase18SourceCommandActionProduceV1       = "produce"
+	formalGLMRegisteredPhase18SourceCommandActionChunkV1         = "chunk"
 	formalGLMRegisteredPhase18SourceCommandActionLocalReceiptV1  = "local_receipt"
 	formalGLMRegisteredPhase18SourceCommandActionReceiptCommitV1 = "receipt_commit"
 	formalGLMRegisteredPhase18SourceCommandActionReceiptSetV1    = "receipt_set"
@@ -45,6 +46,7 @@ type formalGLMRegisteredPhase18SourceCommandV1 struct {
 	AuthorizationJSON  string                                        `json:"authorization_json,omitempty"`
 	RecipientTickets   []formalGLMRegisteredPhase18RecipientTicketV1 `json:"recipient_tickets,omitempty"`
 	BlockIndex         int                                           `json:"block_index,omitempty"`
+	ChunkOffset        int64                                         `json:"chunk_offset,omitempty"`
 	Values             []string                                      `json:"values,omitempty"`
 	Validity           []bool                                        `json:"validity,omitempty"`
 	PrivateConsensus   string                                        `json:"private_consensus,omitempty"`
@@ -57,6 +59,8 @@ type formalGLMRegisteredPhase18SourceCommandResponseV1 struct {
 	Ticket            *formalGLMRegisteredPhase18RecipientTicketV1                `json:"ticket,omitempty"`
 	TicketReceipts    []formalGLMRegisteredPhase18RecipientTicketReceiptV1        `json:"ticket_receipts,omitempty"`
 	SourceReceipt     *formalGLMRegisteredPhase18SourceOutboxReceiptV3            `json:"source_receipt,omitempty"`
+	ChunkReceipt      *formalGLMRegisteredPhase18SourceOutboxChunkReceiptV3       `json:"chunk_receipt,omitempty"`
+	PairChunkBase64   string                                                      `json:"pair_chunk_base64,omitempty"`
 	PendingReceipt    *formalGLMRegisteredPhase18PendingPairReceiptV1             `json:"pending_receipt,omitempty"`
 	PairJSON          string                                                      `json:"pair_json,omitempty"`
 	LocalReceiptJSON  string                                                      `json:"local_receipt_json,omitempty"`
@@ -145,63 +149,70 @@ func formalGLMRegisteredPhase18SourceCommandDecodeV1(
 	switch command.Action {
 	case formalGLMRegisteredPhase18SourceCommandActionTicketV1:
 		if command.AuthorizationJSON != "" || len(command.RecipientTickets) != 0 ||
-			command.BlockIndex != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
+			command.BlockIndex != 0 || command.ChunkOffset != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
 			command.PrivateConsensus != "" || command.PairJSON != "" ||
 			command.LocalReceiptJSON != "" {
 			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid ticket command")
 		}
 	case formalGLMRegisteredPhase18SourceCommandActionTicketSetV1:
 		if len(command.RecipientTickets) != 2 || command.AuthorizationJSON != "" ||
-			command.BlockIndex != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
+			command.BlockIndex != 0 || command.ChunkOffset != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
 			command.PrivateConsensus != "" || command.PairJSON != "" ||
 			command.LocalReceiptJSON != "" {
 			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid ticket set command")
 		}
 	case formalGLMRegisteredPhase18SourceCommandActionProduceV1:
 		if command.AuthorizationJSON == "" || len(command.RecipientTickets) != 2 ||
-			command.BlockIndex < 0 || len(command.Values) == 0 || len(command.Validity) == 0 ||
+			command.BlockIndex < 0 || command.ChunkOffset != 0 || len(command.Values) == 0 || len(command.Validity) == 0 ||
 			command.PrivateConsensus == "" || command.PairJSON != "" ||
 			command.LocalReceiptJSON != "" {
 			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid produce command")
 		}
+	case formalGLMRegisteredPhase18SourceCommandActionChunkV1:
+		if command.AuthorizationJSON == "" || len(command.RecipientTickets) != 2 ||
+			command.BlockIndex < 0 || command.ChunkOffset < 0 || len(command.Values) != 0 ||
+			len(command.Validity) != 0 || command.PrivateConsensus != "" ||
+			command.PairJSON != "" || command.LocalReceiptJSON != "" {
+			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid chunk command")
+		}
 	case formalGLMRegisteredPhase18SourceCommandActionLocalReceiptV1:
 		if command.AuthorizationJSON == "" || len(command.RecipientTickets) != 2 ||
-			command.BlockIndex != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
+			command.BlockIndex != 0 || command.ChunkOffset != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
 			command.PrivateConsensus != "" || command.PairJSON != "" ||
 			command.LocalReceiptJSON != "" {
 			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid local receipt command")
 		}
 	case formalGLMRegisteredPhase18SourceCommandActionReceiptCommitV1:
 		if command.AuthorizationJSON != "" || len(command.RecipientTickets) != 0 ||
-			command.BlockIndex != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
+			command.BlockIndex != 0 || command.ChunkOffset != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
 			command.PrivateConsensus != "" || command.PairJSON != "" ||
 			command.LocalReceiptJSON == "" {
 			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid receipt commit command")
 		}
 	case formalGLMRegisteredPhase18SourceCommandActionReceiptSetV1:
 		if command.AuthorizationJSON != "" || len(command.RecipientTickets) != 0 ||
-			command.BlockIndex != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
+			command.BlockIndex != 0 || command.ChunkOffset != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
 			command.PrivateConsensus != "" || command.PairJSON != "" ||
 			command.LocalReceiptJSON != "" {
 			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid receipt set command")
 		}
 	case formalGLMRegisteredPhase18SourceCommandActionBindingV1:
 		if command.AuthorizationJSON != "" || len(command.RecipientTickets) != 2 ||
-			command.BlockIndex != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
+			command.BlockIndex != 0 || command.ChunkOffset != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
 			command.PrivateConsensus != "" || command.PairJSON != "" ||
 			command.LocalReceiptJSON != "" {
 			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid binding command")
 		}
 	case formalGLMRegisteredPhase18SourceCommandActionHostProvisionV1:
 		if command.AuthorizationJSON != "" || len(command.RecipientTickets) != 0 ||
-			command.BlockIndex != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
+			command.BlockIndex != 0 || command.ChunkOffset != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
 			command.PrivateConsensus != "" || command.PairJSON != "" ||
 			command.LocalReceiptJSON != "" {
 			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid host provision command")
 		}
 	case formalGLMRegisteredPhase18SourceCommandActionImportV1:
 		if len(command.RecipientTickets) != 2 || command.AuthorizationJSON != "" ||
-			command.BlockIndex != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
+			command.BlockIndex != 0 || command.ChunkOffset != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
 			command.PrivateConsensus != "" || command.PairJSON == "" ||
 			command.LocalReceiptJSON != "" {
 			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid import command")
@@ -413,6 +424,54 @@ func formalGLMRegisteredPhase18SourceCommandProduceV1(
 	return formalGLMRegisteredPhase18SourceCommandResponseV1{
 		Version:       formalGLMRegisteredPhase18SourceCommandVersionV1,
 		SourceReceipt: &receipt, PairJSON: string(pairJSON), Replayed: replayed,
+	}, nil
+}
+
+// Chunk reads one fixed-size opaque frame from a pair that Produce has already
+// committed in the local source outbox.  It does not open R data, perform a
+// fresh draw, or return an unbounded pair payload.
+func formalGLMRegisteredPhase18SourceCommandChunkV1(
+	rockRoot string, command formalGLMRegisteredPhase18SourceCommandV1,
+	contract formalGLMSourceContractV1, pins map[string]ed25519.PublicKey,
+	key ed25519.PrivateKey,
+) (formalGLMRegisteredPhase18SourceCommandResponseV1, error) {
+	var zero formalGLMRegisteredPhase18SourceCommandResponseV1
+	authorization, err := formalGLMRegisteredPhase18SourceCommandAuthorizationV1(
+		command.AuthorizationJSON, contract, pins, command.LocalPeerName)
+	if err != nil {
+		return zero, err
+	}
+	ordered, err := formalGLMRegisteredPhase18CanonicalTicketsV1(
+		command.RecipientTickets, contract, pins)
+	if err != nil || !reflect.DeepEqual(command.RecipientTickets, ordered) {
+		return zero, fmt.Errorf("formal-glm registered Phase18 source: non-canonical ticket set")
+	}
+	outboxKey, err := formalGLMRegisteredPhase18SourceCommandOutboxKeyV1(
+		key, contract, authorization)
+	if err != nil {
+		return zero, err
+	}
+	defer clear(outboxKey[:])
+	outbox, err := newFormalGLMRegisteredPhase18SourceOutboxV3(
+		rockRoot, contract, command.LocalPeerName, key, outboxKey, pins)
+	if err != nil {
+		return zero, err
+	}
+	defer outbox.Close()
+	receipt, chunk, complete, err := outbox.ReadBlockChunk(
+		authorization, ordered, command.BlockIndex, command.ChunkOffset)
+	if err != nil {
+		return zero, err
+	}
+	defer clear(chunk)
+	if receipt.Complete != complete {
+		return zero, fmt.Errorf("formal-glm registered Phase18 source: chunk completion mismatch")
+	}
+	return formalGLMRegisteredPhase18SourceCommandResponseV1{
+		Version:         formalGLMRegisteredPhase18SourceCommandVersionV1,
+		ChunkReceipt:    &receipt,
+		PairChunkBase64: base64.StdEncoding.EncodeToString(chunk),
+		Replayed:        false,
 	}, nil
 }
 
@@ -701,6 +760,8 @@ func formalGLMRegisteredPhase18SourceCommandRunAtRootV1(
 		return formalGLMRegisteredPhase18SourceCommandTicketSetV1(rockRoot, contract, pins, command.LocalPeerName, key, command.RecipientTickets)
 	case formalGLMRegisteredPhase18SourceCommandActionProduceV1:
 		return formalGLMRegisteredPhase18SourceCommandProduceV1(rockRoot, command, contract, pins, key)
+	case formalGLMRegisteredPhase18SourceCommandActionChunkV1:
+		return formalGLMRegisteredPhase18SourceCommandChunkV1(rockRoot, command, contract, pins, key)
 	case formalGLMRegisteredPhase18SourceCommandActionLocalReceiptV1:
 		return formalGLMRegisteredPhase18SourceCommandLocalReceiptV1(rockRoot, command, contract, pins, key)
 	case formalGLMRegisteredPhase18SourceCommandActionReceiptCommitV1:

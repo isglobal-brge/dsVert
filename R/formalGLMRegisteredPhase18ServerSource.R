@@ -942,6 +942,91 @@
        replayed = response$replayed)
 }
 
+# Reads one bounded opaque frame from a pair that is already durable in the
+# source's Rock outbox.  The frame is transport material only: R never parses
+# a pair, derives a source value, or exposes a data-bearing response directly
+# to an analyst-facing method.
+.dsvert_formal_glm_registered_source_read_block_chunk <- function(
+    context, recipient_tickets, block_index, offset) {
+  context <- .dsvert_formal_glm_registered_source_context(context)
+  if (!is.list(recipient_tickets) || length(recipient_tickets) != 2L ||
+      !is.null(names(recipient_tickets))) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM recipient ticket set is invalid.")
+  }
+  if (!is.numeric(block_index) || length(block_index) != 1L ||
+      is.na(block_index) || !is.finite(block_index) ||
+      block_index != floor(block_index) ||
+      !is.numeric(offset) || length(offset) != 1L || is.na(offset) ||
+      !is.finite(offset) || offset != floor(offset)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM encrypted-pair chunk selector is invalid.")
+  }
+  block_index <- suppressWarnings(as.integer(block_index))
+  offset <- suppressWarnings(as.integer(offset))
+  if (is.na(block_index) || block_index < 0L || is.na(offset) || offset < 0L ||
+      offset > 32L * 1024L^2) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM encrypted-pair chunk selector is invalid.")
+  }
+  identity <- .dsvert_formal_glm_registered_source_identity(context)
+  response <- tryCatch(.callMpcTool(
+    "formal-glm-registered-phase18-source", list(
+      version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+      action = "chunk", source_contract_json = context$contract_json,
+      pins = context$pins, local_peer_name = context$source_name,
+      local_signing_key = identity$identity_sk,
+      authorization_json = context$authorization_json,
+      recipient_tickets = recipient_tickets, block_index = block_index,
+      chunk_offset = offset)), error = function(error) NULL)
+  fields <- c("version", "chunk_receipt", "pair_chunk_base64", "replayed")
+  receipt_fields <- c(
+    "version", "purpose", "handle", "artifact_id",
+    "source_contract_sha256", "authorization_sha256", "source",
+    "block_index", "pair_sha256", "pair_bytes", "offset",
+    "chunk_sha256", "chunk_bytes", "complete", "production_ready")
+  if (!is.list(response) || !identical(names(response), fields) ||
+      !identical(response$version,
+                 "dsvert-formal-glm-registered-phase18-source-command-v1") ||
+      !is.list(response$chunk_receipt) ||
+      !identical(names(response$chunk_receipt), receipt_fields) ||
+      !is.character(response$pair_chunk_base64) ||
+      length(response$pair_chunk_base64) != 1L ||
+      !is.logical(response$replayed) || length(response$replayed) != 1L ||
+      is.na(response$replayed)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM source chunk reader returned invalid output.")
+  }
+  chunk <- tryCatch(jsonlite::base64_dec(response$pair_chunk_base64),
+                    error = function(error) raw())
+  canonical_chunk <- gsub("[\\r\\n]", "", jsonlite::base64_enc(chunk))
+  receipt <- response$chunk_receipt
+  expected_offset <- suppressWarnings(as.integer(receipt$offset))
+  expected_bytes <- suppressWarnings(as.integer(receipt$chunk_bytes))
+  pair_bytes <- suppressWarnings(as.integer(receipt$pair_bytes))
+  if (!length(chunk) || length(chunk) > 1024L^2 ||
+      !identical(canonical_chunk, response$pair_chunk_base64) ||
+      !is.character(receipt$pair_sha256) || length(receipt$pair_sha256) != 1L ||
+      !grepl("^[0-9a-f]{64}$", receipt$pair_sha256) ||
+      !is.character(receipt$chunk_sha256) || length(receipt$chunk_sha256) != 1L ||
+      !grepl("^[0-9a-f]{64}$", receipt$chunk_sha256) ||
+      length(expected_offset) != 1L || is.na(expected_offset) ||
+      !identical(expected_offset, offset) || length(expected_bytes) != 1L ||
+      is.na(expected_bytes) || expected_bytes != length(chunk) ||
+      length(pair_bytes) != 1L || is.na(pair_bytes) ||
+      pair_bytes < expected_offset + expected_bytes || pair_bytes > 16L * 1024L^2 ||
+      !is.logical(receipt$complete) || length(receipt$complete) != 1L ||
+      is.na(receipt$complete) ||
+      !identical(receipt$complete, pair_bytes == expected_offset + expected_bytes) ||
+      !is.logical(receipt$production_ready) ||
+      length(receipt$production_ready) != 1L || is.na(receipt$production_ready) ||
+      isTRUE(receipt$production_ready)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM source chunk reader returned invalid output.")
+  }
+  list(chunk_receipt = receipt, pair_chunk = chunk, replayed = response$replayed)
+}
+
 # Imports one opaque, source-signed encrypted pair at a designated recipient.
 # The Go ingress authenticates the pair and binds it to the closed ticket set;
 # R deliberately treats the payload as opaque and returns routing evidence

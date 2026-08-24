@@ -35,11 +35,12 @@ type formalGLMRegisteredPhase20JobControlHostConfigV1 struct {
 // remains private too: callers receive only the same opaque frames that can
 // cross the authenticated peer relay.
 type formalGLMRegisteredPhase20JobControlHostV1 struct {
-	mu        sync.Mutex
-	ops       sync.WaitGroup
-	owner     *formalGLMRegisteredPhase20JobOwnerV1
-	closed    bool
-	closeDone chan struct{}
+	mu          sync.Mutex
+	ops         sync.WaitGroup
+	owner       *formalGLMRegisteredPhase20JobOwnerV1
+	publication *formalGLMRegisteredPhase21PublicationContextV1
+	closed      bool
+	closeDone   chan struct{}
 }
 
 func formalGLMRegisteredPhase20JobControlHostCloneV1(
@@ -125,24 +126,42 @@ func newFormalGLMRegisteredPhase20JobControlHostV1(
 	if err := formalGLMRegisteredPhase20JobControlHostValidateV1(cloned); err != nil {
 		return nil, err
 	}
+	var publication *formalGLMRegisteredPhase21PublicationContextV1
+	if cloned.Publication != nil {
+		copied, copyErr := formalGLMRegisteredPhase21PublicationContextCloneV1(
+			*cloned.Publication, cloned.Contract, cloned.Pins)
+		if copyErr != nil {
+			return nil, copyErr
+		}
+		publication = &copied
+	}
+	clearPublication := func() {
+		formalGLMRegisteredPhase21PublicationContextClearV1(publication)
+		publication = nil
+	}
 	attempts, err := newFormalGLMRegisteredPhase19AttemptStoreV1(
 		rockRoot, cloned.Record, cloned.Contract, cloned.Pins, cloned.Peer, cloned.Signing)
 	if err != nil {
+		clearPublication()
 		return nil, err
 	}
 	keys, err := newFormalGLMRegisteredPhase20JobKeyProviderV1(
 		rockRoot, cloned.Contract, cloned.Pins, cloned.Record, cloned.Peer)
 	if err != nil {
 		attempts.Close()
+		clearPublication()
 		return nil, err
 	}
 	owner, err := newFormalGLMRegisteredPhase20JobOwnerV1(attempts, keys, cloned.Start)
 	if err != nil {
 		_ = keys.Close()
 		attempts.Close()
+		clearPublication()
 		return nil, err
 	}
-	return &formalGLMRegisteredPhase20JobControlHostV1{owner: owner}, nil
+	return &formalGLMRegisteredPhase20JobControlHostV1{
+		owner: owner, publication: publication,
+	}, nil
 }
 
 func (host *formalGLMRegisteredPhase20JobControlHostV1) beginOpV1() (
@@ -369,14 +388,19 @@ func (host *formalGLMRegisteredPhase20JobControlHostV1) Close() error {
 	}
 	host.closed = true
 	owner := host.owner
+	publication := host.publication
 	host.owner = nil
+	host.publication = nil
 	host.closeDone = make(chan struct{})
 	done := host.closeDone
 	host.mu.Unlock()
 	host.ops.Wait()
 	defer close(done)
 	if owner == nil {
+		formalGLMRegisteredPhase21PublicationContextClearV1(publication)
 		return nil
 	}
-	return owner.Close()
+	err := owner.Close()
+	formalGLMRegisteredPhase21PublicationContextClearV1(publication)
+	return err
 }

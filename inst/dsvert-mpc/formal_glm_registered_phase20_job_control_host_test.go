@@ -139,6 +139,45 @@ func TestFormalGLMRegisteredPhase20JobControlHostRejectsCrossedAuthority(t *test
 	}
 }
 
+func TestFormalGLMRegisteredPhase20JobControlHostRetainsPublicationContextPrivately(t *testing.T) {
+	fixture := newFormalGLMRegisteredPhase20JobControlTestFixtureV1(t)
+	config := formalGLMRegisteredPhase20JobControlHostTestConfigV1(t, fixture, 0)
+	publication := formalGLMRegisteredPhase21PublicationContextTestBuildV1(t, fixture.core.source)
+	config.Publication = &publication
+	formalGLMRegisteredPhase20JobControlHostTestReleaseFixtureV1(t, fixture)
+
+	host, err := newFormalGLMRegisteredPhase20JobControlHostV1(fixture.roots[0], config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config.Publication.RegistryResolution.ArtifactID = ""
+	host.mu.Lock()
+	retained := host.publication
+	valid := retained != nil &&
+		formalGLMRegisteredPhase21PublicationContextValidateV1(
+			*retained, fixture.core.source.contract,
+			fixture.core.source.inputs.identities.public) == nil
+	host.mu.Unlock()
+	if !valid {
+		_ = host.Close()
+		t.Fatal("host did not retain an independent signed publication context")
+	}
+	encoded, marshalErr := json.Marshal(host)
+	if marshalErr != nil || !bytes.Equal(encoded, []byte(`{}`)) {
+		_ = host.Close()
+		t.Fatalf("host exposed publication context: %q / %v", encoded, marshalErr)
+	}
+	if err := host.Close(); err != nil {
+		t.Fatal(err)
+	}
+	host.mu.Lock()
+	cleared := host.publication == nil
+	host.mu.Unlock()
+	if !cleared {
+		t.Fatal("host retained publication context after close")
+	}
+}
+
 func TestFormalGLMRegisteredPhase20JobControlHostCloseWaitsForOperation(t *testing.T) {
 	fixture := newFormalGLMRegisteredPhase20JobControlTestFixtureV1(t)
 	config := formalGLMRegisteredPhase20JobControlHostTestConfigV1(t, fixture, 0)

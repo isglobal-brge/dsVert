@@ -151,7 +151,8 @@ func formalGLMBuildRegisteredExecutionPlanV1(
 ) (formalGLMRegisteredExecutionPlanV1, error) {
 	var zero formalGLMRegisteredExecutionPlanV1
 	if err := validateFormalGLMPhase15Plan(legacy); err != nil ||
-		legacy.Kernel.Family != "binomial" ||
+		(legacy.Kernel.Family != "binomial" &&
+			legacy.Kernel.Family != "poisson") ||
 		formalGLMValidateSignedPublicDescriptorV1(
 			resolution.Descriptor, pins) != nil ||
 		resolution.ArtifactID != resolution.Descriptor.ArtifactID ||
@@ -316,7 +317,8 @@ func formalGLMValidateRegisteredExecutionPlanV1(
 ) error {
 	if value.Version != formalGLMRegisteredExecutionPlanVersion ||
 		value.Purpose != formalGLMRegisteredExecutionPlanPurpose ||
-		value.Family != "binomial" || value.ProductionReady ||
+		(value.Family != "binomial" && value.Family != "poisson") ||
+		value.ProductionReady ||
 		value.SourcePlanVersion != formalGLMPhase15PlanVersion ||
 		!formalGLMIsSHA256(value.PlanSHA256) ||
 		!formalGLMIsSHA256(value.ArtifactID) ||

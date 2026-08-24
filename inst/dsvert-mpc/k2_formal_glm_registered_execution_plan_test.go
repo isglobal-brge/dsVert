@@ -204,37 +204,39 @@ func formalGLMRegisteredExecutionTestForbiddenJSONKey(t testing.TB,
 	walk(decoded)
 }
 
-func TestFormalGLMRegisteredExecutionPlanK2K3K5Binomial(t *testing.T) {
-	seen := make(map[string]bool)
-	for _, custodians := range []int{2, 3, 5} {
-		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
-			inputs := formalGLMRegisteredExecutionTestInputsV1(
-				t, "binomial", custodians, 2, 1)
-			value := formalGLMRegisteredExecutionTestBuild(t, inputs)
-			formalGLMRegisteredExecutionTestAssertLegacyEquivalence(
-				t, value, inputs.plan)
-			if value.CustodianCount != custodians ||
-				len(value.CustodianPeers) != custodians ||
-				value.ArtifactID != inputs.entry.ArtifactID ||
-				value.DescriptorCoreSHA256 !=
-					inputs.entry.DescriptorCoreSHA256 ||
-				value.CanonicalPreSourceDPSHA256 !=
-					inputs.context.model.Model.CanonicalDPSHA256 ||
-				value.TranscriptBoundSHA256 != inputs.bound.ShapeSHA256 ||
-				value.WireABISHA256 != inputs.bound.WireABISHA256 ||
-				!formalGLMIsSHA256(value.PlanSHA256) {
-				t.Fatalf("incomplete registered execution binding: %+v", value)
-			}
-			calculated, err := formalGLMRegisteredExecutionPlanSHA256V1(value)
-			if err != nil || calculated != value.PlanSHA256 {
-				t.Fatalf("plan hash is not recalculable: %q %v", calculated, err)
-			}
-			if seen[value.PlanSHA256] {
-				t.Fatal("K change did not distinguish registered plan")
-			}
-			seen[value.PlanSHA256] = true
-			formalGLMRegisteredExecutionTestForbiddenJSONKey(t, value)
-		})
+func TestFormalGLMRegisteredExecutionPlanK2K3K5SupportedFamilies(t *testing.T) {
+	for _, family := range []string{"binomial", "poisson"} {
+		seen := make(map[string]bool)
+		for _, custodians := range []int{2, 3, 5} {
+			t.Run(fmt.Sprintf("%s/K%d", family, custodians), func(t *testing.T) {
+				inputs := formalGLMRegisteredExecutionTestInputsV1(
+					t, family, custodians, 2, 1)
+				value := formalGLMRegisteredExecutionTestBuild(t, inputs)
+				formalGLMRegisteredExecutionTestAssertLegacyEquivalence(
+					t, value, inputs.plan)
+				if value.CustodianCount != custodians ||
+					len(value.CustodianPeers) != custodians ||
+					value.ArtifactID != inputs.entry.ArtifactID ||
+					value.DescriptorCoreSHA256 !=
+						inputs.entry.DescriptorCoreSHA256 ||
+					value.CanonicalPreSourceDPSHA256 !=
+						inputs.context.model.Model.CanonicalDPSHA256 ||
+					value.TranscriptBoundSHA256 != inputs.bound.ShapeSHA256 ||
+					value.WireABISHA256 != inputs.bound.WireABISHA256 ||
+					!formalGLMIsSHA256(value.PlanSHA256) {
+					t.Fatalf("incomplete registered execution binding: %+v", value)
+				}
+				calculated, err := formalGLMRegisteredExecutionPlanSHA256V1(value)
+				if err != nil || calculated != value.PlanSHA256 {
+					t.Fatalf("plan hash is not recalculable: %q %v", calculated, err)
+				}
+				if seen[value.PlanSHA256] {
+					t.Fatal("K change did not distinguish registered plan")
+				}
+				seen[value.PlanSHA256] = true
+				formalGLMRegisteredExecutionTestForbiddenJSONKey(t, value)
+			})
+		}
 	}
 }
 

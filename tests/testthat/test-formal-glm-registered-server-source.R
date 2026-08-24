@@ -520,7 +520,12 @@ test_that("registered formal GLM source assembles only signed public receipts", 
 test_that("registered formal GLM source commits only the persisted binding", {
   fixture <- .formal_glm_registered_source_fixture()
   tickets <- list(list(ticket = "garbler"), list(ticket = "evaluator"))
-  calls <- 0L
+  host_receipt <- list(
+    version = "dsvert-formal-glm-registered-phase20-job-host-provision-v1",
+    peer = "site_a", artifact_id = strrep("a", 64L),
+    receipt_set_sha256 = strrep("b", 64L), config_sha256 = strrep("c", 64L),
+    replayed = TRUE, production_ready = FALSE)
+  calls <- character()
   testthat::local_mocked_bindings(
     .dsvert_require_configured_local_peer_name = function() "site_a",
     .get_identity_keypair = function(...) list(
@@ -534,23 +539,28 @@ test_that("registered formal GLM source commits only the persisted binding", {
             fixture$authorization, auto_unbox = TRUE, null = "null", pretty = FALSE),
           authorization_sha256 = fixture$authorization$authorization_sha256))
       }
-      calls <<- calls + 1L
+      calls <<- c(calls, input$action)
       expect_identical(command, "formal-glm-registered-phase18-source")
       expect_identical(input$version,
                        "dsvert-formal-glm-registered-phase18-source-command-v1")
-      expect_identical(input$action, "binding")
       expect_identical(input$source_contract_json, fixture$source_contract_json)
       expect_identical(input$pins, fixture$spec$pins)
       expect_identical(input$local_peer_name, "site_a")
-      expect_identical(input$recipient_tickets, tickets)
       expect_false(any(c(
         "authorization_json", "block_index", "values", "validity",
         "private_consensus", "pair_json", "local_receipt_json", "data", "path",
         "rows", "result") %in% names(input)))
-      list(
-        version = "dsvert-formal-glm-registered-phase18-source-command-v1",
-        binding_record_json = "{\"binding\":true}", replayed = TRUE)
+      if (identical(input$action, "binding")) {
+        expect_identical(input$recipient_tickets, tickets)
+        return(list(
+          version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+          binding_record_json = "{\"binding\":true}", replayed = TRUE))
+      }
+      expect_identical(input$action, "host_provision")
+      list(version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+           job_host_receipt = host_receipt, replayed = TRUE)
     },
+    .dsvert_formal_glm_registered_source_job_host_healthy = function(...) TRUE,
     .package = "dsVert")
   withr::local_options(list(
     dsvert.peer_name = "site_a",
@@ -561,10 +571,10 @@ test_that("registered formal GLM source commits only the persisted binding", {
   expect_identical(
     .dsvert_formal_glm_registered_source_commit_binding(context, tickets),
     list(binding_record_json = "{\"binding\":true}", replayed = TRUE))
-  expect_identical(calls, 1L)
+  expect_identical(calls, c("binding", "host_provision"))
   expect_error(.dsvert_formal_glm_registered_source_commit_binding(
     context, list(tickets[[1L]])), class = "dsvert_formal_glm_registered_source_error")
-  expect_identical(calls, 1L)
+  expect_identical(calls, c("binding", "host_provision"))
 })
 
 test_that("registered formal GLM source provisions no worker input or result", {

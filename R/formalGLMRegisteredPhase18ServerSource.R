@@ -765,8 +765,13 @@
     .dsvert_formal_glm_registered_source_abort(
       "The registered formal-GLM binding store returned invalid output.")
   }
-  list(binding_record_json = response$binding_record_json,
-       replayed = response$replayed)
+  binding <- list(binding_record_json = response$binding_record_json,
+                  replayed = response$replayed)
+  # A binding is the first durable point at which the local host has an exact,
+  # signed selector.  Make it reachable now; a failed launch is retryable from
+  # the same binding and cannot mint another analysis or release.
+  .dsvert_formal_glm_registered_source_provision_job_host(context)
+  binding
 }
 
 # Provisions the local Phase20 host from the binding already sealed in Rock.

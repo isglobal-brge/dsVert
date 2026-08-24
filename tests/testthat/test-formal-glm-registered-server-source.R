@@ -348,6 +348,64 @@ test_that("registered formal GLM source imports only an encrypted pair", {
   expect_identical(calls, 1L)
 })
 
+test_that("registered formal GLM source issues and persists its closed ticket set", {
+  fixture <- .formal_glm_registered_source_fixture()
+  issued <- list(version = "ticket", recipient = "site_a")
+  tickets <- list(issued, list(version = "ticket", recipient = "site_b"))
+  testthat::local_mocked_bindings(
+    .dsvert_require_configured_local_peer_name = function() "site_a",
+    .get_identity_keypair = function(...) list(
+      identity_pk = fixture$pins[["site_a"]],
+      identity_sk = .formal_glm_registered_source_b64(raw(64L))),
+    .callMpcTool = function(command, input) {
+      if (identical(command, "formal-glm-phase18-source-project")) {
+        return(list(
+          version = "dsvert-formal-glm-phase18-source-project-response-v1",
+          authorization_json = jsonlite::toJSON(
+            fixture$authorization, auto_unbox = TRUE, null = "null", pretty = FALSE),
+          authorization_sha256 = fixture$authorization$authorization_sha256))
+      }
+      expect_identical(command, "formal-glm-registered-phase18-source")
+      expect_identical(input$version,
+                       "dsvert-formal-glm-registered-phase18-source-command-v1")
+      expect_identical(input$source_contract_json, fixture$source_contract_json)
+      expect_identical(input$pins, fixture$spec$pins)
+      expect_identical(input$local_peer_name, "site_a")
+      expect_false(any(c(
+        "authorization_json", "values", "validity", "private_consensus",
+        "data", "path", "rows", "result") %in% names(input)))
+      if (identical(input$action, "ticket")) {
+        expect_false("recipient_tickets" %in% names(input))
+        return(list(
+          version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+          ticket = issued, replayed = FALSE))
+      }
+      expect_identical(input$action, "ticket_set")
+      expect_identical(input$recipient_tickets, tickets)
+      list(
+        version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+        ticket_receipts = list(list(version = "receipt-a"),
+                               list(version = "receipt-b")),
+        replayed = TRUE)
+    },
+    .package = "dsVert")
+  withr::local_options(list(
+    dsvert.peer_name = "site_a",
+    dsvert.formal_glm.registered_source_specs = stats::setNames(
+      list(fixture$spec), "site_a")))
+  context <- .dsvert_formal_glm_registered_source_open(
+    fixture$source_contract_json, fixture$source)
+  expect_identical(
+    .dsvert_formal_glm_registered_source_issue_ticket(context),
+    list(ticket = issued, replayed = FALSE))
+  expect_identical(
+    .dsvert_formal_glm_registered_source_persist_ticket_set(context, tickets),
+    list(ticket_receipts = list(list(version = "receipt-a"),
+                                list(version = "receipt-b")), replayed = TRUE))
+  expect_error(.dsvert_formal_glm_registered_source_persist_ticket_set(
+    context, list(issued)), class = "dsvert_formal_glm_registered_source_error")
+})
+
 test_that("registered formal GLM source clamps numeric terms and expands factors", {
   fixture <- .formal_glm_registered_source_fixture(
     family = "binomial", predictors = TRUE)

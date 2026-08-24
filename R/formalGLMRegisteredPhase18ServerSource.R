@@ -566,6 +566,65 @@
   identity
 }
 
+# The two designated recipients mint their own signed tickets.  This helper
+# carries only the registered contract and the local signer to the closed Go
+# command; ticket issuance never touches a source block or an R data object.
+.dsvert_formal_glm_registered_source_issue_ticket <- function(context) {
+  context <- .dsvert_formal_glm_registered_source_context(context)
+  identity <- .dsvert_formal_glm_registered_source_identity(context)
+  response <- tryCatch(.callMpcTool(
+    "formal-glm-registered-phase18-source", list(
+      version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+      action = "ticket", source_contract_json = context$contract_json,
+      pins = context$pins, local_peer_name = context$source_name,
+      local_signing_key = identity$identity_sk)),
+    error = function(error) NULL)
+  fields <- c("version", "ticket", "replayed")
+  if (!is.list(response) || !identical(names(response), fields) ||
+      !identical(response$version,
+                 "dsvert-formal-glm-registered-phase18-source-command-v1") ||
+      !is.list(response$ticket) || !is.logical(response$replayed) ||
+      length(response$replayed) != 1L || is.na(response$replayed)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM ticket issuer returned invalid output.")
+  }
+  list(ticket = response$ticket, replayed = response$replayed)
+}
+
+# Persists the exact two-ticket set before a recipient accepts an encrypted
+# source pair.  The Go command canonicalizes, authenticates and binds the set;
+# R returns receipts only and never sees an ingress key or plaintext share.
+.dsvert_formal_glm_registered_source_persist_ticket_set <- function(
+    context, recipient_tickets) {
+  context <- .dsvert_formal_glm_registered_source_context(context)
+  if (!is.list(recipient_tickets) || length(recipient_tickets) != 2L ||
+      !is.null(names(recipient_tickets))) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM recipient ticket set is invalid.")
+  }
+  identity <- .dsvert_formal_glm_registered_source_identity(context)
+  response <- tryCatch(.callMpcTool(
+    "formal-glm-registered-phase18-source", list(
+      version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+      action = "ticket_set", source_contract_json = context$contract_json,
+      pins = context$pins, local_peer_name = context$source_name,
+      local_signing_key = identity$identity_sk,
+      recipient_tickets = recipient_tickets)),
+    error = function(error) NULL)
+  fields <- c("version", "ticket_receipts", "replayed")
+  if (!is.list(response) || !identical(names(response), fields) ||
+      !identical(response$version,
+                 "dsvert-formal-glm-registered-phase18-source-command-v1") ||
+      !is.list(response$ticket_receipts) ||
+      length(response$ticket_receipts) != 2L ||
+      !is.logical(response$replayed) || length(response$replayed) != 1L ||
+      is.na(response$replayed)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM ticket-set store returned invalid output.")
+  }
+  list(ticket_receipts = response$ticket_receipts, replayed = response$replayed)
+}
+
 # Sends one already materialized local block to the closed Go ingress.  Tickets
 # are signed protocol records from the two designated compute peers; this
 # bridge does not mint them and cannot select a recipient, source, path or

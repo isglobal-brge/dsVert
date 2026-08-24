@@ -139,6 +139,7 @@
   "dsvertFormalFinalizerHandoffSourceDS",
   "dsvertFormalGLMControlSourceDS",
   "dsvertFormalGLMPublicResultDS",
+  "dsvertFormalGLMRegisteredSourceDS",
   "dsvertFormalGLMRegisteredJobControlDS",
   "dsvertFormalCoxPublicResultDS",
   "dsvertFormalCoxDiscretePublicResultDS",

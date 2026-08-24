@@ -402,6 +402,14 @@ func TestFormalGLMRegisteredPhase21StageTaskK2K3K5(t *testing.T) {
 			if replayCommitErr != nil || !reflect.DeepEqual(replayCommit, commits[1]) {
 				t.Fatalf("publication commit replay changed: %#v / %#v / %v", replayCommit, commits[1], replayCommitErr)
 			}
+			ack, ackErr := formalGLMRegisteredPhase21FinalizeAckV1(states[0])
+			if ackErr != nil || ack.ArtifactID != contract.ArtifactID || ack.ProductionReady {
+				t.Fatalf("finalizer did not produce publication ACK: %#v / %v", ack, ackErr)
+			}
+			replayAck, replayAckErr := formalGLMRegisteredPhase21FinalizeAckV1(states[0])
+			if replayAckErr != nil || !reflect.DeepEqual(replayAck, ack) {
+				t.Fatalf("publication ACK replay changed: %#v / %#v / %v", replayAck, ack, replayAckErr)
+			}
 		})
 	}
 }

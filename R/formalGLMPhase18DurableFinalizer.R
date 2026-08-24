@@ -119,8 +119,9 @@
   root <- .dsvert_formal_glm_phase18_private_dir(
     .dsvert_formal_glm_phase18_durable_root(root))
   path <- .dsvert_formal_glm_phase18_key_path(root)
-  if (file.exists(path)) return(.dsvert_formal_glm_phase18_validate_key(path))
-  if (.dsvert_dp_path_is_link(path)) {
+  temporary <- paste0(path, ".next")
+  if (.dsvert_dp_path_is_link(path) ||
+      .dsvert_dp_path_is_link(temporary)) {
     .dsvert_formal_glm_phase18_durable_abort(
       "The Phase-1.8 finalizer key must not be a symbolic link.",
       "unsafe_durable_state")
@@ -143,33 +144,79 @@
       "durable_state_unavailable")
   }
   on.exit(try(filelock::unlock(lock), silent = TRUE), add = TRUE)
-  if (file.exists(path)) return(.dsvert_formal_glm_phase18_validate_key(path))
-  key <- random_bytes(32L)
-  if (!.dsvert_formal_glm_phase18_key_valid(key)) {
-    .dsvert_formal_glm_phase18_durable_abort(
-      "Secure entropy did not return a 256-bit Phase-1.8 finalizer key.",
-      "durable_state_unavailable")
+  remove_temporary <- function() {
+    if (file.exists(temporary)) {
+      invisible(.dsvert_formal_glm_phase18_validate_key(temporary))
+      if (!unlink(temporary, force = TRUE)) {
+        .dsvert_formal_glm_phase18_durable_abort(
+          "Could not remove a staged Phase-1.8 finalizer key.",
+          "durable_state_unavailable")
+      }
+      .dsvert_identity_require_sync(root, "Phase-1.8 finalizer directory")
+    }
   }
-  temporary <- tempfile(
-    paste0(".phase18-key-", Sys.getpid(), "."), tmpdir = root)
-  on.exit(if (file.exists(temporary)) unlink(temporary, force = TRUE),
-          add = TRUE)
-  connection <- file(temporary, open = "wb")
-  on.exit(try(if (isOpen(connection)) close(connection), silent = TRUE),
-          add = TRUE)
-  writeBin(charToRaw(gsub(
-    "[\r\n]", "", jsonlite::base64_enc(key))), connection)
-  flush(connection)
-  close(connection)
-  Sys.chmod(temporary, mode = "0600")
-  invisible(.dsvert_formal_glm_phase18_validate_key(temporary))
+  if (file.exists(path)) {
+    key <- .dsvert_formal_glm_phase18_validate_key(path)
+    if (file.exists(temporary)) {
+      staged <- .dsvert_formal_glm_phase18_validate_key(temporary)
+      if (!identical(staged, key)) {
+        .dsvert_formal_glm_phase18_durable_abort(
+          "A staged Phase-1.8 finalizer key conflicts with its slot.",
+          "unsafe_durable_state")
+      }
+      remove_temporary()
+    }
+    return(key)
+  }
+  created_temporary <- FALSE
+  on.exit({
+    if (isTRUE(created_temporary) && file.exists(temporary)) {
+      unlink(temporary, force = TRUE)
+    }
+  }, add = TRUE)
+  if (file.exists(temporary)) {
+    key <- .dsvert_formal_glm_phase18_validate_key(temporary)
+  } else {
+    key <- random_bytes(32L)
+    if (!.dsvert_formal_glm_phase18_key_valid(key)) {
+      .dsvert_formal_glm_phase18_durable_abort(
+        "Secure entropy did not return a 256-bit Phase-1.8 finalizer key.",
+        "durable_state_unavailable")
+    }
+    connection <- file(temporary, open = "wb")
+    on.exit(try(if (isOpen(connection)) close(connection), silent = TRUE),
+            add = TRUE)
+    writeBin(charToRaw(gsub(
+      "[\r\n]", "", jsonlite::base64_enc(key))), connection)
+    flush(connection)
+    close(connection)
+    Sys.chmod(temporary, mode = "0600")
+    created_temporary <- TRUE
+  }
+  staged <- .dsvert_formal_glm_phase18_validate_key(temporary)
+  if (!identical(staged, key)) {
+    .dsvert_formal_glm_phase18_durable_abort(
+      "The staged Phase-1.8 finalizer key changed before commit.",
+      "unsafe_durable_state")
+  }
   .dsvert_identity_require_sync(temporary, "staged Phase-1.8 finalizer key")
-  if (file.exists(path)) return(.dsvert_formal_glm_phase18_validate_key(path))
+  if (file.exists(path)) {
+    existing <- .dsvert_formal_glm_phase18_validate_key(path)
+    if (!identical(existing, key)) {
+      .dsvert_formal_glm_phase18_durable_abort(
+        "A conflicting Phase-1.8 finalizer key won the slot race.",
+        "unsafe_durable_state")
+    }
+    remove_temporary()
+    created_temporary <- FALSE
+    return(existing)
+  }
   if (!file.rename(temporary, path)) {
     .dsvert_formal_glm_phase18_durable_abort(
       "Could not atomically commit the Phase-1.8 finalizer key.",
       "durable_state_unavailable")
   }
+  created_temporary <- FALSE
   Sys.chmod(path, mode = "0600")
   key <- .dsvert_formal_glm_phase18_validate_key(path)
   .dsvert_identity_require_sync(root, "Phase-1.8 finalizer directory")
@@ -323,24 +370,34 @@
   invisible(TRUE)
 }
 
+.dsvert_formal_glm_phase18_atomic_temp_path <- function(path) {
+  if (!is.character(path) || length(path) != 1L || is.na(path) ||
+      !nzchar(path)) {
+    .dsvert_formal_glm_phase18_durable_abort(
+      "The Phase-1.8 durable slot is invalid.", "invalid_durable_frame")
+  }
+  name <- basename(path)
+  if (identical(name, ".") || identical(name, "..") ||
+      nchar(name, type = "bytes") > 200L) {
+    .dsvert_formal_glm_phase18_durable_abort(
+      "The Phase-1.8 durable slot is invalid.", "invalid_durable_frame")
+  }
+  file.path(dirname(path), paste0(".", name, ".next"))
+}
+
 .dsvert_formal_glm_phase18_atomic_cas <- function(
-    path, payload, maximum_bytes, temporary_prefix) {
+    path, payload, maximum_bytes) {
   if (!is.raw(payload) || !length(payload) || length(payload) > maximum_bytes) {
     .dsvert_formal_glm_phase18_durable_abort(
       "The Phase-1.8 durable payload exceeds its fixed bound.",
       "invalid_durable_frame")
   }
-  if (!is.character(temporary_prefix) || length(temporary_prefix) != 1L ||
-      is.na(temporary_prefix) ||
-      !grepl("^\\.phase18-[a-z0-9-]{1,160}$", temporary_prefix)) {
-    .dsvert_formal_glm_phase18_durable_abort(
-      "The Phase-1.8 temporary-file namespace is invalid.",
-      "invalid_durable_frame")
-  }
   directory <- .dsvert_formal_glm_phase18_private_dir(dirname(path))
   path <- file.path(directory, basename(path))
+  temporary <- .dsvert_formal_glm_phase18_atomic_temp_path(path)
   lock_path <- paste0(path, ".lock")
-  if (.dsvert_dp_path_is_link(path) || .dsvert_dp_path_is_link(lock_path)) {
+  if (.dsvert_dp_path_is_link(path) || .dsvert_dp_path_is_link(lock_path) ||
+      .dsvert_dp_path_is_link(temporary)) {
     .dsvert_formal_glm_phase18_durable_abort(
       "A Phase-1.8 durable slot must not be a symbolic link.",
       "unsafe_durable_state")
@@ -355,13 +412,18 @@
       "durable_state_unavailable")
   }
   on.exit(try(filelock::unlock(lock), silent = TRUE), add = TRUE)
-  stale <- list.files(
-    directory, all.files = TRUE, no.. = TRUE, full.names = TRUE)
-  stale <- stale[startsWith(basename(stale), temporary_prefix)]
-  for (candidate in stale) {
-    invisible(.dsvert_formal_glm_phase18_private_file(
-      candidate, 1L, maximum_bytes))
-    unlink(candidate, force = TRUE)
+  remove_temporary <- function() {
+    if (file.exists(temporary)) {
+      invisible(.dsvert_formal_glm_phase18_private_file(
+        temporary, 1L, maximum_bytes))
+      if (!unlink(temporary, force = TRUE)) {
+        .dsvert_formal_glm_phase18_durable_abort(
+          "Could not remove a staged Phase-1.8 durable record.",
+          "durable_state_unavailable")
+      }
+      .dsvert_identity_require_sync(
+        directory, "Phase-1.8 durable staging directory")
+    }
   }
   if (file.exists(path)) {
     existing <- .dsvert_formal_glm_phase18_private_file(
@@ -371,18 +433,42 @@
         "A conflicting authenticated retry targeted the same Phase-1.8 slot.",
         "conflicting_durable_replay")
     }
+    if (file.exists(temporary)) {
+      staged <- .dsvert_formal_glm_phase18_private_file(
+        temporary, 1L, maximum_bytes)
+      if (!identical(staged, payload)) {
+        .dsvert_formal_glm_phase18_durable_abort(
+          "A staged Phase-1.8 durable record conflicts with its slot.",
+          "conflicting_durable_replay")
+      }
+      remove_temporary()
+    }
     return(list(replayed = TRUE, payload = existing, path = path))
   }
-  temporary <- tempfile(temporary_prefix, tmpdir = directory)
-  on.exit(if (file.exists(temporary)) unlink(temporary, force = TRUE),
-          add = TRUE)
-  connection <- file(temporary, open = "wb")
-  on.exit(try(if (isOpen(connection)) close(connection), silent = TRUE),
-          add = TRUE)
-  writeBin(payload, connection)
-  flush(connection)
-  close(connection)
-  Sys.chmod(temporary, mode = "0600")
+  created_temporary <- FALSE
+  on.exit({
+    if (isTRUE(created_temporary) && file.exists(temporary)) {
+      unlink(temporary, force = TRUE)
+    }
+  }, add = TRUE)
+  if (file.exists(temporary)) {
+    staged <- .dsvert_formal_glm_phase18_private_file(
+      temporary, 1L, maximum_bytes)
+    if (!identical(staged, payload)) {
+      .dsvert_formal_glm_phase18_durable_abort(
+        "A staged Phase-1.8 durable record conflicts with its slot.",
+        "conflicting_durable_replay")
+    }
+  } else {
+    connection <- file(temporary, open = "wb")
+    on.exit(try(if (isOpen(connection)) close(connection), silent = TRUE),
+            add = TRUE)
+    writeBin(payload, connection)
+    flush(connection)
+    close(connection)
+    created_temporary <- TRUE
+    Sys.chmod(temporary, mode = "0600")
+  }
   staged <- .dsvert_formal_glm_phase18_private_file(
     temporary, 1L, maximum_bytes)
   if (!identical(staged, payload)) {
@@ -399,6 +485,8 @@
         "A conflicting authenticated retry won the Phase-1.8 slot race.",
         "conflicting_durable_replay")
     }
+    if (file.exists(temporary)) remove_temporary()
+    created_temporary <- FALSE
     return(list(replayed = TRUE, payload = existing, path = path))
   }
   if (!file.rename(temporary, path)) {
@@ -406,6 +494,7 @@
       "Could not atomically commit the Phase-1.8 durable record.",
       "durable_state_unavailable")
   }
+  created_temporary <- FALSE
   Sys.chmod(path, mode = "0600")
   committed <- .dsvert_formal_glm_phase18_private_file(
     path, 1L, maximum_bytes)
@@ -591,8 +680,7 @@
         bundle, authorization, .verifier))
       encoded <- .dsvert_formal_glm_phase18_outbox_encode(slot, bundle, key)
       committed <- .dsvert_formal_glm_phase18_atomic_cas(
-        path, encoded, .DSVERT_FORMAL_GLM_PHASE18_MAX_BUNDLE_BYTES + 108L,
-        paste0(".phase18-outbox-", slot, "-tmp-"))
+        path, encoded, .DSVERT_FORMAL_GLM_PHASE18_MAX_BUNDLE_BYTES + 108L)
       .dsvert_formal_glm_phase18_outbox_decode(
         committed$payload, slot, key)
     })
@@ -703,8 +791,7 @@
   path <- .dsvert_formal_glm_phase18_sharded_path(
     root, "recipient-inbox-v2", key_id, slot)
   committed <- .dsvert_formal_glm_phase18_atomic_cas(
-    path, encoded, .DSVERT_FORMAL_GLM_PHASE18_MAX_FRAME_BYTES,
-    paste0(".phase18-inbox-", slot, "-tmp-"))
+    path, encoded, .DSVERT_FORMAL_GLM_PHASE18_MAX_FRAME_BYTES)
   invisible(.dsvert_formal_glm_phase18_frame_verify(committed$payload, key))
   .dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(list(
     version = .DSVERT_FORMAL_GLM_PHASE18_DURABLE_VERSION,

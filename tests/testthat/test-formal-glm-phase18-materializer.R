@@ -783,11 +783,27 @@ test_that("Phase-1.8 finalizer key bootstraps persistently and epochs rotation",
   expect_false(identical(replacement, first))
   expect_false(identical(
     .dsvert_formal_glm_phase18_key_id(replacement), old_id))
+
+  recovery_root <- .dsvert_formal_glm_phase18_private_dir(file.path(
+    tempdir(), paste0("phase18-key-recovery-", Sys.getpid(), "-",
+                      sample.int(.Machine$integer.max, 1L))))
+  on.exit(unlink(recovery_root, recursive = TRUE, force = TRUE), add = TRUE)
+  recovery_path <- .dsvert_formal_glm_phase18_key_path(recovery_root)
+  recovery_staged <- paste0(recovery_path, ".next")
+  staged_key <- as.raw(rep(73L, 32L))
+  writeBin(charToRaw(gsub(
+    "[\r\n]", "", jsonlite::base64_enc(staged_key))), recovery_staged)
+  Sys.chmod(recovery_staged, mode = "0600")
+  recovered <- .dsvert_formal_glm_phase18_init_key(
+    recovery_root, function(n) stop("staged key must be reused"))
+  expect_identical(recovered, staged_key)
+  expect_false(file.exists(recovery_staged))
+
   expect_error(.dsvert_formal_glm_phase18_key_id(raw(32L)),
                class = "dsvert_formal_glm_phase18_error")
 })
 
-test_that("Phase-1.8 CAS crash cleanup is isolated to one semantic slot", {
+test_that("Phase-1.8 CAS recovers one deterministic staging record", {
   root <- file.path(tempdir(), paste0(
     "phase18-cas-isolation-", Sys.getpid(), "-",
     sample.int(.Machine$integer.max, 1L)))
@@ -795,24 +811,27 @@ test_that("Phase-1.8 CAS crash cleanup is isolated to one semantic slot", {
   directory <- .dsvert_formal_glm_phase18_private_dir(root)
   first_slot <- strrep("a", 64L)
   second_slot <- strrep("b", 64L)
-  first_prefix <- paste0(".phase18-outbox-", first_slot, "-tmp-")
-  second_prefix <- paste0(".phase18-outbox-", second_slot, "-tmp-")
-  first_stale <- file.path(directory, paste0(first_prefix, "crash"))
-  second_active <- file.path(directory, paste0(second_prefix, "active"))
-  writeBin(as.raw(1:4), first_stale)
-  writeBin(as.raw(5:8), second_active)
-  Sys.chmod(c(first_stale, second_active), mode = "0600")
   target <- file.path(directory, paste0("slot-", first_slot, ".bin"))
+  other_target <- file.path(directory, paste0("slot-", second_slot, ".bin"))
+  staged <- .dsvert_formal_glm_phase18_atomic_temp_path(target)
+  other_staged <- .dsvert_formal_glm_phase18_atomic_temp_path(other_target)
+  writeBin(as.raw(9:16), staged)
+  writeBin(as.raw(5:8), other_staged)
+  Sys.chmod(c(staged, other_staged), mode = "0600")
   committed <- .dsvert_formal_glm_phase18_atomic_cas(
-    target, as.raw(9:16), 1024L, first_prefix)
+    target, as.raw(9:16), 1024L)
   expect_false(committed$replayed)
-  expect_false(file.exists(first_stale))
-  expect_true(file.exists(second_active))
+  expect_false(file.exists(staged))
+  expect_true(file.exists(other_staged))
   replay <- .dsvert_formal_glm_phase18_atomic_cas(
-    target, as.raw(9:16), 1024L, first_prefix)
+    target, as.raw(9:16), 1024L)
   expect_true(replay$replayed)
+
+  unlink(target)
+  writeBin(as.raw(1:4), staged)
+  Sys.chmod(staged, mode = "0600")
   expect_error(.dsvert_formal_glm_phase18_atomic_cas(
-    target, as.raw(10:17), 1024L, first_prefix),
+    target, as.raw(10:17), 1024L),
     class = "dsvert_formal_glm_phase18_error")
 })
 

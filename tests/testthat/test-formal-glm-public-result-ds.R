@@ -35,6 +35,22 @@ test_that("completed formal-model result readers are remotely exported", {
     "dsvertFormalCoxDiscretePublicResultDS") %in% exports))
 })
 
+test_that("the packaged runtime recognizes the formal GLM public reader", {
+  binary <- .findMpcBinary()
+  request <- jsonlite::toJSON(list(
+    certificate_json = "{}",
+    pins = list(site_a = strrep("A", 43L), site_b = strrep("B", 43L))),
+    auto_unbox = TRUE)
+  output <- suppressWarnings(system2(
+    binary, "formal-glm-public-result", input = request,
+    stdout = TRUE, stderr = TRUE))
+
+  expect_identical(attr(output, "status") %||% 0L, 1L)
+  expect_false(any(grepl("Unknown command", output, fixed = TRUE)))
+  expect_true(any(grepl("formal-glm public result failed", output,
+                        fixed = TRUE)))
+})
+
 test_that("formal public GLM results are read-only, bounded and redacted", {
   specs <- .formal_glm_public_result_specs()
   withr::local_options(list(dsvert.dp.formal_glm_public_results = specs))

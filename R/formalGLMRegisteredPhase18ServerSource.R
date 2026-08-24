@@ -136,18 +136,25 @@
     spec$data_name, "data binding")
   spec$patient_column <- .dsvert_formal_glm_registered_source_label(
     spec$patient_column, "patient column")
-  if (!is.list(spec$columns) || !length(spec$columns) ||
-      is.null(names(spec$columns)) || anyNA(names(spec$columns)) ||
-      any(!nzchar(names(spec$columns))) || anyDuplicated(names(spec$columns))) {
+  if (!is.list(spec$columns)) {
     .dsvert_formal_glm_registered_source_abort(
       "The configured formal-GLM column map is invalid.")
   }
-  names(spec$columns) <- vapply(
-    names(spec$columns), .dsvert_formal_glm_registered_source_label,
-    character(1L), what = "source column")
-  spec$columns <- stats::setNames(vapply(
-    spec$columns, .dsvert_formal_glm_registered_source_label,
-    character(1L), what = "physical column"), names(spec$columns))
+  if (!length(spec$columns)) {
+    spec$columns <- character()
+  } else {
+    if (is.null(names(spec$columns)) || anyNA(names(spec$columns)) ||
+        any(!nzchar(names(spec$columns))) || anyDuplicated(names(spec$columns))) {
+      .dsvert_formal_glm_registered_source_abort(
+        "The configured formal-GLM column map is invalid.")
+    }
+    names(spec$columns) <- vapply(
+      names(spec$columns), .dsvert_formal_glm_registered_source_label,
+      character(1L), what = "source column")
+    spec$columns <- stats::setNames(vapply(
+      spec$columns, .dsvert_formal_glm_registered_source_label,
+      character(1L), what = "physical column"), names(spec$columns))
+  }
   if (!identical(spec$source_name, source) ||
       anyDuplicated(unname(spec$columns)) ||
       spec$patient_column %in% unname(spec$columns) ||
@@ -210,7 +217,7 @@
       !identical(source_record$signer_peer_name, source) ||
       !identical(source_record$dataset_id, spec$dataset$id) ||
       !identical(source_record$dataset_version, spec$dataset$version) ||
-      !is.list(columns) || !length(columns) || !is.list(geometry) ||
+      !is.list(columns) || !is.list(geometry) ||
       length(geometry$total_capacity) != 1L ||
       is.na(suppressWarnings(as.integer(geometry$total_capacity))) ||
       as.integer(geometry$total_capacity) < 1L) {
@@ -233,8 +240,11 @@
         is.na(column$column)) return(NA_character_)
     column$column
   }, character(1L))
+  configured_columns <- names(spec$columns)
+  if (is.null(configured_columns)) configured_columns <- character()
   if (anyNA(logical_columns) || anyDuplicated(logical_columns) ||
-      !identical(logical_columns, names(spec$columns))) {
+      length(logical_columns) != length(spec$columns) ||
+      !identical(unname(logical_columns), configured_columns)) {
     .dsvert_formal_glm_registered_source_abort(
       "The configured formal-GLM column map differs from the authorization.")
   }
@@ -242,7 +252,8 @@
 }
 
 .dsvert_formal_glm_registered_source_snapshot <- function(
-    spec, expected_rows, source_environment) {
+    spec, expected_rows, source_contract_sha256, logical_snapshot_sha256,
+    source_environment) {
   if (!is.environment(source_environment)) {
     .dsvert_formal_glm_registered_source_abort(
       "The configured formal-GLM source environment is invalid.")
@@ -281,9 +292,28 @@
     .dsvert_formal_glm_registered_source_abort(
       "The configured formal-GLM snapshot is not the pinned PSI source.")
   }
+  manifest <- attr(data, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE)
+  if (!is.list(manifest) || !is.character(manifest$token) ||
+      length(manifest$token) != 1L || is.na(manifest$token) ||
+      !nzchar(manifest$token)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The configured formal-GLM snapshot lacks its private PSI binding.")
+  }
+  consensus <- digest::hmac(
+    key = manifest$token,
+    object = charToRaw(.dsvert_dp_canonical_json(list(
+      domain = "dsVert/formal-glm/registered-phase18/private-alignment-consensus/v1",
+      source_contract_sha256 = source_contract_sha256,
+      logical_snapshot_sha256 = logical_snapshot_sha256,
+      total_capacity = as.integer(expected_rows)))),
+    algo = "sha256", serialize = FALSE, raw = TRUE)
+  if (!is.raw(consensus) || length(consensus) != 32L) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The configured formal-GLM PSI consensus is invalid.")
+  }
   rows <- data[, unname(spec$columns), drop = FALSE]
   names(rows) <- names(spec$columns)
-  rows
+  list(rows = rows, consensus = consensus)
 }
 
 # Opens one configured registered source.  The resulting environment is kept
@@ -312,13 +342,266 @@
     source_contract_json, spec, source)
   capacity <- .dsvert_formal_glm_registered_source_authorization(
     projected, spec, source)
+  snapshot <- .dsvert_formal_glm_registered_source_snapshot(
+    spec, capacity, projected$value$source_contract_sha256,
+    projected$value$logical_snapshot_sha256, source_environment)
   context <- new.env(parent = emptyenv())
+  context$alignment_consensus <- snapshot$consensus
   context$authorization <- projected$value
   context$authorization_json <- projected$json
   context$contract_json <- source_contract_json
+  context$pins <- spec$pins
   context$source_name <- source
-  context$rows <- .dsvert_formal_glm_registered_source_snapshot(
-    spec, capacity, source_environment)
+  context$rows <- snapshot$rows
   class(context) <- .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_CONTEXT_CLASS
   context
+}
+
+.dsvert_formal_glm_registered_source_context <- function(value) {
+  fields <- c(
+    "alignment_consensus", "authorization", "authorization_json",
+    "contract_json", "pins", "rows", "source_name")
+  if (!is.environment(value) ||
+      !inherits(value, .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_CONTEXT_CLASS) ||
+      !identical(sort(ls(value, all.names = TRUE)), sort(fields)) ||
+      !is.raw(value$alignment_consensus) ||
+      length(value$alignment_consensus) != 32L ||
+      !is.list(value$authorization) || !is.list(value$pins) ||
+      !is.data.frame(value$rows)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The private registered formal-GLM source context is invalid.")
+  }
+  value
+}
+
+.dsvert_formal_glm_registered_source_block_index <- function(value, total) {
+  value <- suppressWarnings(as.integer(value))
+  if (length(value) != 1L || is.na(value) || value < 0L || value >= total) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM block index is invalid.")
+  }
+  value
+}
+
+.dsvert_formal_glm_registered_source_local_column <- function(
+    authorization, source, column) {
+  matches <- Filter(function(value) {
+    is.list(value) && identical(value$owner, source) &&
+      identical(value$column, column)
+  }, authorization$local_columns)
+  if (length(matches) != 1L) return(NULL)
+  matches[[1L]]
+}
+
+.dsvert_formal_glm_registered_source_numeric <- function(value) {
+  if (is.null(value) || is.factor(value) || is.object(value) ||
+      !is.atomic(value) || length(value) != 1L || is.na(value)) return(NULL)
+  tryCatch(.dsvert_formal_glm_phase18_rat(value),
+           error = function(error) NULL)
+}
+
+.dsvert_formal_glm_registered_source_quantize <- function(
+    value, lower, upper, fraction_bits) {
+  value <- .dsvert_formal_glm_registered_source_numeric(value)
+  if (is.null(value) || !is.character(lower) || length(lower) != 1L ||
+      !is.character(upper) || length(upper) != 1L) return(NULL)
+  tryCatch(.dsvert_formal_glm_phase18_rat_scaled_integer(
+    .dsvert_formal_glm_phase18_rat_round(
+      .dsvert_formal_glm_phase18_rat_clamp(value, lower, upper),
+      fraction_bits), fraction_bits), error = function(error) NULL)
+}
+
+.dsvert_formal_glm_registered_source_scale <- function(fraction_bits) {
+  bits <- suppressWarnings(as.integer(fraction_bits))
+  if (length(bits) != 1L || is.na(bits) || bits < 0L || bits > 256L) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM fraction lattice is invalid.")
+  }
+  as.character(.dsvert_formal_glm_phase18_bn(2) ^ bits)
+}
+
+.dsvert_formal_glm_registered_source_response <- function(
+    authorization, source) {
+  matches <- Filter(function(value) {
+    is.list(value) && identical(value$owner, source) &&
+      identical(value$role, "response")
+  }, authorization$local_columns)
+  if (length(matches) != 1L) return(NULL)
+  matches[[1L]]
+}
+
+# Converts one private, already-pinned block to canonical signed integer
+# coordinates.  Coordinates owned by another custodian, invalid rows and tail
+# padding remain exactly zero.  This helper does not encrypt, persist or emit
+# the block; the closed Go source command owns those operations.
+.dsvert_formal_glm_registered_source_block <- function(context, block_index) {
+  context <- .dsvert_formal_glm_registered_source_context(context)
+  authorization <- context$authorization
+  geometry <- authorization$geometry
+  science <- authorization$science
+  terms <- science$term_map
+  total <- suppressWarnings(as.integer(geometry$total_capacity))
+  block_capacity <- suppressWarnings(as.integer(geometry$block_capacity))
+  total_blocks <- suppressWarnings(as.integer(geometry$total_blocks))
+  coordinates <- suppressWarnings(as.integer(geometry$coordinate_count))
+  fraction_bits <- suppressWarnings(as.integer(science$fraction_bits))
+  owners <- unlist(geometry$coordinate_owners, use.names = FALSE)
+  if (!is.list(terms) || length(total) != 1L || length(block_capacity) != 1L ||
+      length(total_blocks) != 1L || length(coordinates) != 1L ||
+      length(fraction_bits) != 1L || anyNA(c(
+        total, block_capacity, total_blocks, coordinates, fraction_bits)) ||
+      total < 1L || block_capacity < 1L || total_blocks !=
+        ceiling(total / block_capacity) || coordinates != length(terms) + 3L ||
+      !is.character(owners) || length(owners) != coordinates ||
+      anyNA(owners) || any(!nzchar(owners))) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM block geometry is invalid.")
+  }
+  block_index <- .dsvert_formal_glm_registered_source_block_index(
+    block_index, total_blocks)
+  source <- context$source_name
+  scale <- .dsvert_formal_glm_registered_source_scale(fraction_bits)
+  values <- rep("0", block_capacity * coordinates)
+  validity <- rep(FALSE, block_capacity)
+  start <- block_index * block_capacity
+  raw_column <- function(column, row) {
+    if (!is.character(column) || length(column) != 1L ||
+        !column %in% names(context$rows)) return(NULL)
+    context$rows[[column]][[row]]
+  }
+  for (physical in seq_len(block_capacity)) {
+    global <- start + physical
+    if (global > total) next
+    row <- rep("0", coordinates)
+    valid <- TRUE
+    if (identical(owners[[1L]], source)) {
+      row[[1L]] <- scale
+    }
+    for (index in seq_along(terms)) {
+      coordinate <- index + 1L
+      if (!identical(owners[[coordinate]], source)) next
+      term <- terms[[index]]
+      if (!is.list(term) || !identical(term$index, index - 1L) ||
+          !is.character(term$kind) || length(term$kind) != 1L) {
+        valid <- FALSE
+      } else if (identical(term$kind, "intercept")) {
+        row[[coordinate]] <- scale
+      } else {
+        column <- .dsvert_formal_glm_registered_source_local_column(
+          authorization, source, term$source_column)
+        raw <- raw_column(term$source_column, global)
+        if (is.null(column)) {
+          valid <- FALSE
+        } else if (identical(term$kind, "numeric")) {
+          value <- .dsvert_formal_glm_registered_source_quantize(
+            raw, column$lower_rational, column$upper_rational, fraction_bits)
+          if (is.null(value)) valid <- FALSE else row[[coordinate]] <- value
+        } else if (identical(term$kind, "factor_level")) {
+          label <- if (is.null(raw) || length(raw) != 1L || is.na(raw)) {
+            NA_character_
+          } else enc2utf8(as.character(raw))
+          levels <- unlist(column$levels, use.names = FALSE)
+          if (!is.character(levels) || !length(levels) || anyNA(levels) ||
+              !identical(term$source_level %in% levels, TRUE) ||
+              is.na(label) || !label %in% levels) {
+            valid <- FALSE
+          } else if (identical(label, term$source_level)) {
+            row[[coordinate]] <- scale
+          }
+        } else valid <- FALSE
+      }
+    }
+    outcome_coordinate <- length(terms) + 2L
+    if (identical(owners[[outcome_coordinate]], source)) {
+      outcome <- .dsvert_formal_glm_registered_source_response(
+        authorization, source)
+      raw <- if (is.null(outcome)) NULL else raw_column(outcome$column, global)
+      rational <- .dsvert_formal_glm_registered_source_numeric(raw)
+      if (is.null(outcome) || is.null(rational)) {
+        valid <- FALSE
+      } else if (identical(science$family, "binomial")) {
+        if (.dsvert_formal_glm_phase18_rat_cmp(rational, "0") == 0L) {
+          row[[outcome_coordinate]] <- "0"
+        } else if (.dsvert_formal_glm_phase18_rat_cmp(rational, "1") == 0L) {
+          row[[outcome_coordinate]] <- scale
+        } else valid <- FALSE
+      } else if (identical(science$family, "poisson")) {
+        rounded <- .dsvert_formal_glm_phase18_rat_round(rational, 0L)
+        if (.dsvert_formal_glm_phase18_rat_cmp(rational, rounded) != 0L) {
+          valid <- FALSE
+        } else {
+          clipped <- .dsvert_formal_glm_phase18_rat_clamp(
+            rational, outcome$lower_rational, outcome$upper_rational)
+          value <- tryCatch(.dsvert_formal_glm_phase18_rat_scaled_integer(
+            clipped, fraction_bits), error = function(error) NULL)
+          if (is.null(value)) valid <- FALSE else row[[outcome_coordinate]] <- value
+        }
+      } else valid <- FALSE
+    }
+    if (!valid) row[] <- "0"
+    validity[[physical]] <- valid
+    offset <- (physical - 1L) * coordinates
+    values[offset + seq_len(coordinates)] <- row
+  }
+  list(
+    values = values, validity = validity,
+    private_consensus = gsub(
+      "[\r\n]", "", jsonlite::base64_enc(context$alignment_consensus)),
+    block_index = block_index, global_slot_offset = start)
+}
+
+.dsvert_formal_glm_registered_source_identity <- function(context) {
+  identity <- tryCatch(.get_identity_keypair(), error = function(error) NULL)
+  if (!is.list(identity) || !identical(names(identity),
+                                       c("identity_pk", "identity_sk")) ||
+      !is.character(identity$identity_pk) || length(identity$identity_pk) != 1L ||
+      !is.character(identity$identity_sk) || length(identity$identity_sk) != 1L ||
+      !identical(identity$identity_pk, context$pins[[context$source_name]]) ||
+      !identical(context$authorization$local_peer_identity$identity_pk,
+                 .dsvert_formal_glm_registered_source_b64url(
+                   identity$identity_pk))) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The local formal-GLM source signer does not match its authorization.")
+  }
+  identity
+}
+
+# Sends one already materialized local block to the closed Go ingress.  Tickets
+# are signed protocol records from the two designated compute peers; this
+# bridge does not mint them and cannot select a recipient, source, path or
+# protected value supplied by an analyst.
+.dsvert_formal_glm_registered_source_produce_block <- function(
+    context, recipient_tickets, block_index) {
+  context <- .dsvert_formal_glm_registered_source_context(context)
+  if (!is.list(recipient_tickets) || length(recipient_tickets) != 2L ||
+      !is.null(names(recipient_tickets))) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM recipient ticket set is invalid.")
+  }
+  block <- .dsvert_formal_glm_registered_source_block(context, block_index)
+  identity <- .dsvert_formal_glm_registered_source_identity(context)
+  response <- tryCatch(.callMpcTool(
+    "formal-glm-registered-phase18-source", list(
+      version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+      action = "produce", source_contract_json = context$contract_json,
+      pins = context$pins, local_peer_name = context$source_name,
+      local_signing_key = identity$identity_sk,
+      authorization_json = context$authorization_json,
+      recipient_tickets = recipient_tickets, block_index = block$block_index,
+      values = block$values, validity = block$validity,
+      private_consensus = block$private_consensus)),
+    error = function(error) NULL)
+  fields <- c("version", "source_receipt", "pair_json", "replayed")
+  if (!is.list(response) || !identical(names(response), fields) ||
+      !identical(response$version,
+                 "dsvert-formal-glm-registered-phase18-source-command-v1") ||
+      !is.list(response$source_receipt) ||
+      !is.character(response$pair_json) || length(response$pair_json) != 1L ||
+      !nzchar(response$pair_json) || !is.logical(response$replayed) ||
+      length(response$replayed) != 1L || is.na(response$replayed)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM source producer returned invalid output.")
+  }
+  list(source_receipt = response$source_receipt, pair_json = response$pair_json,
+       replayed = response$replayed)
 }

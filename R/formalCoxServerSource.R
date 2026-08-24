@@ -443,11 +443,12 @@
   response
 }
 
-# Server-internal recipient ingress for one delivery already committed by a
-# configured source. It receives no source frame, producer key or X25519
-# secret: Go reopens the recipient's ticket-bound Rock key and authenticates
-# the opaque delivery before accepting it.
-.dsvert_formal_cox_server_source_import_block <- function(
+# Builds the closed, recipient-local command for one already committed source
+# delivery.  It is intentionally private: the recipient signing key is passed
+# directly to the local Go process and never appears in a DSI request or a
+# return value.  Worker provisioning reuses this exact command, avoiding a
+# second schema/ticket validation path.
+.dsvert_formal_cox_server_source_import_command <- function(
     schema, block_capacity, run_id, recipient_tickets, delivery) {
   input <- .dsvert_formal_cox_server_source_recipient_command_input(
     schema, block_capacity, run_id)
@@ -473,7 +474,7 @@
       !is.list(delivery$binding) || !length(delivery$binding)) {
     .dsvert_formal_cox_abort("The formal Cox recipient delivery is invalid.")
   }
-  command <- list(
+  list(
     version = "dsvert-formal-cox-blockwise-source-import-command-v2",
     schema = input$schema,
     block_capacity = input$block_capacity,
@@ -483,6 +484,16 @@
     recipient_peer_name = input$recipient,
     recipient_signing_key = input$recipient_signing_key,
     delivery = delivery)
+}
+
+# Server-internal recipient ingress for one delivery already committed by a
+# configured source. It receives no source frame, producer key or X25519
+# secret: Go reopens the recipient's ticket-bound Rock key and authenticates
+# the opaque delivery before accepting it.
+.dsvert_formal_cox_server_source_import_block <- function(
+    schema, block_capacity, run_id, recipient_tickets, delivery) {
+  command <- .dsvert_formal_cox_server_source_import_command(
+    schema, block_capacity, run_id, recipient_tickets, delivery)
   response <- .callMpcTool("formal-cox-source-import", command)
   fields <- c(
     "version", "purpose", "receipt_sha256", "recipient_peer_name",
@@ -493,7 +504,7 @@
       !identical(response$purpose,
                  "formal-cox-recipient-encrypted-source-delivery-v1") ||
       !identical(response$receipt_sha256, delivery$receipt_sha256) ||
-      !identical(response$recipient_peer_name, input$recipient) ||
+      !identical(response$recipient_peer_name, command$recipient_peer_name) ||
       !is.logical(response$replayed) || length(response$replayed) != 1L ||
       is.na(response$replayed)) {
     .dsvert_formal_cox_abort("The formal Cox recipient import returned invalid output.")

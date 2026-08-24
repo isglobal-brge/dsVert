@@ -299,6 +299,34 @@ func TestFormalGLMRegisteredPhase21StageTaskK2K3K5(t *testing.T) {
 				t.Fatalf("candidate replay changed: %#v / %#v / %v",
 					replayCandidate, candidate, replayCandidateErr)
 			}
+			var localReleases [2]formalGLMPhase21RockLocalReleaseRecord
+			for index := range states {
+				release, releaseErr := formalGLMRegisteredPhase21VerifyCandidateV1(states[index])
+				if releaseErr != nil || release.ArtifactID != contract.ArtifactID ||
+					release.ProductionReady {
+					t.Fatalf("authority %d did not verify its candidate: %#v / %v",
+						index, release, releaseErr)
+				}
+				localReleases[index] = release
+			}
+			tamperedRelease := localReleases[1]
+			tamperedRelease.Binding.Signature = append([]byte(nil), localReleases[1].Binding.Signature...)
+			tamperedRelease.Binding.Signature[0] ^= 1
+			if err := formalGLMRegisteredPhase21ImportPeerLocalReleaseV1(
+				states[0], tamperedRelease); err == nil {
+				t.Fatal("authority accepted a tampered peer local release")
+			}
+			for index := range states {
+				if err := formalGLMRegisteredPhase21ImportPeerLocalReleaseV1(
+					states[index], localReleases[1-index]); err != nil {
+					t.Fatalf("authority %d did not import its peer local release: %v", index, err)
+				}
+				replay, replayErr := formalGLMRegisteredPhase21VerifyCandidateV1(states[index])
+				if replayErr != nil || !reflect.DeepEqual(replay, localReleases[index]) {
+					t.Fatalf("candidate verification replay %d changed: %#v / %#v / %v",
+						index, replay, localReleases[index], replayErr)
+				}
+			}
 		})
 	}
 }

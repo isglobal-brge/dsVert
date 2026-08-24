@@ -107,7 +107,8 @@ func formalGLMRegisteredPhase20JobControlPayloadValidV1(
 	case "negotiate":
 		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonInboundV1](payload)
 		return err == nil
-	case "start", "health", "job_ref", "heartbeat", "compute", "terminal":
+	case "start", "health", "job_ref", "heartbeat", "compute", "terminal",
+		"compute_start", "compute_status", "terminal_start", "terminal_status":
 		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](payload)
 		return err == nil
 	case "bind":

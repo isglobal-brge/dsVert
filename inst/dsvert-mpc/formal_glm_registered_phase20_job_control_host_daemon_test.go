@@ -199,60 +199,108 @@ func formalGLMRegisteredPhase20JobControlHostDaemonRunsFromPendingIngressV1(
 		go formalGLMRegisteredPhase20JobControlHostDaemonRelayLoopV1(
 			stop, clients[index], clients[1-index], refs[index], refs[1-index], relayErrs, relayDone)
 	}
-	completed := make(chan error, 2)
 	for index := range clients {
-		go func(index int) { completed <- clients[index].RunComputeV1() }(index)
+		status, startErr := clients[index].StartComputeV1()
+		if startErr != nil || (status.State != "running" && status.State != "complete") ||
+			status.ProductionReady || status.Commit != nil {
+			close(stop)
+			<-relayDone
+			<-relayDone
+			t.Fatalf("daemon %d compute start: %#v / %v", index, status, startErr)
+		}
 	}
-	for range clients {
-		select {
-		case err := <-completed:
-			if err != nil {
+	computeDeadline := time.After(90 * time.Second)
+	for {
+		complete := 0
+		for index := range clients {
+			status, statusErr := clients[index].ComputeStatusV1()
+			if statusErr != nil || status.State == "failed" || status.ProductionReady ||
+				status.Commit != nil {
 				close(stop)
 				<-relayDone
 				<-relayDone
-				t.Fatal(err)
+				t.Fatalf("daemon %d compute status: %#v / %v", index, status, statusErr)
 			}
+			if status.State == "complete" {
+				complete++
+			} else if status.State != "running" {
+				close(stop)
+				<-relayDone
+				<-relayDone
+				t.Fatalf("daemon %d invalid compute state: %#v", index, status)
+			}
+		}
+		if complete == len(clients) {
+			break
+		}
+		select {
 		case err := <-relayErrs:
 			close(stop)
 			<-relayDone
 			<-relayDone
 			t.Fatal(err)
-		case <-time.After(90 * time.Second):
+		case <-computeDeadline:
 			close(stop)
 			<-relayDone
 			<-relayDone
 			t.Fatal("daemon compute did not complete")
+		case <-time.After(time.Millisecond):
 		}
 	}
 
-	var commits [2]formalGLMPhase20HandoffCommit
-	terminalErrs := make(chan error, 2)
 	for index := range clients {
-		go func(index int) {
-			commit, err := clients[index].RunTerminalV1()
-			commits[index] = commit
-			terminalErrs <- err
-		}(index)
+		status, startErr := clients[index].StartTerminalV1()
+		if startErr != nil || (status.State != "running" && status.State != "complete") ||
+			status.ProductionReady || status.Commit != nil {
+			close(stop)
+			<-relayDone
+			<-relayDone
+			t.Fatalf("daemon %d terminal start: %#v / %v", index, status, startErr)
+		}
 	}
-	for range clients {
-		select {
-		case err := <-terminalErrs:
-			if err != nil {
+	var commits [2]formalGLMPhase20HandoffCommit
+	terminalDeadline := time.After(90 * time.Second)
+	for {
+		complete := 0
+		for index := range clients {
+			status, statusErr := clients[index].TerminalStatusV1()
+			if statusErr != nil || status.State == "failed" || status.ProductionReady {
 				close(stop)
 				<-relayDone
 				<-relayDone
-				t.Fatal(err)
+				t.Fatalf("daemon %d terminal status: %#v / %v", index, status, statusErr)
 			}
+			if status.State == "complete" {
+				if status.Commit == nil {
+					close(stop)
+					<-relayDone
+					<-relayDone
+					t.Fatalf("daemon %d terminal completion omitted the handoff commitment", index)
+				}
+				commits[index] = *status.Commit
+				complete++
+			} else if status.State != "running" || status.Commit != nil {
+				close(stop)
+				<-relayDone
+				<-relayDone
+				t.Fatalf("daemon %d invalid terminal state: %#v", index, status)
+			}
+		}
+		if complete == len(clients) {
+			break
+		}
+		select {
 		case err := <-relayErrs:
 			close(stop)
 			<-relayDone
 			<-relayDone
 			t.Fatal(err)
-		case <-time.After(90 * time.Second):
+		case <-terminalDeadline:
 			close(stop)
 			<-relayDone
 			<-relayDone
 			t.Fatal("daemon terminal did not complete")
+		case <-time.After(time.Millisecond):
 		}
 	}
 	close(stop)

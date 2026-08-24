@@ -39,6 +39,35 @@ test_that("registered formal GLM job control relays only a provisioned host", {
                    names(output)))
 })
 
+test_that("registered formal GLM job control admits only opaque task status", {
+  receipt <- .formal_glm_registered_job_control_receipt()
+  seen <- NULL
+  testthat::local_mocked_bindings(
+    .callMpcTool = function(command, input_data, simplify_output = TRUE) {
+      seen <<- list(command = command, input = input_data,
+                    simplify_output = simplify_output)
+      list(
+        version = "dsvert-formal-glm-registered-phase20-job-control-v1",
+        payload = list(state = "running", production_ready = FALSE))
+    },
+    .package = "dsVert")
+  output <- dsvertFormalGLMRegisteredJobControlDS(
+    receipt, "compute_status", structure(list(), names = character()))
+  expect_identical(seen, list(
+    command = "formal-glm-job-control",
+    input = list(
+      version = "dsvert-formal-glm-registered-phase20-job-control-v1",
+      peer = "site_a", artifact_id = strrep("a", 64L),
+      receipt_set_sha256 = strrep("b", 64L), action = "compute_status",
+      payload = structure(list(), names = character())),
+    simplify_output = FALSE))
+  expect_identical(output, list(
+    version = "dsvert-formal-glm-registered-phase20-job-control-response-v1",
+    action = "compute_status",
+    payload = list(state = "running", production_ready = FALSE),
+    production_ready = FALSE))
+})
+
 test_that("registered formal GLM job control validates its closed envelope", {
   receipt <- .formal_glm_registered_job_control_receipt()
   calls <- 0L

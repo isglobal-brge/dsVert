@@ -8,7 +8,8 @@
   "dsvert-formal-glm-registered-phase20-job-control-response-v1"
 .DSVERT_FORMAL_GLM_REGISTERED_JOB_CONTROL_MAX_BYTES <- 2L * 1024L * 1024L
 .DSVERT_FORMAL_GLM_REGISTERED_JOB_CONTROL_EMPTY_ACTIONS <- c(
-  "start", "health", "job_ref", "heartbeat", "compute", "terminal")
+  "start", "health", "job_ref", "heartbeat", "compute", "terminal",
+  "compute_start", "compute_status", "terminal_start", "terminal_status")
 .DSVERT_FORMAL_GLM_REGISTERED_JOB_CONTROL_ACTIONS <- c(
   "negotiate", .DSVERT_FORMAL_GLM_REGISTERED_JOB_CONTROL_EMPTY_ACTIONS,
   "bind", "poll", "relay")

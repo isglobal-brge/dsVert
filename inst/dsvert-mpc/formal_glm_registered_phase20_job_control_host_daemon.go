@@ -75,6 +75,29 @@ type formalGLMRegisteredPhase20JobControlHostDaemonRelayResultV1 struct {
 	Accepted int64 `json:"accepted"`
 }
 
+const (
+	formalGLMRegisteredPhase20JobControlTaskRunningV1  = "running"
+	formalGLMRegisteredPhase20JobControlTaskCompleteV1 = "complete"
+	formalGLMRegisteredPhase20JobControlTaskFailedV1   = "failed"
+)
+
+// The status is deliberately opaque about failures.  Transport and durable
+// stores hold the diagnostic state; the control channel exposes only whether
+// a single locally owned operation is still running, completed or failed.
+type formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1 struct {
+	State           string                         `json:"state"`
+	Commit          *formalGLMPhase20HandoffCommit `json:"commit,omitempty"`
+	ProductionReady bool                           `json:"production_ready"`
+}
+
+type formalGLMRegisteredPhase20JobControlHostDaemonTaskV1 struct {
+	running  bool
+	complete bool
+	failed   bool
+	commit   formalGLMPhase20HandoffCommit
+	done     chan struct{}
+}
+
 type formalGLMRegisteredPhase20JobControlHostDaemonV1 struct {
 	mu          sync.Mutex
 	host        *formalGLMRegisteredPhase20JobControlHostV1
@@ -86,6 +109,9 @@ type formalGLMRegisteredPhase20JobControlHostDaemonV1 struct {
 	listener    *net.UnixListener
 	closed      bool
 	connections sync.WaitGroup
+	tasks       sync.WaitGroup
+	compute     formalGLMRegisteredPhase20JobControlHostDaemonTaskV1
+	terminal    formalGLMRegisteredPhase20JobControlHostDaemonTaskV1
 	done        chan struct{}
 }
 
@@ -432,6 +458,162 @@ func formalGLMRegisteredPhase20JobControlHostDaemonResultFromOwnerV1(
 	}
 }
 
+func formalGLMRegisteredPhase20JobControlHostDaemonTaskSnapshotV1(
+	task formalGLMRegisteredPhase20JobControlHostDaemonTaskV1,
+) (formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1, error) {
+	if task.running {
+		return formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1{
+			State: formalGLMRegisteredPhase20JobControlTaskRunningV1,
+		}, nil
+	}
+	if task.complete {
+		status := formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1{
+			State: formalGLMRegisteredPhase20JobControlTaskCompleteV1,
+		}
+		if task.commit.SHA256 != "" {
+			commit := task.commit
+			status.Commit = &commit
+		}
+		return status, nil
+	}
+	if task.failed {
+		return formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1{
+			State: formalGLMRegisteredPhase20JobControlTaskFailedV1,
+		}, nil
+	}
+	return formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1{},
+		fmt.Errorf("formal-glm registered Phase20 job daemon: task not started")
+}
+
+func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) startComputeV1() (
+	formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1, error,
+) {
+	daemon.mu.Lock()
+	if daemon.closed || daemon.host == nil || daemon.terminal.running ||
+		daemon.terminal.complete || daemon.terminal.failed {
+		daemon.mu.Unlock()
+		return formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1{},
+			fmt.Errorf("formal-glm registered Phase20 job daemon: compute unavailable")
+	}
+	if daemon.compute.running || daemon.compute.complete || daemon.compute.failed {
+		status, err := formalGLMRegisteredPhase20JobControlHostDaemonTaskSnapshotV1(daemon.compute)
+		daemon.mu.Unlock()
+		return status, err
+	}
+	host := daemon.host
+	daemon.compute.running = true
+	daemon.compute.done = make(chan struct{})
+	daemon.tasks.Add(1)
+	daemon.mu.Unlock()
+	go func() {
+		err := host.RunComputeV1()
+		daemon.mu.Lock()
+		daemon.compute.running = false
+		daemon.compute.complete = err == nil
+		daemon.compute.failed = err != nil
+		close(daemon.compute.done)
+		daemon.mu.Unlock()
+		daemon.tasks.Done()
+	}()
+	return formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1{
+		State: formalGLMRegisteredPhase20JobControlTaskRunningV1,
+	}, nil
+}
+
+func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) computeStatusV1() (
+	formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1, error,
+) {
+	daemon.mu.Lock()
+	defer daemon.mu.Unlock()
+	if daemon.closed {
+		return formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1{},
+			fmt.Errorf("formal-glm registered Phase20 job daemon: closed")
+	}
+	return formalGLMRegisteredPhase20JobControlHostDaemonTaskSnapshotV1(daemon.compute)
+}
+
+func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) startTerminalV1() (
+	formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1, error,
+) {
+	daemon.mu.Lock()
+	if daemon.closed || daemon.host == nil || !daemon.compute.complete || daemon.compute.failed {
+		daemon.mu.Unlock()
+		return formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1{},
+			fmt.Errorf("formal-glm registered Phase20 job daemon: terminal unavailable")
+	}
+	if daemon.terminal.running || daemon.terminal.complete || daemon.terminal.failed {
+		status, err := formalGLMRegisteredPhase20JobControlHostDaemonTaskSnapshotV1(daemon.terminal)
+		daemon.mu.Unlock()
+		return status, err
+	}
+	host := daemon.host
+	daemon.terminal.running = true
+	daemon.terminal.done = make(chan struct{})
+	daemon.tasks.Add(1)
+	daemon.mu.Unlock()
+	go func() {
+		commit, err := host.RunTerminalV1()
+		daemon.mu.Lock()
+		daemon.terminal.running = false
+		daemon.terminal.complete = err == nil
+		daemon.terminal.failed = err != nil
+		if err == nil {
+			daemon.terminal.commit = commit
+		}
+		close(daemon.terminal.done)
+		daemon.mu.Unlock()
+		daemon.tasks.Done()
+	}()
+	return formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1{
+		State: formalGLMRegisteredPhase20JobControlTaskRunningV1,
+	}, nil
+}
+
+func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) terminalStatusV1() (
+	formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1, error,
+) {
+	daemon.mu.Lock()
+	defer daemon.mu.Unlock()
+	if daemon.closed {
+		return formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1{},
+			fmt.Errorf("formal-glm registered Phase20 job daemon: closed")
+	}
+	return formalGLMRegisteredPhase20JobControlHostDaemonTaskSnapshotV1(daemon.terminal)
+}
+
+func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) waitComputeV1() error {
+	if _, err := daemon.startComputeV1(); err != nil {
+		return err
+	}
+	daemon.mu.Lock()
+	done := daemon.compute.done
+	daemon.mu.Unlock()
+	<-done
+	status, err := daemon.computeStatusV1()
+	if err != nil || status.State != formalGLMRegisteredPhase20JobControlTaskCompleteV1 {
+		return fmt.Errorf("formal-glm registered Phase20 job daemon: compute failed")
+	}
+	return nil
+}
+
+func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) waitTerminalV1() (
+	formalGLMPhase20HandoffCommit, error,
+) {
+	var zero formalGLMPhase20HandoffCommit
+	if _, err := daemon.startTerminalV1(); err != nil {
+		return zero, err
+	}
+	daemon.mu.Lock()
+	done := daemon.terminal.done
+	daemon.mu.Unlock()
+	<-done
+	status, err := daemon.terminalStatusV1()
+	if err != nil || status.State != formalGLMRegisteredPhase20JobControlTaskCompleteV1 || status.Commit == nil {
+		return zero, fmt.Errorf("formal-glm registered Phase20 job daemon: terminal failed")
+	}
+	return *status.Commit, nil
+}
+
 func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) dispatchV1(
 	action string, encoded json.RawMessage,
 ) (json.RawMessage, error) {
@@ -514,7 +696,7 @@ func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) dispatchV1(
 		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(
 			formalGLMRegisteredPhase20JobControlHostDaemonRelayResultV1{Accepted: accepted})
 	case "compute":
-		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil || host.RunComputeV1() != nil {
+		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil || daemon.waitComputeV1() != nil {
 			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: compute failed")
 		}
 		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(struct{}{})
@@ -522,11 +704,47 @@ func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) dispatchV1(
 		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil {
 			return nil, err
 		}
-		commit, err := host.RunTerminalV1()
+		commit, err := daemon.waitTerminalV1()
 		if err != nil {
 			return nil, err
 		}
 		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(commit)
+	case "compute_start":
+		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil {
+			return nil, err
+		}
+		status, err := daemon.startComputeV1()
+		if err != nil {
+			return nil, err
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(status)
+	case "compute_status":
+		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil {
+			return nil, err
+		}
+		status, err := daemon.computeStatusV1()
+		if err != nil {
+			return nil, err
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(status)
+	case "terminal_start":
+		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil {
+			return nil, err
+		}
+		status, err := daemon.startTerminalV1()
+		if err != nil {
+			return nil, err
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(status)
+	case "terminal_status":
+		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil {
+			return nil, err
+		}
+		status, err := daemon.terminalStatusV1()
+		if err != nil {
+			return nil, err
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(status)
 	default:
 		return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: unsupported action")
 	}
@@ -677,9 +895,41 @@ func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) RunCompute
 	return client.callV1("compute", struct{}{}, nil)
 }
 
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) StartComputeV1() (
+	formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1, error,
+) {
+	var result formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1
+	err := client.callV1("compute_start", struct{}{}, &result)
+	return result, err
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) ComputeStatusV1() (
+	formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1, error,
+) {
+	var result formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1
+	err := client.callV1("compute_status", struct{}{}, &result)
+	return result, err
+}
+
 func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) RunTerminalV1() (formalGLMPhase20HandoffCommit, error) {
 	var result formalGLMPhase20HandoffCommit
 	err := client.callV1("terminal", struct{}{}, &result)
+	return result, err
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) StartTerminalV1() (
+	formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1, error,
+) {
+	var result formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1
+	err := client.callV1("terminal_start", struct{}{}, &result)
+	return result, err
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) TerminalStatusV1() (
+	formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1, error,
+) {
+	var result formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1
+	err := client.callV1("terminal_status", struct{}{}, &result)
 	return result, err
 }
 
@@ -706,6 +956,7 @@ func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) Close() error {
 	}
 	<-daemon.done
 	daemon.connections.Wait()
+	daemon.tasks.Wait()
 	var result error
 	if socketPath != "" {
 		if info, err := os.Lstat(socketPath); err == nil {

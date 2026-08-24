@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -59,8 +60,11 @@ func formalGLMRegisteredPhase20JobControlHostComputeRelayV1(
 	}
 }
 
-func TestFormalGLMRegisteredPhase20JobControlHostRunsK2FromPendingIngress(t *testing.T) {
-	fixture := formalGLMRegisteredPhase20JobComputeTestBuild(t, 2, 9)
+func formalGLMRegisteredPhase20JobControlHostRunsFromPendingIngressV1(
+	t *testing.T, custodians int,
+) {
+	t.Helper()
+	fixture := formalGLMRegisteredPhase20JobComputeTestBuild(t, custodians, 9)
 	for index := range fixture.roots {
 		formalGLMRegisteredPhase20JobIngressBridgeTestPersistPendingV1(t, fixture, index)
 		if err := fixture.owners[index].Close(); err != nil {
@@ -246,5 +250,13 @@ func TestFormalGLMRegisteredPhase20JobControlHostRunsK2FromPendingIngress(t *tes
 			status.selected.OpeningsPerformed != 0 || status.selected.ProductionReady {
 			t.Fatalf("host %d terminal status: %#v / %v", index, status, statusErr)
 		}
+	}
+}
+
+func TestFormalGLMRegisteredPhase20JobControlHostRunsK2K3K5FromPendingIngress(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+			formalGLMRegisteredPhase20JobControlHostRunsFromPendingIngressV1(t, custodians)
+		})
 	}
 }

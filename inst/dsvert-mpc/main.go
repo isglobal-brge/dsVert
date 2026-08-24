@@ -94,6 +94,10 @@ func main() {
 		handleFormalCoxPublicResultV1()
 	case "formal-glm-phase18-source-project":
 		handleFormalGLMPhase18SourceProjectV1()
+	// Server-local provisioning for one durable formal-GLM job host. The
+	// bootstrap is a signed custodian record, not an analyst-selected API.
+	case "formal-glm-job-host-provision":
+		handleFormalGLMRegisteredPhase20JobControlHostProvisionV1()
 	// Closed, server-directed relay for the signed formal-Cox blockwise
 	// lifecycle. The family-typed command derives every record from Rock.
 	case "formal-cox-control-source":

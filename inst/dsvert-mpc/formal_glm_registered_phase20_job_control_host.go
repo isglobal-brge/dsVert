@@ -42,6 +42,7 @@ type formalGLMRegisteredPhase20JobControlHostV1 struct {
 	owner                *formalGLMRegisteredPhase20JobOwnerV1
 	publication          *formalGLMRegisteredPhase21PublicationContextV1
 	samplerAuthorityRoot [32]byte
+	stage                *formalGLMRegisteredPhase21StageTaskV1
 	closed               bool
 	closeDone            chan struct{}
 }
@@ -543,12 +544,17 @@ func (host *formalGLMRegisteredPhase20JobControlHostV1) Close() error {
 	host.closed = true
 	owner := host.owner
 	publication := host.publication
+	stage := host.stage
 	host.owner = nil
 	host.publication = nil
+	host.stage = nil
 	clear(host.samplerAuthorityRoot[:])
 	host.closeDone = make(chan struct{})
 	done := host.closeDone
 	host.mu.Unlock()
+	if stage != nil {
+		_ = stage.abortV1()
+	}
 	host.ops.Wait()
 	defer close(done)
 	if owner == nil {

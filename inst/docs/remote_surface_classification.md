@@ -9,8 +9,8 @@ The current client/server registration contract is internally complete:
 
 | Check | Result |
 |---|---:|
-| Registered `*DS` endpoints | 90 |
-| Direct `call(name = "...")` endpoints | 180 |
+| Registered `*DS` endpoints | 91 |
+| Direct `call(name = "...")` endpoints | 183 |
 | `as.call()` / `as.name()` exact-GC endpoints | 13 |
 | Dynamically named endpoints behind one closed runtime allowlist | 1 |
 | Unregistered endpoint names retained below guarded/test-only client code | 107 |
@@ -29,7 +29,7 @@ scalar Count capsule/ledger phases are now hard-deleted. The seven generic
 scalar control-plane frontdoors and their endpoint-only DSI adapters are also
 hard-deleted; the remaining R closures stay internal solely for source
 compatibility and focused regression tests. None is exported or remotely
-invocable. All 90
+invocable. All 91
 endpoints that remain registered belong to the promoted purpose-bound
 allowlist and have a product call builder after resolving literal calls, seven
 `as.call()` / `as.name()` constructions and the closed dynamic branch. The
@@ -158,7 +158,7 @@ and is rejected during service bootstrap and Opal allowlist reconciliation.
 
 | Class | Count | Meaning |
 |---|---:|---|
-| Production-safe / purpose-bound | 90 | Fixed status/schema, padded PSI, complete stateless Count, Frequency and Synopsis execution, typed-store, transport, capsule manifest/source, cross-owner checked-vector-multiplication, bounded registered-formal-GLM source ingress, the closed provisioned formal-GLM host relay, and read-only completed formal-model certificate routes admitted by the default guard |
+| Production-safe / purpose-bound | 91 | Fixed status/schema, padded PSI, complete stateless Count, Frequency and Synopsis execution, typed-store, transport, capsule manifest/source, cross-owner checked-vector-multiplication, bounded registered-formal-GLM source ingress, the selector-bound fresh formal-GLM source relay, the closed provisioned formal-GLM host relay, and read-only completed formal-model certificate routes admitted by the default guard |
 | Retired diagnostic/migration internals | 3 | A data-free source probe plus generic exact-GC bind and GLM softplus helpers; unregistered, unexported and test-only or locally guarded |
 | Retired quarantined compatibility internals | 102 | Legacy exact/MPC endpoints, including the lifetime-gated vector lifecycle, below stable local frontdoor errors; unregistered, unexported and carrying no DP or non-reconstruction claim |
 | Registered orphan/dangerous candidates | 0 | Every registered endpoint is promoted and consumed |
@@ -256,7 +256,7 @@ includes:
 - test-only data mutation helpers for injected NAs, synthetic survival,
   quartiles, factors and clusters.
 
-The executable tests assert this exact set, the exact 90-endpoint registration
+The executable tests assert this exact set, the exact 91-endpoint registration
 allowlist and all guarded public frontdoors. Merely leaving one of these
 functions defined in package source does not make it a DataSHIELD endpoint.
 The removed legacy PSI functions, `psiGetMatchedIndicesDS`,

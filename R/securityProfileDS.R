@@ -140,6 +140,7 @@
   "dsvertFormalGLMControlSourceDS",
   "dsvertFormalGLMPublicResultDS",
   "dsvertFormalGLMRegisteredSourceDS",
+  "dsvertFormalGLMRegisteredFreshSourceDS",
   "dsvertFormalGLMRegisteredJobControlDS",
   "dsvertFormalCoxPublicResultDS",
   "dsvertFormalCoxDiscretePublicResultDS",

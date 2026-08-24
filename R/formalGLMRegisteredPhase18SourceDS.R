@@ -13,6 +13,12 @@
   "ticket", "ticket_set", "seal_block", "chunk", "import_chunk",
   "local_receipt", "receipt_commit", "receipt_set", "binding",
   "host_provision")
+.DSVERT_FORMAL_GLM_REGISTERED_FRESH_SOURCE_DS_VERSION <-
+  "dsvert-formal-glm-registered-fresh-source-response-v1"
+.DSVERT_FORMAL_GLM_REGISTERED_ANALYSIS_SPECS_OPTION <-
+  "dsvert.formal_glm.registered_analysis_specs"
+.DSVERT_FORMAL_GLM_REGISTERED_ANALYSIS_SPEC_VERSION <-
+  "dsvert-formal-glm-registered-analysis-spec-v1"
 
 .dsvert_formal_glm_registered_source_ds_abort <- function(
     message = "The registered formal-GLM source request is unavailable.",
@@ -140,6 +146,69 @@
   payload
 }
 
+.dsvert_formal_glm_registered_fresh_source_selector <- function(
+    analysis_id, data_name, family, formula_sha256) {
+  valid_label <- function(value) {
+    is.character(value) && length(value) == 1L && !is.na(value) &&
+      grepl("^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$", value)
+  }
+  if (!valid_label(analysis_id) || !valid_label(data_name) ||
+      !is.character(family) || length(family) != 1L || is.na(family) ||
+      !family %in% c("binomial", "poisson") ||
+      !is.character(formula_sha256) || length(formula_sha256) != 1L ||
+      is.na(formula_sha256) || !grepl("^[0-9a-f]{64}$", formula_sha256)) {
+    .dsvert_formal_glm_registered_source_ds_abort(
+      "The registered formal-GLM fresh-analysis selector is invalid.",
+      "invalid_formal_glm_registered_fresh_selector")
+  }
+  list(
+    analysis_id = enc2utf8(analysis_id), data_name = enc2utf8(data_name),
+    family = family, formula_sha256 = formula_sha256)
+}
+
+.dsvert_formal_glm_registered_fresh_source_spec <- function(selector) {
+  specs <- getOption(.DSVERT_FORMAL_GLM_REGISTERED_ANALYSIS_SPECS_OPTION)
+  if (!is.list(specs) || is.null(names(specs)) || anyNA(names(specs)) ||
+      any(!nzchar(names(specs))) || anyDuplicated(names(specs))) {
+    .dsvert_formal_glm_registered_source_ds_abort(
+      "The registered formal-GLM fresh-analysis registry is invalid.",
+      "invalid_formal_glm_registered_fresh_registry")
+  }
+  valid_names <- vapply(names(specs), function(value) {
+    is.character(value) && length(value) == 1L &&
+      grepl("^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$", value)
+  }, logical(1L))
+  if (!all(valid_names)) {
+    .dsvert_formal_glm_registered_source_ds_abort(
+      "The registered formal-GLM fresh-analysis registry is invalid.",
+      "invalid_formal_glm_registered_fresh_registry")
+  }
+  value <- specs[[selector$analysis_id]]
+  fields <- c("version", "analysis_id", "data_name", "family",
+              "formula_sha256", "source_contract_json")
+  if (is.null(value) || !is.list(value) || is.null(names(value)) ||
+      anyNA(names(value)) || anyDuplicated(names(value)) ||
+      !identical(names(value), fields) ||
+      !identical(value$version, .DSVERT_FORMAL_GLM_REGISTERED_ANALYSIS_SPEC_VERSION) ||
+      !identical(value$analysis_id, selector$analysis_id) ||
+      !identical(value$data_name, selector$data_name) ||
+      !identical(value$family, selector$family) ||
+      !identical(value$formula_sha256, selector$formula_sha256) ||
+      !is.character(value$source_contract_json) ||
+      length(value$source_contract_json) != 1L ||
+      is.na(value$source_contract_json) ||
+      nchar(value$source_contract_json, type = "bytes") < 2L ||
+      nchar(value$source_contract_json, type = "bytes") >
+        .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_DS_MAX_CONTRACT_BYTES ||
+      !identical(enc2utf8(value$source_contract_json),
+                 value$source_contract_json)) {
+    .dsvert_formal_glm_registered_source_ds_abort(
+      "The requested registered formal-GLM fresh analysis is unavailable.",
+      "invalid_formal_glm_registered_fresh_registry")
+  }
+  value
+}
+
 .dsvert_formal_glm_registered_source_ds_dispatch <- function(
     context, action, payload) {
   switch(action,
@@ -201,6 +270,46 @@ dsvertFormalGLMRegisteredSourceDS <- function(
   if (is.null(response)) .dsvert_formal_glm_registered_source_ds_abort()
   list(
     version = .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_DS_VERSION,
+    action = action,
+    payload = .dsvert_formal_glm_registered_source_ds_safe(response),
+    production_ready = FALSE)
+}
+
+#' Relay one configured fresh registered-formal-GLM source action
+#'
+#' The analyst supplies only the fixed registered analysis selector.  The
+#' signed source contract remains solely in the custodian's Rock-local
+#' configuration; this endpoint never return it, a source row, a key, or a
+#' full encrypted pair.
+#'
+#' @param analysis_id Custodian-configured registered analysis id.
+#' @param data_name Fixed configured data selector.
+#' @param family Either `"binomial"` or `"poisson"`.
+#' @param formula_sha256 Canonical formula selector.
+#' @param action One closed source action.
+#' @param payload Action-specific protocol payload.
+#' @return A bounded non-production protocol reply.
+#' @export
+dsvertFormalGLMRegisteredFreshSourceDS <- function(
+    analysis_id, data_name, family, formula_sha256, action, payload) {
+  selector <- .dsvert_formal_glm_registered_fresh_source_selector(
+    analysis_id, data_name, family, formula_sha256)
+  spec <- .dsvert_formal_glm_registered_fresh_source_spec(selector)
+  if (!is.character(action) || length(action) != 1L || is.na(action) ||
+      !action %in% .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_DS_ACTIONS) {
+    .dsvert_formal_glm_registered_source_ds_abort(
+      "The registered formal-GLM fresh source action is invalid.",
+      "invalid_formal_glm_registered_fresh_action")
+  }
+  payload <- .dsvert_formal_glm_registered_source_ds_payload(action, payload)
+  response <- tryCatch({
+    context <- .dsvert_formal_glm_registered_source_open(
+      spec$source_contract_json, parent.frame())
+    .dsvert_formal_glm_registered_source_ds_dispatch(context, action, payload)
+  }, error = function(error) NULL)
+  if (is.null(response)) .dsvert_formal_glm_registered_source_ds_abort()
+  list(
+    version = .DSVERT_FORMAL_GLM_REGISTERED_FRESH_SOURCE_DS_VERSION,
     action = action,
     payload = .dsvert_formal_glm_registered_source_ds_safe(response),
     production_ready = FALSE)

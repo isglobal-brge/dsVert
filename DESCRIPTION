@@ -148,6 +148,7 @@ AggregateMethods:
     dsvertDPGaussianCrossFinalizeDS,
     dsvertFormalGLMPublicResultDS,
     dsvertFormalGLMRegisteredSourceDS,
+    dsvertFormalGLMRegisteredFreshSourceDS,
     dsvertFormalGLMRegisteredJobControlDS,
     dsvertFormalCoxPublicResultDS,
     dsvertFormalCoxDiscretePublicResultDS

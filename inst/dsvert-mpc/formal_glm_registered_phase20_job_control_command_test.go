@@ -5,7 +5,91 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 )
+
+func TestFormalGLMRegisteredPhase20JobControlHostCommandServesProvisionedHealth(t *testing.T) {
+	fixture := newFormalGLMRegisteredPhase20JobControlTestFixtureV1(t)
+	config := formalGLMRegisteredPhase20JobControlHostTestConfigV1(t, fixture, 1)
+	formalGLMRegisteredPhase20JobControlHostTestReleaseFixtureV1(t, fixture)
+	encodedProvision, err := json.Marshal(formalGLMRegisteredPhase20JobControlHostProvisionV1{
+		Version: formalGLMRegisteredPhase20JobControlHostProvisionVersionV1,
+		Config:  config,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(encodedProvision)
+	receipt, err := formalGLMRegisteredPhase20JobControlHostProvisionRunAtRootV1(
+		encodedProvision, fixture.roots[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	stop := make(chan struct{})
+	ready := make(chan struct{})
+	finished := make(chan error, 1)
+	go func() {
+		finished <- runFormalGLMRegisteredPhase20JobControlHostAtRootV1(
+			receipt.Peer, receipt.ArtifactID, receipt.ReceiptSetSHA256,
+			fixture.roots[1], stop, ready)
+	}()
+	stopped := false
+	t.Cleanup(func() {
+		if !stopped {
+			close(stop)
+			select {
+			case err := <-finished:
+				if err != nil {
+					t.Errorf("host command shutdown: %v", err)
+				}
+			case <-time.After(5 * time.Second):
+				t.Error("host command did not stop")
+			}
+		}
+	})
+	select {
+	case <-ready:
+	case err := <-finished:
+		t.Fatalf("host command stopped before ready: %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("host command did not become ready")
+	}
+	payload, err := json.Marshal(struct{}{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	command, err := json.Marshal(formalGLMRegisteredPhase20JobControlCommandV1{
+		Version:          formalGLMRegisteredPhase20JobControlCommandVersionV1,
+		Peer:             receipt.Peer,
+		ArtifactID:       receipt.ArtifactID,
+		ReceiptSetSHA256: receipt.ReceiptSetSHA256,
+		Action:           "health",
+		Payload:          payload,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(command)
+	response, err := formalGLMRegisteredPhase20JobControlRunAtRootV1(
+		command, fixture.roots[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var health struct{}
+	if err := formalGLMPhase21RockStrictDecode(response.Payload, &health); err != nil {
+		t.Fatalf("host command health=%#v / %v", response, err)
+	}
+	close(stop)
+	stopped = true
+	select {
+	case err := <-finished:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("host command did not stop")
+	}
+}
 
 func TestFormalGLMRegisteredPhase20JobControlUsesProvisionedHost(t *testing.T) {
 	fixture := newFormalGLMRegisteredPhase20JobControlTestFixtureV1(t)

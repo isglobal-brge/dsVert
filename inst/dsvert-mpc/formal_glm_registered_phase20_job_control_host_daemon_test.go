@@ -46,6 +46,9 @@ func TestFormalGLMRegisteredPhase20JobControlHostDaemonK2(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(client.Close)
+	if err := client.HealthV1(); err != nil {
+		t.Fatalf("authenticated health check failed: %v", err)
+	}
 	wrongKey := sha256.Sum256([]byte(t.Name() + "/wrong-control-key"))
 	wrong, err := newFormalGLMRegisteredPhase20JobControlHostDaemonClientV1(
 		socketPath, wrongKey[:])
@@ -73,6 +76,9 @@ func TestFormalGLMRegisteredPhase20JobControlHostDaemonK2(t *testing.T) {
 	}
 	if _, err := os.Lstat(socketDir); !os.IsNotExist(err) {
 		t.Fatalf("daemon socket directory survived close: %v", err)
+	}
+	if err := client.HealthV1(); err == nil {
+		t.Fatal("closed daemon passed a health check")
 	}
 	if _, err := client.NegotiateV1(nil); err == nil {
 		t.Fatal("closed daemon accepted another control frame")

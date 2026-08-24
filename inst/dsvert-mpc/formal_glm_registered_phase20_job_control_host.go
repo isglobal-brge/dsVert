@@ -178,6 +178,17 @@ func (host *formalGLMRegisteredPhase20JobControlHostV1) StartOrInspectV1() (
 	return owner.StartOrInspectV1()
 }
 
+// HealthV1 proves only that this private host is still open.  It deliberately
+// does not advance the worker, transport, heartbeat or attempt state.
+func (host *formalGLMRegisteredPhase20JobControlHostV1) HealthV1() error {
+	_, done, err := host.beginOpV1()
+	if err != nil {
+		return err
+	}
+	done()
+	return nil
+}
+
 func formalGLMRegisteredPhase20JobControlHostIngressBridgeV1(
 	owner *formalGLMRegisteredPhase20JobOwnerV1,
 ) (*formalGLMRegisteredPhase20JobIngressBridgeV1, error) {

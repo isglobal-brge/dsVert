@@ -41,22 +41,41 @@ func TestFormalGLMRegisteredPhase20JobControlUsesProvisionedHost(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = daemon.Close() })
 
-	payload, err := json.Marshal(formalGLMRegisteredPhase20JobControlHostDaemonInboundV1{})
+	payload, err := json.Marshal(struct{}{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	command, err := json.Marshal(formalGLMRegisteredPhase20JobControlCommandV1{
+	commandValue := formalGLMRegisteredPhase20JobControlCommandV1{
 		Version:          formalGLMRegisteredPhase20JobControlCommandVersionV1,
 		Peer:             receipt.Peer,
 		ArtifactID:       receipt.ArtifactID,
 		ReceiptSetSHA256: receipt.ReceiptSetSHA256,
-		Action:           "negotiate",
+		Action:           "health",
 		Payload:          payload,
-	})
+	}
+	command, err := json.Marshal(commandValue)
 	if err != nil {
 		t.Fatal(err)
 	}
 	response, err := formalGLMRegisteredPhase20JobControlRunAtRootV1(
+		command, fixture.roots[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var health struct{}
+	if err := formalGLMPhase21RockStrictDecode(response.Payload, &health); err != nil {
+		t.Fatalf("control health=%#v / %v", response, err)
+	}
+	commandValue.Action = "negotiate"
+	commandValue.Payload, err = json.Marshal(formalGLMRegisteredPhase20JobControlHostDaemonInboundV1{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	command, err = json.Marshal(commandValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err = formalGLMRegisteredPhase20JobControlRunAtRootV1(
 		command, fixture.roots[1])
 	if err != nil {
 		t.Fatal(err)

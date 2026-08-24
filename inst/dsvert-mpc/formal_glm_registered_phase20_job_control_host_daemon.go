@@ -463,6 +463,14 @@ func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) dispatchV1(
 		}
 		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(
 			formalGLMRegisteredPhase20JobControlHostDaemonResultFromOwnerV1(result))
+	case "health":
+		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil {
+			return nil, err
+		}
+		if err := host.HealthV1(); err != nil {
+			return nil, err
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(struct{}{})
 	case "job_ref":
 		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil {
 			return nil, err
@@ -620,6 +628,10 @@ func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) StartOrIns
 	var result formalGLMRegisteredPhase20JobControlHostDaemonResultV1
 	err := client.callV1("start", struct{}{}, &result)
 	return result, err
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) HealthV1() error {
+	return client.callV1("health", struct{}{}, nil)
 }
 
 func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) JobRefV1() (formalGLMRegisteredPhase20JobControlHostDaemonJobRefV1, error) {

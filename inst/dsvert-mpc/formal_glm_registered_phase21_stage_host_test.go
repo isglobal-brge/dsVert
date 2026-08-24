@@ -410,6 +410,21 @@ func TestFormalGLMRegisteredPhase21StageTaskK2K3K5(t *testing.T) {
 			if replayAckErr != nil || !reflect.DeepEqual(replayAck, ack) {
 				t.Fatalf("publication ACK replay changed: %#v / %#v / %v", replayAck, ack, replayAckErr)
 			}
+			tamperedAck := ack
+			tamperedAck.Proof.Signature = append([]byte(nil), ack.Proof.Signature...)
+			tamperedAck.Proof.Signature[0] ^= 1
+			if err := formalGLMRegisteredPhase21ImportPeerAckV1(states[1], tamperedAck, publication); err == nil {
+				t.Fatal("peer accepted a tampered ACK")
+			}
+			if err := formalGLMRegisteredPhase21ImportPeerAckV1(states[1], ack, publication); err != nil {
+				t.Fatalf("peer did not import ACK: %v", err)
+			}
+			for index := range states {
+				cleanup, cleanupErr := formalGLMRegisteredPhase21CleanupAfterAckV1(states[index], publication)
+				if cleanupErr != nil || cleanup.ProductionReady {
+					t.Fatalf("authority %d cleanup: %#v / %v", index, cleanup, cleanupErr)
+				}
+			}
 		})
 	}
 }

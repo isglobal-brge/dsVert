@@ -48,6 +48,32 @@ func formalFinalizerHandoffTestSHA(label string) string {
 	return hex.EncodeToString(digest[:])
 }
 
+func TestFormalFinalizerHandoffAuthorityLockBusyIsTyped(t *testing.T) {
+	directory := t.TempDir()
+	firstRoot, err := os.OpenRoot(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer firstRoot.Close()
+	secondRoot, err := os.OpenRoot(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer secondRoot.Close()
+	artifactID := formalFinalizerHandoffTestSHA(t.Name())
+	first, err := formalFinalizerHandoffAcquireAuthorityLock(firstRoot, artifactID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = formalFinalizerHandoffUnlockAuthority(first)
+		_ = first.Close()
+	}()
+	if _, err := formalFinalizerHandoffAcquireAuthorityLock(secondRoot, artifactID); !errors.Is(err, errFormalFinalizerHandoffAuthorityLockBusy) {
+		t.Fatalf("second authority lock error=%v; want typed busy", err)
+	}
+}
+
 func formalFinalizerHandoffTestFixtureForK(t *testing.T, custodians int,
 	family string,
 ) formalFinalizerHandoffTestFixture {

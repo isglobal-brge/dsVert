@@ -15,6 +15,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -53,6 +54,9 @@ const (
 	formalFinalizerHandoffRockRoot   = "/srv/dsvert-synopsis"
 	formalFinalizerHandoffStateRoot  = "/srv/dsvert-synopsis/formal-finalizer-handoff-v1"
 )
+
+var errFormalFinalizerHandoffAuthorityLockBusy = errors.New(
+	"typed-finalizer-handoff: authority lock busy")
 
 type formalFinalizerHandoffFamilyCapability struct {
 	Family       string   `json:"family"`
@@ -1132,7 +1136,12 @@ func formalFinalizerHandoffAcquireAuthorityLock(root *os.Root,
 			return fail()
 		}
 		if err := formalFinalizerHandoffTryAuthorityLock(file); err != nil {
-			return fail()
+			_ = file.Close()
+			if formalFinalizerHandoffAuthorityLockBusyV1(err) {
+				return nil, fmt.Errorf("%w: %v",
+					errFormalFinalizerHandoffAuthorityLockBusy, err)
+			}
+			return nil, fmt.Errorf("typed-finalizer-handoff: unsafe authority lock")
 		}
 		return file, nil
 	}

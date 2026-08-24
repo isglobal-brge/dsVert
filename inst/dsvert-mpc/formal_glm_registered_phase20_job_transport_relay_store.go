@@ -34,6 +34,9 @@ const (
 	formalGLMRegisteredPhase20JobRelayFailedKindV1  = "failed_closed"
 )
 
+var errFormalGLMRegisteredPhase20JobRelayLockBusyV1 = errors.New(
+	"formal-glm registered Phase20 relay store: relay lock busy")
+
 type formalGLMRegisteredPhase20JobRelayRangeV1 struct {
 	Start         int64  `json:"start"`
 	End           int64  `json:"end"`
@@ -563,7 +566,10 @@ func (store *formalGLMRegisteredPhase20JobTransportRelayStoreV1) acquireRelayLoc
 	lock, err := formalFinalizerHandoffAcquireAuthorityLock(
 		store.scratch, store.ref.TransportSHA256)
 	if err != nil {
-		return nil, fmt.Errorf("formal-glm registered Phase20 relay store: relay lock busy")
+		if errors.Is(err, errFormalFinalizerHandoffAuthorityLockBusy) {
+			return nil, fmt.Errorf("%w", errFormalGLMRegisteredPhase20JobRelayLockBusyV1)
+		}
+		return nil, fmt.Errorf("formal-glm registered Phase20 relay store: relay lock unavailable")
 	}
 	return lock, nil
 }

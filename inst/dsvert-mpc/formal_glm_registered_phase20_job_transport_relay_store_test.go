@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -36,7 +37,7 @@ func TestFormalGLMRegisteredPhase20JobTransportRelayLockHelperProcess(
 	lock, err := store.acquireRelayLockV1()
 	if err != nil {
 		_ = root.Close()
-		if strings.Contains(err.Error(), "lock busy") {
+		if errors.Is(err, errFormalGLMRegisteredPhase20JobRelayLockBusyV1) {
 			os.Exit(23)
 		}
 		os.Exit(24)

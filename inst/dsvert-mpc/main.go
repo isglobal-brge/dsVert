@@ -94,6 +94,11 @@ func main() {
 		handleFormalCoxPublicResultV1()
 	case "formal-glm-phase18-source-project":
 		handleFormalGLMPhase18SourceProjectV1()
+	// Closed local source ingress for the registered Phase18 path.  R invokes
+	// this only from owner-local code after it has validated a signed source
+	// contract; no DataSHIELD request can name this command's private inputs.
+	case "formal-glm-registered-phase18-source":
+		handleFormalGLMRegisteredPhase18SourceCommandV1()
 	// Server-local provisioning for one durable formal-GLM job host. The
 	// bootstrap is a signed custodian record, not an analyst-selected API.
 	case "formal-glm-job-host-provision":

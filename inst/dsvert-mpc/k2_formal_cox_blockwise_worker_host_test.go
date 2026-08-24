@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -144,6 +145,27 @@ func TestFormalCoxBlockwiseWorkerHostAttachesLiveK2K3K5(t *testing.T) {
 				if _, err := os.Lstat(paths[index]); !os.IsNotExist(err) {
 					t.Fatalf("host %d retained sensitive config: %v", index, err)
 				}
+				opened, err := os.OpenRoot(filepath.Join(root, peer))
+				if err != nil {
+					t.Fatal(err)
+				}
+				burned, burnErr := formalCoxBlockwiseWorkerHostBurnedAtRoot(
+					opened, filepath.Join(root, peer), paths[index], configs[index])
+				closeErr := opened.Close()
+				if burnErr != nil || closeErr != nil || !burned {
+					t.Fatalf("host %d burn = %v / %v / %t", index, burnErr, closeErr, burned)
+				}
+				provision, err := json.Marshal(formalCoxBlockwiseWorkerProvisionCommand{
+					Version: formalCoxBlockwiseWorkerProvisionVersion, Config: configs[index],
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := formalCoxBlockwiseWorkerProvisionRunAtRoot(provision, root, false); err == nil {
+					clear(provision)
+					t.Fatalf("host %d allowed reprovision after burn", index)
+				}
+				clear(provision)
 			}
 			firstAttachment := formalCoxBlockwiseWorkerAttachmentPath(paths[0])
 			secondAttachment := formalCoxBlockwiseWorkerAttachmentPath(paths[1])

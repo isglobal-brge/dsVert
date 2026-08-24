@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -93,6 +94,28 @@ func TestFormalCoxBlockwiseWorkerProvisionK2K3K5(t *testing.T) {
 					replayed.PlanSHA256 != first.PlanSHA256 ||
 					replayed.AttemptID != first.AttemptID {
 					t.Fatalf("replayed provision %s = %+v / %v", peer, replayed, err)
+				}
+				burnPath := formalCoxBlockwiseWorkerHostBurnPath(path)
+				burnRelative, err := filepath.Rel(filepath.Join(root, peer), burnPath)
+				if err != nil || filepath.IsAbs(burnRelative) || burnRelative == "." {
+					t.Fatalf("burn relative path %s = %q / %v", peer, burnRelative, err)
+				}
+				burn, err := formalCoxBlockwiseWorkerHostBurnRecord(config)
+				if err != nil {
+					t.Fatal(err)
+				}
+				opened, err := os.OpenRoot(filepath.Join(root, peer))
+				if err != nil {
+					t.Fatal(err)
+				}
+				burned, burnErr := formalGLMPhase21RootCreateRecord(opened, burnRelative, burn)
+				closeErr := opened.Close()
+				clear(burn)
+				if burnErr != nil || closeErr != nil || !burned {
+					t.Fatalf("burn worker provision %s = %v / %v / %t", peer, burnErr, closeErr, burned)
+				}
+				if _, err := formalCoxBlockwiseWorkerProvisionRunAtRoot(encoded, root, false); err == nil {
+					t.Fatalf("worker provision %s reopened a burned attempt", peer)
 				}
 			}
 		})

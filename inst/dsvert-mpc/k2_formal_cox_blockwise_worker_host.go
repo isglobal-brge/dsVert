@@ -19,13 +19,25 @@ import (
 const (
 	formalCoxBlockwiseWorkerHostConfigVersion  = "dsvert-formal-cox-blockwise-worker-host-v1"
 	formalCoxBlockwiseWorkerHostControlVersion = "dsvert-formal-cox-blockwise-worker-control-v1"
+	formalCoxBlockwiseWorkerHostBurnVersion    = "dsvert-formal-cox-blockwise-worker-host-burn-v1"
 	formalCoxBlockwiseWorkerHostDir            = "formal-cox-blockwise-worker-host-v1"
+	formalCoxBlockwiseWorkerHostBurnFile       = "worker-started.json"
 	formalCoxBlockwiseWorkerHostMax            = 16 << 20
 )
 
 type formalCoxBlockwiseWorkerHostConfig struct {
 	Version   string                                   `json:"version"`
 	Bootstrap formalCoxBlockwiseWorkerBootstrapCommand `json:"bootstrap"`
+}
+
+// The burn record is a one-way boundary: the sensitive config is consumed by
+// exactly one host, and a subsequent provision must negotiate a new attempt
+// rather than reviving the same exact-GC owner.
+type formalCoxBlockwiseWorkerHostBurn struct {
+	Version    string `json:"version"`
+	PeerName   string `json:"peer_name"`
+	PlanSHA256 string `json:"plan_sha256"`
+	AttemptID  string `json:"attempt_id"`
 }
 
 type formalCoxBlockwiseWorkerControlCommand struct {
@@ -92,6 +104,93 @@ func formalCoxBlockwiseWorkerHostConfigPath(stateRoot string,
 }
 
 func formalCoxBlockwiseWorkerHostConfigDir(path string) string { return filepath.Dir(path) }
+
+func formalCoxBlockwiseWorkerHostBurnPath(configPath string) string {
+	return filepath.Join(formalCoxBlockwiseWorkerHostConfigDir(configPath),
+		formalCoxBlockwiseWorkerHostBurnFile)
+}
+
+func formalCoxBlockwiseWorkerHostBurnRecord(
+	config formalCoxBlockwiseWorkerHostConfig,
+) ([]byte, error) {
+	_, peer, attempt, planSHA, err := formalCoxBlockwiseWorkerHostIdentity(config)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(formalCoxBlockwiseWorkerHostBurn{
+		Version:  formalCoxBlockwiseWorkerHostBurnVersion,
+		PeerName: peer, PlanSHA256: planSHA, AttemptID: fmt.Sprintf("%x", attempt),
+	})
+}
+
+func formalCoxBlockwiseWorkerHostBurnRelativePath(rootPath, configPath string) (string, error) {
+	relative, err := filepath.Rel(rootPath,
+		formalCoxBlockwiseWorkerHostBurnPath(configPath))
+	if err != nil || filepath.IsAbs(relative) || relative == "." ||
+		filepath.Clean(relative) != relative {
+		return "", fmt.Errorf("formal-cox: invalid worker host burn location")
+	}
+	return relative, nil
+}
+
+func formalCoxBlockwiseWorkerHostBurnedAtRoot(root *os.Root, rootPath, configPath string,
+	config formalCoxBlockwiseWorkerHostConfig,
+) (bool, error) {
+	if root == nil {
+		return false, fmt.Errorf("formal-cox: invalid worker host burn root")
+	}
+	relative, err := formalCoxBlockwiseWorkerHostBurnRelativePath(rootPath, configPath)
+	if err != nil {
+		return false, err
+	}
+	persisted, err := formalGLMPhase21RootReadRecord(root, relative,
+		formalCoxBlockwiseWorkerHostMax)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("formal-cox: unreadable worker host burn")
+	}
+	defer clear(persisted)
+	want, err := formalCoxBlockwiseWorkerHostBurnRecord(config)
+	if err != nil {
+		return false, err
+	}
+	defer clear(want)
+	if !bytes.Equal(persisted, want) {
+		return false, fmt.Errorf("formal-cox: conflicting worker host burn")
+	}
+	return true, nil
+}
+
+func formalCoxBlockwiseWorkerHostBurnAtRoot(root *os.Root, rootPath, configPath string,
+	config formalCoxBlockwiseWorkerHostConfig,
+) (bool, error) {
+	if root == nil {
+		return false, fmt.Errorf("formal-cox: invalid worker host burn root")
+	}
+	relative, err := formalCoxBlockwiseWorkerHostBurnRelativePath(rootPath, configPath)
+	if err != nil {
+		return false, err
+	}
+	want, err := formalCoxBlockwiseWorkerHostBurnRecord(config)
+	if err != nil {
+		return false, err
+	}
+	defer clear(want)
+	created, err := formalGLMPhase21RootCreateRecord(root, relative, want)
+	if err != nil || created {
+		return created, err
+	}
+	if burned, readErr := formalCoxBlockwiseWorkerHostBurnedAtRoot(
+		root, rootPath, configPath, config); readErr != nil || !burned {
+		if readErr != nil {
+			return false, readErr
+		}
+		return false, fmt.Errorf("formal-cox: conflicting worker host burn")
+	}
+	return false, nil
+}
 
 func formalCoxBlockwiseWorkerHostReadConfigAtRoot(path, stateRoot string,
 	production bool,
@@ -166,6 +265,21 @@ func runFormalCoxBlockwiseWorkerHostAtRoot(path, stateRoot string, production bo
 		return fmt.Errorf("formal-cox: worker attachment does not match config")
 	}
 	rootPath := filepath.Join(stateRoot, peer)
+	root, err := os.OpenRoot(rootPath)
+	if err != nil {
+		return err
+	}
+	burned, burnErr := formalCoxBlockwiseWorkerHostBurnAtRoot(root, rootPath, path, config)
+	closeErr := root.Close()
+	if burnErr != nil {
+		return burnErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if !burned {
+		return fmt.Errorf("formal-cox: worker host attempt is already started")
+	}
 	if err := formalTypedFinalizerLifecycleRemoveConfig(path, rootPath); err != nil {
 		return err
 	}

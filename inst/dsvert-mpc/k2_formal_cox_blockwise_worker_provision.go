@@ -244,6 +244,13 @@ func formalCoxBlockwiseWorkerProvisionRunAtRoot(encoded []byte, stateRoot string
 		filepath.Clean(relative) != relative {
 		return zero, fmt.Errorf("formal-cox: invalid worker provision path")
 	}
+	if burned, burnErr := formalCoxBlockwiseWorkerHostBurnedAtRoot(
+		root, rootPath, path, command.Config); burnErr != nil || burned {
+		if burnErr != nil {
+			return zero, burnErr
+		}
+		return zero, fmt.Errorf("formal-cox: worker provision is burned")
+	}
 	configJSON, err := json.Marshal(command.Config)
 	if err != nil {
 		return zero, err
@@ -265,6 +272,13 @@ func formalCoxBlockwiseWorkerProvisionRunAtRoot(encoded []byte, stateRoot string
 			return zero, fmt.Errorf("formal-cox: conflicting worker provision")
 		}
 		clear(persisted)
+	}
+	if burned, burnErr := formalCoxBlockwiseWorkerHostBurnedAtRoot(
+		root, rootPath, path, command.Config); burnErr != nil || burned {
+		if burnErr != nil {
+			return zero, burnErr
+		}
+		return zero, fmt.Errorf("formal-cox: worker provision is burned")
 	}
 	descriptor, err := formalCoxBlockwiseWorkerAttachmentForConfig(command.Config)
 	if err != nil {
@@ -297,6 +311,13 @@ func formalCoxBlockwiseWorkerProvisionRunAtRoot(encoded []byte, stateRoot string
 			return zero, fmt.Errorf("formal-cox: conflicting worker attachment")
 		}
 		clear(persisted)
+	}
+	if burned, burnErr := formalCoxBlockwiseWorkerHostBurnedAtRoot(
+		root, rootPath, path, command.Config); burnErr != nil || burned {
+		if burnErr != nil {
+			return zero, burnErr
+		}
+		return zero, fmt.Errorf("formal-cox: worker provision is burned")
 	}
 	if _, err := formalCoxBlockwiseWorkerHostReadConfigAtRoot(path, stateRoot, production); err != nil {
 		return zero, err

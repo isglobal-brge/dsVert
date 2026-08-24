@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -19,23 +20,21 @@ func TestFormalGLMRegisteredPhase20JobControlHostDaemonK2(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	socketDir, err := os.MkdirTemp("/tmp", "dsvert-glm-daemon-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.RemoveAll(socketDir) })
-	if err := os.Chmod(socketDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
 	key := sha256.Sum256([]byte(t.Name() + "/control-key"))
 	daemon, err := newFormalGLMRegisteredPhase20JobControlHostDaemonV1(
-		host, socketDir, key[:])
+		host, key[:])
 	if err != nil {
 		_ = host.Close()
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = host.Close() })
 	t.Cleanup(func() { _ = daemon.Close() })
 	socketPath := daemon.SocketPathV1()
+	socketDir := filepath.Dir(socketPath)
+	if info, statErr := os.Lstat(socketDir); statErr != nil || !info.IsDir() ||
+		info.Mode().Perm() != 0o700 || !formalFinalizerHandoffPrivateOwnedDirectory(info) {
+		t.Fatalf("daemon created an unsafe transient socket directory: %q / %v", socketDir, statErr)
+	}
 
 	if encoded, marshalErr := json.Marshal(daemon); marshalErr != nil ||
 		!bytes.Equal(encoded, []byte(`{}`)) {
@@ -71,6 +70,9 @@ func TestFormalGLMRegisteredPhase20JobControlHostDaemonK2(t *testing.T) {
 	}
 	if _, err := os.Lstat(socketPath); !os.IsNotExist(err) {
 		t.Fatalf("daemon socket survived close: %v", err)
+	}
+	if _, err := os.Lstat(socketDir); !os.IsNotExist(err) {
+		t.Fatalf("daemon socket directory survived close: %v", err)
 	}
 	if _, err := client.NegotiateV1(nil); err == nil {
 		t.Fatal("closed daemon accepted another control frame")
@@ -128,24 +130,14 @@ func formalGLMRegisteredPhase20JobControlHostDaemonRunsFromPendingIngressV1(
 		if err != nil {
 			t.Fatal(err)
 		}
-		socketDir, err := os.MkdirTemp("/tmp", "dsvert-glm-job-")
-		if err != nil {
-			_ = host.Close()
-			t.Fatal(err)
-		}
-		if err := os.Chmod(socketDir, 0o700); err != nil {
-			_ = host.Close()
-			_ = os.RemoveAll(socketDir)
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { _ = os.RemoveAll(socketDir) })
 		key := sha256.Sum256([]byte(t.Name() + "/control/" + string(rune('0'+index))))
-		daemon, err := newFormalGLMRegisteredPhase20JobControlHostDaemonV1(host, socketDir, key[:])
+		daemon, err := newFormalGLMRegisteredPhase20JobControlHostDaemonV1(host, key[:])
 		if err != nil {
 			_ = host.Close()
 			t.Fatal(err)
 		}
 		daemons[index] = daemon
+		t.Cleanup(func() { _ = host.Close() })
 		t.Cleanup(func() { _ = daemon.Close() })
 		client, err := newFormalGLMRegisteredPhase20JobControlHostDaemonClientV1(
 			daemon.SocketPathV1(), key[:])

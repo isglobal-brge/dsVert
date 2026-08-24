@@ -24,6 +24,7 @@ const (
 	formalGLMRegisteredPhase20JobControlHostDaemonVersionV1 = "dsvert-formal-glm-registered-phase20-job-control-host-daemon-v1"
 	formalGLMRegisteredPhase20JobControlHostDaemonDomainV1  = "dsVert/formal-glm/registered-phase20/job-control-host-daemon/v1"
 	formalGLMRegisteredPhase20JobControlHostDaemonMaxV1     = 2 << 20
+	formalGLMRegisteredPhase20JobControlHostDaemonSocketV1  = ".j"
 )
 
 type formalGLMRegisteredPhase20JobControlHostDaemonRequestV1 struct {
@@ -151,53 +152,39 @@ func formalGLMRegisteredPhase20JobControlHostDaemonDecodeV1[T any](
 	return zero, nil
 }
 
-func formalGLMRegisteredPhase20JobControlHostDaemonPrivateDirV1(
-	directory string,
-) (*os.Root, os.FileInfo, error) {
-	if !filepath.IsAbs(directory) || filepath.Clean(directory) != directory {
-		return nil, nil, fmt.Errorf("formal-glm registered Phase20 job daemon: invalid socket directory")
+// Unix-domain sockets are transient transport endpoints, not protocol state.
+// They must stay short enough for sockaddr_un, so the daemon owns a private
+// temporary directory and removes it with the listener. All durable state and
+// every secret remain in the host's Rock stores.
+func formalGLMRegisteredPhase20JobControlHostDaemonPrivateDirV1() (
+	string, *os.Root, os.FileInfo, error,
+) {
+	directory, err := os.MkdirTemp("", "dsvert-glm-job-")
+	if err != nil || os.Chmod(directory, 0o700) != nil {
+		if directory != "" {
+			_ = os.RemoveAll(directory)
+		}
+		return "", nil, nil, fmt.Errorf("formal-glm registered Phase20 job daemon: unsafe socket directory")
 	}
 	info, err := os.Lstat(directory)
 	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 ||
 		info.Mode().Perm() != 0o700 || !formalFinalizerHandoffPrivateOwnedDirectory(info) {
-		return nil, nil, fmt.Errorf("formal-glm registered Phase20 job daemon: unsafe socket directory")
+		_ = os.RemoveAll(directory)
+		return "", nil, nil, fmt.Errorf("formal-glm registered Phase20 job daemon: unsafe socket directory")
 	}
 	root, err := os.OpenRoot(directory)
 	if err != nil {
-		return nil, nil, fmt.Errorf("formal-glm registered Phase20 job daemon: unsafe socket directory")
+		_ = os.RemoveAll(directory)
+		return "", nil, nil, fmt.Errorf("formal-glm registered Phase20 job daemon: unsafe socket directory")
 	}
 	opened, err := root.Stat(".")
 	if err != nil || !os.SameFile(info, opened) || !opened.IsDir() ||
 		opened.Mode().Perm() != 0o700 || !formalFinalizerHandoffPrivateOwnedDirectory(opened) {
 		_ = root.Close()
-		return nil, nil, fmt.Errorf("formal-glm registered Phase20 job daemon: socket directory changed")
+		_ = os.RemoveAll(directory)
+		return "", nil, nil, fmt.Errorf("formal-glm registered Phase20 job daemon: socket directory changed")
 	}
-	return root, opened, nil
-}
-
-func formalGLMRegisteredPhase20JobControlHostDaemonSocketNameV1(
-	host *formalGLMRegisteredPhase20JobControlHostV1,
-) (string, error) {
-	if host == nil {
-		return "", fmt.Errorf("formal-glm registered Phase20 job daemon: host unavailable")
-	}
-	host.mu.Lock()
-	owner := host.owner
-	closed := host.closed
-	host.mu.Unlock()
-	if closed || owner == nil {
-		return "", fmt.Errorf("formal-glm registered Phase20 job daemon: host unavailable")
-	}
-	owner.mu.Lock()
-	start := owner.start
-	owner.mu.Unlock()
-	if !formalGLMIsSHA256(start.ArtifactID) || !formalGLMIsSHA256(start.ReceiptSetSHA256) {
-		return "", fmt.Errorf("formal-glm registered Phase20 job daemon: invalid host identity")
-	}
-	digest := sha256.Sum256([]byte(
-		formalGLMRegisteredPhase20JobControlHostDaemonDomainV1 + "|" +
-			start.ArtifactID + "|" + start.ReceiptSetSHA256))
-	return "formal-glm-job-" + hex.EncodeToString(digest[:8]) + ".sock", nil
+	return directory, root, opened, nil
 }
 
 func formalGLMRegisteredPhase20JobControlHostDaemonSocketValidV1(
@@ -220,37 +207,37 @@ func formalGLMRegisteredPhase20JobControlHostDaemonSocketValidV1(
 }
 
 func newFormalGLMRegisteredPhase20JobControlHostDaemonV1(
-	host *formalGLMRegisteredPhase20JobControlHostV1, socketDir string, controlKey []byte,
+	host *formalGLMRegisteredPhase20JobControlHostV1, controlKey []byte,
 ) (*formalGLMRegisteredPhase20JobControlHostDaemonV1, error) {
 	if host == nil || len(controlKey) != sha256.Size {
 		return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: invalid configuration")
 	}
-	name, err := formalGLMRegisteredPhase20JobControlHostDaemonSocketNameV1(host)
+	socketDir, root, info, err := formalGLMRegisteredPhase20JobControlHostDaemonPrivateDirV1()
 	if err != nil {
 		return nil, err
 	}
-	root, info, err := formalGLMRegisteredPhase20JobControlHostDaemonPrivateDirV1(socketDir)
-	if err != nil {
-		return nil, err
-	}
-	path := filepath.Join(socketDir, name)
+	path := filepath.Join(socketDir, formalGLMRegisteredPhase20JobControlHostDaemonSocketV1)
 	if len(path) >= 100 {
 		_ = root.Close()
+		_ = os.Remove(socketDir)
 		return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: socket path too long")
 	}
 	if _, err := os.Lstat(path); !os.IsNotExist(err) {
 		_ = root.Close()
+		_ = os.Remove(socketDir)
 		return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: socket already exists")
 	}
 	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
 	if err != nil {
 		_ = root.Close()
+		_ = os.Remove(socketDir)
 		return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: socket unavailable")
 	}
 	if err := os.Chmod(path, 0o600); err != nil {
 		_ = listener.Close()
 		_ = os.Remove(path)
 		_ = root.Close()
+		_ = os.Remove(socketDir)
 		return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: unsafe socket")
 	}
 	daemon := &formalGLMRegisteredPhase20JobControlHostDaemonV1{
@@ -262,6 +249,7 @@ func newFormalGLMRegisteredPhase20JobControlHostDaemonV1(
 		_ = listener.Close()
 		_ = os.Remove(path)
 		_ = root.Close()
+		_ = os.Remove(socketDir)
 		clear(daemon.key)
 		return nil, err
 	}
@@ -644,7 +632,7 @@ func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) Close() error {
 	daemon.closed = true
 	listener, host := daemon.listener, daemon.host
 	daemon.listener, daemon.host = nil, nil
-	socketPath, root := daemon.socketPath, daemon.socketRoot
+	socketPath, socketDir, root := daemon.socketPath, daemon.socketDir, daemon.socketRoot
 	daemon.mu.Unlock()
 	if listener != nil {
 		_ = listener.Close()
@@ -665,6 +653,11 @@ func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) Close() error {
 	}
 	if root != nil {
 		if err := root.Close(); result == nil && err != nil {
+			result = err
+		}
+	}
+	if socketDir != "" {
+		if err := os.Remove(socketDir); result == nil && err != nil && !os.IsNotExist(err) {
 			result = err
 		}
 	}

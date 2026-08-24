@@ -373,6 +373,14 @@ func TestFormalGLMRegisteredPhase21StageTaskK2K3K5(t *testing.T) {
 			if replayAuthorizationErr != nil || !reflect.DeepEqual(replayAuthorization, evaluatorAuthorization) {
 				t.Fatalf("evaluator authorization replay changed: %#v / %#v / %v", replayAuthorization, evaluatorAuthorization, replayAuthorizationErr)
 			}
+			publication, publicationErr := formalGLMRegisteredPhase21RunPublicationReadyV1(states[0])
+			if publicationErr != nil || publication.ArtifactID != contract.ArtifactID || publication.ProductionReady {
+				t.Fatalf("finalizer did not prepare publication: %#v / %v", publication, publicationErr)
+			}
+			replayPublication, replayPublicationErr := formalGLMRegisteredPhase21RunPublicationReadyV1(states[0])
+			if replayPublicationErr != nil || !reflect.DeepEqual(replayPublication, publication) {
+				t.Fatalf("publication replay changed: %#v / %#v / %v", replayPublication, publication, replayPublicationErr)
+			}
 		})
 	}
 }

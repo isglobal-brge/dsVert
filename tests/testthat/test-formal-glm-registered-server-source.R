@@ -604,6 +604,7 @@ test_that("registered formal GLM source provisions no worker input or result", {
         version = "dsvert-formal-glm-registered-phase18-source-command-v1",
         job_host_receipt = receipt, replayed = TRUE)
     },
+    .dsvert_formal_glm_registered_source_job_host_healthy = function(...) TRUE,
     .package = "dsVert")
   withr::local_options(list(
     dsvert.peer_name = "site_a",
@@ -615,6 +616,65 @@ test_that("registered formal GLM source provisions no worker input or result", {
     .dsvert_formal_glm_registered_source_provision_job_host(context),
     list(job_host_receipt = receipt, replayed = TRUE))
   expect_identical(calls, 1L)
+})
+
+test_that("registered formal GLM source controls only a provisioned live host", {
+  receipt <- list(
+    version = "dsvert-formal-glm-registered-phase20-job-host-provision-v1",
+    peer = "site_a", artifact_id = strrep("a", 64L),
+    receipt_set_sha256 = strrep("b", 64L), config_sha256 = strrep("c", 64L),
+    replayed = TRUE, production_ready = FALSE)
+  command <- NULL
+  testthat::local_mocked_bindings(
+    .callMpcTool = function(name, input) {
+      command <<- list(name = name, input = input)
+      list(version = "dsvert-formal-glm-registered-phase20-job-control-v1",
+           payload = structure(list(), names = character()))
+    },
+    .package = "dsVert")
+  expect_true(.dsvert_formal_glm_registered_source_job_host_healthy(receipt))
+  expect_identical(command$name, "formal-glm-job-control")
+  expect_identical(command$input, list(
+    version = "dsvert-formal-glm-registered-phase20-job-control-v1",
+    peer = "site_a", artifact_id = strrep("a", 64L),
+    receipt_set_sha256 = strrep("b", 64L), action = "health",
+    payload = structure(list(), names = character())))
+  expect_error(.dsvert_formal_glm_registered_source_job_host_healthy(
+    utils::modifyList(receipt, list(config_sha256 = "not-a-digest"))),
+    class = "dsvert_formal_glm_registered_source_error")
+})
+
+test_that("registered formal GLM source starts a host only after failed health", {
+  receipt <- list(
+    version = "dsvert-formal-glm-registered-phase20-job-host-provision-v1",
+    peer = "site_a", artifact_id = strrep("a", 64L),
+    receipt_set_sha256 = strrep("b", 64L), config_sha256 = strrep("c", 64L),
+    replayed = FALSE, production_ready = FALSE)
+  checks <- 0L
+  launches <- 0L
+  output <- .dsvert_formal_glm_registered_source_ensure_job_host(
+    list(job_host_receipt = receipt, replayed = FALSE),
+    .healthy = function(value) {
+      expect_identical(value, receipt)
+      checks <<- checks + 1L
+      checks >= 2L
+    },
+    .launch = function(value) {
+      expect_identical(value, receipt)
+      launches <<- launches + 1L
+      TRUE
+    })
+  expect_identical(output, list(job_host_receipt = receipt, replayed = FALSE))
+  expect_identical(checks, 2L)
+  expect_identical(launches, 1L)
+  expect_error(.dsvert_formal_glm_registered_source_ensure_job_host(
+    list(job_host_receipt = receipt, replayed = FALSE),
+    .healthy = function(...) FALSE, .launch = function(...) FALSE),
+    class = "dsvert_formal_glm_registered_source_error")
+  expect_error(.dsvert_formal_glm_registered_source_ensure_job_host(
+    list(job_host_receipt = receipt, replayed = TRUE),
+    .healthy = function(...) TRUE),
+    class = "dsvert_formal_glm_registered_source_error")
 })
 
 test_that("registered formal GLM source clamps numeric terms and expands factors", {

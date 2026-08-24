@@ -782,19 +782,39 @@
       pins = context$pins, local_peer_name = context$source_name,
       local_signing_key = identity$identity_sk)), error = function(error) NULL)
   fields <- c("version", "job_host_receipt", "replayed")
-  receipt_fields <- c(
-    "version", "peer", "artifact_id", "receipt_set_sha256", "config_sha256",
-    "replayed", "production_ready")
   receipt <- if (is.list(response)) response$job_host_receipt else NULL
   if (!is.list(response) || !identical(names(response), fields) ||
       !identical(response$version,
                  "dsvert-formal-glm-registered-phase18-source-command-v1") ||
-      !is.list(receipt) || !identical(names(receipt), receipt_fields) ||
-      !is.character(receipt$version) || length(receipt$version) != 1L ||
-	  !identical(receipt$version,
-	             "dsvert-formal-glm-registered-phase20-job-host-provision-v1") ||
+      !is.logical(response$replayed) || length(response$replayed) != 1L ||
+      is.na(response$replayed)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM host provisioner returned invalid output.")
+  }
+  receipt <- .dsvert_formal_glm_registered_source_job_host_receipt(
+    receipt, context$source_name)
+  if (!identical(response$replayed, receipt$replayed)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM host provisioner returned invalid output.")
+  }
+  .dsvert_formal_glm_registered_source_ensure_job_host(
+    list(job_host_receipt = receipt, replayed = response$replayed))
+}
+
+# Validates the public selector issued by the Rock-local provisioner.  It is
+# deliberately not a capability: the control command reloads and authenticates
+# its private bootstrap from Rock.
+.dsvert_formal_glm_registered_source_job_host_receipt <- function(receipt,
+                                                                  peer = NULL) {
+  fields <- c(
+    "version", "peer", "artifact_id", "receipt_set_sha256", "config_sha256",
+    "replayed", "production_ready")
+  if (!is.list(receipt) || !identical(names(receipt), fields) ||
+      !identical(receipt$version,
+                 "dsvert-formal-glm-registered-phase20-job-host-provision-v1") ||
       !is.character(receipt$peer) || length(receipt$peer) != 1L ||
-      !identical(receipt$peer, context$source_name) ||
+      (is.character(peer) && length(peer) == 1L && !is.na(peer) &&
+       !identical(receipt$peer, peer)) ||
       !is.character(receipt$artifact_id) || length(receipt$artifact_id) != 1L ||
       !grepl("^[0-9a-f]{64}$", receipt$artifact_id) ||
       !is.character(receipt$receipt_set_sha256) ||
@@ -803,13 +823,78 @@
       !is.character(receipt$config_sha256) || length(receipt$config_sha256) != 1L ||
       !grepl("^[0-9a-f]{64}$", receipt$config_sha256) ||
       !is.logical(receipt$replayed) || length(receipt$replayed) != 1L ||
-      is.na(receipt$replayed) || !identical(receipt$production_ready, FALSE) ||
-      !is.logical(response$replayed) || length(response$replayed) != 1L ||
-      is.na(response$replayed) || !identical(response$replayed, receipt$replayed)) {
+      is.na(receipt$replayed) || !identical(receipt$production_ready, FALSE)) {
     .dsvert_formal_glm_registered_source_abort(
       "The registered formal-GLM host provisioner returned invalid output.")
   }
-  list(job_host_receipt = receipt, replayed = response$replayed)
+  receipt
+}
+
+# The short-lived control command proves liveness without mutating the host.
+# Keep its request exact so Go can reject non-canonical or widened payloads.
+.dsvert_formal_glm_registered_source_job_host_healthy <- function(receipt) {
+  receipt <- .dsvert_formal_glm_registered_source_job_host_receipt(receipt)
+  response <- tryCatch(.callMpcTool("formal-glm-job-control", list(
+    version = "dsvert-formal-glm-registered-phase20-job-control-v1",
+    peer = receipt$peer, artifact_id = receipt$artifact_id,
+    receipt_set_sha256 = receipt$receipt_set_sha256,
+    action = "health", payload = structure(list(), names = character()))),
+    error = function(error) NULL)
+  is.list(response) && identical(names(response), c("version", "payload")) &&
+    identical(response$version,
+              "dsvert-formal-glm-registered-phase20-job-control-v1") &&
+    identical(response$payload, structure(list(), names = character()))
+}
+
+# Starts only a provisioned host selected by its public receipt.  The process
+# handle is intentionally discarded: liveness and later control are always
+# reattached through the authenticated Rock-derived control channel.
+.dsvert_formal_glm_registered_source_launch_job_host <- function(receipt) {
+  receipt <- .dsvert_formal_glm_registered_source_job_host_receipt(receipt)
+  binary <- tryCatch(.findMpcBinary(), error = function(error) NULL)
+  if (!is.character(binary) || length(binary) != 1L || is.na(binary) ||
+      !file.exists(binary)) return(FALSE)
+  started <- tryCatch({
+    processx::process$new(
+      binary, c("formal-glm-job-host", receipt$peer, receipt$artifact_id,
+                receipt$receipt_set_sha256),
+      env = "current", stdout = NULL, stderr = NULL,
+      cleanup = FALSE, cleanup_tree = FALSE)
+    TRUE
+  }, error = function(error) FALSE)
+  isTRUE(started)
+}
+
+# Ensures one private host is reachable after durable provisioning.  The fixed
+# readiness window is transport startup only; it neither expires nor changes
+# the canonical analysis or its sticky randomness.
+.dsvert_formal_glm_registered_source_ensure_job_host <- function(
+    provisioned, .healthy = .dsvert_formal_glm_registered_source_job_host_healthy,
+    .launch = .dsvert_formal_glm_registered_source_launch_job_host) {
+  if (!is.list(provisioned) || !identical(names(provisioned),
+                                          c("job_host_receipt", "replayed")) ||
+      !is.logical(provisioned$replayed) || length(provisioned$replayed) != 1L ||
+      is.na(provisioned$replayed)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM host provisioner returned invalid output.")
+  }
+  receipt <- .dsvert_formal_glm_registered_source_job_host_receipt(
+    provisioned$job_host_receipt)
+  if (!identical(provisioned$replayed, receipt$replayed)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM host provisioner returned invalid output.")
+  }
+  if (isTRUE(.healthy(receipt))) return(provisioned)
+  if (!isTRUE(.launch(receipt))) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM host could not be started.")
+  }
+  for (attempt in seq_len(100L)) {
+    Sys.sleep(0.05)
+    if (isTRUE(.healthy(receipt))) return(provisioned)
+  }
+  .dsvert_formal_glm_registered_source_abort(
+    "The registered formal-GLM host did not become available.")
 }
 
 # Sends one already materialized local block to the closed Go ingress.  Tickets

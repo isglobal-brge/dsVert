@@ -327,6 +327,28 @@ func TestFormalGLMRegisteredPhase21StageTaskK2K3K5(t *testing.T) {
 						index, replay, localReleases[index], replayErr)
 				}
 			}
+			baseCertificate, certificateErr := formalGLMRegisteredPhase21RunBaseCertificateV1(states[0])
+			if certificateErr != nil || baseCertificate.ArtifactID != contract.ArtifactID ||
+				baseCertificate.ProductionReady {
+				t.Fatalf("finalizer did not prepare the base certificate: %#v / %v",
+					baseCertificate, certificateErr)
+			}
+			tamperedCertificate := baseCertificate
+			tamperedCertificate.Receipt.Signature = append([]byte(nil), baseCertificate.Receipt.Signature...)
+			tamperedCertificate.Receipt.Signature[0] ^= 1
+			if err := formalGLMRegisteredPhase21ImportPeerBaseCertificateV1(
+				states[1], tamperedCertificate); err == nil {
+				t.Fatal("peer accepted a tampered base certificate")
+			}
+			if err := formalGLMRegisteredPhase21ImportPeerBaseCertificateV1(
+				states[1], baseCertificate); err != nil {
+				t.Fatalf("peer did not import the base certificate: %v", err)
+			}
+			replayCertificate, replayCertificateErr := formalGLMRegisteredPhase21RunBaseCertificateV1(states[0])
+			if replayCertificateErr != nil || !reflect.DeepEqual(replayCertificate, baseCertificate) {
+				t.Fatalf("base certificate replay changed: %#v / %#v / %v",
+					replayCertificate, baseCertificate, replayCertificateErr)
+			}
 		})
 	}
 }

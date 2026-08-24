@@ -98,6 +98,10 @@ type formalGLMRegisteredPhase20JobControlHostDaemonLocalReleaseRecordV1 struct {
 	Record formalGLMPhase21RockLocalReleaseRecord `json:"record"`
 }
 
+type formalGLMRegisteredPhase20JobControlHostDaemonBaseCertificateRecordV1 struct {
+	Record formalGLMPhase21RockBaseCertificateRecord `json:"record"`
+}
+
 type formalGLMRegisteredPhase20JobControlHostDaemonPollV1 struct {
 	Ref          formalGLMRegisteredPhase20JobRefV1 `json:"ref"`
 	Acknowledged int64                              `json:"acknowledged"`
@@ -846,6 +850,22 @@ func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) dispatchV1(
 			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: Phase21 local release import failed")
 		}
 		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(struct{}{})
+	case "phase21_base_certificate":
+		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil {
+			return nil, err
+		}
+		record, err := host.RunPhase21BaseCertificateV1()
+		if err != nil {
+			return nil, err
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(
+			formalGLMRegisteredPhase20JobControlHostDaemonBaseCertificateRecordV1{Record: record})
+	case "phase21_base_certificate_import":
+		request, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonBaseCertificateRecordV1](encoded)
+		if err != nil || host.ImportPhase21PeerBaseCertificateV1(request.Record) != nil {
+			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: Phase21 base certificate import failed")
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(struct{}{})
 	case "heartbeat":
 		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil || host.HeartbeatV1() != nil {
 			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: heartbeat failed")
@@ -1145,6 +1165,21 @@ func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) ImportPhas
 ) error {
 	return client.callV1("phase21_local_release_import",
 		formalGLMRegisteredPhase20JobControlHostDaemonLocalReleaseRecordV1{Record: record}, nil)
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) RunPhase21BaseCertificateV1() (
+	formalGLMPhase21RockBaseCertificateRecord, error,
+) {
+	var result formalGLMRegisteredPhase20JobControlHostDaemonBaseCertificateRecordV1
+	err := client.callV1("phase21_base_certificate", struct{}{}, &result)
+	return result.Record, err
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) ImportPhase21PeerBaseCertificateV1(
+	record formalGLMPhase21RockBaseCertificateRecord,
+) error {
+	return client.callV1("phase21_base_certificate_import",
+		formalGLMRegisteredPhase20JobControlHostDaemonBaseCertificateRecordV1{Record: record}, nil)
 }
 
 func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) PollV1(

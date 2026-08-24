@@ -63,6 +63,21 @@ type formalGLMRegisteredPhase20JobControlHostDaemonPreflightV1 struct {
 	Frame []byte `json:"frame"`
 }
 
+// Stage traffic is the existing signed relay envelope around encrypted
+// exact-GC ranges. Neither request form includes a storage path, a secret,
+// or a local output share.
+type formalGLMRegisteredPhase20JobControlHostDaemonStagePollV1 struct {
+	Acknowledgement *formalGLMRegisteredPhase21StageRelayAckV1 `json:"acknowledgement,omitempty"`
+}
+
+type formalGLMRegisteredPhase20JobControlHostDaemonStagePollResultV1 struct {
+	Chunk *formalGLMRegisteredPhase21StageRelayChunkV1 `json:"chunk,omitempty"`
+}
+
+type formalGLMRegisteredPhase20JobControlHostDaemonStageRelayV1 struct {
+	Chunk formalGLMRegisteredPhase21StageRelayChunkV1 `json:"chunk"`
+}
+
 type formalGLMRegisteredPhase20JobControlHostDaemonPollV1 struct {
 	Ref          formalGLMRegisteredPhase20JobRefV1 `json:"ref"`
 	Acknowledged int64                              `json:"acknowledged"`
@@ -702,6 +717,45 @@ func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) dispatchV1(
 			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: Phase21 preflight bind failed")
 		}
 		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(struct{}{})
+	case "phase21_stage_start":
+		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil {
+			return nil, err
+		}
+		status, err := host.StartPhase21StageV1()
+		if err != nil {
+			return nil, err
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(status)
+	case "phase21_stage_status":
+		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil {
+			return nil, err
+		}
+		status, err := host.Phase21StageStatusV1()
+		if err != nil {
+			return nil, err
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(status)
+	case "phase21_stage_poll":
+		request, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonStagePollV1](encoded)
+		if err != nil {
+			return nil, err
+		}
+		chunk, err := host.PollPhase21StageV1(request.Acknowledgement)
+		if err != nil {
+			return nil, err
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(
+			formalGLMRegisteredPhase20JobControlHostDaemonStagePollResultV1{Chunk: chunk})
+	case "phase21_stage_relay":
+		request, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonStageRelayV1](encoded)
+		if err != nil {
+			return nil, err
+		}
+		acknowledgement, err := host.RelayPhase21StageV1(request.Chunk)
+		if err != nil {
+			return nil, err
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(acknowledgement)
 	case "heartbeat":
 		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil || host.HeartbeatV1() != nil {
 			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: heartbeat failed")
@@ -900,6 +954,40 @@ func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) BindPeerJo
 
 func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) HeartbeatV1() error {
 	return client.callV1("heartbeat", struct{}{}, nil)
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) StartPhase21StageV1() (
+	formalGLMRegisteredPhase21StageStatusV1, error,
+) {
+	var status formalGLMRegisteredPhase21StageStatusV1
+	err := client.callV1("phase21_stage_start", struct{}{}, &status)
+	return status, err
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) Phase21StageStatusV1() (
+	formalGLMRegisteredPhase21StageStatusV1, error,
+) {
+	var status formalGLMRegisteredPhase21StageStatusV1
+	err := client.callV1("phase21_stage_status", struct{}{}, &status)
+	return status, err
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) PollPhase21StageV1(
+	acknowledgement *formalGLMRegisteredPhase21StageRelayAckV1,
+) (*formalGLMRegisteredPhase21StageRelayChunkV1, error) {
+	var result formalGLMRegisteredPhase20JobControlHostDaemonStagePollResultV1
+	err := client.callV1("phase21_stage_poll",
+		formalGLMRegisteredPhase20JobControlHostDaemonStagePollV1{Acknowledgement: acknowledgement}, &result)
+	return result.Chunk, err
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) RelayPhase21StageV1(
+	chunk formalGLMRegisteredPhase21StageRelayChunkV1,
+) (formalGLMRegisteredPhase21StageRelayAckV1, error) {
+	var acknowledgement formalGLMRegisteredPhase21StageRelayAckV1
+	err := client.callV1("phase21_stage_relay",
+		formalGLMRegisteredPhase20JobControlHostDaemonStageRelayV1{Chunk: chunk}, &acknowledgement)
+	return acknowledgement, err
 }
 
 func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) PollV1(

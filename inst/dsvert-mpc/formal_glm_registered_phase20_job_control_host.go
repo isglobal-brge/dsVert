@@ -178,6 +178,62 @@ func (host *formalGLMRegisteredPhase20JobControlHostV1) StartOrInspectV1() (
 	return owner.StartOrInspectV1()
 }
 
+func formalGLMRegisteredPhase20JobControlHostIngressBridgeV1(
+	owner *formalGLMRegisteredPhase20JobOwnerV1,
+) (*formalGLMRegisteredPhase20JobIngressBridgeV1, error) {
+	if owner == nil {
+		return nil, fmt.Errorf("formal-glm registered Phase20 job host: owner unavailable")
+	}
+	owner.mu.Lock()
+	attempts := owner.attempts
+	owner.mu.Unlock()
+	if attempts == nil {
+		return nil, fmt.Errorf("formal-glm registered Phase20 job host: compute is unavailable")
+	}
+	attempts.mu.Lock()
+	if attempts.root == nil || attempts.localIndex < 0 ||
+		attempts.localIndex >= len(attempts.contract.Core.RegisteredExecutionPlan.DesignatedComputePeers) {
+		attempts.mu.Unlock()
+		return nil, fmt.Errorf("formal-glm registered Phase20 job host: invalid attempt owner")
+	}
+	rockRoot := attempts.root.Name()
+	peer := attempts.contract.Core.RegisteredExecutionPlan.DesignatedComputePeers[attempts.localIndex]
+	record, contract := attempts.record, attempts.contract
+	pins := formalGLMRegisteredPhase19ScheduleTailClonePinsV1(attempts.pins)
+	attempts.mu.Unlock()
+	bridge, err := newFormalGLMRegisteredPhase20JobIngressBridgeV1(
+		rockRoot, peer, record, contract, pins)
+	formalGLMRegisteredPhase19ScheduleTailClearPinsV1(pins)
+	if err != nil {
+		return nil, err
+	}
+	return bridge, nil
+}
+
+// RunComputeV1 finalizes only the existing signed pending pairs and then
+// executes the registered job. It returns no schedule result, DP share,
+// store, path, or key.
+func (host *formalGLMRegisteredPhase20JobControlHostV1) RunComputeV1() error {
+	owner, done, err := host.beginOpV1()
+	if err != nil {
+		return err
+	}
+	defer done()
+	bridge, err := formalGLMRegisteredPhase20JobControlHostIngressBridgeV1(owner)
+	if err != nil {
+		return err
+	}
+	defer bridge.Close()
+	if _, _, err := bridge.FinalizeV1(); err != nil {
+		return err
+	}
+	provider, ingress, err := bridge.ComputeInputsV1()
+	if err != nil {
+		return err
+	}
+	return owner.RunComputeV1(provider, ingress)
+}
+
 func (host *formalGLMRegisteredPhase20JobControlHostV1) JobRefV1() (
 	formalGLMRegisteredPhase20JobRefV1, []byte, error,
 ) {

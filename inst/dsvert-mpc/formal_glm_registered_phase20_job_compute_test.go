@@ -13,6 +13,8 @@ import (
 type formalGLMRegisteredPhase20JobComputeTestFixtureV1 struct {
 	provenance formalGLMRegisteredPhase18ProvenanceTestFixtureV1
 	record     formalGLMRegisteredPhase19BindingRecordV1
+	roots      [2]string
+	pairs      map[string][]formalGLMRegisteredPhase18BlockPairV1
 	providers  [2]*formalGLMRegisteredPhase19PairKeyProviderV1
 	ingress    [2]*formalGLMRegisteredPhase18IngressStoreV3
 	owners     [2]*formalGLMRegisteredPhase20JobOwnerV1
@@ -30,19 +32,18 @@ func formalGLMRegisteredPhase20JobComputeTestBuild(
 	plan, contract := source.plan, source.contract
 	pins, private := source.inputs.identities.public,
 		source.inputs.identities.private
-	var roots [2]string
 	tickets := make([]formalGLMRegisteredPhase18RecipientTicketV1, 0, 2)
 	for index, peer := range plan.DesignatedComputePeers {
 		parent, err := filepath.EvalSymlinks(t.TempDir())
 		if err != nil {
 			t.Fatal(err)
 		}
-		roots[index] = filepath.Join(parent, "rock")
-		if err := os.Mkdir(roots[index], 0o700); err != nil {
+		fixture.roots[index] = filepath.Join(parent, "rock")
+		if err := os.Mkdir(fixture.roots[index], 0o700); err != nil {
 			t.Fatal(err)
 		}
 		provider, err := newFormalGLMRegisteredPhase19PairKeyProviderV1(
-			roots[index], peer, contract, pins)
+			fixture.roots[index], peer, contract, pins)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -64,13 +65,13 @@ func formalGLMRegisteredPhase20JobComputeTestBuild(
 		tickets = append(tickets, ticket)
 	}
 
-	pairs := make(map[string][]formalGLMRegisteredPhase18BlockPairV1,
+	fixture.pairs = make(map[string][]formalGLMRegisteredPhase18BlockPairV1,
 		plan.CustodianCount)
 	receipts := make([]formalGLMRegisteredPhase18LocalReceiptV1, 0,
 		plan.CustodianCount)
 	for _, source := range plan.CustodianPeers {
 		authorization := fixture.provenance.authorizations[source]
-		pairs[source] = make([]formalGLMRegisteredPhase18BlockPairV1,
+		fixture.pairs[source] = make([]formalGLMRegisteredPhase18BlockPairV1,
 			plan.TotalBlocks)
 		for blockIndex := 0; blockIndex < plan.TotalBlocks; blockIndex++ {
 			values, validity := formalGLMRegisteredPhase18MaterializedPairTestValues(
@@ -83,10 +84,10 @@ func formalGLMRegisteredPhase20JobComputeTestBuild(
 			if err != nil {
 				t.Fatal(err)
 			}
-			pairs[source][blockIndex] = pair
+			fixture.pairs[source][blockIndex] = pair
 		}
 		receipt, err := formalGLMRegisteredPhase18BuildLocalReceiptV1(
-			contract, authorization, tickets, pairs[source], private[source], pins)
+			contract, authorization, tickets, fixture.pairs[source], private[source], pins)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -139,13 +140,13 @@ func formalGLMRegisteredPhase20JobComputeTestBuild(
 			t.Fatal(keyErr)
 		}
 		ingress, ingressErr := newFormalGLMRegisteredPhase18IngressStoreV3(
-			roots[index], peer, localKey, contract,
+			fixture.roots[index], peer, localKey, contract,
 			receiptSet.GlobalMaterializationRootSHA256, pins)
 		if ingressErr != nil {
 			t.Fatal(ingressErr)
 		}
 		for _, source := range plan.CustodianPeers {
-			for blockIndex, pair := range pairs[source] {
+			for blockIndex, pair := range fixture.pairs[source] {
 				pairJSON, marshalErr := json.Marshal(pair)
 				if marshalErr != nil {
 					t.Fatal(marshalErr)
@@ -165,12 +166,12 @@ func formalGLMRegisteredPhase20JobComputeTestBuild(
 		}
 		fixture.ingress[index] = ingress
 		attempts, attemptErr := newFormalGLMRegisteredPhase19AttemptStoreV1(
-			roots[index], fixture.record, contract, pins, peer, private[peer])
+			fixture.roots[index], fixture.record, contract, pins, peer, private[peer])
 		if attemptErr != nil {
 			t.Fatal(attemptErr)
 		}
 		jobKeys, keyErr := newFormalGLMRegisteredPhase20JobKeyProviderV1(
-			roots[index], contract, pins, fixture.record, peer)
+			fixture.roots[index], contract, pins, fixture.record, peer)
 		if keyErr != nil {
 			t.Fatal(keyErr)
 		}

@@ -687,14 +687,30 @@ test_that("row order repeated records and invalid values keep one fixed transcri
       invalid$policy, invalid$manifest, invalid$resolved)$values),
     fixture$manifest$workload$coordinate_count)
 
+})
+
+test_that("strict categorical marginals reject unknown and conflicting admitted values", {
+  fixture <- .materializer_test_fixture(workload_scope = list(
+    mode = "all_schema", strict_missing_categorical = "cat_a"))
+
+  unknown <- fixture
+  unknown$data$cat_a[[1L]] <- "outside"
+  unknown$resolved$protected$data <- unknown$data
+  expect_error(
+    .dsvert_dp_capsule_materialize_local(
+      unknown$policy, unknown$manifest, unknown$resolved),
+    "categorical")
+
   conflicting <- fixture
   conflicting$data$cat_a[[2L]] <- "B"
   conflicting$resolved$protected$data <- conflicting$data
-  changed <- .dsvert_dp_capsule_materialize_local(
-    conflicting$policy, conflicting$manifest,
-    conflicting$resolved)$values
-  expect_false(identical(changed, baseline))
-  expect_identical(length(changed), length(baseline))
+  expect_error(
+    .dsvert_dp_capsule_materialize_local(
+      conflicting$policy, conflicting$manifest, conflicting$resolved),
+    "categorical")
+
+  expect_silent(.dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved))
 })
 
 test_that("numeric pairs use pairwise-complete admitted units", {

@@ -1311,16 +1311,30 @@
          call. = FALSE)
   }
   if (identical(value$mode, "all_schema")) {
-    if (!setequal(names(value), "mode")) {
+    if (!setequal(names(value), "mode") && !setequal(
+        names(value), c("mode", "strict_missing_categorical"))) {
       stop("Invalid custodian-owned biomedical capsule workload scope.",
            call. = FALSE)
     }
-    return(list(mode = "all_schema"))
+    strict_missing <- value$strict_missing_categorical
+    if (is.null(strict_missing)) strict_missing <- character()
+    if (!is.character(strict_missing) || anyNA(strict_missing) ||
+        (!is.null(names(strict_missing)) && length(strict_missing))) {
+      stop("Invalid biomedical capsule strict-missing categorical catalog.",
+           call. = FALSE)
+    }
+    return(list(
+      mode = "all_schema",
+      strict_missing_categorical = sort(unique(vapply(
+        unname(strict_missing), .dsvert_dp_capsule_id, character(1L),
+        what = "strict-missing categorical column")), method = "radix")))
   }
   fields <- c(
     "mode", "numeric_moments", "categorical_marginals",
-    "categorical_pairs", "correlations")
-  if (!setequal(names(value), fields)) {
+    "categorical_pairs", "correlations", "strict_missing_categorical")
+  legacy_fields <- setdiff(fields, "strict_missing_categorical")
+  if (!setequal(names(value), fields) &&
+      !setequal(names(value), legacy_fields)) {
     stop("Invalid custodian-owned biomedical capsule workload scope.",
          call. = FALSE)
   }
@@ -1370,7 +1384,9 @@
       value$categorical_marginals, "categorical-marginal"),
     categorical_pairs = normalize_pairs(
       value$categorical_pairs, "categorical-pair"),
-    correlations = normalize_pairs(value$correlations, "correlation"))
+    correlations = normalize_pairs(value$correlations, "correlation"),
+    strict_missing_categorical = normalize_columns(
+      value$strict_missing_categorical, "strict-missing categorical"))
 }
 
 .dsvert_dp_capsule_workload_scope <- function(
@@ -1384,6 +1400,7 @@
   all_categorical <- columns[vapply(
     columns, `[[`, character(1L), "kind") == "categorical"]
   explicit_numeric <- explicit_categorical <- character()
+  strict_missing_categorical <- character()
   explicit_categorical_pairs <- explicit_correlations <- list()
   if (identical(mode, "catalog_v1")) {
     explicit_numeric <- .dsvert_dp_capsule_scope_columns(
@@ -1457,12 +1474,20 @@
     numeric <- sort(unique(numeric), method = "radix")
     categorical <- sort(unique(categorical), method = "radix")
   }
+  strict_missing_categorical <- .dsvert_dp_capsule_scope_columns(
+    value$strict_missing_categorical, columns, "categorical",
+    "strict-missing categorical")
+  if (!all(strict_missing_categorical %in% categorical)) {
+    stop("A strict-missing categorical column is outside the capsule scope.",
+         call. = FALSE)
+  }
   list(
     mode = mode,
     numeric_moments = unname(numeric),
     categorical_marginals = unname(categorical),
     categorical_pairs = unname(categorical_pairs),
     correlations = unname(correlations),
+    strict_missing_categorical = unname(strict_missing_categorical),
     explicit_catalog = list(
       numeric_moments = unname(explicit_numeric),
       categorical_marginals = unname(explicit_categorical),
@@ -1792,8 +1817,19 @@
   marginal_artifacts <- lapply(categorical_columns, function(column) list(
     dataset = column$dataset, column = column$column,
     owner_peer = column$owner_peer, levels = column$levels,
-    repeated_record_policy = "consistent_level_else_exclude_v1",
-    missingness_policy = "missing_or_out_of_domain_rows_are_ignored",
+    repeated_record_policy = if (column$column %in%
+        primitive_scope$strict_missing_categorical) {
+      "one_consistent_registered_level_or_all_missing_per_admitted_unit_v1"
+    } else {
+      "consistent_level_else_exclude_v1"
+    },
+    missingness_policy = if (column$column %in%
+        primitive_scope$strict_missing_categorical) {
+      paste("missing_values_have_no_marginal_cell_and_unknown_or_conflicting",
+            "nonmissing_values_reject_before_release_v1", sep = "_")
+    } else {
+      "missing_or_out_of_domain_rows_are_ignored"
+    },
     statistic_maximum = capacity))
 
   pair_sets <- vertical_pair_sets <- cross_owner_sets <- list()
@@ -2664,6 +2700,7 @@
     mismatch_behavior = "reject_before_protected_snapshot_resolution",
     compatibility_default = "all_schema",
     recommended_deployment_mode = "catalog_v1",
+    strict_missing_categorical = primitive_scope$strict_missing_categorical,
     selection_sha256 = .dsvert_joint_dp_hash(scope_selection),
     selection = scope_selection,
     projected_cost = list(

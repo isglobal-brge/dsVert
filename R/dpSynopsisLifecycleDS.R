@@ -328,19 +328,6 @@
 .dsvert_dp_synopsis_workload_scope_v1 <- function(workload) {
   scope <- if (is.list(workload)) workload$primitive_scope else NULL
   mode <- if (is.list(scope)) scope$mode else NULL
-  if (identical(mode, "all_schema")) {
-    return(.dsvert_dp_capsule_scope_policy_binding(list(
-      mode = "all_schema")))
-  }
-  explicit <- tryCatch(
-    scope$selection$explicit_catalog, error = function(error) NULL)
-  fields <- c(
-    "numeric_moments", "categorical_marginals",
-    "categorical_pairs", "correlations")
-  if (!identical(mode, "catalog_v1") || !is.list(explicit) ||
-      !setequal(names(explicit), fields)) {
-    stop("Invalid synopsis workload policy projection.", call. = FALSE)
-  }
   string_array <- function(value) {
     if (is.null(value)) return(character())
     if (is.character(value)) return(unname(value))
@@ -353,6 +340,25 @@
     }
     value
   }
+  strict_missing <- string_array(
+    if (is.list(scope)) scope$strict_missing_categorical else NULL)
+  if (!is.character(strict_missing) || anyNA(strict_missing) ||
+      any(!nzchar(strict_missing)) || anyDuplicated(strict_missing)) {
+    stop("Invalid synopsis strict-missing policy projection.", call. = FALSE)
+  }
+  if (identical(mode, "all_schema")) {
+    return(.dsvert_dp_capsule_scope_policy_binding(list(
+      mode = "all_schema", strict_missing_categorical = strict_missing)))
+  }
+  explicit <- tryCatch(
+    scope$selection$explicit_catalog, error = function(error) NULL)
+  fields <- c(
+    "numeric_moments", "categorical_marginals",
+    "categorical_pairs", "correlations")
+  if (!identical(mode, "catalog_v1") || !is.list(explicit) ||
+      !setequal(names(explicit), fields)) {
+    stop("Invalid synopsis workload policy projection.", call. = FALSE)
+  }
   explicit$numeric_moments <- string_array(explicit$numeric_moments)
   explicit$categorical_marginals <-
     string_array(explicit$categorical_marginals)
@@ -361,7 +367,8 @@
   explicit$correlations <- unname(lapply(
     unname(explicit$correlations), string_array))
   .dsvert_dp_capsule_scope_policy_binding(c(
-    list(mode = "catalog_v1"), explicit[fields]))
+    list(mode = "catalog_v1", strict_missing_categorical = strict_missing),
+    explicit[fields]))
 }
 
 .dsvert_dp_synopsis_capsule_identity_v1 <- function(

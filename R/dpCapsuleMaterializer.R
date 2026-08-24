@@ -468,10 +468,11 @@
 }
 
 .dsvert_dp_capsule_bounded_category <- function(
-    data, policy, column, levels, admission) {
+    data, policy, column, levels, admission, strict = FALSE) {
   if (!is.character(levels) || !length(levels) || anyNA(levels) ||
       anyDuplicated(levels) || !column %in% names(data) ||
-      !is.atomic(data[[column]])) {
+      !is.atomic(data[[column]]) || !is.logical(strict) ||
+      length(strict) != 1L || is.na(strict)) {
     stop("The protected snapshot does not match its categorical capsule contract.",
          call. = FALSE)
   }
@@ -483,6 +484,26 @@
            call. = FALSE)
     })
   level <- match(labels, levels)
+  if (isTRUE(strict)) {
+    present_rows <- admission$present[admission$group]
+    unknown <- present_rows & !is.na(labels) & is.na(level)
+    if (any(unknown)) {
+      stop("The protected snapshot has an unknown categorical value.",
+           call. = FALSE)
+    }
+    known_groups <- admission$group[present_rows & !is.na(level)]
+    known_levels <- level[present_rows & !is.na(level)]
+    if (length(known_groups)) {
+      key <- paste(known_groups, known_levels, sep = "\r")
+      distinct <- !duplicated(key)
+      per_group <- tabulate(known_groups[distinct],
+                            nbins = admission$work_units)
+      if (any(per_group > 1L)) {
+        stop("The protected snapshot has conflicting categorical values.",
+             call. = FALSE)
+      }
+    }
+  }
   valid_rows <- which(!is.na(level))
   selected <- rep(NA_integer_, admission$work_units)
   if (length(valid_rows)) {
@@ -752,7 +773,10 @@
     data <- snapshots[[block$dataset]]$data
     bounded <- .dsvert_dp_capsule_bounded_category(
       data, policy, artifact$column, artifact$levels,
-      admission_for(block$dataset))
+      admission_for(block$dataset), strict = identical(
+        artifact$missingness_policy,
+        paste("missing_values_have_no_marginal_cell_and_unknown_or_conflicting",
+              "nonmissing_values_reject_before_release_v1", sep = "_")))
     values[block$start:block$end] <- tabulate(
       bounded$cell, nbins = length(artifact$levels))
   }

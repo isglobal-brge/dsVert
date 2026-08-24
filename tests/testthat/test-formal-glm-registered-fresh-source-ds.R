@@ -62,3 +62,42 @@ test_that("registered fresh GLM source rejects widened and mismatched selectors 
     class = "dsvert_formal_glm_registered_source_ds_error")
   expect_false(opened)
 })
+
+test_that("registered fresh GLM source exposes only its fixed public shape", {
+  selector <- list(
+    analysis_id = "fresh_binomial", data_name = "D", family = "binomial",
+    formula_sha256 = paste(rep("a", 64L), collapse = ""))
+  spec <- c(list(
+    version = "dsvert-formal-glm-registered-analysis-spec-v1"), selector,
+    list(source_contract_json = "{\"contract\":\"configured\"}"))
+  context <- new.env(parent = emptyenv())
+  context$alignment_consensus <- as.raw(rep(0L, 32L))
+  context$authorization <- list(
+    artifact_id = paste(rep("b", 64L), collapse = ""),
+    source_contract_sha256 = paste(rep("c", 64L), collapse = ""),
+    custodian_peers = c("site_a", "site_b", "site_c"),
+    designated_compute_peers = c("site_a", "site_b"),
+    geometry = list(total_blocks = 3L), production_ready = FALSE)
+  context$authorization_json <- "{}"
+  context$contract_json <- "{\"contract\":\"configured\"}"
+  context$pins <- list()
+  context$rows <- data.frame()
+  context$source_name <- "site_a"
+  class(context) <- "dsvert_formal_glm_registered_source_context"
+  withr::local_options(
+    dsvert.formal_glm.registered_analysis_specs = list(fresh_binomial = spec))
+  testthat::local_mocked_bindings(
+    .dsvert_formal_glm_registered_source_open = function(...) context,
+    .package = "dsVert")
+
+  value <- dsvertFormalGLMRegisteredFreshSourceDS(
+    selector$analysis_id, selector$data_name, selector$family,
+    selector$formula_sha256, "shape", structure(list(), names = character()))
+  expect_identical(value$payload, list(
+    version = "dsvert-formal-glm-registered-fresh-source-shape-v1",
+    artifact_id = paste(rep("b", 64L), collapse = ""),
+    source_contract_sha256 = paste(rep("c", 64L), collapse = ""),
+    source = "site_a", custodian_peers = c("site_a", "site_b", "site_c"),
+    designated_compute_peers = c("site_a", "site_b"), total_blocks = 3L,
+    production_ready = FALSE))
+})

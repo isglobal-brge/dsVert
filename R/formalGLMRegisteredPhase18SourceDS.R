@@ -13,6 +13,8 @@
   "ticket", "ticket_set", "seal_block", "chunk", "import_chunk",
   "local_receipt", "receipt_commit", "receipt_set", "binding",
   "host_provision")
+.DSVERT_FORMAL_GLM_REGISTERED_FRESH_SOURCE_DS_ACTIONS <- c(
+  "shape", .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_DS_ACTIONS)
 .DSVERT_FORMAL_GLM_REGISTERED_FRESH_SOURCE_DS_VERSION <-
   "dsvert-formal-glm-registered-fresh-source-response-v1"
 .DSVERT_FORMAL_GLM_REGISTERED_ANALYSIS_SPECS_OPTION <-
@@ -53,7 +55,8 @@
   fields <- names(payload)
   if (is.null(fields)) fields <- character()
   expected <- switch(action,
-    ticket = character(), receipt_set = character(), host_provision = character(),
+    shape = character(), ticket = character(), receipt_set = character(),
+    host_provision = character(),
     ticket_set = "recipient_tickets", seal_block = c("recipient_tickets", "block_index"),
     chunk = c("recipient_tickets", "block_index", "offset"),
     import_chunk = c("recipient_tickets", "chunk_receipt", "pair_chunk_base64"),
@@ -125,6 +128,46 @@
       "invalid_formal_glm_registered_source_payload")
   }
   payload
+}
+
+.dsvert_formal_glm_registered_fresh_source_shape <- function(context) {
+  context <- .dsvert_formal_glm_registered_source_context(context)
+  authorization <- context$authorization
+  geometry <- authorization$geometry
+  custodians <- authorization$custodian_peers
+  compute <- authorization$designated_compute_peers
+  blocks <- suppressWarnings(as.integer(geometry$total_blocks))
+  valid <- is.list(authorization) && is.list(geometry) &&
+    is.character(authorization$artifact_id) &&
+    length(authorization$artifact_id) == 1L &&
+    grepl("^[0-9a-f]{64}$", authorization$artifact_id) &&
+    is.character(authorization$source_contract_sha256) &&
+    length(authorization$source_contract_sha256) == 1L &&
+    grepl("^[0-9a-f]{64}$", authorization$source_contract_sha256) &&
+    is.character(context$source_name) && length(context$source_name) == 1L &&
+    !is.na(context$source_name) &&
+    grepl("^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$", context$source_name) &&
+    is.character(custodians) && length(custodians) >= 2L &&
+    !anyNA(custodians) && !anyDuplicated(custodians) &&
+    is.character(compute) && length(compute) == 2L && !anyNA(compute) &&
+    !anyDuplicated(compute) && all(compute %in% custodians) &&
+    length(blocks) == 1L && !is.na(blocks) && blocks >= 1L &&
+    is.logical(authorization$production_ready) &&
+    length(authorization$production_ready) == 1L &&
+    !is.na(authorization$production_ready) && !authorization$production_ready
+  if (!isTRUE(valid)) {
+    .dsvert_formal_glm_registered_source_ds_abort(
+      "The registered formal-GLM fresh source shape is invalid.",
+      "invalid_formal_glm_registered_fresh_shape")
+  }
+  list(
+    version = "dsvert-formal-glm-registered-fresh-source-shape-v1",
+    artifact_id = authorization$artifact_id,
+    source_contract_sha256 = authorization$source_contract_sha256,
+    source = context$source_name,
+    custodian_peers = unname(custodians),
+    designated_compute_peers = unname(compute), total_blocks = blocks,
+    production_ready = FALSE)
 }
 
 .dsvert_formal_glm_registered_source_ds_safe <- function(payload) {
@@ -212,6 +255,7 @@
 .dsvert_formal_glm_registered_source_ds_dispatch <- function(
     context, action, payload) {
   switch(action,
+    shape = .dsvert_formal_glm_registered_fresh_source_shape(context),
     ticket = .dsvert_formal_glm_registered_source_issue_ticket(context),
     ticket_set = .dsvert_formal_glm_registered_source_persist_ticket_set(
       context, payload$recipient_tickets),
@@ -296,7 +340,7 @@ dsvertFormalGLMRegisteredFreshSourceDS <- function(
     analysis_id, data_name, family, formula_sha256)
   spec <- .dsvert_formal_glm_registered_fresh_source_spec(selector)
   if (!is.character(action) || length(action) != 1L || is.na(action) ||
-      !action %in% .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_DS_ACTIONS) {
+      !action %in% .DSVERT_FORMAL_GLM_REGISTERED_FRESH_SOURCE_DS_ACTIONS) {
     .dsvert_formal_glm_registered_source_ds_abort(
       "The registered formal-GLM fresh source action is invalid.",
       "invalid_formal_glm_registered_fresh_action")

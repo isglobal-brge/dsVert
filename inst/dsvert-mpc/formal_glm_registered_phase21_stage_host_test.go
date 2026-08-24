@@ -349,6 +349,30 @@ func TestFormalGLMRegisteredPhase21StageTaskK2K3K5(t *testing.T) {
 				t.Fatalf("base certificate replay changed: %#v / %#v / %v",
 					replayCertificate, baseCertificate, replayCertificateErr)
 			}
+			garblerAuthorization, authorizationErr := formalGLMRegisteredPhase21SignAuthorizationV1(states[0])
+			if authorizationErr != nil || garblerAuthorization.Role != "garbler" || garblerAuthorization.ProductionReady {
+				t.Fatalf("garbler did not authorize the base certificate: %#v / %v", garblerAuthorization, authorizationErr)
+			}
+			tamperedAuthorization := garblerAuthorization
+			tamperedAuthorization.StickyAuthorization.Signature = append([]byte(nil), garblerAuthorization.StickyAuthorization.Signature...)
+			tamperedAuthorization.StickyAuthorization.Signature[0] ^= 1
+			if err := formalGLMRegisteredPhase21ImportPeerAuthorizationV1(states[1], tamperedAuthorization); err == nil {
+				t.Fatal("evaluator accepted a tampered garbler authorization")
+			}
+			if err := formalGLMRegisteredPhase21ImportPeerAuthorizationV1(states[1], garblerAuthorization); err != nil {
+				t.Fatalf("evaluator did not import garbler authorization: %v", err)
+			}
+			evaluatorAuthorization, evaluatorAuthorizationErr := formalGLMRegisteredPhase21SignAuthorizationV1(states[1])
+			if evaluatorAuthorizationErr != nil || evaluatorAuthorization.Role != "evaluator" || evaluatorAuthorization.ProductionReady {
+				t.Fatalf("evaluator did not authorize the base certificate: %#v / %v", evaluatorAuthorization, evaluatorAuthorizationErr)
+			}
+			if err := formalGLMRegisteredPhase21ImportPeerAuthorizationV1(states[0], evaluatorAuthorization); err != nil {
+				t.Fatalf("garbler did not import evaluator authorization: %v", err)
+			}
+			replayAuthorization, replayAuthorizationErr := formalGLMRegisteredPhase21SignAuthorizationV1(states[1])
+			if replayAuthorizationErr != nil || !reflect.DeepEqual(replayAuthorization, evaluatorAuthorization) {
+				t.Fatalf("evaluator authorization replay changed: %#v / %#v / %v", replayAuthorization, evaluatorAuthorization, replayAuthorizationErr)
+			}
 		})
 	}
 }

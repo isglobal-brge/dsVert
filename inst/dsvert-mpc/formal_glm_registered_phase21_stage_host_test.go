@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -157,6 +158,55 @@ func TestFormalGLMRegisteredPhase21StageTaskK2K3K5(t *testing.T) {
 					t.Fatal("registered Phase21 Stage tasks timed out")
 				}
 				time.Sleep(time.Millisecond)
+			}
+			var stages [2]formalGLMPhase21RockStageRecord
+			for index := range clients {
+				status, err := clients[index].Phase21StageStatusV1()
+				if err != nil || status.Stage == nil ||
+					status.State != formalGLMRegisteredPhase21StageCompleteV1 {
+					t.Fatalf("Stage task %d did not retain its signed record: %#v / %v",
+						index, status, err)
+				}
+				stages[index] = *status.Stage
+			}
+			states := [2]formalGLMRegisteredPhase21StageHostStateV1{}
+			for index := range states {
+				states[index] = formalGLMRegisteredPhase21StageTaskTestStateV1(
+					t, fixture, contract, authorities[index], index)
+				defer states[index].clearV1()
+				if index == 0 {
+					tampered := stages[1]
+					tampered.Receipt.Signature = append([]byte(nil),
+						stages[1].Receipt.Signature...)
+					tampered.Receipt.Signature[0] ^= 1
+					if err := formalGLMRegisteredPhase21ImportPeerStageV1(
+						states[index], tampered); err == nil {
+						t.Fatal("Stage authority accepted a tampered peer record")
+					}
+				}
+				if err := formalGLMRegisteredPhase21ImportPeerStageV1(
+					states[index], stages[1-index]); err != nil {
+					t.Fatalf("Stage authority %d did not import its peer: %v", index, err)
+				}
+			}
+			ticket, err := formalGLMRegisteredPhase21RunTicketV1(states[0])
+			if err != nil || ticket.ArtifactID != contract.ArtifactID ||
+				ticket.ProductionReady {
+				t.Fatalf("finalizer did not issue the signed ticket: %#v / %v", ticket, err)
+			}
+			tamperedTicket := ticket
+			tamperedTicket.Ticket.Signature = append([]byte(nil), ticket.Ticket.Signature...)
+			tamperedTicket.Ticket.Signature[0] ^= 1
+			if err := formalGLMRegisteredPhase21ImportPeerTicketV1(
+				states[1], tamperedTicket); err == nil {
+				t.Fatal("peer accepted a tampered ticket")
+			}
+			if err := formalGLMRegisteredPhase21ImportPeerTicketV1(states[1], ticket); err != nil {
+				t.Fatalf("peer did not import the signed ticket: %v", err)
+			}
+			replay, replayErr := formalGLMRegisteredPhase21RunTicketV1(states[0])
+			if replayErr != nil || !reflect.DeepEqual(replay, ticket) {
+				t.Fatalf("ticket replay changed: %#v / %#v / %v", replay, ticket, replayErr)
 			}
 		})
 	}

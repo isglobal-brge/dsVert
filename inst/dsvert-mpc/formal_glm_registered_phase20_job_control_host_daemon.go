@@ -78,6 +78,14 @@ type formalGLMRegisteredPhase20JobControlHostDaemonStageRelayV1 struct {
 	Chunk formalGLMRegisteredPhase21StageRelayChunkV1 `json:"chunk"`
 }
 
+type formalGLMRegisteredPhase20JobControlHostDaemonStageRecordV1 struct {
+	Record formalGLMPhase21RockStageRecord `json:"record"`
+}
+
+type formalGLMRegisteredPhase20JobControlHostDaemonTicketRecordV1 struct {
+	Record formalGLMPhase21RockTicketRecord `json:"record"`
+}
+
 type formalGLMRegisteredPhase20JobControlHostDaemonPollV1 struct {
 	Ref          formalGLMRegisteredPhase20JobRefV1 `json:"ref"`
 	Acknowledged int64                              `json:"acknowledged"`
@@ -756,6 +764,28 @@ func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) dispatchV1(
 			return nil, err
 		}
 		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(acknowledgement)
+	case "phase21_stage_import":
+		request, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonStageRecordV1](encoded)
+		if err != nil || host.ImportPhase21PeerStageV1(request.Record) != nil {
+			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: Phase21 Stage import failed")
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(struct{}{})
+	case "phase21_ticket":
+		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil {
+			return nil, err
+		}
+		record, err := host.RunPhase21TicketV1()
+		if err != nil {
+			return nil, err
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(
+			formalGLMRegisteredPhase20JobControlHostDaemonTicketRecordV1{Record: record})
+	case "phase21_ticket_import":
+		request, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonTicketRecordV1](encoded)
+		if err != nil || host.ImportPhase21PeerTicketV1(request.Record) != nil {
+			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: Phase21 Ticket import failed")
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(struct{}{})
 	case "heartbeat":
 		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil || host.HeartbeatV1() != nil {
 			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: heartbeat failed")
@@ -988,6 +1018,28 @@ func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) RelayPhase
 	err := client.callV1("phase21_stage_relay",
 		formalGLMRegisteredPhase20JobControlHostDaemonStageRelayV1{Chunk: chunk}, &acknowledgement)
 	return acknowledgement, err
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) ImportPhase21PeerStageV1(
+	record formalGLMPhase21RockStageRecord,
+) error {
+	return client.callV1("phase21_stage_import",
+		formalGLMRegisteredPhase20JobControlHostDaemonStageRecordV1{Record: record}, nil)
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) RunPhase21TicketV1() (
+	formalGLMPhase21RockTicketRecord, error,
+) {
+	var result formalGLMRegisteredPhase20JobControlHostDaemonTicketRecordV1
+	err := client.callV1("phase21_ticket", struct{}{}, &result)
+	return result.Record, err
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) ImportPhase21PeerTicketV1(
+	record formalGLMPhase21RockTicketRecord,
+) error {
+	return client.callV1("phase21_ticket_import",
+		formalGLMRegisteredPhase20JobControlHostDaemonTicketRecordV1{Record: record}, nil)
 }
 
 func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) PollV1(

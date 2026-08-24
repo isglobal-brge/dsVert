@@ -235,6 +235,70 @@ func TestFormalGLMRegisteredPhase21StageTaskK2K3K5(t *testing.T) {
 						index, replay, seals[index], replayErr)
 				}
 			}
+			_, _, _, candidateBinding, _, _, stateErr :=
+				formalGLMRegisteredPhase21CandidateStateV1(states[0])
+			if stateErr != nil {
+				t.Fatalf("candidate state did not admit the signed seals: %v", stateErr)
+			}
+			finalizerIndex := -1
+			var envelopes [2]formalFinalizerHandoffEnvelope
+			for index, authority := range candidateBinding.Authorities {
+				if formalFinalizerHandoffAuthorityEqual(authority, candidateBinding.Finalizer) {
+					finalizerIndex = index
+				}
+				store, storeErr := newFormalFinalizerHandoffAuthorityStoreForTest(
+					authorities[index].root, candidateBinding, authority,
+					authorities[index].transportRoot, fixture.formal.identities.public)
+				if storeErr != nil {
+					t.Fatal(storeErr)
+				}
+				envelopes[index], storeErr = store.loadEnvelope("outbox-v1", authority.Role)
+				store.Close()
+				if storeErr != nil {
+					t.Fatal(storeErr)
+				}
+			}
+			if finalizerIndex < 0 {
+				t.Fatal("candidate binding has no finalizer")
+			}
+			ingress, ingressErr := newFormalFinalizerHandoffAuthorityStoreForTest(
+				authorities[finalizerIndex].root, candidateBinding, candidateBinding.Finalizer,
+				authorities[finalizerIndex].transportRoot, fixture.formal.identities.public)
+			if ingressErr != nil {
+				t.Fatal(ingressErr)
+			}
+			for index := range envelopes {
+				if _, _, ingressErr = ingress.CommitIngress(envelopes[index]); ingressErr != nil {
+					ingress.Close()
+					t.Fatal(ingressErr)
+				}
+			}
+			ingress.Close()
+			for index := range envelopes {
+				clear(envelopes[index].Ciphertext)
+				clear(envelopes[index].Signature)
+			}
+			candidate, candidateErr := formalGLMRegisteredPhase21RunCandidateV1(states[0])
+			if candidateErr != nil || candidate.ArtifactID != contract.ArtifactID ||
+				candidate.ProductionReady {
+				t.Fatalf("finalizer did not produce a common candidate: %#v / %v",
+					candidate, candidateErr)
+			}
+			tamperedCandidate := candidate
+			tamperedCandidate.Receipt.Signature = append([]byte(nil), candidate.Receipt.Signature...)
+			tamperedCandidate.Receipt.Signature[0] ^= 1
+			if err := formalGLMRegisteredPhase21ImportPeerCandidateV1(
+				states[1], tamperedCandidate); err == nil {
+				t.Fatal("peer accepted a tampered candidate")
+			}
+			if err := formalGLMRegisteredPhase21ImportPeerCandidateV1(states[1], candidate); err != nil {
+				t.Fatalf("peer did not import the candidate: %v", err)
+			}
+			replayCandidate, replayCandidateErr := formalGLMRegisteredPhase21RunCandidateV1(states[0])
+			if replayCandidateErr != nil || !reflect.DeepEqual(replayCandidate, candidate) {
+				t.Fatalf("candidate replay changed: %#v / %#v / %v",
+					replayCandidate, candidate, replayCandidateErr)
+			}
 		})
 	}
 }

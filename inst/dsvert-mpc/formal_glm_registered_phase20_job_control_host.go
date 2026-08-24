@@ -332,9 +332,77 @@ func (host *formalGLMRegisteredPhase20JobControlHostV1) persistSelectedPublicati
 		return err
 	}
 	defer formalGLMRegisteredPhase21PublicationContextClearV1(&context)
+	stageReady, err := formalGLMRegisteredPhase21PublicationStageInputsV1(context)
+	if err != nil {
+		return err
+	}
+	if stageReady {
+		if err := formalGLMRegisteredPhase21ValidateSelectedStageInputsV1(terminal, context); err != nil {
+			return err
+		}
+	}
 	_, _, err = formalGLMRegisteredPhase21PersistPublicationAssetsV1(
 		filepath.Join(rockRoot, peer), context, contract, pins)
 	return err
+}
+
+// formalGLMRegisteredPhase21ValidateSelectedStageInputsV1 admits the signed
+// Phase16 inputs against the encrypted Selected handoff before they become
+// restartable Phase21 assets. It executes no sampler draw and releases the
+// rehydrated source immediately.
+func formalGLMRegisteredPhase21ValidateSelectedStageInputsV1(
+	terminal *formalGLMRegisteredPhase20TerminalOwnerV1,
+	publication formalGLMRegisteredPhase21PublicationContextV1,
+) error {
+	if terminal == nil {
+		return fmt.Errorf("formal-glm registered Phase21 assets: terminal unavailable")
+	}
+	terminal.mu.Lock()
+	if terminal.closed || terminal.attempts == nil || terminal.jobKeys == nil || terminal.runtime == nil {
+		terminal.mu.Unlock()
+		return fmt.Errorf("formal-glm registered Phase21 assets: terminal unavailable")
+	}
+	attempts, keys, runtime := terminal.attempts, terminal.jobKeys, terminal.runtime
+	semanticRoot, peer := terminal.record.Binding.SemanticRootSHA256, terminal.peer
+	pins := formalGLMRegisteredPhase20TerminalClonePinsV1(terminal.pins)
+	terminal.mu.Unlock()
+	defer formalGLMRegisteredPhase20TerminalClearPinsV1(pins)
+	if !formalGLMIsSHA256(semanticRoot) {
+		return fmt.Errorf("formal-glm registered Phase21 assets: invalid selected handoff")
+	}
+	attempts.mu.Lock()
+	rockRoot := ""
+	if attempts.root != nil {
+		rockRoot = attempts.root.Name()
+	}
+	attempts.mu.Unlock()
+	keys.mu.Lock()
+	storageRoot := keys.storageRoot
+	keysValid := keys.validateLocked() == nil
+	keys.mu.Unlock()
+	runtime.mu.Lock()
+	backend := runtime.backendKey
+	runtime.mu.Unlock()
+	defer clear(storageRoot[:])
+	defer clear(backend[:])
+	if rockRoot == "" || !keysValid {
+		return fmt.Errorf("formal-glm registered Phase21 assets: selected handoff unavailable")
+	}
+	store, err := newFormalGLMPhase20HandoffStore(
+		filepath.Join(rockRoot, peer, "formal-glm-phase20-handoff"), semanticRoot, peer,
+		storageRoot, backend, pins)
+	if err != nil {
+		return err
+	}
+	defer store.close()
+	runtimeState, _, err := formalGLMPhase21LoadAndAdmit(
+		store, publication.Capsule, publication.Request,
+		publication.BackendSignatures, publication.WorkerSignatures)
+	if err != nil {
+		return fmt.Errorf("formal-glm registered Phase21 assets: invalid Stage inputs")
+	}
+	runtimeState.clear()
+	return nil
 }
 
 func (host *formalGLMRegisteredPhase20JobControlHostV1) JobRefV1() (

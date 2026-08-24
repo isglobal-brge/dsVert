@@ -27,6 +27,17 @@ func TestFormalGLMRegisteredPhase21PublicationAssetsK2K3K5(t *testing.T) {
 			if err != nil || replayed {
 				t.Fatalf("first asset persistence: %+v / %v", assets, err)
 			}
+			if assets.stageReady || assets.capsulePath != "" || assets.requestPath != "" ||
+				assets.backendSignaturesPath != "" || assets.workerSignaturesPath != "" ||
+				assets.samplerAuthorizationsPath != "" {
+				t.Fatal("incomplete preflight context acquired durable Stage inputs")
+			}
+			partial := publication
+			partial.BackendSignatures = []jointDPBiomedicalGaussianSignature{{}}
+			if _, _, partialErr := formalGLMRegisteredPhase21PersistPublicationAssetsV1(
+				authorityRoot, partial, fixture.contract, fixture.inputs.identities.public); partialErr == nil {
+				t.Fatal("partial Stage context was persisted")
+			}
 			encoded, marshalErr := json.Marshal(assets)
 			if marshalErr != nil || string(encoded) != "{}" {
 				t.Fatalf("asset handle exposed Rock paths: %q / %v", encoded, marshalErr)
@@ -41,7 +52,10 @@ func TestFormalGLMRegisteredPhase21PublicationAssetsK2K3K5(t *testing.T) {
 				authorityRoot, publication, fixture.contract,
 				fixture.inputs.identities.public)
 			if replayErr != nil || !replayed || replay.contractPath != assets.contractPath ||
-				replay.pinsetPath != assets.pinsetPath || replay.resolutionPath != assets.resolutionPath {
+				replay.pinsetPath != assets.pinsetPath || replay.resolutionPath != assets.resolutionPath ||
+				replay.stageReady || replay.capsulePath != "" || replay.requestPath != "" ||
+				replay.backendSignaturesPath != "" || replay.workerSignaturesPath != "" ||
+				replay.samplerAuthorizationsPath != "" {
 				t.Fatalf("asset replay changed the Phase21 input: %+v / %v", replay, replayErr)
 			}
 			if err := os.WriteFile(assets.contractPath, []byte(`{"tampered":true}`), 0o600); err != nil {

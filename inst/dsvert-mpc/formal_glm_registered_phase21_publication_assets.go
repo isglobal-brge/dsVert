@@ -1,16 +1,17 @@
 package main
 
-// The registered Phase20 host keeps the signed Phase21 context private until
-// its Selected result exists.  These are the three signed, non-secret assets
-// that the existing Phase21 lifecycle can then reopen from the local
-// authority Rock root.  Stage-specific secrets and the selected DP share are
-// deliberately not part of this projection.
+// The registered Phase20 host keeps the Phase21 context private until its
+// Selected result exists. These assets are the exact signed Phase21 inputs
+// which the existing lifecycle reopens from the local authority Rock root.
+// Stage-specific secrets and the selected DP share are deliberately not part
+// of this projection.
 
 import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
 	"path/filepath"
+	"reflect"
 )
 
 const formalGLMRegisteredPhase21PublicationAssetsDirV1 = "formal-glm-registered-phase21-assets-v1"
@@ -18,9 +19,41 @@ const formalGLMRegisteredPhase21PublicationAssetsDirV1 = "formal-glm-registered-
 // This handle has no JSON surface.  The paths are used only by the private
 // host when it invokes the already-existing Phase21 action machine.
 type formalGLMRegisteredPhase21PublicationAssetsV1 struct {
-	contractPath   string
-	pinsetPath     string
-	resolutionPath string
+	contractPath              string
+	pinsetPath                string
+	resolutionPath            string
+	capsulePath               string
+	requestPath               string
+	backendSignaturesPath     string
+	workerSignaturesPath      string
+	samplerAuthorizationsPath string
+	stageReady                bool
+}
+
+func (assets *formalGLMRegisteredPhase21PublicationAssetsV1) clearStagePathsV1() {
+	assets.capsulePath = ""
+	assets.requestPath = ""
+	assets.backendSignaturesPath = ""
+	assets.workerSignaturesPath = ""
+	assets.samplerAuthorizationsPath = ""
+	assets.stageReady = false
+}
+
+func formalGLMRegisteredPhase21PublicationStageInputsV1(
+	publication formalGLMRegisteredPhase21PublicationContextV1,
+) (bool, error) {
+	hasCapsule := !reflect.DeepEqual(publication.Capsule, formalGLMPhase16CapsuleBinding{})
+	hasRequest := !reflect.DeepEqual(publication.Request, formalGLMPhase16ProductiveRequest{})
+	hasBackend := len(publication.BackendSignatures) != 0
+	hasWorker := len(publication.WorkerSignatures) != 0
+	if !hasCapsule && !hasRequest && !hasBackend && !hasWorker {
+		return false, nil
+	}
+	if !hasCapsule || !hasRequest || !hasBackend || !hasWorker ||
+		len(publication.SamplerAuthorizations) == 0 {
+		return false, fmt.Errorf("formal-glm registered Phase21 assets: incomplete Stage inputs")
+	}
+	return true, nil
 }
 
 func formalGLMRegisteredPhase21PublicationAssetsPathsV1(
@@ -36,9 +69,14 @@ func formalGLMRegisteredPhase21PublicationAssetsPathsV1(
 		return zero, fmt.Errorf("formal-glm registered Phase21 assets: invalid Rock root")
 	}
 	return formalGLMRegisteredPhase21PublicationAssetsV1{
-		contractPath:   filepath.Join(base, "sampler-contract.json"),
-		pinsetPath:     filepath.Join(base, "pinset.json"),
-		resolutionPath: filepath.Join(base, "registry-resolution.json"),
+		contractPath:              filepath.Join(base, "sampler-contract.json"),
+		pinsetPath:                filepath.Join(base, "pinset.json"),
+		resolutionPath:            filepath.Join(base, "registry-resolution.json"),
+		capsulePath:               filepath.Join(base, "phase16-capsule.json"),
+		requestPath:               filepath.Join(base, "phase16-request.json"),
+		backendSignaturesPath:     filepath.Join(base, "phase16-backend-signatures.json"),
+		workerSignaturesPath:      filepath.Join(base, "phase16-worker-signatures.json"),
+		samplerAuthorizationsPath: filepath.Join(base, "sampler-authorizations.json"),
 	}, nil
 }
 
@@ -62,6 +100,10 @@ func formalGLMRegisteredPhase21PersistPublicationAssetsV1(
 	}
 	assets, err := formalGLMRegisteredPhase21PublicationAssetsPathsV1(
 		authorityRoot, publication.SamplerContract.ArtifactID)
+	if err != nil {
+		return zero, false, err
+	}
+	stageReady, err := formalGLMRegisteredPhase21PublicationStageInputsV1(publication)
 	if err != nil {
 		return zero, false, err
 	}
@@ -92,6 +134,38 @@ func formalGLMRegisteredPhase21PersistPublicationAssetsV1(
 	if err != nil {
 		return zero, false, err
 	}
+	stageReplay := true
+	if stageReady {
+		_, capsuleReplay, writeErr := formalGLMPhase21RockWriteJSON(
+			authorityRoot, assets.capsulePath, publication.Capsule)
+		if writeErr != nil {
+			return zero, false, writeErr
+		}
+		_, requestReplay, writeErr := formalGLMPhase21RockWriteJSON(
+			authorityRoot, assets.requestPath, publication.Request)
+		if writeErr != nil {
+			return zero, false, writeErr
+		}
+		_, backendReplay, writeErr := formalGLMPhase21RockWriteJSON(
+			authorityRoot, assets.backendSignaturesPath, publication.BackendSignatures)
+		if writeErr != nil {
+			return zero, false, writeErr
+		}
+		_, workerReplay, writeErr := formalGLMPhase21RockWriteJSON(
+			authorityRoot, assets.workerSignaturesPath, publication.WorkerSignatures)
+		if writeErr != nil {
+			return zero, false, writeErr
+		}
+		_, authorizationReplay, writeErr := formalGLMPhase21RockWriteJSON(
+			authorityRoot, assets.samplerAuthorizationsPath, publication.SamplerAuthorizations)
+		if writeErr != nil {
+			return zero, false, writeErr
+		}
+		stageReplay = capsuleReplay && requestReplay && backendReplay && workerReplay && authorizationReplay
+		assets.stageReady = true
+	} else {
+		assets.clearStagePathsV1()
+	}
 	loaded, err := formalGLMPhase21RockLoadContext(
 		authorityRoot, assets.contractPath, assets.pinsetPath)
 	if err != nil || loaded.artifactID != publication.SamplerContract.ArtifactID ||
@@ -107,5 +181,5 @@ func formalGLMRegisteredPhase21PersistPublicationAssetsV1(
 		clear(loaded.pins[peer])
 		delete(loaded.pins, peer)
 	}
-	return assets, contractReplay && pinsetReplay && resolutionReplay, nil
+	return assets, contractReplay && pinsetReplay && resolutionReplay && stageReplay, nil
 }

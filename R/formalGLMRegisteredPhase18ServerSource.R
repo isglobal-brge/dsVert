@@ -605,3 +605,43 @@
   list(source_receipt = response$source_receipt, pair_json = response$pair_json,
        replayed = response$replayed)
 }
+
+# Imports one opaque, source-signed encrypted pair at a designated recipient.
+# The Go ingress authenticates the pair and binds it to the closed ticket set;
+# R deliberately treats the payload as opaque and returns routing evidence
+# only.  This is an internal peer-relay seam, never a DataSHIELD endpoint.
+.dsvert_formal_glm_registered_source_import_pair <- function(
+    context, recipient_tickets, pair_json) {
+  context <- .dsvert_formal_glm_registered_source_context(context)
+  if (!is.list(recipient_tickets) || length(recipient_tickets) != 2L ||
+      !is.null(names(recipient_tickets))) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM recipient ticket set is invalid.")
+  }
+  if (!is.character(pair_json) || length(pair_json) != 1L || is.na(pair_json) ||
+      nchar(pair_json, type = "bytes") < 2L ||
+      nchar(pair_json, type = "bytes") > 32L * 1024L^2) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM encrypted pair is invalid.")
+  }
+  identity <- .dsvert_formal_glm_registered_source_identity(context)
+  response <- tryCatch(.callMpcTool(
+    "formal-glm-registered-phase18-source", list(
+      version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+      action = "import", source_contract_json = context$contract_json,
+      pins = context$pins, local_peer_name = context$source_name,
+      local_signing_key = identity$identity_sk,
+      recipient_tickets = recipient_tickets, pair_json = pair_json)),
+    error = function(error) NULL)
+  fields <- c("version", "pending_receipt", "replayed")
+  if (!is.list(response) || !identical(names(response), fields) ||
+      !identical(response$version,
+                 "dsvert-formal-glm-registered-phase18-source-command-v1") ||
+      !is.list(response$pending_receipt) ||
+      !is.logical(response$replayed) || length(response$replayed) != 1L ||
+      is.na(response$replayed)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM pair importer returned invalid output.")
+  }
+  list(pending_receipt = response$pending_receipt, replayed = response$replayed)
+}

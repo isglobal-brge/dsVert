@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/ed25519"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -79,7 +78,7 @@ func TestFormalGLMRegisteredPhase21StageTaskK2K3K5(t *testing.T) {
 				authorities[index].operation.RegistryResolutionPath = path
 			}
 			tasks := [2]*formalGLMRegisteredPhase21StageTaskV1{}
-			daemons := [2]*formalGLMRegisteredPhase20JobControlHostDaemonV1{}
+			clients := [2]*formalGLMRegisteredPhase20JobControlHostDaemonClientV1{}
 			for index := range tasks {
 				state := formalGLMRegisteredPhase21StageTaskTestStateV1(
 					t, fixture, contract, authorities[index], index)
@@ -90,9 +89,21 @@ func TestFormalGLMRegisteredPhase21StageTaskK2K3K5(t *testing.T) {
 				}
 				tasks[index] = task
 				t.Cleanup(task.closeV1)
-				daemons[index] = &formalGLMRegisteredPhase20JobControlHostDaemonV1{
-					host: &formalGLMRegisteredPhase20JobControlHostV1{stage: task},
+				peer := contract.Artifact.NoiseAuthorities[index].PeerName
+				key := sha256.Sum256([]byte(t.Name() + "/daemon/" + peer))
+				daemon, daemonErr := newFormalGLMRegisteredPhase20JobControlHostDaemonV1(
+					&formalGLMRegisteredPhase20JobControlHostV1{stage: task}, key[:])
+				if daemonErr != nil {
+					t.Fatal(daemonErr)
 				}
+				t.Cleanup(func() { _ = daemon.Close() })
+				client, clientErr := newFormalGLMRegisteredPhase20JobControlHostDaemonClientV1(
+					daemon.SocketPathV1(), key[:])
+				if clientErr != nil {
+					t.Fatal(clientErr)
+				}
+				t.Cleanup(client.Close)
+				clients[index] = client
 			}
 
 			var acknowledgements [2]*formalGLMRegisteredPhase21StageRelayAckV1
@@ -100,12 +111,7 @@ func TestFormalGLMRegisteredPhase21StageTaskK2K3K5(t *testing.T) {
 			for {
 				complete := 0
 				for index := range tasks {
-					response, err := daemons[index].dispatchV1(
-						"phase21_stage_status", json.RawMessage(`{}`))
-					var status formalGLMRegisteredPhase21StageStatusV1
-					if err == nil {
-						err = formalGLMPhase21RockStrictDecode(response, &status)
-					}
+					status, err := clients[index].Phase21StageStatusV1()
 					if err != nil || status.ProductionReady || status.State == formalGLMRegisteredPhase21StageFailedV1 {
 						for _, value := range tasks {
 							_ = value.abortV1()
@@ -124,19 +130,7 @@ func TestFormalGLMRegisteredPhase21StageTaskK2K3K5(t *testing.T) {
 					break
 				}
 				for index := range tasks {
-					request, marshalErr := json.Marshal(
-						formalGLMRegisteredPhase20JobControlHostDaemonStagePollV1{
-							Acknowledgement: acknowledgements[index],
-						})
-					if marshalErr != nil {
-						t.Fatal(marshalErr)
-					}
-					response, err := daemons[index].dispatchV1("phase21_stage_poll", request)
-					clear(request)
-					var result formalGLMRegisteredPhase20JobControlHostDaemonStagePollResultV1
-					if err == nil {
-						err = formalGLMPhase21RockStrictDecode(response, &result)
-					}
+					chunk, err := clients[index].PollPhase21StageV1(acknowledgements[index])
 					acknowledgements[index] = nil
 					if err != nil {
 						for _, value := range tasks {
@@ -144,22 +138,10 @@ func TestFormalGLMRegisteredPhase21StageTaskK2K3K5(t *testing.T) {
 						}
 						t.Fatalf("Stage task %d poll: %v", index, err)
 					}
-					if result.Chunk == nil {
+					if chunk == nil {
 						continue
 					}
-					request, marshalErr = json.Marshal(
-						formalGLMRegisteredPhase20JobControlHostDaemonStageRelayV1{
-							Chunk: *result.Chunk,
-						})
-					if marshalErr != nil {
-						t.Fatal(marshalErr)
-					}
-					response, err = daemons[1-index].dispatchV1("phase21_stage_relay", request)
-					clear(request)
-					var ack formalGLMRegisteredPhase21StageRelayAckV1
-					if err == nil {
-						err = formalGLMPhase21RockStrictDecode(response, &ack)
-					}
+					ack, err := clients[1-index].RelayPhase21StageV1(*chunk)
 					if err != nil {
 						for _, value := range tasks {
 							_ = value.abortV1()

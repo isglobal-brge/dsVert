@@ -90,6 +90,8 @@ func main() {
 		handleFormalGLMPublicProvisionTemplateV1()
 	case "formal-glm-public-result":
 		handleFormalGLMPublicResultV1()
+	case "formal-glm-phase21-public-terminal":
+		handleFormalGLMPhase21PublicTerminalV1()
 	case "formal-cox-public-result":
 		handleFormalCoxPublicResultV1()
 	case "formal-glm-phase18-source-project":

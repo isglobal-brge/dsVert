@@ -1,11 +1,14 @@
 # Read-only server endpoint for a completed, signed formal GLM publication.
 #
-# It deliberately does not start a GLM computation.  Custodians configure the
-# public certificate and its pinset; the analyst can name only the registered
-# analysis, data, family, and canonical formula digest.
+# It deliberately does not start a GLM computation.  Custodians configure a
+# completed public certificate or a completed durable Phase21 terminal and its
+# pinset; the analyst can name only the registered analysis, data, family, and
+# canonical formula digest.
 
 .DSVERT_FORMAL_GLM_PUBLIC_RESULT_SPEC_VERSION <-
   "dsvert-formal-glm-public-result-spec-v1"
+.DSVERT_FORMAL_GLM_PHASE21_PUBLIC_TERMINAL_SPEC_VERSION <-
+  "dsvert-formal-glm-phase21-public-terminal-spec-v1"
 .DSVERT_FORMAL_GLM_PUBLIC_RESULT_RESPONSE_VERSION <-
   "dsvert-formal-glm-public-result-v1"
 .DSVERT_FORMAL_GLM_PUBLIC_RESULT_MAX_BYTES <- 16L * 1024L^2
@@ -22,20 +25,26 @@
       "invalid_formal_glm_registry")
   }
   value <- specs[[analysis_id]]
-  fields <- c("version", "analysis_id", "data_name", "family",
-              "formula_sha256", "certificate_json", "pins")
+  legacy_fields <- c("version", "analysis_id", "data_name", "family",
+                     "formula_sha256", "certificate_json", "pins")
+  phase21_fields <- c("version", "analysis_id", "data_name", "family",
+                      "formula_sha256", "authority_peer", "contract_json",
+                      "resolution_json", "pins")
+  version <- if (is.list(value)) value$version else NULL
+  fields <- if (identical(version, .DSVERT_FORMAL_GLM_PUBLIC_RESULT_SPEC_VERSION)) {
+    legacy_fields
+  } else if (identical(version,
+                       .DSVERT_FORMAL_GLM_PHASE21_PUBLIC_TERMINAL_SPEC_VERSION)) {
+    phase21_fields
+  } else {
+    character()
+  }
   if (is.null(value) || !is.list(value) || is.null(names(value)) ||
       anyNA(names(value)) || anyDuplicated(names(value)) ||
       !setequal(names(value), fields) ||
-      !identical(value$version, .DSVERT_FORMAL_GLM_PUBLIC_RESULT_SPEC_VERSION) ||
       !identical(value$analysis_id, analysis_id) ||
       !is.character(value$family) || length(value$family) != 1L ||
       is.na(value$family) || !value$family %in% c("binomial", "poisson") ||
-      !is.character(value$certificate_json) ||
-      length(value$certificate_json) != 1L || is.na(value$certificate_json) ||
-      nchar(value$certificate_json, type = "bytes") < 2L ||
-      nchar(value$certificate_json, type = "bytes") >
-        .DSVERT_FORMAL_GLM_PUBLIC_RESULT_MAX_BYTES ||
       !is.list(value$pins) || is.null(names(value$pins)) ||
       length(value$pins) < 2L || anyNA(names(value$pins)) ||
       any(!nzchar(names(value$pins))) || anyDuplicated(names(value$pins)) ||
@@ -46,6 +55,34 @@
     .dsvert_formal_glm_frontdoor_abort(
       "The requested formal GLM analysis is unavailable.",
       "invalid_formal_glm_registry")
+  }
+  if (identical(value$version, .DSVERT_FORMAL_GLM_PUBLIC_RESULT_SPEC_VERSION)) {
+    if (!is.character(value$certificate_json) ||
+        length(value$certificate_json) != 1L || is.na(value$certificate_json) ||
+        nchar(value$certificate_json, type = "bytes") < 2L ||
+        nchar(value$certificate_json, type = "bytes") >
+          .DSVERT_FORMAL_GLM_PUBLIC_RESULT_MAX_BYTES) {
+      .dsvert_formal_glm_frontdoor_abort(
+        "The requested formal GLM analysis is unavailable.",
+        "invalid_formal_glm_registry")
+    }
+  } else {
+    value$authority_peer <- .dsvert_formal_glm_frontdoor_label(
+      value$authority_peer, "authority peer")
+    if (!is.character(value$contract_json) || length(value$contract_json) != 1L ||
+        is.na(value$contract_json) ||
+        nchar(value$contract_json, type = "bytes") < 2L ||
+        nchar(value$contract_json, type = "bytes") >
+          .DSVERT_FORMAL_GLM_PUBLIC_RESULT_MAX_BYTES ||
+        !is.character(value$resolution_json) ||
+        length(value$resolution_json) != 1L || is.na(value$resolution_json) ||
+        nchar(value$resolution_json, type = "bytes") < 2L ||
+        nchar(value$resolution_json, type = "bytes") >
+          .DSVERT_FORMAL_GLM_PUBLIC_RESULT_MAX_BYTES) {
+      .dsvert_formal_glm_frontdoor_abort(
+        "The requested formal GLM analysis is unavailable.",
+        "invalid_formal_glm_registry")
+    }
   }
   value$data_name <- .dsvert_formal_glm_frontdoor_label(
     value$data_name, "data selector")
@@ -150,10 +187,21 @@ dsvertFormalGLMPublicResultDS <- function(
       !identical(formula_sha256, spec$formula_sha256)) {
     .dsvert_formal_glm_frontdoor_abort()
   }
+  command <- if (identical(
+    spec$version, .DSVERT_FORMAL_GLM_PHASE21_PUBLIC_TERMINAL_SPEC_VERSION)) {
+    "formal-glm-phase21-public-terminal"
+  } else {
+    "formal-glm-public-result"
+  }
+  payload <- if (identical(
+    spec$version, .DSVERT_FORMAL_GLM_PHASE21_PUBLIC_TERMINAL_SPEC_VERSION)) {
+    list(authority_peer = spec$authority_peer, contract_json = spec$contract_json,
+         resolution_json = spec$resolution_json, pins = spec$pins)
+  } else {
+    list(certificate_json = spec$certificate_json, pins = spec$pins)
+  }
   decoded <- tryCatch(
-    .callMpcTool("formal-glm-public-result", list(
-      certificate_json = spec$certificate_json, pins = spec$pins),
-      simplify_output = FALSE),
+    .callMpcTool(command, payload, simplify_output = FALSE),
     error = function(error) NULL)
   if (is.null(decoded)) {
     .dsvert_formal_glm_frontdoor_abort(

@@ -11,6 +11,16 @@
     pins = list(site_a = strrep("A", 43L), site_b = strrep("B", 43L))))
 }
 
+.formal_glm_phase21_public_terminal_specs <- function() {
+  formula <- .dsvert_formal_glm_frontdoor_formula("y ~ x")
+  list(primary_logit = list(
+    version = "dsvert-formal-glm-phase21-public-terminal-spec-v1",
+    analysis_id = "primary_logit", data_name = "study", family = "binomial",
+    formula_sha256 = formula$sha256, authority_peer = "authority_a",
+    contract_json = "{}", resolution_json = "{}",
+    pins = list(site_a = strrep("A", 43L), site_b = strrep("B", 43L))))
+}
+
 .formal_glm_public_result_reply <- function(specs =
                                                .formal_glm_public_result_specs()) {
   spec <- specs$primary_logit
@@ -51,6 +61,18 @@ test_that("the packaged runtime recognizes the formal GLM public reader", {
                         fixed = TRUE)))
 })
 
+test_that("the packaged runtime recognizes the durable GLM terminal reader", {
+  binary <- .findMpcBinary()
+  output <- suppressWarnings(system2(
+    binary, "formal-glm-phase21-public-terminal", input = "{}",
+    stdout = TRUE, stderr = TRUE))
+
+  expect_identical(attr(output, "status") %||% 0L, 1L)
+  expect_false(any(grepl("Unknown command", output, fixed = TRUE)))
+  expect_true(any(grepl("formal-glm Phase21 public terminal failed", output,
+                        fixed = TRUE)))
+})
+
 test_that("formal public GLM results are read-only, bounded and redacted", {
   specs <- .formal_glm_public_result_specs()
   withr::local_options(list(dsvert.dp.formal_glm_public_results = specs))
@@ -77,6 +99,32 @@ test_that("formal public GLM results are read-only, bounded and redacted", {
   expect_false(output$production_ready)
   forbidden <- c("certificate_json", "pins", "path", "key", "seed")
   expect_false(any(forbidden %in% names(output)))
+})
+
+test_that("formal public GLM results can read a durable Phase21 terminal", {
+  specs <- .formal_glm_phase21_public_terminal_specs()
+  withr::local_options(list(dsvert.dp.formal_glm_public_results = specs))
+  calls <- 0L
+  testthat::local_mocked_bindings(
+    .callMpcTool = function(command, input_data, simplify_output = TRUE) {
+      calls <<- calls + 1L
+      expect_identical(command, "formal-glm-phase21-public-terminal")
+      expect_identical(input_data$authority_peer, "authority_a")
+      expect_identical(input_data$contract_json, "{}")
+      expect_identical(input_data$resolution_json, "{}")
+      expect_identical(input_data$pins, specs$primary_logit$pins)
+      expect_false(simplify_output)
+      .formal_glm_public_result_reply(specs)
+    },
+    .package = "dsVert")
+  output <- dsvertFormalGLMPublicResultDS(
+    "primary_logit", "study", "binomial",
+    specs$primary_logit$formula_sha256)
+  expect_identical(calls, 1L)
+  expect_identical(output$analysis_id, "primary_logit")
+  expect_false(output$production_ready)
+  expect_false(any(c("authority_peer", "contract_json", "resolution_json", "pins") %in%
+                     names(output)))
 })
 
 test_that("formal public GLM selectors and malformed releases fail closed", {

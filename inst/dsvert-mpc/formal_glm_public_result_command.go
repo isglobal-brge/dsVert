@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -77,22 +78,12 @@ func formalGLMPublicResultFloat64V1(steps string, latticeBits int) (float64, err
 	return value, nil
 }
 
-func formalGLMRunPublicResultV1(encoded []byte) (formalGLMPublicResultResponseV1, error) {
+func formalGLMPublicResultFromCertificateV1(
+	certificate formalGLMPhase21PublicCertificateV2,
+	pins map[string]ed25519.PublicKey,
+) (formalGLMPublicResultResponseV1, error) {
 	var zero formalGLMPublicResultResponseV1
-	var request formalGLMPublicResultRequestV1
-	if err := formalGLMPublicResultDecodeStrictV1(encoded, &request); err != nil ||
-		len(request.CertificateJSON) < 2 || len(request.CertificateJSON) > formalGLMPublicResultCommandMaxJSON {
-		return zero, fmt.Errorf("formal-glm public result: invalid request")
-	}
-	pins, err := formalGLMPublicModelDecodePinsV1(request.Pins)
-	if err != nil {
-		return zero, fmt.Errorf("formal-glm public result: invalid pinset")
-	}
-	defer formalGLMRegisteredPhase20TerminalClearPinsV1(pins)
-	var certificate formalGLMPhase21PublicCertificateV2
-	if err := formalGLMPublicResultDecodeStrictV1(
-		[]byte(request.CertificateJSON), &certificate); err != nil ||
-		formalGLMPhase21ValidatePublicCertificateV2(certificate, pins) != nil ||
+	if formalGLMPhase21ValidatePublicCertificateV2(certificate, pins) != nil ||
 		certificate.PublicDescriptor == nil {
 		return zero, fmt.Errorf("formal-glm public result: invalid public release")
 	}
@@ -126,6 +117,28 @@ func formalGLMRunPublicResultV1(encoded []byte) (formalGLMPublicResultResponseV1
 		FormulaSHA256: descriptor.FormulaSHA256, Coefficients: coefficients,
 		ProductionReady: false,
 	}, nil
+}
+
+func formalGLMRunPublicResultV1(encoded []byte) (formalGLMPublicResultResponseV1, error) {
+	var zero formalGLMPublicResultResponseV1
+	var request formalGLMPublicResultRequestV1
+	if err := formalGLMPublicResultDecodeStrictV1(encoded, &request); err != nil ||
+		len(request.CertificateJSON) < 2 || len(request.CertificateJSON) > formalGLMPublicResultCommandMaxJSON {
+		return zero, fmt.Errorf("formal-glm public result: invalid request")
+	}
+	pins, err := formalGLMPublicModelDecodePinsV1(request.Pins)
+	if err != nil {
+		return zero, fmt.Errorf("formal-glm public result: invalid pinset")
+	}
+	defer formalGLMRegisteredPhase20TerminalClearPinsV1(pins)
+	var certificate formalGLMPhase21PublicCertificateV2
+	if err := formalGLMPublicResultDecodeStrictV1(
+		[]byte(request.CertificateJSON), &certificate); err != nil ||
+		formalGLMPhase21ValidatePublicCertificateV2(certificate, pins) != nil ||
+		certificate.PublicDescriptor == nil {
+		return zero, fmt.Errorf("formal-glm public result: invalid public release")
+	}
+	return formalGLMPublicResultFromCertificateV1(certificate, pins)
 }
 
 func handleFormalGLMPublicResultV1() {

@@ -56,6 +56,13 @@ type formalGLMRegisteredPhase20JobControlHostDaemonBindV1 struct {
 	Frame []byte `json:"frame"`
 }
 
+// Preflight frames are signed public lifecycle records.  They are transported
+// as opaque bytes so the local control surface never has to expose or accept
+// a Phase21 filesystem record.
+type formalGLMRegisteredPhase20JobControlHostDaemonPreflightV1 struct {
+	Frame []byte `json:"frame"`
+}
+
 type formalGLMRegisteredPhase20JobControlHostDaemonPollV1 struct {
 	Ref          formalGLMRegisteredPhase20JobRefV1 `json:"ref"`
 	Acknowledged int64                              `json:"acknowledged"`
@@ -667,6 +674,32 @@ func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) dispatchV1(
 		request, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonBindV1](encoded)
 		if err != nil || host.BindPeerJobRefV1(request.Frame) != nil {
 			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: bind failed")
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(struct{}{})
+	case "phase21_preflight":
+		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil {
+			return nil, err
+		}
+		record, err := host.RunPhase21PreflightV1()
+		if err != nil {
+			return nil, err
+		}
+		frame, err := formalGLMRegisteredPhase20JobControlHostDaemonCanonicalV1(record)
+		if err != nil {
+			return nil, err
+		}
+		defer clear(frame)
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(
+			formalGLMRegisteredPhase20JobControlHostDaemonPreflightV1{Frame: frame})
+	case "phase21_preflight_bind":
+		request, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonPreflightV1](encoded)
+		if err != nil {
+			return nil, err
+		}
+		var record formalGLMPhase21RockPreflightRecord
+		if err := formalGLMPhase21RockStrictDecode(request.Frame, &record); err != nil ||
+			host.ImportPhase21PeerPreflightV1(record) != nil {
+			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: Phase21 preflight bind failed")
 		}
 		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(struct{}{})
 	case "heartbeat":

@@ -1,11 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"testing"
 	"time"
 )
@@ -270,30 +270,63 @@ func formalGLMRegisteredPhase20JobControlHostRunsFromPendingIngressV1(
 		}
 	}
 	var preflight [2]formalGLMPhase21RockPreflightRecord
+	var preflightFrames [2][]byte
 	for index, host := range hosts {
-		var preflightErr error
-		preflight[index], preflightErr = host.RunPhase21PreflightV1()
-		if preflightErr != nil || preflight[index].Receipt.State != formalGLMPhase21RockStateAbsent ||
-			preflight[index].ProductionReady {
-			t.Fatalf("host %d Phase21 preflight: %#v / %v", index, preflight[index], preflightErr)
+		response, preflightErr := (&formalGLMRegisteredPhase20JobControlHostDaemonV1{host: host}).dispatchV1(
+			"phase21_preflight", json.RawMessage(`{}`))
+		if preflightErr != nil {
+			t.Fatalf("host %d Phase21 preflight: %v", index, preflightErr)
 		}
+		var frame formalGLMRegisteredPhase20JobControlHostDaemonPreflightV1
+		if err := formalGLMPhase21RockStrictDecode(response, &frame); err != nil ||
+			formalGLMPhase21RockStrictDecode(frame.Frame, &preflight[index]) != nil ||
+			preflight[index].Receipt.State != formalGLMPhase21RockStateAbsent ||
+			preflight[index].ProductionReady {
+			t.Fatalf("host %d Phase21 preflight frame: %#v / %v", index, frame, err)
+		}
+		preflightFrames[index] = append([]byte(nil), frame.Frame...)
 	}
 	tamperedPreflight := preflight[0]
 	tamperedPreflight.Receipt.Signature = append([]byte(nil), preflight[0].Receipt.Signature...)
 	tamperedPreflight.Receipt.Signature[0] ^= 1
-	if err := hosts[1].ImportPhase21PeerPreflightV1(tamperedPreflight); err == nil {
+	tamperedFrame, err := json.Marshal(tamperedPreflight)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tamperedRequest, err := json.Marshal(
+		formalGLMRegisteredPhase20JobControlHostDaemonPreflightV1{Frame: tamperedFrame})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (&formalGLMRegisteredPhase20JobControlHostDaemonV1{host: hosts[1]}).dispatchV1(
+		"phase21_preflight_bind", tamperedRequest); err == nil {
 		t.Fatal("accepted tampered Phase21 peer preflight")
 	}
-	if err := hosts[0].ImportPhase21PeerPreflightV1(preflight[0]); err == nil {
+	localRequest, err := json.Marshal(
+		formalGLMRegisteredPhase20JobControlHostDaemonPreflightV1{Frame: preflightFrames[0]})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (&formalGLMRegisteredPhase20JobControlHostDaemonV1{host: hosts[0]}).dispatchV1(
+		"phase21_preflight_bind", localRequest); err == nil {
 		t.Fatal("accepted local Phase21 preflight as peer input")
 	}
 	for index, host := range hosts {
-		if err := host.ImportPhase21PeerPreflightV1(preflight[1-index]); err != nil {
+		request, requestErr := json.Marshal(
+			formalGLMRegisteredPhase20JobControlHostDaemonPreflightV1{Frame: preflightFrames[1-index]})
+		if requestErr != nil {
+			t.Fatal(requestErr)
+		}
+		if _, err := (&formalGLMRegisteredPhase20JobControlHostDaemonV1{host: host}).dispatchV1(
+			"phase21_preflight_bind", request); err != nil {
 			t.Fatalf("host %d did not import the signed peer preflight: %v", index, err)
 		}
-		replay, replayErr := host.RunPhase21PreflightV1()
-		if replayErr != nil || !reflect.DeepEqual(replay, preflight[index]) {
-			t.Fatalf("host %d preflight replay changed: %#v / %v", index, replay, replayErr)
+		replayResponse, replayErr := (&formalGLMRegisteredPhase20JobControlHostDaemonV1{host: host}).dispatchV1(
+			"phase21_preflight", json.RawMessage(`{}`))
+		var replayFrame formalGLMRegisteredPhase20JobControlHostDaemonPreflightV1
+		if replayErr != nil || formalGLMPhase21RockStrictDecode(replayResponse, &replayFrame) != nil ||
+			!bytes.Equal(replayFrame.Frame, preflightFrames[index]) {
+			t.Fatalf("host %d preflight replay changed: %q / %v", index, replayResponse, replayErr)
 		}
 	}
 }

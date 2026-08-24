@@ -9,10 +9,11 @@
 .DSVERT_FORMAL_GLM_REGISTERED_JOB_CONTROL_MAX_BYTES <- 2L * 1024L * 1024L
 .DSVERT_FORMAL_GLM_REGISTERED_JOB_CONTROL_EMPTY_ACTIONS <- c(
   "start", "health", "job_ref", "heartbeat", "compute", "terminal",
+  "phase21_preflight",
   "compute_start", "compute_status", "terminal_start", "terminal_status")
 .DSVERT_FORMAL_GLM_REGISTERED_JOB_CONTROL_ACTIONS <- c(
   "negotiate", .DSVERT_FORMAL_GLM_REGISTERED_JOB_CONTROL_EMPTY_ACTIONS,
-  "bind", "poll", "relay")
+  "bind", "phase21_preflight_bind", "poll", "relay")
 
 .dsvert_formal_glm_registered_job_control_abort <- function(
     message = "The registered formal-GLM job control request is unavailable.",
@@ -66,7 +67,7 @@
       "invalid_formal_glm_registered_job_payload")
   }
   expected <- switch(action,
-    negotiate = "inbound", bind = "frame",
+    negotiate = "inbound", bind = "frame", phase21_preflight_bind = "frame",
     poll = c("ref", "acknowledged"), relay = c("ref", "chunk"),
     character())
   if (!identical(fields, expected)) {
@@ -77,7 +78,7 @@
   if (identical(action, "negotiate")) {
     payload$inbound <- .dsvert_formal_glm_registered_job_control_base64(
       payload$inbound, "negotiation frame", allow_empty = TRUE)
-  } else if (identical(action, "bind")) {
+  } else if (action %in% c("bind", "phase21_preflight_bind")) {
     payload$frame <- .dsvert_formal_glm_registered_job_control_base64(
       payload$frame, "binding frame")
   } else if (identical(action, "poll")) {

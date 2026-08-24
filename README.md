@@ -237,12 +237,14 @@ validation runner receives only profile `use` and Opal's table `view`
 permission (dictionary and summaries for DataSHIELD, without individual-value
 queries); `view-values`, edit and administrative access are never granted.
 
-Security-profile schema v4 defines the server compatibility field
+Security-profile schema v5 defines the server compatibility field
 `formal_dp_claim_eligible` only as eligibility of the biomedical joint-DP
 capsule surface for the separate live consortium handshake. Its route map
-explicitly keeps formal GLM and formal Cox not ready. A top-level client
-`ready` value, this compatibility alias or a valid surface token never
-promotes either sealed model route.
+explicitly keeps formal GLM and formal Cox computation not ready, while
+separately reporting the available read-only route for a completed
+two-authority certificate. A top-level client `ready` value, this
+compatibility alias or a valid surface token never promotes either sealed
+model-computation route.
 
 ## Custodian-owned PSI source authorization
 

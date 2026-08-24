@@ -19,7 +19,7 @@ test_that("installed Cox and LMM notes cannot promote quarantined routes", {
     expect_false(grepl(forbidden, text, ignore.case = TRUE, perl = TRUE),
                  info = paste(filename, "contains a release-status overclaim"))
     if (identical(filename, "cox.md")) {
-      expect_match(text, "Security-profile schema v4", fixed = TRUE)
+      expect_match(text, "Security-profile schema v5", fixed = TRUE)
       expect_match(text, "`route_claims$formal_cox_ready = FALSE`",
                    fixed = TRUE)
       expect_match(text, "neither can promote this quarantined Cox frontdoor",
@@ -50,7 +50,7 @@ test_that("formal GLM and Cox notes cannot inherit profile readiness", {
   for (filename in glm_docs) {
     for (path in .dsvert_installed_formal_docs(filename)) {
       text <- paste(readLines(path, warn = FALSE), collapse = "\n")
-      expect_match(text, "security-profile schema v4", fixed = TRUE)
+      expect_match(text, "security-profile schema v5", fixed = TRUE)
       expect_match(text, "`route_claims$formal_glm_ready = FALSE`",
                    fixed = TRUE)
       expect_match(text,
@@ -69,7 +69,7 @@ test_that("formal GLM and Cox notes cannot inherit profile readiness", {
   for (path in .dsvert_installed_formal_docs(
       "formal_cox_capsule_internal.md")) {
     text <- paste(readLines(path, warn = FALSE), collapse = "\n")
-    expect_match(text, "security-profile schema v4", fixed = TRUE)
+    expect_match(text, "security-profile schema v5", fixed = TRUE)
     expect_match(text, "`route_claims$formal_cox_ready = FALSE`", fixed = TRUE)
     expect_match(
       text,
@@ -86,24 +86,24 @@ test_that("formal GLM and Cox notes cannot inherit profile readiness", {
   }
 })
 
-test_that("public schema-v4 profile docs keep readiness route-specific", {
+test_that("public schema-v5 profile docs keep readiness route-specific", {
   source <- paste(readLines(.dsvert_test_package_file(
     "R", "securityProfileDS.R", source_only = TRUE), warn = FALSE),
     collapse = "\n")
   readme <- paste(readLines(.dsvert_test_package_file(
     "README.md", source_only = TRUE), warn = FALSE), collapse = "\n")
 
-  expect_match(source, "schema_version = 4L", fixed = TRUE)
+  expect_match(source, "schema_version = 5L", fixed = TRUE)
   expect_match(source, "formal_glm_ready = FALSE", fixed = TRUE)
   expect_match(source, "formal_cox_ready = FALSE", fixed = TRUE)
   expect_match(source, "formal_dp_claim_eligible", fixed = TRUE)
   expect_match(source, "never promote formal GLM or formal", fixed = TRUE)
 
-  expect_match(readme, "Security-profile schema v4", fixed = TRUE)
+  expect_match(readme, "Security-profile schema v5", fixed = TRUE)
   expect_match(readme, "formal_dp_claim_eligible", fixed = TRUE)
-  expect_match(readme, "formal GLM and formal Cox\\s+not ready", perl = TRUE)
-  expect_match(readme, "never\\s+promotes either sealed model route",
-               perl = TRUE)
+  expect_match(readme, "formal GLM and formal Cox computation not ready",
+               fixed = TRUE)
+  expect_match(readme, "model-computation route", fixed = TRUE)
 })
 
 test_that("README makes the no-admission Synopsis contract explicit", {

@@ -4,7 +4,7 @@ Status: **internal, sealed, `production_ready = FALSE`**.  No function in this
 slice is registered as a DataSHIELD aggregate or assign method.  It does not
 reuse the historical exact Cox implementation.
 
-## Public lifecycle status (security-profile schema v4)
+## Public lifecycle status (security-profile schema v5)
 
 This note preserves component-level research evidence; it is not readiness
 evidence for a public route. Schema v4 reports

@@ -4,15 +4,16 @@ Phase 1.7 is an internal, non-production gate. It has no DataSHIELD
 `AggregateMethod`, R export, runtime command, advertised capability, or packaged
 binary change. It performs no opening.
 
-## Public lifecycle status (security-profile schema v4)
+## Public lifecycle status (security-profile schema v5)
 
 This note preserves component-level research evidence; it is not readiness
-evidence for a public route. Schema v4 reports
+evidence for a new public computation route. Schema v5 reports
 `route_claims$formal_glm_ready = FALSE` with state
 `sealed_no_registered_r_dsi_joint_dp_release_lifecycle`. The top-level client
 `ready` value and the server compatibility alias `formal_dp_claim_eligible`
 describe the biomedical joint-DP capsule route only; neither promotes formal
-GLM or formal Cox.
+GLM or formal Cox. It separately reports the read-only completed-certificate
+route; this component cannot create such a certificate.
 
 Formal GLM remains sealed until the protected materializer, the complete
 registered R/DSI schedule, the durable common finalizer and the route-level

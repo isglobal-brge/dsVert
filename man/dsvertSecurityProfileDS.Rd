@@ -7,13 +7,15 @@
 dsvertSecurityProfileDS()
 }
 \value{
-A public, custodian-owned schema-v4 security-profile description.
+A public, custodian-owned schema-v5 security-profile description.
 The route-specific claims distinguish local profile/surface eligibility
 from consortium runtime readiness; the latter requires the client joint-DP
 handshake. The top-level compatibility alias \code{formal_dp_claim_eligible}
 applies only to biomedical joint-DP capsule profile/surface eligibility.
 It and a client top-level \code{ready} value never promote formal GLM or formal
-Cox: their route-specific \code{ready} fields remain false while sealed.
+Cox compute: their compute \code{ready} fields remain false while sealed.
+Completed two-authority GLM and Cox certificates have separate read-only
+route claims.
 }
 \description{
 dsVert exposes one immutable profile. Historical exact/adaptive releases

@@ -7,7 +7,7 @@ the certified coefficient lattice values and hazard-ratio point/range values;
 it cannot start a Cox computation or reveal source records, shares, paths,
 keys, retries or intermediate state.
 
-Security-profile schema v4 continues to report
+Security-profile schema v5 continues to report
 `route_claims$formal_cox_ready = FALSE` with state
 `sealed_no_recipient_encrypted_r_dsi_lifecycle_or_end_to_end_numeric_certificate`:
 new formal Cox execution is not ready. It separately reports the completed
@@ -15,6 +15,9 @@ read-only result boundary as
 `route_claims$formal_cox_public_result_ready = TRUE`. The top-level client
 `ready` value and server compatibility alias `formal_dp_claim_eligible` do not
 authorize a new Cox analysis.
+
+These fields neither can promote this quarantined Cox frontdoor. A legacy Cox
+call fails before any DSI call.
 
 Without `formal_analysis_id`, the compatibility frontdoors fail before any DSI
 call. `ds.vertCoxProfileNonDisclosive()` and

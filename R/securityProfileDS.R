@@ -405,18 +405,20 @@
 #' automatically or accepted as a client-call argument, and conflicting
 #' server-side sources fail closed.
 #'
-#' @return A public, custodian-owned schema-v4 security-profile description.
+#' @return A public, custodian-owned schema-v5 security-profile description.
 #'   The route-specific claims distinguish local profile/surface eligibility
 #'   from consortium runtime readiness; the latter requires the client joint-DP
 #'   handshake. The top-level compatibility alias `formal_dp_claim_eligible`
 #'   applies only to biomedical joint-DP capsule profile/surface eligibility.
 #'   It and a client top-level `ready` value never promote formal GLM or formal
-#'   Cox: their route-specific `ready` fields remain false while sealed.
+#'   Cox compute: their compute `ready` fields remain false while sealed.
+#'   Completed two-authority GLM and Cox certificates have separate read-only
+#'   route claims.
 #' @export
 dsvertSecurityProfileDS <- function() {
   surface <- .dsvert_remote_surface_attestation_status()
   list(
-    schema_version = 4L,
+    schema_version = 5L,
     release_mode = .dsvert_release_mode(),
     exact_adaptive_releases_enabled = FALSE,
     disclosure_safe_gate_active = TRUE,
@@ -437,6 +439,10 @@ dsvertSecurityProfileDS <- function() {
       formal_glm_ready = FALSE,
       formal_glm_state =
         "sealed_no_registered_r_dsi_joint_dp_release_lifecycle",
+      formal_glm_public_result_ready = TRUE,
+      formal_glm_public_result_state = paste0(
+        "read_only_completed_two_authority_signed_public_",
+        "certificate"),
       formal_cox_ready = FALSE,
       formal_cox_state = paste0(
         "sealed_no_recipient_encrypted_r_dsi_lifecycle_or_",

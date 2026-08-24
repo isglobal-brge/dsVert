@@ -8,7 +8,7 @@ test_that("the installed package exposes one immutable disclosure-safe profile",
 
   expect_identical(.dsvert_release_mode(), "disclosure_safe")
   profile <- dsvertSecurityProfileDS()
-  expect_identical(profile$schema_version, 4L)
+  expect_identical(profile$schema_version, 5L)
   expect_identical(profile$release_mode, "disclosure_safe")
   expect_true(profile$disclosure_safe_gate_active)
   expect_false(profile$exact_adaptive_releases_enabled)
@@ -29,6 +29,10 @@ test_that("the installed package exposes one immutable disclosure-safe profile",
     profile$route_claims$biomedical_joint_dp_capsule_runtime_readiness,
     "not_evaluated_requires_client_joint_dp_status_handshake")
   expect_false(profile$route_claims$formal_glm_ready)
+  expect_true(profile$route_claims$formal_glm_public_result_ready)
+  expect_identical(
+    profile$route_claims$formal_glm_public_result_state,
+    "read_only_completed_two_authority_signed_public_certificate")
   expect_false(profile$route_claims$formal_cox_ready)
   expect_true(profile$route_claims$formal_cox_public_result_ready)
   expect_false(profile$unconditional_non_reconstruction_guarantee)
@@ -59,6 +63,7 @@ test_that("surface readiness fails closed for missing or stale attestation", {
     missing$route_claims[[
       "biomedical_joint_dp_capsule_profile_surface_eligible"]])
   expect_false(missing$route_claims$formal_glm_ready)
+  expect_true(missing$route_claims$formal_glm_public_result_ready)
   expect_false(missing$route_claims$formal_cox_ready)
   expect_true(missing$route_claims$formal_cox_public_result_ready)
   expect_identical(

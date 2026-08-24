@@ -2,15 +2,32 @@ package main
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"testing"
 )
+
+func formalGLMRegisteredPhase21PublicationContextTestAuthorityRootV1(
+	peer string,
+) [32]byte {
+	return sha256.Sum256([]byte("registered-execution/authority-root/" + peer))
+}
 
 func formalGLMRegisteredPhase21PublicationContextTestBuildV1(
 	t testing.TB,
 	fixture formalGLMSourceContractTestFixtureV1,
 ) formalGLMRegisteredPhase21PublicationContextV1 {
 	t.Helper()
+	encodedResolution, err := json.Marshal(fixture.inputs.resolution)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var resolution formalGLMArtifactRegistryResolutionV1
+	if err := json.Unmarshal(encodedResolution, &resolution); err != nil {
+		clear(encodedResolution)
+		t.Fatal(err)
+	}
+	clear(encodedResolution)
 	unsigned := fixture.contract.Core.SamplerV2ContractCore
 	signatures := make([]jointDPBiomedicalGaussianSignature, 0,
 		len(unsigned.CustodianPeers))
@@ -29,15 +46,15 @@ func formalGLMRegisteredPhase21PublicationContextTestBuildV1(
 	}
 	roots := make(map[string][32]byte, len(sampler.Artifact.NoiseAuthorities))
 	for _, authority := range sampler.Artifact.NoiseAuthorities {
-		roots[authority.PeerName] = sha256.Sum256([]byte(
-			"registered-execution/authority-root/" + authority.PeerName))
+		roots[authority.PeerName] =
+			formalGLMRegisteredPhase21PublicationContextTestAuthorityRootV1(authority.PeerName)
 	}
 	context := formalGLMRegisteredPhase21PublicationContextV1{
 		Version:                  formalGLMRegisteredPhase21PublicationContextVersionV1,
 		Purpose:                  formalGLMRegisteredPhase21PublicationContextPurposeV1,
 		SourceContractCoreSHA256: fixture.contract.CoreSHA256,
 		SamplerContract:          sampler,
-		RegistryResolution:       fixture.inputs.resolution,
+		RegistryResolution:       resolution,
 		SamplerAuthorizations: formalGLMPhase21SamplerV2TestAuthorize(
 			t, sampler, fixture.inputs.identities.public,
 			fixture.inputs.identities.private, roots),

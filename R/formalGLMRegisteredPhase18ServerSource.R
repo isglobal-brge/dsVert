@@ -664,6 +664,73 @@
        replayed = response$replayed)
 }
 
+# Commits one opaque, source-signed public receipt into the shared Rock-local
+# receipt set.  The receipt is validated by Go; R never decodes it or carries
+# a source block, ticket, authorization, or consensus value across this seam.
+.dsvert_formal_glm_registered_source_commit_local_receipt <- function(
+    context, local_receipt_json) {
+  context <- .dsvert_formal_glm_registered_source_context(context)
+  if (!is.character(local_receipt_json) || length(local_receipt_json) != 1L ||
+      is.na(local_receipt_json) ||
+      nchar(local_receipt_json, type = "bytes") < 2L ||
+      nchar(local_receipt_json, type = "bytes") > 4L * 1024L^2) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM local receipt is invalid.")
+  }
+  identity <- .dsvert_formal_glm_registered_source_identity(context)
+  response <- tryCatch(.callMpcTool(
+    "formal-glm-registered-phase18-source", list(
+      version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+      action = "receipt_commit", source_contract_json = context$contract_json,
+      pins = context$pins, local_peer_name = context$source_name,
+      local_signing_key = identity$identity_sk,
+      local_receipt_json = local_receipt_json)), error = function(error) NULL)
+  fields <- c("version", "local_receipt_json", "replayed")
+  if (!is.list(response) || !identical(names(response), fields) ||
+      !identical(response$version,
+                 "dsvert-formal-glm-registered-phase18-source-command-v1") ||
+      !is.character(response$local_receipt_json) ||
+      length(response$local_receipt_json) != 1L ||
+      is.na(response$local_receipt_json) ||
+      !identical(response$local_receipt_json, local_receipt_json) ||
+      !is.logical(response$replayed) || length(response$replayed) != 1L ||
+      is.na(response$replayed)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM receipt store returned invalid output.")
+  }
+  list(local_receipt_json = response$local_receipt_json,
+       replayed = response$replayed)
+}
+
+# Seals the canonical set only after Go has verified all required signed local
+# receipts.  The result is public routing evidence, not a model result.
+.dsvert_formal_glm_registered_source_seal_receipt_set <- function(context) {
+  context <- .dsvert_formal_glm_registered_source_context(context)
+  identity <- .dsvert_formal_glm_registered_source_identity(context)
+  response <- tryCatch(.callMpcTool(
+    "formal-glm-registered-phase18-source", list(
+      version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+      action = "receipt_set", source_contract_json = context$contract_json,
+      pins = context$pins, local_peer_name = context$source_name,
+      local_signing_key = identity$identity_sk)), error = function(error) NULL)
+  fields <- c("version", "receipt_set_json", "replayed")
+  if (!is.list(response) || !identical(names(response), fields) ||
+      !identical(response$version,
+                 "dsvert-formal-glm-registered-phase18-source-command-v1") ||
+      !is.character(response$receipt_set_json) ||
+      length(response$receipt_set_json) != 1L ||
+      is.na(response$receipt_set_json) ||
+      nchar(response$receipt_set_json, type = "bytes") < 2L ||
+      nchar(response$receipt_set_json, type = "bytes") > 4L * 1024L^2 ||
+      !is.logical(response$replayed) || length(response$replayed) != 1L ||
+      is.na(response$replayed)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM receipt-set seal returned invalid output.")
+  }
+  list(receipt_set_json = response$receipt_set_json,
+       replayed = response$replayed)
+}
+
 # Sends one already materialized local block to the closed Go ingress.  Tickets
 # are signed protocol records from the two designated compute peers; this
 # bridge does not mint them and cannot select a recipient, source, path or

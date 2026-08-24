@@ -271,3 +271,57 @@ func TestFormalGLMRegisteredPhase18SourceCommandSealsLocalReceiptK2K3K5(t *testi
 		})
 	}
 }
+
+func TestFormalGLMRegisteredPhase18SourceCommandAssemblesReceiptSetK2K3K5(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+			fixture := formalGLMRegisteredPhase18ProvenanceTestBuild(t, custodians)
+			peer := fixture.source.plan.DesignatedComputePeers[0]
+			root := formalGLMRegisteredPhase18SourceOutboxTestRoot(t, "receipt-set")
+			contractJSON, err := json.Marshal(fixture.source.contract)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer clear(contractJSON)
+			request := formalGLMRegisteredPhase18SourceCommandV1{
+				Version:            formalGLMRegisteredPhase18SourceCommandVersionV1,
+				Action:             formalGLMRegisteredPhase18SourceCommandActionReceiptCommitV1,
+				SourceContractJSON: string(contractJSON),
+				Pins: formalGLMRegisteredPhase18SourceCommandTestPinsV1(
+					t, fixture.source.inputs.identities.public),
+				LocalPeerName: peer,
+				LocalSigningKey: formalGLMRegisteredPhase18SourceCommandTestKeyV1(
+					t, fixture.source.inputs.identities.private[peer]),
+			}
+			for _, receipt := range fixture.receipts {
+				receiptJSON, marshalErr := json.Marshal(receipt)
+				if marshalErr != nil {
+					t.Fatal(marshalErr)
+				}
+				request.LocalReceiptJSON = string(receiptJSON)
+				clear(receiptJSON)
+				committed := formalGLMRegisteredPhase18SourceCommandTestRunV1(t, root, request)
+				if committed.LocalReceiptJSON != request.LocalReceiptJSON || committed.Replayed {
+					t.Fatal("local receipt command did not persist exact evidence")
+				}
+			}
+			request.Action = formalGLMRegisteredPhase18SourceCommandActionReceiptSetV1
+			request.LocalReceiptJSON = ""
+			sealed := formalGLMRegisteredPhase18SourceCommandTestRunV1(t, root, request)
+			if sealed.ReceiptSetJSON == "" || sealed.Replayed {
+				t.Fatal("receipt-set command did not seal K evidence")
+			}
+			set, err := formalGLMDecodeRegisteredPhase18ReceiptSetV1(
+				[]byte(sealed.ReceiptSetJSON), fixture.source.contract,
+				fixture.source.inputs.identities.public)
+			if err != nil || set.ReceiptSetSHA256 != fixture.receiptSet.ReceiptSetSHA256 ||
+				len(set.Receipts) != custodians {
+				t.Fatal("receipt-set command returned invalid canonical evidence")
+			}
+			replayed := formalGLMRegisteredPhase18SourceCommandTestRunV1(t, root, request)
+			if !replayed.Replayed || replayed.ReceiptSetJSON != sealed.ReceiptSetJSON {
+				t.Fatal("receipt-set replay changed durable evidence")
+			}
+		})
+	}
+}

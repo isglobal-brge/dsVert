@@ -24,11 +24,13 @@ const (
 	formalGLMRegisteredPhase18SourceCommandDomainV1  = "dsVert/formal-glm/registered-phase18/source-command/v1"
 	formalGLMRegisteredPhase18SourceCommandMaxV1     = 32 << 20
 
-	formalGLMRegisteredPhase18SourceCommandActionTicketV1       = "ticket"
-	formalGLMRegisteredPhase18SourceCommandActionTicketSetV1    = "ticket_set"
-	formalGLMRegisteredPhase18SourceCommandActionProduceV1      = "produce"
-	formalGLMRegisteredPhase18SourceCommandActionLocalReceiptV1 = "local_receipt"
-	formalGLMRegisteredPhase18SourceCommandActionImportV1       = "import"
+	formalGLMRegisteredPhase18SourceCommandActionTicketV1        = "ticket"
+	formalGLMRegisteredPhase18SourceCommandActionTicketSetV1     = "ticket_set"
+	formalGLMRegisteredPhase18SourceCommandActionProduceV1       = "produce"
+	formalGLMRegisteredPhase18SourceCommandActionLocalReceiptV1  = "local_receipt"
+	formalGLMRegisteredPhase18SourceCommandActionReceiptCommitV1 = "receipt_commit"
+	formalGLMRegisteredPhase18SourceCommandActionReceiptSetV1    = "receipt_set"
+	formalGLMRegisteredPhase18SourceCommandActionImportV1        = "import"
 )
 
 type formalGLMRegisteredPhase18SourceCommandV1 struct {
@@ -56,6 +58,7 @@ type formalGLMRegisteredPhase18SourceCommandResponseV1 struct {
 	PendingReceipt   *formalGLMRegisteredPhase18PendingPairReceiptV1      `json:"pending_receipt,omitempty"`
 	PairJSON         string                                               `json:"pair_json,omitempty"`
 	LocalReceiptJSON string                                               `json:"local_receipt_json,omitempty"`
+	ReceiptSetJSON   string                                               `json:"receipt_set_json,omitempty"`
 	Replayed         bool                                                 `json:"replayed"`
 }
 
@@ -163,6 +166,20 @@ func formalGLMRegisteredPhase18SourceCommandDecodeV1(
 			command.PrivateConsensus != "" || command.PairJSON != "" ||
 			command.LocalReceiptJSON != "" {
 			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid local receipt command")
+		}
+	case formalGLMRegisteredPhase18SourceCommandActionReceiptCommitV1:
+		if command.AuthorizationJSON != "" || len(command.RecipientTickets) != 0 ||
+			command.BlockIndex != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
+			command.PrivateConsensus != "" || command.PairJSON != "" ||
+			command.LocalReceiptJSON == "" {
+			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid receipt commit command")
+		}
+	case formalGLMRegisteredPhase18SourceCommandActionReceiptSetV1:
+		if command.AuthorizationJSON != "" || len(command.RecipientTickets) != 0 ||
+			command.BlockIndex != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
+			command.PrivateConsensus != "" || command.PairJSON != "" ||
+			command.LocalReceiptJSON != "" {
+			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid receipt set command")
 		}
 	case formalGLMRegisteredPhase18SourceCommandActionImportV1:
 		if len(command.RecipientTickets) != 2 || command.AuthorizationJSON != "" ||
@@ -423,6 +440,57 @@ func formalGLMRegisteredPhase18SourceCommandLocalReceiptV1(
 	}, nil
 }
 
+// ReceiptCommit stores exactly one already-signed public local receipt.  It
+// never opens a source outbox or receives a data-bearing block.
+func formalGLMRegisteredPhase18SourceCommandReceiptCommitV1(
+	rockRoot string, command formalGLMRegisteredPhase18SourceCommandV1,
+	contract formalGLMSourceContractV1, pins map[string]ed25519.PublicKey,
+) (formalGLMRegisteredPhase18SourceCommandResponseV1, error) {
+	var zero formalGLMRegisteredPhase18SourceCommandResponseV1
+	assembler, err := newFormalGLMRegisteredPhase18ReceiptSetAssemblerV1(
+		rockRoot, contract, pins)
+	if err != nil {
+		return zero, err
+	}
+	defer assembler.Close()
+	persisted, replayed, err := assembler.CommitLocalReceipt(
+		[]byte(command.LocalReceiptJSON))
+	if err != nil {
+		return zero, err
+	}
+	defer clear(persisted)
+	return formalGLMRegisteredPhase18SourceCommandResponseV1{
+		Version:          formalGLMRegisteredPhase18SourceCommandVersionV1,
+		LocalReceiptJSON: string(persisted),
+		Replayed:         replayed,
+	}, nil
+}
+
+// ReceiptSet seals the canonical K-custodian receipt set already committed in
+// Rock.  The output contains only public signed commitments.
+func formalGLMRegisteredPhase18SourceCommandReceiptSetV1(
+	rockRoot string, contract formalGLMSourceContractV1,
+	pins map[string]ed25519.PublicKey,
+) (formalGLMRegisteredPhase18SourceCommandResponseV1, error) {
+	var zero formalGLMRegisteredPhase18SourceCommandResponseV1
+	assembler, err := newFormalGLMRegisteredPhase18ReceiptSetAssemblerV1(
+		rockRoot, contract, pins)
+	if err != nil {
+		return zero, err
+	}
+	defer assembler.Close()
+	encoded, replayed, err := assembler.SealReceiptSet()
+	if err != nil {
+		return zero, err
+	}
+	defer clear(encoded)
+	return formalGLMRegisteredPhase18SourceCommandResponseV1{
+		Version:        formalGLMRegisteredPhase18SourceCommandVersionV1,
+		ReceiptSetJSON: string(encoded),
+		Replayed:       replayed,
+	}, nil
+}
+
 func formalGLMRegisteredPhase18SourceCommandImportV1(
 	rockRoot string, command formalGLMRegisteredPhase18SourceCommandV1,
 	contract formalGLMSourceContractV1, pins map[string]ed25519.PublicKey,
@@ -484,6 +552,10 @@ func formalGLMRegisteredPhase18SourceCommandRunAtRootV1(
 		return formalGLMRegisteredPhase18SourceCommandProduceV1(rockRoot, command, contract, pins, key)
 	case formalGLMRegisteredPhase18SourceCommandActionLocalReceiptV1:
 		return formalGLMRegisteredPhase18SourceCommandLocalReceiptV1(rockRoot, command, contract, pins, key)
+	case formalGLMRegisteredPhase18SourceCommandActionReceiptCommitV1:
+		return formalGLMRegisteredPhase18SourceCommandReceiptCommitV1(rockRoot, command, contract, pins)
+	case formalGLMRegisteredPhase18SourceCommandActionReceiptSetV1:
+		return formalGLMRegisteredPhase18SourceCommandReceiptSetV1(rockRoot, contract, pins)
 	case formalGLMRegisteredPhase18SourceCommandActionImportV1:
 		return formalGLMRegisteredPhase18SourceCommandImportV1(rockRoot, command, contract, pins, key)
 	default:

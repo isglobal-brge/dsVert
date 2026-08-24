@@ -57,6 +57,7 @@ type formalGLMRegisteredPhase18SourceCommandV1 struct {
 	PairChunkBase64        string                                                `json:"pair_chunk_base64,omitempty"`
 	LocalReceiptJSON       string                                                `json:"local_receipt_json,omitempty"`
 	PublicationContextJSON string                                                `json:"publication_context_json,omitempty"`
+	SamplerAuthorityRoot   string                                                `json:"sampler_authority_root,omitempty"`
 }
 
 type formalGLMRegisteredPhase18SourceCommandResponseV1 struct {
@@ -126,6 +127,24 @@ func formalGLMRegisteredPhase18SourceCommandDecodeSigningKeyV1(
 		return nil, fmt.Errorf("formal-glm registered Phase18 source: invalid local signer")
 	}
 	return ed25519.PrivateKey(key), nil
+}
+
+func formalGLMRegisteredPhase18SourceCommandDecodeSamplerAuthorityRootV1(
+	encoded string,
+) ([32]byte, error) {
+	var root [32]byte
+	if encoded == "" {
+		return root, nil
+	}
+	decoded, err := base64.StdEncoding.Strict().DecodeString(encoded)
+	if err != nil || len(decoded) != len(root) ||
+		base64.StdEncoding.EncodeToString(decoded) != encoded {
+		clear(decoded)
+		return root, fmt.Errorf("formal-glm registered Phase18 source: invalid sampler authority root")
+	}
+	copy(root[:], decoded)
+	clear(decoded)
+	return root, nil
 }
 
 func formalGLMRegisteredPhase18SourceCommandDecodeV1(
@@ -242,7 +261,7 @@ func formalGLMRegisteredPhase18SourceCommandDecodeV1(
 		return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: unknown action")
 	}
 	if command.Action != formalGLMRegisteredPhase18SourceCommandActionHostProvisionV1 &&
-		command.PublicationContextJSON != "" {
+		(command.PublicationContextJSON != "" || command.SamplerAuthorityRoot != "") {
 		return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid publication context")
 	}
 	if command.Action != formalGLMRegisteredPhase18SourceCommandActionImportChunkV1 &&
@@ -729,13 +748,20 @@ func formalGLMRegisteredPhase18SourceCommandHostProvisionV1(
 		publication = &decoded
 		defer formalGLMRegisteredPhase21PublicationContextClearV1(publication)
 	}
+	authorityRoot, err := formalGLMRegisteredPhase18SourceCommandDecodeSamplerAuthorityRootV1(
+		command.SamplerAuthorityRoot)
+	if err != nil {
+		return zero, err
+	}
+	defer clear(authorityRoot[:])
 	config := formalGLMRegisteredPhase20JobControlHostConfigV1{
-		Version:  formalGLMRegisteredPhase20JobControlHostVersionV1,
-		Contract: contract,
-		Record:   record,
-		Pins:     clonedPins,
-		Peer:     command.LocalPeerName,
-		Signing:  append(ed25519.PrivateKey(nil), key...),
+		Version:              formalGLMRegisteredPhase20JobControlHostVersionV1,
+		Contract:             contract,
+		Record:               record,
+		Pins:                 clonedPins,
+		Peer:                 command.LocalPeerName,
+		Signing:              append(ed25519.PrivateKey(nil), key...),
+		SamplerAuthorityRoot: authorityRoot,
 		Start: formalGLMRegisteredPhase20JobStartV1{
 			ArtifactID:       record.Binding.ArtifactID,
 			ReceiptSetSHA256: record.Binding.ReceiptSetSHA256,

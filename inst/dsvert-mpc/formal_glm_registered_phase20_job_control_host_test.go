@@ -178,6 +178,27 @@ func TestFormalGLMRegisteredPhase20JobControlHostRetainsPublicationContextPrivat
 	}
 }
 
+func TestFormalGLMRegisteredPhase20JobControlHostValidatesSamplerAuthorityRoot(t *testing.T) {
+	fixture := newFormalGLMRegisteredPhase20JobControlTestFixtureV1(t)
+	config := formalGLMRegisteredPhase20JobControlHostTestConfigV1(t, fixture, 0)
+	publication := formalGLMRegisteredPhase21PublicationContextTestBuildV1(t, fixture.core.source)
+	publication.Capsule.CapsuleID = "stage-input-present"
+	publication.Request.LogicalSnapshotHandleSHA256 =
+		fixture.core.source.contract.CoreSHA256
+	publication.BackendSignatures = []jointDPBiomedicalGaussianSignature{{Signature: []byte{1}}}
+	publication.WorkerSignatures = []jointDPBiomedicalGaussianSignature{{Signature: []byte{1}}}
+	config.Publication = &publication
+	config.SamplerAuthorityRoot =
+		formalGLMRegisteredPhase21PublicationContextTestAuthorityRootV1(config.Peer)
+	if err := formalGLMRegisteredPhase20JobControlHostValidateV1(config); err != nil {
+		t.Fatal(err)
+	}
+	config.SamplerAuthorityRoot[0] ^= 1
+	if err := formalGLMRegisteredPhase20JobControlHostValidateV1(config); err == nil {
+		t.Fatal("host accepted a sampler root outside the signed commitment")
+	}
+}
+
 func TestFormalGLMRegisteredPhase20JobControlHostCloseWaitsForOperation(t *testing.T) {
 	fixture := newFormalGLMRegisteredPhase20JobControlTestFixtureV1(t)
 	config := formalGLMRegisteredPhase20JobControlHostTestConfigV1(t, fixture, 0)

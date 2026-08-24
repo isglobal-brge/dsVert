@@ -112,6 +112,23 @@
   sub("=+$", "", chartr("+/", "-_", value), perl = TRUE)
 }
 
+.dsvert_formal_glm_registered_source_sampler_authority_root <- function(value) {
+  if (!is.character(value) || length(value) != 1L || is.na(value)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM sampler authority root is invalid.")
+  }
+  if (!nzchar(value)) return("")
+  raw <- tryCatch(jsonlite::base64_dec(value), error = function(error) raw())
+  valid <- is.raw(raw) && length(raw) == 32L && identical(
+    gsub("[\r\n]", "", jsonlite::base64_enc(raw)), value)
+  if (is.raw(raw) && length(raw)) raw[] <- as.raw(0L)
+  if (!valid) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM sampler authority root is invalid.")
+  }
+  enc2utf8(value)
+}
+
 .dsvert_formal_glm_registered_source_spec <- function(source) {
   fields <- c(
     "source_name", "source_contract_sha256", "authorization_sha256",
@@ -321,7 +338,7 @@
 # authorization plus the frozen private rows needed by the block producer.
 .dsvert_formal_glm_registered_source_open <- function(
     source_contract_json, source_environment = parent.frame(),
-    publication_context_json = "") {
+    publication_context_json = "", sampler_authority_root = "") {
   if (!is.character(publication_context_json) ||
       length(publication_context_json) != 1L ||
       is.na(publication_context_json) ||
@@ -361,6 +378,9 @@
   context$authorization_json <- projected$json
   context$contract_json <- source_contract_json
   context$publication_context_json <- publication_context_json
+  context$sampler_authority_root <-
+    .dsvert_formal_glm_registered_source_sampler_authority_root(
+      sampler_authority_root)
   context$pins <- spec$pins
   context$source_name <- source
   context$rows <- snapshot$rows
@@ -371,7 +391,12 @@
 .dsvert_formal_glm_registered_source_context <- function(value) {
   fields <- c(
     "alignment_consensus", "authorization", "authorization_json",
-    "contract_json", "pins", "publication_context_json", "rows", "source_name")
+    "contract_json", "pins", "publication_context_json", "sampler_authority_root",
+    "rows", "source_name")
+  authority_root <- if (is.environment(value)) tryCatch(
+    .dsvert_formal_glm_registered_source_sampler_authority_root(
+      value$sampler_authority_root),
+    error = function(error) NULL) else NULL
   if (!is.environment(value) ||
       !inherits(value, .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_CONTEXT_CLASS) ||
       !identical(sort(ls(value, all.names = TRUE)), sort(fields)) ||
@@ -381,6 +406,10 @@
       !is.character(value$publication_context_json) ||
       length(value$publication_context_json) != 1L ||
       is.na(value$publication_context_json) ||
+      !is.character(value$sampler_authority_root) ||
+      length(value$sampler_authority_root) != 1L ||
+      is.na(value$sampler_authority_root) ||
+      is.null(authority_root) ||
       !is.data.frame(value$rows)) {
     .dsvert_formal_glm_registered_source_abort(
       "The private registered formal-GLM source context is invalid.")
@@ -800,7 +829,8 @@
       action = "host_provision", source_contract_json = context$contract_json,
       pins = context$pins, local_peer_name = context$source_name,
       local_signing_key = identity$identity_sk,
-      publication_context_json = context$publication_context_json)),
+      publication_context_json = context$publication_context_json,
+      sampler_authority_root = context$sampler_authority_root)),
     error = function(error) NULL)
   fields <- c("version", "job_host_receipt", "replayed")
   receipt <- if (is.list(response)) response$job_host_receipt else NULL

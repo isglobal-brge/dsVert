@@ -227,9 +227,13 @@
       "invalid_formal_glm_registered_fresh_registry")
   }
   value <- specs[[selector$analysis_id]]
+  sampler_authority_root <- tryCatch(
+    .dsvert_formal_glm_registered_source_sampler_authority_root(
+      value$sampler_authority_root),
+    error = function(error) NULL)
   fields <- c("version", "analysis_id", "data_name", "family",
               "formula_sha256", "source_contract_json",
-              "publication_context_json")
+              "publication_context_json", "sampler_authority_root")
   if (is.null(value) || !is.list(value) || is.null(names(value)) ||
       anyNA(names(value)) || anyDuplicated(names(value)) ||
       !identical(names(value), fields) ||
@@ -253,11 +257,18 @@
       nchar(value$publication_context_json, type = "bytes") >
         .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_DS_MAX_CONTRACT_BYTES ||
       !identical(enc2utf8(value$publication_context_json),
-                 value$publication_context_json)) {
+                 value$publication_context_json) ||
+      !is.character(value$sampler_authority_root) ||
+      length(value$sampler_authority_root) != 1L ||
+      is.na(value$sampler_authority_root) ||
+      !identical(enc2utf8(value$sampler_authority_root),
+                 value$sampler_authority_root) ||
+      is.null(sampler_authority_root)) {
     .dsvert_formal_glm_registered_source_ds_abort(
       "The requested registered formal-GLM fresh analysis is unavailable.",
       "invalid_formal_glm_registered_fresh_registry")
   }
+  value$sampler_authority_root <- sampler_authority_root
   value
 }
 
@@ -358,7 +369,8 @@ dsvertFormalGLMRegisteredFreshSourceDS <- function(
   response <- tryCatch({
     context <- .dsvert_formal_glm_registered_source_open(
       spec$source_contract_json, parent.frame(),
-      publication_context_json = spec$publication_context_json)
+      publication_context_json = spec$publication_context_json,
+      sampler_authority_root = spec$sampler_authority_root)
     .dsvert_formal_glm_registered_source_ds_dispatch(context, action, payload)
   }, error = function(error) NULL)
   if (is.null(response)) .dsvert_formal_glm_registered_source_ds_abort()

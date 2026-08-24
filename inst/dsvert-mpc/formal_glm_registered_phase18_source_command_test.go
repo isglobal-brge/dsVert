@@ -10,6 +10,19 @@ import (
 	"testing"
 )
 
+func TestFormalGLMRegisteredPhase18SourceCommandSamplerAuthorityRootCanonical(t *testing.T) {
+	root := sha256.Sum256([]byte("formal-glm registered sampler authority root"))
+	encoded := base64.StdEncoding.EncodeToString(root[:])
+	decoded, err := formalGLMRegisteredPhase18SourceCommandDecodeSamplerAuthorityRootV1(encoded)
+	if err != nil || decoded != root {
+		t.Fatalf("canonical sampler authority root changed: %x / %v", decoded, err)
+	}
+	if _, err := formalGLMRegisteredPhase18SourceCommandDecodeSamplerAuthorityRootV1(
+		"not-canonical-base64"); err == nil {
+		t.Fatal("source command accepted a malformed sampler authority root")
+	}
+}
+
 func formalGLMRegisteredPhase18SourceCommandTestPinsV1(
 	t testing.TB, pins map[string]ed25519.PublicKey,
 ) map[string]string {

@@ -22,26 +22,28 @@ const formalGLMRegisteredPhase20JobControlHostVersionV1 = "dsvert-formal-glm-reg
 // public command DTO: a future Rock reader must strictly decode it from an
 // owner-only file before starting a host process.
 type formalGLMRegisteredPhase20JobControlHostConfigV1 struct {
-	Version     string                                          `json:"version"`
-	Contract    formalGLMSourceContractV1                       `json:"contract"`
-	Record      formalGLMRegisteredPhase19BindingRecordV1       `json:"record"`
-	Pins        map[string]ed25519.PublicKey                    `json:"pins"`
-	Peer        string                                          `json:"peer"`
-	Signing     ed25519.PrivateKey                              `json:"signing"`
-	Start       formalGLMRegisteredPhase20JobStartV1            `json:"start"`
-	Publication *formalGLMRegisteredPhase21PublicationContextV1 `json:"publication,omitempty"`
+	Version              string                                          `json:"version"`
+	Contract             formalGLMSourceContractV1                       `json:"contract"`
+	Record               formalGLMRegisteredPhase19BindingRecordV1       `json:"record"`
+	Pins                 map[string]ed25519.PublicKey                    `json:"pins"`
+	Peer                 string                                          `json:"peer"`
+	Signing              ed25519.PrivateKey                              `json:"signing"`
+	SamplerAuthorityRoot [32]byte                                        `json:"sampler_authority_root"`
+	Start                formalGLMRegisteredPhase20JobStartV1            `json:"start"`
+	Publication          *formalGLMRegisteredPhase21PublicationContextV1 `json:"publication,omitempty"`
 }
 
 // All fields stay private so this handle marshals to `{}`.  The owner itself
 // remains private too: callers receive only the same opaque frames that can
 // cross the authenticated peer relay.
 type formalGLMRegisteredPhase20JobControlHostV1 struct {
-	mu          sync.Mutex
-	ops         sync.WaitGroup
-	owner       *formalGLMRegisteredPhase20JobOwnerV1
-	publication *formalGLMRegisteredPhase21PublicationContextV1
-	closed      bool
-	closeDone   chan struct{}
+	mu                   sync.Mutex
+	ops                  sync.WaitGroup
+	owner                *formalGLMRegisteredPhase20JobOwnerV1
+	publication          *formalGLMRegisteredPhase21PublicationContextV1
+	samplerAuthorityRoot [32]byte
+	closed               bool
+	closeDone            chan struct{}
 }
 
 func formalGLMRegisteredPhase20JobControlHostCloneV1(
@@ -75,6 +77,7 @@ func formalGLMRegisteredPhase20JobControlHostClearConfigV1(
 	config.Contract = formalGLMSourceContractV1{}
 	config.Record = formalGLMRegisteredPhase19BindingRecordV1{}
 	config.Peer = ""
+	clear(config.SamplerAuthorityRoot[:])
 	config.Start = formalGLMRegisteredPhase20JobStartV1{}
 	formalGLMRegisteredPhase21PublicationContextClearV1(config.Publication)
 	config.Publication = nil
@@ -111,6 +114,38 @@ func formalGLMRegisteredPhase20JobControlHostValidateV1(
 		len(config.Pins[config.Peer]) != ed25519.PublicKeySize ||
 		!bytes.Equal(config.Signing.Public().(ed25519.PublicKey), config.Pins[config.Peer]) {
 		return fmt.Errorf("formal-glm registered Phase20 job host: invalid local authority")
+	}
+	var zeroRoot [32]byte
+	if config.Publication == nil {
+		if config.SamplerAuthorityRoot != zeroRoot {
+			return fmt.Errorf("formal-glm registered Phase20 job host: unexpected sampler authority root")
+		}
+		return nil
+	}
+	stageReady, err := formalGLMRegisteredPhase21PublicationStageInputsV1(
+		*config.Publication)
+	if err != nil {
+		return fmt.Errorf("formal-glm registered Phase20 job host: invalid publication context")
+	}
+	if !stageReady {
+		if config.SamplerAuthorityRoot != zeroRoot {
+			return fmt.Errorf("formal-glm registered Phase20 job host: unexpected sampler authority root")
+		}
+		return nil
+	}
+	authority, err := formalGLMPhase21RockAuthority(
+		config.Publication.SamplerContract.Artifact, config.Peer)
+	if err != nil || authority.PeerName != config.Peer ||
+		config.SamplerAuthorityRoot == zeroRoot {
+		return fmt.Errorf("formal-glm registered Phase20 job host: invalid sampler authority root")
+	}
+	_, commitment, err := formalGLMPhase21SamplerV2Derive(
+		config.SamplerAuthorityRoot, config.Publication.SamplerContract.ArtifactID,
+		config.Publication.SamplerContract.SamplerMode, authority.Role,
+		authority.PeerName, authority.PeerID)
+	if err != nil || authority.Role != config.Publication.SamplerContract.Artifact.NoiseAuthorities[local].Role ||
+		!reflect.DeepEqual(commitment, config.Publication.SamplerContract.NoiseCommitments[local]) {
+		return fmt.Errorf("formal-glm registered Phase20 job host: invalid sampler authority root")
 	}
 	return nil
 }
@@ -162,6 +197,7 @@ func newFormalGLMRegisteredPhase20JobControlHostV1(
 	}
 	return &formalGLMRegisteredPhase20JobControlHostV1{
 		owner: owner, publication: publication,
+		samplerAuthorityRoot: cloned.SamplerAuthorityRoot,
 	}, nil
 }
 
@@ -509,6 +545,7 @@ func (host *formalGLMRegisteredPhase20JobControlHostV1) Close() error {
 	publication := host.publication
 	host.owner = nil
 	host.publication = nil
+	clear(host.samplerAuthorityRoot[:])
 	host.closeDone = make(chan struct{})
 	done := host.closeDone
 	host.mu.Unlock()

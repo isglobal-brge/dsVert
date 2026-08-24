@@ -86,6 +86,10 @@ type formalGLMRegisteredPhase20JobControlHostDaemonTicketRecordV1 struct {
 	Record formalGLMPhase21RockTicketRecord `json:"record"`
 }
 
+type formalGLMRegisteredPhase20JobControlHostDaemonSealRecordV1 struct {
+	Record formalGLMPhase21RockSealRecord `json:"record"`
+}
+
 type formalGLMRegisteredPhase20JobControlHostDaemonPollV1 struct {
 	Ref          formalGLMRegisteredPhase20JobRefV1 `json:"ref"`
 	Acknowledged int64                              `json:"acknowledged"`
@@ -786,6 +790,22 @@ func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) dispatchV1(
 			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: Phase21 Ticket import failed")
 		}
 		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(struct{}{})
+	case "phase21_seal":
+		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil {
+			return nil, err
+		}
+		record, err := host.RunPhase21SealV1()
+		if err != nil {
+			return nil, err
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(
+			formalGLMRegisteredPhase20JobControlHostDaemonSealRecordV1{Record: record})
+	case "phase21_seal_import":
+		request, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonSealRecordV1](encoded)
+		if err != nil || host.ImportPhase21PeerSealV1(request.Record) != nil {
+			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: Phase21 Seal import failed")
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(struct{}{})
 	case "heartbeat":
 		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil || host.HeartbeatV1() != nil {
 			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: heartbeat failed")
@@ -1040,6 +1060,21 @@ func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) ImportPhas
 ) error {
 	return client.callV1("phase21_ticket_import",
 		formalGLMRegisteredPhase20JobControlHostDaemonTicketRecordV1{Record: record}, nil)
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) RunPhase21SealV1() (
+	formalGLMPhase21RockSealRecord, error,
+) {
+	var result formalGLMRegisteredPhase20JobControlHostDaemonSealRecordV1
+	err := client.callV1("phase21_seal", struct{}{}, &result)
+	return result.Record, err
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) ImportPhase21PeerSealV1(
+	record formalGLMPhase21RockSealRecord,
+) error {
+	return client.callV1("phase21_seal_import",
+		formalGLMRegisteredPhase20JobControlHostDaemonSealRecordV1{Record: record}, nil)
 }
 
 func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) PollV1(

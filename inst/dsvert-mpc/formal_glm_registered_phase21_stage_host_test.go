@@ -208,6 +208,33 @@ func TestFormalGLMRegisteredPhase21StageTaskK2K3K5(t *testing.T) {
 			if replayErr != nil || !reflect.DeepEqual(replay, ticket) {
 				t.Fatalf("ticket replay changed: %#v / %#v / %v", replay, ticket, replayErr)
 			}
+			var seals [2]formalGLMPhase21RockSealRecord
+			for index := range states {
+				seal, sealErr := formalGLMRegisteredPhase21RunSealV1(states[index])
+				if sealErr != nil || seal.ArtifactID != contract.ArtifactID ||
+					seal.ProductionReady {
+					t.Fatalf("authority %d did not seal its local result: %#v / %v",
+						index, seal, sealErr)
+				}
+				seals[index] = seal
+			}
+			tamperedSeal := seals[1]
+			tamperedSeal.Receipt.Signature = append([]byte(nil), seals[1].Receipt.Signature...)
+			tamperedSeal.Receipt.Signature[0] ^= 1
+			if err := formalGLMRegisteredPhase21ImportPeerSealV1(states[0], tamperedSeal); err == nil {
+				t.Fatal("authority accepted a tampered peer seal")
+			}
+			for index := range states {
+				if err := formalGLMRegisteredPhase21ImportPeerSealV1(
+					states[index], seals[1-index]); err != nil {
+					t.Fatalf("authority %d did not import its peer seal: %v", index, err)
+				}
+				replay, replayErr := formalGLMRegisteredPhase21RunSealV1(states[index])
+				if replayErr != nil || !reflect.DeepEqual(replay, seals[index]) {
+					t.Fatalf("seal replay %d changed: %#v / %#v / %v",
+						index, replay, seals[index], replayErr)
+				}
+			}
 		})
 	}
 }

@@ -1,12 +1,12 @@
 {
   "schema": "dsvert-remote-surface-classification-v3",
-  "audit_date": "2026-08-11",
+  "audit_date": "2026-08-24",
   "authoritative_registration_source": "dsVert/DESCRIPTION: AggregateMethods and AssignMethods",
   "authoritative_client_source": "dsVertClient/R parsed as R ASTs",
   "counts": {
-    "registered_ds_endpoints": 88,
+    "registered_ds_endpoints": 89,
     "registered_argument_constructor_aliases": 0,
-    "direct_literal_call_endpoints": 181,
+    "direct_literal_call_endpoints": 182,
     "as_call_as_name_endpoints": 13,
     "bounded_dynamic_call_endpoints": 1,
     "unregistered_client_endpoint_literals": 107,
@@ -110,6 +110,7 @@
       "dsvertDPGaussianCrossPrepareDS",
       "dsvertDPGaussianCrossFinalizeDS",
       "dsvertFormalGLMPublicResultDS",
+      "dsvertFormalGLMRegisteredJobControlDS",
       "dsvertFormalCoxPublicResultDS",
       "dsvertFormalCoxDiscretePublicResultDS"
     ]

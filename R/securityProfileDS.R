@@ -139,6 +139,7 @@
   "dsvertFormalFinalizerHandoffSourceDS",
   "dsvertFormalGLMControlSourceDS",
   "dsvertFormalGLMPublicResultDS",
+  "dsvertFormalGLMRegisteredJobControlDS",
   "dsvertFormalCoxPublicResultDS",
   "dsvertFormalCoxDiscretePublicResultDS",
   "exactGCTransportInitDS",
@@ -443,6 +444,10 @@ dsvertSecurityProfileDS <- function() {
       formal_glm_public_result_state = paste0(
         "read_only_completed_two_authority_signed_public_",
         "certificate"),
+      formal_glm_registered_job_control_ready = TRUE,
+      formal_glm_registered_job_control_state = paste0(
+        "provisioned_host_closed_authenticated_relay_only_",
+        "no_public_model_result"),
       formal_cox_ready = FALSE,
       formal_cox_state = paste0(
         "sealed_no_recipient_encrypted_r_dsi_lifecycle_or_",

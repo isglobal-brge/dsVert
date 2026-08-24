@@ -94,6 +94,7 @@ export(dsvertDPGaussianCrossBindDS)
 export(dsvertDPGaussianCrossPrepareDS)
 export(dsvertDPGaussianCrossFinalizeDS)
 export(dsvertFormalGLMPublicResultDS)
+export(dsvertFormalGLMRegisteredJobControlDS)
 export(dsvertFormalCoxPublicResultDS)
 export(dsvertFormalCoxDiscretePublicResultDS)
 

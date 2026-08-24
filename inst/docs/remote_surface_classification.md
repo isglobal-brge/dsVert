@@ -142,6 +142,13 @@ noise-root/private-key material, sampled noise and pre-clamp values remain
 internal; repeat requests for the same canonical artifact replay durable state
 and are never denied by a history or request counter.
 
+The registered formal-GLM job-control endpoint is a closed relay to a
+previously provisioned Rock-local host. It accepts only the public host receipt,
+one fixed action and canonical signed control frames or encrypted relay chunks.
+It cannot name a path or key, submit source rows, or return a private share or
+model result; its replies remain non-production protocol status or opaque
+peer frames.
+
 No non-DS alias is registered. In particular, `c`, `list`, `numeric`, and
 `character` must remain ordinary client-side constructors: registering their
 `base` implementations as aggregate methods would bypass the namespace guard
@@ -151,11 +158,11 @@ and is rejected during service bootstrap and Opal allowlist reconciliation.
 
 | Class | Count | Meaning |
 |---|---:|---|
-| Production-safe / purpose-bound | 88 | Fixed status/schema, padded PSI, complete stateless Count, Frequency and Synopsis execution, typed-store, transport, capsule manifest/source, cross-owner checked-vector-multiplication, and read-only completed formal-model certificate routes admitted by the default guard |
+| Production-safe / purpose-bound | 89 | Fixed status/schema, padded PSI, complete stateless Count, Frequency and Synopsis execution, typed-store, transport, capsule manifest/source, cross-owner checked-vector-multiplication, the closed provisioned formal-GLM host relay, and read-only completed formal-model certificate routes admitted by the default guard |
 | Retired diagnostic/migration internals | 3 | A data-free source probe plus generic exact-GC bind and GLM softplus helpers; unregistered, unexported and test-only or locally guarded |
 | Retired quarantined compatibility internals | 102 | Legacy exact/MPC endpoints, including the lifetime-gated vector lifecycle, below stable local frontdoor errors; unregistered, unexported and carrying no DP or non-reconstruction claim |
 | Registered orphan/dangerous candidates | 0 | Every registered endpoint is promoted and consumed |
-| Internal-unregistered total | 153 | The 105 above plus 48 previously retired compatibility/test closures |
+| Internal-unregistered total | 154 | The 105 above plus 49 previously retired compatibility/test closures |
 
 “Production-safe” is not an unconditional theorem. A DP claim still depends on
 the advertised adjacency and contribution bounds, immutable snapshot,

@@ -135,6 +135,64 @@ func TestFormalGLMRegisteredPhase18SourceCommandReadsBoundedChunk(t *testing.T) 
 	clear(encoded)
 }
 
+func TestFormalGLMRegisteredPhase18SourceCommandImportsBoundedChunk(t *testing.T) {
+	fixture := formalGLMRegisteredPhase18SourceOutboxTestBuild(t, 2)
+	authorizationJSON, err := json.Marshal(fixture.authorization)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(authorizationJSON)
+	sourceRoot := formalGLMRegisteredPhase18SourceOutboxTestRoot(t, "source-command-chunk-import-source")
+	produce := formalGLMRegisteredPhase18SourceCommandTestRequestV1(
+		t, formalGLMRegisteredPhase18SourceCommandActionProduceV1, fixture.source, fixture)
+	produce.AuthorizationJSON = string(authorizationJSON)
+	produce.RecipientTickets = append([]formalGLMRegisteredPhase18RecipientTicketV1(nil), fixture.tickets...)
+	produce.BlockIndex = fixture.blockIndex
+	produce.Values = append([]string(nil), fixture.values...)
+	produce.Validity = append([]bool(nil), fixture.validity...)
+	produce.PrivateConsensus = base64.StdEncoding.EncodeToString(fixture.consensus[:])
+	_ = formalGLMRegisteredPhase18SourceCommandTestRunV1(t, sourceRoot, produce)
+	chunkRequest := formalGLMRegisteredPhase18SourceCommandTestRequestV1(
+		t, formalGLMRegisteredPhase18SourceCommandActionChunkV1, fixture.source, fixture)
+	chunkRequest.AuthorizationJSON = string(authorizationJSON)
+	chunkRequest.RecipientTickets = append([]formalGLMRegisteredPhase18RecipientTicketV1(nil), fixture.tickets...)
+	chunkRequest.BlockIndex = fixture.blockIndex
+	chunk := formalGLMRegisteredPhase18SourceCommandTestRunV1(t, sourceRoot, chunkRequest)
+	if chunk.ChunkReceipt == nil || chunk.PairChunkBase64 == "" {
+		t.Fatal("source did not return a bounded pair frame")
+	}
+
+	recipient := fixture.provenance.source.plan.DesignatedComputePeers[0]
+	recipientRoot := formalGLMRegisteredPhase18SourceOutboxTestRoot(t, "source-command-chunk-import-recipient")
+	tickets, err := newFormalGLMRegisteredPhase18RecipientTicketStoreV1(
+		recipientRoot, fixture.provenance.source.contract, fixture.provenance.source.inputs.identities.public)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ticket := range fixture.tickets {
+		if _, _, err := tickets.Commit(ticket); err != nil {
+			tickets.Close()
+			t.Fatal(err)
+		}
+	}
+	tickets.Close()
+	importRequest := formalGLMRegisteredPhase18SourceCommandTestRequestV1(
+		t, formalGLMRegisteredPhase18SourceCommandActionImportChunkV1, recipient, fixture)
+	importRequest.RecipientTickets = append([]formalGLMRegisteredPhase18RecipientTicketV1(nil), fixture.tickets...)
+	importRequest.ChunkReceipt = chunk.ChunkReceipt
+	importRequest.PairChunkBase64 = chunk.PairChunkBase64
+	imported := formalGLMRegisteredPhase18SourceCommandTestRunV1(t, recipientRoot, importRequest)
+	if imported.ChunkDelivery == nil || !imported.ChunkDelivery.Complete ||
+		imported.ChunkDelivery.PendingReceipt == nil || imported.Replayed {
+		t.Fatalf("recipient did not complete bounded pair import: %#v", imported)
+	}
+	replayed := formalGLMRegisteredPhase18SourceCommandTestRunV1(t, recipientRoot, importRequest)
+	if replayed.ChunkDelivery == nil || !replayed.ChunkDelivery.Complete ||
+		!replayed.Replayed || !replayed.ChunkDelivery.Replayed {
+		t.Fatalf("recipient did not replay bounded pair import: %#v", replayed)
+	}
+}
+
 func TestFormalGLMRegisteredPhase18SourceCommandK2K3K5(t *testing.T) {
 	for _, family := range []string{"binomial", "poisson"} {
 		for _, custodians := range []int{2, 3, 5} {

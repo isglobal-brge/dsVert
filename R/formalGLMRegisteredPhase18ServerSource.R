@@ -1027,6 +1027,83 @@
   list(chunk_receipt = receipt, pair_chunk = chunk, replayed = response$replayed)
 }
 
+# Imports one bounded opaque frame at a designated recipient.  The recipient's
+# Rock store accepts only contiguous exact frames and publishes no ingress
+# record until it has reconstructed and verified the signed pair.
+.dsvert_formal_glm_registered_source_import_block_chunk <- function(
+    context, recipient_tickets, chunk_receipt, pair_chunk) {
+  context <- .dsvert_formal_glm_registered_source_context(context)
+  if (!is.list(recipient_tickets) || length(recipient_tickets) != 2L ||
+      !is.null(names(recipient_tickets))) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM recipient ticket set is invalid.")
+  }
+  receipt_fields <- c(
+    "version", "purpose", "handle", "artifact_id",
+    "source_contract_sha256", "authorization_sha256", "source",
+    "block_index", "pair_sha256", "pair_bytes", "offset",
+    "chunk_sha256", "chunk_bytes", "complete", "production_ready")
+  if (!is.list(chunk_receipt) ||
+      !identical(names(chunk_receipt), receipt_fields) ||
+      !is.raw(pair_chunk) || !length(pair_chunk) || length(pair_chunk) > 1024L^2 ||
+      !is.character(chunk_receipt$pair_sha256) ||
+      length(chunk_receipt$pair_sha256) != 1L ||
+      !grepl("^[0-9a-f]{64}$", chunk_receipt$pair_sha256) ||
+      !is.character(chunk_receipt$chunk_sha256) ||
+      length(chunk_receipt$chunk_sha256) != 1L ||
+      !grepl("^[0-9a-f]{64}$", chunk_receipt$chunk_sha256) ||
+      !is.logical(chunk_receipt$production_ready) ||
+      length(chunk_receipt$production_ready) != 1L ||
+      is.na(chunk_receipt$production_ready) || isTRUE(chunk_receipt$production_ready)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM encrypted-pair chunk is invalid.")
+  }
+  identity <- .dsvert_formal_glm_registered_source_identity(context)
+  response <- tryCatch(.callMpcTool(
+    "formal-glm-registered-phase18-source", list(
+      version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+      action = "import_chunk", source_contract_json = context$contract_json,
+      pins = context$pins, local_peer_name = context$source_name,
+      local_signing_key = identity$identity_sk,
+      recipient_tickets = recipient_tickets, chunk_receipt = chunk_receipt,
+      pair_chunk_base64 = gsub("[\\r\\n]", "", jsonlite::base64_enc(pair_chunk)))),
+    error = function(error) NULL)
+  fields <- c("version", "chunk_delivery", "replayed")
+  if (!is.list(response) || !identical(names(response), fields) ||
+      !identical(response$version,
+                 "dsvert-formal-glm-registered-phase18-source-command-v1") ||
+      !is.list(response$chunk_delivery) ||
+      !is.logical(response$replayed) || length(response$replayed) != 1L ||
+      is.na(response$replayed)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM pair-chunk importer returned invalid output.")
+  }
+  delivery <- response$chunk_delivery
+  required <- c(
+    "version", "purpose", "artifact_id", "source_contract_sha256",
+    "authorization_sha256", "recipient", "source", "block_index",
+    "pair_sha256", "pair_bytes", "accepted_through", "complete",
+    "replayed", "production_ready")
+  observed <- names(delivery)
+  if (!all(required %in% observed) ||
+      !all(observed %in% c(required, "pending_receipt")) ||
+      !is.logical(delivery$complete) || length(delivery$complete) != 1L ||
+      is.na(delivery$complete) ||
+      !is.logical(delivery$replayed) || length(delivery$replayed) != 1L ||
+      is.na(delivery$replayed) ||
+      !is.logical(delivery$production_ready) ||
+      length(delivery$production_ready) != 1L ||
+      is.na(delivery$production_ready) || isTRUE(delivery$production_ready) ||
+      !is.character(delivery$pair_sha256) || length(delivery$pair_sha256) != 1L ||
+      !identical(delivery$pair_sha256, chunk_receipt$pair_sha256) ||
+      (isTRUE(delivery$complete) != ("pending_receipt" %in% observed)) ||
+      !identical(response$replayed, delivery$replayed)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM pair-chunk importer returned invalid output.")
+  }
+  list(chunk_delivery = delivery, replayed = response$replayed)
+}
+
 # Imports one opaque, source-signed encrypted pair at a designated recipient.
 # The Go ingress authenticates the pair and binds it to the closed ticket set;
 # R deliberately treats the payload as opaque and returns routing evidence

@@ -350,6 +350,67 @@ test_that("registered formal GLM source reads only a bounded opaque pair chunk",
     context, tickets, 0, -1), class = "dsvert_formal_glm_registered_source_error")
 })
 
+test_that("registered formal GLM source imports only a bounded opaque pair chunk", {
+  fixture <- .formal_glm_registered_source_fixture(predictors = TRUE)
+  tickets <- list(list(ticket = "garbler"), list(ticket = "evaluator"))
+  chunk <- charToRaw("opaque-encrypted-pair")
+  pair_digest <- paste(rep("a", 64L), collapse = "")
+  receipt <- list(
+    version = "dsvert-formal-glm-registered-phase18-source-outbox-receipt-v3",
+    purpose = "formal_glm_owner_local_bounded_signed_pair_chunk_v3",
+    handle = "handle", artifact_id = pair_digest,
+    source_contract_sha256 = pair_digest, authorization_sha256 = pair_digest,
+    source = "site_a", block_index = 0L, pair_sha256 = pair_digest,
+    pair_bytes = length(chunk), offset = 0L,
+    chunk_sha256 = paste(rep("b", 64L), collapse = ""),
+    chunk_bytes = length(chunk), complete = TRUE, production_ready = FALSE)
+  delivery <- list(
+    version = "dsvert-formal-glm-registered-phase18-pending-pair-chunk-v1",
+    purpose = "formal_glm_recipient_local_bounded_signed_pair_chunk_v1",
+    artifact_id = pair_digest, source_contract_sha256 = pair_digest,
+    authorization_sha256 = pair_digest, recipient = "site_a", source = "site_a",
+    block_index = 0L, pair_sha256 = pair_digest, pair_bytes = length(chunk),
+    accepted_through = length(chunk), complete = TRUE,
+    pending_receipt = list(version = "pending-receipt"), replayed = FALSE,
+    production_ready = FALSE)
+  testthat::local_mocked_bindings(
+    .dsvert_require_configured_local_peer_name = function() "site_a",
+    .get_identity_keypair = function(...) list(
+      identity_pk = fixture$pins[["site_a"]],
+      identity_sk = .formal_glm_registered_source_b64(raw(64L))),
+    .callMpcTool = function(command, input) {
+      if (identical(command, "formal-glm-phase18-source-project")) {
+        return(list(
+          version = "dsvert-formal-glm-phase18-source-project-response-v1",
+          authorization_json = jsonlite::toJSON(
+            fixture$authorization, auto_unbox = TRUE, null = "null", pretty = FALSE),
+          authorization_sha256 = fixture$authorization$authorization_sha256))
+      }
+      expect_identical(command, "formal-glm-registered-phase18-source")
+      expect_identical(input$action, "import_chunk")
+      expect_identical(input$recipient_tickets, tickets)
+      expect_identical(input$chunk_receipt, receipt)
+      expect_identical(jsonlite::base64_dec(input$pair_chunk_base64), chunk)
+      expect_false(any(c(
+        "authorization_json", "values", "validity", "private_consensus", "pair_json",
+        "data", "path", "rows", "result") %in% names(input)))
+      list(version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+           chunk_delivery = delivery, replayed = FALSE)
+    },
+    .package = "dsVert")
+  withr::local_options(list(
+    dsvert.peer_name = "site_a",
+    dsvert.formal_glm.registered_source_specs = stats::setNames(
+      list(fixture$spec), "site_a")))
+  context <- .dsvert_formal_glm_registered_source_open(
+    fixture$source_contract_json, fixture$source)
+  imported <- .dsvert_formal_glm_registered_source_import_block_chunk(
+    context, tickets, receipt, chunk)
+  expect_identical(imported, list(chunk_delivery = delivery, replayed = FALSE))
+  expect_error(.dsvert_formal_glm_registered_source_import_block_chunk(
+    context, tickets, receipt, raw()), class = "dsvert_formal_glm_registered_source_error")
+})
+
 test_that("registered formal GLM source imports only an encrypted pair", {
   fixture <- .formal_glm_registered_source_fixture(predictors = TRUE)
   tickets <- list(list(ticket = "garbler"), list(ticket = "evaluator"))

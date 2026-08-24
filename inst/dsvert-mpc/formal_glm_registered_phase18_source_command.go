@@ -34,24 +34,27 @@ const (
 	formalGLMRegisteredPhase18SourceCommandActionBindingV1       = "binding"
 	formalGLMRegisteredPhase18SourceCommandActionHostProvisionV1 = "host_provision"
 	formalGLMRegisteredPhase18SourceCommandActionImportV1        = "import"
+	formalGLMRegisteredPhase18SourceCommandActionImportChunkV1   = "import_chunk"
 )
 
 type formalGLMRegisteredPhase18SourceCommandV1 struct {
-	Version            string                                        `json:"version"`
-	Action             string                                        `json:"action"`
-	SourceContractJSON string                                        `json:"source_contract_json"`
-	Pins               map[string]string                             `json:"pins"`
-	LocalPeerName      string                                        `json:"local_peer_name"`
-	LocalSigningKey    string                                        `json:"local_signing_key"`
-	AuthorizationJSON  string                                        `json:"authorization_json,omitempty"`
-	RecipientTickets   []formalGLMRegisteredPhase18RecipientTicketV1 `json:"recipient_tickets,omitempty"`
-	BlockIndex         int                                           `json:"block_index,omitempty"`
-	ChunkOffset        int64                                         `json:"chunk_offset,omitempty"`
-	Values             []string                                      `json:"values,omitempty"`
-	Validity           []bool                                        `json:"validity,omitempty"`
-	PrivateConsensus   string                                        `json:"private_consensus,omitempty"`
-	PairJSON           string                                        `json:"pair_json,omitempty"`
-	LocalReceiptJSON   string                                        `json:"local_receipt_json,omitempty"`
+	Version            string                                                `json:"version"`
+	Action             string                                                `json:"action"`
+	SourceContractJSON string                                                `json:"source_contract_json"`
+	Pins               map[string]string                                     `json:"pins"`
+	LocalPeerName      string                                                `json:"local_peer_name"`
+	LocalSigningKey    string                                                `json:"local_signing_key"`
+	AuthorizationJSON  string                                                `json:"authorization_json,omitempty"`
+	RecipientTickets   []formalGLMRegisteredPhase18RecipientTicketV1         `json:"recipient_tickets,omitempty"`
+	BlockIndex         int                                                   `json:"block_index,omitempty"`
+	ChunkOffset        int64                                                 `json:"chunk_offset,omitempty"`
+	Values             []string                                              `json:"values,omitempty"`
+	Validity           []bool                                                `json:"validity,omitempty"`
+	PrivateConsensus   string                                                `json:"private_consensus,omitempty"`
+	PairJSON           string                                                `json:"pair_json,omitempty"`
+	ChunkReceipt       *formalGLMRegisteredPhase18SourceOutboxChunkReceiptV3 `json:"chunk_receipt,omitempty"`
+	PairChunkBase64    string                                                `json:"pair_chunk_base64,omitempty"`
+	LocalReceiptJSON   string                                                `json:"local_receipt_json,omitempty"`
 }
 
 type formalGLMRegisteredPhase18SourceCommandResponseV1 struct {
@@ -62,6 +65,7 @@ type formalGLMRegisteredPhase18SourceCommandResponseV1 struct {
 	ChunkReceipt      *formalGLMRegisteredPhase18SourceOutboxChunkReceiptV3       `json:"chunk_receipt,omitempty"`
 	PairChunkBase64   string                                                      `json:"pair_chunk_base64,omitempty"`
 	PendingReceipt    *formalGLMRegisteredPhase18PendingPairReceiptV1             `json:"pending_receipt,omitempty"`
+	ChunkDelivery     *formalGLMRegisteredPhase18PendingPairChunkReceiptV1        `json:"chunk_delivery,omitempty"`
 	PairJSON          string                                                      `json:"pair_json,omitempty"`
 	LocalReceiptJSON  string                                                      `json:"local_receipt_json,omitempty"`
 	ReceiptSetJSON    string                                                      `json:"receipt_set_json,omitempty"`
@@ -217,8 +221,20 @@ func formalGLMRegisteredPhase18SourceCommandDecodeV1(
 			command.LocalReceiptJSON != "" {
 			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid import command")
 		}
+	case formalGLMRegisteredPhase18SourceCommandActionImportChunkV1:
+		if len(command.RecipientTickets) != 2 || command.AuthorizationJSON != "" ||
+			command.BlockIndex != 0 || command.ChunkOffset != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
+			command.PrivateConsensus != "" || command.PairJSON != "" ||
+			command.ChunkReceipt == nil || command.PairChunkBase64 == "" ||
+			command.LocalReceiptJSON != "" {
+			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid chunk import command")
+		}
 	default:
 		return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: unknown action")
+	}
+	if command.Action != formalGLMRegisteredPhase18SourceCommandActionImportChunkV1 &&
+		(command.ChunkReceipt != nil || command.PairChunkBase64 != "") {
+		return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid chunk fields")
 	}
 	return command, nil
 }
@@ -740,6 +756,57 @@ func formalGLMRegisteredPhase18SourceCommandImportV1(
 	}, nil
 }
 
+// ImportChunk accepts one bounded opaque source frame.  It never decodes a
+// source value; the recipient's Rock store reconstructs and validates the
+// source-signed pair only when every exact frame is present.
+func formalGLMRegisteredPhase18SourceCommandImportChunkV1(
+	rockRoot string, command formalGLMRegisteredPhase18SourceCommandV1,
+	contract formalGLMSourceContractV1, pins map[string]ed25519.PublicKey,
+	key ed25519.PrivateKey,
+) (formalGLMRegisteredPhase18SourceCommandResponseV1, error) {
+	var zero formalGLMRegisteredPhase18SourceCommandResponseV1
+	if command.ChunkReceipt == nil || !bytes.Equal(
+		key.Public().(ed25519.PublicKey), pins[command.LocalPeerName]) {
+		return zero, fmt.Errorf("formal-glm registered Phase18 source: invalid local chunk importer")
+	}
+	ordered, err := formalGLMRegisteredPhase18CanonicalTicketsV1(
+		command.RecipientTickets, contract, pins)
+	if err != nil || !reflect.DeepEqual(command.RecipientTickets, ordered) {
+		return zero, fmt.Errorf("formal-glm registered Phase18 source: non-canonical ticket set")
+	}
+	chunk, err := base64.StdEncoding.Strict().DecodeString(command.PairChunkBase64)
+	if err != nil || len(chunk) == 0 ||
+		len(chunk) > formalGLMRegisteredPhase18SourceOutboxChunkMaxV3 ||
+		base64.StdEncoding.EncodeToString(chunk) != command.PairChunkBase64 {
+		clear(chunk)
+		return zero, fmt.Errorf("formal-glm registered Phase18 source: invalid pair chunk")
+	}
+	defer clear(chunk)
+	store, err := newFormalGLMRegisteredPhase18RecipientTicketStoreV1(rockRoot, contract, pins)
+	if err != nil {
+		return zero, err
+	}
+	defer store.Close()
+	loaded, err := store.LoadSet()
+	if err != nil || !reflect.DeepEqual(loaded, ordered) {
+		return zero, fmt.Errorf("formal-glm registered Phase18 source: ticket set mismatch")
+	}
+	pending, err := newFormalGLMRegisteredPhase18PendingPairStoreV1(
+		rockRoot, command.LocalPeerName, contract, pins, store)
+	if err != nil {
+		return zero, err
+	}
+	defer pending.Close()
+	delivery, err := pending.CommitChunk(*command.ChunkReceipt, chunk)
+	if err != nil {
+		return zero, err
+	}
+	return formalGLMRegisteredPhase18SourceCommandResponseV1{
+		Version:       formalGLMRegisteredPhase18SourceCommandVersionV1,
+		ChunkDelivery: &delivery, Replayed: delivery.Replayed,
+	}, nil
+}
+
 func formalGLMRegisteredPhase18SourceCommandRunAtRootV1(
 	encoded []byte, rockRoot string,
 ) (formalGLMRegisteredPhase18SourceCommandResponseV1, error) {
@@ -774,6 +841,8 @@ func formalGLMRegisteredPhase18SourceCommandRunAtRootV1(
 		return formalGLMRegisteredPhase18SourceCommandHostProvisionV1(rockRoot, command, contract, pins, key)
 	case formalGLMRegisteredPhase18SourceCommandActionImportV1:
 		return formalGLMRegisteredPhase18SourceCommandImportV1(rockRoot, command, contract, pins, key)
+	case formalGLMRegisteredPhase18SourceCommandActionImportChunkV1:
+		return formalGLMRegisteredPhase18SourceCommandImportChunkV1(rockRoot, command, contract, pins, key)
 	default:
 		return zero, fmt.Errorf("formal-glm registered Phase18 source: unknown action")
 	}

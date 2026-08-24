@@ -340,6 +340,16 @@ func (store *formalGLMRegisteredPhase18PendingPairStoreV1) CommitPair(
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
+	return store.commitPairLocked(pairJSON)
+}
+
+// commitPairLocked is shared with the bounded pair-fragment receiver.  The
+// caller must hold store.mu so a completed fragment stream cannot race a
+// direct legacy import of the same signed pair.
+func (store *formalGLMRegisteredPhase18PendingPairStoreV1) commitPairLocked(
+	pairJSON []byte,
+) (formalGLMRegisteredPhase18PendingPairReceiptV1, bool, error) {
+	var zero formalGLMRegisteredPhase18PendingPairReceiptV1
 	if store.root == nil {
 		return zero, false, fmt.Errorf(
 			"formal-glm registered Phase-1.8 pending pair store: closed")

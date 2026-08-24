@@ -293,6 +293,40 @@ test_that("registered formal GLM source forwards only its materialized block", {
     class = "dsvert_formal_glm_registered_source_error")
 })
 
+test_that("registered formal GLM source seals a block without returning its pair", {
+  fixture <- .formal_glm_registered_source_fixture(predictors = TRUE)
+  tickets <- list(list(ticket = "garbler"), list(ticket = "evaluator"))
+  testthat::local_mocked_bindings(
+    .dsvert_require_configured_local_peer_name = function() "site_a",
+    .get_identity_keypair = function(...) list(
+      identity_pk = fixture$pins[["site_a"]],
+      identity_sk = .formal_glm_registered_source_b64(raw(64L))),
+    .callMpcTool = function(command, input) {
+      if (identical(command, "formal-glm-phase18-source-project")) {
+        return(list(
+          version = "dsvert-formal-glm-phase18-source-project-response-v1",
+          authorization_json = jsonlite::toJSON(
+            fixture$authorization, auto_unbox = TRUE, null = "null", pretty = FALSE),
+          authorization_sha256 = fixture$authorization$authorization_sha256))
+      }
+      expect_identical(command, "formal-glm-registered-phase18-source")
+      expect_identical(input$action, "seal_block")
+      expect_identical(input$recipient_tickets, tickets)
+      expect_false(any(c("pair_json", "path", "data", "rows", "result") %in% names(input)))
+      list(version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+           source_receipt = list(version = "receipt"), replayed = FALSE)
+    },
+    .package = "dsVert")
+  withr::local_options(list(
+    dsvert.peer_name = "site_a",
+    dsvert.formal_glm.registered_source_specs = stats::setNames(
+      list(fixture$spec), "site_a")))
+  context <- .dsvert_formal_glm_registered_source_open(
+    fixture$source_contract_json, fixture$source)
+  sealed <- .dsvert_formal_glm_registered_source_seal_block(context, tickets, 0L)
+  expect_identical(sealed, list(source_receipt = list(version = "receipt"), replayed = FALSE))
+})
+
 test_that("registered formal GLM source reads only a bounded opaque pair chunk", {
   fixture <- .formal_glm_registered_source_fixture(predictors = TRUE)
   tickets <- list(list(ticket = "garbler"), list(ticket = "evaluator"))

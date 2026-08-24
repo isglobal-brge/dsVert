@@ -27,6 +27,7 @@ const (
 	formalGLMRegisteredPhase18SourceCommandActionTicketV1        = "ticket"
 	formalGLMRegisteredPhase18SourceCommandActionTicketSetV1     = "ticket_set"
 	formalGLMRegisteredPhase18SourceCommandActionProduceV1       = "produce"
+	formalGLMRegisteredPhase18SourceCommandActionSealBlockV1     = "seal_block"
 	formalGLMRegisteredPhase18SourceCommandActionChunkV1         = "chunk"
 	formalGLMRegisteredPhase18SourceCommandActionLocalReceiptV1  = "local_receipt"
 	formalGLMRegisteredPhase18SourceCommandActionReceiptCommitV1 = "receipt_commit"
@@ -171,6 +172,13 @@ func formalGLMRegisteredPhase18SourceCommandDecodeV1(
 			command.PrivateConsensus == "" || command.PairJSON != "" ||
 			command.LocalReceiptJSON != "" {
 			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid produce command")
+		}
+	case formalGLMRegisteredPhase18SourceCommandActionSealBlockV1:
+		if command.AuthorizationJSON == "" || len(command.RecipientTickets) != 2 ||
+			command.BlockIndex < 0 || command.ChunkOffset != 0 || len(command.Values) == 0 || len(command.Validity) == 0 ||
+			command.PrivateConsensus == "" || command.PairJSON != "" ||
+			command.LocalReceiptJSON != "" {
+			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid seal command")
 		}
 	case formalGLMRegisteredPhase18SourceCommandActionChunkV1:
 		if command.AuthorizationJSON == "" || len(command.RecipientTickets) != 2 ||
@@ -396,10 +404,10 @@ func formalGLMRegisteredPhase18SourceCommandAuthorizationV1(
 	return authorization, nil
 }
 
-func formalGLMRegisteredPhase18SourceCommandProduceV1(
+func formalGLMRegisteredPhase18SourceCommandMaterializeBlockV1(
 	rockRoot string, command formalGLMRegisteredPhase18SourceCommandV1,
 	contract formalGLMSourceContractV1, pins map[string]ed25519.PublicKey,
-	key ed25519.PrivateKey,
+	key ed25519.PrivateKey, returnPair bool,
 ) (formalGLMRegisteredPhase18SourceCommandResponseV1, error) {
 	var zero formalGLMRegisteredPhase18SourceCommandResponseV1
 	authorization, err := formalGLMRegisteredPhase18SourceCommandAuthorizationV1(
@@ -437,10 +445,32 @@ func formalGLMRegisteredPhase18SourceCommandProduceV1(
 		return zero, err
 	}
 	defer clear(pairJSON)
-	return formalGLMRegisteredPhase18SourceCommandResponseV1{
+	response := formalGLMRegisteredPhase18SourceCommandResponseV1{
 		Version:       formalGLMRegisteredPhase18SourceCommandVersionV1,
-		SourceReceipt: &receipt, PairJSON: string(pairJSON), Replayed: replayed,
-	}, nil
+		SourceReceipt: &receipt, Replayed: replayed,
+	}
+	if returnPair {
+		response.PairJSON = string(pairJSON)
+	}
+	return response, nil
+}
+
+func formalGLMRegisteredPhase18SourceCommandProduceV1(
+	rockRoot string, command formalGLMRegisteredPhase18SourceCommandV1,
+	contract formalGLMSourceContractV1, pins map[string]ed25519.PublicKey,
+	key ed25519.PrivateKey,
+) (formalGLMRegisteredPhase18SourceCommandResponseV1, error) {
+	return formalGLMRegisteredPhase18SourceCommandMaterializeBlockV1(
+		rockRoot, command, contract, pins, key, true)
+}
+
+func formalGLMRegisteredPhase18SourceCommandSealBlockV1(
+	rockRoot string, command formalGLMRegisteredPhase18SourceCommandV1,
+	contract formalGLMSourceContractV1, pins map[string]ed25519.PublicKey,
+	key ed25519.PrivateKey,
+) (formalGLMRegisteredPhase18SourceCommandResponseV1, error) {
+	return formalGLMRegisteredPhase18SourceCommandMaterializeBlockV1(
+		rockRoot, command, contract, pins, key, false)
 }
 
 // Chunk reads one fixed-size opaque frame from a pair that Produce has already
@@ -827,6 +857,8 @@ func formalGLMRegisteredPhase18SourceCommandRunAtRootV1(
 		return formalGLMRegisteredPhase18SourceCommandTicketSetV1(rockRoot, contract, pins, command.LocalPeerName, key, command.RecipientTickets)
 	case formalGLMRegisteredPhase18SourceCommandActionProduceV1:
 		return formalGLMRegisteredPhase18SourceCommandProduceV1(rockRoot, command, contract, pins, key)
+	case formalGLMRegisteredPhase18SourceCommandActionSealBlockV1:
+		return formalGLMRegisteredPhase18SourceCommandSealBlockV1(rockRoot, command, contract, pins, key)
 	case formalGLMRegisteredPhase18SourceCommandActionChunkV1:
 		return formalGLMRegisteredPhase18SourceCommandChunkV1(rockRoot, command, contract, pins, key)
 	case formalGLMRegisteredPhase18SourceCommandActionLocalReceiptV1:

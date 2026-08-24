@@ -942,6 +942,42 @@
        replayed = response$replayed)
 }
 
+# Materializes one locally owned block into the source's Rock outbox without
+# returning the pair.  The only subsequent export path is the bounded opaque
+# chunk reader below.
+.dsvert_formal_glm_registered_source_seal_block <- function(
+    context, recipient_tickets, block_index) {
+  context <- .dsvert_formal_glm_registered_source_context(context)
+  if (!is.list(recipient_tickets) || length(recipient_tickets) != 2L ||
+      !is.null(names(recipient_tickets))) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM recipient ticket set is invalid.")
+  }
+  block <- .dsvert_formal_glm_registered_source_block(context, block_index)
+  identity <- .dsvert_formal_glm_registered_source_identity(context)
+  response <- tryCatch(.callMpcTool(
+    "formal-glm-registered-phase18-source", list(
+      version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+      action = "seal_block", source_contract_json = context$contract_json,
+      pins = context$pins, local_peer_name = context$source_name,
+      local_signing_key = identity$identity_sk,
+      authorization_json = context$authorization_json,
+      recipient_tickets = recipient_tickets, block_index = block$block_index,
+      values = block$values, validity = block$validity,
+      private_consensus = block$private_consensus)),
+    error = function(error) NULL)
+  fields <- c("version", "source_receipt", "replayed")
+  if (!is.list(response) || !identical(names(response), fields) ||
+      !identical(response$version,
+                 "dsvert-formal-glm-registered-phase18-source-command-v1") ||
+      !is.list(response$source_receipt) || !is.logical(response$replayed) ||
+      length(response$replayed) != 1L || is.na(response$replayed)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM source block sealer returned invalid output.")
+  }
+  list(source_receipt = response$source_receipt, replayed = response$replayed)
+}
+
 # Reads one bounded opaque frame from a pair that is already durable in the
 # source's Rock outbox.  The frame is transport material only: R never parses
 # a pair, derives a source value, or exposes a data-bearing response directly

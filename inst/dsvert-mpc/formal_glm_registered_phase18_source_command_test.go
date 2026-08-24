@@ -135,6 +135,38 @@ func TestFormalGLMRegisteredPhase18SourceCommandReadsBoundedChunk(t *testing.T) 
 	clear(encoded)
 }
 
+func TestFormalGLMRegisteredPhase18SourceCommandSealsBlockWithoutPairReply(t *testing.T) {
+	fixture := formalGLMRegisteredPhase18SourceOutboxTestBuild(t, 2)
+	root := formalGLMRegisteredPhase18SourceOutboxTestRoot(t, "source-command-seal")
+	authorizationJSON, err := json.Marshal(fixture.authorization)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(authorizationJSON)
+	request := formalGLMRegisteredPhase18SourceCommandTestRequestV1(
+		t, formalGLMRegisteredPhase18SourceCommandActionSealBlockV1, fixture.source, fixture)
+	request.AuthorizationJSON = string(authorizationJSON)
+	request.RecipientTickets = append([]formalGLMRegisteredPhase18RecipientTicketV1(nil), fixture.tickets...)
+	request.BlockIndex = fixture.blockIndex
+	request.Values = append([]string(nil), fixture.values...)
+	request.Validity = append([]bool(nil), fixture.validity...)
+	request.PrivateConsensus = base64.StdEncoding.EncodeToString(fixture.consensus[:])
+	sealed := formalGLMRegisteredPhase18SourceCommandTestRunV1(t, root, request)
+	if sealed.SourceReceipt == nil || sealed.PairJSON != "" || sealed.Replayed {
+		t.Fatalf("seal response exposed a pair or omitted durable evidence: %#v", sealed)
+	}
+	chunk := formalGLMRegisteredPhase18SourceCommandTestRequestV1(
+		t, formalGLMRegisteredPhase18SourceCommandActionChunkV1, fixture.source, fixture)
+	chunk.AuthorizationJSON = string(authorizationJSON)
+	chunk.RecipientTickets = append([]formalGLMRegisteredPhase18RecipientTicketV1(nil), fixture.tickets...)
+	chunk.BlockIndex = fixture.blockIndex
+	read := formalGLMRegisteredPhase18SourceCommandTestRunV1(t, root, chunk)
+	if read.ChunkReceipt == nil || read.PairChunkBase64 == "" ||
+		read.ChunkReceipt.PairSHA256 == "" {
+		t.Fatalf("sealed pair was not available only as a bounded chunk: %#v", read)
+	}
+}
+
 func TestFormalGLMRegisteredPhase18SourceCommandImportsBoundedChunk(t *testing.T) {
 	fixture := formalGLMRegisteredPhase18SourceOutboxTestBuild(t, 2)
 	authorizationJSON, err := json.Marshal(fixture.authorization)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -266,6 +267,33 @@ func formalGLMRegisteredPhase20JobControlHostRunsFromPendingIngressV1(
 			if statErr != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0o600 {
 				t.Fatalf("host %d did not persist Phase21 asset %q: %v / %#v", index, path, statErr, info)
 			}
+		}
+	}
+	var preflight [2]formalGLMPhase21RockPreflightRecord
+	for index, host := range hosts {
+		var preflightErr error
+		preflight[index], preflightErr = host.RunPhase21PreflightV1()
+		if preflightErr != nil || preflight[index].Receipt.State != formalGLMPhase21RockStateAbsent ||
+			preflight[index].ProductionReady {
+			t.Fatalf("host %d Phase21 preflight: %#v / %v", index, preflight[index], preflightErr)
+		}
+	}
+	tamperedPreflight := preflight[0]
+	tamperedPreflight.Receipt.Signature = append([]byte(nil), preflight[0].Receipt.Signature...)
+	tamperedPreflight.Receipt.Signature[0] ^= 1
+	if err := hosts[1].ImportPhase21PeerPreflightV1(tamperedPreflight); err == nil {
+		t.Fatal("accepted tampered Phase21 peer preflight")
+	}
+	if err := hosts[0].ImportPhase21PeerPreflightV1(preflight[0]); err == nil {
+		t.Fatal("accepted local Phase21 preflight as peer input")
+	}
+	for index, host := range hosts {
+		if err := host.ImportPhase21PeerPreflightV1(preflight[1-index]); err != nil {
+			t.Fatalf("host %d did not import the signed peer preflight: %v", index, err)
+		}
+		replay, replayErr := host.RunPhase21PreflightV1()
+		if replayErr != nil || !reflect.DeepEqual(replay, preflight[index]) {
+			t.Fatalf("host %d preflight replay changed: %#v / %v", index, replay, replayErr)
 		}
 	}
 }

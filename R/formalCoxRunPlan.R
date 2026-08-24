@@ -37,6 +37,18 @@
   value
 }
 
+# A signed schema fixes the complete protected computation, including its
+# bounds, source layout, pinned peers and one declared optimiser transcript.
+# It therefore also fixes the only admissible source/recipient run id.  This
+# prevents an internal caller from manufacturing a second encrypted ingress
+# or sticky opening for the same analysis by choosing a fresh nonce-like id.
+.dsvert_formal_cox_run_id <- function(schema) {
+  .dsvert_formal_cox_schema_validate(schema)
+  .dsvert_formal_cox_hash(
+    .DSVERT_FORMAL_COX_RUN_DOMAIN,
+    list(schema_sha256 = schema$schema_sha256))
+}
+
 .dsvert_formal_cox_run_spec <- function(
     analysis_id,
     specs = .dsvert_dp_option("formal_cox_run_specs", list())) {
@@ -97,9 +109,7 @@
     analysis_id = spec$analysis_id, data_name = data_name,
     formula_sha256 = formula_sha256,
     schema_sha256 = spec$schema$schema_sha256,
-    run_id = .dsvert_formal_cox_hash(
-      .DSVERT_FORMAL_COX_RUN_DOMAIN,
-      list(schema_sha256 = spec$schema$schema_sha256)),
+    run_id = .dsvert_formal_cox_run_id(spec$schema),
     compute_peers = unname(peers),
     production_ready = FALSE)
 }

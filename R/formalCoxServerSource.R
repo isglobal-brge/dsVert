@@ -224,6 +224,10 @@
   .dsvert_formal_cox_server_source_require_canonical_rock()
   context <- .dsvert_formal_cox_server_source_context(context)
   run_id <- .dsvert_formal_cox_sha256(run_id, "Cox source run id")
+  if (!identical(run_id, .dsvert_formal_cox_run_id(context$schema))) {
+    .dsvert_formal_cox_abort(
+      "The Cox source run id does not match the signed schema.")
+  }
   numeric <- .dsvert_formal_cox_schema_numeric(context$schema)
   blocks <- as.integer(ceiling(numeric$capacity / context$block_capacity))
   block_index <- .dsvert_formal_cox_integer(
@@ -352,6 +356,10 @@
   block_capacity <- as.integer(.dsvert_formal_cox_integer(
     block_capacity, "Cox recipient block capacity", 1L, numeric$capacity))
   run_id <- .dsvert_formal_cox_sha256(run_id, "Cox recipient run id")
+  if (!identical(run_id, .dsvert_formal_cox_run_id(schema))) {
+    .dsvert_formal_cox_abort(
+      "The Cox recipient run id does not match the signed schema.")
+  }
   identity <- .get_identity_keypair()
   if (!is.list(identity) || !identical(names(identity),
                                        c("identity_pk", "identity_sk"))) {

@@ -545,7 +545,7 @@ test_that("formal Cox source bridge sends only one configured local block to Go"
   context <- .dsvert_formal_cox_server_source_open(
     sealed$schema, configured$source)
   tickets <- list(list(ticket = "garbler"), list(ticket = "evaluator"))
-  run_id <- paste(rep("f", 64L), collapse = "")
+  run_id <- .dsvert_formal_cox_run_id(sealed$schema)
   result <- .dsvert_formal_cox_server_source_produce_block(
     context, run_id, tickets, 1L)
   expect_identical(captured$calls, 1L)
@@ -571,6 +571,9 @@ test_that("formal Cox source bridge sends only one configured local block to Go"
 
   expect_error(.dsvert_formal_cox_server_source_produce_block(
     context, "not-a-run-id", tickets, 1L), class = "dsvert_formal_cox_error")
+  expect_error(.dsvert_formal_cox_server_source_produce_block(
+    context, paste(rep("e", 64L), collapse = ""), tickets, 1L),
+    class = "dsvert_formal_cox_error")
   expect_error(.dsvert_formal_cox_server_source_produce_block(
     context, run_id, tickets[-1L], 1L), class = "dsvert_formal_cox_error")
   expect_identical(captured$calls, 1L)
@@ -610,7 +613,7 @@ test_that("formal Cox source bridge delivers only a committed encrypted block", 
   context <- .dsvert_formal_cox_server_source_open(
     sealed$schema, configured$source)
   tickets <- list(list(ticket = "garbler"), list(ticket = "evaluator"))
-  run_id <- paste(rep("f", 64L), collapse = "")
+  run_id <- .dsvert_formal_cox_run_id(sealed$schema)
 
   delivery <- .dsvert_formal_cox_server_source_deliver_block(
     context, run_id, tickets, 1L, recipient)
@@ -639,6 +642,9 @@ test_that("formal Cox source bridge delivers only a committed encrypted block", 
   expect_error(.dsvert_formal_cox_server_source_deliver_block(
     context, "not-a-run-id", tickets, 1L, recipient),
     class = "dsvert_formal_cox_error")
+  expect_error(.dsvert_formal_cox_server_source_deliver_block(
+    context, paste(rep("e", 64L), collapse = ""), tickets, 1L, recipient),
+    class = "dsvert_formal_cox_error")
   expect_error(testthat::with_mocked_bindings(
     .callMpcTool = function(...) list(),
     .dsvert_formal_cox_server_source_deliver_block(
@@ -652,7 +658,7 @@ test_that("formal Cox recipient bridge imports only an opaque delivery", {
   sealed <- .formal_cox_schema(2L, fixture = fixture)
   recipient <- .dsvert_formal_cox_compute_peers(
     sealed$schema$unsigned$peer_pinset)[[1L]]
-  run_id <- paste(rep("f", 64L), collapse = "")
+  run_id <- .dsvert_formal_cox_run_id(sealed$schema)
   tickets <- list(list(ticket = "garbler"), list(ticket = "evaluator"))
   delivery <- list(
     version = "dsvert-formal-cox-blockwise-source-delivery-v1",
@@ -733,7 +739,7 @@ test_that("formal Cox recipient ticket bridge exposes only a signed public key",
   sealed <- .formal_cox_schema(2L, fixture = fixture)
   recipient <- .dsvert_formal_cox_compute_peers(
     sealed$schema$unsigned$peer_pinset)[[1L]]
-  run_id <- paste(rep("e", 64L), collapse = "")
+  run_id <- .dsvert_formal_cox_run_id(sealed$schema)
   public <- gsub("[\\r\\n[:space:]]", "", jsonlite::base64_enc(as.raw(seq_len(32L))))
   signature <- gsub("[\\r\\n[:space:]]", "", jsonlite::base64_enc(
     as.raw(rep(7L, 64L))))
@@ -753,8 +759,10 @@ test_that("formal Cox recipient ticket bridge exposes only a signed public key",
     identity_pk = .base64url_to_base64(sealed$pins[[recipient]]),
     identity_sk = "recipient-identity-test-key")
   captured <- new.env(parent = emptyenv())
+  captured$calls <- 0L
   testthat::local_mocked_bindings(
     .callMpcTool = function(command, input_data, simplify_output = TRUE) {
+      captured$calls <- captured$calls + 1L
       captured$command <- command
       captured$input <- input_data
       ticket
@@ -776,6 +784,7 @@ test_that("formal Cox recipient ticket bridge exposes only a signed public key",
   expect_false(any(grepl("transport|path|row|share|secret",
                          names(captured$input), ignore.case = TRUE)))
   expect_identical(result, ticket)
+  expect_identical(captured$calls, 1L)
   expect_false(any(grepl("signing|secret|path|row|share",
                          names(result), ignore.case = TRUE)))
   expect_error(testthat::with_mocked_bindings(
@@ -784,6 +793,10 @@ test_that("formal Cox recipient ticket bridge exposes only a signed public key",
     .dsvert_formal_cox_server_source_recipient_ticket(
       sealed$schema, 4L, run_id),
     .package = "dsVert"), class = "dsvert_formal_cox_error")
+  expect_error(.dsvert_formal_cox_server_source_recipient_ticket(
+    sealed$schema, 4L, paste(rep("e", 64L), collapse = "")),
+    class = "dsvert_formal_cox_error")
+  expect_identical(captured$calls, 1L)
 })
 
 test_that("formal Cox plaintext fixture has no package or DSI surface", {

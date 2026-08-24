@@ -58,6 +58,7 @@ test_that("registered formal Cox plans are deterministic and redacted at K=2/3/5
     expect_identical(first$version, "dsvert-formal-cox-run-plan-v1")
     expect_identical(first$schema_sha256, schema$schema_sha256)
     expect_match(first$run_id, "^[0-9a-f]{64}$")
+    expect_identical(first$run_id, .dsvert_formal_cox_run_id(schema))
     expect_identical(first$run_id, alias$run_id)
     expect_identical(first$compute_peers,
                      unname(unlist(schema$unsigned$compute_peers,

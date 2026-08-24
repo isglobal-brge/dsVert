@@ -187,6 +187,38 @@ func formalGLMRegisteredPhase20JobControlHostDaemonPrivateDirV1() (
 	return directory, root, opened, nil
 }
 
+func formalGLMRegisteredPhase20JobControlHostDaemonPrivateDirAtV1(
+	directory string,
+) (string, *os.Root, os.FileInfo, error) {
+	if !filepath.IsAbs(directory) || filepath.Clean(directory) != directory ||
+		len(directory) >= 96 || os.Mkdir(directory, 0o700) != nil {
+		return "", nil, nil, fmt.Errorf("formal-glm registered Phase20 job daemon: unsafe socket directory")
+	}
+	if err := os.Chmod(directory, 0o700); err != nil {
+		_ = os.Remove(directory)
+		return "", nil, nil, fmt.Errorf("formal-glm registered Phase20 job daemon: unsafe socket directory")
+	}
+	info, err := os.Lstat(directory)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 ||
+		info.Mode().Perm() != 0o700 || !formalFinalizerHandoffPrivateOwnedDirectory(info) {
+		_ = os.Remove(directory)
+		return "", nil, nil, fmt.Errorf("formal-glm registered Phase20 job daemon: unsafe socket directory")
+	}
+	root, err := os.OpenRoot(directory)
+	if err != nil {
+		_ = os.Remove(directory)
+		return "", nil, nil, fmt.Errorf("formal-glm registered Phase20 job daemon: unsafe socket directory")
+	}
+	opened, err := root.Stat(".")
+	if err != nil || !os.SameFile(info, opened) || !opened.IsDir() ||
+		opened.Mode().Perm() != 0o700 || !formalFinalizerHandoffPrivateOwnedDirectory(opened) {
+		_ = root.Close()
+		_ = os.Remove(directory)
+		return "", nil, nil, fmt.Errorf("formal-glm registered Phase20 job daemon: socket directory changed")
+	}
+	return directory, root, opened, nil
+}
+
 func formalGLMRegisteredPhase20JobControlHostDaemonSocketValidV1(
 	daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1,
 ) error {
@@ -216,6 +248,29 @@ func newFormalGLMRegisteredPhase20JobControlHostDaemonV1(
 	if err != nil {
 		return nil, err
 	}
+	return newFormalGLMRegisteredPhase20JobControlHostDaemonAtOpenDirV1(
+		host, controlKey, socketDir, root, info)
+}
+
+func newFormalGLMRegisteredPhase20JobControlHostDaemonAtDirV1(
+	host *formalGLMRegisteredPhase20JobControlHostV1, controlKey []byte,
+	socketDir string,
+) (*formalGLMRegisteredPhase20JobControlHostDaemonV1, error) {
+	if host == nil || len(controlKey) != sha256.Size {
+		return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: invalid configuration")
+	}
+	directory, root, info, err := formalGLMRegisteredPhase20JobControlHostDaemonPrivateDirAtV1(socketDir)
+	if err != nil {
+		return nil, err
+	}
+	return newFormalGLMRegisteredPhase20JobControlHostDaemonAtOpenDirV1(
+		host, controlKey, directory, root, info)
+}
+
+func newFormalGLMRegisteredPhase20JobControlHostDaemonAtOpenDirV1(
+	host *formalGLMRegisteredPhase20JobControlHostV1, controlKey []byte,
+	socketDir string, root *os.Root, info os.FileInfo,
+) (*formalGLMRegisteredPhase20JobControlHostDaemonV1, error) {
 	path := filepath.Join(socketDir, formalGLMRegisteredPhase20JobControlHostDaemonSocketV1)
 	if len(path) >= 100 {
 		_ = root.Close()

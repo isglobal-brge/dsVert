@@ -98,6 +98,19 @@ func main() {
 	// bootstrap is a signed custodian record, not an analyst-selected API.
 	case "formal-glm-job-host-provision":
 		handleFormalGLMRegisteredPhase20JobControlHostProvisionV1()
+	// A private live host and its short-lived local control command. Both
+	// derive their channel from the provisioned Rock bootstrap; neither is a
+	// DataSHIELD analytical endpoint.
+	case "formal-glm-job-host":
+		if len(os.Args) != 5 {
+			mpcFatalError("formal GLM job host selector is required")
+		}
+		if err := handleFormalGLMRegisteredPhase20JobControlHost(
+			os.Args[2], os.Args[3], os.Args[4]); err != nil {
+			mpcFatalError("formal GLM job host failed")
+		}
+	case "formal-glm-job-control":
+		handleFormalGLMRegisteredPhase20JobControl()
 	// Closed, server-directed relay for the signed formal-Cox blockwise
 	// lifecycle. The family-typed command derives every record from Rock.
 	case "formal-cox-control-source":

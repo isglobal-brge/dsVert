@@ -152,6 +152,66 @@ func TestFormalGLMRegisteredPhase20JobControlHostRunsK2FromPendingIngress(t *tes
 			t.Fatal("host compute did not complete")
 		}
 	}
+	var commits [2]formalGLMPhase20HandoffCommit
+	terminalErrs := make(chan error, 2)
+	for index := range hosts {
+		go func(index int) {
+			commit, terminalErr := hosts[index].RunTerminalV1()
+			commits[index] = commit
+			terminalErrs <- terminalErr
+		}(index)
+	}
+	for range hosts {
+		select {
+		case terminalErr := <-terminalErrs:
+			if terminalErr != nil {
+				close(stop)
+				<-relayDone
+				<-relayDone
+				t.Fatal(terminalErr)
+			}
+		case relayErr := <-relayErrs:
+			close(stop)
+			<-relayDone
+			<-relayDone
+			t.Fatal(relayErr)
+		case <-time.After(90 * time.Second):
+			close(stop)
+			<-relayDone
+			<-relayDone
+			t.Fatal("host terminal did not complete")
+		}
+	}
+	var replays [2]formalGLMPhase20HandoffCommit
+	replayErrs := make(chan error, 2)
+	for index := range hosts {
+		go func(index int) {
+			commit, terminalErr := hosts[index].RunTerminalV1()
+			replays[index] = commit
+			replayErrs <- terminalErr
+		}(index)
+	}
+	for range hosts {
+		select {
+		case terminalErr := <-replayErrs:
+			if terminalErr != nil {
+				close(stop)
+				<-relayDone
+				<-relayDone
+				t.Fatal(terminalErr)
+			}
+		case relayErr := <-relayErrs:
+			close(stop)
+			<-relayDone
+			<-relayDone
+			t.Fatal(relayErr)
+		case <-time.After(90 * time.Second):
+			close(stop)
+			<-relayDone
+			<-relayDone
+			t.Fatal("host terminal replay did not complete")
+		}
+	}
 	close(stop)
 	<-relayDone
 	<-relayDone
@@ -169,6 +229,22 @@ func TestFormalGLMRegisteredPhase20JobControlHostRunsK2FromPendingIngress(t *tes
 		owner.mu.Unlock()
 		if !sealed {
 			t.Fatalf("host %d did not retain only the sealed terminal owner", index)
+		}
+		if !formalGLMIsSHA256(commits[index].SHA256) || commits[index].Bytes < 64 ||
+			commits[index].Replayed {
+			t.Fatalf("host %d did not commit an encrypted terminal handoff: %#v", index, commits[index])
+		}
+		if !replays[index].Replayed || replays[index].SHA256 != commits[index].SHA256 ||
+			replays[index].Bytes != commits[index].Bytes {
+			t.Fatalf("host %d terminal replay changed the handoff: %#v", index, replays[index])
+		}
+		owner.mu.Lock()
+		terminal := owner.terminal
+		owner.mu.Unlock()
+		status, statusErr := terminal.LoadStatusV1()
+		if statusErr != nil || status.selected == nil ||
+			status.selected.OpeningsPerformed != 0 || status.selected.ProductionReady {
+			t.Fatalf("host %d terminal status: %#v / %v", index, status, statusErr)
 		}
 	}
 }

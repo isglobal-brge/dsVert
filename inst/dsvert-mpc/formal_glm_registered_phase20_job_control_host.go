@@ -234,6 +234,21 @@ func (host *formalGLMRegisteredPhase20JobControlHostV1) RunComputeV1() error {
 	return owner.RunComputeV1(provider, ingress)
 }
 
+// RunTerminalV1 completes the authenticated two-party selection after compute.
+// Its only output is the encrypted handoff commitment; the selected source,
+// DP share, paths and keys remain Rock-local.
+func (host *formalGLMRegisteredPhase20JobControlHostV1) RunTerminalV1() (
+	formalGLMPhase20HandoffCommit, error,
+) {
+	var zero formalGLMPhase20HandoffCommit
+	owner, done, err := host.beginOpV1()
+	if err != nil {
+		return zero, err
+	}
+	defer done()
+	return owner.RunTerminalV1()
+}
+
 func (host *formalGLMRegisteredPhase20JobControlHostV1) JobRefV1() (
 	formalGLMRegisteredPhase20JobRefV1, []byte, error,
 ) {

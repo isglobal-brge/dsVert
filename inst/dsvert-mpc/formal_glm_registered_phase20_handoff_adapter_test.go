@@ -147,7 +147,7 @@ func formalGLMRegisteredPhase20HandoffAdapterTestOpenV1(
 	pins := formalGLMRegisteredPhase20TerminalClonePinsV1(owner.pins)
 	owner.mu.Unlock()
 	store, err := newFormalGLMPhase20HandoffStore(
-		filepath.Join(rockRoot, "formal-glm-phase20-handoff"), semanticRoot, peer,
+		filepath.Join(rockRoot, peer, "formal-glm-phase20-handoff"), semanticRoot, peer,
 		storageRoot, backend, pins)
 	clear(storageRoot[:])
 	if err != nil {
@@ -166,7 +166,8 @@ func TestFormalGLMRegisteredPhase20SelectedHandoffAdapterK2(t *testing.T) {
 	if _, err := formalGLMRegisteredPhase20CommitSelectedHandoffV1(owners[0]); err == nil {
 		t.Fatal("unselected terminal created a Phase20 handoff")
 	}
-	if _, err := os.Stat(filepath.Join(roots[0], "formal-glm-phase20-handoff")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(roots[0], owners[0].peer,
+		"formal-glm-phase20-handoff")); !os.IsNotExist(err) {
 		t.Fatalf("unselected terminal touched the handoff root: %v", err)
 	}
 	selected, err := formalGLMRegisteredPhase20HandoffAdapterTestSelectV1(t, owners, evidence)
@@ -185,6 +186,9 @@ func TestFormalGLMRegisteredPhase20SelectedHandoffAdapterK2(t *testing.T) {
 			t.Fatalf("handoff replay %d changed: %#v / %v", index, replay, err)
 		}
 		handoff := formalGLMRegisteredPhase20HandoffAdapterTestOpenV1(t, owner)
+		if _, err := os.Stat(filepath.Join(roots[index], "formal-glm-phase20-handoff")); !os.IsNotExist(err) {
+			t.Fatalf("handoff %d escaped the authority root: %v", index, err)
+		}
 		source, durable, err := handoff.Load()
 		if err != nil || durable.SHA256 != commit.SHA256 || durable.Bytes != commit.Bytes ||
 			source.Result.Peer != evidence[index].Peer ||

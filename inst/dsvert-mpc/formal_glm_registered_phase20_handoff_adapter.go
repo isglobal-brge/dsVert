@@ -96,8 +96,16 @@ func formalGLMRegisteredPhase20CommitSelectedHandoffV1(
 	if openedErr != nil || closeErr != nil || !os.SameFile(attemptInfo, openedInfo) {
 		return zero, fmt.Errorf("formal-glm registered Phase20 handoff: Rock root changed")
 	}
+	// Phase21 owns one Rock root per designated authority.  Keep the selected
+	// share in that authority root so the generic one-draw lifecycle can open
+	// exactly the same encrypted handoff without copying it through a common
+	// or analyst-addressable location.
+	authorityRoot := filepath.Join(rockRoot, peer)
+	if err := formalFinalizerHandoffEnsurePrivateDir(authorityRoot); err != nil {
+		return zero, err
+	}
 	store, err := newFormalGLMPhase20HandoffStore(
-		filepath.Join(rockRoot, "formal-glm-phase20-handoff"), semanticRoot, peer,
+		filepath.Join(authorityRoot, "formal-glm-phase20-handoff"), semanticRoot, peer,
 		storageRoot, source.backend, pins)
 	if err != nil {
 		return zero, err

@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -212,5 +213,61 @@ func TestFormalGLMRegisteredPhase18SourceCommandK2K3K5(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestFormalGLMRegisteredPhase18SourceCommandSealsLocalReceiptK2K3K5(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+			fixture := formalGLMRegisteredPhase18SourceOutboxTestBuild(t, custodians)
+			root := formalGLMRegisteredPhase18SourceOutboxTestRoot(t, "local-receipt")
+			authorizationJSON, err := json.Marshal(fixture.authorization)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer clear(authorizationJSON)
+			for blockIndex := 0; blockIndex < fixture.authorization.Geometry.TotalBlocks; blockIndex++ {
+				request := formalGLMRegisteredPhase18SourceCommandTestRequestV1(
+					t, formalGLMRegisteredPhase18SourceCommandActionProduceV1,
+					fixture.source, fixture)
+				values, validity := formalGLMRegisteredPhase18MaterializedPairTestValues(
+					fixture.authorization, blockIndex)
+				consensus := sha256.Sum256([]byte(fmt.Sprintf(
+					"registered-phase18/source-command/local-receipt/K%d/block/%d",
+					custodians, blockIndex)))
+				request.AuthorizationJSON = string(authorizationJSON)
+				request.RecipientTickets = append(
+					[]formalGLMRegisteredPhase18RecipientTicketV1(nil), fixture.tickets...)
+				request.BlockIndex = blockIndex
+				request.Values = values
+				request.Validity = validity
+				request.PrivateConsensus = base64.StdEncoding.EncodeToString(consensus[:])
+				produced := formalGLMRegisteredPhase18SourceCommandTestRunV1(t, root, request)
+				if produced.SourceReceipt == nil || produced.Replayed || produced.PairJSON == "" {
+					t.Fatal("source block was not durably produced")
+				}
+			}
+			request := formalGLMRegisteredPhase18SourceCommandTestRequestV1(
+				t, formalGLMRegisteredPhase18SourceCommandActionLocalReceiptV1,
+				fixture.source, fixture)
+			request.AuthorizationJSON = string(authorizationJSON)
+			request.RecipientTickets = append(
+				[]formalGLMRegisteredPhase18RecipientTicketV1(nil), fixture.tickets...)
+			sealed := formalGLMRegisteredPhase18SourceCommandTestRunV1(t, root, request)
+			if sealed.LocalReceiptJSON == "" || sealed.Replayed {
+				t.Fatal("local receipt was not sealed")
+			}
+			receipt, err := formalGLMDecodeRegisteredPhase18LocalReceiptV1(
+				[]byte(sealed.LocalReceiptJSON), fixture.provenance.source.contract,
+				fixture.provenance.source.inputs.identities.public)
+			if err != nil || receipt.SourceName != fixture.source ||
+				len(receipt.BlockCommitments) != fixture.authorization.Geometry.TotalBlocks {
+				t.Fatal("sealed local receipt is invalid")
+			}
+			replayed := formalGLMRegisteredPhase18SourceCommandTestRunV1(t, root, request)
+			if !replayed.Replayed || replayed.LocalReceiptJSON != sealed.LocalReceiptJSON {
+				t.Fatal("local receipt replay changed durable evidence")
+			}
+		})
 	}
 }

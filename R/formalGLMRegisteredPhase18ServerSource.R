@@ -625,6 +625,45 @@
   list(ticket_receipts = response$ticket_receipts, replayed = response$replayed)
 }
 
+# Seals the source's public K-block commitment after the closed Go outbox has
+# confirmed that every block is durable.  The returned JSON is signed routing
+# evidence; it contains no plaintext block, validity bit, consensus or key.
+.dsvert_formal_glm_registered_source_seal_local_receipt <- function(
+    context, recipient_tickets) {
+  context <- .dsvert_formal_glm_registered_source_context(context)
+  if (!is.list(recipient_tickets) || length(recipient_tickets) != 2L ||
+      !is.null(names(recipient_tickets))) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM recipient ticket set is invalid.")
+  }
+  identity <- .dsvert_formal_glm_registered_source_identity(context)
+  response <- tryCatch(.callMpcTool(
+    "formal-glm-registered-phase18-source", list(
+      version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+      action = "local_receipt", source_contract_json = context$contract_json,
+      pins = context$pins, local_peer_name = context$source_name,
+      local_signing_key = identity$identity_sk,
+      authorization_json = context$authorization_json,
+      recipient_tickets = recipient_tickets)),
+    error = function(error) NULL)
+  fields <- c("version", "local_receipt_json", "replayed")
+  if (!is.list(response) || !identical(names(response), fields) ||
+      !identical(response$version,
+                 "dsvert-formal-glm-registered-phase18-source-command-v1") ||
+      !is.character(response$local_receipt_json) ||
+      length(response$local_receipt_json) != 1L ||
+      is.na(response$local_receipt_json) ||
+      nchar(response$local_receipt_json, type = "bytes") < 2L ||
+      nchar(response$local_receipt_json, type = "bytes") > 4L * 1024L^2 ||
+      !is.logical(response$replayed) || length(response$replayed) != 1L ||
+      is.na(response$replayed)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM local receipt seal returned invalid output.")
+  }
+  list(local_receipt_json = response$local_receipt_json,
+       replayed = response$replayed)
+}
+
 # Sends one already materialized local block to the closed Go ingress.  Tickets
 # are signed protocol records from the two designated compute peers; this
 # bridge does not mint them and cannot select a recipient, source, path or

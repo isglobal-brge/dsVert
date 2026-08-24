@@ -419,11 +419,22 @@ func TestFormalGLMRegisteredPhase21StageTaskK2K3K5(t *testing.T) {
 			if err := formalGLMRegisteredPhase21ImportPeerAckV1(states[1], ack, publication); err != nil {
 				t.Fatalf("peer did not import ACK: %v", err)
 			}
+			var cleanups [2]formalGLMPhase21RockCleanupRecord
 			for index := range states {
 				cleanup, cleanupErr := formalGLMRegisteredPhase21CleanupAfterAckV1(states[index], publication)
 				if cleanupErr != nil || cleanup.ProductionReady {
 					t.Fatalf("authority %d cleanup: %#v / %v", index, cleanup, cleanupErr)
 				}
+				cleanups[index] = cleanup
+			}
+			tamperedCleanup := cleanups[1]
+			tamperedCleanup.Receipt.Signature = append([]byte(nil), cleanups[1].Receipt.Signature...)
+			tamperedCleanup.Receipt.Signature[0] ^= 1
+			if err := formalGLMRegisteredPhase21ImportPeerCleanupV1(states[0], tamperedCleanup); err == nil {
+				t.Fatal("finalizer accepted tampered peer cleanup")
+			}
+			if err := formalGLMRegisteredPhase21ImportPeerCleanupV1(states[0], cleanups[1]); err != nil {
+				t.Fatalf("finalizer did not import peer cleanup: %v", err)
 			}
 		})
 	}

@@ -16,6 +16,30 @@ func formalGLMRegisteredPhase21AckInboxPathV1(root, artifactID string) (string, 
 	return filepath.Join(root, "inbox-v1", "ack-"+artifactID+".json"), nil
 }
 
+func formalGLMRegisteredPhase21CleanupInboxPathV1(root, artifactID, role string) (string, error) {
+	if !filepath.IsAbs(root) || filepath.Clean(root) != root || !formalGLMIsSHA256(artifactID) || (role != "garbler" && role != "evaluator") {
+		return "", fmt.Errorf("formal-glm registered Phase21 cleanup: invalid inbox")
+	}
+	return filepath.Join(root, "inbox-v1", "cleanup-"+role+".json"), nil
+}
+
+func formalGLMRegisteredPhase21ImportPeerCleanupV1(state formalGLMRegisteredPhase21StageHostStateV1, record formalGLMPhase21RockCleanupRecord) error {
+	context, _, _, _, local, _, _, _, _, err := formalGLMRegisteredPhase21AuthorizationStateV1(state)
+	if err != nil || record.Receipt.PeerName == local.PeerName {
+		return fmt.Errorf("formal-glm registered Phase21 cleanup: invalid peer record")
+	}
+	peer, peerErr := formalGLMPhase21RockAuthority(context.contract.Artifact, record.Receipt.PeerName)
+	if peerErr != nil || formalGLMPhase21RockValidateCleanupRecord(record, context, peer) != nil {
+		return fmt.Errorf("formal-glm registered Phase21 cleanup: invalid peer record")
+	}
+	path, err := formalGLMRegisteredPhase21CleanupInboxPathV1(state.rockRoot, context.artifactID, record.Receipt.Role)
+	if err != nil {
+		return err
+	}
+	_, _, err = formalGLMPhase21RockWriteJSON(state.rockRoot, path, record)
+	return err
+}
+
 func formalGLMRegisteredPhase21ImportPeerAckV1(state formalGLMRegisteredPhase21StageHostStateV1, record formalGLMPhase21RockAckRecord, publication formalGLMPhase21PublicCertificateV2) error {
 	context, _, _, binding, local, ticket, _, _, _, err := formalGLMRegisteredPhase21AuthorizationStateV1(state)
 	sha, shaErr := formalGLMPhase21RockPublicCertificateDigest(publication)

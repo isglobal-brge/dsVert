@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -221,13 +222,19 @@ func TestFormalCoxBlockwiseWorkerHostAttachesLiveK2K3K5(t *testing.T) {
 					var poll formalCoxBlockwiseExchangeDaemonPollResultV1
 					formalCoxBlockwiseWorkerHostTestControl(t, root,
 						configs[direction.from].Bootstrap, "poll",
-						formalCoxBlockwiseExchangeDaemonPollV1{Acknowledged: acknowledgements[direction.from]}, &poll)
+						formalCoxBlockwiseExchangeDaemonPollV1{
+							Acknowledged: strconv.FormatInt(acknowledgements[direction.from], 10),
+						}, &poll)
 					if poll.Chunk != nil {
 						var relayed formalCoxBlockwiseExchangeDaemonRelayResultV1
 						formalCoxBlockwiseWorkerHostTestControl(t, root,
 							configs[direction.to].Bootstrap, "relay",
 							formalCoxBlockwiseExchangeDaemonRelayV1{Chunk: *poll.Chunk}, &relayed)
-						acknowledgements[direction.from] = relayed.Accepted
+						accepted, err := formalCoxBlockwiseExchangeDaemonOffsetV1(relayed.Accepted)
+						if err != nil {
+							t.Fatal(err)
+						}
+						acknowledgements[direction.from] = accepted
 					}
 				}
 				for index := range configs {

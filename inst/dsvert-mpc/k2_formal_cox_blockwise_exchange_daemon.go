@@ -20,6 +20,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -67,11 +68,21 @@ type formalCoxBlockwiseExchangeDaemonFrameV1 struct {
 }
 
 type formalCoxBlockwiseExchangeDaemonPollV1 struct {
-	Acknowledged int64 `json:"acknowledged"`
+	Acknowledged string `json:"acknowledged"`
+}
+
+// formalCoxBlockwiseExchangeDaemonWireChunkV1 is the sole JSON projection of
+// an exact-GC chunk.  Offsets deliberately remain canonical decimal strings:
+// R doubles cannot preserve int64 offsets above 2^53.
+type formalCoxBlockwiseExchangeDaemonWireChunkV1 struct {
+	Sender        string `json:"sender"`
+	Offset        string `json:"offset"`
+	PayloadSHA256 string `json:"payload_sha256"`
+	Payload       []byte `json:"payload"`
 }
 
 type formalCoxBlockwiseExchangeDaemonRelayV1 struct {
-	Chunk formalCoxBlockwiseExchangeChunk `json:"chunk"`
+	Chunk formalCoxBlockwiseExchangeDaemonWireChunkV1 `json:"chunk"`
 }
 
 type formalCoxBlockwiseExchangeDaemonCommitV1 struct {
@@ -79,12 +90,12 @@ type formalCoxBlockwiseExchangeDaemonCommitV1 struct {
 }
 
 type formalCoxBlockwiseExchangeDaemonPollResultV1 struct {
-	Chunk    *formalCoxBlockwiseExchangeChunk `json:"chunk"`
-	Accepted int64                            `json:"accepted"`
+	Chunk    *formalCoxBlockwiseExchangeDaemonWireChunkV1 `json:"chunk"`
+	Accepted string                                       `json:"accepted"`
 }
 
 type formalCoxBlockwiseExchangeDaemonRelayResultV1 struct {
-	Accepted int64 `json:"accepted"`
+	Accepted string `json:"accepted"`
 }
 
 type formalCoxBlockwiseExchangeDaemonResultV1 struct {
@@ -116,6 +127,58 @@ type formalCoxBlockwiseExchangeDaemonV1 struct {
 type formalCoxBlockwiseExchangeDaemonClientV1 struct {
 	socketPath string
 	key        []byte
+}
+
+func formalCoxBlockwiseExchangeDaemonOffsetV1(value string) (int64, error) {
+	if value == "" || (len(value) > 1 && value[0] == '0') {
+		return 0, fmt.Errorf("formal-cox: invalid exact-GC wire offset")
+	}
+	for _, character := range value {
+		if character < '0' || character > '9' {
+			return 0, fmt.Errorf("formal-cox: invalid exact-GC wire offset")
+		}
+	}
+	offset, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || offset < 0 || strconv.FormatInt(offset, 10) != value {
+		return 0, fmt.Errorf("formal-cox: invalid exact-GC wire offset")
+	}
+	return offset, nil
+}
+
+func formalCoxBlockwiseExchangeDaemonWireChunkV1FromChunk(
+	chunk formalCoxBlockwiseExchangeChunk,
+) (formalCoxBlockwiseExchangeDaemonWireChunkV1, error) {
+	if !formalCoxCompilerRLabel(chunk.Sender) || chunk.Offset < 0 ||
+		len(chunk.Payload) < 1 || len(chunk.Payload) > formalCoxBlockwiseExchangeTransportMaxPayload ||
+		!formalCoxIsSHA256(chunk.PayloadSHA256) {
+		return formalCoxBlockwiseExchangeDaemonWireChunkV1{},
+			fmt.Errorf("formal-cox: invalid exact-GC wire chunk")
+	}
+	return formalCoxBlockwiseExchangeDaemonWireChunkV1{
+		Sender:        chunk.Sender,
+		Offset:        strconv.FormatInt(chunk.Offset, 10),
+		PayloadSHA256: chunk.PayloadSHA256,
+		Payload:       append([]byte(nil), chunk.Payload...),
+	}, nil
+}
+
+func (wire formalCoxBlockwiseExchangeDaemonWireChunkV1) ChunkV1() (
+	formalCoxBlockwiseExchangeChunk, error,
+) {
+	offset, err := formalCoxBlockwiseExchangeDaemonOffsetV1(wire.Offset)
+	if err != nil || !formalCoxCompilerRLabel(wire.Sender) ||
+		len(wire.Payload) < 1 ||
+		len(wire.Payload) > formalCoxBlockwiseExchangeTransportMaxPayload ||
+		!formalCoxIsSHA256(wire.PayloadSHA256) {
+		return formalCoxBlockwiseExchangeChunk{},
+			fmt.Errorf("formal-cox: invalid exact-GC wire chunk")
+	}
+	return formalCoxBlockwiseExchangeChunk{
+		Sender:        wire.Sender,
+		Offset:        offset,
+		PayloadSHA256: wire.PayloadSHA256,
+		Payload:       append([]byte(nil), wire.Payload...),
+	}, nil
 }
 
 func (client *formalCoxBlockwiseExchangeDaemonClientV1) Close() {
@@ -533,23 +596,41 @@ func (daemon *formalCoxBlockwiseExchangeDaemonV1) dispatchV1(action string,
 		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {
 			return nil, err
 		}
-		chunk, accepted, err := controller.Poll(request.Acknowledged)
+		acknowledged, err := formalCoxBlockwiseExchangeDaemonOffsetV1(request.Acknowledged)
 		if err != nil {
 			return nil, err
 		}
+		chunk, accepted, err := controller.Poll(acknowledged)
+		if err != nil {
+			return nil, err
+		}
+		var wire *formalCoxBlockwiseExchangeDaemonWireChunkV1
+		if chunk != nil {
+			value, wireErr := formalCoxBlockwiseExchangeDaemonWireChunkV1FromChunk(*chunk)
+			if wireErr != nil {
+				return nil, wireErr
+			}
+			wire = &value
+		}
 		return formalCoxBlockwiseExchangeDaemonResponsePayload(
-			formalCoxBlockwiseExchangeDaemonPollResultV1{Chunk: chunk, Accepted: accepted})
+			formalCoxBlockwiseExchangeDaemonPollResultV1{
+				Chunk: wire, Accepted: strconv.FormatInt(accepted, 10)})
 	case "relay":
 		var request formalCoxBlockwiseExchangeDaemonRelayV1
 		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {
 			return nil, err
 		}
-		accepted, err := controller.Relay(request.Chunk)
+		chunk, err := request.Chunk.ChunkV1()
+		if err != nil {
+			return nil, err
+		}
+		accepted, err := controller.Relay(chunk)
 		if err != nil {
 			return nil, err
 		}
 		return formalCoxBlockwiseExchangeDaemonResponsePayload(
-			formalCoxBlockwiseExchangeDaemonRelayResultV1{Accepted: accepted})
+			formalCoxBlockwiseExchangeDaemonRelayResultV1{
+				Accepted: strconv.FormatInt(accepted, 10)})
 	case "result":
 		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &struct{}{}); err != nil {
 			return nil, err
@@ -714,17 +795,38 @@ func (client *formalCoxBlockwiseExchangeDaemonClientV1) PollV1(ack int64) (
 ) {
 	var result formalCoxBlockwiseExchangeDaemonPollResultV1
 	err := client.callV1("poll", formalCoxBlockwiseExchangeDaemonPollV1{
-		Acknowledged: ack,
+		Acknowledged: strconv.FormatInt(ack, 10),
 	}, &result)
-	return result.Chunk, result.Accepted, err
+	if err != nil {
+		return nil, 0, err
+	}
+	accepted, err := formalCoxBlockwiseExchangeDaemonOffsetV1(result.Accepted)
+	if err != nil {
+		return nil, 0, err
+	}
+	if result.Chunk == nil {
+		return nil, accepted, nil
+	}
+	chunk, err := result.Chunk.ChunkV1()
+	if err != nil {
+		return nil, 0, err
+	}
+	return &chunk, accepted, nil
 }
 
 func (client *formalCoxBlockwiseExchangeDaemonClientV1) RelayV1(
 	chunk formalCoxBlockwiseExchangeChunk,
 ) (int64, error) {
+	wire, err := formalCoxBlockwiseExchangeDaemonWireChunkV1FromChunk(chunk)
+	if err != nil {
+		return 0, err
+	}
 	var result formalCoxBlockwiseExchangeDaemonRelayResultV1
-	err := client.callV1("relay", formalCoxBlockwiseExchangeDaemonRelayV1{Chunk: chunk}, &result)
-	return result.Accepted, err
+	err = client.callV1("relay", formalCoxBlockwiseExchangeDaemonRelayV1{Chunk: wire}, &result)
+	if err != nil {
+		return 0, err
+	}
+	return formalCoxBlockwiseExchangeDaemonOffsetV1(result.Accepted)
 }
 
 func (client *formalCoxBlockwiseExchangeDaemonClientV1) ResultV1() (

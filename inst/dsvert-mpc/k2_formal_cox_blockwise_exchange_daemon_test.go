@@ -270,3 +270,34 @@ func TestFormalCoxBlockwiseExchangeDaemonCompletionIsShareFree(t *testing.T) {
 		}
 	}
 }
+
+func TestFormalCoxBlockwiseExchangeDaemonWireOffsetsPreserveInt64(t *testing.T) {
+	const offset int64 = 9007199254740993 // 2^53 + 1
+	chunk := formalCoxBlockwiseExchangeChunk{
+		Sender: "peer-a", Offset: offset,
+		PayloadSHA256: fmt.Sprintf("%064x", 1), Payload: []byte{1, 2, 3},
+	}
+	wire, err := formalCoxBlockwiseExchangeDaemonWireChunkV1FromChunk(chunk)
+	if err != nil || wire.Offset != "9007199254740993" {
+		t.Fatalf("wire offset lost precision: %+v / %v", wire, err)
+	}
+	rebuilt, err := wire.ChunkV1()
+	if err != nil || rebuilt.Offset != offset || !bytes.Equal(rebuilt.Payload, chunk.Payload) {
+		t.Fatalf("wire offset did not round-trip exactly: %+v / %v", rebuilt, err)
+	}
+	for _, invalid := range []string{"", "00", "01", "-1", "9223372036854775808"} {
+		if _, err := formalCoxBlockwiseExchangeDaemonOffsetV1(invalid); err == nil {
+			t.Fatalf("accepted non-canonical or out-of-range offset %q", invalid)
+		}
+	}
+	var request formalCoxBlockwiseExchangeDaemonPollV1
+	if err := formalCoxBlockwiseExchangeDaemonPayload(
+		[]byte(`{"acknowledged":9007199254740993}`), &request); err == nil {
+		t.Fatal("accepted a JSON-number acknowledgement above 2^53")
+	}
+	if err := formalCoxBlockwiseExchangeDaemonPayload(
+		[]byte(`{"acknowledged":"9007199254740993"}`), &request); err != nil ||
+		request.Acknowledged != "9007199254740993" {
+		t.Fatalf("rejected canonical decimal acknowledgement: %+v / %v", request, err)
+	}
+}

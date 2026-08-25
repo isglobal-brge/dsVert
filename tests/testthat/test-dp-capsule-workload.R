@@ -930,6 +930,33 @@ test_that("signed method specifications populate an otherwise empty catalog once
     "primary_model")
 })
 
+test_that("LMM grouping labels remain signed metadata, not released marginals", {
+  fixture <- .capsule_test_fixture()
+  fixture$specs <- list(
+    describe = list(), survival = list(), gaussian = list(
+      lmm = list(
+        version = "random_intercept_fixed_v2", dataset = "protected",
+        outcome = "marker", predictors = "age", intercept = TRUE,
+        cluster = "sex", max_patients_per_cluster = 2L,
+        variance_ratio_grid = c(0, 1))))
+  fixture$policy$capsule_workload_scope <- list(
+    mode = "catalog_v1", numeric_moments = character(),
+    categorical_marginals = character(), categorical_pairs = list(),
+    correlations = list())
+
+  manifest <- .capsule_test_build(fixture)
+  scope <- manifest$workload$primitive_scope$selection
+
+  expect_identical(
+    scope$referenced_by_signed_specs$categorical, "sex")
+  expect_length(
+    manifest$workload$families$categorical_marginals$artifacts, 0L)
+  expect_false("sex" %in% scope$included$categorical_marginals)
+  expect_equal(
+    manifest$workload$families$gaussian_models$artifacts$lmm$
+      coordinate_count, 21L)
+})
+
 test_that("count and admission remain present with an empty catalog", {
   fixture <- .capsule_test_fixture()
   fixture$specs <- list(describe = list(), survival = list(), gaussian = list())

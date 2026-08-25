@@ -1479,7 +1479,8 @@
   }
 
   referenced_numeric <- referenced_categorical <- character()
-  reference <- function(variable) {
+  referenced_categorical_marginals <- character()
+  reference <- function(variable, materialize_categorical = TRUE) {
     column <- columns[[variable]]
     if (is.null(column)) {
       stop("A signed workload specification references an unknown column.",
@@ -1489,6 +1490,10 @@
       referenced_numeric <<- c(referenced_numeric, variable)
     } else {
       referenced_categorical <<- c(referenced_categorical, variable)
+      if (isTRUE(materialize_categorical)) {
+        referenced_categorical_marginals <<- c(
+          referenced_categorical_marginals, variable)
+      }
     }
   }
   for (analysis_id in names(describe_specs)) {
@@ -1509,7 +1514,12 @@
   for (analysis_id in names(gaussian_specs)) {
     spec <- .dsvert_dp_capsule_gaussian_spec(
       global_policy, analysis_id, gaussian_specs)
-    lapply(c(spec$outcome, spec$predictors, spec$cluster), reference)
+    lapply(c(spec$outcome, spec$predictors), reference)
+    if (!is.null(spec$cluster)) {
+      # A random-intercept grouping label is signed source metadata for the
+      # protected kernel, not a categorical marginal to be released.
+      reference(spec$cluster, materialize_categorical = FALSE)
+    }
   }
   for (analysis_id in names(configured_vertical)) {
     spec <- configured_vertical[[analysis_id]]
@@ -1519,6 +1529,8 @@
   referenced_numeric <- sort(unique(referenced_numeric), method = "radix")
   referenced_categorical <- sort(
     unique(referenced_categorical), method = "radix")
+  referenced_categorical_marginals <- sort(
+    unique(referenced_categorical_marginals), method = "radix")
 
   if (identical(mode, "all_schema")) {
     numeric <- names(all_numeric)
@@ -1532,7 +1544,7 @@
       explicit_numeric, referenced_numeric,
       unlist(correlations, use.names = FALSE))
     categorical <- c(
-      explicit_categorical, referenced_categorical,
+      explicit_categorical, referenced_categorical_marginals,
       unlist(categorical_pairs, use.names = FALSE))
     numeric <- sort(unique(numeric), method = "radix")
     categorical <- sort(unique(categorical), method = "radix")

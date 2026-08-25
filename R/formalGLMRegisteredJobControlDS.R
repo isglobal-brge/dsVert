@@ -14,7 +14,7 @@
   "negotiate", .DSVERT_FORMAL_GLM_REGISTERED_JOB_CONTROL_EMPTY_ACTIONS,
   "bind", "phase21_preflight_bind", "poll", "relay",
   "phase21_preflight",
-  "phase21_stage_start", "phase21_stage_status", "phase21_ticket",
+  "phase21_stage_start", "phase21_stage_status", "phase21_stage_record", "phase21_ticket",
   "phase21_seal", "phase21_candidate", "phase21_candidate_verify",
   "phase21_base_certificate", "phase21_authorization",
   "phase21_publication", "phase21_ack",

@@ -782,6 +782,16 @@ func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) dispatchV1(
 			return nil, err
 		}
 		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(status)
+	case "phase21_stage_record":
+		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil {
+			return nil, err
+		}
+		status, err := host.Phase21StageStatusV1()
+		if err != nil || status.State != formalGLMRegisteredPhase21StageCompleteV1 || status.Stage == nil {
+			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: Phase21 Stage unavailable")
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(
+			formalGLMRegisteredPhase20JobControlHostDaemonStageRecordV1{Record: *status.Stage})
 	case "phase21_stage_poll":
 		request, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonStagePollV1](encoded)
 		if err != nil {
@@ -1185,6 +1195,14 @@ func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) Phase21Sta
 	var status formalGLMRegisteredPhase21StageStatusV1
 	err := client.callV1("phase21_stage_status", struct{}{}, &status)
 	return status, err
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) Phase21StageRecordV1() (
+	formalGLMPhase21RockStageRecord, error,
+) {
+	var result formalGLMRegisteredPhase20JobControlHostDaemonStageRecordV1
+	err := client.callV1("phase21_stage_record", struct{}{}, &result)
+	return result.Record, err
 }
 
 func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) PollPhase21StageV1(

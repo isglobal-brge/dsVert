@@ -87,6 +87,10 @@ test_that("registered formal GLM job control relays opaque Phase21 lifecycle fra
   expect_false(any(grepl("secret|share|path|key", names(output$payload),
                          ignore.case = TRUE)))
   output <- dsvertFormalGLMRegisteredJobControlDS(
+    receipt, "phase21_stage_record", list(frame = "e30="))
+  expect_identical(seen$input$action, "phase21_stage_record")
+  expect_identical(output$payload, list(frame = "eyJyZWNlaXB0Ijp7fX0="))
+  output <- dsvertFormalGLMRegisteredJobControlDS(
     receipt, "phase21_preflight_bind",
     list(frame = "eyJmcmFtZSI6ImV5SnlaV05sYVhCMElqcDdmWDA9In0="))
   expect_identical(seen$input$action, "phase21_preflight_bind")

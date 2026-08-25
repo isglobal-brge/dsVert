@@ -16,6 +16,7 @@ func TestFormalGLMRegisteredPhase20JobControlFramesPhase21Lifecycle(t *testing.T
 		{"phase21_preflight", struct{}{}},
 		{"phase21_preflight_bind", formalGLMRegisteredPhase20JobControlHostDaemonPreflightV1{}},
 		{"phase21_stage_poll", formalGLMRegisteredPhase20JobControlHostDaemonStagePollV1{}},
+		{"phase21_stage_record", struct{}{}},
 		{"phase21_stage_relay", formalGLMRegisteredPhase20JobControlHostDaemonStageRelayV1{}},
 		{"phase21_stage_import", formalGLMRegisteredPhase20JobControlHostDaemonStageRecordV1{}},
 		{"phase21_ticket_import", formalGLMRegisteredPhase20JobControlHostDaemonTicketRecordV1{}},

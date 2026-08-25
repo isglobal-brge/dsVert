@@ -119,7 +119,7 @@ func formalGLMRegisteredPhase20JobControlPayloadValidV1(
 func formalGLMRegisteredPhase20JobControlPhase21ActionV1(action string) bool {
 	switch action {
 	case "phase21_preflight", "phase21_preflight_bind", "phase21_stage_start",
-		"phase21_stage_status", "phase21_stage_poll", "phase21_stage_relay",
+		"phase21_stage_status", "phase21_stage_record", "phase21_stage_poll", "phase21_stage_relay",
 		"phase21_stage_import", "phase21_ticket", "phase21_ticket_import",
 		"phase21_seal", "phase21_seal_import", "phase21_candidate",
 		"phase21_candidate_import", "phase21_candidate_verify",
@@ -154,7 +154,7 @@ func formalGLMRegisteredPhase20JobControlPayloadValidInnerV1(
 	case "phase21_preflight_bind":
 		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonPreflightV1](payload)
 		return err == nil
-	case "phase21_stage_start", "phase21_stage_status", "phase21_ticket", "phase21_seal",
+	case "phase21_stage_start", "phase21_stage_status", "phase21_stage_record", "phase21_ticket", "phase21_seal",
 		"phase21_candidate", "phase21_candidate_verify", "phase21_base_certificate",
 		"phase21_authorization", "phase21_publication", "phase21_ack":
 		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](payload)

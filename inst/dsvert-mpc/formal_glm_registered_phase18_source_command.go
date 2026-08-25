@@ -24,58 +24,67 @@ const (
 	formalGLMRegisteredPhase18SourceCommandDomainV1  = "dsVert/formal-glm/registered-phase18/source-command/v1"
 	formalGLMRegisteredPhase18SourceCommandMaxV1     = 32 << 20
 
-	formalGLMRegisteredPhase18SourceCommandActionTicketV1        = "ticket"
-	formalGLMRegisteredPhase18SourceCommandActionTicketSetV1     = "ticket_set"
-	formalGLMRegisteredPhase18SourceCommandActionProduceV1       = "produce"
-	formalGLMRegisteredPhase18SourceCommandActionSealBlockV1     = "seal_block"
-	formalGLMRegisteredPhase18SourceCommandActionChunkV1         = "chunk"
-	formalGLMRegisteredPhase18SourceCommandActionLocalReceiptV1  = "local_receipt"
-	formalGLMRegisteredPhase18SourceCommandActionReceiptCommitV1 = "receipt_commit"
-	formalGLMRegisteredPhase18SourceCommandActionReceiptSetV1    = "receipt_set"
-	formalGLMRegisteredPhase18SourceCommandActionBindingV1       = "binding"
-	formalGLMRegisteredPhase18SourceCommandActionHostProvisionV1 = "host_provision"
-	formalGLMRegisteredPhase18SourceCommandActionImportV1        = "import"
-	formalGLMRegisteredPhase18SourceCommandActionImportChunkV1   = "import_chunk"
+	formalGLMRegisteredPhase18SourceCommandActionTicketV1           = "ticket"
+	formalGLMRegisteredPhase18SourceCommandActionTicketSetV1        = "ticket_set"
+	formalGLMRegisteredPhase18SourceCommandActionProduceV1          = "produce"
+	formalGLMRegisteredPhase18SourceCommandActionSealBlockV1        = "seal_block"
+	formalGLMRegisteredPhase18SourceCommandActionChunkV1            = "chunk"
+	formalGLMRegisteredPhase18SourceCommandActionLocalReceiptV1     = "local_receipt"
+	formalGLMRegisteredPhase18SourceCommandActionReceiptCommitV1    = "receipt_commit"
+	formalGLMRegisteredPhase18SourceCommandActionReceiptSetV1       = "receipt_set"
+	formalGLMRegisteredPhase18SourceCommandActionBindingV1          = "binding"
+	formalGLMRegisteredPhase18SourceCommandActionHostProvisionV1    = "host_provision"
+	formalGLMRegisteredPhase18SourceCommandActionPostSelectedSignV1 = "postselected_sign"
+	formalGLMRegisteredPhase18SourceCommandActionImportV1           = "import"
+	formalGLMRegisteredPhase18SourceCommandActionImportChunkV1      = "import_chunk"
 )
 
 type formalGLMRegisteredPhase18SourceCommandV1 struct {
-	Version                string                                                `json:"version"`
-	Action                 string                                                `json:"action"`
-	SourceContractJSON     string                                                `json:"source_contract_json"`
-	Pins                   map[string]string                                     `json:"pins"`
-	LocalPeerName          string                                                `json:"local_peer_name"`
-	LocalSigningKey        string                                                `json:"local_signing_key"`
-	AuthorizationJSON      string                                                `json:"authorization_json,omitempty"`
-	RecipientTickets       []formalGLMRegisteredPhase18RecipientTicketV1         `json:"recipient_tickets,omitempty"`
-	BlockIndex             int                                                   `json:"block_index,omitempty"`
-	ChunkOffset            int64                                                 `json:"chunk_offset,omitempty"`
-	Values                 []string                                              `json:"values,omitempty"`
-	Validity               []bool                                                `json:"validity,omitempty"`
-	PrivateConsensus       string                                                `json:"private_consensus,omitempty"`
-	PairJSON               string                                                `json:"pair_json,omitempty"`
-	ChunkReceipt           *formalGLMRegisteredPhase18SourceOutboxChunkReceiptV3 `json:"chunk_receipt,omitempty"`
-	PairChunkBase64        string                                                `json:"pair_chunk_base64,omitempty"`
-	LocalReceiptJSON       string                                                `json:"local_receipt_json,omitempty"`
-	PublicationContextJSON string                                                `json:"publication_context_json,omitempty"`
-	Phase16PolicyJSON      string                                                `json:"phase16_policy_json,omitempty"`
-	SamplerAuthorityRoot   string                                                `json:"sampler_authority_root,omitempty"`
+	Version                        string                                                `json:"version"`
+	Action                         string                                                `json:"action"`
+	SourceContractJSON             string                                                `json:"source_contract_json"`
+	Pins                           map[string]string                                     `json:"pins"`
+	LocalPeerName                  string                                                `json:"local_peer_name"`
+	LocalSigningKey                string                                                `json:"local_signing_key"`
+	AuthorizationJSON              string                                                `json:"authorization_json,omitempty"`
+	RecipientTickets               []formalGLMRegisteredPhase18RecipientTicketV1         `json:"recipient_tickets,omitempty"`
+	BlockIndex                     int                                                   `json:"block_index,omitempty"`
+	ChunkOffset                    int64                                                 `json:"chunk_offset,omitempty"`
+	Values                         []string                                              `json:"values,omitempty"`
+	Validity                       []bool                                                `json:"validity,omitempty"`
+	PrivateConsensus               string                                                `json:"private_consensus,omitempty"`
+	PairJSON                       string                                                `json:"pair_json,omitempty"`
+	ChunkReceipt                   *formalGLMRegisteredPhase18SourceOutboxChunkReceiptV3 `json:"chunk_receipt,omitempty"`
+	PairChunkBase64                string                                                `json:"pair_chunk_base64,omitempty"`
+	LocalReceiptJSON               string                                                `json:"local_receipt_json,omitempty"`
+	PublicationContextJSON         string                                                `json:"publication_context_json,omitempty"`
+	Phase16PolicyJSON              string                                                `json:"phase16_policy_json,omitempty"`
+	SamplerAuthorityRoot           string                                                `json:"sampler_authority_root,omitempty"`
+	PostSelectedProposalBase64     string                                                `json:"postselected_proposal_base64,omitempty"`
+	PostSelectedAttestationsBase64 []string                                              `json:"postselected_attestations_base64,omitempty"`
 }
 
 type formalGLMRegisteredPhase18SourceCommandResponseV1 struct {
-	Version           string                                                      `json:"version"`
-	Ticket            *formalGLMRegisteredPhase18RecipientTicketV1                `json:"ticket,omitempty"`
-	TicketReceipts    []formalGLMRegisteredPhase18RecipientTicketReceiptV1        `json:"ticket_receipts,omitempty"`
-	SourceReceipt     *formalGLMRegisteredPhase18SourceOutboxReceiptV3            `json:"source_receipt,omitempty"`
-	ChunkReceipt      *formalGLMRegisteredPhase18SourceOutboxChunkReceiptV3       `json:"chunk_receipt,omitempty"`
-	PairChunkBase64   string                                                      `json:"pair_chunk_base64,omitempty"`
-	PendingReceipt    *formalGLMRegisteredPhase18PendingPairReceiptV1             `json:"pending_receipt,omitempty"`
-	ChunkDelivery     *formalGLMRegisteredPhase18PendingPairChunkReceiptV1        `json:"chunk_delivery,omitempty"`
-	PairJSON          string                                                      `json:"pair_json,omitempty"`
-	LocalReceiptJSON  string                                                      `json:"local_receipt_json,omitempty"`
-	ReceiptSetJSON    string                                                      `json:"receipt_set_json,omitempty"`
-	BindingRecordJSON string                                                      `json:"binding_record_json,omitempty"`
-	JobHostReceipt    *formalGLMRegisteredPhase20JobControlHostProvisionReceiptV1 `json:"job_host_receipt,omitempty"`
-	Replayed          bool                                                        `json:"replayed"`
+	Version                         string                                                      `json:"version"`
+	Ticket                          *formalGLMRegisteredPhase18RecipientTicketV1                `json:"ticket,omitempty"`
+	TicketReceipts                  []formalGLMRegisteredPhase18RecipientTicketReceiptV1        `json:"ticket_receipts,omitempty"`
+	SourceReceipt                   *formalGLMRegisteredPhase18SourceOutboxReceiptV3            `json:"source_receipt,omitempty"`
+	ChunkReceipt                    *formalGLMRegisteredPhase18SourceOutboxChunkReceiptV3       `json:"chunk_receipt,omitempty"`
+	PairChunkBase64                 string                                                      `json:"pair_chunk_base64,omitempty"`
+	PendingReceipt                  *formalGLMRegisteredPhase18PendingPairReceiptV1             `json:"pending_receipt,omitempty"`
+	ChunkDelivery                   *formalGLMRegisteredPhase18PendingPairChunkReceiptV1        `json:"chunk_delivery,omitempty"`
+	PairJSON                        string                                                      `json:"pair_json,omitempty"`
+	LocalReceiptJSON                string                                                      `json:"local_receipt_json,omitempty"`
+	ReceiptSetJSON                  string                                                      `json:"receipt_set_json,omitempty"`
+	BindingRecordJSON               string                                                      `json:"binding_record_json,omitempty"`
+	JobHostReceipt                  *formalGLMRegisteredPhase20JobControlHostProvisionReceiptV1 `json:"job_host_receipt,omitempty"`
+	PostSelectedSignaturePairBase64 string                                                      `json:"postselected_signature_pair_base64,omitempty"`
+	Replayed                        bool                                                        `json:"replayed"`
+}
+
+type formalGLMRegisteredPhase18SourceCommandPostSelectedSignaturePairV1 struct {
+	Backend jointDPBiomedicalGaussianSignature `json:"backend"`
+	Worker  jointDPBiomedicalGaussianSignature `json:"worker"`
 }
 
 func formalGLMRegisteredPhase18SourceCommandDecodePinsV1(
@@ -146,6 +155,18 @@ func formalGLMRegisteredPhase18SourceCommandDecodeSamplerAuthorityRootV1(
 	copy(root[:], decoded)
 	clear(decoded)
 	return root, nil
+}
+
+func formalGLMRegisteredPhase18SourceCommandDecodePostSelectedFrameV1(
+	encoded string,
+) ([]byte, error) {
+	frame, err := base64.StdEncoding.Strict().DecodeString(encoded)
+	if err != nil || len(frame) < 2 || len(frame) > formalGLMRegisteredPhase20JobControlHostDaemonMaxV1 ||
+		base64.StdEncoding.EncodeToString(frame) != encoded {
+		clear(frame)
+		return nil, fmt.Errorf("formal-glm registered Phase18 source: invalid post-Selected frame")
+	}
+	return frame, nil
 }
 
 // A configured fresh-analysis host either has existing complete Phase16
@@ -267,6 +288,15 @@ func formalGLMRegisteredPhase18SourceCommandDecodeV1(
 			command.LocalReceiptJSON != "" {
 			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid host provision command")
 		}
+	case formalGLMRegisteredPhase18SourceCommandActionPostSelectedSignV1:
+		if command.AuthorizationJSON != "" || len(command.RecipientTickets) != 0 ||
+			command.BlockIndex != 0 || command.ChunkOffset != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
+			command.PrivateConsensus != "" || command.PairJSON != "" ||
+			command.LocalReceiptJSON != "" || command.PublicationContextJSON != "" ||
+			command.SamplerAuthorityRoot != "" || command.Phase16PolicyJSON == "" ||
+			command.PostSelectedProposalBase64 == "" || len(command.PostSelectedAttestationsBase64) != 2 {
+			return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid post-Selected sign command")
+		}
 	case formalGLMRegisteredPhase18SourceCommandActionImportV1:
 		if len(command.RecipientTickets) != 2 || command.AuthorizationJSON != "" ||
 			command.BlockIndex != 0 || command.ChunkOffset != 0 || len(command.Values) != 0 || len(command.Validity) != 0 ||
@@ -286,9 +316,17 @@ func formalGLMRegisteredPhase18SourceCommandDecodeV1(
 		return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: unknown action")
 	}
 	if command.Action != formalGLMRegisteredPhase18SourceCommandActionHostProvisionV1 &&
-		(command.PublicationContextJSON != "" || command.Phase16PolicyJSON != "" ||
-			command.SamplerAuthorityRoot != "") {
+		(command.PublicationContextJSON != "" || command.SamplerAuthorityRoot != "") {
 		return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid publication context")
+	}
+	if command.Action != formalGLMRegisteredPhase18SourceCommandActionHostProvisionV1 &&
+		command.Action != formalGLMRegisteredPhase18SourceCommandActionPostSelectedSignV1 &&
+		command.Phase16PolicyJSON != "" {
+		return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid Phase16 policy")
+	}
+	if command.Action != formalGLMRegisteredPhase18SourceCommandActionPostSelectedSignV1 &&
+		(command.PostSelectedProposalBase64 != "" || len(command.PostSelectedAttestationsBase64) != 0) {
+		return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid post-Selected fields")
 	}
 	if command.Action != formalGLMRegisteredPhase18SourceCommandActionImportChunkV1 &&
 		(command.ChunkReceipt != nil || command.PairChunkBase64 != "") {
@@ -829,6 +867,61 @@ func formalGLMRegisteredPhase18SourceCommandHostProvisionV1(
 	}, nil
 }
 
+// PostSelectedSign signs only public Phase16 admission material after both
+// designated compute peers attested the exact Selected-derived proposal.  It
+// is the witness path for K>2: it reads neither rows nor a terminal handoff.
+func formalGLMRegisteredPhase18SourceCommandPostSelectedSignV1(
+	command formalGLMRegisteredPhase18SourceCommandV1,
+	contract formalGLMSourceContractV1, pins map[string]ed25519.PublicKey,
+	key ed25519.PrivateKey,
+) (formalGLMRegisteredPhase18SourceCommandResponseV1, error) {
+	var zero formalGLMRegisteredPhase18SourceCommandResponseV1
+	policy, err := formalGLMRegisteredPhase21PostSelectedPhase16PolicyDecodeV1(
+		[]byte(command.Phase16PolicyJSON), contract, pins)
+	if err != nil {
+		return zero, err
+	}
+	defer formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(&policy)
+	proposalFrame, err := formalGLMRegisteredPhase18SourceCommandDecodePostSelectedFrameV1(
+		command.PostSelectedProposalBase64)
+	if err != nil {
+		return zero, err
+	}
+	defer clear(proposalFrame)
+	var proposal formalGLMRegisteredPhase21PostSelectedPhase16V1
+	if err := formalGLMPhase21RockStrictDecode(proposalFrame, &proposal); err != nil {
+		return zero, fmt.Errorf("formal-glm registered Phase18 source: invalid post-Selected proposal")
+	}
+	attestations := make([]formalGLMRegisteredPhase21PostSelectedComputeAttestationV1, 2)
+	for index, encoded := range command.PostSelectedAttestationsBase64 {
+		frame, decodeErr := formalGLMRegisteredPhase18SourceCommandDecodePostSelectedFrameV1(encoded)
+		if decodeErr != nil {
+			return zero, decodeErr
+		}
+		decodeErr = formalGLMPhase21RockStrictDecode(frame, &attestations[index])
+		clear(frame)
+		if decodeErr != nil {
+			return zero, fmt.Errorf("formal-glm registered Phase18 source: invalid post-Selected attestation")
+		}
+	}
+	backend, worker, err := formalGLMRegisteredPhase21SignPostSelectedPhase16V1(
+		proposal, policy, contract, attestations, command.LocalPeerName, key, pins)
+	if err != nil {
+		return zero, err
+	}
+	pair, err := json.Marshal(formalGLMRegisteredPhase18SourceCommandPostSelectedSignaturePairV1{
+		Backend: backend, Worker: worker,
+	})
+	if err != nil {
+		return zero, err
+	}
+	defer clear(pair)
+	return formalGLMRegisteredPhase18SourceCommandResponseV1{
+		Version:                         formalGLMRegisteredPhase18SourceCommandVersionV1,
+		PostSelectedSignaturePairBase64: base64.StdEncoding.EncodeToString(pair),
+	}, nil
+}
+
 func formalGLMRegisteredPhase18SourceCommandImportV1(
 	rockRoot string, command formalGLMRegisteredPhase18SourceCommandV1,
 	contract formalGLMSourceContractV1, pins map[string]ed25519.PublicKey,
@@ -953,6 +1046,8 @@ func formalGLMRegisteredPhase18SourceCommandRunAtRootV1(
 		return formalGLMRegisteredPhase18SourceCommandBindingV1(rockRoot, command, contract, pins)
 	case formalGLMRegisteredPhase18SourceCommandActionHostProvisionV1:
 		return formalGLMRegisteredPhase18SourceCommandHostProvisionV1(rockRoot, command, contract, pins, key)
+	case formalGLMRegisteredPhase18SourceCommandActionPostSelectedSignV1:
+		return formalGLMRegisteredPhase18SourceCommandPostSelectedSignV1(command, contract, pins, key)
 	case formalGLMRegisteredPhase18SourceCommandActionImportV1:
 		return formalGLMRegisteredPhase18SourceCommandImportV1(rockRoot, command, contract, pins, key)
 	case formalGLMRegisteredPhase18SourceCommandActionImportChunkV1:

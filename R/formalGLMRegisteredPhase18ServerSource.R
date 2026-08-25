@@ -867,6 +867,50 @@
     list(job_host_receipt = receipt, replayed = response$replayed))
 }
 
+# A non-compute custodian signs only the public post-Selected candidate after
+# both designated authorities attested it.  The source rows and every Phase20
+# secret remain untouched; this is the K>2 witness leg of the fresh route.
+.dsvert_formal_glm_registered_source_postselected_sign <- function(
+    context, proposal_base64, attestation_frames) {
+  context <- .dsvert_formal_glm_registered_source_context(context)
+  valid <- is.character(proposal_base64) && length(proposal_base64) == 1L &&
+    !is.na(proposal_base64) && is.character(attestation_frames) &&
+    length(attestation_frames) == 2L && !anyNA(attestation_frames) &&
+    is.null(names(attestation_frames))
+  if (!isTRUE(valid) || !nzchar(context$phase16_policy_json)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM post-Selected signing request is invalid.")
+  }
+  identity <- .dsvert_formal_glm_registered_source_identity(context)
+  response <- tryCatch(.callMpcTool(
+    "formal-glm-registered-phase18-source", list(
+      version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+      action = "postselected_sign", source_contract_json = context$contract_json,
+      pins = context$pins, local_peer_name = context$source_name,
+      local_signing_key = identity$identity_sk,
+      phase16_policy_json = context$phase16_policy_json,
+      postselected_proposal_base64 = proposal_base64,
+      postselected_attestations_base64 = unname(attestation_frames))),
+    error = function(error) NULL)
+  fields <- c("version", "postselected_signature_pair_base64", "replayed")
+  frame <- if (is.list(response)) response$postselected_signature_pair_base64 else NULL
+  decoded <- tryCatch(jsonlite::base64_dec(frame), error = function(error) raw())
+  canonical <- gsub("[\\r\\n]", "", jsonlite::base64_enc(decoded))
+  valid_response <- is.list(response) && identical(names(response), fields) &&
+    identical(response$version,
+              "dsvert-formal-glm-registered-phase18-source-command-v1") &&
+    is.character(frame) && length(frame) == 1L && !is.na(frame) &&
+    nchar(frame, type = "bytes") >= 4L && nchar(frame, type = "bytes") <= 4L * 1024L^2 &&
+    identical(canonical, frame) && is.logical(response$replayed) &&
+    length(response$replayed) == 1L && !is.na(response$replayed)
+  if (length(decoded)) decoded[] <- as.raw(0L)
+  if (!isTRUE(valid_response)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM post-Selected signer returned invalid output.")
+  }
+  list(signature_pair_base64 = frame, replayed = response$replayed)
+}
+
 # Validates the public selector issued by the Rock-local provisioner.  It is
 # deliberately not a capability: the control command reloads and authenticates
 # its private bootstrap from Rock.

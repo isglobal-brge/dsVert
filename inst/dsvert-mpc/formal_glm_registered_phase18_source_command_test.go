@@ -88,6 +88,107 @@ func TestFormalGLMRegisteredPhase18SourceCommandRequiresPhase16PolicyForIncomple
 	formalGLMRegisteredPhase21PublicationContextClearV1(&publication)
 }
 
+func TestFormalGLMRegisteredPhase18SourceCommandPostSelectedWitnessSignsOnlyAttestedProposal(t *testing.T) {
+	fixture := formalGLMSourceContractTestFixture(t, 3)
+	policy := formalGLMRegisteredPhase21PostSelectedPolicyTestV1(
+		t, fixture.contract, fixture.inputs.identities.public, fixture.inputs.identities.private)
+	defer formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(&policy)
+	policySHA256, err := formalGLMRegisteredPhase21PostSelectedPhase16PolicySHA256V1(policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proposal := formalGLMRegisteredPhase21PostSelectedPhase16V1{
+		Version:           formalGLMRegisteredPhase21PostSelectedPhase16VersionV1,
+		Purpose:           formalGLMRegisteredPhase21PostSelectedPhase16PurposeV1,
+		SelectedSHA256:    sha256Hex([]byte(t.Name() + "/selected")),
+		PolicySHA256:      policySHA256,
+		BackendSelection:  formalGLMPhase16BackendSelectionContract{SelectedBackend: formalGLMPhase16BackendOneDraw},
+		OpeningsPerformed: 0,
+		ProductionReady:   false,
+	}
+	proposal.ProposalSHA256, err = formalGLMRegisteredPhase21PostSelectedPhase16HashV1(proposal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	attestations := make([]formalGLMRegisteredPhase21PostSelectedComputeAttestationV1, 0, 2)
+	for _, authority := range fixture.contract.Core.RegisteredExecutionPlan.NoiseAuthorities {
+		attestation := formalGLMRegisteredPhase21PostSelectedComputeAttestationV1{
+			Version:           formalGLMRegisteredPhase21PostSelectedComputeAttestationVersionV1,
+			Purpose:           formalGLMRegisteredPhase21PostSelectedComputeAttestationPurposeV1,
+			ProposalSHA256:    proposal.ProposalSHA256,
+			SelectedSHA256:    proposal.SelectedSHA256,
+			PolicySHA256:      proposal.PolicySHA256,
+			Role:              authority.Role,
+			PeerName:          authority.PeerName,
+			PeerID:            authority.PeerID,
+			OpeningsPerformed: 0,
+			ProductionReady:   false,
+		}
+		signature, signErr := jointDPBiomedicalGaussianSign(
+			formalGLMRegisteredPhase21PostSelectedComputeAttestationDomainV1,
+			formalGLMRegisteredPhase21PostSelectedComputeAttestationUnsignedV1(attestation),
+			authority.PeerName, fixture.inputs.identities.private[authority.PeerName])
+		if signErr != nil {
+			t.Fatal(signErr)
+		}
+		attestation.Signature = signature
+		attestations = append(attestations, attestation)
+	}
+	encodedPolicy, err := json.Marshal(policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(encodedPolicy)
+	encodedProposal, err := json.Marshal(proposal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(encodedProposal)
+	encodedAttestations := make([]string, 2)
+	for index, attestation := range attestations {
+		encoded, marshalErr := json.Marshal(attestation)
+		if marshalErr != nil {
+			t.Fatal(marshalErr)
+		}
+		encodedAttestations[index] = base64.StdEncoding.EncodeToString(encoded)
+		clear(encoded)
+	}
+	witness := fixture.contract.Core.RegisteredExecutionPlan.CustodianPeers[2]
+	command := formalGLMRegisteredPhase18SourceCommandV1{
+		Version:                        formalGLMRegisteredPhase18SourceCommandVersionV1,
+		Action:                         formalGLMRegisteredPhase18SourceCommandActionPostSelectedSignV1,
+		LocalPeerName:                  witness,
+		Phase16PolicyJSON:              string(encodedPolicy),
+		PostSelectedProposalBase64:     base64.StdEncoding.EncodeToString(encodedProposal),
+		PostSelectedAttestationsBase64: encodedAttestations,
+	}
+	response, err := formalGLMRegisteredPhase18SourceCommandPostSelectedSignV1(
+		command, fixture.contract, fixture.inputs.identities.public,
+		fixture.inputs.identities.private[witness])
+	if err != nil || response.Replayed || response.PostSelectedSignaturePairBase64 == "" {
+		t.Fatalf("witness did not sign the attested candidate: %#v / %v", response, err)
+	}
+	frame, err := base64.StdEncoding.Strict().DecodeString(response.PostSelectedSignaturePairBase64)
+	if err != nil || base64.StdEncoding.EncodeToString(frame) != response.PostSelectedSignaturePairBase64 {
+		clear(frame)
+		t.Fatalf("witness response did not return a canonical signature frame: %v", err)
+	}
+	defer clear(frame)
+	var pair formalGLMRegisteredPhase18SourceCommandPostSelectedSignaturePairV1
+	if err := formalGLMPhase21RockStrictDecode(frame, &pair); err != nil ||
+		pair.Backend.Signer != witness || pair.Worker.Signer != witness {
+		t.Fatalf("witness response contained invalid signatures: %#v / %v", pair, err)
+	}
+	tampered := command
+	tampered.PostSelectedAttestationsBase64 = append([]string(nil), command.PostSelectedAttestationsBase64...)
+	tampered.PostSelectedAttestationsBase64[0] = base64.StdEncoding.EncodeToString([]byte(`{"invalid":true}`))
+	if _, err := formalGLMRegisteredPhase18SourceCommandPostSelectedSignV1(
+		tampered, fixture.contract, fixture.inputs.identities.public,
+		fixture.inputs.identities.private[witness]); err == nil {
+		t.Fatal("witness signed malformed post-Selected attestations")
+	}
+}
+
 func formalGLMRegisteredPhase18SourceCommandTestPinsV1(
 	t testing.TB, pins map[string]ed25519.PublicKey,
 ) map[string]string {

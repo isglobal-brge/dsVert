@@ -780,6 +780,37 @@ test_that("registered formal GLM source provisions no worker input or result", {
   expect_identical(calls, 1L)
 })
 
+test_that("registered formal GLM witness signs only public post-Selected frames", {
+  context <- new.env(parent = emptyenv())
+  context$contract_json <- "{\"contract\":\"registered\"}"
+  context$pins <- list(site_c = "pin-c")
+  context$source_name <- "site_c"
+  context$phase16_policy_json <- "{\"policy\":\"registered\"}"
+  seen <- NULL
+  testthat::local_mocked_bindings(
+    .dsvert_formal_glm_registered_source_context = function(value) context,
+    .dsvert_formal_glm_registered_source_identity = function(value) list(
+      identity_pk = "pin-c", identity_sk = "signing-key"),
+    .callMpcTool = function(command, input) {
+      seen <<- list(command = command, input = input)
+      list(
+        version = "dsvert-formal-glm-registered-phase18-source-command-v1",
+        postselected_signature_pair_base64 = "e30=", replayed = FALSE)
+    },
+    .package = "dsVert")
+  result <- .dsvert_formal_glm_registered_source_postselected_sign(
+    context, "e30=", unname(rep("e30=", 2L)))
+  expect_identical(result, list(signature_pair_base64 = "e30=", replayed = FALSE))
+  expect_identical(seen$command, "formal-glm-registered-phase18-source")
+  expect_identical(seen$input$action, "postselected_sign")
+  expect_identical(seen$input$postselected_proposal_base64, "e30=")
+  expect_identical(seen$input$postselected_attestations_base64,
+                   unname(rep("e30=", 2L)))
+  expect_false(any(c("rows", "values", "result", "path", "storage",
+                     "sampler_authority_root", "publication_context_json") %in%
+                   names(seen$input)))
+})
+
 test_that("registered formal GLM source controls only a provisioned live host", {
   receipt <- list(
     version = "dsvert-formal-glm-registered-phase20-job-host-provision-v1",

@@ -14,7 +14,8 @@
   "local_receipt", "receipt_commit", "receipt_set", "binding",
   "host_provision")
 .DSVERT_FORMAL_GLM_REGISTERED_FRESH_SOURCE_DS_ACTIONS <- c(
-  "shape", .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_DS_ACTIONS)
+  "shape", .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_DS_ACTIONS,
+  "postselected_sign")
 .DSVERT_FORMAL_GLM_REGISTERED_FRESH_SOURCE_DS_VERSION <-
   "dsvert-formal-glm-registered-fresh-source-response-v1"
 .DSVERT_FORMAL_GLM_REGISTERED_ANALYSIS_SPECS_OPTION <-
@@ -57,6 +58,7 @@
   expected <- switch(action,
     shape = character(), ticket = character(), receipt_set = character(),
     host_provision = character(),
+    postselected_sign = c("proposal_base64", "attestation_frames"),
     ticket_set = "recipient_tickets", seal_block = c("recipient_tickets", "block_index"),
     chunk = c("recipient_tickets", "block_index", "offset"),
     import_chunk = c("recipient_tickets", "chunk_receipt", "pair_chunk_base64"),
@@ -115,6 +117,35 @@
         "invalid_formal_glm_registered_source_payload")
     }
     if (length(chunk)) chunk[] <- as.raw(0L)
+  }
+  if (identical(action, "postselected_sign")) {
+    frames <- c(payload$proposal_base64, payload$attestation_frames)
+    valid <- is.character(payload$proposal_base64) &&
+      length(payload$proposal_base64) == 1L && !is.na(payload$proposal_base64) &&
+      is.character(payload$attestation_frames) &&
+      length(payload$attestation_frames) == 2L && !anyNA(payload$attestation_frames) &&
+      is.null(names(payload$attestation_frames))
+    if (!isTRUE(valid)) {
+      .dsvert_formal_glm_registered_source_ds_abort(
+        "The registered formal-GLM post-Selected frames are invalid.",
+        "invalid_formal_glm_registered_source_payload")
+    }
+    for (frame in frames) {
+      decoded <- tryCatch(jsonlite::base64_dec(frame), error = function(error) raw())
+      canonical <- gsub("[\\r\\n]", "", jsonlite::base64_enc(decoded))
+      valid_frame <- is.character(frame) && length(frame) == 1L &&
+        nchar(frame, type = "bytes") >= 4L &&
+        nchar(frame, type = "bytes") <=
+          .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_DS_MAX_BYTES &&
+        identical(canonical, frame)
+      if (length(decoded)) decoded[] <- as.raw(0L)
+      if (!isTRUE(valid_frame)) {
+        .dsvert_formal_glm_registered_source_ds_abort(
+          "The registered formal-GLM post-Selected frame is invalid.",
+          "invalid_formal_glm_registered_source_payload")
+      }
+    }
+    payload$attestation_frames <- unname(payload$attestation_frames)
   }
   if (identical(action, "receipt_commit") &&
       (!is.character(payload$local_receipt_json) ||
@@ -310,7 +341,9 @@
     receipt_set = .dsvert_formal_glm_registered_source_seal_receipt_set(context),
     binding = .dsvert_formal_glm_registered_source_commit_binding(
       context, payload$recipient_tickets),
-    host_provision = .dsvert_formal_glm_registered_source_provision_job_host(context))
+    host_provision = .dsvert_formal_glm_registered_source_provision_job_host(context),
+    postselected_sign = .dsvert_formal_glm_registered_source_postselected_sign(
+      context, payload$proposal_base64, payload$attestation_frames))
 }
 
 #' Relay one closed registered-formal-GLM source action

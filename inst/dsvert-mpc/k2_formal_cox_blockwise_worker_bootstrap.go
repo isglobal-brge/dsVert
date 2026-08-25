@@ -7,6 +7,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -20,6 +21,7 @@ const (
 	formalCoxBlockwiseWorkerBootstrapVersion = "dsvert-formal-cox-blockwise-worker-bootstrap-v1"
 	formalCoxBlockwiseWorkerBootstrapDomain  = "dsVert/formal-cox/blockwise-worker-bootstrap/v1"
 	formalCoxBlockwiseWorkerBootstrapDir     = "formal-cox-blockwise-worker-bootstrap-v1"
+	formalCoxBlockwiseWorkerOpeningDir       = "formal-cox-blockwise-worker-opening-v1"
 	formalCoxBlockwiseWorkerBootstrapMax     = 16 << 20
 )
 
@@ -135,30 +137,102 @@ func formalCoxBlockwiseWorkerCheckpointKey(secret []byte, planSHA, peer string) 
 	return result, nil
 }
 
+// formalCoxBlockwiseWorkerStickyOpeningKey is stable for one canonical plan
+// and local recipient, while remaining domain-separated from the checkpoint.
+// A restarted fresh worker must be able to replay the same sticky handoff.
+func formalCoxBlockwiseWorkerStickyOpeningKey(secret []byte, planSHA, peer string) (
+	[32]byte, error,
+) {
+	var result [32]byte
+	if len(secret) != sha256.Size || !formalCoxIsSHA256(planSHA) ||
+		!formalCoxCompilerRLabel(peer) {
+		return result, fmt.Errorf("formal-cox: invalid worker sticky-opening key context")
+	}
+	mac := hmac.New(sha256.New, secret)
+	_, _ = mac.Write([]byte(formalCoxBlockwiseWorkerBootstrapDomain + "|sticky-opening|"))
+	_, _ = mac.Write([]byte(planSHA + "|" + peer))
+	copy(result[:], mac.Sum(nil))
+	return result, nil
+}
+
 func formalCoxBlockwiseWorkerBootstrapPaths(stateRoot string, production bool,
 	planSHA, peer string,
-) (string, string, error) {
+) (string, string, string, error) {
 	if !filepath.IsAbs(stateRoot) || filepath.Clean(stateRoot) != stateRoot ||
 		(production && stateRoot != formalFinalizerHandoffStateRoot) ||
 		!formalCoxIsSHA256(planSHA) || !formalCoxCompilerRLabel(peer) {
-		return "", "", fmt.Errorf("formal-cox: invalid worker bootstrap root")
+		return "", "", "", fmt.Errorf("formal-cox: invalid worker bootstrap root")
 	}
 	base := filepath.Join(stateRoot, formalCoxBlockwiseWorkerBootstrapDir)
 	for _, directory := range []string{
 		stateRoot, base, filepath.Join(base, peer), filepath.Join(base, peer, planSHA),
 	} {
 		if err := formalCoxBlockwiseSourceEnsurePrivateDir(directory); err != nil {
-			return "", "", err
+			return "", "", "", err
 		}
 	}
 	base = filepath.Join(base, peer, planSHA)
 	checkpoint, exchange := filepath.Join(base, "checkpoint"), filepath.Join(base, "exchange")
-	for _, directory := range []string{checkpoint, exchange} {
+	openingBase := filepath.Join(stateRoot, formalCoxBlockwiseWorkerOpeningDir)
+	openingPeer := filepath.Join(openingBase, peer)
+	opening := filepath.Join(openingPeer, planSHA)
+	for _, directory := range []string{
+		checkpoint, exchange, openingBase, openingPeer, opening,
+	} {
 		if err := formalCoxBlockwiseSourceEnsurePrivateDir(directory); err != nil {
-			return "", "", err
+			return "", "", "", err
 		}
 	}
-	return checkpoint, exchange, nil
+	return checkpoint, exchange, opening, nil
+}
+
+// formalCoxBlockwiseWorkerBootstrapOpeningStore derives the local opening
+// store solely from the recipient-local source secret already owned by the
+// live worker.  The caller supplies no path, key, plan, or authority set.
+func formalCoxBlockwiseWorkerBootstrapOpeningStore(
+	source *formalCoxBlockwiseSourceStore, stateRoot, planSHA, peer string,
+	production bool,
+) (*formalCoxBlockwiseOpeningStore, error) {
+	if source == nil {
+		return nil, fmt.Errorf("formal-cox: opening source is unavailable")
+	}
+	source.mu.Lock()
+	valid := !source.closed && source.session != nil &&
+		source.session.context != nil && source.recipient == peer &&
+		source.session.context.planSHA256 == planSHA &&
+		len(source.recipientSK) == sha256.Size
+	secret := append([]byte(nil), source.recipientSK...)
+	plan := formalCoxBlockwisePlan{}
+	pins := map[string]ed25519.PublicKey(nil)
+	if valid {
+		plan = source.session.context.plan
+		pins = make(map[string]ed25519.PublicKey, len(source.session.context.pins))
+		for name, pin := range source.session.context.pins {
+			pins[name] = append(ed25519.PublicKey(nil), pin...)
+		}
+	}
+	source.mu.Unlock()
+	defer clear(secret)
+	if !valid {
+		formalCoxBlockwiseClearPinsV1(pins)
+		return nil, fmt.Errorf("formal-cox: opening source is unavailable")
+	}
+	_, _, openingDir, err := formalCoxBlockwiseWorkerBootstrapPaths(
+		stateRoot, production, planSHA, peer)
+	if err != nil {
+		formalCoxBlockwiseClearPinsV1(pins)
+		return nil, err
+	}
+	storageRoot, err := formalCoxBlockwiseWorkerStickyOpeningKey(secret, planSHA, peer)
+	if err != nil {
+		formalCoxBlockwiseClearPinsV1(pins)
+		return nil, err
+	}
+	defer clear(storageRoot[:])
+	store, err := newFormalCoxBlockwiseOpeningStore(
+		openingDir, storageRoot, plan, pins)
+	formalCoxBlockwiseClearPinsV1(pins)
+	return store, err
 }
 
 func openFormalCoxBlockwiseWorkerBootstrapAtRoot(encoded []byte, stateRoot string,
@@ -196,7 +270,7 @@ func openFormalCoxBlockwiseWorkerBootstrapAtRoot(encoded []byte, stateRoot strin
 	secret := append([]byte(nil), source.recipientSK...)
 	source.mu.Unlock()
 	defer clear(secret)
-	checkpointDir, exchangeDir, err := formalCoxBlockwiseWorkerBootstrapPaths(
+	checkpointDir, exchangeDir, _, err := formalCoxBlockwiseWorkerBootstrapPaths(
 		stateRoot, production, planSHA, peer)
 	if err != nil {
 		return nil, err
@@ -234,6 +308,17 @@ func openFormalCoxBlockwiseWorkerBootstrapAtRoot(encoded []byte, stateRoot strin
 	if err != nil {
 		_ = bridge.Close()
 		_ = lease.Close()
+		return nil, err
+	}
+	opening, err := formalCoxBlockwiseWorkerBootstrapOpeningStore(
+		source, stateRoot, planSHA, peer, production)
+	if err != nil {
+		_ = controller.Close()
+		return nil, err
+	}
+	if err := controller.AttachOpeningV1(opening); err != nil {
+		_ = opening.Close()
+		_ = controller.Close()
 		return nil, err
 	}
 	daemon, err := newFormalCoxBlockwiseExchangeDaemonV1(controller, controlKey[:])
@@ -322,7 +407,7 @@ func openFormalCoxBlockwiseWorkerBootstrapAttachmentAtRoot(encoded []byte,
 	}
 	defer clear(secret[:])
 	planSHA, peer := context.planSHA256, command.Source.RecipientPeerName
-	_, exchangeDir, err := formalCoxBlockwiseWorkerBootstrapPaths(
+	_, exchangeDir, _, err := formalCoxBlockwiseWorkerBootstrapPaths(
 		stateRoot, production, planSHA, peer)
 	if err != nil {
 		return nil, err

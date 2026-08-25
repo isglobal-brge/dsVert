@@ -49,7 +49,7 @@ func openFormalCoxBlockwiseWorkerRecoveryAtRoot(encoded []byte, stateRoot string
 	secret := append([]byte(nil), source.recipientSK...)
 	source.mu.Unlock()
 	defer clear(secret)
-	checkpointDir, _, err := formalCoxBlockwiseWorkerBootstrapPaths(
+	checkpointDir, _, _, err := formalCoxBlockwiseWorkerBootstrapPaths(
 		stateRoot, production, planSHA, peer)
 	if err != nil {
 		return nil, err

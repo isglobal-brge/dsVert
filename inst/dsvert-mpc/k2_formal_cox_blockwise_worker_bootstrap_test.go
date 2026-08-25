@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/base64"
@@ -86,10 +87,6 @@ func TestFormalCoxBlockwiseWorkerBootstrapK2K3K5(t *testing.T) {
 			plan, pins, imports := formalCoxBlockwiseWorkerBootstrapTestStage(
 				t, custodians, root)
 			attempt := sha256.Sum256([]byte(t.Name() + "/attempt"))
-			step, err := formalCoxBlockwiseWorkerStepAt(plan, 0)
-			if err != nil {
-				t.Fatal(err)
-			}
 
 			encoded := make([][]byte, len(plan.Policy.ComputePeers))
 			for index, peer := range plan.Policy.ComputePeers {
@@ -125,6 +122,9 @@ func TestFormalCoxBlockwiseWorkerBootstrapK2K3K5(t *testing.T) {
 					string(public) != "{}" {
 					t.Fatalf("bootstrap exposed private state for %s: %q / %v", peer, public, marshalErr)
 				}
+				if bootstraps[index].daemon.controller.opening == nil {
+					t.Fatalf("bootstrap did not attach a local opening store for %s", peer)
+				}
 				attachments[index], err = openFormalCoxBlockwiseWorkerBootstrapAttachmentAtRoot(
 					encoded[index], root, false)
 				if err != nil {
@@ -145,6 +145,10 @@ func TestFormalCoxBlockwiseWorkerBootstrapK2K3K5(t *testing.T) {
 				clients[index] = attachments[index].client
 			}
 
+			step, err := formalCoxBlockwiseWorkerStepAt(plan, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
 			claims := make([]formalCoxBlockwiseExchangeRootClaim, 2)
 			for index := range clients {
 				claims[index], err = clients[index].RootClaimV1(step, attempt)
@@ -219,6 +223,76 @@ func TestFormalCoxBlockwiseWorkerBootstrapK2K3K5(t *testing.T) {
 				encoded[0], root, false); reopenErr == nil {
 				_ = reopened.Close()
 				t.Fatal("worker bootstrap reopened a burned exact-GC attempt")
+			}
+		})
+	}
+}
+
+func TestFormalCoxBlockwiseWorkerOpeningStoreK2K3K5(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+			fixture := newFormalCoxBlockwiseSourceBridgeTestFixture(
+				t, custodians, map[string]bool{"peer-a": true, "peer-b": true})
+			formalCoxBlockwiseSourceBridgeTestRunFullSchedule(t, fixture)
+			bridges, err := formalCoxBlockwiseSourceBridgeTestOpen(t, fixture)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer formalCoxBlockwiseSourceBridgeTestClose(bridges)
+			planSHA, err := formalCoxBlockwisePlanSHA256(fixture.plan)
+			if err != nil {
+				t.Fatal(err)
+			}
+			root := t.TempDir()
+			if err := os.Chmod(root, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			for index, bridge := range bridges {
+				opening, openErr := formalCoxBlockwiseWorkerBootstrapOpeningStore(
+					bridge.source, root, planSHA, fixture.plan.Policy.ComputePeers[index],
+					false)
+				if openErr != nil {
+					t.Fatal(openErr)
+				}
+				header, replayed, submitErr := bridge.SubmitStickyOpening(opening)
+				if submitErr != nil || replayed || header.PeerName !=
+					fixture.plan.Policy.ComputePeers[index] || header.PlanSHA256 != planSHA ||
+					header.ProductionReady {
+					_ = opening.Close()
+					t.Fatalf("opening %d: %#v / %v", index, header, submitErr)
+				}
+				encoded, marshalErr := json.Marshal(header)
+				if marshalErr != nil {
+					_ = opening.Close()
+					t.Fatal(marshalErr)
+				}
+				for _, forbidden := range []string{
+					"coefficient_shares", "validity_share", "private-v1", "storage", "key",
+				} {
+					if bytes.Contains(encoded, []byte(forbidden)) {
+						clear(encoded)
+						_ = opening.Close()
+						t.Fatalf("opening %d exposed %q", index, forbidden)
+					}
+				}
+				clear(encoded)
+				if err := opening.Close(); err != nil {
+					t.Fatal(err)
+				}
+
+				reopened, reopenErr := formalCoxBlockwiseWorkerBootstrapOpeningStore(
+					bridge.source, root, planSHA, fixture.plan.Policy.ComputePeers[index],
+					false)
+				if reopenErr != nil {
+					t.Fatal(reopenErr)
+				}
+				replayHeader, replayed, replayErr := bridge.SubmitStickyOpening(reopened)
+				closeErr := reopened.Close()
+				if replayErr != nil || closeErr != nil || !replayed ||
+					!formalCoxBlockwiseOpeningEqual(replayHeader, header) {
+					t.Fatalf("opening replay %d: %#v / %v / %v", index,
+						replayHeader, replayErr, closeErr)
+				}
 			}
 		})
 	}

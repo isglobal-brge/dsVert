@@ -230,6 +230,23 @@ func TestFormalCoxBlockwiseExchangeDaemonCompletionIsShareFree(t *testing.T) {
 		_ = lease.Close()
 		t.Fatal(err)
 	}
+	openingKey := sha256.Sum256([]byte(t.Name() + "/opening"))
+	openingRoot := t.TempDir()
+	if err := os.Chmod(openingRoot, 0o700); err != nil {
+		_ = controller.Close()
+		t.Fatal(err)
+	}
+	opening, err := newFormalCoxBlockwiseOpeningStore(
+		openingRoot, openingKey, fixture.plan, fixture.pins)
+	if err != nil {
+		_ = controller.Close()
+		t.Fatal(err)
+	}
+	if err := controller.AttachOpeningV1(opening); err != nil {
+		_ = opening.Close()
+		_ = controller.Close()
+		t.Fatal(err)
+	}
 	controlKey := sha256.Sum256([]byte(t.Name() + "/control"))
 	daemon, err := newFormalCoxBlockwiseExchangeDaemonV1(controller, controlKey[:])
 	if err != nil {
@@ -256,6 +273,9 @@ func TestFormalCoxBlockwiseExchangeDaemonCompletionIsShareFree(t *testing.T) {
 		result.Completion.ScheduleSteps != fixture.plan.ScheduleSteps ||
 		result.Completion.ProductionReady {
 		t.Fatalf("invalid completion response: %+v", result)
+	}
+	if _, err := client.OpeningV1(); err == nil {
+		t.Fatal("daemon opened a result before the receipt pair committed")
 	}
 	encoded, err := json.Marshal(result)
 	if err != nil {

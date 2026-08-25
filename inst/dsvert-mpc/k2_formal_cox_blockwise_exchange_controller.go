@@ -100,6 +100,7 @@ type formalCoxBlockwiseExchangeController struct {
 
 	bridge    *formalCoxBlockwiseSourceBridge
 	transport *formalCoxBlockwiseExchangeTransport
+	opening   *formalCoxBlockwiseOpeningStore
 	plan      formalCoxBlockwisePlan
 	peer      string
 
@@ -109,6 +110,30 @@ type formalCoxBlockwiseExchangeController struct {
 	closed    bool
 	receipt   formalCoxBlockwiseStepReceipt
 	runErr    error
+}
+
+// AttachOpeningV1 transfers a server-derived, recipient-local sticky-opening
+// store to the sole exchange owner.  It is intentionally unavailable to the
+// socket caller: the caller can later request only a signed public header.
+func (controller *formalCoxBlockwiseExchangeController) AttachOpeningV1(
+	opening *formalCoxBlockwiseOpeningStore,
+) error {
+	if controller == nil || opening == nil {
+		return fmt.Errorf("formal-cox: exchange opening is unavailable")
+	}
+	controller.mu.Lock()
+	defer controller.mu.Unlock()
+	if controller.closed || controller.opening != nil || controller.bridge == nil ||
+		opening.root == nil || opening.planSHA256 == "" {
+		return fmt.Errorf("formal-cox: exchange opening is unavailable")
+	}
+	planSHA, err := formalCoxBlockwisePlanSHA256(controller.plan)
+	if err != nil || opening.planSHA256 != planSHA ||
+		opening.plan.RunID != controller.plan.RunID {
+		return fmt.Errorf("formal-cox: exchange opening binding mismatch")
+	}
+	controller.opening = opening
+	return nil
 }
 
 func newFormalCoxBlockwiseExchangeController(bridge *formalCoxBlockwiseSourceBridge,
@@ -748,6 +773,27 @@ func (controller *formalCoxBlockwiseExchangeController) CompletionV1() (
 	return completion, true, nil
 }
 
+// OpeningV1 commits the local encrypted handoff only after the fixed schedule
+// has completed.  It returns the signed share-free header needed by the later
+// authority-only finalizer, never the local coefficient or validity shares.
+func (controller *formalCoxBlockwiseExchangeController) OpeningV1() (
+	formalCoxBlockwiseOpeningHandoffHeader, bool, error,
+) {
+	var zero formalCoxBlockwiseOpeningHandoffHeader
+	if controller == nil {
+		return zero, false, fmt.Errorf("formal-cox: exchange controller is unavailable")
+	}
+	controller.mu.Lock()
+	defer controller.mu.Unlock()
+	if controller.closed || controller.bridge == nil || controller.opening == nil {
+		return zero, false, fmt.Errorf("formal-cox: exchange opening is unavailable")
+	}
+	if !controller.committed {
+		return zero, false, fmt.Errorf("formal-cox: exchange opening awaits receipt-pair commit")
+	}
+	return controller.bridge.SubmitStickyOpening(controller.opening)
+}
+
 func (controller *formalCoxBlockwiseExchangeController) Commit(
 	receipts []formalCoxBlockwiseStepReceipt, pins map[string]ed25519.PublicKey,
 ) error {
@@ -904,8 +950,8 @@ func (controller *formalCoxBlockwiseExchangeController) Close() error {
 		return nil
 	}
 	controller.closed = true
-	transport, bridge := controller.transport, controller.bridge
-	controller.transport, controller.bridge = nil, nil
+	transport, bridge, opening := controller.transport, controller.bridge, controller.opening
+	controller.transport, controller.bridge, controller.opening = nil, nil, nil
 	controller.mu.Unlock()
 	var transportErr error
 	if transport != nil {
@@ -913,6 +959,11 @@ func (controller *formalCoxBlockwiseExchangeController) Close() error {
 	}
 	if bridge != nil {
 		if err := bridge.Close(); transportErr == nil {
+			transportErr = err
+		}
+	}
+	if opening != nil {
+		if err := opening.Close(); transportErr == nil {
 			transportErr = err
 		}
 	}

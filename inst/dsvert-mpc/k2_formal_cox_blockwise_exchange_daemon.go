@@ -111,6 +111,13 @@ type formalCoxBlockwiseExchangeDaemonCompletionV1 struct {
 	Completion *formalCoxBlockwiseCompletion `json:"completion,omitempty"`
 }
 
+// formalCoxBlockwiseExchangeDaemonOpeningV1 is deliberately share-free: the
+// encrypted local handoff remains in the worker-owned Rock store.
+type formalCoxBlockwiseExchangeDaemonOpeningV1 struct {
+	Header   *formalCoxBlockwiseOpeningHandoffHeader `json:"header"`
+	Replayed bool                                    `json:"replayed"`
+}
+
 type formalCoxBlockwiseExchangeDaemonV1 struct {
 	mu          sync.Mutex
 	controller  *formalCoxBlockwiseExchangeController
@@ -654,6 +661,18 @@ func (daemon *formalCoxBlockwiseExchangeDaemonV1) dispatchV1(action string,
 			response.Completion = &completion
 		}
 		return formalCoxBlockwiseExchangeDaemonResponsePayload(response)
+	case "opening":
+		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &struct{}{}); err != nil {
+			return nil, err
+		}
+		header, replayed, err := controller.OpeningV1()
+		if err != nil {
+			return nil, err
+		}
+		return formalCoxBlockwiseExchangeDaemonResponsePayload(
+			formalCoxBlockwiseExchangeDaemonOpeningV1{
+				Header: &header, Replayed: replayed,
+			})
 	case "commit":
 		var request formalCoxBlockwiseExchangeDaemonCommitV1
 		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {
@@ -843,6 +862,18 @@ func (client *formalCoxBlockwiseExchangeDaemonClientV1) CommitV1(
 	return client.callV1("commit", formalCoxBlockwiseExchangeDaemonCommitV1{
 		Receipts: receipts,
 	}, &struct{}{})
+}
+
+func (client *formalCoxBlockwiseExchangeDaemonClientV1) OpeningV1() (
+	formalCoxBlockwiseExchangeDaemonOpeningV1, error,
+) {
+	var result formalCoxBlockwiseExchangeDaemonOpeningV1
+	err := client.callV1("opening", struct{}{}, &result)
+	if err != nil || result.Header == nil {
+		return formalCoxBlockwiseExchangeDaemonOpeningV1{}, fmt.Errorf(
+			"formal-cox: exchange opening is unavailable")
+	}
+	return result, nil
 }
 
 func (daemon *formalCoxBlockwiseExchangeDaemonV1) Close() error {

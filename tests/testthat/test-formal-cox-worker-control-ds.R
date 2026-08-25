@@ -58,6 +58,37 @@ test_that("formal Cox worker control carries only a bounded opaque frame", {
   expect_false(result$production_ready)
 })
 
+test_that("formal Cox worker opening exposes only a signed public header", {
+  selector <- .formal_cox_worker_control_selector()
+  seen <- NULL
+  testthat::local_mocked_bindings(
+    .dsvert_formal_cox_worker_host_control = function(
+        plan_sha256, attempt_id, action, payload) {
+      seen <<- list(plan_sha256 = plan_sha256, attempt_id = attempt_id,
+                     action = action, payload = payload)
+      list(version = "dsvert-formal-cox-blockwise-worker-host-control-v1",
+           payload = list(
+             header = list(
+               artifact_id = strrep("c", 64L), plan_sha256 = plan_sha256,
+               peer_name = "site_a", local_beta_validity_sha256 = strrep("d", 64L),
+               signature = "AQ=="),
+             replayed = FALSE))
+    },
+    .package = "dsVert")
+
+  result <- dsvertFormalCoxWorkerControlDS(
+    selector$plan_sha256, selector$attempt_id, "opening",
+    structure(list(), names = character()))
+  expect_identical(seen$action, "opening")
+  expect_identical(seen$payload, structure(list(), names = character()))
+  expect_false(result$production_ready)
+  expect_false(any(grepl("share|key|secret|path|storage",
+                         names(result$payload$header), ignore.case = TRUE)))
+  expect_error(dsvertFormalCoxWorkerControlDS(
+    selector$plan_sha256, selector$attempt_id, "opening", list(extra = TRUE)),
+    class = "dsvert_formal_cox_error")
+})
+
 test_that("formal Cox worker controller rejects widened calls before host I/O", {
   selector <- .formal_cox_worker_control_selector()
   calls <- 0L

@@ -11,7 +11,7 @@
 .DSVERT_FORMAL_COX_WORKER_CONTROL_DS_MAX_BYTES <- 2L * 1024L * 1024L
 .DSVERT_FORMAL_COX_WORKER_CONTROL_DS_ACTIONS <- c(
   "host_start", "bind", "offer", "accept", "confirm", "poll", "relay", "result",
-  "completion", "commit")
+  "completion", "opening", "commit")
 
 .dsvert_formal_cox_worker_control_ds_sha256 <- function(value, field) {
   if (!is.character(value) || length(value) != 1L || is.na(value) ||
@@ -45,7 +45,7 @@
   fields <- names(payload)
   if (is.null(fields)) fields <- character()
   if (anyNA(fields) || anyDuplicated(fields) ||
-      (action %in% c("host_start", "offer", "completion") && length(fields))) {
+      (action %in% c("host_start", "offer", "completion", "opening") && length(fields))) {
     .dsvert_formal_cox_abort("The formal Cox worker control payload is invalid.")
   }
   if (action %in% c("accept", "confirm") &&

@@ -655,10 +655,6 @@ func formalCoxBlockwiseSourceBridgeFreshOpeningReachesFinalizerV1(
 		}
 		headers[index] = header
 	}
-	binding, err := formalCoxBlockwiseOpeningFinalizerBinding(openings[0], headers)
-	if err != nil {
-		t.Fatal(err)
-	}
 	finalizerKey := sha256.Sum256([]byte(t.Name() + "/finalizer"))
 	finalizer, err := newFormalCoxBlockwiseOpeningStore(
 		filepath.Join(t.TempDir(), "finalizer"), finalizerKey, fixture.plan, fixture.pins)
@@ -666,20 +662,29 @@ func formalCoxBlockwiseSourceBridgeFreshOpeningReachesFinalizerV1(
 		t.Fatal(err)
 	}
 	defer finalizer.Close()
-	ingressKey := sha256.Sum256([]byte(t.Name() + "/ingress"))
-	ingress, err := newFormalFinalizerHandoffStoreForTest(
-		filepath.Join(t.TempDir(), "ingress"), binding, ingressKey, fixture.pins)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ingress.Close()
-	ticket, secret, replayed, err := ingress.IssueTicketOnce(
-		fixture.signing[fixture.plan.Policy.ComputePeers[0]])
-	if err != nil || replayed || len(secret) != 32 {
-		t.Fatalf("issue finalizer ticket: replay=%v secret=%d err=%v", replayed, len(secret), err)
-	}
-	clear(secret)
 	workerFinalizerRoot := t.TempDir()
+	ticket, replayed, err := bridges[0].IssueFinalizerTicketAtRootV1(
+		openings[0], headers, workerFinalizerRoot, false)
+	if err != nil || replayed {
+		t.Fatalf("issue worker finalizer ticket: replay=%v err=%v", replayed, err)
+	}
+	initialTicketSHA, ticketErr := formalFinalizerHandoffTicketSHA256(ticket)
+	if ticketErr != nil {
+		t.Fatal(ticketErr)
+	}
+	replayedTicket, replayed, replayErr := bridges[0].IssueFinalizerTicketAtRootV1(
+		openings[0], headers, workerFinalizerRoot, false)
+	replayedTicketSHA, replayTicketErr := formalFinalizerHandoffTicketSHA256(replayedTicket)
+	if replayErr != nil || replayTicketErr != nil || !replayed ||
+		replayedTicketSHA != initialTicketSHA {
+		t.Fatalf("replay worker finalizer ticket: replay=%v ticket=%q err=%v/%v",
+			replayed, replayedTicketSHA, replayErr, replayTicketErr)
+	}
+	if _, _, issuerErr := bridges[1].IssueFinalizerTicketAtRootV1(
+		openings[1], headers, workerFinalizerRoot, false); issuerErr == nil {
+		t.Fatal("non-finalizer worker issued a finalizer ticket")
+	}
+	var envelopes [2]formalFinalizerHandoffEnvelope
 	for index, peer := range fixture.plan.Policy.ComputePeers {
 		if index == 0 {
 			wrongKey := sha256.Sum256([]byte(t.Name() + "/wrong-opening"))
@@ -703,12 +708,21 @@ func formalCoxBlockwiseSourceBridgeFreshOpeningReachesFinalizerV1(
 			t.Fatalf("seal %s: replay=%v ciphertext=%d err=%v", peer, replayed,
 				len(envelope.Ciphertext), sealErr)
 		}
-		if _, _, importErr := ingress.CommitIngress(envelope); importErr != nil {
-			t.Fatalf("import %s: %v", peer, importErr)
-		}
+		envelopes[index] = envelope
 		if _, replayed, sealErr = bridges[index].SealStickyOpeningToFinalizerAtRootV1(
 			openings[index], ticket, headers, workerFinalizerRoot, false); sealErr != nil || !replayed {
 			t.Fatalf("seal replay %s: replay=%v err=%v", peer, replayed, sealErr)
+		}
+	}
+	ingress, err := bridges[0].openFinalizerIngressAtRootV1(
+		openings[0], headers, workerFinalizerRoot, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ingress.Close()
+	for index, peer := range fixture.plan.Policy.ComputePeers {
+		if _, _, importErr := ingress.CommitIngress(envelopes[index]); importErr != nil {
+			t.Fatalf("import %s: %v", peer, importErr)
 		}
 	}
 	intent, publication, found, err := formalCoxBlockwiseOpeningDistributedOpenAndPrepare(

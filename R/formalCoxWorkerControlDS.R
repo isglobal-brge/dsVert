@@ -186,7 +186,9 @@
 #'
 #' The endpoint starts only the immutable worker selected by a prior encrypted
 #' source provision, or relays one bounded authenticated exact-GC frame to it.
-#' It never accepts a path, table, model control, key, source value or opening.
+#' It never accepts a path, table, model control, key, source value or raw
+#' opening. The closed \code{opening} action returns only a signed,
+#' share-free handoff header.
 #'
 #' @param plan_sha256,attempt_id Non-secret selectors emitted by provision.
 #' @param action One closed worker lifecycle action.

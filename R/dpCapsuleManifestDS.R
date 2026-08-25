@@ -440,12 +440,16 @@
         outcome = spec$outcome, cluster = spec$cluster,
         max_patients_per_cluster = spec$max_patients_per_cluster)
     } else if (identical(spec$kind, "random_intercept_fixed")) {
-      list(
+      fixed <- list(
         version = spec$version, dataset = spec$dataset,
         outcome = spec$outcome, cluster = spec$cluster,
         predictors = unname(spec$predictors), intercept = spec$intercept,
         max_patients_per_cluster = spec$max_patients_per_cluster,
         variance_ratio_grid = unname(spec$variance_ratio_grid))
+      if (identical(spec$version, "random_intercept_fixed_v3")) {
+        fixed$estimation_profile <- spec$estimation_profile
+      }
+      fixed
     } else {
       list(
         version = spec$version, dataset = spec$dataset,
@@ -703,7 +707,8 @@
       raw$predictors <- unname(as.character(unlist(
         raw$predictors, use.names = FALSE)))
     }
-    if (identical(raw$version, "random_intercept_fixed_v2")) {
+    if (raw$version %in% c("random_intercept_fixed_v2",
+                            "random_intercept_fixed_v3")) {
       raw$variance_ratio_grid <- unname(as.numeric(unlist(
         raw$variance_ratio_grid, use.names = FALSE)))
     }

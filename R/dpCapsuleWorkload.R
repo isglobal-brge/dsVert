@@ -1032,10 +1032,14 @@
   }
   version <- .dsvert_dp_capsule_id(raw$version, "Gaussian version")
   dataset <- .dsvert_dp_capsule_id(raw$dataset, "Gaussian dataset")
-  if (identical(version, "random_intercept_fixed_v2")) {
+  if (version %in% c("random_intercept_fixed_v2",
+                     "random_intercept_fixed_v3")) {
     expected <- c(
       "version", "dataset", "outcome", "cluster", "predictors",
       "intercept", "max_patients_per_cluster", "variance_ratio_grid")
+    if (identical(version, "random_intercept_fixed_v3")) {
+      expected <- c(expected, "estimation_profile")
+    }
     if (!setequal(names(raw), expected)) {
       stop("Invalid fixed-effect random-intercept LMM specification.",
            call. = FALSE)
@@ -1061,6 +1065,12 @@
     } else {
       character()
     }
+    estimation_profile <- if (identical(version,
+                                        "random_intercept_fixed_v3")) {
+      raw$estimation_profile
+    } else {
+      "ml"
+    }
     maximum <- raw$max_patients_per_cluster
     grid <- raw$variance_ratio_grid
     if (is.list(grid) && is.null(names(grid))) {
@@ -1073,6 +1083,8 @@
         cluster %in% c(outcome, predictors) || !is.numeric(grid) ||
         !length(grid) || anyNA(grid) || any(!is.finite(grid)) ||
         any(grid < 0) || !identical(as.numeric(grid[[1L]]), 0) ||
+        !is.character(estimation_profile) || length(estimation_profile) != 1L ||
+        is.na(estimation_profile) || !estimation_profile %in% c("ml", "reml") ||
         any(diff(grid) <= 0)) {
       stop("Invalid fixed-effect random-intercept LMM model terms.",
            call. = FALSE)
@@ -1093,6 +1105,7 @@
       cluster = cluster, predictors = unname(predictors), intercept = TRUE,
       max_patients_per_cluster = as.integer(maximum),
       variance_ratio_grid = as.numeric(grid),
+      estimation_profile = enc2utf8(estimation_profile),
       kind = "random_intercept_fixed"))
   }
   if (identical(version, "random_intercept_v1")) {
@@ -2219,8 +2232,11 @@
       group_maximum <- c(
         capacity, rep(statistic_product_maximum, summary_count))
       gaussian_artifacts[[analysis_id]] <- list(
-        version =
-          "bounded-normalized-random-intercept-fixed-sufficient-statistics-v2",
+        version = if (identical(spec$version, "random_intercept_fixed_v3")) {
+          "bounded-normalized-random-intercept-fixed-sufficient-statistics-v3"
+        } else {
+          "bounded-normalized-random-intercept-fixed-sufficient-statistics-v2"
+        },
         spec_version = spec$version, analysis_id = analysis_id,
         dataset = spec$dataset, owner_peer = owners[[1L]],
         outcome = list(
@@ -2269,9 +2285,14 @@
           "two_add_remove_changes_v2", sep = "_"),
         estimation_scope = paste(
           "bounded_random_intercept_GLS_fixed_effects_finite_signed",
-          "variance_ratio_grid_ML_profile_v1", sep = "_"),
+          "variance_ratio_grid", toupper(spec$estimation_profile),
+          "profile_v1", sep = "_"),
         implementation_state = "same_owner_materialized",
         cross_owner_state = "reserved_not_materialized")
+      if (identical(spec$version, "random_intercept_fixed_v3")) {
+        gaussian_artifacts[[analysis_id]]$estimation_profile <-
+          spec$estimation_profile
+      }
       gaussian_coordinate_count <- .dsvert_dp_capsule_coordinate_add(
         gaussian_coordinate_count, model_coordinate_count)
       gaussian_raw_l1 <- gaussian_raw_l1 + raw_l1

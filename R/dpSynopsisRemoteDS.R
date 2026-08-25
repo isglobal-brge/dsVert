@@ -187,7 +187,8 @@
         !is.list(artifact) || !artifact$version %in% c(
           "bounded-normalized-gaussian-sufficient-statistics-v1",
           "bounded-normalized-random-intercept-moments-v1",
-          "bounded-normalized-random-intercept-fixed-sufficient-statistics-v2")
+          "bounded-normalized-random-intercept-fixed-sufficient-statistics-v2",
+          "bounded-normalized-random-intercept-fixed-sufficient-statistics-v3")
       }, logical(1L)))) return(TRUE)
   FALSE
 }

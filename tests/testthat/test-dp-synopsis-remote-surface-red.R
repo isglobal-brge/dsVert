@@ -601,6 +601,11 @@ test_that("all-schema cross reservations are not materialized crosses", {
           "bounded-normalized-random-intercept-fixed-sufficient-statistics-v2"))))))
   expect_invisible(.dsvert_dp_synopsis_remote_reject_cross_v1(reserved))
 
+  reml <- reserved
+  reml$workload$families$gaussian_models$artifacts$lmm_fixed$version <-
+    "bounded-normalized-random-intercept-fixed-sufficient-statistics-v3"
+  expect_invisible(.dsvert_dp_synopsis_remote_reject_cross_v1(reml))
+
   configured <- reserved
   configured$workload$vertical_crosses$configured_crosses <- list(
     requested = list(implementation_state = "reserved_not_materialized"))

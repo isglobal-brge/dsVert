@@ -576,6 +576,30 @@ test_that("fixed-effect random-intercept LMM emits GLS sufficient statistics", {
   expect_identical(artifact$cross_owner_state, "reserved_not_materialized")
 })
 
+test_that("fixed-effect REML LMM materializes the same signed statistics", {
+  lmm <- list(random_intercept_fixed = list(
+    version = "random_intercept_fixed_v3", dataset = "protected",
+    outcome = "time", predictors = "x", intercept = TRUE,
+    cluster = "cat_a", max_patients_per_cluster = 2L,
+    variance_ratio_grid = c(0, 0.5, 2), estimation_profile = "reml"))
+  fixture <- .materializer_test_fixture(gaussian_specs = lmm)
+  artifact <- fixture$manifest$workload$families$gaussian_models$
+    artifacts$random_intercept_fixed
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["gaussian_models::random_intercept_fixed"]]
+  material <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)
+
+  expect_identical(
+    artifact$version,
+    "bounded-normalized-random-intercept-fixed-sufficient-statistics-v3")
+  expect_identical(artifact$estimation_profile, "reml")
+  expect_identical(material$values[block$start:block$end],
+                   c(2, 512, 384, 320, 410, 333, 348,
+                     2, 512, 384, 320, 410, 333, 348,
+                     0, rep(0, 6L)))
+})
+
 test_that("fixed-effect random-intercept LMM source respects signed sensitivity", {
   lmm <- list(random_intercept_fixed = list(
     version = "random_intercept_fixed_v2", dataset = "protected",

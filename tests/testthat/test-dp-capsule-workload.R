@@ -957,6 +957,35 @@ test_that("LMM grouping labels remain signed metadata, not released marginals", 
       coordinate_count, 21L)
 })
 
+test_that("fixed-effect LMM REML is an explicit signed workload profile", {
+  fixture <- .capsule_test_fixture()
+  fixture$specs <- list(
+    describe = list(), survival = list(), gaussian = list(
+      lmm = list(
+        version = "random_intercept_fixed_v3", dataset = "protected",
+        outcome = "marker", predictors = "age", intercept = TRUE,
+        cluster = "sex", max_patients_per_cluster = 2L,
+        variance_ratio_grid = c(0, 1), estimation_profile = "reml")))
+  fixture$policy$capsule_workload_scope <- list(
+    mode = "catalog_v1", numeric_moments = character(),
+    categorical_marginals = character(), categorical_pairs = list(),
+    correlations = list())
+
+  manifest <- .capsule_test_build(fixture)
+  artifact <- manifest$workload$families$gaussian_models$artifacts$lmm
+  expect_identical(
+    artifact$version,
+    "bounded-normalized-random-intercept-fixed-sufficient-statistics-v3")
+  expect_identical(artifact$spec_version, "random_intercept_fixed_v3")
+  expect_identical(artifact$estimation_profile, "reml")
+  expect_identical(
+    artifact$estimation_scope,
+    "bounded_random_intercept_GLS_fixed_effects_finite_signed_variance_ratio_grid_REML_profile_v1")
+
+  fixture$specs$gaussian$lmm$estimation_profile <- "unrestricted"
+  expect_error(.capsule_test_build(fixture), "Invalid fixed-effect")
+})
+
 test_that("count and admission remain present with an empty catalog", {
   fixture <- .capsule_test_fixture()
   fixture$specs <- list(describe = list(), survival = list(), gaussian = list())

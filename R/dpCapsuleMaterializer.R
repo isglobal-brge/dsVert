@@ -823,9 +823,9 @@
       values[block$start:block$end] <- statistics
       next
     }
-    if (identical(
-          artifact$version,
-          "bounded-normalized-random-intercept-fixed-sufficient-statistics-v2")) {
+    if (artifact$version %in% c(
+          "bounded-normalized-random-intercept-fixed-sufficient-statistics-v2",
+          "bounded-normalized-random-intercept-fixed-sufficient-statistics-v3")) {
       outcome <- bounded_for(block$dataset, artifact$outcome$column)
       cluster <- .dsvert_dp_capsule_bounded_category(
         snapshots[[block$dataset]]$data, policy, artifact$cluster$column,

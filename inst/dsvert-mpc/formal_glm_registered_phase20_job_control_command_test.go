@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -211,12 +212,20 @@ func TestFormalGLMRegisteredPhase20JobControlUsesProvisionedHost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	key, socketDir, err := formalGLMRegisteredPhase20JobControlCredentialsV1(config)
+	key, socketDir, err := formalGLMRegisteredPhase20JobControlCredentialsV1(
+		config, fixture.roots[1])
 	if err != nil {
 		_ = host.Close()
 		t.Fatal(err)
 	}
 	defer clear(key)
+	resolvedRoot, resolveErr := filepath.EvalSymlinks(fixture.roots[1])
+	if resolveErr != nil || filepath.Dir(socketDir) != resolvedRoot ||
+		filepath.Clean(socketDir) != socketDir || len(socketDir) >= 96 {
+		_ = host.Close()
+		t.Fatalf("control socket escaped its Rock root: %q / %q / %v",
+			socketDir, resolvedRoot, resolveErr)
+	}
 	daemon, err := newFormalGLMRegisteredPhase20JobControlHostDaemonAtDirV1(
 		host, key, socketDir)
 	if err != nil {

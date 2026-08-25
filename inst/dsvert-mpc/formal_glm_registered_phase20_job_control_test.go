@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -33,8 +34,13 @@ func newFormalGLMRegisteredPhase20JobControlTestFixtureV1(
 		ReceiptSetSHA256: fixture.core.record.Binding.ReceiptSetSHA256,
 	}
 	for index := range 2 {
-		fixture.roots[index] = filepath.Join(
-			t.TempDir(), []string{"garbler-rock", "evaluator-rock"}[index])
+		parent, err := os.MkdirTemp("/tmp", "dsv-glm-job-")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.RemoveAll(parent) })
+		fixture.roots[index] = filepath.Join(parent,
+			[]string{"garbler-rock", "evaluator-rock"}[index])
 		fixture.reopen(t, index)
 	}
 	return fixture

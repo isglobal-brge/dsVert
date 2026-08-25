@@ -82,19 +82,33 @@ func formalGLMRegisteredPhase20JobControlMACV1(
 }
 
 func formalGLMRegisteredPhase20JobControlCredentialsV1(
-	config formalGLMRegisteredPhase20JobControlHostConfigV1,
+	config formalGLMRegisteredPhase20JobControlHostConfigV1, rockRoot string,
 ) ([]byte, string, error) {
 	key, err := formalGLMRegisteredPhase20JobControlMACV1(config, "daemon-key")
 	if err != nil || len(key) != sha256.Size {
 		clear(key)
 		return nil, "", fmt.Errorf("formal-glm registered Phase20 job control: invalid bootstrap")
 	}
+	root, err := formalGLMRegisteredPhase19OpenRockRootV1(rockRoot)
+	if err != nil {
+		clear(key)
+		return nil, "", fmt.Errorf("formal-glm registered Phase20 job control: invalid Rock root")
+	}
+	rootPath := root.Name()
+	info, statErr := root.Stat(".")
+	closeErr := root.Close()
+	if statErr != nil || closeErr != nil || !info.IsDir() ||
+		info.Mode().Perm() != 0o700 ||
+		!formalFinalizerHandoffPrivateOwnedDirectory(info) {
+		clear(key)
+		return nil, "", fmt.Errorf("formal-glm registered Phase20 job control: invalid Rock root")
+	}
 	socket, err := formalGLMRegisteredPhase20JobControlMACV1(config, "daemon-socket")
 	if err != nil {
 		clear(key)
 		return nil, "", err
 	}
-	directory := filepath.Join(os.TempDir(), "dsv-g-"+hex.EncodeToString(socket[:12]))
+	directory := filepath.Join(rootPath, ".dsv-g-"+hex.EncodeToString(socket[:12]))
 	clear(socket)
 	if !filepath.IsAbs(directory) || filepath.Clean(directory) != directory ||
 		len(directory) >= 96 {
@@ -299,7 +313,7 @@ func formalGLMRegisteredPhase20JobControlRunAtRootV1(
 		return zero, err
 	}
 	defer formalGLMRegisteredPhase20JobControlHostClearConfigV1(&config)
-	key, socketDir, err := formalGLMRegisteredPhase20JobControlCredentialsV1(config)
+	key, socketDir, err := formalGLMRegisteredPhase20JobControlCredentialsV1(config, rockRoot)
 	if err != nil {
 		return zero, err
 	}
@@ -341,7 +355,7 @@ func runFormalGLMRegisteredPhase20JobControlHostAtRootV1(
 	if err != nil {
 		return err
 	}
-	key, socketDir, err := formalGLMRegisteredPhase20JobControlCredentialsV1(config)
+	key, socketDir, err := formalGLMRegisteredPhase20JobControlCredentialsV1(config, rockRoot)
 	if err != nil {
 		formalGLMRegisteredPhase20JobControlHostClearConfigV1(&config)
 		return err

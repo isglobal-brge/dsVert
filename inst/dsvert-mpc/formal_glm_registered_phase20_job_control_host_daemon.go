@@ -247,41 +247,6 @@ func formalGLMRegisteredPhase20JobControlHostDaemonDecodeV1[T any](
 	return zero, nil
 }
 
-// Unix-domain sockets are transient transport endpoints, not protocol state.
-// They must stay short enough for sockaddr_un, so the daemon owns a private
-// temporary directory and removes it with the listener. All durable state and
-// every secret remain in the host's Rock stores.
-func formalGLMRegisteredPhase20JobControlHostDaemonPrivateDirV1() (
-	string, *os.Root, os.FileInfo, error,
-) {
-	directory, err := os.MkdirTemp("", "dsvert-glm-job-")
-	if err != nil || os.Chmod(directory, 0o700) != nil {
-		if directory != "" {
-			_ = os.RemoveAll(directory)
-		}
-		return "", nil, nil, fmt.Errorf("formal-glm registered Phase20 job daemon: unsafe socket directory")
-	}
-	info, err := os.Lstat(directory)
-	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 ||
-		info.Mode().Perm() != 0o700 || !formalFinalizerHandoffPrivateOwnedDirectory(info) {
-		_ = os.RemoveAll(directory)
-		return "", nil, nil, fmt.Errorf("formal-glm registered Phase20 job daemon: unsafe socket directory")
-	}
-	root, err := os.OpenRoot(directory)
-	if err != nil {
-		_ = os.RemoveAll(directory)
-		return "", nil, nil, fmt.Errorf("formal-glm registered Phase20 job daemon: unsafe socket directory")
-	}
-	opened, err := root.Stat(".")
-	if err != nil || !os.SameFile(info, opened) || !opened.IsDir() ||
-		opened.Mode().Perm() != 0o700 || !formalFinalizerHandoffPrivateOwnedDirectory(opened) {
-		_ = root.Close()
-		_ = os.RemoveAll(directory)
-		return "", nil, nil, fmt.Errorf("formal-glm registered Phase20 job daemon: socket directory changed")
-	}
-	return directory, root, opened, nil
-}
-
 func formalGLMRegisteredPhase20JobControlHostDaemonPrivateDirAtV1(
 	directory string,
 ) (string, *os.Root, os.FileInfo, error) {
@@ -331,20 +296,6 @@ func formalGLMRegisteredPhase20JobControlHostDaemonSocketValidV1(
 		return fmt.Errorf("formal-glm registered Phase20 job daemon: unsafe socket")
 	}
 	return nil
-}
-
-func newFormalGLMRegisteredPhase20JobControlHostDaemonV1(
-	host *formalGLMRegisteredPhase20JobControlHostV1, controlKey []byte,
-) (*formalGLMRegisteredPhase20JobControlHostDaemonV1, error) {
-	if host == nil || len(controlKey) != sha256.Size {
-		return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: invalid configuration")
-	}
-	socketDir, root, info, err := formalGLMRegisteredPhase20JobControlHostDaemonPrivateDirV1()
-	if err != nil {
-		return nil, err
-	}
-	return newFormalGLMRegisteredPhase20JobControlHostDaemonAtOpenDirV1(
-		host, controlKey, socketDir, root, info)
 }
 
 func newFormalGLMRegisteredPhase20JobControlHostDaemonAtDirV1(

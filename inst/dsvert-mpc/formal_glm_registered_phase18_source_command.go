@@ -147,6 +147,24 @@ func formalGLMRegisteredPhase18SourceCommandDecodeSamplerAuthorityRootV1(
 	return root, nil
 }
 
+// A configured fresh-analysis host must have all Phase16 inputs before it is
+// burned.  A sampler-only context can support Phase21 preflight, but cannot
+// start Stage after Phase20 has consumed the source; accepting it here would
+// spend the computation and fail only at publication time.
+func formalGLMRegisteredPhase18SourceCommandValidateHostPublicationV1(
+	publication *formalGLMRegisteredPhase21PublicationContextV1,
+) error {
+	if publication == nil {
+		return nil
+	}
+	stageReady, err := formalGLMRegisteredPhase21PublicationStageInputsV1(
+		*publication)
+	if err != nil || !stageReady {
+		return fmt.Errorf("formal-glm registered Phase18 source: incomplete Phase21 publication context")
+	}
+	return nil
+}
+
 func formalGLMRegisteredPhase18SourceCommandDecodeV1(
 	encoded []byte,
 ) (formalGLMRegisteredPhase18SourceCommandV1, error) {
@@ -747,6 +765,10 @@ func formalGLMRegisteredPhase18SourceCommandHostProvisionV1(
 		}
 		publication = &decoded
 		defer formalGLMRegisteredPhase21PublicationContextClearV1(publication)
+	}
+	if err := formalGLMRegisteredPhase18SourceCommandValidateHostPublicationV1(
+		publication); err != nil {
+		return zero, err
 	}
 	authorityRoot, err := formalGLMRegisteredPhase18SourceCommandDecodeSamplerAuthorityRootV1(
 		command.SamplerAuthorityRoot)

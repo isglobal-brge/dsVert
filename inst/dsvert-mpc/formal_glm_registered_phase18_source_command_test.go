@@ -23,6 +23,30 @@ func TestFormalGLMRegisteredPhase18SourceCommandSamplerAuthorityRootCanonical(t 
 	}
 }
 
+func TestFormalGLMRegisteredPhase18SourceCommandRequiresCompletePhase21Context(t *testing.T) {
+	fixture := formalGLMSourceContractTestFixture(t, 2)
+	publication := formalGLMRegisteredPhase21PublicationContextTestBuildV1(t, fixture)
+	if err := formalGLMRegisteredPhase18SourceCommandValidateHostPublicationV1(
+		&publication); err == nil {
+		formalGLMRegisteredPhase21PublicationContextClearV1(&publication)
+		t.Fatal("host provision accepted a Phase21 preflight-only context")
+	}
+	publication.Capsule.CapsuleID = "stage-input-present"
+	publication.Request.LogicalSnapshotHandleSHA256 = fixture.contract.CoreSHA256
+	publication.BackendSignatures = []jointDPBiomedicalGaussianSignature{{
+		Signature: []byte{1},
+	}}
+	publication.WorkerSignatures = []jointDPBiomedicalGaussianSignature{{
+		Signature: []byte{1},
+	}}
+	if err := formalGLMRegisteredPhase18SourceCommandValidateHostPublicationV1(
+		&publication); err != nil {
+		formalGLMRegisteredPhase21PublicationContextClearV1(&publication)
+		t.Fatalf("host provision rejected a complete Phase21 context shape: %v", err)
+	}
+	formalGLMRegisteredPhase21PublicationContextClearV1(&publication)
+}
+
 func formalGLMRegisteredPhase18SourceCommandTestPinsV1(
 	t testing.TB, pins map[string]ed25519.PublicKey,
 ) map[string]string {

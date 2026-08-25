@@ -623,13 +623,15 @@ func formalCoxBlockwiseSourceBridgeTestPublishSticky(t testing.TB,
 	}
 }
 
-// TestFormalCoxBlockwiseSourceBridgeFreshOpeningReachesFinalizerK2 proves the
-// missing fresh-worker tail without exposing a coefficient share: completed
-// source bridges create only encrypted, signed finalizer envelopes, which the
+// formalCoxBlockwiseSourceBridgeFreshOpeningReachesFinalizerV1 proves the
+// fresh-worker tail without exposing a coefficient share: completed source
+// bridges create only encrypted, signed finalizer envelopes, which the
 // existing finalizer imports and prepares after a restart-safe ticket.
-func TestFormalCoxBlockwiseSourceBridgeFreshOpeningReachesFinalizerK2(t *testing.T) {
+func formalCoxBlockwiseSourceBridgeFreshOpeningReachesFinalizerV1(
+	t *testing.T, custodians int,
+) {
 	fixture := newFormalCoxBlockwiseSourceBridgeTestFixture(
-		t, 2, map[string]bool{"peer-a": true, "peer-b": true})
+		t, custodians, map[string]bool{"peer-a": true, "peer-b": true})
 	formalCoxBlockwiseSourceBridgeTestRunFullSchedule(t, fixture)
 	bridges, err := formalCoxBlockwiseSourceBridgeTestOpen(t, fixture)
 	if err != nil {
@@ -726,6 +728,14 @@ func TestFormalCoxBlockwiseSourceBridgeFreshOpeningReachesFinalizerK2(t *testing
 		len(publication.Certificate) != 0 {
 		t.Fatalf("prepare fresh finalizer opening: found=%v intent=%+v publication=%+v err=%v",
 			found, intent, publication, err)
+	}
+}
+
+func TestFormalCoxBlockwiseSourceBridgeFreshOpeningReachesFinalizerK2K3K5(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+			formalCoxBlockwiseSourceBridgeFreshOpeningReachesFinalizerV1(t, custodians)
+		})
 	}
 }
 

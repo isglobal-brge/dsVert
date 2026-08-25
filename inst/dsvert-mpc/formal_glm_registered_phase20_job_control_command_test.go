@@ -8,6 +8,88 @@ import (
 	"time"
 )
 
+func TestFormalGLMRegisteredPhase20JobControlFramesPhase21Lifecycle(t *testing.T) {
+	cases := []struct {
+		action string
+		inner  any
+	}{
+		{"phase21_preflight", struct{}{}},
+		{"phase21_preflight_bind", formalGLMRegisteredPhase20JobControlHostDaemonPreflightV1{}},
+		{"phase21_stage_poll", formalGLMRegisteredPhase20JobControlHostDaemonStagePollV1{}},
+		{"phase21_stage_relay", formalGLMRegisteredPhase20JobControlHostDaemonStageRelayV1{}},
+		{"phase21_stage_import", formalGLMRegisteredPhase20JobControlHostDaemonStageRecordV1{}},
+		{"phase21_ticket_import", formalGLMRegisteredPhase20JobControlHostDaemonTicketRecordV1{}},
+		{"phase21_seal_import", formalGLMRegisteredPhase20JobControlHostDaemonSealRecordV1{}},
+		{"phase21_candidate_import", formalGLMRegisteredPhase20JobControlHostDaemonCandidateRecordV1{}},
+		{"phase21_local_release_import", formalGLMRegisteredPhase20JobControlHostDaemonLocalReleaseRecordV1{}},
+		{"phase21_base_certificate_import", formalGLMRegisteredPhase20JobControlHostDaemonBaseCertificateRecordV1{}},
+		{"phase21_authorization_import", formalGLMRegisteredPhase20JobControlHostDaemonAuthorizationRecordV1{}},
+		{"phase21_commit", formalGLMRegisteredPhase20JobControlHostDaemonPublicationV1{}},
+		{"phase21_commit_import", formalGLMRegisteredPhase20JobControlHostDaemonCommitRecordV1{}},
+		{"phase21_ack_import", formalGLMRegisteredPhase20JobControlHostDaemonAckRecordV1{}},
+		{"phase21_cleanup", formalGLMRegisteredPhase20JobControlHostDaemonPublicationV1{}},
+		{"phase21_cleanup_import", formalGLMRegisteredPhase20JobControlHostDaemonCleanupRecordV1{}},
+	}
+	for _, test := range cases {
+		t.Run(test.action, func(t *testing.T) {
+			inner, err := json.Marshal(test.inner)
+			if err != nil {
+				t.Fatal(err)
+			}
+			outer, err := json.Marshal(formalGLMRegisteredPhase20JobControlOpaqueFrameV1{
+				Frame: inner,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			command, err := json.Marshal(formalGLMRegisteredPhase20JobControlCommandV1{
+				Version:          formalGLMRegisteredPhase20JobControlCommandVersionV1,
+				Peer:             "site_a",
+				ArtifactID:       strings.Repeat("a", 64),
+				ReceiptSetSHA256: strings.Repeat("b", 64),
+				Action:           test.action,
+				Payload:          outer,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			decoded, err := formalGLMRegisteredPhase20JobControlDecodeV1(command)
+			if err != nil {
+				t.Fatal(err)
+			}
+			payload, err := formalGLMRegisteredPhase20JobControlDaemonPayloadV1(decoded)
+			if err != nil || !bytes.Equal(payload, inner) {
+				t.Fatalf("unwrapped=%s / %v", payload, err)
+			}
+			response, err := formalGLMRegisteredPhase20JobControlResponsePayloadV1(
+				test.action, json.RawMessage(`{"plan_sha256":"not-exposed"}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var framed formalGLMRegisteredPhase20JobControlOpaqueFrameV1
+			if err := formalGLMPhase21RockStrictDecode(response, &framed); err != nil ||
+				!bytes.Equal(framed.Frame, []byte(`{"plan_sha256":"not-exposed"}`)) {
+				t.Fatalf("framed=%#v / %v", framed, err)
+			}
+
+			bare, err := json.Marshal(formalGLMRegisteredPhase20JobControlCommandV1{
+				Version:          formalGLMRegisteredPhase20JobControlCommandVersionV1,
+				Peer:             "site_a",
+				ArtifactID:       strings.Repeat("a", 64),
+				ReceiptSetSHA256: strings.Repeat("b", 64),
+				Action:           test.action,
+				Payload:          inner,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := formalGLMRegisteredPhase20JobControlDecodeV1(bare); err == nil {
+				t.Fatal("accepted a bare Phase21 lifecycle record")
+			}
+		})
+	}
+}
+
 func TestFormalGLMRegisteredPhase20JobControlHostCommandServesProvisionedHealth(t *testing.T) {
 	fixture := newFormalGLMRegisteredPhase20JobControlTestFixtureV1(t)
 	config := formalGLMRegisteredPhase20JobControlHostTestConfigV1(t, fixture, 1)

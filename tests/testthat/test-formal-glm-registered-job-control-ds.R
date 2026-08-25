@@ -68,7 +68,7 @@ test_that("registered formal GLM job control admits only opaque task status", {
     production_ready = FALSE))
 })
 
-test_that("registered formal GLM job control relays opaque Phase21 preflight frames", {
+test_that("registered formal GLM job control relays opaque Phase21 lifecycle frames", {
   receipt <- .formal_glm_registered_job_control_receipt()
   seen <- NULL
   testthat::local_mocked_bindings(
@@ -81,15 +81,24 @@ test_that("registered formal GLM job control relays opaque Phase21 preflight fra
     },
     .package = "dsVert")
   output <- dsvertFormalGLMRegisteredJobControlDS(
-    receipt, "phase21_preflight", structure(list(), names = character()))
+    receipt, "phase21_preflight", list(frame = "e30="))
   expect_identical(seen$input$action, "phase21_preflight")
   expect_identical(output$payload, list(frame = "eyJyZWNlaXB0Ijp7fX0="))
   expect_false(any(grepl("secret|share|path|key", names(output$payload),
                          ignore.case = TRUE)))
   output <- dsvertFormalGLMRegisteredJobControlDS(
-    receipt, "phase21_preflight_bind", list(frame = "eyJyZWNlaXB0Ijp7fX0="))
+    receipt, "phase21_preflight_bind",
+    list(frame = "eyJmcmFtZSI6ImV5SnlaV05sYVhCMElqcDdmWDA9In0="))
   expect_identical(seen$input$action, "phase21_preflight_bind")
-  expect_identical(seen$input$payload, list(frame = "eyJyZWNlaXB0Ijp7fX0="))
+  expect_identical(seen$input$payload, list(
+    frame = "eyJmcmFtZSI6ImV5SnlaV05sYVhCMElqcDdmWDA9In0="))
+  expect_identical(output$payload, list(frame = "eyJyZWNlaXB0Ijp7fX0="))
+
+  output <- dsvertFormalGLMRegisteredJobControlDS(
+    receipt, "phase21_ack_import", list(frame = "eyJyZWNvcmQiOnt9fQ=="))
+  expect_identical(seen$input$action, "phase21_ack_import")
+  expect_identical(seen$input$payload,
+                   list(frame = "eyJyZWNvcmQiOnt9fQ=="))
   expect_identical(output$payload, list(frame = "eyJyZWNlaXB0Ijp7fX0="))
 })
 
@@ -111,6 +120,9 @@ test_that("registered formal GLM job control validates its closed envelope", {
     class = "dsvert_formal_glm_registered_job_control_error")
   expect_error(dsvertFormalGLMRegisteredJobControlDS(
     receipt, "bind", list(frame = "not base64")),
+    class = "dsvert_formal_glm_registered_job_control_error")
+  expect_error(dsvertFormalGLMRegisteredJobControlDS(
+    receipt, "phase21_commit", list(publication = list())),
     class = "dsvert_formal_glm_registered_job_control_error")
   expect_error(dsvertFormalGLMRegisteredJobControlDS(
     utils::modifyList(receipt, list(config_sha256 = "wrong")),

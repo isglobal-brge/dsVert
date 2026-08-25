@@ -37,6 +37,13 @@ type formalGLMRegisteredPhase20JobControlResponseV1 struct {
 	Payload json.RawMessage `json:"payload"`
 }
 
+// Phase21 records are authority-to-authority lifecycle messages.  The R
+// relay carries their canonical bytes as an opaque frame so it cannot turn a
+// signed record into a user-visible object containing internal hashes.
+type formalGLMRegisteredPhase20JobControlOpaqueFrameV1 struct {
+	Frame []byte `json:"frame"`
+}
+
 func formalGLMRegisteredPhase20JobControlLoadConfigV1(
 	rockRoot, peer, artifactID, receiptSetSHA256 string,
 ) (formalGLMRegisteredPhase20JobControlHostConfigV1, error) {
@@ -100,6 +107,36 @@ func formalGLMRegisteredPhase20JobControlCredentialsV1(
 func formalGLMRegisteredPhase20JobControlPayloadValidV1(
 	action string, payload json.RawMessage,
 ) bool {
+	if formalGLMRegisteredPhase20JobControlPhase21ActionV1(action) {
+		frame, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlOpaqueFrameV1](payload)
+		return err == nil && len(frame.Frame) >= 2 &&
+			len(frame.Frame) <= formalGLMRegisteredPhase20JobControlHostDaemonMaxV1 &&
+			formalGLMRegisteredPhase20JobControlPayloadValidInnerV1(action, frame.Frame)
+	}
+	return formalGLMRegisteredPhase20JobControlPayloadValidInnerV1(action, payload)
+}
+
+func formalGLMRegisteredPhase20JobControlPhase21ActionV1(action string) bool {
+	switch action {
+	case "phase21_preflight", "phase21_preflight_bind", "phase21_stage_start",
+		"phase21_stage_status", "phase21_stage_poll", "phase21_stage_relay",
+		"phase21_stage_import", "phase21_ticket", "phase21_ticket_import",
+		"phase21_seal", "phase21_seal_import", "phase21_candidate",
+		"phase21_candidate_import", "phase21_candidate_verify",
+		"phase21_local_release_import", "phase21_base_certificate",
+		"phase21_base_certificate_import", "phase21_authorization",
+		"phase21_authorization_import", "phase21_publication", "phase21_commit",
+		"phase21_commit_import", "phase21_ack", "phase21_ack_import",
+		"phase21_cleanup", "phase21_cleanup_import":
+		return true
+	default:
+		return false
+	}
+}
+
+func formalGLMRegisteredPhase20JobControlPayloadValidInnerV1(
+	action string, payload json.RawMessage,
+) bool {
 	if len(payload) < 2 || payload[0] != '{' {
 		return false
 	}
@@ -116,6 +153,53 @@ func formalGLMRegisteredPhase20JobControlPayloadValidV1(
 		return err == nil
 	case "phase21_preflight_bind":
 		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonPreflightV1](payload)
+		return err == nil
+	case "phase21_stage_start", "phase21_stage_status", "phase21_ticket", "phase21_seal",
+		"phase21_candidate", "phase21_candidate_verify", "phase21_base_certificate",
+		"phase21_authorization", "phase21_publication", "phase21_ack":
+		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](payload)
+		return err == nil
+	case "phase21_stage_poll":
+		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonStagePollV1](payload)
+		return err == nil
+	case "phase21_stage_relay":
+		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonStageRelayV1](payload)
+		return err == nil
+	case "phase21_stage_import":
+		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonStageRecordV1](payload)
+		return err == nil
+	case "phase21_ticket_import":
+		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonTicketRecordV1](payload)
+		return err == nil
+	case "phase21_seal_import":
+		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonSealRecordV1](payload)
+		return err == nil
+	case "phase21_candidate_import":
+		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonCandidateRecordV1](payload)
+		return err == nil
+	case "phase21_local_release_import":
+		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonLocalReleaseRecordV1](payload)
+		return err == nil
+	case "phase21_base_certificate_import":
+		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonBaseCertificateRecordV1](payload)
+		return err == nil
+	case "phase21_authorization_import":
+		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonAuthorizationRecordV1](payload)
+		return err == nil
+	case "phase21_commit":
+		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonPublicationV1](payload)
+		return err == nil
+	case "phase21_commit_import":
+		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonCommitRecordV1](payload)
+		return err == nil
+	case "phase21_ack_import":
+		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonAckRecordV1](payload)
+		return err == nil
+	case "phase21_cleanup":
+		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonPublicationV1](payload)
+		return err == nil
+	case "phase21_cleanup_import":
+		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonCleanupRecordV1](payload)
 		return err == nil
 	case "poll":
 		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonPollV1](payload)
@@ -155,6 +239,37 @@ func formalGLMRegisteredPhase20JobControlDecodeV1(
 	return command, nil
 }
 
+func formalGLMRegisteredPhase20JobControlDaemonPayloadV1(
+	command formalGLMRegisteredPhase20JobControlCommandV1,
+) (json.RawMessage, error) {
+	if !formalGLMRegisteredPhase20JobControlPhase21ActionV1(command.Action) {
+		return append(json.RawMessage(nil), command.Payload...), nil
+	}
+	frame, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlOpaqueFrameV1](command.Payload)
+	if err != nil || !formalGLMRegisteredPhase20JobControlPayloadValidInnerV1(
+		command.Action, frame.Frame) {
+		clear(frame.Frame)
+		return nil, fmt.Errorf("formal-glm registered Phase20 job control: invalid frame")
+	}
+	return json.RawMessage(frame.Frame), nil
+}
+
+func formalGLMRegisteredPhase20JobControlResponsePayloadV1(
+	action string, payload json.RawMessage,
+) (json.RawMessage, error) {
+	if !formalGLMRegisteredPhase20JobControlPhase21ActionV1(action) {
+		return append(json.RawMessage(nil), payload...), nil
+	}
+	wrapped, err := json.Marshal(formalGLMRegisteredPhase20JobControlOpaqueFrameV1{
+		Frame: payload,
+	})
+	if err != nil || len(wrapped) > formalGLMRegisteredPhase20JobControlHostDaemonMaxV1 {
+		clear(wrapped)
+		return nil, fmt.Errorf("formal-glm registered Phase20 job control: invalid response")
+	}
+	return json.RawMessage(wrapped), nil
+}
+
 func formalGLMRegisteredPhase20JobControlRunAtRootV1(
 	encoded []byte, rockRoot string,
 ) (formalGLMRegisteredPhase20JobControlResponseV1, error) {
@@ -180,11 +295,22 @@ func formalGLMRegisteredPhase20JobControlRunAtRootV1(
 		return zero, err
 	}
 	defer client.Close()
+	payload, err := formalGLMRegisteredPhase20JobControlDaemonPayloadV1(command)
+	if err != nil {
+		return zero, err
+	}
+	defer clear(payload)
 	var response json.RawMessage
-	if err := client.callV1(command.Action, command.Payload, &response); err != nil {
+	if err := client.callV1(command.Action, payload, &response); err != nil {
 		clear(response)
 		return zero, fmt.Errorf("formal-glm registered Phase20 job control: unavailable")
 	}
+	wrapped, err := formalGLMRegisteredPhase20JobControlResponsePayloadV1(command.Action, response)
+	clear(response)
+	if err != nil {
+		return zero, fmt.Errorf("formal-glm registered Phase20 job control: unavailable")
+	}
+	response = wrapped
 	return formalGLMRegisteredPhase20JobControlResponseV1{
 		Version: formalGLMRegisteredPhase20JobControlCommandVersionV1,
 		Payload: append(json.RawMessage(nil), response...),

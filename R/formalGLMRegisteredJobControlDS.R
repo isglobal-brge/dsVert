@@ -9,11 +9,21 @@
 .DSVERT_FORMAL_GLM_REGISTERED_JOB_CONTROL_MAX_BYTES <- 2L * 1024L * 1024L
 .DSVERT_FORMAL_GLM_REGISTERED_JOB_CONTROL_EMPTY_ACTIONS <- c(
   "start", "health", "job_ref", "heartbeat", "compute", "terminal",
-  "phase21_preflight",
   "compute_start", "compute_status", "terminal_start", "terminal_status")
 .DSVERT_FORMAL_GLM_REGISTERED_JOB_CONTROL_ACTIONS <- c(
   "negotiate", .DSVERT_FORMAL_GLM_REGISTERED_JOB_CONTROL_EMPTY_ACTIONS,
-  "bind", "phase21_preflight_bind", "poll", "relay")
+  "bind", "phase21_preflight_bind", "poll", "relay",
+  "phase21_preflight",
+  "phase21_stage_start", "phase21_stage_status", "phase21_ticket",
+  "phase21_seal", "phase21_candidate", "phase21_candidate_verify",
+  "phase21_base_certificate", "phase21_authorization",
+  "phase21_publication", "phase21_ack",
+  "phase21_stage_poll", "phase21_stage_relay", "phase21_stage_import",
+  "phase21_ticket_import", "phase21_seal_import",
+  "phase21_candidate_import", "phase21_local_release_import",
+  "phase21_base_certificate_import", "phase21_authorization_import",
+  "phase21_commit", "phase21_commit_import", "phase21_ack_import",
+  "phase21_cleanup", "phase21_cleanup_import")
 
 .dsvert_formal_glm_registered_job_control_abort <- function(
     message = "The registered formal-GLM job control request is unavailable.",
@@ -66,8 +76,9 @@
       "The registered formal-GLM job payload is invalid.",
       "invalid_formal_glm_registered_job_payload")
   }
-  expected <- switch(action,
-    negotiate = "inbound", bind = "frame", phase21_preflight_bind = "frame",
+  phase21 <- startsWith(action, "phase21_")
+  expected <- if (phase21) "frame" else switch(action,
+    negotiate = "inbound", bind = "frame",
     poll = c("ref", "acknowledged"), relay = c("ref", "chunk"),
     character())
   if (!identical(fields, expected)) {
@@ -78,7 +89,7 @@
   if (identical(action, "negotiate")) {
     payload$inbound <- .dsvert_formal_glm_registered_job_control_base64(
       payload$inbound, "negotiation frame", allow_empty = TRUE)
-  } else if (action %in% c("bind", "phase21_preflight_bind")) {
+  } else if (identical(action, "bind")) {
     payload$frame <- .dsvert_formal_glm_registered_job_control_base64(
       payload$frame, "binding frame")
   } else if (identical(action, "poll")) {
@@ -97,7 +108,11 @@
              (!is.list(payload$ref) || !is.list(payload$chunk))) {
     .dsvert_formal_glm_registered_job_control_abort(
       "The registered formal-GLM relay payload is invalid.",
-      "invalid_formal_glm_registered_job_payload")
+        "invalid_formal_glm_registered_job_payload")
+  }
+  if (phase21) {
+    payload$frame <- .dsvert_formal_glm_registered_job_control_base64(
+      payload$frame, "Phase21 lifecycle frame")
   }
   encoded <- tryCatch(jsonlite::toJSON(
     payload, auto_unbox = TRUE, null = "null", digits = 17),
@@ -143,8 +158,9 @@
 #' Relay one closed registered-formal-GLM job-control action
 #'
 #' The host is selected only by a previously issued public provision receipt.
-#' This method relays canonical signed control frames and encrypted chunks; it
-#' never accepts a Rock path, a key, raw source data or a private model result.
+#' This method relays canonical signed control frames and encrypted chunks.
+#' Phase21 lifecycle records remain opaque frames: it never accepts a Rock
+#' path, a key, raw source data or a private model result.
 #'
 #' @param receipt Public host-provision receipt issued by the local custodian.
 #' @param action One closed host action.

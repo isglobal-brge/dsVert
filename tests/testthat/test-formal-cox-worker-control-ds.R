@@ -81,6 +81,12 @@ test_that("formal Cox worker controller rejects widened calls before host I/O", 
   expect_error(dsvertFormalCoxWorkerControlDS(
     selector$plan_sha256, selector$attempt_id, "relay", list(private_key = "x")),
     class = "dsvert_formal_cox_error")
+  expect_error(dsvertFormalCoxWorkerControlDS(
+    selector$plan_sha256, selector$attempt_id, "root_claim", list()),
+    class = "dsvert_formal_cox_error")
+  expect_error(dsvertFormalCoxWorkerControlDS(
+    selector$plan_sha256, selector$attempt_id, "accept", list(step = 0L)),
+    class = "dsvert_formal_cox_error")
   expect_identical(calls, 0L)
 })
 

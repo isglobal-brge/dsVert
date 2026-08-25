@@ -13,6 +13,7 @@ import (
 	"crypto/ed25519"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -57,6 +58,13 @@ type formalCoxBlockwiseExchangeDaemonStartV1 struct {
 	Step      formalCoxBlockwiseWorkerStep        `json:"step"`
 	Attempt   string                              `json:"attempt"`
 	PeerClaim formalCoxBlockwiseExchangeRootClaim `json:"peer_claim"`
+}
+
+// formalCoxBlockwiseExchangeDaemonFrameV1 deliberately makes a signed root
+// claim opaque to short-lived command callers.  The live owner, rather than
+// R or a DataSHIELD caller, derives the step and attempt it contains.
+type formalCoxBlockwiseExchangeDaemonFrameV1 struct {
+	Frame string `json:"frame"`
 }
 
 type formalCoxBlockwiseExchangeDaemonPollV1 struct {
@@ -394,6 +402,35 @@ func formalCoxBlockwiseExchangeDaemonResponsePayload(value any) (json.RawMessage
 	return json.RawMessage(encoded), nil
 }
 
+func formalCoxBlockwiseExchangeDaemonRootFrameV1(
+	claim formalCoxBlockwiseExchangeRootClaim,
+) (formalCoxBlockwiseExchangeDaemonFrameV1, error) {
+	encoded, err := formalCoxBlockwiseExchangeMarshalRootClaim(claim)
+	if err != nil {
+		return formalCoxBlockwiseExchangeDaemonFrameV1{}, err
+	}
+	defer clear(encoded)
+	return formalCoxBlockwiseExchangeDaemonFrameV1{
+		Frame: base64.StdEncoding.EncodeToString(encoded),
+	}, nil
+}
+
+func formalCoxBlockwiseExchangeDaemonDecodeRootFrameV1(
+	frame formalCoxBlockwiseExchangeDaemonFrameV1,
+) (formalCoxBlockwiseExchangeRootClaim, error) {
+	if frame.Frame == "" || len(frame.Frame) > formalCoxBlockwiseExchangeDaemonMax*2 {
+		return formalCoxBlockwiseExchangeRootClaim{}, fmt.Errorf("formal-cox: invalid opaque root frame")
+	}
+	encoded, err := base64.StdEncoding.Strict().DecodeString(frame.Frame)
+	if err != nil || len(encoded) < 2 || len(encoded) > formalCoxBlockwiseExchangeRootClaimMax ||
+		base64.StdEncoding.EncodeToString(encoded) != frame.Frame {
+		clear(encoded)
+		return formalCoxBlockwiseExchangeRootClaim{}, fmt.Errorf("formal-cox: invalid opaque root frame")
+	}
+	defer clear(encoded)
+	return formalCoxBlockwiseExchangeDecodeRootClaim(encoded)
+}
+
 func (daemon *formalCoxBlockwiseExchangeDaemonV1) dispatchV1(action string,
 	encoded json.RawMessage,
 ) (json.RawMessage, error) {
@@ -411,6 +448,50 @@ func (daemon *formalCoxBlockwiseExchangeDaemonV1) dispatchV1(action string,
 			return nil, err
 		}
 		if err := controller.BindPeer(request.Peer); err != nil {
+			return nil, err
+		}
+		return formalCoxBlockwiseExchangeDaemonResponsePayload(struct{}{})
+	case "offer":
+		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &struct{}{}); err != nil {
+			return nil, err
+		}
+		claim, err := controller.OfferV1()
+		if err != nil {
+			return nil, err
+		}
+		frame, err := formalCoxBlockwiseExchangeDaemonRootFrameV1(claim)
+		if err != nil {
+			return nil, err
+		}
+		return formalCoxBlockwiseExchangeDaemonResponsePayload(frame)
+	case "accept":
+		var request formalCoxBlockwiseExchangeDaemonFrameV1
+		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {
+			return nil, err
+		}
+		claim, err := formalCoxBlockwiseExchangeDaemonDecodeRootFrameV1(request)
+		if err != nil {
+			return nil, err
+		}
+		local, err := controller.AcceptOfferV1(claim)
+		if err != nil {
+			return nil, err
+		}
+		frame, err := formalCoxBlockwiseExchangeDaemonRootFrameV1(local)
+		if err != nil {
+			return nil, err
+		}
+		return formalCoxBlockwiseExchangeDaemonResponsePayload(frame)
+	case "confirm":
+		var request formalCoxBlockwiseExchangeDaemonFrameV1
+		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {
+			return nil, err
+		}
+		claim, err := formalCoxBlockwiseExchangeDaemonDecodeRootFrameV1(request)
+		if err != nil {
+			return nil, err
+		}
+		if err := controller.ConfirmOfferV1(claim); err != nil {
 			return nil, err
 		}
 		return formalCoxBlockwiseExchangeDaemonResponsePayload(struct{}{})
@@ -573,6 +654,24 @@ func (client *formalCoxBlockwiseExchangeDaemonClientV1) callV1(action string,
 
 func (client *formalCoxBlockwiseExchangeDaemonClientV1) BindPeerV1(peer string) error {
 	return client.callV1("bind", formalCoxBlockwiseExchangeDaemonBindV1{Peer: peer}, &struct{}{})
+}
+
+func (client *formalCoxBlockwiseExchangeDaemonClientV1) OfferV1() (string, error) {
+	var response formalCoxBlockwiseExchangeDaemonFrameV1
+	err := client.callV1("offer", struct{}{}, &response)
+	return response.Frame, err
+}
+
+func (client *formalCoxBlockwiseExchangeDaemonClientV1) AcceptV1(
+	frame string,
+) (formalCoxBlockwiseExchangeDaemonFrameV1, error) {
+	var response formalCoxBlockwiseExchangeDaemonFrameV1
+	err := client.callV1("accept", formalCoxBlockwiseExchangeDaemonFrameV1{Frame: frame}, &response)
+	return response, err
+}
+
+func (client *formalCoxBlockwiseExchangeDaemonClientV1) ConfirmV1(frame string) error {
+	return client.callV1("confirm", formalCoxBlockwiseExchangeDaemonFrameV1{Frame: frame}, &struct{}{})
 }
 
 func (client *formalCoxBlockwiseExchangeDaemonClientV1) RootClaimV1(

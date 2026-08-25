@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/hmac"
+	crand "crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -396,6 +397,13 @@ func (controller *formalCoxBlockwiseExchangeController) Start(
 	}
 	controller.mu.Lock()
 	defer controller.mu.Unlock()
+	return controller.startLockedV1(step, attempt, peerClaim)
+}
+
+func (controller *formalCoxBlockwiseExchangeController) startLockedV1(
+	step formalCoxBlockwiseWorkerStep, attempt [32]byte,
+	peerClaim formalCoxBlockwiseExchangeRootClaim,
+) error {
 	if controller.closed || controller.started || controller.transport == nil ||
 		!controller.transport.peerBound {
 		return fmt.Errorf("formal-cox: exchange controller is not peer-bound")
@@ -443,6 +451,204 @@ func (controller *formalCoxBlockwiseExchangeController) Start(
 		controller.receipt, controller.runErr = receipt, runErr
 	}()
 	return nil
+}
+
+func formalCoxBlockwiseExchangeClaimAttemptV1(
+	claim formalCoxBlockwiseExchangeRootClaim,
+) ([32]byte, error) {
+	var attempt [32]byte
+	if !formalCoxIsSHA256(claim.AttemptID) {
+		return attempt, fmt.Errorf("formal-cox: invalid exchange root claim attempt")
+	}
+	decoded, err := hex.DecodeString(claim.AttemptID)
+	if err != nil || len(decoded) != len(attempt) {
+		clear(decoded)
+		return attempt, fmt.Errorf("formal-cox: invalid exchange root claim attempt")
+	}
+	copy(attempt[:], decoded)
+	clear(decoded)
+	return attempt, nil
+}
+
+// nextStepLockedV1 derives the only permissible step inside the live owner.
+// A command caller may never select an index or a fresh attempt identifier.
+func (controller *formalCoxBlockwiseExchangeController) nextStepLockedV1() (formalCoxBlockwiseWorkerStep, error) {
+	if controller == nil || controller.closed || controller.started ||
+		controller.transport == nil || !controller.transport.peerBound ||
+		controller.bridge == nil {
+		return formalCoxBlockwiseWorkerStep{}, fmt.Errorf("formal-cox: exchange controller is unavailable")
+	}
+	bridge := controller.bridge
+	bridge.mu.Lock()
+	defer bridge.mu.Unlock()
+	if bridge.closed || bridge.worker == nil {
+		return formalCoxBlockwiseWorkerStep{}, fmt.Errorf("formal-cox: exchange controller bridge is unavailable")
+	}
+	state, err := bridge.worker.Load()
+	if err != nil || state.Pending != nil || state.NextStep >= controller.plan.ScheduleSteps {
+		return formalCoxBlockwiseWorkerStep{}, fmt.Errorf("formal-cox: exchange controller has no fresh step")
+	}
+	return formalCoxBlockwiseWorkerStepAt(controller.plan, state.NextStep)
+}
+
+func (controller *formalCoxBlockwiseExchangeController) readRootClaimLockedV1(
+	name string,
+) (formalCoxBlockwiseExchangeRootClaim, bool, error) {
+	var zero formalCoxBlockwiseExchangeRootClaim
+	if controller == nil || controller.transport == nil || controller.transport.root == nil {
+		return zero, false, fmt.Errorf("formal-cox: exchange root claim is unavailable")
+	}
+	if _, err := controller.transport.root.Lstat(name); os.IsNotExist(err) {
+		return zero, false, nil
+	} else if err != nil {
+		return zero, false, fmt.Errorf("formal-cox: exchange root claim is unsafe")
+	}
+	encoded, err := formalCoxBlockwiseExchangeReadRootClaim(controller.transport.root, name)
+	if err != nil {
+		return zero, false, err
+	}
+	defer clear(encoded)
+	claim, err := formalCoxBlockwiseExchangeDecodeRootClaim(encoded)
+	if err != nil {
+		return zero, false, err
+	}
+	return claim, true, nil
+}
+
+func (controller *formalCoxBlockwiseExchangeController) validateLocalRootClaimLockedV1(
+	step formalCoxBlockwiseWorkerStep, attempt [32]byte,
+	claim formalCoxBlockwiseExchangeRootClaim,
+) error {
+	expected, pin, err := controller.rootClaimTemplateLocked(
+		step, attempt, controller.peer, controller.transport.remotePeer)
+	if err != nil {
+		return err
+	}
+	candidate := claim
+	candidate.Signature = nil
+	if !reflect.DeepEqual(candidate, expected) {
+		return fmt.Errorf("formal-cox: local exchange root claim binding mismatch")
+	}
+	message, err := formalCoxBlockwiseExchangeRootClaimUnsigned(claim)
+	if err != nil {
+		return err
+	}
+	defer clear(message)
+	if !ed25519.Verify(pin, message, claim.Signature) {
+		return fmt.Errorf("formal-cox: local exchange root claim signature is invalid")
+	}
+	return nil
+}
+
+// OfferV1 is the sole initiator operation.  It persists a signed local root
+// claim so a retry returns byte-identical public binding material; the random
+// attempt itself never leaves the owner except inside that signed frame.
+func (controller *formalCoxBlockwiseExchangeController) OfferV1() (formalCoxBlockwiseExchangeRootClaim, error) {
+	var zero formalCoxBlockwiseExchangeRootClaim
+	if controller == nil {
+		return zero, fmt.Errorf("formal-cox: exchange controller is unavailable")
+	}
+	controller.mu.Lock()
+	defer controller.mu.Unlock()
+	if controller.peer != controller.plan.Policy.ComputePeers[0] {
+		return zero, fmt.Errorf("formal-cox: only the designated initiator may offer a root claim")
+	}
+	step, err := controller.nextStepLockedV1()
+	if err != nil {
+		return zero, err
+	}
+	if existing, found, readErr := controller.readRootClaimLockedV1(
+		formalCoxBlockwiseExchangeLocalRootClaimFile); readErr != nil {
+		return zero, readErr
+	} else if found {
+		attempt, attemptErr := formalCoxBlockwiseExchangeClaimAttemptV1(existing)
+		if attemptErr != nil || controller.validateLocalRootClaimLockedV1(step, attempt, existing) != nil {
+			return zero, fmt.Errorf("formal-cox: persisted root offer is invalid")
+		}
+		return existing, nil
+	}
+	var attempt [32]byte
+	if _, err := crand.Read(attempt[:]); err != nil {
+		return zero, err
+	}
+	claim, err := controller.localRootClaimLocked(step, attempt)
+	clear(attempt[:])
+	if err != nil {
+		return zero, err
+	}
+	if err := controller.persistRootClaimLocked(
+		formalCoxBlockwiseExchangeLocalRootClaimFile, claim); err != nil {
+		return zero, err
+	}
+	return claim, nil
+}
+
+// AcceptOfferV1 validates the initiator's frame, derives the evaluator's
+// matching claim from the local Rock state, and begins the evaluator step.
+func (controller *formalCoxBlockwiseExchangeController) AcceptOfferV1(
+	peerClaim formalCoxBlockwiseExchangeRootClaim,
+) (formalCoxBlockwiseExchangeRootClaim, error) {
+	var zero formalCoxBlockwiseExchangeRootClaim
+	if controller == nil {
+		return zero, fmt.Errorf("formal-cox: exchange controller is unavailable")
+	}
+	controller.mu.Lock()
+	defer controller.mu.Unlock()
+	if controller.peer != controller.plan.Policy.ComputePeers[1] {
+		return zero, fmt.Errorf("formal-cox: only the designated evaluator may accept a root offer")
+	}
+	step, err := controller.nextStepLockedV1()
+	if err != nil {
+		return zero, err
+	}
+	attempt, err := formalCoxBlockwiseExchangeClaimAttemptV1(peerClaim)
+	if err != nil {
+		return zero, err
+	}
+	if _, err := controller.validatePeerRootClaimLocked(step, attempt, peerClaim); err != nil {
+		return zero, err
+	}
+	local, err := controller.localRootClaimLocked(step, attempt)
+	if err != nil {
+		return zero, err
+	}
+	if err := controller.startLockedV1(step, attempt, peerClaim); err != nil {
+		return zero, err
+	}
+	return local, nil
+}
+
+// ConfirmOfferV1 admits the evaluator's signed answer only when it matches
+// the already persisted initiator offer.  It never accepts a caller-selected
+// step or attempt.
+func (controller *formalCoxBlockwiseExchangeController) ConfirmOfferV1(
+	peerClaim formalCoxBlockwiseExchangeRootClaim,
+) error {
+	if controller == nil {
+		return fmt.Errorf("formal-cox: exchange controller is unavailable")
+	}
+	controller.mu.Lock()
+	defer controller.mu.Unlock()
+	if controller.peer != controller.plan.Policy.ComputePeers[0] {
+		return fmt.Errorf("formal-cox: only the designated initiator may confirm a root offer")
+	}
+	step, err := controller.nextStepLockedV1()
+	if err != nil {
+		return err
+	}
+	local, found, err := controller.readRootClaimLockedV1(
+		formalCoxBlockwiseExchangeLocalRootClaimFile)
+	if err != nil || !found {
+		return fmt.Errorf("formal-cox: root offer is unavailable")
+	}
+	attempt, err := formalCoxBlockwiseExchangeClaimAttemptV1(local)
+	if err != nil || controller.validateLocalRootClaimLockedV1(step, attempt, local) != nil {
+		return fmt.Errorf("formal-cox: persisted root offer is invalid")
+	}
+	if _, err := controller.validatePeerRootClaimLocked(step, attempt, peerClaim); err != nil {
+		return err
+	}
+	return controller.startLockedV1(step, attempt, peerClaim)
 }
 
 func (controller *formalCoxBlockwiseExchangeController) Poll(ack int64) (

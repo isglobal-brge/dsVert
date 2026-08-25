@@ -29,7 +29,7 @@ func TestFormalCoxBlockwiseExchangeDaemonK2K3K5(t *testing.T) {
 			}
 			defer formalCoxBlockwiseSourceBridgeTestClose(bridges)
 
-			attempt := sha256.Sum256([]byte(t.Name() + "/attempt"))
+			attempt := sha256.Sum256([]byte(t.Name() + "/lease-attempt"))
 			controlKey := sha256.Sum256([]byte(t.Name() + "/control"))
 			controllers := make([]*formalCoxBlockwiseExchangeController, 2)
 			daemons := make([]*formalCoxBlockwiseExchangeDaemonV1, 2)
@@ -77,38 +77,44 @@ func TestFormalCoxBlockwiseExchangeDaemonK2K3K5(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := wrongClient.RootClaimV1(step, attempt); err == nil {
+			if _, err := wrongClient.OfferV1(); err == nil {
 				t.Fatal("daemon accepted a request with the wrong local control key")
 			}
 
-			claims := make([]formalCoxBlockwiseExchangeRootClaim, 2)
-			for index := range clients {
-				claims[index], err = clients[index].RootClaimV1(step, attempt)
-				if err != nil {
-					t.Fatal(err)
-				}
+			offer, err := clients[0].OfferV1()
+			if err != nil {
+				t.Fatal(err)
+			}
+			replayedOffer, err := clients[0].OfferV1()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if replayedOffer != offer {
+				t.Fatal("initiator root-offer replay was not byte-identical")
+			}
+			if _, err := clients[1].OfferV1(); err == nil {
+				t.Fatal("evaluator emitted a caller-directed root offer")
 			}
 			injected, err := json.Marshal(struct {
-				Step      formalCoxBlockwiseWorkerStep        `json:"step"`
-				Attempt   string                              `json:"attempt"`
-				PeerClaim formalCoxBlockwiseExchangeRootClaim `json:"peer_claim"`
-				Master    string                              `json:"master"`
+				Frame  string `json:"frame"`
+				Master string `json:"master"`
 			}{
-				Step: step, Attempt: fmt.Sprintf("%x", attempt),
-				PeerClaim: claims[1], Master: fmt.Sprintf("%064x", 1),
+				Frame: offer, Master: fmt.Sprintf("%064x", 1),
 			})
 			if err != nil {
 				t.Fatal(err)
 			}
-			var start formalCoxBlockwiseExchangeDaemonStartV1
-			if err := formalCoxBlockwiseExchangeDaemonPayload(injected, &start); err == nil {
+			var malformed formalCoxBlockwiseExchangeDaemonFrameV1
+			if err := formalCoxBlockwiseExchangeDaemonPayload(injected, &malformed); err == nil {
 				t.Fatal("daemon accepted a caller-supplied worker master")
 			}
 			clear(injected)
-			for index := range clients {
-				if err := clients[index].StartV1(step, attempt, claims[1-index]); err != nil {
-					t.Fatal(err)
-				}
+			accept, err := clients[1].AcceptV1(offer)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := clients[0].ConfirmV1(accept.Frame); err != nil {
+				t.Fatal(err)
 			}
 
 			var acknowledgements [2]int64

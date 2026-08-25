@@ -306,6 +306,10 @@ func formalCoxBlockwiseWorkerControlValidate(action string, payload json.RawMess
 	switch action {
 	case "bind":
 		return formalCoxBlockwiseExchangeDaemonPayload(payload, &formalCoxBlockwiseExchangeDaemonBindV1{})
+	case "offer":
+		return formalCoxBlockwiseExchangeDaemonPayload(payload, &struct{}{})
+	case "accept", "confirm":
+		return formalCoxBlockwiseExchangeDaemonPayload(payload, &formalCoxBlockwiseExchangeDaemonFrameV1{})
 	case "root_claim":
 		return formalCoxBlockwiseExchangeDaemonPayload(payload, &formalCoxBlockwiseExchangeDaemonRootV1{})
 	case "start":

@@ -45,7 +45,7 @@
   fields <- names(payload)
   if (is.null(fields)) fields <- character()
   if (anyNA(fields) || anyDuplicated(fields) ||
-      (action %in% c("host_start", "offer") && length(fields))) {
+      (action %in% c("host_start", "offer", "completion") && length(fields))) {
     .dsvert_formal_cox_abort("The formal Cox worker control payload is invalid.")
   }
   if (action %in% c("accept", "confirm") &&

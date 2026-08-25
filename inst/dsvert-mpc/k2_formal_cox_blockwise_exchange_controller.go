@@ -829,6 +829,79 @@ func (controller *formalCoxBlockwiseExchangeController) SealOpeningToFinalizerV1
 	return bridge.SealStickyOpeningToFinalizerV1(opening, outbox, ticket, headers)
 }
 
+// finalizerBridgeAtRootV1 is the closed worker continuation after the two
+// compute peers have committed their share-free opening headers.  It retains
+// the live controller while the Rock-local bridge opens its own finalizer
+// store, so a short-lived daemon attachment cannot race Close or replace the
+// source-bound opening.
+func (controller *formalCoxBlockwiseExchangeController) finalizerBridgeAtRootV1(
+	headers [2]formalCoxBlockwiseOpeningHandoffHeader,
+	continueV1 func(*formalCoxBlockwiseSourceBridge,
+		*formalCoxBlockwiseOpeningStore) error,
+) error {
+	if controller == nil || continueV1 == nil {
+		return fmt.Errorf("formal-cox: exchange finalizer handoff is unavailable")
+	}
+	controller.mu.Lock()
+	defer controller.mu.Unlock()
+	if controller.closed || !controller.committed || controller.bridge == nil ||
+		controller.opening == nil {
+		return fmt.Errorf("formal-cox: exchange finalizer handoff is unavailable")
+	}
+	local, _, err := controller.bridge.SubmitStickyOpening(controller.opening)
+	if err != nil {
+		return err
+	}
+	position := -1
+	for index, peer := range controller.plan.Policy.ComputePeers {
+		if peer == controller.peer {
+			position = index
+			break
+		}
+	}
+	if position < 0 || !formalCoxBlockwiseOpeningEqual(local, headers[position]) {
+		return fmt.Errorf("formal-cox: exchange finalizer headers mismatch")
+	}
+	return continueV1(controller.bridge, controller.opening)
+}
+
+// IssueFinalizerTicketAtRootV1 returns only the signed public ticket of the
+// designated finalizer.  The bridge derives and keeps the transport secret in
+// its recipient-local Rock store.
+func (controller *formalCoxBlockwiseExchangeController) IssueFinalizerTicketAtRootV1(
+	headers [2]formalCoxBlockwiseOpeningHandoffHeader, stateRoot string, production bool,
+) (formalFinalizerHandoffTicket, bool, error) {
+	var ticket formalFinalizerHandoffTicket
+	var replayed bool
+	err := controller.finalizerBridgeAtRootV1(headers,
+		func(bridge *formalCoxBlockwiseSourceBridge, opening *formalCoxBlockwiseOpeningStore) error {
+			var issueErr error
+			ticket, replayed, issueErr = bridge.IssueFinalizerTicketAtRootV1(
+				opening, headers, stateRoot, production)
+			return issueErr
+		})
+	return ticket, replayed, err
+}
+
+// SealOpeningToFinalizerAtRootV1 returns the encrypted, signed envelope for
+// the designated finalizer.  It exposes neither a source secret nor either
+// local output share to the daemon caller.
+func (controller *formalCoxBlockwiseExchangeController) SealOpeningToFinalizerAtRootV1(
+	ticket formalFinalizerHandoffTicket,
+	headers [2]formalCoxBlockwiseOpeningHandoffHeader, stateRoot string, production bool,
+) (formalFinalizerHandoffEnvelope, bool, error) {
+	var envelope formalFinalizerHandoffEnvelope
+	var replayed bool
+	err := controller.finalizerBridgeAtRootV1(headers,
+		func(bridge *formalCoxBlockwiseSourceBridge, opening *formalCoxBlockwiseOpeningStore) error {
+			var sealErr error
+			envelope, replayed, sealErr = bridge.SealStickyOpeningToFinalizerAtRootV1(
+				opening, ticket, headers, stateRoot, production)
+			return sealErr
+		})
+	return envelope, replayed, err
+}
+
 func (controller *formalCoxBlockwiseExchangeController) Commit(
 	receipts []formalCoxBlockwiseStepReceipt, pins map[string]ed25519.PublicKey,
 ) error {

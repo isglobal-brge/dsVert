@@ -118,10 +118,34 @@ type formalCoxBlockwiseExchangeDaemonOpeningV1 struct {
 	Replayed bool                                    `json:"replayed"`
 }
 
+// These messages are the only worker-daemon continuation into the established
+// authority-only finalizer.  Headers, tickets and envelopes are public typed
+// handoff records; the local source secret and output shares remain in Rock.
+type formalCoxBlockwiseExchangeDaemonFinalizerTicketV1 struct {
+	Headers [2]formalCoxBlockwiseOpeningHandoffHeader `json:"headers"`
+}
+
+type formalCoxBlockwiseExchangeDaemonFinalizerTicketResultV1 struct {
+	Ticket   formalFinalizerHandoffTicket `json:"ticket"`
+	Replayed bool                         `json:"replayed"`
+}
+
+type formalCoxBlockwiseExchangeDaemonFinalizerSealV1 struct {
+	Ticket  formalFinalizerHandoffTicket              `json:"ticket"`
+	Headers [2]formalCoxBlockwiseOpeningHandoffHeader `json:"headers"`
+}
+
+type formalCoxBlockwiseExchangeDaemonFinalizerSealResultV1 struct {
+	Envelope formalFinalizerHandoffEnvelope `json:"envelope"`
+	Replayed bool                           `json:"replayed"`
+}
+
 type formalCoxBlockwiseExchangeDaemonV1 struct {
 	mu          sync.Mutex
 	controller  *formalCoxBlockwiseExchangeController
 	key         []byte
+	stateRoot   string
+	production  bool
 	socketRoot  *os.Root
 	socketDir   string
 	socketPath  string
@@ -328,11 +352,16 @@ func formalCoxBlockwiseExchangeDaemonSocketLocation(
 	}
 }
 
-func newFormalCoxBlockwiseExchangeDaemonV1(
+func newFormalCoxBlockwiseExchangeDaemonAtRootV1(
 	controller *formalCoxBlockwiseExchangeController, controlKey []byte,
+	stateRoot string, production bool,
 ) (*formalCoxBlockwiseExchangeDaemonV1, error) {
 	if controller == nil || len(controlKey) != sha256.Size {
 		return nil, fmt.Errorf("formal-cox: invalid exchange daemon configuration")
+	}
+	if !filepath.IsAbs(stateRoot) || filepath.Clean(stateRoot) != stateRoot ||
+		(production && stateRoot != formalFinalizerHandoffStateRoot) {
+		return nil, fmt.Errorf("formal-cox: invalid exchange daemon finalizer root")
 	}
 	controller.mu.Lock()
 	transport := controller.transport
@@ -368,11 +397,19 @@ func newFormalCoxBlockwiseExchangeDaemonV1(
 	}
 	daemon := &formalCoxBlockwiseExchangeDaemonV1{
 		controller: controller, key: append([]byte(nil), controlKey...),
+		stateRoot: stateRoot, production: production,
 		socketRoot: socketRoot, socketDir: socketDir,
 		socketPath: path, listener: listener, done: make(chan struct{}),
 	}
 	go daemon.serveV1()
 	return daemon, nil
+}
+
+func newFormalCoxBlockwiseExchangeDaemonV1(
+	controller *formalCoxBlockwiseExchangeController, controlKey []byte,
+) (*formalCoxBlockwiseExchangeDaemonV1, error) {
+	return newFormalCoxBlockwiseExchangeDaemonAtRootV1(
+		controller, controlKey, formalFinalizerHandoffStateRoot, true)
 }
 
 func (daemon *formalCoxBlockwiseExchangeDaemonV1) SocketPathV1() string {
@@ -673,6 +710,32 @@ func (daemon *formalCoxBlockwiseExchangeDaemonV1) dispatchV1(action string,
 			formalCoxBlockwiseExchangeDaemonOpeningV1{
 				Header: &header, Replayed: replayed,
 			})
+	case "finalizer_ticket":
+		var request formalCoxBlockwiseExchangeDaemonFinalizerTicketV1
+		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {
+			return nil, err
+		}
+		ticket, replayed, err := controller.IssueFinalizerTicketAtRootV1(
+			request.Headers, daemon.stateRoot, daemon.production)
+		if err != nil {
+			return nil, err
+		}
+		return formalCoxBlockwiseExchangeDaemonResponsePayload(
+			formalCoxBlockwiseExchangeDaemonFinalizerTicketResultV1{
+				Ticket: ticket, Replayed: replayed})
+	case "finalizer_seal":
+		var request formalCoxBlockwiseExchangeDaemonFinalizerSealV1
+		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {
+			return nil, err
+		}
+		envelope, replayed, err := controller.SealOpeningToFinalizerAtRootV1(
+			request.Ticket, request.Headers, daemon.stateRoot, daemon.production)
+		if err != nil {
+			return nil, err
+		}
+		return formalCoxBlockwiseExchangeDaemonResponsePayload(
+			formalCoxBlockwiseExchangeDaemonFinalizerSealResultV1{
+				Envelope: envelope, Replayed: replayed})
 	case "commit":
 		var request formalCoxBlockwiseExchangeDaemonCommitV1
 		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {

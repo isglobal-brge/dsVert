@@ -321,7 +321,8 @@ func openFormalCoxBlockwiseWorkerBootstrapAtRoot(encoded []byte, stateRoot strin
 		_ = controller.Close()
 		return nil, err
 	}
-	daemon, err := newFormalCoxBlockwiseExchangeDaemonV1(controller, controlKey[:])
+	daemon, err := newFormalCoxBlockwiseExchangeDaemonAtRootV1(
+		controller, controlKey[:], stateRoot, production)
 	if err != nil {
 		_ = controller.Close()
 		return nil, err

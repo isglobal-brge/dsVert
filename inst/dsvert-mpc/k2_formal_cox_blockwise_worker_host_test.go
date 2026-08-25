@@ -253,6 +253,50 @@ func TestFormalCoxBlockwiseWorkerHostAttachesLiveK2K3K5(t *testing.T) {
 				formalCoxBlockwiseWorkerHostTestControl(t, root, configs[index].Bootstrap,
 					"commit", formalCoxBlockwiseExchangeDaemonCommitV1{Receipts: receipts[:]}, &struct{}{})
 			}
+			var headers [2]formalCoxBlockwiseOpeningHandoffHeader
+			for index := range configs {
+				var opening formalCoxBlockwiseExchangeDaemonOpeningV1
+				formalCoxBlockwiseWorkerHostTestControl(t, root, configs[index].Bootstrap,
+					"opening", struct{}{}, &opening)
+				if opening.Header == nil {
+					t.Fatalf("host %d returned no sticky opening header", index)
+				}
+				headers[index] = *opening.Header
+			}
+			var issued formalCoxBlockwiseExchangeDaemonFinalizerTicketResultV1
+			formalCoxBlockwiseWorkerHostTestControl(t, root, configs[0].Bootstrap,
+				"finalizer_ticket",
+				formalCoxBlockwiseExchangeDaemonFinalizerTicketV1{Headers: headers}, &issued)
+			if issued.Replayed || len(issued.Ticket.RecipientTransportPublicKey) == 0 {
+				t.Fatalf("finalizer ticket = %+v", issued)
+			}
+			nonFinalizer := formalCoxBlockwiseWorkerHostTestControlEncode(
+				t, configs[1].Bootstrap, "finalizer_ticket",
+				formalCoxBlockwiseExchangeDaemonFinalizerTicketV1{Headers: headers})
+			if _, err := formalCoxBlockwiseWorkerControlRunAtRoot(nonFinalizer, root, false); err == nil {
+				clear(nonFinalizer)
+				t.Fatal("non-finalizer worker issued a finalizer ticket")
+			}
+			clear(nonFinalizer)
+			for index := range configs {
+				var sealed formalCoxBlockwiseExchangeDaemonFinalizerSealResultV1
+				formalCoxBlockwiseWorkerHostTestControl(t, root, configs[index].Bootstrap,
+					"finalizer_seal", formalCoxBlockwiseExchangeDaemonFinalizerSealV1{
+						Ticket: issued.Ticket, Headers: headers,
+					}, &sealed)
+				if sealed.Replayed || len(sealed.Envelope.Ciphertext) == 0 {
+					t.Fatalf("host %d finalizer envelope = %+v", index, sealed)
+				}
+				var replay formalCoxBlockwiseExchangeDaemonFinalizerSealResultV1
+				formalCoxBlockwiseWorkerHostTestControl(t, root, configs[index].Bootstrap,
+					"finalizer_seal", formalCoxBlockwiseExchangeDaemonFinalizerSealV1{
+						Ticket: issued.Ticket, Headers: headers,
+					}, &replay)
+				if !replay.Replayed || !formalFinalizerHandoffEnvelopeSemanticEqual(
+					sealed.Envelope, replay.Envelope) {
+					t.Fatalf("host %d finalizer envelope replay changed", index)
+				}
+			}
 			for index := range stops {
 				close(stops[index])
 				if err := <-done[index]; err != nil {

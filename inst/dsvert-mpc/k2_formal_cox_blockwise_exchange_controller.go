@@ -441,6 +441,7 @@ func (controller *formalCoxBlockwiseExchangeController) startLockedV1(
 	if err != nil {
 		return err
 	}
+	controller.committed = false
 	controller.started, controller.running = true, true
 	bridge, transport := controller.bridge, controller.transport
 	go func() {
@@ -580,6 +581,7 @@ func (controller *formalCoxBlockwiseExchangeController) OfferV1() (formalCoxBloc
 		formalCoxBlockwiseExchangeLocalRootClaimFile, claim); err != nil {
 		return zero, err
 	}
+	controller.committed = false
 	return claim, nil
 }
 
@@ -713,8 +715,8 @@ func (controller *formalCoxBlockwiseExchangeController) Commit(
 	}
 	controller.mu.Lock()
 	defer controller.mu.Unlock()
-	if controller.closed || !controller.started || controller.running ||
-		controller.runErr != nil || controller.committed {
+	if controller.closed || controller.running || controller.runErr != nil ||
+		(!controller.started && !controller.committed) {
 		return fmt.Errorf("formal-cox: exchange controller cannot commit")
 	}
 	matched := false
@@ -729,7 +731,84 @@ func (controller *formalCoxBlockwiseExchangeController) Commit(
 	if err := controller.bridge.worker.CommitPending(receipts, pins); err != nil {
 		return err
 	}
-	controller.committed = true
+	if !controller.committed {
+		controller.started = false
+		controller.committed = true
+	}
+	if err := controller.clearCommittedRootClaimsLockedV1(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// clearCommittedRootClaimsLockedV1 removes only the now-obsolete root claims
+// after the authenticated checkpoint has advanced.  Keeping a controller live
+// for the next deterministic schedule step must not preserve a previous
+// attempt's root offer, while a crash between the two unlinks remains safe:
+// the durable checkpoint is already committed and a later cleanup accepts
+// either missing record but rejects a conflicting one.
+func (controller *formalCoxBlockwiseExchangeController) clearCommittedRootClaimsLockedV1() error {
+	if controller == nil || controller.closed || !controller.committed ||
+		controller.running || controller.transport == nil || controller.transport.root == nil ||
+		controller.bridge == nil || controller.receipt.AttemptID == "" {
+		return fmt.Errorf("formal-cox: exchange controller cannot clear committed root claims")
+	}
+	step := controller.receipt.Step
+	attempt, err := formalCoxBlockwiseExchangeClaimAttemptV1(
+		formalCoxBlockwiseExchangeRootClaim{AttemptID: controller.receipt.AttemptID})
+	if err != nil {
+		return err
+	}
+	controller.bridge.mu.Lock()
+	if controller.bridge.closed || controller.bridge.worker == nil {
+		controller.bridge.mu.Unlock()
+		return fmt.Errorf("formal-cox: exchange controller bridge is unavailable")
+	}
+	state, err := controller.bridge.worker.Load()
+	controller.bridge.mu.Unlock()
+	if err != nil || state.Pending != nil || state.LastReceipt == nil ||
+		!formalCoxBlockwiseReceiptEqual(*state.LastReceipt, controller.receipt) ||
+		state.NextStep != step.ScheduleIndex+1 {
+		return fmt.Errorf("formal-cox: exchange controller checkpoint did not commit the local receipt")
+	}
+	changed := false
+	for _, record := range []struct {
+		name  string
+		local bool
+	}{
+		{name: formalCoxBlockwiseExchangeLocalRootClaimFile, local: true},
+		{name: formalCoxBlockwiseExchangePeerRootClaimFile},
+	} {
+		claim, found, readErr := controller.readRootClaimLockedV1(record.name)
+		if readErr != nil {
+			return readErr
+		}
+		if !found {
+			continue
+		}
+		claimStep := claim.Step
+		receiptStep := step
+		receiptStep.InputRoot = ""
+		if claim.AttemptID != controller.receipt.AttemptID || claimStep != receiptStep ||
+			claim.InputRootSHA256 != step.InputRoot {
+			return fmt.Errorf("formal-cox: committed exchange root claim conflicts")
+		}
+		if record.local {
+			err = controller.validateLocalRootClaimLockedV1(claimStep, attempt, claim)
+		} else {
+			_, err = controller.validatePeerRootClaimLocked(claimStep, attempt, claim)
+		}
+		if err != nil {
+			return err
+		}
+		if err := controller.transport.root.Remove(record.name); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		changed = true
+	}
+	if changed {
+		return formalCoxBlockwiseExchangeLeaseSyncRoot(controller.transport.root)
+	}
 	return nil
 }
 

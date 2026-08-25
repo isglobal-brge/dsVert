@@ -18,16 +18,15 @@ func TestFormalCoxBlockwiseExchangeControllerRunsBoundStepK2K3K5(t *testing.T) {
 		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
 			fixture := newFormalCoxBlockwiseSourceBridgeTestFixture(t, custodians,
 				map[string]bool{"peer-a": true, "peer-b": true})
-			step, err := formalCoxBlockwiseWorkerStepAt(fixture.plan, 0)
-			if err != nil {
-				t.Fatal(err)
-			}
-			formalCoxBlockwiseSourceBridgeTestStageWorkers(t, fixture, step.ScheduleIndex)
 			bridges, err := formalCoxBlockwiseSourceBridgeTestOpen(t, fixture)
 			if err != nil {
 				t.Fatal(err)
 			}
 			attempt := sha256.Sum256([]byte(t.Name() + "/attempt"))
+			step, err := formalCoxBlockwiseWorkerStepAt(fixture.plan, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
 			roots := make([]string, len(bridges))
 			for index, bridge := range bridges {
 				roots[index], err = bridge.PublicInputRoot(step)
@@ -101,64 +100,81 @@ func TestFormalCoxBlockwiseExchangeControllerRunsBoundStepK2K3K5(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			claims := make([]formalCoxBlockwiseExchangeRootClaim, 2)
-			for index, controller := range controllers {
-				claims[index], err = controller.RootClaim(step, attempt)
-				if err != nil {
-					t.Fatal(err)
-				}
-			}
-			for index, controller := range controllers {
-				if err := controller.Start(step, attempt, claims[1-index]); err != nil {
-					t.Fatal(err)
-				}
-			}
 			var leftAck, rightAck int64
-			var receipts [2]formalCoxBlockwiseStepReceipt
-			complete := [2]bool{}
-			deadline := time.Now().Add(3 * time.Minute)
-			for !complete[0] || !complete[1] {
-				if time.Now().After(deadline) {
-					t.Fatal("controller exchange did not complete")
+			for scheduleIndex := 0; scheduleIndex < 2; scheduleIndex++ {
+				offer, offerErr := controllers[0].OfferV1()
+				if offerErr != nil {
+					t.Fatalf("offer step %d: %v", scheduleIndex, offerErr)
 				}
-				for _, direction := range []struct {
-					from *formalCoxBlockwiseExchangeController
-					to   *formalCoxBlockwiseExchangeController
-					ack  *int64
-				}{
-					{controllers[0], controllers[1], &leftAck},
-					{controllers[1], controllers[0], &rightAck},
-				} {
-					chunk, _, err := direction.from.Poll(*direction.ack)
-					if err != nil {
-						t.Fatal(err)
+				answer, acceptErr := controllers[1].AcceptOfferV1(offer)
+				if acceptErr != nil {
+					t.Fatalf("accept step %d: %v", scheduleIndex, acceptErr)
+				}
+				if err := controllers[0].ConfirmOfferV1(answer); err != nil {
+					t.Fatalf("confirm step %d: %v", scheduleIndex, err)
+				}
+
+				var receipts [2]formalCoxBlockwiseStepReceipt
+				complete := [2]bool{}
+				deadline := time.Now().Add(3 * time.Minute)
+				for !complete[0] || !complete[1] {
+					if time.Now().After(deadline) {
+						t.Fatal("controller exchange did not complete")
 					}
-					if chunk != nil {
-						accepted, err := direction.to.Relay(*chunk)
+					for _, direction := range []struct {
+						from *formalCoxBlockwiseExchangeController
+						to   *formalCoxBlockwiseExchangeController
+						ack  *int64
+					}{
+						{controllers[0], controllers[1], &leftAck},
+						{controllers[1], controllers[0], &rightAck},
+					} {
+						chunk, _, err := direction.from.Poll(*direction.ack)
 						if err != nil {
 							t.Fatal(err)
 						}
-						*direction.ack = accepted
+						if chunk != nil {
+							accepted, err := direction.to.Relay(*chunk)
+							if err != nil {
+								t.Fatal(err)
+							}
+							*direction.ack = accepted
+						}
 					}
+					for index, controller := range controllers {
+						receipt, done, err := controller.Result()
+						if err != nil {
+							t.Fatal(err)
+						}
+						if done {
+							receipts[index], complete[index] = receipt, true
+						}
+					}
+					time.Sleep(time.Millisecond)
 				}
-				for index, controller := range controllers {
-					receipt, done, err := controller.Result()
-					if err != nil {
+				if err := formalCoxBlockwiseValidateReceiptPair(
+					fixture.plan, receipts[:], fixture.pins); err != nil {
+					t.Fatal(err)
+				}
+				for _, controller := range controllers {
+					if err := controller.Commit(receipts[:], fixture.pins); err != nil {
 						t.Fatal(err)
 					}
-					if done {
-						receipts[index], complete[index] = receipt, true
-					}
 				}
-				time.Sleep(time.Millisecond)
-			}
-			if err := formalCoxBlockwiseValidateReceiptPair(
-				fixture.plan, receipts[:], fixture.pins); err != nil {
-				t.Fatal(err)
-			}
-			for _, controller := range controllers {
-				if err := controller.Commit(receipts[:], fixture.pins); err != nil {
-					t.Fatal(err)
+				if scheduleIndex == 0 {
+					for _, controller := range controllers {
+						for _, name := range []string{
+							formalCoxBlockwiseExchangeLocalRootClaimFile,
+							formalCoxBlockwiseExchangePeerRootClaimFile,
+						} {
+							if _, err := controller.transport.root.Lstat(name); !os.IsNotExist(err) {
+								t.Fatalf("committed step retained root claim %s: %v", name, err)
+							}
+						}
+					}
+					if err := controllers[0].Commit(receipts[:], fixture.pins); err != nil {
+						t.Fatalf("replay commit step %d: %v", scheduleIndex, err)
+					}
 				}
 			}
 		})

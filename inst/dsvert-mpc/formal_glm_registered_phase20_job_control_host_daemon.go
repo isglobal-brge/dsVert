@@ -940,8 +940,14 @@ func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) dispatchV1(
 		if err != nil {
 			return nil, err
 		}
+		publication, err := host.RunPhase21PublicationV1()
+		if err != nil {
+			return nil, err
+		}
 		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(
-			formalGLMRegisteredPhase20JobControlHostDaemonAckRecordV1{Record: record})
+			formalGLMRegisteredPhase20JobControlHostDaemonAckRecordV1{
+				Record: record, Publication: publication,
+			})
 	case "phase21_ack_import":
 		request, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonAckRecordV1](encoded)
 		if err != nil || host.ImportPhase21PeerAckV1(request.Record, request.Publication) != nil {

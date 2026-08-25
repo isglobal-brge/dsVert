@@ -26,6 +26,7 @@ func TestFormalGLMRegisteredPhase20JobControlFramesPhase21Lifecycle(t *testing.T
 		{"phase21_authorization_import", formalGLMRegisteredPhase20JobControlHostDaemonAuthorizationRecordV1{}},
 		{"phase21_commit", formalGLMRegisteredPhase20JobControlHostDaemonPublicationV1{}},
 		{"phase21_commit_import", formalGLMRegisteredPhase20JobControlHostDaemonCommitRecordV1{}},
+		{"phase21_ack", struct{}{}},
 		{"phase21_ack_import", formalGLMRegisteredPhase20JobControlHostDaemonAckRecordV1{}},
 		{"phase21_cleanup", formalGLMRegisteredPhase20JobControlHostDaemonPublicationV1{}},
 		{"phase21_cleanup_import", formalGLMRegisteredPhase20JobControlHostDaemonCleanupRecordV1{}},

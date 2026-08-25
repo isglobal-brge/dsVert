@@ -596,7 +596,9 @@ test_that("all-schema cross reservations are not materialized crosses", {
       categorical_pairs = list(cross_artifacts = list()),
       gaussian_models = list(artifacts = list(
         local = list(version =
-          "bounded-normalized-gaussian-sufficient-statistics-v1"))))))
+          "bounded-normalized-gaussian-sufficient-statistics-v1"),
+        lmm_fixed = list(version =
+          "bounded-normalized-random-intercept-fixed-sufficient-statistics-v2"))))))
   expect_invisible(.dsvert_dp_synopsis_remote_reject_cross_v1(reserved))
 
   configured <- reserved

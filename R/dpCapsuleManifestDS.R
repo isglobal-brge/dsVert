@@ -392,6 +392,8 @@
     references <- if (is.null(spec)) list() else lapply(
       c(spec$outcome, if (identical(spec$kind, "random_intercept")) {
         spec$cluster
+      } else if (identical(spec$kind, "random_intercept_fixed")) {
+        c(spec$cluster, spec$predictors)
       } else {
         spec$predictors
       }),
@@ -410,6 +412,10 @@
     } else if (identical(spec$kind, "random_intercept")) {
       isTRUE(outcome_owned) && length(variables) == 2L &&
         all(owners == policy$peer_name) &&
+        all(variables %in% mapping$datasets[[spec$dataset]])
+    } else if (identical(spec$kind, "random_intercept_fixed")) {
+      isTRUE(outcome_owned) && length(variables) == 2L +
+        length(spec$predictors) && all(owners == policy$peer_name) &&
         all(variables %in% mapping$datasets[[spec$dataset]])
     } else if (identical(spec$version, "v1")) {
       isTRUE(outcome_owned) &&
@@ -433,6 +439,13 @@
         version = spec$version, dataset = spec$dataset,
         outcome = spec$outcome, cluster = spec$cluster,
         max_patients_per_cluster = spec$max_patients_per_cluster)
+    } else if (identical(spec$kind, "random_intercept_fixed")) {
+      list(
+        version = spec$version, dataset = spec$dataset,
+        outcome = spec$outcome, cluster = spec$cluster,
+        predictors = unname(spec$predictors), intercept = spec$intercept,
+        max_patients_per_cluster = spec$max_patients_per_cluster,
+        variance_ratio_grid = unname(spec$variance_ratio_grid))
     } else {
       list(
         version = spec$version, dataset = spec$dataset,
@@ -689,6 +702,10 @@
     if (!identical(raw$version, "random_intercept_v1")) {
       raw$predictors <- unname(as.character(unlist(
         raw$predictors, use.names = FALSE)))
+    }
+    if (identical(raw$version, "random_intercept_fixed_v2")) {
+      raw$variance_ratio_grid <- unname(as.numeric(unlist(
+        raw$variance_ratio_grid, use.names = FALSE)))
     }
     specs$gaussian[[analysis_id]] <- raw
   }

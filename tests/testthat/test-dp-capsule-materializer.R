@@ -819,6 +819,32 @@ test_that("strict categorical marginals reject unknown and conflicting admitted 
     fixture$policy, fixture$manifest, fixture$resolved))
 })
 
+test_that("strict categorical pairs retain only complete joint cells", {
+  fixture <- .materializer_test_fixture(workload_scope = list(
+    mode = "catalog_v1", numeric_moments = character(),
+    categorical_marginals = character(),
+    categorical_pairs = list(c("cat_a", "cat_b")), correlations = list(),
+    strict_missing_categorical = c("cat_a", "cat_b")))
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  pair_name <- grep("^categorical_pairs::", names(layout$blocks),
+                    value = TRUE)[[1L]]
+  pair <- layout$blocks[[pair_name]]
+  expect_identical(pair$descriptor$missingness_policy,
+                   paste("missing_values_have_no_joint_cell_and_unknown_or_conflicting",
+                         "nonmissing_values_reject_before_release_v1", sep = "_"))
+  fixture$data$cat_b[[4L]] <- NA_character_
+  fixture$resolved$protected$data <- fixture$data
+  material <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)
+  expect_identical(sum(material$values[pair$start:pair$end]), 2)
+
+  unknown <- fixture
+  unknown$data$cat_b[[1L]] <- "outside"
+  unknown$resolved$protected$data <- unknown$data
+  expect_error(.dsvert_dp_capsule_materialize_local(
+    unknown$policy, unknown$manifest, unknown$resolved), "categorical")
+})
+
 test_that("numeric pairs use pairwise-complete admitted units", {
   fixture <- .materializer_test_fixture()
   fixture$data$x[fixture$data$patient_id == "u2"] <- NA_real_

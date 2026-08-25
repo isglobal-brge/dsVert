@@ -1959,15 +1959,25 @@
             pair_coordinates, left_levels * right_levels)
         }
         key <- paste(data_name, owner, sep = "::")
+        strict_pair <- all(vapply(selected_pairs, function(pair) {
+          all(pair %in% primitive_scope$strict_missing_categorical)
+        }, logical(1L)))
         pair_sets[[key]] <- list(
           dataset = data_name, owner_peer = owner,
           columns = lapply(owned, function(column) list(
             column = column$column, levels = column$levels)),
           included_pairs = lapply(selected_pairs, unname),
-          repeated_record_policy =
-            "consistent_joint_cell_else_exclude_v1",
-          missingness_policy =
-            "missing_or_out_of_domain_rows_are_ignored",
+          repeated_record_policy = if (isTRUE(strict_pair)) {
+            "one_consistent_registered_joint_cell_or_missing_per_admitted_unit_v1"
+          } else {
+            "consistent_joint_cell_else_exclude_v1"
+          },
+          missingness_policy = if (isTRUE(strict_pair)) {
+            paste("missing_values_have_no_joint_cell_and_unknown_or_conflicting",
+                  "nonmissing_values_reject_before_release_v1", sep = "_")
+          } else {
+            "missing_or_out_of_domain_rows_are_ignored"
+          },
           coordinate_count = pair_coordinates,
           pair_count = as.integer(pair_count),
           statistic_maximum = capacity)

@@ -173,6 +173,7 @@ test_that("K=2/3/5 local categorical selectors bind signed catalog metadata", {
     policy$capsule_workload_scope <- list(
       mode = "catalog_v1", numeric_moments = character(),
       categorical_marginals = character(),
+      strict_missing_categorical = c("disease", "exposure"),
       categorical_pairs = list(c("disease", "exposure")),
       correlations = list())
     schema <- list(
@@ -224,11 +225,15 @@ test_that("K=2/3/5 local categorical selectors bind signed catalog metadata", {
       .dsvert_dp_synopsis_local_pair_selector_validate_v1(
         selected, schema, policy), selected)
     expect_identical(
-      .dsvert_dp_synopsis_local_pair_scope_v1(selected)$categorical_pairs,
+      .dsvert_dp_synopsis_local_pair_scope_v1(selected, policy)$categorical_pairs,
       list(c("disease", "exposure")))
+    expect_identical(
+      .dsvert_dp_synopsis_local_pair_scope_v1(
+        selected, policy)$strict_missing_categorical,
+      c("disease", "exposure"))
     projected_context <- .dsvert_dp_synopsis_policy_context_v1(
       policy, .primitive_scope =
-        .dsvert_dp_synopsis_local_pair_scope_v1(selected))
+        .dsvert_dp_synopsis_local_pair_scope_v1(selected, policy))
     expect_identical(selected$parent$policy_sha256,
                      .dsvert_joint_dp_hash(projected_context$common))
     expect_identical(selected$parent$schema_sha256,

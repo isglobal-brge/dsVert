@@ -689,9 +689,14 @@
     logical_snapshot = logical_snapshot,
     peer_pinset_sha256 = policy$peer_pinset_sha256,
     datasets = datasets))
+  parent_scope <- .dsvert_dp_capsule_scope_policy_binding(
+    policy$capsule_workload_scope)
+  strict_missing <- sort(intersect(
+    references, parent_scope$strict_missing_categorical), method = "radix")
   scope <- .dsvert_dp_capsule_scope_policy_binding(list(
     mode = "catalog_v1", numeric_moments = character(),
     categorical_marginals = character(),
+    strict_missing_categorical = strict_missing,
     categorical_pairs = list(references), correlations = list()))
   list(
     schema = projected_schema,
@@ -827,12 +832,17 @@
   projection
 }
 
-.dsvert_dp_synopsis_local_pair_scope_v1 <- function(selector) {
+.dsvert_dp_synopsis_local_pair_scope_v1 <- function(selector, policy) {
   references <- vapply(
     selector$columns, `[[`, character(1L), "reference")
+  parent_scope <- .dsvert_dp_capsule_scope_policy_binding(
+    policy$capsule_workload_scope)
+  strict_missing <- sort(intersect(
+    references, parent_scope$strict_missing_categorical), method = "radix")
   .dsvert_dp_capsule_scope_policy_binding(list(
     mode = "catalog_v1", numeric_moments = character(),
     categorical_marginals = character(),
+    strict_missing_categorical = strict_missing,
     categorical_pairs = list(sort(unname(references), method = "radix")),
     correlations = list()))
 }
@@ -1242,11 +1252,11 @@
   .dsvert_dp_synopsis_local_pair_project_v1(schema, selector, policy)
 }
 
-.dsvert_dp_synopsis_projection_scope_v1 <- function(selector) {
+.dsvert_dp_synopsis_projection_scope_v1 <- function(selector, policy) {
   if (.dsvert_dp_synopsis_projection_is_cross_v1(selector)) {
     return(.dsvert_dp_synopsis_cross_pair_scope_v1(selector))
   }
-  .dsvert_dp_synopsis_local_pair_scope_v1(selector)
+  .dsvert_dp_synopsis_local_pair_scope_v1(selector, policy)
 }
 
 .dsvert_dp_synopsis_manifest_schema_v1 <- function(bootstraps, policy) {
@@ -2536,7 +2546,7 @@
     local_projection = NULL,
     .verifier = .dsvert_relay_verify_message) {
   requested_scope <- if (is.null(local_projection)) NULL else
-    .dsvert_dp_synopsis_projection_scope_v1(local_projection)
+    .dsvert_dp_synopsis_projection_scope_v1(local_projection, policy)
   schema_json <- .dsvert_dp_canonical_json(
     .dsvert_dp_canonical_query_value(signed_schema))
   workload_json <- .dsvert_dp_canonical_json(
@@ -2559,7 +2569,7 @@
   primitive_scope <- if (is.null(selector)) {
     .dsvert_dp_capsule_scope_policy_binding(policy$capsule_workload_scope)
   } else {
-    .dsvert_dp_synopsis_projection_scope_v1(selector)
+    .dsvert_dp_synopsis_projection_scope_v1(selector, policy)
   }
   local_authority <- .dsvert_dp_synopsis_manifest_local_authority_v1(
     policy, secret)

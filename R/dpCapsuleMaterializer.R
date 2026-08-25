@@ -926,9 +926,30 @@
       next
     }
     data <- snapshots[[block$dataset]]$data
-    bounded <- .dsvert_dp_bounded_pairs(
-      data, policy, descriptor$left$column, descriptor$right$column,
-      admission_for(block$dataset))
+    strict_pair <- identical(
+      descriptor$missingness_policy,
+      paste("missing_values_have_no_joint_cell_and_unknown_or_conflicting",
+            "nonmissing_values_reject_before_release_v1", sep = "_"))
+    if (isTRUE(strict_pair)) {
+      admission <- admission_for(block$dataset)
+      left <- .dsvert_dp_capsule_bounded_category(
+        data, policy, descriptor$left$column, descriptor$left$levels,
+        admission, strict = TRUE)
+      right <- .dsvert_dp_capsule_bounded_category(
+        data, policy, descriptor$right$column, descriptor$right$levels,
+        admission, strict = TRUE)
+      complete <- !is.na(left$cell) & !is.na(right$cell)
+      cell <- rep(NA_integer_, admission$work_units)
+      cell[complete] <- left$cell[complete] +
+        (right$cell[complete] - 1L) * length(left$levels)
+      bounded <- list(
+        cell = cell,
+        cell_count = .dsvert_dp_coordinate_count(left$levels, right$levels))
+    } else {
+      bounded <- .dsvert_dp_bounded_pairs(
+        data, policy, descriptor$left$column, descriptor$right$column,
+        admission_for(block$dataset))
+    }
     values[block$start:block$end] <- tabulate(
       bounded$cell, nbins = bounded$cell_count)
   }

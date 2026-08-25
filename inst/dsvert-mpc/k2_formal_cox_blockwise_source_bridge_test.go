@@ -679,48 +679,37 @@ func formalCoxBlockwiseSourceBridgeFreshOpeningReachesFinalizerV1(
 		t.Fatalf("issue finalizer ticket: replay=%v secret=%d err=%v", replayed, len(secret), err)
 	}
 	clear(secret)
+	workerFinalizerRoot := t.TempDir()
 	for index, peer := range fixture.plan.Policy.ComputePeers {
-		outboxKey := sha256.Sum256([]byte(t.Name() + "/outbox/" + peer))
-		outbox, openErr := newFormalFinalizerHandoffStoreForTest(
-			filepath.Join(t.TempDir(), "outbox-"+peer), binding, outboxKey, fixture.pins)
-		if openErr != nil {
-			t.Fatal(openErr)
-		}
 		if index == 0 {
 			wrongKey := sha256.Sum256([]byte(t.Name() + "/wrong-opening"))
 			wrong, wrongErr := newFormalCoxBlockwiseOpeningStore(
 				filepath.Join(t.TempDir(), "wrong-opening"), wrongKey,
 				fixture.plan, fixture.pins)
 			if wrongErr != nil {
-				outbox.Close()
 				t.Fatal(wrongErr)
 			}
 			wrong.planSHA256 = strings.Repeat("0", 64)
-			if _, _, wrongErr = bridges[index].SealStickyOpeningToFinalizerV1(
-				wrong, outbox, ticket, headers); wrongErr == nil {
+			if _, _, wrongErr = bridges[index].SealStickyOpeningToFinalizerAtRootV1(
+				wrong, ticket, headers, workerFinalizerRoot, false); wrongErr == nil {
 				wrong.Close()
-				outbox.Close()
 				t.Fatal("bridge sealed an opening from another plan")
 			}
 			wrong.Close()
 		}
-		envelope, replayed, sealErr := bridges[index].SealStickyOpeningToFinalizerV1(
-			openings[index], outbox, ticket, headers)
+		envelope, replayed, sealErr := bridges[index].SealStickyOpeningToFinalizerAtRootV1(
+			openings[index], ticket, headers, workerFinalizerRoot, false)
 		if sealErr != nil || replayed || len(envelope.Ciphertext) == 0 {
-			outbox.Close()
 			t.Fatalf("seal %s: replay=%v ciphertext=%d err=%v", peer, replayed,
 				len(envelope.Ciphertext), sealErr)
 		}
 		if _, _, importErr := ingress.CommitIngress(envelope); importErr != nil {
-			outbox.Close()
 			t.Fatalf("import %s: %v", peer, importErr)
 		}
-		if _, replayed, sealErr = bridges[index].SealStickyOpeningToFinalizerV1(
-			openings[index], outbox, ticket, headers); sealErr != nil || !replayed {
-			outbox.Close()
+		if _, replayed, sealErr = bridges[index].SealStickyOpeningToFinalizerAtRootV1(
+			openings[index], ticket, headers, workerFinalizerRoot, false); sealErr != nil || !replayed {
 			t.Fatalf("seal replay %s: replay=%v err=%v", peer, replayed, sealErr)
 		}
-		outbox.Close()
 	}
 	intent, publication, found, err := formalCoxBlockwiseOpeningDistributedOpenAndPrepare(
 		finalizer, ingress, ticket, headers, nil)

@@ -395,6 +395,24 @@ func (host *formalGLMRegisteredPhase20JobControlHostV1) persistSelectedPublicati
 		return err
 	}
 	defer formalGLMRegisteredPhase21PublicationContextClearV1(&context)
+	return formalGLMRegisteredPhase21PersistSelectedPublicationContextV1(
+		terminal, filepath.Join(rockRoot, peer), context, contract, pins)
+}
+
+// formalGLMRegisteredPhase21PersistSelectedPublicationContextV1 validates a
+// private Phase21 context against Selected before it reaches the durable
+// lifecycle assets. The caller owns context and keeps it out of the command
+// surface.
+func formalGLMRegisteredPhase21PersistSelectedPublicationContextV1(
+	terminal *formalGLMRegisteredPhase20TerminalOwnerV1,
+	authorityRoot string,
+	context formalGLMRegisteredPhase21PublicationContextV1,
+	contract formalGLMSourceContractV1,
+	pins map[string]ed25519.PublicKey,
+) error {
+	if terminal == nil || authorityRoot == "" {
+		return fmt.Errorf("formal-glm registered Phase21 assets: terminal unavailable")
+	}
 	stageReady, err := formalGLMRegisteredPhase21PublicationStageInputsV1(context)
 	if err != nil {
 		return err
@@ -405,7 +423,7 @@ func (host *formalGLMRegisteredPhase20JobControlHostV1) persistSelectedPublicati
 		}
 	}
 	_, _, err = formalGLMRegisteredPhase21PersistPublicationAssetsV1(
-		filepath.Join(rockRoot, peer), context, contract, pins)
+		authorityRoot, context, contract, pins)
 	return err
 }
 

@@ -337,6 +337,43 @@ func formalGLMRegisteredPhase20JobControlHostRunsFromPendingIngressV1(
 			t.Fatalf("host %d did not admit post-Selected Phase16: %v", index, admissionErr)
 		}
 	}
+	for index, host := range hosts {
+		if err := host.FinalizePostSelectedPhase16V1(
+			proposals[index], commitments, attestations, backendSignatures, workerSignatures); err != nil {
+			t.Fatalf("host %d did not persist admitted post-Selected Phase16: %v", index, err)
+		}
+		if err := host.FinalizePostSelectedPhase16V1(
+			proposals[index], commitments, attestations, backendSignatures, workerSignatures); err != nil {
+			t.Fatalf("host %d changed post-Selected Phase16 replay: %v", index, err)
+		}
+		host.mu.Lock()
+		owner := host.owner
+		host.mu.Unlock()
+		owner.mu.Lock()
+		terminal := owner.terminal
+		owner.mu.Unlock()
+		terminal.mu.Lock()
+		authorityRoot := filepath.Join(fixture.roots[index], terminal.peer)
+		terminal.mu.Unlock()
+		assets, assetsErr := formalGLMRegisteredPhase21PublicationAssetsPathsV1(
+			authorityRoot, fixture.provenance.source.contract.Core.ArtifactID)
+		host.mu.Lock()
+		stageReady, stageErr := formalGLMRegisteredPhase21PublicationStageInputsV1(*host.publication)
+		host.mu.Unlock()
+		if assetsErr != nil || stageErr != nil || !stageReady {
+			t.Fatalf("host %d did not create Stage-ready assets: %#v / %v", index, assets, assetsErr)
+		}
+		for _, path := range []string{
+			assets.capsulePath, assets.requestPath, assets.backendSignaturesPath,
+			assets.workerSignaturesPath, assets.samplerAuthorizationsPath,
+		} {
+			info, statErr := os.Lstat(path)
+			if statErr != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0o600 {
+				t.Fatalf("host %d did not persist post-Selected asset %q: %v / %#v",
+					index, path, statErr, info)
+			}
+		}
+	}
 	var preflight [2]formalGLMPhase21RockPreflightRecord
 	var preflightFrames [2][]byte
 	for index, host := range hosts {

@@ -40,10 +40,17 @@ type formalGLMRegisteredPhase20JobComputeTestFixtureV1 struct {
 func formalGLMRegisteredPhase20JobComputeTestBuild(
 	t *testing.T, custodians, totalCapacity int,
 ) *formalGLMRegisteredPhase20JobComputeTestFixtureV1 {
+	return formalGLMRegisteredPhase20JobComputeTestBuildWithFamily(
+		t, "binomial", custodians, totalCapacity)
+}
+
+func formalGLMRegisteredPhase20JobComputeTestBuildWithFamily(
+	t *testing.T, family string, custodians, totalCapacity int,
+) *formalGLMRegisteredPhase20JobComputeTestFixtureV1 {
 	t.Helper()
 	fixture := &formalGLMRegisteredPhase20JobComputeTestFixtureV1{
-		provenance: formalGLMRegisteredPhase18ProvenanceTestBuildWithCapacity(
-			t, custodians, totalCapacity),
+		provenance: formalGLMRegisteredPhase18ProvenanceTestBuildWithCapacityAndFamily(
+			t, family, custodians, totalCapacity),
 	}
 	source := fixture.provenance.source
 	plan, contract := source.plan, source.contract
@@ -305,11 +312,30 @@ func TestFormalGLMRegisteredPhase20JobComputeK3K5SealsWithoutRawOutput(
 	}
 }
 
+func TestFormalGLMRegisteredPhase20JobComputePoissonK2K3K5SealsWithoutRawOutput(
+	t *testing.T,
+) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+			formalGLMRegisteredPhase20JobComputeSealsWithoutRawOutputFamily(
+				t, "poisson", custodians, 4)
+		})
+	}
+}
+
 func formalGLMRegisteredPhase20JobComputeSealsWithoutRawOutput(
 	t *testing.T, custodians, totalCapacity int,
 ) {
+	formalGLMRegisteredPhase20JobComputeSealsWithoutRawOutputFamily(
+		t, "binomial", custodians, totalCapacity)
+}
+
+func formalGLMRegisteredPhase20JobComputeSealsWithoutRawOutputFamily(
+	t *testing.T, family string, custodians, totalCapacity int,
+) {
 	t.Helper()
-	fixture := formalGLMRegisteredPhase20JobComputeTestBuild(t, custodians, totalCapacity)
+	fixture := formalGLMRegisteredPhase20JobComputeTestBuildWithFamily(
+		t, family, custodians, totalCapacity)
 	plan := fixture.provenance.source.plan
 	backend, err := fixture.providers[0].DeriveBackendV1(fixture.record)
 	if err != nil {

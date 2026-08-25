@@ -485,13 +485,3 @@ func TestFormalGLMRegisteredExecutionPlanStrictDecodeAndTamper(t *testing.T) {
 		t.Fatal("reordered transcript inventory was accepted")
 	}
 }
-
-func TestFormalGLMRegisteredExecutionPlanRejectsPoisson(t *testing.T) {
-	inputs := formalGLMRegisteredExecutionTestInputsV1(
-		t, "poisson", 2, 2, 1)
-	if _, err := formalGLMBuildRegisteredExecutionPlanV1(
-		inputs.plan, inputs.resolution, inputs.artifact, inputs.dp,
-		inputs.contract, inputs.bound, inputs.identities.public); err == nil {
-		t.Fatal("Poisson was exposed through the registered execution projection")
-	}
-}

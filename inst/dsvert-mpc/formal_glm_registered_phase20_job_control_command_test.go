@@ -3,11 +3,123 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"os"
+	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
+
+const formalGLMRegisteredPhase20JobControlHostProcessEnvV1 = "DSVERT_FORMAL_GLM_JOB_CONTROL_HOST_PROCESS_V1"
+
+// This is intentionally a test-process entry point rather than another host
+// implementation. The child executes the same durable-bootstrap path as the
+// production host, while the parent exercises the one-shot control path after
+// the process has been restarted.
+func TestFormalGLMRegisteredPhase20JobControlHostProcessV1(t *testing.T) {
+	if os.Getenv(formalGLMRegisteredPhase20JobControlHostProcessEnvV1) != "1" {
+		return
+	}
+	root := os.Getenv("DSVERT_FORMAL_GLM_JOB_CONTROL_HOST_ROOT_V1")
+	peer := os.Getenv("DSVERT_FORMAL_GLM_JOB_CONTROL_HOST_PEER_V1")
+	artifactID := os.Getenv("DSVERT_FORMAL_GLM_JOB_CONTROL_HOST_ARTIFACT_V1")
+	receiptSetSHA256 := os.Getenv("DSVERT_FORMAL_GLM_JOB_CONTROL_HOST_RECEIPT_V1")
+	if root == "" || peer == "" || artifactID == "" || receiptSetSHA256 == "" {
+		t.Fatal("missing host-process selector")
+	}
+	stop := make(chan struct{})
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGTERM)
+	defer signal.Stop(signals)
+	go func() {
+		<-signals
+		close(stop)
+	}()
+	if err := runFormalGLMRegisteredPhase20JobControlHostAtRootV1(
+		peer, artifactID, receiptSetSHA256, root, stop, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func formalGLMRegisteredPhase20JobControlHostProcessStartV1(
+	t *testing.T, root string,
+	receipt formalGLMRegisteredPhase20JobControlHostProvisionReceiptV1,
+) *exec.Cmd {
+	t.Helper()
+	command := exec.Command(os.Args[0], "-test.run=^TestFormalGLMRegisteredPhase20JobControlHostProcessV1$")
+	command.Env = append(os.Environ(),
+		formalGLMRegisteredPhase20JobControlHostProcessEnvV1+"=1",
+		"DSVERT_FORMAL_GLM_JOB_CONTROL_HOST_ROOT_V1="+root,
+		"DSVERT_FORMAL_GLM_JOB_CONTROL_HOST_PEER_V1="+receipt.Peer,
+		"DSVERT_FORMAL_GLM_JOB_CONTROL_HOST_ARTIFACT_V1="+receipt.ArtifactID,
+		"DSVERT_FORMAL_GLM_JOB_CONTROL_HOST_RECEIPT_V1="+receipt.ReceiptSetSHA256)
+	if err := command.Start(); err != nil {
+		t.Fatal(err)
+	}
+	return command
+}
+
+func formalGLMRegisteredPhase20JobControlHostProcessStopV1(t *testing.T, command *exec.Cmd) {
+	t.Helper()
+	if command == nil || command.Process == nil {
+		t.Fatal("missing host process")
+	}
+	if err := command.Process.Signal(syscall.SIGTERM); err != nil {
+		t.Fatal(err)
+	}
+	if err := command.Wait(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func formalGLMRegisteredPhase20JobControlHostProcessHealthV1(
+	root string, receipt formalGLMRegisteredPhase20JobControlHostProvisionReceiptV1,
+) error {
+	payload, err := json.Marshal(struct{}{})
+	if err != nil {
+		return err
+	}
+	defer clear(payload)
+	encoded, err := json.Marshal(formalGLMRegisteredPhase20JobControlCommandV1{
+		Version:          formalGLMRegisteredPhase20JobControlCommandVersionV1,
+		Peer:             receipt.Peer,
+		ArtifactID:       receipt.ArtifactID,
+		ReceiptSetSHA256: receipt.ReceiptSetSHA256,
+		Action:           "health",
+		Payload:          payload,
+	})
+	if err != nil {
+		return err
+	}
+	defer clear(encoded)
+	response, err := formalGLMRegisteredPhase20JobControlRunAtRootV1(encoded, root)
+	if err != nil {
+		return err
+	}
+	defer clear(response.Payload)
+	var health struct{}
+	return formalGLMPhase21RockStrictDecode(response.Payload, &health)
+}
+
+func formalGLMRegisteredPhase20JobControlHostProcessWaitV1(
+	t *testing.T, root string,
+	receipt formalGLMRegisteredPhase20JobControlHostProvisionReceiptV1,
+) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if err := formalGLMRegisteredPhase20JobControlHostProcessHealthV1(root, receipt); err == nil {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("separate host process did not become healthy")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
 
 func TestFormalGLMRegisteredPhase20JobControlFramesPhase21Lifecycle(t *testing.T) {
 	cases := []struct {
@@ -252,6 +364,80 @@ func TestFormalGLMRegisteredPhase20JobControlHostCommandServesProvisionedHealth(
 	case <-time.After(5 * time.Second):
 		t.Fatal("host command did not stop")
 	}
+}
+
+func TestFormalGLMRegisteredPhase20JobControlHostProcessRestartsFromProvisionedBootstrap(t *testing.T) {
+	fixture := newFormalGLMRegisteredPhase20JobControlTestFixtureV1(t)
+	config := formalGLMRegisteredPhase20JobControlHostTestConfigV1(t, fixture, 1)
+	formalGLMRegisteredPhase20JobControlHostTestReleaseFixtureV1(t, fixture)
+	encodedProvision, err := json.Marshal(formalGLMRegisteredPhase20JobControlHostProvisionV1{
+		Version: formalGLMRegisteredPhase20JobControlHostProvisionVersionV1,
+		Config:  config,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(encodedProvision)
+	receipt, err := formalGLMRegisteredPhase20JobControlHostProvisionRunAtRootV1(
+		encodedProvision, fixture.roots[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	first := formalGLMRegisteredPhase20JobControlHostProcessStartV1(t, fixture.roots[1], receipt)
+	firstStopped := false
+	t.Cleanup(func() {
+		if !firstStopped && first.Process != nil {
+			_ = first.Process.Kill()
+			_ = first.Wait()
+		}
+	})
+	formalGLMRegisteredPhase20JobControlHostProcessWaitV1(t, fixture.roots[1], receipt)
+	formalGLMRegisteredPhase20JobControlHostProcessStopV1(t, first)
+	firstStopped = true
+	if err := formalGLMRegisteredPhase20JobControlHostProcessHealthV1(fixture.roots[1], receipt); err == nil {
+		t.Fatal("stopped host process accepted a control request")
+	}
+
+	second := formalGLMRegisteredPhase20JobControlHostProcessStartV1(t, fixture.roots[1], receipt)
+	secondStopped := false
+	t.Cleanup(func() {
+		if !secondStopped && second.Process != nil {
+			_ = second.Process.Kill()
+			_ = second.Wait()
+		}
+	})
+	formalGLMRegisteredPhase20JobControlHostProcessWaitV1(t, fixture.roots[1], receipt)
+	payload, err := json.Marshal(formalGLMRegisteredPhase20JobControlHostDaemonInboundV1{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(payload)
+	command, err := json.Marshal(formalGLMRegisteredPhase20JobControlCommandV1{
+		Version:          formalGLMRegisteredPhase20JobControlCommandVersionV1,
+		Peer:             receipt.Peer,
+		ArtifactID:       receipt.ArtifactID,
+		ReceiptSetSHA256: receipt.ReceiptSetSHA256,
+		Action:           "negotiate",
+		Payload:          payload,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(command)
+	response, err := formalGLMRegisteredPhase20JobControlRunAtRootV1(command, fixture.roots[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(response.Payload)
+	var result formalGLMRegisteredPhase20JobControlHostDaemonResultV1
+	if err := formalGLMPhase21RockStrictDecode(response.Payload, &result); err != nil ||
+		result.State != formalGLMRegisteredPhase20JobControlWaitingProposalStateV1 ||
+		len(result.Outbound) != 0 || result.ProductionReady {
+		t.Fatalf("restarted host process negotiation=%#v / %v", result, err)
+	}
+	formalGLMRegisteredPhase20JobControlHostProcessStopV1(t, second)
+	secondStopped = true
 }
 
 func TestFormalGLMRegisteredPhase20JobControlUsesProvisionedHost(t *testing.T) {

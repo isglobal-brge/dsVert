@@ -106,6 +106,35 @@ test_that("registered formal GLM job control relays opaque Phase21 lifecycle fra
   expect_identical(output$payload, list(frame = "eyJyZWNlaXB0Ijp7fX0="))
 })
 
+test_that("registered formal GLM job control relays only bounded post-Selected frames", {
+  receipt <- .formal_glm_registered_job_control_receipt()
+  seen <- NULL
+  testthat::local_mocked_bindings(
+    .callMpcTool = function(command, input_data, simplify_output = TRUE) {
+      seen <<- list(command = command, input = input_data,
+                    simplify_output = simplify_output)
+      list(
+        version = "dsvert-formal-glm-registered-phase20-job-control-v1",
+        payload = list(frame = "eyJ2ZXJzaW9uIjoicHVibGljIn0="))
+    },
+    .package = "dsVert")
+  output <- dsvertFormalGLMRegisteredJobControlDS(
+    receipt, "phase16_postselected_proposal",
+    list(frames = unname(rep("e30=", 2L))))
+  expect_identical(seen$input$action, "phase16_postselected_proposal")
+  expect_identical(seen$input$payload,
+                   list(frames = unname(rep("e30=", 2L))))
+  expect_identical(output$payload, list(frame = "eyJ2ZXJzaW9uIjoicHVibGljIn0="))
+  expect_false(any(grepl("secret|share|path|key|capsule", names(output$payload),
+                         ignore.case = TRUE)))
+
+  output <- dsvertFormalGLMRegisteredJobControlDS(
+    receipt, "phase16_postselected_commitment",
+    structure(list(), names = character()))
+  expect_identical(seen$input$action, "phase16_postselected_commitment")
+  expect_identical(output$payload, list(frame = "eyJ2ZXJzaW9uIjoicHVibGljIn0="))
+})
+
 test_that("registered formal GLM job control validates its closed envelope", {
   receipt <- .formal_glm_registered_job_control_receipt()
   calls <- 0L
@@ -127,6 +156,13 @@ test_that("registered formal GLM job control validates its closed envelope", {
     class = "dsvert_formal_glm_registered_job_control_error")
   expect_error(dsvertFormalGLMRegisteredJobControlDS(
     receipt, "phase21_commit", list(publication = list())),
+    class = "dsvert_formal_glm_registered_job_control_error")
+  expect_error(dsvertFormalGLMRegisteredJobControlDS(
+    receipt, "phase16_postselected_sign", list(frames = unname(rep("e30=", 4L)))),
+    class = "dsvert_formal_glm_registered_job_control_error")
+  expect_error(dsvertFormalGLMRegisteredJobControlDS(
+    receipt, "phase16_postselected_finalize",
+    list(frames = unname(c(rep("e30=", 6L), "not-base64")))),
     class = "dsvert_formal_glm_registered_job_control_error")
   expect_error(dsvertFormalGLMRegisteredJobControlDS(
     utils::modifyList(receipt, list(config_sha256 = "wrong")),

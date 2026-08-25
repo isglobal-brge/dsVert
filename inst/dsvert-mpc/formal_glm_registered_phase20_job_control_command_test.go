@@ -109,6 +109,68 @@ func TestFormalGLMRegisteredPhase20JobControlFramesPhase21Lifecycle(t *testing.T
 	}
 }
 
+func TestFormalGLMRegisteredPhase20JobControlAdmitsOnlyBoundedPostSelectedFrames(t *testing.T) {
+	cases := []struct {
+		action  string
+		payload any
+	}{
+		{"phase16_postselected_commitment", struct{}{}},
+		{"phase16_postselected_proposal", formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedFramesV1{
+			Frames: [][]byte{[]byte(`{}`), []byte(`{}`)},
+		}},
+		{"phase16_postselected_attestation", formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedFramesV1{
+			Frames: [][]byte{[]byte(`{}`), []byte(`{}`), []byte(`{}`)},
+		}},
+		{"phase16_postselected_sign", formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedFramesV1{
+			Frames: [][]byte{[]byte(`{}`), []byte(`{}`), []byte(`{}`), []byte(`{}`), []byte(`{}`)},
+		}},
+		{"phase16_postselected_finalize", formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedFramesV1{
+			Frames: [][]byte{[]byte(`{}`), []byte(`{}`), []byte(`{}`), []byte(`{}`), []byte(`{}`), []byte(`{}`), []byte(`{}`)},
+		}},
+	}
+	for _, test := range cases {
+		t.Run(test.action, func(t *testing.T) {
+			payload, err := json.Marshal(test.payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			command, err := json.Marshal(formalGLMRegisteredPhase20JobControlCommandV1{
+				Version:          formalGLMRegisteredPhase20JobControlCommandVersionV1,
+				Peer:             "site_a",
+				ArtifactID:       strings.Repeat("a", 64),
+				ReceiptSetSHA256: strings.Repeat("b", 64),
+				Action:           test.action,
+				Payload:          payload,
+			})
+			clear(payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := formalGLMRegisteredPhase20JobControlDecodeV1(command); err != nil {
+				clear(command)
+				t.Fatalf("rejected bounded post-Selected action: %v", err)
+			}
+			clear(command)
+		})
+	}
+	invalid, err := json.Marshal(formalGLMRegisteredPhase20JobControlCommandV1{
+		Version:          formalGLMRegisteredPhase20JobControlCommandVersionV1,
+		Peer:             "site_a",
+		ArtifactID:       strings.Repeat("a", 64),
+		ReceiptSetSHA256: strings.Repeat("b", 64),
+		Action:           "phase16_postselected_finalize",
+		Payload:          json.RawMessage(`{"frames":["e30=","e30=","e30=","e30=","e30=","e30="]}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := formalGLMRegisteredPhase20JobControlDecodeV1(invalid); err == nil {
+		clear(invalid)
+		t.Fatal("accepted an undersized post-Selected finalization")
+	}
+	clear(invalid)
+}
+
 func TestFormalGLMRegisteredPhase20JobControlHostCommandServesProvisionedHealth(t *testing.T) {
 	fixture := newFormalGLMRegisteredPhase20JobControlTestFixtureV1(t)
 	config := formalGLMRegisteredPhase20JobControlHostTestConfigV1(t, fixture, 1)

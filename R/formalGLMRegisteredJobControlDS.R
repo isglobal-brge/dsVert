@@ -23,7 +23,10 @@
   "phase21_candidate_import", "phase21_local_release_import",
   "phase21_base_certificate_import", "phase21_authorization_import",
   "phase21_commit", "phase21_commit_import", "phase21_ack_import",
-  "phase21_cleanup", "phase21_cleanup_import")
+  "phase21_cleanup", "phase21_cleanup_import",
+  "phase16_postselected_commitment", "phase16_postselected_proposal",
+  "phase16_postselected_attestation", "phase16_postselected_sign",
+  "phase16_postselected_finalize")
 
 .dsvert_formal_glm_registered_job_control_abort <- function(
     message = "The registered formal-GLM job control request is unavailable.",
@@ -77,7 +80,13 @@
       "invalid_formal_glm_registered_job_payload")
   }
   phase21 <- startsWith(action, "phase21_")
+  phase16 <- startsWith(action, "phase16_postselected_")
   expected <- if (phase21) "frame" else switch(action,
+    phase16_postselected_commitment = character(),
+    phase16_postselected_proposal = "frames",
+    phase16_postselected_attestation = "frames",
+    phase16_postselected_sign = "frames",
+    phase16_postselected_finalize = "frames",
     negotiate = "inbound", bind = "frame",
     poll = c("ref", "acknowledged"), relay = c("ref", "chunk"),
     character())
@@ -113,6 +122,26 @@
   if (phase21) {
     payload$frame <- .dsvert_formal_glm_registered_job_control_base64(
       payload$frame, "Phase21 lifecycle frame")
+  }
+  if (phase16 && !identical(action, "phase16_postselected_commitment")) {
+    expected_count <- switch(action,
+      phase16_postselected_proposal = 2L,
+      phase16_postselected_attestation = 3L,
+      phase16_postselected_sign = 5L,
+      phase16_postselected_finalize = NA_integer_)
+    frames <- payload$frames
+    valid_frames <- is.character(frames) && is.null(names(frames)) && !anyNA(frames) &&
+      (is.na(expected_count) && length(frames) >= 7L ||
+       !is.na(expected_count) && length(frames) == expected_count)
+    if (!isTRUE(valid_frames)) {
+      .dsvert_formal_glm_registered_job_control_abort(
+        "The registered formal-GLM post-Selected frames are invalid.",
+        "invalid_formal_glm_registered_job_frame")
+    }
+    payload$frames <- unname(vapply(frames, function(frame) {
+      .dsvert_formal_glm_registered_job_control_base64(
+        frame, "post-Selected Phase16 frame")
+    }, character(1L)))
   }
   encoded <- tryCatch(jsonlite::toJSON(
     payload, auto_unbox = TRUE, null = "null", digits = 17),

@@ -148,11 +148,58 @@ func formalGLMRegisteredPhase20JobControlPhase21ActionV1(action string) bool {
 	}
 }
 
+func formalGLMRegisteredPhase20JobControlPostSelectedPhase16ActionV1(action string) bool {
+	switch action {
+	case "phase16_postselected_commitment", "phase16_postselected_proposal",
+		"phase16_postselected_attestation", "phase16_postselected_sign",
+		"phase16_postselected_finalize":
+		return true
+	default:
+		return false
+	}
+}
+
+func formalGLMRegisteredPhase20JobControlPostSelectedFramesValidV1(
+	action string, payload json.RawMessage,
+) bool {
+	if action == "phase16_postselected_commitment" {
+		_, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](payload)
+		return err == nil
+	}
+	frames, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedFramesV1](payload)
+	if err != nil {
+		return false
+	}
+	want := 0
+	switch action {
+	case "phase16_postselected_proposal":
+		want = 2
+	case "phase16_postselected_attestation":
+		want = 3
+	case "phase16_postselected_sign":
+		want = 5
+	case "phase16_postselected_finalize":
+		want = -1
+	default:
+		return false
+	}
+	valid := (want < 0 && len(frames.Frames) >= 7) || (want >= 0 && len(frames.Frames) == want)
+	for index := range frames.Frames {
+		valid = valid && len(frames.Frames[index]) >= 2 &&
+			len(frames.Frames[index]) <= formalGLMRegisteredPhase20JobControlHostDaemonMaxV1
+		clear(frames.Frames[index])
+	}
+	return valid
+}
+
 func formalGLMRegisteredPhase20JobControlPayloadValidInnerV1(
 	action string, payload json.RawMessage,
 ) bool {
 	if len(payload) < 2 || payload[0] != '{' {
 		return false
+	}
+	if formalGLMRegisteredPhase20JobControlPostSelectedPhase16ActionV1(action) {
+		return formalGLMRegisteredPhase20JobControlPostSelectedFramesValidV1(action, payload)
 	}
 	switch action {
 	case "negotiate":

@@ -57,6 +57,22 @@ type formalGLMRegisteredPhase20JobControlHostDaemonBindV1 struct {
 	Frame []byte `json:"frame"`
 }
 
+// Post-Selected Phase16 records are public, signed admission material.  The
+// daemon carries their canonical encodings so the client relay never sees the
+// Selected handoff, a DP share, a sampler root, or a signing key.
+type formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedFramesV1 struct {
+	Frames [][]byte `json:"frames"`
+}
+
+type formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedFrameV1 struct {
+	Frame []byte `json:"frame"`
+}
+
+type formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedSignaturePairV1 struct {
+	Backend jointDPBiomedicalGaussianSignature `json:"backend"`
+	Worker  jointDPBiomedicalGaussianSignature `json:"worker"`
+}
+
 // Preflight frames are signed public lifecycle records.  They are transported
 // as opaque bytes so the local control surface never has to expose or accept
 // a Phase21 filesystem record.
@@ -478,6 +494,47 @@ func formalGLMRegisteredPhase20JobControlHostDaemonResultFromOwnerV1(
 	}
 }
 
+func formalGLMRegisteredPhase20JobControlHostDaemonDecodePostSelectedFramesV1(
+	encoded json.RawMessage, want int,
+) ([][]byte, error) {
+	request, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedFramesV1](encoded)
+	if err != nil || want < -1 || (want >= 0 && len(request.Frames) != want) {
+		for index := range request.Frames {
+			clear(request.Frames[index])
+		}
+		return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: invalid post-Selected frames")
+	}
+	for _, frame := range request.Frames {
+		if len(frame) < 2 || len(frame) > formalGLMRegisteredPhase20JobControlHostDaemonMaxV1 {
+			for index := range request.Frames {
+				clear(request.Frames[index])
+			}
+			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: invalid post-Selected frame")
+		}
+	}
+	return request.Frames, nil
+}
+
+func formalGLMRegisteredPhase20JobControlHostDaemonClearPostSelectedFramesV1(
+	frames [][]byte,
+) {
+	for index := range frames {
+		clear(frames[index])
+	}
+}
+
+func formalGLMRegisteredPhase20JobControlHostDaemonEncodePostSelectedFrameV1(
+	value any,
+) (json.RawMessage, error) {
+	frame, err := formalGLMRegisteredPhase20JobControlHostDaemonCanonicalV1(value)
+	if err != nil {
+		return nil, err
+	}
+	defer clear(frame)
+	return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(
+		formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedFrameV1{Frame: frame})
+}
+
 func formalGLMRegisteredPhase20JobControlHostDaemonTaskSnapshotV1(
 	task formalGLMRegisteredPhase20JobControlHostDaemonTaskV1,
 ) (formalGLMRegisteredPhase20JobControlHostDaemonTaskStatusV1, error) {
@@ -687,6 +744,107 @@ func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) dispatchV1(
 		request, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonBindV1](encoded)
 		if err != nil || host.BindPeerJobRefV1(request.Frame) != nil {
 			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: bind failed")
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(struct{}{})
+	case "phase16_postselected_commitment":
+		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil {
+			return nil, err
+		}
+		commitment, err := host.BuildPostSelectedAuthorityCommitmentV1()
+		if err != nil {
+			return nil, err
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonEncodePostSelectedFrameV1(commitment)
+	case "phase16_postselected_proposal":
+		frames, err := formalGLMRegisteredPhase20JobControlHostDaemonDecodePostSelectedFramesV1(encoded, 2)
+		if err != nil {
+			return nil, err
+		}
+		defer formalGLMRegisteredPhase20JobControlHostDaemonClearPostSelectedFramesV1(frames)
+		commitments := make([]formalGLMRegisteredPhase21PostSelectedAuthorityCommitmentV1, 2)
+		for index := range commitments {
+			if err := formalGLMPhase21RockStrictDecode(frames[index], &commitments[index]); err != nil {
+				return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: invalid post-Selected commitment")
+			}
+		}
+		proposal, err := host.BuildPostSelectedPhase16V1(commitments)
+		if err != nil {
+			return nil, err
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonEncodePostSelectedFrameV1(proposal)
+	case "phase16_postselected_attestation", "phase16_postselected_sign":
+		want := 3
+		if action == "phase16_postselected_sign" {
+			want = 5
+		}
+		frames, err := formalGLMRegisteredPhase20JobControlHostDaemonDecodePostSelectedFramesV1(encoded, want)
+		if err != nil {
+			return nil, err
+		}
+		defer formalGLMRegisteredPhase20JobControlHostDaemonClearPostSelectedFramesV1(frames)
+		var proposal formalGLMRegisteredPhase21PostSelectedPhase16V1
+		if err := formalGLMPhase21RockStrictDecode(frames[0], &proposal); err != nil {
+			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: invalid post-Selected proposal")
+		}
+		commitments := make([]formalGLMRegisteredPhase21PostSelectedAuthorityCommitmentV1, 2)
+		for index := range commitments {
+			if err := formalGLMPhase21RockStrictDecode(frames[1+index], &commitments[index]); err != nil {
+				return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: invalid post-Selected commitment")
+			}
+		}
+		if action == "phase16_postselected_attestation" {
+			attestation, err := host.AttestPostSelectedPhase16V1(proposal, commitments)
+			if err != nil {
+				return nil, err
+			}
+			return formalGLMRegisteredPhase20JobControlHostDaemonEncodePostSelectedFrameV1(attestation)
+		}
+		attestations := make([]formalGLMRegisteredPhase21PostSelectedComputeAttestationV1, 2)
+		for index := range attestations {
+			if err := formalGLMPhase21RockStrictDecode(frames[3+index], &attestations[index]); err != nil {
+				return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: invalid post-Selected attestation")
+			}
+		}
+		backend, worker, err := host.SignPostSelectedPhase16V1(proposal, commitments, attestations)
+		if err != nil {
+			return nil, err
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonEncodePostSelectedFrameV1(
+			formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedSignaturePairV1{
+				Backend: backend, Worker: worker,
+			})
+	case "phase16_postselected_finalize":
+		frames, err := formalGLMRegisteredPhase20JobControlHostDaemonDecodePostSelectedFramesV1(encoded, -1)
+		if err != nil || len(frames) < 7 {
+			formalGLMRegisteredPhase20JobControlHostDaemonClearPostSelectedFramesV1(frames)
+			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: invalid post-Selected finalization")
+		}
+		defer formalGLMRegisteredPhase20JobControlHostDaemonClearPostSelectedFramesV1(frames)
+		var proposal formalGLMRegisteredPhase21PostSelectedPhase16V1
+		if err := formalGLMPhase21RockStrictDecode(frames[0], &proposal); err != nil {
+			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: invalid post-Selected proposal")
+		}
+		commitments := make([]formalGLMRegisteredPhase21PostSelectedAuthorityCommitmentV1, 2)
+		attestations := make([]formalGLMRegisteredPhase21PostSelectedComputeAttestationV1, 2)
+		for index := range commitments {
+			if formalGLMPhase21RockStrictDecode(frames[1+index], &commitments[index]) != nil ||
+				formalGLMPhase21RockStrictDecode(frames[3+index], &attestations[index]) != nil {
+				return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: invalid post-Selected finalization")
+			}
+		}
+		backend := make([]jointDPBiomedicalGaussianSignature, 0, len(frames)-5)
+		worker := make([]jointDPBiomedicalGaussianSignature, 0, len(frames)-5)
+		for _, frame := range frames[5:] {
+			var pair formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedSignaturePairV1
+			if formalGLMPhase21RockStrictDecode(frame, &pair) != nil {
+				return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: invalid post-Selected signature")
+			}
+			backend = append(backend, pair.Backend)
+			worker = append(worker, pair.Worker)
+		}
+		if err := host.FinalizePostSelectedPhase16V1(
+			proposal, commitments, attestations, backend, worker); err != nil {
+			return nil, err
 		}
 		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(struct{}{})
 	case "phase21_preflight":

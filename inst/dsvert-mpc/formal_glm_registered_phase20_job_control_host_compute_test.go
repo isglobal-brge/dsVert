@@ -42,6 +42,54 @@ func formalGLMRegisteredPhase20JobControlHostComputeConfigV1(
 	}
 }
 
+func formalGLMRegisteredPhase20JobControlHostPostSelectedFrameV1(
+	t testing.TB, host *formalGLMRegisteredPhase20JobControlHostV1,
+	action string, frames [][]byte,
+) []byte {
+	t.Helper()
+	payload := json.RawMessage(`{}`)
+	if frames != nil {
+		encoded, err := json.Marshal(
+			formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedFramesV1{Frames: frames})
+		if err != nil {
+			t.Fatal(err)
+		}
+		payload = encoded
+	}
+	response, err := (&formalGLMRegisteredPhase20JobControlHostDaemonV1{host: host}).dispatchV1(
+		action, payload)
+	clear(payload)
+	if err != nil {
+		t.Fatalf("post-Selected %s: %v", action, err)
+	}
+	var envelope formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedFrameV1
+	if err := formalGLMPhase21RockStrictDecode(response, &envelope); err != nil {
+		clear(response)
+		t.Fatalf("post-Selected %s returned invalid frame: %v", action, err)
+	}
+	clear(response)
+	return append([]byte(nil), envelope.Frame...)
+}
+
+func formalGLMRegisteredPhase20JobControlHostPostSelectedFinalizeV1(
+	t testing.TB, host *formalGLMRegisteredPhase20JobControlHostV1, frames [][]byte,
+) {
+	t.Helper()
+	encoded, err := json.Marshal(
+		formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedFramesV1{Frames: frames})
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := (&formalGLMRegisteredPhase20JobControlHostDaemonV1{host: host}).dispatchV1(
+		"phase16_postselected_finalize", encoded)
+	clear(encoded)
+	if err != nil || formalGLMPhase21RockStrictDecode(response, &struct{}{}) != nil {
+		clear(response)
+		t.Fatalf("post-Selected finalization failed: %v", err)
+	}
+	clear(response)
+}
+
 func formalGLMRegisteredPhase20JobControlHostComputeRelayV1(
 	stop <-chan struct{}, from, to *formalGLMRegisteredPhase20JobControlHostV1,
 	fromRef, toRef formalGLMRegisteredPhase20JobRefV1,
@@ -278,74 +326,105 @@ func formalGLMRegisteredPhase20JobControlHostRunsFromPendingIngressV1(
 	policy := formalGLMRegisteredPhase21PostSelectedPolicyTestV1(
 		t, fixture.provenance.source.contract, fixture.provenance.source.inputs.identities.public,
 		fixture.provenance.source.inputs.identities.private)
-	commitments := make([]formalGLMRegisteredPhase21PostSelectedAuthorityCommitmentV1, 0, 2)
+	commitmentFrames := make([][]byte, 2)
+	commitments := make([]formalGLMRegisteredPhase21PostSelectedAuthorityCommitmentV1, 2)
 	for index, host := range hosts {
-		commitment, commitmentErr := host.BuildPostSelectedAuthorityCommitmentV1()
-		if commitmentErr != nil {
-			t.Fatalf("host %d authority commitment: %v", index, commitmentErr)
+		commitmentFrames[index] = formalGLMRegisteredPhase20JobControlHostPostSelectedFrameV1(
+			t, host, "phase16_postselected_commitment", nil)
+		if err := formalGLMPhase21RockStrictDecode(commitmentFrames[index], &commitments[index]); err != nil {
+			t.Fatalf("host %d authority commitment frame: %v", index, err)
 		}
-		commitments = append(commitments, commitment)
 	}
+	tamperedCommitment := append([]byte(nil), commitmentFrames[0]...)
+	tamperedCommitment[len(tamperedCommitment)-1] ^= 1
+	tamperedRequest, err := json.Marshal(
+		formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedFramesV1{
+			Frames: [][]byte{tamperedCommitment, commitmentFrames[1]},
+		})
+	if err != nil {
+		clear(tamperedCommitment)
+		t.Fatal(err)
+	}
+	response, err := (&formalGLMRegisteredPhase20JobControlHostDaemonV1{host: hosts[0]}).dispatchV1(
+		"phase16_postselected_proposal", tamperedRequest)
+	clear(tamperedRequest)
+	if err == nil {
+		clear(response)
+		clear(tamperedCommitment)
+		t.Fatal("host accepted a tampered post-Selected commitment")
+	}
+	clear(tamperedCommitment)
 	proposals := [2]formalGLMRegisteredPhase21PostSelectedPhase16V1{}
+	proposalFrames := make([][]byte, 2)
 	for index, host := range hosts {
-		proposal, proposalErr := host.BuildPostSelectedPhase16V1(commitments)
-		if proposalErr != nil {
-			t.Fatalf("host %d post-Selected Phase16 proposal: %v", index, proposalErr)
+		proposalFrames[index] = formalGLMRegisteredPhase20JobControlHostPostSelectedFrameV1(
+			t, host, "phase16_postselected_proposal", commitmentFrames)
+		if err := formalGLMPhase21RockStrictDecode(proposalFrames[index], &proposals[index]); err != nil {
+			t.Fatalf("host %d post-Selected proposal frame: %v", index, err)
 		}
-		proposals[index] = proposal
 	}
 	if !reflect.DeepEqual(proposals[0], proposals[1]) {
 		t.Fatal("compute hosts derived different post-Selected Phase16 proposals")
 	}
 	attestations := make([]formalGLMRegisteredPhase21PostSelectedComputeAttestationV1, 0, 2)
+	attestationFrames := make([][]byte, 2)
 	for index, host := range hosts {
-		attestation, attestationErr := host.AttestPostSelectedPhase16V1(
-			proposals[index], commitments)
-		if attestationErr != nil {
-			t.Fatalf("host %d post-Selected attestation: %v", index, attestationErr)
+		attestationFrames[index] = formalGLMRegisteredPhase20JobControlHostPostSelectedFrameV1(
+			t, host, "phase16_postselected_attestation",
+			[][]byte{proposalFrames[index], commitmentFrames[0], commitmentFrames[1]})
+		var attestation formalGLMRegisteredPhase21PostSelectedComputeAttestationV1
+		if err := formalGLMPhase21RockStrictDecode(attestationFrames[index], &attestation); err != nil {
+			t.Fatalf("host %d post-Selected attestation frame: %v", index, err)
 		}
 		attestations = append(attestations, attestation)
 	}
-	backendSignatures := make([]jointDPBiomedicalGaussianSignature, 0, custodians)
-	workerSignatures := make([]jointDPBiomedicalGaussianSignature, 0, custodians)
+	signatureFrames := make([][]byte, 0, custodians)
 	for _, peer := range fixture.provenance.source.plan.CustodianPeers {
 		var backend, worker jointDPBiomedicalGaussianSignature
 		var signatureErr error
 		if peer == fixture.provenance.source.plan.DesignatedComputePeers[0] {
-			backend, worker, signatureErr = hosts[0].SignPostSelectedPhase16V1(
-				proposals[0], commitments, attestations)
+			frame := formalGLMRegisteredPhase20JobControlHostPostSelectedFrameV1(
+				t, hosts[0], "phase16_postselected_sign",
+				[][]byte{proposalFrames[0], commitmentFrames[0], commitmentFrames[1],
+					attestationFrames[0], attestationFrames[1]})
+			var pair formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedSignaturePairV1
+			signatureErr = formalGLMPhase21RockStrictDecode(frame, &pair)
+			backend, worker = pair.Backend, pair.Worker
+			signatureFrames = append(signatureFrames, frame)
 		} else if peer == fixture.provenance.source.plan.DesignatedComputePeers[1] {
-			backend, worker, signatureErr = hosts[1].SignPostSelectedPhase16V1(
-				proposals[0], commitments, attestations)
+			frame := formalGLMRegisteredPhase20JobControlHostPostSelectedFrameV1(
+				t, hosts[1], "phase16_postselected_sign",
+				[][]byte{proposalFrames[0], commitmentFrames[0], commitmentFrames[1],
+					attestationFrames[0], attestationFrames[1]})
+			var pair formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedSignaturePairV1
+			signatureErr = formalGLMPhase21RockStrictDecode(frame, &pair)
+			backend, worker = pair.Backend, pair.Worker
+			signatureFrames = append(signatureFrames, frame)
 		} else {
 			backend, worker, signatureErr = formalGLMRegisteredPhase21SignPostSelectedPhase16V1(
 				proposals[0], policy, fixture.provenance.source.contract, attestations,
 				peer, fixture.provenance.source.inputs.identities.private[peer],
 				fixture.provenance.source.inputs.identities.public)
+			frame, marshalErr := formalGLMRegisteredPhase20JobControlHostDaemonCanonicalV1(
+				formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedSignaturePairV1{
+					Backend: backend, Worker: worker,
+				})
+			if marshalErr != nil {
+				t.Fatal(marshalErr)
+			}
+			signatureFrames = append(signatureFrames, frame)
 		}
 		if signatureErr != nil {
 			t.Fatalf("post-Selected signature %s: %v", peer, signatureErr)
 		}
-		backendSignatures = append(backendSignatures, backend)
-		workerSignatures = append(workerSignatures, worker)
 	}
 	for index, host := range hosts {
-		admission, admissionErr := host.AdmitPostSelectedPhase16V1(
-			proposals[index], commitments, attestations, backendSignatures, workerSignatures)
-		if admissionErr != nil || !reflect.DeepEqual(
-			admission.Envelope.Preimage, proposals[index].WorkerPreimage) {
-			t.Fatalf("host %d did not admit post-Selected Phase16: %v", index, admissionErr)
-		}
-	}
-	for index, host := range hosts {
-		if err := host.FinalizePostSelectedPhase16V1(
-			proposals[index], commitments, attestations, backendSignatures, workerSignatures); err != nil {
-			t.Fatalf("host %d did not persist admitted post-Selected Phase16: %v", index, err)
-		}
-		if err := host.FinalizePostSelectedPhase16V1(
-			proposals[index], commitments, attestations, backendSignatures, workerSignatures); err != nil {
-			t.Fatalf("host %d changed post-Selected Phase16 replay: %v", index, err)
-		}
+		finalFrames := make([][]byte, 0, 5+len(signatureFrames))
+		finalFrames = append(finalFrames, proposalFrames[index], commitmentFrames[0], commitmentFrames[1],
+			attestationFrames[0], attestationFrames[1])
+		finalFrames = append(finalFrames, signatureFrames...)
+		formalGLMRegisteredPhase20JobControlHostPostSelectedFinalizeV1(t, host, finalFrames)
+		formalGLMRegisteredPhase20JobControlHostPostSelectedFinalizeV1(t, host, finalFrames)
 		host.mu.Lock()
 		owner := host.owner
 		host.mu.Unlock()
@@ -398,13 +477,13 @@ func formalGLMRegisteredPhase20JobControlHostRunsFromPendingIngressV1(
 	if err != nil {
 		t.Fatal(err)
 	}
-	tamperedRequest, err := json.Marshal(
+	tamperedPreflightRequest, err := json.Marshal(
 		formalGLMRegisteredPhase20JobControlHostDaemonPreflightV1{Frame: tamperedFrame})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := (&formalGLMRegisteredPhase20JobControlHostDaemonV1{host: hosts[1]}).dispatchV1(
-		"phase21_preflight_bind", tamperedRequest); err == nil {
+		"phase21_preflight_bind", tamperedPreflightRequest); err == nil {
 		t.Fatal("accepted tampered Phase21 peer preflight")
 	}
 	localRequest, err := json.Marshal(

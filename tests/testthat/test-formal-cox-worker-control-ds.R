@@ -124,6 +124,20 @@ test_that("formal Cox worker relays only public finalizer handoff records", {
   expect_error(dsvertFormalCoxWorkerControlDS(
     selector$plan_sha256, selector$attempt_id, "finalizer_ticket",
     list(headers = headers[[1L]])), class = "dsvert_formal_cox_error")
+
+  envelopes <- list(
+    list(ticket_sha256 = strrep("d", 64L), ciphertext = "AQ=="),
+    list(ticket_sha256 = strrep("d", 64L), ciphertext = "Ag=="))
+  result <- dsvertFormalCoxWorkerControlDS(
+    selector$plan_sha256, selector$attempt_id, "finalizer_prepare",
+    list(ticket = seen$payload$headers[[1L]], headers = headers,
+         envelopes = envelopes))
+  expect_identical(seen$action, "finalizer_prepare")
+  expect_false(result$production_ready)
+  expect_error(dsvertFormalCoxWorkerControlDS(
+    selector$plan_sha256, selector$attempt_id, "finalizer_prepare",
+    list(ticket = list(), headers = headers, envelopes = list(envelopes[[1L]]))),
+    class = "dsvert_formal_cox_error")
 })
 
 test_that("formal Cox worker controller rejects widened calls before host I/O", {

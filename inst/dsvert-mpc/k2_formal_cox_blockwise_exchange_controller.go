@@ -902,6 +902,58 @@ func (controller *formalCoxBlockwiseExchangeController) SealOpeningToFinalizerAt
 	return envelope, replayed, err
 }
 
+// PrepareFinalizerAtRootV1 imports both signed, encrypted local handoffs only
+// in the designated finalizer's Rock store and stages the existing opening
+// intent. The sole scope that can reconstruct the candidate remains the
+// opening store; this daemon projection returns only its share-free intent.
+func (controller *formalCoxBlockwiseExchangeController) PrepareFinalizerAtRootV1(
+	ticket formalFinalizerHandoffTicket,
+	headers [2]formalCoxBlockwiseOpeningHandoffHeader,
+	envelopes [2]formalFinalizerHandoffEnvelope,
+	stateRoot string, production bool,
+) (formalCoxBlockwiseExchangeDaemonFinalizerPrepareResultV1, error) {
+	var result formalCoxBlockwiseExchangeDaemonFinalizerPrepareResultV1
+	err := controller.finalizerBridgeAtRootV1(headers,
+		func(bridge *formalCoxBlockwiseSourceBridge, opening *formalCoxBlockwiseOpeningStore) error {
+			ingress, err := bridge.openFinalizerIngressAtRootV1(
+				opening, headers, stateRoot, production)
+			if err != nil {
+				return err
+			}
+			defer ingress.Close()
+			for _, envelope := range envelopes {
+				if _, _, err := ingress.CommitIngress(envelope); err != nil {
+					return err
+				}
+			}
+			intent, publication, replayed, err :=
+				formalCoxBlockwiseOpeningDistributedOpenAndPrepare(
+					opening, ingress, ticket, headers, nil)
+			if err != nil {
+				return err
+			}
+			if publication.CertificateSHA256 != "" {
+				if publication.ArtifactID != opening.artifactID ||
+					!formalCoxIsSHA256(publication.CertificateSHA256) {
+					return fmt.Errorf("formal-cox: invalid finalizer publication replay")
+				}
+				result.Finalized = true
+				result.CertificateSHA256 = publication.CertificateSHA256
+			} else {
+				binding, bindingErr := formalCoxBlockwiseOpeningFinalizerBinding(opening, headers)
+				if bindingErr != nil ||
+					formalCoxBlockwiseValidateDistributedOpeningIntent(binding, intent) != nil {
+					return fmt.Errorf("formal-cox: invalid finalizer opening intent")
+				}
+				copy := intent
+				result.Intent = &copy
+			}
+			result.Replayed = replayed
+			return nil
+		})
+	return result, err
+}
+
 func (controller *formalCoxBlockwiseExchangeController) Commit(
 	receipts []formalCoxBlockwiseStepReceipt, pins map[string]ed25519.PublicKey,
 ) error {

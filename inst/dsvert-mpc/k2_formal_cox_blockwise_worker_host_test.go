@@ -278,6 +278,7 @@ func TestFormalCoxBlockwiseWorkerHostAttachesLiveK2K3K5(t *testing.T) {
 				t.Fatal("non-finalizer worker issued a finalizer ticket")
 			}
 			clear(nonFinalizer)
+			var envelopes [2]formalFinalizerHandoffEnvelope
 			for index := range configs {
 				var sealed formalCoxBlockwiseExchangeDaemonFinalizerSealResultV1
 				formalCoxBlockwiseWorkerHostTestControl(t, root, configs[index].Bootstrap,
@@ -287,6 +288,7 @@ func TestFormalCoxBlockwiseWorkerHostAttachesLiveK2K3K5(t *testing.T) {
 				if sealed.Replayed || len(sealed.Envelope.Ciphertext) == 0 {
 					t.Fatalf("host %d finalizer envelope = %+v", index, sealed)
 				}
+				envelopes[index] = sealed.Envelope
 				var replay formalCoxBlockwiseExchangeDaemonFinalizerSealResultV1
 				formalCoxBlockwiseWorkerHostTestControl(t, root, configs[index].Bootstrap,
 					"finalizer_seal", formalCoxBlockwiseExchangeDaemonFinalizerSealV1{
@@ -297,6 +299,37 @@ func TestFormalCoxBlockwiseWorkerHostAttachesLiveK2K3K5(t *testing.T) {
 					t.Fatalf("host %d finalizer envelope replay changed", index)
 				}
 			}
+			var prepared formalCoxBlockwiseExchangeDaemonFinalizerPrepareResultV1
+			formalCoxBlockwiseWorkerHostTestControl(t, root, configs[0].Bootstrap,
+				"finalizer_prepare", formalCoxBlockwiseExchangeDaemonFinalizerPrepareV1{
+					Ticket: issued.Ticket, Headers: headers, Envelopes: envelopes,
+				}, &prepared)
+			if prepared.Replayed || prepared.Finalized || prepared.Intent == nil ||
+				prepared.Intent.ArtifactID != headers[0].ArtifactID ||
+				prepared.CertificateSHA256 != "" {
+				t.Fatalf("fresh finalizer prepare = %+v", prepared)
+			}
+			var preparedReplay formalCoxBlockwiseExchangeDaemonFinalizerPrepareResultV1
+			formalCoxBlockwiseWorkerHostTestControl(t, root, configs[0].Bootstrap,
+				"finalizer_prepare", formalCoxBlockwiseExchangeDaemonFinalizerPrepareV1{
+					Ticket: issued.Ticket, Headers: headers, Envelopes: envelopes,
+				}, &preparedReplay)
+			if preparedReplay.Replayed || preparedReplay.Finalized ||
+				preparedReplay.Intent == nil ||
+				!formalCoxBlockwiseOpeningEqual(*prepared.Intent, *preparedReplay.Intent) {
+				t.Fatalf("finalizer prepare replay changed: %+v", preparedReplay)
+			}
+			nonFinalizerPrepare := formalCoxBlockwiseWorkerHostTestControlEncode(
+				t, configs[1].Bootstrap, "finalizer_prepare",
+				formalCoxBlockwiseExchangeDaemonFinalizerPrepareV1{
+					Ticket: issued.Ticket, Headers: headers, Envelopes: envelopes,
+				})
+			if _, err := formalCoxBlockwiseWorkerControlRunAtRoot(
+				nonFinalizerPrepare, root, false); err == nil {
+				clear(nonFinalizerPrepare)
+				t.Fatal("non-finalizer worker prepared a finalizer opening")
+			}
+			clear(nonFinalizerPrepare)
 			for index := range stops {
 				close(stops[index])
 				if err := <-done[index]; err != nil {

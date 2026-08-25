@@ -11,7 +11,8 @@
 .DSVERT_FORMAL_COX_WORKER_CONTROL_DS_MAX_BYTES <- 2L * 1024L * 1024L
 .DSVERT_FORMAL_COX_WORKER_CONTROL_DS_ACTIONS <- c(
   "host_start", "bind", "offer", "accept", "confirm", "poll", "relay", "result",
-  "completion", "opening", "finalizer_ticket", "finalizer_seal", "commit")
+  "completion", "opening", "finalizer_ticket", "finalizer_seal", "finalizer_prepare",
+  "commit")
 
 .dsvert_formal_cox_worker_control_ds_sha256 <- function(value, field) {
   if (!is.character(value) || length(value) != 1L || is.na(value) ||
@@ -67,6 +68,15 @@
       (!identical(fields, c("ticket", "headers")) || !is.list(payload$ticket) ||
        !is.list(payload$headers) || length(payload$headers) != 2L ||
        any(vapply(payload$headers, is.null, logical(1L))))) {
+    .dsvert_formal_cox_abort("The formal Cox worker control payload is invalid.")
+  }
+  if (identical(action, "finalizer_prepare") &&
+      (!identical(fields, c("ticket", "headers", "envelopes")) ||
+       !is.list(payload$ticket) || !is.list(payload$headers) ||
+       !is.list(payload$envelopes) || length(payload$headers) != 2L ||
+       length(payload$envelopes) != 2L ||
+       any(vapply(payload$headers, is.null, logical(1L))) ||
+       any(vapply(payload$envelopes, is.null, logical(1L))))) {
     .dsvert_formal_cox_abort("The formal Cox worker control payload is invalid.")
   }
   if (!identical(action, "host_start")) {

@@ -140,6 +140,23 @@ type formalCoxBlockwiseExchangeDaemonFinalizerSealResultV1 struct {
 	Replayed bool                           `json:"replayed"`
 }
 
+// finalizer_prepare is intentionally a one-way transition into the existing
+// Rock-local opening store. The response contains only the staged public
+// intent (or a digest of an already public certificate), never an opening,
+// candidate, ciphertext plaintext, or authority signing material.
+type formalCoxBlockwiseExchangeDaemonFinalizerPrepareV1 struct {
+	Ticket    formalFinalizerHandoffTicket              `json:"ticket"`
+	Headers   [2]formalCoxBlockwiseOpeningHandoffHeader `json:"headers"`
+	Envelopes [2]formalFinalizerHandoffEnvelope         `json:"envelopes"`
+}
+
+type formalCoxBlockwiseExchangeDaemonFinalizerPrepareResultV1 struct {
+	Intent            *formalCoxBlockwiseOpeningIntent `json:"intent"`
+	Finalized         bool                             `json:"finalized"`
+	CertificateSHA256 string                           `json:"certificate_sha256"`
+	Replayed          bool                             `json:"replayed"`
+}
+
 type formalCoxBlockwiseExchangeDaemonV1 struct {
 	mu          sync.Mutex
 	controller  *formalCoxBlockwiseExchangeController
@@ -736,6 +753,18 @@ func (daemon *formalCoxBlockwiseExchangeDaemonV1) dispatchV1(action string,
 		return formalCoxBlockwiseExchangeDaemonResponsePayload(
 			formalCoxBlockwiseExchangeDaemonFinalizerSealResultV1{
 				Envelope: envelope, Replayed: replayed})
+	case "finalizer_prepare":
+		var request formalCoxBlockwiseExchangeDaemonFinalizerPrepareV1
+		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {
+			return nil, err
+		}
+		result, err := controller.PrepareFinalizerAtRootV1(
+			request.Ticket, request.Headers, request.Envelopes,
+			daemon.stateRoot, daemon.production)
+		if err != nil {
+			return nil, err
+		}
+		return formalCoxBlockwiseExchangeDaemonResponsePayload(result)
 	case "commit":
 		var request formalCoxBlockwiseExchangeDaemonCommitV1
 		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {
@@ -937,6 +966,19 @@ func (client *formalCoxBlockwiseExchangeDaemonClientV1) OpeningV1() (
 			"formal-cox: exchange opening is unavailable")
 	}
 	return result, nil
+}
+
+func (client *formalCoxBlockwiseExchangeDaemonClientV1) PrepareFinalizerV1(
+	ticket formalFinalizerHandoffTicket,
+	headers [2]formalCoxBlockwiseOpeningHandoffHeader,
+	envelopes [2]formalFinalizerHandoffEnvelope,
+) (formalCoxBlockwiseExchangeDaemonFinalizerPrepareResultV1, error) {
+	var result formalCoxBlockwiseExchangeDaemonFinalizerPrepareResultV1
+	err := client.callV1("finalizer_prepare",
+		formalCoxBlockwiseExchangeDaemonFinalizerPrepareV1{
+			Ticket: ticket, Headers: headers, Envelopes: envelopes,
+		}, &result)
+	return result, err
 }
 
 func (daemon *formalCoxBlockwiseExchangeDaemonV1) Close() error {

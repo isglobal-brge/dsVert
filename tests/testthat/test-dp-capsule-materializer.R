@@ -549,7 +549,10 @@ test_that("fixed-effect random-intercept LMM emits GLS sufficient statistics", {
   block <- layout$blocks[["gaussian_models::random_intercept_fixed"]]
   material <- .dsvert_dp_capsule_materialize_local(
     fixture$policy, fixture$manifest, fixture$resolved)
-  global <- c(2, 512, 256, 256, 358, 256, 297)
+  # Source rows are first bounded and aggregated to patient units.  The two
+  # retained units are (x, y) = (0.5, 0.6) and (1, 1) on the signed [0, 1]
+  # lattice, rather than the unaggregated source rows.
+  global <- c(2, 512, 384, 320, 410, 333, 348)
 
   expect_identical(
     artifact$version,

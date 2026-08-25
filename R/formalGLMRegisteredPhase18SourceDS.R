@@ -233,7 +233,8 @@
     error = function(error) NULL)
   fields <- c("version", "analysis_id", "data_name", "family",
               "formula_sha256", "source_contract_json",
-              "publication_context_json", "sampler_authority_root")
+              "publication_context_json", "phase16_policy_json",
+              "sampler_authority_root")
   if (is.null(value) || !is.list(value) || is.null(names(value)) ||
       anyNA(names(value)) || anyDuplicated(names(value)) ||
       !identical(names(value), fields) ||
@@ -258,6 +259,14 @@
         .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_DS_MAX_CONTRACT_BYTES ||
       !identical(enc2utf8(value$publication_context_json),
                  value$publication_context_json) ||
+      !is.character(value$phase16_policy_json) ||
+      length(value$phase16_policy_json) != 1L ||
+      is.na(value$phase16_policy_json) ||
+      nchar(value$phase16_policy_json, type = "bytes") < 2L ||
+      nchar(value$phase16_policy_json, type = "bytes") >
+        .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_DS_MAX_CONTRACT_BYTES ||
+      !identical(enc2utf8(value$phase16_policy_json),
+                 value$phase16_policy_json) ||
       !is.character(value$sampler_authority_root) ||
       length(value$sampler_authority_root) != 1L ||
       is.na(value$sampler_authority_root) ||
@@ -370,6 +379,7 @@ dsvertFormalGLMRegisteredFreshSourceDS <- function(
     context <- .dsvert_formal_glm_registered_source_open(
       spec$source_contract_json, parent.frame(),
       publication_context_json = spec$publication_context_json,
+      phase16_policy_json = spec$phase16_policy_json,
       sampler_authority_root = spec$sampler_authority_root)
     .dsvert_formal_glm_registered_source_ds_dispatch(context, action, payload)
   }, error = function(error) NULL)

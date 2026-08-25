@@ -23,13 +23,46 @@ func TestFormalGLMRegisteredPhase18SourceCommandSamplerAuthorityRootCanonical(t 
 	}
 }
 
-func TestFormalGLMRegisteredPhase18SourceCommandRequiresCompletePhase21Context(t *testing.T) {
+func TestFormalGLMRegisteredPhase18SourceCommandRequiresPhase16PolicyForIncompletePhase21Context(t *testing.T) {
 	fixture := formalGLMSourceContractTestFixture(t, 2)
 	publication := formalGLMRegisteredPhase21PublicationContextTestBuildV1(t, fixture)
 	if err := formalGLMRegisteredPhase18SourceCommandValidateHostPublicationV1(
-		&publication); err == nil {
+		&publication, nil); err == nil {
 		formalGLMRegisteredPhase21PublicationContextClearV1(&publication)
 		t.Fatal("host provision accepted a Phase21 preflight-only context")
+	}
+	policy := formalGLMRegisteredPhase21PostSelectedPolicyTestV1(
+		t, fixture.contract, fixture.inputs.identities.public, fixture.inputs.identities.private)
+	encodedPolicy, err := json.Marshal(policy)
+	if err != nil {
+		formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(&policy)
+		formalGLMRegisteredPhase21PublicationContextClearV1(&publication)
+		t.Fatal(err)
+	}
+	decodedPolicy, err := formalGLMRegisteredPhase21PostSelectedPhase16PolicyDecodeV1(
+		encodedPolicy, fixture.contract, fixture.inputs.identities.public)
+	clear(encodedPolicy)
+	decodedSHA, decodedSHAErr := formalGLMRegisteredPhase21PostSelectedPhase16PolicySHA256V1(decodedPolicy)
+	policySHA, policySHAErr := formalGLMRegisteredPhase21PostSelectedPhase16PolicySHA256V1(policy)
+	if err != nil || decodedSHAErr != nil || policySHAErr != nil || decodedSHA != policySHA {
+		formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(&decodedPolicy)
+		formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(&policy)
+		formalGLMRegisteredPhase21PublicationContextClearV1(&publication)
+		t.Fatalf("canonical post-Selected policy decode changed: %v", err)
+	}
+	formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(&decodedPolicy)
+	if _, err := formalGLMRegisteredPhase21PostSelectedPhase16PolicyDecodeV1(
+		[]byte(" {\"version\":\"noncanonical\"}"), fixture.contract,
+		fixture.inputs.identities.public); err == nil {
+		formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(&policy)
+		formalGLMRegisteredPhase21PublicationContextClearV1(&publication)
+		t.Fatal("post-Selected policy decoder accepted a noncanonical policy")
+	}
+	if err := formalGLMRegisteredPhase18SourceCommandValidateHostPublicationV1(
+		&publication, &policy); err != nil {
+		formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(&policy)
+		formalGLMRegisteredPhase21PublicationContextClearV1(&publication)
+		t.Fatalf("host provision rejected a signed post-Selected policy: %v", err)
 	}
 	publication.Capsule.CapsuleID = "stage-input-present"
 	publication.Request.LogicalSnapshotHandleSHA256 = fixture.contract.CoreSHA256
@@ -40,10 +73,18 @@ func TestFormalGLMRegisteredPhase18SourceCommandRequiresCompletePhase21Context(t
 		Signature: []byte{1},
 	}}
 	if err := formalGLMRegisteredPhase18SourceCommandValidateHostPublicationV1(
-		&publication); err != nil {
+		&publication, nil); err != nil {
+		formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(&policy)
 		formalGLMRegisteredPhase21PublicationContextClearV1(&publication)
 		t.Fatalf("host provision rejected a complete Phase21 context shape: %v", err)
 	}
+	if err := formalGLMRegisteredPhase18SourceCommandValidateHostPublicationV1(
+		&publication, &policy); err == nil {
+		formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(&policy)
+		formalGLMRegisteredPhase21PublicationContextClearV1(&publication)
+		t.Fatal("host provision accepted ambiguous static and post-Selected Phase16 inputs")
+	}
+	formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(&policy)
 	formalGLMRegisteredPhase21PublicationContextClearV1(&publication)
 }
 

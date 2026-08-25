@@ -57,6 +57,7 @@ type formalGLMRegisteredPhase18SourceCommandV1 struct {
 	PairChunkBase64        string                                                `json:"pair_chunk_base64,omitempty"`
 	LocalReceiptJSON       string                                                `json:"local_receipt_json,omitempty"`
 	PublicationContextJSON string                                                `json:"publication_context_json,omitempty"`
+	Phase16PolicyJSON      string                                                `json:"phase16_policy_json,omitempty"`
 	SamplerAuthorityRoot   string                                                `json:"sampler_authority_root,omitempty"`
 }
 
@@ -147,20 +148,26 @@ func formalGLMRegisteredPhase18SourceCommandDecodeSamplerAuthorityRootV1(
 	return root, nil
 }
 
-// A configured fresh-analysis host must have all Phase16 inputs before it is
-// burned.  A sampler-only context can support Phase21 preflight, but cannot
-// start Stage after Phase20 has consumed the source; accepting it here would
-// spend the computation and fail only at publication time.
+// A configured fresh-analysis host either has existing complete Phase16
+// inputs, or a K-of-K policy from which the two compute hosts derive those
+// inputs only after their terminal Selected records agree.
 func formalGLMRegisteredPhase18SourceCommandValidateHostPublicationV1(
 	publication *formalGLMRegisteredPhase21PublicationContextV1,
+	policy *formalGLMRegisteredPhase21PostSelectedPhase16PolicyV1,
 ) error {
 	if publication == nil {
+		if policy != nil {
+			return fmt.Errorf("formal-glm registered Phase18 source: Phase16 policy lacks publication context")
+		}
 		return nil
 	}
 	stageReady, err := formalGLMRegisteredPhase21PublicationStageInputsV1(
 		*publication)
-	if err != nil || !stageReady {
+	if err != nil || (!stageReady && policy == nil) {
 		return fmt.Errorf("formal-glm registered Phase18 source: incomplete Phase21 publication context")
+	}
+	if stageReady && policy != nil {
+		return fmt.Errorf("formal-glm registered Phase18 source: ambiguous Phase21 publication context")
 	}
 	return nil
 }
@@ -279,7 +286,8 @@ func formalGLMRegisteredPhase18SourceCommandDecodeV1(
 		return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: unknown action")
 	}
 	if command.Action != formalGLMRegisteredPhase18SourceCommandActionHostProvisionV1 &&
-		(command.PublicationContextJSON != "" || command.SamplerAuthorityRoot != "") {
+		(command.PublicationContextJSON != "" || command.Phase16PolicyJSON != "" ||
+			command.SamplerAuthorityRoot != "") {
 		return formalGLMRegisteredPhase18SourceCommandV1{}, fmt.Errorf("formal-glm registered Phase18 source: invalid publication context")
 	}
 	if command.Action != formalGLMRegisteredPhase18SourceCommandActionImportChunkV1 &&
@@ -766,8 +774,18 @@ func formalGLMRegisteredPhase18SourceCommandHostProvisionV1(
 		publication = &decoded
 		defer formalGLMRegisteredPhase21PublicationContextClearV1(publication)
 	}
+	var policy *formalGLMRegisteredPhase21PostSelectedPhase16PolicyV1
+	if command.Phase16PolicyJSON != "" {
+		decoded, decodeErr := formalGLMRegisteredPhase21PostSelectedPhase16PolicyDecodeV1(
+			[]byte(command.Phase16PolicyJSON), contract, pins)
+		if decodeErr != nil {
+			return zero, decodeErr
+		}
+		policy = &decoded
+		defer formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(policy)
+	}
 	if err := formalGLMRegisteredPhase18SourceCommandValidateHostPublicationV1(
-		publication); err != nil {
+		publication, policy); err != nil {
 		return zero, err
 	}
 	authorityRoot, err := formalGLMRegisteredPhase18SourceCommandDecodeSamplerAuthorityRootV1(
@@ -788,7 +806,7 @@ func formalGLMRegisteredPhase18SourceCommandHostProvisionV1(
 			ArtifactID:       record.Binding.ArtifactID,
 			ReceiptSetSHA256: record.Binding.ReceiptSetSHA256,
 		},
-		Publication: publication,
+		Publication: publication, Phase16Policy: policy,
 	}
 	defer formalGLMRegisteredPhase20JobControlHostClearConfigV1(&config)
 	encoded, err := json.Marshal(formalGLMRegisteredPhase20JobControlHostProvisionV1{

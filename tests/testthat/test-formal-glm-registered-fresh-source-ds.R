@@ -7,6 +7,7 @@ test_that("registered fresh GLM source keeps its contract in custodian configura
     version = "dsvert-formal-glm-registered-analysis-spec-v1"), selector,
     list(source_contract_json = contract,
          publication_context_json = "{\"publication\":\"configured\"}",
+         phase16_policy_json = "{\"policy\":\"configured\"}",
          sampler_authority_root = ""))
   context <- new.env(parent = emptyenv())
   opened <- NULL
@@ -14,9 +15,10 @@ test_that("registered fresh GLM source keeps its contract in custodian configura
     dsvert.formal_glm.registered_analysis_specs = list(fresh_binomial = spec))
   testthat::local_mocked_bindings(
     .dsvert_formal_glm_registered_source_open = function(
-        value, environment, publication_context_json, sampler_authority_root) {
+        value, environment, publication_context_json, phase16_policy_json,
+        sampler_authority_root) {
       opened <<- list(value, environment, publication_context_json,
-                       sampler_authority_root)
+                       phase16_policy_json, sampler_authority_root)
       context
     },
     .dsvert_formal_glm_registered_source_issue_ticket = function(actual_context) {
@@ -32,7 +34,8 @@ test_that("registered fresh GLM source keeps its contract in custodian configura
   expect_identical(opened[[1L]], contract)
   expect_true(is.environment(opened[[2L]]))
   expect_identical(opened[[3L]], "{\"publication\":\"configured\"}")
-  expect_identical(opened[[4L]], "")
+  expect_identical(opened[[4L]], "{\"policy\":\"configured\"}")
+  expect_identical(opened[[5L]], "")
   expect_identical(result, list(
     version = "dsvert-formal-glm-registered-fresh-source-response-v1",
     action = "ticket", payload = list(ticket = list(version = "ticket"),
@@ -52,6 +55,7 @@ test_that("registered fresh GLM source rejects widened and mismatched selectors 
         formula_sha256 = paste(rep("a", 64L), collapse = ""),
         source_contract_json = "{\"contract\":\"configured\"}",
         publication_context_json = "{\"publication\":\"configured\"}",
+        phase16_policy_json = "{\"policy\":\"configured\"}",
         sampler_authority_root = "not-canonical-base64")))
   testthat::local_mocked_bindings(
     .dsvert_formal_glm_registered_source_open = function(...) {
@@ -83,6 +87,7 @@ test_that("registered fresh GLM source exposes only its fixed public shape", {
     version = "dsvert-formal-glm-registered-analysis-spec-v1"), selector,
     list(source_contract_json = "{\"contract\":\"configured\"}",
          publication_context_json = "{\"publication\":\"configured\"}",
+         phase16_policy_json = "{\"policy\":\"configured\"}",
          sampler_authority_root = ""))
   context <- new.env(parent = emptyenv())
   context$alignment_consensus <- as.raw(rep(0L, 32L))
@@ -95,6 +100,7 @@ test_that("registered fresh GLM source exposes only its fixed public shape", {
   context$authorization_json <- "{}"
   context$contract_json <- "{\"contract\":\"configured\"}"
   context$publication_context_json <- "{\"publication\":\"configured\"}"
+  context$phase16_policy_json <- "{\"policy\":\"configured\"}"
   context$sampler_authority_root <- ""
   context$pins <- list()
   context$rows <- data.frame()

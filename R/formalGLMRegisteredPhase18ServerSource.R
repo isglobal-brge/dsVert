@@ -338,7 +338,8 @@
 # authorization plus the frozen private rows needed by the block producer.
 .dsvert_formal_glm_registered_source_open <- function(
     source_contract_json, source_environment = parent.frame(),
-    publication_context_json = "", sampler_authority_root = "") {
+    publication_context_json = "", phase16_policy_json = "",
+    sampler_authority_root = "") {
   if (!is.character(publication_context_json) ||
       length(publication_context_json) != 1L ||
       is.na(publication_context_json) ||
@@ -347,6 +348,14 @@
       !identical(enc2utf8(publication_context_json), publication_context_json)) {
     .dsvert_formal_glm_registered_source_abort(
       "The registered formal-GLM publication context is invalid.")
+  }
+  if (!is.character(phase16_policy_json) || length(phase16_policy_json) != 1L ||
+      is.na(phase16_policy_json) ||
+      (nzchar(phase16_policy_json) &&
+       nchar(phase16_policy_json, type = "bytes") > 8L * 1024L^2) ||
+      !identical(enc2utf8(phase16_policy_json), phase16_policy_json)) {
+    .dsvert_formal_glm_registered_source_abort(
+      "The registered formal-GLM Phase16 policy is invalid.")
   }
   source <- tryCatch(.dsvert_require_configured_local_peer_name(),
                      error = function(error) NULL)
@@ -378,6 +387,7 @@
   context$authorization_json <- projected$json
   context$contract_json <- source_contract_json
   context$publication_context_json <- publication_context_json
+  context$phase16_policy_json <- phase16_policy_json
   context$sampler_authority_root <-
     .dsvert_formal_glm_registered_source_sampler_authority_root(
       sampler_authority_root)
@@ -391,7 +401,8 @@
 .dsvert_formal_glm_registered_source_context <- function(value) {
   fields <- c(
     "alignment_consensus", "authorization", "authorization_json",
-    "contract_json", "pins", "publication_context_json", "sampler_authority_root",
+    "contract_json", "pins", "publication_context_json", "phase16_policy_json",
+    "sampler_authority_root",
     "rows", "source_name")
   authority_root <- if (is.environment(value)) tryCatch(
     .dsvert_formal_glm_registered_source_sampler_authority_root(
@@ -406,6 +417,9 @@
       !is.character(value$publication_context_json) ||
       length(value$publication_context_json) != 1L ||
       is.na(value$publication_context_json) ||
+      !is.character(value$phase16_policy_json) ||
+      length(value$phase16_policy_json) != 1L ||
+      is.na(value$phase16_policy_json) ||
       !is.character(value$sampler_authority_root) ||
       length(value$sampler_authority_root) != 1L ||
       is.na(value$sampler_authority_root) ||
@@ -830,6 +844,7 @@
       pins = context$pins, local_peer_name = context$source_name,
       local_signing_key = identity$identity_sk,
       publication_context_json = context$publication_context_json,
+      phase16_policy_json = context$phase16_policy_json,
       sampler_authority_root = context$sampler_authority_root)),
     error = function(error) NULL)
   fields <- c("version", "job_host_receipt", "replayed")

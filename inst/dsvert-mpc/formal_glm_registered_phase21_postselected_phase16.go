@@ -8,9 +8,11 @@ package main
 // object that a later K-of-K signing relay must carry to every custodian.
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -162,6 +164,35 @@ func formalGLMRegisteredPhase21PostSelectedPhase16PolicySHA256V1(
 	return formalGLMPhase21StickyHash(
 		formalGLMRegisteredPhase21PostSelectedPhase16PolicyDomainV1+"/policy",
 		formalGLMRegisteredPhase21PostSelectedPhase16PolicyUnsignedV1(policy))
+}
+
+func formalGLMRegisteredPhase21PostSelectedPhase16PolicyDecodeV1(
+	encoded []byte,
+	contract formalGLMSourceContractV1,
+	pins map[string]ed25519.PublicKey,
+) (formalGLMRegisteredPhase21PostSelectedPhase16PolicyV1, error) {
+	var policy formalGLMRegisteredPhase21PostSelectedPhase16PolicyV1
+	if len(encoded) < 2 || len(encoded) > 8<<20 || encoded[0] != '{' {
+		return policy, fmt.Errorf("formal-glm registered Phase21 post-Selected policy: invalid encoding")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(encoded))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&policy); err != nil {
+		formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(&policy)
+		return formalGLMRegisteredPhase21PostSelectedPhase16PolicyV1{},
+			fmt.Errorf("formal-glm registered Phase21 post-Selected policy: invalid encoding")
+	}
+	var trailing any
+	canonical, err := json.Marshal(policy)
+	if err != nil || decoder.Decode(&trailing) != io.EOF || !bytes.Equal(canonical, encoded) ||
+		formalGLMRegisteredPhase21ValidatePostSelectedPhase16PolicyV1(policy, contract, pins) != nil {
+		clear(canonical)
+		formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(&policy)
+		return formalGLMRegisteredPhase21PostSelectedPhase16PolicyV1{},
+			fmt.Errorf("formal-glm registered Phase21 post-Selected policy: invalid encoding")
+	}
+	clear(canonical)
+	return policy, nil
 }
 
 func formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(

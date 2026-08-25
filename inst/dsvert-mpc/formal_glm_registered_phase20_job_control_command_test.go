@@ -63,15 +63,31 @@ func TestFormalGLMRegisteredPhase20JobControlFramesPhase21Lifecycle(t *testing.T
 			if err != nil || !bytes.Equal(payload, inner) {
 				t.Fatalf("unwrapped=%s / %v", payload, err)
 			}
+			responsePayload := json.RawMessage(`{"plan_sha256":"not-exposed"}`)
+			if test.action == "phase21_stage_relay" {
+				responsePayload, err = formalGLMRegisteredPhase20JobControlHostDaemonCanonicalV1(
+					formalGLMRegisteredPhase21StageRelayAckV1{})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
 			response, err := formalGLMRegisteredPhase20JobControlResponsePayloadV1(
-				test.action, json.RawMessage(`{"plan_sha256":"not-exposed"}`))
+				test.action, responsePayload)
 			if err != nil {
 				t.Fatal(err)
 			}
 			var framed formalGLMRegisteredPhase20JobControlOpaqueFrameV1
 			if err := formalGLMPhase21RockStrictDecode(response, &framed); err != nil ||
-				!bytes.Equal(framed.Frame, []byte(`{"plan_sha256":"not-exposed"}`)) {
+				len(framed.Frame) < 2 || (test.action != "phase21_stage_relay" &&
+				!bytes.Equal(framed.Frame, []byte(`{"plan_sha256":"not-exposed"}`))) {
 				t.Fatalf("framed=%#v / %v", framed, err)
+			}
+			if test.action == "phase21_stage_relay" {
+				var poll formalGLMRegisteredPhase20JobControlHostDaemonStagePollV1
+				if err := formalGLMPhase21RockStrictDecode(framed.Frame, &poll); err != nil ||
+					poll.Acknowledgement == nil {
+					t.Fatalf("Stage acknowledgement=%#v / %v", poll, err)
+				}
 			}
 
 			bare, err := json.Marshal(formalGLMRegisteredPhase20JobControlCommandV1{

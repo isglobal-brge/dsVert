@@ -260,6 +260,21 @@ func formalGLMRegisteredPhase20JobControlResponsePayloadV1(
 	if !formalGLMRegisteredPhase20JobControlPhase21ActionV1(action) {
 		return append(json.RawMessage(nil), payload...), nil
 	}
+	if action == "phase21_stage_relay" {
+		var acknowledgement formalGLMRegisteredPhase21StageRelayAckV1
+		if err := formalGLMPhase21RockStrictDecode(payload, &acknowledgement); err != nil {
+			return nil, fmt.Errorf("formal-glm registered Phase20 job control: invalid Stage acknowledgement")
+		}
+		var err error
+		payload, err = formalGLMRegisteredPhase20JobControlHostDaemonCanonicalV1(
+			formalGLMRegisteredPhase20JobControlHostDaemonStagePollV1{
+				Acknowledgement: &acknowledgement,
+			})
+		if err != nil {
+			return nil, fmt.Errorf("formal-glm registered Phase20 job control: invalid Stage acknowledgement")
+		}
+		defer clear(payload)
+	}
 	wrapped, err := json.Marshal(formalGLMRegisteredPhase20JobControlOpaqueFrameV1{
 		Frame: payload,
 	})

@@ -102,6 +102,19 @@ test_that("formal Cox worker relays only public finalizer handoff records", {
         plan_sha256, attempt_id, action, payload) {
       seen <<- list(plan_sha256 = plan_sha256, attempt_id = attempt_id,
                     action = action, payload = payload)
+      if (identical(action, "finalizer_prepare")) {
+        return(list(
+          version = "dsvert-formal-cox-blockwise-worker-host-control-v1",
+          payload = list(
+            intent = list(
+              version = "dsvert-formal-cox-blockwise-sticky-opening-v1",
+              purpose = "formal_cox_one_public_beta_validity_opening_v1",
+              artifact_id = strrep("c", 64L), candidate_sha256 = strrep("e", 64L),
+              final_pair_root_sha256 = strrep("f", 64L),
+              opening_mode = "dual_authority_additive_ring_and_xor_validity_v1",
+              exp_postprocess_mode = "certified_dyadic_interval_midpoint_v1"),
+            finalized = FALSE, certificate_sha256 = "", replayed = FALSE)))
+      }
       list(version = "dsvert-formal-cox-blockwise-worker-host-control-v1",
            payload = list(ticket = list(
              artifact_id = strrep("c", 64L), plan_sha256 = plan_sha256,
@@ -137,6 +150,18 @@ test_that("formal Cox worker relays only public finalizer handoff records", {
   expect_error(dsvertFormalCoxWorkerControlDS(
     selector$plan_sha256, selector$attempt_id, "finalizer_prepare",
     list(ticket = list(), headers = headers, envelopes = list(envelopes[[1L]]))),
+    class = "dsvert_formal_cox_error")
+
+  testthat::local_mocked_bindings(
+    .dsvert_formal_cox_worker_host_control = function(...) list(
+      version = "dsvert-formal-cox-blockwise-worker-host-control-v1",
+      payload = list(
+        intent = list(candidate = "unsafe"), finalized = FALSE,
+        certificate_sha256 = "", replayed = FALSE)),
+    .package = "dsVert")
+  expect_error(dsvertFormalCoxWorkerControlDS(
+    selector$plan_sha256, selector$attempt_id, "finalizer_prepare",
+    list(ticket = list(), headers = headers, envelopes = envelopes)),
     class = "dsvert_formal_cox_error")
 })
 

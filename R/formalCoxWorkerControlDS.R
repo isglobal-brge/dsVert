@@ -195,9 +195,43 @@
   .dsvert_formal_cox_abort("The formal Cox worker host failed before readiness.")
 }
 
+.dsvert_formal_cox_worker_control_ds_finalizer_prepare_reply <- function(payload) {
+  fields <- c("intent", "finalized", "certificate_sha256", "replayed")
+  valid_common <- is.list(payload) && !is.null(names(payload)) &&
+    !anyNA(names(payload)) && !anyDuplicated(names(payload)) &&
+    identical(names(payload), fields) && is.logical(payload$finalized) &&
+    length(payload$finalized) == 1L && !is.na(payload$finalized) &&
+    is.logical(payload$replayed) && length(payload$replayed) == 1L &&
+    !is.na(payload$replayed) && is.character(payload$certificate_sha256) &&
+    length(payload$certificate_sha256) == 1L && !is.na(payload$certificate_sha256)
+  if (!isTRUE(valid_common)) return(FALSE)
+  if (isTRUE(payload$finalized)) {
+    return(is.null(payload$intent) &&
+      grepl("^[0-9a-f]{64}$", payload$certificate_sha256))
+  }
+  intent_fields <- c("version", "purpose", "artifact_id", "candidate_sha256",
+                     "final_pair_root_sha256", "opening_mode", "exp_postprocess_mode")
+  intent <- payload$intent
+  is.list(intent) && !is.null(names(intent)) && !anyNA(names(intent)) &&
+    !anyDuplicated(names(intent)) && identical(names(intent), intent_fields) &&
+    identical(intent$version, "dsvert-formal-cox-blockwise-sticky-opening-v1") &&
+    identical(intent$purpose, "formal_cox_one_public_beta_validity_opening_v1") &&
+    all(vapply(c("artifact_id", "candidate_sha256", "final_pair_root_sha256"),
+               function(field) is.character(intent[[field]]) &&
+                 length(intent[[field]]) == 1L && !is.na(intent[[field]]) &&
+                 grepl("^[0-9a-f]{64}$", intent[[field]]), logical(1L))) &&
+    identical(intent$opening_mode,
+              "dual_authority_additive_ring_and_xor_validity_v1") &&
+    identical(intent$exp_postprocess_mode,
+              "certified_dyadic_interval_midpoint_v1") &&
+    identical(payload$certificate_sha256, "")
+}
+
 .dsvert_formal_cox_worker_control_ds_reply <- function(action, payload) {
   encoded <- .dsvert_formal_cox_worker_control_ds_json(payload, "control reply")
-  if (!is.list(payload)) {
+  if (!is.list(payload) ||
+      (identical(action, "finalizer_prepare") &&
+       !isTRUE(.dsvert_formal_cox_worker_control_ds_finalizer_prepare_reply(payload)))) {
     .dsvert_formal_cox_abort("The formal Cox worker control reply is invalid.")
   }
   list(version = .DSVERT_FORMAL_COX_WORKER_CONTROL_DS_VERSION,

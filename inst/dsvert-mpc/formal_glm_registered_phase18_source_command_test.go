@@ -88,8 +88,11 @@ func TestFormalGLMRegisteredPhase18SourceCommandRequiresPhase16PolicyForIncomple
 	formalGLMRegisteredPhase21PublicationContextClearV1(&publication)
 }
 
-func TestFormalGLMRegisteredPhase18SourceCommandPostSelectedWitnessSignsOnlyAttestedProposal(t *testing.T) {
-	fixture := formalGLMSourceContractTestFixture(t, 3)
+func formalGLMRegisteredPhase18SourceCommandPostSelectedWitnessSignsV1(
+	t *testing.T, custodians int,
+) {
+	t.Helper()
+	fixture := formalGLMSourceContractTestFixture(t, custodians)
 	policy := formalGLMRegisteredPhase21PostSelectedPolicyTestV1(
 		t, fixture.contract, fixture.inputs.identities.public, fixture.inputs.identities.private)
 	defer formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(&policy)
@@ -186,6 +189,14 @@ func TestFormalGLMRegisteredPhase18SourceCommandPostSelectedWitnessSignsOnlyAtte
 		tampered, fixture.contract, fixture.inputs.identities.public,
 		fixture.inputs.identities.private[witness]); err == nil {
 		t.Fatal("witness signed malformed post-Selected attestations")
+	}
+}
+
+func TestFormalGLMRegisteredPhase18SourceCommandPostSelectedWitnessSignsOnlyAttestedProposal(t *testing.T) {
+	for _, custodians := range []int{3, 5} {
+		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+			formalGLMRegisteredPhase18SourceCommandPostSelectedWitnessSignsV1(t, custodians)
+		})
 	}
 }
 

@@ -52,31 +52,6 @@ func formalGLMRegisteredPhase21PostSelectedPolicyTestV1(
 	return policy
 }
 
-func formalGLMRegisteredPhase21PostSelectedSamplerTestV1(
-	t testing.TB,
-	contract formalGLMSourceContractV1,
-	pins map[string]ed25519.PublicKey,
-	private map[string]ed25519.PrivateKey,
-) formalGLMPhase21SamplerV2Contract {
-	t.Helper()
-	unsigned := contract.Core.SamplerV2ContractCore
-	signatures := make([]jointDPBiomedicalGaussianSignature, 0,
-		len(unsigned.CustodianPeers))
-	for _, peer := range unsigned.CustodianPeers {
-		signature, err := formalGLMPhase21SignSamplerV2Contract(
-			unsigned, peer, private[peer])
-		if err != nil {
-			t.Fatal(err)
-		}
-		signatures = append(signatures, signature)
-	}
-	sealed, err := formalGLMPhase21SealSamplerV2Contract(unsigned, signatures, pins)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return sealed
-}
-
 func formalGLMRegisteredPhase21PostSelectedCommitmentsTestV1(
 	t testing.TB,
 	selected formalGLMRegisteredPhase20SelectedV1,
@@ -259,5 +234,160 @@ func TestFormalGLMRegisteredPhase21BuildPostSelectedPhase16K2(t *testing.T) {
 	if err := formalGLMRegisteredPhase21ValidatePostSelectedPhase16V1(
 		tampered, policy, base.source.contract, base.source.inputs.identities.public); err == nil {
 		t.Fatal("tampered post-Selected proposal was accepted")
+	}
+	attestations := make([]formalGLMRegisteredPhase21PostSelectedComputeAttestationV1, 0, 2)
+	for index, owner := range owners {
+		selectedLocal, trusted, loadErr := owner.LoadSelectedSourceV1()
+		if loadErr != nil || !reflect.DeepEqual(selectedLocal, selected[index]) {
+			trusted.clear()
+			t.Fatalf("reload Selected %d: %v", index, loadErr)
+		}
+		peer := base.source.plan.DesignatedComputePeers[index]
+		attestation, attestErr := formalGLMRegisteredPhase21SignPostSelectedComputeAttestationV1(
+			proposals[index], selectedLocal, trusted.source, policy, base.source.contract,
+			commitments, peer, base.source.inputs.identities.private[peer],
+			base.source.inputs.identities.public)
+		trusted.clear()
+		if attestErr != nil {
+			t.Fatalf("compute attestation %d: %v", index, attestErr)
+		}
+		attestations = append(attestations, attestation)
+	}
+	if err := formalGLMRegisteredPhase21ValidatePostSelectedComputeAttestationsV1(
+		proposals[0], policy, base.source.contract, attestations,
+		base.source.inputs.identities.public); err != nil {
+		t.Fatal(err)
+	}
+	tamperedAttestations := append(
+		[]formalGLMRegisteredPhase21PostSelectedComputeAttestationV1(nil), attestations...)
+	tamperedAttestations[0].Signature.Signature = append(
+		[]byte(nil), tamperedAttestations[0].Signature.Signature...)
+	tamperedAttestations[0].Signature.Signature[0] ^= 1
+	if _, _, signErr := formalGLMRegisteredPhase21SignPostSelectedPhase16V1(
+		proposals[0], policy, base.source.contract, tamperedAttestations,
+		base.source.plan.CustodianPeers[0],
+		base.source.inputs.identities.private[base.source.plan.CustodianPeers[0]],
+		base.source.inputs.identities.public); signErr == nil {
+		t.Fatal("custodian signed a tampered compute attestation")
+	}
+	backendSignatures := make([]jointDPBiomedicalGaussianSignature, 0,
+		len(base.source.plan.CustodianPeers))
+	workerSignatures := make([]jointDPBiomedicalGaussianSignature, 0,
+		len(base.source.plan.CustodianPeers))
+	for _, peer := range base.source.plan.CustodianPeers {
+		backend, worker, signErr := formalGLMRegisteredPhase21SignPostSelectedPhase16V1(
+			proposals[0], policy, base.source.contract, attestations, peer,
+			base.source.inputs.identities.private[peer], base.source.inputs.identities.public)
+		if signErr != nil {
+			t.Fatalf("custodian %s signature: %v", peer, signErr)
+		}
+		backendSignatures = append(backendSignatures, backend)
+		workerSignatures = append(workerSignatures, worker)
+	}
+	selectedLocal, trusted, loadErr := owners[0].LoadSelectedSourceV1()
+	if loadErr != nil || !reflect.DeepEqual(selectedLocal, selected[0]) {
+		trusted.clear()
+		t.Fatalf("incomplete-admission reload: %v", loadErr)
+	}
+	if _, incompleteErr := formalGLMRegisteredPhase21AdmitPostSelectedPhase16V1(
+		proposals[0], selectedLocal, trusted.source, policy, base.source.contract,
+		commitments, attestations, backendSignatures[:1], workerSignatures,
+		base.source.inputs.identities.public); incompleteErr == nil {
+		trusted.clear()
+		t.Fatal("incomplete K-of-K backend signatures were admitted")
+	}
+	trusted.clear()
+	for index, owner := range owners {
+		selectedLocal, trusted, loadErr := owner.LoadSelectedSourceV1()
+		if loadErr != nil || !reflect.DeepEqual(selectedLocal, selected[index]) {
+			trusted.clear()
+			t.Fatalf("admission reload %d: %v", index, loadErr)
+		}
+		admission, admitErr := formalGLMRegisteredPhase21AdmitPostSelectedPhase16V1(
+			proposals[index], selectedLocal, trusted.source, policy, base.source.contract,
+			commitments, attestations, backendSignatures, workerSignatures,
+			base.source.inputs.identities.public)
+		trusted.clear()
+		if admitErr != nil || !reflect.DeepEqual(admission.Envelope.Preimage, proposals[index].WorkerPreimage) {
+			t.Fatalf("local Phase16 admission %d: %v", index, admitErr)
+		}
+	}
+}
+
+func TestFormalGLMRegisteredPhase21PostSelectedCustodianSigningK2K3K5(t *testing.T) {
+	for _, custodians := range []int{2, 3, 5} {
+		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+			fixture := formalGLMSourceContractTestFixture(t, custodians)
+			policy := formalGLMRegisteredPhase21PostSelectedPolicyTestV1(
+				t, fixture.contract, fixture.inputs.identities.public,
+				fixture.inputs.identities.private)
+			policySHA256, err := formalGLMRegisteredPhase21PostSelectedPhase16PolicySHA256V1(policy)
+			if err != nil {
+				t.Fatal(err)
+			}
+			proposal := formalGLMRegisteredPhase21PostSelectedPhase16V1{
+				Version:           formalGLMRegisteredPhase21PostSelectedPhase16VersionV1,
+				Purpose:           formalGLMRegisteredPhase21PostSelectedPhase16PurposeV1,
+				SelectedSHA256:    sha256Hex([]byte(t.Name() + "/selected")),
+				PolicySHA256:      policySHA256,
+				BackendSelection:  formalGLMPhase16BackendSelectionContract{SelectedBackend: formalGLMPhase16BackendOneDraw},
+				OpeningsPerformed: 0,
+				ProductionReady:   false,
+			}
+			proposal.ProposalSHA256, err = formalGLMRegisteredPhase21PostSelectedPhase16HashV1(proposal)
+			if err != nil {
+				t.Fatal(err)
+			}
+			attestations := make([]formalGLMRegisteredPhase21PostSelectedComputeAttestationV1, 0, 2)
+			for _, authority := range fixture.contract.Core.RegisteredExecutionPlan.NoiseAuthorities {
+				attestation := formalGLMRegisteredPhase21PostSelectedComputeAttestationV1{
+					Version:           formalGLMRegisteredPhase21PostSelectedComputeAttestationVersionV1,
+					Purpose:           formalGLMRegisteredPhase21PostSelectedComputeAttestationPurposeV1,
+					ProposalSHA256:    proposal.ProposalSHA256,
+					SelectedSHA256:    proposal.SelectedSHA256,
+					PolicySHA256:      proposal.PolicySHA256,
+					Role:              authority.Role,
+					PeerName:          authority.PeerName,
+					PeerID:            authority.PeerID,
+					OpeningsPerformed: 0,
+					ProductionReady:   false,
+				}
+				signature, signErr := jointDPBiomedicalGaussianSign(
+					formalGLMRegisteredPhase21PostSelectedComputeAttestationDomainV1,
+					formalGLMRegisteredPhase21PostSelectedComputeAttestationUnsignedV1(attestation),
+					authority.PeerName, fixture.inputs.identities.private[authority.PeerName])
+				if signErr != nil {
+					t.Fatal(signErr)
+				}
+				attestation.Signature = signature
+				attestations = append(attestations, attestation)
+			}
+			backend := make([]jointDPBiomedicalGaussianSignature, 0, custodians)
+			worker := make([]jointDPBiomedicalGaussianSignature, 0, custodians)
+			for _, peer := range fixture.contract.Core.RegisteredExecutionPlan.CustodianPeers {
+				backendSignature, workerSignature, signErr := formalGLMRegisteredPhase21SignPostSelectedPhase16V1(
+					proposal, policy, fixture.contract, attestations, peer,
+					fixture.inputs.identities.private[peer], fixture.inputs.identities.public)
+				if signErr != nil {
+					t.Fatal(signErr)
+				}
+				backend = append(backend, backendSignature)
+				worker = append(worker, workerSignature)
+			}
+			backendMessage, err := jointDPBiomedicalGaussianDomainMessage(
+				formalGLMPhase16BackendSelectionDomain, proposal.BackendSelection)
+			if err != nil || jointDPBiomedicalGaussianVerifySignatures(
+				backendMessage, backend, fixture.contract.Core.RegisteredExecutionPlan.CustodianPeers,
+				fixture.inputs.identities.public, "post-Selected backend") != nil {
+				t.Fatal("backend signatures are not exactly K-of-K")
+			}
+			workerMessage, err := jointDPBiomedicalGaussianDomainMessage(
+				jointDPBiomedicalGaussianWorkerEnvelopeDomain, proposal.WorkerPreimage)
+			if err != nil || jointDPBiomedicalGaussianVerifySignatures(
+				workerMessage, worker, fixture.contract.Core.RegisteredExecutionPlan.CustodianPeers,
+				fixture.inputs.identities.public, "post-Selected worker") != nil {
+				t.Fatal("worker signatures are not exactly K-of-K")
+			}
+		})
 	}
 }

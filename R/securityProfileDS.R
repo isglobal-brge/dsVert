@@ -143,6 +143,7 @@
   "dsvertFormalGLMRegisteredFreshSourceDS",
   "dsvertFormalGLMRegisteredJobControlDS",
   "dsvertFormalCoxFreshSourceDS",
+  "dsvertFormalCoxWorkerControlDS",
   "dsvertFormalCoxPublicResultDS",
   "dsvertFormalCoxDiscretePublicResultDS",
   "exactGCTransportInitDS",
@@ -457,8 +458,12 @@ dsvertSecurityProfileDS <- function() {
         "end_to_end_numeric_certificate"),
       formal_cox_fresh_source_ready = TRUE,
       formal_cox_fresh_source_state = paste0(
-        "configured_snapshot_ticket_and_encrypted_ingress_relay_only_",
-        "no_worker_or_public_result"),
+        "configured_snapshot_ticket_encrypted_ingress_and_worker_relay_only_",
+        "no_public_result"),
+      formal_cox_worker_control_ready = TRUE,
+      formal_cox_worker_control_state = paste0(
+        "provisioned_burned_host_closed_authenticated_relay_only_",
+        "no_public_model_result"),
       formal_cox_public_result_ready = TRUE,
       formal_cox_public_result_state = paste0(
         "read_only_completed_two_authority_signed_sticky_",

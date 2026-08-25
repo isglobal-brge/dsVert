@@ -37,8 +37,12 @@ test_that("the installed package exposes one immutable disclosure-safe profile",
   expect_false(profile$route_claims$formal_cox_ready)
   expect_true(profile$route_claims$formal_cox_fresh_source_ready)
   expect_identical(profile$route_claims$formal_cox_fresh_source_state,
-    paste0("configured_snapshot_ticket_and_encrypted_ingress_relay_only_",
-           "no_worker_or_public_result"))
+    paste0("configured_snapshot_ticket_encrypted_ingress_and_worker_relay_only_",
+           "no_public_result"))
+  expect_true(profile$route_claims$formal_cox_worker_control_ready)
+  expect_identical(profile$route_claims$formal_cox_worker_control_state,
+    paste0("provisioned_burned_host_closed_authenticated_relay_only_",
+           "no_public_model_result"))
   expect_true(profile$route_claims$formal_cox_public_result_ready)
   expect_false(profile$unconditional_non_reconstruction_guarantee)
   expect_true(profile$mpc_transport_is_opaque_to_analyst)
@@ -72,6 +76,7 @@ test_that("surface readiness fails closed for missing or stale attestation", {
   expect_true(missing$route_claims$formal_glm_registered_job_control_ready)
   expect_false(missing$route_claims$formal_cox_ready)
   expect_true(missing$route_claims$formal_cox_fresh_source_ready)
+  expect_true(missing$route_claims$formal_cox_worker_control_ready)
   expect_true(missing$route_claims$formal_cox_public_result_ready)
   expect_identical(
     missing$remote_surface_attestation_state,

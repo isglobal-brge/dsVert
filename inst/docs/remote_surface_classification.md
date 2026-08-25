@@ -9,11 +9,11 @@ The current client/server registration contract is internally complete:
 
 | Check | Result |
 |---|---:|
-| Registered `*DS` endpoints | 92 |
-| Direct `call(name = "...")` endpoints | 183 |
+| Registered `*DS` endpoints | 93 |
+| Direct `call(name = "...")` endpoints | 168 |
 | `as.call()` / `as.name()` exact-GC endpoints | 13 |
 | Dynamically named endpoints behind one closed runtime allowlist | 1 |
-| Unregistered endpoint names retained below guarded/test-only client code | 107 |
+| Unregistered endpoint names retained below guarded/test-only client code | 89 |
 | Production-reachable client expressions naming an unregistered endpoint | 0 |
 | Registered endpoints with no repository consumer | 0 |
 | Unregistered, unexported internal `*DS` functions | 154 |
@@ -21,15 +21,15 @@ The current client/server registration contract is internally complete:
 This audit keeps 105 formerly registered endpoints out of `AggregateMethods`
 and `NAMESPACE`: three diagnostic/migration helpers and 102 legacy exact,
 generic MPC, score, cluster-model, mutating-analysis and lifetime-gated vector
-primitives. `dsvertImputeColumnDS` has no executable client construction; the
-remaining 104 retired endpoints plus three locally quarantined unregistered
+primitives. Nineteen retired endpoints have no executable client construction;
+the remaining 86 retired endpoints plus three locally quarantined unregistered
 constructions are covered by the client AST audit. Six obsolete
 per-query DP wrappers, their bare SQLite release engine and the nine superseded
 scalar Count capsule/ledger phases are now hard-deleted. The seven generic
 scalar control-plane frontdoors and their endpoint-only DSI adapters are also
 hard-deleted; the remaining R closures stay internal solely for source
 compatibility and focused regression tests. None is exported or remotely
-invocable. All 92
+invocable. All 93
 endpoints that remain registered belong to the promoted purpose-bound
 allowlist and have a product call builder after resolving literal calls, seven
 `as.call()` / `as.name()` constructions and the closed dynamic branch. The

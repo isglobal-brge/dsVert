@@ -89,6 +89,43 @@ test_that("formal Cox worker opening exposes only a signed public header", {
     class = "dsvert_formal_cox_error")
 })
 
+test_that("formal Cox worker relays only public finalizer handoff records", {
+  selector <- .formal_cox_worker_control_selector()
+  seen <- NULL
+  headers <- list(
+    list(artifact_id = strrep("c", 64L), plan_sha256 = selector$plan_sha256,
+         signature = "AQ=="),
+    list(artifact_id = strrep("c", 64L), plan_sha256 = selector$plan_sha256,
+         signature = "Ag=="))
+  testthat::local_mocked_bindings(
+    .dsvert_formal_cox_worker_host_control = function(
+        plan_sha256, attempt_id, action, payload) {
+      seen <<- list(plan_sha256 = plan_sha256, attempt_id = attempt_id,
+                    action = action, payload = payload)
+      list(version = "dsvert-formal-cox-blockwise-worker-host-control-v1",
+           payload = list(ticket = list(
+             artifact_id = strrep("c", 64L), plan_sha256 = plan_sha256,
+             recipient_x25519_public_key = "AQ==", signature = "Ag=="),
+             replayed = FALSE))
+    },
+    .package = "dsVert")
+
+  result <- dsvertFormalCoxWorkerControlDS(
+    selector$plan_sha256, selector$attempt_id, "finalizer_ticket",
+    list(headers = headers))
+  expect_identical(seen$action, "finalizer_ticket")
+  expect_identical(seen$payload, list(headers = headers))
+  expect_false(result$production_ready)
+  expect_false(any(grepl("share|secret|storage|path|source", names(result$payload),
+                         ignore.case = TRUE)))
+  expect_error(dsvertFormalCoxWorkerControlDS(
+    selector$plan_sha256, selector$attempt_id, "finalizer_ticket",
+    list(secret = "unsafe")), class = "dsvert_formal_cox_error")
+  expect_error(dsvertFormalCoxWorkerControlDS(
+    selector$plan_sha256, selector$attempt_id, "finalizer_ticket",
+    list(headers = headers[[1L]])), class = "dsvert_formal_cox_error")
+})
+
 test_that("formal Cox worker controller rejects widened calls before host I/O", {
   selector <- .formal_cox_worker_control_selector()
   calls <- 0L

@@ -461,6 +461,49 @@ func (bridge *formalCoxBlockwiseSourceBridge) SubmitStickyOpening(
 	return opening.SubmitLocal(bridge.worker, bridge.signingKey)
 }
 
+// SealStickyOpeningToFinalizerV1 turns an already committed local opening
+// into the existing authority-only finalizer envelope.  The bridge chooses
+// both the local peer and its signing key; callers can supply neither a share
+// nor a replacement source or checkpoint.
+func (bridge *formalCoxBlockwiseSourceBridge) SealStickyOpeningToFinalizerV1(
+	opening *formalCoxBlockwiseOpeningStore,
+	outbox *formalFinalizerHandoffStore,
+	ticket formalFinalizerHandoffTicket,
+	headers [2]formalCoxBlockwiseOpeningHandoffHeader,
+) (formalFinalizerHandoffEnvelope, bool, error) {
+	var zero formalFinalizerHandoffEnvelope
+	if bridge == nil || opening == nil || outbox == nil {
+		return zero, false, fmt.Errorf("formal-cox: invalid sticky finalizer handoff")
+	}
+	bridge.mu.Lock()
+	defer bridge.mu.Unlock()
+	if bridge.closed || bridge.worker == nil || bridge.source == nil ||
+		len(bridge.signingKey) != ed25519.PrivateKeySize {
+		return zero, false, fmt.Errorf("formal-cox: sticky finalizer bridge is closed")
+	}
+	planSHA, err := formalCoxBlockwisePlanSHA256(bridge.plan)
+	if err != nil || opening.planSHA256 != planSHA ||
+		opening.plan.RunID != bridge.plan.RunID {
+		return zero, false, fmt.Errorf("formal-cox: sticky finalizer opening binding mismatch")
+	}
+	peer := bridge.peer
+	position := -1
+	for index, candidate := range opening.plan.Policy.ComputePeers {
+		if candidate == peer {
+			position = index
+			break
+		}
+	}
+	local, err := opening.loadPrivateHandoff(peer)
+	if err != nil || position < 0 || !formalCoxBlockwiseOpeningEqual(
+		local, headers[position],
+	) {
+		return zero, false, fmt.Errorf("formal-cox: sticky finalizer header mismatch")
+	}
+	return formalCoxBlockwiseSealLocalOpening(
+		opening, outbox, ticket, headers, peer, bridge.signingKey)
+}
+
 func (bridge *formalCoxBlockwiseSourceBridge) Close() error {
 	bridge.mu.Lock()
 	defer bridge.mu.Unlock()

@@ -794,6 +794,41 @@ func (controller *formalCoxBlockwiseExchangeController) OpeningV1() (
 	return controller.bridge.SubmitStickyOpening(controller.opening)
 }
 
+// SealOpeningToFinalizerV1 is the server-local continuation from a completed
+// fresh worker to the established authority handoff. The controller first
+// commits its own share-free header, then ensures that the caller's paired
+// headers contain that exact local commitment before the bridge seals an
+// opaque envelope. It is intentionally unavailable through the daemon.
+func (controller *formalCoxBlockwiseExchangeController) SealOpeningToFinalizerV1(
+	outbox *formalFinalizerHandoffStore,
+	ticket formalFinalizerHandoffTicket,
+	headers [2]formalCoxBlockwiseOpeningHandoffHeader,
+) (formalFinalizerHandoffEnvelope, bool, error) {
+	var zero formalFinalizerHandoffEnvelope
+	header, _, err := controller.OpeningV1()
+	if err != nil {
+		return zero, false, err
+	}
+	controller.mu.Lock()
+	if controller.closed || controller.bridge == nil || controller.opening == nil {
+		controller.mu.Unlock()
+		return zero, false, fmt.Errorf("formal-cox: exchange finalizer handoff is unavailable")
+	}
+	bridge, opening, peer := controller.bridge, controller.opening, controller.peer
+	controller.mu.Unlock()
+	position := -1
+	for index, candidate := range controller.plan.Policy.ComputePeers {
+		if candidate == peer {
+			position = index
+			break
+		}
+	}
+	if position < 0 || !formalCoxBlockwiseOpeningEqual(header, headers[position]) {
+		return zero, false, fmt.Errorf("formal-cox: exchange finalizer headers mismatch")
+	}
+	return bridge.SealStickyOpeningToFinalizerV1(opening, outbox, ticket, headers)
+}
+
 func (controller *formalCoxBlockwiseExchangeController) Commit(
 	receipts []formalCoxBlockwiseStepReceipt, pins map[string]ed25519.PublicKey,
 ) error {

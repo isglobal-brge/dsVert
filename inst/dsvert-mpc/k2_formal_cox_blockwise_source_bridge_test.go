@@ -623,6 +623,112 @@ func formalCoxBlockwiseSourceBridgeTestPublishSticky(t testing.TB,
 	}
 }
 
+// TestFormalCoxBlockwiseSourceBridgeFreshOpeningReachesFinalizerK2 proves the
+// missing fresh-worker tail without exposing a coefficient share: completed
+// source bridges create only encrypted, signed finalizer envelopes, which the
+// existing finalizer imports and prepares after a restart-safe ticket.
+func TestFormalCoxBlockwiseSourceBridgeFreshOpeningReachesFinalizerK2(t *testing.T) {
+	fixture := newFormalCoxBlockwiseSourceBridgeTestFixture(
+		t, 2, map[string]bool{"peer-a": true, "peer-b": true})
+	formalCoxBlockwiseSourceBridgeTestRunFullSchedule(t, fixture)
+	bridges, err := formalCoxBlockwiseSourceBridgeTestOpen(t, fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer formalCoxBlockwiseSourceBridgeTestClose(bridges)
+
+	var openings [2]*formalCoxBlockwiseOpeningStore
+	var headers [2]formalCoxBlockwiseOpeningHandoffHeader
+	for index, peer := range fixture.plan.Policy.ComputePeers {
+		key := sha256.Sum256([]byte(t.Name() + "/opening/" + peer))
+		openings[index], err = newFormalCoxBlockwiseOpeningStore(
+			filepath.Join(t.TempDir(), "opening-"+peer), key, fixture.plan, fixture.pins)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer openings[index].Close()
+		header, replayed, submitErr := bridges[index].SubmitStickyOpening(openings[index])
+		if submitErr != nil || replayed {
+			t.Fatalf("submit %s: replay=%v err=%v", peer, replayed, submitErr)
+		}
+		headers[index] = header
+	}
+	binding, err := formalCoxBlockwiseOpeningFinalizerBinding(openings[0], headers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	finalizerKey := sha256.Sum256([]byte(t.Name() + "/finalizer"))
+	finalizer, err := newFormalCoxBlockwiseOpeningStore(
+		filepath.Join(t.TempDir(), "finalizer"), finalizerKey, fixture.plan, fixture.pins)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer finalizer.Close()
+	ingressKey := sha256.Sum256([]byte(t.Name() + "/ingress"))
+	ingress, err := newFormalFinalizerHandoffStoreForTest(
+		filepath.Join(t.TempDir(), "ingress"), binding, ingressKey, fixture.pins)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ingress.Close()
+	ticket, secret, replayed, err := ingress.IssueTicketOnce(
+		fixture.signing[fixture.plan.Policy.ComputePeers[0]])
+	if err != nil || replayed || len(secret) != 32 {
+		t.Fatalf("issue finalizer ticket: replay=%v secret=%d err=%v", replayed, len(secret), err)
+	}
+	clear(secret)
+	for index, peer := range fixture.plan.Policy.ComputePeers {
+		outboxKey := sha256.Sum256([]byte(t.Name() + "/outbox/" + peer))
+		outbox, openErr := newFormalFinalizerHandoffStoreForTest(
+			filepath.Join(t.TempDir(), "outbox-"+peer), binding, outboxKey, fixture.pins)
+		if openErr != nil {
+			t.Fatal(openErr)
+		}
+		if index == 0 {
+			wrongKey := sha256.Sum256([]byte(t.Name() + "/wrong-opening"))
+			wrong, wrongErr := newFormalCoxBlockwiseOpeningStore(
+				filepath.Join(t.TempDir(), "wrong-opening"), wrongKey,
+				fixture.plan, fixture.pins)
+			if wrongErr != nil {
+				outbox.Close()
+				t.Fatal(wrongErr)
+			}
+			wrong.planSHA256 = strings.Repeat("0", 64)
+			if _, _, wrongErr = bridges[index].SealStickyOpeningToFinalizerV1(
+				wrong, outbox, ticket, headers); wrongErr == nil {
+				wrong.Close()
+				outbox.Close()
+				t.Fatal("bridge sealed an opening from another plan")
+			}
+			wrong.Close()
+		}
+		envelope, replayed, sealErr := bridges[index].SealStickyOpeningToFinalizerV1(
+			openings[index], outbox, ticket, headers)
+		if sealErr != nil || replayed || len(envelope.Ciphertext) == 0 {
+			outbox.Close()
+			t.Fatalf("seal %s: replay=%v ciphertext=%d err=%v", peer, replayed,
+				len(envelope.Ciphertext), sealErr)
+		}
+		if _, _, importErr := ingress.CommitIngress(envelope); importErr != nil {
+			outbox.Close()
+			t.Fatalf("import %s: %v", peer, importErr)
+		}
+		if _, replayed, sealErr = bridges[index].SealStickyOpeningToFinalizerV1(
+			openings[index], outbox, ticket, headers); sealErr != nil || !replayed {
+			outbox.Close()
+			t.Fatalf("seal replay %s: replay=%v err=%v", peer, replayed, sealErr)
+		}
+		outbox.Close()
+	}
+	intent, publication, found, err := formalCoxBlockwiseOpeningDistributedOpenAndPrepare(
+		finalizer, ingress, ticket, headers, nil)
+	if err != nil || found || intent.ArtifactID != finalizer.artifactID ||
+		len(publication.Certificate) != 0 {
+		t.Fatalf("prepare fresh finalizer opening: found=%v intent=%+v publication=%+v err=%v",
+			found, intent, publication, err)
+	}
+}
+
 func TestFormalCoxBlockwiseSourceBridgeRunsFullK2ScheduleAndReplays(t *testing.T) {
 	fixture := newFormalCoxBlockwiseSourceBridgeTestFixture(
 		t, 2, map[string]bool{"peer-a": true, "peer-b": true})

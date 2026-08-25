@@ -156,8 +156,23 @@ func TestFormalCoxBlockwiseExchangeDaemonK2K3K5(t *testing.T) {
 			if err := formalCoxBlockwiseValidateReceiptPair(fixture.plan, receipts[:], fixture.pins); err != nil {
 				t.Fatal(err)
 			}
+			injectedPins, err := json.Marshal(struct {
+				Receipts []formalCoxBlockwiseStepReceipt `json:"receipts"`
+				Pins     map[string][]byte               `json:"pins"`
+			}{Receipts: receipts[:], Pins: map[string][]byte{
+				"peer-a": make([]byte, 32),
+			}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var injectedCommit formalCoxBlockwiseExchangeDaemonCommitV1
+			if err := formalCoxBlockwiseExchangeDaemonPayload(
+				injectedPins, &injectedCommit); err == nil {
+				t.Fatal("daemon accepted a caller-supplied receipt pinset")
+			}
+			clear(injectedPins)
 			for _, client := range clients {
-				if err := client.CommitV1(receipts[:], fixture.pins); err != nil {
+				if err := client.CommitV1(receipts[:]); err != nil {
 					t.Fatal(err)
 				}
 			}

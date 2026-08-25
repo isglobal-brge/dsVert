@@ -10,7 +10,6 @@ package main
 
 import (
 	"bytes"
-	"crypto/ed25519"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
@@ -77,7 +76,6 @@ type formalCoxBlockwiseExchangeDaemonRelayV1 struct {
 
 type formalCoxBlockwiseExchangeDaemonCommitV1 struct {
 	Receipts []formalCoxBlockwiseStepReceipt `json:"receipts"`
-	Pins     map[string][]byte               `json:"pins"`
 }
 
 type formalCoxBlockwiseExchangeDaemonPollResultV1 struct {
@@ -559,15 +557,11 @@ func (daemon *formalCoxBlockwiseExchangeDaemonV1) dispatchV1(action string,
 		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {
 			return nil, err
 		}
-		pins := make(map[string]ed25519.PublicKey, len(request.Pins))
-		for peer, pin := range request.Pins {
-			pins[peer] = append(ed25519.PublicKey(nil), pin...)
+		pins, err := controller.commitPinsV1()
+		if err != nil {
+			return nil, err
 		}
-		defer func() {
-			for peer := range pins {
-				clear(pins[peer])
-			}
-		}()
+		defer formalCoxBlockwiseClearPinsV1(pins)
 		if err := controller.Commit(request.Receipts, pins); err != nil {
 			return nil, err
 		}
@@ -721,19 +715,10 @@ func (client *formalCoxBlockwiseExchangeDaemonClientV1) ResultV1() (
 }
 
 func (client *formalCoxBlockwiseExchangeDaemonClientV1) CommitV1(
-	receipts []formalCoxBlockwiseStepReceipt, pins map[string]ed25519.PublicKey,
+	receipts []formalCoxBlockwiseStepReceipt,
 ) error {
-	encodedPins := make(map[string][]byte, len(pins))
-	for peer, pin := range pins {
-		encodedPins[peer] = append([]byte(nil), pin...)
-	}
-	defer func() {
-		for peer := range encodedPins {
-			clear(encodedPins[peer])
-		}
-	}()
 	return client.callV1("commit", formalCoxBlockwiseExchangeDaemonCommitV1{
-		Receipts: receipts, Pins: encodedPins,
+		Receipts: receipts,
 	}, &struct{}{})
 }
 

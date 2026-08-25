@@ -195,7 +195,7 @@ func TestFormalCoxBlockwiseWorkerBootstrapK2K3K5(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, client := range clients {
-				if err := client.CommitV1(receipts[:], pins); err != nil {
+				if err := client.CommitV1(receipts[:]); err != nil {
 					t.Fatal(err)
 				}
 			}

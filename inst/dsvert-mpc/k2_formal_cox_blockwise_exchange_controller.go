@@ -733,6 +733,47 @@ func (controller *formalCoxBlockwiseExchangeController) Commit(
 	return nil
 }
 
+// commitPinsV1 returns the pinned custodian public keys already
+// authenticated by the recipient-local source session.  The outer relay must
+// never accept a caller-supplied pinset: a short-lived client is permitted to
+// carry signed receipts, not to select their verification authority.
+func (controller *formalCoxBlockwiseExchangeController) commitPinsV1() (
+	map[string]ed25519.PublicKey, error,
+) {
+	if controller == nil {
+		return nil, fmt.Errorf("formal-cox: exchange controller is unavailable")
+	}
+	controller.mu.Lock()
+	defer controller.mu.Unlock()
+	if controller.closed || controller.bridge == nil {
+		return nil, fmt.Errorf("formal-cox: exchange controller is unavailable")
+	}
+	bridge := controller.bridge
+	bridge.mu.Lock()
+	defer bridge.mu.Unlock()
+	if bridge.closed || bridge.source == nil || bridge.source.session == nil ||
+		bridge.source.session.context == nil {
+		return nil, fmt.Errorf("formal-cox: exchange controller pinset is unavailable")
+	}
+	pins := make(map[string]ed25519.PublicKey, len(controller.plan.Policy.CustodianPeers))
+	for _, peer := range controller.plan.Policy.CustodianPeers {
+		pin := bridge.source.session.context.pins[peer]
+		if len(pin) != ed25519.PublicKeySize {
+			formalCoxBlockwiseClearPinsV1(pins)
+			return nil, fmt.Errorf("formal-cox: exchange controller pinset is invalid")
+		}
+		pins[peer] = append(ed25519.PublicKey(nil), pin...)
+	}
+	return pins, nil
+}
+
+func formalCoxBlockwiseClearPinsV1(pins map[string]ed25519.PublicKey) {
+	for peer := range pins {
+		clear(pins[peer])
+		delete(pins, peer)
+	}
+}
+
 func (controller *formalCoxBlockwiseExchangeController) Close() error {
 	if controller == nil {
 		return nil

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -243,16 +242,9 @@ func TestFormalCoxBlockwiseWorkerHostAttachesLiveK2K3K5(t *testing.T) {
 			if err := formalCoxBlockwiseValidateReceiptPair(plan, receipts[:], pins); err != nil {
 				t.Fatal(err)
 			}
-			encodedPins := make(map[string][]byte, len(pins))
-			for peer, pin := range pins {
-				encodedPins[peer] = append([]byte(nil), ed25519.PublicKey(pin)...)
-			}
 			for index := range configs {
 				formalCoxBlockwiseWorkerHostTestControl(t, root, configs[index].Bootstrap,
-					"commit", formalCoxBlockwiseExchangeDaemonCommitV1{Receipts: receipts[:], Pins: encodedPins}, &struct{}{})
-			}
-			for peer := range encodedPins {
-				clear(encodedPins[peer])
+					"commit", formalCoxBlockwiseExchangeDaemonCommitV1{Receipts: receipts[:]}, &struct{}{})
 			}
 			for index := range stops {
 				close(stops[index])

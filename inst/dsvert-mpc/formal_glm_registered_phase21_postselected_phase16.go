@@ -164,6 +164,20 @@ func formalGLMRegisteredPhase21PostSelectedPhase16PolicySHA256V1(
 		formalGLMRegisteredPhase21PostSelectedPhase16PolicyUnsignedV1(policy))
 }
 
+func formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(
+	policy *formalGLMRegisteredPhase21PostSelectedPhase16PolicyV1,
+) {
+	if policy == nil {
+		return
+	}
+	for index := range policy.CustodianSignatures {
+		clear(policy.CustodianSignatures[index].Signature)
+	}
+	policy.CustodianSignatures = nil
+	policy.ReceiptReferences = nil
+	*policy = formalGLMRegisteredPhase21PostSelectedPhase16PolicyV1{}
+}
+
 func formalGLMRegisteredPhase21PostSelectedPhase16HashV1(
 	proposal formalGLMRegisteredPhase21PostSelectedPhase16V1,
 ) (string, error) {

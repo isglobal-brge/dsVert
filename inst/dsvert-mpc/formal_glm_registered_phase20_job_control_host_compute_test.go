@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -21,18 +22,23 @@ func formalGLMRegisteredPhase20JobControlHostComputeConfigV1(
 		fixture.provenance.source.inputs.identities.public)
 	publication := formalGLMRegisteredPhase21PublicationContextTestBuildV1(
 		t, fixture.provenance.source)
+	policy := formalGLMRegisteredPhase21PostSelectedPolicyTestV1(
+		t, fixture.provenance.source.contract, pins,
+		fixture.provenance.source.inputs.identities.private)
 	return formalGLMRegisteredPhase20JobControlHostConfigV1{
-		Version:  formalGLMRegisteredPhase20JobControlHostVersionV1,
-		Contract: fixture.provenance.source.contract,
-		Record:   fixture.record,
-		Pins:     pins,
-		Peer:     peer,
-		Signing:  append([]byte(nil), fixture.provenance.source.inputs.identities.private[peer]...),
+		Version:              formalGLMRegisteredPhase20JobControlHostVersionV1,
+		Contract:             fixture.provenance.source.contract,
+		Record:               fixture.record,
+		Pins:                 pins,
+		Peer:                 peer,
+		Signing:              append([]byte(nil), fixture.provenance.source.inputs.identities.private[peer]...),
+		SamplerAuthorityRoot: formalGLMRegisteredPhase21PublicationContextTestAuthorityRootV1(peer),
 		Start: formalGLMRegisteredPhase20JobStartV1{
 			ArtifactID:       fixture.record.Binding.ArtifactID,
 			ReceiptSetSHA256: fixture.record.Binding.ReceiptSetSHA256,
 		},
-		Publication: &publication,
+		Publication:   &publication,
+		Phase16Policy: &policy,
 	}
 }
 
@@ -267,6 +273,68 @@ func formalGLMRegisteredPhase20JobControlHostRunsFromPendingIngressV1(
 			if statErr != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0o600 {
 				t.Fatalf("host %d did not persist Phase21 asset %q: %v / %#v", index, path, statErr, info)
 			}
+		}
+	}
+	policy := formalGLMRegisteredPhase21PostSelectedPolicyTestV1(
+		t, fixture.provenance.source.contract, fixture.provenance.source.inputs.identities.public,
+		fixture.provenance.source.inputs.identities.private)
+	commitments := make([]formalGLMRegisteredPhase21PostSelectedAuthorityCommitmentV1, 0, 2)
+	for index, host := range hosts {
+		commitment, commitmentErr := host.BuildPostSelectedAuthorityCommitmentV1()
+		if commitmentErr != nil {
+			t.Fatalf("host %d authority commitment: %v", index, commitmentErr)
+		}
+		commitments = append(commitments, commitment)
+	}
+	proposals := [2]formalGLMRegisteredPhase21PostSelectedPhase16V1{}
+	for index, host := range hosts {
+		proposal, proposalErr := host.BuildPostSelectedPhase16V1(commitments)
+		if proposalErr != nil {
+			t.Fatalf("host %d post-Selected Phase16 proposal: %v", index, proposalErr)
+		}
+		proposals[index] = proposal
+	}
+	if !reflect.DeepEqual(proposals[0], proposals[1]) {
+		t.Fatal("compute hosts derived different post-Selected Phase16 proposals")
+	}
+	attestations := make([]formalGLMRegisteredPhase21PostSelectedComputeAttestationV1, 0, 2)
+	for index, host := range hosts {
+		attestation, attestationErr := host.AttestPostSelectedPhase16V1(
+			proposals[index], commitments)
+		if attestationErr != nil {
+			t.Fatalf("host %d post-Selected attestation: %v", index, attestationErr)
+		}
+		attestations = append(attestations, attestation)
+	}
+	backendSignatures := make([]jointDPBiomedicalGaussianSignature, 0, custodians)
+	workerSignatures := make([]jointDPBiomedicalGaussianSignature, 0, custodians)
+	for _, peer := range fixture.provenance.source.plan.CustodianPeers {
+		var backend, worker jointDPBiomedicalGaussianSignature
+		var signatureErr error
+		if peer == fixture.provenance.source.plan.DesignatedComputePeers[0] {
+			backend, worker, signatureErr = hosts[0].SignPostSelectedPhase16V1(
+				proposals[0], commitments, attestations)
+		} else if peer == fixture.provenance.source.plan.DesignatedComputePeers[1] {
+			backend, worker, signatureErr = hosts[1].SignPostSelectedPhase16V1(
+				proposals[0], commitments, attestations)
+		} else {
+			backend, worker, signatureErr = formalGLMRegisteredPhase21SignPostSelectedPhase16V1(
+				proposals[0], policy, fixture.provenance.source.contract, attestations,
+				peer, fixture.provenance.source.inputs.identities.private[peer],
+				fixture.provenance.source.inputs.identities.public)
+		}
+		if signatureErr != nil {
+			t.Fatalf("post-Selected signature %s: %v", peer, signatureErr)
+		}
+		backendSignatures = append(backendSignatures, backend)
+		workerSignatures = append(workerSignatures, worker)
+	}
+	for index, host := range hosts {
+		admission, admissionErr := host.AdmitPostSelectedPhase16V1(
+			proposals[index], commitments, attestations, backendSignatures, workerSignatures)
+		if admissionErr != nil || !reflect.DeepEqual(
+			admission.Envelope.Preimage, proposals[index].WorkerPreimage) {
+			t.Fatalf("host %d did not admit post-Selected Phase16: %v", index, admissionErr)
 		}
 	}
 	var preflight [2]formalGLMPhase21RockPreflightRecord

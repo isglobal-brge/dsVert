@@ -22,15 +22,16 @@ const formalGLMRegisteredPhase20JobControlHostVersionV1 = "dsvert-formal-glm-reg
 // public command DTO: a future Rock reader must strictly decode it from an
 // owner-only file before starting a host process.
 type formalGLMRegisteredPhase20JobControlHostConfigV1 struct {
-	Version              string                                          `json:"version"`
-	Contract             formalGLMSourceContractV1                       `json:"contract"`
-	Record               formalGLMRegisteredPhase19BindingRecordV1       `json:"record"`
-	Pins                 map[string]ed25519.PublicKey                    `json:"pins"`
-	Peer                 string                                          `json:"peer"`
-	Signing              ed25519.PrivateKey                              `json:"signing"`
-	SamplerAuthorityRoot [32]byte                                        `json:"sampler_authority_root"`
-	Start                formalGLMRegisteredPhase20JobStartV1            `json:"start"`
-	Publication          *formalGLMRegisteredPhase21PublicationContextV1 `json:"publication,omitempty"`
+	Version              string                                                 `json:"version"`
+	Contract             formalGLMSourceContractV1                              `json:"contract"`
+	Record               formalGLMRegisteredPhase19BindingRecordV1              `json:"record"`
+	Pins                 map[string]ed25519.PublicKey                           `json:"pins"`
+	Peer                 string                                                 `json:"peer"`
+	Signing              ed25519.PrivateKey                                     `json:"signing"`
+	SamplerAuthorityRoot [32]byte                                               `json:"sampler_authority_root"`
+	Start                formalGLMRegisteredPhase20JobStartV1                   `json:"start"`
+	Publication          *formalGLMRegisteredPhase21PublicationContextV1        `json:"publication,omitempty"`
+	Phase16Policy        *formalGLMRegisteredPhase21PostSelectedPhase16PolicyV1 `json:"phase16_policy,omitempty"`
 }
 
 // All fields stay private so this handle marshals to `{}`.  The owner itself
@@ -41,6 +42,7 @@ type formalGLMRegisteredPhase20JobControlHostV1 struct {
 	ops                  sync.WaitGroup
 	owner                *formalGLMRegisteredPhase20JobOwnerV1
 	publication          *formalGLMRegisteredPhase21PublicationContextV1
+	phase16Policy        *formalGLMRegisteredPhase21PostSelectedPhase16PolicyV1
 	samplerAuthorityRoot [32]byte
 	stage                *formalGLMRegisteredPhase21StageTaskV1
 	closed               bool
@@ -82,6 +84,8 @@ func formalGLMRegisteredPhase20JobControlHostClearConfigV1(
 	config.Start = formalGLMRegisteredPhase20JobStartV1{}
 	formalGLMRegisteredPhase21PublicationContextClearV1(config.Publication)
 	config.Publication = nil
+	formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(config.Phase16Policy)
+	config.Phase16Policy = nil
 	config.Version = ""
 }
 
@@ -101,6 +105,12 @@ func formalGLMRegisteredPhase20JobControlHostValidateV1(
 		formalGLMRegisteredPhase21PublicationContextValidateV1(
 			*config.Publication, config.Contract, config.Pins) != nil {
 		return fmt.Errorf("formal-glm registered Phase20 job host: invalid publication context")
+	}
+	if config.Phase16Policy != nil &&
+		(config.Publication == nil ||
+			formalGLMRegisteredPhase21ValidatePostSelectedPhase16PolicyV1(
+				*config.Phase16Policy, config.Contract, config.Pins) != nil) {
+		return fmt.Errorf("formal-glm registered Phase20 job host: invalid Phase16 policy")
 	}
 	plan := config.Contract.Core.RegisteredExecutionPlan
 	local := -1
@@ -128,7 +138,7 @@ func formalGLMRegisteredPhase20JobControlHostValidateV1(
 	if err != nil {
 		return fmt.Errorf("formal-glm registered Phase20 job host: invalid publication context")
 	}
-	if !stageReady {
+	if !stageReady && config.Phase16Policy == nil {
 		if config.SamplerAuthorityRoot != zeroRoot {
 			return fmt.Errorf("formal-glm registered Phase20 job host: unexpected sampler authority root")
 		}
@@ -172,9 +182,25 @@ func newFormalGLMRegisteredPhase20JobControlHostV1(
 		}
 		publication = &copied
 	}
+	var phase16Policy *formalGLMRegisteredPhase21PostSelectedPhase16PolicyV1
+	if cloned.Phase16Policy != nil {
+		copied := *cloned.Phase16Policy
+		copied.ReceiptReferences = append(
+			[]jointDPBiomedicalGaussianReceiptReference(nil), copied.ReceiptReferences...)
+		copied.CustodianSignatures = make(
+			[]jointDPBiomedicalGaussianSignature, len(cloned.Phase16Policy.CustodianSignatures))
+		for index, signature := range cloned.Phase16Policy.CustodianSignatures {
+			copied.CustodianSignatures[index] = jointDPBiomedicalGaussianSignature{
+				Signer: signature.Signer, Signature: append([]byte(nil), signature.Signature...),
+			}
+		}
+		phase16Policy = &copied
+	}
 	clearPublication := func() {
 		formalGLMRegisteredPhase21PublicationContextClearV1(publication)
 		publication = nil
+		formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(phase16Policy)
+		phase16Policy = nil
 	}
 	attempts, err := newFormalGLMRegisteredPhase19AttemptStoreV1(
 		rockRoot, cloned.Record, cloned.Contract, cloned.Pins, cloned.Peer, cloned.Signing)
@@ -197,7 +223,7 @@ func newFormalGLMRegisteredPhase20JobControlHostV1(
 		return nil, err
 	}
 	return &formalGLMRegisteredPhase20JobControlHostV1{
-		owner: owner, publication: publication,
+		owner: owner, publication: publication, phase16Policy: phase16Policy,
 		samplerAuthorityRoot: cloned.SamplerAuthorityRoot,
 	}, nil
 }
@@ -544,9 +570,11 @@ func (host *formalGLMRegisteredPhase20JobControlHostV1) Close() error {
 	host.closed = true
 	owner := host.owner
 	publication := host.publication
+	phase16Policy := host.phase16Policy
 	stage := host.stage
 	host.owner = nil
 	host.publication = nil
+	host.phase16Policy = nil
 	host.stage = nil
 	clear(host.samplerAuthorityRoot[:])
 	host.closeDone = make(chan struct{})
@@ -559,9 +587,11 @@ func (host *formalGLMRegisteredPhase20JobControlHostV1) Close() error {
 	defer close(done)
 	if owner == nil {
 		formalGLMRegisteredPhase21PublicationContextClearV1(publication)
+		formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(phase16Policy)
 		return nil
 	}
 	err := owner.Close()
 	formalGLMRegisteredPhase21PublicationContextClearV1(publication)
+	formalGLMRegisteredPhase21PostSelectedPhase16PolicyClearV1(phase16Policy)
 	return err
 }

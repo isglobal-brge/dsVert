@@ -707,6 +707,47 @@ func (controller *formalCoxBlockwiseExchangeController) Result() (
 	return controller.receipt, true, nil
 }
 
+// CompletionV1 returns the sole durable schedule-completion marker once the
+// final receipt pair has committed.  It is deliberately unavailable while a
+// step is pending, so an opaque relay cannot turn a transient result or error
+// into a public completion claim.
+func (controller *formalCoxBlockwiseExchangeController) CompletionV1() (
+	formalCoxBlockwiseCompletion, bool, error,
+) {
+	var zero formalCoxBlockwiseCompletion
+	if controller == nil {
+		return zero, false, fmt.Errorf("formal-cox: exchange controller is unavailable")
+	}
+	controller.mu.Lock()
+	defer controller.mu.Unlock()
+	if controller.closed || controller.bridge == nil {
+		return zero, false, fmt.Errorf("formal-cox: exchange controller is unavailable")
+	}
+	bridge := controller.bridge
+	bridge.mu.Lock()
+	if bridge.closed || bridge.worker == nil {
+		bridge.mu.Unlock()
+		return zero, false, fmt.Errorf("formal-cox: exchange controller bridge is unavailable")
+	}
+	worker := bridge.worker
+	bridge.mu.Unlock()
+	state, err := worker.Load()
+	if err != nil {
+		return zero, false, err
+	}
+	if state.Pending != nil || state.NextStep < controller.plan.ScheduleSteps {
+		return zero, false, nil
+	}
+	if state.NextStep != controller.plan.ScheduleSteps {
+		return zero, false, fmt.Errorf("formal-cox: exchange controller completion is invalid")
+	}
+	completion, _, err := worker.Completion()
+	if err != nil {
+		return zero, false, err
+	}
+	return completion, true, nil
+}
+
 func (controller *formalCoxBlockwiseExchangeController) Commit(
 	receipts []formalCoxBlockwiseStepReceipt, pins map[string]ed25519.PublicKey,
 ) error {

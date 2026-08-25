@@ -320,6 +320,8 @@ func formalCoxBlockwiseWorkerControlValidate(action string, payload json.RawMess
 		return formalCoxBlockwiseExchangeDaemonPayload(payload, &formalCoxBlockwiseExchangeDaemonRelayV1{})
 	case "result":
 		return formalCoxBlockwiseExchangeDaemonPayload(payload, &struct{}{})
+	case "completion":
+		return formalCoxBlockwiseExchangeDaemonPayload(payload, &struct{}{})
 	case "commit":
 		return formalCoxBlockwiseExchangeDaemonPayload(payload, &formalCoxBlockwiseExchangeDaemonCommitV1{})
 	default:

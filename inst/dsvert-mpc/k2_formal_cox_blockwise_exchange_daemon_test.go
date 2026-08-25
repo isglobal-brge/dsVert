@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -69,6 +70,14 @@ func TestFormalCoxBlockwiseExchangeDaemonK2K3K5(t *testing.T) {
 				if err := clients[index].BindPeerV1(fixture.plan.Policy.ComputePeers[1-index]); err != nil {
 					t.Fatal(err)
 				}
+			}
+
+			var incomplete formalCoxBlockwiseExchangeDaemonCompletionV1
+			if err := clients[0].callV1("completion", struct{}{}, &incomplete); err != nil {
+				t.Fatal(err)
+			}
+			if incomplete.Complete || incomplete.Completion != nil {
+				t.Fatal("unstarted worker exposed a completion")
 			}
 
 			wrongKey := sha256.Sum256([]byte(t.Name() + "/wrong-control"))
@@ -192,5 +201,72 @@ func TestFormalCoxBlockwiseExchangeDaemonK2K3K5(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestFormalCoxBlockwiseExchangeDaemonCompletionIsShareFree(t *testing.T) {
+	fixture := newFormalCoxBlockwiseSourceBridgeTestFixture(
+		t, 2, map[string]bool{"peer-a": true, "peer-b": true})
+	formalCoxBlockwiseSourceBridgeTestRunFullSchedule(t, fixture)
+	bridges, err := formalCoxBlockwiseSourceBridgeTestOpen(t, fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer bridges[1].Close()
+
+	attempt := sha256.Sum256([]byte(t.Name() + "/attempt"))
+	exchangeRoot, err := os.MkdirTemp("/tmp", "dsvert-cox-completion-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(exchangeRoot)
+	lease, err := openFormalCoxBlockwiseExchangeLease(
+		exchangeRoot, fixture.plan, fixture.plan.Policy.ComputePeers[0], attempt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	controller, err := newFormalCoxBlockwiseExchangeController(bridges[0], lease)
+	if err != nil {
+		_ = lease.Close()
+		t.Fatal(err)
+	}
+	controlKey := sha256.Sum256([]byte(t.Name() + "/control"))
+	daemon, err := newFormalCoxBlockwiseExchangeDaemonV1(controller, controlKey[:])
+	if err != nil {
+		_ = controller.Close()
+		t.Fatal(err)
+	}
+	defer daemon.Close()
+	client, err := newFormalCoxBlockwiseExchangeDaemonClientV1(
+		daemon.SocketPathV1(), controlKey[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	if err := client.BindPeerV1(fixture.plan.Policy.ComputePeers[1]); err != nil {
+		t.Fatal(err)
+	}
+
+	var result formalCoxBlockwiseExchangeDaemonCompletionV1
+	if err := client.callV1("completion", struct{}{}, &result); err != nil {
+		t.Fatal(err)
+	}
+	if !result.Complete || result.Completion == nil ||
+		result.Completion.PlanSHA256 == "" ||
+		result.Completion.ScheduleSteps != fixture.plan.ScheduleSteps ||
+		result.Completion.ProductionReady {
+		t.Fatalf("invalid completion response: %+v", result)
+	}
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(encoded)
+	for _, forbidden := range []string{
+		"coefficient_shares", "validity_share", "transport_secret", "private-v1",
+	} {
+		if bytes.Contains(encoded, []byte(forbidden)) {
+			t.Fatalf("completion exposed private field %q", forbidden)
+		}
 	}
 }

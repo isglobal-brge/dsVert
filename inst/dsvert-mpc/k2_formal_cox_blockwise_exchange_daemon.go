@@ -92,6 +92,14 @@ type formalCoxBlockwiseExchangeDaemonResultV1 struct {
 	Done    bool                          `json:"done"`
 }
 
+// formalCoxBlockwiseExchangeDaemonCompletionV1 exposes only the durable,
+// share-free completion marker.  A relay uses it to distinguish an unfinished
+// fixed schedule from a transport failure; it never exposes the sealed output.
+type formalCoxBlockwiseExchangeDaemonCompletionV1 struct {
+	Complete   bool                          `json:"complete"`
+	Completion *formalCoxBlockwiseCompletion `json:"completion,omitempty"`
+}
+
 type formalCoxBlockwiseExchangeDaemonV1 struct {
 	mu          sync.Mutex
 	controller  *formalCoxBlockwiseExchangeController
@@ -552,6 +560,19 @@ func (daemon *formalCoxBlockwiseExchangeDaemonV1) dispatchV1(action string,
 		}
 		return formalCoxBlockwiseExchangeDaemonResponsePayload(
 			formalCoxBlockwiseExchangeDaemonResultV1{Receipt: receipt, Done: done})
+	case "completion":
+		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &struct{}{}); err != nil {
+			return nil, err
+		}
+		completion, complete, err := controller.CompletionV1()
+		if err != nil {
+			return nil, err
+		}
+		response := formalCoxBlockwiseExchangeDaemonCompletionV1{Complete: complete}
+		if complete {
+			response.Completion = &completion
+		}
+		return formalCoxBlockwiseExchangeDaemonResponsePayload(response)
 	case "commit":
 		var request formalCoxBlockwiseExchangeDaemonCommitV1
 		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {

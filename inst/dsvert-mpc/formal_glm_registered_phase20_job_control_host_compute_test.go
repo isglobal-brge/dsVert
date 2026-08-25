@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -88,6 +89,67 @@ func formalGLMRegisteredPhase20JobControlHostPostSelectedFinalizeV1(
 		t.Fatalf("post-Selected finalization failed: %v", err)
 	}
 	clear(response)
+}
+
+// formalGLMRegisteredPhase20JobControlHostPostSelectedWitnessFrameV1 crosses
+// the same closed Phase18 source-command boundary used by a non-compute
+// custodian.  The witness sees only the already public policy, proposal and
+// compute attestations; it never receives a Selected record or a handoff.
+func formalGLMRegisteredPhase20JobControlHostPostSelectedWitnessFrameV1(
+	t testing.TB, fixture *formalGLMRegisteredPhase20JobComputeTestFixtureV1,
+	policy formalGLMRegisteredPhase21PostSelectedPhase16PolicyV1, peer string,
+	proposalFrame []byte, attestationFrames [][]byte,
+) []byte {
+	t.Helper()
+	if len(attestationFrames) != 2 {
+		t.Fatal("post-Selected witness requires exactly two attestations")
+	}
+	contractJSON, err := json.Marshal(fixture.provenance.source.contract)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(contractJSON)
+	policyJSON, err := json.Marshal(policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(policyJSON)
+	command := formalGLMRegisteredPhase18SourceCommandV1{
+		Version:                    formalGLMRegisteredPhase18SourceCommandVersionV1,
+		Action:                     formalGLMRegisteredPhase18SourceCommandActionPostSelectedSignV1,
+		SourceContractJSON:         string(contractJSON),
+		Pins:                       formalGLMRegisteredPhase18SourceCommandTestPinsV1(t, fixture.provenance.source.inputs.identities.public),
+		LocalPeerName:              peer,
+		LocalSigningKey:            base64.StdEncoding.EncodeToString(fixture.provenance.source.inputs.identities.private[peer]),
+		Phase16PolicyJSON:          string(policyJSON),
+		PostSelectedProposalBase64: base64.StdEncoding.EncodeToString(proposalFrame),
+		PostSelectedAttestationsBase64: []string{
+			base64.StdEncoding.EncodeToString(attestationFrames[0]),
+			base64.StdEncoding.EncodeToString(attestationFrames[1]),
+		},
+	}
+	encoded, err := json.Marshal(command)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(encoded)
+	response, err := formalGLMRegisteredPhase18SourceCommandRunAtRootV1(encoded, t.TempDir())
+	if err != nil || response.Version != formalGLMRegisteredPhase18SourceCommandVersionV1 ||
+		response.Replayed || response.PostSelectedSignaturePairBase64 == "" {
+		t.Fatalf("post-Selected witness command: %#v / %v", response, err)
+	}
+	frame, err := base64.StdEncoding.Strict().DecodeString(response.PostSelectedSignaturePairBase64)
+	if err != nil || base64.StdEncoding.EncodeToString(frame) != response.PostSelectedSignaturePairBase64 {
+		clear(frame)
+		t.Fatalf("post-Selected witness response was not canonical: %v", err)
+	}
+	var pair formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedSignaturePairV1
+	if err := formalGLMPhase21RockStrictDecode(frame, &pair); err != nil ||
+		pair.Backend.Signer != peer || pair.Worker.Signer != peer {
+		clear(frame)
+		t.Fatalf("post-Selected witness signature pair: %#v / %v", pair, err)
+	}
+	return frame
 }
 
 func formalGLMRegisteredPhase20JobControlHostComputeRelayV1(
@@ -380,7 +442,6 @@ func formalGLMRegisteredPhase20JobControlHostRunsFromPendingIngressV1(
 	}
 	signatureFrames := make([][]byte, 0, custodians)
 	for _, peer := range fixture.provenance.source.plan.CustodianPeers {
-		var backend, worker jointDPBiomedicalGaussianSignature
 		var signatureErr error
 		if peer == fixture.provenance.source.plan.DesignatedComputePeers[0] {
 			frame := formalGLMRegisteredPhase20JobControlHostPostSelectedFrameV1(
@@ -389,7 +450,6 @@ func formalGLMRegisteredPhase20JobControlHostRunsFromPendingIngressV1(
 					attestationFrames[0], attestationFrames[1]})
 			var pair formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedSignaturePairV1
 			signatureErr = formalGLMPhase21RockStrictDecode(frame, &pair)
-			backend, worker = pair.Backend, pair.Worker
 			signatureFrames = append(signatureFrames, frame)
 		} else if peer == fixture.provenance.source.plan.DesignatedComputePeers[1] {
 			frame := formalGLMRegisteredPhase20JobControlHostPostSelectedFrameV1(
@@ -398,20 +458,12 @@ func formalGLMRegisteredPhase20JobControlHostRunsFromPendingIngressV1(
 					attestationFrames[0], attestationFrames[1]})
 			var pair formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedSignaturePairV1
 			signatureErr = formalGLMPhase21RockStrictDecode(frame, &pair)
-			backend, worker = pair.Backend, pair.Worker
 			signatureFrames = append(signatureFrames, frame)
 		} else {
-			backend, worker, signatureErr = formalGLMRegisteredPhase21SignPostSelectedPhase16V1(
-				proposals[0], policy, fixture.provenance.source.contract, attestations,
-				peer, fixture.provenance.source.inputs.identities.private[peer],
-				fixture.provenance.source.inputs.identities.public)
-			frame, marshalErr := formalGLMRegisteredPhase20JobControlHostDaemonCanonicalV1(
-				formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedSignaturePairV1{
-					Backend: backend, Worker: worker,
-				})
-			if marshalErr != nil {
-				t.Fatal(marshalErr)
-			}
+			frame := formalGLMRegisteredPhase20JobControlHostPostSelectedWitnessFrameV1(
+				t, fixture, policy, peer, proposalFrames[0], attestationFrames)
+			var pair formalGLMRegisteredPhase20JobControlHostDaemonPostSelectedSignaturePairV1
+			signatureErr = formalGLMPhase21RockStrictDecode(frame, &pair)
 			signatureFrames = append(signatureFrames, frame)
 		}
 		if signatureErr != nil {

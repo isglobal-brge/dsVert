@@ -183,3 +183,35 @@ func formalGLMRegisteredPhase21ImportPeerAuthorizationV1(state formalGLMRegister
 	_, _, err = formalGLMPhase21RockWriteJSON(state.rockRoot, path, record)
 	return err
 }
+
+func (host *formalGLMRegisteredPhase20JobControlHostV1) RunPhase21AuthorizationV1() (
+	formalGLMPhase21RockAuthorizationRecord, error,
+) {
+	owner, done, err := host.beginOpV1()
+	if err != nil {
+		return formalGLMPhase21RockAuthorizationRecord{}, err
+	}
+	defer done()
+	state, err := host.phase21StageStateV1(owner)
+	if err != nil {
+		return formalGLMPhase21RockAuthorizationRecord{}, err
+	}
+	defer state.clearV1()
+	return formalGLMRegisteredPhase21SignAuthorizationV1(state)
+}
+
+func (host *formalGLMRegisteredPhase20JobControlHostV1) ImportPhase21PeerAuthorizationV1(
+	record formalGLMPhase21RockAuthorizationRecord,
+) error {
+	owner, done, err := host.beginOpV1()
+	if err != nil {
+		return err
+	}
+	defer done()
+	state, err := host.phase21StageStateV1(owner)
+	if err != nil {
+		return err
+	}
+	defer state.clearV1()
+	return formalGLMRegisteredPhase21ImportPeerAuthorizationV1(state, record)
+}

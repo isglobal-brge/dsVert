@@ -102,3 +102,52 @@ func formalGLMRegisteredPhase21CleanupAfterAckV1(state formalGLMRegisteredPhase2
 	}
 	return clone, nil
 }
+
+func (host *formalGLMRegisteredPhase20JobControlHostV1) ImportPhase21PeerAckV1(
+	record formalGLMPhase21RockAckRecord,
+	publication formalGLMPhase21PublicCertificateV2,
+) error {
+	owner, done, err := host.beginOpV1()
+	if err != nil {
+		return err
+	}
+	defer done()
+	state, err := host.phase21StageStateV1(owner)
+	if err != nil {
+		return err
+	}
+	defer state.clearV1()
+	return formalGLMRegisteredPhase21ImportPeerAckV1(state, record, publication)
+}
+
+func (host *formalGLMRegisteredPhase20JobControlHostV1) RunPhase21CleanupV1(
+	publication formalGLMPhase21PublicCertificateV2,
+) (formalGLMPhase21RockCleanupRecord, error) {
+	owner, done, err := host.beginOpV1()
+	if err != nil {
+		return formalGLMPhase21RockCleanupRecord{}, err
+	}
+	defer done()
+	state, err := host.phase21StageStateV1(owner)
+	if err != nil {
+		return formalGLMPhase21RockCleanupRecord{}, err
+	}
+	defer state.clearV1()
+	return formalGLMRegisteredPhase21CleanupAfterAckV1(state, publication)
+}
+
+func (host *formalGLMRegisteredPhase20JobControlHostV1) ImportPhase21PeerCleanupV1(
+	record formalGLMPhase21RockCleanupRecord,
+) error {
+	owner, done, err := host.beginOpV1()
+	if err != nil {
+		return err
+	}
+	defer done()
+	state, err := host.phase21StageStateV1(owner)
+	if err != nil {
+		return err
+	}
+	defer state.clearV1()
+	return formalGLMRegisteredPhase21ImportPeerCleanupV1(state, record)
+}

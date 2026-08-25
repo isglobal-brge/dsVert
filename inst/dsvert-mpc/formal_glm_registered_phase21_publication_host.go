@@ -97,3 +97,19 @@ func formalGLMRegisteredPhase21RunPublicationReadyV1(state formalGLMRegisteredPh
 	}
 	return cloned, nil
 }
+
+func (host *formalGLMRegisteredPhase20JobControlHostV1) RunPhase21PublicationV1() (
+	formalGLMPhase21PublicCertificateV2, error,
+) {
+	owner, done, err := host.beginOpV1()
+	if err != nil {
+		return formalGLMPhase21PublicCertificateV2{}, err
+	}
+	defer done()
+	state, err := host.phase21StageStateV1(owner)
+	if err != nil {
+		return formalGLMPhase21PublicCertificateV2{}, err
+	}
+	defer state.clearV1()
+	return formalGLMRegisteredPhase21RunPublicationReadyV1(state)
+}

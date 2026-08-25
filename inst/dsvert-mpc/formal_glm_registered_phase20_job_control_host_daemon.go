@@ -3,8 +3,9 @@ package main
 // A live registered job owns one exact-GC spool and cannot be reconstructed
 // for every local R command.  This private Unix-socket adapter lets a later
 // Rock-only provisioner attach authenticated local commands to that one host.
-// It deliberately exposes only already-safe job frames and encrypted handoff
-// commitments, never the host configuration, stores, paths, keys or result.
+// It deliberately exposes only authenticated job frames, encrypted handoff
+// commitments, and signed Phase21 lifecycle records. It never exposes the
+// host configuration, stores, paths, keys, shares, or a raw result.
 
 import (
 	"crypto/hmac"
@@ -100,6 +101,28 @@ type formalGLMRegisteredPhase20JobControlHostDaemonLocalReleaseRecordV1 struct {
 
 type formalGLMRegisteredPhase20JobControlHostDaemonBaseCertificateRecordV1 struct {
 	Record formalGLMPhase21RockBaseCertificateRecord `json:"record"`
+}
+
+type formalGLMRegisteredPhase20JobControlHostDaemonAuthorizationRecordV1 struct {
+	Record formalGLMPhase21RockAuthorizationRecord `json:"record"`
+}
+
+type formalGLMRegisteredPhase20JobControlHostDaemonPublicationV1 struct {
+	Publication formalGLMPhase21PublicCertificateV2 `json:"publication"`
+}
+
+type formalGLMRegisteredPhase20JobControlHostDaemonCommitRecordV1 struct {
+	Record formalGLMPhase21RockCommitRecord `json:"record"`
+}
+
+type formalGLMRegisteredPhase20JobControlHostDaemonAckRecordV1 struct {
+	Record      formalGLMPhase21RockAckRecord       `json:"record"`
+	Publication formalGLMPhase21PublicCertificateV2 `json:"publication"`
+}
+
+type formalGLMRegisteredPhase20JobControlHostDaemonCleanupRecordV1 struct {
+	Record      formalGLMPhase21RockCleanupRecord   `json:"record"`
+	Publication formalGLMPhase21PublicCertificateV2 `json:"publication,omitempty"`
 }
 
 type formalGLMRegisteredPhase20JobControlHostDaemonPollV1 struct {
@@ -866,6 +889,82 @@ func (daemon *formalGLMRegisteredPhase20JobControlHostDaemonV1) dispatchV1(
 			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: Phase21 base certificate import failed")
 		}
 		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(struct{}{})
+	case "phase21_authorization":
+		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil {
+			return nil, err
+		}
+		record, err := host.RunPhase21AuthorizationV1()
+		if err != nil {
+			return nil, err
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(
+			formalGLMRegisteredPhase20JobControlHostDaemonAuthorizationRecordV1{Record: record})
+	case "phase21_authorization_import":
+		request, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonAuthorizationRecordV1](encoded)
+		if err != nil || host.ImportPhase21PeerAuthorizationV1(request.Record) != nil {
+			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: Phase21 authorization import failed")
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(struct{}{})
+	case "phase21_publication":
+		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil {
+			return nil, err
+		}
+		publication, err := host.RunPhase21PublicationV1()
+		if err != nil {
+			return nil, err
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(
+			formalGLMRegisteredPhase20JobControlHostDaemonPublicationV1{Publication: publication})
+	case "phase21_commit":
+		request, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonPublicationV1](encoded)
+		if err != nil {
+			return nil, err
+		}
+		record, err := host.RunPhase21CommitV1(request.Publication)
+		if err != nil {
+			return nil, err
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(
+			formalGLMRegisteredPhase20JobControlHostDaemonCommitRecordV1{Record: record})
+	case "phase21_commit_import":
+		request, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonCommitRecordV1](encoded)
+		if err != nil || host.ImportPhase21PeerCommitV1(request.Record) != nil {
+			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: Phase21 commit import failed")
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(struct{}{})
+	case "phase21_ack":
+		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil {
+			return nil, err
+		}
+		record, err := host.RunPhase21AckV1()
+		if err != nil {
+			return nil, err
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(
+			formalGLMRegisteredPhase20JobControlHostDaemonAckRecordV1{Record: record})
+	case "phase21_ack_import":
+		request, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonAckRecordV1](encoded)
+		if err != nil || host.ImportPhase21PeerAckV1(request.Record, request.Publication) != nil {
+			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: Phase21 ACK import failed")
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(struct{}{})
+	case "phase21_cleanup":
+		request, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonPublicationV1](encoded)
+		if err != nil {
+			return nil, err
+		}
+		record, err := host.RunPhase21CleanupV1(request.Publication)
+		if err != nil {
+			return nil, err
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(
+			formalGLMRegisteredPhase20JobControlHostDaemonCleanupRecordV1{Record: record})
+	case "phase21_cleanup_import":
+		request, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[formalGLMRegisteredPhase20JobControlHostDaemonCleanupRecordV1](encoded)
+		if err != nil || host.ImportPhase21PeerCleanupV1(request.Record) != nil {
+			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: Phase21 cleanup import failed")
+		}
+		return formalGLMRegisteredPhase20JobControlHostDaemonResponsePayloadV1(struct{}{})
 	case "heartbeat":
 		if _, err := formalGLMRegisteredPhase20JobControlHostDaemonPayloadV1[struct{}](encoded); err != nil || host.HeartbeatV1() != nil {
 			return nil, fmt.Errorf("formal-glm registered Phase20 job daemon: heartbeat failed")
@@ -1180,6 +1279,79 @@ func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) ImportPhas
 ) error {
 	return client.callV1("phase21_base_certificate_import",
 		formalGLMRegisteredPhase20JobControlHostDaemonBaseCertificateRecordV1{Record: record}, nil)
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) RunPhase21AuthorizationV1() (
+	formalGLMPhase21RockAuthorizationRecord, error,
+) {
+	var result formalGLMRegisteredPhase20JobControlHostDaemonAuthorizationRecordV1
+	err := client.callV1("phase21_authorization", struct{}{}, &result)
+	return result.Record, err
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) ImportPhase21PeerAuthorizationV1(
+	record formalGLMPhase21RockAuthorizationRecord,
+) error {
+	return client.callV1("phase21_authorization_import",
+		formalGLMRegisteredPhase20JobControlHostDaemonAuthorizationRecordV1{Record: record}, nil)
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) RunPhase21PublicationV1() (
+	formalGLMPhase21PublicCertificateV2, error,
+) {
+	var result formalGLMRegisteredPhase20JobControlHostDaemonPublicationV1
+	err := client.callV1("phase21_publication", struct{}{}, &result)
+	return result.Publication, err
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) RunPhase21CommitV1(
+	publication formalGLMPhase21PublicCertificateV2,
+) (formalGLMPhase21RockCommitRecord, error) {
+	var result formalGLMRegisteredPhase20JobControlHostDaemonCommitRecordV1
+	err := client.callV1("phase21_commit",
+		formalGLMRegisteredPhase20JobControlHostDaemonPublicationV1{Publication: publication}, &result)
+	return result.Record, err
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) ImportPhase21PeerCommitV1(
+	record formalGLMPhase21RockCommitRecord,
+) error {
+	return client.callV1("phase21_commit_import",
+		formalGLMRegisteredPhase20JobControlHostDaemonCommitRecordV1{Record: record}, nil)
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) RunPhase21AckV1() (
+	formalGLMPhase21RockAckRecord, error,
+) {
+	var result formalGLMRegisteredPhase20JobControlHostDaemonAckRecordV1
+	err := client.callV1("phase21_ack", struct{}{}, &result)
+	return result.Record, err
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) ImportPhase21PeerAckV1(
+	record formalGLMPhase21RockAckRecord,
+	publication formalGLMPhase21PublicCertificateV2,
+) error {
+	return client.callV1("phase21_ack_import",
+		formalGLMRegisteredPhase20JobControlHostDaemonAckRecordV1{
+			Record: record, Publication: publication,
+		}, nil)
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) RunPhase21CleanupV1(
+	publication formalGLMPhase21PublicCertificateV2,
+) (formalGLMPhase21RockCleanupRecord, error) {
+	var result formalGLMRegisteredPhase20JobControlHostDaemonCleanupRecordV1
+	err := client.callV1("phase21_cleanup",
+		formalGLMRegisteredPhase20JobControlHostDaemonPublicationV1{Publication: publication}, &result)
+	return result.Record, err
+}
+
+func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) ImportPhase21PeerCleanupV1(
+	record formalGLMPhase21RockCleanupRecord,
+) error {
+	return client.callV1("phase21_cleanup_import",
+		formalGLMRegisteredPhase20JobControlHostDaemonCleanupRecordV1{Record: record}, nil)
 }
 
 func (client *formalGLMRegisteredPhase20JobControlHostDaemonClientV1) PollV1(

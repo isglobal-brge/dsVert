@@ -70,3 +70,19 @@ func formalGLMRegisteredPhase21FinalizeAckV1(state formalGLMRegisteredPhase21Sta
 	}
 	return clone, nil
 }
+
+func (host *formalGLMRegisteredPhase20JobControlHostV1) RunPhase21AckV1() (
+	formalGLMPhase21RockAckRecord, error,
+) {
+	owner, done, err := host.beginOpV1()
+	if err != nil {
+		return formalGLMPhase21RockAckRecord{}, err
+	}
+	defer done()
+	state, err := host.phase21StageStateV1(owner)
+	if err != nil {
+		return formalGLMPhase21RockAckRecord{}, err
+	}
+	defer state.clearV1()
+	return formalGLMRegisteredPhase21FinalizeAckV1(state)
+}

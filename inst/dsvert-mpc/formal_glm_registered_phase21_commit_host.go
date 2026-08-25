@@ -72,3 +72,35 @@ func formalGLMRegisteredPhase21ImportPeerCommitV1(state formalGLMRegisteredPhase
 	_, _, err = formalGLMPhase21RockWriteJSON(state.rockRoot, path, record)
 	return err
 }
+
+func (host *formalGLMRegisteredPhase20JobControlHostV1) RunPhase21CommitV1(
+	publication formalGLMPhase21PublicCertificateV2,
+) (formalGLMPhase21RockCommitRecord, error) {
+	owner, done, err := host.beginOpV1()
+	if err != nil {
+		return formalGLMPhase21RockCommitRecord{}, err
+	}
+	defer done()
+	state, err := host.phase21StageStateV1(owner)
+	if err != nil {
+		return formalGLMPhase21RockCommitRecord{}, err
+	}
+	defer state.clearV1()
+	return formalGLMRegisteredPhase21CommitPublicationV1(state, publication)
+}
+
+func (host *formalGLMRegisteredPhase20JobControlHostV1) ImportPhase21PeerCommitV1(
+	record formalGLMPhase21RockCommitRecord,
+) error {
+	owner, done, err := host.beginOpV1()
+	if err != nil {
+		return err
+	}
+	defer done()
+	state, err := host.phase21StageStateV1(owner)
+	if err != nil {
+		return err
+	}
+	defer state.clearV1()
+	return formalGLMRegisteredPhase21ImportPeerCommitV1(state, record)
+}

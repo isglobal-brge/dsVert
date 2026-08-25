@@ -4,7 +4,7 @@
   "authoritative_registration_source": "dsVert/DESCRIPTION: AggregateMethods and AssignMethods",
   "authoritative_client_source": "dsVertClient/R parsed as R ASTs",
   "counts": {
-    "registered_ds_endpoints": 91,
+    "registered_ds_endpoints": 92,
     "registered_argument_constructor_aliases": 0,
     "direct_literal_call_endpoints": 183,
     "as_call_as_name_endpoints": 13,
@@ -113,6 +113,7 @@
       "dsvertFormalGLMRegisteredSourceDS",
       "dsvertFormalGLMRegisteredFreshSourceDS",
       "dsvertFormalGLMRegisteredJobControlDS",
+      "dsvertFormalCoxFreshSourceDS",
       "dsvertFormalCoxPublicResultDS",
       "dsvertFormalCoxDiscretePublicResultDS"
     ]

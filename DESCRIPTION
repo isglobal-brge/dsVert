@@ -150,6 +150,7 @@ AggregateMethods:
     dsvertFormalGLMRegisteredSourceDS,
     dsvertFormalGLMRegisteredFreshSourceDS,
     dsvertFormalGLMRegisteredJobControlDS,
+    dsvertFormalCoxFreshSourceDS,
     dsvertFormalCoxPublicResultDS,
     dsvertFormalCoxDiscretePublicResultDS
 AssignMethods:

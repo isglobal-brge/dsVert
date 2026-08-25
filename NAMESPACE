@@ -97,6 +97,7 @@ export(dsvertFormalGLMPublicResultDS)
 export(dsvertFormalGLMRegisteredSourceDS)
 export(dsvertFormalGLMRegisteredFreshSourceDS)
 export(dsvertFormalGLMRegisteredJobControlDS)
+export(dsvertFormalCoxFreshSourceDS)
 export(dsvertFormalCoxPublicResultDS)
 export(dsvertFormalCoxDiscretePublicResultDS)
 

@@ -908,11 +908,12 @@ test_that("formal Cox recipient ticket bridge exposes only a signed public key",
   expect_identical(captured$calls, 1L)
 })
 
-test_that("formal Cox exposes only its read-only certificate endpoint", {
+test_that("formal Cox exposes only its closed ingress and read-only certificate endpoints", {
   exports <- getNamespaceExports("dsVert")
   formal_exports <- exports[grepl("formal.*cox|cox.*formal", exports,
                                   ignore.case = TRUE)]
   expect_setequal(formal_exports, c(
+    "dsvertFormalCoxFreshSourceDS",
     "dsvertFormalCoxPublicResultDS",
     "dsvertFormalCoxDiscretePublicResultDS"))
   description <- read.dcf(.dsvert_test_package_file("DESCRIPTION"))
@@ -921,6 +922,7 @@ test_that("formal Cox exposes only its read-only certificate endpoint", {
   formal_aggregate <- aggregate[grepl("formal.*cox|cox.*formal", aggregate,
                                       ignore.case = TRUE)]
   expect_setequal(formal_aggregate, c(
+    "dsvertFormalCoxFreshSourceDS",
     "dsvertFormalCoxPublicResultDS",
     "dsvertFormalCoxDiscretePublicResultDS"))
   namespace <- readLines(

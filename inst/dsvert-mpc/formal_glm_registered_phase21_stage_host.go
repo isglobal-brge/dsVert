@@ -42,6 +42,7 @@ type formalGLMRegisteredPhase21StageHostStateV1 struct {
 	phase20StorageRoot [32]byte
 	backendKey         [32]byte
 	authorityRoot      [32]byte
+	authoritySeed      [32]byte
 	transportRoot      [32]byte
 	semanticRoot       string
 	rockRoot           string
@@ -55,6 +56,132 @@ type formalGLMRegisteredPhase21StageHostStateV1 struct {
 	signing            ed25519.PrivateKey
 }
 
+func formalGLMRegisteredPhase21StageValidateSpoolV1(
+	root *os.Root, absolute string, segmentRoots [2]*os.Root,
+) error {
+	if err := formalGLMRegisteredPhase20JobTransportValidateRootV1(root, absolute); err != nil {
+		return err
+	}
+	for _, name := range []string{
+		"inbound.bin", "outbound.bin", "exchange.hb", "worker.hb",
+		"inbound.state", "inbound.ack", "outbound.head", "outbound.ack",
+	} {
+		info, err := root.Lstat(name)
+		if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 ||
+			info.Mode().Perm() != 0o600 || !exactGCPrivateOwnedRegular(info) {
+			return fmt.Errorf("formal-glm registered Phase21 stage: unsafe local spool")
+		}
+	}
+	for index, name := range []string{"inbound.segments", "outbound.segments"} {
+		info, err := root.Lstat(name)
+		pinned, pinErr := segmentRoots[index].Stat(".")
+		if err != nil || pinErr != nil || !info.IsDir() ||
+			info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != 0o700 ||
+			!formalFinalizerHandoffPrivateOwnedDirectory(info) || !os.SameFile(info, pinned) {
+			return fmt.Errorf("formal-glm registered Phase21 stage: unsafe local spool")
+		}
+	}
+	return exactGCPrepareWorkerSpool(absolute)
+}
+
+// formalGLMRegisteredPhase21StagePrepareSpoolV1 initializes the one clean
+// exact-GC spool consumed by the existing Phase21 Stage action.  A partially
+// created or already used spool is deliberately not repaired: it cannot be
+// distinguished from an interrupted transcript and must fail closed.
+func formalGLMRegisteredPhase21StagePrepareSpoolV1(
+	authorityRoot, artifactID string,
+) (string, error) {
+	if !filepath.IsAbs(authorityRoot) || filepath.Clean(authorityRoot) != authorityRoot ||
+		!formalGLMIsSHA256(artifactID) ||
+		formalFinalizerHandoffEnsurePrivateDir(authorityRoot) != nil {
+		return "", fmt.Errorf("formal-glm registered Phase21 stage: unsafe local spool")
+	}
+	root, err := os.OpenRoot(authorityRoot)
+	if err != nil {
+		return "", err
+	}
+	defer root.Close()
+	const parent = "formal-glm-exact-gc-v2"
+	if err := formalGLMPhase21EnsureRootPrivateDir(root, parent); err != nil {
+		return "", err
+	}
+	relative := filepath.Join(parent, artifactID)
+	created := false
+	if err := root.Mkdir(relative, 0o700); err == nil {
+		created = true
+		if err := root.Chmod(relative, 0o700); err != nil {
+			return "", err
+		}
+		if err := formalGLMPhase21RootSyncDir(root, relative); err != nil {
+			return "", err
+		}
+	} else if !os.IsExist(err) {
+		return "", err
+	}
+	spoolRoot, err := root.OpenRoot(relative)
+	if err != nil {
+		return "", err
+	}
+	defer spoolRoot.Close()
+	spoolDir := filepath.Join(authorityRoot, relative)
+	if err := formalGLMRegisteredPhase20JobTransportValidateRootV1(spoolRoot, spoolDir); err != nil {
+		return "", err
+	}
+	if !created {
+		var segmentRoots [2]*os.Root
+		for index, directory := range []string{"inbound.segments", "outbound.segments"} {
+			segmentRoots[index], err = spoolRoot.OpenRoot(directory)
+			if err != nil {
+				return "", err
+			}
+			defer segmentRoots[index].Close()
+		}
+		if err := formalGLMRegisteredPhase21StageValidateSpoolV1(
+			spoolRoot, spoolDir, segmentRoots); err != nil {
+			return "", fmt.Errorf("formal-glm registered Phase21 stage: existing spool: %w", err)
+		}
+		return spoolDir, nil
+	}
+	files := []struct {
+		name string
+		data []byte
+	}{
+		{"inbound.bin", nil}, {"outbound.bin", nil},
+		{"exchange.hb", []byte(".")}, {"worker.hb", []byte(".")},
+		{"inbound.state", []byte(exactGCInboundStateInitial)},
+		{"inbound.ack", []byte("0")}, {"outbound.head", []byte("0")},
+		{"outbound.ack", []byte("0")},
+	}
+	for _, file := range files {
+		if err := formalGLMRegisteredPhase20JobTransportWriteInitialV1(
+			spoolRoot, file.name, file.data); err != nil {
+			return "", err
+		}
+	}
+	var segmentRoots [2]*os.Root
+	for index, directory := range []string{"inbound.segments", "outbound.segments"} {
+		if err := spoolRoot.Mkdir(directory, 0o700); err != nil {
+			return "", err
+		}
+		if err := spoolRoot.Chmod(directory, 0o700); err != nil {
+			return "", err
+		}
+		segmentRoots[index], err = spoolRoot.OpenRoot(directory)
+		if err != nil {
+			return "", err
+		}
+		defer segmentRoots[index].Close()
+	}
+	if err := formalGLMPhase21RootSyncDir(spoolRoot, "state"); err != nil {
+		return "", err
+	}
+	if err := formalGLMRegisteredPhase21StageValidateSpoolV1(
+		spoolRoot, spoolDir, segmentRoots); err != nil {
+		return "", fmt.Errorf("formal-glm registered Phase21 stage: initial spool: %w", err)
+	}
+	return spoolDir, nil
+}
+
 func (state *formalGLMRegisteredPhase21StageHostStateV1) clearV1() {
 	if state == nil {
 		return
@@ -63,6 +190,7 @@ func (state *formalGLMRegisteredPhase21StageHostStateV1) clearV1() {
 	clear(state.phase20StorageRoot[:])
 	clear(state.backendKey[:])
 	clear(state.authorityRoot[:])
+	clear(state.authoritySeed[:])
 	clear(state.transportRoot[:])
 	clear(state.signing)
 	state.signing = nil
@@ -109,6 +237,7 @@ type formalGLMRegisteredPhase21StageTaskV1 struct {
 	running  bool
 	complete bool
 	failed   bool
+	failure  error
 	record   *formalGLMPhase21RockStageRecord
 	relay    *formalGLMRegisteredPhase21StageRelayV1
 	done     chan struct{}
@@ -264,16 +393,22 @@ func (host *formalGLMRegisteredPhase20JobControlHostV1) phase21StageStateV1(
 	if err != nil || !stageReady {
 		return zero, fmt.Errorf("formal-glm registered Phase21 stage: inputs unavailable")
 	}
-	host.mu.Lock()
-	authorityRoot := host.samplerAuthorityRoot
-	host.mu.Unlock()
-	var zeroRoot [32]byte
-	if authorityRoot == zeroRoot {
-		return zero, fmt.Errorf("formal-glm registered Phase21 stage: sampler root unavailable")
+	postSelected, err := host.postSelectedInputsV1(owner)
+	if err != nil {
+		return zero, err
 	}
-	owner.mu.Lock()
-	terminal := owner.terminal
-	owner.mu.Unlock()
+	defer postSelected.clearV1()
+	selected, trusted, err := postSelected.terminal.LoadSelectedSourceV1()
+	if err != nil {
+		return zero, err
+	}
+	defer trusted.clear()
+	policySHA256, err := formalGLMRegisteredPhase21PostSelectedPhase16PolicySHA256V1(
+		postSelected.policy)
+	if err != nil {
+		return zero, err
+	}
+	terminal := postSelected.terminal
 	if terminal == nil {
 		return zero, fmt.Errorf("formal-glm registered Phase21 stage: terminal unavailable")
 	}
@@ -320,18 +455,32 @@ func (host *formalGLMRegisteredPhase20JobControlHostV1) phase21StageStateV1(
 		clear(backendKey[:])
 		return zero, fmt.Errorf("formal-glm registered Phase21 stage: invalid authorities")
 	}
+	computeAuthority, err := formalGLMRegisteredPhase21PostSelectedComputeAuthorityV1(
+		postSelected.contract.Core.RegisteredExecutionPlan, postSelected.peer)
+	if err != nil || computeAuthority.Role != local.Role ||
+		computeAuthority.PeerName != local.PeerName || computeAuthority.PeerID != local.PeerID {
+		clear(backendKey[:])
+		return zero, fmt.Errorf("formal-glm registered Phase21 stage: invalid authorities")
+	}
+	authoritySeed, err := formalGLMRegisteredPhase21DerivePostSelectedAuthoritySeedV1(
+		postSelected.authorityRoot, selected.SelectedSHA256, policySHA256,
+		preflight.publication.Capsule.ReleaseContractSHA256, computeAuthority)
+	if err != nil {
+		clear(backendKey[:])
+		return zero, err
+	}
 	assets, err := formalGLMRegisteredPhase21PublicationAssetsPathsV1(
 		preflight.authorityRoot, artifactID)
 	if err != nil {
 		clear(backendKey[:])
+		clear(authoritySeed[:])
 		return zero, err
 	}
 	stickyRoot := formalGLMRegisteredPhase21PreflightStickyRootV1(
 		preflight.storageRoot, artifactID, preflight.peer)
 	transportRoot := formalGLMRegisteredPhase21StageRootV1(
 		preflight.storageRoot, artifactID, preflight.peer, "transport")
-	spoolDir := filepath.Join(preflight.authorityRoot,
-		"formal-glm-exact-gc-v2", artifactID)
+	spoolDir := filepath.Join(preflight.authorityRoot, "formal-glm-exact-gc-v2", artifactID)
 	secretPath := filepath.Join(preflight.authorityRoot, "commands-v1",
 		formalGLMRegisteredPhase21StageSecretFileV1)
 	operation := formalGLMPhase21RockStageOperation{
@@ -350,6 +499,7 @@ func (host *formalGLMRegisteredPhase20JobControlHostV1) phase21StageStateV1(
 		pin := preflight.pins[peer]
 		if len(pin) != ed25519.PublicKeySize {
 			clear(backendKey[:])
+			clear(authoritySeed[:])
 			formalGLMRegisteredPhase20TerminalClearPinsV1(relayPins)
 			return zero, fmt.Errorf("formal-glm registered Phase21 stage: invalid authority pins")
 		}
@@ -357,7 +507,8 @@ func (host *formalGLMRegisteredPhase20JobControlHostV1) phase21StageStateV1(
 	}
 	state := formalGLMRegisteredPhase21StageHostStateV1{
 		stickyRoot: stickyRoot, phase20StorageRoot: preflight.storageRoot,
-		backendKey: backendKey, authorityRoot: authorityRoot, transportRoot: transportRoot,
+		backendKey: backendKey, authorityRoot: postSelected.authorityRoot,
+		authoritySeed: authoritySeed, transportRoot: transportRoot,
 		semanticRoot: semanticRoot, rockRoot: preflight.authorityRoot,
 		spoolDir: spoolDir, secretPath: secretPath, operation: operation,
 		peer: preflight.peer, remotePeer: remote, artifactID: artifactID,
@@ -376,6 +527,7 @@ func formalGLMRegisteredPhase21StageWriteSecretV1(
 		!formalGLMPhase19KeyValid(state.phase20StorageRoot) ||
 		!formalGLMPhase19KeyValid(state.backendKey) ||
 		!formalGLMPhase19KeyValid(state.authorityRoot) ||
+		!formalGLMPhase19KeyValid(state.authoritySeed) ||
 		!formalGLMPhase19KeyValid(state.transportRoot) ||
 		len(state.signing) != ed25519.PrivateKeySize {
 		return fmt.Errorf("formal-glm registered Phase21 stage: invalid secret state")
@@ -390,6 +542,7 @@ func formalGLMRegisteredPhase21StageWriteSecretV1(
 			Phase20StorageRoot:   base64.StdEncoding.EncodeToString(state.phase20StorageRoot[:]),
 			BackendKey:           base64.StdEncoding.EncodeToString(state.backendKey[:]),
 			AuthorityRoot:        base64.StdEncoding.EncodeToString(state.authorityRoot[:]),
+			AuthoritySeed:        base64.StdEncoding.EncodeToString(state.authoritySeed[:]),
 			TransportStorageRoot: base64.StdEncoding.EncodeToString(state.transportRoot[:]),
 			SigningPrivateKey:    base64.StdEncoding.EncodeToString(state.signing),
 		})
@@ -434,6 +587,7 @@ func newFormalGLMRegisteredPhase21StageTaskV1(
 			task.authorityRoot, false, formalGLMPhase21RockActionStage, operation)
 		task.mu.Lock()
 		task.running = false
+		task.failure = runErr
 		task.complete = runErr == nil && response.Stage != nil &&
 			response.State == formalGLMPhase21RockStateStaged && !response.ProductionReady
 		task.failed = !task.complete
@@ -506,6 +660,13 @@ func (host *formalGLMRegisteredPhase20JobControlHostV1) StartPhase21StageV1() (
 	if err != nil {
 		done()
 		return zero, err
+	}
+	spoolDir, err := formalGLMRegisteredPhase21StagePrepareSpoolV1(
+		state.rockRoot, state.artifactID)
+	if err != nil || spoolDir != state.spoolDir {
+		state.clearV1()
+		done()
+		return zero, fmt.Errorf("formal-glm registered Phase21 stage: unavailable")
 	}
 	task, err := newFormalGLMRegisteredPhase21StageTaskV1(state, done)
 	state.clearV1()

@@ -306,6 +306,7 @@ func formalGLMPhase21SamplerV2TestRunOneDraw(
 				connection, fixture.stores[peer], fixture.capsule,
 				fixture.request, fixture.backendSignatures,
 				fixture.workerSignatures, fixture.seeds[peer],
+				fixture.seeds[peer],
 				fixture.formal.identities.private[peer], contract,
 				authorizations, nil)
 			lock.Lock()

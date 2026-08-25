@@ -545,6 +545,7 @@ type formalGLMPhase21RockStageSecret struct {
 	Phase20StorageRoot   string `json:"phase20_storage_root"`
 	BackendKey           string `json:"backend_key"`
 	AuthorityRoot        string `json:"authority_root"`
+	AuthoritySeed        string `json:"authority_seed"`
 	TransportStorageRoot string `json:"transport_storage_root"`
 	SigningPrivateKey    string `json:"signing_private_key"`
 }
@@ -2561,7 +2562,7 @@ func formalGLMPhase21RockRecoverStageFromLocalSpool(
 
 func formalGLMPhase21RockDecodeStageSecrets(
 	secret formalGLMPhase21RockStageSecret,
-) ([32]byte, [32]byte, [32]byte, [32]byte, [32]byte,
+) ([32]byte, [32]byte, [32]byte, [32]byte, [32]byte, [32]byte,
 	ed25519.PrivateKey, error,
 ) {
 	var zero [32]byte
@@ -2569,30 +2570,38 @@ func formalGLMPhase21RockDecodeStageSecrets(
 		secret.Family != formalFinalizerHandoffFamilyGLM ||
 		secret.Purpose != formalGLMPhase21RockPurpose ||
 		secret.Action != formalGLMPhase21RockActionStage {
-		return zero, zero, zero, zero, zero, nil,
+		return zero, zero, zero, zero, zero, zero, nil,
 			fmt.Errorf("formal-glm lifecycle: invalid stage secret")
 	}
 	sticky, err := formalGLMPhase21RockDecodeRoot(secret.StickyStorageRoot)
 	if err != nil {
-		return zero, zero, zero, zero, zero, nil, err
+		return zero, zero, zero, zero, zero, zero, nil, err
 	}
 	phase20, err := formalGLMPhase21RockDecodeRoot(secret.Phase20StorageRoot)
 	if err != nil {
 		clear(sticky[:])
-		return zero, zero, zero, zero, zero, nil, err
+		return zero, zero, zero, zero, zero, zero, nil, err
 	}
 	backend, err := formalGLMPhase21RockDecodeRoot(secret.BackendKey)
 	if err != nil {
 		clear(sticky[:])
 		clear(phase20[:])
-		return zero, zero, zero, zero, zero, nil, err
+		return zero, zero, zero, zero, zero, zero, nil, err
 	}
 	authorityRoot, err := formalGLMPhase21RockDecodeRoot(secret.AuthorityRoot)
 	if err != nil {
 		clear(sticky[:])
 		clear(phase20[:])
 		clear(backend[:])
-		return zero, zero, zero, zero, zero, nil, err
+		return zero, zero, zero, zero, zero, zero, nil, err
+	}
+	authoritySeed, err := formalGLMPhase21RockDecodeRoot(secret.AuthoritySeed)
+	if err != nil {
+		clear(sticky[:])
+		clear(phase20[:])
+		clear(backend[:])
+		clear(authorityRoot[:])
+		return zero, zero, zero, zero, zero, zero, nil, err
 	}
 	transport, err := formalGLMPhase21RockDecodeRoot(
 		secret.TransportStorageRoot)
@@ -2601,7 +2610,8 @@ func formalGLMPhase21RockDecodeStageSecrets(
 		clear(phase20[:])
 		clear(backend[:])
 		clear(authorityRoot[:])
-		return zero, zero, zero, zero, zero, nil, err
+		clear(authoritySeed[:])
+		return zero, zero, zero, zero, zero, zero, nil, err
 	}
 	privateKey, err := formalGLMPhase21RockDecodePrivateKey(
 		secret.SigningPrivateKey)
@@ -2610,10 +2620,11 @@ func formalGLMPhase21RockDecodeStageSecrets(
 		clear(phase20[:])
 		clear(backend[:])
 		clear(authorityRoot[:])
+		clear(authoritySeed[:])
 		clear(transport[:])
-		return zero, zero, zero, zero, zero, nil, err
+		return zero, zero, zero, zero, zero, zero, nil, err
 	}
-	return sticky, phase20, backend, authorityRoot, transport, privateKey, nil
+	return sticky, phase20, backend, authorityRoot, authoritySeed, transport, privateKey, nil
 }
 
 func formalGLMPhase21RockRunStage(root string, production bool,
@@ -2715,15 +2726,16 @@ func formalGLMPhase21RockRunStage(root string, production bool,
 		formalGLMPhase21RockMaxSecret, &secret); err != nil {
 		return formalGLMPhase21RockLifecycleResponse{}, err
 	}
-	stickyRoot, phase20Root, backendKey, authorityRoot, transportRoot,
+	stickyRoot, phase20Root, backendKey, authorityRoot, authoritySeed, transportRoot,
 		privateKey, err := formalGLMPhase21RockDecodeStageSecrets(secret)
 	secret.StickyStorageRoot, secret.Phase20StorageRoot = "", ""
-	secret.BackendKey, secret.AuthorityRoot = "", ""
+	secret.BackendKey, secret.AuthorityRoot, secret.AuthoritySeed = "", "", ""
 	secret.TransportStorageRoot, secret.SigningPrivateKey = "", ""
 	defer clear(stickyRoot[:])
 	defer clear(phase20Root[:])
 	defer clear(backendKey[:])
 	defer clear(authorityRoot[:])
+	defer clear(authoritySeed[:])
 	defer clear(transportRoot[:])
 	defer clear(privateKey)
 	if err != nil || !hmac.Equal(
@@ -2828,9 +2840,11 @@ func formalGLMPhase21RockRunStage(root string, production bool,
 		return formalGLMPhase21RockLifecycleResponse{}, err
 	}
 	defer source.close()
-	if err := exactGCPrepareWorkerSpool(operation.SpoolDir); err != nil {
-		return formalGLMPhase21RockLifecycleResponse{}, err
-	}
+	// The private host validated and initialized this spool before it exposed
+	// the signed relay.  A peer may therefore have published an authenticated
+	// inbound segment while this action was loading its sealed inputs; requiring
+	// an empty spool here would reject that valid race.  Host reopen still calls
+	// exactGCPrepareWorkerSpool and rejects every non-clean prior transcript.
 	spool, err := newExactGCSpoolRW(operation.SpoolDir,
 		operation.MaxSpoolBytes,
 		time.Duration(operation.TTLSeconds)*time.Second)
@@ -2839,7 +2853,7 @@ func formalGLMPhase21RockRunStage(root string, production bool,
 	}
 	output, runErr := formalGLMPhase21RunOneDrawLocalV2(
 		spool, source, capsule, request, backendSignatures, workerSignatures,
-		authorityRoot, privateKey, context.contract, samplerAuthorizations,
+		authoritySeed, authorityRoot, privateKey, context.contract, samplerAuthorizations,
 		registryResolution)
 	closeErr := spool.Close()
 	if runErr != nil {

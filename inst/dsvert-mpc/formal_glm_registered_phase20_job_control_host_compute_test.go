@@ -2,9 +2,11 @@ package main
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -183,10 +185,20 @@ func formalGLMRegisteredPhase20JobControlHostComputeRelayV1(
 }
 
 func formalGLMRegisteredPhase20JobControlHostRunsFromPendingIngressV1(
-	t *testing.T, custodians int,
+	t *testing.T, family string, custodians int,
 ) {
 	t.Helper()
-	fixture := formalGLMRegisteredPhase20JobComputeTestBuild(t, custodians, 9)
+	if family != "binomial" && family != "poisson" {
+		t.Fatalf("unsupported registered GLM family %q", family)
+	}
+	fixture := formalGLMRegisteredPhase20JobComputeTestBuildWithValuesV1(
+		t, family, custodians, 9,
+		func(authorization formalGLMRegisteredPhase18AuthorizationV1,
+			blockIndex int,
+		) ([]string, []bool) {
+			return formalGLMRegisteredPhase20JobControlHostPlausibleBlockValuesV1(
+				family, authorization, blockIndex)
+		}, true)
 	for index := range fixture.roots {
 		formalGLMRegisteredPhase20JobIngressBridgeTestPersistPendingV1(t, fixture, index)
 		if err := fixture.owners[index].Close(); err != nil {
@@ -565,12 +577,257 @@ func formalGLMRegisteredPhase20JobControlHostRunsFromPendingIngressV1(
 			t.Fatalf("host %d preflight replay changed: %q / %v", index, replayResponse, replayErr)
 		}
 	}
+	formalGLMRegisteredPhase20JobControlHostRunPhase21V1(
+		t, hosts, fixture.provenance.source.inputs.identities.public)
+}
+
+// The full public-release fixture keeps every source coordinate within the
+// signed input range. The separate materialization tests retain their
+// above-2^53 and negative Ring128 stress rows; those must fail closed at the
+// protected boundary rather than masquerade as a plausible clinical release.
+func formalGLMRegisteredPhase20JobControlHostPlausibleBlockValuesV1(
+	family string,
+	authorization formalGLMRegisteredPhase18AuthorizationV1,
+	blockIndex int,
+) ([]string, []bool) {
+	geometry := authorization.Geometry
+	values := make([]string, geometry.BlockCapacity*geometry.CoordinateCount)
+	for index := range values {
+		values[index] = "0"
+	}
+	validity := make([]bool, geometry.BlockCapacity)
+	offset := blockIndex * geometry.BlockCapacity
+	for row := 0; row < geometry.BlockCapacity; row++ {
+		if offset+row >= geometry.TotalCapacity {
+			continue
+		}
+		validity[row] = true
+		for coordinate, owner := range geometry.CoordinateOwners {
+			if owner == authorization.LocalSource.SignerPeerName {
+				value := int64(256)
+				switch coordinate {
+				case geometry.CoordinateCount - 2:
+					if family == "poisson" {
+						value = int64(offset+row) % 3 * 256
+					} else {
+						value = int64(offset+row) % 2 * 256
+					}
+				case geometry.CoordinateCount - 1:
+					value = int64((offset+row)%3-1) * 64
+				}
+				values[row*geometry.CoordinateCount+coordinate] = fmt.Sprintf("%d", value)
+			}
+		}
+	}
+	return values, validity
+}
+
+// formalGLMRegisteredPhase20JobControlHostRunPhase21V1 continues the exact
+// host that produced the selected Phase20 terminal. It uses only private host
+// methods and checks the public result only after dual commit, ACK and cleanup.
+func formalGLMRegisteredPhase20JobControlHostRunPhase21V1(
+	t testing.TB,
+	hosts [2]*formalGLMRegisteredPhase20JobControlHostV1,
+	pins map[string]ed25519.PublicKey,
+) {
+	t.Helper()
+	for index, host := range hosts {
+		if status, err := host.StartPhase21StageV1(); err != nil ||
+			status.State == formalGLMRegisteredPhase21StageFailedV1 || status.ProductionReady {
+			t.Fatalf("host %d Phase21 Stage start: %#v / %v", index, status, err)
+		}
+	}
+	var acknowledgements [2]*formalGLMRegisteredPhase21StageRelayAckV1
+	deadline := time.Now().Add(90 * time.Second)
+	for {
+		complete := 0
+		for index, host := range hosts {
+			status, err := host.Phase21StageStatusV1()
+			if err != nil || status.State == formalGLMRegisteredPhase21StageFailedV1 ||
+				status.ProductionReady {
+				host.mu.Lock()
+				task := host.stage
+				host.mu.Unlock()
+				var failure error
+				if task != nil {
+					task.mu.Lock()
+					failure = task.failure
+					task.mu.Unlock()
+				}
+				t.Fatalf("host %d Phase21 Stage status: %#v / %v / %v", index, status, err, failure)
+			}
+			if status.State == formalGLMRegisteredPhase21StageCompleteV1 {
+				complete++
+			}
+		}
+		if complete == len(hosts) {
+			break
+		}
+		for index, host := range hosts {
+			chunk, err := host.PollPhase21StageV1(acknowledgements[index])
+			acknowledgements[index] = nil
+			if err != nil {
+				t.Fatalf("host %d Phase21 Stage poll: %v", index, err)
+			}
+			if chunk == nil {
+				continue
+			}
+			acknowledgement, err := hosts[1-index].RelayPhase21StageV1(*chunk)
+			if err != nil {
+				t.Fatalf("host %d Phase21 Stage relay: %v", index, err)
+			}
+			acknowledgements[index] = &acknowledgement
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("registered Phase21 Stage did not complete")
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	var stages [2]formalGLMPhase21RockStageRecord
+	for index, host := range hosts {
+		status, err := host.Phase21StageStatusV1()
+		if err != nil || status.State != formalGLMRegisteredPhase21StageCompleteV1 ||
+			status.Stage == nil || status.Stage.ProductionReady {
+			t.Fatalf("host %d Phase21 Stage record: %#v / %v", index, status, err)
+		}
+		stages[index] = *status.Stage
+	}
+	for index, host := range hosts {
+		if err := host.ImportPhase21PeerStageV1(stages[1-index]); err != nil {
+			t.Fatalf("host %d Phase21 peer Stage: %v", index, err)
+		}
+	}
+
+	ticket, err := hosts[0].RunPhase21TicketV1()
+	if err != nil || ticket.ProductionReady {
+		t.Fatalf("Phase21 ticket: %#v / %v", ticket, err)
+	}
+	if err := hosts[1].ImportPhase21PeerTicketV1(ticket); err != nil {
+		t.Fatalf("Phase21 peer ticket: %v", err)
+	}
+	var seals [2]formalGLMPhase21RockSealRecord
+	for index, host := range hosts {
+		seals[index], err = host.RunPhase21SealV1()
+		if err != nil || seals[index].ProductionReady {
+			t.Fatalf("host %d Phase21 seal: %#v / %v", index, seals[index], err)
+		}
+	}
+	for index, host := range hosts {
+		if err := host.ImportPhase21PeerSealV1(seals[1-index]); err != nil {
+			t.Fatalf("host %d Phase21 peer seal: %v", index, err)
+		}
+	}
+	var envelopes [2]formalFinalizerHandoffEnvelope
+	for index, host := range hosts {
+		envelopes[index], err = host.ExportPhase21LocalOneDrawEnvelopeV1()
+		if err != nil {
+			t.Fatalf("host %d Phase21 local ciphertext envelope: %v", index, err)
+		}
+	}
+	for index := range envelopes {
+		if err := hosts[0].ImportPhase21FinalizerOneDrawEnvelopeV1(envelopes[index]); err != nil {
+			t.Fatalf("Phase21 finalizer ciphertext envelope %d: %v", index, err)
+		}
+		clear(envelopes[index].Ciphertext)
+		clear(envelopes[index].Signature)
+	}
+	candidate, err := hosts[0].RunPhase21CandidateV1()
+	if err != nil || candidate.ProductionReady {
+		t.Fatalf("Phase21 candidate: %#v / %v", candidate, err)
+	}
+	if err := hosts[1].ImportPhase21PeerCandidateV1(candidate); err != nil {
+		t.Fatalf("Phase21 peer candidate: %v", err)
+	}
+	var releases [2]formalGLMPhase21RockLocalReleaseRecord
+	for index, host := range hosts {
+		releases[index], err = host.VerifyPhase21CandidateV1()
+		if err != nil || releases[index].ProductionReady {
+			t.Fatalf("host %d Phase21 candidate verification: %#v / %v", index, releases[index], err)
+		}
+	}
+	for index, host := range hosts {
+		if err := host.ImportPhase21PeerLocalReleaseV1(releases[1-index]); err != nil {
+			t.Fatalf("host %d Phase21 peer local release: %v", index, err)
+		}
+	}
+	certificate, err := hosts[0].RunPhase21BaseCertificateV1()
+	if err != nil || certificate.ProductionReady {
+		t.Fatalf("Phase21 base certificate: %#v / %v", certificate, err)
+	}
+	if err := hosts[1].ImportPhase21PeerBaseCertificateV1(certificate); err != nil {
+		t.Fatalf("Phase21 peer base certificate: %v", err)
+	}
+	firstAuthorization, err := hosts[0].RunPhase21AuthorizationV1()
+	if err != nil || firstAuthorization.ProductionReady {
+		t.Fatalf("Phase21 first authorization: %#v / %v", firstAuthorization, err)
+	}
+	if err := hosts[1].ImportPhase21PeerAuthorizationV1(firstAuthorization); err != nil {
+		t.Fatalf("Phase21 peer first authorization: %v", err)
+	}
+	secondAuthorization, err := hosts[1].RunPhase21AuthorizationV1()
+	if err != nil || secondAuthorization.ProductionReady {
+		t.Fatalf("Phase21 second authorization: %#v / %v", secondAuthorization, err)
+	}
+	if err := hosts[0].ImportPhase21PeerAuthorizationV1(secondAuthorization); err != nil {
+		t.Fatalf("Phase21 peer second authorization: %v", err)
+	}
+	publication, err := hosts[0].RunPhase21PublicationV1()
+	if err != nil || publication.ProductionReady ||
+		formalGLMPhase21ValidatePublicCertificateV2(publication, pins) != nil {
+		t.Fatalf("Phase21 publication: %#v / %v", publication, err)
+	}
+	replay, replayErr := hosts[0].RunPhase21PublicationV1()
+	if replayErr != nil || !reflect.DeepEqual(replay, publication) {
+		t.Fatalf("Phase21 publication replay changed: %#v / %#v / %v", replay, publication, replayErr)
+	}
+	var commits [2]formalGLMPhase21RockCommitRecord
+	for index, host := range hosts {
+		commits[index], err = host.RunPhase21CommitV1(publication)
+		if err != nil || commits[index].ProductionReady {
+			t.Fatalf("host %d Phase21 commit: %#v / %v", index, commits[index], err)
+		}
+	}
+	if err := hosts[0].ImportPhase21PeerCommitV1(commits[1]); err != nil {
+		t.Fatalf("Phase21 peer commit: %v", err)
+	}
+	ack, err := hosts[0].RunPhase21AckV1()
+	if err != nil || ack.ProductionReady {
+		t.Fatalf("Phase21 ACK: %#v / %v", ack, err)
+	}
+	if err := hosts[1].ImportPhase21PeerAckV1(ack, publication); err != nil {
+		t.Fatalf("Phase21 peer ACK: %v", err)
+	}
+	var cleanups [2]formalGLMPhase21RockCleanupRecord
+	for index, host := range hosts {
+		cleanups[index], err = host.RunPhase21CleanupV1(publication)
+		if err != nil || cleanups[index].ProductionReady {
+			t.Fatalf("host %d Phase21 cleanup: %#v / %v", index, cleanups[index], err)
+		}
+	}
+	if err := hosts[0].ImportPhase21PeerCleanupV1(cleanups[1]); err != nil {
+		t.Fatalf("Phase21 peer cleanup: %v", err)
+	}
+	public, err := formalGLMPublicResultFromCertificateV1(publication, pins)
+	if err != nil || public.ProductionReady || len(public.Coefficients) == 0 {
+		t.Fatalf("Phase21 public result: %#v / %v", public, err)
+	}
+	for _, coefficient := range public.Coefficients {
+		if math.IsNaN(coefficient.Value) || math.IsInf(coefficient.Value, 0) {
+			t.Fatalf("Phase21 public coefficient is not finite: %#v", coefficient)
+		}
+	}
 }
 
 func TestFormalGLMRegisteredPhase20JobControlHostRunsK2K3K5FromPendingIngress(t *testing.T) {
-	for _, custodians := range []int{2, 3, 5} {
-		t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
-			formalGLMRegisteredPhase20JobControlHostRunsFromPendingIngressV1(t, custodians)
+	for _, family := range []string{"binomial", "poisson"} {
+		t.Run(family, func(t *testing.T) {
+			for _, custodians := range []int{2, 3, 5} {
+				t.Run(fmt.Sprintf("K%d", custodians), func(t *testing.T) {
+					formalGLMRegisteredPhase20JobControlHostRunsFromPendingIngressV1(
+						t, family, custodians)
+				})
+			}
 		})
 	}
 }

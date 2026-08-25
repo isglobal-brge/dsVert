@@ -574,6 +574,7 @@ func formalGLMPhase21RockTestStageAuthorities(t *testing.T,
 				Phase20StorageRoot: base64.StdEncoding.EncodeToString(phase20Root[:]),
 				BackendKey:         base64.StdEncoding.EncodeToString(backendKey[:]),
 				AuthorityRoot:      base64.StdEncoding.EncodeToString(authorityRoot[:]),
+				AuthoritySeed:      base64.StdEncoding.EncodeToString(authorityRoot[:]),
 				TransportStorageRoot: base64.StdEncoding.EncodeToString(
 					transportRoot[:]),
 				SigningPrivateKey: base64.StdEncoding.EncodeToString(
@@ -628,6 +629,7 @@ func formalGLMPhase21RockTestRefreshStageSecret(t testing.TB,
 			Phase20StorageRoot: base64.StdEncoding.EncodeToString(phase20Root[:]),
 			BackendKey:         base64.StdEncoding.EncodeToString(backendKey[:]),
 			AuthorityRoot:      base64.StdEncoding.EncodeToString(seed[:]),
+			AuthoritySeed:      base64.StdEncoding.EncodeToString(seed[:]),
 			TransportStorageRoot: base64.StdEncoding.EncodeToString(
 				authority.transportRoot[:]),
 			SigningPrivateKey: base64.StdEncoding.EncodeToString(

@@ -1271,7 +1271,6 @@ func formalGLMPhase21ProjectRegisteredArtifactV1(
 	var zero formalGLMPhase21StickyArtifact
 	if source.DescriptorCoreSHA256 != "" ||
 		registered.DescriptorCoreSHA256 == "" ||
-		source.SchemaManifestSHA256 == registered.SchemaManifestSHA256 ||
 		resolution.ArtifactID == "" ||
 		formalGLMValidateSignedPublicDescriptorV1(
 			resolution.Descriptor, pins) != nil ||

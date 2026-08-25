@@ -297,16 +297,15 @@ func formalGLMPhase21RunOneDrawLocal(
 }
 
 // formalGLMPhase21RunOneDrawLocalV2 retains the K-signed legacy envelope as
-// source/admission evidence, but it never uses that envelope's run, epoch or
-// release-instance hashes as sampler input. The authority root is first
-// checked against the legacy commitment, then a distinct seed is derived from
-// the canonical artifact ID and the exact v2 role/purpose.
+// source/admission evidence. The Phase16 authority seed first verifies the
+// legacy commitment; the separate sampler root then derives the v2 stream.
 func formalGLMPhase21RunOneDrawLocalV2(
 	rw io.ReadWriter,
 	store *formalGLMPhase20HandoffStore,
 	capsule formalGLMPhase16CapsuleBinding,
 	request formalGLMPhase16ProductiveRequest,
 	backendSignatures, workerSignatures []jointDPBiomedicalGaussianSignature,
+	legacyAuthoritySeed [32]byte,
 	authorityRoot [32]byte,
 	signer ed25519.PrivateKey,
 	contract formalGLMPhase21SamplerV2Contract,
@@ -354,7 +353,7 @@ func formalGLMPhase21RunOneDrawLocalV2(
 	if err != nil {
 		return zero, err
 	}
-	legacyRoot := base64.StdEncoding.EncodeToString(authorityRoot[:])
+	legacyRoot := base64.StdEncoding.EncodeToString(legacyAuthoritySeed[:])
 	_, legacySeed, err := jointDPBiomedicalGaussianVerifyProductiveWorkerInput(
 		runtime.Admission.Productive.Envelope,
 		runtime.Admission.Productive.Trust, binding, session,

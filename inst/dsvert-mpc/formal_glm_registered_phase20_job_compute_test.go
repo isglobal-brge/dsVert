@@ -47,7 +47,20 @@ func formalGLMRegisteredPhase20JobComputeTestBuild(
 func formalGLMRegisteredPhase20JobComputeTestBuildWithFamily(
 	t *testing.T, family string, custodians, totalCapacity int,
 ) *formalGLMRegisteredPhase20JobComputeTestFixtureV1 {
+	return formalGLMRegisteredPhase20JobComputeTestBuildWithValuesV1(
+		t, family, custodians, totalCapacity,
+		formalGLMRegisteredPhase18MaterializedPairTestValues, false)
+}
+
+func formalGLMRegisteredPhase20JobComputeTestBuildWithValuesV1(
+	t *testing.T, family string, custodians, totalCapacity int,
+	valuesForBlock func(formalGLMRegisteredPhase18AuthorizationV1, int) ([]string, []bool),
+	sharedConsensus bool,
+) *formalGLMRegisteredPhase20JobComputeTestFixtureV1 {
 	t.Helper()
+	if valuesForBlock == nil {
+		t.Fatal("registered job compute fixture has no block values")
+	}
 	fixture := &formalGLMRegisteredPhase20JobComputeTestFixtureV1{
 		provenance: formalGLMRegisteredPhase18ProvenanceTestBuildWithCapacityAndFamily(
 			t, family, custodians, totalCapacity),
@@ -98,10 +111,14 @@ func formalGLMRegisteredPhase20JobComputeTestBuildWithFamily(
 		fixture.pairs[source] = make([]formalGLMRegisteredPhase18BlockPairV1,
 			plan.TotalBlocks)
 		for blockIndex := 0; blockIndex < plan.TotalBlocks; blockIndex++ {
-			values, validity := formalGLMRegisteredPhase18MaterializedPairTestValues(
-				authorization, blockIndex)
-			consensus := sha256.Sum256([]byte(fmt.Sprintf(
-				"registered-job-compute/K%d/%s/%d", custodians, source, blockIndex)))
+			values, validity := valuesForBlock(authorization, blockIndex)
+			consensusLabel := fmt.Sprintf(
+				"registered-job-compute/K%d/%s/%d", custodians, source, blockIndex)
+			if sharedConsensus {
+				consensusLabel = fmt.Sprintf(
+					"registered-job-compute/K%d/shared/%d", custodians, blockIndex)
+			}
+			consensus := sha256.Sum256([]byte(consensusLabel))
 			pair, err := formalGLMRegisteredPhase18BuildMaterializedBlockPairV3(
 				contract, authorization, tickets, blockIndex, values, validity,
 				consensus[:], private[source], pins)

@@ -34,9 +34,10 @@ func formalGLMRegisteredPhase21StageTaskTestStateV1(
 	}
 	return formalGLMRegisteredPhase21StageHostStateV1{
 		stickyRoot: sticky, phase20StorageRoot: phase20, backendKey: backend,
-		authorityRoot: fixture.seeds[peer], transportRoot: authority.transportRoot,
-		semanticRoot: authority.operation.Phase20SemanticRootSHA256,
-		rockRoot:     authority.root, spoolDir: authority.spool, secretPath: authority.secret,
+		authorityRoot: fixture.seeds[peer], authoritySeed: fixture.seeds[peer],
+		transportRoot: authority.transportRoot,
+		semanticRoot:  authority.operation.Phase20SemanticRootSHA256,
+		rockRoot:      authority.root, spoolDir: authority.spool, secretPath: authority.secret,
 		operation: authority.operation, peer: peer, remotePeer: remote,
 		artifactID: contract.ArtifactID, pins: pins,
 		signing: append(ed25519.PrivateKey(nil), fixture.formal.identities.private[peer]...),

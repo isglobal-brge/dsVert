@@ -253,15 +253,16 @@ func formalGLMRegisteredPhase21DerivePostSelectedAuthorityCommitmentV1(
 	privateKey ed25519.PrivateKey,
 ) (formalGLMRegisteredPhase21PostSelectedAuthorityCommitmentV1, error) {
 	var zero formalGLMRegisteredPhase21PostSelectedAuthorityCommitmentV1
-	if !formalGLMPhase19KeyValid(authorityRoot) ||
-		!formalGLMIsSHA256(selectedSHA256) || !formalGLMIsSHA256(policySHA256) ||
-		!formalGLMIsSHA256(releaseContractSHA256) ||
-		(authority.Role != "garbler" && authority.Role != "evaluator") ||
-		!formalGLMRegistryLabelV1(authority.PeerName, 128) ||
-		!formalGLMRegistryLabelV1(authority.PeerID, 256) ||
-		len(privateKey) != ed25519.PrivateKeySize {
+	if len(privateKey) != ed25519.PrivateKeySize {
 		return zero, fmt.Errorf("formal-glm registered Phase21 post-Selected authority: invalid commitment input")
 	}
+	seed, err := formalGLMRegisteredPhase21DerivePostSelectedAuthoritySeedV1(
+		authorityRoot, selectedSHA256, policySHA256, releaseContractSHA256,
+		authority)
+	if err != nil {
+		return zero, err
+	}
+	defer clear(seed[:])
 	releaseBytes, err := hex.DecodeString(releaseContractSHA256)
 	if err != nil || len(releaseBytes) != sha256.Size {
 		clear(releaseBytes)
@@ -270,18 +271,9 @@ func formalGLMRegisteredPhase21DerivePostSelectedAuthorityCommitmentV1(
 	var release [32]byte
 	copy(release[:], releaseBytes)
 	clear(releaseBytes)
-	info := []byte(formalGLMRegisteredPhase21PostSelectedAuthorityCommitmentDomainV1 +
-		"/seed/" + selectedSHA256 + "/" + policySHA256 + "/" + authority.Role + "/" + authority.PeerID)
-	reader := hkdf.New(sha256.New, authorityRoot[:], release[:], info)
-	var seed [32]byte
-	if _, err = io.ReadFull(reader, seed[:]); err != nil || !formalGLMPhase19KeyValid(seed) {
-		clear(seed[:])
-		return zero, fmt.Errorf("formal-glm registered Phase21 post-Selected authority: seed derivation failed")
-	}
 	context := jointDPCommitmentContext(release,
 		jointDPGaussianOneDrawCommitmentPurpose+"/"+authority.Role, authority.PeerID)
 	commitment := jointDPSeedCommitment(context, seed)
-	clear(seed[:])
 	record := formalGLMRegisteredPhase21PostSelectedAuthorityCommitmentV1{
 		Version:               formalGLMRegisteredPhase21PostSelectedAuthorityCommitmentVersionV1,
 		Purpose:               formalGLMRegisteredPhase21PostSelectedAuthorityCommitmentPurposeV1,
@@ -304,6 +296,43 @@ func formalGLMRegisteredPhase21DerivePostSelectedAuthorityCommitmentV1(
 	}
 	record.Signature = signature
 	return record, nil
+}
+
+// formalGLMRegisteredPhase21DerivePostSelectedAuthoritySeedV1 is the private
+// seed whose signed commitment becomes the legacy Phase16 worker input.  The
+// v2 sampler has a separate root and must never substitute one for the other.
+func formalGLMRegisteredPhase21DerivePostSelectedAuthoritySeedV1(
+	authorityRoot [32]byte,
+	selectedSHA256, policySHA256, releaseContractSHA256 string,
+	authority formalGLMRegisteredExecutionAuthorityV1,
+) ([32]byte, error) {
+	var zero [32]byte
+	if !formalGLMPhase19KeyValid(authorityRoot) ||
+		!formalGLMIsSHA256(selectedSHA256) || !formalGLMIsSHA256(policySHA256) ||
+		!formalGLMIsSHA256(releaseContractSHA256) ||
+		(authority.Role != "garbler" && authority.Role != "evaluator") ||
+		!formalGLMRegistryLabelV1(authority.PeerName, 128) ||
+		!formalGLMRegistryLabelV1(authority.PeerID, 256) {
+		return zero, fmt.Errorf("formal-glm registered Phase21 post-Selected authority: invalid seed input")
+	}
+	releaseBytes, err := hex.DecodeString(releaseContractSHA256)
+	if err != nil || len(releaseBytes) != sha256.Size {
+		clear(releaseBytes)
+		return zero, fmt.Errorf("formal-glm registered Phase21 post-Selected authority: invalid release contract")
+	}
+	var release [32]byte
+	copy(release[:], releaseBytes)
+	clear(releaseBytes)
+	defer clear(release[:])
+	info := []byte(formalGLMRegisteredPhase21PostSelectedAuthorityCommitmentDomainV1 +
+		"/seed/" + selectedSHA256 + "/" + policySHA256 + "/" + authority.Role + "/" + authority.PeerID)
+	reader := hkdf.New(sha256.New, authorityRoot[:], release[:], info)
+	var seed [32]byte
+	if _, err = io.ReadFull(reader, seed[:]); err != nil || !formalGLMPhase19KeyValid(seed) {
+		clear(seed[:])
+		return zero, fmt.Errorf("formal-glm registered Phase21 post-Selected authority: seed derivation failed")
+	}
+	return seed, nil
 }
 
 func formalGLMRegisteredPhase21ValidatePostSelectedAuthorityCommitmentsV1(

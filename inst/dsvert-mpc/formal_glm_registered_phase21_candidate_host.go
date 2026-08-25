@@ -6,6 +6,8 @@ package main
 // other designated authority.
 
 import (
+	"crypto/ed25519"
+	"crypto/hmac"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -76,6 +78,88 @@ func formalGLMRegisteredPhase21CloneCandidateV1(
 	return cloned, nil
 }
 
+func formalGLMRegisteredPhase21CloneOneDrawEnvelopeV1(
+	envelope formalFinalizerHandoffEnvelope,
+) formalFinalizerHandoffEnvelope {
+	clone := envelope
+	clone.Ciphertext = append([]byte(nil), envelope.Ciphertext...)
+	clone.Signature = append([]byte(nil), envelope.Signature...)
+	return clone
+}
+
+func formalGLMRegisteredPhase21CandidateEnvelopeStoreV1(
+	state formalGLMRegisteredPhase21StageHostStateV1,
+	binding formalFinalizerHandoffBinding,
+	local formalFinalizerHandoffAuthority,
+	pins map[string]ed25519.PublicKey,
+) (*formalFinalizerHandoffStore, error) {
+	guard, err := newFormalFinalizerHandoffAuthorityGuard(
+		state.rockRoot, binding.ArtifactID, local, false)
+	if err != nil {
+		return nil, err
+	}
+	store, err := openFormalFinalizerHandoffAuthorityStoreWithGuard(
+		guard, binding, state.transportRoot, pins)
+	if err != nil {
+		guard.Close()
+		return nil, err
+	}
+	return store, nil
+}
+
+// formalGLMRegisteredPhase21ExportLocalOneDrawEnvelopeV1 returns only the
+// signed ciphertext already persisted by the local Stage. It never opens the
+// envelope or exposes its payload.
+func formalGLMRegisteredPhase21ExportLocalOneDrawEnvelopeV1(
+	state formalGLMRegisteredPhase21StageHostStateV1,
+) (formalFinalizerHandoffEnvelope, error) {
+	var zero formalFinalizerHandoffEnvelope
+	context, _, _, binding, local, ticket, err :=
+		formalGLMRegisteredPhase21CandidateStateV1(state)
+	if err != nil {
+		return zero, err
+	}
+	store, err := formalGLMRegisteredPhase21CandidateEnvelopeStoreV1(
+		state, binding, local, context.pins)
+	if err != nil {
+		return zero, err
+	}
+	defer store.Close()
+	envelope, err := store.loadEnvelope("outbox-v1", local.Role)
+	if err != nil || formalFinalizerHandoffValidateEnvelope(
+		binding, ticket.Ticket, envelope, context.pins) != nil {
+		return zero, fmt.Errorf("formal-glm registered Phase21 candidate: local Stage envelope unavailable")
+	}
+	return formalGLMRegisteredPhase21CloneOneDrawEnvelopeV1(envelope), nil
+}
+
+func formalGLMRegisteredPhase21ImportFinalizerOneDrawEnvelopeV1(
+	state formalGLMRegisteredPhase21StageHostStateV1,
+	envelope formalFinalizerHandoffEnvelope,
+) error {
+	context, _, _, binding, local, ticket, err :=
+		formalGLMRegisteredPhase21CandidateStateV1(state)
+	if err != nil || !formalFinalizerHandoffAuthorityEqual(local, binding.Finalizer) ||
+		formalFinalizerHandoffValidateEnvelope(binding, ticket.Ticket, envelope, context.pins) != nil {
+		return fmt.Errorf("formal-glm registered Phase21 candidate: invalid Stage envelope")
+	}
+	store, err := formalGLMRegisteredPhase21CandidateEnvelopeStoreV1(
+		state, binding, local, context.pins)
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+	stored, _, err := store.CommitIngress(envelope)
+	if err != nil || !formalFinalizerHandoffEnvelopeSemanticEqual(stored, envelope) ||
+		stored.CiphertextSHA256 != envelope.CiphertextSHA256 ||
+		!hmac.Equal(stored.Signature, envelope.Signature) {
+		return fmt.Errorf("formal-glm registered Phase21 candidate: Stage envelope commit failed")
+	}
+	clear(stored.Ciphertext)
+	clear(stored.Signature)
+	return nil
+}
+
 func formalGLMRegisteredPhase21RunCandidateV1(
 	state formalGLMRegisteredPhase21StageHostStateV1,
 ) (formalGLMPhase21RockCandidateRecord, error) {
@@ -127,7 +211,10 @@ func formalGLMRegisteredPhase21RunCandidateV1(
 	defer clear(operation)
 	response, err := formalGLMPhase21RockRun(
 		state.rockRoot, false, formalGLMPhase21RockActionPrepareCandidate, operation)
-	if err != nil || response.Candidate == nil ||
+	if err != nil {
+		return zero, fmt.Errorf("formal-glm registered Phase21 candidate: lifecycle: %w", err)
+	}
+	if response.Candidate == nil ||
 		response.State != formalGLMPhase21RockStateCandidateReady ||
 		response.ArtifactID != context.artifactID || response.ProductionReady ||
 		formalGLMPhase21RockValidateCandidateRecord(
@@ -170,6 +257,38 @@ func (host *formalGLMRegisteredPhase20JobControlHostV1) RunPhase21CandidateV1() 
 	}
 	defer state.clearV1()
 	return formalGLMRegisteredPhase21RunCandidateV1(state)
+}
+
+func (host *formalGLMRegisteredPhase20JobControlHostV1) ExportPhase21LocalOneDrawEnvelopeV1() (
+	formalFinalizerHandoffEnvelope, error,
+) {
+	owner, done, err := host.beginOpV1()
+	if err != nil {
+		return formalFinalizerHandoffEnvelope{}, err
+	}
+	defer done()
+	state, err := host.phase21StageStateV1(owner)
+	if err != nil {
+		return formalFinalizerHandoffEnvelope{}, err
+	}
+	defer state.clearV1()
+	return formalGLMRegisteredPhase21ExportLocalOneDrawEnvelopeV1(state)
+}
+
+func (host *formalGLMRegisteredPhase20JobControlHostV1) ImportPhase21FinalizerOneDrawEnvelopeV1(
+	envelope formalFinalizerHandoffEnvelope,
+) error {
+	owner, done, err := host.beginOpV1()
+	if err != nil {
+		return err
+	}
+	defer done()
+	state, err := host.phase21StageStateV1(owner)
+	if err != nil {
+		return err
+	}
+	defer state.clearV1()
+	return formalGLMRegisteredPhase21ImportFinalizerOneDrawEnvelopeV1(state, envelope)
 }
 
 func (host *formalGLMRegisteredPhase20JobControlHostV1) ImportPhase21PeerCandidateV1(

@@ -523,6 +523,85 @@ test_that("random-intercept LMM source respects its one-patient sensitivity", {
   expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
   expect_lte(sum(abs((right - left) * 2^lattice$scale_shifts)),
              fixture$manifest$workload$sensitivity$l1)
+
+  first <- right
+  second_patient <- one_patient
+  second_patient$patient_id <- "u2"
+  fixture$resolved$protected$data <- rbind(one_patient, second_patient)
+  second <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  delta <- .materializer_test_family_delta(
+    layout, first, second, "gaussian_models")
+  expect_lte(sum(abs(delta)), family$l1_sensitivity)
+  expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
+})
+
+test_that("fixed-effect random-intercept LMM emits GLS sufficient statistics", {
+  lmm <- list(random_intercept_fixed = list(
+    version = "random_intercept_fixed_v2", dataset = "protected",
+    outcome = "time", predictors = "x", intercept = TRUE,
+    cluster = "cat_a", max_patients_per_cluster = 2L,
+    variance_ratio_grid = c(0, 0.5, 2)))
+  fixture <- .materializer_test_fixture(gaussian_specs = lmm)
+  artifact <- fixture$manifest$workload$families$gaussian_models$
+    artifacts$random_intercept_fixed
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["gaussian_models::random_intercept_fixed"]]
+  material <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)
+  global <- c(2, 512, 256, 256, 358, 256, 297)
+
+  expect_identical(
+    artifact$version,
+    "bounded-normalized-random-intercept-fixed-sufficient-statistics-v2")
+  expect_identical(as.numeric(artifact$coordinate_count), 21)
+  expect_identical(artifact$design_terms, c("(Intercept)", "x"))
+  expect_identical(artifact$variance_ratio_grid, c(0, 0.5, 2))
+  expect_identical(as.numeric(artifact$statistic_maximum),
+                   c(5, rep(1280, 6L), 5, rep(2560, 6L),
+                     5, rep(2560, 6L)))
+  expect_identical(material$values[block$start:block$end],
+                   c(global, 2, global[-1L], 0, rep(0, 6L)))
+  lattice <- .dsvert_joint_dp_vector_lattice_vectors(list(
+    manifest = fixture$manifest, layout = layout))
+  expect_identical(lattice$scale_shifts[block$start:block$end],
+                   c(8L, rep(0L, 6L), 8L, rep(0L, 6L),
+                     8L, rep(0L, 6L)))
+  expect_equal(artifact$source_raw_l1_sensitivity,
+               (3 + 6 * (1 + 2 * 2^2)) * 256)
+  expect_identical(artifact$implementation_state, "same_owner_materialized")
+  expect_identical(artifact$cross_owner_state, "reserved_not_materialized")
+})
+
+test_that("fixed-effect random-intercept LMM source respects signed sensitivity", {
+  lmm <- list(random_intercept_fixed = list(
+    version = "random_intercept_fixed_v2", dataset = "protected",
+    outcome = "time", predictors = "x", intercept = TRUE,
+    cluster = "cat_a", max_patients_per_cluster = 2L,
+    variance_ratio_grid = c(0, 1)))
+  empty <- .materializer_test_data()[FALSE, , drop = FALSE]
+  fixture <- .materializer_test_fixture(
+    data = empty, capacity = 5L, gaussian_specs = lmm)
+  left <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  one_patient <- .materializer_test_data()[1L, , drop = FALSE]
+  one_patient$time <- 10
+  one_patient$x <- 10
+  one_patient$cat_a <- "A"
+  fixture$resolved$protected$data <- one_patient
+  right <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  lattice <- .dsvert_joint_dp_vector_lattice_vectors(list(
+    manifest = fixture$manifest, layout = layout))
+  delta <- .materializer_test_family_delta(
+    layout, left, right, "gaussian_models")
+  family <- fixture$manifest$workload$families$gaussian_models
+
+  expect_lte(sum(abs(delta)), family$l1_sensitivity)
+  expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
+  expect_lte(sum(abs((right - left) * 2^lattice$scale_shifts)),
+             fixture$manifest$workload$sensitivity$l1)
 })
 
 test_that("numeric cache compaction preserves the full material byte for byte", {

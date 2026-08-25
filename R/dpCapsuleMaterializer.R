@@ -335,6 +335,101 @@
   unname(statistics)
 }
 
+.dsvert_dp_capsule_quantized_random_intercept_fixed_stats <- function(
+    design, outcome, cluster, grid_bits, max_patients_per_cluster) {
+  if (!is.list(design) || !length(design) ||
+      !is.numeric(outcome) || length(outcome) != length(cluster) ||
+      anyNA(outcome) || any(!is.finite(outcome)) ||
+      any(outcome < 0 | outcome > 1) || !is.numeric(cluster) ||
+      anyNA(cluster) || any(!is.finite(cluster)) || any(cluster < 1) ||
+      any(cluster != floor(cluster)) || !is.numeric(grid_bits) ||
+      length(grid_bits) != 1L || is.na(grid_bits) || !is.finite(grid_bits) ||
+      grid_bits != floor(grid_bits) || grid_bits < 8L || grid_bits > 18L ||
+      !is.numeric(max_patients_per_cluster) ||
+      length(max_patients_per_cluster) != 1L ||
+      is.na(max_patients_per_cluster) ||
+      !is.finite(max_patients_per_cluster) ||
+      max_patients_per_cluster != floor(max_patients_per_cluster) ||
+      max_patients_per_cluster < 2L) {
+    stop("Invalid fixed-effect random-intercept capsule values.",
+         call. = FALSE)
+  }
+  valid_design <- vapply(design, function(column) {
+    is.numeric(column) && length(column) == length(outcome) &&
+      !anyNA(column) && all(is.finite(column)) &&
+      all(column >= 0 & column <= 1)
+  }, logical(1L))
+  if (!all(valid_design)) {
+    stop("Invalid fixed-effect random-intercept capsule design.",
+         call. = FALSE)
+  }
+  dimension <- length(design)
+  gram_count <- dimension * (dimension + 1L) / 2L
+  summary_count <- gram_count + dimension + 1L
+  expected_length <- (max_patients_per_cluster + 1L) * (summary_count + 1L)
+  if (!length(outcome)) return(rep.int(0, expected_length))
+  scale <- 2^as.integer(grid_bits)
+  if (length(outcome) > floor(
+        .dsvert_dp_exact_integer_limit /
+          (max_patients_per_cluster * scale))) {
+    stop("The fixed-effect random-intercept capsule cohort is too large for exact quantization.",
+         call. = FALSE)
+  }
+  design_matrix <- do.call(cbind, design)
+  cluster_sizes <- rowsum(
+    rep.int(1, length(cluster)), cluster, reorder = FALSE)[, 1L]
+  if (any(cluster_sizes > max_patients_per_cluster)) {
+    stop("The protected snapshot exceeds its signed LMM cluster capacity.",
+         call. = FALSE)
+  }
+  summary <- function(matrix, response) {
+    result <- numeric(summary_count)
+    offset <- 0L
+    for (right in seq_len(dimension)) {
+      for (left in seq_len(right)) {
+        offset <- offset + 1L
+        result[[offset]] <- sum(round(
+          matrix[, left] * matrix[, right] * scale))
+      }
+    }
+    result[seq.int(offset + 1L, offset + dimension)] <-
+      vapply(seq_len(dimension), function(index) {
+        sum(round(matrix[, index] * response * scale))
+      }, numeric(1L))
+    result[[summary_count]] <- sum(round(response^2 * scale))
+    result
+  }
+  cluster_matrix <- rowsum(design_matrix, cluster, reorder = FALSE)
+  cluster_outcome <- rowsum(outcome, cluster, reorder = FALSE)[, 1L]
+  sizes <- as.integer(rowsum(
+    rep.int(1, length(cluster)), cluster, reorder = FALSE)[, 1L])
+  if (length(sizes) != nrow(cluster_matrix) ||
+      length(sizes) != length(cluster_outcome)) {
+    stop("The fixed-effect random-intercept cluster aggregation is invalid.",
+         call. = FALSE)
+  }
+  statistics <- c(length(outcome), summary(design_matrix, outcome))
+  for (size in seq_len(max_patients_per_cluster)) {
+    selected <- which(sizes == size)
+    if (!length(selected)) {
+      statistics <- c(statistics, 0, rep.int(0, summary_count))
+    } else {
+      statistics <- c(
+        statistics, length(selected),
+        summary(cluster_matrix[selected, , drop = FALSE],
+                cluster_outcome[selected]))
+    }
+  }
+  if (length(statistics) != expected_length || anyNA(statistics) ||
+      any(!is.finite(statistics)) || any(statistics < 0) ||
+      any(statistics != floor(statistics)) ||
+      any(statistics > .dsvert_dp_exact_integer_limit)) {
+    stop("The fixed-effect random-intercept capsule statistics are not representable.",
+         call. = FALSE)
+  }
+  unname(statistics)
+}
+
 .dsvert_dp_capsule_materializer_manifest <- function(policy, manifest) {
   .dsvert_dp_capsule_workload_require_materializable(manifest)
   required <- c(
@@ -723,6 +818,43 @@
         artifact$numeric_grid_bits, artifact$max_patients_per_cluster)
       if (length(statistics) != block$length) {
         stop("The signed random-intercept capsule coordinate shape is invalid.",
+             call. = FALSE)
+      }
+      values[block$start:block$end] <- statistics
+      next
+    }
+    if (identical(
+          artifact$version,
+          "bounded-normalized-random-intercept-fixed-sufficient-statistics-v2")) {
+      outcome <- bounded_for(block$dataset, artifact$outcome$column)
+      cluster <- .dsvert_dp_capsule_bounded_category(
+        snapshots[[block$dataset]]$data, policy, artifact$cluster$column,
+        artifact$cluster$levels, admission_for(block$dataset))
+      predictors <- lapply(artifact$predictor_order, function(variable) {
+        bounded_for(block$dataset, artifact$predictors[[variable]]$column)
+      })
+      names(predictors) <- artifact$predictor_order
+      complete <- outcome$valid & !is.na(cluster$cell)
+      for (predictor in predictors) complete <- complete & predictor$valid
+      normalize <- function(values, lower, upper) {
+        pmin(1, pmax(0, (values - lower) / (upper - lower)))
+      }
+      normalized_outcome <- normalize(
+        outcome$unit_values[complete], artifact$outcome$lower,
+        artifact$outcome$upper)
+      design <- c(
+        list(rep(1, length(normalized_outcome))),
+        lapply(artifact$predictor_order, function(variable) {
+          descriptor <- artifact$predictors[[variable]]
+          normalize(
+            predictors[[variable]]$unit_values[complete],
+            descriptor$lower, descriptor$upper)
+        }))
+      statistics <- .dsvert_dp_capsule_quantized_random_intercept_fixed_stats(
+        design, normalized_outcome, cluster$cell[complete],
+        artifact$numeric_grid_bits, artifact$max_patients_per_cluster)
+      if (length(statistics) != block$length) {
+        stop("The signed fixed-effect random-intercept capsule coordinate shape is invalid.",
              call. = FALSE)
       }
       values[block$start:block$end] <- statistics

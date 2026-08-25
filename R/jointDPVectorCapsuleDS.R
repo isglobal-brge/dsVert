@@ -297,12 +297,35 @@
       random_intercept <- identical(
         block$descriptor$version,
         "bounded-normalized-random-intercept-moments-v1")
+      random_intercept_fixed <- identical(
+        block$descriptor$version,
+        "bounded-normalized-random-intercept-fixed-sufficient-statistics-v2")
       shifts[indices] <- if (random_intercept) {
         if (length(indices) != 6L) {
           stop("The random-intercept LMM lattice block is invalid.",
                call. = FALSE)
         }
         c(rep(as.integer(bits), 3L), rep(0L, 3L))
+      } else if (random_intercept_fixed) {
+        design_count <- length(block$descriptor$design_terms)
+        cluster_capacity <- as.integer(
+          block$descriptor$max_patients_per_cluster)
+        summary_count <- design_count * (design_count + 1L) / 2L +
+          design_count + 1L
+        expected <- (cluster_capacity + 1L) * (summary_count + 1L)
+        if (!is.finite(design_count) || design_count < 1L ||
+            !is.finite(cluster_capacity) || cluster_capacity < 2L ||
+            length(indices) != expected) {
+          stop("The fixed-effect random-intercept LMM lattice block is invalid.",
+               call. = FALSE)
+        }
+        local <- rep.int(0L, expected)
+        local[[1L]] <- as.integer(bits)
+        for (size in seq_len(cluster_capacity)) {
+          local[[1L + summary_count + (size - 1L) *
+                  (summary_count + 1L) + 1L]] <- as.integer(bits)
+        }
+        local
       } else if (already_scaled) {
         rep(0L, length(indices))
       } else {

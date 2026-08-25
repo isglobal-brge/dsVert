@@ -1032,6 +1032,69 @@
   }
   version <- .dsvert_dp_capsule_id(raw$version, "Gaussian version")
   dataset <- .dsvert_dp_capsule_id(raw$dataset, "Gaussian dataset")
+  if (identical(version, "random_intercept_fixed_v2")) {
+    expected <- c(
+      "version", "dataset", "outcome", "cluster", "predictors",
+      "intercept", "max_patients_per_cluster", "variance_ratio_grid")
+    if (!setequal(names(raw), expected)) {
+      stop("Invalid fixed-effect random-intercept LMM specification.",
+           call. = FALSE)
+    }
+    outcome <- .dsvert_dp_capsule_column_reference(
+      raw$outcome, "LMM outcome")$reference
+    cluster <- .dsvert_dp_capsule_column_reference(
+      raw$cluster, "LMM cluster")$reference
+    predictors <- raw$predictors
+    if (is.list(predictors) && is.null(names(predictors)) &&
+        all(vapply(predictors, function(value) {
+          is.character(value) && length(value) == 1L && !is.na(value)
+        }, logical(1L)))) {
+      predictors <- unname(unlist(predictors, use.names = FALSE))
+    }
+    predictors <- if (is.character(predictors) && length(predictors) &&
+        is.null(names(predictors)) && !anyNA(predictors) &&
+        !anyDuplicated(predictors)) {
+      sort(vapply(predictors, function(value) {
+        .dsvert_dp_capsule_column_reference(
+          value, "LMM fixed predictor")$reference
+      }, character(1L)), method = "radix")
+    } else {
+      character()
+    }
+    maximum <- raw$max_patients_per_cluster
+    grid <- raw$variance_ratio_grid
+    if (is.list(grid) && is.null(names(grid))) {
+      grid <- unlist(grid, use.names = FALSE)
+    }
+    if (!is.numeric(maximum) || length(maximum) != 1L || is.na(maximum) ||
+        !is.finite(maximum) || maximum != floor(maximum) || maximum < 2 ||
+        maximum > policy$unit_capacity || !isTRUE(raw$intercept) ||
+        !length(predictors) || outcome %in% predictors ||
+        cluster %in% c(outcome, predictors) || !is.numeric(grid) ||
+        !length(grid) || anyNA(grid) || any(!is.finite(grid)) ||
+        any(grid < 0) || !identical(as.numeric(grid[[1L]]), 0) ||
+        any(diff(grid) <= 0)) {
+      stop("Invalid fixed-effect random-intercept LMM model terms.",
+           call. = FALSE)
+    }
+    if (!is.logical(require_public_bounds) ||
+        length(require_public_bounds) != 1L || is.na(require_public_bounds)) {
+      stop("Invalid Gaussian specification validation mode.", call. = FALSE)
+    }
+    if (isTRUE(require_public_bounds) &&
+        (!dataset %in% names(policy$datasets) ||
+         any(!c(outcome, predictors) %in% names(policy$numeric_bounds)) ||
+         !cluster %in% names(policy$categorical_levels))) {
+      stop("The fixed-effect random-intercept LMM specification lacks public bounds.",
+           call. = FALSE)
+    }
+    return(list(
+      version = version, dataset = dataset, outcome = outcome,
+      cluster = cluster, predictors = unname(predictors), intercept = TRUE,
+      max_patients_per_cluster = as.integer(maximum),
+      variance_ratio_grid = as.numeric(grid),
+      kind = "random_intercept_fixed"))
+  }
   if (identical(version, "random_intercept_v1")) {
     expected <- c(
       "version", "dataset", "outcome", "cluster",
@@ -1446,7 +1509,7 @@
   for (analysis_id in names(gaussian_specs)) {
     spec <- .dsvert_dp_capsule_gaussian_spec(
       global_policy, analysis_id, gaussian_specs)
-    lapply(c(spec$outcome, spec$predictors), reference)
+    lapply(c(spec$outcome, spec$predictors, spec$cluster), reference)
   }
   for (analysis_id in names(configured_vertical)) {
     spec <- configured_vertical[[analysis_id]]
@@ -2079,6 +2142,133 @@
       gaussian_natural_l2_squared <- .dsvert_dp_capsule_l2_add(
         gaussian_natural_l2_squared,
         .dsvert_dp_capsule_l2_square(natural_l2))
+      next
+    }
+    if (identical(spec$kind, "random_intercept_fixed")) {
+      variables <- c(spec$outcome, spec$predictors, spec$cluster)
+      model_columns <- columns[variables]
+      owners <- unique(vapply(
+        model_columns, `[[`, character(1L), "owner_peer"))
+      datasets <- vapply(model_columns, `[[`, character(1L), "dataset")
+      kinds <- vapply(model_columns, `[[`, character(1L), "kind")
+      expected_kinds <- c(
+        rep("numeric", 1L + length(spec$predictors)), "categorical")
+      if (!identical(unname(kinds), expected_kinds) || length(owners) != 1L ||
+          length(unique(datasets)) != 1L ||
+          !identical(datasets[[1L]], spec$dataset)) {
+        stop("A fixed-effect random-intercept LMM specification must be same-owner with numeric outcome and predictors plus a categorical cluster.",
+             call. = FALSE)
+      }
+      cluster_capacity <- as.integer(spec$max_patients_per_cluster)
+      design_terms <- c("(Intercept)", spec$predictors)
+      design_count <- length(design_terms)
+      gram_count <- as.double(design_count) * (design_count + 1) / 2
+      summary_count <- .dsvert_dp_capsule_coordinate_add(
+        0L, gram_count + design_count + 1L)
+      model_coordinate_count <- .dsvert_dp_capsule_coordinate_add(
+        0L, (cluster_capacity + 1) * (summary_count + 1L))
+      statistic_product_maximum <-
+        as.double(capacity) * cluster_capacity * grid_scale
+      raw_l1_base <- (3 + summary_count *
+        (1 + 2 * cluster_capacity^2)) * grid_scale
+      raw_l2_base <- .dsvert_dp_capsule_l2_sqrt(
+        (3 + summary_count * (1 + 4 * cluster_capacity^4)) *
+          grid_scale^2)
+      required_signed_bits <- as.integer(ceiling(log2(capacity + 1))) +
+        as.integer(ceiling(log2(cluster_capacity + 1))) +
+        grid_bits + 3L
+      if (!is.finite(statistic_product_maximum) ||
+          statistic_product_maximum > .dsvert_dp_exact_integer_limit ||
+          !is.finite(raw_l1_base) ||
+          raw_l1_base > .dsvert_dp_exact_integer_limit ||
+          !is.finite(required_signed_bits) || required_signed_bits >= 127L) {
+        stop(structure(
+          list(
+            message = paste(
+              "The fixed-effect random-intercept LMM public bounds exceed",
+              "the certified exact-computation domain."),
+            call = NULL,
+            reason = "random_intercept_fixed_numeric_backend_unrepresentable",
+            required_signed_bits = required_signed_bits),
+          class = c("dsvert_numeric_backend_unrepresentable", "error",
+                    "condition")))
+      }
+      adjacency_multiplier <- .dsvert_dp_adjacency_multiplier(global_policy)
+      raw_l1 <- adjacency_multiplier * raw_l1_base
+      raw_l2 <- adjacency_multiplier * raw_l2_base
+      outcome <- columns[[spec$outcome]]
+      cluster <- columns[[spec$cluster]]
+      predictor_bounds <- lapply(spec$predictors, function(variable) {
+        column <- columns[[variable]]
+        list(column = column$column, lower = column$lower,
+             upper = column$upper)
+      })
+      names(predictor_bounds) <- spec$predictors
+      group_maximum <- c(
+        capacity, rep(statistic_product_maximum, summary_count))
+      gaussian_artifacts[[analysis_id]] <- list(
+        version =
+          "bounded-normalized-random-intercept-fixed-sufficient-statistics-v2",
+        spec_version = spec$version, analysis_id = analysis_id,
+        dataset = spec$dataset, owner_peer = owners[[1L]],
+        outcome = list(
+          column = outcome$column, lower = outcome$lower,
+          upper = outcome$upper),
+        cluster = list(column = cluster$column, levels = cluster$levels),
+        predictors = predictor_bounds,
+        predictor_order = unname(spec$predictors),
+        intercept = TRUE, design_terms = unname(design_terms),
+        observation_capacity = as.integer(capacity),
+        max_patients_per_cluster = cluster_capacity,
+        variance_ratio_grid = unname(spec$variance_ratio_grid),
+        numeric_grid_bits = grid_bits,
+        coordinate_count = model_coordinate_count,
+        coordinate_order = paste(
+          "n_then_global_xtx_upper_xty_yty_then_each_cluster_size_from_1",
+          "through_C_as_count_xtx_upper_xty_yty_v2", sep = "_"),
+        source_coordinate_scaling =
+          "counts_left_shifted_to_common_numeric_lattice_v1",
+        repeated_record_policy = paste(
+          "clip_finite_complete_outcome_predictor_rows_then_mean_once_per",
+          "admitted_patient_and_require_one_consistent_public_cluster_level_v2",
+          sep = "_"),
+        missingness_policy = paste(
+          "missing_or_nonfinite_outcome_predictor_or_missing_or_inconsistent",
+          "cluster_excludes_the_patient_from_every_LMM_coordinate_v2",
+          sep = "_"),
+        contribution_domain = paste(
+          "one_bounded_patient_vector_and_one_consistent_cluster_with",
+          "public_cluster_size_cap_v2", sep = "_"),
+        quantization_contract = list(
+          version = "random-intercept-fixed-common-lattice-quantization-v1",
+          input_rounding = "nearest_integer_ties_to_even_r_v1",
+          common_lattice = "numeric_grid_v1"),
+        statistic_maximum = c(
+          capacity, rep(capacity * grid_scale, summary_count),
+          rep(group_maximum, cluster_capacity)),
+        source_raw_l1_sensitivity = raw_l1,
+        source_raw_l2_sensitivity = raw_l2,
+        natural_l1_sensitivity = raw_l1 / grid_scale,
+        natural_l2_sensitivity = raw_l2 / grid_scale,
+        adjacency = global_policy$adjacency,
+        adjacency_sensitivity_basis = paste(
+          "one_patient_changes_n_and_at_most_two_cluster_size_bins_and",
+          "bounded_squared_grid_cluster_summaries_with_replace_one_as",
+          "two_add_remove_changes_v2", sep = "_"),
+        estimation_scope = paste(
+          "bounded_random_intercept_GLS_fixed_effects_finite_signed",
+          "variance_ratio_grid_ML_profile_v1", sep = "_"),
+        implementation_state = "same_owner_materialized",
+        cross_owner_state = "reserved_not_materialized")
+      gaussian_coordinate_count <- .dsvert_dp_capsule_coordinate_add(
+        gaussian_coordinate_count, model_coordinate_count)
+      gaussian_raw_l1 <- gaussian_raw_l1 + raw_l1
+      gaussian_raw_l2_squared <- .dsvert_dp_capsule_l2_add(
+        gaussian_raw_l2_squared, .dsvert_dp_capsule_l2_square(raw_l2))
+      gaussian_natural_l1 <- gaussian_natural_l1 + raw_l1 / grid_scale
+      gaussian_natural_l2_squared <- .dsvert_dp_capsule_l2_add(
+        gaussian_natural_l2_squared,
+        .dsvert_dp_capsule_l2_square(raw_l2 / grid_scale))
       next
     }
     variables <- c(spec$outcome, spec$predictors)

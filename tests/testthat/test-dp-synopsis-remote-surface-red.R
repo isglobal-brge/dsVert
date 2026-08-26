@@ -28,6 +28,15 @@
   dsvertDPSynopsisCategoricalCrossFinalizeDS = c(
     "manifest_sha256", "claim_set_json", "compilation_json",
     "analysis_id", "session_id"),
+  dsvertDPSynopsisGaussianCrossBindDS = c(
+    "manifest_sha256", "claim_set_json", "compilation_json",
+    "analysis_id", "session_id"),
+  dsvertDPSynopsisGaussianCrossFinalizeDS = c(
+    "manifest_sha256", "claim_set_json", "compilation_json",
+    "analysis_id", "session_id"),
+  dsvertDPSynopsisGaussianCrossEvidenceDS = c(
+    "manifest_sha256", "claim_set_json", "compilation_json",
+    "analysis_id"),
   dsvertDPSynopsisAlignmentMaskStartDS = c(
     "manifest_sha256", "claim_set_json", "compilation_json",
     "batch_operation_id", "operation_id", "chunk_index", "chunk_count",

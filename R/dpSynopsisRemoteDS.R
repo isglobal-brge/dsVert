@@ -203,7 +203,8 @@
 
 .dsvert_dp_synopsis_remote_reject_cross_v1 <- function(manifest) {
   if (.dsvert_dp_synopsis_effective_cross_v1(manifest) &&
-      !.dsvert_dp_synopsis_supported_categorical_cross_v1(manifest)) {
+      !.dsvert_dp_synopsis_supported_categorical_cross_v1(manifest) &&
+      !.dsvert_dp_synopsis_supported_gaussian_cross_v1(manifest)) {
     stop("Cross-owner synopsis catalogs are not supported by this surface.",
          call. = FALSE)
   }
@@ -267,6 +268,42 @@
               as.numeric(artifact$coordinate_count)) &&
     identical(scope$mode, "catalog_v1") && isTRUE(explicit_empty) &&
     isTRUE(set_empty) && isTRUE(other_empty)
+}
+
+.dsvert_dp_synopsis_supported_gaussian_cross_v1 <- function(manifest) {
+  workload <- if (is.list(manifest)) manifest$workload else NULL
+  families <- if (is.list(workload)) workload$families else NULL
+  gaussian <- if (is.list(families)) families$gaussian_models else NULL
+  artifacts <- if (is.list(gaussian)) gaussian$artifacts else NULL
+  artifact <- if (is.list(artifacts) && length(artifacts) == 1L) {
+    artifacts[[1L]]
+  } else NULL
+  categorical <- if (is.list(families)) families$categorical_pairs else NULL
+  categorical_empty <- is.list(categorical) &&
+    is.list(categorical$sets) && !length(categorical$sets) &&
+    is.list(categorical$cross_artifacts) && !length(categorical$cross_artifacts)
+  empty_artifacts <- function(name) {
+    candidate <- if (is.list(families)) families[[name]] else NULL
+    is.list(candidate) && is.list(candidate$artifacts) &&
+      !length(candidate$artifacts)
+  }
+  empty_direct <- function(name) {
+    candidate <- if (is.list(families)) families[[name]] else NULL
+    is.list(candidate) && !length(candidate)
+  }
+  other_empty <- all(vapply(c(
+    "numeric_moments", "numeric_pair_moments", "fixed_numeric_histograms"),
+    empty_artifacts, logical(1L))) && all(vapply(c(
+      "correlation_artifacts", "describe_artifacts", "survival_artifacts"),
+      empty_direct, logical(1L)))
+  is.list(artifact) &&
+    identical(artifact$version,
+              .DSVERT_DP_GAUSSIAN_CROSS_ARTIFACT_VERSION) &&
+    identical(artifact$spec_version, "v2") &&
+    identical(artifact$implementation_state,
+              "cross_owner_exact_gc_materialized") &&
+    identical(artifact$cross_owner_state, "exact_gc_to_joint_dp_vector_v1") &&
+    isTRUE(categorical_empty) && isTRUE(other_empty)
 }
 
 .dsvert_dp_synopsis_remote_session_v1 <- function(session_id) {
@@ -544,6 +581,65 @@ dsvertDPSynopsisCategoricalCrossFinalizeDS <- function(
       context$manifest_json, analysis_id, session_id,
       .policy = context$policy, .secret = context$secret,
       source_contract = context$source_contract)
+  })
+}
+
+.dsvert_dp_synopsis_remote_gaussian_cross_context_v1 <- function(
+    manifest_sha256, claim_set_json, compilation_json) {
+  context <- .dsvert_dp_synopsis_remote_manifest_v1(manifest_sha256)
+  claim_set <- .dsvert_dp_synopsis_remote_decode_v1(
+    claim_set_json, "source Claim set")
+  compilation <- .dsvert_dp_synopsis_remote_compilation_v1(
+    compilation_json)
+  source <- .dsvert_dp_synopsis_source_transport_context_v1(
+    manifest_sha256, compilation$artifact, claim_set, compilation$receipts,
+    .policy = context$policy, .secret = context$secret)
+  manifest <- .dsvert_dp_capsule_source_manifest(source$manifest_json)
+  if (!.dsvert_dp_synopsis_supported_gaussian_cross_v1(manifest)) {
+    stop("The Synopsis manifest is not one projected Gaussian cross.",
+         call. = FALSE)
+  }
+  c(context, list(
+    claim_set = claim_set, compilation = compilation,
+    manifest_json = source$manifest_json,
+    source_contract = source$source_contract))
+}
+
+dsvertDPSynopsisGaussianCrossBindDS <- function(
+    manifest_sha256, claim_set_json, compilation_json,
+    analysis_id, session_id) {
+  .dsvert_dp_synopsis_remote_public_v1({
+    context <- .dsvert_dp_synopsis_remote_gaussian_cross_context_v1(
+      manifest_sha256, claim_set_json, compilation_json)
+    .dsvert_dp_gaussian_cross_bind_impl(
+      context$manifest_json, analysis_id, session_id,
+      .policy = context$policy, .secret = context$secret,
+      source_contract = context$source_contract)
+  })
+}
+
+dsvertDPSynopsisGaussianCrossFinalizeDS <- function(
+    manifest_sha256, claim_set_json, compilation_json,
+    analysis_id, session_id) {
+  .dsvert_dp_synopsis_remote_public_v1({
+    context <- .dsvert_dp_synopsis_remote_gaussian_cross_context_v1(
+      manifest_sha256, claim_set_json, compilation_json)
+    .dsvert_dp_gaussian_cross_finalize_impl(
+      context$manifest_json, analysis_id, session_id,
+      .policy = context$policy, .secret = context$secret,
+      source_contract = context$source_contract)
+  })
+}
+
+dsvertDPSynopsisGaussianCrossEvidenceDS <- function(
+    manifest_sha256, claim_set_json, compilation_json, analysis_id) {
+  .dsvert_dp_synopsis_remote_public_v1({
+    context <- .dsvert_dp_synopsis_remote_gaussian_cross_context_v1(
+      manifest_sha256, claim_set_json, compilation_json)
+    .dsvert_dp_gaussian_cross_public_evidence_impl(
+      context$manifest_json, analysis_id,
+      source_contract = context$source_contract,
+      .policy = context$policy, .secret = context$secret)
   })
 }
 

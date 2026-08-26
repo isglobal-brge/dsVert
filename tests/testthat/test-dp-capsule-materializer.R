@@ -1761,3 +1761,22 @@ test_that("local materializer creates no exported or remote surface", {
   expect_false(any(grepl("capsule.*material", remote, ignore.case = TRUE)))
   expect_false(grepl("DS$", ".dsvert_dp_capsule_materialize_local"))
 })
+
+test_that("finite binomial and Poisson grid losses are bounded and exact", {
+  design <- list(rep(1, 4L), c(0, 0, 1, 1))
+  beta_grid <- list(c(0, 0), c(0, 1))
+  binomial <- .dsvert_dp_capsule_quantized_glm_grid_losses(
+    design, c(0, 0, 1, 1), "binomial", beta_grid, 8L)
+  poisson <- .dsvert_dp_capsule_quantized_glm_grid_losses(
+    design, c(0, 1, 2, 4), "poisson", beta_grid, 8L, 8L)
+  expect_length(binomial, 2L)
+  expect_length(poisson, 2L)
+  expect_true(all(binomial >= 0 & binomial == floor(binomial)))
+  expect_true(all(poisson >= 0 & poisson == floor(poisson)))
+  expect_error(.dsvert_dp_capsule_quantized_glm_grid_losses(
+    design, c(0, 2, 1, 1), "binomial", beta_grid, 8L),
+    "finite GLM likelihood-grid")
+  expect_error(.dsvert_dp_capsule_quantized_glm_grid_losses(
+    design, c(0, 1, 2, 9), "poisson", beta_grid, 8L, 8L),
+    "finite GLM likelihood-grid")
+})

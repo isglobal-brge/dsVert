@@ -419,7 +419,8 @@
       isTRUE(outcome_owned) && length(variables) == 2L +
         length(spec$predictors) && all(owners == policy$peer_name) &&
         all(variables %in% mapping$datasets[[spec$dataset]])
-    } else if (spec$kind %in% c("negative_binomial_grid",
+    } else if (spec$kind %in% c("binomial_grid", "poisson_grid",
+                                 "negative_binomial_grid",
                                  "multinomial_grid", "ordinal_grid")) {
       isTRUE(outcome_owned) && length(variables) == 1L +
         length(spec$predictors) && all(owners == policy$peer_name) &&
@@ -465,6 +466,15 @@
         max_patients_per_cluster = spec$max_patients_per_cluster,
         beta_grid = lapply(spec$beta_grid, unname),
         variance_grid = unname(spec$variance_grid))
+    } else if (spec$kind %in% c("binomial_grid", "poisson_grid")) {
+      value <- list(
+        version = spec$version, dataset = spec$dataset,
+        outcome = spec$outcome, predictors = unname(spec$predictors),
+        intercept = spec$intercept, beta_grid = lapply(spec$beta_grid, unname))
+      if (identical(spec$kind, "poisson_grid")) {
+        value$max_outcome <- spec$max_outcome
+      }
+      value
     } else if (identical(spec$kind, "negative_binomial_grid")) {
       list(
         version = spec$version, dataset = spec$dataset,

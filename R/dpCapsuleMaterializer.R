@@ -568,6 +568,64 @@
   unname(statistics)
 }
 
+.dsvert_dp_capsule_quantized_glm_grid_losses <- function(
+    design, outcome, family, beta_grid, grid_bits, max_outcome = NULL) {
+  poisson <- identical(family, "poisson")
+  if (!identical(family, "binomial") && !isTRUE(poisson) ||
+      !is.list(design) || !length(design) || !is.numeric(outcome) ||
+      anyNA(outcome) || any(!is.finite(outcome)) || !is.list(beta_grid) ||
+      !length(beta_grid) || !is.numeric(grid_bits) ||
+      length(grid_bits) != 1L || is.na(grid_bits) || !is.finite(grid_bits) ||
+      grid_bits != floor(grid_bits) || grid_bits < 8L || grid_bits > 18L) {
+    stop("Invalid finite GLM likelihood-grid values.", call. = FALSE)
+  }
+  valid_outcome <- if (isTRUE(poisson)) {
+    is.numeric(max_outcome) && length(max_outcome) == 1L &&
+      !is.na(max_outcome) && is.finite(max_outcome) &&
+      max_outcome == floor(max_outcome) && max_outcome >= 1L &&
+      outcome >= 0 & outcome == floor(outcome) & outcome <= max_outcome
+  } else {
+    outcome %in% c(0, 1)
+  }
+  valid_design <- vapply(design, function(column) {
+    is.numeric(column) && length(column) == length(outcome) &&
+      !anyNA(column) && all(is.finite(column)) &&
+      all(column >= 0 & column <= 1)
+  }, logical(1L))
+  valid_beta <- vapply(beta_grid, function(beta) {
+    is.numeric(beta) && length(beta) == length(design) &&
+      !anyNA(beta) && all(is.finite(beta)) && all(abs(beta) <= 8) &&
+      sum(abs(beta)) <= 16
+  }, logical(1L))
+  if (!all(valid_outcome) || !all(valid_design) || !all(valid_beta)) {
+    stop("Invalid finite GLM likelihood-grid design.", call. = FALSE)
+  }
+  if (!length(outcome)) return(rep.int(0, length(beta_grid)))
+  scale <- 2^as.integer(grid_bits)
+  if (length(outcome) > floor(.dsvert_dp_exact_integer_limit / scale)) {
+    stop("The finite GLM capsule cohort is too large for exact quantization.",
+         call. = FALSE)
+  }
+  softplus <- function(value) pmax(value, 0) + log1p(exp(-abs(value)))
+  design_matrix <- do.call(cbind, design)
+  statistics <- vapply(beta_grid, function(beta) {
+    eta <- as.numeric(design_matrix %*% beta)
+    loss <- if (isTRUE(poisson)) {
+      exp(eta) - outcome * eta + lgamma(outcome + 1)
+    } else {
+      softplus(eta) - outcome * eta
+    }
+    sum(as.numeric(round(pmax(0, loss) * scale)))
+  }, numeric(1L))
+  if (anyNA(statistics) || any(!is.finite(statistics)) ||
+      any(statistics < 0) || any(statistics != floor(statistics)) ||
+      any(statistics > .dsvert_dp_exact_integer_limit)) {
+    stop("The finite GLM likelihood-grid statistics are not representable.",
+         call. = FALSE)
+  }
+  unname(statistics)
+}
+
 .dsvert_dp_capsule_quantized_multinomial_grid_losses <- function(
     design, outcome, levels, reference, beta_grid, grid_bits) {
   if (!is.list(design) || !length(design) || !is.numeric(outcome) ||
@@ -1125,6 +1183,50 @@
       if (length(statistics) != block$length) {
         stop("The signed fixed-effect random-intercept capsule coordinate shape is invalid.",
              call. = FALSE)
+      }
+      values[block$start:block$end] <- statistics
+      next
+    }
+    if (artifact$version %in% c(
+          "bounded-binomial-likelihood-grid-v1",
+          "bounded-poisson-likelihood-grid-v1")) {
+      family <- if (identical(
+            artifact$version, "bounded-poisson-likelihood-grid-v1")) {
+        "poisson"
+      } else {
+        "binomial"
+      }
+      outcome <- bounded_for(block$dataset, artifact$outcome$column)
+      predictors <- lapply(artifact$predictor_order, function(variable) {
+        bounded_for(block$dataset, artifact$predictors[[variable]]$column)
+      })
+      names(predictors) <- artifact$predictor_order
+      complete <- outcome$valid
+      if (identical(family, "poisson")) {
+        complete <- complete & outcome$unit_values >= 0 &
+          outcome$unit_values == floor(outcome$unit_values) &
+          outcome$unit_values <= artifact$max_outcome
+      } else {
+        complete <- complete & outcome$unit_values %in% c(0, 1)
+      }
+      for (predictor in predictors) complete <- complete & predictor$valid
+      normalize <- function(value, lower, upper) {
+        pmin(1, pmax(0, (value - lower) / (upper - lower)))
+      }
+      normalized_outcome <- outcome$unit_values[complete]
+      design <- c(
+        list(rep(1, length(normalized_outcome))),
+        lapply(artifact$predictor_order, function(variable) {
+          descriptor <- artifact$predictors[[variable]]
+          normalize(
+            predictors[[variable]]$unit_values[complete],
+            descriptor$lower, descriptor$upper)
+        }))
+      statistics <- .dsvert_dp_capsule_quantized_glm_grid_losses(
+        design, normalized_outcome, family, artifact$beta_grid,
+        artifact$numeric_grid_bits, artifact$max_outcome)
+      if (length(statistics) != block$length) {
+        stop("The signed finite GLM grid shape is invalid.", call. = FALSE)
       }
       values[block$start:block$end] <- statistics
       next

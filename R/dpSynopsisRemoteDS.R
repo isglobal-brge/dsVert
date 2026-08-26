@@ -190,6 +190,8 @@
           "bounded-normalized-random-intercept-fixed-sufficient-statistics-v2",
           "bounded-normalized-random-intercept-fixed-sufficient-statistics-v3",
           "bounded-binary-random-intercept-likelihood-grid-v1",
+          "bounded-binomial-likelihood-grid-v1",
+          "bounded-poisson-likelihood-grid-v1",
           "bounded-negative-binomial-likelihood-grid-v1",
           "bounded-multinomial-likelihood-grid-v1",
           "bounded-ordinal-likelihood-grid-v1")

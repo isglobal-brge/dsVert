@@ -22,6 +22,8 @@
   "dsvert-cross-gaussian-result-receipt-v1"
 .DSVERT_DP_GAUSSIAN_CROSS_PUBLIC_EVIDENCE_VERSION <-
   "dsvert-cross-gaussian-public-result-evidence-v1"
+.DSVERT_DP_GAUSSIAN_CROSS_PUBLIC_EVIDENCE_RECORD_VERSION <-
+  "dsvert-cross-gaussian-public-evidence-record-v1"
 .DSVERT_DP_GAUSSIAN_CROSS_REDUCER_VERSION <-
   "dsvert-ring128-sum-records-v1"
 .DSVERT_DP_GAUSSIAN_CROSS_REDUCER_MAX_RECORDS <- 2000000L
@@ -607,6 +609,89 @@
   .dsvert_dp_capsule_source_record_decode(
     row, secret, "source_cross_gaussian_results",
     "cross-owner Gaussian result")
+}
+
+.dsvert_dp_gaussian_cross_public_evidence_load <- function(
+    connection, capsule_id, analysis_id, secret) {
+  row <- DBI::dbGetQuery(connection, paste(
+    "SELECT record_json, row_mac FROM source_cross_gaussian_evidence",
+    "WHERE capsule_id = ? AND analysis_id = ?"),
+    params = list(capsule_id, analysis_id))
+  if (!nrow(row)) return(NULL)
+  .dsvert_dp_capsule_source_record_decode(
+    row, secret, "source_cross_gaussian_evidence",
+    "cross-owner Gaussian public evidence")
+}
+
+.dsvert_dp_gaussian_cross_public_evidence_json <- function(
+    result, policy, artifact, signer = NULL) {
+  unsigned <- list(
+    version = .DSVERT_DP_GAUSSIAN_CROSS_PUBLIC_EVIDENCE_VERSION,
+    phase = "cross_gaussian_public_result_evidence",
+    analysis_id = result$analysis_id, peer_name = policy$peer_name,
+    peer_identity_pk = unname(policy$peer_pinset[[policy$peer_name]]),
+    artifact_sha256 = result$artifact_sha256,
+    source_contract_sha256 = result$source_contract_hash,
+    private_layout_sha256 = result$private_layout_sha256,
+    transcript_sha256 = result$transcript_sha256,
+    numeric_certificate_sha256 = result$numeric_certificate_sha256,
+    exact_transcript_sha256 = result$exact_transcript_sha256,
+    coordinate_count = result$coordinate_count,
+    public_start = result$release_start, public_end = result$release_end,
+    public_coordinate_order_sha256 = result$release_coordinate_order_sha256,
+    ring_bits = 128L, frac_bits = as.integer(artifact$numeric_grid_bits),
+    state = "complete", fixed_transcript = TRUE,
+    private_result_exposed = FALSE,
+    exact_intermediates_exposed = FALSE,
+    alignment_hash_exposed = FALSE)
+  .dsvert_dp_capsule_source_encode_json(
+    .dsvert_dp_capsule_source_sign(
+      unsigned, policy, "cross-gaussian-synopsis-evidence", signer))
+}
+
+.dsvert_dp_gaussian_cross_public_evidence_record <- function(
+    result, policy, artifact, signer = NULL) {
+  evidence_json <- .dsvert_dp_gaussian_cross_public_evidence_json(
+    result, policy, artifact, signer)
+  list(
+    version = .DSVERT_DP_GAUSSIAN_CROSS_PUBLIC_EVIDENCE_RECORD_VERSION,
+    capsule_id = result$capsule_id, analysis_id = result$analysis_id,
+    peer_name = result$peer_name,
+    source_contract_hash = result$source_contract_hash,
+    result_receipt_sha256 = result$receipt_sha256,
+    evidence_json = evidence_json,
+    evidence_sha256 = digest::digest(
+      evidence_json, algo = "sha256", serialize = FALSE))
+}
+
+.dsvert_dp_gaussian_cross_public_evidence_record_validate <- function(
+    record, contract, analysis_id) {
+  required <- c(
+    "version", "capsule_id", "analysis_id", "peer_name",
+    "source_contract_hash", "result_receipt_sha256", "evidence_json",
+    "evidence_sha256")
+  valid <- is.list(record) && !is.null(names(record)) &&
+    !anyNA(names(record)) && !anyDuplicated(names(record)) &&
+    setequal(names(record), required) &&
+    identical(record$version,
+              .DSVERT_DP_GAUSSIAN_CROSS_PUBLIC_EVIDENCE_RECORD_VERSION) &&
+    identical(record$capsule_id, contract$capsule_id) &&
+    identical(record$analysis_id, analysis_id) &&
+    identical(record$source_contract_hash,
+              .dsvert_joint_dp_hash(contract)) &&
+    is.character(record$source_contract_hash) &&
+    length(record$source_contract_hash) == 1L &&
+    !is.na(record$source_contract_hash) &&
+    grepl("^[0-9a-f]{64}$", record$source_contract_hash) &&
+    is.character(record$evidence_json) &&
+    length(record$evidence_json) == 1L && !is.na(record$evidence_json) &&
+    identical(record$evidence_sha256, digest::digest(
+      record$evidence_json, algo = "sha256", serialize = FALSE))
+  if (!isTRUE(valid)) {
+    stop("The persisted cross-owner Gaussian public evidence is invalid.",
+         call. = FALSE)
+  }
+  record
 }
 
 .dsvert_dp_gaussian_cross_inject_release_share_internal <- function(
@@ -1249,7 +1334,10 @@ dsvertDPGaussianCrossPrepareDS <- function(
       version = .DSVERT_DP_GAUSSIAN_CROSS_REDUCER_VERSION,
       records = .dsvert_dp_gaussian_cross_standard_b64(
         bytes, "cross-owner Gaussian reduction batch"),
-      segment_lengths = rep.int(segment_length, count)))
+      # Keep this a JSON array even for one segment.  The Go command's
+      # contract is []int; jsonlite otherwise auto-unboxes a length-one
+      # integer vector to a scalar.
+      segment_lengths = as.list(rep.int(segment_length, count))))
     expected <- c("version", "segment_count", "sums")
     if (!is.list(reduced) || is.null(names(reduced)) ||
         anyNA(names(reduced)) || anyDuplicated(names(reduced)) ||
@@ -1538,37 +1626,15 @@ dsvertDPGaussianCrossPrepareDS <- function(
          call. = FALSE)
   }
   .dsvert_dp_capsule_source_with_store(.policy, .secret, function(connection) {
-    record <- .dsvert_dp_gaussian_cross_result_load(
+    record <- .dsvert_dp_gaussian_cross_public_evidence_load(
       connection, contract$capsule_id, analysis_id, .secret)
     if (is.null(record)) {
       stop("The cross-owner Gaussian exact result is incomplete.",
            call. = FALSE)
     }
-    record <- .dsvert_dp_gaussian_cross_result_validate(
-      record, .policy, contract, artifact, block, .verifier)
-    unsigned <- list(
-      version = .DSVERT_DP_GAUSSIAN_CROSS_PUBLIC_EVIDENCE_VERSION,
-      phase = "cross_gaussian_public_result_evidence",
-      analysis_id = analysis_id, peer_name = .policy$peer_name,
-      peer_identity_pk = unname(.policy$peer_pinset[[.policy$peer_name]]),
-      artifact_sha256 = record$artifact_sha256,
-      source_contract_sha256 = record$source_contract_hash,
-      private_layout_sha256 = record$private_layout_sha256,
-      transcript_sha256 = record$transcript_sha256,
-      numeric_certificate_sha256 = record$numeric_certificate_sha256,
-      exact_transcript_sha256 = record$exact_transcript_sha256,
-      coordinate_count = record$coordinate_count,
-      public_start = record$release_start, public_end = record$release_end,
-      public_coordinate_order_sha256 =
-        record$release_coordinate_order_sha256,
-      ring_bits = 128L, frac_bits = as.integer(artifact$numeric_grid_bits),
-      state = "complete", fixed_transcript = TRUE,
-      private_result_exposed = FALSE,
-      exact_intermediates_exposed = FALSE,
-      alignment_hash_exposed = FALSE)
-    .dsvert_dp_capsule_source_encode_json(
-      .dsvert_dp_capsule_source_sign(
-        unsigned, .policy, "cross-gaussian-synopsis-evidence", .signer))
+    record <- .dsvert_dp_gaussian_cross_public_evidence_record_validate(
+      record, contract, analysis_id)
+    record$evidence_json
   })
 }
 
@@ -1609,6 +1675,20 @@ dsvertDPGaussianCrossPrepareDS <- function(
     if (!is.null(prior)) {
       prior <- .dsvert_dp_gaussian_cross_result_validate(
         prior, .policy, contract, artifact, block, .verifier)
+      evidence <- .dsvert_dp_gaussian_cross_public_evidence_load(
+        connection, contract$capsule_id, analysis_id, .secret)
+      if (is.null(evidence)) {
+        evidence <- .dsvert_dp_gaussian_cross_public_evidence_record(
+          prior, .policy, artifact, .signer)
+        .dsvert_dp_capsule_source_transaction(connection, {
+          .dsvert_dp_capsule_source_record_insert(
+            connection, "source_cross_gaussian_evidence",
+            c("capsule_id", "analysis_id"),
+            list(contract$capsule_id, analysis_id), evidence, .secret)
+        })
+      }
+      .dsvert_dp_gaussian_cross_public_evidence_record_validate(
+        evidence, contract, analysis_id)
       return(prior$receipt_json)
     }
 
@@ -1697,14 +1777,22 @@ dsvertDPGaussianCrossPrepareDS <- function(
       receipt_json = receipt_json,
       receipt_sha256 = digest::digest(
         receipt_json, algo = "sha256", serialize = FALSE))
+    evidence <- .dsvert_dp_gaussian_cross_public_evidence_record(
+      record, .policy, artifact, .signer)
     .dsvert_dp_capsule_source_transaction(connection, {
       .dsvert_dp_capsule_source_record_insert(
         connection, "source_cross_gaussian_results",
         c("capsule_id", "analysis_id"),
         list(contract$capsule_id, analysis_id), record, .secret)
+      .dsvert_dp_capsule_source_record_insert(
+        connection, "source_cross_gaussian_evidence",
+        c("capsule_id", "analysis_id"),
+        list(contract$capsule_id, analysis_id), evidence, .secret)
     })
     .dsvert_dp_gaussian_cross_result_validate(
       record, .policy, contract, artifact, block, .verifier)
+    .dsvert_dp_gaussian_cross_public_evidence_record_validate(
+      evidence, contract, analysis_id)
 
     private_keys <- unique(c(
       unname(binding$value_keys), unname(binding$validity_keys),

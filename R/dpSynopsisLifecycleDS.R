@@ -1431,6 +1431,29 @@
     }
     candidates[[1L]]
   }
+  resolve_cross_reference <- function(value, what) {
+    parsed <- .dsvert_dp_capsule_column_reference(value, what)
+    candidates <- unname(unlist(lapply(datasets, function(dataset) {
+      references <- if (is.list(dataset) && is.list(dataset$columns)) {
+        names(dataset$columns)
+      } else {
+        character()
+      }
+      references[vapply(references, function(reference) {
+        column <- dataset$columns[[reference]]
+        physical <- .dsvert_dp_capsule_column_reference(
+          reference, "signed synopsis column")$column
+        identical(physical, parsed$column) &&
+          (is.null(parsed$owner_peer) ||
+             identical(column$owner_peer, parsed$owner_peer))
+      }, logical(1L))]
+    }), use.names = FALSE))
+    if (length(candidates) != 1L) {
+      stop("A synopsis workload column is missing or ambiguous.",
+           call. = FALSE)
+    }
+    candidates[[1L]]
+  }
   for (family in names(workload)) {
     for (analysis_id in names(workload[[family]])) {
       entry <- workload[[family]][[analysis_id]]
@@ -1455,7 +1478,11 @@
       } else if (identical(family, "gaussian")) {
         spec$outcome <- resolve_reference(
           spec$dataset, spec$outcome, owner, "Gaussian outcome")
-        if (identical(spec$version, "random_intercept_v1")) {
+        if (identical(spec$version, "v2")) {
+          spec$predictors <- unname(vapply(spec$predictors, function(reference) {
+            resolve_cross_reference(reference, "cross-owner Gaussian predictor")
+          }, character(1L)))
+        } else if (identical(spec$version, "random_intercept_v1")) {
           spec$cluster <- resolve_reference(
             spec$dataset, spec$cluster, owner, "LMM cluster")
         } else if (spec$version %in% c("binary_random_intercept_grid_v1",

@@ -900,6 +900,11 @@
       "record_json TEXT NOT NULL, row_mac TEXT NOT NULL,",
       "PRIMARY KEY(capsule_id, analysis_id))"),
     paste(
+      "CREATE TABLE IF NOT EXISTS source_cross_gaussian_evidence (",
+      "capsule_id TEXT NOT NULL, analysis_id TEXT NOT NULL,",
+      "record_json TEXT NOT NULL, row_mac TEXT NOT NULL,",
+      "PRIMARY KEY(capsule_id, analysis_id))"),
+    paste(
       "CREATE TABLE IF NOT EXISTS source_cross_categorical_results (",
       "capsule_id TEXT NOT NULL, analysis_id TEXT NOT NULL,",
       "record_json TEXT NOT NULL, row_mac TEXT NOT NULL,",
@@ -921,7 +926,7 @@
   guarded_tables <- c(
     "source_recipient_keys", "source_outbound", "source_incoming_state",
     "source_aggregate_chunks", "source_cross_gaussian_results",
-    "source_cross_categorical_results")
+    "source_cross_gaussian_evidence", "source_cross_categorical_results")
   for (table in guarded_tables) {
     trigger <- paste0("source_no_reopen_", table)
     DBI::dbExecute(connection, paste0(

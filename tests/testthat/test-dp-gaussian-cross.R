@@ -174,6 +174,13 @@ test_that("cross Gaussian Ring128 reduction is segmented and contract checked", 
     "violated its contract")
 })
 
+test_that("cross Gaussian Ring128 reduction keeps a single segment as an array", {
+  encoded <- gsub("[\r\n]", "", jsonlite::base64_enc(
+    .cross_gaussian_test_records(c(3, 4))))
+  reduced <- .dsvert_dp_gaussian_cross_reduce(encoded, 2L, 1L)
+  expect_identical(.cross_gaussian_test_decode(reduced), 7)
+})
+
 test_that("cross Gaussian release assembly exactly follows v2 coordinate order", {
   count <- .cross_gaussian_test_records(10)
   masked <- .cross_gaussian_test_records(c(11, 12, 13))
@@ -444,4 +451,18 @@ test_that("cross Gaussian finalizer persists only an authenticated result share"
   expect_identical(
     .cross_gaussian_test_decode(injected[bytes]),
     c(512, 512, 256, 256, 256, 256, 256))
+  .dsvert_dp_capsule_source_with_store(
+    fixture$policy, fixture$secret, function(connection) {
+      DBI::dbExecute(
+        connection,
+        "DELETE FROM source_cross_gaussian_results WHERE capsule_id = ?",
+        params = list(contract$capsule_id))
+    })
+  expect_identical(
+    .dsvert_dp_gaussian_cross_public_evidence_impl(
+      fixture$manifest_json, "cross", source_contract,
+      .policy = fixture$policy, .secret = fixture$secret,
+      .signer = .cross_gaussian_test_signer,
+      .verifier = .cross_gaussian_test_verifier),
+    public_evidence)
 })

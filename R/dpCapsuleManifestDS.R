@@ -394,6 +394,7 @@
         spec$cluster
       } else if (spec$kind %in% c("random_intercept_fixed",
                                    "binary_random_intercept_grid",
+                                   "binary_random_slope_grid",
                                    "gaussian_random_slope_grid")) {
         c(spec$cluster, spec$predictors)
       } else {
@@ -417,6 +418,7 @@
         all(variables %in% mapping$datasets[[spec$dataset]])
     } else if (spec$kind %in% c("random_intercept_fixed",
                                  "binary_random_intercept_grid",
+                                 "binary_random_slope_grid",
                                  "gaussian_random_slope_grid")) {
       isTRUE(outcome_owned) && length(variables) == 2L +
         length(spec$predictors) && all(owners == policy$peer_name) &&
@@ -470,6 +472,15 @@
         candidate_grid = lapply(spec$candidate_grid, function(candidate) list(
           beta = unname(candidate$beta), sigma2 = candidate$sigma2,
           covariance = unname(candidate$covariance))))
+    } else if (identical(spec$kind, "binary_random_slope_grid")) {
+      list(
+        version = spec$version, dataset = spec$dataset,
+        outcome = spec$outcome, cluster = spec$cluster,
+        predictors = unname(spec$predictors),
+        random_slopes = unname(spec$random_slopes), intercept = spec$intercept,
+        max_patients_per_cluster = spec$max_patients_per_cluster,
+        candidate_grid = lapply(spec$candidate_grid, function(candidate) list(
+          beta = unname(candidate$beta), covariance = unname(candidate$covariance))))
     } else if (identical(spec$kind, "binary_random_intercept_grid")) {
       list(
         version = spec$version, dataset = spec$dataset,
@@ -773,6 +784,14 @@
       raw$candidate_grid <- lapply(raw$candidate_grid, function(candidate) list(
         beta = unname(as.numeric(unlist(candidate$beta, use.names = FALSE))),
         sigma2 = as.numeric(candidate$sigma2),
+        covariance = unname(as.numeric(unlist(candidate$covariance,
+                                               use.names = FALSE)))))
+    }
+    if (identical(raw$version, "binary_random_slope_grid_v1")) {
+      raw$random_slopes <- unname(as.character(unlist(
+        raw$random_slopes, use.names = FALSE)))
+      raw$candidate_grid <- lapply(raw$candidate_grid, function(candidate) list(
+        beta = unname(as.numeric(unlist(candidate$beta, use.names = FALSE))),
         covariance = unname(as.numeric(unlist(candidate$covariance,
                                                use.names = FALSE)))))
     }

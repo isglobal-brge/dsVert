@@ -707,6 +707,44 @@ test_that("binary random-intercept GLMM grid honours its signed sensitivity", {
   expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
 })
 
+test_that("binary random-slope GLMM grid emits bounded two-effect losses", {
+  glmm <- list(binary_random_slope = list(
+    version = "binary_random_slope_grid_v1", dataset = "protected",
+    outcome = "x", predictors = "entry", random_slopes = "entry",
+    intercept = TRUE, cluster = "cat_a", max_patients_per_cluster = 2L,
+    candidate_grid = list(
+      list(beta = c(-1, 0), covariance = c(0.25, 0, 0, 0.25)),
+      list(beta = c(-1, 1), covariance = c(0.5, 0.1, 0.1, 0.5)))))
+  data <- .materializer_test_data()
+  data$x <- c(0, 0, 1, NA_real_)
+  data$entry <- c(0, 0, 2, NA_real_)
+  fixture <- .materializer_test_fixture(
+    data = data, gaussian_specs = glmm, binary_x = TRUE)
+  artifact <- fixture$manifest$workload$families$gaussian_models$
+    artifacts$binary_random_slope
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["gaussian_models::binary_random_slope"]]
+  left <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  changed <- data
+  changed$x[changed$patient_id == "u2"] <- 1
+  fixture$resolved$protected$data <- changed
+  right <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  family <- fixture$manifest$workload$families$gaussian_models
+
+  expect_identical(artifact$version,
+                   "bounded-binary-random-slope-likelihood-grid-v1")
+  expect_identical(artifact$random_effect_order, c("(Intercept)", "entry"))
+  expect_identical(as.numeric(artifact$coordinate_count), 2)
+  expect_true(all(left[block$start:block$end] >= 0))
+  expect_true(all(left[block$start:block$end] <=
+                    unlist(artifact$statistic_maximum, use.names = FALSE)))
+  delta <- right[block$start:block$end] - left[block$start:block$end]
+  expect_lte(sum(abs(delta)), family$l1_sensitivity)
+  expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
+})
+
 test_that("Gaussian random-slope LMM grid emits only clipped cluster losses", {
   lmm <- list(random_slope = list(
     version = "gaussian_random_slope_grid_v1", dataset = "protected",

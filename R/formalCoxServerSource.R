@@ -10,16 +10,34 @@
   "dsvert.formal_cox.source_specs"
 .DSVERT_FORMAL_COX_SOURCE_CONTEXT_CLASS <-
   "dsvert_formal_cox_server_source_context"
-.DSVERT_FORMAL_COX_SERVER_SOURCE_ROCK_ROOT <- "/srv/dsvert-synopsis"
 
-.dsvert_formal_cox_server_source_require_canonical_rock <- function() {
+.dsvert_formal_cox_server_source_require_private_rock <- function() {
   if (isTRUE(.dsvert_identity_test_mode())) return(invisible(NULL))
   root <- tryCatch(.dsvert_state_root(), error = function(error) NULL)
-  if (!identical(root, .DSVERT_FORMAL_COX_SERVER_SOURCE_ROCK_ROOT)) {
+  if (!is.character(root) || length(root) != 1L || is.na(root) ||
+      !nzchar(root) || !grepl("^/", path.expand(root))) {
     .dsvert_formal_cox_abort(
-      "The formal Cox source bridge requires the canonical Rock root.")
+      "The formal Cox source bridge requires one private Rock root.")
   }
-  invisible(NULL)
+  root <- path.expand(root)
+  .dsvert_dp_reject_ephemeral_or_library_path(root, "formal Cox Rock root")
+  if (!dir.exists(root) && !dir.create(
+      root, recursive = TRUE, showWarnings = FALSE, mode = "0700")) {
+    .dsvert_formal_cox_abort(
+      "The formal Cox source bridge could not create its private Rock root.")
+  }
+  if (.dsvert_dp_path_is_link(root)) {
+    .dsvert_formal_cox_abort(
+      "The formal Cox source bridge requires a non-symbolic private Rock root.")
+  }
+  Sys.chmod(root, mode = "0700")
+  if (!.dsvert_dp_private_mode(root, directory = TRUE)) {
+    .dsvert_formal_cox_abort(
+      "The formal Cox source bridge requires an owner-only Rock root.")
+  }
+  root <- normalizePath(root, winslash = "/", mustWork = TRUE)
+  .dsvert_dp_reject_ephemeral_or_library_path(root, "formal Cox Rock root")
+  invisible(root)
 }
 
 .dsvert_formal_cox_server_source_descriptor <- function(value) {
@@ -221,7 +239,7 @@
 
 .dsvert_formal_cox_server_source_command_input <- function(
     context, run_id, recipient_tickets, block_index) {
-  .dsvert_formal_cox_server_source_require_canonical_rock()
+  .dsvert_formal_cox_server_source_require_private_rock()
   context <- .dsvert_formal_cox_server_source_context(context)
   run_id <- .dsvert_formal_cox_sha256(run_id, "Cox source run id")
   if (!identical(run_id, .dsvert_formal_cox_run_id(context$schema))) {
@@ -342,7 +360,7 @@
 # is passed only to the closed local MPC command; it never enters a DSI DTO.
 .dsvert_formal_cox_server_source_recipient_command_input <- function(
     schema, block_capacity, run_id) {
-  .dsvert_formal_cox_server_source_require_canonical_rock()
+  .dsvert_formal_cox_server_source_require_private_rock()
   .dsvert_formal_cox_schema_validate(schema)
   recipient <- tryCatch(
     .dsvert_require_configured_local_peer_name(), error = function(error) NULL)

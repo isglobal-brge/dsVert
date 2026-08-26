@@ -120,11 +120,17 @@
   )
 }
 
-test_that("formal Cox source bridge rejects a split production Rock root before MPC", {
+test_that("formal Cox source bridge uses the configured private Rock root before MPC", {
   fixture <- .formal_cox_fixture(n = 12L, capacity = 16L)
   sealed <- .formal_cox_schema(2L, fixture = fixture)
+  root <- withr::local_tempdir(pattern = "formal-cox-private-rock-")
+  seen <- character()
   testthat::local_mocked_bindings(
     .dsvert_identity_test_mode = function() FALSE,
+    .dsvert_dp_reject_ephemeral_or_library_path = function(path, what) {
+      seen <<- c(seen, paste(path, what, sep = "|"))
+      invisible(NULL)
+    },
     .get_identity_keypair = function(...) {
       fail("identity must not be read for a split Cox Rock root")
     },
@@ -133,15 +139,25 @@ test_that("formal Cox source bridge rejects a split production Rock root before 
     },
     .package = "dsVert")
   withr::local_options(list(
-    dsvert.state_dir = tempfile("formal-cox-split-rock-"),
+    dsvert.state_dir = root,
     dsvert.peer_name = "site1"))
-  expect_error(
-    .dsvert_formal_cox_server_source_recipient_ticket(
-      sealed$schema, 4L, strrep("a", 64L)),
-    "canonical Rock root")
-  withr::with_options(
-    list(dsvert.state_dir = .DSVERT_FORMAL_COX_SERVER_SOURCE_ROCK_ROOT),
-    expect_silent(.dsvert_formal_cox_server_source_require_canonical_rock()))
+  expect_silent(.dsvert_formal_cox_server_source_require_private_rock())
+  expect_true(any(startsWith(seen, paste0(root, "|formal Cox Rock root"))))
+
+  testthat::local_mocked_bindings(
+    .dsvert_identity_test_mode = function() FALSE,
+    .dsvert_dp_reject_ephemeral_or_library_path = function(...) {
+      stop("unsafe private root")
+    },
+    .get_identity_keypair = function(...) {
+      fail("identity must not be read for an unsafe Cox Rock root")
+    },
+    .callMpcTool = function(...) {
+      fail("MPC must not run for an unsafe Cox Rock root")
+    },
+    .package = "dsVert")
+  expect_error(.dsvert_formal_cox_server_source_recipient_ticket(
+    sealed$schema, 4L, strrep("a", 64L)), "unsafe private root")
 })
 
 test_that("formal Cox schema requires unanimous pinned signatures and a positive risk floor", {

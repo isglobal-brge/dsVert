@@ -157,6 +157,13 @@ type formalCoxBlockwiseExchangeDaemonFinalizerPrepareResultV1 struct {
 	Replayed          bool                             `json:"replayed"`
 }
 
+// finalizer_advance accepts only the paired public headers. The ticket,
+// envelopes, candidate and authorization chain are loaded from the local,
+// validated control store rather than supplied by a relay caller.
+type formalCoxBlockwiseExchangeDaemonFinalizerAdvanceV1 struct {
+	Headers [2]formalCoxBlockwiseOpeningHandoffHeader `json:"headers"`
+}
+
 type formalCoxBlockwiseExchangeDaemonV1 struct {
 	mu          sync.Mutex
 	controller  *formalCoxBlockwiseExchangeController
@@ -777,6 +784,17 @@ func (daemon *formalCoxBlockwiseExchangeDaemonV1) dispatchV1(action string,
 			return nil, err
 		}
 		return formalCoxBlockwiseExchangeDaemonResponsePayload(stage)
+	case "finalizer_advance":
+		var request formalCoxBlockwiseExchangeDaemonFinalizerAdvanceV1
+		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {
+			return nil, err
+		}
+		advance, err := controller.AdvanceFinalizerControlAtRootV1(
+			request.Headers, daemon.stateRoot, daemon.production)
+		if err != nil {
+			return nil, err
+		}
+		return formalCoxBlockwiseExchangeDaemonResponsePayload(advance)
 	case "commit":
 		var request formalCoxBlockwiseExchangeDaemonCommitV1
 		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {
@@ -990,6 +1008,15 @@ func (client *formalCoxBlockwiseExchangeDaemonClientV1) PrepareFinalizerV1(
 		formalCoxBlockwiseExchangeDaemonFinalizerPrepareV1{
 			Ticket: ticket, Headers: headers, Envelopes: envelopes,
 		}, &result)
+	return result, err
+}
+
+func (client *formalCoxBlockwiseExchangeDaemonClientV1) AdvanceFinalizerV1(
+	headers [2]formalCoxBlockwiseOpeningHandoffHeader,
+) (formalCoxBlockwiseLiveControlAdvanceV1, error) {
+	var result formalCoxBlockwiseLiveControlAdvanceV1
+	err := client.callV1("finalizer_advance",
+		formalCoxBlockwiseExchangeDaemonFinalizerAdvanceV1{Headers: headers}, &result)
 	return result, err
 }
 

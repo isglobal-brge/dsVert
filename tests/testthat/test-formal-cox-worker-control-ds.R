@@ -168,6 +168,41 @@ test_that("formal Cox worker relays only public finalizer handoff records", {
     list(ticket = list(), headers = headers, envelopes = envelopes))
   expect_identical(seen$action, "finalizer_stage")
   expect_false(staged$production_ready)
+
+  testthat::local_mocked_bindings(
+    .dsvert_formal_cox_worker_host_control = function(
+        plan_sha256, attempt_id, action, payload) {
+      seen <<- list(plan_sha256 = plan_sha256, attempt_id = attempt_id,
+                    action = action, payload = payload)
+      list(version = "dsvert-formal-cox-blockwise-worker-host-control-v1",
+           payload = list(
+             artifact_id = strrep("c", 64L), state = "publication_ready",
+             certificate_sha256 = strrep("f", 64L), production_ready = FALSE))
+    },
+    .package = "dsVert")
+  advanced <- dsvertFormalCoxWorkerControlDS(
+    selector$plan_sha256, selector$attempt_id, "finalizer_advance",
+    list(headers = headers))
+  expect_identical(seen$action, "finalizer_advance")
+  expect_identical(seen$payload, list(headers = headers))
+  expect_false(advanced$production_ready)
+  expect_identical(advanced$payload$state, "publication_ready")
+  expect_false(any(grepl("candidate|share|secret|storage|path|source",
+                         names(advanced$payload), ignore.case = TRUE)))
+  expect_error(dsvertFormalCoxWorkerControlDS(
+    selector$plan_sha256, selector$attempt_id, "finalizer_advance",
+    list(headers = headers[[1L]])), class = "dsvert_formal_cox_error")
+  testthat::local_mocked_bindings(
+    .dsvert_formal_cox_worker_host_control = function(...) list(
+      version = "dsvert-formal-cox-blockwise-worker-host-control-v1",
+      payload = list(
+        artifact_id = strrep("c", 64L), state = "publication_ready",
+        certificate_sha256 = "unsafe", production_ready = FALSE)),
+    .package = "dsVert")
+  expect_error(dsvertFormalCoxWorkerControlDS(
+    selector$plan_sha256, selector$attempt_id, "finalizer_advance",
+    list(headers = headers)), class = "dsvert_formal_cox_error")
+
   testthat::local_mocked_bindings(
     .dsvert_formal_cox_worker_host_control = function(...) list(
       version = "dsvert-formal-cox-blockwise-worker-host-control-v1",

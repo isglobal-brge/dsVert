@@ -113,6 +113,9 @@ func formalCoxBlockwiseLiveControlStagesFreshFinalizerV1(
 		t.Fatal(err)
 	}
 	defer clear(encoded)
+	if !bytes.Contains(encoded, []byte(`"production_ready":false`)) {
+		t.Fatalf("stage response omitted non-production marker: %s", encoded)
+	}
 	for _, forbidden := range [][]byte{
 		[]byte("coefficient"), []byte("share"), []byte("secret"), []byte("storage"),
 	} {
@@ -301,6 +304,20 @@ func formalCoxBlockwiseLiveControlAdvancesFinalizerV1(t *testing.T, custodians i
 		!formalCoxIsSHA256(garbler.CertificateSHA256) || garbler.ProductionReady {
 		t.Fatalf("garbler publication advance: %+v / %v", garbler, err)
 	}
+	encoded, err := json.Marshal(garbler)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range [][]byte{
+		[]byte("candidate"), []byte("share"), []byte("secret"), []byte("storage"),
+		[]byte("path"),
+	} {
+		if bytes.Contains(bytes.ToLower(encoded), forbidden) {
+			clear(encoded)
+			t.Fatalf("advance response exposed %q: %s", forbidden, encoded)
+		}
+	}
+	clear(encoded)
 	openStores()
 	now = formalCoxBlockwiseLiveControlRelayRecord(
 		t, stores, transports, signatures, 0, 1,

@@ -19,7 +19,7 @@ type formalCoxBlockwiseLiveControlStageV1 struct {
 	ArtifactID      string `json:"artifact_id"`
 	CandidateSHA256 string `json:"candidate_sha256,omitempty"`
 	LocalRole       string `json:"local_role"`
-	ProductionReady bool   `json:"-"`
+	ProductionReady bool   `json:"production_ready"`
 }
 
 // formalCoxBlockwiseLiveControlAdvanceV1 is intentionally share-free.  It
@@ -29,8 +29,8 @@ type formalCoxBlockwiseLiveControlStageV1 struct {
 type formalCoxBlockwiseLiveControlAdvanceV1 struct {
 	ArtifactID        string `json:"artifact_id"`
 	State             string `json:"state"`
-	CertificateSHA256 string `json:"certificate_sha256,omitempty"`
-	ProductionReady   bool   `json:"-"`
+	CertificateSHA256 string `json:"certificate_sha256"`
+	ProductionReady   bool   `json:"production_ready"`
 }
 
 func formalCoxBlockwiseLiveControlAuthorization(

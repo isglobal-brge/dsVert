@@ -1021,6 +1021,21 @@
   .dsvert_dp_capsule_named_list(value, what, empty = TRUE)
 }
 
+.dsvert_dp_capsule_binary_glmm_quadrature_v1 <- function() {
+  # Nine fixed Gauss--Hermite nodes integrate the standard-normal random
+  # intercept deterministically; neither the nodes nor their weights are
+  # analyst-controlled protocol inputs.
+  list(
+    nodes = c(-3.19099320178153, -2.26658058453184, -1.46855328921667,
+              -0.723551018752838, 0, 0.723551018752838,
+              1.46855328921667, 2.26658058453184, 3.19099320178153),
+    weights = c(0.0000396069772632644, 0.00494362427553695,
+                0.0884745273943766, 0.432651559002556,
+                0.720235215606051, 0.432651559002556,
+                0.0884745273943766, 0.00494362427553695,
+                0.0000396069772632644))
+}
+
 .dsvert_dp_capsule_gaussian_spec <- function(
     policy, analysis_id, specs, require_public_bounds = TRUE) {
   analysis_id <- .dsvert_dp_capsule_id(analysis_id, "Gaussian analysis id")
@@ -1032,6 +1047,99 @@
   }
   version <- .dsvert_dp_capsule_id(raw$version, "Gaussian version")
   dataset <- .dsvert_dp_capsule_id(raw$dataset, "Gaussian dataset")
+  if (identical(version, "binary_random_intercept_grid_v1")) {
+    expected <- c(
+      "version", "dataset", "outcome", "cluster", "predictors",
+      "intercept", "max_patients_per_cluster", "beta_grid",
+      "variance_grid")
+    if (!setequal(names(raw), expected)) {
+      stop("Invalid binary random-intercept GLMM specification.",
+           call. = FALSE)
+    }
+    outcome <- .dsvert_dp_capsule_column_reference(
+      raw$outcome, "GLMM outcome")$reference
+    cluster <- .dsvert_dp_capsule_column_reference(
+      raw$cluster, "GLMM cluster")$reference
+    predictors <- raw$predictors
+    if (is.list(predictors) && is.null(names(predictors)) &&
+        all(vapply(predictors, function(value) {
+          is.character(value) && length(value) == 1L && !is.na(value)
+        }, logical(1L)))) {
+      predictors <- unname(unlist(predictors, use.names = FALSE))
+    }
+    predictors <- if (is.character(predictors) && length(predictors) &&
+        is.null(names(predictors)) && !anyNA(predictors) &&
+        !anyDuplicated(predictors)) {
+      sort(vapply(predictors, function(value) {
+        .dsvert_dp_capsule_column_reference(
+          value, "GLMM fixed predictor")$reference
+      }, character(1L)), method = "radix")
+    } else {
+      character()
+    }
+    maximum <- raw$max_patients_per_cluster
+    variance_grid <- raw$variance_grid
+    if (is.list(variance_grid) && is.null(names(variance_grid))) {
+      variance_grid <- unlist(variance_grid, use.names = FALSE)
+    }
+    beta_grid <- raw$beta_grid
+    if (!is.list(beta_grid) || !length(beta_grid) || !is.null(names(beta_grid))) {
+      beta_grid <- list()
+    } else {
+      beta_grid <- lapply(beta_grid, function(beta) {
+        if (is.list(beta) && is.null(names(beta))) {
+          beta <- unlist(beta, use.names = FALSE)
+        }
+        if (!is.numeric(beta) || !is.null(names(beta)) || anyNA(beta) ||
+            any(!is.finite(beta))) {
+          return(NULL)
+        }
+        as.numeric(beta)
+      })
+    }
+    expected_dimension <- 1L + length(predictors)
+    beta_valid <- length(beta_grid) && all(vapply(beta_grid, function(beta) {
+      is.numeric(beta) && length(beta) == expected_dimension &&
+        all(is.finite(beta)) && all(abs(beta) <= 8)
+    }, logical(1L)))
+    beta_keys <- if (isTRUE(beta_valid)) vapply(beta_grid, function(beta) {
+      .dsvert_dp_canonical_json(as.list(beta))
+    }, character(1L)) else character()
+    if (isTRUE(beta_valid)) {
+      if (anyDuplicated(beta_keys)) beta_valid <- FALSE
+      if (isTRUE(beta_valid)) beta_grid <- beta_grid[order(beta_keys)]
+    }
+    if (!is.numeric(maximum) || length(maximum) != 1L || is.na(maximum) ||
+        !is.finite(maximum) || maximum != floor(maximum) || maximum < 2 ||
+        maximum > policy$unit_capacity || !isTRUE(raw$intercept) ||
+        !length(predictors) || outcome %in% predictors ||
+        cluster %in% c(outcome, predictors) || !is.numeric(variance_grid) ||
+        !length(variance_grid) || anyNA(variance_grid) ||
+        any(!is.finite(variance_grid)) || any(variance_grid < 0) ||
+        any(variance_grid > 16) || any(diff(variance_grid) <= 0) ||
+        !isTRUE(beta_valid) ||
+        length(beta_grid) * length(variance_grid) > 256L) {
+      stop("Invalid binary random-intercept GLMM model terms.",
+           call. = FALSE)
+    }
+    if (!is.logical(require_public_bounds) ||
+        length(require_public_bounds) != 1L || is.na(require_public_bounds)) {
+      stop("Invalid Gaussian specification validation mode.", call. = FALSE)
+    }
+    if (isTRUE(require_public_bounds) &&
+        (!dataset %in% names(policy$datasets) ||
+         any(!c(outcome, predictors) %in% names(policy$numeric_bounds)) ||
+         !cluster %in% names(policy$categorical_levels))) {
+      stop("The binary random-intercept GLMM specification lacks public bounds.",
+           call. = FALSE)
+    }
+    return(list(
+      version = version, dataset = dataset, outcome = outcome,
+      cluster = cluster, predictors = unname(predictors), intercept = TRUE,
+      max_patients_per_cluster = as.integer(maximum),
+      beta_grid = unname(beta_grid), variance_grid = as.numeric(variance_grid),
+      kind = "binary_random_intercept_grid"))
+  }
   if (version %in% c("random_intercept_fixed_v2",
                      "random_intercept_fixed_v3")) {
     expected <- c(
@@ -2085,6 +2193,128 @@
   for (analysis_id in names(gaussian_specs)) {
     spec <- .dsvert_dp_capsule_gaussian_spec(
       global_policy, analysis_id, gaussian_specs)
+    if (identical(spec$kind, "binary_random_intercept_grid")) {
+      variables <- c(spec$outcome, spec$predictors, spec$cluster)
+      model_columns <- columns[variables]
+      owners <- unique(vapply(
+        model_columns, `[[`, character(1L), "owner_peer"))
+      datasets <- vapply(model_columns, `[[`, character(1L), "dataset")
+      kinds <- vapply(model_columns, `[[`, character(1L), "kind")
+      expected_kinds <- c(
+        rep("numeric", 1L + length(spec$predictors)), "categorical")
+      outcome <- columns[[spec$outcome]]
+      if (!identical(unname(kinds), expected_kinds) || length(owners) != 1L ||
+          length(unique(datasets)) != 1L ||
+          !identical(datasets[[1L]], spec$dataset) ||
+          !identical(c(outcome$lower, outcome$upper), c(0, 1))) {
+        stop(paste(
+          "A binary random-intercept GLMM specification must be same-owner",
+          "with a [0,1] numeric outcome, numeric predictors and a",
+          "categorical cluster."), call. = FALSE)
+      }
+      design_terms <- c("(Intercept)", spec$predictors)
+      beta_count <- length(spec$beta_grid)
+      variance_count <- length(spec$variance_grid)
+      candidate_count <- .dsvert_dp_capsule_coordinate_add(
+        0L, beta_count * variance_count)
+      quadrature <- .dsvert_dp_capsule_binary_glmm_quadrature_v1()
+      max_node <- max(abs(quadrature$nodes))
+      candidates <- unlist(lapply(spec$variance_grid, function(variance) {
+        lapply(spec$beta_grid, function(beta) {
+          eta_bound <- sum(abs(beta)) + sqrt(2 * variance) * max_node
+          list(beta = as.numeric(beta), variance = as.numeric(variance),
+               loss_bound = log1p(exp(eta_bound)))
+        })
+      }), recursive = FALSE)
+      loss_bounds <- vapply(candidates, `[[`, numeric(1L), "loss_bound")
+      raw_per_candidate <- ceiling(loss_bounds * grid_scale)
+      statistic_maximum <- as.numeric(
+        ceiling(global_policy$unit_capacity * raw_per_candidate))
+      base_raw_l1 <- sum(raw_per_candidate)
+      base_raw_l2 <- .dsvert_dp_capsule_l2_sqrt(
+        sum(raw_per_candidate^2))
+      if (!is.finite(base_raw_l1) ||
+          !is.finite(base_raw_l2) ||
+          any(!is.finite(statistic_maximum)) ||
+          any(statistic_maximum > .dsvert_dp_exact_integer_limit)) {
+        stop(structure(
+          list(
+            message = paste(
+              "The binary random-intercept GLMM public bounds exceed the",
+              "certified exact-computation domain."),
+            call = NULL,
+            reason = "binary_random_intercept_glmm_numeric_backend_unrepresentable"),
+          class = c("dsvert_numeric_backend_unrepresentable", "error",
+                    "condition")))
+      }
+      adjacency_multiplier <- .dsvert_dp_adjacency_multiplier(global_policy)
+      raw_l1 <- adjacency_multiplier * base_raw_l1
+      raw_l2 <- adjacency_multiplier * base_raw_l2
+      predictor_bounds <- lapply(spec$predictors, function(variable) {
+        column <- columns[[variable]]
+        list(column = column$column, lower = column$lower,
+             upper = column$upper)
+      })
+      names(predictor_bounds) <- spec$predictors
+      gaussian_artifacts[[analysis_id]] <- list(
+        version = "bounded-binary-random-intercept-likelihood-grid-v1",
+        spec_version = spec$version, analysis_id = analysis_id,
+        dataset = spec$dataset, owner_peer = owners[[1L]],
+        outcome = list(column = outcome$column, lower = outcome$lower,
+                       upper = outcome$upper),
+        cluster = list(column = columns[[spec$cluster]]$column,
+                       levels = columns[[spec$cluster]]$levels),
+        predictors = predictor_bounds,
+        predictor_order = unname(spec$predictors), intercept = TRUE,
+        design_terms = unname(design_terms),
+        observation_capacity = as.integer(global_policy$unit_capacity),
+        max_patients_per_cluster = as.integer(spec$max_patients_per_cluster),
+        beta_grid = lapply(spec$beta_grid, unname),
+        variance_grid = unname(spec$variance_grid),
+        quadrature_rule = "gauss_hermite_9_standard_normal_v1",
+        candidate_order = "variance_grid_then_beta_grid_v1",
+        candidate_loss_bounds = as.list(unname(loss_bounds)),
+        numeric_grid_bits = grid_bits,
+        coordinate_count = candidate_count,
+        coordinate_order = paste(
+          "variance_grid_then_beta_grid_cluster_marginal_negative_log",
+          "likelihood_v1", sep = "_"),
+        source_coordinate_scaling =
+          "all_coordinates_already_on_common_numeric_lattice_v1",
+        repeated_record_policy = paste(
+          "require_one_binary_outcome_and_mean_once_per_admitted_patient",
+          "with_one_consistent_public_cluster_level_v1", sep = "_"),
+        missingness_policy = paste(
+          "nonbinary_or_missing_outcome_or_missing_or_nonfinite_predictor",
+          "or_missing_or_inconsistent_cluster_excludes_patient_v1", sep = "_"),
+        contribution_domain = paste(
+          "one_bounded_patient_binary_log_likelihood_contribution_in_one",
+          "consistent_cluster_for_every_signed_candidate_v1", sep = "_"),
+        statistic_maximum = as.list(statistic_maximum),
+        source_raw_l1_sensitivity = raw_l1,
+        source_raw_l2_sensitivity = raw_l2,
+        natural_l1_sensitivity = raw_l1 / grid_scale,
+        natural_l2_sensitivity = raw_l2 / grid_scale,
+        adjacency = global_policy$adjacency,
+        adjacency_sensitivity_basis = paste(
+          "one_patient_changes_one_cluster_marginal_log_likelihood_by_at",
+          "most_its_signed_candidate_loss_bound_v1", sep = "_"),
+        estimation_scope = paste(
+          "bounded_binary_random_intercept_marginal_likelihood_fixed",
+          "covariates_finite_signed_parameter_grid_v1", sep = "_"),
+        implementation_state = "same_owner_materialized",
+        cross_owner_state = "reserved_not_materialized")
+      gaussian_coordinate_count <- .dsvert_dp_capsule_coordinate_add(
+        gaussian_coordinate_count, candidate_count)
+      gaussian_raw_l1 <- gaussian_raw_l1 + raw_l1
+      gaussian_raw_l2_squared <- .dsvert_dp_capsule_l2_add(
+        gaussian_raw_l2_squared, .dsvert_dp_capsule_l2_square(raw_l2))
+      gaussian_natural_l1 <- gaussian_natural_l1 + raw_l1 / grid_scale
+      gaussian_natural_l2_squared <- .dsvert_dp_capsule_l2_add(
+        gaussian_natural_l2_squared,
+        .dsvert_dp_capsule_l2_square(raw_l2 / grid_scale))
+      next
+    }
     if (identical(spec$kind, "random_intercept")) {
       variables <- c(spec$outcome, spec$cluster)
       model_columns <- columns[variables]

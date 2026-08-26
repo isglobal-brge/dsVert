@@ -188,7 +188,8 @@
           "bounded-normalized-gaussian-sufficient-statistics-v1",
           "bounded-normalized-random-intercept-moments-v1",
           "bounded-normalized-random-intercept-fixed-sufficient-statistics-v2",
-          "bounded-normalized-random-intercept-fixed-sufficient-statistics-v3")
+          "bounded-normalized-random-intercept-fixed-sufficient-statistics-v3",
+          "bounded-binary-random-intercept-likelihood-grid-v1")
       }, logical(1L)))) return(TRUE)
   FALSE
 }

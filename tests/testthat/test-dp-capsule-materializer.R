@@ -31,7 +31,8 @@
     data = .materializer_test_data(),
     adjacency = "add_remove_patient", capacity = 5L,
     max_records = 4L, duplicate_describe = FALSE,
-    gaussian_specs = list(), workload_scope = NULL) {
+    gaussian_specs = list(), workload_scope = NULL,
+    binary_x = FALSE) {
   pins <- c(
     peer_a = .materializer_test_b64url(as.raw(seq_len(32L))),
     peer_b = .materializer_test_b64url(as.raw(32L + seq_len(32L))))
@@ -54,7 +55,9 @@
     contingency_unit_aggregation_policy =
       "consistent_cell_else_exclude_v1",
     numeric_grid_bits = 8L,
-    numeric_bounds = list(entry = c(0, 10), time = c(0, 10), x = c(0, 10)),
+    numeric_bounds = list(
+      entry = c(0, 10), time = c(0, 10),
+      x = if (isTRUE(binary_x)) c(0, 1) else c(0, 10)),
     categorical_levels = list(
       cat_a = c("A", "B"), cat_b = c("L", "R"),
       status = c("censor", "event")),
@@ -82,7 +85,7 @@
         time = list(kind = "numeric", owner_peer = "peer_a",
                     lower = 0, upper = 10),
         x = list(kind = "numeric", owner_peer = "peer_a",
-                 lower = 0, upper = 10),
+                 lower = 0, upper = if (isTRUE(binary_x)) 1 else 10),
         cat_a = list(kind = "categorical", owner_peer = "peer_a",
                      levels = c("A", "B")),
         cat_b = list(kind = "categorical", owner_peer = "peer_a",
@@ -93,7 +96,8 @@
                       peer_b = strrep("B", 86L)))
   describe <- list(primary = list(
     version = "v1", dataset = "protected", variables = "x",
-    histogram_grids = list(x = c(5, 10)),
+    histogram_grids = list(
+      x = if (isTRUE(binary_x)) c(0.5, 1) else c(5, 10)),
     allocation = c(
       count = 0.2, sum = 0.3, sumsq = 0.3, histogram = 0.2)))
   if (isTRUE(duplicate_describe)) describe$duplicate <- describe$primary
@@ -629,6 +633,68 @@ test_that("fixed-effect random-intercept LMM source respects signed sensitivity"
   expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
   expect_lte(sum(abs((right - left) * 2^lattice$scale_shifts)),
              fixture$manifest$workload$sensitivity$l1)
+})
+
+test_that("binary random-intercept GLMM grid emits only bounded cluster losses", {
+  glmm <- list(binary_random_intercept = list(
+    version = "binary_random_intercept_grid_v1", dataset = "protected",
+    outcome = "x", predictors = "entry", intercept = TRUE,
+    cluster = "cat_a", max_patients_per_cluster = 2L,
+    beta_grid = list(c(0, 0), c(0, 1)), variance_grid = c(0, 0.5)))
+  data <- .materializer_test_data()
+  data$x <- c(0, 0, 1, NA_real_)
+  data$entry <- c(0, 0, 2, NA_real_)
+  fixture <- .materializer_test_fixture(
+    data = data, gaussian_specs = glmm, binary_x = TRUE)
+  artifact <- fixture$manifest$workload$families$gaussian_models$
+    artifacts$binary_random_intercept
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["gaussian_models::binary_random_intercept"]]
+  material <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)
+  lattice <- .dsvert_joint_dp_vector_lattice_vectors(list(
+    manifest = fixture$manifest, layout = layout))
+
+  expect_identical(
+    artifact$version,
+    "bounded-binary-random-intercept-likelihood-grid-v1")
+  expect_identical(artifact$design_terms, c("(Intercept)", "entry"))
+  expect_identical(as.numeric(artifact$coordinate_count), 4)
+  expect_length(artifact$candidate_loss_bounds, 4L)
+  expect_true(all(material$values[block$start:block$end] >= 0))
+  expect_true(all(material$values[block$start:block$end] <=
+                    artifact$statistic_maximum))
+  expect_identical(lattice$scale_shifts[block$start:block$end],
+                   rep.int(0L, 4L))
+  expect_identical(artifact$implementation_state, "same_owner_materialized")
+  expect_identical(artifact$cross_owner_state, "reserved_not_materialized")
+})
+
+test_that("binary random-intercept GLMM grid honours its signed sensitivity", {
+  glmm <- list(binary_random_intercept = list(
+    version = "binary_random_intercept_grid_v1", dataset = "protected",
+    outcome = "x", predictors = "entry", intercept = TRUE,
+    cluster = "cat_a", max_patients_per_cluster = 2L,
+    beta_grid = list(c(0, 0), c(0, 1)), variance_grid = c(0, 0.5)))
+  data <- .materializer_test_data()
+  data$x <- c(0, 0, 1, NA_real_)
+  data$entry <- c(0, 0, 2, NA_real_)
+  fixture <- .materializer_test_fixture(
+    data = data, gaussian_specs = glmm, binary_x = TRUE)
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["gaussian_models::binary_random_intercept"]]
+  left <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  changed <- data
+  changed$x[changed$patient_id == "u2"] <- 0
+  fixture$resolved$protected$data <- changed
+  right <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  family <- fixture$manifest$workload$families$gaussian_models
+  delta <- right[block$start:block$end] - left[block$start:block$end]
+
+  expect_lte(sum(abs(delta)), family$l1_sensitivity)
+  expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
 })
 
 test_that("numeric cache compaction preserves the full material byte for byte", {

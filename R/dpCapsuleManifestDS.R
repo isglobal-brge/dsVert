@@ -392,7 +392,8 @@
     references <- if (is.null(spec)) list() else lapply(
       c(spec$outcome, if (identical(spec$kind, "random_intercept")) {
         spec$cluster
-      } else if (identical(spec$kind, "random_intercept_fixed")) {
+      } else if (spec$kind %in% c("random_intercept_fixed",
+                                   "binary_random_intercept_grid")) {
         c(spec$cluster, spec$predictors)
       } else {
         spec$predictors
@@ -413,7 +414,8 @@
       isTRUE(outcome_owned) && length(variables) == 2L &&
         all(owners == policy$peer_name) &&
         all(variables %in% mapping$datasets[[spec$dataset]])
-    } else if (identical(spec$kind, "random_intercept_fixed")) {
+    } else if (spec$kind %in% c("random_intercept_fixed",
+                                 "binary_random_intercept_grid")) {
       isTRUE(outcome_owned) && length(variables) == 2L +
         length(spec$predictors) && all(owners == policy$peer_name) &&
         all(variables %in% mapping$datasets[[spec$dataset]])
@@ -450,6 +452,14 @@
         fixed$estimation_profile <- spec$estimation_profile
       }
       fixed
+    } else if (identical(spec$kind, "binary_random_intercept_grid")) {
+      list(
+        version = spec$version, dataset = spec$dataset,
+        outcome = spec$outcome, cluster = spec$cluster,
+        predictors = unname(spec$predictors), intercept = spec$intercept,
+        max_patients_per_cluster = spec$max_patients_per_cluster,
+        beta_grid = lapply(spec$beta_grid, unname),
+        variance_grid = unname(spec$variance_grid))
     } else {
       list(
         version = spec$version, dataset = spec$dataset,

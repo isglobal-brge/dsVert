@@ -1458,6 +1458,14 @@
         if (identical(spec$version, "random_intercept_v1")) {
           spec$cluster <- resolve_reference(
             spec$dataset, spec$cluster, owner, "LMM cluster")
+        } else if (identical(
+              spec$version, "binary_random_intercept_grid_v1")) {
+          spec$cluster <- resolve_reference(
+            spec$dataset, spec$cluster, owner, "GLMM cluster")
+          spec$predictors <- unname(vapply(spec$predictors, function(reference) {
+            resolve_reference(spec$dataset, reference, owner,
+                              "GLMM fixed predictor")
+          }, character(1L)))
         } else {
           spec$predictors <- unname(vapply(spec$predictors, function(reference) {
             resolve_reference(spec$dataset, reference, owner,

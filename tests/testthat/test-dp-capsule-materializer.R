@@ -707,6 +707,65 @@ test_that("binary random-intercept GLMM grid honours its signed sensitivity", {
   expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
 })
 
+test_that("Gaussian random-slope LMM grid emits only clipped cluster losses", {
+  lmm <- list(random_slope = list(
+    version = "gaussian_random_slope_grid_v1", dataset = "protected",
+    outcome = "time", predictors = "x", random_slopes = "x",
+    intercept = TRUE, cluster = "cat_a", max_patients_per_cluster = 2L,
+    candidate_grid = list(
+      list(beta = c(0, 0), sigma2 = 1,
+           covariance = c(0.5, 0.1, 0.1, 0.5)),
+      list(beta = c(0.2, 0.5), sigma2 = 1,
+           covariance = c(0.75, 0.2, 0.2, 0.75)))))
+  fixture <- .materializer_test_fixture(gaussian_specs = lmm)
+  artifact <- fixture$manifest$workload$families$gaussian_models$
+    artifacts$random_slope
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["gaussian_models::random_slope"]]
+  material <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)
+  lattice <- .dsvert_joint_dp_vector_lattice_vectors(list(
+    manifest = fixture$manifest, layout = layout))
+
+  expect_identical(artifact$version,
+                   "bounded-gaussian-random-slope-likelihood-grid-v1")
+  expect_identical(artifact$random_effect_order, c("(Intercept)", "x"))
+  expect_identical(as.numeric(artifact$coordinate_count), 2)
+  expect_true(all(material$values[block$start:block$end] >= 0))
+  expect_true(all(material$values[block$start:block$end] <=
+                    unlist(artifact$statistic_maximum, use.names = FALSE)))
+  expect_identical(lattice$scale_shifts[block$start:block$end], c(0L, 0L))
+  expect_identical(artifact$implementation_state, "same_owner_materialized")
+  expect_identical(artifact$cross_owner_state, "reserved_not_materialized")
+})
+
+test_that("Gaussian random-slope LMM grid honours its signed sensitivity", {
+  lmm <- list(random_slope = list(
+    version = "gaussian_random_slope_grid_v1", dataset = "protected",
+    outcome = "time", predictors = "x", random_slopes = "x",
+    intercept = TRUE, cluster = "cat_a", max_patients_per_cluster = 2L,
+    candidate_grid = list(
+      list(beta = c(0, 0), sigma2 = 1,
+           covariance = c(0.5, 0.1, 0.1, 0.5)),
+      list(beta = c(0.2, 0.5), sigma2 = 1,
+           covariance = c(0.75, 0.2, 0.2, 0.75)))))
+  fixture <- .materializer_test_fixture(gaussian_specs = lmm)
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["gaussian_models::random_slope"]]
+  left <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  changed <- fixture$resolved$protected$data
+  changed$time[changed$patient_id == "u2"] <- 5
+  fixture$resolved$protected$data <- changed
+  right <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  family <- fixture$manifest$workload$families$gaussian_models
+  delta <- right[block$start:block$end] - left[block$start:block$end]
+
+  expect_lte(sum(abs(delta)), family$l1_sensitivity)
+  expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
+})
+
 test_that("negative-binomial grid emits only bounded candidate losses", {
   nb2 <- list(negative_binomial = list(
     version = "negative_binomial_grid_v1", dataset = "protected",

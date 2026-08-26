@@ -1036,6 +1036,52 @@
                 0.0000396069772632644))
 }
 
+.dsvert_dp_capsule_gaussian_random_slope_candidates <- function(
+    value, dimension, random_effect_order, cluster_capacity) {
+  effect_count <- length(random_effect_order)
+  if (!is.list(value) || !length(value) || !is.null(names(value))) {
+    return(list())
+  }
+  candidates <- lapply(value, function(candidate) {
+    if (!is.list(candidate) || !setequal(names(candidate),
+                                         c("beta", "sigma2", "covariance"))) {
+      return(NULL)
+    }
+    beta <- candidate$beta
+    covariance <- candidate$covariance
+    if (is.list(beta) && is.null(names(beta))) beta <- unlist(beta, use.names = FALSE)
+    if (is.list(covariance) && is.null(names(covariance))) {
+      covariance <- unlist(covariance, use.names = FALSE)
+    }
+    sigma2 <- suppressWarnings(as.numeric(candidate$sigma2))
+    if (!is.numeric(beta) || !is.null(names(beta)) || length(beta) != dimension ||
+        anyNA(beta) || any(!is.finite(beta)) || any(abs(beta) > 8) ||
+        length(sigma2) != 1L || !is.finite(sigma2) || sigma2 < 0.25 ||
+        sigma2 > 16 || !is.numeric(covariance) || !is.null(names(covariance)) ||
+        length(covariance) != effect_count^2 || anyNA(covariance) ||
+        any(!is.finite(covariance)) || any(abs(covariance) > 16)) return(NULL)
+    covariance <- matrix(as.numeric(covariance), effect_count, effect_count,
+                         byrow = TRUE)
+    if (!isTRUE(all.equal(covariance, t(covariance), tolerance = 0)) ||
+        any(diag(covariance) < 0) ||
+        any(eigen(covariance, symmetric = TRUE, only.values = TRUE)$values <
+            -1e-10)) return(NULL)
+    residual_bound <- 1 + sum(abs(beta))
+    variance_upper <- sigma2 + 16 * cluster_capacity * effect_count^2
+    loss_bound <- 0.5 * cluster_capacity * (
+      log(2 * pi) + log(variance_upper) + residual_bound^2 / sigma2)
+    if (!is.finite(loss_bound) || loss_bound <= 0) return(NULL)
+    list(beta = as.numeric(beta), sigma2 = sigma2, covariance = covariance,
+         loss_bound = loss_bound)
+  })
+  if (any(vapply(candidates, is.null, logical(1L)))) return(list())
+  keys <- vapply(candidates, function(candidate) .dsvert_dp_canonical_json(list(
+    beta = as.list(candidate$beta), sigma2 = candidate$sigma2,
+    covariance = as.list(as.vector(t(candidate$covariance))))), character(1L))
+  if (anyDuplicated(keys)) return(list())
+  candidates[order(keys)]
+}
+
 .dsvert_dp_capsule_gaussian_spec <- function(
     policy, analysis_id, specs, require_public_bounds = TRUE) {
   analysis_id <- .dsvert_dp_capsule_id(analysis_id, "Gaussian analysis id")
@@ -1405,6 +1451,62 @@
       predictors = unname(predictors), intercept = TRUE,
       max_outcome = as.integer(maximum), beta_grid = unname(beta_grid),
       theta_grid = as.numeric(theta_grid), kind = "negative_binomial_grid"))
+  }
+  if (identical(version, "gaussian_random_slope_grid_v1")) {
+    expected <- c(
+      "version", "dataset", "outcome", "cluster", "predictors",
+      "random_slopes", "intercept", "max_patients_per_cluster",
+      "candidate_grid")
+    if (!setequal(names(raw), expected)) {
+      stop("Invalid Gaussian random-slope LMM specification.", call. = FALSE)
+    }
+    outcome <- .dsvert_dp_capsule_column_reference(
+      raw$outcome, "LMM outcome")$reference
+    cluster <- .dsvert_dp_capsule_column_reference(
+      raw$cluster, "LMM cluster")$reference
+    normalize_references <- function(value, what) {
+      if (is.list(value) && is.null(names(value))) value <- unlist(value, use.names = FALSE)
+      if (!is.character(value) || !length(value) || !is.null(names(value)) ||
+          anyNA(value) || anyDuplicated(value)) return(character())
+      sort(vapply(value, function(x) .dsvert_dp_capsule_column_reference(x, what)$reference,
+                 character(1L)), method = "radix")
+    }
+    predictors <- normalize_references(raw$predictors, "LMM fixed predictor")
+    random_slopes <- normalize_references(raw$random_slopes, "LMM random slope")
+    maximum <- raw$max_patients_per_cluster
+    if (!is.numeric(maximum) || length(maximum) != 1L || is.na(maximum) ||
+        !is.finite(maximum) || maximum != floor(maximum) || maximum < 2 ||
+        maximum > policy$unit_capacity || !isTRUE(raw$intercept) ||
+        !length(predictors) || outcome %in% predictors ||
+        cluster %in% c(outcome, predictors) || !length(random_slopes) ||
+        !all(random_slopes %in% predictors)) {
+      stop("Invalid Gaussian random-slope LMM model terms.", call. = FALSE)
+    }
+    effects <- c("(Intercept)", random_slopes)
+    candidates <- .dsvert_dp_capsule_gaussian_random_slope_candidates(
+      raw$candidate_grid, 1L + length(predictors), effects, as.numeric(maximum))
+    if (!length(candidates) || length(candidates) > 128L) {
+      stop("Invalid Gaussian random-slope LMM candidate grid.", call. = FALSE)
+    }
+    if (!is.logical(require_public_bounds) ||
+        length(require_public_bounds) != 1L || is.na(require_public_bounds)) {
+      stop("Invalid Gaussian specification validation mode.", call. = FALSE)
+    }
+    if (isTRUE(require_public_bounds) &&
+        (!dataset %in% names(policy$datasets) ||
+         any(!c(outcome, predictors) %in% names(policy$numeric_bounds)) ||
+         !cluster %in% names(policy$categorical_levels))) {
+      stop("The Gaussian random-slope LMM specification lacks public bounds.",
+           call. = FALSE)
+    }
+    return(list(
+      version = version, dataset = dataset, outcome = outcome, cluster = cluster,
+      predictors = unname(predictors), random_slopes = unname(random_slopes),
+      intercept = TRUE, max_patients_per_cluster = as.integer(maximum),
+      candidate_grid = lapply(candidates, function(candidate) list(
+        beta = unname(candidate$beta), sigma2 = candidate$sigma2,
+        covariance = unname(as.vector(t(candidate$covariance))))),
+      kind = "gaussian_random_slope_grid"))
   }
   if (identical(version, "binary_random_intercept_grid_v1")) {
     expected <- c(
@@ -3009,6 +3111,110 @@
         cross_owner_state = "reserved_not_materialized")
       gaussian_coordinate_count <- .dsvert_dp_capsule_coordinate_add(
         gaussian_coordinate_count, candidate_count)
+      gaussian_raw_l1 <- gaussian_raw_l1 + raw_l1
+      gaussian_raw_l2_squared <- .dsvert_dp_capsule_l2_add(
+        gaussian_raw_l2_squared, .dsvert_dp_capsule_l2_square(raw_l2))
+      gaussian_natural_l1 <- gaussian_natural_l1 + raw_l1 / grid_scale
+      gaussian_natural_l2_squared <- .dsvert_dp_capsule_l2_add(
+        gaussian_natural_l2_squared,
+        .dsvert_dp_capsule_l2_square(raw_l2 / grid_scale))
+      next
+    }
+    if (identical(spec$kind, "gaussian_random_slope_grid")) {
+      variables <- c(spec$outcome, spec$predictors, spec$cluster)
+      model_columns <- columns[variables]
+      owners <- unique(vapply(model_columns, `[[`, character(1L), "owner_peer"))
+      datasets <- vapply(model_columns, `[[`, character(1L), "dataset")
+      kinds <- vapply(model_columns, `[[`, character(1L), "kind")
+      expected_kinds <- c(rep("numeric", 1L + length(spec$predictors)),
+                          "categorical")
+      if (!identical(unname(kinds), expected_kinds) || length(owners) != 1L ||
+          length(unique(datasets)) != 1L ||
+          !identical(datasets[[1L]], spec$dataset)) {
+        stop(paste("A Gaussian random-slope LMM specification must be same-owner",
+                   "with a numeric outcome and predictors plus a categorical cluster."),
+             call. = FALSE)
+      }
+      outcome <- columns[[spec$outcome]]
+      cluster_capacity <- as.integer(spec$max_patients_per_cluster)
+      design_terms <- c("(Intercept)", spec$predictors)
+      random_effect_order <- c("(Intercept)", spec$random_slopes)
+      candidates <- .dsvert_dp_capsule_gaussian_random_slope_candidates(
+        spec$candidate_grid, length(design_terms), random_effect_order,
+        cluster_capacity)
+      if (!length(candidates) || length(candidates) > 128L) {
+        stop("The Gaussian random-slope LMM candidate grid is invalid.",
+             call. = FALSE)
+      }
+      loss_bounds <- vapply(candidates, `[[`, numeric(1L), "loss_bound")
+      raw_per_candidate <- ceiling(loss_bounds * grid_scale)
+      statistic_maximum <- as.numeric(capacity * raw_per_candidate)
+      base_raw_l1 <- sum(raw_per_candidate)
+      base_raw_l2 <- .dsvert_dp_capsule_l2_sqrt(sum(raw_per_candidate^2))
+      required_signed_bits <- as.integer(ceiling(log2(max(statistic_maximum) + 1))) + 1L
+      if (!is.finite(base_raw_l1) || !is.finite(base_raw_l2) ||
+          any(!is.finite(statistic_maximum)) ||
+          any(statistic_maximum > .dsvert_dp_exact_integer_limit) ||
+          !is.finite(required_signed_bits) || required_signed_bits >= 127L) {
+        stop(structure(list(
+          message = paste("The Gaussian random-slope LMM public bounds exceed",
+                          "the certified exact-computation domain."), call = NULL,
+          reason = "gaussian_random_slope_lmm_numeric_backend_unrepresentable",
+          required_signed_bits = required_signed_bits),
+          class = c("dsvert_numeric_backend_unrepresentable", "error",
+                    "condition")))
+      }
+      adjacency_multiplier <- .dsvert_dp_adjacency_multiplier(global_policy)
+      raw_l1 <- adjacency_multiplier * base_raw_l1
+      raw_l2 <- adjacency_multiplier * base_raw_l2
+      predictor_bounds <- lapply(spec$predictors, function(variable) {
+        column <- columns[[variable]]
+        list(column = column$column, lower = column$lower, upper = column$upper)
+      })
+      names(predictor_bounds) <- spec$predictors
+      gaussian_artifacts[[analysis_id]] <- list(
+        version = "bounded-gaussian-random-slope-likelihood-grid-v1",
+        spec_version = spec$version, analysis_id = analysis_id,
+        dataset = spec$dataset, owner_peer = owners[[1L]],
+        outcome = list(column = outcome$column, lower = outcome$lower,
+                       upper = outcome$upper),
+        cluster = list(column = columns[[spec$cluster]]$column,
+                       levels = columns[[spec$cluster]]$levels),
+        predictors = predictor_bounds, predictor_order = unname(spec$predictors),
+        intercept = TRUE, design_terms = unname(design_terms),
+        random_effect_order = unname(random_effect_order),
+        observation_capacity = as.integer(capacity),
+        max_patients_per_cluster = cluster_capacity,
+        candidate_grid = lapply(candidates, function(candidate) list(
+          beta = unname(candidate$beta), sigma2 = candidate$sigma2,
+          covariance = unname(as.vector(t(candidate$covariance))))),
+        candidate_order = "canonical_signed_candidate_grid_v1",
+        candidate_loss_bounds = as.list(unname(loss_bounds)),
+        numeric_grid_bits = grid_bits,
+        coordinate_count = as.integer(length(candidates)),
+        coordinate_order = "signed_candidate_grid_clipped_cluster_gaussian_negative_log_likelihood_v1",
+        source_coordinate_scaling =
+          "all_coordinates_already_on_common_numeric_lattice_v1",
+        repeated_record_policy =
+          "require_one_complete_bounded_row_per_admitted_patient_with_one_consistent_public_cluster_level_v1",
+        missingness_policy =
+          "missing_or_nonfinite_outcome_predictor_or_missing_or_inconsistent_cluster_excludes_patient_v1",
+        contribution_domain =
+          "one_bounded_patient_changes_one_clipped_cluster_gaussian_loss_per_signed_candidate_v1",
+        statistic_maximum = as.list(statistic_maximum),
+        source_raw_l1_sensitivity = raw_l1,
+        source_raw_l2_sensitivity = raw_l2,
+        natural_l1_sensitivity = raw_l1 / grid_scale,
+        natural_l2_sensitivity = raw_l2 / grid_scale,
+        adjacency = global_policy$adjacency,
+        adjacency_sensitivity_basis =
+          "one_patient_can_change_one_entire_clipped_cluster_loss_by_at_most_its_signed_bound_v1",
+        estimation_scope =
+          "bounded_gaussian_random_slope_marginal_likelihood_finite_signed_parameter_grid_v1",
+        implementation_state = "same_owner_materialized",
+        cross_owner_state = "reserved_not_materialized")
+      gaussian_coordinate_count <- .dsvert_dp_capsule_coordinate_add(
+        gaussian_coordinate_count, length(candidates))
       gaussian_raw_l1 <- gaussian_raw_l1 + raw_l1
       gaussian_raw_l2_squared <- .dsvert_dp_capsule_l2_add(
         gaussian_raw_l2_squared, .dsvert_dp_capsule_l2_square(raw_l2))

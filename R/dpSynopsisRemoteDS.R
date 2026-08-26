@@ -189,6 +189,7 @@
           "bounded-normalized-random-intercept-moments-v1",
           "bounded-normalized-random-intercept-fixed-sufficient-statistics-v2",
           "bounded-normalized-random-intercept-fixed-sufficient-statistics-v3",
+          "bounded-gaussian-random-slope-likelihood-grid-v1",
           "bounded-binary-random-intercept-likelihood-grid-v1",
           "bounded-binomial-likelihood-grid-v1",
           "bounded-poisson-likelihood-grid-v1",

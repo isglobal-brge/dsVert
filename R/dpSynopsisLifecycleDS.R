@@ -1467,7 +1467,8 @@
                               "GLMM fixed predictor")
           }, character(1L)))
         } else if (spec$version %in% c("negative_binomial_grid_v1",
-                                       "multinomial_grid_v1")) {
+                                       "multinomial_grid_v1",
+                                       "ordinal_grid_v1")) {
           spec$predictors <- unname(vapply(spec$predictors, function(reference) {
             resolve_reference(spec$dataset, reference, owner,
                               "finite-grid fixed predictor")

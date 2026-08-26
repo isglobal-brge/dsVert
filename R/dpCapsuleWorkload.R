@@ -1047,6 +1047,109 @@
   }
   version <- .dsvert_dp_capsule_id(raw$version, "Gaussian version")
   dataset <- .dsvert_dp_capsule_id(raw$dataset, "Gaussian dataset")
+  if (identical(version, "ordinal_grid_v1")) {
+    expected <- c(
+      "version", "dataset", "outcome", "predictors", "intercept",
+      "ordered_levels", "candidate_grid")
+    if (!setequal(names(raw), expected)) {
+      stop("Invalid ordinal likelihood-grid specification.", call. = FALSE)
+    }
+    outcome <- .dsvert_dp_capsule_column_reference(
+      raw$outcome, "ordinal outcome")$reference
+    predictors <- raw$predictors
+    if (is.list(predictors) && is.null(names(predictors)) &&
+        all(vapply(predictors, function(value) {
+          is.character(value) && length(value) == 1L && !is.na(value)
+        }, logical(1L)))) {
+      predictors <- unname(unlist(predictors, use.names = FALSE))
+    }
+    predictors <- if (is.character(predictors) && length(predictors) &&
+        is.null(names(predictors)) && !anyNA(predictors) &&
+        !anyDuplicated(predictors)) {
+      sort(vapply(predictors, function(value) {
+        .dsvert_dp_capsule_column_reference(
+          value, "ordinal fixed predictor")$reference
+      }, character(1L)), method = "radix")
+    } else {
+      character()
+    }
+    ordered_levels <- raw$ordered_levels
+    if (is.list(ordered_levels) && is.null(names(ordered_levels))) {
+      ordered_levels <- unlist(ordered_levels, use.names = FALSE)
+    }
+    ordered_levels <- tryCatch(
+      .dsvert_canonical_label_values(
+        ordered_levels, "ordinal outcome levels", allow_na = FALSE,
+        allow_blank = FALSE),
+      error = function(error) character())
+    candidate_grid <- raw$candidate_grid
+    if (!is.list(candidate_grid) || !length(candidate_grid) ||
+        !is.null(names(candidate_grid))) {
+      candidate_grid <- list()
+    } else {
+      candidate_grid <- lapply(candidate_grid, function(candidate) {
+        if (!is.list(candidate) || is.null(names(candidate)) ||
+            !setequal(names(candidate), c("thresholds", "beta"))) {
+          return(NULL)
+        }
+        thresholds <- candidate$thresholds
+        beta <- candidate$beta
+        if (is.list(thresholds) && is.null(names(thresholds))) {
+          thresholds <- unlist(thresholds, use.names = FALSE)
+        }
+        if (is.list(beta) && is.null(names(beta))) {
+          beta <- unlist(beta, use.names = FALSE)
+        }
+        if (!is.numeric(thresholds) || !is.null(names(thresholds)) ||
+            anyNA(thresholds) || any(!is.finite(thresholds)) ||
+            !is.numeric(beta) || !is.null(names(beta)) || anyNA(beta) ||
+            any(!is.finite(beta))) return(NULL)
+        list(thresholds = as.numeric(thresholds), beta = as.numeric(beta))
+      })
+    }
+    threshold_count <- length(ordered_levels) - 1L
+    beta_dimension <- 1L + length(predictors)
+    candidate_valid <- length(candidate_grid) && all(vapply(
+      candidate_grid, function(candidate) {
+        is.list(candidate) &&
+          length(candidate$thresholds) == threshold_count &&
+          length(candidate$beta) == beta_dimension &&
+          all(abs(candidate$thresholds) <= 8) &&
+          all(abs(candidate$beta) <= 8) &&
+          all(diff(candidate$thresholds) >= 1 / 256)
+      }, logical(1L)))
+    candidate_keys <- if (isTRUE(candidate_valid)) vapply(
+      candidate_grid, function(candidate) .dsvert_dp_canonical_json(list(
+        beta = candidate$beta, thresholds = candidate$thresholds)),
+      character(1L)) else character()
+    if (isTRUE(candidate_valid)) {
+      if (anyDuplicated(candidate_keys)) candidate_valid <- FALSE
+      if (isTRUE(candidate_valid)) {
+        candidate_grid <- candidate_grid[order(candidate_keys)]
+      }
+    }
+    if (length(ordered_levels) < 3L || anyDuplicated(ordered_levels) ||
+        !isTRUE(raw$intercept) || !length(predictors) ||
+        outcome %in% predictors || !isTRUE(candidate_valid) ||
+        length(candidate_grid) > 256L) {
+      stop("Invalid ordinal likelihood-grid model terms.", call. = FALSE)
+    }
+    if (!is.logical(require_public_bounds) ||
+        length(require_public_bounds) != 1L || is.na(require_public_bounds)) {
+      stop("Invalid Gaussian specification validation mode.", call. = FALSE)
+    }
+    if (isTRUE(require_public_bounds) &&
+        (!dataset %in% names(policy$datasets) ||
+         !outcome %in% names(policy$categorical_levels) ||
+         any(!predictors %in% names(policy$numeric_bounds)))) {
+      stop("The ordinal grid specification lacks public bounds.", call. = FALSE)
+    }
+    return(list(
+      version = version, dataset = dataset, outcome = outcome,
+      predictors = unname(predictors), intercept = TRUE,
+      ordered_levels = unname(ordered_levels),
+      candidate_grid = unname(candidate_grid), kind = "ordinal_grid"))
+  }
   if (identical(version, "multinomial_grid_v1")) {
     expected <- c(
       "version", "dataset", "outcome", "predictors", "intercept",
@@ -2367,6 +2470,123 @@
   for (analysis_id in names(gaussian_specs)) {
     spec <- .dsvert_dp_capsule_gaussian_spec(
       global_policy, analysis_id, gaussian_specs)
+    if (identical(spec$kind, "ordinal_grid")) {
+      variables <- c(spec$outcome, spec$predictors)
+      model_columns <- columns[variables]
+      owners <- unique(vapply(
+        model_columns, `[[`, character(1L), "owner_peer"))
+      datasets <- vapply(model_columns, `[[`, character(1L), "dataset")
+      kinds <- vapply(model_columns, `[[`, character(1L), "kind")
+      outcome <- columns[[spec$outcome]]
+      if (!identical(unname(kinds), c(
+            "categorical", rep("numeric", length(spec$predictors)))) ||
+          length(owners) != 1L || length(unique(datasets)) != 1L ||
+          !identical(datasets[[1L]], spec$dataset) ||
+          !setequal(outcome$levels, spec$ordered_levels)) {
+        stop(paste(
+          "An ordinal likelihood grid must be same-owner with a signed",
+          "categorical outcome and numeric predictors."), call. = FALSE)
+      }
+      design_terms <- c("(Intercept)", spec$predictors)
+      candidate_count <- .dsvert_dp_capsule_coordinate_add(
+        0L, length(spec$candidate_grid))
+      candidate_bounds <- lapply(spec$candidate_grid, function(candidate) {
+        score_bound <- sum(abs(candidate$beta))
+        gap <- min(diff(candidate$thresholds))
+        tail <- 8 + score_bound
+        endpoint_probability <- stats::plogis(-tail)
+        interior_probability <- stats::plogis(tail + gap) -
+          stats::plogis(tail)
+        probability_lower <- min(endpoint_probability, interior_probability)
+        if (!is.finite(probability_lower) || probability_lower <= 0) {
+          stop("The ordinal likelihood-grid loss bound is not finite.",
+               call. = FALSE)
+        }
+        list(thresholds = as.numeric(candidate$thresholds),
+             beta = as.numeric(candidate$beta),
+             loss_bound = -log(probability_lower))
+      })
+      loss_bounds <- vapply(candidate_bounds, `[[`, numeric(1L), "loss_bound")
+      raw_per_candidate <- ceiling(loss_bounds * grid_scale)
+      statistic_maximum <- as.numeric(
+        ceiling(global_policy$unit_capacity * raw_per_candidate))
+      base_raw_l1 <- sum(raw_per_candidate)
+      base_raw_l2 <- .dsvert_dp_capsule_l2_sqrt(sum(raw_per_candidate^2))
+      if (!is.finite(base_raw_l1) || !is.finite(base_raw_l2) ||
+          any(!is.finite(statistic_maximum)) ||
+          any(statistic_maximum > .dsvert_dp_exact_integer_limit)) {
+        stop(structure(
+          list(message = paste(
+            "The ordinal likelihood-grid public bounds exceed the certified",
+            "exact-computation domain."), call = NULL,
+               reason = "ordinal_grid_numeric_backend_unrepresentable"),
+          class = c("dsvert_numeric_backend_unrepresentable", "error",
+                    "condition")))
+      }
+      adjacency_multiplier <- .dsvert_dp_adjacency_multiplier(global_policy)
+      raw_l1 <- adjacency_multiplier * base_raw_l1
+      raw_l2 <- adjacency_multiplier * base_raw_l2
+      predictor_bounds <- lapply(spec$predictors, function(variable) {
+        column <- columns[[variable]]
+        list(column = column$column, lower = column$lower,
+             upper = column$upper)
+      })
+      names(predictor_bounds) <- spec$predictors
+      gaussian_artifacts[[analysis_id]] <- list(
+        version = "bounded-ordinal-likelihood-grid-v1",
+        spec_version = spec$version, analysis_id = analysis_id,
+        dataset = spec$dataset, owner_peer = owners[[1L]],
+        outcome = list(column = outcome$column, levels = outcome$levels,
+                       ordered_levels = spec$ordered_levels),
+        predictors = predictor_bounds,
+        predictor_order = unname(spec$predictors), intercept = TRUE,
+        design_terms = unname(design_terms),
+        observation_capacity = as.integer(global_policy$unit_capacity),
+        candidate_grid = lapply(candidate_bounds, function(candidate) {
+          candidate[c("thresholds", "beta")]
+        }),
+        candidate_order = "canonical_ordinal_cumulative_logit_grid_v1",
+        candidate_loss_bounds = as.list(unname(loss_bounds)),
+        numeric_grid_bits = grid_bits, coordinate_count = candidate_count,
+        coordinate_order = paste(
+          "canonical_ordinal_candidate_grid_cumulative_logit_negative_log_likelihood_v1",
+          sep = "_"),
+        source_coordinate_scaling =
+          "all_coordinates_already_on_common_numeric_lattice_v1",
+        repeated_record_policy = paste(
+          "require_one_categorical_outcome_and_mean_once_per_admitted",
+          "patient_v1", sep = "_"),
+        missingness_policy = paste(
+          "missing_outcome_or_missing_or_nonfinite_predictor_excludes_patient",
+          "and_unknown_or_conflicting_nonmissing_outcome_rejects_v1", sep = "_"),
+        contribution_domain = paste(
+          "one_bounded_patient_ordinal_cumulative_logit_negative_log_likelihood",
+          "contribution_for_every_signed_candidate_v1", sep = "_"),
+        statistic_maximum = as.list(statistic_maximum),
+        source_raw_l1_sensitivity = raw_l1,
+        source_raw_l2_sensitivity = raw_l2,
+        natural_l1_sensitivity = raw_l1 / grid_scale,
+        natural_l2_sensitivity = raw_l2 / grid_scale,
+        adjacency = global_policy$adjacency,
+        adjacency_sensitivity_basis = paste(
+          "one_patient_changes_one_candidate_loss_by_at_most_its_signed",
+          "ordinal_cumulative_logit_loss_bound_v1", sep = "_"),
+        estimation_scope = paste(
+          "bounded_ordinal_cumulative_logit_fixed_covariates_finite_signed",
+          "candidate_grid_v1", sep = "_"),
+        implementation_state = "same_owner_materialized",
+        cross_owner_state = "reserved_not_materialized")
+      gaussian_coordinate_count <- .dsvert_dp_capsule_coordinate_add(
+        gaussian_coordinate_count, candidate_count)
+      gaussian_raw_l1 <- gaussian_raw_l1 + raw_l1
+      gaussian_raw_l2_squared <- .dsvert_dp_capsule_l2_add(
+        gaussian_raw_l2_squared, .dsvert_dp_capsule_l2_square(raw_l2))
+      gaussian_natural_l1 <- gaussian_natural_l1 + raw_l1 / grid_scale
+      gaussian_natural_l2_squared <- .dsvert_dp_capsule_l2_add(
+        gaussian_natural_l2_squared,
+        .dsvert_dp_capsule_l2_square(raw_l2 / grid_scale))
+      next
+    }
     if (identical(spec$kind, "multinomial_grid")) {
       variables <- c(spec$outcome, spec$predictors)
       model_columns <- columns[variables]

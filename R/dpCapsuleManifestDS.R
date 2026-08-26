@@ -420,7 +420,7 @@
         length(spec$predictors) && all(owners == policy$peer_name) &&
         all(variables %in% mapping$datasets[[spec$dataset]])
     } else if (spec$kind %in% c("negative_binomial_grid",
-                                 "multinomial_grid")) {
+                                 "multinomial_grid", "ordinal_grid")) {
       isTRUE(outcome_owned) && length(variables) == 1L +
         length(spec$predictors) && all(owners == policy$peer_name) &&
         all(variables %in% mapping$datasets[[spec$dataset]])
@@ -478,6 +478,16 @@
         outcome = spec$outcome, predictors = unname(spec$predictors),
         intercept = spec$intercept, levels = unname(spec$levels),
         reference = spec$reference, beta_grid = lapply(spec$beta_grid, unname))
+    } else if (identical(spec$kind, "ordinal_grid")) {
+      list(
+        version = spec$version, dataset = spec$dataset,
+        outcome = spec$outcome, predictors = unname(spec$predictors),
+        intercept = spec$intercept,
+        ordered_levels = unname(spec$ordered_levels),
+        candidate_grid = lapply(spec$candidate_grid, function(candidate) {
+          list(thresholds = unname(candidate$thresholds),
+               beta = unname(candidate$beta))
+        }))
     } else {
       list(
         version = spec$version, dataset = spec$dataset,

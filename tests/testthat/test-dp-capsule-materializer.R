@@ -817,6 +817,62 @@ test_that("multinomial grid honours its signed sensitivity", {
   expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
 })
 
+test_that("ordinal grid emits only signed bounded cumulative-logit losses", {
+  ordinal <- list(ordinal = list(
+    version = "ordinal_grid_v1", dataset = "protected",
+    outcome = "class3", predictors = "entry", intercept = TRUE,
+    ordered_levels = c("A", "B", "C"),
+    candidate_grid = list(
+      list(thresholds = c(-1, 1), beta = c(0, 0)),
+      list(thresholds = c(-0.5, 0.5), beta = c(0, 1)))))
+  data <- .materializer_test_data()
+  data$entry <- c(0, 0, 2, 4)
+  fixture <- .materializer_test_fixture(
+    data = data, gaussian_specs = ordinal, multiclass_outcome = TRUE)
+  artifact <- fixture$manifest$workload$families$gaussian_models$
+    artifacts$ordinal
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["gaussian_models::ordinal"]]
+  material <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)
+
+  expect_identical(artifact$version, "bounded-ordinal-likelihood-grid-v1")
+  expect_identical(artifact$outcome$ordered_levels, c("A", "B", "C"))
+  expect_identical(as.numeric(artifact$coordinate_count), 2)
+  expect_true(all(material$values[block$start:block$end] >= 0))
+  expect_true(all(material$values[block$start:block$end] <=
+                    artifact$statistic_maximum))
+  expect_identical(artifact$implementation_state, "same_owner_materialized")
+})
+
+test_that("ordinal grid honours its signed sensitivity", {
+  ordinal <- list(ordinal = list(
+    version = "ordinal_grid_v1", dataset = "protected",
+    outcome = "class3", predictors = "entry", intercept = TRUE,
+    ordered_levels = c("A", "B", "C"),
+    candidate_grid = list(
+      list(thresholds = c(-1, 1), beta = c(0, 0)),
+      list(thresholds = c(-0.5, 0.5), beta = c(0, 1)))))
+  data <- .materializer_test_data()
+  data$entry <- c(0, 0, 2, 4)
+  fixture <- .materializer_test_fixture(
+    data = data, gaussian_specs = ordinal, multiclass_outcome = TRUE)
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["gaussian_models::ordinal"]]
+  left <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  changed <- fixture$data
+  changed$class3[changed$patient_id == "u2"] <- "C"
+  fixture$resolved$protected$data <- changed
+  right <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  family <- fixture$manifest$workload$families$gaussian_models
+  delta <- right[block$start:block$end] - left[block$start:block$end]
+
+  expect_lte(sum(abs(delta)), family$l1_sensitivity)
+  expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
+})
+
 test_that("numeric cache compaction preserves the full material byte for byte", {
   gaussian <- list(primary_gaussian = list(
     version = "v1", dataset = "protected", outcome = "time",

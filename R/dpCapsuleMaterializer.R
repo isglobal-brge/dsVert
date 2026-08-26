@@ -624,6 +624,81 @@
   unname(statistics)
 }
 
+.dsvert_dp_capsule_quantized_ordinal_grid_losses <- function(
+    design, outcome, levels, ordered_levels, candidate_grid, grid_bits) {
+  if (!is.list(design) || !length(design) || !is.numeric(outcome) ||
+      anyNA(outcome) || any(!is.finite(outcome)) ||
+      any(outcome < 1) || any(outcome != floor(outcome)) ||
+      !is.character(levels) || !is.character(ordered_levels) ||
+      length(levels) < 3L || anyNA(levels) || anyNA(ordered_levels) ||
+      anyDuplicated(levels) || anyDuplicated(ordered_levels) ||
+      !setequal(levels, ordered_levels) || !is.list(candidate_grid) ||
+      !length(candidate_grid) || !is.numeric(grid_bits) ||
+      length(grid_bits) != 1L || is.na(grid_bits) || !is.finite(grid_bits) ||
+      grid_bits != floor(grid_bits) || grid_bits < 8L || grid_bits > 18L) {
+    stop("Invalid ordinal likelihood-grid values.", call. = FALSE)
+  }
+  if (any(outcome > length(levels))) {
+    stop("Invalid ordinal likelihood-grid outcome values.", call. = FALSE)
+  }
+  valid_design <- vapply(design, function(column) {
+    is.numeric(column) && length(column) == length(outcome) &&
+      !anyNA(column) && all(is.finite(column)) &&
+      all(column >= 0 & column <= 1)
+  }, logical(1L))
+  dimension <- length(design)
+  valid_candidates <- vapply(candidate_grid, function(candidate) {
+    is.list(candidate) && setequal(names(candidate), c("thresholds", "beta")) &&
+      is.numeric(candidate$thresholds) &&
+      length(candidate$thresholds) == length(levels) - 1L &&
+      !anyNA(candidate$thresholds) && all(is.finite(candidate$thresholds)) &&
+      all(abs(candidate$thresholds) <= 8) &&
+      all(diff(candidate$thresholds) >= 1 / 256) &&
+      is.numeric(candidate$beta) && length(candidate$beta) == dimension &&
+      !anyNA(candidate$beta) && all(is.finite(candidate$beta)) &&
+      all(abs(candidate$beta) <= 8)
+  }, logical(1L))
+  if (!all(valid_design) || !all(valid_candidates)) {
+    stop("Invalid ordinal likelihood-grid design.", call. = FALSE)
+  }
+  if (!length(outcome)) return(rep.int(0, length(candidate_grid)))
+  scale <- 2^as.integer(grid_bits)
+  if (length(outcome) > floor(.dsvert_dp_exact_integer_limit / scale)) {
+    stop("The ordinal capsule cohort is too large for exact quantization.",
+         call. = FALSE)
+  }
+  log_sigmoid <- function(value) {
+    ifelse(value >= 0, -log1p(exp(-value)), value - log1p(exp(value)))
+  }
+  design_matrix <- do.call(cbind, design)
+  ordered_outcome <- match(levels[outcome], ordered_levels)
+  statistics <- vapply(candidate_grid, function(candidate) {
+    eta <- as.numeric(design_matrix %*% candidate$beta)
+    lower <- c(-Inf, candidate$thresholds)
+    upper <- c(candidate$thresholds, Inf)
+    log_probability <- vapply(seq_along(ordered_outcome), function(index) {
+      category <- ordered_outcome[[index]]
+      if (category == 1L) {
+        log_sigmoid(upper[[category]] - eta[[index]])
+      } else if (category == length(ordered_levels)) {
+        log_sigmoid(eta[[index]] - lower[[category]])
+      } else {
+        high <- log_sigmoid(upper[[category]] - eta[[index]])
+        low <- log_sigmoid(lower[[category]] - eta[[index]])
+        high + log1p(-exp(low - high))
+      }
+    }, numeric(1L))
+    sum(as.numeric(round(pmax(0, -log_probability) * scale)))
+  }, numeric(1L))
+  if (anyNA(statistics) || any(!is.finite(statistics)) ||
+      any(statistics < 0) || any(statistics != floor(statistics)) ||
+      any(statistics > .dsvert_dp_exact_integer_limit)) {
+    stop("The ordinal likelihood-grid statistics are not representable.",
+         call. = FALSE)
+  }
+  unname(statistics)
+}
+
 .dsvert_dp_capsule_materializer_manifest <- function(policy, manifest) {
   .dsvert_dp_capsule_workload_require_materializable(manifest)
   required <- c(
@@ -1117,6 +1192,39 @@
         artifact$numeric_grid_bits)
       if (length(statistics) != block$length) {
         stop("The signed multinomial grid shape is invalid.", call. = FALSE)
+      }
+      values[block$start:block$end] <- statistics
+      next
+    }
+    if (identical(
+          artifact$version,
+          "bounded-ordinal-likelihood-grid-v1")) {
+      outcome <- .dsvert_dp_capsule_bounded_category(
+        snapshots[[block$dataset]]$data, policy, artifact$outcome$column,
+        artifact$outcome$levels, admission_for(block$dataset), strict = TRUE)
+      predictors <- lapply(artifact$predictor_order, function(variable) {
+        bounded_for(block$dataset, artifact$predictors[[variable]]$column)
+      })
+      names(predictors) <- artifact$predictor_order
+      complete <- !is.na(outcome$cell)
+      for (predictor in predictors) complete <- complete & predictor$valid
+      normalize <- function(value, lower, upper) {
+        pmin(1, pmax(0, (value - lower) / (upper - lower)))
+      }
+      design <- c(
+        list(rep(1, sum(complete))),
+        lapply(artifact$predictor_order, function(variable) {
+          descriptor <- artifact$predictors[[variable]]
+          normalize(
+            predictors[[variable]]$unit_values[complete],
+            descriptor$lower, descriptor$upper)
+        }))
+      statistics <- .dsvert_dp_capsule_quantized_ordinal_grid_losses(
+        design, outcome$cell[complete], artifact$outcome$levels,
+        artifact$outcome$ordered_levels, artifact$candidate_grid,
+        artifact$numeric_grid_bits)
+      if (length(statistics) != block$length) {
+        stop("The signed ordinal grid shape is invalid.", call. = FALSE)
       }
       values[block$start:block$end] <- statistics
       next

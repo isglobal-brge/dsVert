@@ -1047,6 +1047,91 @@
   }
   version <- .dsvert_dp_capsule_id(raw$version, "Gaussian version")
   dataset <- .dsvert_dp_capsule_id(raw$dataset, "Gaussian dataset")
+  if (identical(version, "negative_binomial_grid_v1")) {
+    expected <- c(
+      "version", "dataset", "outcome", "predictors", "intercept",
+      "max_outcome", "beta_grid", "theta_grid")
+    if (!setequal(names(raw), expected)) {
+      stop("Invalid negative-binomial likelihood-grid specification.",
+           call. = FALSE)
+    }
+    outcome <- .dsvert_dp_capsule_column_reference(
+      raw$outcome, "NB2 outcome")$reference
+    predictors <- raw$predictors
+    if (is.list(predictors) && is.null(names(predictors)) &&
+        all(vapply(predictors, function(value) {
+          is.character(value) && length(value) == 1L && !is.na(value)
+        }, logical(1L)))) {
+      predictors <- unname(unlist(predictors, use.names = FALSE))
+    }
+    predictors <- if (is.character(predictors) && length(predictors) &&
+        is.null(names(predictors)) && !anyNA(predictors) &&
+        !anyDuplicated(predictors)) {
+      sort(vapply(predictors, function(value) {
+        .dsvert_dp_capsule_column_reference(
+          value, "NB2 fixed predictor")$reference
+      }, character(1L)), method = "radix")
+    } else {
+      character()
+    }
+    maximum <- raw$max_outcome
+    theta_grid <- raw$theta_grid
+    if (is.list(theta_grid) && is.null(names(theta_grid))) {
+      theta_grid <- unlist(theta_grid, use.names = FALSE)
+    }
+    beta_grid <- raw$beta_grid
+    if (!is.list(beta_grid) || !length(beta_grid) || !is.null(names(beta_grid))) {
+      beta_grid <- list()
+    } else {
+      beta_grid <- lapply(beta_grid, function(beta) {
+        if (is.list(beta) && is.null(names(beta))) {
+          beta <- unlist(beta, use.names = FALSE)
+        }
+        if (!is.numeric(beta) || !is.null(names(beta)) || anyNA(beta) ||
+            any(!is.finite(beta))) return(NULL)
+        as.numeric(beta)
+      })
+    }
+    expected_dimension <- 1L + length(predictors)
+    beta_valid <- length(beta_grid) && all(vapply(beta_grid, function(beta) {
+      is.numeric(beta) && length(beta) == expected_dimension &&
+        all(is.finite(beta)) && all(abs(beta) <= 8)
+    }, logical(1L)))
+    beta_keys <- if (isTRUE(beta_valid)) vapply(beta_grid, function(beta) {
+      .dsvert_dp_canonical_json(as.list(beta))
+    }, character(1L)) else character()
+    if (isTRUE(beta_valid)) {
+      if (anyDuplicated(beta_keys)) beta_valid <- FALSE
+      if (isTRUE(beta_valid)) beta_grid <- beta_grid[order(beta_keys)]
+    }
+    if (!is.numeric(maximum) || length(maximum) != 1L || is.na(maximum) ||
+        !is.finite(maximum) || maximum != floor(maximum) || maximum < 1 ||
+        maximum > 1024 || !isTRUE(raw$intercept) || !length(predictors) ||
+        outcome %in% predictors || !is.numeric(theta_grid) ||
+        !length(theta_grid) || anyNA(theta_grid) ||
+        any(!is.finite(theta_grid)) || any(theta_grid <= 0) ||
+        any(theta_grid > 64) || any(diff(theta_grid) <= 0) ||
+        !isTRUE(beta_valid) ||
+        length(beta_grid) * length(theta_grid) > 256L) {
+      stop("Invalid negative-binomial likelihood-grid model terms.",
+           call. = FALSE)
+    }
+    if (!is.logical(require_public_bounds) ||
+        length(require_public_bounds) != 1L || is.na(require_public_bounds)) {
+      stop("Invalid Gaussian specification validation mode.", call. = FALSE)
+    }
+    if (isTRUE(require_public_bounds) &&
+        (!dataset %in% names(policy$datasets) ||
+         any(!c(outcome, predictors) %in% names(policy$numeric_bounds)))) {
+      stop("The negative-binomial grid specification lacks public bounds.",
+           call. = FALSE)
+    }
+    return(list(
+      version = version, dataset = dataset, outcome = outcome,
+      predictors = unname(predictors), intercept = TRUE,
+      max_outcome = as.integer(maximum), beta_grid = unname(beta_grid),
+      theta_grid = as.numeric(theta_grid), kind = "negative_binomial_grid"))
+  }
   if (identical(version, "binary_random_intercept_grid_v1")) {
     expected <- c(
       "version", "dataset", "outcome", "cluster", "predictors",
@@ -2193,6 +2278,124 @@
   for (analysis_id in names(gaussian_specs)) {
     spec <- .dsvert_dp_capsule_gaussian_spec(
       global_policy, analysis_id, gaussian_specs)
+    if (identical(spec$kind, "negative_binomial_grid")) {
+      variables <- c(spec$outcome, spec$predictors)
+      model_columns <- columns[variables]
+      owners <- unique(vapply(
+        model_columns, `[[`, character(1L), "owner_peer"))
+      datasets <- vapply(model_columns, `[[`, character(1L), "dataset")
+      kinds <- vapply(model_columns, `[[`, character(1L), "kind")
+      outcome <- columns[[spec$outcome]]
+      if (!identical(unname(kinds), rep("numeric", length(variables))) ||
+          length(owners) != 1L || length(unique(datasets)) != 1L ||
+          !identical(datasets[[1L]], spec$dataset) ||
+          !isTRUE(all.equal(as.numeric(outcome$lower), 0, tolerance = 0)) ||
+          !isTRUE(all.equal(as.numeric(outcome$upper),
+                            as.numeric(spec$max_outcome), tolerance = 0))) {
+        stop(paste(
+          "A negative-binomial likelihood grid must be same-owner with a",
+          "bounded non-negative integer outcome and numeric predictors."),
+          call. = FALSE)
+      }
+      design_terms <- c("(Intercept)", spec$predictors)
+      beta_count <- length(spec$beta_grid)
+      theta_count <- length(spec$theta_grid)
+      candidate_count <- .dsvert_dp_capsule_coordinate_add(
+        0L, beta_count * theta_count)
+      log1pexp <- function(value) pmax(value, 0) + log1p(exp(-abs(value)))
+      candidate_bounds <- unlist(lapply(spec$theta_grid, function(theta) {
+        lapply(spec$beta_grid, function(beta) {
+          eta_bound <- sum(abs(beta))
+          y <- 0:spec$max_outcome
+          loss <- outer(y, c(-eta_bound, eta_bound), function(count, eta) {
+            lgamma(theta) + lgamma(count + 1) - lgamma(count + theta) +
+              theta * log1pexp(eta - log(theta)) - count * eta
+          })
+          list(beta = as.numeric(beta), theta = as.numeric(theta),
+               loss_bound = max(0, max(loss)))
+        })
+      }), recursive = FALSE)
+      loss_bounds <- vapply(candidate_bounds, `[[`, numeric(1L), "loss_bound")
+      raw_per_candidate <- ceiling(loss_bounds * grid_scale)
+      statistic_maximum <- as.numeric(
+        ceiling(global_policy$unit_capacity * raw_per_candidate))
+      base_raw_l1 <- sum(raw_per_candidate)
+      base_raw_l2 <- .dsvert_dp_capsule_l2_sqrt(sum(raw_per_candidate^2))
+      if (!is.finite(base_raw_l1) || !is.finite(base_raw_l2) ||
+          any(!is.finite(statistic_maximum)) ||
+          any(statistic_maximum > .dsvert_dp_exact_integer_limit)) {
+        stop(structure(
+          list(message = paste(
+            "The negative-binomial likelihood-grid public bounds exceed the",
+            "certified exact-computation domain."), call = NULL,
+            reason = "negative_binomial_grid_numeric_backend_unrepresentable"),
+          class = c("dsvert_numeric_backend_unrepresentable", "error",
+                    "condition")))
+      }
+      adjacency_multiplier <- .dsvert_dp_adjacency_multiplier(global_policy)
+      raw_l1 <- adjacency_multiplier * base_raw_l1
+      raw_l2 <- adjacency_multiplier * base_raw_l2
+      predictor_bounds <- lapply(spec$predictors, function(variable) {
+        column <- columns[[variable]]
+        list(column = column$column, lower = column$lower,
+             upper = column$upper)
+      })
+      names(predictor_bounds) <- spec$predictors
+      gaussian_artifacts[[analysis_id]] <- list(
+        version = "bounded-negative-binomial-likelihood-grid-v1",
+        spec_version = spec$version, analysis_id = analysis_id,
+        dataset = spec$dataset, owner_peer = owners[[1L]],
+        outcome = list(column = outcome$column, lower = outcome$lower,
+                       upper = outcome$upper),
+        predictors = predictor_bounds,
+        predictor_order = unname(spec$predictors), intercept = TRUE,
+        design_terms = unname(design_terms),
+        observation_capacity = as.integer(global_policy$unit_capacity),
+        max_outcome = as.integer(spec$max_outcome),
+        beta_grid = lapply(spec$beta_grid, unname),
+        theta_grid = unname(spec$theta_grid),
+        candidate_order = "theta_grid_then_beta_grid_v1",
+        candidate_loss_bounds = as.list(unname(loss_bounds)),
+        numeric_grid_bits = grid_bits, coordinate_count = candidate_count,
+        coordinate_order = paste(
+          "theta_grid_then_beta_grid_negative_binomial_log_likelihood_v1",
+          sep = "_"),
+        source_coordinate_scaling =
+          "all_coordinates_already_on_common_numeric_lattice_v1",
+        repeated_record_policy = paste(
+          "require_one_bounded_count_outcome_and_mean_once_per_admitted",
+          "patient_v1", sep = "_"),
+        missingness_policy = paste(
+          "noninteger_or_out_of_range_or_missing_outcome_or_missing_or",
+          "nonfinite_predictor_excludes_patient_v1", sep = "_"),
+        contribution_domain = paste(
+          "one_bounded_patient_negative_binomial_log_likelihood",
+          "contribution_for_every_signed_candidate_v1", sep = "_"),
+        statistic_maximum = as.list(statistic_maximum),
+        source_raw_l1_sensitivity = raw_l1,
+        source_raw_l2_sensitivity = raw_l2,
+        natural_l1_sensitivity = raw_l1 / grid_scale,
+        natural_l2_sensitivity = raw_l2 / grid_scale,
+        adjacency = global_policy$adjacency,
+        adjacency_sensitivity_basis = paste(
+          "one_patient_changes_one_candidate_loss_by_at_most_its_signed",
+          "negative_binomial_loss_bound_v1", sep = "_"),
+        estimation_scope = paste(
+          "bounded_negative_binomial_fixed_covariates_finite_signed",
+          "beta_theta_grid_v1", sep = "_"),
+        implementation_state = "same_owner_materialized",
+        cross_owner_state = "reserved_not_materialized")
+      gaussian_coordinate_count <- .dsvert_dp_capsule_coordinate_add(
+        gaussian_coordinate_count, candidate_count)
+      gaussian_raw_l1 <- gaussian_raw_l1 + raw_l1
+      gaussian_raw_l2_squared <- .dsvert_dp_capsule_l2_add(
+        gaussian_raw_l2_squared, .dsvert_dp_capsule_l2_square(raw_l2))
+      gaussian_natural_l1 <- gaussian_natural_l1 + raw_l1 / grid_scale
+      gaussian_natural_l2_squared <- .dsvert_dp_capsule_l2_add(
+        gaussian_natural_l2_squared,
+        .dsvert_dp_capsule_l2_square(raw_l2 / grid_scale))
+      next
+    }
     if (identical(spec$kind, "binary_random_intercept_grid")) {
       variables <- c(spec$outcome, spec$predictors, spec$cluster)
       model_columns <- columns[variables]

@@ -697,6 +697,61 @@ test_that("binary random-intercept GLMM grid honours its signed sensitivity", {
   expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
 })
 
+test_that("negative-binomial grid emits only bounded candidate losses", {
+  nb2 <- list(negative_binomial = list(
+    version = "negative_binomial_grid_v1", dataset = "protected",
+    outcome = "x", predictors = "entry", intercept = TRUE,
+    max_outcome = 10L, beta_grid = list(c(0, 0), c(0, 1)),
+    theta_grid = c(0.5, 2)))
+  data <- .materializer_test_data()
+  data$x <- c(0, 0, 3, NA_real_)
+  data$entry <- c(0, 0, 2, NA_real_)
+  fixture <- .materializer_test_fixture(data = data, gaussian_specs = nb2)
+  artifact <- fixture$manifest$workload$families$gaussian_models$
+    artifacts$negative_binomial
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["gaussian_models::negative_binomial"]]
+  material <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)
+
+  expect_identical(artifact$version,
+                   "bounded-negative-binomial-likelihood-grid-v1")
+  expect_identical(artifact$design_terms, c("(Intercept)", "entry"))
+  expect_identical(as.numeric(artifact$coordinate_count), 4)
+  expect_length(artifact$candidate_loss_bounds, 4L)
+  expect_true(all(material$values[block$start:block$end] >= 0))
+  expect_true(all(material$values[block$start:block$end] <=
+                    artifact$statistic_maximum))
+  expect_identical(artifact$implementation_state, "same_owner_materialized")
+  expect_identical(artifact$cross_owner_state, "reserved_not_materialized")
+})
+
+test_that("negative-binomial grid honours its signed sensitivity", {
+  nb2 <- list(negative_binomial = list(
+    version = "negative_binomial_grid_v1", dataset = "protected",
+    outcome = "x", predictors = "entry", intercept = TRUE,
+    max_outcome = 10L, beta_grid = list(c(0, 0), c(0, 1)),
+    theta_grid = c(0.5, 2)))
+  data <- .materializer_test_data()
+  data$x <- c(0, 0, 3, NA_real_)
+  data$entry <- c(0, 0, 2, NA_real_)
+  fixture <- .materializer_test_fixture(data = data, gaussian_specs = nb2)
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["gaussian_models::negative_binomial"]]
+  left <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  changed <- data
+  changed$x[changed$patient_id == "u2"] <- 0
+  fixture$resolved$protected$data <- changed
+  right <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  family <- fixture$manifest$workload$families$gaussian_models
+  delta <- right[block$start:block$end] - left[block$start:block$end]
+
+  expect_lte(sum(abs(delta)), family$l1_sensitivity)
+  expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
+})
+
 test_that("numeric cache compaction preserves the full material byte for byte", {
   gaussian <- list(primary_gaussian = list(
     version = "v1", dataset = "protected", outcome = "time",

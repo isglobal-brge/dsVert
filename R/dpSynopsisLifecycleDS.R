@@ -1466,6 +1466,11 @@
             resolve_reference(spec$dataset, reference, owner,
                               "GLMM fixed predictor")
           }, character(1L)))
+        } else if (identical(spec$version, "negative_binomial_grid_v1")) {
+          spec$predictors <- unname(vapply(spec$predictors, function(reference) {
+            resolve_reference(spec$dataset, reference, owner,
+                              "NB2 fixed predictor")
+          }, character(1L)))
         } else {
           spec$predictors <- unname(vapply(spec$predictors, function(reference) {
             resolve_reference(spec$dataset, reference, owner,

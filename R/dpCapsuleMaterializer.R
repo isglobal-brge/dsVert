@@ -513,6 +513,61 @@
   unname(statistics)
 }
 
+.dsvert_dp_capsule_quantized_negative_binomial_grid_losses <- function(
+    design, outcome, beta_grid, theta_grid, grid_bits, max_outcome) {
+  if (!is.list(design) || !length(design) || !is.numeric(outcome) ||
+      anyNA(outcome) || any(!is.finite(outcome)) || any(outcome < 0) ||
+      any(outcome != floor(outcome)) || any(outcome > max_outcome) ||
+      !is.list(beta_grid) || !length(beta_grid) || !is.numeric(theta_grid) ||
+      !length(theta_grid) || anyNA(theta_grid) || any(!is.finite(theta_grid)) ||
+      any(theta_grid <= 0) || !is.numeric(grid_bits) ||
+      length(grid_bits) != 1L || is.na(grid_bits) || !is.finite(grid_bits) ||
+      grid_bits != floor(grid_bits) || grid_bits < 8L || grid_bits > 18L ||
+      !is.numeric(max_outcome) || length(max_outcome) != 1L ||
+      is.na(max_outcome) || !is.finite(max_outcome) ||
+      max_outcome != floor(max_outcome) || max_outcome < 1L) {
+    stop("Invalid negative-binomial likelihood-grid values.", call. = FALSE)
+  }
+  valid_design <- vapply(design, function(column) {
+    is.numeric(column) && length(column) == length(outcome) &&
+      !anyNA(column) && all(is.finite(column)) &&
+      all(column >= 0 & column <= 1)
+  }, logical(1L))
+  if (!all(valid_design) || !all(vapply(beta_grid, function(beta) {
+    is.numeric(beta) && length(beta) == length(design) &&
+      !anyNA(beta) && all(is.finite(beta))
+  }, logical(1L)))) {
+    stop("Invalid negative-binomial likelihood-grid design.", call. = FALSE)
+  }
+  candidate_count <- length(beta_grid) * length(theta_grid)
+  if (!length(outcome)) return(rep.int(0, candidate_count))
+  scale <- 2^as.integer(grid_bits)
+  if (length(outcome) > floor(
+        .dsvert_dp_exact_integer_limit / (max_outcome * scale))) {
+    stop("The NB2 capsule cohort is too large for exact quantization.",
+         call. = FALSE)
+  }
+  log1pexp <- function(value) pmax(value, 0) + log1p(exp(-abs(value)))
+  design_matrix <- do.call(cbind, design)
+  candidates <- unlist(lapply(theta_grid, function(theta) {
+    lapply(beta_grid, function(beta) list(beta = beta, theta = theta))
+  }), recursive = FALSE)
+  statistics <- vapply(candidates, function(candidate) {
+    eta <- as.numeric(design_matrix %*% candidate$beta)
+    value <- lgamma(candidate$theta) + lgamma(outcome + 1) -
+      lgamma(outcome + candidate$theta) +
+      candidate$theta * log1pexp(eta - log(candidate$theta)) - outcome * eta
+    sum(as.numeric(round(pmax(0, value) * scale)))
+  }, numeric(1L))
+  if (anyNA(statistics) || any(!is.finite(statistics)) ||
+      any(statistics < 0) || any(statistics != floor(statistics)) ||
+      any(statistics > .dsvert_dp_exact_integer_limit)) {
+    stop("The negative-binomial likelihood-grid statistics are not representable.",
+         call. = FALSE)
+  }
+  unname(statistics)
+}
+
 .dsvert_dp_capsule_materializer_manifest <- function(policy, manifest) {
   .dsvert_dp_capsule_workload_require_materializable(manifest)
   required <- c(
@@ -938,6 +993,40 @@
         artifact$numeric_grid_bits, artifact$max_patients_per_cluster)
       if (length(statistics) != block$length) {
         stop("The signed fixed-effect random-intercept capsule coordinate shape is invalid.",
+             call. = FALSE)
+      }
+      values[block$start:block$end] <- statistics
+      next
+    }
+    if (identical(
+          artifact$version,
+          "bounded-negative-binomial-likelihood-grid-v1")) {
+      outcome <- bounded_for(block$dataset, artifact$outcome$column)
+      predictors <- lapply(artifact$predictor_order, function(variable) {
+        bounded_for(block$dataset, artifact$predictors[[variable]]$column)
+      })
+      names(predictors) <- artifact$predictor_order
+      complete <- outcome$valid & outcome$unit_values >= 0 &
+        outcome$unit_values == floor(outcome$unit_values) &
+        outcome$unit_values <= artifact$max_outcome
+      for (predictor in predictors) complete <- complete & predictor$valid
+      normalize <- function(value, lower, upper) {
+        pmin(1, pmax(0, (value - lower) / (upper - lower)))
+      }
+      normalized_outcome <- outcome$unit_values[complete]
+      design <- c(
+        list(rep(1, length(normalized_outcome))),
+        lapply(artifact$predictor_order, function(variable) {
+          descriptor <- artifact$predictors[[variable]]
+          normalize(
+            predictors[[variable]]$unit_values[complete],
+            descriptor$lower, descriptor$upper)
+        }))
+      statistics <- .dsvert_dp_capsule_quantized_negative_binomial_grid_losses(
+        design, normalized_outcome, artifact$beta_grid, artifact$theta_grid,
+        artifact$numeric_grid_bits, artifact$max_outcome)
+      if (length(statistics) != block$length) {
+        stop("The signed negative-binomial grid shape is invalid.",
              call. = FALSE)
       }
       values[block$start:block$end] <- statistics

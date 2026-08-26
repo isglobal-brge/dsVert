@@ -1036,6 +1036,14 @@
                 0.0000396069772632644))
 }
 
+.dsvert_dp_capsule_binary_random_slope_quadrature_rule_v1 <- function(effect_count) {
+  if (!is.numeric(effect_count) || length(effect_count) != 1L ||
+      is.na(effect_count) || effect_count != floor(effect_count) ||
+      effect_count < 2L || effect_count > 3L) return(NA_character_)
+  paste0("gauss_hermite_", paste(rep.int("9", effect_count), collapse = "x"),
+         "_standard_normal_v1")
+}
+
 .dsvert_dp_capsule_gaussian_random_slope_candidates <- function(
     value, dimension, random_effect_order, cluster_capacity) {
   effect_count <- length(random_effect_order)
@@ -1086,7 +1094,8 @@
     value, dimension, random_effect_order) {
   effect_count <- length(random_effect_order)
   if (!is.list(value) || !length(value) || !is.null(names(value)) ||
-      effect_count != 2L || !identical(random_effect_order[[1L]], "(Intercept)")) {
+      effect_count < 2L || effect_count > 3L ||
+      !identical(random_effect_order[[1L]], "(Intercept)")) {
     return(list())
   }
   candidates <- lapply(value, function(candidate) {
@@ -1579,7 +1588,8 @@
         !is.finite(maximum) || maximum != floor(maximum) || maximum < 2 ||
         maximum > policy$unit_capacity || !isTRUE(raw$intercept) ||
         !length(predictors) || outcome %in% predictors ||
-        cluster %in% c(outcome, predictors) || length(random_slopes) != 1L ||
+        cluster %in% c(outcome, predictors) || length(random_slopes) < 1L ||
+        length(random_slopes) > 2L ||
         !all(random_slopes %in% predictors)) {
       stop("Invalid binary random-slope GLMM model terms.", call. = FALSE)
     }
@@ -3389,7 +3399,8 @@
         candidate_grid = lapply(candidates, function(candidate) list(
           beta = unname(candidate$beta),
           covariance = unname(as.vector(t(candidate$covariance))))),
-        quadrature_rule = "gauss_hermite_9x9_standard_normal_v1",
+        quadrature_rule = .dsvert_dp_capsule_binary_random_slope_quadrature_rule_v1(
+          length(random_effect_order)),
         candidate_order = "canonical_signed_candidate_grid_v1",
         candidate_loss_bounds = as.list(unname(loss_bounds)),
         numeric_grid_bits = grid_bits,

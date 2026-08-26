@@ -32,7 +32,8 @@
     adjacency = "add_remove_patient", capacity = 5L,
     max_records = 4L, duplicate_describe = FALSE,
     gaussian_specs = list(), workload_scope = NULL,
-    binary_x = FALSE, multiclass_outcome = FALSE) {
+    binary_x = FALSE, binary_z = FALSE, multiclass_outcome = FALSE) {
+  if (isTRUE(binary_z)) data$z <- c(0, 0, 1, NaN)
   if (isTRUE(multiclass_outcome)) {
     data$class3 <- c("A", "A", "B", "C")
   }
@@ -103,6 +104,11 @@
   if (isTRUE(multiclass_outcome)) {
     schema$datasets$protected$columns$class3 <- list(
       kind = "categorical", owner_peer = "peer_a", levels = c("A", "B", "C"))
+  }
+  if (isTRUE(binary_z)) {
+    policy$numeric_bounds$z <- c(0, 1)
+    schema$datasets$protected$columns$z <- list(
+      kind = "numeric", owner_peer = "peer_a", lower = 0, upper = 1)
   }
   describe <- list(primary = list(
     version = "v1", dataset = "protected", variables = "x",
@@ -737,6 +743,44 @@ test_that("binary random-slope GLMM grid emits bounded two-effect losses", {
                    "bounded-binary-random-slope-likelihood-grid-v1")
   expect_identical(artifact$random_effect_order, c("(Intercept)", "entry"))
   expect_identical(as.numeric(artifact$coordinate_count), 2)
+  expect_true(all(left[block$start:block$end] >= 0))
+  expect_true(all(left[block$start:block$end] <=
+                    unlist(artifact$statistic_maximum, use.names = FALSE)))
+  delta <- right[block$start:block$end] - left[block$start:block$end]
+  expect_lte(sum(abs(delta)), family$l1_sensitivity)
+  expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
+})
+
+test_that("binary GLMM grid supports two signed random slopes with 9-cubed quadrature", {
+  glmm <- list(binary_random_slope = list(
+    version = "binary_random_slope_grid_v1", dataset = "protected",
+    outcome = "x", predictors = c("entry", "z"),
+    random_slopes = c("entry", "z"), intercept = TRUE,
+    cluster = "cat_a", max_patients_per_cluster = 2L,
+    candidate_grid = list(
+      list(beta = c(-1, 0, 0), covariance = c(
+        0.25, 0, 0, 0, 0.25, 0, 0, 0, 0.25)),
+      list(beta = c(-1, 1, 0.5), covariance = c(
+        0.5, 0.1, 0.05, 0.1, 0.5, 0.05, 0.05, 0.05, 0.5)))))
+  fixture <- .materializer_test_fixture(
+    gaussian_specs = glmm, binary_x = TRUE, binary_z = TRUE)
+  artifact <- fixture$manifest$workload$families$gaussian_models$
+    artifacts$binary_random_slope
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["gaussian_models::binary_random_slope"]]
+  left <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  changed <- fixture$data
+  changed$x[changed$patient_id == "u2"] <- 1
+  fixture$resolved$protected$data <- changed
+  right <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  family <- fixture$manifest$workload$families$gaussian_models
+
+  expect_identical(artifact$random_effect_order,
+                   c("(Intercept)", "entry", "z"))
+  expect_identical(artifact$quadrature_rule,
+                   "gauss_hermite_9x9x9_standard_normal_v1")
   expect_true(all(left[block$start:block$end] >= 0))
   expect_true(all(left[block$start:block$end] <=
                     unlist(artifact$statistic_maximum, use.names = FALSE)))

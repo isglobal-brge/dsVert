@@ -523,7 +523,7 @@
       any(cluster < 1) || any(cluster != floor(cluster)) ||
       !is.list(candidate_grid) || !length(candidate_grid) ||
       !identical(random_effect_order[[1L]], "(Intercept)") ||
-      length(random_effect_order) != 2L ||
+      length(random_effect_order) < 2L || length(random_effect_order) > 3L ||
       !all(random_effect_order[-1L] %in% names(design)) ||
       !is.numeric(grid_bits) || length(grid_bits) != 1L || is.na(grid_bits) ||
       !is.finite(grid_bits) || grid_bits != floor(grid_bits) ||
@@ -549,10 +549,12 @@
     if (is.list(covariance) && is.null(names(covariance))) {
       covariance <- unlist(covariance, use.names = FALSE)
     }
+    effect_count <- length(random_effect_order)
     if (!is.numeric(beta) || length(beta) != length(design) || anyNA(beta) ||
-        any(!is.finite(beta)) || !is.numeric(covariance) || length(covariance) != 4L ||
+        any(!is.finite(beta)) || !is.numeric(covariance) ||
+        length(covariance) != effect_count^2 ||
         anyNA(covariance) || any(!is.finite(covariance))) return(NULL)
-    covariance <- matrix(covariance, 2L, 2L, byrow = TRUE)
+    covariance <- matrix(covariance, effect_count, effect_count, byrow = TRUE)
     if (!isTRUE(all.equal(covariance, t(covariance), tolerance = 0)) ||
         any(eigen(covariance, symmetric = TRUE, only.values = TRUE)$values < -1e-10)) {
       return(NULL)
@@ -577,17 +579,19 @@
          call. = FALSE)
   }
   quadrature <- .dsvert_dp_capsule_binary_glmm_quadrature_v1()
-  node_grid <- as.matrix(expand.grid(quadrature$nodes, quadrature$nodes))
-  log_weights <- rowSums(log(as.matrix(expand.grid(
-    quadrature$weights, quadrature$weights)))) - log(pi)
+  effect_count <- length(random_effect_order)
+  node_grid <- as.matrix(do.call(expand.grid,
+    rep(list(quadrature$nodes), effect_count)))
+  log_weights <- rowSums(log(as.matrix(do.call(expand.grid,
+    rep(list(quadrature$weights), effect_count))))) - 0.5 * effect_count * log(pi)
   softplus <- function(value) pmax(value, 0) + log1p(exp(-abs(value)))
   design_matrix <- do.call(cbind, design)
-  random_column <- match(random_effect_order[[2L]], names(design))
+  random_columns <- match(random_effect_order[-1L], names(design))
   statistics <- vapply(candidates, function(candidate) {
     random_effects <- sqrt(2) * node_grid %*% t(candidate$root)
     sum(vapply(cluster_members, function(index) {
       fixed <- design_matrix[index, , drop = FALSE]
-      random <- cbind(1, fixed[, random_column, drop = FALSE])
+      random <- cbind(1, fixed[, random_columns, drop = FALSE])
       eta <- as.numeric(fixed %*% candidate$beta)
       log_likelihood <- vapply(seq_len(nrow(random_effects)), function(node) {
         eta_node <- eta + as.numeric(random %*% random_effects[node, ])

@@ -271,39 +271,14 @@
 }
 
 .dsvert_dp_synopsis_supported_gaussian_cross_v1 <- function(manifest) {
-  workload <- if (is.list(manifest)) manifest$workload else NULL
-  families <- if (is.list(workload)) workload$families else NULL
-  gaussian <- if (is.list(families)) families$gaussian_models else NULL
-  artifacts <- if (is.list(gaussian)) gaussian$artifacts else NULL
-  artifact <- if (is.list(artifacts) && length(artifacts) == 1L) {
-    artifacts[[1L]]
-  } else NULL
-  categorical <- if (is.list(families)) families$categorical_pairs else NULL
-  categorical_empty <- is.list(categorical) &&
-    is.list(categorical$sets) && !length(categorical$sets) &&
-    is.list(categorical$cross_artifacts) && !length(categorical$cross_artifacts)
-  empty_artifacts <- function(name) {
-    candidate <- if (is.list(families)) families[[name]] else NULL
-    is.list(candidate) && is.list(candidate$artifacts) &&
-      !length(candidate$artifacts)
-  }
-  empty_direct <- function(name) {
-    candidate <- if (is.list(families)) families[[name]] else NULL
-    is.list(candidate) && !length(candidate)
-  }
-  other_empty <- all(vapply(c(
-    "numeric_moments", "numeric_pair_moments", "fixed_numeric_histograms"),
-    empty_artifacts, logical(1L))) && all(vapply(c(
-      "correlation_artifacts", "describe_artifacts", "survival_artifacts"),
-      empty_direct, logical(1L)))
-  is.list(artifact) &&
-    identical(artifact$version,
-              .DSVERT_DP_GAUSSIAN_CROSS_ARTIFACT_VERSION) &&
+  artifacts <- .dsvert_dp_gaussian_cross_artifacts(manifest)
+  length(artifacts) > 0L && all(vapply(artifacts, function(artifact) {
     identical(artifact$spec_version, "v2") &&
-    identical(artifact$implementation_state,
-              "cross_owner_exact_gc_materialized") &&
-    identical(artifact$cross_owner_state, "exact_gc_to_joint_dp_vector_v1") &&
-    isTRUE(categorical_empty) && isTRUE(other_empty)
+      identical(artifact$implementation_state,
+                "cross_owner_exact_gc_materialized") &&
+      identical(artifact$cross_owner_state,
+                "exact_gc_to_joint_dp_vector_v1")
+  }, logical(1L)))
 }
 
 .dsvert_dp_synopsis_remote_session_v1 <- function(session_id) {
@@ -546,8 +521,9 @@ dsvertDPSynopsisSourceAcceptDS <- function(manifest_sha256, envelope_json) {
     context$claim_set, context$compilation$receipts,
     .policy = context$policy, .secret = context$secret)
   manifest <- .dsvert_dp_capsule_source_manifest(source$manifest_json)
-  if (!.dsvert_dp_synopsis_supported_categorical_cross_v1(manifest)) {
-    stop("The Synopsis manifest is not one projected categorical cross.",
+  if (!.dsvert_dp_synopsis_supported_categorical_cross_v1(manifest) &&
+      !.dsvert_dp_synopsis_supported_gaussian_cross_v1(manifest)) {
+    stop("The Synopsis manifest is not one projected cross-owner artifact.",
          call. = FALSE)
   }
   c(context, list(

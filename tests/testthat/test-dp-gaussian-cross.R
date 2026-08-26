@@ -222,6 +222,8 @@ test_that("cross Gaussian exact manifests accept only the active producer stage"
 
 test_that("cross Gaussian binding preserves a synopsis source namespace", {
   fixture <- .cross_gaussian_test_fixture()
+  expect_true(.dsvert_dp_synopsis_supported_gaussian_cross_v1(
+    fixture$manifest))
   artifact <- .dsvert_dp_gaussian_cross_artifacts(fixture$manifest)$cross
   contract <- .cross_gaussian_test_synopsis_contract(fixture)
   contract_hash <- .dsvert_joint_dp_hash(contract)

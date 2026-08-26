@@ -398,6 +398,35 @@ test_that("cross Gaussian finalizer persists only an authenticated result share"
     c(512, 512, 256, 256, 256, 256, 256))
   expect_identical(finalize(function(...) stop("must replay")), receipt_json)
 
+  public_evidence <- .dsvert_dp_gaussian_cross_public_evidence_impl(
+    fixture$manifest_json, "cross", source_contract,
+    .policy = fixture$policy, .secret = fixture$secret,
+    .signer = .cross_gaussian_test_signer,
+    .verifier = .cross_gaussian_test_verifier)
+  evidence <- .dsvert_dp_capsule_source_decode_json(
+    public_evidence, "test Gaussian public evidence", 128L * 1024L)
+  expect_identical(
+    evidence$version, .DSVERT_DP_GAUSSIAN_CROSS_PUBLIC_EVIDENCE_VERSION)
+  expect_identical(evidence$phase, "cross_gaussian_public_result_evidence")
+  expect_identical(evidence$source_contract_sha256, parsed$contract_hash)
+  expect_true(.dsvert_dp_capsule_source_verify(
+    evidence, fixture$policy, "cross-gaussian-synopsis-evidence", "peer_a",
+    .cross_gaussian_test_verifier))
+  expect_false(any(grepl(
+    "capsule|share|receipt|result_b64|path|key|value", names(evidence))))
+  expect_identical(
+    .dsvert_dp_gaussian_cross_public_evidence_impl(
+      fixture$manifest_json, "cross", source_contract,
+      .policy = fixture$policy, .secret = fixture$secret,
+      .signer = .cross_gaussian_test_signer,
+      .verifier = .cross_gaussian_test_verifier),
+    public_evidence)
+  tampered <- evidence
+  tampered$public_end <- tampered$public_end + 1L
+  expect_false(.dsvert_dp_capsule_source_verify(
+    tampered, fixture$policy, "cross-gaussian-synopsis-evidence", "peer_a",
+    .cross_gaussian_test_verifier))
+
   injected <- .dsvert_dp_capsule_source_with_store(
     fixture$policy, fixture$secret, function(connection) {
       .dsvert_dp_gaussian_cross_inject_release_share_internal(

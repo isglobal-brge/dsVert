@@ -20,6 +20,8 @@
   "dsvert-cross-gaussian-result-share-v1"
 .DSVERT_DP_GAUSSIAN_CROSS_RECEIPT_VERSION <-
   "dsvert-cross-gaussian-result-receipt-v1"
+.DSVERT_DP_GAUSSIAN_CROSS_PUBLIC_EVIDENCE_VERSION <-
+  "dsvert-cross-gaussian-public-result-evidence-v1"
 .DSVERT_DP_GAUSSIAN_CROSS_REDUCER_VERSION <-
   "dsvert-ring128-sum-records-v1"
 .DSVERT_DP_GAUSSIAN_CROSS_REDUCER_MAX_RECORDS <- 2000000L
@@ -1504,6 +1506,70 @@ dsvertDPGaussianCrossPrepareDS <- function(
          call. = FALSE)
   }
   record
+}
+
+# Project the already authenticated local result into an evidence object that
+# is safe to return through the Synopsis surface.  In particular, this never
+# returns the capsule key, the local Ring128 share, or the persisted receipt.
+.dsvert_dp_gaussian_cross_public_evidence_impl <- function(
+    manifest_json, analysis_id, source_contract = NULL,
+    .policy = NULL, .secret = NULL, .signer = NULL, .verifier = NULL) {
+  if (is.null(.policy)) .policy <- .dsvert_dp_policy()
+  if (is.null(.secret)) .secret <- .dsvert_dp_secret()
+  analysis_id <- .dsvert_dp_capsule_id(
+    analysis_id, "cross-owner Gaussian analysis id")
+  manifest <- .dsvert_dp_capsule_source_manifest(manifest_json)
+  validated <- .dsvert_dp_capsule_materializer_manifest(.policy, manifest)
+  artifact <- .dsvert_dp_gaussian_cross_artifacts(manifest)[[analysis_id]]
+  if (is.null(artifact)) {
+    stop("The signed capsule has no cross-owner Gaussian artifact.",
+         call. = FALSE)
+  }
+  parsed <- .dsvert_dp_capsule_source_contract_json(
+    .policy, manifest_json, source_contract)
+  contract <- .dsvert_dp_capsule_source_contract_validate(parsed$contract)
+  block <- validated$layout$blocks[[paste(
+    "gaussian_models", analysis_id, sep = "::")]]
+  if (!is.list(block) ||
+      !.dsvert_dp_capsule_source_cross_contract(contract) ||
+      !.policy$peer_name %in% .dsvert_dp_capsule_source_names(
+        contract$designated_noise_peers, "noise-peer list")) {
+    stop("The cross-owner Gaussian public evidence contract is invalid.",
+         call. = FALSE)
+  }
+  .dsvert_dp_capsule_source_with_store(.policy, .secret, function(connection) {
+    record <- .dsvert_dp_gaussian_cross_result_load(
+      connection, contract$capsule_id, analysis_id, .secret)
+    if (is.null(record)) {
+      stop("The cross-owner Gaussian exact result is incomplete.",
+           call. = FALSE)
+    }
+    record <- .dsvert_dp_gaussian_cross_result_validate(
+      record, .policy, contract, artifact, block, .verifier)
+    unsigned <- list(
+      version = .DSVERT_DP_GAUSSIAN_CROSS_PUBLIC_EVIDENCE_VERSION,
+      phase = "cross_gaussian_public_result_evidence",
+      analysis_id = analysis_id, peer_name = .policy$peer_name,
+      peer_identity_pk = unname(.policy$peer_pinset[[.policy$peer_name]]),
+      artifact_sha256 = record$artifact_sha256,
+      source_contract_sha256 = record$source_contract_hash,
+      private_layout_sha256 = record$private_layout_sha256,
+      transcript_sha256 = record$transcript_sha256,
+      numeric_certificate_sha256 = record$numeric_certificate_sha256,
+      exact_transcript_sha256 = record$exact_transcript_sha256,
+      coordinate_count = record$coordinate_count,
+      public_start = record$release_start, public_end = record$release_end,
+      public_coordinate_order_sha256 =
+        record$release_coordinate_order_sha256,
+      ring_bits = 128L, frac_bits = as.integer(artifact$numeric_grid_bits),
+      state = "complete", fixed_transcript = TRUE,
+      private_result_exposed = FALSE,
+      exact_intermediates_exposed = FALSE,
+      alignment_hash_exposed = FALSE)
+    .dsvert_dp_capsule_source_encode_json(
+      .dsvert_dp_capsule_source_sign(
+        unsigned, .policy, "cross-gaussian-synopsis-evidence", .signer))
+  })
 }
 
 .dsvert_dp_gaussian_cross_finalize_impl <- function(

@@ -333,6 +333,9 @@ func formalCoxBlockwiseWorkerControlValidate(action string, payload json.RawMess
 	case "finalizer_prepare":
 		return formalCoxBlockwiseExchangeDaemonPayload(payload,
 			&formalCoxBlockwiseExchangeDaemonFinalizerPrepareV1{})
+	case "finalizer_stage":
+		return formalCoxBlockwiseExchangeDaemonPayload(payload,
+			&formalCoxBlockwiseExchangeDaemonFinalizerPrepareV1{})
 	case "commit":
 		return formalCoxBlockwiseExchangeDaemonPayload(payload, &formalCoxBlockwiseExchangeDaemonCommitV1{})
 	default:

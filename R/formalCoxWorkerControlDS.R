@@ -12,6 +12,7 @@
 .DSVERT_FORMAL_COX_WORKER_CONTROL_DS_ACTIONS <- c(
   "host_start", "bind", "offer", "accept", "confirm", "poll", "relay", "result",
   "completion", "opening", "finalizer_ticket", "finalizer_seal", "finalizer_prepare",
+  "finalizer_stage",
   "commit")
 
 .dsvert_formal_cox_worker_control_ds_sha256 <- function(value, field) {
@@ -70,7 +71,7 @@
        any(vapply(payload$headers, is.null, logical(1L))))) {
     .dsvert_formal_cox_abort("The formal Cox worker control payload is invalid.")
   }
-  if (identical(action, "finalizer_prepare") &&
+  if (action %in% c("finalizer_prepare", "finalizer_stage") &&
       (!identical(fields, c("ticket", "headers", "envelopes")) ||
        !is.list(payload$ticket) || !is.list(payload$headers) ||
        !is.list(payload$envelopes) || length(payload$headers) != 2L ||
@@ -227,11 +228,35 @@
     identical(payload$certificate_sha256, "")
 }
 
+.dsvert_formal_cox_worker_control_ds_finalizer_stage_reply <- function(payload) {
+  fields <- c("artifact_id", "candidate_sha256", "local_role", "production_ready")
+  valid_sha256 <- function(value) {
+    is.character(value) && length(value) == 1L && !is.na(value) &&
+      grepl("^[0-9a-f]{64}$", value)
+  }
+  valid <- is.list(payload) && !is.null(names(payload)) && !anyNA(names(payload)) &&
+    !anyDuplicated(names(payload)) && identical(names(payload), fields) &&
+    valid_sha256(payload$artifact_id) &&
+    is.character(payload$candidate_sha256) && length(payload$candidate_sha256) == 1L &&
+    !is.na(payload$candidate_sha256) &&
+    is.character(payload$local_role) && length(payload$local_role) == 1L &&
+    !is.na(payload$local_role) && payload$local_role %in% c("garbler", "evaluator") &&
+    is.logical(payload$production_ready) && length(payload$production_ready) == 1L &&
+    !is.na(payload$production_ready) && identical(payload$production_ready, FALSE)
+  if (!isTRUE(valid)) return(FALSE)
+  if (identical(payload$local_role, "garbler")) {
+    return(valid_sha256(payload$candidate_sha256))
+  }
+  identical(payload$candidate_sha256, "")
+}
+
 .dsvert_formal_cox_worker_control_ds_reply <- function(action, payload) {
   encoded <- .dsvert_formal_cox_worker_control_ds_json(payload, "control reply")
   if (!is.list(payload) ||
       (identical(action, "finalizer_prepare") &&
-       !isTRUE(.dsvert_formal_cox_worker_control_ds_finalizer_prepare_reply(payload)))) {
+       !isTRUE(.dsvert_formal_cox_worker_control_ds_finalizer_prepare_reply(payload))) ||
+      (identical(action, "finalizer_stage") &&
+       !isTRUE(.dsvert_formal_cox_worker_control_ds_finalizer_stage_reply(payload)))) {
     .dsvert_formal_cox_abort("The formal Cox worker control reply is invalid.")
   }
   list(version = .DSVERT_FORMAL_COX_WORKER_CONTROL_DS_VERSION,

@@ -765,6 +765,18 @@ func (daemon *formalCoxBlockwiseExchangeDaemonV1) dispatchV1(action string,
 			return nil, err
 		}
 		return formalCoxBlockwiseExchangeDaemonResponsePayload(result)
+	case "finalizer_stage":
+		var request formalCoxBlockwiseExchangeDaemonFinalizerPrepareV1
+		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {
+			return nil, err
+		}
+		stage, err := controller.StageFinalizerControlAtRootV1(
+			request.Ticket, request.Headers, request.Envelopes,
+			daemon.stateRoot, daemon.production)
+		if err != nil {
+			return nil, err
+		}
+		return formalCoxBlockwiseExchangeDaemonResponsePayload(stage)
 	case "commit":
 		var request formalCoxBlockwiseExchangeDaemonCommitV1
 		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {

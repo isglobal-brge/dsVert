@@ -153,6 +153,33 @@ test_that("formal Cox worker relays only public finalizer handoff records", {
     class = "dsvert_formal_cox_error")
 
   testthat::local_mocked_bindings(
+    .dsvert_formal_cox_worker_host_control = function(
+        plan_sha256, attempt_id, action, payload) {
+      seen <<- list(plan_sha256 = plan_sha256, attempt_id = attempt_id,
+                    action = action, payload = payload)
+      list(version = "dsvert-formal-cox-blockwise-worker-host-control-v1",
+           payload = list(
+             artifact_id = strrep("c", 64L), candidate_sha256 = strrep("e", 64L),
+             local_role = "garbler", production_ready = FALSE))
+    },
+    .package = "dsVert")
+  staged <- dsvertFormalCoxWorkerControlDS(
+    selector$plan_sha256, selector$attempt_id, "finalizer_stage",
+    list(ticket = list(), headers = headers, envelopes = envelopes))
+  expect_identical(seen$action, "finalizer_stage")
+  expect_false(staged$production_ready)
+  testthat::local_mocked_bindings(
+    .dsvert_formal_cox_worker_host_control = function(...) list(
+      version = "dsvert-formal-cox-blockwise-worker-host-control-v1",
+      payload = list(artifact_id = strrep("c", 64L), candidate_sha256 = "unsafe",
+                     local_role = "garbler", production_ready = FALSE)),
+    .package = "dsVert")
+  expect_error(dsvertFormalCoxWorkerControlDS(
+    selector$plan_sha256, selector$attempt_id, "finalizer_stage",
+    list(ticket = list(), headers = headers, envelopes = envelopes)),
+    class = "dsvert_formal_cox_error")
+
+  testthat::local_mocked_bindings(
     .dsvert_formal_cox_worker_host_control = function(...) list(
       version = "dsvert-formal-cox-blockwise-worker-host-control-v1",
       payload = list(

@@ -49,11 +49,25 @@ const (
 	formalFinalizerHandoffGLMFullPayloadVersion    = "dsvert-formal-glm-finalizer-transit-full-v1"
 	formalFinalizerHandoffCoxPayloadVersion        = "dsvert-formal-cox-finalizer-transit-opening-v1"
 
-	formalFinalizerHandoffMaxPayload = 4 << 20
-	formalFinalizerHandoffMaxRecord  = 8 << 20
-	formalFinalizerHandoffRockRoot   = "/srv/dsvert-synopsis"
-	formalFinalizerHandoffStateRoot  = "/srv/dsvert-synopsis/formal-finalizer-handoff-v1"
+	formalFinalizerHandoffMaxPayload       = 4 << 20
+	formalFinalizerHandoffMaxRecord        = 8 << 20
+	formalFinalizerHandoffRockRoot         = "/srv/dsvert-synopsis"
+	formalFinalizerHandoffDefaultStateRoot = "/srv/dsvert-synopsis/formal-finalizer-handoff-v1"
+	formalFinalizerHandoffStateRootEnv     = "DSVERT_FINALIZER_STATE_ROOT"
 )
+
+var formalFinalizerHandoffStateRoot = formalFinalizerHandoffConfiguredStateRootV1(
+	os.Getenv(formalFinalizerHandoffStateRootEnv))
+
+func formalFinalizerHandoffConfiguredStateRootV1(configured string) string {
+	if configured == "" {
+		return formalFinalizerHandoffDefaultStateRoot
+	}
+	if !filepath.IsAbs(configured) || filepath.Clean(configured) != configured {
+		panic("typed-finalizer-handoff: invalid configured state root")
+	}
+	return configured
+}
 
 var errFormalFinalizerHandoffAuthorityLockBusy = errors.New(
 	"typed-finalizer-handoff: authority lock busy")

@@ -42,6 +42,7 @@ test_that("private per-call bridge files use Rock and are removed", {
           assign(".dsvert_mpc_bridge_trace_capture", list(
             command = as.character(command), args = as.character(args),
             stdin = paths[[1L]], stdout = paths[[2L]], stderr = paths[[3L]],
+            env = as.character(env),
             files_private = vapply(paths, private_file, logical(1L),
                                     directory = FALSE),
             directory_private = private_file(dirname(paths[[1L]]),
@@ -65,6 +66,11 @@ test_that("private per-call bridge files use Rock and are removed", {
     unlist(captured[c("stdin", "stdout", "stderr")]))) )
   expect_true(all(captured$files_private))
   expect_true(captured$directory_private)
+  expect_identical(
+    captured$env,
+    paste0("DSVERT_FINALIZER_STATE_ROOT=", file.path(
+      dirname(.dsvert_session_storage_root()),
+      "formal-finalizer-handoff-v1")))
 })
 
 test_that("the MPC bridge rejects a temporary invocation root in production", {

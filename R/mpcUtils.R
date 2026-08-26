@@ -696,6 +696,18 @@ base64_to_base64url <- function(x) {
 }
 
 #' @keywords internal
+.dsvert_mpc_command_environment <- function() {
+  root <- file.path(
+    dirname(.dsvert_session_storage_root()),
+    "formal-finalizer-handoff-v1")
+  if (!is.character(root) || length(root) != 1L || is.na(root) ||
+      !grepl("^/", root) || grepl("[\r\n]", root)) {
+    stop("The configured finalizer state root is invalid", call. = FALSE)
+  }
+  paste0("DSVERT_FINALIZER_STATE_ROOT=", root)
+}
+
+#' @keywords internal
 .dsvert_mpc_private_invocation_dir <- function(
     root = .dsvert_mpc_invocation_root()) {
   for (attempt in seq_len(8L)) {
@@ -836,7 +848,8 @@ base64_to_base64url <- function(x) {
     args = command,
     stdin = input_file,
     stdout = output_file,
-    stderr = stderr_file
+    stderr = stderr_file,
+    env = .dsvert_mpc_command_environment()
   )
 
   # Check for errors

@@ -317,6 +317,28 @@ func TestFormalFinalizerHandoffCapabilityRegistryIsClosed(t *testing.T) {
 	}
 }
 
+func TestFormalFinalizerHandoffConfiguredStateRootIsCanonical(t *testing.T) {
+	if got := formalFinalizerHandoffConfiguredStateRootV1(""); got != formalFinalizerHandoffDefaultStateRoot {
+		t.Fatalf("default state root = %q", got)
+	}
+	configured := filepath.Join(t.TempDir(), "finalizer")
+	if got := formalFinalizerHandoffConfiguredStateRootV1(configured); got != configured {
+		t.Fatalf("configured state root = %q, want %q", got, configured)
+	}
+	for _, invalid := range []string{
+		"relative", configured + "/../other", "\x00unsafe",
+	} {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Fatalf("accepted invalid configured state root %q", invalid)
+				}
+			}()
+			_ = formalFinalizerHandoffConfiguredStateRootV1(invalid)
+		}()
+	}
+}
+
 func TestFormalFinalizerHandoffBindingOrderAndTypedSchemaFailClosed(t *testing.T) {
 	fixture := formalFinalizerHandoffTestFixtureForK(
 		t, 5, formalFinalizerHandoffFamilyGLM)

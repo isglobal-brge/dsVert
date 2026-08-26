@@ -568,6 +568,62 @@
   unname(statistics)
 }
 
+.dsvert_dp_capsule_quantized_multinomial_grid_losses <- function(
+    design, outcome, levels, reference, beta_grid, grid_bits) {
+  if (!is.list(design) || !length(design) || !is.numeric(outcome) ||
+      anyNA(outcome) || any(!is.finite(outcome)) ||
+      any(outcome < 1) || any(outcome != floor(outcome)) ||
+      !is.character(levels) || length(levels) < 3L || anyNA(levels) ||
+      anyDuplicated(levels) || !is.character(reference) ||
+      length(reference) != 1L || is.na(reference) || !reference %in% levels ||
+      !is.list(beta_grid) || !length(beta_grid) || !is.numeric(grid_bits) ||
+      length(grid_bits) != 1L || is.na(grid_bits) || !is.finite(grid_bits) ||
+      grid_bits != floor(grid_bits) || grid_bits < 8L || grid_bits > 18L) {
+    stop("Invalid multinomial likelihood-grid values.", call. = FALSE)
+  }
+  if (any(outcome > length(levels))) {
+    stop("Invalid multinomial likelihood-grid outcome values.", call. = FALSE)
+  }
+  valid_design <- vapply(design, function(column) {
+    is.numeric(column) && length(column) == length(outcome) &&
+      !anyNA(column) && all(is.finite(column)) &&
+      all(column >= 0 & column <= 1)
+  }, logical(1L))
+  dimension <- length(design)
+  non_reference <- setdiff(levels, reference)
+  if (!all(valid_design) || !all(vapply(beta_grid, function(beta) {
+        is.numeric(beta) && length(beta) == dimension * length(non_reference) &&
+          !anyNA(beta) && all(is.finite(beta))
+      }, logical(1L)))) {
+    stop("Invalid multinomial likelihood-grid design.", call. = FALSE)
+  }
+  if (!length(outcome)) return(rep.int(0, length(beta_grid)))
+  scale <- 2^as.integer(grid_bits)
+  if (length(outcome) > floor(.dsvert_dp_exact_integer_limit / scale)) {
+    stop("The multinomial capsule cohort is too large for exact quantization.",
+         call. = FALSE)
+  }
+  design_matrix <- do.call(cbind, design)
+  statistics <- vapply(beta_grid, function(beta) {
+    coefficients <- matrix(
+      beta, nrow = dimension, ncol = length(non_reference),
+      dimnames = list(NULL, non_reference))
+    scores <- matrix(0, nrow = length(outcome), ncol = length(levels))
+    scores[, match(non_reference, levels)] <- design_matrix %*% coefficients
+    maximum <- apply(scores, 1L, max)
+    log_norm <- maximum + log(rowSums(exp(scores - maximum)))
+    loss <- log_norm - scores[cbind(seq_along(outcome), outcome)]
+    sum(as.numeric(round(pmax(0, loss) * scale)))
+  }, numeric(1L))
+  if (anyNA(statistics) || any(!is.finite(statistics)) ||
+      any(statistics < 0) || any(statistics != floor(statistics)) ||
+      any(statistics > .dsvert_dp_exact_integer_limit)) {
+    stop("The multinomial likelihood-grid statistics are not representable.",
+         call. = FALSE)
+  }
+  unname(statistics)
+}
+
 .dsvert_dp_capsule_materializer_manifest <- function(policy, manifest) {
   .dsvert_dp_capsule_workload_require_materializable(manifest)
   required <- c(
@@ -1028,6 +1084,39 @@
       if (length(statistics) != block$length) {
         stop("The signed negative-binomial grid shape is invalid.",
              call. = FALSE)
+      }
+      values[block$start:block$end] <- statistics
+      next
+    }
+    if (identical(
+          artifact$version,
+          "bounded-multinomial-likelihood-grid-v1")) {
+      outcome <- .dsvert_dp_capsule_bounded_category(
+        snapshots[[block$dataset]]$data, policy, artifact$outcome$column,
+        artifact$outcome$levels, admission_for(block$dataset), strict = TRUE)
+      predictors <- lapply(artifact$predictor_order, function(variable) {
+        bounded_for(block$dataset, artifact$predictors[[variable]]$column)
+      })
+      names(predictors) <- artifact$predictor_order
+      complete <- !is.na(outcome$cell)
+      for (predictor in predictors) complete <- complete & predictor$valid
+      normalize <- function(value, lower, upper) {
+        pmin(1, pmax(0, (value - lower) / (upper - lower)))
+      }
+      design <- c(
+        list(rep(1, sum(complete))),
+        lapply(artifact$predictor_order, function(variable) {
+          descriptor <- artifact$predictors[[variable]]
+          normalize(
+            predictors[[variable]]$unit_values[complete],
+            descriptor$lower, descriptor$upper)
+        }))
+      statistics <- .dsvert_dp_capsule_quantized_multinomial_grid_losses(
+        design, outcome$cell[complete], artifact$outcome$levels,
+        artifact$outcome$reference, artifact$beta_grid,
+        artifact$numeric_grid_bits)
+      if (length(statistics) != block$length) {
+        stop("The signed multinomial grid shape is invalid.", call. = FALSE)
       }
       values[block$start:block$end] <- statistics
       next

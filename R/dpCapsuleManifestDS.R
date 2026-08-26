@@ -419,7 +419,8 @@
       isTRUE(outcome_owned) && length(variables) == 2L +
         length(spec$predictors) && all(owners == policy$peer_name) &&
         all(variables %in% mapping$datasets[[spec$dataset]])
-    } else if (identical(spec$kind, "negative_binomial_grid")) {
+    } else if (spec$kind %in% c("negative_binomial_grid",
+                                 "multinomial_grid")) {
       isTRUE(outcome_owned) && length(variables) == 1L +
         length(spec$predictors) && all(owners == policy$peer_name) &&
         all(variables %in% mapping$datasets[[spec$dataset]])
@@ -471,6 +472,12 @@
         intercept = spec$intercept, max_outcome = spec$max_outcome,
         beta_grid = lapply(spec$beta_grid, unname),
         theta_grid = unname(spec$theta_grid))
+    } else if (identical(spec$kind, "multinomial_grid")) {
+      list(
+        version = spec$version, dataset = spec$dataset,
+        outcome = spec$outcome, predictors = unname(spec$predictors),
+        intercept = spec$intercept, levels = unname(spec$levels),
+        reference = spec$reference, beta_grid = lapply(spec$beta_grid, unname))
     } else {
       list(
         version = spec$version, dataset = spec$dataset,

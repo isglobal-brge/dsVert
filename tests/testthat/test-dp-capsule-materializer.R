@@ -32,7 +32,10 @@
     adjacency = "add_remove_patient", capacity = 5L,
     max_records = 4L, duplicate_describe = FALSE,
     gaussian_specs = list(), workload_scope = NULL,
-    binary_x = FALSE) {
+    binary_x = FALSE, multiclass_outcome = FALSE) {
+  if (isTRUE(multiclass_outcome)) {
+    data$class3 <- c("A", "A", "B", "C")
+  }
   pins <- c(
     peer_a = .materializer_test_b64url(as.raw(seq_len(32L))),
     peer_b = .materializer_test_b64url(as.raw(32L + seq_len(32L))))
@@ -68,6 +71,9 @@
       alignment_manifest_version = 1L)),
     noise_root = list(epoch = 1, key_id = "materializer-test-root"),
     ledger_path = tempfile("materializer-ledger-"))
+  if (isTRUE(multiclass_outcome)) {
+    policy$categorical_levels$class3 <- c("A", "B", "C")
+  }
   logical_snapshot <- list(
     logical_snapshot_id = "materializer-aligned-cohort",
     version = "v1", alignment_protocol_version = 1L)
@@ -94,6 +100,10 @@
                       levels = c("censor", "event"))))),
     signatures = list(peer_a = strrep("A", 86L),
                       peer_b = strrep("B", 86L)))
+  if (isTRUE(multiclass_outcome)) {
+    schema$datasets$protected$columns$class3 <- list(
+      kind = "categorical", owner_peer = "peer_a", levels = c("A", "B", "C"))
+  }
   describe <- list(primary = list(
     version = "v1", dataset = "protected", variables = "x",
     histogram_grids = list(
@@ -742,6 +752,61 @@ test_that("negative-binomial grid honours its signed sensitivity", {
     fixture$policy, fixture$manifest, fixture$resolved)$values
   changed <- data
   changed$x[changed$patient_id == "u2"] <- 0
+  fixture$resolved$protected$data <- changed
+  right <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  family <- fixture$manifest$workload$families$gaussian_models
+  delta <- right[block$start:block$end] - left[block$start:block$end]
+
+  expect_lte(sum(abs(delta)), family$l1_sensitivity)
+  expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
+})
+
+test_that("multinomial grid emits only signed bounded softmax losses", {
+  multinomial <- list(multinomial = list(
+    version = "multinomial_grid_v1", dataset = "protected",
+    outcome = "class3", predictors = "entry", intercept = TRUE,
+    levels = c("A", "B", "C"), reference = "A",
+    beta_grid = list(c(0, 0, 0, 0), c(0, 1, 0, -1))))
+  data <- .materializer_test_data()
+  data$entry <- c(0, 0, 2, 4)
+  fixture <- .materializer_test_fixture(
+    data = data, gaussian_specs = multinomial, multiclass_outcome = TRUE)
+  artifact <- fixture$manifest$workload$families$gaussian_models$
+    artifacts$multinomial
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["gaussian_models::multinomial"]]
+  material <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)
+
+  expect_identical(artifact$version,
+                   "bounded-multinomial-likelihood-grid-v1")
+  expect_identical(artifact$outcome$levels, c("A", "B", "C"))
+  expect_identical(artifact$outcome$reference, "A")
+  expect_identical(as.numeric(artifact$coordinate_count), 2)
+  expect_true(all(material$values[block$start:block$end] >= 0))
+  expect_true(all(material$values[block$start:block$end] <=
+                    artifact$statistic_maximum))
+  expect_identical(artifact$implementation_state, "same_owner_materialized")
+  expect_identical(artifact$cross_owner_state, "reserved_not_materialized")
+})
+
+test_that("multinomial grid honours its signed sensitivity", {
+  multinomial <- list(multinomial = list(
+    version = "multinomial_grid_v1", dataset = "protected",
+    outcome = "class3", predictors = "entry", intercept = TRUE,
+    levels = c("A", "B", "C"), reference = "A",
+    beta_grid = list(c(0, 0, 0, 0), c(0, 1, 0, -1))))
+  data <- .materializer_test_data()
+  data$entry <- c(0, 0, 2, 4)
+  fixture <- .materializer_test_fixture(
+    data = data, gaussian_specs = multinomial, multiclass_outcome = TRUE)
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["gaussian_models::multinomial"]]
+  left <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  changed <- fixture$data
+  changed$class3[changed$patient_id == "u2"] <- "C"
   fixture$resolved$protected$data <- changed
   right <- .dsvert_dp_capsule_materialize_local(
     fixture$policy, fixture$manifest, fixture$resolved)$values

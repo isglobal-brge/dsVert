@@ -334,6 +334,15 @@ func formalCoxBlockwiseLiveControlAdvancesFinalizerV1(t *testing.T, custodians i
 	formalCoxBlockwiseLiveControlRelayRecordV1(
 		t, controllers, headers, stateRoot, 0, 1,
 		formalCoxControlRecordAck)
+	// This fixture deliberately covers terminal control even when the certified
+	// validity circuit rejects its synthetic coefficients. In that case a public
+	// result must remain unavailable rather than projecting an invalid opening.
+	for index := range controllers {
+		if _, err := controllers[index].FinalizerControlPublicResultAtRootV1(
+			headers, stateRoot, false); err == nil {
+			t.Fatalf("authority %d projected an invalid synthetic opening", index)
+		}
+	}
 	for index := range controllers {
 		recipient, err := controllers[1-index].FinalizerControlRecipientAtRootV1(
 			headers, stateRoot, false)

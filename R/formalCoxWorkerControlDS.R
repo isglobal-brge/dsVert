@@ -12,7 +12,7 @@
 .DSVERT_FORMAL_COX_WORKER_CONTROL_DS_ACTIONS <- c(
   "host_start", "bind", "offer", "accept", "confirm", "poll", "relay", "result",
   "completion", "opening", "finalizer_ticket", "finalizer_seal", "finalizer_prepare",
-  "finalizer_stage", "finalizer_advance", "finalizer_relay_recipient",
+  "finalizer_stage", "finalizer_advance", "finalizer_public", "finalizer_relay_recipient",
   "finalizer_relay_source", "finalizer_relay_import", "finalizer_relay_delivery",
   "commit")
 
@@ -81,7 +81,7 @@
        any(vapply(payload$envelopes, is.null, logical(1L))))) {
     .dsvert_formal_cox_abort("The formal Cox worker control payload is invalid.")
   }
-  if (identical(action, "finalizer_advance") &&
+  if (action %in% c("finalizer_advance", "finalizer_public") &&
       (!identical(fields, "headers") || !is.list(payload$headers) ||
        length(payload$headers) != 2L ||
        any(vapply(payload$headers, is.null, logical(1L))))) {
@@ -327,6 +327,44 @@
   identical(payload$certificate_sha256, "")
 }
 
+.dsvert_formal_cox_worker_control_ds_finalizer_public_reply <- function(payload) {
+  fields <- c("version", "artifact_id", "certificate_sha256", "valid",
+              "coefficients", "production_ready")
+  coefficient_fields <- c("index", "beta_steps", "fraction_bits", "beta",
+                          "hazard_ratio_lower", "hazard_ratio_upper",
+                          "hazard_ratio_midpoint")
+  valid_coefficient <- function(value, index) {
+    is.list(value) && !is.null(names(value)) && !anyNA(names(value)) &&
+      !anyDuplicated(names(value)) && identical(names(value), coefficient_fields) &&
+      is.numeric(value$index) && length(value$index) == 1L &&
+      !is.na(value$index) && is.finite(value$index) && value$index == index - 1L &&
+      is.character(value$beta_steps) && length(value$beta_steps) == 1L &&
+      !is.na(value$beta_steps) && grepl("^(0|-[1-9][0-9]*|[1-9][0-9]*)$", value$beta_steps) &&
+      is.numeric(value$fraction_bits) && length(value$fraction_bits) == 1L &&
+      is.finite(value$fraction_bits) && value$fraction_bits >= 8L &&
+      value$fraction_bits <= 60L && value$fraction_bits == floor(value$fraction_bits) &&
+      all(vapply(c("beta", "hazard_ratio_lower", "hazard_ratio_upper",
+                   "hazard_ratio_midpoint"), function(field) {
+        is.numeric(value[[field]]) && length(value[[field]]) == 1L &&
+          !is.na(value[[field]]) && is.finite(value[[field]])
+      }, logical(1L))) && value$hazard_ratio_lower > 0 &&
+      value$hazard_ratio_upper >= value$hazard_ratio_lower &&
+      value$hazard_ratio_midpoint >= value$hazard_ratio_lower &&
+      value$hazard_ratio_midpoint <= value$hazard_ratio_upper
+  }
+  is.list(payload) && !is.null(names(payload)) && !anyNA(names(payload)) &&
+    !anyDuplicated(names(payload)) && identical(names(payload), fields) &&
+    identical(payload$version, "dsvert-formal-cox-public-result-v1") &&
+    is.character(payload$artifact_id) && length(payload$artifact_id) == 1L &&
+    grepl("^[0-9a-f]{64}$", payload$artifact_id) &&
+    is.character(payload$certificate_sha256) && length(payload$certificate_sha256) == 1L &&
+    grepl("^[0-9a-f]{64}$", payload$certificate_sha256) &&
+    identical(payload$valid, TRUE) && identical(payload$production_ready, FALSE) &&
+    is.list(payload$coefficients) && length(payload$coefficients) > 0L &&
+    all(vapply(seq_along(payload$coefficients), function(index)
+      valid_coefficient(payload$coefficients[[index]], index), logical(1L)))
+}
+
 .dsvert_formal_cox_worker_control_ds_finalizer_relay_recipient_reply <- function(payload) {
   identical(names(payload), c("transport_public", "transport_signature",
                                "production_ready")) &&
@@ -414,6 +452,8 @@
        !isTRUE(.dsvert_formal_cox_worker_control_ds_finalizer_stage_reply(payload))) ||
       (identical(action, "finalizer_advance") &&
        !isTRUE(.dsvert_formal_cox_worker_control_ds_finalizer_advance_reply(payload))) ||
+      (identical(action, "finalizer_public") &&
+       !isTRUE(.dsvert_formal_cox_worker_control_ds_finalizer_public_reply(payload))) ||
       (identical(action, "finalizer_relay_recipient") &&
        !isTRUE(.dsvert_formal_cox_worker_control_ds_finalizer_relay_recipient_reply(payload))) ||
       (identical(action, "finalizer_relay_source") &&

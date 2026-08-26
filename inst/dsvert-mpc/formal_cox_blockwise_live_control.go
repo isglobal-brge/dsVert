@@ -666,3 +666,59 @@ func (controller *formalCoxBlockwiseExchangeController) AdvanceFinalizerControlA
 	}
 	return result, nil
 }
+
+// FinalizerControlPublicResultAtRootV1 exposes the already-public numerical
+// projection only after both terminal relay records are present and locally
+// authenticated.  It is deliberately unavailable while the opening is merely
+// staged, published, or committed on one authority: callers receive neither a
+// certificate nor a partial result at those boundaries.
+func (controller *formalCoxBlockwiseExchangeController) FinalizerControlPublicResultAtRootV1(
+	headers [2]formalCoxBlockwiseOpeningHandoffHeader,
+	stateRoot string, production bool,
+) (formalCoxPublicResultResponseV1, error) {
+	var zero formalCoxPublicResultResponseV1
+	if controller == nil {
+		return zero, fmt.Errorf("formal-cox live control: unavailable worker")
+	}
+	result := zero
+	err := controller.withFinalizerControlStoreV1(headers, stateRoot, production,
+		func(store *formalCoxBlockwiseControlStore, _ ed25519.PrivateKey,
+			binding formalFinalizerHandoffBinding) error {
+			ticket, err := store.loadTicket(binding)
+			if err != nil {
+				return fmt.Errorf("formal-cox live control: missing staged ticket")
+			}
+			candidate, err := store.decodeCandidate(binding, ticket)
+			if err != nil {
+				return fmt.Errorf("formal-cox live control: missing staged candidate")
+			}
+			publication, err := store.decodePublication(binding, ticket, candidate)
+			if err != nil {
+				return fmt.Errorf("formal-cox live control: missing public publication")
+			}
+			committed, err := store.lifecycleRecordPresent(
+				formalCoxControlRecordCommit, "evaluator")
+			if err != nil || !committed {
+				return fmt.Errorf("formal-cox live control: public publication is not committed")
+			}
+			acknowledged, err := store.lifecycleRecordPresent(
+				formalCoxControlRecordAck, "garbler")
+			if err != nil || !acknowledged {
+				return fmt.Errorf("formal-cox live control: public publication is not acknowledged")
+			}
+			opening := formalCoxBlockwiseRockPublicationToOpening(publication.Publication)
+			defer clear(opening.Certificate)
+			certificate, err := formalCoxBlockwiseDecodeOpeningPublication(
+				opening, store.context.pins)
+			if err != nil {
+				return fmt.Errorf("formal-cox live control: invalid public publication")
+			}
+			result, err = formalCoxPublicResultFromCertificateV1(
+				certificate, publication.Publication.CertificateSHA256)
+			return err
+		})
+	if err != nil {
+		return zero, err
+	}
+	return result, nil
+}

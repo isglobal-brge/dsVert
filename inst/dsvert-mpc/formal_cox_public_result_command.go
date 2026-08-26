@@ -118,28 +118,21 @@ func formalCoxPublicResultEqualV1(
 	return leftErr == nil && rightErr == nil && bytes.Equal(leftJSON, rightJSON)
 }
 
-func formalCoxRunPublicResultV1(encoded []byte) (formalCoxPublicResultResponseV1, error) {
+// formalCoxPublicResultFromCertificateV1 is the one public projection used by
+// both the read-only registry command and a completed fresh finalizer.  Its
+// caller must already have authenticated the certificate against its pinned
+// authority set; this function deliberately accepts no Rock location, source
+// input, or opening material.
+func formalCoxPublicResultFromCertificateV1(
+	certificate formalCoxBlockwiseOpeningCertificate,
+	certificateSHA256 string,
+) (formalCoxPublicResultResponseV1, error) {
 	var zero formalCoxPublicResultResponseV1
-	var request formalCoxPublicResultRequestV1
-	if err := formalCoxPublicResultDecodeStrictV1(encoded, &request); err != nil ||
-		len(request.CertificateJSON) < 2 ||
-		len(request.CertificateJSON) > formalCoxPublicResultCommandMax {
-		return zero, fmt.Errorf("formal-cox public result: invalid request")
-	}
-	pins, err := formalCoxPublicResultDecodePinsV1(request.Pins)
-	if err != nil {
-		return zero, err
-	}
-	defer formalCoxPublicResultClearPinsV1(pins)
-	var certificate formalCoxBlockwiseOpeningCertificate
-	if err := formalCoxPublicResultDecodeStrictV1(
-		[]byte(request.CertificateJSON), &certificate); err != nil ||
-		formalCoxBlockwiseValidateOpeningCertificate(certificate, pins) != nil ||
-		!certificate.Candidate.Valid {
+	if !certificate.Candidate.Valid ||
+		!formalCoxIsSHA256(certificate.Candidate.ArtifactID) ||
+		!formalCoxIsSHA256(certificateSHA256) {
 		return zero, fmt.Errorf("formal-cox public result: invalid public release")
 	}
-	certificateSHA256 := formalCoxBlockwiseOpeningCertificateSHA256(
-		[]byte(request.CertificateJSON))
 	coefficients := make([]formalCoxPublicResultCoefficientV1,
 		len(certificate.Candidate.Coefficients))
 	for index, coefficient := range certificate.Candidate.Coefficients {
@@ -168,6 +161,31 @@ func formalCoxRunPublicResultV1(encoded []byte) (formalCoxPublicResultResponseV1
 		CertificateSHA256: certificateSHA256, Valid: true,
 		Coefficients: coefficients, ProductionReady: false,
 	}, nil
+}
+
+func formalCoxRunPublicResultV1(encoded []byte) (formalCoxPublicResultResponseV1, error) {
+	var zero formalCoxPublicResultResponseV1
+	var request formalCoxPublicResultRequestV1
+	if err := formalCoxPublicResultDecodeStrictV1(encoded, &request); err != nil ||
+		len(request.CertificateJSON) < 2 ||
+		len(request.CertificateJSON) > formalCoxPublicResultCommandMax {
+		return zero, fmt.Errorf("formal-cox public result: invalid request")
+	}
+	pins, err := formalCoxPublicResultDecodePinsV1(request.Pins)
+	if err != nil {
+		return zero, err
+	}
+	defer formalCoxPublicResultClearPinsV1(pins)
+	var certificate formalCoxBlockwiseOpeningCertificate
+	if err := formalCoxPublicResultDecodeStrictV1(
+		[]byte(request.CertificateJSON), &certificate); err != nil ||
+		formalCoxBlockwiseValidateOpeningCertificate(certificate, pins) != nil ||
+		!certificate.Candidate.Valid {
+		return zero, fmt.Errorf("formal-cox public result: invalid public release")
+	}
+	certificateSHA256 := formalCoxBlockwiseOpeningCertificateSHA256(
+		[]byte(request.CertificateJSON))
+	return formalCoxPublicResultFromCertificateV1(certificate, certificateSHA256)
 }
 
 func handleFormalCoxPublicResultV1() {

@@ -165,6 +165,13 @@ type formalCoxBlockwiseExchangeDaemonFinalizerAdvanceV1 struct {
 	Headers [2]formalCoxBlockwiseOpeningHandoffHeader `json:"headers"`
 }
 
+// finalizer_public is a read-only projection of a fully committed and
+// acknowledged certificate.  Headers are the sole caller input; the opening,
+// pinset and terminal receipts remain authority-local.
+type formalCoxBlockwiseExchangeDaemonFinalizerPublicV1 struct {
+	Headers [2]formalCoxBlockwiseOpeningHandoffHeader `json:"headers"`
+}
+
 // The following four messages carry an opaque finalizer-control relay.  The
 // daemon selects the next durable record; callers never name a record type,
 // path or key.  A recipient key is public and identity-signed, while its
@@ -820,6 +827,17 @@ func (daemon *formalCoxBlockwiseExchangeDaemonV1) dispatchV1(action string,
 			return nil, err
 		}
 		return formalCoxBlockwiseExchangeDaemonResponsePayload(advance)
+	case "finalizer_public":
+		var request formalCoxBlockwiseExchangeDaemonFinalizerPublicV1
+		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {
+			return nil, err
+		}
+		public, err := controller.FinalizerControlPublicResultAtRootV1(
+			request.Headers, daemon.stateRoot, daemon.production)
+		if err != nil {
+			return nil, err
+		}
+		return formalCoxBlockwiseExchangeDaemonResponsePayload(public)
 	case "finalizer_relay_recipient":
 		var request formalCoxBlockwiseExchangeDaemonFinalizerRelayRecipientV1
 		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {

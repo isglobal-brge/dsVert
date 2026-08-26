@@ -2,49 +2,90 @@ package main
 
 import (
 	"bytes"
-	"crypto/ecdh"
-	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
-func formalCoxBlockwiseLiveControlRelayRecord(
-	t *testing.T, stores [2]*formalCoxBlockwiseControlStore,
-	transports [2]*ecdh.PrivateKey, signatures [2][]byte,
-	producer, consumer int, record string, now time.Time,
-) time.Time {
+func formalCoxBlockwiseLiveControlRelayRecordV1(
+	t *testing.T, controllers [2]*formalCoxBlockwiseExchangeController,
+	headers [2]formalCoxBlockwiseOpeningHandoffHeader, stateRoot string,
+	producer, consumer int, record string,
+) {
 	t.Helper()
-	descriptor, err := stores[producer].DescribeNextSource(
-		transports[consumer].PublicKey().Bytes(), signatures[consumer], now)
-	if err != nil || descriptor.Context.AAD.RecordType != record {
-		t.Fatalf("relay %s source: %+v / %v", record, descriptor, err)
+	recipient, err := controllers[consumer].FinalizerControlRecipientAtRootV1(
+		headers, stateRoot, false)
+	if err != nil || recipient.ProductionReady {
+		t.Fatalf("relay %s recipient: %+v / %v", record, recipient, err)
 	}
-	encoded, err := os.ReadFile(descriptor.SourcePath)
-	if err != nil || int64(len(encoded)) != descriptor.EnvelopeBytes {
-		clear(encoded)
-		t.Fatalf("relay %s read: %d / %v", record, len(encoded), err)
+	recipientJSON, err := json.Marshal(recipient)
+	if err != nil {
+		t.Fatal(err)
 	}
-	ingress, err := stores[consumer].ImportCanonical(
-		encoded, transports[consumer].Bytes(), now)
+	for _, forbidden := range []string{"private", "secret", "path"} {
+		if bytes.Contains(bytes.ToLower(recipientJSON), []byte(`"`+forbidden+`"`)) {
+			clear(recipientJSON)
+			t.Fatalf("relay %s recipient exposed %q", record, forbidden)
+		}
+	}
+	clear(recipientJSON)
+	public, err := base64.StdEncoding.Strict().DecodeString(recipient.TransportPublic)
+	if err != nil {
+		t.Fatalf("relay %s public key: %v", record, err)
+	}
+	defer clear(public)
+	signature, err := base64.StdEncoding.Strict().DecodeString(recipient.TransportSignature)
+	if err != nil {
+		t.Fatalf("relay %s signature: %v", record, err)
+	}
+	defer clear(signature)
+	source, err := controllers[producer].FinalizerControlSourceAtRootV1(
+		headers, public, signature, stateRoot, false)
+	if err != nil || !source.Available || source.ProductionReady ||
+		!formalCoxIsSHA256(source.EnvelopeSHA256) {
+		t.Fatalf("relay %s source: %+v / %v", record, source, err)
+	}
+	sourceJSON, err := json.Marshal(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"candidate", "private", "secret", "path"} {
+		if bytes.Contains(bytes.ToLower(sourceJSON), []byte(`"`+forbidden+`"`)) {
+			clear(sourceJSON)
+			t.Fatalf("relay %s source exposed %q", record, forbidden)
+		}
+	}
+	clear(sourceJSON)
+	encoded, err := base64.RawURLEncoding.Strict().DecodeString(source.EnvelopeBase64URL)
+	if err != nil {
+		t.Fatalf("relay %s envelope: %v", record, err)
+	}
+	receipt, err := controllers[consumer].FinalizerControlImportAtRootV1(
+		headers, encoded, stateRoot, false)
 	clear(encoded)
-	if err != nil || ingress.RecordType != record || ingress.Replayed {
-		t.Fatalf("relay %s import: %+v / %v", record, ingress, err)
+	if err != nil || receipt.RecordType != record || receipt.ProductionReady {
+		t.Fatalf("relay %s import: %+v / %v", record, receipt, err)
 	}
-	receiptSHA := formalCoxControlSHA(
-		formalCoxControlAADDomain+"live-control-receipt|",
-		[]byte(record+"|"+fmt.Sprint(now.UnixNano())))
-	delivery, err := stores[producer].MarkNextDelivered(
-		descriptor.EnvelopeSHA256, receiptSHA, now)
+	tampered := receipt
+	tampered.EnvelopeSHA256 = formalCoxControlSHA("tampered-relay-receipt|", []byte(record))
+	if _, err := controllers[producer].FinalizerControlDeliveredAtRootV1(
+		headers, tampered, stateRoot, false); err == nil {
+		t.Fatalf("relay %s accepted a receipt not covering its envelope", record)
+	}
+	delivery, err := controllers[producer].FinalizerControlDeliveredAtRootV1(
+		headers, receipt, stateRoot, false)
 	if err != nil || delivery.RecordType != record || delivery.Replayed {
 		t.Fatalf("relay %s delivery: %+v / %v", record, delivery, err)
 	}
-	return now.Add(time.Second)
+	replayed, err := controllers[producer].FinalizerControlDeliveredAtRootV1(
+		headers, receipt, stateRoot, false)
+	if err != nil || replayed.RecordType != record || !replayed.Replayed {
+		t.Fatalf("relay %s delivery replay: %+v / %v", record, replayed, err)
+	}
 }
 
 func formalCoxBlockwiseLiveControlStagesFreshFinalizerV1(
@@ -226,40 +267,6 @@ func formalCoxBlockwiseLiveControlAdvancesFinalizerV1(t *testing.T, custodians i
 		ticket, headers, envelopes, stateRoot, false); err != nil {
 		t.Fatal(err)
 	}
-	context, err := formalCoxControlContextFor(fixture.plan, fixture.pins)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer formalCoxBlockwiseClearPinsV1(context.pins)
-	var stores [2]*formalCoxBlockwiseControlStore
-	var transports [2]*ecdh.PrivateKey
-	var signatures [2][]byte
-	for index, authority := range context.Authorities {
-		seed := sha256.Sum256([]byte(t.Name() + "/advance-transport/" + authority.PeerName))
-		transports[index], err = ecdh.X25519().NewPrivateKey(seed[:])
-		if err != nil {
-			t.Fatal(err)
-		}
-		signatures[index] = ed25519.Sign(
-			fixture.signing[authority.PeerName], transports[index].PublicKey().Bytes())
-	}
-	openStores := func() {
-		for index, authority := range context.Authorities {
-			stores[index], err = newFormalCoxBlockwiseControlStore(
-				filepath.Join(stateRoot, authority.PeerName), context, authority, false)
-			if err != nil {
-				t.Fatal(err)
-			}
-		}
-	}
-	closeStores := func() {
-		for index := range stores {
-			stores[index].Close()
-			stores[index] = nil
-		}
-	}
-	openStores()
-	now := time.Unix(1_900_000_000, 0)
 	for _, step := range []struct {
 		producer, consumer int
 		record             string
@@ -272,33 +279,28 @@ func formalCoxBlockwiseLiveControlAdvancesFinalizerV1(t *testing.T, custodians i
 		{1, 0, formalCoxControlRecordEnvelope},
 		{0, 1, formalCoxControlRecordCandidate},
 	} {
-		now = formalCoxBlockwiseLiveControlRelayRecord(
-			t, stores, transports, signatures, step.producer, step.consumer,
-			step.record, now)
+		formalCoxBlockwiseLiveControlRelayRecordV1(
+			t, controllers, headers, stateRoot, step.producer, step.consumer,
+			step.record)
 	}
-	closeStores()
 	garbler, err := controllers[0].AdvanceFinalizerControlAtRootV1(
 		headers, stateRoot, false)
 	if err != nil || garbler.State != "awaiting_evaluator_authorization" ||
 		garbler.ArtifactID == "" || garbler.ProductionReady {
 		t.Fatalf("garbler authorization advance: %+v / %v", garbler, err)
 	}
-	openStores()
-	now = formalCoxBlockwiseLiveControlRelayRecord(
-		t, stores, transports, signatures, 0, 1,
-		formalCoxControlRecordAuthorization, now)
-	closeStores()
+	formalCoxBlockwiseLiveControlRelayRecordV1(
+		t, controllers, headers, stateRoot, 0, 1,
+		formalCoxControlRecordAuthorization)
 	evaluator, err := controllers[1].AdvanceFinalizerControlAtRootV1(
 		headers, stateRoot, false)
 	if err != nil || evaluator.State != "awaiting_publication" ||
 		evaluator.ArtifactID != garbler.ArtifactID || evaluator.ProductionReady {
 		t.Fatalf("evaluator authorization advance: %+v / %v", evaluator, err)
 	}
-	openStores()
-	now = formalCoxBlockwiseLiveControlRelayRecord(
-		t, stores, transports, signatures, 1, 0,
-		formalCoxControlRecordAuthorization, now)
-	closeStores()
+	formalCoxBlockwiseLiveControlRelayRecordV1(
+		t, controllers, headers, stateRoot, 1, 0,
+		formalCoxControlRecordAuthorization)
 	garbler, err = controllers[0].AdvanceFinalizerControlAtRootV1(headers, stateRoot, false)
 	if err != nil || garbler.State != "publication_ready" ||
 		!formalCoxIsSHA256(garbler.CertificateSHA256) || garbler.ProductionReady {
@@ -318,31 +320,44 @@ func formalCoxBlockwiseLiveControlAdvancesFinalizerV1(t *testing.T, custodians i
 		}
 	}
 	clear(encoded)
-	openStores()
-	now = formalCoxBlockwiseLiveControlRelayRecord(
-		t, stores, transports, signatures, 0, 1,
-		formalCoxControlRecordPublication, now)
-	closeStores()
+	formalCoxBlockwiseLiveControlRelayRecordV1(
+		t, controllers, headers, stateRoot, 0, 1,
+		formalCoxControlRecordPublication)
 	evaluator, err = controllers[1].AdvanceFinalizerControlAtRootV1(headers, stateRoot, false)
 	if err != nil || evaluator.State != "commit_ready" ||
 		evaluator.CertificateSHA256 != garbler.CertificateSHA256 || evaluator.ProductionReady {
 		t.Fatalf("evaluator commit advance: %+v / %v", evaluator, err)
 	}
-	openStores()
-	now = formalCoxBlockwiseLiveControlRelayRecord(
-		t, stores, transports, signatures, 1, 0,
-		formalCoxControlRecordCommit, now)
-	now = formalCoxBlockwiseLiveControlRelayRecord(
-		t, stores, transports, signatures, 0, 1,
-		formalCoxControlRecordAck, now)
-	for index, store := range stores {
-		if _, err := store.DescribeNextSource(
-			transports[1-index].PublicKey().Bytes(), signatures[1-index], now); !errors.Is(
-			err, errFormalCoxControlNoSource) {
-			t.Fatalf("authority %d did not reach terminal control state: %v", index, err)
+	formalCoxBlockwiseLiveControlRelayRecordV1(
+		t, controllers, headers, stateRoot, 1, 0,
+		formalCoxControlRecordCommit)
+	formalCoxBlockwiseLiveControlRelayRecordV1(
+		t, controllers, headers, stateRoot, 0, 1,
+		formalCoxControlRecordAck)
+	for index := range controllers {
+		recipient, err := controllers[1-index].FinalizerControlRecipientAtRootV1(
+			headers, stateRoot, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		public, err := base64.StdEncoding.Strict().DecodeString(recipient.TransportPublic)
+		if err != nil {
+			t.Fatal(err)
+		}
+		signature, err := base64.StdEncoding.Strict().DecodeString(recipient.TransportSignature)
+		if err != nil {
+			clear(public)
+			t.Fatal(err)
+		}
+		source, sourceErr := controllers[index].FinalizerControlSourceAtRootV1(
+			headers, public, signature, stateRoot, false)
+		clear(public)
+		clear(signature)
+		if sourceErr != nil || source.Available {
+			t.Fatalf("authority %d did not reach terminal control state: %+v / %v",
+				index, source, sourceErr)
 		}
 	}
-	closeStores()
 }
 
 func TestFormalCoxBlockwiseLiveControlAdvancesFinalizerK2K3K5(t *testing.T) {

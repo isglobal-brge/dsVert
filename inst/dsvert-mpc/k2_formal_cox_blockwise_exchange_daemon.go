@@ -10,6 +10,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
@@ -162,6 +163,30 @@ type formalCoxBlockwiseExchangeDaemonFinalizerPrepareResultV1 struct {
 // validated control store rather than supplied by a relay caller.
 type formalCoxBlockwiseExchangeDaemonFinalizerAdvanceV1 struct {
 	Headers [2]formalCoxBlockwiseOpeningHandoffHeader `json:"headers"`
+}
+
+// The following four messages carry an opaque finalizer-control relay.  The
+// daemon selects the next durable record; callers never name a record type,
+// path or key.  A recipient key is public and identity-signed, while its
+// private half stays in the recipient's Rock store.
+type formalCoxBlockwiseExchangeDaemonFinalizerRelayRecipientV1 struct {
+	Headers [2]formalCoxBlockwiseOpeningHandoffHeader `json:"headers"`
+}
+
+type formalCoxBlockwiseExchangeDaemonFinalizerRelaySourceV1 struct {
+	Headers                     [2]formalCoxBlockwiseOpeningHandoffHeader `json:"headers"`
+	RecipientTransportPublic    string                                    `json:"recipient_transport_public"`
+	RecipientTransportSignature string                                    `json:"recipient_transport_signature"`
+}
+
+type formalCoxBlockwiseExchangeDaemonFinalizerRelayImportV1 struct {
+	Headers           [2]formalCoxBlockwiseOpeningHandoffHeader `json:"headers"`
+	EnvelopeBase64URL string                                    `json:"envelope_base64url"`
+}
+
+type formalCoxBlockwiseExchangeDaemonFinalizerRelayDeliveryV1 struct {
+	Headers [2]formalCoxBlockwiseOpeningHandoffHeader   `json:"headers"`
+	Receipt formalCoxBlockwiseLiveControlRelayReceiptV1 `json:"receipt"`
 }
 
 type formalCoxBlockwiseExchangeDaemonV1 struct {
@@ -795,6 +820,72 @@ func (daemon *formalCoxBlockwiseExchangeDaemonV1) dispatchV1(action string,
 			return nil, err
 		}
 		return formalCoxBlockwiseExchangeDaemonResponsePayload(advance)
+	case "finalizer_relay_recipient":
+		var request formalCoxBlockwiseExchangeDaemonFinalizerRelayRecipientV1
+		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {
+			return nil, err
+		}
+		recipient, err := controller.FinalizerControlRecipientAtRootV1(
+			request.Headers, daemon.stateRoot, daemon.production)
+		if err != nil {
+			return nil, err
+		}
+		return formalCoxBlockwiseExchangeDaemonResponsePayload(recipient)
+	case "finalizer_relay_source":
+		var request formalCoxBlockwiseExchangeDaemonFinalizerRelaySourceV1
+		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {
+			return nil, err
+		}
+		public, err := base64.StdEncoding.Strict().DecodeString(request.RecipientTransportPublic)
+		if err != nil || len(public) != 32 ||
+			base64.StdEncoding.EncodeToString(public) != request.RecipientTransportPublic {
+			clear(public)
+			return nil, fmt.Errorf("formal-cox: invalid finalizer relay recipient")
+		}
+		defer clear(public)
+		signature, err := base64.StdEncoding.Strict().DecodeString(request.RecipientTransportSignature)
+		if err != nil || len(signature) != ed25519.SignatureSize ||
+			base64.StdEncoding.EncodeToString(signature) != request.RecipientTransportSignature {
+			clear(signature)
+			return nil, fmt.Errorf("formal-cox: invalid finalizer relay recipient")
+		}
+		defer clear(signature)
+		source, err := controller.FinalizerControlSourceAtRootV1(
+			request.Headers, public, signature, daemon.stateRoot, daemon.production)
+		if err != nil {
+			return nil, err
+		}
+		return formalCoxBlockwiseExchangeDaemonResponsePayload(source)
+	case "finalizer_relay_import":
+		var request formalCoxBlockwiseExchangeDaemonFinalizerRelayImportV1
+		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {
+			return nil, err
+		}
+		envelope, err := base64.RawURLEncoding.Strict().DecodeString(request.EnvelopeBase64URL)
+		if err != nil || len(envelope) < 64 || len(envelope) > formalCoxControlMaxEnvelopeJSON ||
+			base64.RawURLEncoding.EncodeToString(envelope) != request.EnvelopeBase64URL {
+			clear(envelope)
+			return nil, fmt.Errorf("formal-cox: invalid finalizer relay envelope")
+		}
+		defer clear(envelope)
+		receipt, err := controller.FinalizerControlImportAtRootV1(
+			request.Headers, envelope, daemon.stateRoot, daemon.production)
+		if err != nil {
+			return nil, err
+		}
+		return formalCoxBlockwiseExchangeDaemonResponsePayload(receipt)
+	case "finalizer_relay_delivery":
+		var request formalCoxBlockwiseExchangeDaemonFinalizerRelayDeliveryV1
+		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {
+			return nil, err
+		}
+		delivery, err := controller.FinalizerControlDeliveredAtRootV1(
+			request.Headers, request.Receipt,
+			daemon.stateRoot, daemon.production)
+		if err != nil {
+			return nil, err
+		}
+		return formalCoxBlockwiseExchangeDaemonResponsePayload(delivery)
 	case "commit":
 		var request formalCoxBlockwiseExchangeDaemonCommitV1
 		if err := formalCoxBlockwiseExchangeDaemonPayload(encoded, &request); err != nil {

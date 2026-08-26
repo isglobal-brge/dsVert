@@ -227,6 +227,82 @@ test_that("formal Cox worker relays only public finalizer handoff records", {
     class = "dsvert_formal_cox_error")
 })
 
+test_that("formal Cox worker relays finalizer control without recipient secrets", {
+  selector <- .formal_cox_worker_control_selector()
+  headers <- list(
+    list(artifact_id = strrep("c", 64L), plan_sha256 = selector$plan_sha256,
+         signature = "AQ=="),
+    list(artifact_id = strrep("c", 64L), plan_sha256 = selector$plan_sha256,
+         signature = "Ag=="))
+  seen <- list()
+  receipt <- list(
+    version = "dsvert-formal-cox-control-relay-receipt-v1",
+    artifact_id = strrep("c", 64L), execution_sha256 = strrep("d", 64L),
+    record_type = "preflight", sender_role = "garbler",
+    record_sha256 = strrep("e", 64L), envelope_sha256 = strrep("f", 64L),
+    recipient_peer_name = "site_b", recipient_peer_id = "peer-b",
+    recipient_role = "evaluator", signature = paste0(strrep("A", 86L), "=="),
+    production_ready = FALSE)
+  testthat::local_mocked_bindings(
+    .dsvert_formal_cox_worker_host_control = function(
+        plan_sha256, attempt_id, action, payload) {
+      seen[[action]] <<- list(
+        plan_sha256 = plan_sha256, attempt_id = attempt_id, payload = payload)
+      response <- switch(
+        action,
+        finalizer_relay_recipient = list(
+          transport_public = paste0(strrep("A", 43L), "="),
+          transport_signature = paste0(strrep("A", 86L), "=="),
+          production_ready = FALSE),
+        finalizer_relay_source = list(
+          available = TRUE, envelope_base64url = strrep("A", 80L),
+          envelope_sha256 = strrep("e", 64L), production_ready = FALSE),
+        finalizer_relay_import = receipt,
+        finalizer_relay_delivery = list(
+          version = "dsvert-formal-cox-control-delivery-v1", state = "delivered",
+          artifact_id = strrep("c", 64L), record_type = "preflight",
+          envelope_sha256 = strrep("f", 64L), replayed = FALSE))
+      list(version = "dsvert-formal-cox-blockwise-worker-host-control-v1",
+           payload = response)
+    },
+    .package = "dsVert")
+
+  recipient <- dsvertFormalCoxWorkerControlDS(
+    selector$plan_sha256, selector$attempt_id, "finalizer_relay_recipient",
+    list(headers = headers))
+  expect_false(recipient$production_ready)
+  expect_false(any(grepl("private|secret|path", names(recipient$payload),
+                         ignore.case = TRUE)))
+
+  source <- dsvertFormalCoxWorkerControlDS(
+    selector$plan_sha256, selector$attempt_id, "finalizer_relay_source",
+    list(headers = headers,
+         recipient_transport_public = recipient$payload$transport_public,
+         recipient_transport_signature = recipient$payload$transport_signature))
+  expect_true(source$payload$available)
+  expect_false(any(grepl("record|candidate|private|secret|path", names(source$payload),
+                         ignore.case = TRUE)))
+
+  imported <- dsvertFormalCoxWorkerControlDS(
+    selector$plan_sha256, selector$attempt_id, "finalizer_relay_import",
+    list(headers = headers, envelope_base64url = source$payload$envelope_base64url))
+  expect_false(imported$production_ready)
+  expect_identical(imported$payload$envelope_sha256, receipt$envelope_sha256)
+
+  delivered <- dsvertFormalCoxWorkerControlDS(
+    selector$plan_sha256, selector$attempt_id, "finalizer_relay_delivery",
+    list(headers = headers, receipt = imported$payload))
+  expect_false(delivered$production_ready)
+  expect_identical(delivered$payload$state, "delivered")
+  expect_identical(seen$finalizer_relay_delivery$payload$receipt,
+                   imported$payload)
+  expect_error(dsvertFormalCoxWorkerControlDS(
+    selector$plan_sha256, selector$attempt_id, "finalizer_relay_source",
+    list(headers = headers, recipient_transport_public = "unsafe",
+         recipient_transport_signature = recipient$payload$transport_signature)),
+  class = "dsvert_formal_cox_error")
+})
+
 test_that("formal Cox worker controller rejects widened calls before host I/O", {
   selector <- .formal_cox_worker_control_selector()
   calls <- 0L

@@ -12,7 +12,8 @@
 .DSVERT_FORMAL_COX_WORKER_CONTROL_DS_ACTIONS <- c(
   "host_start", "bind", "offer", "accept", "confirm", "poll", "relay", "result",
   "completion", "opening", "finalizer_ticket", "finalizer_seal", "finalizer_prepare",
-  "finalizer_stage", "finalizer_advance",
+  "finalizer_stage", "finalizer_advance", "finalizer_relay_recipient",
+  "finalizer_relay_source", "finalizer_relay_import", "finalizer_relay_delivery",
   "commit")
 
 .dsvert_formal_cox_worker_control_ds_sha256 <- function(value, field) {
@@ -84,6 +85,51 @@
       (!identical(fields, "headers") || !is.list(payload$headers) ||
        length(payload$headers) != 2L ||
        any(vapply(payload$headers, is.null, logical(1L))))) {
+    .dsvert_formal_cox_abort("The formal Cox worker control payload is invalid.")
+  }
+  if (identical(action, "finalizer_relay_recipient") &&
+      (!identical(fields, "headers") || !is.list(payload$headers) ||
+       length(payload$headers) != 2L ||
+       any(vapply(payload$headers, is.null, logical(1L))))) {
+    .dsvert_formal_cox_abort("The formal Cox worker control payload is invalid.")
+  }
+  if (identical(action, "finalizer_relay_source") &&
+      (!identical(fields, c("headers", "recipient_transport_public",
+                             "recipient_transport_signature")) ||
+       !is.list(payload$headers) || length(payload$headers) != 2L ||
+       any(vapply(payload$headers, is.null, logical(1L))) ||
+       !is.character(payload$recipient_transport_public) ||
+       length(payload$recipient_transport_public) != 1L ||
+       is.na(payload$recipient_transport_public) ||
+       nchar(payload$recipient_transport_public, type = "bytes") < 40L ||
+       nchar(payload$recipient_transport_public, type = "bytes") > 48L ||
+       !grepl("^[A-Za-z0-9+/]+={0,2}$", payload$recipient_transport_public) ||
+       !is.character(payload$recipient_transport_signature) ||
+       length(payload$recipient_transport_signature) != 1L ||
+       is.na(payload$recipient_transport_signature) ||
+       nchar(payload$recipient_transport_signature, type = "bytes") < 80L ||
+       nchar(payload$recipient_transport_signature, type = "bytes") > 96L ||
+       !grepl("^[A-Za-z0-9+/]+={0,2}$", payload$recipient_transport_signature))) {
+    .dsvert_formal_cox_abort("The formal Cox worker control payload is invalid.")
+  }
+  if (identical(action, "finalizer_relay_import") &&
+      (!identical(fields, c("headers", "envelope_base64url")) ||
+       !is.list(payload$headers) || length(payload$headers) != 2L ||
+       any(vapply(payload$headers, is.null, logical(1L))) ||
+       !is.character(payload$envelope_base64url) ||
+       length(payload$envelope_base64url) != 1L || is.na(payload$envelope_base64url) ||
+       nchar(payload$envelope_base64url, type = "bytes") < 80L ||
+       nchar(payload$envelope_base64url, type = "bytes") >
+         .DSVERT_FORMAL_COX_WORKER_CONTROL_DS_MAX_BYTES ||
+       !grepl("^[A-Za-z0-9_-]+$", payload$envelope_base64url))) {
+    .dsvert_formal_cox_abort("The formal Cox worker control payload is invalid.")
+  }
+  if (identical(action, "finalizer_relay_delivery") &&
+      (!identical(fields, c("headers", "receipt")) ||
+       !is.list(payload$headers) || length(payload$headers) != 2L ||
+       any(vapply(payload$headers, is.null, logical(1L))) ||
+       !isTRUE(.dsvert_formal_cox_worker_control_ds_finalizer_relay_receipt_reply(
+         payload$receipt)))) {
     .dsvert_formal_cox_abort("The formal Cox worker control payload is invalid.")
   }
   if (!identical(action, "host_start")) {
@@ -281,6 +327,84 @@
   identical(payload$certificate_sha256, "")
 }
 
+.dsvert_formal_cox_worker_control_ds_finalizer_relay_recipient_reply <- function(payload) {
+  identical(names(payload), c("transport_public", "transport_signature",
+                               "production_ready")) &&
+    is.character(payload$transport_public) && length(payload$transport_public) == 1L &&
+    !is.na(payload$transport_public) && nchar(payload$transport_public) >= 40L &&
+    nchar(payload$transport_public) <= 48L &&
+    grepl("^[A-Za-z0-9+/]+={0,2}$", payload$transport_public) &&
+    is.character(payload$transport_signature) && length(payload$transport_signature) == 1L &&
+    !is.na(payload$transport_signature) && nchar(payload$transport_signature) >= 80L &&
+    nchar(payload$transport_signature) <= 96L &&
+    grepl("^[A-Za-z0-9+/]+={0,2}$", payload$transport_signature) &&
+    identical(payload$production_ready, FALSE)
+}
+
+.dsvert_formal_cox_worker_control_ds_finalizer_relay_source_reply <- function(payload) {
+  fields <- c("available", "envelope_base64url", "envelope_sha256", "production_ready")
+  valid <- is.list(payload) && !is.null(names(payload)) && !anyNA(names(payload)) &&
+    !anyDuplicated(names(payload)) && identical(names(payload), fields) &&
+    is.logical(payload$available) && length(payload$available) == 1L &&
+    !is.na(payload$available) && identical(payload$production_ready, FALSE) &&
+    is.character(payload$envelope_base64url) && length(payload$envelope_base64url) == 1L &&
+    !is.na(payload$envelope_base64url) && is.character(payload$envelope_sha256) &&
+    length(payload$envelope_sha256) == 1L && !is.na(payload$envelope_sha256)
+  if (!isTRUE(valid)) return(FALSE)
+  if (!isTRUE(payload$available)) {
+    return(identical(payload$envelope_base64url, "") &&
+             identical(payload$envelope_sha256, ""))
+  }
+  nchar(payload$envelope_base64url, type = "bytes") >= 80L &&
+    nchar(payload$envelope_base64url, type = "bytes") <=
+      .DSVERT_FORMAL_COX_WORKER_CONTROL_DS_MAX_BYTES &&
+    grepl("^[A-Za-z0-9_-]+$", payload$envelope_base64url) &&
+    grepl("^[0-9a-f]{64}$", payload$envelope_sha256)
+}
+
+.dsvert_formal_cox_worker_control_ds_finalizer_relay_receipt_reply <- function(payload) {
+  fields <- c("version", "artifact_id", "execution_sha256", "record_type", "sender_role",
+              "record_sha256", "envelope_sha256", "recipient_peer_name", "recipient_peer_id",
+              "recipient_role", "signature", "production_ready")
+  is.list(payload) && !is.null(names(payload)) && !anyNA(names(payload)) &&
+    !anyDuplicated(names(payload)) && identical(names(payload), fields) &&
+    is.character(payload$version) && length(payload$version) == 1L &&
+    is.character(payload$artifact_id) && length(payload$artifact_id) == 1L &&
+    grepl("^[0-9a-f]{64}$", payload$artifact_id) &&
+    is.character(payload$execution_sha256) && length(payload$execution_sha256) == 1L &&
+    grepl("^[0-9a-f]{64}$", payload$execution_sha256) &&
+    is.character(payload$record_type) && length(payload$record_type) == 1L &&
+    is.character(payload$sender_role) && length(payload$sender_role) == 1L &&
+    payload$sender_role %in% c("garbler", "evaluator") &&
+    is.character(payload$record_sha256) && length(payload$record_sha256) == 1L &&
+    grepl("^[0-9a-f]{64}$", payload$record_sha256) &&
+    is.character(payload$envelope_sha256) && length(payload$envelope_sha256) == 1L &&
+    grepl("^[0-9a-f]{64}$", payload$envelope_sha256) &&
+    is.character(payload$recipient_peer_name) && length(payload$recipient_peer_name) == 1L &&
+    is.character(payload$recipient_peer_id) && length(payload$recipient_peer_id) == 1L &&
+    is.character(payload$recipient_role) && length(payload$recipient_role) == 1L &&
+    payload$recipient_role %in% c("garbler", "evaluator") &&
+    is.character(payload$signature) && length(payload$signature) == 1L &&
+    nchar(payload$signature) >= 80L && nchar(payload$signature) <= 96L &&
+    grepl("^[A-Za-z0-9+/]+={0,2}$", payload$signature) &&
+    identical(payload$production_ready, FALSE)
+}
+
+.dsvert_formal_cox_worker_control_ds_finalizer_relay_delivery_reply <- function(payload) {
+  fields <- c("version", "state", "artifact_id", "record_type", "envelope_sha256", "replayed")
+  is.list(payload) && !is.null(names(payload)) && !anyNA(names(payload)) &&
+    !anyDuplicated(names(payload)) && identical(names(payload), fields) &&
+    is.character(payload$version) && length(payload$version) == 1L &&
+    is.character(payload$state) && length(payload$state) == 1L &&
+    is.character(payload$artifact_id) && length(payload$artifact_id) == 1L &&
+    grepl("^[0-9a-f]{64}$", payload$artifact_id) &&
+    is.character(payload$record_type) && length(payload$record_type) == 1L &&
+    is.character(payload$envelope_sha256) && length(payload$envelope_sha256) == 1L &&
+    grepl("^[0-9a-f]{64}$", payload$envelope_sha256) &&
+    is.logical(payload$replayed) && length(payload$replayed) == 1L &&
+    !is.na(payload$replayed)
+}
+
 .dsvert_formal_cox_worker_control_ds_reply <- function(action, payload) {
   encoded <- .dsvert_formal_cox_worker_control_ds_json(payload, "control reply")
   if (!is.list(payload) ||
@@ -289,7 +413,15 @@
       (identical(action, "finalizer_stage") &&
        !isTRUE(.dsvert_formal_cox_worker_control_ds_finalizer_stage_reply(payload))) ||
       (identical(action, "finalizer_advance") &&
-       !isTRUE(.dsvert_formal_cox_worker_control_ds_finalizer_advance_reply(payload)))) {
+       !isTRUE(.dsvert_formal_cox_worker_control_ds_finalizer_advance_reply(payload))) ||
+      (identical(action, "finalizer_relay_recipient") &&
+       !isTRUE(.dsvert_formal_cox_worker_control_ds_finalizer_relay_recipient_reply(payload))) ||
+      (identical(action, "finalizer_relay_source") &&
+       !isTRUE(.dsvert_formal_cox_worker_control_ds_finalizer_relay_source_reply(payload))) ||
+      (identical(action, "finalizer_relay_import") &&
+       !isTRUE(.dsvert_formal_cox_worker_control_ds_finalizer_relay_receipt_reply(payload))) ||
+      (identical(action, "finalizer_relay_delivery") &&
+       !isTRUE(.dsvert_formal_cox_worker_control_ds_finalizer_relay_delivery_reply(payload)))) {
     .dsvert_formal_cox_abort("The formal Cox worker control reply is invalid.")
   }
   list(version = .DSVERT_FORMAL_COX_WORKER_CONTROL_DS_VERSION,

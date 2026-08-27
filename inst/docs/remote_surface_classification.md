@@ -10,7 +10,7 @@ The current client/server registration contract is internally complete:
 | Check | Result |
 |---|---:|
 | Registered `*DS` endpoints | 96 |
-| Direct `call(name = "...")` endpoints | 168 |
+| Direct `call(name = "...")` endpoints | 171 |
 | `as.call()` / `as.name()` exact-GC endpoints | 13 |
 | Dynamically named endpoints behind one closed runtime allowlist | 1 |
 | Unregistered endpoint names retained below guarded/test-only client code | 107 |

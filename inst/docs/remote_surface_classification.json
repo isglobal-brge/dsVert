@@ -6,7 +6,7 @@
   "counts": {
     "registered_ds_endpoints": 96,
     "registered_argument_constructor_aliases": 0,
-    "direct_literal_call_endpoints": 168,
+    "direct_literal_call_endpoints": 171,
     "as_call_as_name_endpoints": 13,
     "bounded_dynamic_call_endpoints": 1,
     "unregistered_client_endpoint_literals": 107,
@@ -257,7 +257,7 @@
   },
   "registered_argument_constructor_aliases": [],
   "client_ast_resolution": {
-    "direct_literal_call": "168 distinct endpoints constructed with call(name = <one string>)",
+    "direct_literal_call": "171 distinct endpoints constructed with call(name = <one string>)",
     "as_call_as_name": [
       "dsvertDPAlignmentMaskReceiveDS",
       "dsvertDPAlignmentMaskSealDS",

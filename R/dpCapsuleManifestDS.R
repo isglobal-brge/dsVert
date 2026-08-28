@@ -418,6 +418,7 @@
       } else if (spec$kind %in% c("random_intercept_fixed",
                                    "binary_random_intercept_grid",
                                    "poisson_random_intercept_grid",
+                                   "poisson_random_slope_grid",
                                    "binary_random_slope_grid",
                                    "gaussian_random_slope_grid")) {
         c(spec$cluster, spec$predictors)
@@ -443,6 +444,7 @@
     } else if (spec$kind %in% c("random_intercept_fixed",
                                  "binary_random_intercept_grid",
                                  "poisson_random_intercept_grid",
+                                 "poisson_random_slope_grid",
                                  "binary_random_slope_grid",
                                  "gaussian_random_slope_grid")) {
       isTRUE(outcome_owned) && length(variables) == 2L +
@@ -515,15 +517,21 @@
         ar1$score_clip <- spec$score_clip
       }
       ar1
-    } else if (identical(spec$kind, "binary_random_slope_grid")) {
-      list(
+    } else if (spec$kind %in% c("binary_random_slope_grid",
+                                 "poisson_random_slope_grid")) {
+      slope_grid <- list(
         version = spec$version, dataset = spec$dataset,
         outcome = spec$outcome, cluster = spec$cluster,
         predictors = unname(spec$predictors),
         random_slopes = unname(spec$random_slopes), intercept = spec$intercept,
         max_patients_per_cluster = spec$max_patients_per_cluster,
         candidate_grid = lapply(spec$candidate_grid, function(candidate) list(
-          beta = unname(candidate$beta), covariance = unname(candidate$covariance))))
+          beta = unname(candidate$beta),
+          covariance = unname(candidate$covariance))))
+      if (identical(spec$kind, "poisson_random_slope_grid")) {
+        slope_grid$max_outcome <- spec$max_outcome
+      }
+      slope_grid
     } else if (identical(spec$kind, "binary_random_intercept_grid")) {
       list(
         version = spec$version, dataset = spec$dataset,
@@ -855,7 +863,8 @@
         raw$score_clip <- as.numeric(raw$score_clip)
       }
     }
-    if (identical(raw$version, "binary_random_slope_grid_v1")) {
+    if (raw$version %in% c("binary_random_slope_grid_v1",
+                           "poisson_random_slope_grid_v1")) {
       raw$random_slopes <- unname(as.character(unlist(
         raw$random_slopes, use.names = FALSE)))
       raw$candidate_grid <- lapply(raw$candidate_grid, function(candidate) list(

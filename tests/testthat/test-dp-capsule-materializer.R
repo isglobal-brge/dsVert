@@ -762,6 +762,48 @@ test_that("Poisson random-intercept GLMM grid emits bounded cluster losses", {
     "must be same-owner with a \\[0,max_outcome\\] integer numeric outcome")
 })
 
+test_that("Poisson random-slope GLMM grid emits bounded two-effect losses", {
+  glmm <- list(poisson_random_slope = list(
+    version = "poisson_random_slope_grid_v1", dataset = "protected",
+    outcome = "x", predictors = "entry", random_slopes = "entry",
+    intercept = TRUE, cluster = "cat_a", max_patients_per_cluster = 2L,
+    max_outcome = 10L, candidate_grid = list(
+      list(beta = c(0, 0), covariance = c(0.25, 0, 0, 0.25)),
+      list(beta = c(0, log(4)), covariance = c(0.5, 0.1, 0.1, 0.5)))))
+  data <- .materializer_test_data()
+  data$x <- c(1, 1, 4, NA_real_)
+  data$entry <- c(0, 0, 2, NA_real_)
+  fixture <- .materializer_test_fixture(data = data, gaussian_specs = glmm)
+  artifact <- fixture$manifest$workload$families$gaussian_models$
+    artifacts$poisson_random_slope
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["gaussian_models::poisson_random_slope"]]
+  left <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  changed <- data
+  changed$x[changed$patient_id == "u2"] <- 1
+  fixture$resolved$protected$data <- changed
+  right <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  family <- fixture$manifest$workload$families$gaussian_models
+  delta <- right[block$start:block$end] - left[block$start:block$end]
+
+  expect_identical(artifact$version,
+                   "bounded-poisson-random-slope-likelihood-grid-v1")
+  expect_identical(artifact$random_effect_order, c("(Intercept)", "entry"))
+  expect_identical(as.numeric(artifact$coordinate_count), 2)
+  expect_true(all(left[block$start:block$end] >= 0))
+  expect_true(all(left[block$start:block$end] <= artifact$statistic_maximum))
+  expect_lte(sum(abs(delta)), family$l1_sensitivity)
+  expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
+
+  invalid <- glmm
+  invalid$poisson_random_slope$random_slopes <- c("entry", "x")
+  expect_error(.materializer_test_fixture(
+    data = data, gaussian_specs = invalid),
+    "Invalid Poisson random-slope GLMM model terms")
+})
+
 test_that("binary random-slope GLMM grid emits bounded two-effect losses", {
   glmm <- list(binary_random_slope = list(
     version = "binary_random_slope_grid_v1", dataset = "protected",

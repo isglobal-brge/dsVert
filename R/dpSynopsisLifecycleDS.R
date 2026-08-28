@@ -1487,6 +1487,7 @@
             spec$dataset, spec$cluster, owner, "LMM cluster")
         } else if (spec$version %in% c("binary_random_intercept_grid_v1",
                                        "poisson_random_intercept_grid_v1",
+                                       "poisson_random_slope_grid_v1",
                                        "binary_random_slope_grid_v1")) {
           spec$cluster <- resolve_reference(
             spec$dataset, spec$cluster, owner, "GLMM cluster")

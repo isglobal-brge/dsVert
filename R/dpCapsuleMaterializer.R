@@ -706,6 +706,115 @@
   unname(statistics)
 }
 
+.dsvert_dp_capsule_quantized_poisson_random_slope_grid_losses <- function(
+    design, outcome, cluster, candidate_grid, random_effect_order, grid_bits,
+    max_patients_per_cluster, max_outcome) {
+  if (!is.list(design) || !length(design) || is.null(names(design)) ||
+      !is.numeric(outcome) || length(outcome) != length(cluster) ||
+      anyNA(outcome) || any(!is.finite(outcome)) ||
+      !is.numeric(max_outcome) || length(max_outcome) != 1L ||
+      is.na(max_outcome) || !is.finite(max_outcome) ||
+      max_outcome != floor(max_outcome) || max_outcome < 1L ||
+      max_outcome > 1024L ||
+      any(outcome < 0 | outcome != floor(outcome) | outcome > max_outcome) ||
+      !is.numeric(cluster) || anyNA(cluster) || any(!is.finite(cluster)) ||
+      any(cluster < 1) || any(cluster != floor(cluster)) ||
+      !is.list(candidate_grid) || !length(candidate_grid) ||
+      !is.character(random_effect_order) || length(random_effect_order) != 2L ||
+      !identical(random_effect_order[[1L]], "(Intercept)") ||
+      !random_effect_order[[2L]] %in% names(design) ||
+      !is.numeric(grid_bits) || length(grid_bits) != 1L || is.na(grid_bits) ||
+      !is.finite(grid_bits) || grid_bits != floor(grid_bits) ||
+      grid_bits < 8L || grid_bits > 18L ||
+      !is.numeric(max_patients_per_cluster) ||
+      length(max_patients_per_cluster) != 1L || is.na(max_patients_per_cluster) ||
+      !is.finite(max_patients_per_cluster) ||
+      max_patients_per_cluster != floor(max_patients_per_cluster) ||
+      max_patients_per_cluster < 2L) {
+    stop("Invalid Poisson random-slope likelihood-grid values.",
+         call. = FALSE)
+  }
+  valid_design <- vapply(design, function(column) {
+    is.numeric(column) && length(column) == length(outcome) &&
+      !anyNA(column) && all(is.finite(column)) &&
+      all(column >= 0 & column <= 1)
+  }, logical(1L))
+  candidates <- lapply(candidate_grid, function(candidate) {
+    if (!is.list(candidate) || !setequal(names(candidate), c("beta", "covariance"))) {
+      return(NULL)
+    }
+    beta <- candidate$beta
+    covariance <- candidate$covariance
+    if (is.list(beta) && is.null(names(beta))) beta <- unlist(beta, use.names = FALSE)
+    if (is.list(covariance) && is.null(names(covariance))) {
+      covariance <- unlist(covariance, use.names = FALSE)
+    }
+    if (!is.numeric(beta) || length(beta) != length(design) || anyNA(beta) ||
+        any(!is.finite(beta)) || !is.numeric(covariance) ||
+        length(covariance) != 4L || anyNA(covariance) ||
+        any(!is.finite(covariance))) return(NULL)
+    covariance <- matrix(covariance, 2L, 2L, byrow = TRUE)
+    if (!isTRUE(all.equal(covariance, t(covariance), tolerance = 0)) ||
+        any(eigen(covariance, symmetric = TRUE, only.values = TRUE)$values < -1e-10)) {
+      return(NULL)
+    }
+    decomposition <- eigen(covariance, symmetric = TRUE)
+    list(beta = beta, root = decomposition$vectors %*%
+           diag(sqrt(pmax(0, decomposition$values))))
+  })
+  if (!all(valid_design) || any(vapply(candidates, is.null, logical(1L)))) {
+    stop("Invalid Poisson random-slope likelihood-grid design.",
+         call. = FALSE)
+  }
+  if (!length(outcome)) return(rep.int(0, length(candidates)))
+  cluster_members <- split(seq_along(cluster), as.character(cluster))
+  if (any(lengths(cluster_members) > max_patients_per_cluster)) {
+    stop("The protected snapshot exceeds its signed GLMM cluster capacity.",
+         call. = FALSE)
+  }
+  scale <- 2^as.integer(grid_bits)
+  if (length(outcome) > floor(.dsvert_dp_exact_integer_limit /
+                               (max_patients_per_cluster * scale))) {
+    stop("The GLMM capsule cohort is too large for exact quantization.",
+         call. = FALSE)
+  }
+  quadrature <- .dsvert_dp_capsule_binary_glmm_quadrature_v1()
+  node_grid <- as.matrix(expand.grid(quadrature$nodes, quadrature$nodes))
+  log_weights <- rowSums(log(as.matrix(expand.grid(
+    quadrature$weights, quadrature$weights)))) - log(pi)
+  design_matrix <- do.call(cbind, design)
+  random_column <- match(random_effect_order[[2L]], names(design))
+  statistics <- vapply(candidates, function(candidate) {
+    random_effects <- sqrt(2) * node_grid %*% t(candidate$root)
+    sum(vapply(cluster_members, function(index) {
+      fixed <- design_matrix[index, , drop = FALSE]
+      random <- cbind(1, fixed[, random_column, drop = FALSE])
+      eta <- as.numeric(fixed %*% candidate$beta)
+      node_count <- nrow(random_effects)
+      batch_size <- max(1L, as.integer(floor(
+        .DSVERT_DP_BINARY_GLMM_MAX_NODE_BATCH_CELLS / length(index))))
+      log_likelihood <- numeric(node_count)
+      for (start in seq.int(1L, node_count, by = batch_size)) {
+        end <- min(node_count, start + batch_size - 1L)
+        nodes <- start:end
+        eta_nodes <- eta + random %*% t(random_effects[nodes, , drop = FALSE])
+        log_likelihood[nodes] <- colSums(
+          eta_nodes * outcome[index] - exp(eta_nodes) - lgamma(outcome[index] + 1))
+      }
+      maximum <- max(log_weights + log_likelihood)
+      loss <- -(maximum + log(sum(exp(log_weights + log_likelihood - maximum))))
+      as.numeric(round(max(0, loss) * scale))
+    }, numeric(1L)))
+  }, numeric(1L))
+  if (anyNA(statistics) || any(!is.finite(statistics)) ||
+      any(statistics < 0) || any(statistics != floor(statistics)) ||
+      any(statistics > .dsvert_dp_exact_integer_limit)) {
+    stop("The Poisson random-slope likelihood-grid statistics are not representable.",
+         call. = FALSE)
+  }
+  unname(statistics)
+}
+
 .dsvert_dp_capsule_quantized_gaussian_random_slope_grid_losses <- function(
     design, outcome, cluster, candidate_grid, random_effect_order, grid_bits,
     max_patients_per_cluster, candidate_loss_bounds) {
@@ -2074,6 +2183,43 @@
           artifact$max_outcome)
       if (length(statistics) != block$length) {
         stop("The signed Poisson random-intercept GLMM grid shape is invalid.",
+             call. = FALSE)
+      }
+      values[block$start:block$end] <- statistics
+      next
+    }
+    if (identical(
+          artifact$version,
+          "bounded-poisson-random-slope-likelihood-grid-v1")) {
+      outcome <- bounded_for(block$dataset, artifact$outcome$column)
+      cluster <- .dsvert_dp_capsule_bounded_category(
+        snapshots[[block$dataset]]$data, policy, artifact$cluster$column,
+        artifact$cluster$levels, admission_for(block$dataset))
+      predictors <- lapply(artifact$predictor_order, function(variable) {
+        bounded_for(block$dataset, artifact$predictors[[variable]]$column)
+      })
+      names(predictors) <- artifact$predictor_order
+      complete <- outcome$valid & outcome$unit_values >= 0 &
+        outcome$unit_values == floor(outcome$unit_values) &
+        outcome$unit_values <= artifact$max_outcome & !is.na(cluster$cell)
+      for (predictor in predictors) complete <- complete & predictor$valid
+      normalize <- function(values, lower, upper) {
+        pmin(1, pmax(0, (values - lower) / (upper - lower)))
+      }
+      normalized_outcome <- outcome$unit_values[complete]
+      design <- c(
+        list(`(Intercept)` = rep(1, length(normalized_outcome))),
+        stats::setNames(lapply(artifact$predictor_order, function(variable) {
+          descriptor <- artifact$predictors[[variable]]
+          normalize(predictors[[variable]]$unit_values[complete],
+                    descriptor$lower, descriptor$upper)
+        }), artifact$predictor_order))
+      statistics <- .dsvert_dp_capsule_quantized_poisson_random_slope_grid_losses(
+        design, normalized_outcome, cluster$cell[complete], artifact$candidate_grid,
+        artifact$random_effect_order, artifact$numeric_grid_bits,
+        artifact$max_patients_per_cluster, artifact$max_outcome)
+      if (length(statistics) != block$length) {
+        stop("The signed Poisson random-slope GLMM coordinate shape is invalid.",
              call. = FALSE)
       }
       values[block$start:block$end] <- statistics

@@ -1971,6 +1971,98 @@
       variance_grid = as.numeric(variance_grid),
       kind = "poisson_random_intercept_grid"))
   }
+  if (identical(version, "poisson_random_slope_grid_v1")) {
+    expected <- c(
+      "version", "dataset", "outcome", "cluster", "predictors",
+      "random_slopes", "intercept", "max_patients_per_cluster",
+      "max_outcome", "candidate_grid")
+    if (!setequal(names(raw), expected)) {
+      stop("Invalid Poisson random-slope GLMM specification.",
+           call. = FALSE)
+    }
+    outcome <- .dsvert_dp_capsule_column_reference(
+      raw$outcome, "Poisson GLMM outcome")$reference
+    cluster <- .dsvert_dp_capsule_column_reference(
+      raw$cluster, "Poisson GLMM cluster")$reference
+    normalize_references <- function(value, what) {
+      if (is.list(value) && is.null(names(value))) {
+        value <- unlist(value, use.names = FALSE)
+      }
+      if (!is.character(value) || !length(value) || !is.null(names(value)) ||
+          anyNA(value) || anyDuplicated(value)) return(character())
+      references <- vapply(value, function(x) {
+        .dsvert_dp_capsule_column_reference(x, what)$reference
+      }, character(1L))
+      if (!identical(references, sort(references, method = "radix"))) {
+        return(character())
+      }
+      references
+    }
+    predictors <- normalize_references(raw$predictors,
+                                       "Poisson GLMM fixed predictor")
+    random_slopes <- normalize_references(raw$random_slopes,
+                                          "Poisson GLMM random slope")
+    maximum <- raw$max_patients_per_cluster
+    max_outcome <- raw$max_outcome
+    if (!is.numeric(maximum) || length(maximum) != 1L || is.na(maximum) ||
+        !is.finite(maximum) || maximum != floor(maximum) || maximum < 2 ||
+        maximum > policy$unit_capacity || !is.numeric(max_outcome) ||
+        length(max_outcome) != 1L || is.na(max_outcome) ||
+        !is.finite(max_outcome) || max_outcome != floor(max_outcome) ||
+        max_outcome < 1L || max_outcome > 1024L || !isTRUE(raw$intercept) ||
+        !length(predictors) || outcome %in% predictors ||
+        cluster %in% c(outcome, predictors) || length(random_slopes) != 1L ||
+        !all(random_slopes %in% predictors)) {
+      stop("Invalid Poisson random-slope GLMM model terms.",
+           call. = FALSE)
+    }
+    effects <- c("(Intercept)", random_slopes)
+    candidates <- .dsvert_dp_capsule_binary_random_slope_candidates(
+      raw$candidate_grid, 1L + length(predictors), effects)
+    if (!length(candidates) || length(candidates) > 64L ||
+        any(vapply(candidates, function(candidate) {
+          sum(abs(candidate$beta)) > 16
+        }, logical(1L)))) {
+      stop("Invalid Poisson random-slope GLMM candidate grid.",
+           call. = FALSE)
+    }
+    quadrature <- .dsvert_dp_capsule_binary_glmm_quadrature_v1()
+    candidates <- lapply(candidates, function(candidate) {
+      decomposition <- eigen(candidate$covariance, symmetric = TRUE)
+      root <- decomposition$vectors %*%
+        diag(sqrt(pmax(0, decomposition$values)))
+      eta_bound <- sum(abs(candidate$beta)) + sqrt(2) *
+        max(abs(quadrature$nodes)) * sum(abs(root))
+      loss_bound <- exp(eta_bound) + max_outcome * eta_bound +
+        lgamma(max_outcome + 1)
+      if (!is.finite(loss_bound) || loss_bound <= 0) return(NULL)
+      c(candidate, list(loss_bound = loss_bound))
+    })
+    if (any(vapply(candidates, is.null, logical(1L)))) {
+      stop("Invalid Poisson random-slope GLMM candidate grid.",
+           call. = FALSE)
+    }
+    if (!is.logical(require_public_bounds) ||
+        length(require_public_bounds) != 1L || is.na(require_public_bounds)) {
+      stop("Invalid Gaussian specification validation mode.", call. = FALSE)
+    }
+    if (isTRUE(require_public_bounds) &&
+        (!dataset %in% names(policy$datasets) ||
+         any(!c(outcome, predictors) %in% names(policy$numeric_bounds)) ||
+         !cluster %in% names(policy$categorical_levels))) {
+      stop("The Poisson random-slope GLMM specification lacks public bounds.",
+           call. = FALSE)
+    }
+    return(list(
+      version = version, dataset = dataset, outcome = outcome, cluster = cluster,
+      predictors = unname(predictors), random_slopes = unname(random_slopes),
+      intercept = TRUE, max_patients_per_cluster = as.integer(maximum),
+      max_outcome = as.integer(max_outcome),
+      candidate_grid = lapply(candidates, function(candidate) list(
+        beta = unname(candidate$beta),
+        covariance = unname(as.vector(t(candidate$covariance))))),
+      kind = "poisson_random_slope_grid"))
+  }
   if (identical(version, "binary_random_intercept_grid_v1")) {
     expected <- c(
       "version", "dataset", "outcome", "cluster", "predictors",
@@ -3884,6 +3976,126 @@
           "one_patient_can_change_one_entire_clipped_cluster_loss_by_at_most_its_signed_bound_v1",
         estimation_scope =
           "bounded_gaussian_random_slope_marginal_likelihood_finite_signed_parameter_grid_v1",
+        implementation_state = "same_owner_materialized",
+        cross_owner_state = "reserved_not_materialized")
+      gaussian_coordinate_count <- .dsvert_dp_capsule_coordinate_add(
+        gaussian_coordinate_count, length(candidates))
+      gaussian_raw_l1 <- gaussian_raw_l1 + raw_l1
+      gaussian_raw_l2_squared <- .dsvert_dp_capsule_l2_add(
+        gaussian_raw_l2_squared, .dsvert_dp_capsule_l2_square(raw_l2))
+      gaussian_natural_l1 <- gaussian_natural_l1 + raw_l1 / grid_scale
+      gaussian_natural_l2_squared <- .dsvert_dp_capsule_l2_add(
+        gaussian_natural_l2_squared,
+        .dsvert_dp_capsule_l2_square(raw_l2 / grid_scale))
+      next
+    }
+    if (identical(spec$kind, "poisson_random_slope_grid")) {
+      variables <- c(spec$outcome, spec$predictors, spec$cluster)
+      model_columns <- columns[variables]
+      owners <- unique(vapply(model_columns, `[[`, character(1L), "owner_peer"))
+      datasets <- vapply(model_columns, `[[`, character(1L), "dataset")
+      kinds <- vapply(model_columns, `[[`, character(1L), "kind")
+      expected_kinds <- c(rep("numeric", 1L + length(spec$predictors)),
+                          "categorical")
+      outcome <- columns[[spec$outcome]]
+      if (!identical(unname(kinds), expected_kinds) || length(owners) != 1L ||
+          length(unique(datasets)) != 1L ||
+          !identical(datasets[[1L]], spec$dataset) ||
+          !identical(c(outcome$lower, outcome$upper),
+                     c(0, as.numeric(spec$max_outcome)))) {
+        stop(paste("A Poisson random-slope GLMM specification must be same-owner",
+                   "with a [0,max_outcome] integer numeric outcome and numeric",
+                   "predictors plus a categorical cluster."), call. = FALSE)
+      }
+      design_terms <- c("(Intercept)", spec$predictors)
+      random_effect_order <- c("(Intercept)", spec$random_slopes)
+      candidates <- .dsvert_dp_capsule_binary_random_slope_candidates(
+        spec$candidate_grid, length(design_terms), random_effect_order)
+      if (!length(candidates) || length(candidates) > 64L ||
+          any(vapply(candidates, function(candidate) {
+            sum(abs(candidate$beta)) > 16
+          }, logical(1L)))) {
+        stop("The Poisson random-slope GLMM candidate grid is invalid.",
+             call. = FALSE)
+      }
+      quadrature <- .dsvert_dp_capsule_binary_glmm_quadrature_v1()
+      loss_bounds <- vapply(candidates, function(candidate) {
+        decomposition <- eigen(candidate$covariance, symmetric = TRUE)
+        root <- decomposition$vectors %*%
+          diag(sqrt(pmax(0, decomposition$values)))
+        eta_bound <- sum(abs(candidate$beta)) + sqrt(2) *
+          max(abs(quadrature$nodes)) * sum(abs(root))
+        exp(eta_bound) + spec$max_outcome * eta_bound +
+          lgamma(spec$max_outcome + 1)
+      }, numeric(1L))
+      raw_per_candidate <- ceiling(loss_bounds * grid_scale)
+      statistic_maximum <- as.numeric(capacity * raw_per_candidate)
+      base_raw_l1 <- sum(raw_per_candidate)
+      base_raw_l2 <- .dsvert_dp_capsule_l2_sqrt(sum(raw_per_candidate^2))
+      if (!is.finite(base_raw_l1) || !is.finite(base_raw_l2) ||
+          any(!is.finite(statistic_maximum)) ||
+          any(statistic_maximum > .dsvert_dp_exact_integer_limit)) {
+        stop(structure(list(
+          message = paste("The Poisson random-slope GLMM public bounds exceed",
+                          "the certified exact-computation domain."), call = NULL,
+          reason = "poisson_random_slope_glmm_numeric_backend_unrepresentable"),
+          class = c("dsvert_numeric_backend_unrepresentable", "error",
+                    "condition")))
+      }
+      adjacency_multiplier <- .dsvert_dp_adjacency_multiplier(global_policy)
+      raw_l1 <- adjacency_multiplier * base_raw_l1
+      raw_l2 <- adjacency_multiplier * base_raw_l2
+      predictor_bounds <- lapply(spec$predictors, function(variable) {
+        column <- columns[[variable]]
+        list(column = column$column, lower = column$lower, upper = column$upper)
+      })
+      names(predictor_bounds) <- spec$predictors
+      gaussian_artifacts[[analysis_id]] <- list(
+        version = "bounded-poisson-random-slope-likelihood-grid-v1",
+        spec_version = spec$version, analysis_id = analysis_id,
+        dataset = spec$dataset, owner_peer = owners[[1L]],
+        outcome = list(column = outcome$column, lower = outcome$lower,
+                       upper = outcome$upper),
+        max_outcome = as.integer(spec$max_outcome),
+        cluster = list(column = columns[[spec$cluster]]$column,
+                       levels = columns[[spec$cluster]]$levels),
+        predictors = predictor_bounds, predictor_order = unname(spec$predictors),
+        intercept = TRUE, design_terms = unname(design_terms),
+        random_effect_order = unname(random_effect_order),
+        observation_capacity = as.integer(capacity),
+        max_patients_per_cluster = as.integer(spec$max_patients_per_cluster),
+        candidate_grid = lapply(candidates, function(candidate) list(
+          beta = unname(candidate$beta),
+          covariance = unname(as.vector(t(candidate$covariance))))),
+        quadrature_rule = "gauss_hermite_9x9_standard_normal_v1",
+        candidate_order = "canonical_signed_candidate_grid_v1",
+        candidate_loss_bounds = as.list(unname(loss_bounds)),
+        numeric_grid_bits = grid_bits,
+        coordinate_count = as.integer(length(candidates)),
+        coordinate_order = "signed_candidate_grid_cluster_marginal_poisson_negative_log_likelihood_v1",
+        source_coordinate_scaling =
+          "all_coordinates_already_on_common_numeric_lattice_v1",
+        repeated_record_policy = paste(
+          "require_one_bounded_poisson_outcome_and_mean_once_per_admitted",
+          "patient_with_one_consistent_public_cluster_level_v1", sep = "_"),
+        missingness_policy = paste(
+          "noninteger_or_out_of_range_or_missing_outcome_or_missing_or",
+          "nonfinite_predictor_or_missing_or_inconsistent_cluster_excludes",
+          "patient_v1", sep = "_"),
+        contribution_domain = paste(
+          "one_bounded_patient_poisson_log_likelihood_contribution_in_one",
+          "consistent_cluster_for_every_signed_candidate_v1", sep = "_"),
+        statistic_maximum = as.list(statistic_maximum),
+        source_raw_l1_sensitivity = raw_l1,
+        source_raw_l2_sensitivity = raw_l2,
+        natural_l1_sensitivity = raw_l1 / grid_scale,
+        natural_l2_sensitivity = raw_l2 / grid_scale,
+        adjacency = global_policy$adjacency,
+        adjacency_sensitivity_basis = paste(
+          "one_patient_changes_one_cluster_marginal_log_likelihood_by_at",
+          "most_its_signed_poisson_loss_bound_v1", sep = "_"),
+        estimation_scope =
+          "bounded_poisson_random_intercept_and_one_random_slope_marginal_likelihood_finite_signed_parameter_grid_v1",
         implementation_state = "same_owner_materialized",
         cross_owner_state = "reserved_not_materialized")
       gaussian_coordinate_count <- .dsvert_dp_capsule_coordinate_add(

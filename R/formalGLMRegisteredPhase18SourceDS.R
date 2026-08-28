@@ -16,13 +16,6 @@
 .DSVERT_FORMAL_GLM_REGISTERED_FRESH_SOURCE_DS_ACTIONS <- c(
   "shape", .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_DS_ACTIONS,
   "postselected_sign")
-.DSVERT_FORMAL_GLM_REGISTERED_FRESH_SOURCE_DS_VERSION <-
-  "dsvert-formal-glm-registered-fresh-source-response-v1"
-.DSVERT_FORMAL_GLM_REGISTERED_ANALYSIS_SPECS_OPTION <-
-  "dsvert.formal_glm.registered_analysis_specs"
-.DSVERT_FORMAL_GLM_REGISTERED_ANALYSIS_SPEC_VERSION <-
-  "dsvert-formal-glm-registered-analysis-spec-v1"
-
 .dsvert_formal_glm_registered_source_ds_abort <- function(
     message = "The registered formal-GLM source request is unavailable.",
     code = "formal_glm_registered_source_unavailable") {
@@ -240,78 +233,6 @@
     family = family, formula_sha256 = formula_sha256)
 }
 
-.dsvert_formal_glm_registered_fresh_source_spec <- function(selector) {
-  specs <- getOption(.DSVERT_FORMAL_GLM_REGISTERED_ANALYSIS_SPECS_OPTION)
-  if (!is.list(specs) || is.null(names(specs)) || anyNA(names(specs)) ||
-      any(!nzchar(names(specs))) || anyDuplicated(names(specs))) {
-    .dsvert_formal_glm_registered_source_ds_abort(
-      "The registered formal-GLM fresh-analysis registry is invalid.",
-      "invalid_formal_glm_registered_fresh_registry")
-  }
-  valid_names <- vapply(names(specs), function(value) {
-    is.character(value) && length(value) == 1L &&
-      grepl("^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$", value)
-  }, logical(1L))
-  if (!all(valid_names)) {
-    .dsvert_formal_glm_registered_source_ds_abort(
-      "The registered formal-GLM fresh-analysis registry is invalid.",
-      "invalid_formal_glm_registered_fresh_registry")
-  }
-  value <- specs[[selector$analysis_id]]
-  sampler_authority_root <- tryCatch(
-    .dsvert_formal_glm_registered_source_sampler_authority_root(
-      value$sampler_authority_root),
-    error = function(error) NULL)
-  fields <- c("version", "analysis_id", "data_name", "family",
-              "formula_sha256", "source_contract_json",
-              "publication_context_json", "phase16_policy_json",
-              "sampler_authority_root")
-  if (is.null(value) || !is.list(value) || is.null(names(value)) ||
-      anyNA(names(value)) || anyDuplicated(names(value)) ||
-      !identical(names(value), fields) ||
-      !identical(value$version, .DSVERT_FORMAL_GLM_REGISTERED_ANALYSIS_SPEC_VERSION) ||
-      !identical(value$analysis_id, selector$analysis_id) ||
-      !identical(value$data_name, selector$data_name) ||
-      !identical(value$family, selector$family) ||
-      !identical(value$formula_sha256, selector$formula_sha256) ||
-      !is.character(value$source_contract_json) ||
-      length(value$source_contract_json) != 1L ||
-      is.na(value$source_contract_json) ||
-      nchar(value$source_contract_json, type = "bytes") < 2L ||
-      nchar(value$source_contract_json, type = "bytes") >
-        .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_DS_MAX_CONTRACT_BYTES ||
-      !identical(enc2utf8(value$source_contract_json),
-                 value$source_contract_json) ||
-      !is.character(value$publication_context_json) ||
-      length(value$publication_context_json) != 1L ||
-      is.na(value$publication_context_json) ||
-      nchar(value$publication_context_json, type = "bytes") < 2L ||
-      nchar(value$publication_context_json, type = "bytes") >
-        .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_DS_MAX_CONTRACT_BYTES ||
-      !identical(enc2utf8(value$publication_context_json),
-                 value$publication_context_json) ||
-      !is.character(value$phase16_policy_json) ||
-      length(value$phase16_policy_json) != 1L ||
-      is.na(value$phase16_policy_json) ||
-      nchar(value$phase16_policy_json, type = "bytes") < 2L ||
-      nchar(value$phase16_policy_json, type = "bytes") >
-        .DSVERT_FORMAL_GLM_REGISTERED_SOURCE_DS_MAX_CONTRACT_BYTES ||
-      !identical(enc2utf8(value$phase16_policy_json),
-                 value$phase16_policy_json) ||
-      !is.character(value$sampler_authority_root) ||
-      length(value$sampler_authority_root) != 1L ||
-      is.na(value$sampler_authority_root) ||
-      !identical(enc2utf8(value$sampler_authority_root),
-                 value$sampler_authority_root) ||
-      is.null(sampler_authority_root)) {
-    .dsvert_formal_glm_registered_source_ds_abort(
-      "The requested registered formal-GLM fresh analysis is unavailable.",
-      "invalid_formal_glm_registered_fresh_registry")
-  }
-  value$sampler_authority_root <- sampler_authority_root
-  value
-}
-
 .dsvert_formal_glm_registered_source_ds_dispatch <- function(
     context, action, payload) {
   switch(action,
@@ -383,10 +304,10 @@ dsvertFormalGLMRegisteredSourceDS <- function(
 
 #' Relay one configured fresh registered-formal-GLM source action
 #'
-#' The analyst supplies only the fixed registered analysis selector.  The
-#' signed source contract remains solely in the custodian's Rock-local
-#' configuration; this endpoint never return it, a source row, a key, or a
-#' full encrypted pair.
+#' This sealed prototype endpoint validates only fixed selectors and then fails
+#' before it can select a private immutable source snapshot. The signed source
+#' contract remains solely in the custodian's Rock-local configuration; this
+#' endpoint never returns it, a source row, a key, or a full encrypted pair.
 #'
 #' @param analysis_id Custodian-configured registered analysis id.
 #' @param data_name Fixed configured data selector.
@@ -400,7 +321,6 @@ dsvertFormalGLMRegisteredFreshSourceDS <- function(
     analysis_id, data_name, family, formula_sha256, action, payload) {
   selector <- .dsvert_formal_glm_registered_fresh_source_selector(
     analysis_id, data_name, family, formula_sha256)
-  spec <- .dsvert_formal_glm_registered_fresh_source_spec(selector)
   if (!is.character(action) || length(action) != 1L || is.na(action) ||
       !action %in% .DSVERT_FORMAL_GLM_REGISTERED_FRESH_SOURCE_DS_ACTIONS) {
     .dsvert_formal_glm_registered_source_ds_abort(
@@ -408,18 +328,7 @@ dsvertFormalGLMRegisteredFreshSourceDS <- function(
       "invalid_formal_glm_registered_fresh_action")
   }
   payload <- .dsvert_formal_glm_registered_source_ds_payload(action, payload)
-  response <- tryCatch({
-    context <- .dsvert_formal_glm_registered_source_open(
-      spec$source_contract_json, parent.frame(),
-      publication_context_json = spec$publication_context_json,
-      phase16_policy_json = spec$phase16_policy_json,
-      sampler_authority_root = spec$sampler_authority_root)
-    .dsvert_formal_glm_registered_source_ds_dispatch(context, action, payload)
-  }, error = function(error) NULL)
-  if (is.null(response)) .dsvert_formal_glm_registered_source_ds_abort()
-  list(
-    version = .DSVERT_FORMAL_GLM_REGISTERED_FRESH_SOURCE_DS_VERSION,
-    action = action,
-    payload = .dsvert_formal_glm_registered_source_ds_safe(response),
-    production_ready = FALSE)
+  .dsvert_formal_glm_registered_source_ds_abort(
+    "Fresh formal-GLM computation is not production-attested.",
+    "formal_glm_fresh_source_not_production_attested")
 }

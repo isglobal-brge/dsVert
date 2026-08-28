@@ -168,15 +168,15 @@
 
 #' Relay one configured fresh formal-Cox source action
 #'
-#' This closed DataSHIELD endpoint selects a preconfigured signed Cox schema
-#' and private immutable source snapshot. It accepts only protocol tickets,
-#' encrypted envelopes and bounded block selectors. It cannot start an
-#' analytical run, expose a source value or return a fitted Cox result.
+#' This sealed prototype endpoint validates only fixed selectors and then fails
+#' before it can select a private immutable source snapshot. It accepts no
+#' table, path, key, source row or Cox control from a caller.
 #'
 #' @param analysis_id,data_name,formula_sha256 Fixed custodian-owned selectors.
 #' @param action One closed ingress action.
 #' @param payload Action-specific opaque protocol material.
-#' @return A bounded non-production transport reply.
+#' @return This sealed prototype route fails before source access in the
+#'   disclosure-safe production profile.
 #' @export
 dsvertFormalCoxFreshSourceDS <- function(
     analysis_id, data_name, formula_sha256, action, payload) {
@@ -194,6 +194,9 @@ dsvertFormalCoxFreshSourceDS <- function(
   payload <- .dsvert_formal_cox_fresh_source_ds_payload(action, payload)
   response <- tryCatch({
     plan <- .dsvert_formal_cox_run_plan(analysis_id, data_name, formula_sha256)
+    if (!isTRUE(plan$production_ready)) {
+      stop("formal Cox fresh computation is not production-attested")
+    }
     spec <- .dsvert_formal_cox_run_spec(analysis_id)
     schema <- spec$schema
     if (!identical(plan$analysis_id, analysis_id) ||

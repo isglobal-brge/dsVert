@@ -14,11 +14,11 @@ dsvertFormalCoxFreshSourceDS(analysis_id, data_name, formula_sha256, action, pay
 \item{payload}{Action-specific opaque protocol material.}
 }
 \value{
-A bounded non-production transport reply.
+This sealed prototype route fails before source access in the disclosure-safe
+production profile.
 }
 \description{
-This closed DataSHIELD endpoint selects a preconfigured signed Cox schema
-and private immutable source snapshot. It accepts only protocol tickets,
-encrypted envelopes and bounded block selectors. It cannot start an
-analytical run, expose a source value or return a fitted Cox result.
+This sealed prototype endpoint validates only fixed selectors and then fails
+before it can select a private immutable source snapshot. It accepts no table,
+path, key, source row or Cox control from a caller.
 }

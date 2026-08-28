@@ -901,6 +901,136 @@
   unname(statistics)
 }
 
+.dsvert_dp_capsule_quantized_gaussian_ar1_robust_sandwich_grid <- function(
+    design, outcome, cluster, order, candidate_grid, grid_bits,
+    max_patients_per_cluster, candidate_loss_bounds, candidate_bread_bounds,
+    candidate_meat_bounds, score_clip, public_cluster_levels) {
+  invalid <- !is.list(design) || !length(design) || is.null(names(design)) ||
+    !is.numeric(outcome) || length(outcome) != length(cluster) ||
+    length(outcome) != length(order) || anyNA(outcome) ||
+    any(!is.finite(outcome)) || any(outcome < 0 | outcome > 1) ||
+    !is.numeric(cluster) || anyNA(cluster) || any(!is.finite(cluster)) ||
+    any(cluster < 1) || any(cluster != floor(cluster)) || !is.numeric(order) ||
+    anyNA(order) || any(!is.finite(order)) || !is.list(candidate_grid) ||
+    !length(candidate_grid) || !is.numeric(candidate_loss_bounds) ||
+    !is.numeric(candidate_bread_bounds) || !is.numeric(candidate_meat_bounds) ||
+    length(candidate_loss_bounds) != length(candidate_grid) ||
+    length(candidate_bread_bounds) != length(candidate_grid) ||
+    length(candidate_meat_bounds) != length(candidate_grid) ||
+    anyNA(candidate_loss_bounds) || anyNA(candidate_bread_bounds) ||
+    anyNA(candidate_meat_bounds) || any(!is.finite(candidate_loss_bounds)) ||
+    any(!is.finite(candidate_bread_bounds)) ||
+    any(!is.finite(candidate_meat_bounds)) || any(candidate_loss_bounds <= 0) ||
+    any(candidate_bread_bounds <= 0) || any(candidate_meat_bounds <= 0) ||
+    !is.numeric(grid_bits) || length(grid_bits) != 1L || is.na(grid_bits) ||
+    !is.finite(grid_bits) || grid_bits != floor(grid_bits) || grid_bits < 8L ||
+    grid_bits > 18L || !is.numeric(max_patients_per_cluster) ||
+    length(max_patients_per_cluster) != 1L || is.na(max_patients_per_cluster) ||
+    !is.finite(max_patients_per_cluster) ||
+    max_patients_per_cluster != floor(max_patients_per_cluster) ||
+    max_patients_per_cluster < 2L || !is.numeric(score_clip) ||
+    length(score_clip) != 1L || is.na(score_clip) || !is.finite(score_clip) ||
+    score_clip < 0.25 || score_clip > 32 || !is.numeric(public_cluster_levels) ||
+    length(public_cluster_levels) != 1L || is.na(public_cluster_levels) ||
+    !is.finite(public_cluster_levels) || public_cluster_levels != floor(public_cluster_levels) ||
+    public_cluster_levels < 1L || public_cluster_levels > max_patients_per_cluster ||
+    any(cluster > public_cluster_levels)
+  if (isTRUE(invalid)) {
+    stop("Invalid Gaussian AR1 robust sandwich grid values.", call. = FALSE)
+  }
+  valid_design <- vapply(design, function(column) {
+    is.numeric(column) && length(column) == length(outcome) && !anyNA(column) &&
+      all(is.finite(column)) && all(column >= 0 & column <= 1)
+  }, logical(1L))
+  if (!all(valid_design)) {
+    stop("Invalid Gaussian AR1 robust sandwich design.", call. = FALSE)
+  }
+  candidates <- lapply(candidate_grid, function(candidate) {
+    if (!is.list(candidate) || !setequal(names(candidate), c("beta", "rho"))) {
+      return(NULL)
+    }
+    beta <- candidate$beta
+    rho <- suppressWarnings(as.numeric(candidate$rho))
+    if (is.list(beta) && is.null(names(beta))) beta <- unlist(beta, use.names = FALSE)
+    if (!is.numeric(beta) || length(beta) != length(design) || anyNA(beta) ||
+        any(!is.finite(beta)) || any(abs(beta) > 8) || sum(abs(beta)) > 16 ||
+        length(rho) != 1L || !is.finite(rho) || abs(rho) > 0.8) return(NULL)
+    list(beta = as.numeric(beta), rho = as.numeric(rho))
+  })
+  if (any(vapply(candidates, is.null, logical(1L)))) {
+    stop("Invalid Gaussian AR1 robust sandwich candidates.", call. = FALSE)
+  }
+  cluster_members <- lapply(seq_len(public_cluster_levels), function(cell) {
+    which(cluster == cell)
+  })
+  if (any(lengths(cluster_members) > max_patients_per_cluster)) {
+    stop("The protected snapshot exceeds its signed GEE cluster capacity.",
+         call. = FALSE)
+  }
+  scale <- 2^as.integer(grid_bits)
+  design_matrix <- do.call(cbind, design)
+  dimension <- ncol(design_matrix)
+  upper <- which(upper.tri(matrix(0, dimension, dimension), diag = TRUE))
+  ar1_inverse <- function(size, rho) {
+    if (size == 1L) return(matrix(1, 1L, 1L))
+    values <- rep(1 + rho^2, size)
+    values[c(1L, size)] <- 1
+    inverse <- diag(values)
+    inverse[cbind(seq_len(size - 1L), 2:size)] <- -rho
+    inverse[cbind(2:size, seq_len(size - 1L))] <- -rho
+    inverse / (1 - rho^2)
+  }
+  statistics <- unlist(lapply(seq_along(candidates), function(index) {
+    candidate <- candidates[[index]]
+    loss <- 0
+    bread <- numeric(length(upper))
+    meat <- numeric(length(upper))
+    for (members in cluster_members) {
+      if (length(members)) {
+        ordered <- members[order(order[members], method = "radix")]
+        if (anyDuplicated(order[ordered])) {
+          stop("The protected snapshot has tied order values within a GEE cluster.",
+               call. = FALSE)
+        }
+        fixed <- design_matrix[ordered, , drop = FALSE]
+        residual <- outcome[ordered] - as.numeric(fixed %*% candidate$beta)
+        inverse <- ar1_inverse(length(ordered), candidate$rho)
+        quadratic <- sum(residual * as.numeric(inverse %*% residual))
+        loss <- loss + as.numeric(round(min(candidate_loss_bounds[[index]],
+                                            0.5 * max(0, quadratic)) * scale))
+        bread_matrix <- crossprod(fixed, inverse %*% fixed)
+        score <- as.numeric(crossprod(fixed, inverse %*% residual))
+        score <- pmin(score_clip, pmax(-score_clip, score))
+        meat_matrix <- tcrossprod(score)
+      } else {
+        bread_matrix <- matrix(0, dimension, dimension)
+        meat_matrix <- matrix(0, dimension, dimension)
+      }
+      bread_shifted <- bread_matrix[upper] + candidate_bread_bounds[[index]]
+      meat_shifted <- meat_matrix[upper] + candidate_meat_bounds[[index]]
+      tolerance <- 1e-10
+      if (any(bread_shifted < -tolerance) ||
+          any(bread_shifted > 2 * candidate_bread_bounds[[index]] + tolerance) ||
+          any(meat_shifted < -tolerance) ||
+          any(meat_shifted > 2 * candidate_meat_bounds[[index]] + tolerance)) {
+        stop("The Gaussian AR1 robust sandwich bounds are violated.", call. = FALSE)
+      }
+      bread <- bread + as.numeric(round(pmin(2 * candidate_bread_bounds[[index]],
+                                              pmax(0, bread_shifted)) * scale))
+      meat <- meat + as.numeric(round(pmin(2 * candidate_meat_bounds[[index]],
+                                            pmax(0, meat_shifted)) * scale))
+    }
+    c(loss, bread, meat)
+  }), use.names = FALSE)
+  if (anyNA(statistics) || any(!is.finite(statistics)) || any(statistics < 0) ||
+      any(statistics != floor(statistics)) ||
+      any(statistics > .dsvert_dp_exact_integer_limit)) {
+    stop("The Gaussian AR1 robust sandwich statistics are not representable.",
+         call. = FALSE)
+  }
+  unname(statistics)
+}
+
 .dsvert_dp_capsule_quantized_negative_binomial_grid_losses <- function(
     design, outcome, beta_grid, theta_grid, grid_bits, max_outcome) {
   if (!is.list(design) || !length(design) || !is.numeric(outcome) ||
@@ -1603,8 +1733,11 @@
       values[block$start:block$end] <- statistics
       next
     }
-    if (identical(artifact$version,
-                  "bounded-gaussian-ar1-working-gls-grid-v1")) {
+    if (artifact$version %in% c(
+          "bounded-gaussian-ar1-working-gls-grid-v1",
+          "bounded-gaussian-ar1-robust-working-gls-grid-v1")) {
+      robust_sandwich <- identical(
+        artifact$version, "bounded-gaussian-ar1-robust-working-gls-grid-v1")
       outcome <- bounded_for(block$dataset, artifact$outcome$column)
       cluster <- .dsvert_dp_capsule_bounded_category(
         snapshots[[block$dataset]]$data, policy, artifact$cluster$column,
@@ -1628,11 +1761,22 @@
                     normalize(predictors[[variable]]$unit_values[complete],
                               descriptor$lower, descriptor$upper)
                   }), artifact$predictor_order))
-      statistics <- .dsvert_dp_capsule_quantized_gaussian_ar1_working_gls_grid_losses(
-        design, normalized_outcome, cluster$cell[complete],
-        order$unit_values[complete], artifact$candidate_grid,
-        artifact$numeric_grid_bits, artifact$max_patients_per_cluster,
-        unlist(artifact$candidate_loss_bounds, use.names = FALSE))
+      statistics <- if (isTRUE(robust_sandwich)) {
+        .dsvert_dp_capsule_quantized_gaussian_ar1_robust_sandwich_grid(
+          design, normalized_outcome, cluster$cell[complete],
+          order$unit_values[complete], artifact$candidate_grid,
+          artifact$numeric_grid_bits, artifact$max_patients_per_cluster,
+          unlist(artifact$candidate_loss_bounds, use.names = FALSE),
+          unlist(artifact$candidate_bread_bounds, use.names = FALSE),
+          unlist(artifact$candidate_meat_bounds, use.names = FALSE),
+          artifact$score_clip, artifact$public_cluster_levels)
+      } else {
+        .dsvert_dp_capsule_quantized_gaussian_ar1_working_gls_grid_losses(
+          design, normalized_outcome, cluster$cell[complete],
+          order$unit_values[complete], artifact$candidate_grid,
+          artifact$numeric_grid_bits, artifact$max_patients_per_cluster,
+          unlist(artifact$candidate_loss_bounds, use.names = FALSE))
+      }
       if (length(statistics) != block$length) {
         stop("The signed Gaussian AR1 working-GLS coordinate shape is invalid.",
              call. = FALSE)

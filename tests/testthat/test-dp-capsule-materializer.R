@@ -1007,6 +1007,46 @@ test_that("Gaussian AR1 working-GLS grid honours patient sensitivity and rejects
     fixture$policy, fixture$manifest, fixture$resolved), "tied order")
 })
 
+test_that("Gaussian AR1 robust sandwich grid emits bounded shifted bread and meat", {
+  ar1 <- list(ar1_robust = list(
+    version = "gaussian_ar1_robust_working_gls_grid_v1", dataset = "protected",
+    outcome = "time", cluster = "cat_a", order = "entry", predictors = "x",
+    intercept = TRUE, max_patients_per_cluster = 2L, score_clip = 1,
+    candidate_grid = list(
+      list(beta = c(0, 0), rho = 0),
+      list(beta = c(0.2, 0.5), rho = 0.5))))
+  data <- data.frame(
+    patient_id = paste0("u", 1:4), entry = 0:3, time = c(1, 3, 6, 8),
+    x = c(0, 3, 7, 10), cat_a = c("A", "A", "B", "B"),
+    cat_b = c("L", "L", "R", "R"), status = "censor")
+  fixture <- .materializer_test_fixture(
+    data = data, capacity = 4L, gaussian_specs = ar1)
+  artifact <- fixture$manifest$workload$families$gaussian_models$
+    artifacts$ar1_robust
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["gaussian_models::ar1_robust"]]
+  left <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  fixture$resolved$protected$data$time[1L] <- 10
+  right <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  delta <- right[block$start:block$end] - left[block$start:block$end]
+
+  expect_identical(artifact$version,
+                   "bounded-gaussian-ar1-robust-working-gls-grid-v1")
+  expect_identical(as.numeric(artifact$coordinate_count), 14)
+  expect_identical(as.numeric(artifact$public_cluster_levels), 2)
+  expect_identical(artifact$score_clip, 1)
+  expect_true(all(left[block$start:block$end] >= 0))
+  expect_true(all(left[block$start:block$end] <=
+                    unlist(artifact$statistic_maximum, use.names = FALSE)))
+  expect_lte(sum(abs(delta)), artifact$source_raw_l1_sensitivity)
+  expect_lte(sqrt(sum(delta^2)), artifact$source_raw_l2_sensitivity)
+  fixture$resolved$protected$data$entry[2L] <- 0
+  expect_error(.dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved), "tied order")
+})
+
 test_that("Cox partial-likelihood grid emits bounded Breslow losses", {
   cox <- list(cox_grid = list(
     version = "cox_partial_likelihood_grid_v1", dataset = "protected",

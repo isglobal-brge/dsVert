@@ -1120,6 +1120,50 @@
   candidates[order(keys)]
 }
 
+.dsvert_dp_capsule_gaussian_ar1_robust_sandwich_bounds <- function(
+    candidates, cluster_capacity, score_clip) {
+  if (!is.list(candidates) || !length(candidates) ||
+      !is.numeric(cluster_capacity) || length(cluster_capacity) != 1L ||
+      is.na(cluster_capacity) || !is.finite(cluster_capacity) ||
+      cluster_capacity != floor(cluster_capacity) || cluster_capacity < 2L ||
+      !is.numeric(score_clip) || length(score_clip) != 1L ||
+      is.na(score_clip) || !is.finite(score_clip) || score_clip < 0.25 ||
+      score_clip > 32) {
+    return(list())
+  }
+  lapply(candidates, function(candidate) {
+    if (!is.list(candidate) || !is.numeric(candidate$rho) ||
+        length(candidate$rho) != 1L || !is.finite(candidate$rho) ||
+        abs(candidate$rho) > 0.8 || !is.numeric(candidate$loss_bound) ||
+        length(candidate$loss_bound) != 1L ||
+        !is.finite(candidate$loss_bound) || candidate$loss_bound <= 0) {
+      return(NULL)
+    }
+    inverse_row_sum <- (1 + abs(candidate$rho)) / (1 - abs(candidate$rho))
+    bread_bound <- cluster_capacity * inverse_row_sum
+    meat_bound <- score_clip^2
+    local_ar1_change <- 2 * (1 + candidate$rho^2 +
+      6 * abs(candidate$rho)) / (1 - candidate$rho^2)
+    residual_bound <- 1 + sum(abs(candidate$beta))
+    loss_sensitivity_bound <- local_ar1_change * residual_bound^2
+    bread_sensitivity_bound <- local_ar1_change
+    meat_sensitivity_bound <- 4 * meat_bound
+    if (!is.finite(bread_bound) || bread_bound <= 0 ||
+        !is.finite(meat_bound) || meat_bound <= 0 ||
+        !is.finite(loss_sensitivity_bound) || loss_sensitivity_bound <= 0 ||
+        !is.finite(bread_sensitivity_bound) || bread_sensitivity_bound <= 0 ||
+        !is.finite(meat_sensitivity_bound) || meat_sensitivity_bound <= 0) {
+      return(NULL)
+    }
+    list(loss_bound = candidate$loss_bound,
+         bread_bound = as.numeric(bread_bound),
+         meat_bound = as.numeric(meat_bound),
+         loss_sensitivity_bound = as.numeric(loss_sensitivity_bound),
+         bread_sensitivity_bound = as.numeric(bread_sensitivity_bound),
+         meat_sensitivity_bound = as.numeric(meat_sensitivity_bound))
+  })
+}
+
 .dsvert_dp_capsule_cox_partial_grid_candidates <- function(
     value, dimension, capacity) {
   if (!is.list(value) || !length(value) || !is.null(names(value)) ||
@@ -1631,10 +1675,14 @@
       max_outcome = as.integer(maximum), beta_grid = unname(beta_grid),
       theta_grid = as.numeric(theta_grid), kind = "negative_binomial_grid"))
   }
-  if (identical(version, "gaussian_ar1_working_gls_grid_v1")) {
+  if (version %in% c("gaussian_ar1_working_gls_grid_v1",
+                     "gaussian_ar1_robust_working_gls_grid_v1")) {
+    robust_sandwich <- identical(
+      version, "gaussian_ar1_robust_working_gls_grid_v1")
     expected <- c(
       "version", "dataset", "outcome", "cluster", "order", "predictors",
       "intercept", "max_patients_per_cluster", "candidate_grid")
+    if (isTRUE(robust_sandwich)) expected <- c(expected, "score_clip")
     if (!setequal(names(raw), expected)) {
       stop("Invalid Gaussian AR1 working-GLS specification.", call. = FALSE)
     }
@@ -1661,16 +1709,29 @@
     maximum <- raw$max_patients_per_cluster
     if (!is.numeric(maximum) || length(maximum) != 1L || is.na(maximum) ||
         !is.finite(maximum) || maximum != floor(maximum) || maximum < 2 ||
-        maximum > policy$unit_capacity || !isTRUE(raw$intercept) ||
+        maximum > min(policy$unit_capacity,
+                      if (isTRUE(robust_sandwich)) 32L else policy$unit_capacity) ||
+        !isTRUE(raw$intercept) ||
         !length(predictors) || outcome %in% predictors ||
+        (isTRUE(robust_sandwich) && length(predictors) > 3L) ||
         length(unique(c(outcome, cluster, order, predictors))) !=
           3L + length(predictors)) {
       stop("Invalid Gaussian AR1 working-GLS model terms.", call. = FALSE)
     }
     candidates <- .dsvert_dp_capsule_gaussian_ar1_working_gls_candidates(
       raw$candidate_grid, 1L + length(predictors), as.numeric(maximum))
-    if (!length(candidates) || length(candidates) > 128L) {
+    if (!length(candidates) || length(candidates) >
+        if (isTRUE(robust_sandwich)) 64L else 128L) {
       stop("Invalid Gaussian AR1 working-GLS candidate grid.", call. = FALSE)
+    }
+    score_clip <- if (isTRUE(robust_sandwich)) raw$score_clip else NULL
+    if (isTRUE(robust_sandwich) &&
+        (!is.numeric(score_clip) || length(score_clip) != 1L ||
+         is.na(score_clip) || !is.finite(score_clip) || score_clip < 0.25 ||
+         score_clip > 32 ||
+         !cluster %in% names(policy$categorical_levels) ||
+         length(policy$categorical_levels[[cluster]]) > maximum)) {
+      stop("Invalid Gaussian AR1 robust sandwich terms.", call. = FALSE)
     }
     if (!is.logical(require_public_bounds) ||
         length(require_public_bounds) != 1L || is.na(require_public_bounds)) {
@@ -1683,13 +1744,19 @@
       stop("The Gaussian AR1 working-GLS specification lacks public bounds.",
            call. = FALSE)
     }
-    return(list(
+    result <- list(
       version = version, dataset = dataset, outcome = outcome, cluster = cluster,
       order = order, predictors = unname(predictors), intercept = TRUE,
       max_patients_per_cluster = as.integer(maximum),
       candidate_grid = lapply(candidates, function(candidate) list(
         beta = unname(candidate$beta), rho = candidate$rho)),
-      kind = "gaussian_ar1_working_gls_grid"))
+      kind = if (isTRUE(robust_sandwich)) {
+        "gaussian_ar1_robust_working_gls_grid"
+      } else {
+        "gaussian_ar1_working_gls_grid"
+      })
+    if (isTRUE(robust_sandwich)) result$score_clip <- as.numeric(score_clip)
+    return(result)
   }
   if (identical(version, "gaussian_random_slope_grid_v1")) {
     expected <- c(
@@ -2503,7 +2570,8 @@
     spec <- .dsvert_dp_capsule_gaussian_spec(
       global_policy, analysis_id, gaussian_specs)
     variables <- c(spec$outcome, spec$predictors)
-    if (identical(spec$kind, "gaussian_ar1_working_gls_grid")) {
+    if (spec$kind %in% c("gaussian_ar1_working_gls_grid",
+                         "gaussian_ar1_robust_working_gls_grid")) {
       variables <- c(variables, spec[["order", exact = TRUE]])
     }
     lapply(variables, reference)
@@ -3530,7 +3598,10 @@
         .dsvert_dp_capsule_l2_square(raw_l2 / grid_scale))
       next
     }
-    if (identical(spec$kind, "gaussian_ar1_working_gls_grid")) {
+    if (spec$kind %in% c("gaussian_ar1_working_gls_grid",
+                         "gaussian_ar1_robust_working_gls_grid")) {
+      robust_sandwich <- identical(
+        spec$kind, "gaussian_ar1_robust_working_gls_grid")
       variables <- c(spec$outcome, spec$predictors, spec$order, spec$cluster)
       model_columns <- columns[variables]
       owners <- unique(vapply(model_columns, `[[`, character(1L), "owner_peer"))
@@ -3552,15 +3623,62 @@
       design_terms <- c("(Intercept)", spec$predictors)
       candidates <- .dsvert_dp_capsule_gaussian_ar1_working_gls_candidates(
         spec$candidate_grid, length(design_terms), cluster_capacity)
-      if (!length(candidates) || length(candidates) > 128L) {
+      if (!length(candidates) || length(candidates) >
+          if (isTRUE(robust_sandwich)) 64L else 128L) {
         stop("The Gaussian AR1 working-GLS candidate grid is invalid.",
              call. = FALSE)
       }
       loss_bounds <- vapply(candidates, `[[`, numeric(1L), "loss_bound")
-      raw_per_candidate <- ceiling(loss_bounds * grid_scale)
-      statistic_maximum <- as.numeric(capacity * raw_per_candidate)
-      base_raw_l1 <- sum(raw_per_candidate)
-      base_raw_l2 <- .dsvert_dp_capsule_l2_sqrt(sum(raw_per_candidate^2))
+      robust_bounds <- if (isTRUE(robust_sandwich)) {
+        .dsvert_dp_capsule_gaussian_ar1_robust_sandwich_bounds(
+          candidates, cluster_capacity, spec$score_clip)
+      } else {
+        list()
+      }
+      if (isTRUE(robust_sandwich) &&
+          (length(robust_bounds) != length(candidates) ||
+           any(vapply(robust_bounds, is.null, logical(1L))) ||
+           length(columns[[spec$cluster]]$levels) > cluster_capacity)) {
+        stop("The Gaussian AR1 robust sandwich bounds are invalid.",
+             call. = FALSE)
+      }
+      if (isTRUE(robust_sandwich)) {
+        triangle_count <- length(design_terms) * (length(design_terms) + 1L) / 2L
+        bread_bounds <- vapply(robust_bounds, `[[`, numeric(1L), "bread_bound")
+        meat_bounds <- vapply(robust_bounds, `[[`, numeric(1L), "meat_bound")
+        loss_sensitivity_bounds <- vapply(
+          robust_bounds, `[[`, numeric(1L), "loss_sensitivity_bound")
+        bread_sensitivity_bounds <- vapply(
+          robust_bounds, `[[`, numeric(1L), "bread_sensitivity_bound")
+        meat_sensitivity_bounds <- vapply(
+          robust_bounds, `[[`, numeric(1L), "meat_sensitivity_bound")
+        loss_raw <- ceiling(loss_bounds * grid_scale)
+        bread_raw <- ceiling(2 * bread_bounds * grid_scale)
+        meat_raw <- ceiling(2 * meat_bounds * grid_scale)
+        loss_sensitivity_raw <- ceiling(loss_sensitivity_bounds * grid_scale) + 2
+        bread_sensitivity_raw <- ceiling(bread_sensitivity_bounds * grid_scale) + 2
+        meat_sensitivity_raw <- ceiling(meat_sensitivity_bounds * grid_scale) + 2
+        public_clusters <- length(columns[[spec$cluster]]$levels)
+        statistic_maximum <- unlist(lapply(seq_along(candidates), function(index) {
+          c(capacity * loss_raw[[index]],
+            rep(public_clusters * bread_raw[[index]], triangle_count),
+            rep(public_clusters * meat_raw[[index]], triangle_count))
+        }), use.names = FALSE)
+        raw_coordinate_bounds <- unlist(lapply(seq_along(candidates), function(index) {
+          c(loss_sensitivity_raw[[index]],
+            rep(bread_sensitivity_raw[[index]], triangle_count),
+            rep(meat_sensitivity_raw[[index]], triangle_count))
+        }), use.names = FALSE)
+        artifact_coordinate_count <- length(raw_coordinate_bounds)
+        base_raw_l1 <- sum(raw_coordinate_bounds)
+        base_raw_l2 <- .dsvert_dp_capsule_l2_sqrt(sum(raw_coordinate_bounds^2))
+      } else {
+        raw_per_candidate <- ceiling(loss_bounds * grid_scale)
+        statistic_maximum <- as.numeric(capacity * raw_per_candidate)
+        artifact_coordinate_count <- length(candidates)
+        base_raw_l1 <- sum(raw_per_candidate)
+        base_raw_l2 <- .dsvert_dp_capsule_l2_sqrt(sum(raw_per_candidate^2))
+      }
       required_signed_bits <- as.integer(
         ceiling(log2(max(statistic_maximum) + 1))) + 1L
       if (!is.finite(base_raw_l1) || !is.finite(base_raw_l2) ||
@@ -3584,8 +3702,12 @@
         list(column = column$column, lower = column$lower, upper = column$upper)
       })
       names(predictor_bounds) <- spec$predictors
-      gaussian_artifacts[[analysis_id]] <- list(
-        version = "bounded-gaussian-ar1-working-gls-grid-v1",
+      artifact <- list(
+        version = if (isTRUE(robust_sandwich)) {
+          "bounded-gaussian-ar1-robust-working-gls-grid-v1"
+        } else {
+          "bounded-gaussian-ar1-working-gls-grid-v1"
+        },
         spec_version = spec$version, analysis_id = analysis_id,
         dataset = spec$dataset, owner_peer = owners[[1L]],
         outcome = list(column = outcome$column, lower = outcome$lower,
@@ -3603,9 +3725,12 @@
         candidate_order = "canonical_beta_rho_grid_v1",
         candidate_loss_bounds = as.list(unname(loss_bounds)),
         numeric_grid_bits = grid_bits,
-        coordinate_count = as.integer(length(candidates)),
-        coordinate_order =
-          "signed_candidate_grid_cluster_gaussian_ar1_working_gls_loss_v1",
+        coordinate_count = as.integer(artifact_coordinate_count),
+        coordinate_order = if (isTRUE(robust_sandwich)) {
+          "signed_candidate_grid_cluster_gaussian_ar1_loss_bread_meat_upper_v1"
+        } else {
+          "signed_candidate_grid_cluster_gaussian_ar1_working_gls_loss_v1"
+        },
         source_coordinate_scaling =
           "all_coordinates_already_on_common_numeric_lattice_v1",
         repeated_record_policy = paste(
@@ -3614,24 +3739,51 @@
         missingness_policy = paste(
           "missing_or_nonfinite_outcome_predictor_or_order_or_missing_or",
           "inconsistent_cluster_excludes_patient_and_order_ties_reject_v1"),
-        contribution_domain = paste(
-          "one_bounded_patient_can_change_one_clipped_cluster_gaussian_ar1",
-          "working_gls_loss_per_signed_candidate_v1"),
+        contribution_domain = if (isTRUE(robust_sandwich)) {
+          paste("one_bounded_patient_can_change_local_ar1_loss_and_bread",
+                "terms_and_at_most_two_componentwise_clipped_cluster_score",
+                "meat_products_per_signed_candidate_v1", sep = "_")
+        } else {
+          paste("one_bounded_patient_can_change_one_clipped_cluster_gaussian_ar1",
+                "working_gls_loss_per_signed_candidate_v1")
+        },
         statistic_maximum = as.list(statistic_maximum),
         source_raw_l1_sensitivity = raw_l1,
         source_raw_l2_sensitivity = raw_l2,
         natural_l1_sensitivity = raw_l1 / grid_scale,
         natural_l2_sensitivity = raw_l2 / grid_scale,
         adjacency = global_policy$adjacency,
-        adjacency_sensitivity_basis = paste(
-          "one_patient_can_change_one_entire_clipped_cluster_ar1_working",
-          "gls_loss_by_at_most_its_signed_bound_v1"),
-        estimation_scope = paste(
-          "bounded_gaussian_ar1_working_gls_finite_signed_beta_rho_grid_v1"),
+        adjacency_sensitivity_basis = if (isTRUE(robust_sandwich)) {
+          paste("one_patient_removal_insertion_or_order_change_affects_at",
+                "most_two_local_ar1_neighborhoods_and_two_clipped_score",
+                "outer_products_with_quantization_slack_v1", sep = "_")
+        } else {
+          paste("one_patient_can_change_one_entire_clipped_cluster_ar1_working",
+                "gls_loss_by_at_most_its_signed_bound_v1")
+        },
+        estimation_scope = if (isTRUE(robust_sandwich)) {
+          paste("bounded_gaussian_ar1_working_gls_finite_signed_beta_rho_grid",
+                "with_componentwise_clipped_cluster_score_sandwich_v1", sep = "_")
+        } else {
+          paste("bounded_gaussian_ar1_working_gls_finite_signed_beta_rho_grid_v1")
+        },
         implementation_state = "same_owner_materialized",
         cross_owner_state = "reserved_not_materialized")
+      if (isTRUE(robust_sandwich)) {
+        artifact$score_clip <- as.numeric(spec$score_clip)
+        artifact$candidate_bread_bounds <- as.list(unname(bread_bounds))
+        artifact$candidate_meat_bounds <- as.list(unname(meat_bounds))
+        artifact$candidate_loss_sensitivity_bounds <-
+          as.list(unname(loss_sensitivity_bounds))
+        artifact$candidate_bread_sensitivity_bounds <-
+          as.list(unname(bread_sensitivity_bounds))
+        artifact$candidate_meat_sensitivity_bounds <-
+          as.list(unname(meat_sensitivity_bounds))
+        artifact$public_cluster_levels <- as.integer(public_clusters)
+      }
+      gaussian_artifacts[[analysis_id]] <- artifact
       gaussian_coordinate_count <- .dsvert_dp_capsule_coordinate_add(
-        gaussian_coordinate_count, length(candidates))
+        gaussian_coordinate_count, artifact_coordinate_count)
       gaussian_raw_l1 <- gaussian_raw_l1 + raw_l1
       gaussian_raw_l2_squared <- .dsvert_dp_capsule_l2_add(
         gaussian_raw_l2_squared, .dsvert_dp_capsule_l2_square(raw_l2))

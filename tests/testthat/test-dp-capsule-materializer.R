@@ -804,6 +804,52 @@ test_that("Poisson random-slope GLMM grid emits bounded two-effect losses", {
     "Invalid Poisson random-slope GLMM model terms")
 })
 
+test_that("Poisson GLMM grid emits bounded four-effect random-slope losses", {
+  glmm <- list(poisson_random_slope = list(
+    version = "poisson_random_slope_grid_v1", dataset = "protected",
+    outcome = "x", predictors = c("entry", "w", "z"),
+    random_slopes = c("entry", "w", "z"), intercept = TRUE,
+    cluster = "cat_a", max_patients_per_cluster = 2L, max_outcome = 10L,
+    candidate_grid = list(
+      list(beta = c(0, 0, 0, 0), covariance = c(
+        0.25, 0, 0, 0,
+        0, 0.25, 0, 0,
+        0, 0, 0.25, 0,
+        0, 0, 0, 0.25)),
+      list(beta = c(0, log(2), 0.5, -0.5), covariance = c(
+        0.5, 0.1, 0.05, 0.02,
+        0.1, 0.5, 0.05, 0.02,
+        0.05, 0.05, 0.5, 0.02,
+        0.02, 0.02, 0.02, 0.5)))))
+  data <- .materializer_test_data()
+  data$x <- c(1, 1, 4, NA_real_)
+  data$entry <- c(0, 0, 2, NA_real_)
+  fixture <- .materializer_test_fixture(
+    data = data, gaussian_specs = glmm, binary_z = TRUE, binary_w = TRUE)
+  artifact <- fixture$manifest$workload$families$gaussian_models$
+    artifacts$poisson_random_slope
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["gaussian_models::poisson_random_slope"]]
+  left <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  changed <- fixture$data
+  changed$z[changed$patient_id == "u2"] <- 1
+  fixture$resolved$protected$data <- changed
+  right <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  family <- fixture$manifest$workload$families$gaussian_models
+  delta <- right[block$start:block$end] - left[block$start:block$end]
+
+  expect_identical(artifact$random_effect_order,
+                   c("(Intercept)", "entry", "w", "z"))
+  expect_identical(artifact$quadrature_rule,
+                   "gauss_hermite_9x9x9x9_standard_normal_v1")
+  expect_true(all(left[block$start:block$end] >= 0))
+  expect_true(all(left[block$start:block$end] <= artifact$statistic_maximum))
+  expect_lte(sum(abs(delta)), family$l1_sensitivity)
+  expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
+})
+
 test_that("robust binomial and Poisson independence GEE grids bind sandwich coordinates", {
   for (family in c("binomial", "poisson")) {
     poisson <- identical(family, "poisson")

@@ -2104,7 +2104,8 @@
         !is.finite(max_outcome) || max_outcome != floor(max_outcome) ||
         max_outcome < 1L || max_outcome > 1024L || !isTRUE(raw$intercept) ||
         !length(predictors) || outcome %in% predictors ||
-        cluster %in% c(outcome, predictors) || length(random_slopes) != 1L ||
+        cluster %in% c(outcome, predictors) || length(random_slopes) < 1L ||
+        length(random_slopes) > 3L ||
         !all(random_slopes %in% predictors)) {
       stop("Invalid Poisson random-slope GLMM model terms.",
            call. = FALSE)
@@ -4336,7 +4337,8 @@
         candidate_grid = lapply(candidates, function(candidate) list(
           beta = unname(candidate$beta),
           covariance = unname(as.vector(t(candidate$covariance))))),
-        quadrature_rule = "gauss_hermite_9x9_standard_normal_v1",
+        quadrature_rule = .dsvert_dp_capsule_binary_random_slope_quadrature_rule_v1(
+          length(random_effect_order)),
         candidate_order = "canonical_signed_candidate_grid_v1",
         candidate_loss_bounds = as.list(unname(loss_bounds)),
         numeric_grid_bits = grid_bits,
@@ -4363,8 +4365,11 @@
         adjacency_sensitivity_basis = paste(
           "one_patient_changes_one_cluster_marginal_log_likelihood_by_at",
           "most_its_signed_poisson_loss_bound_v1", sep = "_"),
-        estimation_scope =
-          "bounded_poisson_random_intercept_and_one_random_slope_marginal_likelihood_finite_signed_parameter_grid_v1",
+        estimation_scope = if (length(random_effect_order) == 2L) {
+          "bounded_poisson_random_intercept_and_one_random_slope_marginal_likelihood_finite_signed_parameter_grid_v1"
+        } else {
+          "bounded_poisson_random_intercept_and_one_to_three_random_slopes_marginal_likelihood_finite_signed_parameter_grid_v1"
+        },
         implementation_state = "same_owner_materialized",
         cross_owner_state = "reserved_not_materialized")
       gaussian_coordinate_count <- .dsvert_dp_capsule_coordinate_add(

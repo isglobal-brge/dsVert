@@ -720,9 +720,10 @@
       !is.numeric(cluster) || anyNA(cluster) || any(!is.finite(cluster)) ||
       any(cluster < 1) || any(cluster != floor(cluster)) ||
       !is.list(candidate_grid) || !length(candidate_grid) ||
-      !is.character(random_effect_order) || length(random_effect_order) != 2L ||
+      !is.character(random_effect_order) || length(random_effect_order) < 2L ||
+      length(random_effect_order) > 4L ||
       !identical(random_effect_order[[1L]], "(Intercept)") ||
-      !random_effect_order[[2L]] %in% names(design) ||
+      !all(random_effect_order[-1L] %in% names(design)) ||
       !is.numeric(grid_bits) || length(grid_bits) != 1L || is.na(grid_bits) ||
       !is.finite(grid_bits) || grid_bits != floor(grid_bits) ||
       grid_bits < 8L || grid_bits > 18L ||
@@ -749,11 +750,12 @@
     if (is.list(covariance) && is.null(names(covariance))) {
       covariance <- unlist(covariance, use.names = FALSE)
     }
+    effect_count <- length(random_effect_order)
     if (!is.numeric(beta) || length(beta) != length(design) || anyNA(beta) ||
         any(!is.finite(beta)) || !is.numeric(covariance) ||
-        length(covariance) != 4L || anyNA(covariance) ||
+        length(covariance) != effect_count^2 || anyNA(covariance) ||
         any(!is.finite(covariance))) return(NULL)
-    covariance <- matrix(covariance, 2L, 2L, byrow = TRUE)
+    covariance <- matrix(covariance, effect_count, effect_count, byrow = TRUE)
     if (!isTRUE(all.equal(covariance, t(covariance), tolerance = 0)) ||
         any(eigen(covariance, symmetric = TRUE, only.values = TRUE)$values < -1e-10)) {
       return(NULL)
@@ -779,16 +781,18 @@
          call. = FALSE)
   }
   quadrature <- .dsvert_dp_capsule_binary_glmm_quadrature_v1()
-  node_grid <- as.matrix(expand.grid(quadrature$nodes, quadrature$nodes))
-  log_weights <- rowSums(log(as.matrix(expand.grid(
-    quadrature$weights, quadrature$weights)))) - log(pi)
+  effect_count <- length(random_effect_order)
+  node_grid <- as.matrix(do.call(expand.grid,
+    rep(list(quadrature$nodes), effect_count)))
+  log_weights <- rowSums(log(as.matrix(do.call(expand.grid,
+    rep(list(quadrature$weights), effect_count))))) - 0.5 * effect_count * log(pi)
   design_matrix <- do.call(cbind, design)
-  random_column <- match(random_effect_order[[2L]], names(design))
+  random_columns <- match(random_effect_order[-1L], names(design))
   statistics <- vapply(candidates, function(candidate) {
     random_effects <- sqrt(2) * node_grid %*% t(candidate$root)
     sum(vapply(cluster_members, function(index) {
       fixed <- design_matrix[index, , drop = FALSE]
-      random <- cbind(1, fixed[, random_column, drop = FALSE])
+      random <- cbind(1, fixed[, random_columns, drop = FALSE])
       eta <- as.numeric(fixed %*% candidate$beta)
       node_count <- nrow(random_effects)
       batch_size <- max(1L, as.integer(floor(

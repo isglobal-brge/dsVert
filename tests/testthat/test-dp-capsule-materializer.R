@@ -848,6 +848,68 @@ test_that("Gaussian random-slope LMM grid honours its signed sensitivity", {
   expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
 })
 
+test_that("Gaussian AR1 working-GLS grid emits only clipped cluster losses", {
+  ar1 <- list(ar1 = list(
+    version = "gaussian_ar1_working_gls_grid_v1", dataset = "protected",
+    outcome = "time", cluster = "cat_a", order = "entry", predictors = "x",
+    intercept = TRUE, max_patients_per_cluster = 2L,
+    candidate_grid = list(
+      list(beta = c(0, 0), rho = 0),
+      list(beta = c(0.2, 0.5), rho = 0.5))))
+  data <- data.frame(
+    patient_id = paste0("u", 1:4), entry = 0:3, time = c(1, 3, 6, 8),
+    x = c(0, 3, 7, 10), cat_a = c("A", "A", "B", "B"),
+    cat_b = c("L", "L", "R", "R"), status = "censor")
+  fixture <- .materializer_test_fixture(
+    data = data, capacity = 4L, gaussian_specs = ar1)
+  artifact <- fixture$manifest$workload$families$gaussian_models$artifacts$ar1
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["gaussian_models::ar1"]]
+  material <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)
+
+  expect_identical(artifact$version, "bounded-gaussian-ar1-working-gls-grid-v1")
+  expect_identical(artifact$order$column, "entry")
+  expect_identical(artifact$coordinate_order,
+                   "signed_candidate_grid_cluster_gaussian_ar1_working_gls_loss_v1")
+  expect_true(all(material$values[block$start:block$end] >= 0))
+  expect_true(all(material$values[block$start:block$end] <=
+                    unlist(artifact$statistic_maximum, use.names = FALSE)))
+  expect_identical(artifact$implementation_state, "same_owner_materialized")
+  expect_identical(artifact$cross_owner_state, "reserved_not_materialized")
+})
+
+test_that("Gaussian AR1 working-GLS grid honours patient sensitivity and rejects ties", {
+  ar1 <- list(ar1 = list(
+    version = "gaussian_ar1_working_gls_grid_v1", dataset = "protected",
+    outcome = "time", cluster = "cat_a", order = "entry", predictors = "x",
+    intercept = TRUE, max_patients_per_cluster = 2L,
+    candidate_grid = list(
+      list(beta = c(0, 0), rho = 0),
+      list(beta = c(0.2, 0.5), rho = 0.5))))
+  data <- data.frame(
+    patient_id = paste0("u", 1:4), entry = 0:3, time = c(1, 3, 6, 8),
+    x = c(0, 3, 7, 10), cat_a = c("A", "A", "B", "B"),
+    cat_b = c("L", "L", "R", "R"), status = "censor")
+  fixture <- .materializer_test_fixture(
+    data = data, capacity = 4L, gaussian_specs = ar1)
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["gaussian_models::ar1"]]
+  left <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  fixture$resolved$protected$data$time[1L] <- 10
+  right <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  family <- fixture$manifest$workload$families$gaussian_models
+  delta <- right[block$start:block$end] - left[block$start:block$end]
+
+  expect_lte(sum(abs(delta)), family$l1_sensitivity)
+  expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
+  fixture$resolved$protected$data$entry[2L] <- 0
+  expect_error(.dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved), "tied order")
+})
+
 test_that("negative-binomial grid emits only bounded candidate losses", {
   nb2 <- list(negative_binomial = list(
     version = "negative_binomial_grid_v1", dataset = "protected",

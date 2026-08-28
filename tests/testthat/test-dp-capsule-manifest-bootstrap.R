@@ -428,6 +428,38 @@ test_that("Gaussian workload fragments are custodian-owned and signed", {
     "not locally owned")
 })
 
+test_that("Gaussian AR1 working-GLS workload fragments bind cluster and order", {
+  fixture <- .capsule_manifest_test_fixture(2L)
+  policy <- fixture$policies$peer_a
+  policy$numeric_bounds$y_peer_a <- c(0, 10)
+  policy$numeric_bounds$visit_peer_a <- c(0, 10)
+  policy$categorical_levels$site_peer_a <- c("a", "b")
+  policy$capsule_workload_specs$gaussian$gee_ar1 <- list(
+    version = "gaussian_ar1_working_gls_grid_v1", dataset = "data_peer_a",
+    outcome = "y_peer_a", cluster = "site_peer_a", order = "visit_peer_a",
+    predictors = "x_peer_a", intercept = TRUE, max_patients_per_cluster = 4L,
+    candidate_grid = list(
+      list(beta = c(0, 0), rho = 0),
+      list(beta = c(0.25, 0.5), rho = 0.5)))
+  json <- .dsvert_dp_capsule_manifest_draft_impl(
+    .policy = policy, .signer = .capsule_manifest_test_signer)
+  draft <- jsonlite::fromJSON(
+    json, simplifyVector = FALSE, simplifyDataFrame = FALSE,
+    simplifyMatrix = FALSE)
+  spec <- draft$workload_fragments$gaussian$gee_ar1
+
+  expect_identical(spec$order, "visit_peer_a")
+  expect_identical(spec$cluster, "site_peer_a")
+  expect_identical(spec$candidate_grid[[2L]]$rho, 0.5)
+
+  unsafe <- policy
+  unsafe$capsule_workload_specs$gaussian$gee_ar1$order <- "time_peer_b"
+  expect_error(
+    .dsvert_dp_capsule_manifest_draft_impl(
+      .policy = unsafe, .signer = .capsule_manifest_test_signer),
+    "not locally owned")
+})
+
 test_that("ambiguous multi-dataset policy rejects unless custodian mapping is exact", {
   fixture <- .capsule_manifest_test_fixture(2L)
   policy <- fixture$policies$peer_a

@@ -1090,6 +1090,36 @@
   candidates[order(keys)]
 }
 
+.dsvert_dp_capsule_gaussian_ar1_working_gls_candidates <- function(
+    value, dimension, cluster_capacity) {
+  if (!is.list(value) || !length(value) || !is.null(names(value))) {
+    return(list())
+  }
+  candidates <- lapply(value, function(candidate) {
+    if (!is.list(candidate) || !setequal(names(candidate), c("beta", "rho"))) {
+      return(NULL)
+    }
+    beta <- candidate$beta
+    rho <- suppressWarnings(as.numeric(candidate$rho))
+    if (is.list(beta) && is.null(names(beta))) beta <- unlist(beta, use.names = FALSE)
+    if (!is.numeric(beta) || !is.null(names(beta)) || length(beta) != dimension ||
+        anyNA(beta) || any(!is.finite(beta)) || any(abs(beta) > 8) ||
+        sum(abs(beta)) > 16 || length(rho) != 1L || !is.finite(rho) ||
+        abs(rho) > 0.8) return(NULL)
+    residual_bound <- 1 + sum(abs(beta))
+    loss_bound <- 0.5 * cluster_capacity * residual_bound^2 *
+      (1 + abs(rho)) / (1 - abs(rho))
+    if (!is.finite(loss_bound) || loss_bound <= 0) return(NULL)
+    list(beta = as.numeric(beta), rho = as.numeric(rho),
+         loss_bound = as.numeric(loss_bound))
+  })
+  if (any(vapply(candidates, is.null, logical(1L)))) return(list())
+  keys <- vapply(candidates, function(candidate) .dsvert_dp_canonical_json(list(
+    beta = as.list(candidate$beta), rho = candidate$rho)), character(1L))
+  if (anyDuplicated(keys)) return(list())
+  candidates[order(keys)]
+}
+
 .dsvert_dp_capsule_binary_random_slope_candidates <- function(
     value, dimension, random_effect_order) {
   effect_count <- length(random_effect_order)
@@ -1505,6 +1535,66 @@
       predictors = unname(predictors), intercept = TRUE,
       max_outcome = as.integer(maximum), beta_grid = unname(beta_grid),
       theta_grid = as.numeric(theta_grid), kind = "negative_binomial_grid"))
+  }
+  if (identical(version, "gaussian_ar1_working_gls_grid_v1")) {
+    expected <- c(
+      "version", "dataset", "outcome", "cluster", "order", "predictors",
+      "intercept", "max_patients_per_cluster", "candidate_grid")
+    if (!setequal(names(raw), expected)) {
+      stop("Invalid Gaussian AR1 working-GLS specification.", call. = FALSE)
+    }
+    outcome <- .dsvert_dp_capsule_column_reference(
+      raw$outcome, "GEE outcome")$reference
+    cluster <- .dsvert_dp_capsule_column_reference(
+      raw$cluster, "GEE cluster")$reference
+    order <- .dsvert_dp_capsule_column_reference(
+      raw$order, "GEE order")$reference
+    predictors <- raw$predictors
+    if (is.list(predictors) && is.null(names(predictors))) {
+      predictors <- unname(unlist(predictors, use.names = FALSE))
+    }
+    predictors <- if (is.character(predictors) && length(predictors) &&
+        is.null(names(predictors)) && !anyNA(predictors) &&
+        !anyDuplicated(predictors)) {
+      sort(vapply(predictors, function(value) {
+        .dsvert_dp_capsule_column_reference(
+          value, "GEE fixed predictor")$reference
+      }, character(1L)), method = "radix")
+    } else {
+      character()
+    }
+    maximum <- raw$max_patients_per_cluster
+    if (!is.numeric(maximum) || length(maximum) != 1L || is.na(maximum) ||
+        !is.finite(maximum) || maximum != floor(maximum) || maximum < 2 ||
+        maximum > policy$unit_capacity || !isTRUE(raw$intercept) ||
+        !length(predictors) || outcome %in% predictors ||
+        length(unique(c(outcome, cluster, order, predictors))) !=
+          3L + length(predictors)) {
+      stop("Invalid Gaussian AR1 working-GLS model terms.", call. = FALSE)
+    }
+    candidates <- .dsvert_dp_capsule_gaussian_ar1_working_gls_candidates(
+      raw$candidate_grid, 1L + length(predictors), as.numeric(maximum))
+    if (!length(candidates) || length(candidates) > 128L) {
+      stop("Invalid Gaussian AR1 working-GLS candidate grid.", call. = FALSE)
+    }
+    if (!is.logical(require_public_bounds) ||
+        length(require_public_bounds) != 1L || is.na(require_public_bounds)) {
+      stop("Invalid Gaussian specification validation mode.", call. = FALSE)
+    }
+    if (isTRUE(require_public_bounds) &&
+        (!dataset %in% names(policy$datasets) ||
+         any(!c(outcome, order, predictors) %in% names(policy$numeric_bounds)) ||
+         !cluster %in% names(policy$categorical_levels))) {
+      stop("The Gaussian AR1 working-GLS specification lacks public bounds.",
+           call. = FALSE)
+    }
+    return(list(
+      version = version, dataset = dataset, outcome = outcome, cluster = cluster,
+      order = order, predictors = unname(predictors), intercept = TRUE,
+      max_patients_per_cluster = as.integer(maximum),
+      candidate_grid = lapply(candidates, function(candidate) list(
+        beta = unname(candidate$beta), rho = candidate$rho)),
+      kind = "gaussian_ar1_working_gls_grid"))
   }
   if (identical(version, "gaussian_random_slope_grid_v1")) {
     expected <- c(
@@ -2207,7 +2297,11 @@
   for (analysis_id in names(gaussian_specs)) {
     spec <- .dsvert_dp_capsule_gaussian_spec(
       global_policy, analysis_id, gaussian_specs)
-    lapply(c(spec$outcome, spec$predictors), reference)
+    variables <- c(spec$outcome, spec$predictors)
+    if (identical(spec$kind, "gaussian_ar1_working_gls_grid")) {
+      variables <- c(variables, spec[["order", exact = TRUE]])
+    }
+    lapply(variables, reference)
     if (!is.null(spec$cluster)) {
       # A random-intercept grouping label is signed source metadata for the
       # protected kernel, not a categorical marginal to be released.
@@ -3222,6 +3316,117 @@
         cross_owner_state = "reserved_not_materialized")
       gaussian_coordinate_count <- .dsvert_dp_capsule_coordinate_add(
         gaussian_coordinate_count, candidate_count)
+      gaussian_raw_l1 <- gaussian_raw_l1 + raw_l1
+      gaussian_raw_l2_squared <- .dsvert_dp_capsule_l2_add(
+        gaussian_raw_l2_squared, .dsvert_dp_capsule_l2_square(raw_l2))
+      gaussian_natural_l1 <- gaussian_natural_l1 + raw_l1 / grid_scale
+      gaussian_natural_l2_squared <- .dsvert_dp_capsule_l2_add(
+        gaussian_natural_l2_squared,
+        .dsvert_dp_capsule_l2_square(raw_l2 / grid_scale))
+      next
+    }
+    if (identical(spec$kind, "gaussian_ar1_working_gls_grid")) {
+      variables <- c(spec$outcome, spec$predictors, spec$order, spec$cluster)
+      model_columns <- columns[variables]
+      owners <- unique(vapply(model_columns, `[[`, character(1L), "owner_peer"))
+      datasets <- vapply(model_columns, `[[`, character(1L), "dataset")
+      kinds <- vapply(model_columns, `[[`, character(1L), "kind")
+      expected_kinds <- c(
+        rep("numeric", 2L + length(spec$predictors)), "categorical")
+      if (!identical(unname(kinds), expected_kinds) || length(owners) != 1L ||
+          length(unique(datasets)) != 1L ||
+          !identical(datasets[[1L]], spec$dataset)) {
+        stop(paste(
+          "A Gaussian AR1 working-GLS specification must be same-owner with",
+          "numeric outcome, predictors and order plus a categorical cluster."),
+          call. = FALSE)
+      }
+      outcome <- columns[[spec$outcome]]
+      order_column <- columns[[spec$order]]
+      cluster_capacity <- as.integer(spec$max_patients_per_cluster)
+      design_terms <- c("(Intercept)", spec$predictors)
+      candidates <- .dsvert_dp_capsule_gaussian_ar1_working_gls_candidates(
+        spec$candidate_grid, length(design_terms), cluster_capacity)
+      if (!length(candidates) || length(candidates) > 128L) {
+        stop("The Gaussian AR1 working-GLS candidate grid is invalid.",
+             call. = FALSE)
+      }
+      loss_bounds <- vapply(candidates, `[[`, numeric(1L), "loss_bound")
+      raw_per_candidate <- ceiling(loss_bounds * grid_scale)
+      statistic_maximum <- as.numeric(capacity * raw_per_candidate)
+      base_raw_l1 <- sum(raw_per_candidate)
+      base_raw_l2 <- .dsvert_dp_capsule_l2_sqrt(sum(raw_per_candidate^2))
+      required_signed_bits <- as.integer(
+        ceiling(log2(max(statistic_maximum) + 1))) + 1L
+      if (!is.finite(base_raw_l1) || !is.finite(base_raw_l2) ||
+          any(!is.finite(statistic_maximum)) ||
+          any(statistic_maximum > .dsvert_dp_exact_integer_limit) ||
+          !is.finite(required_signed_bits) || required_signed_bits >= 127L) {
+        stop(structure(list(
+          message = paste(
+            "The Gaussian AR1 working-GLS public bounds exceed the",
+            "certified exact-computation domain."), call = NULL,
+          reason = "gaussian_ar1_working_gls_numeric_backend_unrepresentable",
+          required_signed_bits = required_signed_bits),
+          class = c("dsvert_numeric_backend_unrepresentable", "error",
+                    "condition")))
+      }
+      adjacency_multiplier <- .dsvert_dp_adjacency_multiplier(global_policy)
+      raw_l1 <- adjacency_multiplier * base_raw_l1
+      raw_l2 <- adjacency_multiplier * base_raw_l2
+      predictor_bounds <- lapply(spec$predictors, function(variable) {
+        column <- columns[[variable]]
+        list(column = column$column, lower = column$lower, upper = column$upper)
+      })
+      names(predictor_bounds) <- spec$predictors
+      gaussian_artifacts[[analysis_id]] <- list(
+        version = "bounded-gaussian-ar1-working-gls-grid-v1",
+        spec_version = spec$version, analysis_id = analysis_id,
+        dataset = spec$dataset, owner_peer = owners[[1L]],
+        outcome = list(column = outcome$column, lower = outcome$lower,
+                       upper = outcome$upper),
+        cluster = list(column = columns[[spec$cluster]]$column,
+                       levels = columns[[spec$cluster]]$levels),
+        order = list(column = order_column$column, lower = order_column$lower,
+                     upper = order_column$upper),
+        predictors = predictor_bounds, predictor_order = unname(spec$predictors),
+        intercept = TRUE, design_terms = unname(design_terms),
+        observation_capacity = as.integer(capacity),
+        max_patients_per_cluster = cluster_capacity,
+        candidate_grid = lapply(candidates, function(candidate) list(
+          beta = unname(candidate$beta), rho = candidate$rho)),
+        candidate_order = "canonical_beta_rho_grid_v1",
+        candidate_loss_bounds = as.list(unname(loss_bounds)),
+        numeric_grid_bits = grid_bits,
+        coordinate_count = as.integer(length(candidates)),
+        coordinate_order =
+          "signed_candidate_grid_cluster_gaussian_ar1_working_gls_loss_v1",
+        source_coordinate_scaling =
+          "all_coordinates_already_on_common_numeric_lattice_v1",
+        repeated_record_policy = paste(
+          "require_one_complete_bounded_row_per_admitted_patient_with_one",
+          "consistent_public_cluster_level_and_strict_within_cluster_order_v1"),
+        missingness_policy = paste(
+          "missing_or_nonfinite_outcome_predictor_or_order_or_missing_or",
+          "inconsistent_cluster_excludes_patient_and_order_ties_reject_v1"),
+        contribution_domain = paste(
+          "one_bounded_patient_can_change_one_clipped_cluster_gaussian_ar1",
+          "working_gls_loss_per_signed_candidate_v1"),
+        statistic_maximum = as.list(statistic_maximum),
+        source_raw_l1_sensitivity = raw_l1,
+        source_raw_l2_sensitivity = raw_l2,
+        natural_l1_sensitivity = raw_l1 / grid_scale,
+        natural_l2_sensitivity = raw_l2 / grid_scale,
+        adjacency = global_policy$adjacency,
+        adjacency_sensitivity_basis = paste(
+          "one_patient_can_change_one_entire_clipped_cluster_ar1_working",
+          "gls_loss_by_at_most_its_signed_bound_v1"),
+        estimation_scope = paste(
+          "bounded_gaussian_ar1_working_gls_finite_signed_beta_rho_grid_v1"),
+        implementation_state = "same_owner_materialized",
+        cross_owner_state = "reserved_not_materialized")
+      gaussian_coordinate_count <- .dsvert_dp_capsule_coordinate_add(
+        gaussian_coordinate_count, length(candidates))
       gaussian_raw_l1 <- gaussian_raw_l1 + raw_l1
       gaussian_raw_l2_squared <- .dsvert_dp_capsule_l2_add(
         gaussian_raw_l2_squared, .dsvert_dp_capsule_l2_square(raw_l2))

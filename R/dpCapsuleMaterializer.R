@@ -712,6 +712,100 @@
   unname(statistics)
 }
 
+.dsvert_dp_capsule_quantized_gaussian_ar1_working_gls_grid_losses <- function(
+    design, outcome, cluster, order, candidate_grid, grid_bits,
+    max_patients_per_cluster, candidate_loss_bounds) {
+  if (!is.list(design) || !length(design) || !is.numeric(outcome) ||
+      length(outcome) != length(cluster) || length(outcome) != length(order) ||
+      anyNA(outcome) || any(!is.finite(outcome)) || any(outcome < 0 | outcome > 1) ||
+      !is.numeric(cluster) || anyNA(cluster) || any(!is.finite(cluster)) ||
+      any(cluster < 1) || any(cluster != floor(cluster)) || !is.numeric(order) ||
+      anyNA(order) || any(!is.finite(order)) || !is.list(candidate_grid) ||
+      !length(candidate_grid) || !is.numeric(candidate_loss_bounds) ||
+      length(candidate_loss_bounds) != length(candidate_grid) ||
+      anyNA(candidate_loss_bounds) || any(!is.finite(candidate_loss_bounds)) ||
+      any(candidate_loss_bounds <= 0) || !is.numeric(grid_bits) ||
+      length(grid_bits) != 1L || is.na(grid_bits) || !is.finite(grid_bits) ||
+      grid_bits != floor(grid_bits) || grid_bits < 8L || grid_bits > 18L ||
+      !is.numeric(max_patients_per_cluster) ||
+      length(max_patients_per_cluster) != 1L || is.na(max_patients_per_cluster) ||
+      !is.finite(max_patients_per_cluster) ||
+      max_patients_per_cluster != floor(max_patients_per_cluster) ||
+      max_patients_per_cluster < 2L) {
+    stop("Invalid Gaussian AR1 working-GLS grid values.", call. = FALSE)
+  }
+  valid_design <- vapply(design, function(column) {
+    is.numeric(column) && length(column) == length(outcome) && !anyNA(column) &&
+      all(is.finite(column)) && all(column >= 0 & column <= 1)
+  }, logical(1L))
+  if (!all(valid_design) || is.null(names(design))) {
+    stop("Invalid Gaussian AR1 working-GLS design.", call. = FALSE)
+  }
+  candidates <- lapply(candidate_grid, function(candidate) {
+    if (!is.list(candidate) || !setequal(names(candidate), c("beta", "rho"))) {
+      return(NULL)
+    }
+    beta <- candidate$beta
+    rho <- suppressWarnings(as.numeric(candidate$rho))
+    if (is.list(beta) && is.null(names(beta))) beta <- unlist(beta, use.names = FALSE)
+    if (!is.numeric(beta) || length(beta) != length(design) || anyNA(beta) ||
+        any(!is.finite(beta)) || any(abs(beta) > 8) || sum(abs(beta)) > 16 ||
+        length(rho) != 1L || !is.finite(rho) || abs(rho) > 0.8) return(NULL)
+    list(beta = as.numeric(beta), rho = as.numeric(rho))
+  })
+  if (any(vapply(candidates, is.null, logical(1L)))) {
+    stop("Invalid Gaussian AR1 working-GLS candidates.", call. = FALSE)
+  }
+  if (!length(outcome)) return(rep.int(0, length(candidates)))
+  cluster_members <- split(seq_along(cluster), as.character(cluster))
+  if (any(lengths(cluster_members) > max_patients_per_cluster)) {
+    stop("The protected snapshot exceeds its signed GEE cluster capacity.",
+         call. = FALSE)
+  }
+  scale <- 2^as.integer(grid_bits)
+  if (length(outcome) > floor(.dsvert_dp_exact_integer_limit /
+                               (max(candidate_loss_bounds) * scale))) {
+    stop("The Gaussian AR1 working-GLS cohort is too large for exact quantization.",
+         call. = FALSE)
+  }
+  design_matrix <- do.call(cbind, design)
+  statistics <- vapply(seq_along(candidates), function(index) {
+    candidate <- candidates[[index]]
+    sum(vapply(cluster_members, function(members) {
+      ordered <- members[order(order[members], method = "radix")]
+      if (anyDuplicated(order[ordered])) {
+        stop("The protected snapshot has tied order values within a GEE cluster.",
+             call. = FALSE)
+      }
+      residual <- outcome[ordered] -
+        as.numeric(design_matrix[ordered, , drop = FALSE] %*% candidate$beta)
+      count <- length(residual)
+      quadratic <- if (count == 1L) {
+        residual[[1L]]^2
+      } else {
+        interior <- if (count > 2L) {
+          sum(residual[2:(count - 1L)]^2)
+        } else {
+          0
+        }
+        (residual[[1L]]^2 + residual[[count]]^2 +
+          (1 + candidate$rho^2) * interior -
+          2 * candidate$rho * sum(residual[-count] * residual[-1L])) /
+          (1 - candidate$rho^2)
+      }
+      loss <- 0.5 * max(0, quadratic)
+      as.numeric(round(min(candidate_loss_bounds[[index]], loss) * scale))
+    }, numeric(1L)))
+  }, numeric(1L))
+  if (anyNA(statistics) || any(!is.finite(statistics)) || any(statistics < 0) ||
+      any(statistics != floor(statistics)) ||
+      any(statistics > .dsvert_dp_exact_integer_limit)) {
+    stop("The Gaussian AR1 working-GLS statistics are not representable.",
+         call. = FALSE)
+  }
+  unname(statistics)
+}
+
 .dsvert_dp_capsule_quantized_negative_binomial_grid_losses <- function(
     design, outcome, beta_grid, theta_grid, grid_bits, max_outcome) {
   if (!is.list(design) || !length(design) || !is.numeric(outcome) ||
@@ -1344,6 +1438,43 @@
         artifact$numeric_grid_bits, artifact$max_patients_per_cluster)
       if (length(statistics) != block$length) {
         stop("The signed random-intercept capsule coordinate shape is invalid.",
+             call. = FALSE)
+      }
+      values[block$start:block$end] <- statistics
+      next
+    }
+    if (identical(artifact$version,
+                  "bounded-gaussian-ar1-working-gls-grid-v1")) {
+      outcome <- bounded_for(block$dataset, artifact$outcome$column)
+      cluster <- .dsvert_dp_capsule_bounded_category(
+        snapshots[[block$dataset]]$data, policy, artifact$cluster$column,
+        artifact$cluster$levels, admission_for(block$dataset))
+      order <- bounded_for(block$dataset, artifact$order$column)
+      predictors <- lapply(artifact$predictor_order, function(variable) {
+        bounded_for(block$dataset, artifact$predictors[[variable]]$column)
+      })
+      names(predictors) <- artifact$predictor_order
+      complete <- outcome$valid & order$valid & !is.na(cluster$cell)
+      for (predictor in predictors) complete <- complete & predictor$valid
+      normalize <- function(values, lower, upper) {
+        pmin(1, pmax(0, (values - lower) / (upper - lower)))
+      }
+      normalized_outcome <- normalize(outcome$unit_values[complete],
+                                      artifact$outcome$lower,
+                                      artifact$outcome$upper)
+      design <- c(list(`(Intercept)` = rep(1, length(normalized_outcome))),
+                  stats::setNames(lapply(artifact$predictor_order, function(variable) {
+                    descriptor <- artifact$predictors[[variable]]
+                    normalize(predictors[[variable]]$unit_values[complete],
+                              descriptor$lower, descriptor$upper)
+                  }), artifact$predictor_order))
+      statistics <- .dsvert_dp_capsule_quantized_gaussian_ar1_working_gls_grid_losses(
+        design, normalized_outcome, cluster$cell[complete],
+        order$unit_values[complete], artifact$candidate_grid,
+        artifact$numeric_grid_bits, artifact$max_patients_per_cluster,
+        unlist(artifact$candidate_loss_bounds, use.names = FALSE))
+      if (length(statistics) != block$length) {
+        stop("The signed Gaussian AR1 working-GLS coordinate shape is invalid.",
              call. = FALSE)
       }
       values[block$start:block$end] <- statistics

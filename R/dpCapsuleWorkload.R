@@ -1601,11 +1601,14 @@
         "binomial_robust_independence_gee_grid"
       }))
   }
-  if (version %in% c("binomial_grid_v1", "poisson_grid_v1")) {
-    poisson <- identical(version, "poisson_grid_v1")
+  if (version %in% c("binomial_grid_v1", "poisson_grid_v1",
+                     "binomial_lasso_grid_v1", "poisson_lasso_grid_v1")) {
+    poisson <- version %in% c("poisson_grid_v1", "poisson_lasso_grid_v1")
+    lasso <- version %in% c("binomial_lasso_grid_v1",
+                            "poisson_lasso_grid_v1")
     expected <- c(
       "version", "dataset", "outcome", "predictors", "intercept",
-      "beta_grid")
+      if (isTRUE(lasso)) "candidate_grid" else "beta_grid")
     if (isTRUE(poisson)) expected <- c(expected, "max_outcome")
     if (!setequal(names(raw), expected)) {
       stop("Invalid finite GLM likelihood-grid specification.", call. = FALSE)
@@ -1629,18 +1632,45 @@
     } else {
       character()
     }
-    beta_grid <- raw$beta_grid
-    if (!is.list(beta_grid) || !length(beta_grid) || !is.null(names(beta_grid))) {
-      beta_grid <- list()
+    candidate_grid <- if (isTRUE(lasso)) raw$candidate_grid else NULL
+    beta_grid <- if (isTRUE(lasso)) {
+      if (!is.list(candidate_grid) || !length(candidate_grid) ||
+          !is.null(names(candidate_grid))) {
+        list()
+      } else {
+        candidate_grid <- lapply(candidate_grid, function(candidate) {
+          if (!is.list(candidate) || is.null(names(candidate)) ||
+              !setequal(names(candidate), c("lambda", "beta"))) return(NULL)
+          beta <- candidate$beta
+          if (is.list(beta) && is.null(names(beta))) {
+            beta <- unlist(beta, use.names = FALSE)
+          }
+          lambda <- candidate$lambda
+          if (!is.numeric(lambda) || length(lambda) != 1L || is.na(lambda) ||
+              !is.finite(lambda) || lambda < 0 || lambda > 8 ||
+              !is.numeric(beta) || !is.null(names(beta)) || anyNA(beta) ||
+              any(!is.finite(beta))) return(NULL)
+          list(lambda = as.numeric(lambda), beta = as.numeric(beta))
+        })
+        lapply(candidate_grid, function(candidate) {
+          if (is.null(candidate)) NULL else candidate$beta
+        })
+      }
     } else {
-      beta_grid <- lapply(beta_grid, function(beta) {
-        if (is.list(beta) && is.null(names(beta))) {
-          beta <- unlist(beta, use.names = FALSE)
-        }
-        if (!is.numeric(beta) || !is.null(names(beta)) || anyNA(beta) ||
-            any(!is.finite(beta))) return(NULL)
-        as.numeric(beta)
-      })
+      beta_grid <- raw$beta_grid
+      if (!is.list(beta_grid) || !length(beta_grid) || !is.null(names(beta_grid))) {
+        beta_grid <- list()
+      } else {
+        beta_grid <- lapply(beta_grid, function(beta) {
+          if (is.list(beta) && is.null(names(beta))) {
+            beta <- unlist(beta, use.names = FALSE)
+          }
+          if (!is.numeric(beta) || !is.null(names(beta)) || anyNA(beta) ||
+              any(!is.finite(beta))) return(NULL)
+          as.numeric(beta)
+        })
+      }
+      beta_grid
     }
     expected_dimension <- 1L + length(predictors)
     beta_valid <- length(beta_grid) && all(vapply(beta_grid, function(beta) {
@@ -1651,9 +1681,27 @@
     beta_keys <- if (isTRUE(beta_valid)) vapply(beta_grid, function(beta) {
       .dsvert_dp_canonical_json(as.list(beta))
     }, character(1L)) else character()
+    lambda_grid <- if (isTRUE(lasso) && length(candidate_grid) == length(beta_grid) &&
+        all(vapply(candidate_grid, is.list, logical(1L)))) {
+      vapply(candidate_grid, `[[`, numeric(1L), "lambda")
+    } else numeric()
     if (isTRUE(beta_valid)) {
-      if (anyDuplicated(beta_keys)) beta_valid <- FALSE
-      if (isTRUE(beta_valid)) beta_grid <- beta_grid[order(beta_keys)]
+      candidate_keys <- if (isTRUE(lasso)) vapply(seq_along(beta_grid),
+        function(index) .dsvert_dp_canonical_json(list(
+          lambda = lambda_grid[[index]], beta = beta_grid[[index]])),
+        character(1L)) else beta_keys
+      if (anyDuplicated(candidate_keys)) beta_valid <- FALSE
+      if (isTRUE(beta_valid)) {
+        order_index <- if (isTRUE(lasso)) {
+          order(-lambda_grid, beta_keys, method = "radix")
+        } else order(beta_keys, method = "radix")
+        beta_grid <- beta_grid[order_index]
+        if (isTRUE(lasso)) {
+          lambda_grid <- lambda_grid[order_index]
+          candidate_grid <- Map(function(lambda, beta) list(
+            lambda = unname(lambda), beta = unname(beta)), lambda_grid, beta_grid)
+        }
+      }
     }
     maximum <- if (isTRUE(poisson)) raw$max_outcome else 1L
     maximum_valid <- if (isTRUE(poisson)) {
@@ -1668,6 +1716,11 @@
         !isTRUE(beta_valid) || length(beta_grid) > 256L) {
       stop("Invalid finite GLM likelihood-grid model terms.", call. = FALSE)
     }
+    if (isTRUE(lasso) && (length(lambda_grid) != length(beta_grid) ||
+        length(unique(lambda_grid)) < 2L)) {
+      stop("A finite L1 path requires at least two signed penalty levels.",
+           call. = FALSE)
+    }
     if (!is.logical(require_public_bounds) ||
         length(require_public_bounds) != 1L || is.na(require_public_bounds)) {
       stop("Invalid Gaussian specification validation mode.", call. = FALSE)
@@ -1677,11 +1730,16 @@
          any(!c(outcome, predictors) %in% names(policy$numeric_bounds)))) {
       stop("The finite GLM grid specification lacks public bounds.", call. = FALSE)
     }
-    return(list(
+    return(c(list(
       version = version, dataset = dataset, outcome = outcome,
       predictors = unname(predictors), intercept = TRUE,
       max_outcome = as.integer(maximum), beta_grid = unname(beta_grid),
-      kind = if (isTRUE(poisson)) "poisson_grid" else "binomial_grid"))
+      kind = if (isTRUE(poisson)) {
+        if (isTRUE(lasso)) "poisson_lasso_grid" else "poisson_grid"
+      } else if (isTRUE(lasso)) "binomial_lasso_grid" else "binomial_grid"),
+      if (isTRUE(lasso)) list(
+        candidate_grid = unname(candidate_grid),
+        lambda_grid = unname(lambda_grid)) else list()))
   }
   if (identical(version, "negative_binomial_grid_v1")) {
     expected <- c(
@@ -3718,8 +3776,10 @@
         .dsvert_dp_capsule_l2_square(raw_l2 / grid_scale))
       next
     }
-    if (spec$kind %in% c("binomial_grid", "poisson_grid")) {
-      poisson <- identical(spec$kind, "poisson_grid")
+    if (spec$kind %in% c("binomial_grid", "poisson_grid",
+                         "binomial_lasso_grid", "poisson_lasso_grid")) {
+      poisson <- spec$kind %in% c("poisson_grid", "poisson_lasso_grid")
+      lasso <- spec$kind %in% c("binomial_lasso_grid", "poisson_lasso_grid")
       variables <- c(spec$outcome, spec$predictors)
       model_columns <- columns[variables]
       owners <- unique(vapply(
@@ -3765,14 +3825,23 @@
       raw_per_candidate <- ceiling(loss_bounds * grid_scale)
       statistic_maximum <- as.numeric(
         ceiling(global_policy$unit_capacity * raw_per_candidate))
+      penalty_raw <- if (isTRUE(lasso)) {
+        ceiling(global_policy$unit_capacity * grid_scale *
+          vapply(seq_along(spec$beta_grid), function(index) {
+            spec$lambda_grid[[index]] * sum(abs(spec$beta_grid[[index]][-1L]))
+          }, numeric(1L)))
+      } else numeric()
       base_raw_l1 <- sum(raw_per_candidate)
       base_raw_l2 <- .dsvert_dp_capsule_l2_sqrt(sum(raw_per_candidate^2))
       if (!is.finite(base_raw_l1) || !is.finite(base_raw_l2) ||
           any(!is.finite(statistic_maximum)) ||
-          any(statistic_maximum > .dsvert_dp_exact_integer_limit)) {
+          any(statistic_maximum > .dsvert_dp_exact_integer_limit) ||
+          any(!is.finite(penalty_raw)) ||
+          any(penalty_raw > .dsvert_dp_exact_integer_limit) ||
+          any(statistic_maximum + penalty_raw > .dsvert_dp_exact_integer_limit)) {
         stop(structure(
           list(message = paste(
-            "The finite GLM likelihood-grid public bounds exceed the",
+            "The finite GLM or L1 likelihood-grid public bounds exceed the",
             "certified exact-computation domain."), call = NULL,
                reason = "finite_glm_grid_numeric_backend_unrepresentable"),
           class = c("dsvert_numeric_backend_unrepresentable", "error",
@@ -3788,8 +3857,10 @@
       })
       names(predictor_bounds) <- spec$predictors
       family <- if (isTRUE(poisson)) "poisson" else "binomial"
-      gaussian_artifacts[[analysis_id]] <- list(
-        version = paste0("bounded-", family, "-likelihood-grid-v1"),
+      artifact_common <- list(
+        version = if (isTRUE(lasso)) {
+          paste0("bounded-", family, "-lasso-grid-v1")
+        } else paste0("bounded-", family, "-likelihood-grid-v1"),
         spec_version = spec$version, analysis_id = analysis_id,
         dataset = spec$dataset, owner_peer = owners[[1L]],
         outcome = list(column = outcome$column, lower = outcome$lower,
@@ -3798,14 +3869,10 @@
         predictor_order = unname(spec$predictors), intercept = TRUE,
         design_terms = unname(design_terms),
         observation_capacity = as.integer(global_policy$unit_capacity),
-        max_outcome = if (isTRUE(poisson)) as.integer(spec$max_outcome) else NULL,
-        beta_grid = lapply(spec$beta_grid, unname),
-        candidate_order = "canonical_beta_grid_glm_v1",
+        max_outcome = if (isTRUE(poisson)) as.integer(spec$max_outcome) else NULL)
+      artifact_coordinates <- list(
         candidate_loss_bounds = as.list(unname(loss_bounds)),
         numeric_grid_bits = grid_bits, coordinate_count = candidate_count,
-        coordinate_order = paste(
-          "canonical_beta_grid", family, "negative_log_likelihood_v1",
-          sep = "_"),
         source_coordinate_scaling =
           "all_coordinates_already_on_common_numeric_lattice_v1",
         repeated_record_policy = paste(
@@ -3826,11 +3893,34 @@
         adjacency_sensitivity_basis = paste(
           "one_patient_changes_one_candidate_loss_by_at_most_its_signed",
           family, "loss_bound_v1", sep = "_"),
-        estimation_scope = paste(
-          "bounded", family, "fixed_covariates_finite_signed_beta_grid_v1",
-          sep = "_"),
         implementation_state = "same_owner_materialized",
         cross_owner_state = "reserved_not_materialized")
+      gaussian_artifacts[[analysis_id]] <- if (isTRUE(lasso)) {
+        c(artifact_common, list(
+          candidate_grid = lapply(seq_along(spec$beta_grid), function(index) list(
+            lambda = unname(spec$lambda_grid[[index]]),
+            beta = unname(spec$beta_grid[[index]]))),
+          penalty_normalizer = "observation_capacity_v1",
+          candidate_l1_penalty_raw = as.list(unname(penalty_raw)),
+          candidate_order = "canonical_lambda_descending_beta_grid_lasso_v1",
+          coordinate_order = paste(
+            "canonical_lambda_descending_beta_grid", family,
+            "negative_log_likelihood_lasso_path_v1", sep = "_"),
+          estimation_scope = paste(
+            "bounded", family, "fixed_covariates_finite_signed_l1",
+            "candidate_path_capacity_normalized_v1", sep = "_")),
+          artifact_coordinates)
+      } else {
+        c(artifact_common, list(
+          beta_grid = lapply(spec$beta_grid, unname),
+          candidate_order = "canonical_beta_grid_glm_v1",
+          coordinate_order = paste(
+            "canonical_beta_grid", family, "negative_log_likelihood_v1",
+            sep = "_"),
+          estimation_scope = paste(
+            "bounded", family, "fixed_covariates_finite_signed_beta_grid_v1",
+            sep = "_")), artifact_coordinates)
+      }
       gaussian_coordinate_count <- .dsvert_dp_capsule_coordinate_add(
         gaussian_coordinate_count, candidate_count)
       gaussian_raw_l1 <- gaussian_raw_l1 + raw_l1

@@ -460,6 +460,7 @@
         length(spec$predictors) && all(owners == policy$peer_name) &&
         all(variables %in% mapping$datasets[[spec$dataset]])
     } else if (spec$kind %in% c("binomial_grid", "poisson_grid",
+                                 "binomial_lasso_grid", "poisson_lasso_grid",
                                  "negative_binomial_grid",
                                  "multinomial_grid", "ordinal_grid")) {
       isTRUE(outcome_owned) && length(variables) == 1L +
@@ -563,6 +564,18 @@
         score_clip = spec$score_clip,
         beta_grid = lapply(spec$beta_grid, unname))
       if (identical(spec$kind, "poisson_robust_independence_gee_grid")) {
+        value$max_outcome <- spec$max_outcome
+      }
+      value
+    } else if (spec$kind %in% c("binomial_lasso_grid",
+                                 "poisson_lasso_grid")) {
+      value <- list(
+        version = spec$version, dataset = spec$dataset,
+        outcome = spec$outcome, predictors = unname(spec$predictors),
+        intercept = spec$intercept,
+        candidate_grid = lapply(spec$candidate_grid, function(candidate) list(
+          lambda = candidate$lambda, beta = unname(candidate$beta))))
+      if (identical(spec$kind, "poisson_lasso_grid")) {
         value$max_outcome <- spec$max_outcome
       }
       value

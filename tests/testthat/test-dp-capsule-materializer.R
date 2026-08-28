@@ -850,6 +850,59 @@ test_that("Poisson GLMM grid emits bounded four-effect random-slope losses", {
   expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
 })
 
+test_that("binomial and Poisson finite L1 paths emit bounded signed losses", {
+  for (family_name in c("binomial", "poisson")) {
+    poisson <- identical(family_name, "poisson")
+    spec <- list(lasso_path = c(list(
+      version = paste0(family_name, "_lasso_grid_v1"), dataset = "protected",
+      outcome = "x", predictors = "entry", intercept = TRUE,
+      candidate_grid = list(
+        list(lambda = 0.5, beta = c(0, 0)),
+        list(lambda = 0.5, beta = c(0, 1)),
+        list(lambda = 0.1, beta = c(0, 0)),
+        list(lambda = 0.1, beta = c(0, 1)))),
+      if (isTRUE(poisson)) list(max_outcome = 10L) else list()))
+    data <- .materializer_test_data()
+    data$x <- if (isTRUE(poisson)) c(1, 1, 4, NA_real_) else c(0, 0, 1, NA_real_)
+    data$entry <- c(0, 0, 2, NA_real_)
+    fixture <- .materializer_test_fixture(
+      data = data, gaussian_specs = spec, binary_x = !isTRUE(poisson))
+    artifact <- fixture$manifest$workload$families$gaussian_models$
+      artifacts$lasso_path
+    layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+    block <- layout$blocks[["gaussian_models::lasso_path"]]
+    left <- .dsvert_dp_capsule_materialize_local(
+      fixture$policy, fixture$manifest, fixture$resolved)$values
+    changed <- data
+    changed$x[changed$patient_id == "u2"] <- if (isTRUE(poisson)) 2 else 1
+    fixture$resolved$protected$data <- changed
+    right <- .dsvert_dp_capsule_materialize_local(
+      fixture$policy, fixture$manifest, fixture$resolved)$values
+    family <- fixture$manifest$workload$families$gaussian_models
+    delta <- right[block$start:block$end] - left[block$start:block$end]
+
+    expect_identical(artifact$version,
+      paste0("bounded-", family_name, "-lasso-grid-v1"))
+    expect_identical(artifact$penalty_normalizer, "observation_capacity_v1")
+    expect_identical(artifact$candidate_order,
+      "canonical_lambda_descending_beta_grid_lasso_v1")
+    expect_identical(as.numeric(artifact$coordinate_count), 4)
+    expect_true(all(left[block$start:block$end] >= 0))
+    expect_true(all(left[block$start:block$end] <= artifact$statistic_maximum))
+    expect_lte(sum(abs(delta)), family$l1_sensitivity)
+    expect_lte(sqrt(sum(delta^2)), family$l2_sensitivity)
+
+    invalid <- spec
+    invalid$lasso_path$candidate_grid[[3L]]$lambda <- 0.5
+    invalid$lasso_path$candidate_grid[[4L]]$lambda <- 0.5
+    invalid$lasso_path$candidate_grid[[3L]]$beta <- c(1, 0)
+    invalid$lasso_path$candidate_grid[[4L]]$beta <- c(1, 1)
+    expect_error(.materializer_test_fixture(
+      data = data, gaussian_specs = invalid, binary_x = !isTRUE(poisson)),
+      "at least two signed penalty levels")
+  }
+})
+
 test_that("robust binomial and Poisson independence GEE grids bind sandwich coordinates", {
   for (family in c("binomial", "poisson")) {
     poisson <- identical(family, "poisson")

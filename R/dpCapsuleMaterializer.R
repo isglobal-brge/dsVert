@@ -2123,13 +2123,32 @@
     }
     if (artifact$version %in% c(
           "bounded-binomial-likelihood-grid-v1",
-          "bounded-poisson-likelihood-grid-v1")) {
-      family <- if (identical(
-            artifact$version, "bounded-poisson-likelihood-grid-v1")) {
+          "bounded-poisson-likelihood-grid-v1",
+          "bounded-binomial-lasso-grid-v1",
+          "bounded-poisson-lasso-grid-v1")) {
+      family <- if (artifact$version %in% c(
+            "bounded-poisson-likelihood-grid-v1",
+            "bounded-poisson-lasso-grid-v1")) {
         "poisson"
       } else {
         "binomial"
       }
+      beta_grid <- if (artifact$version %in% c(
+            "bounded-binomial-lasso-grid-v1",
+            "bounded-poisson-lasso-grid-v1")) {
+        candidates <- artifact$candidate_grid
+        if (!is.list(candidates) || !length(candidates) ||
+            !all(vapply(candidates, function(candidate) {
+              is.list(candidate) && setequal(names(candidate), c("lambda", "beta")) &&
+                is.numeric(candidate$lambda) && length(candidate$lambda) == 1L &&
+                is.finite(candidate$lambda) && candidate$lambda >= 0 &&
+                is.numeric(candidate$beta) && !anyNA(candidate$beta) &&
+                all(is.finite(candidate$beta))
+            }, logical(1L)))) {
+          stop("The signed finite L1 grid shape is invalid.", call. = FALSE)
+        }
+        lapply(candidates, `[[`, "beta")
+      } else artifact$beta_grid
       outcome <- bounded_for(block$dataset, artifact$outcome$column)
       predictors <- lapply(artifact$predictor_order, function(variable) {
         bounded_for(block$dataset, artifact$predictors[[variable]]$column)
@@ -2157,7 +2176,7 @@
             descriptor$lower, descriptor$upper)
         }))
       statistics <- .dsvert_dp_capsule_quantized_glm_grid_losses(
-        design, normalized_outcome, family, artifact$beta_grid,
+        design, normalized_outcome, family, beta_grid,
         artifact$numeric_grid_bits, artifact$max_outcome)
       if (length(statistics) != block$length) {
         stop("The signed finite GLM grid shape is invalid.", call. = FALSE)

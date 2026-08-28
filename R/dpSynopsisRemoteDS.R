@@ -200,6 +200,8 @@
           "bounded-poisson-robust-independence-gee-grid-v1",
           "bounded-binomial-likelihood-grid-v1",
           "bounded-poisson-likelihood-grid-v1",
+          "bounded-binomial-lasso-grid-v1",
+          "bounded-poisson-lasso-grid-v1",
           "bounded-negative-binomial-likelihood-grid-v1",
           "bounded-multinomial-likelihood-grid-v1",
           "bounded-ordinal-likelihood-grid-v1")

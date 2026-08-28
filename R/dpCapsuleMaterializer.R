@@ -1253,6 +1253,108 @@
   unname(statistics)
 }
 
+.dsvert_dp_capsule_quantized_glm_robust_independence_gee_grid <- function(
+    design, outcome, cluster, family, beta_grid, grid_bits,
+    max_outcome = NULL, max_patients_per_cluster, score_clip,
+    public_cluster_levels) {
+  poisson <- identical(family, "poisson")
+  invalid <- (!identical(family, "binomial") && !isTRUE(poisson)) ||
+    !is.list(design) || !length(design) || is.null(names(design)) ||
+    !is.numeric(outcome) || anyNA(outcome) || any(!is.finite(outcome)) ||
+    !is.numeric(cluster) || length(cluster) != length(outcome) || anyNA(cluster) ||
+    any(!is.finite(cluster)) || any(cluster < 1) || any(cluster != floor(cluster)) ||
+    !is.list(beta_grid) || !length(beta_grid) || !is.numeric(grid_bits) ||
+    length(grid_bits) != 1L || is.na(grid_bits) || !is.finite(grid_bits) ||
+    grid_bits != floor(grid_bits) || grid_bits < 8L || grid_bits > 18L ||
+    !is.numeric(max_patients_per_cluster) || length(max_patients_per_cluster) != 1L ||
+    is.na(max_patients_per_cluster) || !is.finite(max_patients_per_cluster) ||
+    max_patients_per_cluster != floor(max_patients_per_cluster) ||
+    max_patients_per_cluster < 2L || max_patients_per_cluster > 32L ||
+    !is.numeric(score_clip) || length(score_clip) != 1L || is.na(score_clip) ||
+    !is.finite(score_clip) || score_clip < 0.25 || score_clip > 32 ||
+    !is.numeric(public_cluster_levels) || length(public_cluster_levels) != 1L ||
+    is.na(public_cluster_levels) || !is.finite(public_cluster_levels) ||
+    public_cluster_levels != floor(public_cluster_levels) ||
+    public_cluster_levels < 2L || public_cluster_levels > 64L ||
+    any(cluster > public_cluster_levels)
+  if (isTRUE(invalid)) {
+    stop("Invalid robust independence GEE grid values.", call. = FALSE)
+  }
+  valid_outcome <- if (isTRUE(poisson)) {
+    is.numeric(max_outcome) && length(max_outcome) == 1L &&
+      !is.na(max_outcome) && is.finite(max_outcome) &&
+      max_outcome == floor(max_outcome) && max_outcome >= 1L &&
+      max_outcome <= 1024L &&
+      all(outcome >= 0 & outcome == floor(outcome) & outcome <= max_outcome)
+  } else {
+    all(outcome %in% c(0, 1))
+  }
+  valid_design <- vapply(design, function(column) {
+    is.numeric(column) && length(column) == length(outcome) && !anyNA(column) &&
+      all(is.finite(column)) && all(column >= 0 & column <= 1)
+  }, logical(1L))
+  valid_beta <- vapply(beta_grid, function(beta) {
+    is.numeric(beta) && length(beta) == length(design) && !anyNA(beta) &&
+      all(is.finite(beta)) && all(abs(beta) <= 8) && sum(abs(beta)) <= 8
+  }, logical(1L))
+  if (!isTRUE(valid_outcome) || !all(valid_design) || !all(valid_beta)) {
+    stop("Invalid robust independence GEE grid design.", call. = FALSE)
+  }
+  cluster_members <- lapply(seq_len(as.integer(public_cluster_levels)), function(cell) {
+    which(cluster == cell)
+  })
+  if (any(lengths(cluster_members) > max_patients_per_cluster)) {
+    stop("The protected snapshot exceeds its signed GEE cluster capacity.",
+         call. = FALSE)
+  }
+  scale <- 2^as.integer(grid_bits)
+  if (length(outcome) > floor(.dsvert_dp_exact_integer_limit / scale)) {
+    stop("The robust independence GEE cohort is too large for exact quantization.",
+         call. = FALSE)
+  }
+  design_matrix <- do.call(cbind, design)
+  dimension <- ncol(design_matrix)
+  upper <- which(upper.tri(matrix(0, dimension, dimension), diag = TRUE))
+  softplus <- function(value) pmax(value, 0) + log1p(exp(-abs(value)))
+  statistics <- unlist(lapply(beta_grid, function(beta) {
+    loss <- 0
+    bread <- numeric(length(upper))
+    meat <- numeric(length(upper))
+    for (members in cluster_members) {
+      if (!length(members)) {
+        meat <- meat + as.numeric(round(score_clip^2 * scale))
+        next
+      }
+      fixed <- design_matrix[members, , drop = FALSE]
+      eta <- as.numeric(fixed %*% beta)
+      mean <- if (isTRUE(poisson)) exp(eta) else stats::plogis(eta)
+      row_loss <- if (isTRUE(poisson)) {
+        mean - outcome[members] * eta + lgamma(outcome[members] + 1)
+      } else {
+        softplus(eta) - outcome[members] * eta
+      }
+      loss <- loss + sum(as.numeric(round(pmax(0, row_loss) * scale)))
+      weight <- if (isTRUE(poisson)) mean else mean * (1 - mean)
+      bread_matrix <- crossprod(fixed * sqrt(weight))
+      bread <- bread + as.numeric(round(pmax(0, bread_matrix[upper]) * scale))
+      score <- colSums(fixed * (outcome[members] - mean))
+      score <- pmin(score_clip, pmax(-score_clip, score))
+      meat_matrix <- tcrossprod(score)
+      meat <- meat + as.numeric(round(pmin(
+        2 * score_clip^2,
+        pmax(0, score_clip^2 + meat_matrix[upper])) * scale))
+    }
+    c(loss, bread, meat)
+  }), use.names = FALSE)
+  if (anyNA(statistics) || any(!is.finite(statistics)) ||
+      any(statistics < 0) || any(statistics != floor(statistics)) ||
+      any(statistics > .dsvert_dp_exact_integer_limit)) {
+    stop("The robust independence GEE statistics are not representable.",
+         call. = FALSE)
+  }
+  unname(statistics)
+}
+
 .dsvert_dp_capsule_quantized_multinomial_grid_losses <- function(
     design, outcome, levels, reference, beta_grid, grid_bits) {
   if (!is.list(design) || !length(design) || !is.numeric(outcome) ||
@@ -1961,6 +2063,55 @@
         artifact$numeric_grid_bits, artifact$max_patients_per_cluster)
       if (length(statistics) != block$length) {
         stop("The signed fixed-effect random-intercept capsule coordinate shape is invalid.",
+             call. = FALSE)
+      }
+      values[block$start:block$end] <- statistics
+      next
+    }
+    if (artifact$version %in% c(
+          "bounded-binomial-robust-independence-gee-grid-v1",
+          "bounded-poisson-robust-independence-gee-grid-v1")) {
+      family <- if (identical(
+            artifact$version, "bounded-poisson-robust-independence-gee-grid-v1")) {
+        "poisson"
+      } else {
+        "binomial"
+      }
+      outcome <- bounded_for(block$dataset, artifact$outcome$column)
+      cluster <- .dsvert_dp_capsule_bounded_category(
+        snapshots[[block$dataset]]$data, policy, artifact$cluster$column,
+        artifact$cluster$levels, admission_for(block$dataset))
+      predictors <- lapply(artifact$predictor_order, function(variable) {
+        bounded_for(block$dataset, artifact$predictors[[variable]]$column)
+      })
+      names(predictors) <- artifact$predictor_order
+      complete <- outcome$valid & !is.na(cluster$cell)
+      if (identical(family, "poisson")) {
+        complete <- complete & outcome$unit_values >= 0 &
+          outcome$unit_values == floor(outcome$unit_values) &
+          outcome$unit_values <= artifact$max_outcome
+      } else {
+        complete <- complete & outcome$unit_values %in% c(0, 1)
+      }
+      for (predictor in predictors) complete <- complete & predictor$valid
+      normalize <- function(value, lower, upper) {
+        pmin(1, pmax(0, (value - lower) / (upper - lower)))
+      }
+      normalized_outcome <- outcome$unit_values[complete]
+      design <- c(
+        list(`(Intercept)` = rep(1, length(normalized_outcome))),
+        stats::setNames(lapply(artifact$predictor_order, function(variable) {
+          descriptor <- artifact$predictors[[variable]]
+          normalize(predictors[[variable]]$unit_values[complete],
+                    descriptor$lower, descriptor$upper)
+        }), artifact$predictor_order))
+      statistics <- .dsvert_dp_capsule_quantized_glm_robust_independence_gee_grid(
+        design, normalized_outcome, cluster$cell[complete], family,
+        artifact$beta_grid, artifact$numeric_grid_bits, artifact$max_outcome,
+        artifact$max_patients_per_cluster, artifact$score_clip,
+        artifact$public_cluster_levels)
+      if (length(statistics) != block$length) {
+        stop("The signed robust independence GEE grid shape is invalid.",
              call. = FALSE)
       }
       values[block$start:block$end] <- statistics

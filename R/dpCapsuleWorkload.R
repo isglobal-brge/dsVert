@@ -1508,6 +1508,99 @@
       levels = unname(levels), reference = reference,
       beta_grid = unname(beta_grid), kind = "multinomial_grid"))
   }
+  if (version %in% c("binomial_robust_independence_gee_grid_v1",
+                     "poisson_robust_independence_gee_grid_v1")) {
+    poisson <- identical(version, "poisson_robust_independence_gee_grid_v1")
+    expected <- c(
+      "version", "dataset", "outcome", "cluster", "predictors",
+      "intercept", "max_patients_per_cluster", "score_clip", "beta_grid")
+    if (isTRUE(poisson)) expected <- c(expected, "max_outcome")
+    if (!setequal(names(raw), expected)) {
+      stop("Invalid robust independence GEE specification.", call. = FALSE)
+    }
+    outcome <- .dsvert_dp_capsule_column_reference(
+      raw$outcome, "robust independence GEE outcome")$reference
+    cluster <- .dsvert_dp_capsule_column_reference(
+      raw$cluster, "robust independence GEE cluster")$reference
+    predictors <- raw$predictors
+    if (is.list(predictors) && is.null(names(predictors))) {
+      predictors <- unlist(predictors, use.names = FALSE)
+    }
+    predictors <- if (is.character(predictors) && length(predictors) &&
+        is.null(names(predictors)) && !anyNA(predictors) &&
+        !anyDuplicated(predictors)) {
+      sort(vapply(predictors, function(value) {
+        .dsvert_dp_capsule_column_reference(
+          value, "robust independence GEE fixed predictor")$reference
+      }, character(1L)), method = "radix")
+    } else character()
+    beta_grid <- raw$beta_grid
+    if (!is.list(beta_grid) || !length(beta_grid) || !is.null(names(beta_grid))) {
+      beta_grid <- list()
+    } else {
+      beta_grid <- lapply(beta_grid, function(beta) {
+        if (is.list(beta) && is.null(names(beta))) {
+          beta <- unlist(beta, use.names = FALSE)
+        }
+        if (!is.numeric(beta) || !is.null(names(beta)) || anyNA(beta) ||
+            any(!is.finite(beta))) return(NULL)
+        as.numeric(beta)
+      })
+    }
+    expected_dimension <- 1L + length(predictors)
+    beta_valid <- length(beta_grid) && all(vapply(beta_grid, function(beta) {
+      is.numeric(beta) && length(beta) == expected_dimension &&
+        all(is.finite(beta)) && all(abs(beta) <= 8) && sum(abs(beta)) <= 8
+    }, logical(1L)))
+    beta_keys <- if (isTRUE(beta_valid)) vapply(beta_grid, function(beta) {
+      .dsvert_dp_canonical_json(as.list(beta))
+    }, character(1L)) else character()
+    if (isTRUE(beta_valid)) {
+      if (anyDuplicated(beta_keys)) beta_valid <- FALSE
+      if (isTRUE(beta_valid)) beta_grid <- beta_grid[order(beta_keys)]
+    }
+    maximum <- raw$max_patients_per_cluster
+    score_clip <- raw$score_clip
+    max_outcome <- if (isTRUE(poisson)) raw$max_outcome else 1L
+    max_outcome_valid <- if (isTRUE(poisson)) {
+      is.numeric(max_outcome) && length(max_outcome) == 1L &&
+        !is.na(max_outcome) && is.finite(max_outcome) &&
+        max_outcome == floor(max_outcome) && max_outcome >= 1L &&
+        max_outcome <= 1024L
+    } else TRUE
+    if (!is.numeric(maximum) || length(maximum) != 1L || is.na(maximum) ||
+        !is.finite(maximum) || maximum != floor(maximum) || maximum < 2L ||
+        maximum > min(policy$unit_capacity, 32L) || !is.numeric(score_clip) ||
+        length(score_clip) != 1L || is.na(score_clip) || !is.finite(score_clip) ||
+        score_clip < 0.25 || score_clip > 32 || !isTRUE(max_outcome_valid) ||
+        !isTRUE(raw$intercept) || !length(predictors) || length(predictors) > 3L ||
+        outcome %in% predictors || cluster %in% c(outcome, predictors) ||
+        !isTRUE(beta_valid) || length(beta_grid) > 32L) {
+      stop("Invalid robust independence GEE model terms.", call. = FALSE)
+    }
+    if (!is.logical(require_public_bounds) ||
+        length(require_public_bounds) != 1L || is.na(require_public_bounds)) {
+      stop("Invalid Gaussian specification validation mode.", call. = FALSE)
+    }
+    if (isTRUE(require_public_bounds) &&
+        (!dataset %in% names(policy$datasets) ||
+         any(!c(outcome, predictors) %in% names(policy$numeric_bounds)) ||
+         !cluster %in% names(policy$categorical_levels) ||
+         length(policy$categorical_levels[[cluster]]) > 64L)) {
+      stop("The robust independence GEE specification lacks public bounds.",
+           call. = FALSE)
+    }
+    return(list(
+      version = version, dataset = dataset, outcome = outcome, cluster = cluster,
+      predictors = unname(predictors), intercept = TRUE,
+      max_patients_per_cluster = as.integer(maximum),
+      max_outcome = as.integer(max_outcome), score_clip = as.numeric(score_clip),
+      beta_grid = lapply(beta_grid, unname), kind = if (isTRUE(poisson)) {
+        "poisson_robust_independence_gee_grid"
+      } else {
+        "binomial_robust_independence_gee_grid"
+      }))
+  }
   if (version %in% c("binomial_grid_v1", "poisson_grid_v1")) {
     poisson <- identical(version, "poisson_grid_v1")
     expected <- c(
@@ -3439,6 +3532,182 @@
         cross_owner_state = "reserved_not_materialized")
       gaussian_coordinate_count <- .dsvert_dp_capsule_coordinate_add(
         gaussian_coordinate_count, candidate_count)
+      gaussian_raw_l1 <- gaussian_raw_l1 + raw_l1
+      gaussian_raw_l2_squared <- .dsvert_dp_capsule_l2_add(
+        gaussian_raw_l2_squared, .dsvert_dp_capsule_l2_square(raw_l2))
+      gaussian_natural_l1 <- gaussian_natural_l1 + raw_l1 / grid_scale
+      gaussian_natural_l2_squared <- .dsvert_dp_capsule_l2_add(
+        gaussian_natural_l2_squared,
+        .dsvert_dp_capsule_l2_square(raw_l2 / grid_scale))
+      next
+    }
+    if (spec$kind %in% c("binomial_robust_independence_gee_grid",
+                         "poisson_robust_independence_gee_grid")) {
+      poisson <- identical(spec$kind, "poisson_robust_independence_gee_grid")
+      family <- if (isTRUE(poisson)) "poisson" else "binomial"
+      variables <- c(spec$outcome, spec$predictors, spec$cluster)
+      model_columns <- columns[variables]
+      owners <- unique(vapply(model_columns, `[[`, character(1L), "owner_peer"))
+      datasets <- vapply(model_columns, `[[`, character(1L), "dataset")
+      kinds <- vapply(model_columns, `[[`, character(1L), "kind")
+      outcome <- columns[[spec$outcome]]
+      outcome_valid <- if (isTRUE(poisson)) {
+        identical(unname(kinds), c(rep("numeric", 1L + length(spec$predictors)),
+                                   "categorical")) &&
+          identical(c(outcome$lower, outcome$upper),
+                    c(0, as.numeric(spec$max_outcome)))
+      } else {
+        identical(unname(kinds), c(rep("numeric", 1L + length(spec$predictors)),
+                                   "categorical")) &&
+          identical(c(outcome$lower, outcome$upper), c(0, 1))
+      }
+      public_clusters <- columns[[spec$cluster]]$levels
+      cluster_capacity <- as.integer(spec$max_patients_per_cluster)
+      if (!isTRUE(outcome_valid) || length(owners) != 1L ||
+          length(unique(datasets)) != 1L ||
+          !identical(datasets[[1L]], spec$dataset) ||
+          length(public_clusters) < 2L || length(public_clusters) > 64L ||
+          cluster_capacity < 2L || cluster_capacity > min(capacity, 32L) ||
+          length(spec$predictors) > 3L) {
+        stop(paste(
+          "A robust independence GEE grid must be same-owner with a bounded",
+          if (isTRUE(poisson)) "count outcome" else "binary outcome",
+          "numeric predictors and a bounded public categorical cluster."),
+          call. = FALSE)
+      }
+      design_terms <- c("(Intercept)", spec$predictors)
+      beta_grid <- spec$beta_grid
+      beta_valid <- length(beta_grid) && length(beta_grid) <= 32L &&
+        all(vapply(beta_grid, function(beta) {
+          length(beta) == length(design_terms) && all(is.finite(beta)) &&
+            all(abs(beta) <= 8) && sum(abs(beta)) <= 8
+        }, logical(1L)))
+      if (!isTRUE(beta_valid)) {
+        stop("The robust independence GEE candidate grid is invalid.",
+             call. = FALSE)
+      }
+      softplus <- function(value) pmax(value, 0) + log1p(exp(-abs(value)))
+      candidate_bounds <- lapply(beta_grid, function(beta) {
+        eta_bound <- sum(abs(beta))
+        loss <- if (isTRUE(poisson)) {
+          outer(0:spec$max_outcome, c(-eta_bound, eta_bound),
+                function(count, eta) exp(eta) - count * eta +
+                  lgamma(count + 1))
+        } else {
+          outer(c(0, 1), c(-eta_bound, eta_bound),
+                function(observed, eta) softplus(eta) - observed * eta)
+        }
+        list(loss_bound = max(0, max(loss)),
+             bread_bound = if (isTRUE(poisson)) exp(eta_bound) else 0.25)
+      })
+      loss_bounds <- vapply(candidate_bounds, `[[`, numeric(1L), "loss_bound")
+      bread_bounds <- vapply(candidate_bounds, `[[`, numeric(1L), "bread_bound")
+      meat_bounds <- rep(spec$score_clip^2, length(beta_grid))
+      loss_raw <- ceiling(loss_bounds * grid_scale)
+      bread_raw <- ceiling(bread_bounds * grid_scale)
+      meat_raw <- ceiling(2 * meat_bounds * grid_scale)
+      loss_sensitivity_raw <- loss_raw
+      bread_sensitivity_raw <- bread_raw
+      meat_sensitivity_raw <- meat_raw + 2
+      dimension <- length(design_terms)
+      triangle_count <- dimension * (dimension + 1L) / 2L
+      statistic_maximum <- unlist(lapply(seq_along(beta_grid), function(index) {
+        c(capacity * loss_raw[[index]],
+          rep(capacity * bread_raw[[index]], triangle_count),
+          rep(length(public_clusters) * meat_raw[[index]], triangle_count))
+      }), use.names = FALSE)
+      raw_coordinate_bounds <- unlist(lapply(seq_along(beta_grid), function(index) {
+        c(loss_sensitivity_raw[[index]],
+          rep(bread_sensitivity_raw[[index]], triangle_count),
+          rep(meat_sensitivity_raw[[index]], triangle_count))
+      }), use.names = FALSE)
+      base_raw_l1 <- sum(raw_coordinate_bounds)
+      base_raw_l2 <- .dsvert_dp_capsule_l2_sqrt(sum(raw_coordinate_bounds^2))
+      required_signed_bits <- as.integer(
+        ceiling(log2(max(statistic_maximum) + 1))) + 1L
+      if (!is.finite(base_raw_l1) || !is.finite(base_raw_l2) ||
+          any(!is.finite(statistic_maximum)) ||
+          any(statistic_maximum > .dsvert_dp_exact_integer_limit) ||
+          !is.finite(required_signed_bits) || required_signed_bits >= 127L) {
+        stop(structure(list(
+          message = paste(
+            "The robust independence GEE public bounds exceed the certified",
+            "exact-computation domain."), call = NULL,
+          reason = "robust_independence_gee_numeric_backend_unrepresentable",
+          required_signed_bits = required_signed_bits),
+          class = c("dsvert_numeric_backend_unrepresentable", "error",
+                    "condition")))
+      }
+      adjacency_multiplier <- .dsvert_dp_adjacency_multiplier(global_policy)
+      raw_l1 <- adjacency_multiplier * base_raw_l1
+      raw_l2 <- adjacency_multiplier * base_raw_l2
+      predictor_bounds <- lapply(spec$predictors, function(variable) {
+        column <- columns[[variable]]
+        list(column = column$column, lower = column$lower, upper = column$upper)
+      })
+      names(predictor_bounds) <- spec$predictors
+      artifact <- list(
+        version = paste0("bounded-", family,
+                         "-robust-independence-gee-grid-v1"),
+        spec_version = spec$version, analysis_id = analysis_id,
+        dataset = spec$dataset, owner_peer = owners[[1L]], family = family,
+        outcome = list(column = outcome$column, lower = outcome$lower,
+                       upper = outcome$upper),
+        max_outcome = if (isTRUE(poisson)) as.integer(spec$max_outcome) else NULL,
+        cluster = list(column = columns[[spec$cluster]]$column,
+                       levels = public_clusters),
+        predictors = predictor_bounds, predictor_order = unname(spec$predictors),
+        intercept = TRUE, design_terms = unname(design_terms),
+        observation_capacity = as.integer(capacity),
+        max_patients_per_cluster = cluster_capacity,
+        beta_grid = lapply(beta_grid, unname),
+        candidate_order = "canonical_beta_grid_glm_v1",
+        candidate_loss_bounds = as.list(unname(loss_bounds)),
+        score_clip = as.numeric(spec$score_clip),
+        candidate_bread_bounds = as.list(unname(bread_bounds)),
+        candidate_meat_bounds = as.list(unname(meat_bounds)),
+        candidate_loss_sensitivity_bounds = as.list(unname(loss_bounds)),
+        candidate_bread_sensitivity_bounds = as.list(unname(bread_bounds)),
+        candidate_meat_sensitivity_bounds = as.list(unname(2 * meat_bounds)),
+        public_cluster_levels = as.integer(length(public_clusters)),
+        numeric_grid_bits = grid_bits,
+        coordinate_count = as.integer(length(raw_coordinate_bounds)),
+        coordinate_order = paste(
+          "signed_candidate_grid_cluster", family,
+          "independence_loss_bread_meat_upper_v1", sep = "_"),
+        source_coordinate_scaling =
+          "all_coordinates_already_on_common_numeric_lattice_v1",
+        repeated_record_policy = paste(
+          "require_one_complete_bounded", family,
+          "outcome_and_mean_once_per_admitted_patient_with_one",
+          "consistent_public_cluster_level_v1", sep = "_"),
+        missingness_policy = paste(
+          "noninteger_or_out_of_range_or_missing_outcome_or_missing_or",
+          "nonfinite_predictor_or_missing_or_inconsistent_cluster_excludes",
+          "patient_v1", sep = "_"),
+        contribution_domain = paste(
+          "one_bounded_patient_can_change_one", family,
+          "loss_and_bread_term_and_one_componentwise_clipped_cluster_score",
+          "outer_product_per_signed_candidate_v1", sep = "_"),
+        statistic_maximum = as.list(statistic_maximum),
+        source_raw_l1_sensitivity = raw_l1,
+        source_raw_l2_sensitivity = raw_l2,
+        natural_l1_sensitivity = raw_l1 / grid_scale,
+        natural_l2_sensitivity = raw_l2 / grid_scale,
+        adjacency = global_policy$adjacency,
+        adjacency_sensitivity_basis = paste(
+          "one_patient_removal_insertion_or_replacement_changes_one",
+          "bounded_loss_and_bread_term_and_one_clipped_cluster_score_outer",
+          "product_with_quantization_slack_v1", sep = "_"),
+        estimation_scope = paste(
+          "bounded", family,
+          "independence_gee_finite_signed_beta_grid_with_componentwise",
+          "clipped_cluster_score_sandwich_v1", sep = "_"),
+        implementation_state = "same_owner_materialized",
+        cross_owner_state = "reserved_not_materialized")
+      gaussian_artifacts[[analysis_id]] <- artifact
+      gaussian_coordinate_count <- .dsvert_dp_capsule_coordinate_add(
+        gaussian_coordinate_count, length(raw_coordinate_bounds))
       gaussian_raw_l1 <- gaussian_raw_l1 + raw_l1
       gaussian_raw_l2_squared <- .dsvert_dp_capsule_l2_add(
         gaussian_raw_l2_squared, .dsvert_dp_capsule_l2_square(raw_l2))

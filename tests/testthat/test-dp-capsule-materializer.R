@@ -804,6 +804,46 @@ test_that("Poisson random-slope GLMM grid emits bounded two-effect losses", {
     "Invalid Poisson random-slope GLMM model terms")
 })
 
+test_that("robust binomial and Poisson independence GEE grids bind sandwich coordinates", {
+  for (family in c("binomial", "poisson")) {
+    poisson <- identical(family, "poisson")
+    spec <- list(gee_robust = list(
+      version = paste0(family, "_robust_independence_gee_grid_v1"),
+      dataset = "protected", outcome = "x", cluster = "cat_a",
+      predictors = "entry", intercept = TRUE, max_patients_per_cluster = 2L,
+      score_clip = 2, beta_grid = list(c(-1, 0), c(-1, log(2)))))
+    if (isTRUE(poisson)) spec$gee_robust$max_outcome <- 10L
+    data <- .materializer_test_data()
+    data$x <- if (isTRUE(poisson)) c(1, 1, 3, NA_real_) else c(0, 1, 1, NA_real_)
+    data$entry <- c(0, 0, 2, NA_real_)
+    fixture <- .materializer_test_fixture(
+      data = data, gaussian_specs = spec, binary_x = !isTRUE(poisson))
+    artifact <- fixture$manifest$workload$families$gaussian_models$
+      artifacts$gee_robust
+    layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+    block <- layout$blocks[["gaussian_models::gee_robust"]]
+    left <- .dsvert_dp_capsule_materialize_local(
+      fixture$policy, fixture$manifest, fixture$resolved)$values
+    changed <- data
+    changed$x[changed$patient_id == "u2"] <- if (isTRUE(poisson)) 1 else 0
+    fixture$resolved$protected$data <- changed
+    right <- .dsvert_dp_capsule_materialize_local(
+      fixture$policy, fixture$manifest, fixture$resolved)$values
+    delta <- right[block$start:block$end] - left[block$start:block$end]
+    gaussian <- fixture$manifest$workload$families$gaussian_models
+
+    expect_identical(artifact$version,
+                     paste0("bounded-", family,
+                            "-robust-independence-gee-grid-v1"))
+    expect_identical(artifact$cluster$column, "cat_a")
+    expect_identical(as.numeric(artifact$coordinate_count), 14)
+    expect_true(all(left[block$start:block$end] >= 0))
+    expect_true(all(left[block$start:block$end] <= artifact$statistic_maximum))
+    expect_lte(sum(abs(delta)), gaussian$l1_sensitivity)
+    expect_lte(sqrt(sum(delta^2)), gaussian$l2_sensitivity)
+  }
+})
+
 test_that("binary random-slope GLMM grid emits bounded two-effect losses", {
   glmm <- list(binary_random_slope = list(
     version = "binary_random_slope_grid_v1", dataset = "protected",

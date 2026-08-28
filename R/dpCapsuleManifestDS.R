@@ -420,7 +420,9 @@
                                    "poisson_random_intercept_grid",
                                    "poisson_random_slope_grid",
                                    "binary_random_slope_grid",
-                                   "gaussian_random_slope_grid")) {
+                                   "gaussian_random_slope_grid",
+                                   "binomial_robust_independence_gee_grid",
+                                   "poisson_robust_independence_gee_grid")) {
         c(spec$cluster, spec$predictors)
       } else {
         spec$predictors
@@ -446,7 +448,9 @@
                                  "poisson_random_intercept_grid",
                                  "poisson_random_slope_grid",
                                  "binary_random_slope_grid",
-                                 "gaussian_random_slope_grid")) {
+                                 "gaussian_random_slope_grid",
+                                 "binomial_robust_independence_gee_grid",
+                                 "poisson_robust_independence_gee_grid")) {
       isTRUE(outcome_owned) && length(variables) == 2L +
         length(spec$predictors) && all(owners == policy$peer_name) &&
         all(variables %in% mapping$datasets[[spec$dataset]])
@@ -549,6 +553,19 @@
         max_outcome = spec$max_outcome,
         beta_grid = lapply(spec$beta_grid, unname),
         variance_grid = unname(spec$variance_grid))
+    } else if (spec$kind %in% c("binomial_robust_independence_gee_grid",
+                                 "poisson_robust_independence_gee_grid")) {
+      value <- list(
+        version = spec$version, dataset = spec$dataset,
+        outcome = spec$outcome, cluster = spec$cluster,
+        predictors = unname(spec$predictors), intercept = spec$intercept,
+        max_patients_per_cluster = spec$max_patients_per_cluster,
+        score_clip = spec$score_clip,
+        beta_grid = lapply(spec$beta_grid, unname))
+      if (identical(spec$kind, "poisson_robust_independence_gee_grid")) {
+        value$max_outcome <- spec$max_outcome
+      }
+      value
     } else if (spec$kind %in% c("binomial_grid", "poisson_grid")) {
       value <- list(
         version = spec$version, dataset = spec$dataset,
@@ -871,6 +888,13 @@
         beta = unname(as.numeric(unlist(candidate$beta, use.names = FALSE))),
         covariance = unname(as.numeric(unlist(candidate$covariance,
                                                use.names = FALSE)))))
+    }
+    if (raw$version %in% c("binomial_robust_independence_gee_grid_v1",
+                           "poisson_robust_independence_gee_grid_v1")) {
+      raw$score_clip <- as.numeric(raw$score_clip)
+      raw$beta_grid <- lapply(raw$beta_grid, function(beta) {
+        unname(as.numeric(unlist(beta, use.names = FALSE)))
+      })
     }
     if (raw$version %in% c("random_intercept_fixed_v2",
                             "random_intercept_fixed_v3")) {

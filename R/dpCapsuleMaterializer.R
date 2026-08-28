@@ -10,6 +10,7 @@
 .DSVERT_DP_CAPSULE_LOCAL_MATERIAL_PURPOSE <-
   "biomedical_capsule_secret_share_input_only"
 .DSVERT_DP_CAPSULE_VALUE_BLOCK <- 65536L
+.DSVERT_DP_BINARY_GLMM_MAX_NODE_BATCH_CELLS <- 1048576L
 
 .dsvert_dp_capsule_coordinate_range_abort <- function(index, upper_bound) {
   stop(structure(list(
@@ -523,7 +524,7 @@
       any(cluster < 1) || any(cluster != floor(cluster)) ||
       !is.list(candidate_grid) || !length(candidate_grid) ||
       !identical(random_effect_order[[1L]], "(Intercept)") ||
-      length(random_effect_order) < 2L || length(random_effect_order) > 3L ||
+      length(random_effect_order) < 2L || length(random_effect_order) > 4L ||
       !all(random_effect_order[-1L] %in% names(design)) ||
       !is.numeric(grid_bits) || length(grid_bits) != 1L || is.na(grid_bits) ||
       !is.finite(grid_bits) || grid_bits != floor(grid_bits) ||
@@ -593,10 +594,17 @@
       fixed <- design_matrix[index, , drop = FALSE]
       random <- cbind(1, fixed[, random_columns, drop = FALSE])
       eta <- as.numeric(fixed %*% candidate$beta)
-      log_likelihood <- vapply(seq_len(nrow(random_effects)), function(node) {
-        eta_node <- eta + as.numeric(random %*% random_effects[node, ])
-        sum(outcome[index] * eta_node - softplus(eta_node))
-      }, numeric(1L))
+      node_count <- nrow(random_effects)
+      batch_size <- max(1L, as.integer(floor(
+        .DSVERT_DP_BINARY_GLMM_MAX_NODE_BATCH_CELLS / length(index))))
+      log_likelihood <- numeric(node_count)
+      for (start in seq.int(1L, node_count, by = batch_size)) {
+        end <- min(node_count, start + batch_size - 1L)
+        nodes <- start:end
+        eta_nodes <- eta + random %*% t(random_effects[nodes, , drop = FALSE])
+        log_likelihood[nodes] <- colSums(
+          eta_nodes * outcome[index] - softplus(eta_nodes))
+      }
       maximum <- max(log_weights + log_likelihood)
       loss <- -(maximum + log(sum(exp(log_weights + log_likelihood - maximum))))
       as.numeric(round(max(0, loss) * scale))

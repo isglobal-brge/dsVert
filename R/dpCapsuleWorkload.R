@@ -1039,7 +1039,7 @@
 .dsvert_dp_capsule_binary_random_slope_quadrature_rule_v1 <- function(effect_count) {
   if (!is.numeric(effect_count) || length(effect_count) != 1L ||
       is.na(effect_count) || effect_count != floor(effect_count) ||
-      effect_count < 2L || effect_count > 3L) return(NA_character_)
+      effect_count < 2L || effect_count > 4L) return(NA_character_)
   paste0("gauss_hermite_", paste(rep.int("9", effect_count), collapse = "x"),
          "_standard_normal_v1")
 }
@@ -1219,7 +1219,7 @@
     value, dimension, random_effect_order) {
   effect_count <- length(random_effect_order)
   if (!is.list(value) || !length(value) || !is.null(names(value)) ||
-      effect_count < 2L || effect_count > 3L ||
+      effect_count < 2L || effect_count > 4L ||
       !identical(random_effect_order[[1L]], "(Intercept)")) {
     return(list())
   }
@@ -1763,8 +1763,13 @@
       if (is.list(value) && is.null(names(value))) value <- unlist(value, use.names = FALSE)
       if (!is.character(value) || !length(value) || !is.null(names(value)) ||
           anyNA(value) || anyDuplicated(value)) return(character())
-      sort(vapply(value, function(x) .dsvert_dp_capsule_column_reference(x, what)$reference,
-                 character(1L)), method = "radix")
+      references <- vapply(value, function(x) {
+        .dsvert_dp_capsule_column_reference(x, what)$reference
+      }, character(1L))
+      if (!identical(references, sort(references, method = "radix"))) {
+        return(character())
+      }
+      references
     }
     predictors <- normalize_references(raw$predictors, "GLMM fixed predictor")
     random_slopes <- normalize_references(raw$random_slopes, "GLMM random slope")
@@ -1774,7 +1779,7 @@
         maximum > policy$unit_capacity || !isTRUE(raw$intercept) ||
         !length(predictors) || outcome %in% predictors ||
         cluster %in% c(outcome, predictors) || length(random_slopes) < 1L ||
-        length(random_slopes) > 2L ||
+        length(random_slopes) > 3L ||
         !all(random_slopes %in% predictors)) {
       stop("Invalid binary random-slope GLMM model terms.", call. = FALSE)
     }

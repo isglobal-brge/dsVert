@@ -192,6 +192,7 @@
           "bounded-gaussian-random-slope-likelihood-grid-v1",
           "bounded-gaussian-ar1-working-gls-grid-v1",
           "bounded-binary-random-intercept-likelihood-grid-v1",
+          "bounded-poisson-random-intercept-likelihood-grid-v1",
           "bounded-binary-random-slope-likelihood-grid-v1",
           "bounded-binomial-likelihood-grid-v1",
           "bounded-poisson-likelihood-grid-v1",

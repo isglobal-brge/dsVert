@@ -31,7 +31,7 @@
     data = .materializer_test_data(),
     adjacency = "add_remove_patient", capacity = 5L,
     max_records = 4L, duplicate_describe = FALSE,
-    gaussian_specs = list(), workload_scope = NULL,
+    gaussian_specs = list(), survival_specs = NULL, workload_scope = NULL,
     binary_x = FALSE, binary_z = FALSE, multiclass_outcome = FALSE) {
   if (isTRUE(binary_z)) data$z <- c(0, 0, 1, NaN)
   if (isTRUE(multiclass_outcome)) {
@@ -121,6 +121,7 @@
     version = "v1", dataset = "protected", time = "time",
     event = "status", censor = "censor", time_grid = c(5, 10),
     entry = "entry"))
+  if (!is.null(survival_specs)) survival <- survival_specs
   manifest <- .dsvert_dp_capsule_workload_manifest(
     policy, logical_snapshot, schema,
     describe_specs = describe, survival_specs = survival,
@@ -908,6 +909,47 @@ test_that("Gaussian AR1 working-GLS grid honours patient sensitivity and rejects
   fixture$resolved$protected$data$entry[2L] <- 0
   expect_error(.dsvert_dp_capsule_materialize_local(
     fixture$policy, fixture$manifest, fixture$resolved), "tied order")
+})
+
+test_that("Cox partial-likelihood grid emits bounded Breslow losses", {
+  cox <- list(cox_grid = list(
+    version = "cox_partial_likelihood_grid_v1", dataset = "protected",
+    time = "time", event = "status", censor = "censor",
+    event_level = "event", time_grid = c(3, 6, 10), predictors = "x",
+    intercept = FALSE, candidate_grid = list(c(0.5), c(0))))
+  data <- data.frame(
+    patient_id = paste0("u", 1:4), entry = 0, time = c(2, 4, 7, 9),
+    x = c(0, 3, 7, 10), cat_a = c("A", "A", "B", "B"),
+    cat_b = c("L", "L", "R", "R"),
+    status = c("event", "censor", "event", "censor"))
+  fixture <- .materializer_test_fixture(data = data, capacity = 4L,
+    max_records = 1L, survival_specs = cox)
+  artifact <- fixture$manifest$workload$families$survival_artifacts$cox_grid
+  layout <- .dsvert_dp_capsule_coordinate_layout(fixture$manifest)
+  block <- layout$blocks[["survival_artifacts::cox_grid"]]
+  material <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)
+
+  expect_identical(artifact$version, "bounded-cox-partial-likelihood-grid-v1")
+  expect_identical(artifact$intercept, FALSE)
+  expect_true(all(material$values[block$start:block$end] >= 0))
+  expect_true(all(material$values[block$start:block$end] <=
+                    unlist(artifact$statistic_maximum, use.names = FALSE)))
+  fixture$resolved$protected$data$time[[1L]] <- 10
+  shifted <- .dsvert_dp_capsule_materialize_local(
+    fixture$policy, fixture$manifest, fixture$resolved)$values
+  delta <- shifted[block$start:block$end] - material$values[block$start:block$end]
+  family <- fixture$manifest$workload$families$survival_artifacts$cox_grid
+  expect_lte(sum(abs(delta)), family$source_raw_l1_sensitivity)
+  expect_lte(sqrt(sum(delta^2)), family$source_raw_l2_sensitivity)
+
+  unsorted <- cox
+  unsorted$cox_grid$predictors <- c("z", "x")
+  unsorted$cox_grid$candidate_grid <- list(c(0.5, 0), c(0, 0))
+  expect_error(.materializer_test_fixture(
+    data = data, capacity = 4L, max_records = 1L,
+    survival_specs = unsorted, binary_z = TRUE),
+    "Invalid Cox partial-likelihood grid model terms")
 })
 
 test_that("negative-binomial grid emits only bounded candidate losses", {

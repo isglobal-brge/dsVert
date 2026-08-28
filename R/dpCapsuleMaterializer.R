@@ -1253,6 +1253,71 @@
     l2_sensitivity = artifact$l2_sensitivity)
 }
 
+.dsvert_dp_capsule_quantized_cox_partial_grid_losses <- function(
+    design, time_bin, event, candidate_grid, grid_bits, candidate_loss_bounds,
+    observation_capacity) {
+  invalid <- !is.list(design) || !length(design) || is.null(names(design)) ||
+    !is.numeric(time_bin) || !is.numeric(event) ||
+    length(time_bin) != length(event) || anyNA(time_bin) ||
+    any(!is.finite(time_bin)) || any(time_bin < 1) ||
+    any(time_bin != floor(time_bin)) || anyNA(event) || any(!is.finite(event)) ||
+    any(!event %in% c(0, 1)) || !is.list(candidate_grid) ||
+    !length(candidate_grid) || !is.numeric(candidate_loss_bounds) ||
+    length(candidate_loss_bounds) != length(candidate_grid) ||
+    anyNA(candidate_loss_bounds) || any(!is.finite(candidate_loss_bounds)) ||
+    any(candidate_loss_bounds <= 0) || !is.numeric(grid_bits) ||
+    length(grid_bits) != 1L || is.na(grid_bits) || !is.finite(grid_bits) ||
+    grid_bits != floor(grid_bits) || grid_bits < 8L || grid_bits > 18L ||
+    !is.numeric(observation_capacity) || length(observation_capacity) != 1L ||
+    is.na(observation_capacity) || !is.finite(observation_capacity) ||
+    observation_capacity != floor(observation_capacity) ||
+    observation_capacity < 2L || length(event) > observation_capacity
+  if (invalid) {
+    stop("Invalid Cox partial-likelihood grid values.", call. = FALSE)
+  }
+  valid_design <- vapply(design, function(column) {
+    is.numeric(column) && length(column) == length(event) && !anyNA(column) &&
+      all(is.finite(column)) && all(column >= 0 & column <= 1)
+  }, logical(1L))
+  candidates <- lapply(candidate_grid, function(beta) {
+    if (is.list(beta) && is.null(names(beta))) beta <- unlist(beta, use.names = FALSE)
+    if (!is.numeric(beta) || !is.null(names(beta)) || length(beta) != length(design) ||
+        anyNA(beta) || any(!is.finite(beta)) || any(abs(beta) > 4) ||
+        sum(abs(beta)) > 8) return(NULL)
+    as.numeric(beta)
+  })
+  if (!all(valid_design) || any(vapply(candidates, is.null, logical(1L)))) {
+    stop("Invalid Cox partial-likelihood grid design.", call. = FALSE)
+  }
+  if (!length(event)) return(rep.int(0, length(candidates)))
+  scale <- 2^as.integer(grid_bits)
+  if (max(candidate_loss_bounds) >
+      floor(.dsvert_dp_exact_integer_limit / scale)) {
+    stop("The Cox partial-likelihood grid exceeds exact quantization.",
+         call. = FALSE)
+  }
+  matrix_design <- do.call(cbind, design)
+  statistics <- vapply(seq_along(candidates), function(index) {
+    eta <- as.numeric(matrix_design %*% candidates[[index]])
+    event_times <- sort(unique(time_bin[event == 1]), method = "radix")
+    loss <- sum(vapply(event_times, function(current_time) {
+      event_rows <- event == 1 & time_bin == current_time
+      risk_rows <- time_bin >= current_time
+      maximum <- max(eta[risk_rows])
+      sum(event_rows) * (maximum + log(sum(exp(eta[risk_rows] - maximum)))) -
+        sum(eta[event_rows])
+    }, numeric(1L)))
+    as.numeric(round(min(candidate_loss_bounds[[index]], max(0, loss)) * scale))
+  }, numeric(1L))
+  if (anyNA(statistics) || any(!is.finite(statistics)) || any(statistics < 0) ||
+      any(statistics != floor(statistics)) ||
+      any(statistics > .dsvert_dp_exact_integer_limit)) {
+    stop("The Cox partial-likelihood statistics are not representable.",
+         call. = FALSE)
+  }
+  unname(statistics)
+}
+
 .dsvert_dp_capsule_value_commitment <- function(values, binding) {
   values <- .dsvert_dp_integer_vector(values, "local capsule coordinates")
   starts <- seq.int(1L, length(values), by = .DSVERT_DP_CAPSULE_VALUE_BLOCK)
@@ -1869,6 +1934,61 @@
     local_blocks, `[[`, character(1L), "family") == "survival_artifacts"]
   for (name in names(survival_blocks)) {
     block <- survival_blocks[[name]]
+    if (identical(block$descriptor$version,
+                  "bounded-cox-partial-likelihood-grid-v1")) {
+      artifact <- block$descriptor
+      time_grid <- unname(as.numeric(unlist(
+        artifact$time_grid, use.names = FALSE)))
+      event_levels <- unname(as.character(unlist(
+        artifact$event$levels, use.names = FALSE)))
+      predictor_order <- unname(as.character(unlist(
+        artifact$predictor_order, use.names = FALSE)))
+      candidate_grid <- lapply(artifact$candidate_grid, function(beta) {
+        unname(as.numeric(unlist(beta, use.names = FALSE)))
+      })
+      candidate_loss_bounds <- unname(as.numeric(unlist(
+        artifact$candidate_loss_bounds, use.names = FALSE)))
+      admission <- admission_for(block$dataset)
+      if (any(admission$record_count[admission$present] != 1L)) {
+        stop("The protected snapshot has repeated rows for a Cox grid patient.",
+             call. = FALSE)
+      }
+      outcome_time <- bounded_for(block$dataset, artifact$time$column)
+      event <- .dsvert_dp_capsule_bounded_category(
+        snapshots[[block$dataset]]$data, policy, artifact$event$column,
+        event_levels, admission, strict = TRUE)
+      predictors <- lapply(predictor_order, function(variable) {
+        bounded_for(block$dataset, artifact$predictors[[variable]]$column)
+      })
+      names(predictors) <- predictor_order
+      complete <- outcome_time$valid & !is.na(event$cell)
+      for (predictor in predictors) complete <- complete & predictor$valid
+      normalize <- function(values, lower, upper) {
+        pmin(1, pmax(0, (values - lower) / (upper - lower)))
+      }
+      event_index <- match(artifact$event$event_level, event_levels)
+      if (is.na(event_index)) {
+        stop("The Cox event level is absent from the signed domain.",
+             call. = FALSE)
+      }
+      design <- stats::setNames(lapply(predictor_order, function(variable) {
+                    descriptor <- artifact$predictors[[variable]]
+                    normalize(predictors[[variable]]$unit_values[complete],
+                              descriptor$lower, descriptor$upper)
+                  }), predictor_order)
+      time_bin <- .dsvert_dp_survival_ceiling_bin(
+        outcome_time$unit_values[complete], time_grid)
+      statistics <- .dsvert_dp_capsule_quantized_cox_partial_grid_losses(
+        design, time_bin, as.numeric(event$cell[complete] == event_index),
+        candidate_grid, artifact$numeric_grid_bits, candidate_loss_bounds,
+        artifact$observation_capacity)
+      if (length(statistics) != block$length) {
+        stop("The signed Cox partial-likelihood coordinate shape is invalid.",
+             call. = FALSE)
+      }
+      values[block$start:block$end] <- statistics
+      next
+    }
     spec <- .dsvert_dp_capsule_survival_spec(
       block$descriptor, block$key)
     exact <- .dsvert_dp_survival_histogram(

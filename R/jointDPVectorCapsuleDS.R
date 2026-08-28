@@ -336,6 +336,22 @@
         stop("The Gaussian-model bounds are invalid.", call. = FALSE)
       }
       upper[indices] <- bound
+    } else if (identical(block$family, "survival_artifacts") &&
+               identical(block$descriptor$version,
+                         "bounded-cox-partial-likelihood-grid-v1")) {
+      if (!identical(
+        block$descriptor$source_coordinate_scaling,
+        "all_coordinates_already_on_common_numeric_lattice_v1")) {
+        stop("The Cox partial-likelihood lattice scaling is invalid.",
+             call. = FALSE)
+      }
+      shifts[indices] <- rep(0L, length(indices))
+      bound <- unname(as.numeric(block$descriptor$statistic_maximum))
+      if (length(bound) != length(indices)) {
+        stop("The Cox partial-likelihood bounds are invalid.",
+             call. = FALSE)
+      }
+      upper[indices] <- bound
     } else if (identical(block$family, "categorical_pairs") &&
                identical(
                  block$descriptor$version,
@@ -409,7 +425,12 @@
     as.numeric(families$categorical_marginals$l1_sensitivity) +
     as.numeric(families$categorical_pairs$l1_sensitivity) +
     sum(vapply(families$survival_artifacts, function(artifact) {
-      as.numeric(artifact$l1_sensitivity)
+      if (identical(artifact$version,
+                    "bounded-cox-partial-likelihood-grid-v1")) {
+        as.numeric(artifact$natural_l1_sensitivity)
+      } else {
+        as.numeric(artifact$l1_sensitivity)
+      }
     }, numeric(1L)))
   integer_l1 <- natural_l1 * scale
   mechanism <- workload$capsule_mechanism

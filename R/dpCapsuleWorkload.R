@@ -1120,6 +1120,101 @@
   candidates[order(keys)]
 }
 
+.dsvert_dp_capsule_cox_partial_grid_candidates <- function(
+    value, dimension, capacity) {
+  if (!is.list(value) || !length(value) || !is.null(names(value)) ||
+      !is.numeric(capacity) || length(capacity) != 1L || is.na(capacity) ||
+      !is.finite(capacity) || capacity != floor(capacity) || capacity < 2L) {
+    return(list())
+  }
+  candidates <- lapply(value, function(beta) {
+    if (is.list(beta) && is.null(names(beta))) {
+      beta <- unlist(beta, use.names = FALSE)
+    }
+    if (!is.numeric(beta) || !is.null(names(beta)) || length(beta) != dimension ||
+        anyNA(beta) || any(!is.finite(beta)) || any(abs(beta) > 4) ||
+        sum(abs(beta)) > 8) {
+      return(NULL)
+    }
+    bound <- capacity * (log(capacity) + 2 * sum(abs(beta)))
+    if (!is.finite(bound) || bound <= 0) return(NULL)
+    list(beta = as.numeric(beta), loss_bound = as.numeric(bound))
+  })
+  if (any(vapply(candidates, is.null, logical(1L)))) return(list())
+  keys <- vapply(candidates, function(candidate) .dsvert_dp_canonical_json(
+    as.list(candidate$beta)), character(1L))
+  if (anyDuplicated(keys)) return(list())
+  candidates[order(keys)]
+}
+
+.dsvert_dp_capsule_cox_partial_grid_spec <- function(
+    policy, data_name, analysis_id, specs) {
+  raw <- if (is.list(specs)) specs[[analysis_id]] else NULL
+  expected <- c(
+    "version", "dataset", "time", "event", "censor", "event_level",
+    "time_grid", "predictors", "intercept", "candidate_grid")
+  if (!is.list(raw) || !setequal(names(raw), expected) ||
+      !identical(raw$version, "cox_partial_likelihood_grid_v1") ||
+      !identical(raw$dataset, data_name) || !identical(raw$intercept, FALSE)) {
+    stop("Invalid Cox partial-likelihood grid specification.", call. = FALSE)
+  }
+  time <- .dsvert_dp_capsule_column_reference(raw$time, "Cox time")$reference
+  event <- .dsvert_dp_capsule_column_reference(raw$event, "Cox event")$reference
+  predictors <- raw$predictors
+  if (is.list(predictors) && is.null(names(predictors))) {
+    predictors <- unname(unlist(predictors, use.names = FALSE))
+  }
+  predictors <- if (is.character(predictors) && length(predictors) &&
+      is.null(names(predictors)) && !anyNA(predictors) &&
+      !anyDuplicated(predictors)) {
+    vapply(predictors, function(value) {
+      .dsvert_dp_capsule_column_reference(
+        value, "Cox predictor")$reference
+    }, character(1L))
+  } else {
+    character()
+  }
+  grid <- raw$time_grid
+  if (!is.numeric(grid) || !length(grid) || anyNA(grid) ||
+      any(!is.finite(grid)) || any(diff(grid) <= 0) ||
+      length(grid) > .DSVERT_DP_MAX_COORDINATES ||
+      !is.character(raw$censor) || length(raw$censor) != 1L ||
+      is.na(raw$censor) || !nzchar(raw$censor) ||
+      !is.character(raw$event_level) || length(raw$event_level) != 1L ||
+      is.na(raw$event_level) || !nzchar(raw$event_level) ||
+      identical(raw$censor, raw$event_level) || !length(predictors) ||
+      !identical(predictors, sort(predictors, method = "radix")) ||
+      length(unique(c(time, event, predictors))) != 2L + length(predictors)) {
+    stop("Invalid Cox partial-likelihood grid model terms.", call. = FALSE)
+  }
+  time_bounds <- policy$numeric_bounds[[time]]
+  event_levels <- policy$categorical_levels[[event]]
+  if (!is.numeric(time_bounds) || length(time_bounds) != 2L ||
+      anyNA(time_bounds) || any(!is.finite(time_bounds)) ||
+      time_bounds[[1L]] >= grid[[1L]] || !isTRUE(all.equal(
+        time_bounds[[2L]], grid[[length(grid)]], tolerance = 0)) ||
+      !is.character(event_levels) || length(event_levels) != 2L ||
+      anyNA(event_levels) || any(!nzchar(event_levels)) ||
+      anyDuplicated(event_levels) || !setequal(event_levels,
+        c(raw$censor, raw$event_level)) ||
+      any(!predictors %in% names(policy$numeric_bounds))) {
+    stop("The Cox partial-likelihood grid lacks public bounds or binary event levels.",
+         call. = FALSE)
+  }
+  candidates <- .dsvert_dp_capsule_cox_partial_grid_candidates(
+    raw$candidate_grid, length(predictors), policy$unit_capacity)
+  if (!length(candidates) || length(candidates) > 128L) {
+    stop("Invalid Cox partial-likelihood beta grid.", call. = FALSE)
+  }
+  list(
+    version = raw$version, dataset = raw$dataset, time = time, event = event,
+    censor = raw$censor, event_level = raw$event_level,
+    time_grid = unname(as.numeric(grid)), predictors = unname(predictors),
+    intercept = FALSE, candidate_grid = lapply(candidates, function(candidate) {
+      unname(candidate$beta)
+    }), kind = "cox_partial_likelihood_grid")
+}
+
 .dsvert_dp_capsule_binary_random_slope_candidates <- function(
     value, dimension, random_effect_order) {
   effect_count <- length(random_effect_order)
@@ -2289,9 +2384,19 @@
   for (analysis_id in names(survival_specs)) {
     raw <- survival_specs[[analysis_id]]
     data_name <- if (is.list(raw)) raw$dataset else NULL
-    spec <- .dsvert_dp_survival_spec(
-      global_policy, data_name, analysis_id, specs = survival_specs)
-    variables <- c(spec$time, spec$event, spec$entry)
+    spec <- if (is.list(raw) && identical(
+        raw$version, "cox_partial_likelihood_grid_v1")) {
+      .dsvert_dp_capsule_cox_partial_grid_spec(
+        global_policy, data_name, analysis_id, survival_specs)
+    } else {
+      .dsvert_dp_survival_spec(
+        global_policy, data_name, analysis_id, specs = survival_specs)
+    }
+    variables <- if (identical(spec$kind, "cox_partial_likelihood_grid")) {
+      c(spec$time, spec$event, spec$predictors)
+    } else {
+      c(spec$time, spec$event, spec$entry)
+    }
     lapply(variables[!vapply(variables, is.null, logical(1L))], reference)
   }
   for (analysis_id in names(gaussian_specs)) {
@@ -4314,8 +4419,102 @@
   for (analysis_id in names(survival_specs)) {
     raw <- survival_specs[[analysis_id]]
     data_name <- if (is.list(raw)) raw$dataset else NULL
-    spec <- .dsvert_dp_survival_spec(
-      global_policy, data_name, analysis_id, specs = survival_specs)
+    spec <- if (is.list(raw) && identical(
+        raw$version, "cox_partial_likelihood_grid_v1")) {
+      .dsvert_dp_capsule_cox_partial_grid_spec(
+        global_policy, data_name, analysis_id, survival_specs)
+    } else {
+      .dsvert_dp_survival_spec(
+        global_policy, data_name, analysis_id, specs = survival_specs)
+    }
+    if (identical(spec$kind, "cox_partial_likelihood_grid")) {
+      variables <- c(spec$time, spec$event, spec$predictors)
+      model_columns <- columns[variables]
+      owners <- unique(vapply(model_columns, `[[`, character(1L), "owner_peer"))
+      datasets <- vapply(model_columns, `[[`, character(1L), "dataset")
+      kinds <- vapply(model_columns, `[[`, character(1L), "kind")
+      expected_kinds <- c("numeric", "categorical",
+                          rep("numeric", length(spec$predictors)))
+      if (!identical(unname(kinds), expected_kinds) || length(owners) != 1L ||
+          length(unique(datasets)) != 1L ||
+          !identical(datasets[[1L]], spec$dataset)) {
+        stop(paste(
+          "A Cox partial-likelihood grid must be same-owner with numeric time",
+          "and predictors plus a binary categorical event."), call. = FALSE)
+      }
+      candidates <- .dsvert_dp_capsule_cox_partial_grid_candidates(
+        spec$candidate_grid, length(spec$predictors), capacity)
+      if (!length(candidates) || length(candidates) > 128L) {
+        stop("The Cox partial-likelihood beta grid is invalid.", call. = FALSE)
+      }
+      loss_bounds <- vapply(candidates, `[[`, numeric(1L), "loss_bound")
+      raw_per_candidate <- ceiling(loss_bounds * grid_scale)
+      statistic_maximum <- as.numeric(raw_per_candidate)
+      base_raw_l1 <- sum(raw_per_candidate)
+      base_raw_l2 <- .dsvert_dp_capsule_l2_sqrt(sum(raw_per_candidate^2))
+      required_signed_bits <- as.integer(
+        ceiling(log2(max(statistic_maximum) + 1))) + 1L
+      if (!is.finite(base_raw_l1) || !is.finite(base_raw_l2) ||
+          any(!is.finite(statistic_maximum)) ||
+          any(statistic_maximum > .dsvert_dp_exact_integer_limit) ||
+          !is.finite(required_signed_bits) || required_signed_bits >= 127L) {
+        stop("The Cox partial-likelihood public bounds exceed the certified exact-computation domain.",
+             call. = FALSE)
+      }
+      adjacency_multiplier <- .dsvert_dp_adjacency_multiplier(global_policy)
+      raw_l1 <- adjacency_multiplier * base_raw_l1
+      raw_l2 <- adjacency_multiplier * base_raw_l2
+      predictor_bounds <- lapply(spec$predictors, function(variable) {
+        column <- columns[[variable]]
+        list(column = column$column, lower = column$lower, upper = column$upper)
+      })
+      names(predictor_bounds) <- spec$predictors
+      survival_artifacts[[analysis_id]] <- list(
+        version = "bounded-cox-partial-likelihood-grid-v1",
+        spec_version = spec$version, analysis_id = analysis_id,
+        dataset = spec$dataset, owner_peer = owners[[1L]],
+        time = list(column = columns[[spec$time]]$column,
+                    lower = columns[[spec$time]]$lower,
+                    upper = columns[[spec$time]]$upper),
+        event = list(column = columns[[spec$event]]$column,
+                     levels = unname(columns[[spec$event]]$levels),
+                     censor = spec$censor, event_level = spec$event_level),
+        time_grid = spec$time_grid, predictors = predictor_bounds,
+        predictor_order = spec$predictors, intercept = FALSE,
+        design_terms = spec$predictors,
+        observation_capacity = capacity, candidate_grid = lapply(candidates,
+          function(candidate) unname(candidate$beta)),
+        candidate_order = "canonical_beta_grid_v1",
+        candidate_loss_bounds = as.list(loss_bounds),
+        numeric_grid_bits = grid_bits, coordinate_count = length(candidates),
+        coordinate_order =
+          "signed_candidate_grid_breslow_cox_partial_likelihood_loss_v1",
+        source_coordinate_scaling =
+          "all_coordinates_already_on_common_numeric_lattice_v1",
+        repeated_record_policy =
+          "require_one_complete_bounded_row_per_admitted_patient_v1",
+        missingness_policy =
+          "missing_or_nonfinite_time_or_predictor_or_event_excludes_patient_v1",
+        contribution_domain =
+          "one_bounded_patient_can_change_the_clipped_cox_cohort_loss_per_signed_candidate_v1",
+        statistic_maximum = as.list(statistic_maximum),
+        source_raw_l1_sensitivity = raw_l1,
+        source_raw_l2_sensitivity = raw_l2,
+        natural_l1_sensitivity = raw_l1 / grid_scale,
+        natural_l2_sensitivity = raw_l2 / grid_scale,
+        adjacency = global_policy$adjacency,
+        adjacency_sensitivity_basis =
+          "one_patient_can_change_one_entire_clipped_breslow_cox_loss_by_at_most_its_signed_bound_v1",
+        estimation_scope =
+          "bounded_same_owner_breslow_cox_partial_likelihood_finite_signed_beta_grid_v1",
+        implementation_state = "same_owner_materialized",
+        cross_owner_state = "reserved_not_materialized")
+      add_family(
+        length(candidates), raw_l1, raw_l2,
+        lattice_l1 = raw_l1 / grid_scale,
+        lattice_l2 = raw_l2 / grid_scale)
+      next
+    }
     variables <- c(spec$time, spec$event, spec$entry)
     variables <- variables[!vapply(variables, is.null, logical(1L))]
     owners <- unique(vapply(

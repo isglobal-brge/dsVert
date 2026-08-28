@@ -363,11 +363,21 @@
   for (analysis_id in names(survival)) {
     raw <- survival[[analysis_id]]
     data_name <- if (is.list(raw)) raw$dataset else NULL
-    spec <- tryCatch(.dsvert_dp_survival_spec(
-      policy, data_name, analysis_id, specs = survival),
-      error = function(error) NULL)
-    variables <- if (is.null(spec)) character() else
+    spec <- tryCatch(if (is.list(raw) && identical(
+        raw$version, "cox_partial_likelihood_grid_v1")) {
+      .dsvert_dp_capsule_cox_partial_grid_spec(
+        policy, data_name, analysis_id, survival)
+    } else {
+      .dsvert_dp_survival_spec(
+        policy, data_name, analysis_id, specs = survival)
+    }, error = function(error) NULL)
+    variables <- if (is.null(spec)) {
+      character()
+    } else if (identical(spec$kind, "cox_partial_likelihood_grid")) {
+      c(spec$time, spec$event, spec$predictors)
+    } else {
       c(spec$time, spec$event, spec$entry)
+    }
     variables <- variables[!vapply(variables, is.null, logical(1L))]
     if (is.null(spec) || !data_name %in% names(mapping$datasets) ||
         !all(variables %in% mapping$datasets[[data_name]])) {
@@ -375,10 +385,20 @@
         "invalid_custodian_workload_specs",
         "A custodian survival specification is not locally owned")
     }
-    normalized_survival[[analysis_id]] <- list(
-      version = spec$version, dataset = spec$dataset,
-      time = spec$time, event = spec$event, censor = spec$censor,
-      time_grid = unname(spec$time_grid), entry = spec$entry)
+    normalized_survival[[analysis_id]] <- if (identical(
+        spec$kind, "cox_partial_likelihood_grid")) {
+      list(
+        version = spec$version, dataset = spec$dataset,
+        time = spec$time, event = spec$event, censor = spec$censor,
+        event_level = spec$event_level, time_grid = unname(spec$time_grid),
+        predictors = unname(spec$predictors), intercept = FALSE,
+        candidate_grid = lapply(spec$candidate_grid, unname))
+    } else {
+      list(
+        version = spec$version, dataset = spec$dataset,
+        time = spec$time, event = spec$event, censor = spec$censor,
+        time_grid = unname(spec$time_grid), entry = spec$entry)
+    }
   }
 
   gaussian <- .dsvert_dp_capsule_manifest_spec_list(
@@ -784,6 +804,13 @@
     raw <- specs$survival[[analysis_id]]
     raw$time_grid <- unname(as.numeric(unlist(
       raw$time_grid, use.names = FALSE)))
+    if (identical(raw$version, "cox_partial_likelihood_grid_v1")) {
+      raw$predictors <- unname(as.character(unlist(
+        raw$predictors, use.names = FALSE)))
+      raw$candidate_grid <- lapply(raw$candidate_grid, function(beta) {
+        unname(as.numeric(unlist(beta, use.names = FALSE)))
+      })
+    }
     specs$survival[[analysis_id]] <- raw
   }
   for (analysis_id in names(specs$gaussian)) {

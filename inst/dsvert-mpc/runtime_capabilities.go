@@ -3,7 +3,7 @@ package main
 const (
 	runtimeManifestSchemaVersion    = 1
 	runtimeProtocolVersion          = "dsvert-mpc-runtime-v1"
-	runtimePackageVersion           = "1.1.0"
+	runtimePackageVersion           = "1.2.0"
 	runtimeAPIVersion               = "1.2.0"
 	dpNoiseProtocolVersion          = "dsvert-dp-noise-int64-v2"
 	dpGaussianProtocolVersion       = "dsvert-dp-gaussian-int64-v3"

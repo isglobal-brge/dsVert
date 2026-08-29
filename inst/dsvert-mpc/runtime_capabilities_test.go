@@ -12,7 +12,7 @@ func TestRuntimeCapabilitiesContract(t *testing.T) {
 	if manifest.SchemaVersion != 1 ||
 		manifest.ProtocolVersion != "dsvert-mpc-runtime-v1" ||
 		manifest.APIVersion != "1.2.0" ||
-		manifest.RuntimeVersion != "1.1.0" ||
+		manifest.RuntimeVersion != "1.2.0" ||
 		manifest.RuntimeVersion != runtimeVersion {
 		t.Fatalf("unexpected runtime manifest header: %+v", manifest)
 	}

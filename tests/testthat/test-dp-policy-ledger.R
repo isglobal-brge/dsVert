@@ -126,7 +126,7 @@
   list(
     schema_version = 1L,
     protocol_version = "dsvert-mpc-runtime-v1",
-    runtime_version = "1.1.0",
+    runtime_version = "1.2.0",
     api_version = "1.2.0",
     capabilities = list(
       dp_noise_int64 = list(

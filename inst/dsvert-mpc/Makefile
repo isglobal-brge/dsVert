@@ -2,7 +2,7 @@
 # Builds binaries for all supported platforms
 
 BINARY_NAME = dsvert-mpc
-VERSION ?= 1.1.0
+VERSION ?= 1.2.0
 override GO_VERSION_REQUIRED := go1.25.7
 
 # Output directories

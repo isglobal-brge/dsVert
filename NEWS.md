@@ -1,4 +1,4 @@
-# dsVert (development version)
+# dsVert 1.2.0
 
 ### Security hardening
 
@@ -16,7 +16,7 @@
   `joint_dp_frequency_backend_selection_v1`. The advertised command
   `joint-dp-frequency-backend-select-v1` chooses between two certified public
   planner results without consulting source material, private randomness or
-  runtime failure. The package/runtime release remains 1.1.0; API 1.1 peers
+  runtime failure. The packaged MPC runtime is 1.2.0; API 1.1 peers
   fail closed instead of silently accepting the enlarged exact manifest. All
   four packaged runtimes and `SHA256SUMS` were rebuilt reproducibly with the
   Makefile-enforced Go 1.25.7 toolchain. That selector was the data-free

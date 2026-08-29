@@ -1,7 +1,7 @@
 # dsVert - DataSHIELD Server Package for Vertically Partitioned Data
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](NEWS.md)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](NEWS.md)
 
 ## Overview
 
@@ -35,7 +35,7 @@ variable, R option or request. A retained method stays behind the central deny
 gate until its purpose-bound DP/MPC migration is complete; package tests use a
 test-only namespace replacement that is never installed.
 
-## Methods (v1.1.0)
+## Methods (v1.2.0)
 
 | Family | Product route |
 |---|---|

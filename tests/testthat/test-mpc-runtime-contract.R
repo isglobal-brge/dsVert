@@ -189,7 +189,7 @@ test_that("the current compiled runtime satisfies a deterministic contract", {
   expect_error(
     .dsvert_mpc_validate_runtime_manifest(old_manifest),
     "unsupported manifest schema or API version")
-  expect_identical(manifest$runtime_version, "1.1.0")
+  expect_identical(manifest$runtime_version, "1.2.0")
   expect_identical(manifest$api_version, "1.2.0")
   expect_true(manifest$capabilities$dp_noise_int64$available)
   expect_true(manifest$capabilities$exact_gc$available)
@@ -207,7 +207,7 @@ test_that("the current compiled runtime satisfies a deterministic contract", {
   expect_identical(
     as.character(frequency$operations),
     "public-data-free-certified-frequency-backend-selection-v1")
-  expect_identical(mpcVersion(), "1.1.0")
+  expect_identical(mpcVersion(), "1.2.0")
   expect_true(mpcAvailable())
 })
 
@@ -219,7 +219,7 @@ test_that("release Makefile pins reproducible pure-Go flags", {
   expect_identical(package_description, .DSVERT_MPC_RUNTIME_VERSION)
   makefile <- paste(readLines(file.path(source_dir, "Makefile"), warn = FALSE),
                     collapse = "\n")
-  expect_match(makefile, "VERSION \\?= 1\\.1\\.0")
+  expect_match(makefile, "VERSION \\?= 1\\.2\\.0")
   expect_match(
     makefile, "override GO_VERSION_REQUIRED := go1\\.25\\.7")
   expect_match(makefile, "deps: check-go-version", fixed = TRUE)

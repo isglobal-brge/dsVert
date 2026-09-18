@@ -372,4 +372,4 @@ func groupedGEECompile(s groupedGEESpec) (*primitiveVProgram, error) {
 	ninput := s.Slots * (s.Predictors + 3)
 	return primitiveVCompile(source, 192, ninput+nout, ninput, nout)
 }
-func registerGroupedGEE() func(groupedGEESpec) (*primitiveVProgram, error) { return groupedGEECompile }
+func registerGroupedGEE() groupedGEERegistration { return groupedGEERegistry() }

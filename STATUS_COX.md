@@ -238,3 +238,12 @@ helper error, exact-GC producer-state error, and padded PSI version assertion.
 This is a documented pre-existing ERROR, not a clean R CMD check or merely a
 NOTE. No shared production/test file was modified to suppress these failures.
 `git diff --name-status 38146c0` contains only added Cox-family files.
+
+### Sixth envelope — 4000x50 passes the revised gate
+
+4000x50 completes **52,962,304,383 bytes; 5663.674 s (94.39 min)**,
+including 83.079 s compilation, 14,071 authenticated chunks, all 50 coordinates
+equal to the independent integer oracle. All six 2000/4000-row points pass.
+The signed R and registered Go row limit is raised to this measured 4000-row,
+50-candidate rectangle; final selection still awaits the three 10000-row probes.
+Go measured-admission and plan/topology tests pass after the increase.

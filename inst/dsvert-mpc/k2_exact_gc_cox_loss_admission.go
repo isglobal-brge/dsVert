@@ -3,7 +3,7 @@ package main
 import "io"
 
 // Measured public rectangle; final matrix selection may raise these limits.
-const coxLossAdmittedRows = 2000
+const coxLossAdmittedRows = 4000
 const coxLossAdmittedCandidates = 50
 
 func coxLossAdmit(s coxLossSpec) error {

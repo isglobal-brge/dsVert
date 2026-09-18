@@ -247,3 +247,13 @@ equal to the independent integer oracle. All six 2000/4000-row points pass.
 The signed R and registered Go row limit is raised to this measured 4000-row,
 50-candidate rectangle; final selection still awaits the three 10000-row probes.
 Go measured-admission and plan/topology tests pass after the increase.
+
+After raising admission to 4000x50, the pod's targeted R tests pass:
+**server 637 / client 73 expectations**, zero failures/errors/skips. Client
+count includes the 23-expectation tagged DSLite/pooled-coxph test. Evidence:
+inst/cross-cox-v1/envelope_v2/cox-admission-final.log.
+
+A finalizer-only resource guard (4096 non-XOR gates) closes lattice/cap variation
+around the grid_bits=12 envelope. The compiled 99-case public sweep reaches at
+most 877 gates. Exp/log circuits and all numeric semantics are unchanged; the
+whole Cox Go suite is being rerun after this final compiler guard.

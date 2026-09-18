@@ -36,3 +36,27 @@ func TestCoxGridCrossMeasuredAdmission(t *testing.T) {
 		}
 	}
 }
+
+// Main exp/log tiles do not depend on lattice bits or candidate loss caps.
+// Bound the only varying tile so admission retains its measured headroom.
+func TestCoxGridCrossFinalizerResourceBound(t *testing.T) {
+	var maximum uint64
+	for _, rows := range []int{2000, 4000, 10000} {
+		for bits := 8; bits <= 18; bits++ {
+			cap, err := coxLossCap(rows, bits, []float64{4, 4})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, limit := range []uint64{1, cap / 2, cap} {
+				s := coxLossSpec{rows, 1, bits, []uint64{limit}, CoxGridCrossProfileID}
+				source, w, g, e, o := coxLossFinalizeSource(s, 0)
+				program := coxTestCompile(t, source, w, g, e, o)
+				maximum = max(maximum, program.Circuit.Stats.NumNonXOR())
+				if program.Circuit.Stats.NumNonXOR() > 4096 {
+					t.Fatal("finalizer exceeds public resource bound")
+				}
+			}
+		}
+	}
+	t.Logf("maximum finalizer non-XOR gates: %d", maximum)
+}

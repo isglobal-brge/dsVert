@@ -150,3 +150,15 @@ capacity uses approximately 69567 (2173.97 per row; exact capacity-specific
 counts are measured). Compilation rejects either profile above 5000 per row.
 All transport masks remain fresh; reusable checked OT advances its per-release
 streams, never reuses extension outputs, and cannot be restored/reset on retry.
+
+### Resource admission across lattice precisions
+
+The public matrix uses grid_bits=12 and maximum predictor radius 8 (beta 4,4).
+Exp/log batch sources, share scans, permutation and receipts do not depend on
+lattice precision or U_j. Only the scalar finalizer varies with grid_bits and
+its public cap. SharedCompile now also rejects a finalizer above 4096 non-XOR
+gates. A 99-case compiled sweep (N=2000/4000/10000, every grid_bits=8..18,
+caps 1/half-U/U) has maximum **877** non-XOR gates. This additional fail-closed
+resource check changes no source expression, fixed-point error, loss coordinate,
+sensitivity or measured wire transcript. The live matrix executable predates
+only this extra compiler rejection; it runs the identical circuit sources.

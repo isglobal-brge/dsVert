@@ -67,6 +67,9 @@ func coxLossCompileShares(p coxLossSharedPlan) (*coxLossSharedPrograms, error) {
 		if err != nil {
 			return nil, err
 		}
+		if f.Circuit.Stats.NumNonXOR() > 4096 {
+			return nil, coxLossError()
+		}
 		result.Final = append(result.Final, f)
 	}
 	return result, nil

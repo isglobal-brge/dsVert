@@ -74,3 +74,41 @@ an executed full-size release or a certified byte bound. The whole-envelope
 cost gate fails despite successful bounded kernels and scalar gate counts.
 The expensive repeated permutation reconstruction/remasking and linear scans
 must be redesigned/composed more efficiently before production scale admission.
+
+## 2026-09-18 resumed — blocked handoff and check outcomes
+
+See BLOCKED_COX.md. The full release envelope and authenticated fusion remain
+unmet, so production admission is disabled and the family session stops.
+
+Both `R CMD check --no-manual --no-build-vignettes` runs successfully installed,
+loaded and statically checked the packages and reached `testthat.R`; their test
+phases were interrupted after the blockers were established. They are incomplete,
+not clean checks. Server static diagnostics: 2 WARNING categories (missing docs,
+codoc) and 1 NOTE (normalize/global references); client: 3 WARNING categories
+(non-ASCII MI source, codoc, duplicate ordinal Rd argument). Detailed partial
+reports are retained in `inst/cross-cox-v1/server-check_partial.txt` and
+`client-check_partial.txt`. These implicated existing sources/docs are byte-for-
+byte unchanged from the respective bases; new family code has no static warning.
+
+The first client check also found our prematurely exported name missing from
+its exact public inventory. Fixed by keeping the entry behind registration
+(client c35322e), with all existing inventory tests and 39 Cox contract/parity
+expectations passing together. The final client entry is internal; its public
+export is explicitly part of the integration checklist. The full client check
+was not repeated to completion after this repair.
+
+The broad Go invocation completed 18 top-level tests and 25 subtests with no
+observed failure before interruption in
+TestFormalCoxBlockwiseLiveControlStagesFreshFinalizerK2K3K5/K2. Do not confuse this
+partial legacy coverage with the completed 23-test Cox family gate. The partial
+logs were copied before termination; `package_check_status.json` records their
+SHA256s, commands, scope and interruption provenance. Only processes whose cwd
+was inside /workspace/dsvert/cox/ were signalled; other lanes were untouched.
+
+Final functional commits:
+- Server dd25445 (recovery), 2f2c547 (circuits), 1bfe8a5 (R oracle/contract),
+  88a0694 (measured evidence), 1938c4e (public-surface decision).
+- Client 19b0e02 (recovery), 6b993e2 (DSLite/oracles), c35322e (internal entry).
+Subsequent commits record this handoff and check evidence only. Both final diffs
+against server 38146c0 / client cb26ecd contain only new family files. No existing
+file is modified after removal of our own temporary NAMESPACE export.

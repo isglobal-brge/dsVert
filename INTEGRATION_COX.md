@@ -13,12 +13,17 @@ Entry points (one registration function per language/package):
 - Server `.dsvert_dp_cox_grid_cross_register()` -> spec, contract validator,
   artifact, source contract, sensitivity, disabled producer.
 - Client `.dsvert_dp_cox_grid_cross_client_register()` -> validator, moment,
-  disabled release. Public `dp_cox_grid` accepts additive owner-qualified
+  disabled release. Its namespace-internal `entry` (`dp_cox_grid`) accepts additive owner-qualified
   `Surv(time,event)` formulas. Both actual Ed25519 signatures are mandatory.
 
 ## Exact remaining wiring
 
-1. Add Cox to the fused producer's family registration and purpose-specific
+1. Register the client entry in the public method inventory and maturity registry,
+   update their exact-surface/count tests, then add `export(dp_cox_grid)`. The
+   family branch keeps this export pending: the existing inventory requires exact
+   public-surface equality and currently classifies all 97 analysis entries as
+   promoted. Do not silently classify the disabled Cox producer as promoted.
+   Add Cox to the fused producer's family registration and purpose-specific
    manifest/lifecycle admission. Authenticate both schema and complete canonical
    Cox contract before input resolution. Preserve epsilon, delta, adjacency,
    whole-cohort U/Delta, source snapshot, profile hashes and common-lattice scale.

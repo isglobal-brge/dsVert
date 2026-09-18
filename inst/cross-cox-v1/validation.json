@@ -39,9 +39,10 @@
     "server_tests": 4,
     "server_expectations": 626,
     "client_contract_tests": 5,
-    "client_contract_expectations": 37,
+    "client_contract_expectations": 39,
     "dslite_tests": 1,
-    "dslite_expectations": 23
+    "dslite_expectations": 23,
+    "existing_inventory_suite": "passed after removal of premature export"
   },
   "profile_generator": "interval --check passed on pod",
   "observed_exp_max_relative_error": 0.00854687770277,

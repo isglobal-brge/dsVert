@@ -173,6 +173,9 @@ func coxSharedProtocolFixture(t *testing.T, n, jcount int, programs *coxLossShar
 	if os.Getenv("DSVERT_COX_ENVELOPE") == "1" {
 		budget = 60000000000
 	}
+	if len(scenario) > 0 && scenario[0] == "budget_stop" {
+		budget = 900000
+	}
 	garblerConn := &coxBenchmarkConn{ga, &attempted, &stopped, budget}
 	evaluatorConn := &coxBenchmarkConn{eb, &attempted, &stopped, budget}
 	session := exactGCTestSession(exactGCCircuitSpec{Operation: exactGCPrimitiveV, RingBits: 128, VectorLen: 1})
@@ -197,6 +200,9 @@ func coxSharedProtocolFixture(t *testing.T, n, jcount int, programs *coxLossShar
 	own := <-ch
 	if e != nil || own.err != nil {
 		if stopped.Load() || time.Since(compileStart) >= 2*time.Hour {
+			if len(own.result.Coordinates) != 0 || len(other.Coordinates) != 0 || len(own.result.Validity) != 0 || len(other.Validity) != 0 {
+				return nil, fmt.Errorf("partial result escaped failed protocol")
+			}
 			return map[string]any{"capacity": n, "candidates": jcount, "padded_rows": m, "seconds": time.Since(compileStart).Seconds(), "compile_seconds": compileSeconds, "garbler_bytes": ga.Written, "evaluator_bytes": eb.Written, "total_bytes": ga.Written + eb.Written, "completed": false, "oracle_equal": false, "budget_stop": true, "traffic_budget_reached": stopped.Load(), "time_budget_seconds": 7200, "traffic_budget_bytes": budget, "production_fusion": false, "profile": CoxGridCrossProfileID}, nil
 		}
 		return nil, fmt.Errorf("synthetic protocol: %v / %v", own.err, e)
@@ -330,5 +336,18 @@ func TestCoxGridCrossSharedReceiptNeedsPrivateKey(t *testing.T) {
 	p.ReceiptMode = "shared_channel_key"
 	if _, err := p.digest(); err == nil {
 		t.Fatal("non-hiding receipt mode accepted")
+	}
+}
+
+func TestCoxGridCrossSharedBudgetStop(t *testing.T) {
+	report, err := coxSharedProtocolFixture(t, 2, 2, nil, "budget_stop")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report["completed"] != false || report["oracle_equal"] != false || report["budget_stop"] != true || report["traffic_budget_reached"] != true {
+		t.Fatal("resource stop misreported as a release")
+	}
+	if report["total_bytes"].(int64) > 900000 {
+		t.Fatal("test transport exceeded its admitted budget")
 	}
 }

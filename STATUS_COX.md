@@ -178,3 +178,10 @@ Second completed envelope: N=2000,J=32, M=2048,
 **16,943,647,939 bytes; 2355.695 s (39.26 min)** including 111.608 s compilation.
 All 32 coordinates match the independent integer oracle. The 2000x50 and
 4000x16 runs are active next; final admission is not selected yet.
+
+Added a focused encrypted budget-abort regression: a two-candidate synthetic
+run is cut by a 900,000-byte TEST transport limit, then both parties must return
+no coordinate/validity arrays and the report must say incomplete/resource-stop.
+`go test -run '^TestCoxGridCrossSharedBudgetStop$' -count=1 -timeout=30s .` passes.
+This is additional targeted coverage after the 21-test broad family run; no
+production epsilon/delta, loss cap or transport budget was changed.

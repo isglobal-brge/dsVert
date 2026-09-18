@@ -1,0 +1,23 @@
+{
+  "budget_stop": false,
+  "candidates": 16,
+  "capacity": 4000,
+  "chunks": 4534,
+  "compile_seconds": 61.373180677,
+  "completed": true,
+  "evaluator_bytes": 612849213,
+  "exp_batch_nonxor": 146975,
+  "exp_source_sha256": "cdcb324eccf8bf0d93e3d0cff6cfce67964d066bb12893caaab7b1d70023c3f9",
+  "garbler_bytes": 16338334851,
+  "log_batch_nonxor": 69567,
+  "log_source_sha256": "fdc6bbc30dd03597a9290a7414ede0a55d643cad8480dc3c38ae40741c8e1283",
+  "online_seconds": 1784.984458693,
+  "oracle_equal": true,
+  "padded_rows": 4096,
+  "production_fusion": false,
+  "profile": "cox-pwlinear64-exp-q16-q20-log-q20-v1",
+  "row_batch": 32,
+  "seconds": 1846.35763937,
+  "total_bytes": 16951184064,
+  "transport": "two encrypted peers via net.Pipe; host recorded by benchmark launcher"
+}

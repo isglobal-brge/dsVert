@@ -1,11 +1,13 @@
 # Revised Cox family envelope
 
-Current admitted family-kernel rectangle: **N <= 4000, J <= 50**. The measured
+Final admitted family-kernel rectangle: **N <= 4000, J <= 50**. The measured
 4000x50 run completed in **52,962,304,383 bytes and 5663.674 seconds**
 (52.962 GB, 94.395 minutes), with every coordinate equal to the integer oracle.
 
-**Matrix status: 8/9 recorded; 10000x50 is still running.** Final selection
-will be recorded after the last requested probe; the implemented limit is conservative.
+**Matrix complete: 9/9 recorded.** Six complete runs pass both resource limits
+and oracle equality; all three 10000-row probes stop at the traffic budget.
+The deterministic summary selects 4000x50 (maximum passing N*J, then N).
+See `inst/cross-cox-v1/envelope_v2/summary.json` for report hashes and selection.
 
 This replaces the superseded blocked-gate report. Production remains disabled
 pending the authenticated step-2 wiring in [INTEGRATION_COX.md](INTEGRATION_COX.md).
@@ -20,7 +22,7 @@ pending the authenticated step-2 wiring in [INTEGRATION_COX.md](INTEGRATION_COX.
 | 4000 | 50 | 4096 | 52,962,304,383 | 5663.674 | Complete; oracle equal |
 | 10000 | 16 | 16384 | 59,999,957,516 | 5279.340 | 60 GB cutoff; incomplete |
 | 10000 | 32 | 16384 | 59,999,969,168 | 5412.021 | 60 GB cutoff; incomplete |
-| 10000 | 50 | 16384 | — | — | Pending |
+| 10000 | 50 | 16384 | 59,999,962,098 | 4737.815 | 60 GB cutoff; incomplete |
 
 The cutoff rows record successfully transmitted bytes before the next record
 would exceed 60,000,000,000 bytes. They are resource-censored observations, not
@@ -40,8 +42,14 @@ and two-host RTT are excluded. Step 2 must fit those costs into the remaining
 Raw reports, source hashes, binary hashes, host details and test logs are under
 `inst/cross-cox-v1/envelope_v2/`. The pod exposes 96 CPUs but has a 7.65-core
 cgroup quota shared with other lanes. At most two GOMAXPROCS=2 probes run at once.
-The opt-in command is `DSVERT_COX_ENVELOPE=1 DSVERT_COX_N=N DSVERT_COX_J=J
-DSVERT_COX_REPORT=report.json ./cox-shared.test -test.run=^TestCoxGridCrossSharedEnvelope$`.
+For example, from the pod family directory after compiling the test binary:
+
+```sh
+DSVERT_COX_ENVELOPE=1 DSVERT_COX_N=4000 DSVERT_COX_J=50 \
+DSVERT_COX_REPORT=report.json GOMAXPROCS=2 \
+./cox-shared.test -test.run='^TestCoxGridCrossSharedEnvelope$'
+```
+
 The full launcher and deterministic admission summary are in
 `inst/cross-cox-v1/run_shared_envelope_v2.sh` and
 `inst/cross-cox-v1/summarize_shared_envelope_v2.py`.

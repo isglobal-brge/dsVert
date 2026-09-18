@@ -116,3 +116,25 @@ branch and independently installed primitive baseline 38146c0: the unchanged
 its namespace parent. Both source-loaded test_local suites pass. Paired logs
 are retained in inst/cross-cox-v1/envelope_v2. Do not alter unrelated production
 or test namespaces to conceal the pre-existing installed-check failure.
+
+
+### Resumed — 2026-09-18 final gate decision
+
+Admit the measured rectangle N<=4000, J<=50. Its 52,962,304,383 bytes and
+5663.674 seconds satisfy the revised 60 GB / 2 h gate. All six smaller matrix
+points complete with oracle equality; all three N=10000 probes reach the
+traffic budget before completion. Censored runs never qualify for admission
+and no extrapolation substitutes for a measurement. summary.json selects the
+largest passing N*J (then N) only after all nine reports exist.
+
+Keep runtime_enabled=false: authenticated source/PSI, terminal Ring64-to-Ring128
+conversion, joint-DP injection and sticky publication belong to step 2. The
+remaining 7.038 GB / 25.605 minutes are headroom to validate, not a claim that
+those unimplemented stages fit. Admission metadata is an execution binding;
+changing it alone must not create a fresh semantic noise draw. No epsilon,
+delta, sensitivity/loss cap, sealed route or same-owner route was relaxed.
+
+Remove the obsolete BLOCKED_COX.md and retain MEASURED_ENVELOPE_COX.md as the
+current measured result. Full server R-check failures are explicitly reported
+as pre-existing ERRORS with installed-baseline reproductions, not relabelled
+as a clean check or only NOTEs. No unrelated shared code/tests were changed.

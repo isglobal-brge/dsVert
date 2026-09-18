@@ -1,5 +1,34 @@
 # Cox cross-owner grid status
 
+## Current result — 2026-09-18, 19:23 UTC
+
+The revised family-kernel resource gate passes at **4000 rows x 50 candidates**:
+**52,962,304,383 bytes; 5663.674 seconds (94.39 minutes)**. All nine requested
+points are recorded: six complete oracle-equal passes and three 10000-row
+traffic-budget stops. Signed server/client admission and registered Go entry
+points enforce N<=4000/J<=50 before protected use. The obsolete BLOCKED_COX.md
+has been replaced by [MEASURED_ENVELOPE_COX.md](MEASURED_ENVELOPE_COX.md).
+
+Final family validation: **24 Go tests + 7 subtests; 641 server / 77 client R
+expectations**, including 23 tagged two-peer DSLite expectations at epsilon
+1,4,8. Numeric error and sensitivity certificates remain valid. Both full
+R CMD checks ran: client has 3 pre-existing WARNING categories; server has
+17 test failures (13,279 passes), all reproduced against installed baseline
+38146c0, plus 2 WARNINGs/1 NOTE. No Cox test failed. Later admission/layout
+changes passed the targeted suites above; no shared test was weakened.
+
+This is a complete family-library handoff, not production promotion. The route
+remains fail-closed until step 2 supplies authenticated source/PSI fusion,
+in-circuit Ring64-to-Ring128 conversion, joint DP and sticky lifecycle. Exact
+wiring and client inventory/maturity admission are in INTEGRATION_COX.md.
+
+Final implementation commits: server **34c5f32** (admitted rectangle),
+**9ce6c84** (finalizer bound), **d7e44ed** (typed fusion handoff); client
+**992b713** (admission), **cd2efc9** (typed handoff). Subsequent commits record
+measurements and documentation. No pushes or thesis/shared-route edits.
+
+Historical milestones follow; earlier failed architecture gates are superseded.
+
 ## 2026-09-18 resumed
 The quota interruption left no Cox status/decision files. Inspected both repositories before changes; base server 38146c0 (approved primitive), client cb26ecd. Preserved the untracked Cox files and one additive client NAMESPACE export. No half-written files were discarded.
 
@@ -297,3 +326,12 @@ Both updated R suites pass on the pod: **server 641 / client 77 expectations**,
 zero failure/error/skip; the client count includes the 23-expectation two-peer
 tagged DSLite test. Evidence: envelope_v2/cox-fusion-layout-final.log. No repeat
 of the completed Go numerical/protocol suite is needed for this metadata change.
+
+### Final matrix closure
+
+10000x50 stops before completion at **59,999,962,098 transmitted bytes;
+4737.815 seconds** (traffic limit). All nine JSON reports have been summarized
+and hashed by summarize_shared_envelope_v2.py; matrix_complete=true,
+selected_capacity={capacity:4000,candidates:50}, six passing points. There are
+no remaining family measurements or tests. The kernel/ABI/profile did not
+change after the final tests; only documentation and evidence were finalized.

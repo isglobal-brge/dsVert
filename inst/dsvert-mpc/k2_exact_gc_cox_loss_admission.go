@@ -2,7 +2,7 @@ package main
 
 import "io"
 
-// Measured public rectangle; final matrix selection may raise these limits.
+// Measured public rectangle, mirrored by both signed R contract validators.
 const coxLossAdmittedRows = 4000
 const coxLossAdmittedCandidates = 50
 

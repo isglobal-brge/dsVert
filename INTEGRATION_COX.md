@@ -107,8 +107,8 @@ Entry points (one registration function per language/package):
 10. Enforce the signed admitted-capacity envelope before protected access, in
     addition to unchanged 32M-gate / 2 MiB-source / 512 Ki-bit runner limits.
     Scalar batches fail compilation above 5000 non-XOR gates per row, INCLUDING
-    the source ABI bridge and output masks. The final measured envelope will be
-    recorded below. Registered SharedPlan/SharedCompile/RunShares already enforce
+    the source ABI bridge and output masks. Finalizers fail compilation above
+    4096 non-XOR gates. The final measured envelope is recorded below. Registered SharedPlan/SharedCompile/RunShares already enforce
     the measured rectangle, mirrored in spec.resource_admission on both R sides.
     Do not call the unregistered measurement helpers to bypass this guard.
     All production release paths remain disabled pending authenticated fusion.
@@ -127,7 +127,15 @@ headroom at integration. It is not a two-host network/RTT measurement.
 
 The pod exposes 96 CPUs but its cgroup quota is 7.65 cores. Benchmark launcher
 records host details and uses at most two GOMAXPROCS=2 processes concurrently.
-The completed matrix and chosen public admission are pending measurement.
+All nine requested points are recorded in [MEASURED_ENVELOPE_COX.md](MEASURED_ENVELOPE_COX.md)
+and `inst/cross-cox-v1/envelope_v2/summary.json`. The admitted rectangle is
+**N <= 4000, J <= 50**, enforced by both signed R contracts and Go registration.
+Its largest point uses **52,962,304,383 bytes and 5663.674 seconds** including
+cold compilation, leaving **7,037,695,617 bytes and 1536.326 seconds** for the
+excluded integration work. All three 10000-row probes hit the 60 GB cutoff
+before completion and are explicitly inadmissible. Re-measure the full fused
+release before promotion; this family-kernel result is not a claim that the
+unimplemented source/PSI, share-ring conversion and joint-DP lifecycle fit.
 
 ## Synthetic test boundary
 

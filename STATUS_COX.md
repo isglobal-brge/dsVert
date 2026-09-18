@@ -265,3 +265,14 @@ Final whole Cox Go suite completed after the finalizer guard:
 Log: inst/cross-cox-v1/envelope_v2/go-family-final.log. All remaining work is
 measurement/reporting; do not repeat the completed numerical or protocol suites
 unless implementation changes again.
+
+### First 10000-row resource-censored probe
+
+10000x16 reaches the 60,000,000,000-byte transport budget before completing:
+**59,999,957,516 successfully transmitted bytes; 5279.340 s (87.989 min)**.
+The next record is rejected by the test transport. The report explicitly says
+completed=false, budget_stop=true, traffic_budget_reached=true, oracle_equal=false.
+This is an inadmissible, resource-censored result, NOT a completed release or an
+oracle-equality claim. The small two-peer abort regression already verifies
+that neither party returns a partial candidate/validity vector on this path.
+10000x32 and 10000x50 remain in progress; all six smaller points passed.

@@ -2342,3 +2342,30 @@ test_that("finite binomial and Poisson grid losses are bounded and exact", {
     design, c(0, 1, 2, 9), "poisson", beta_grid, 8L, 8L),
     "finite GLM likelihood-grid")
 })
+
+test_that("cross-grid sensitivities agree with the same-owner workload builder", {
+  for (family in c("binomial", "poisson")) {
+    for (adjacency in c("add_remove_patient", "replace_one_fixed_cohort")) {
+      spec <- list(
+        version = paste0(family, "_grid_v1"), dataset = "protected",
+        outcome = "x", predictors = c("entry", "time"), intercept = TRUE,
+        beta_grid = list(c(0, 0, 0), c(0, 1, -1), c(8, 8, 0)))
+      maximum <- if (family == "binomial") 1 else 10
+      if (family == "poisson") spec$max_outcome <- maximum
+      fixture <- .materializer_test_fixture(
+        adjacency = adjacency, binary_x = family == "binomial",
+        gaussian_specs = list(grid = spec))
+      artifact <- fixture$manifest$workload$families$gaussian_models$artifacts$grid
+      cross <- .dsvert_dp_glm_grid_cross_sensitivity(
+        artifact$beta_grid, family, maximum, artifact$numeric_grid_bits,
+        artifact$observation_capacity, adjacency)
+      expect_equal(vapply(cross$candidate_bounds, `[[`, numeric(1L), "loss_bound"),
+                   unlist(artifact$candidate_loss_bounds))
+      expect_equal(cross$maximum_coordinates, artifact$statistic_maximum)
+      expect_equal(cross$raw_l1_sensitivity, artifact$source_raw_l1_sensitivity)
+      expect_equal(cross$raw_l2_sensitivity, artifact$source_raw_l2_sensitivity)
+      expect_equal(cross$natural_l1_sensitivity, artifact$natural_l1_sensitivity)
+      expect_equal(cross$natural_l2_sensitivity, artifact$natural_l2_sensitivity)
+    }
+  }
+})

@@ -1144,6 +1144,19 @@
   unname(statistics)
 }
 
+#' Quantized NB2 grid losses under sealed v2 semantics
+#'
+#' Evaluates the complete negative log likelihood, including
+#' `y * log(theta + exp(eta))`, using stable softplus expressions. The
+#' defective v1 semantics must not be used for new releases.
+#' @param design List of bounded design columns, including any intercept.
+#' @param outcome Bounded nonnegative integer counts.
+#' @param beta_grid Signed list of coefficient vectors.
+#' @param theta_grid Signed positive dispersion candidates.
+#' @param grid_bits Number of fractional bits in the loss lattice.
+#' @param max_outcome Signed maximum admitted count.
+#' @return Numeric vector of summed, rounded row losses in theta-then-beta order.
+#' @keywords internal
 .dsvert_dp_capsule_quantized_negative_binomial_grid_losses <- function(
     design, outcome, beta_grid, theta_grid, grid_bits, max_outcome) {
   if (!is.list(design) || !length(design) || !is.numeric(outcome) ||

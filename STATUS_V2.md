@@ -564,3 +564,7 @@ Package-artifact rerun: **5 assertions pass**, zero failures/errors (`package-ar
 Pod first n2000 release reached typed START then failed with the constant readiness error; no DP vector was released and the memory-failure count did not rise. Archived log: `validation-binomial-e1-before-grid-readiness.log` on the pod. The larger typed circuit was still subject to the generic five-second readiness window. Scoped grid-only wait is now 120 seconds; **60 pair-binding/readiness assertions pass** (`grid-readiness-targeted.log`). No worker binary, cap or arithmetic changed.
 
 Restarted only owned validation: pod PID **594902**, Mac topology native exec session **11071**. All release matrices remain pending; failed attempts are not counted. The package-check snapshot will be updated with this one R file before full checks.
+
+## 2026-09-18T19:17Z — full-envelope public admission verified cheaply
+
+Client `testthat::test_local(filter="^dp-glm-grid-cross-contract$")`: **319 assertions pass**, zero failures/errors (`full-envelope-admission.log`). The new pure-R cases authenticate three-owner n10000/p10/grid50 contracts for both certified families and reject noncanonical predictor order. The fixture initially omitted the newly participating owner's patient-key declaration; adding that signed public declaration corrected the fixture. No validator was weakened. Client commit `b30631f`; final-check manifest refreshed for this test and the scoped readiness fix.

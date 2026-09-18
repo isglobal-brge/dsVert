@@ -204,3 +204,24 @@ The previous server check log ends during Rd usage checking and has no final
 status, so it is not counted as completed. The pod endpoint is now populated;
 SSH confirmed R_STACK_DONE. Continue final package checks on the isolated
 /workspace/dsvert/famB/ path, retaining all numeric and production gates.
+
+### Resumed validation setup
+
+Frozen check inputs: server b40a90b, client a92b1a3. The following later
+server commit changes documentation only: ce65a40 (secure-spline audit and
+explicit production blockers). Both worktrees were clean after that commit.
+The fresh pod Go family suite passed in 8.179 seconds (same 13 top-level
+tests and 9 subtests, not an additional set of coverage). Command:
+
+```sh
+cd /workspace/dsvert/famB/resumed/dsVert/inst/dsvert-mpc
+go test -count=1 k2_exact_gc_multinomial_loss.go k2_exact_gc_multinomial_loss_profile.go k2_exact_gc_ordinal_loss.go k2_exact_gc_multinomial_loss_test.go k2_exact_gc_ordinal_loss_test.go
+```
+
+Initial pod R checks stopped at dependency discovery, before tests: server
+missing DBI/filelock/RSQLite, client missing dsVert/DSMolgenisArmadillo/DSOpal/
+opalr/pkgdown. These dependencies were absent from the pod standard libraries;
+a private library did not hide a usable installation. Installation uses only
+`/workspace/dsvert/famB/resumed/library`; existing lanes are not modified.
+Unlike the interrupted checks, the final rerun enables tests and byte
+compilation. Missing dependencies are not counted as source-test failures.

@@ -665,3 +665,7 @@ Binomial / epsilon4 / instance1: real DataSHIELD API release **2932.752 s**, bit
 ## 2026-09-18T21:58Z — Poisson n2000 API and cold lifecycle equality
 
 Poisson / epsilon1 / instance1: **3390.267 s**, full integer DP vector matches the same-noise oracle; fresh-process exactly-once/replay/tamper checks pass. Selected exact-best, zero loss gap. `dslite-n2000-poisson-e1-first.log`. Required real-release count **2/12**, one complete result per family. No complete 20-instance cell or aggregate statistics claimed. All required campaigns continue.
+
+## 2026-09-18T22:03Z — distinguish API timing from raw cost gate
+
+BENCH_V2 now records the first two qualifying real API elapsed times and their exact timing scope. Mac K3/binomial has 63/2191 persisted batches; its current relay throughput projects to tens of hours. This is a projection, not a completed full-size API measurement or a new cost-gate pass. Continue the requested envelope unchanged. Required matrix remains 2/12; Go full suite is still running (about 1 h 42 min elapsed).

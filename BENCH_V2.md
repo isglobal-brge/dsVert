@@ -386,3 +386,26 @@ Times include compilation, secure kernel batches and globally calibrated joint n
 Source logs: `matrix-pod-n1000-p10-g16-binomial.log`, `matrix-pod-n1000-p10-g16-poisson.log`, `matrix-pod-n1000-p10-g50-binomial.log`, `matrix-pod-n1000-p10-g50-poisson.log`, `matrix-pod-n1000-p5-g16.log`, `matrix-pod-n1000-p5-g50-poisson.log`, `matrix-pod-n1000-p5-g50.log`, `matrix-pod-n10000-p10-g16-binomial.log`, `matrix-pod-n10000-p10-g16-poisson.log`, `matrix-pod-n10000-p5-g16-binomial.log`, `matrix-pod-n10000-p5-g16-poisson.log`, `matrix-pod-n10000-p5-g50-binomial.log`, `matrix-pod-n10000-p5-g50-poisson.log`, `pod-full-n10000.log`.
 
 Interrupted process logs retained: `matrix-pod-n1000-p5-g50.log`. Only completed FULL_MEASUREMENT records with successful integer/DP oracle checks are included; missing family results were resumed separately. Resumed pod runs use GOMEMLIMIT=6GiB/GOGC=25; the original full-envelope measurements retain their original GC settings.
+
+
+## Initial real DataSHIELD API timings (2026-09-18T22:03Z)
+
+These completed synthetic releases are additional wiring measurements, not
+replacements for the full-size raw Go matrix above. Timing wraps the exported
+`ds.vertGLM()` call: it includes authenticated materialisation, framed MPC,
+joint noise and publication, but excludes the preceding PSI/signature setup
+and subsequent oracle/cold-lifecycle verification. All reported integer
+DP-vector and cold-lifecycle checks pass.
+
+| Family | n | p | Grid | Owners | Epsilon | API seconds |
+|---|---:|---:|---:|---:|---:|---:|
+| binomial | 2000 | 6 | 2 | 2 | 4 | 2932.752 |
+| poisson | 2000 | 6 | 2 | 2 | 1 | 3390.267 |
+
+Evidence: `dslite-n2000-binomial-e4-first.log` and
+`dslite-n2000-poisson-e1-first.log`. These are individual completed releases;
+the complete required matrix remains pending. The Mac K3 n10000/p10/grid50
+DSLite campaign has persisted 63 of 2191 loss batches. Its observed relay rate
+projects to tens of hours, not a measured completed API elapsed time. No
+full-size API cost pass is claimed. The published raw-kernel 110 GB / 4 h
+measurements explicitly exclude this R/DSI overhead.

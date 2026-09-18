@@ -164,6 +164,7 @@ func TestCrossGridKernelInteger(t *testing.T) {
 	for _, family := range []string{"binomial", "poisson"} {
 		t.Run(family, func(t *testing.T) {
 			p := crossGridKernelTestPlan(family)
+			p.Caps[1] = 17 // Deliberate saturation stress, never a signed admission cap.
 			c := crossGridKernelTestCompile(t, p)
 			t.Logf("AND/eval=%.3f", float64(c.Stats[circuit.AND])/float64(p.Rows*len(p.Beta)))
 			for test := 0; test < 40; test++ {

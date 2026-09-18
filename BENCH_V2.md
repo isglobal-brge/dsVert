@@ -7,6 +7,7 @@ p=10, eight distinct candidates with exact coefficient L1=4, A=4, g=16,
 private source/validity/alignment checks and Ring128 masked candidate sums.
 Binomial cap=263340; Poisson M=4 cap=3578149, from the accepted certificates.
 One measured iteration; compilation is excluded from batch wall time.
+Timing includes share preparation and the synthetic oracle comparison.
 These are **source/loss batches, not authenticated DP releases**. Joint-noise
 composition is tested separately and is not included in these traffic totals.
 
@@ -61,7 +62,7 @@ requirements; no unmeasured alternative is claimed to pass.
 
 ### Reproduction and provenance
 
-From dsVert:
+From dsVert (equivalent small R driver: `Rscript inst/cross-grid-v2/benchmark_fused_batch.R .`):
 
 ```
 cd inst/dsvert-mpc

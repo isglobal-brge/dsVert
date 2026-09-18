@@ -256,3 +256,95 @@ nohup; earlier stress-cap measurements are explicitly exploratory.
 Reproduction/proof boundaries are in inst/cross-grid-v2/FUSED_KERNEL_V2.md.
 Full workloads, signed admission/lifecycle, client, statistical/wiring gates
 and full package checks remain open. No protected values entered any log.
+
+## 2026-09-18T14:42Z — final resource-gate finding: BLOCKED / NOT DONE
+
+The final Mac and pod focused runs pass **18 top-level Go tests / 36 including
+subtests**, zero failures/skips. The preceding focused checkpoint was 17/35;
+adding the endpoint/slack regression gives the 18/36 count. Signed half-tie and
+adjacent-point checks and deliberate small-cap saturation also pass. These are
+focused development counts, not frozen-baseline or full-suite counts. The
+independent R driver passes 288 full-dot fixtures on both machines. Both
+reproducible Python artifacts pass --check with mpmath 1.3.0. All **468** final
+source/module/fixture/driver hashes match the pod export. Raw final logs:
+`inst/cross-grid-v2/fused-targeted-{mac,pod}.jsonl`, `fused-r-{mac,pod}.log`,
+and `fused-source-check-pod.log`.
+
+Go is 1.25.7 on both hosts; R is 4.5.2 on Mac and 4.6.1 on the pod. The Mac
+certificate interpreter is /opt/homebrew/opt/python@3.11/bin/python3.11. An
+alternate python3 selected in a package working directory lacked mpmath;
+selected the existing 3.11 interpreter and reproduced both files successfully.
+No tooling choice is left unresolved.
+
+Certified-cap, distinct-candidate, 32-row / p10 / 8-candidate measurements:
+
+| Family | AND/batch | Aggregate wire bytes/batch | Wall seconds Mac / pod |
+|---|---:|---:|---:|
+| Binomial | 1076415 | 42404496 | 1.478935959 / 7.319170999 |
+| Poisson | 1399391 | 52745381 | 2.308600250 / 7.605694722 |
+
+The pod nohup benchmark finished with FUSED_POD_DONE. Compilation is excluded
+from those times. These are source/loss batches, not authenticated DP releases.
+At n10000/grid50, 1872 complete batches alone require **64.481564160 GB** and
+**83.829118464 GB** of garbled tables respectively. Those exact lower bounds
+already exceed the binding 60-GB gate before tail batches, OT, source/input
+transport, joint noise or release authentication. Poisson's full-kernel AND
+count is also 5466.371/evaluation. **The full-size gate FAILS.** BENCH_V2 records
+measured batch traffic separately from full-size lower bounds and projections.
+
+No n2000 or n10000 whole release was run; no measured >30-minute or <=30-minute
+whole-release result is claimed. No approved cheaper complete route is claimed.
+The current all-Boolean implementation cannot satisfy the frozen cost contract;
+BLOCKED_V2 records the precise reviewer question, evidence and limitations.
+This is not a claim that every alternative MPC architecture is impossible.
+Production admission remains closed, pending a resource-compliant design or an
+explicitly revised acceptance contract.
+
+### Done / not done
+
+| Requested deliverable | Final status |
+|---|---|
+| 1. Fused Go producer + joint release route | **PARTIAL / NOT DONE.** Internal typed source/loss kernel, private masks, Go/R equality, endpoint/slack/saturation and real kernel-to-joint-noise tests pass. Signed producer admission, durable binding/evidence and the production exact_gc_to_joint_dp_vector_v1 route are absent. |
+| 2. Full benchmark matrix, n2000/n10000 release measurements | **NOT DONE; RESOURCE GATE FAILS.** Certified-cap fused batch measured on both hosts, Go benchmark and small R driver supplied. Full release traffic/time and the requested n,p,grid matrix are not measured. |
+| 3. Server materializer and authenticated lifecycle | **NOT DONE.** No R dispatch, source adapter, sticky/exactly-once injection, crash/resume or direct callr lifecycle integration. |
+| 4. Client cross-owner acceptance and DP-best docs | **NOT DONE.** Client remains clean at cb26ecd; no new route is enabled. |
+| 5. Layered validation / full checks | **NOT DONE.** Component/full-integer mathematics and Go net.Pipe composition pass. 120 oracle selections, 12 actual DSLite API releases, lifecycle tests, full suites and R CMD check remain unrun. No pre-existing NOTE classification is asserted. |
+| 6. Production API docs | **NOT DONE.** Internal proof, benchmark and layer reports are updated; production roxygen/package route docs await an implemented route. No NEWS/DESCRIPTION version bump. |
+
+### Exact commits and reproduction
+
+New server commits on feature/cross-owner-grids:
+
+- `8b6c7bf` — resumed state and exact f100 share-predictor decision.
+- `2771a99` — internal fused producer, private protocol, integer oracles and
+  real joint-noise composition; no public admission.
+- `2f36f79` — certified-cap Mac/pod benchmarks, endpoint/slack tests, failed
+  resource-gate report and evidence.
+- The final reporting/R-driver/saturation-evidence commit is identified by
+  `git log -1 -- STATUS_V2.md` (this file cannot include its own commit hash).
+
+Client remains `cb26ecd`. No tags, remote branches or existing production R
+routes were modified; nothing was pushed.
+
+From dsVert, with a Python interpreter containing mpmath 1.3.0:
+
+```
+python3 inst/cross-grid-v2/generate_kernel_profiles.py --check
+python3 inst/cross-grid-v2/generate_fused_vectors.py --check
+Rscript inst/cross-grid-v2/validate_fused_vectors.R
+Rscript inst/cross-grid-v2/benchmark_fused_batch.R .
+```
+
+The small R benchmark driver is syntax-checked and invokes the exact Go command
+used for the measured runs. The focused Go command, widths and admission limits
+are in inst/cross-grid-v2/FUSED_KERNEL_V2.md. The pod runner and hash manifests
+are in that directory; the working export remains
+`/workspace/dsvert/crossowner-v2/dsVert`, with logs in its sibling logs directory.
+The timed pod snapshot preceded only the generic-compiler rejection guard and
+later test additions; the numerical/compiler-profile/specialized-runner code is
+unchanged. The final focused run verifies the final source snapshot separately.
+
+All created numerical inputs are public synthetic fixtures. There are no
+protected values in the evidence. No promotion or end-to-end completion is
+claimed. The next necessary work is resolving the failed resource design before
+authorized server/client release integration can meet the requested gate.

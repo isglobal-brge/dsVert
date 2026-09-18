@@ -87,7 +87,7 @@ comparisons and existing encrypted-record replay/tamper tests. Two tests pass
 actual kernel shares to the existing joint-vector Laplace MPC sampler at
 (epsilon=4, delta=2^-100), matching its seeded oracle and final clamp exactly.
 Raw evidence: `inst/cross-grid-v2/fused-targeted-{mac,pod}.jsonl`.
-All 467 final source/module/fixture hashes match the pod export. The final
+All 468 final source/module/fixture/driver hashes match the pod export. The final
 selection includes signed half-tie/adjacent-point and full endpoint/slack
 regressions; the earlier 17/35 selection preceded that final addition.
 

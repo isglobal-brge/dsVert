@@ -1,3 +1,4 @@
+inst/cross-grid-v2/benchmark_fused_batch.R: OK
 inst/cross-grid-v2/fused_vectors.json: OK
 inst/cross-grid-v2/generate_fused_vectors.py: OK
 inst/cross-grid-v2/generate_kernel_profiles.py: OK

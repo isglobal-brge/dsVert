@@ -229,3 +229,12 @@ an absent formal-finalizer constant. Their installed-baseline comparisons are
 running; do not yet classify those five failures as independently reproduced.
 The full check preceded the small admission addition; both updated Cox contract
 suites and the Go admission test passed separately after that change.
+
+All **17** full-server assertion/error failures are now reproduced against the
+independently installed primitive baseline 38146c0 using the same unchanged
+test files. Additional retained logs: installed-baseline-other.log and
+installed-baseline-remaining.log. The latter confirms the same synopsis START
+helper error, exact-GC producer-state error, and padded PSI version assertion.
+This is a documented pre-existing ERROR, not a clean R CMD check or merely a
+NOTE. No shared production/test file was modified to suppress these failures.
+`git diff --name-status 38146c0` contains only added Cox-family files.

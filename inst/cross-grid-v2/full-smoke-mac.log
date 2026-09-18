@@ -1,0 +1,10 @@
+=== RUN   TestCrossGridFullMeasurement
+=== RUN   TestCrossGridFullMeasurement/binomial
+    cross_grid_full_benchmark_test.go:189: FULL_MEASUREMENT {"authenticated_server_release":false,"batches":2,"compile_seconds":1.190389958,"family":"binomial","grid":9,"integer_and_dp_oracle_equal":true,"joint_noise_seconds":3.059086875,"joint_noise_wire_bytes":58088512,"kernel_and":114314,"kernel_and_per_eval":4233.851851851852,"kernel_seconds":0.067219292,"kernel_wire_bytes":4598482,"n":3,"p":5,"peer_pairs":2,"total_seconds":4.316699792,"total_wire_bytes":62686994}
+=== RUN   TestCrossGridFullMeasurement/poisson
+    cross_grid_full_benchmark_test.go:189: FULL_MEASUREMENT {"authenticated_server_release":false,"batches":2,"compile_seconds":1.628450417,"family":"poisson","grid":9,"integer_and_dp_oracle_equal":true,"joint_noise_seconds":4.161668958,"joint_noise_wire_bytes":66867113,"kernel_and":148553,"kernel_and_per_eval":5501.962962962963,"kernel_seconds":0.076706667,"kernel_wire_bytes":5694741,"n":3,"p":5,"peer_pairs":2,"total_seconds":5.866828667,"total_wire_bytes":72561854}
+--- PASS: TestCrossGridFullMeasurement (10.18s)
+    --- PASS: TestCrossGridFullMeasurement/binomial (4.32s)
+    --- PASS: TestCrossGridFullMeasurement/poisson (5.87s)
+PASS
+ok  	github.com/isglobal-brge/dsVert/dsvert-mpc	10.770s

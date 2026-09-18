@@ -1,4 +1,11 @@
 .joint_convolution_test_state <- function() {
+  identity_root <- withr::local_tempdir(
+    pattern = "joint-convolution-identity-", .local_envir = parent.frame())
+  withr::local_options(list(
+    dsvert.identity_seed = jsonlite::base64_enc(as.raw(rep(173L, 32L))),
+    dsvert.identity_seed_path = file.path(identity_root, "identity.seed")),
+    .local_envir = parent.frame())
+  .dsvert_init_identity_seed(.allow_test_path = TRUE)
   key <- as.raw(seq_len(32L))
   policy <- list(
     peer_name = "peer_a", domain = "convolution-study",

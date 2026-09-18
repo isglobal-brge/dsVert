@@ -1,0 +1,14 @@
+{
+  "scope": "component_only_not_full_release",
+  "products": 1024,
+  "garbler_bytes": 18956064,
+  "evaluator_bytes": 18956064,
+  "total_bytes": 37912128,
+  "seconds": 7.903936,
+  "bytes_per_product": 37023.5625,
+  "seconds_per_product": 0.0077186875,
+  "source_sha256": "f0b75252f4030ecb393a901444ac9f0080a44599e66e1b5ef820dc4dc32b4c88",
+  "command": "DSVERT_GROUPED_ARITHMETIC_PROBE=1 go test -run ^TestGrouped\\(WideRingOracle\\|DealerFreeProduct\\|ArithmeticRejects\\|ArithmeticRecord\\|LMMMoment\\) -json -count=1 -timeout=10m .",
+  "terminal_passes": 12,
+  "terminal_failures": 0
+}

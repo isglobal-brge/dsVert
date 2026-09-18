@@ -713,3 +713,7 @@ Full Go: **8595.384 s**, **977 top-level tests listed, 31 failed**; the non-verb
 ## 2026-09-18T22:53Z — first complete 20-instance selection cell
 
 Binomial / epsilon4: **20 distinct signed grids, 2 real API/oracle matches, 20/20 selection agreement, mean/max loss gap 0/0**. Full cell and matching before/after helper hashes are retained; all real cold-lifecycle markers pass. DP_SELECTION_V2 records the bounded per-cell result. Global matrix remains **1/6 cells complete, 4/12 real releases**. The runner has advanced this lane to Poisson / epsilon4.
+
+## 2026-09-18T22:54Z — Poisson epsilon1 completes both real releases
+
+Instance2 passes complete integer DP-vector/oracle equality and cold lifecycle checks in **3247.900 s**. It selects candidate1 versus exact-best2, with certified total-loss gap **64.7047** (reported JSON precision); production and oracle select the same DP candidate. Evidence: `dslite-n2000-poisson-e1-two-real.log`. Required count **5/12**; this cell proceeds through its other 18 oracle selections.

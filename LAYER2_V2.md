@@ -89,3 +89,8 @@ remains excluded.
 Binomial/epsilon4 now has both required independent real releases with both
 verification markers (`inst/cross-grid-v2/dslite-n2000-binomial-e4-two-real.log`).
 Instance2 takes 2767.322 s. Required real-release progress is **4/12**.
+
+Poisson/epsilon1 now also has both real release and cold-lifecycle matches
+(`inst/cross-grid-v2/dslite-n2000-poisson-e1-two-real.log`). Instance2 takes
+3247.900 s and its nonzero DP selection gap does not affect integer oracle
+equality. Required real-release progress is **5/12**.

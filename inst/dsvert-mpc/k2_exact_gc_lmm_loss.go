@@ -101,4 +101,4 @@ func groupedLMMCompile(s groupedLMMSpec) (*primitiveVProgram, error) {
 }
 
 // The fused producer calls this one registration; no general nonlinear RPC.
-func registerGroupedLMM() func(groupedLMMSpec) (*primitiveVProgram, error) { return groupedLMMCompile }
+func registerGroupedLMM() groupedLMMRegistration { return groupedLMMRegistry() }

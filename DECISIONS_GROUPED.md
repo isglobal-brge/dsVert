@@ -115,3 +115,19 @@ wide-ring Beaver products first, then candidate-independent LMM statistics,
 GEE and GH5 composition. Do not reuse Ring127 truncation or widen shares by
 zero extension. Full-release capacities still require full measurements.
 Inherited pod checks still have no exit files; R_STACK_DONE reconfirmed.
+
+- Addendum 3 exact products use fresh independent local a/b triple shares and
+  two KOS-checked OT cross terms in Ring192. Beaver d/e openings are encrypted;
+  no output rescale or dealer route is reused. Receipts bind context, local
+  role and local output shares; persistence/consumption belongs to Step 2.
+- LMM source f50 moments become f164 after q64 precision coefficients; frozen
+  f50 beta-pair products require f264 accumulation. A single Ring192 cannot
+  hold that exact integer. Use a carry/sign GC representation boundary into
+  TWO Ring192 limbs, then public multiplication/addition locally in Ring384.
+  This keeps source/transport ABI and runner caps intact, avoids unapproved
+  coefficient quantization and needs no intermediate arithmetic rescale.
+- The sufficient-statistic LMM equation has different rounding placement from
+  the old per-row q64 prototype. Give it a new signed profile identity on both
+  R sides, an independent residual oracle and pure-R limb oracle. Retain the
+  former prototype only under the explicit LegacyCompile registration field.
+  The 1e-8 pre-output error bound still encloses the new equation analytically.

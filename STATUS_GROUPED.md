@@ -316,3 +316,33 @@ wide-ring Beaver products first, then candidate-independent LMM statistics,
 GEE and GH5 composition. Do not reuse Ring127 truncation or widen shares by
 zero extension. Full-release capacities still require full measurements.
 Inherited pod checks still have no exit files; R_STACK_DONE reconfirmed.
+
+### Addendum 3 arithmetic milestone — 2026-09-18
+
+Server 80aee12 adds dealer-free checked-OT Ring192 Beaver products, one internal
+registration, context/role-bound encrypted records and local share receipts.
+No production dispatcher added. Final pod batch: 1024 products, 37,912,128
+bytes in BOTH directions, 7.903936 s. Mac race check passes; integer oracle,
+freshness, malformed plan and contract/chunk/count/tamper/role/replay tests pass.
+See inst/grouped-validation/dealer-free-product.json. This is a component
+measurement, not an admitted release envelope or a full-release cost estimate.
+
+Next implemented components: candidate-independent LMM moment schedule,
+private reciprocal selection, exact f164 precision Gram assembly, carry-correct
+signed lifting into two Ring192 limbs, local public-beta f264 accumulation,
+and one final clamp/ties-even output rescale. Go boundary/grid/oracle tests
+pass, including two-authority encrypted moments; pure-R integer oracle agrees
+with the tagged Go executable (5 assertions). R contract tests: server 120,
+client 151 assertions pass. Both R sides bind the new LMM profile; old integer
+profile is retained only as an explicit LegacyCompile test prototype.
+
+The grouped Go run before the final certificate-only test added here passed
+26 top-level / 53 including subtests, no failures, one opt-in probe skipped.
+Final combined verification will include the certificate test and final R
+profile metadata. No full-suite or R CMD check completion is claimed.
+Inherited pod checks still have no terminal exit files at collection.
+
+This is work in progress: GEE/GH5 share composition and error/cap parity,
+source/primitive/fused release integration, measured full-release 3x3 envelopes,
+protected DSLite lifecycle and final package checks remain. Do not attribute
+all remaining lane implementation to the external Step-2 fusion dependency.

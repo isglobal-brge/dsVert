@@ -74,3 +74,30 @@ conversion, secure products, private masking, signed caps or release fusion.
 No new production operation is registered. Compact engine import is exactly
 Step-2 0006f1a for the two engine files; legacy entry points remain unchanged.
 Client registry now explicitly quarantines the three exported prototypes.
+
+## Addendum 3: owned exact arithmetic now implemented
+
+`registerGroupedExactArithmetic()` is the shared component consumed by Step 2.
+Inputs are one authority's existing Ring192 operand shares, a fresh existing
+`exactGCSession`, role, and `groupedArithmeticPlan{Contract,Previous,Chunk,Count}`.
+Count is public and in 1..1024. Contract is the signed schedule digest; Previous
+is the COMMON authenticated predecessor receipt digest (not either authority's
+local receipt MAC); first chunk is zero/zero. A fresh SessionID is mandatory on
+every attempt, including retries, as for the existing record engine. The caller
+must validate source purposes and persist/consume schedule state atomically.
+
+The protocol generates local random triple shares, two checked-OT cross terms,
+opens only masked Beaver differences over authenticated records, and returns
+local Ring192 product shares plus a domain/role/share-bound local HMAC receipt.
+No dealer or approximate truncation is used. Security remains the engine's
+semi-honest two-authority model with checked OT; no malicious arithmetic proof
+is asserted. The local MAC is NOT a release attestation or durable ledger.
+Both peer receipts must be included in the authenticated common continuation.
+
+Pod component result: 1024 products, 37,912,128 measured two-direction bytes,
+7.903936 seconds in the final run; source hash and tests are in
+inst/grouped-validation/dealer-free-product.json. This does not admit any of
+the nine release envelopes. LMM sufficient-statistic components and exact
+f264 output boundary are in INTEGRATION_LMM.md. GEE/GH5 share composition,
+full measurements and Step-2 fusion remain unfinished. Old ownership/traffic
+blocker conclusions are withdrawn; no new full-release traffic failure is claimed.

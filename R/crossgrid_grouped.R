@@ -132,11 +132,12 @@
   B <- grouping$max_patients_per_cluster
   lmm <- identical(family, "lmm")
   list(version = "grouped-fixed-profile-numeric-v1",
-       profile = if (lmm) "grouped-lmm-q64-random-intercept-v1" else
+       profile = if (lmm) "grouped-lmm-stats-f264-q64-v2" else
          "grouped-pwlinear-q16-k64-range-exp-v2",
        profile_sha256 = if (lmm) NULL else "f72e66abaf2e503a809f23d4563418d2889843174109398ae48b02f0ec7edb84",
        source_fraction_bits = 50, predictor_accumulation_fraction_bits = 100,
-       predictor_rounding = "complete_dot_once_nearest_ties_even_v1",
+       predictor_rounding = if (lmm) "exact_f100_dot_no_intermediate_rounding_v1" else
+         "complete_dot_once_nearest_ties_even_v1",
        internal_fraction_bits = if (lmm) 64 else 16,
        nonlinear_word_bits = if (lmm) 0 else 32,
        rounding = "nearest_ties_even_v1", per_cluster_error_bound =

@@ -70,7 +70,7 @@ func TestGroupedLMMTargetsAndRounding(t *testing.T) {
 func TestGroupedLMMEncryptedProtocol(t *testing.T) {
 	s := groupedLMMTestSpec()
 	s.Slots = 1
-	p, err := registerGroupedLMM()(s)
+	p, err := registerGroupedLMM().LegacyCompile(s)
 	if err != nil {
 		source, _ := groupedLMMSource(s)
 		_, _, detail := compiler.New(utils.NewParams()).Compile(source, nil)

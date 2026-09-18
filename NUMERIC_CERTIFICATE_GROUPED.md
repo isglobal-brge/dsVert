@@ -107,3 +107,44 @@ bound by both R validators. A smaller scalar cost is not a full-release
 traffic measurement. The <=60 GB gate and authenticated release remain open;
 GEE's whole-workload certificate above remains unfinished. Production stays
 fail-closed.
+
+## Addendum 3 LMM sufficient-statistic profile (2026-09-18)
+
+`grouped-lmm-stats-f264-q64-v2` supersedes the preceding LMM prototype for
+new signed contracts. The old compiled kernel remains a test/reference
+prototype; it is not the new profile's evaluator. GLMM/GEE profiles are unchanged.
+
+Normalized features/outcome/intercept are f50. Within-row Gram and outer
+products of cluster sums are exact f100. Reciprocal and private-count lambda
+use the same q64 RN-even public tables above. Their products with f100 moments
+are f164, with no rescale. Each precision Gram entry has magnitude below
+256*2^164 for B<=32 and sigma^2>=1/4, fitting signed Ring192. Beaver products
+and sums have **zero modular arithmetic error**; a bound on reconstructed
+values, not on random shares, establishes integer interpretation.
+
+The encoded beta products are f100. Their final quadratic accumulates at f264:
+it cannot fit Ring192. A bounded carry/sign circuit lifts each precision Gram
+share into two Ring192 limbs representing Ring384, ONCE per statistic. For
+low shares a,b, its high-limb total is `-carry(a+b)-sign((a+b) mod 2^192)`.
+This proves exact signed lifting without opening either bit. Public coefficient
+products and additions then run locally modulo 2^384. The beta L1 cap <=16
+plus frozen coefficient-encoding slack makes the augmented residual
+coefficient L1 <18, so an outward bound 256*18^2*2^264 is far below 2^383. The final boundary circuit reconstructs
+only on wires, clamps to the signed coordinate cap and rounds ties-even once.
+Transport words remain 192 bits; the runner caps are unchanged.
+
+Relative to the exact real quadratic on encoded inputs, q64 coefficient
+rounding contributes at most `(B+B^2)*18^2*2^-65 < 1e-14`. For original
+bounded real inputs and beta, f50 feature/coefficient encoding changes each
+residual by at most `34*2^-51 + 17*2^-102`. Since the inverse covariance has
+operator norm at most 4, the quadratic perturbation is bounded by
+`4*B*d*(34+d)`, where d is that residual bound. For B<=32 this is <7e-11.
+Thus the existing outward 1e-8 pre-quantization error allowance still covers
+this profile, plus final quantization 1/(2*2^g). Clamping is nonexpansive.
+Variance parameters are signed q16 multiples and therefore exact at q64.
+
+Patient add/remove affects one cluster; replacement/movement affects at most
+two. Per-cluster `[0,U_j]` clamping preserves Delta1=a*sum(U_j),
+Delta2=a*sqrt(sum(U_j^2)), a=1 or 2. No count, statistic or intermediate
+validity may be released. These component proofs do not certify the unfinished
+source/PSI/primitive-to-release lifecycle or admit a capacity envelope.

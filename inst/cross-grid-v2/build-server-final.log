@@ -1,0 +1,8 @@
+* checking for file ‘dsVert/DESCRIPTION’ ... OK
+* preparing ‘dsVert’:
+* checking DESCRIPTION meta-information ... OK
+* checking for LF line-endings in source and make files and shell scripts
+* checking for empty or unneeded directories
+Removed empty directory ‘dsVert/tests/testthat/_snaps’
+* building ‘dsVert_1.2.0.tar.gz’
+

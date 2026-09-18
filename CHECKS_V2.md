@@ -48,7 +48,7 @@ it awaits the user's decision because other-family edits were prohibited.
 `final-check-inputs.sha256` identifies the current 1,497 package input files.
 The full Go source and four worker binaries are unchanged from the original
 full-suite archive. Later changes in this check cycle affect tests, inventories
-and documentation only. Neither package version nor NEWS was changed.
+documentation and packaging exclusions only. Neither package version nor NEWS was changed.
 
 
 The full Go run has finished. Its non-verbose log does not separate successful
@@ -74,3 +74,10 @@ test. `full-go-failure-classification.json` lists every failed test.
 These are recorded existing-suite failures, not a clean full Go pass. No
 unrelated formal Cox/GLM implementation or test expectation was changed to
 suppress them. Targeted new-route evidence remains separate in LAYER2_V2.md.
+
+Final server packaging refresh: `check-server-packaging-final.log` again
+reports **zero errors, zero warnings, one identical pre-existing NOTE**.
+`recheck_server_packaging_pod.sh` rebuilds the corrected archive and runs
+`R CMD check --no-manual --no-tests`; all 1497 input hashes match. The new
+CHECKS_V2 report is excluded alongside the existing development reports.
+The rebuilt server tarball includes the last corrected test fixtures.

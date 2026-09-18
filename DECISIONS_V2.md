@@ -420,3 +420,7 @@ three pod lanes continue unchanged. Required completed real releases remain
 ## 2026-09-18T22:53Z — preserve unrelated formal-family implementations
 
 The full Go result is recorded as not green, not converted to a pass by changing unrelated family tests. Four formal GLM failures were already recorded in step 1; Cox schema failures reproduce on the step-1 pod source and its eleven-command CLI inventory is unchanged. Keep these baseline failures explicit in CHECKS_V2 while completing the new grid validation. Per-cell selection statistics may be reported after complete 20-key/two-real-release/cold-lifecycle/hash checks; the six-cell matrix validator remains the final aggregate gate.
+
+## 2026-09-18T23:06Z — keep execution reports outside the installed package
+
+Add CHECKS_V2 to the existing .Rbuildignore development-report pattern. Refresh only the server packaging check and input manifest; full test suites are not repeated for this packaging-only change. No package version or NEWS change is required.

@@ -721,3 +721,7 @@ Instance2 passes complete integer DP-vector/oracle equality and cold lifecycle c
 ## 2026-09-18T23:00Z — six required real releases pass
 
 Binomial / epsilon1 / instance2: **2801.709 s**, full integer DP-vector/oracle and cold-lifecycle checks pass; selected candidate1 versus exact-best2, certified loss gap **12.3388** at report precision. `dslite-n2000-binomial-e1-two-real.log` retains both independent releases. Required real-release count **6/12**; this cell now completes its oracle selections.
+
+## 2026-09-18T23:06Z — final server packaging refresh passes
+
+After adding CHECKS_V2 to the existing report exclusion pattern, `R CMD build` and `R CMD check --no-manual --no-tests` pass with **0 ERROR / 0 WARNING / the same 1 pre-existing NOTE**. All **1497** package input hashes match the corrected pod archive. Reproduction script and complete check/build logs retained; the server tarball now also contains the final corrected test fixtures. Production code is unchanged.

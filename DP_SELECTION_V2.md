@@ -3,9 +3,8 @@
 IN PROGRESS. The authenticated production release route is implemented.
 Small real two-authority API releases already reproduce the production-noise
 oracle bit for bit (see LAYER2_V2.md), including a K3 diagnostic. The n2000
-120-selection/12-release campaign is running; no aggregate selection agreement,
-loss-gap statistic or completed matrix is claimed until its evidence validator
-passes.
+120-selection/12-release campaign is running. Validated per-cell results are
+reported below; the complete matrix is not yet claimed.
 
 The binding remaining matrix is 20 sticky-independent signed grids per family
 per epsilon in {1,4,8}, n=2000, delta=2^-100 on the same-noise oracle path,
@@ -17,3 +16,19 @@ counted as any of those releases.
 The two family-specific fused-kernel/joint-Laplace tests at epsilon=4 are small
 synthetic net.Pipe composition tests. They are neither selection statistics nor
 DataSHIELD wiring releases and are not counted toward either validation matrix.
+
+
+Validated completed cell (remaining five cells pending):
+
+| Family | Epsilon | Distinct grids | Real API matches | Selection agreement | Mean loss gap | Maximum loss gap |
+|---|---:|---:|---:|---:|---:|---:|
+| binomial | 4 | 20 | 2 | 20/20 | 0 | 0 |
+
+Evidence: `inst/cross-grid-v2/validation-binomial-e4.log` and its
+`validation-binomial-e4-source-check.log`. Both real releases pass the
+fresh-process lifecycle checks. Before/after frozen-harness hashes match;
+all twenty artifact keys are distinct and no run error occurs. Geometry is
+n=2000, p=6 split 3/3, two candidates, delta=2^-100. Gaps are differences
+between noise-free certified integer objectives divided by 2^16. This
+conditional synthetic result does not establish utility for all admitted grids
+or accuracy of a continuous estimator.

@@ -416,3 +416,7 @@ Poisson-only retry: `sh inst/cross-grid-v2/run_topology_validation_parallel_mac.
 retained as `topology-poisson-k3-before-sync-start.log`. Binomial K3 and all
 three pod lanes continue unchanged. Required completed real releases remain
 3/12. Actual success of the synchronous full-size retry remains pending.
+
+## 2026-09-18T22:53Z — preserve unrelated formal-family implementations
+
+The full Go result is recorded as not green, not converted to a pass by changing unrelated family tests. Four formal GLM failures were already recorded in step 1; Cox schema failures reproduce on the step-1 pod source and its eleven-command CLI inventory is unchanged. Keep these baseline failures explicit in CHECKS_V2 while completing the new grid validation. Per-cell selection statistics may be reported after complete 20-key/two-real-release/cold-lifecycle/hash checks; the six-cell matrix validator remains the final aggregate gate.

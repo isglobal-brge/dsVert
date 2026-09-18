@@ -12,7 +12,7 @@ export GOMEMLIMIT=6GiB
 export GOGC=25
 export NOT_CRAN=true
 Rscript -e 'p <- c("DSMolgenisArmadillo", "DSOpal", "opalr", "pkgdown"); missing <- p[!vapply(p, requireNamespace, logical(1), quietly=TRUE)]; if (length(missing)) install.packages(missing, repos="https://cloud.r-project.org", Ncpus=2)' > "$lane/logs/check-dependencies.log" 2>&1
-(cd dsVert/inst/dsvert-mpc && go test ./... -count=1 -timeout=0 > "$lane/logs/full-go-tests.log" 2>&1) &
+(cd dsVert/inst/dsvert-mpc && DSVERT_COMPARE_CAPACITY=1 go test ./... -count=1 -timeout=0 > "$lane/logs/full-go-tests.log" 2>&1) &
 go_pid=$!
 R CMD build dsVert > "$lane/logs/build-server.log" 2>&1
 R CMD INSTALL --library="$check/library" dsVert_1.2.0.tar.gz > "$lane/logs/install-server.log" 2>&1

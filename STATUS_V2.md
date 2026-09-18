@@ -515,6 +515,10 @@ Native pod `make linux` under Go 1.25.7 reproduces the packaged Linux SHA-256 ex
 
 ## 2026-09-18T18:18Z — complete Mac benchmark matrix PASS
 
-All **16 family/configuration measurements** for n1000/10000, p5/10, grid16/50 complete with integer and joint-DP oracle equality. `summarize_bench.py` verifies complete nonduplicate coverage and the full-envelope resource ceilings; table appended to BENCH_V2. Full-size Mac binomial **1017.428 s**, Poisson **1215.594 s** (see raw JSON for exact precision). Original runner and source snapshot retained; Mac has 16 GiB RAM and earlier cells overlap local validation, as already noted. No timing is presented as an isolated-machine benchmark.
+All **16 family/configuration measurements** for n1000/10000, p5/10, grid16/50 complete with integer and joint-DP oracle equality. `summarize_bench.py` verifies complete nonduplicate coverage and the full-envelope resource ceilings; table appended to BENCH_V2. Full-size Mac binomial **1017.426 s**, Poisson **1215.588 s** (see raw JSON for exact precision). Original runner and source snapshot retained; Mac has 16 GiB RAM and earlier cells overlap local validation, as already noted. No timing is presented as an isolated-machine benchmark.
 
 Validation restart PID **496594** uses the checksum-matched native worker. Core dumps are now disabled in the validation/check runners and their owned running process trees after the earlier R segfault; no core file was found at the harness working-directory path.
+
+## 2026-09-18T18:22Z — topology validation uses the now-idle Mac
+
+Stopped the waiting pod topology runner before any new topology attempt. `run_topology_validation_mac.sh` now runs the four additional K3/K5 releases sequentially on the Mac (native exec session 36588): K3 n10000/p10/grid50 and K5 n2000/p6/grid2 for each family, epsilon4. The original 120/12 two-peer matrix remains on the pod. This overlaps independent work without adding large PSI jobs to the pod's 50 GB quota. Mac topology uses the rebuilt arm64 worker, GOMAXPROCS=2, GOMEMLIMIT=4GiB, GOGC=25 and the same hash-frozen synthetic harness. No statistical or public-capacity scope changed.

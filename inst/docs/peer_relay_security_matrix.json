@@ -370,6 +370,10 @@
         "dsvertDPSynopsisPublicationDS",
         "dsvertDPSynopsisPublishedReplayDS",
         "dsvertDPSynopsisFinalizeAckDS",
+        "dsvertDPSynopsisGLMGridCrossDS",
+        "dsvertDPSynopsisGaussianCrossBindDS",
+        "dsvertDPSynopsisGaussianCrossFinalizeDS",
+        "dsvertDPSynopsisGaussianCrossEvidenceDS",
         "dsvertDPSynopsisCategoricalCrossBindDS",
         "dsvertDPSynopsisCategoricalCrossFinalizeDS",
         "dsvertDPSynopsisAlignmentMaskStartDS",
@@ -395,11 +399,29 @@
       "metadata_visibility": "Public contracts, public chunk geometry and signed release evidence are visible; source values, sticky seeds, private shares and pre-clamp values are not.",
       "malicious_peer_security": "not_claimed",
       "evidence_files": [
+        "R/dpGLMGridCrossLifecycle.R",
+        "tests/testthat/test-dp-glm-grid-cross-contract.R",
         "R/dpSynopsisLifecycleDS.R",
         "R/dpSynopsisRemoteDS.R",
         "tests/testthat/test-dp-synopsis-no-lifetime-red.R",
         "tests/testthat/test-dp-synopsis-release.R"
       ]
+    },
+    {
+      "id": "registered_formal_separate_profile",
+      "status": "registered_separate_profile",
+      "remote_endpoints": [
+        "dsvertFormalGLMPublicResultDS",
+        "dsvertFormalGLMRegisteredSourceDS",
+        "dsvertFormalGLMRegisteredFreshSourceDS",
+        "dsvertFormalGLMRegisteredJobControlDS",
+        "dsvertFormalCoxFreshSourceDS",
+        "dsvertFormalCoxWorkerControlDS",
+        "dsvertFormalCoxPublicResultDS",
+        "dsvertFormalCoxDiscretePublicResultDS"
+      ],
+      "relay_security_claim": "not_covered",
+      "scope": "Pre-existing registered formal GLM/Cox surfaces have separate sealed contracts and validation; this synopsis peer-relay matrix does not promote or certify them."
     },
     {
       "id": "legacy_generic_blob_routes",

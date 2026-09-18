@@ -44,6 +44,7 @@ test_that("the peer-relay security matrix covers the complete active surface", {
     "dp_manifest_control",
     "dp_frequency_release_control",
     "dp_synopsis_lifecycle",
+    "registered_formal_separate_profile",
     "legacy_generic_blob_routes",
     "legacy_transport_key_routes",
     "legacy_unpadded_psi_routes"))
@@ -76,7 +77,7 @@ test_that("the peer-relay security matrix covers the complete active surface", {
   }
 
   production <- Filter(function(channel) {
-    identical(channel$status, "production_active")
+    channel$status %in% c("production_active", "registered_separate_profile")
   }, channels)
   exposed <- unique(unlist(lapply(
     production, `[[`, "remote_endpoints"), use.names = FALSE))
@@ -91,6 +92,13 @@ test_that("the peer-relay security matrix covers the complete active surface", {
   registered <- .dsvert_registered_remote_methods(
     .dsvert_test_package_file("DESCRIPTION"))
   expect_setequal(exposed, setdiff(registered, local_only))
+
+  separate <- Filter(function(channel) {
+    identical(channel$status, "registered_separate_profile")
+  }, channels)
+  expect_true(all(vapply(separate, function(channel) {
+    identical(channel$relay_security_claim, "not_covered")
+  }, logical(1L))))
 
   blocked <- Filter(function(channel) {
     identical(channel$status, "blocked_by_single_profile")

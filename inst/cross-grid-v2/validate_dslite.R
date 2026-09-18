@@ -40,11 +40,13 @@ run <- function() {
   ids <- sprintf("synthetic-%06d", seq_len(n))
   owner_names <- paste0("site_", letters[seq_len(owner_count)])
   allocation <- as.integer(cut(seq_len(predictors), breaks = owner_count, labels = FALSE))
-  predictor_order <- paste0(owner_names[allocation], "$x", seq_len(predictors))
+  variable_names <- if (predictors == 10L) sprintf("x%02d", seq_len(predictors)) else paste0("x", seq_len(predictors))
+  predictor_order <- paste0(owner_names[allocation], "$", variable_names)
+  stopifnot(identical(predictor_order, sort(predictor_order, method = "radix")))
   raw <- stats::setNames(lapply(seq_len(owner_count), function(owner) {
     result <- data.frame(patient_id = ids)
     if (owner == 1L) result$y <- y
-    for (j in which(allocation == owner)) result[[paste0("x", j)]] <- x[, j]
+    for (j in which(allocation == owner)) result[[variable_names[[j]]]] <- x[, j]
     result
   }), owner_names)
   specs <- lapply(owner_names, function(peer) {
@@ -97,8 +99,21 @@ run <- function() {
   }, args = list(n))
   ds.psiAlign("D", "patient_id", "DA", datasources = conns, verbose = FALSE)
   cat("DSLITE_ALIGNMENT_COMPLETE\n")
+  for (peer in peers) peer$worker$run(function() {
+    trace(".dsvert_dp_transcript_stop", where = asNamespace("dsVert"), print = FALSE,
+      tracer = quote(if (!inherits(error, "dsvert_dp_public_failure"))
+        assign(".grid_bootstrap_failure", list(message = conditionMessage(error),
+          call = if (is.null(conditionCall(error))) "" else as.character(conditionCall(error)[[1]])),
+          envir = .GlobalEnv)))
+    TRUE
+  })
   for (instance in seq.int(instance, length.out = instance_count)) {
-  bootstrap <- cf(".dsvert_dp_synopsis_bootstrap_build_v1")(conns)
+  bootstrap <- tryCatch(cf(".dsvert_dp_synopsis_bootstrap_build_v1")(conns),
+    error = function(error) {
+      for (peer in peers) print(peer$worker$run(function()
+        get0(".grid_bootstrap_failure", .GlobalEnv)))
+      stop(error)
+    })
   schema <- jsonlite::fromJSON(bootstrap$manifest_bundle$schema_json, simplifyVector = FALSE)
   all_pins <- stats::setNames(unname(unlist(identities)), names(raw))
   policy <- list(peer_pinset = all_pins,

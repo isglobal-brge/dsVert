@@ -16,6 +16,7 @@ test_that("relay public UUIDs retain DSLite private storage isolation", {
     .session_dir_cleanup(ss)
     .dsvert_resource_unregister(ss)
   })
+  expect_no_error(.dsvert_dp_synopsis_authorization_state_v1(ss, installing = TRUE))
   private_id <- ss$.session_id
   expect_match(private_id, "__dslite_[0-9a-f]{16}$")
   expect_no_error(.dsvert_relay_init(ss, session_id, identity, identity, "psi.padded.v4"))

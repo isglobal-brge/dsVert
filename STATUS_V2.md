@@ -640,3 +640,7 @@ Corrected archive `R CMD check --no-manual --no-tests`: server **0 ERROR / 0 WAR
 `dslite-n2000-before-cold-bundle.log` records **one real n2000/p6/grid2/binomial/epsilon1 API release with bit-for-bit oracle equality**. Its later cold-process admission failed closed on a stale packaged-worker checksum manifest. Repaired the deployment bundle; all four platform hashes pass, and fresh-process n2000 signed-profile admission passes for both families. The failed cell lacks its final summary records and is not counted in the required 120/12 aggregate matrix. Recovery runner PID960689 repeats that lane with fresh keys; other active releases were preserved.
 
 `final-server-failures-targeted.log`: **1871 installed-pod assertions pass** (25 legacy source-contract, 1543 exact transport, 303 typed blob). The original full-suite transport inactive-operation error did not reproduce; no timeout/lease was relaxed. Full Go suite remains running.
+
+## 2026-09-18T21:38Z — resumed; measured Poisson startup recovery
+
+Resumed from the prior status and inspected both worktrees. The full-shape public Poisson K3 cache probe passes: cold 64.641451 s, hot 1.432110 s, 65,045,429 serialized circuit bytes, using GOMEMLIMIT=4GiB. The earlier 2GiB topology attempt failed the unchanged worker readiness gate; its log is retained. Restarted only the Poisson K3/K5 lane with 4GiB (native session98206); the binomial K3 process and three pod validation lanes continue. This changes GC tuning only, not runtime caps or certified inputs. Full Go suite remains active.

@@ -1,0 +1,5 @@
+=== RUN   TestCrossGridColdPoissonK3ShapeProbe
+    cross_grid_cold_shape_probe_test.go:28: public_shape rows=32 p=10 grid=8 owners=3 a=4 max_outcome=16 g=16 cold_seconds=64.641451 hot_seconds=1.432110 circuit_bytes=65045429
+--- PASS: TestCrossGridColdPoissonK3ShapeProbe (66.08s)
+PASS
+ok  	github.com/isglobal-brge/dsVert/dsvert-mpc	66.530s

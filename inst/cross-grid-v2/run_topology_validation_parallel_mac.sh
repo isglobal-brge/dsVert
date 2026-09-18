@@ -2,7 +2,7 @@
 set -eu
 ulimit -c 0
 cd "$(dirname "$0")/../.."
-export GOMAXPROCS=2 GOMEMLIMIT=2GiB GOGC=25
+export GOMAXPROCS=2 GOMEMLIMIT=4GiB GOGC=25
 check_release() {
   python3 - "inst/cross-grid-v2/topology-$1-k$2.log" <<'PY'
 import json, sys
@@ -22,6 +22,12 @@ run_release() {
   env DSVERT_GRID_VALIDATION_N="$n" DSVERT_GRID_VALIDATION_P="$p" DSVERT_GRID_VALIDATION_GRID="$grid" DSVERT_GRID_VALIDATION_OWNERS="$owners" DSVERT_GRID_VALIDATION_FAMILY="$family" DSVERT_GRID_VALIDATION_EPSILON=4 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_COLD=1 Rscript -e 'source("inst/cross-grid-v2/validate_dslite.R")' .. > "inst/cross-grid-v2/topology-${family}-k${owners}.log" 2>&1
   check_release "$family" "$owners"
 }
+if [ "${1:-}" = --restart-poisson ]; then
+  run_release poisson 3
+  run_release poisson 5
+  printf 'TOPOLOGY_POISSON_RECOVERY_DONE\n'
+  exit 0
+fi
 adopt_pid=${1:?existing binomial K3 R process required}
 (
   while kill -0 "$adopt_pid" 2>/dev/null; do sleep 15; done

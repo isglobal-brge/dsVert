@@ -657,3 +657,7 @@ Resumed from the prior status and inspected both worktrees. The full-shape publi
 | Documentation | API roxygen and package route documentation committed; final validation statistics/check results remain to incorporate. NEWS/DESCRIPTION versions unchanged. |
 
 The full-envelope K3 DSLite run is slower than the raw benchmark because it includes authenticated R/DSI frame relay. A separate single-batch synthetic function-stack profile investigates that overhead without changing the active campaigns, worker leases or transport geometry.
+
+## 2026-09-18T21:50Z — first fully qualifying n2000 release
+
+Binomial / epsilon4 / instance1: real DataSHIELD API release **2932.752 s**, bit-for-bit equality with the same-noise integer oracle; fresh-process lifecycle, exactly-once/replay and tamper checks pass. DP-best equals exact-best, loss gap zero. Evidence: `dslite-n2000-binomial-e4-first.log`. Required real-release count **1/12**; no 20-instance cell or aggregate statistics yet claimed. Its lane proceeds to the second independent signed instance. Other lanes and topology gates continue.

@@ -604,3 +604,7 @@ Restored-window validation runners: pod PID717883, Mac native session94315. Fina
 ## 2026-09-18T20:28Z — full checks active; inventory correction
 
 Full Go suite and server R CMD check started from the frozen archive. Server static/documentation/example checks passed; testthat found the new endpoint missing from `remote_surface_classification.json`. Corrected only that inventory entry and its count; targeted `test-aggregate-surface.R` passes **145 assertions** (`remote-inventory-targeted.log`). Retain the running check unchanged for complete failure accounting; the corrected package requires a follow-up check. Validation has persisted two matching kernel batches on both authorities; no completed required release yet.
+
+## 2026-09-18T20:30Z — client full check started
+
+`R CMD check --no-manual dsVertClient_1.2.1.tar.gz` is running on the pod as PID739243. Corrected the reproduction runner to derive archive versions from DESCRIPTION; the client version 1.2.1 was already present and is unchanged. Server testthat and Go full suite continue on their original frozen archive.

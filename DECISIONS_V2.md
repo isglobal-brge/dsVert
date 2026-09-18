@@ -340,3 +340,7 @@ The 8 MiB experiment above was rejected by the fixed negotiated expression polic
 ## 2026-09-18T20:28Z — remote inventory completeness
 
 The full server suite exposed a missing documentation inventory entry for the new registered `dsvertDPSynopsisGLMGridCrossDS` endpoint. Add it to the existing purpose-bound classification and update the registered count from 96 to 97. No endpoint registration or test assertion changes. The running frozen check keeps its original files; its failure is retained, then the corrected package must be checked again.
+
+## 2026-09-18T20:30Z — derive check archive versions
+
+The runner incorrectly assumed both existing package versions were 1.2.0. Server is 1.2.0 and client is 1.2.1. Derive tarball names from each DESCRIPTION; no version or NEWS change. The already-built client archive is checked independently (PID739243) while the server suite continues, because its known inventory failure will stop the original sequential runner.

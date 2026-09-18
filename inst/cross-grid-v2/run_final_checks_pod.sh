@@ -15,11 +15,13 @@ export NOT_CRAN=true
 Rscript -e 'p <- c("DSMolgenisArmadillo", "DSOpal", "opalr", "pkgdown"); missing <- p[!vapply(p, requireNamespace, logical(1), quietly=TRUE)]; if (length(missing)) install.packages(missing, repos="https://cloud.r-project.org", Ncpus=2)' > "$lane/logs/check-dependencies.log" 2>&1
 (cd dsVert/inst/dsvert-mpc && DSVERT_COMPARE_CAPACITY=1 go test ./... -count=1 -timeout=0 > "$lane/logs/full-go-tests.log" 2>&1) &
 go_pid=$!
+server_version=$(Rscript -e 'cat(read.dcf("dsVert/DESCRIPTION")[1,"Version"])')
+client_version=$(Rscript -e 'cat(read.dcf("dsVertClient/DESCRIPTION")[1,"Version"])')
 R CMD build dsVert > "$lane/logs/build-server.log" 2>&1
-R CMD INSTALL --library="$check/library" dsVert_1.2.0.tar.gz > "$lane/logs/install-server.log" 2>&1
+R CMD INSTALL --library="$check/library" "dsVert_${server_version}.tar.gz" > "$lane/logs/install-server.log" 2>&1
 R CMD build dsVertClient > "$lane/logs/build-client.log" 2>&1
-R CMD check --no-manual dsVert_1.2.0.tar.gz > "$lane/logs/check-server.log" 2>&1
-R CMD check --no-manual dsVertClient_1.2.0.tar.gz > "$lane/logs/check-client.log" 2>&1
+R CMD check --no-manual "dsVert_${server_version}.tar.gz" > "$lane/logs/check-server.log" 2>&1
+R CMD check --no-manual "dsVertClient_${client_version}.tar.gz" > "$lane/logs/check-client.log" 2>&1
 wait "$go_pid"
 sha256sum -c dsVert/inst/cross-grid-v2/final-check-inputs.sha256 > "$lane/logs/final-check-inputs-after.log"
 printf 'FINAL_CHECKS_POD_DONE\n'

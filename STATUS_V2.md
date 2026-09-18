@@ -508,3 +508,13 @@ A second n2000 PSI attempt exhausted memory despite GC controls, before any rele
 | Documentation | Package docs and roxygen committed; final measured statistics and check results remain to be incorporated. Versions/NEWS unchanged. |
 
 Worker/source transfer for server b542b84 and client ab56385 is in progress; binaries will be checksum-verified before restarting. No qualifying n2000 release is yet claimed.
+
+## 2026-09-18T18:16Z — patched PSI worker reproducibly built on pod
+
+Native pod `make linux` under Go 1.25.7 reproduces the packaged Linux SHA-256 exactly: `3817f526ca26f775def596defcaa17c5724969f4f7e56cac621ab5f5204105fe`. The slow multi-platform transfer to the validation checkout was stopped; only the Linux runtime is needed there. Full multi-platform source archive transfer continues separately for package checks. Server R and client R both use 2048-coordinate PSI chunks. The matrix is restarted from its first cell; no failed attempt is counted toward the required selections/releases.
+
+## 2026-09-18T18:18Z — complete Mac benchmark matrix PASS
+
+All **16 family/configuration measurements** for n1000/10000, p5/10, grid16/50 complete with integer and joint-DP oracle equality. `summarize_bench.py` verifies complete nonduplicate coverage and the full-envelope resource ceilings; table appended to BENCH_V2. Full-size Mac binomial **1017.428 s**, Poisson **1215.594 s** (see raw JSON for exact precision). Original runner and source snapshot retained; Mac has 16 GiB RAM and earlier cells overlap local validation, as already noted. No timing is presented as an isolated-machine benchmark.
+
+Validation restart PID **496594** uses the checksum-matched native worker. Core dumps are now disabled in the validation/check runners and their owned running process trees after the earlier R segfault; no core file was found at the harness working-directory path.

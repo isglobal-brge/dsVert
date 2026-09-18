@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+ulimit -c 0
 lane=/workspace/dsvert/crossowner-v2
 check=/var/lib/dsvert-crossowner-v2-checks
 while ! grep -q MATRIX_POD_DONE "$lane/logs/remaining-matrix-run.log"; do sleep 30; done

@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+ulimit -c 0
 lane=/workspace/dsvert/crossowner-v2
 export GOMEMLIMIT=6GiB
 export GOGC=25

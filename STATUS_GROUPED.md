@@ -228,3 +228,12 @@ Resume commits: server 43370ce (resume), 4f2d314 (certified arithmetic),
 607b0aa (status). The final status-only commit is identified by
 `git log -1 -- STATUS_GROUPED.md`. No pushes, thesis edits, shared producer
 changes, same-owner changes or generation-one changes.
+
+## Resumed 2026-09-18 — clause 5 audit
+
+Clean worktrees at resume. Fetched Step 2 through 8b6c7bf. The old
+per-cluster traffic finding is superseded and cannot set the new capacity.
+Import the explicitly requested compact framing from 0006f1a; move exact
+linear operations to local shares. Audit secret products, live-count
+reciprocals and private boundaries separately; none is a local linear map.
+Inherited full Go and R checks still have no terminal result on the pod.

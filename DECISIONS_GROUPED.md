@@ -78,3 +78,12 @@ Range reduction must cover both Poisson exponentials and quadrature exp.
   encrypted transport endpoints. A chunk's exact garbled table payload times
   the public number of chunks is a mandatory lower bound, not a measurement
   of the full release. Never label extrapolated wire counts as observed totals.
+
+## Resumed 2026-09-18 — clause 5 audit
+
+Clean worktrees at resume. Fetched Step 2 through 8b6c7bf. The old
+per-cluster traffic finding is superseded and cannot set the new capacity.
+Import the explicitly requested compact framing from 0006f1a; move exact
+linear operations to local shares. Audit secret products, live-count
+reciprocals and private boundaries separately; none is a local linear map.
+Inherited full Go and R checks still have no terminal result on the pod.

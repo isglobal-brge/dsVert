@@ -160,3 +160,16 @@ First completed full family-kernel envelope: N=2000,J=16, M=2048, 2345 chunks,
 1183.237 s, total **1298.420 s (21.64 min)**. Every candidate equals the independent
 integer oracle. Source/PSI-to-joint-DP fusion is excluded explicitly, not claimed.
 Final capacity selection waits for the remaining eight requested matrix points.
+
+Client full R CMD check completed: **FAIL 0 / WARN 0 / SKIP 48 / PASS 25425**
+in its test suite; overall check status **3 WARNINGs**, matching the previously
+identified non-ASCII MI, codoc and duplicate ordinal argument categories.
+
+The server check exposed an unchanged baseline structural test at
+`tests/testthat/test-dp-count-execution.R:799`: it reads ../../R/dpCountExecutionDS.R,
+which is not adjacent to tests in a built R CMD check directory. Both that test
+and its target file are byte-identical to 38146c0. Preserve the interrupted
+unseeded log, then rerun using `run_server_check_source_fixture_v2.sh`, which
+links the EXACT extracted checked archive's R directory to the expected test
+path. No package source or assertion is changed/skipped. This is a documented
+check-environment fixture, not a repaired production feature or suppressed test.

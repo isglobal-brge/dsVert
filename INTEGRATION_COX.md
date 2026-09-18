@@ -83,6 +83,9 @@ Entry points (one registration function per language/package):
    coordinate. Recheck tail/approximation delta and noise no-wrap/resource bounds.
    Publish only its existing support-clamped, cross-signed sticky vector and
    canonical semantic release ID; recovery/retry must never draw fresh noise.
+   Framing, receipt keys, OT stream/session IDs, chunk retries and deployment
+   admission metadata are execution bindings, not new statistical queries.
+   Changing them alone must not create a fresh semantic release/noise draw.
 8. Replace the disabled client release body with the authenticated existing
    lifecycle reader. Validate both DP result signatures/evidence, payload,
    contract, snapshot and release ID before returning coordinates to the internal

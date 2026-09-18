@@ -1,3 +1,10 @@
+# RESOLVED — reviewer Addendum 5
+
+The reviewer retained n=10000, p=10, grid=50 and the current fused design,
+and revised the gate to <=110 GB measured two-direction traffic and <=4 h
+on the pod with candidate-parallel batches. The question below is answered.
+No current external blocker is claimed. Historical evidence follows.
+
 # Blocked V2 — the complete fused route fails the binding resource gate
 
 ## Precise reviewer question

@@ -348,3 +348,12 @@ All created numerical inputs are public synthetic fixtures. There are no
 protected values in the evidence. No promotion or end-to-end completion is
 claimed. The next necessary work is resolving the failed resource design before
 authorized server/client release integration can meet the requested gate.
+
+## 2026-09-18T14:46:35+00:00 — resumed under Addendum 5
+
+Both worktrees are clean on feature/cross-owner-grids. R_STACK_DONE is
+confirmed. The prior resource blocker is resolved by the reviewer: retain
+the full envelope and fused design; measure <=110 GB and <=4 h on the pod.
+First measure all row/candidate batches and joint noise at n2000/n10000,
+then complete signed admission, lifecycle, client and layered validation.
+Historical NOT DONE entries remain accurate until superseded by evidence.

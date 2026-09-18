@@ -155,3 +155,12 @@ The producer, not an RPC caller, derives these partial predictors.
     production allowlist or materialized-state declaration is weakened. A
     replacement computation design remains possible but unimplemented; this
     is not an impossibility claim about all MPC designs.
+
+## 2026-09-18T14:46:35+00:00 — reviewer-resolved resource gate
+
+29. Addendum 5 and gate-revision clause 6 supersede decisions 26–28 as a
+    stopping condition. Preserve the certified arithmetic and full workload.
+    Run bounded concurrent peer pairs, aggregate actual encrypted bytes and
+    candidate-sum shares, then run the existing joint-noise circuit. Record
+    kernel/noise computation separately from authenticated R/DataSHIELD release:
+    the latter remains unfinished and cannot be claimed by a Go benchmark.

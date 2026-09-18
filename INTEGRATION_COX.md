@@ -77,7 +77,15 @@ Entry points (one registration function per language/package):
    streams and use a NEW session ID for a kernel restart before any DP commit;
    do not reset/reuse an extension or replay encrypted record nonces. Current
    runner state is in memory; persistence/resumption belongs to step 2.
-7. Inject the J coordinates ONCE into the authenticated existing joint DP source
+7. `RunShares` returns coordinate AND validity shares modulo 2^64; the signed
+   private layout pins `kernel_output_ring_bits=64`, `joint_dp_source_ring_bits=128`
+   and the required conversion. In step-2's authenticated fused circuit, compute
+   q=(a+b) mod 2^64 and v=(v_a+v_b) mod 2^64, require v=1 and 0<=q<=U_j, then
+   cast the reconstructed q to uint128 and freshly remask for the joint-DP ABI.
+   Never open q/v or zero-extend the two individual shares: their Ring128 sum
+   can contain an unwanted 2^64 carry. This conversion belongs inside the
+   authenticated fusion, not a plaintext adapter or new family RPC.
+   Inject the J converted coordinates ONCE into the existing joint DP source
    prefix, keeping it zero until all results/validities and receipts are complete.
    Calibrate the existing joint sampler to the full workload including every
    coordinate. Recheck tail/approximation delta and noise no-wrap/resource bounds.
@@ -91,7 +99,8 @@ Entry points (one registration function per language/package):
    contract, snapshot and release ID before returning coordinates to the internal
    moment helper. The helper assumes authenticated, public support-clamped integer
    coordinates. Canonical first-minimum, slope rescaling and no inference remain.
-9. Close deployment gates: both roles on pinned processes/hosts, PSI mismatch,
+9. Close deployment gates: Ring64-to-Ring128 carry/no-carry cases and invalid
+   terminal validity (without opening either), both roles on pinned processes/hosts, PSI mismatch,
    swapped source columns, corrupted records/OT, stale profile, duplicate injection,
    crashes around commit, lost ACK, concurrent sticky replay. Test-only DSLite
    methods and reference noise are not substitutes for these gates.

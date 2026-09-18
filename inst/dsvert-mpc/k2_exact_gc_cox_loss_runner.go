@@ -266,6 +266,9 @@ func (r *coxLossShareRunner) ties(risk []uint64, ends []bool) error {
 	return nil
 }
 
+// Terminal shares are modulo 2^64. Authenticated fusion must reconstruct in
+// that ring inside its circuit, then cast/remask in the joint-DP Ring128 ABI.
+// Zero-extending the individual shares is NOT a valid ring conversion.
 type coxLossShareResult struct {
 	Coordinates []uint64
 	Validity    []uint64

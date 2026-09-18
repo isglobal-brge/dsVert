@@ -162,3 +162,14 @@ caps 1/half-U/U) has maximum **877** non-XOR gates. This additional fail-closed
 resource check changes no source expression, fixed-point error, loss coordinate,
 sensitivity or measured wire transcript. The live matrix executable predates
 only this extra compiler rejection; it runs the identical circuit sources.
+
+### Terminal share-ring boundary (step-2 integration)
+
+Kernel coordinates/validities are additive Ring64 shares. The signed source
+layout now pins that terminal type separately from its existing Ring128 source
+and joint-DP ABI. Fusion must compute `(a+b) mod 2^64` INSIDE its circuit, verify
+the reconstructed validity equals one and the coordinate is in [0,U_j], then
+cast and freshly remask in Ring128. Independently widening a and b is incorrect
+when a+b contains a 2^64 carry. This exact conversion adds no rounding error or
+sensitivity; it remains part of the authenticated fusion supplied by step 2.
+The production family route stays disabled until this boundary is implemented.

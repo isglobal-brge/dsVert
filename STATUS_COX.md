@@ -282,3 +282,18 @@ bytes; 5412.021 s (90.200 min)** before the next record reaches the 60 GB budget
 completed=false / budget_stop=true / oracle_equal=false; no full release or
 oracle equality is claimed. Eight of nine reports are recorded. Only 10000x50
 remains running; 4000x50 is still the largest completed passing rectangle.
+
+### Final handoff type clarification
+
+The step-2 producer's source prefix is Ring128, whereas RunShares terminal
+coordinates/validities are Ring64. Added explicit signed output-ring/conversion
+metadata on both R sides and documented the required in-circuit mod-2^64
+reconstruction, validity/range check, cast and fresh Ring128 remasking. Widening
+individual shares would retain an unwanted carry. This is remaining authenticated
+fusion wiring, not a newly implemented fusion or change to the measured kernel.
+The Go change is a type-boundary comment only; no circuit/protocol code changed.
+
+Both updated R suites pass on the pod: **server 641 / client 77 expectations**,
+zero failure/error/skip; the client count includes the 23-expectation two-peer
+tagged DSLite test. Evidence: envelope_v2/cox-fusion-layout-final.log. No repeat
+of the completed Go numerical/protocol suite is needed for this metadata change.

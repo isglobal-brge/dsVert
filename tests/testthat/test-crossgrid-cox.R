@@ -152,3 +152,17 @@ test_that("Cox measured admission is enforced even with both valid signatures", 
   changed$spec$resource_admission$maximum_rows <- n + 1
   expect_error(validate(f$sign(changed)), class = "dsvert_dp_public_failure")
 })
+
+
+test_that("Cox signed layout pins the terminal share conversion for fusion", {
+  f <- .cox_cross_server_fixture()
+  layout <- f$contract$source_contract$private_layout
+  expect_equal(layout$kernel_output_ring_bits, 64)
+  expect_equal(layout$joint_dp_source_ring_bits, 128)
+  expect_identical(layout$output_conversion,
+    "mod64_reconstruct_cast_remask_in_authenticated_fusion_v1")
+  changed <- f$contract
+  changed$source_contract$private_layout$kernel_output_ring_bits <- 128
+  expect_error(.dsvert_dp_cox_grid_cross_contract_validate(
+    f$sign(changed), f$policy, f$schema_manifest), class = "dsvert_dp_public_failure")
+})

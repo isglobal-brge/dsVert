@@ -245,6 +245,8 @@
   log_m <- as.integer(log2(m))
   list(version = "dsvert-cox-cross-private-source-layout-v1",
     ring_bits = 128, release_coordinate_count = length(spec$beta_grid),
+    kernel_output_ring_bits = 64, joint_dp_source_ring_bits = 128,
+    output_conversion = "mod64_reconstruct_cast_remask_in_authenticated_fusion_v1",
     padded_units = m, partial_predictor_fraction_bits = 100,
     release_prefix_source_rule = "all_zero_until_authenticated_result_injection_v1",
     partial_predictors = "two_owners_exact_f100_additive_ring128_v1",

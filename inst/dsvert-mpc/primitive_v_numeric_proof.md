@@ -101,6 +101,7 @@ are at most exp(17/2)*2^64 plus certified error, below 2^77; uint80 operands
 and uint160 products suffice. Exp's /64 and negative-exp's /2 are signed
 nearest-even shifts of a uint72 magnitude (input magnitude <=32*2^64).
 For the log ratio, `(m-1)*2^128 <2^128`, while `(m+1)*2^64 <3*2^64`;
-unsigned128 division/remainder is exact. All final arithmetic words and all
-source-transport words remain the profile's int192. These are compiler-local
-width refinements, not changes to the fixed-point ABI.
+unsigned128 division/remainder is exact. All final family arithmetic and input words remain int192. The frozen V1
+Ring128 feature/outcome transport remains unchanged; its values are widened
+at the new circuit boundary. These are compiler-local width refinements, not
+changes to the fixed-point ABI.

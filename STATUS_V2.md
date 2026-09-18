@@ -737,3 +737,7 @@ The synchronous Mac Poisson K3 retry has persisted five matching kernel batches,
 Binomial / epsilon1: **20 distinct signed grids, 2 real API matches, 16/20 agreement, mean loss gap 2.68316, maximum 14.4925** at retained JSON precision. All 60 keys across the three completed cells are distinct; n2000/p6/grid2/K2 geometry and before/after hashes pass. Progress: **3/6 cells, 6/12 real releases**. The remaining lanes run binomial/epsilon8 and Poisson/epsilon4,8.
 
 Requested a reviewer scope decision on whether the K3 wiring grid may use two candidates at n10000/p10 while retaining the completed full-grid secure benchmarks. This is not an approved change: the full 50-candidate Mac runs continue pending explicit response. No blocker is declared.
+
+## 2026-09-18T23:57Z — seventh required real release passes
+
+Poisson / epsilon4 / instance1 passes full integer DP-vector equality and fresh-process exactly-once/replay/tamper checks in **3782.294 s**, selecting the exact-best candidate with zero loss gap. Evidence: `dslite-n2000-poisson-e4-first.log`. Progress is **7/12 required real releases, 3/6 complete selection cells**. The second release in this cell has started; the other two cells and both full-grid topology lanes continue.

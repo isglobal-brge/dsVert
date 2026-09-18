@@ -98,3 +98,7 @@ equality. Required real-release progress is **5/12**.
 Binomial/epsilon1 completes both real release and cold-lifecycle matches in
 `inst/cross-grid-v2/dslite-n2000-binomial-e1-two-real.log`; instance2 takes
 2801.709 s. Required real-release progress is **6/12**.
+
+Poisson/epsilon4/instance1 passes both required gates in **3782.294 s**
+(`inst/cross-grid-v2/dslite-n2000-poisson-e4-first.log`), bringing real-release
+progress to **7/12**. This cell is not yet complete.

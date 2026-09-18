@@ -46,3 +46,15 @@
    No exported or internal production R function changes, no client changes,
    and no new materialized-state claim are made. The three evidence files
    explicitly distinguish completed component tests from unexecuted gates.
+
+## 2026-09-18T13:12Z — resumed; binding revised cost gate
+
+10. Addendum 3 supersedes decision 8's numerical cost thresholds: <=5000
+    AND/evaluation and <=60 GB measured two-direction whole-release traffic.
+    Retain the certified binomial candidate; do not optimize below that gate.
+    Component table bytes alone do not establish the whole-release gate.
+11. Replace full-domain Poisson interpolation with fixed-point range reduction
+    and a short piecewise polynomial for the reduced exponential. Certify
+    reduction, polynomial, rounding and power-of-two reconstruction separately.
+    New arithmetic remains unadmitted until its signed identity and production
+    lifecycle are implemented; never reinterpret existing signed q64 contracts.

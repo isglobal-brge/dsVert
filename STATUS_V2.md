@@ -104,3 +104,14 @@ production utility gates, with a new certificate, before binding the new profile
 into the frozen source/release lifecycle. This is unfinished implementation,
 not a missing user decision or unavailable tool; no BLOCKED_V2 file is created.
 No tags, remotes, existing production code or client files were modified.
+
+## 2026-09-18T13:12Z — resumed under reviewer Addendum 3
+
+Both repositories are clean on feature/cross-owner-grids; server HEAD 296e242,
+client HEAD cb26ecd. Read the checkpoint, benchmark, V1 contracts/certificate,
+design and decisions before editing. Pod again confirms R_STACK_DONE.
+The reviewer now accepts <=5000 AND/evaluation and <=60 GB measured aggregate
+traffic at full size. Earlier cost-failure conclusions are historical and
+superseded, not new blockers. Whole-release traffic/time remains unmeasured.
+First work: range-reduced Poisson certificate and exact integer/circuit tests.
+No completed milestone is being rerun.

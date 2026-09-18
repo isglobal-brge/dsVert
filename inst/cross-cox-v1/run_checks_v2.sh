@@ -9,7 +9,7 @@ export GOMAXPROCS=2
 (cd dsVert/inst/dsvert-mpc && go test -c -tags dsvert_cox_plaintext_test -o "$DSVERT_COX_TEST_BINARY") > checks-v2/build-oracle.log 2>&1
 (
  set +e
- ./cox-shared.test -test.run='^TestCoxGridCross' -test.v -test.timeout=60m > checks-v2/go-family.log 2>&1
+ (cd dsVert/inst/dsvert-mpc && /workspace/dsvert/cox/cox-shared.test -test.run='^TestCoxGridCross' -test.v -test.timeout=60m) > checks-v2/go-family.log 2>&1
  echo "$?" > checks-v2/go-family.exit
 ) &
 R CMD INSTALL --library="$R_LIBS" dsVert > checks-v2/install-server.log 2>&1

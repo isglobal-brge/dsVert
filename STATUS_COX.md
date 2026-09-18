@@ -141,3 +141,22 @@ until their completed measurements are reviewed.
 R transcript v2 and canonical parity checks pass: server 626 expectations,
 client 39. The default targeted client invocation skipped the explicitly tagged
 DSLite fixture; its final run will supply the test-only executable.
+
+### Completed validation and first measured envelope
+
+Final hardened kernel passes the complete Cox Go family suite on the pod:
+**21 top-level tests + 7 subtests**, with the opt-in envelope test skipped in
+that ordinary suite. The first broad invocation used the wrong working directory
+and four fixture-reading tests could not find their JSON; the corrected run from
+`dsVert/inst/dsvert-mpc` passed. The launcher now records that required cwd.
+
+The explicit tagged DSLite/pooled-Breslow validation passed **23 expectations**,
+no failures/skips/warnings (10.415 s). Pod lacks devtools; the successful command
+uses `testthat::test_local`, with DSVERT_COX_TEST_BINARY pointing at cox-oracle-v2.
+Both full R CMD checks have reached their test phases; results remain pending.
+
+First completed full family-kernel envelope: N=2000,J=16, M=2048, 2345 chunks,
+8,472,921,669 measured two-direction bytes; cold compilation 115.183 s, online
+1183.237 s, total **1298.420 s (21.64 min)**. Every candidate equals the independent
+integer oracle. Source/PSI-to-joint-DP fusion is excluded explicitly, not claimed.
+Final capacity selection waits for the remaining eight requested matrix points.

@@ -628,3 +628,9 @@ Two previously failing transport tests now pass **1213 assertions** with `NOT_CR
 ## 2026-09-18T21:00Z — PSI and surface check regressions pass
 
 `psi-check-corrected-targeted.log`: **191 assertions pass** with NOT_CRAN=true after fixture-only corrections; remote inventory now matches registration. Existing PSI and six remote endpoint documentation gaps are corrected without changing their implementations. Pod additional cells have reached PSI/signature stages; adopted binomial/epsilon1 and both Mac K3 campaigns remain active. Full Go/server suites have not completed.
+
+## 2026-09-18T21:13Z — full server result, baseline proof and packaging checks
+
+Original full server check: **12944 PASS / 24 FAIL / 25 SKIP / 1 test warning**; package status 1 ERROR, 2 WARNINGs, 1 NOTE. Complete logs retained in `check-server-first.log` / `check-server-tests-first.log`. Fixture/inventory failures have targeted corrections; the last installed transport/legacy/blob rerun is active. Legacy golden mismatch reproduces on both 15e1de2 and 89ee9be; corrected local contract/blob tests pass **328 assertions**.
+
+Corrected archive `R CMD check --no-manual --no-tests`: server **0 ERROR / 0 WARNING / 1 pre-existing NOTE**; client **0 ERROR / 2 pre-existing WARNINGs**, pending the prepared MI/ordinal packaging patch. Full Go suite remains active. These packaging results do not claim a second full-suite pass. Initial n2000/binomial/epsilon1 has all 63 batch records plus its final aggregate on both authorities; the joint DP release is still running.

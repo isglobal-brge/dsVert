@@ -73,3 +73,20 @@ The distribution-based exact objectives agree with `-logLik(glm(...))` within
 predictors sum exactly to the pooled predictor. This proves synthetic Layer-1
 objective agreement, not the unimplemented protected f100 source processing.
 Evidence: `inst/cross-grid-v2/pooled-objective-r.log`.
+
+## Fused source-to-loss update
+
+The internal fused producer now passes 288 shared Python/Go/R/circuit fixtures
+covering the complete f100 dot, both families, g=8/16/18 and A=4/16, including
+invalid/missing sources and private alignment failure. Pure R uses the frozen
+signed-limb helper for the wide dot and independently evaluates the profile.
+`generate_kernel_profiles.py --check` reproduces the embedded accepted tables
+and interval-rounded f16 log-factorials. No profile coefficients or analytic
+error bounds changed. The complete width/rounding argument and commands are in
+`inst/cross-grid-v2/FUSED_KERNEL_V2.md`.
+
+Signed admission and production-bound cap/sensitivity reconstruction are still
+not implemented. Low-level clamp parameters are not proof of authorized caps.
+Benchmark caps are the certificate's A4 envelopes (binomial 263340; Poisson
+M4 3578149 at g16), with exact-L1=4 candidate vectors. Shared arithmetic fixtures
+also intentionally use artificial caps; they do not establish admission.

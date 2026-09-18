@@ -138,3 +138,20 @@ The producer, not an RPC caller, derives these partial predictors.
     transport, rounding, loss assembly and sum masks also cost gates/bytes.
 25. No version/NEWS/roxygen change: the new primitive is internal and unadmitted.
     The required production API documentation remains unfinished.
+
+## 2026-09-18T14:28Z — failed complete-kernel resource gate
+
+26. Use the certified-cap measurements, not the exploratory stress-cap run,
+    for the gate verdict. The full frozen workload has 1872 complete 32x8
+    batches. At 32 table bytes/AND, their payload alone is 64.481564160 GB
+    (binomial) / 83.829118464 GB (Poisson), before all omitted work. The
+    current complete route therefore cannot satisfy the binding 60-GB gate.
+27. Do not spend a full-size protected-path run to relabel a deterministic
+    payload lower bound as a measured release. No full n2000/n10000 runtime
+    is claimed; the full benchmark deliverable stays NOT DONE. Batch-byte
+    and serial-time extrapolations are labelled projections only.
+28. Record the failed resource gate in BLOCKED_V2 for reviewer disposition.
+    No resource limit, candidate grid, source ABI, profile, privacy default,
+    production allowlist or materialized-state declaration is weakened. A
+    replacement computation design remains possible but unimplemented; this
+    is not an impossibility claim about all MPC designs.

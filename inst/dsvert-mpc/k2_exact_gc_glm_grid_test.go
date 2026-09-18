@@ -253,15 +253,21 @@ func TestCrossGridKernelRound(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, v := range []int64{-16, -1, 0, 1, 16} {
-			x := new(big.Int).Lsh(big.NewInt(v), 100)
-			x.Mod(x, exactGCModulus(128))
-			got, err := c.Compute([]*big.Int{x, new(big.Int)})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if int64(got[0].Uint64()) != v<<q {
-				t.Fatal("synthetic round", q, v, got[0])
+		divisor := new(big.Int).Lsh(big.NewInt(1), uint(100-q))
+		half := new(big.Int).Rsh(new(big.Int).Set(divisor), 1)
+		for v := int64(-3); v <= 3; v++ {
+			for _, offset := range []int64{-1, 0, 1} {
+				for _, sign := range []int64{-1, 1} {
+					raw := new(big.Int).Mul(big.NewInt(v), divisor)
+					raw.Add(raw, new(big.Int).Mul(half, big.NewInt(sign)))
+					raw.Add(raw, big.NewInt(offset))
+					want := crossGridRoundDivV1(raw, divisor)
+					residue := new(big.Int).Mod(new(big.Int).Set(raw), exactGCModulus(128))
+					got, err := c.Compute([]*big.Int{residue, new(big.Int)})
+					if err != nil || int64(got[0].Uint64()) != want.Int64() {
+						t.Fatal("signed tie/slack rounding mismatch")
+					}
+				}
 			}
 		}
 	}
@@ -406,4 +412,45 @@ func crossGridKernelCostPlan(t testing.TB, family string) crossGridKernelPlan {
 		p.Caps = append(p.Caps, cap)
 	}
 	return p
+}
+
+func TestCrossGridKernelBoundarySlack(t *testing.T) {
+	rng := rand.New(rand.NewSource(811))
+	for _, family := range []string{"binomial", "poisson"} {
+		for _, a := range []int{4, 16} {
+			p := crossGridKernelTestPlan(family)
+			p.Rows = 1
+			p.A = a
+			p.Caps = []uint64{1 << 50, 1 << 50}
+			if a == 16 {
+				p.Beta = [][]string{{"9007199254740992", "9007199254740992", "0"}, {"-9007199254740992", "-9007199254740992", "0"}}
+			} else {
+				// Encoded aggregate slack is projected onto the real signed envelope.
+				// This internal numeric stress plan is not a signed raw-beta fixture.
+				p.Beta = [][]string{{"4503599627370497", "0", "0"}, {"-4503599627370497", "0", "0"}}
+			}
+			c := crossGridKernelTestCompile(t, p)
+			for _, value := range []int64{0, 1, 1<<50 - 1, 1 << 50, 1<<50 + 1} {
+				for _, y := range []int64{0, int64(p.MaxOutcome)} {
+					x := crossGridKernelTestSource(p, rng)
+					x[0].SetInt64(value)
+					x[4].SetInt64(y)
+					g, e, masks := crossGridKernelTestInputs(t, p, x, rng)
+					result, err := c.Compute([]*big.Int{exactGCPackChunks(g, 128), exactGCPackChunks(e, 128)})
+					if err != nil {
+						t.Fatal(err)
+					}
+					want := crossGridKernelOracle(t, p, x)
+					for j := range want {
+						got := new(big.Int).Rsh(new(big.Int).Set(result[0]), uint(128*j))
+						got.Add(got, masks[j])
+						got.Mod(got, exactGCModulus(128))
+						if got.Cmp(want[j]) != 0 {
+							t.Fatal("certified endpoint/slack mismatch")
+						}
+					}
+				}
+			}
+		}
+	}
 }

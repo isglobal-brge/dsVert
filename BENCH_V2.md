@@ -1,4 +1,95 @@
-# V2 component benchmarks — full release gate NOT MEASURED
+# V2 benchmarks — fused batch measured; full-release cost gate FAILS
+
+## Latest: certified-cap fused source/loss batch
+
+Both machines ran real encrypted two-authority Yao/KOS over net.Pipe, 32 rows,
+p=10, eight distinct candidates with exact coefficient L1=4, A=4, g=16,
+private source/validity/alignment checks and Ring128 masked candidate sums.
+Binomial cap=263340; Poisson M=4 cap=3578149, from the accepted certificates.
+One measured iteration; compilation is excluded from batch wall time.
+These are **source/loss batches, not authenticated DP releases**. Joint-noise
+composition is tested separately and is not included in these traffic totals.
+
+| Family | Exact AND/batch | AND/evaluation | Two-direction bytes/batch | Bytes/evaluation | Mac batch seconds | Pod batch seconds |
+|---|---:|---:|---:|---:|---:|---:|
+| Binomial | 1076415 | 4204.74609375 | 42404496 | 165642.5625 | 1.478935959 | 7.319170999 |
+| Poisson | 1399391 | 5466.37109375 | 52745381 | 206036.64453125 | 2.308600250 | 7.605694722 |
+
+Compilation: Mac 35.73 / 72.12 s; pod 177.5 / 222.3 s (binomial / Poisson).
+Mac Apple M2; pod Xeon Gold 6342, GOMAXPROCS=8. Gate and byte counts agree
+exactly. Single-iteration timings are observations, not throughput guarantees.
+Raw logs: `inst/cross-grid-v2/fused-bench-{mac,pod}.log`.
+
+### Deterministic full-size lower bound: FAIL
+
+The frozen n=10000/grid=50 traversal contains at least
+`floor(10000/32)*floor(50/8) = 1872` complete 32x8 batches. All 50 distinct
+candidates can have the same exact L1=4 envelope/caps; public beta multiplication
+is local, so changing their coefficient values does not change circuit topology.
+Each AND transmits two 128-bit labels: **32 bytes of garbled table**. Therefore,
+ignoring every tail batch, OT, input labels, framing, source transfer, joint
+noise and release authentication:
+
+| Family | Exact lower bound: 1872 * batch_AND * 32 | Binding 60 GB ceiling |
+|---|---:|---|
+| Binomial | 64,481,564,160 bytes (64.481564160 GB) | **FAIL** |
+| Poisson | 83,829,118,464 bytes (83.829118464 GB) | **FAIL** |
+
+This is a circuit-size lower bound, **not measured full-release traffic**. It
+already rules out a <=60 GB execution of this compiled route at that public
+workload. Parallelism and merely scheduling more small batches cannot remove
+these tables. Binomial passes the <=5000 full-kernel AND/evaluation comparison;
+Poisson does not. The earlier nonlinear-only components still pass that AND
+comparison, but their favorable counts omit mandatory source/loss work.
+
+Multiplying measured batch bytes by 500000 evaluations gives **projections**
+of 82.821 / 103.018 GB, excluding joint noise and release transport. Serial pod
+latency extrapolations are 238.25 / 247.58 minutes. Neither projection is a
+completed full-release measurement or a parallel scheduling capacity claim.
+
+**No n=2000 or n=10000 whole release has been executed. There is no measured
+30-minute result. The requested n,p,grid full-release matrix is NOT DONE.**
+
+A smaller *signed candidate set* preserves the current arithmetic certificate:
+at grid=16, the same byte extrapolation is 26.503 / 32.966 GB before the remaining
+release work. This is an illustrative reduction, not a measured/certified full
+cost pass; it changes the requested grid and does not fix Poisson's full-kernel
+AND count. Splitting the same 50 candidates into more batches does not reduce
+total table bytes. A passing original-size route needs a materially cheaper
+certified computation/transport design or a reviewed change to the resource
+requirements; no unmeasured alternative is claimed to pass.
+
+### Reproduction and provenance
+
+From dsVert:
+
+```
+cd inst/dsvert-mpc
+go test -run '^$' -bench '^BenchmarkCrossGridFusedBatch$' -benchtime=1x -count=1 -timeout=0
+```
+
+Pod export/runner: `inst/cross-grid-v2/run_fused_pod.sh`, launched using
+`./pod4` and nohup in `/workspace/dsvert/crossowner-v2/dsVert` after R_STACK_DONE.
+The source hash verification for the timed pod snapshot is saved as
+`fused-benchmark-source.sha256` and `fused-benchmark-source-check-pod.log`.
+After that benchmark snapshot, an explicit rejection guard was added to the
+ordinary compiler plus its focused test; further endpoint/slack regressions
+were added afterward. These do not affect the specialized benchmark
+path or any arithmetic/transport function used by it. Final source
+verification and the focused suite are rerun separately on implementation
+commit 2771a99 plus the final regression-test addition; the two snapshots are not mislabelled as byte-identical trees.
+The Mac timed snapshot includes that guard. Numerical/profile/optimizer and
+specialized runner sources used by both timed runs match.
+
+Earlier fused stress-cap probes used cap=2^24 and duplicate candidates. Their
+Mac logs are preserved as `fused-stress-cap-*`; they are exploratory, not the
+basis of the certified-cap table or lower bound above. An old pod stress probe
+was stopped after identifying that fixture issue. Historical component reports
+below are retained with their original limitations.
+
+---
+
+# Historical component benchmarks — full release gate not measured
 
 **Revised gate (reviewer Addendum 3): <=5000 AND/evaluation and <=60 GB measured
 aggregate two-direction traffic for a full-size release, with pod elapsed time.

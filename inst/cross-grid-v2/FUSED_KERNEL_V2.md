@@ -86,7 +86,7 @@ python3 inst/cross-grid-v2/generate_kernel_profiles.py --check
 python3 inst/cross-grid-v2/generate_fused_vectors.py --check
 Rscript inst/cross-grid-v2/validate_fused_vectors.R
 cd inst/dsvert-mpc
-go test -run '^TestCrossGridKernel(Integer|Round|Predictor|SharedVectors|RejectsPublicPlanAndShares|TwoAuthority|JointNoise|PurposeAndAdmissionGate)$' -v -count=1
+go test -run '^TestCrossGridKernel(Integer|Round|Predictor|SharedVectors|RejectsPublicPlanAndShares|TwoAuthority|JointNoise|PurposeAndAdmissionGate|BoundarySlack)$' -v -count=1
 go test -run '^$' -bench '^BenchmarkCrossGridFusedBatch$' -benchtime=1x -count=1 -timeout=0
 ```
 
@@ -100,3 +100,12 @@ existing joint-DP vector **Laplace** sampler at epsilon=4, delta=2^-100 and
 match its deterministic oracle after the sampler's documented output clamp.
 These are real cryptographic kernel/sampler tests, not DSLite releases or
 proof of the production policy's eventual mechanism selection.
+
+The final rounding regression explicitly tests positive/negative half ties and
+both adjacent integer points at each internal eta precision. Full-kernel stress
+cases also cover eta=+/-16, one-past-source range, encoded aggregate slack
+projected at A4, and both outcome endpoints. These tests use synthetic inputs.
+On this Mac, profile reproduction used Python 3.11 at
+`/opt/homebrew/opt/python@3.11/bin/python3.11` with mpmath 1.3.0; another selected
+`python3` environment lacked mpmath. This is an interpreter selection detail,
+not an arithmetic finding or an unhandled tooling blocker.

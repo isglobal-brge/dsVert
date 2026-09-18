@@ -1,0 +1,6 @@
+=== RUN   TestCrossGridKernelFrozenShapeCost
+    k2_exact_gc_glm_grid_test.go:317: family=binomial rows=32 p=10 candidates=8 AND/eval=4204.746 table-B/eval=134551.875 input-bits=247936
+    k2_exact_gc_glm_grid_test.go:317: family=poisson rows=32 p=10 candidates=8 AND/eval=5467.371 table-B/eval=174955.875 input-bits=247936
+--- PASS: TestCrossGridKernelFrozenShapeCost (124.43s)
+PASS
+ok  	github.com/isglobal-brge/dsVert/dsvert-mpc	125.825s

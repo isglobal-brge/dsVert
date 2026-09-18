@@ -1,6 +1,9 @@
-# Layer 2 — nonlinear component only
+# Layer 2 — fused arithmetic; authenticated lifecycle remains open
 
-Status: tested Boolean probe; fused secure grid and R lifecycle NOT COMPLETE.
+Status: internal fused kernel and joint-noise composition tested; signed
+producer, authenticated R lifecycle and production release NOT COMPLETE.
+
+## Initial component probe (historical)
 
 `cross_grid_profile_v2_test.go` builds test-only quadratic circuits. Exact
 comparisons cover interval endpoints, both sides of every internal breakpoint,
@@ -66,3 +69,31 @@ passes, zero failed/skipped. Raw log:
 `inst/cross-grid-v2/pod-exp-reduced/exp-reduced-targeted.jsonl`.
 All 464 source/fixture hashes were checked against the Mac manifest before
 accepting this run. This does not change the outstanding Layer-2 lifecycle gate.
+
+## Fused producer and actual joint-noise composition
+
+The new typed internal producer derives exact f100 partial predictor shares
+locally, then privately validates source/alignment, rounds the shared predictor
+once, evaluates both pinned profiles, assembles bounded-outcome losses and
+reduces clamped coordinates. Only Ring128 additive output masks and one private
+XOR alignment-validity bit leave the circuit. It has no R/DSI RPC, and the
+ordinary exact-GC compiler explicitly rejects its operation.
+
+The final focused Mac and pod selection passes 18 top-level tests / 36 including subtests,
+zero failures/skips. It includes shared R/Go fixtures, randomized source cases,
+malformed source/plan rejection, private alignment failure, purpose binding,
+caller-mutation isolation, generic-admission exclusion, real encrypted net.Pipe
+comparisons and existing encrypted-record replay/tamper tests. Two tests pass
+actual kernel shares to the existing joint-vector Laplace MPC sampler at
+(epsilon=4, delta=2^-100), matching its seeded oracle and final clamp exactly.
+Raw evidence: `inst/cross-grid-v2/fused-targeted-{mac,pod}.jsonl`.
+All 467 final source/module/fixture hashes match the pod export. The final
+selection includes signed half-tie/adjacent-point and full endpoint/slack
+regressions; the earlier 17/35 selection preceded that final addition.
+
+These tests do NOT supply signed new-profile admission, source-claim binding,
+recipient-specific durable output evidence, sticky release keys, exactly-once
+injection or crash/resume. None of the required two-process callr lifecycle or
+12 DSLite API releases has been executed. Record-level replay protection does
+not replace those lifecycle tests. The cost gate also remains a separate gate;
+passing integer equality does not authorize a production materialized state.

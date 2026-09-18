@@ -1315,6 +1315,19 @@
     stop("Invalid biomedical Gaussian specification.", call. = FALSE)
   }
   version <- .dsvert_dp_capsule_id(raw$version, "Gaussian version")
+  if (raw$version %in% unname(.DSVERT_DP_GLM_GRID_CROSS_SPEC_VERSIONS)) {
+    .dsvert_dp_glm_grid_cross_fields(raw, c("version", "dataset", "contract"))
+    contract <- .dsvert_dp_glm_grid_cross_raw_contract(raw)
+    if (!is.list(contract) || !identical(contract$spec$version, raw$version) ||
+        !identical(contract$spec$analysis_id, analysis_id) ||
+        !identical(contract$spec$dataset, raw$dataset)) {
+      .dsvert_dp_glm_grid_cross_fail()
+    }
+    return(list(kind = "glm_grid_cross", version = raw$version,
+      dataset = raw$dataset, outcome = contract$spec$outcome$reference,
+      predictors = unlist(contract$spec$predictor_order, use.names = FALSE),
+      contract = contract))
+  }
   dataset <- .dsvert_dp_capsule_id(raw$dataset, "Gaussian dataset")
   if (identical(version, "ordinal_grid_v1")) {
     expected <- c(
@@ -2814,6 +2827,18 @@
     spec <- .dsvert_dp_capsule_gaussian_spec(
       global_policy, analysis_id, gaussian_specs)
     variables <- c(spec$outcome, spec$predictors)
+    if (identical(spec$kind, "glm_grid_cross")) {
+      variables <- vapply(variables, function(variable) {
+        owner <- sub("\\$.*$", "", variable)
+        column <- sub("^[^$]+\\$", "", variable)
+        matches <- vapply(columns, function(value) {
+          identical(value$owner_peer, owner) && identical(value$column, column) &&
+            identical(value$dataset, spec$dataset)
+        }, logical(1L))
+        if (sum(matches) != 1L) .dsvert_dp_glm_grid_cross_fail()
+        names(columns)[which(matches)]
+      }, character(1L))
+    }
     if (spec$kind %in% c("gaussian_ar1_working_gls_grid",
                          "gaussian_ar1_robust_working_gls_grid")) {
       variables <- c(variables, spec[["order", exact = TRUE]])
@@ -3376,6 +3401,24 @@
   for (analysis_id in names(gaussian_specs)) {
     spec <- .dsvert_dp_capsule_gaussian_spec(
       global_policy, analysis_id, gaussian_specs)
+    if (identical(spec$kind, "glm_grid_cross")) {
+      contract <- .dsvert_dp_glm_grid_profile_admit(
+        spec$contract, global_policy, schema_manifest)
+      artifact <- .dsvert_dp_glm_grid_cross_workload_artifact(contract)
+      gaussian_artifacts[[analysis_id]] <- artifact
+      raw_l1 <- artifact$source_raw_l1_sensitivity
+      raw_l2 <- artifact$source_raw_l2_sensitivity
+      gaussian_coordinate_count <- .dsvert_dp_capsule_coordinate_add(
+        gaussian_coordinate_count, artifact$coordinate_count)
+      gaussian_raw_l1 <- gaussian_raw_l1 + raw_l1
+      gaussian_raw_l2_squared <- .dsvert_dp_capsule_l2_add(
+        gaussian_raw_l2_squared, .dsvert_dp_capsule_l2_square(raw_l2))
+      gaussian_natural_l1 <- gaussian_natural_l1 + raw_l1 / grid_scale
+      gaussian_natural_l2_squared <- .dsvert_dp_capsule_l2_add(
+        gaussian_natural_l2_squared,
+        .dsvert_dp_capsule_l2_square(raw_l2 / grid_scale))
+      next
+    }
     if (identical(spec$kind, "ordinal_grid")) {
       variables <- c(spec$outcome, spec$predictors)
       model_columns <- columns[variables]

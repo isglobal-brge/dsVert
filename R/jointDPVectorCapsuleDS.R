@@ -4279,7 +4279,7 @@
         # A full-pinset ACK-only peer owns no source rows, but still needs a
         # durable tombstone so delayed requests cannot reopen this capsule.
         capsule_tables <- c(
-          "source_aggregate_chunks", "source_cross_gaussian_results",
+          "source_aggregate_chunks", "source_cross_grid_records", "source_cross_gaussian_results",
           "source_cross_categorical_results")
         capsule_rows <- vapply(capsule_tables, function(table) {
           DBI::dbGetQuery(connection, paste(
@@ -4363,6 +4363,9 @@
         "DELETE FROM source_recipient_keys WHERE capsule_id = ?",
         params = list(capsule_id))
       DBI::dbExecute(connection,
+        "DELETE FROM source_cross_grid_records WHERE capsule_id = ?",
+        params = list(capsule_id))
+      DBI::dbExecute(connection,
         "DELETE FROM source_cross_gaussian_results WHERE capsule_id = ?",
         params = list(capsule_id))
       DBI::dbExecute(connection,
@@ -4371,7 +4374,7 @@
       capsule_tables <- c(
         "source_aggregate_chunks", "source_incoming_state",
         "source_outbound", "source_recipient_keys",
-        "source_cross_gaussian_results",
+        "source_cross_gaussian_results", "source_cross_grid_records",
         "source_cross_categorical_results")
       retained_capsule_rows <- sum(vapply(capsule_tables, function(table) {
         DBI::dbGetQuery(connection, paste(

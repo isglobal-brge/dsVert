@@ -409,3 +409,10 @@ The previous n2000 binomial kernel completed; the harness then rejected its
 oversized unchunked noise call. Its log is retained on pod as
 full-n2000-noise-shape-failure.log; this is not a completed release. Corrected
 campaign now runs n10000 before n2000. No successful full-size run is repeated.
+
+## 2026-09-18T15:44Z — materialiser/lifecycle implementation, targeted gates
+
+- Server targeted command: `Rscript -e 'r <- testthat::test_local(".", filter="dp-glm-grid-cross-contract|dp-gaussian-cross$", reporter="summary", stop_on_failure=FALSE); d <- as.data.frame(r); print(colSums(d[,c("nb","failed","error","passed")]))'` — **285 assertions, 0 failures/errors** (`inst/cross-grid-v2/lifecycle-targeted.log`). Includes actual separate `callr` processes writing/reopening the MAC-authenticated result store, replay equality, record-change rejection, tamper rejection, missing-result rejection, and snapshot normalization. This is not yet the full authenticated remote crash/resume gate.
+- Client targeted contract/selection command, filter `dp-glm-grid-cross-contract|dp-glm-grid$`: **318 assertions, 0 failures/errors**. Earlier complete grid filter: 578 assertions green. New cases check signatures, caps/profile/wrapper tampering, signed candidate selection and qualified formula syntax.
+- Full-size pod benchmark continues (4 concurrent pairs under measured 7.65-core effective quota). No completed full-size family result yet at this milestone.
+- Real DSLite validation harness added using the package's existing isolated two-peer scaffold. Initial setup exposed the existing prohibition on noise-root storage beneath the server package tree; state moved into ignored client build directory. PSI minimum capacity is retained at 64. **No DSLite grid release is claimed yet.** Full authenticated lifecycle/wiring, oracle selection campaign and final checks remain NOT DONE.

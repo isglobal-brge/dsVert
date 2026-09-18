@@ -73,7 +73,8 @@
   }
   artifacts <- .dsvert_dp_gaussian_cross_artifacts(manifest)
   categorical_artifacts <- .dsvert_dp_categorical_cross_artifacts(manifest)
-  if (!length(artifacts) && !length(categorical_artifacts)) {
+  grid_artifacts <- .dsvert_dp_glm_grid_cross_artifacts(manifest)
+  if (!length(artifacts) && !length(categorical_artifacts) && !length(grid_artifacts)) {
     return(list(
       version = .DSVERT_DP_GAUSSIAN_CROSS_LAYOUT_VERSION,
       enabled = FALSE,
@@ -206,6 +207,16 @@
         cursor <- end + 1
       }
     }
+  }
+  for (analysis_id in names(grid_artifacts)) {
+    artifact <- grid_artifacts[[analysis_id]]
+    projection <- .dsvert_dp_glm_grid_cross_source_blocks(artifact, cursor)
+    blocks <- c(blocks, projection$blocks)
+    cursor <- projection$cursor
+    source_peers <- c(source_peers, unlist(artifact$participating_peers,
+                                         use.names = FALSE))
+    computation_peers <- c(computation_peers, unlist(artifact$computation_peers,
+                                                   use.names = FALSE))
   }
   source_peers <- sort(unique(source_peers), method = "radix")
   computation_peers <- sort(unique(computation_peers), method = "radix")
@@ -455,7 +466,11 @@
     input <- bounded_for(block)
     scale <- 2^as.integer(context$manifest$bounds$numeric_grid_bits)
     categorical <- identical(block$input_family, "categorical")
-    values <- if (categorical && identical(block$kind, "validity")) {
+    grid <- identical(block$input_family, "glm_grid")
+    if (grid) scale <- block$maximum
+    values <- if (grid) {
+      .dsvert_dp_glm_grid_cross_source_values(input, block)
+    } else if (categorical && identical(block$kind, "validity")) {
       as.numeric(!is.na(input$cell)) * scale
     } else if (categorical) {
       as.numeric(!is.na(input$cell) &

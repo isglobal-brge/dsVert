@@ -360,3 +360,190 @@ test_that("piecewise admission pins new arithmetic, caps and all signatures", {
       bad, fixture$policy, fixture$schema), class = "dsvert_dp_public_failure")
   }
 })
+
+test_that("piecewise source projection preserves frozen f50/f0 slots", {
+  for (family in c("binomial", "poisson")) {
+    fixture <- .cross_grid_contract_fixture(family, bits = 16, capacity = 4)
+    spec <- .dsvert_dp_glm_grid_cross_spec(
+      fixture$raw, fixture$policy, fixture$authenticated, "piecewise_v2")
+    artifact <- .dsvert_dp_glm_grid_cross_artifact(spec)
+    contract <- fixture$sign(list(version = fixture$contract$version, spec = spec,
+      artifact = artifact,
+      source_contract = .dsvert_dp_glm_grid_cross_source_contract(spec, artifact)))
+    artifact <- .dsvert_dp_glm_grid_cross_workload_artifact(contract)
+    layout <- contract$source_contract$private_layout
+    projection <- .dsvert_dp_glm_grid_cross_source_blocks(artifact, layout$private_start)
+    expect_equal(projection$cursor - 1, layout$transport_coordinate_count)
+    blocks <- projection$blocks
+    for (i in seq_along(layout$blocks)) {
+      expect_equal(blocks[[2*i-1]]$start, layout$blocks[[i]]$value_start)
+      expect_equal(blocks[[2*i]]$start, layout$blocks[[i]]$validity_start)
+      expect_equal(blocks[[2*i-1]]$fraction_bits,
+                   layout$blocks[[i]]$value_fraction_bits)
+      expect_equal(blocks[[2*i]]$fraction_bits, 0)
+    }
+    source <- list(valid = c(TRUE, TRUE, FALSE, TRUE),
+                   unit_values = c(-2, 4, 0, 1))
+    expect_equal(.dsvert_dp_glm_grid_cross_source_values(source, blocks[[1]]),
+                 c(0, 2^50, 0, 2^49))
+    source$unit_values <- c(0, 1, 0, 0.5)
+    expect_equal(.dsvert_dp_glm_grid_cross_source_values(source, blocks[[5]]),
+                 c(0, 1, 0, 0))
+    expect_equal(.dsvert_dp_glm_grid_cross_source_values(source, blocks[[6]]),
+                 c(1, 1, 0, 0))
+  }
+})
+
+.cross_grid_materializer_fixture <- function() {
+  fixture <- .cross_grid_contract_fixture("binomial", bits = 16, capacity = 4)
+  policy <- fixture$policy
+  policy$domain <- "cross-grid-test"
+  policy$cohort_id <- "grid-cohort"
+  policy$peer_name <- "peer_a"
+  policy$peer_count <- 3L
+  policy$global_total_epsilon <- 4
+  policy$global_total_delta <- 2^-100
+  policy$lifetime_max_distinct_capsules <- 2L
+  policy$patient_column <- "id"
+  policy$max_records_per_unit <- 1L
+  policy$overflow_policy <- "reject_snapshot"
+  policy$contingency_unit_aggregation_policy <- "consistent_cell_else_exclude_v1"
+  policy$numeric_bounds <- list(x = c(-2, 4), y = c(0, 1))
+  policy$categorical_levels <- list()
+  policy$datasets <- list(cohort = list(id = "cohort", version = "v1",
+    snapshot_sha256 = NULL, alignment_manifest_hash = NULL,
+    alignment_manifest_version = 1L))
+  policy$noise_root <- list(epoch = 1, key_id = "test-root")
+  policy$ledger_path <- tempfile("grid-materializer-")
+  spec <- .dsvert_dp_glm_grid_cross_spec(
+    fixture$raw, policy, fixture$authenticated, "piecewise_v2")
+  artifact <- .dsvert_dp_glm_grid_cross_artifact(spec)
+  contract <- fixture$sign(list(version = fixture$contract$version, spec = spec,
+    artifact = artifact,
+    source_contract = .dsvert_dp_glm_grid_cross_source_contract(spec, artifact)))
+  manifest <- .dsvert_dp_capsule_workload_manifest(policy,
+    fixture$schema$logical_snapshot, fixture$schema, describe_specs = list(),
+    survival_specs = list(), vertical_cross_specs = list(),
+    gaussian_specs = list(grid = list(version = spec$version,
+      dataset = spec$dataset, contract = contract)))
+  list(fixture = fixture, policy = policy, spec = spec, manifest = manifest)
+}
+
+test_that("cross-grid workload admission and source contracts bind the new projection", {
+  f <- .cross_grid_materializer_fixture()
+  fixture <- f$fixture
+  policy <- f$policy
+  spec <- f$spec
+  manifest <- f$manifest
+  admitted <- .dsvert_dp_glm_grid_cross_artifacts(manifest)$grid
+  expect_identical(admitted$implementation_state, "cross_owner_exact_gc_materialized")
+  expect_equal(admitted$source_raw_l1_sensitivity, spec$sensitivity$raw_l1_sensitivity)
+  transport <- .dsvert_dp_capsule_source_contract(policy, manifest)
+  expect_identical(transport$version, .DSVERT_DP_GLM_GRID_CROSS_SOURCE_VERSION)
+  expect_identical(transport$purpose, .DSVERT_DP_GLM_GRID_CROSS_SOURCE_PURPOSE)
+  expect_equal(.dsvert_dp_capsule_source_contract_validate(transport), transport)
+  # Missing authenticated exact results must never become a zero-valued release.
+  con <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(con), add = TRUE)
+  DBI::dbExecute(con, paste("CREATE TABLE source_cross_grid_records (",
+    "capsule_id TEXT,analysis_id TEXT,batch_index INTEGER,record_json TEXT,row_mac TEXT,",
+    "PRIMARY KEY(capsule_id,analysis_id,batch_index))"))
+  expect_error(.dsvert_dp_glm_grid_cross_inject(con, as.raw(1:32), manifest,
+    transport, list(offset = 0, count = 1), raw(16)), class = "dsvert_dp_public_failure")
+  first <- .dsvert_dp_glm_grid_cross_key(manifest, admitted, transport)
+  changed <- admitted
+  changed_contract <- .dsvert_dp_glm_grid_cross_embedded_contract(changed)
+  changed_contract$spec$beta_grid[[1]][[1]] <- 0
+  changed$signed_contract <- .dsvert_dp_canonical_json(
+    .dsvert_dp_canonical_query_value(changed_contract))
+  expect_false(identical(first, .dsvert_dp_glm_grid_cross_key(manifest, changed, transport)))
+})
+
+
+test_that("cross-grid private records resume across R processes and reject tampering", {
+  f <- .cross_grid_materializer_fixture()
+  manifest <- f$manifest
+  contract <- .dsvert_dp_capsule_source_contract(f$policy, manifest)
+  artifact <- .dsvert_dp_glm_grid_cross_artifacts(manifest)$grid
+  secret <- as.raw(1:32)
+  share <- as.raw(c(7, rep(0, 15), 11, rep(0, 15), 13, rep(0, 15)))
+  record <- list(version = "cross-grid-complete-result-v2",
+    capsule_id = contract$capsule_id, analysis_id = "grid",
+    semantic_key = .dsvert_dp_glm_grid_cross_key(manifest, artifact, contract),
+    artifact_sha256 = .dsvert_joint_dp_hash(artifact),
+    source_contract_sha256 = .dsvert_joint_dp_hash(contract),
+    share = .dsvert_dp_capsule_source_raw_b64(share))
+  database <- tempfile(fileext = ".sqlite")
+  on.exit(unlink(database), add = TRUE)
+  root <- normalizePath(file.path(testthat::test_path(), "..", ".."))
+  process <- function(root, database, secret, record, mode, manifest, contract) {
+    pkgload::load_all(root, quiet = TRUE)
+    ns <- asNamespace("dsVert")
+    getfn <- function(name) get(name, ns, inherits = FALSE)
+    con <- DBI::dbConnect(RSQLite::SQLite(), database)
+    on.exit(DBI::dbDisconnect(con))
+    if (identical(mode, "persist")) {
+      DBI::dbExecute(con, paste("CREATE TABLE source_cross_grid_records (",
+        "capsule_id TEXT,analysis_id TEXT,batch_index INTEGER,record_json TEXT,row_mac TEXT,",
+        "PRIMARY KEY(capsule_id,analysis_id,batch_index))"))
+      getfn(".dsvert_dp_glm_grid_cross_save")(con, secret, record, 0)
+      return(TRUE)
+    }
+    load <- getfn(".dsvert_dp_glm_grid_cross_load")
+    save <- getfn(".dsvert_dp_glm_grid_cross_save")
+    inject <- getfn(".dsvert_dp_glm_grid_cross_inject")
+    loaded <- load(con, secret, record$capsule_id, "grid", 0)
+    save(con, secret, record, 0)
+    layout <- getfn(".dsvert_dp_capsule_coordinate_layout")(manifest)
+    block <- layout$blocks[["gaussian_models::grid"]]
+    chunk <- list(offset = block$start - 1, count = block$length)
+    first <- inject(con, secret, manifest, contract, chunk, raw(16 * block$length))
+    replay <- inject(con, secret, manifest, contract, chunk, raw(16 * block$length))
+    altered <- record
+    altered$semantic_key <- paste(rep("0", 64), collapse = "")
+    rejected <- inherits(tryCatch(save(con, secret, altered, 0), error = identity), "error")
+    DBI::dbExecute(con, "UPDATE source_cross_grid_records SET record_json='{}'")
+    tampered <- inherits(tryCatch(load(con, secret, record$capsule_id, "grid", 0),
+      error = identity), "error")
+    list(share = first, replay = identical(first, replay), changed_rejected = rejected,
+      tamper_rejected = tampered, loaded = identical(loaded$semantic_key, record$semantic_key),
+      rows = DBI::dbGetQuery(con, "SELECT COUNT(*) AS n FROM source_cross_grid_records")$n)
+  }
+  args <- list(root, database, secret, record, "persist", manifest, contract)
+  expect_true(callr::r(process, args = args))
+  args[[5]] <- "resume"
+  result <- callr::r(process, args = args)
+  expect_identical(result$share, share)
+  expect_true(result$replay)
+  expect_true(result$changed_rejected)
+  expect_true(result$tamper_rejected)
+  expect_true(result$loaded)
+  expect_equal(result$rows, 1)
+})
+
+
+test_that("cross-grid bootstrap binds the public plan without a circular schema hash", {
+  f <- .cross_grid_materializer_fixture()
+  artifact <- .dsvert_dp_glm_grid_cross_artifacts(f$manifest)$grid
+  contract <- .dsvert_dp_glm_grid_cross_embedded_contract(artifact)
+  raw <- list(version = contract$spec$version, dataset = contract$spec$dataset,
+    contract = artifact$signed_contract)
+  policy <- f$policy
+  policy$capsule_workload_specs <- list(describe = list(), survival = list(),
+    gaussian = list(grid = raw), vertical_cross = list())
+  local <- .dsvert_dp_capsule_manifest_local_specs(policy,
+    mapping = list(datasets = list(cohort = c("x", "y"))))
+  expect_equal(local$gaussian$grid, .dsvert_dp_canonical_query_value(raw))
+  workload <- list(gaussian = list(grid = list(owner_peer = "peer_a", spec = raw)))
+  plan <- .dsvert_dp_glm_grid_cross_snapshot_workload(workload)
+  changed <- contract
+  changed$spec$schema_sha256 <- strrep("a", 64)
+  changed$spec$logical_snapshot$version <- "different-derived-version"
+  changed$spec$alignment$public_alignment_contract_sha256 <- strrep("b", 64)
+  changed$signatures <- list()
+  workload$gaussian$grid$spec$contract <- changed
+  expect_equal(.dsvert_dp_glm_grid_cross_snapshot_workload(workload), plan)
+  changed$spec$beta_grid[[1]][[1]] <- 0
+  workload$gaussian$grid$spec$contract <- changed
+  expect_false(identical(.dsvert_dp_glm_grid_cross_snapshot_workload(workload), plan))
+})

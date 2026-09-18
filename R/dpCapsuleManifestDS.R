@@ -409,6 +409,18 @@
     spec <- tryCatch(.dsvert_dp_capsule_gaussian_spec(
       policy, analysis_id, gaussian, require_public_bounds = FALSE),
       error = function(error) NULL)
+    if (!is.null(spec) && identical(spec$kind, "glm_grid_cross")) {
+      contract <- spec$contract
+      if (!identical(contract$spec$outcome$owner_peer, policy$peer_name) ||
+          !spec$dataset %in% names(mapping$datasets) ||
+          !contract$spec$outcome$column %in% mapping$datasets[[spec$dataset]]) {
+        .dsvert_dp_glm_grid_cross_fail()
+      }
+      normalized_gaussian[[analysis_id]] <- list(version = spec$version,
+        dataset = spec$dataset, contract = .dsvert_dp_canonical_json(
+          .dsvert_dp_canonical_query_value(contract)))
+      next
+    }
     references <- if (is.null(spec)) list() else lapply(
       c(spec$outcome, if (identical(spec$kind, "random_intercept")) {
         spec$cluster
@@ -871,6 +883,7 @@
   }
   for (analysis_id in names(specs$gaussian)) {
     raw <- specs$gaussian[[analysis_id]]
+    if (raw$version %in% unname(.DSVERT_DP_GLM_GRID_CROSS_SPEC_VERSIONS)) next
     if (!identical(raw$version, "random_intercept_v1")) {
       raw$predictors <- unname(as.character(unlist(
         raw$predictors, use.names = FALSE)))
@@ -956,7 +969,7 @@
     peer_pinset_sha256 = policy$peer_pinset_sha256,
     alignment_protocol_version = as.integer(alignment_protocol_version),
     datasets = datasets,
-    workload_contract = workload_contract))
+    workload_contract = .dsvert_dp_glm_grid_cross_snapshot_workload(workload_contract)))
   .dsvert_dp_canonical_query_value(list(
     logical_snapshot_id = policy$cohort_id,
     version = paste0("schema-v1-", fingerprint),

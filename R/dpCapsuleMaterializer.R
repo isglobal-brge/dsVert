@@ -1816,9 +1816,9 @@
   cross_artifacts <- manifest$workload$families$gaussian_models$artifacts
   cross_artifacts <- cross_artifacts[vapply(
     cross_artifacts, function(artifact) {
-      identical(
-        artifact$version,
-        "bounded-normalized-gaussian-cross-sufficient-statistics-v1")
+      artifact$version %in% c(
+        "bounded-normalized-gaussian-cross-sufficient-statistics-v1",
+        unname(.DSVERT_DP_GLM_GRID_CROSS_ARTIFACT_VERSIONS))
     }, logical(1L))]
   owns_cross_input <- any(vapply(cross_artifacts, function(artifact) {
     local_peer %in% unlist(artifact$participating_peers, use.names = FALSE)
@@ -1919,9 +1919,9 @@
   for (name in names(gaussian_blocks)) {
     block <- gaussian_blocks[[name]]
     artifact <- block$descriptor
-    if (identical(
-          artifact$version,
-          "bounded-normalized-gaussian-cross-sufficient-statistics-v1")) {
+    if (artifact$version %in% c(
+          "bounded-normalized-gaussian-cross-sufficient-statistics-v1",
+          unname(.DSVERT_DP_GLM_GRID_CROSS_ARTIFACT_VERSIONS))) {
       # Cross-owner coordinates are injected only after the fixed exact-GC
       # transcript.  Every ordinary source contributes the all-zero public
       # block here, so no exact moment can enter the sampler by accident.

@@ -1476,6 +1476,10 @@
             spec$dataset, spec[[field]], owner, "survival column")
         }
       } else if (identical(family, "gaussian")) {
+        if (spec$version %in% unname(.DSVERT_DP_GLM_GRID_CROSS_SPEC_VERSIONS)) {
+          # References inside a custodian-signed contract are immutable.
+          next
+        }
         spec$outcome <- resolve_reference(
           spec$dataset, spec$outcome, owner, "Gaussian outcome")
         if (identical(spec$version, "v2")) {

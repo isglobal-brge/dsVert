@@ -286,6 +286,7 @@
 }
 
 .exact_gc_output_kind <- function(operation) {
+  if (identical(operation, "glm-grid-profile-v2")) return("cross-grid-ring128-share-v2")
   operation <- .exact_gc_scalar(operation, "exact-gc operation")
   if (identical(operation, "compare-signed")) return("ring-share")
   if (identical(operation, "truncate-floor")) return("ring-share")
@@ -2411,7 +2412,7 @@
       "joint-dp-laplace-v2",
       "joint-dp-vector-laplace-v3",
       "joint-dp-vector-gaussian-one-draw-v1",
-      "alignment-mask-ring128")) {
+      "alignment-mask-ring128", "glm-grid-profile-v2")) {
     required <- c(required, "validity_share")
   }
   if (!is.list(result) || !identical(sort(names(result)), sort(required)) ||
@@ -2431,7 +2432,7 @@
       "ring-share", "checked-ring-share", "joint-dp-ring-share-v2",
       "joint-dp-vector-ring128-share-v1",
       "joint-dp-vector-gaussian-one-draw-ring128-share-v1",
-      "alignment-masked-ring128-share-v1")) {
+      "alignment-masked-ring128-share-v1", "cross-grid-ring128-share-v2")) {
     state$vector_len * .exact_gc_record_bytes(state$ring_bits)
   } else {
     as.integer(ceiling(output_len / 8))
@@ -2440,7 +2441,7 @@
       "ring-share", "checked-ring-share", "joint-dp-ring-share-v2",
       "joint-dp-vector-ring128-share-v1",
       "joint-dp-vector-gaussian-one-draw-ring128-share-v1",
-      "alignment-masked-ring128-share-v1")) {
+      "alignment-masked-ring128-share-v1", "cross-grid-ring128-share-v2")) {
     .exact_gc_validate_residue_records(
       result$share, state$ring_bits, state$vector_len,
       "exact-gc result share")
@@ -2466,7 +2467,7 @@
       "checked-ring-share", "joint-dp-ring-share-v2",
       "joint-dp-vector-ring128-share-v1",
       "joint-dp-vector-gaussian-one-draw-ring128-share-v1",
-      "alignment-masked-ring128-share-v1")) {
+      "alignment-masked-ring128-share-v1", "cross-grid-ring128-share-v2")) {
     validity <- .exact_gc_standard_b64_raw(
       result$validity_share, 1L, "exact-gc result validity share")
     if (!as.integer(validity[[1L]]) %in% 0:1) {
@@ -2964,7 +2965,7 @@
       "count-guard", "clamp-count", "joint-dp-laplace-v2",
       "joint-dp-vector-laplace-v3",
       "joint-dp-vector-gaussian-one-draw-v1",
-      "alignment-mask-ring128")) {
+      "alignment-mask-ring128", "glm-grid-profile-v2")) {
     stop("Unsupported exact-gc high-level operation.", call. = FALSE)
   }
   ring_candidate <- suppressWarnings(as.numeric(ring))
@@ -3340,6 +3341,20 @@
     stop("Exact-gc source is not allowlisted for this operation context.",
          call. = FALSE)
   }
+  if (identical(operation, "glm-grid-profile-v2")) {
+    plan <- source$cross_grid
+    if (!is.list(plan) || ring != 128L || frac_bits != 0L || vector_len > 8L ||
+        !identical(source$producer, paste0("dp.", plan$Family, "-grid-cross.v1"))) {
+      .dsvert_dp_glm_grid_cross_fail()
+    }
+    validated_plan <- .callMpcTool("cross-grid-batch-plan-v2", plan)
+    if (!identical(validated_plan$purpose, purpose) ||
+        validated_plan$input_bits > .DSVERT_EXACT_GC_MAX_CIRCUIT_TYPE_BITS) {
+      .dsvert_dp_glm_grid_cross_fail()
+    }
+    .exact_gc_validate_residue_records(source$share, 128L,
+      validated_plan$source_records, "cross-grid source")
+  } else if (!is.null(source$cross_grid)) .dsvert_dp_glm_grid_cross_fail()
   source_producer <- .exact_gc_validate_purpose(source$producer)
   public_spec <- c(requested_spec, list(source_producer = source_producer))
   protocol_purpose <- if (operation %in% c(
@@ -3477,6 +3492,7 @@
     bound_x = if (is.null(mul_plan)) "" else mul_plan$bound_x,
     bound_y = if (is.null(mul_plan)) "" else mul_plan$bound_y,
     vector_len = vector_len,
+    cross_grid = if (identical(operation, "glm-grid-profile-v2")) source$cross_grid else NULL,
     source_share = source$share, spool_dir = normalizePath(spool),
     joint_dp = if (identical(operation, "joint-dp-laplace-v2")) {
       joint_dp
@@ -3489,7 +3505,9 @@
       operation, "joint-dp-vector-gaussian-one-draw-v1")) {
       joint_dp_gaussian_one_draw
     } else NULL,
-    private_seed = if (operation %in% c(
+    private_seed = if (identical(operation, "glm-grid-profile-v2")) {
+      if (identical(role, "garbler")) source$cross_grid_mask_seed else ""
+    } else if (operation %in% c(
       "joint-dp-laplace-v2", "joint-dp-vector-laplace-v3",
       "joint-dp-vector-gaussian-one-draw-v1")) {
       private_seed

@@ -1,8 +1,8 @@
 package main
 
-// Test-only constant folding for the cost probe. Complements use free XNOR
+// Constant folding used only by the cross-grid compiler. Complements use free XNOR
 // gates, and duplicate Boolean expressions are shared. The production compiler
-// and all existing circuits are untouched. This is not a security transform.
+// defaults and all existing circuits are untouched. This is not a security transform.
 import "github.com/markkurossi/mpc/circuit"
 
 type crossGridPWNode struct {

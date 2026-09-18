@@ -228,3 +228,31 @@ Both worktrees are clean on feature/cross-owner-grids. The accepted component
 checkpoint is retained. R_STACK_DONE is confirmed on the pod. Implement the
 fused source/loss producer next, then the measured release and lifecycle gates.
 No full-suite rerun is started during development.
+
+## 2026-09-18T14:17Z — fused integer kernel and real joint-noise composition
+
+Implemented an internal bounded typed producer for both families, exact local
+f100 share predictors, private source/complete-case/alignment validation,
+certified profile evaluation, bounded outcome/log-factorial, ties-even/clamped
+candidate sums and encrypted two-authority masked outputs. The ordinary exact
+compiler rejects this specialized operation. R admission is not enabled.
+
+Mac targeted selection passes 17 top-level tests / 35 including subtests, zero
+failures/skips (final log: inst/cross-grid-v2/fused-targeted-mac.jsonl). The
+matching before-selection was not run; historical counts are not substituted.
+R passes 288 independent full f100-to-loss fixtures; Go/circuit comparisons
+cover those fixtures plus 80 randomized/malformed instances. Both families
+pass real encrypted net.Pipe kernel-to-joint-vector-Laplace equality against
+the seeded noise oracle at epsilon=4, delta=2^-100. These are not authorized
+releases, not DSLite, and not the required 12 wiring releases.
+
+The first pod export omitted the unchanged R limb helper. Added it to the
+export and hash manifest and reran; no assertion or expectation was changed.
+A prior pod export retained the renamed test-only optimizer, causing duplicate
+definitions; removed only that obsolete file in this task's dedicated lane.
+No other pod lane was changed. Final certified-cap benchmark is running under
+nohup; earlier stress-cap measurements are explicitly exploratory.
+
+Reproduction/proof boundaries are in inst/cross-grid-v2/FUSED_KERNEL_V2.md.
+Full workloads, signed admission/lifecycle, client, statistical/wiring gates
+and full package checks remain open. No protected values entered any log.

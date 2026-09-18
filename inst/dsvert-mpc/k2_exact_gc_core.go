@@ -294,6 +294,13 @@ func (s exactGCCircuitSpec) validate() error {
 			s.MulBackend != exactGCMulBackendDirect {
 			return fmt.Errorf("exact-gc: invalid categorical scaled-indicator product shape")
 		}
+	case crossGridKernelOperation:
+		// The specialised runner binds the full public batch and profile in
+		// Purpose and checks its actual input shape before source resolution.
+		if s.RingBits != 128 || s.FracBits != 0 || s.VectorLen > 8 ||
+			s.Threshold != nil || s.BoundX != nil || s.BoundY != nil || s.MulBackend != "" {
+			return errCrossGridKernel
+		}
 	case jointDPVectorOperation:
 		// Bounds, global sensitivity, dyadic probabilities and exact delta
 		// accounting live in the specialised vector policy.  The generic
@@ -1316,6 +1323,10 @@ func exactGCCompileCircuit(spec exactGCCircuitSpec) (*circuit.Circuit, error) {
 	if err := spec.validate(); err != nil {
 		return nil, err
 	}
+	if spec.Operation == crossGridKernelOperation {
+		return nil, errCrossGridKernel
+	}
+
 	if spec.Operation == exactGCJointDPLaplace {
 		return nil, fmt.Errorf("exact-gc: joint-DP circuits require the purpose-bound specialised runner")
 	}

@@ -111,3 +111,30 @@ the original source records privately in the fused circuit; invalid rows zero
 their predictor before nonlinear evaluation. This avoids secret circuit
 multiplication by public coefficients without independently rounding owners.
 The producer, not an RPC caller, derives these partial predictors.
+
+## 2026-09-18T14:17Z — fused integer and protocol decisions
+
+20. Move the accepted profile code and optimizer from test files into internal
+    Go implementation files without changing coefficients, identities or
+    evaluation order. Pin a reproducible embedded table bundle including the
+    interval-rounded f16 log-factorials. Keep independent big.Int/R oracles.
+21. Use floor plus the nonnegative remainder for signed nearest-even rounding;
+    this avoids a wide absolute-value circuit and preserves negative ties.
+    Narrow eta and binomial loss only within proven signed32 bounds; accumulate
+    clamped candidate integers in uint64 under the existing 2^53-1 limit.
+22. Add an isolated internal session operation to the exact-GC validator and
+    explicitly reject it in the ordinary compiler. Its specialized runner
+    binds public plan and compact topology, keeps alignment validity private
+    and returns full Ring128 masks. This is not an R allowlist expansion,
+    authenticated source binding or durable release authorization.
+23. Test actual kernel-to-joint-vector-Laplace composition over net.Pipe at
+    epsilon=4 and delta=2^-100, including the sampler's output clamp. Do not
+    represent it as a DataSHIELD release, lifecycle test, or selection-statistic
+    licensing gate. Server policy/seed/sticky bindings are still absent.
+24. The first fused benchmark used oversized stress caps; preserve those logs
+    as exploratory. Final cost evidence uses the certified A4 caps and distinct
+    exact-L1=4 candidates. Aggregate full-release traffic must not be inferred
+    to pass from the nonlinear component alone. Source validation, Ring128
+    transport, rounding, loss assembly and sum masks also cost gates/bytes.
+25. No version/NEWS/roxygen change: the new primitive is internal and unadmitted.
+    The required production API documentation remains unfinished.

@@ -568,3 +568,7 @@ Restarted only owned validation: pod PID **594902**, Mac topology native exec se
 ## 2026-09-18T19:17Z — full-envelope public admission verified cheaply
 
 Client `testthat::test_local(filter="^dp-glm-grid-cross-contract$")`: **319 assertions pass**, zero failures/errors (`full-envelope-admission.log`). The new pure-R cases authenticate three-owner n10000/p10/grid50 contracts for both certified families and reject noncanonical predictor order. The fixture initially omitted the newly participating owner's patient-key declaration; adding that signed public declaration corrected the fixture. No validator was weakened. Client commit `b30631f`; final-check manifest refreshed for this test and the scoped readiness fix.
+
+## 2026-09-18T19:27Z — larger typed startup passes; K3 full envelope admitted
+
+The n2000 pod retry has persisted its first grid batch on **both** authorities, confirming that the scoped readiness window permits actual larger typed-worker startup. This is progress within the first required release, not a completed DP release. Mac K3 n10000/p10/grid50 now passes real PSI, custodial signatures and public admission with the corrected canonical fixture; secure execution follows. Source/runtime remains frozen at server `83c7e66` (later commits add only evidence/tests) and client runtime `1acfd0c`.

@@ -297,6 +297,10 @@ test_that("Phase-1.8 exact rows enforce missing, domains, caps and padding", {
 })
 
 test_that("Phase-1.8 v2 keeps alignment and consensus XOR-shared by role", {
+  identity_root <- withr::local_tempdir(pattern = "phase18-identity-")
+  withr::local_options(list(
+    dsvert.identity_seed_path = file.path(identity_root, "identity.seed")))
+  .dsvert_init_identity_seed(.allow_test_path = TRUE)
   fixture <- .phase18_fixture(2L)
   peer <- fixture$peers[[1L]]
   authorization <- fixture$authorizations[[peer]]

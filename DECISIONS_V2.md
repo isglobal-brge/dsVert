@@ -264,3 +264,7 @@ Added matching package documentation for source ownership/signatures, PSI, certi
 Concurrent large PSI setups reached the actual 50,000,000,000-byte cgroup memory ceiling (observed peak 50,000,023,552; fail counter 11). Binomial's R process segfaulted during polling; the other lanes failed closed during PSI transport. No alignment/release completed. A surviving worker held approximately 33 GB RSS, then exited before cleanup. Failure logs are retained on the pod in `logs/failed-concurrent-psi/`.
 
 Restarted the matrix sequentially by family under `GOMEMLIMIT=6GiB`, `GOGC=25`, two Go scheduler threads per worker (PID **458353**). The topology runner (PID **458354**) waits for successful completion of that matrix and also runs families sequentially. These are runtime scheduling/GC controls only; no circuit, capacity, transcript, privacy or admission limit changes. The remaining raw benchmark matrix still runs with its previously frozen settings.
+
+## 2026-09-18T17:54Z — preserve completed benchmark evidence
+
+A benchmark process interruption does not erase earlier completed family measurements. Resume only missing family/configuration pairs; retain original logs and label interrupted processes. FULL_MEASUREMENT is emitted only after integer and joint-noise equality assertions. The report additionally rejects explicit failed tests and verifies the full-envelope byte/time ceilings. Resumed measurements explicitly record different Go GC resource settings; the two original full-envelope results are unchanged.

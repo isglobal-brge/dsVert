@@ -865,8 +865,8 @@ test_that("formal Cox recipient ticket bridge exposes only a signed public key",
   recipient <- .dsvert_formal_cox_compute_peers(
     sealed$schema$unsigned$peer_pinset)[[1L]]
   run_id <- .dsvert_formal_cox_run_id(sealed$schema)
-  public <- gsub("[\\r\\n[:space:]]", "", jsonlite::base64_enc(as.raw(seq_len(32L))))
-  signature <- gsub("[\\r\\n[:space:]]", "", jsonlite::base64_enc(
+  public <- gsub("[[:space:]]", "", jsonlite::base64_enc(as.raw(seq_len(32L))))
+  signature <- gsub("[[:space:]]", "", jsonlite::base64_enc(
     as.raw(rep(7L, 64L))))
   ticket <- list(
     version = "dsvert-formal-cox-blockwise-source-recipient-ticket-v1",

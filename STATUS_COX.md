@@ -276,3 +276,9 @@ This is an inadmissible, resource-censored result, NOT a completed release or an
 oracle-equality claim. The small two-peer abort regression already verifies
 that neither party returns a partial candidate/validity vector on this path.
 10000x32 and 10000x50 remain in progress; all six smaller points passed.
+
+10000x32 is also resource-censored: **59,999,969,168 successfully transmitted
+bytes; 5412.021 s (90.200 min)** before the next record reaches the 60 GB budget.
+completed=false / budget_stop=true / oracle_equal=false; no full release or
+oracle equality is claimed. Eight of nine reports are recorded. Only 10000x50
+remains running; 4000x50 is still the largest completed passing rectangle.

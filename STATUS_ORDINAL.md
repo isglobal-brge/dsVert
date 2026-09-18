@@ -220,3 +220,25 @@ a private library did not hide a usable installation. Installation uses only
 `/workspace/dsvert/famB/resumed/library`; existing lanes are not modified.
 Unlike the interrupted checks, the final rerun enables tests and byte
 compilation. Missing dependencies are not counted as source-test failures.
+
+### Full-suite inventory finding and correction
+
+The first full client suite exposed a lane-introduced public-inventory
+mismatch at `test-capsule-method-inventory.R:39`: the two new exported
+frontdoors were absent from the frozen inventory. This is **not** a
+pre-existing failure. Client commit 5cc5d92 removes those premature exports
+(and roxygen export directives), keeps the implemented namespace-internal
+functions and registration hooks, and documents the public-registry gate.
+Both frontdoors still validate signed cross-owner contracts and fail closed.
+No original client file now differs from cb26ecd; NAMESPACE is restored.
+Integration must add exports and correct maturity/inventory metadata together
+with the authenticated release path. The original claim of public exported
+frontdoors above is superseded by this correction.
+
+Targeted source tests passed: 891 inventory expectations, 18 authority/export
+gate expectations, 318 multinomial and 23 ordinal expectations, total 1,250.
+Command: `testthat::test_local("dsVertClient",
+filter="^(capsule-method-inventory|dp-(multinomial|ordinal)-grid-cross.*)$",
+reporter="summary")`. Log: `/tmp/famb-resumed/client-inventory-fix.log`.
+A full pod check of the corrected client snapshot runs separately under
+`/workspace/dsvert/famB/resumed/client-corrected/`.

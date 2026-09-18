@@ -67,3 +67,14 @@ mask-distribution leakage. Its runtime-generated linear tables also do not
 implement the signed quadratic profile. Do not wire it as a cheaper family
 backend. A certified secure shared evaluator must arrive through the common
 primitive/integration work, with matching table/rounding and fresh cost proof.
+
+## Public inventory correction from full check (2026-09-18)
+
+The full client suite exposed that the two additive NAMESPACE exports were
+not represented in the frozen capsule inventory/maturity registry. Remove
+those premature exports while retaining both implemented functions, docs,
+validators, registration hooks and tests inside the namespace. Integration
+must add public exports together with accurate inventory/maturity entries
+and authenticated release wiring. Do not label the disabled routes promoted
+or modify sealed generation-one inventories in this lane. A new regression
+asserts that both functions exist, are unexported and have release disabled.

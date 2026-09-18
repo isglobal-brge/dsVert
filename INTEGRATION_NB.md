@@ -55,8 +55,9 @@ selects the constant using the private outcome.
 5. Replace the final fail-closed branch of `dp_nb_grid` with the authenticated
    cross-grid release adapter. It must validate the released vector's evidence
    against this signed contract before calling `postprocess`. Do not add an
-   arbitrary caller-supplied evaluator/release callback. The additive
-   `export(dp_nb_grid)` registration already exposes the fail-closed entry.
+   arbitrary caller-supplied evaluator/release callback. Add `export(dp_nb_grid)` only together with the authoritative public method
+   inventory/status registration after producer promotion; the staging entry
+   currently remains namespace-internal.
 6. Extend typed-method inventories, transport/certificate dispatch and release
    evidence checks only after the real producer is connected. Run interrupted
    and replayed two-peer releases, source cleanup, source-only-owner layouts,

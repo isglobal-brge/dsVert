@@ -95,3 +95,14 @@ focused results. Preserve the coherent documentation left in the worktree,
 finish package-check evidence, and retain fail-closed integration/cost gates.
 Do not replace the pinned arithmetic profile or reopen completed milestones
 merely to repeat validation.
+
+### Resumed public-surface correction — 2026-09-18
+
+Full client package testing identified an introduced inventory regression: the
+two new exports were absent from the shared public maturity inventory, whose
+contract requires all analysis entries to be promoted. Removed only our two
+NAMESPACE additions; keep the implemented entry functions namespace-internal
+and available through family registration until integration can register real
+production evidence and public status together. This supersedes earlier claims
+that the staging functions are exported. No maturity test or shared registry
+was weakened; adding exports is now an explicit integration gate.

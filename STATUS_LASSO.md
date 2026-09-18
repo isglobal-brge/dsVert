@@ -147,3 +147,21 @@ No implementation milestone was restarted. Existing focused test evidence is
 preserved. Package-check completion is the remaining verification task; full
 checks with tests enabled are being recorded separately from earlier no-tests
 checks. Production gates and the measured NB cost blocker remain unchanged.
+
+### Resumed public-surface correction — 2026-09-18
+
+Full client package testing identified an introduced inventory regression: the
+two new exports were absent from the shared public maturity inventory, whose
+contract requires all analysis entries to be promoted. Removed only our two
+NAMESPACE additions; keep the implemented entry functions namespace-internal
+and available through family registration until integration can register real
+production evidence and public status together. This supersedes earlier claims
+that the staging functions are exported. No maturity test or shared registry
+was weakened; adding exports is now an explicit integration gate.
+
+Client correction commit: `112a820`. Corrected-source method inventory check
+passed **13 blocks / 891 expectations** with `pkgload::load_all(export_all=FALSE)`
+and `testthat::test_file(..., env=new.env(parent=asNamespace("dsVertClient")))`.
+An initial runner omitted that namespace parent and could not resolve internal
+functions; it is superseded by the successful run. Evidence:
+`/workspace/dsvert/nb/validation/client-inventory-final.{log,rds,exit}`.

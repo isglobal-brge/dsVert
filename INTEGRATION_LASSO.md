@@ -39,7 +39,9 @@ Exact wiring remaining:
    sticky release gates. Only then invoke `postprocess(coordinates, spec)` with
    the authenticated common-lattice DP vector. A state marker or
    `result_evidence_required=TRUE` is not execution evidence.
-6. Replace the final fail-closed call in `dp_lasso_grid()` with that authenticated
+6. Add `export(dp_lasso_grid)` together with the authoritative public method
+   inventory/status registration after producer promotion. The staging entry
+   currently remains namespace-internal. Replace the final fail-closed call in `dp_lasso_grid()` with that authenticated
    orchestration. Do not add a caller-provided plaintext/noisy-vector argument,
    environment-variable bypass or test-reference fallback. Translate normalized
    coefficients using the signed predictor/outcome ranges when returning

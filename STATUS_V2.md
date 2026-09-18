@@ -701,3 +701,7 @@ Poisson-only retry: `sh inst/cross-grid-v2/run_topology_validation_parallel_mac.
 retained as `topology-poisson-k3-before-sync-start.log`. Binomial K3 and all
 three pod lanes continue unchanged. Required completed real releases remain
 3/12. Actual success of the synchronous full-size retry remains pending.
+
+## 2026-09-18T22:38Z — first cell completes both real releases
+
+Binomial / epsilon4 / instance2 passes full integer DP-vector equality and cold lifecycle checks in **2767.322 s**, exact-best selection and zero loss gap. The two independent real releases for this cell are retained in `dslite-n2000-binomial-e4-two-real.log`. Required real-release count **4/12**. The remaining 18 oracle selections for this cell are running; no full-cell statistics yet claimed.

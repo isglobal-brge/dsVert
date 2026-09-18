@@ -85,3 +85,7 @@ The recovered binomial/epsilon1/instance1 also passes both gates in 2838.057 s
 (`inst/cross-grid-v2/dslite-n2000-binomial-e1-first.log`), bringing the required
 real-release count to **3/12**. The earlier failed cold-deployment attempt
 remains excluded.
+
+Binomial/epsilon4 now has both required independent real releases with both
+verification markers (`inst/cross-grid-v2/dslite-n2000-binomial-e4-two-real.log`).
+Instance2 takes 2767.322 s. Required real-release progress is **4/12**.

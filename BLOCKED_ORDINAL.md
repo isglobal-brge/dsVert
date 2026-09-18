@@ -36,3 +36,17 @@ acceptable workaround. Both release registrations remain disabled.
 
 The supplied pod is now ready; tools and compute availability are not blockers.
 Package check results and final commits are recorded in `STATUS_ORDINAL.md`.
+
+## Final validation boundary
+
+The corrected client full check completed: 25,763 passing expectations,
+zero test failures, 45 skips, and three pre-existing documentation/non-ASCII
+check warnings. The full server check recorded problems in unchanged tests
+and was stopped at an agent-imposed 90-minute bound; it has no final suite
+counts and must not be called complete. Independent baseline reproductions
+and the exact partial logs are in `inst/cross-grid-family-b/validation_resumed/`.
+Address the baseline test support/interface failures and complete the full
+server check before promotion. The previously completed family-specific
+checks do not waive this gate. Client public exports remain deferred until
+accurate shared inventory/maturity entries and authenticated release wiring
+are ready together.

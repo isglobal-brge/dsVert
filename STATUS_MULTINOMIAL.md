@@ -307,3 +307,40 @@ used in the full check. Complete logs: pod
 the resume directory; local copies are
 `/tmp/famb-resumed/client-check-final.log` and
 `/tmp/famb-resumed/client-testthat-final.Rout`.
+
+## Final resumed handoff — 2026-09-18
+
+The server check did **not** complete. After recorded failures in unchanged
+tests and over 80 minutes of execution, this session imposed a 90-minute
+bound on that already-failing run. It was stopped at 5403.92 seconds.
+This is an agent-imposed bound, not a successful check, a test-framework
+summary, or a reviewer waiver. No final server pass/fail/skip counts or final
+R CMD check status are available. Its partial static results are two WARNINGs
+and one NOTE; its recorded test problems are separately preserved.
+There are 13 unique saved problem locations, some reported repeatedly;
+this is not a count of failed expectations. Original server files and tests
+are unchanged from 4d7e6ae. No family problem location was reported before
+termination. The earlier focused family checks remain the completed server
+family evidence; an unrestricted passing full-server suite is an OPEN gate.
+
+The complete corrected client check, incomplete server check, test outputs,
+and two independent baseline failure reproductions are committed under
+`inst/cross-grid-family-b/validation_resumed/`. `summary.json` records the
+exact completed/incomplete distinction, snapshots, commands, counts and
+remaining gates. All jobs started by this session have stopped; neither the
+server runner nor its test process remained after termination. Other lanes'
+processes were not stopped.
+
+Final implementation commits remain server 3ed672e (with numeric/circuit
+commits f9f5bc9 and e8dda08) and corrected client **5cc5d92**; client reference
+harness is a92b1a3. Resumed evidence commits are b40a90b, ce65a40, 4be280c,
+ae013ee and d299b75, followed by this final evidence handoff commit.
+No original server or client tracked file differs from its starting commit.
+The two client exports are deferred, with their functions retained internally.
+
+**Stop state: genuinely blocked for production promotion.** The certified
+Boolean adapter fails the binding cost target; the retained ring/spline
+comparator is unsafe to substitute; fused-producer and public-registry wiring
+remain external integration gates. Full server validation also remains open.
+See `BLOCKED_MULTINOMIAL.md` and `INTEGRATION_MULTINOMIAL.md`. No epsilon/delta/cap,
+same-owner route, sealed generation-one route or thesis was changed. No push.

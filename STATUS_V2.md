@@ -705,3 +705,7 @@ three pod lanes continue unchanged. Required completed real releases remain
 ## 2026-09-18T22:38Z — first cell completes both real releases
 
 Binomial / epsilon4 / instance2 passes full integer DP-vector equality and cold lifecycle checks in **2767.322 s**, exact-best selection and zero loss gap. The two independent real releases for this cell are retained in `dslite-n2000-binomial-e4-two-real.log`. Required real-release count **4/12**. The remaining 18 oracle selections for this cell are running; no full-cell statistics yet claimed.
+
+## 2026-09-18T22:52Z — full Go suite complete; existing failures classified
+
+Full Go: **8595.384 s**, **977 top-level tests listed, 31 failed**; the non-verbose log does not distinguish pass versus skip among the remainder. All failures are existing formal Cox/GLM tests; no new cross-grid test fails. Four GLM failures match the step-1 report. Both Cox signing fixtures reproduce their rejection on step-1 source (K2/K3/K5 compiler probes); the Cox CLI inventory is identical to step 1. Full logs, classification and public-only baseline probes are retained. **Full Go is not green**; no unrelated family code/tests were changed. See CHECKS_V2.md for limits.

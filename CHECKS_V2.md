@@ -8,7 +8,7 @@ No second full-suite pass is claimed.
 |---|---|
 | Full server testthat | 12,944 passes, 24 failures, 25 skips, one warning |
 | Full client testthat | 25,476 passes, four failures, 45 skips, zero warnings |
-| Full Go suite | Still running; no completion result claimed |
+| Full Go suite | 977 listed top-level tests; 31 failures in existing formal Cox/GLM tests; 8595.384 seconds. Not green. |
 | Corrected server packaging, `R CMD check --no-manual --no-tests` | Zero errors/warnings; one pre-existing NOTE |
 | Corrected client packaging, same command | Zero errors; two pre-existing warnings pending the prepared patch |
 
@@ -49,3 +49,28 @@ it awaits the user's decision because other-family edits were prohibited.
 The full Go source and four worker binaries are unchanged from the original
 full-suite archive. Later changes in this check cycle affect tests, inventories
 and documentation only. Neither package version nor NEWS was changed.
+
+
+The full Go run has finished. Its non-verbose log does not separate successful
+from skipped tests, so no invented pass count is supplied. The unchanged
+snapshot's `go test -list '^Test' ./...` lists 977 top-level tests.
+`full-go-tests-first.log` retains all 31 failures; none names a new cross-grid
+test. `full-go-failure-classification.json` lists every failed test.
+
+- Four formal GLM failures match top-level failures already recorded in
+  STATUS_V1: closed-selector expectation, loader text scan, schedule-tail
+  reconstructed coordinate, and Phase20 inbound ordering. Their source/tests
+  are unchanged from step 1. Timing-dependent subcase differences are not
+  claimed equivalent or repaired.
+- Twenty-six Cox failures originate in existing R schema-signature fixtures.
+  The public-schema-only probes reproduce the same rejection on frozen
+  15e1de2 and the full-check snapshot; the compiler fixture is checked for
+  K=2,3,5. Logs: `go-cox-{step1,current}-{public,compiler}-schema.log`.
+  This proves baseline reproduction, not a diagnosed or repaired root cause.
+- The remaining Cox Phase1 CLI inventory test expects three entries although
+  both step 1 and current source contain the same eleven entries. The exact
+  unchanged inventory is included in the classification JSON.
+
+These are recorded existing-suite failures, not a clean full Go pass. No
+unrelated formal Cox/GLM implementation or test expectation was changed to
+suppress them. Targeted new-route evidence remains separate in LAYER2_V2.md.

@@ -242,3 +242,63 @@ filter="^(capsule-method-inventory|dp-(multinomial|ordinal)-grid-cross.*)$",
 reporter="summary")`. Log: `/tmp/famb-resumed/client-inventory-fix.log`.
 A full pod check of the corrected client snapshot runs separately under
 `/workspace/dsvert/famB/resumed/client-corrected/`.
+
+### Resumed static-check findings and compute allocation
+
+Both full checks passed installation with byte compilation, namespace
+load/unload, documentation/example execution, and reached testthat. Static
+findings are confined to unchanged starting files: server has the prior
+undefined-helper/duplicate-local-definition code NOTE, undocumented
+Gaussian/Cox/GLM objects and `privacy_unit_id` Rd mismatch; client has the
+prior non-ASCII `ds.vertMI.R`, transport documentation mismatches and duplicate
+`analysis_id` Rd argument. These are warnings/NOTE, not family test failures.
+`git diff --diff-filter=M --name-only 4d7e6ae` (server) and the corresponding
+`cb26ecd` client command both return no paths after the export correction.
+The final totals remain pending until the test processes exit.
+
+The pod exposes 96 logical CPUs but its cgroup-v1 CPU quota is 765000 us per
+100000 us period: 7.65 CPU-equivalents shared by all lanes, with substantial
+throttling. Do not interpret these runs as exclusive 96-vCPU performance.
+The obsolete a92b1a3 client check was deliberately cancelled after exposing
+the inventory defect; only its own process tree was stopped. Its corrected
+5cc5d92 replacement is the final client check.
+
+During the full server suite, the unchanged
+`tests/testthat/test-dp-count-execution.R:802` source-audit test fails while
+reading `test_path("..", "..", "R", "dpCountExecutionDS.R")`. This path
+assumes the source-tree layout; the packaged check has no source R file at
+that location. The saved failure reproduction stops at that read, before
+any family function is invoked. The test file is identical to 4d7e6ae.
+Keep this baseline check-layout defect separate from the corrected
+lane-introduced client inventory failure; do not classify either as a NOTE.
+The suites continue to collect their full results.
+
+Two further server failures were isolated in fresh R processes without
+executing family tests. The unchanged policy-ledger test at line 1157
+raises `The automatic DP dataset template is awaiting one completed
+authenticated padded-PSI alignment`. The unchanged synopsis-artifact file
+run alone through `testthat::test_dir(..., filter="^dp-synopsis-artifact$",
+package="dsVert", load_package="installed")` fails because its Gaussian
+planner fixture cannot find `.dsvert_test_source_roots()`. The earlier raw
+generated synopsis reproductions failed in their own path setup and are
+not counted as evidence of the actual test failure. Successful isolation
+logs are `logs/repro-policy-ledger.log` and `logs/repro-synopsis-file.log`
+under the pod resume directory. The family tests do not mutate shared
+options or namespace bindings; their sole `<<-` caches synthetic identities
+in a private closure.
+
+### Corrected client full check completed
+
+Client 5cc5d92: `R CMD check --no-manual --no-build-vignettes
+dsVertClient_1.2.1.tar.gz`, with tests and byte compilation enabled, completed
+with **0 errors, 3 WARNINGs, 0 NOTEs**. Full testthat result:
+**FAIL 0 / WARN 0 / SKIP 45 / PASS 25,763**; elapsed test time 1,317.467 seconds
+(user CPU 578.084, system CPU 23.768). The warnings are the unchanged
+non-ASCII/doc mismatches/duplicate Rd argument listed above. This full suite
+includes the family and inventory regressions; do not add targeted counts
+to it as independent coverage. No test filter or force-suggests override was
+used in the full check. Complete logs: pod
+`client-corrected/dsVertClient.Rcheck/{00check.log,tests/testthat.Rout}` under
+the resume directory; local copies are
+`/tmp/famb-resumed/client-check-final.log` and
+`/tmp/famb-resumed/client-testthat-final.Rout`.

@@ -3552,7 +3552,11 @@
     stdout = log_path, stderr = "2>&1", cleanup = FALSE,
     cleanup_tree = FALSE)
   ready <- FALSE
-  for (ready_poll in seq_len(100L)) {
+  # The typed grid producer compiles its admitted public circuit before reading
+  # sources or marking ready. Its certified batches exceed the generic five-
+  # second startup window on the benchmark pod; retain the old window elsewhere.
+  ready_polls <- if (identical(operation, "glm-grid-profile-v2")) 2400L else 100L
+  for (ready_poll in seq_len(ready_polls)) {
     alive <- isTRUE(tryCatch(process$is_alive(), error = function(e) FALSE))
     if (!alive) break
     if (file.exists(file.path(spool, "ready"))) {

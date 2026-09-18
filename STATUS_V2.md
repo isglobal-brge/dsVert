@@ -558,3 +558,9 @@ Pod campaign restarted PID **572347** after removing the incompatible session fi
 `relay-authorization-targeted.log` completed with three failures: one obsolete synthetic debug RDS under the ignored development build directory, a test treating empty `.Rbuildignore` lines as match-all patterns, and missing endpoint inventory entries. The inventory regression now passes (272-assertion targeted run above). Removed only the obsolete task-owned debug snapshot and empty build-ignore lines, then reran the package-artifact test. No security-profile or authorization assertion failed in the broader run. Full clean-source package suites remain pending on the pod.
 
 Package-artifact rerun: **5 assertions pass**, zero failures/errors (`package-artifact-targeted.log`). Final-check input manifest refreshed to **1494 files**, now also hashing client installed resources and package configure/binary inventories.
+
+## 2026-09-18T19:14Z — typed-worker startup retry
+
+Pod first n2000 release reached typed START then failed with the constant readiness error; no DP vector was released and the memory-failure count did not rise. Archived log: `validation-binomial-e1-before-grid-readiness.log` on the pod. The larger typed circuit was still subject to the generic five-second readiness window. Scoped grid-only wait is now 120 seconds; **60 pair-binding/readiness assertions pass** (`grid-readiness-targeted.log`). No worker binary, cap or arithmetic changed.
+
+Restarted only owned validation: pod PID **594902**, Mac topology native exec session **11071**. All release matrices remain pending; failed attempts are not counted. The package-check snapshot will be updated with this one R file before full checks.

@@ -2,7 +2,7 @@ package main
 
 // The Phase21 sampler owns its exact-GC spool.  This relay only moves the
 // already-encrypted spool records between the two designated authorities; it
-// neither opens a second spool nor sees a local output share.  Each consumed
+// neither opens a second spool nor sees a local output share.  Each durably accepted
 // range is acknowledged with the recipient's pinned signature before the
 // sender can reclaim it.
 
@@ -12,6 +12,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -396,18 +397,70 @@ func (relay *formalGLMRegisteredPhase21StageRelayV1) RelayV1(
 		return formalGLMRegisteredPhase21StageRelayAckV1{},
 			fmt.Errorf("formal-glm registered Phase21 stage relay: invalid inbound chunk")
 	}
+	directory := filepath.Join(relay.spoolDir, "inbound.segments")
+	// Consumption publishes inbound.ack before unlinking a segment. Snapshot
+	// segments first, then read the cursor so concurrent removals are covered
+	// by that cursor. Receipts acknowledge this retained prefix, not how far
+	// the independently scheduled sampler has already read.
+	segments, err := exactGCListSegments(directory)
+	if err != nil {
+		return formalGLMRegisteredPhase21StageRelayAckV1{}, err
+	}
 	inboundAck, err := exactGCReadOffset(filepath.Join(relay.spoolDir, "inbound.ack"))
 	if err != nil {
 		return formalGLMRegisteredPhase21StageRelayAckV1{}, err
 	}
+	accepted := inboundAck
+	for _, segment := range segments {
+		if segment.end <= accepted {
+			continue
+		}
+		if segment.start != accepted {
+			return formalGLMRegisteredPhase21StageRelayAckV1{},
+				fmt.Errorf("formal-glm registered Phase21 stage relay: inbound segment gap")
+		}
+		accepted = segment.end
+	}
 	if chunk.End > inboundAck {
-		if chunk.Start != inboundAck {
+		switch {
+		case chunk.Start < accepted:
+			var retry *exactGCSegment
+			for index := range segments {
+				segment := &segments[index]
+				if segment.start == chunk.Start && segment.end == chunk.End &&
+					segment.hash == chunk.PayloadSHA256 {
+					retry = segment
+					break
+				}
+			}
+			if retry == nil {
+				return formalGLMRegisteredPhase21StageRelayAckV1{},
+					fmt.Errorf("formal-glm registered Phase21 stage relay: inbound chunk out of order")
+			}
+			// The consumer may remove this exact retry after the snapshot.
+			// Never republish it: the original durable acceptance still holds.
+			if err := exactGCVerifySegment(*retry); err != nil {
+				if !errors.Is(err, errExactGCSegmentChanged) {
+					return formalGLMRegisteredPhase21StageRelayAckV1{}, err
+				}
+				consumed, readErr := exactGCReadOffset(filepath.Join(relay.spoolDir, "inbound.ack"))
+				if readErr != nil || consumed < chunk.End {
+					return formalGLMRegisteredPhase21StageRelayAckV1{},
+						fmt.Errorf("formal-glm registered Phase21 stage relay: unconsumed inbound segment changed")
+				}
+			}
+		case chunk.Start == accepted:
+			retained, err := exactGCSegmentBytes(segments)
+			if err != nil || int64(len(chunk.Payload)) > formalGLMRegisteredPhase21StageMaxSpoolV1-retained {
+				return formalGLMRegisteredPhase21StageRelayAckV1{},
+					fmt.Errorf("formal-glm registered Phase21 stage relay: inbound spool limit exceeded")
+			}
+			if _, err := exactGCPublishSegment(directory, chunk.Start, chunk.Payload); err != nil {
+				return formalGLMRegisteredPhase21StageRelayAckV1{}, err
+			}
+		default:
 			return formalGLMRegisteredPhase21StageRelayAckV1{},
 				fmt.Errorf("formal-glm registered Phase21 stage relay: inbound chunk out of order")
-		}
-		if _, err := exactGCPublishSegment(
-			filepath.Join(relay.spoolDir, "inbound.segments"), chunk.Start, chunk.Payload); err != nil {
-			return formalGLMRegisteredPhase21StageRelayAckV1{}, err
 		}
 	}
 	if err := relay.touchLockedV1(); err != nil {

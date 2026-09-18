@@ -423,3 +423,110 @@ func TestCrossGridV1CertificateBudgetsAndWidths(t *testing.T) {
 		}
 	}
 }
+
+// Compute log(n/d) independently through atanh, with 1 <= n/d <= 2.
+// The 180-term remainder is below 2^-570 because |u| <= 1/3.
+func crossGridHighLogRatioV1(n, d int64) *big.Float {
+	u := crossGridHighV1().SetRat(big.NewRat(n-d, n+d))
+	u2 := crossGridHighV1().Mul(u, u)
+	term, sum := crossGridHighV1().Set(u), crossGridHighV1().Set(u)
+	for k := int64(1); k < 180; k++ {
+		term.Mul(term, u2)
+		sum.Add(sum, crossGridHighV1().Quo(term, crossGridHighV1().SetInt64(2*k+1)))
+	}
+	return sum.Mul(sum, crossGridHighV1().SetInt64(2))
+}
+
+func TestCrossGridV1EncodingThroughLossCertificate(t *testing.T) {
+	f := crossGridFixtureV1(t)
+	soft := crossGridCoefficientsV1(f, "softplus_coefficients_q64")
+	exp := crossGridCoefficientsV1(f, "exp_quarter_coefficients_q64")
+	logfact := crossGridCoefficientsV1(f, "log_factorial_q64")
+	log2 := crossGridHighLogRatioV1(2, 1)
+	trueLogFactorial := crossGridHighV1().SetInt64(0)
+	for k := int64(2); k <= 1024; k++ {
+		shift := big.NewInt(k).BitLen() - 1
+		term := crossGridHighLogRatioV1(k, 1<<shift)
+		term.Add(term, crossGridHighV1().Mul(log2, crossGridHighV1().SetInt64(int64(shift))))
+		trueLogFactorial.Add(trueLogFactorial, term)
+	}
+	encode := func(value float64) (*big.Rat, *big.Int) {
+		// Public binary64 values are exact rationals here: no float dot product
+		// or rounding approximation enters the independent reference.
+		exact := new(big.Rat).SetFloat64(value)
+		scaled := new(big.Rat).Mul(exact, new(big.Rat).SetInt(crossGridPow2V1(50)))
+		return exact, crossGridRoundDivV1(scaled.Num(), scaled.Denom())
+	}
+	for _, mode := range []string{"positive", "negative", "mixed"} {
+		t.Run(mode, func(t *testing.T) {
+			intercept := 0.123456789
+			if mode == "negative" {
+				intercept = -intercept
+			}
+			trueEta, encodedIntercept := encode(intercept)
+			dot := crossGridMulV1(encodedIntercept, crossGridPow2V1(50))
+			slopeL1 := new(big.Rat)
+			featureRounding, coefficientRounding := false, false
+			for k := 0; k < 16; k++ {
+				beta, feature := 0.99228394, 1-float64(k+1)*1e-10
+				if mode == "negative" || mode == "mixed" && k%2 == 1 {
+					beta = -beta
+				}
+				if mode == "mixed" && k%2 == 1 {
+					feature = float64(k+1) * 1e-10
+				}
+				b, bi := encode(beta)
+				x, xi := encode(feature)
+				be := new(big.Rat).Sub(b, new(big.Rat).SetFrac(bi, crossGridPow2V1(50)))
+				xe := new(big.Rat).Sub(x, new(big.Rat).SetFrac(xi, crossGridPow2V1(50)))
+				coefficientRounding = coefficientRounding || be.Sign() != 0
+				featureRounding = featureRounding || xe.Sign() != 0
+				inputBound := new(big.Rat).SetFrac(big.NewInt(1), crossGridPow2V1(51))
+				if new(big.Rat).Abs(be).Cmp(inputBound) > 0 || new(big.Rat).Abs(xe).Cmp(inputBound) > 0 {
+					t.Fatal("input encoding error exceeded")
+				}
+				slopeL1.Add(slopeL1, new(big.Rat).Abs(b))
+				trueEta.Add(trueEta, new(big.Rat).Mul(b, x))
+				dot = crossGridAddV1(dot, crossGridMulV1(bi, xi))
+			}
+			if !featureRounding || !coefficientRounding || new(big.Int).Rem(dot, crossGridPow2V1(36)).Sign() == 0 {
+				t.Fatal("encoding fixture did not exercise rounding")
+			}
+			encodedEta := crossGridRoundDivV1(dot, crossGridPow2V1(36))
+			etaError := new(big.Rat).Abs(new(big.Rat).Sub(new(big.Rat).SetFrac(encodedEta, crossGridPow2V1(64)), trueEta))
+			etaBound := new(big.Rat).Mul(slopeL1, new(big.Rat).SetFrac(big.NewInt(1), crossGridPow2V1(51)))
+			etaBound.Add(etaBound, new(big.Rat).SetFrac(big.NewInt(17), crossGridPow2V1(51)))
+			etaBound.Add(etaBound, new(big.Rat).SetFrac(big.NewInt(16), crossGridPow2V1(102)))
+			etaBound.Add(etaBound, new(big.Rat).SetFrac(big.NewInt(1), crossGridPow2V1(65)))
+			certificateEta, _ := new(big.Rat).SetString(f.NumericContract["poisson"].CertifiedEtaError)
+			if etaError.Sign() == 0 || etaError.Cmp(etaBound) > 0 || etaBound.Cmp(certificateEta) > 0 {
+				t.Fatal("complete dot encoding certificate exceeded")
+			}
+			trueEtaHigh := crossGridHighV1().SetRat(trueEta)
+			for _, family := range []string{"binomial", "poisson"} {
+				outcomes := []int64{0, 1}
+				if family == "poisson" {
+					outcomes = []int64{0, 1024}
+				}
+				for _, y := range outcomes {
+					loss, want := crossGridClenshawV1(encodedEta, soft), crossGridHighSoftplusV1(trueEtaHigh)
+					if family == "poisson" {
+						loss, want = crossGridExpV1(encodedEta, exp), crossGridHighExpV1(trueEtaHigh)
+						loss = crossGridAddV1(loss, logfact[y])
+						if y == 1024 {
+							want.Add(want, trueLogFactorial)
+						}
+					}
+					loss = crossGridSubV1(loss, crossGridMulV1(big.NewInt(y), encodedEta))
+					want.Sub(want, crossGridHighV1().Mul(crossGridHighV1().SetInt64(y), trueEtaHigh))
+					got := crossGridHighV1().SetRat(new(big.Rat).SetFrac(loss, crossGridPow2V1(64)))
+					error := crossGridHighV1().Abs(crossGridHighV1().Sub(got, want))
+					bound, _, _ := big.ParseFloat(f.NumericContract[family].CertifiedUniformError, 10, 256, big.ToNearestEven)
+					if error.Cmp(bound) > 0 {
+						t.Fatal("encoding through loss certificate exceeded")
+					}
+				}
+			}
+		})
+	}
+}

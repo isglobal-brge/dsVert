@@ -83,7 +83,20 @@
     .dsvert_dp_alignment_mask_digest_records(state,
       unlist(artifact$participating_peers, use.names = FALSE))
   })
+  cache_directory <- file.path(.ensure_session_dir(ss), "grid-circuits-v1")
+  if (!dir.exists(cache_directory) && !dir.create(cache_directory, mode = "0700", showWarnings = FALSE)) {
+    .dsvert_dp_glm_grid_cross_fail()
+  }
+  if (.dsvert_dp_path_is_link(cache_directory) ||
+      !.dsvert_dp_private_mode(cache_directory, directory = TRUE)) {
+    .dsvert_dp_glm_grid_cross_fail()
+  }
+  cache_key <- .dsvert_dp_capsule_source_mac(secret,
+    "cross-grid-circuit-cache-v1", "public-topology-only")
   binding <- list(analysis_id = analysis_id, artifact = artifact,
+    circuit_cache = list(directory = normalizePath(cache_directory),
+      key = gsub("[\r\n]", "", jsonlite::base64_enc(
+        .dsvert_dp_capsule_source_hex_raw(cache_key, "cross-grid circuit cache")))),
     contract = loaded$contract, contract_hash = loaded$contract_hash,
     semantic_key = .dsvert_dp_glm_grid_cross_key(manifest, artifact, loaded$contract),
     peer_binding_digest = ss$.exact_gc_peer_binding_digest,
@@ -149,7 +162,7 @@
       vector_len = as.integer(length(candidates)), producer = producer,
       allowed_spec = .exact_gc_allowed_spec(stage$operation, stage$purpose,
         0L, "cross-grid-ring128-share-v2", 128L), claimed_by = NULL,
-      cross_grid = plan, cross_grid_mask_seed = gsub("[\r\n]", "", jsonlite::base64_enc(
+      cross_grid = plan, cross_grid_cache = binding$circuit_cache, cross_grid_mask_seed = gsub("[\r\n]", "", jsonlite::base64_enc(
         .dsvert_dp_capsule_source_hex_raw(seed, "cross-grid mask seed"))))
     binding$stages[[as.character(batch)]] <- stage
     ss$.dp_glm_grid_cross[[analysis_id]] <- binding

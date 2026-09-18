@@ -3493,6 +3493,7 @@
     bound_y = if (is.null(mul_plan)) "" else mul_plan$bound_y,
     vector_len = vector_len,
     cross_grid = if (identical(operation, "glm-grid-profile-v2")) source$cross_grid else NULL,
+    cross_grid_cache = if (identical(operation, "glm-grid-profile-v2")) source$cross_grid_cache else NULL,
     source_share = source$share, spool_dir = normalizePath(spool),
     joint_dp = if (identical(operation, "joint-dp-laplace-v2")) {
       joint_dp
@@ -3527,6 +3528,7 @@
   gaussian_one_draw_authority <- NULL
   .private_write_lines(as.character(jsonlite::toJSON(
     config, auto_unbox = TRUE, null = "null")), config_path)
+  config$cross_grid_cache <- NULL
   config$master_key <- NULL
   config$source_share <- NULL
   config$private_seed <- NULL

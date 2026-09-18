@@ -52,6 +52,7 @@ type exactGCWorkerConfig struct {
 	// unlink-before-ready file as the ephemeral master key and input share.
 	// PrivateSeed is also accepted for a garbler-side Count clamp, where it
 	// deterministically re-creates only the post-clamp additive output mask.
+	CrossGridCache         *crossGridCircuitCache              `json:"cross_grid_cache,omitempty"`
 	JointDP                *jointDPGCWorkerPolicy              `json:"joint_dp,omitempty"`
 	JointDPVector          *jointDPVectorWorkerPolicy          `json:"joint_dp_vector,omitempty"`
 	JointDPGaussianOneDraw *jointDPGaussianOneDrawWorkerPolicy `json:"joint_dp_gaussian_one_draw,omitempty"`
@@ -215,13 +216,16 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 		if config.CrossGrid == nil || config.JointDP != nil || config.JointDPVector != nil || config.JointDPGaussianOneDraw != nil || !config.CrossGrid.matchesPurpose(session.Purpose) || len(config.CrossGrid.Beta) != session.Spec.VectorLen {
 			return errCrossGridKernel
 		}
-		grid, err = crossGridKernelPrepare(*config.CrossGrid)
+		grid, err = crossGridKernelPrepareCached(*config.CrossGrid, config.CrossGridCache)
+		if config.CrossGridCache != nil {
+			config.CrossGridCache.Key = ""
+		}
 		if err != nil {
 			return errCrossGridKernel
 		}
 		// Encoding only: the typed producer derives every predictor slot.
 		shareSpec = exactGCCircuitSpec{Operation: exactGCTruncateFloor, RingBits: 128, FracBits: 1, VectorLen: grid.plan.sourceCount()}
-	} else if config.CrossGrid != nil {
+	} else if config.CrossGrid != nil || config.CrossGridCache != nil {
 		return errCrossGridKernel
 	}
 	shares, err := exactGCDecodeWorkerShares(config.SourceShare, shareSpec)

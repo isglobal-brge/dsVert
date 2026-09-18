@@ -1,0 +1,29 @@
+=== RUN   TestCrossGridAuthenticatedCircuitCache
+=== RUN   TestCrossGridAuthenticatedCircuitCache/binomial
+    cross_grid_circuit_cache_test.go:51: cold_seconds=0.248266 hot_seconds=0.005689 bytes=746858
+=== RUN   TestCrossGridAuthenticatedCircuitCache/poisson
+    cross_grid_circuit_cache_test.go:51: cold_seconds=0.422390 hot_seconds=0.007601 bytes=1027632
+--- PASS: TestCrossGridAuthenticatedCircuitCache (0.81s)
+    --- PASS: TestCrossGridAuthenticatedCircuitCache/binomial (0.31s)
+    --- PASS: TestCrossGridAuthenticatedCircuitCache/poisson (0.50s)
+=== RUN   TestCrossGridDurableWorkers
+=== RUN   TestCrossGridDurableWorkers/binomial
+=== RUN   TestCrossGridDurableWorkers/poisson
+--- PASS: TestCrossGridDurableWorkers (1.77s)
+    --- PASS: TestCrossGridDurableWorkers/binomial (0.76s)
+    --- PASS: TestCrossGridDurableWorkers/poisson (1.01s)
+=== RUN   TestCrossGridKernelTwoAuthority
+=== RUN   TestCrossGridKernelTwoAuthority/binomial
+    k2_exact_gc_glm_grid_protocol_test.go:78: family=binomial invalid=false wire-bytes=756049
+    k2_exact_gc_glm_grid_protocol_test.go:78: family=binomial invalid=true wire-bytes=756049
+=== RUN   TestCrossGridKernelTwoAuthority/poisson
+    k2_exact_gc_glm_grid_protocol_test.go:78: family=poisson invalid=false wire-bytes=918552
+    k2_exact_gc_glm_grid_protocol_test.go:78: family=poisson invalid=true wire-bytes=918551
+--- PASS: TestCrossGridKernelTwoAuthority (0.73s)
+    --- PASS: TestCrossGridKernelTwoAuthority/binomial (0.29s)
+    --- PASS: TestCrossGridKernelTwoAuthority/poisson (0.44s)
+=== RUN   TestCrossGridKernelRejectsPublicPlanAndShares
+    k2_exact_gc_glm_grid_test.go:247: cross-grid kernel rejected
+--- PASS: TestCrossGridKernelRejectsPublicPlanAndShares (0.00s)
+PASS
+ok  	github.com/isglobal-brge/dsVert/dsvert-mpc	3.695s

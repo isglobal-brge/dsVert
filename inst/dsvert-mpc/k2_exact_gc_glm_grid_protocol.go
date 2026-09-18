@@ -34,7 +34,11 @@ func crossGridKernelPrepare(p crossGridKernelPlan) (*crossGridKernelPrepared, er
 	if err != nil {
 		return nil, errCrossGridKernel
 	}
-	if c.Inputs.Size() > exactGCMaxCircuitTypeBits {
+	return crossGridKernelPreparedCircuit(p, c)
+}
+
+func crossGridKernelPreparedCircuit(p crossGridKernelPlan, c *circuit.Circuit) (*crossGridKernelPrepared, error) {
+	if p.validate() != nil || c == nil || c.Inputs.Size() > exactGCMaxCircuitTypeBits {
 		return nil, errCrossGridKernel
 	}
 	// Own the public plan: later caller mutation cannot change packing or context.

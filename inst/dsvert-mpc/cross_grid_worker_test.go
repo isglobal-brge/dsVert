@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -27,6 +28,12 @@ func TestCrossGridDurableWorkers(t *testing.T) {
 			sid := sha256.Sum256([]byte("synthetic/durable/" + family))
 			master := sha256.Sum256([]byte("synthetic/master/" + family))
 			base := exactGCWorkerConfig{Version: exactGCWorkerConfigVersion, SessionID: hex.EncodeToString(sid[:]), MasterKey: base64.StdEncoding.EncodeToString(master[:]), GarblerID: "peer-a", EvaluatorID: "peer-b", Purpose: p.purpose(), Operation: string(crossGridKernelOperation), RingBits: 128, VectorLen: len(p.Beta), CrossGrid: &p, MaxSpoolBytes: 1 << 30, TTLSeconds: 120}
+			cacheDir := t.TempDir()
+			if err := os.Chmod(cacheDir, 0700); err != nil {
+				t.Fatal(err)
+			}
+			base.CrossGridCache = &crossGridCircuitCache{Directory: cacheDir,
+				Key: base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{61}, 32))}
 			encoding := exactGCCircuitSpec{Operation: exactGCTruncateFloor, RingBits: 128, FracBits: 1, VectorLen: p.sourceCount()}
 			gc, ec := base, base
 			gc.Role, gc.SpoolDir = "garbler", gd

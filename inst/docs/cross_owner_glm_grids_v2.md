@@ -26,6 +26,10 @@ bilateral all-owner digest gate. Only then may the typed producer read the
 authenticated source shares; its fused circuit repeats the alignment guard for
 every row. Mixed-family streams retain the full private-coordinate mask path.
 
+Within a computation session, authenticated cache files may reuse public
+circuit topology. They contain no source shares, output masks or noise; a
+changed cache entry fails closed. Session cleanup removes these files.
+
 The two computation authorities sum partial linear predictors exactly on the
 f100 lattice and evaluate the certified profile in Boolean MPC. Binomial uses
 a 64-piece softplus profile; Poisson reduces the exponent by ln(2), evaluates

@@ -87,3 +87,22 @@ Import the explicitly requested compact framing from 0006f1a; move exact
 linear operations to local shares. Audit secret products, live-count
 reciprocals and private boundaries separately; none is a local linear map.
 Inherited full Go and R checks still have no terminal result on the pod.
+
+- Imported only the two compact engine files from the explicitly requested
+  Step-2 0006f1a. Grouped runners additionally domain-separate record keys by
+  framing mode, not only the GC digest. Legacy runner behavior stays intact.
+- Private scalar-domain guards and masks stay inside each scalar chunk; batch
+  validity stays secret. Use scalar temporaries before array writes to avoid
+  the compiler's array-wide conditional multiplexers. At count=32 this brings
+  exp to 4454 AND/value without changing coefficients or rounding.
+- Exact block sums are local only after private routing and masking into
+  public padded blocks. Secret squares/products, truncation/ring conversion,
+  live-count coefficients and private segment boundaries are NOT local sums.
+  The existing dealer/approximate-truncation helpers are not admissible under
+  the current contract. Arithmetic-backend ownership/interface was raised for
+  clarification; do not silently reinterpret the scalar-only restriction.
+- Client package check exposed this lane's missing export inventory entries.
+  Added one registration line to each shared R registry, with implementation
+  in a new grouped file. Adjusted existing inventory/maturity test expectations
+  for the three quarantine entries; old methods remain promoted as before.
+  Explicitly assert no invented legacy remote-call evidence for new prototypes.

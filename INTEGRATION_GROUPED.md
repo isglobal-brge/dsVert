@@ -13,8 +13,10 @@ Entry points:
 
 Required wiring, in order:
 1. Scalar <=5000-AND and outward coefficient gates now PASS (4f2d314).
-   Rework the full chunk workload to fit the revised <=60 GB release budget;
-   measured chunk probes already give mandatory payload bounds above it.
+   The old composed-GC traffic blocker is withdrawn under clause 5.
+   Scalar-only compact chunks now pass with private guards/masks; see
+   BENCH_GROUPED_CLAUSE5.md. Complete exact two-authority share arithmetic
+   using the interface obligations in CLAUSE5_ARITHMETIC_GROUPED.md.
    Do not conflate a scalar gate pass with full-release admission.
    Complete GEE bread/meat error propagation; replace provisional R error=1.
    Make Go/R caps identical: GLMM currently supplies a universal local cap,
@@ -25,7 +27,8 @@ Required wiring, in order:
    at f100, clipping/encoding, grouping ownership, one-row/patient rule,
    no-eviction capacities, stable original AR1 slot distances and private
    routing controls. Reject private grouping/validity failure for the release.
-3. Bind private Beneš stage chunks, fixed padded cluster/candidate traversal,
+3. Apply private Beneš routing ONCE to packed feature/outcome/validity rows;
+   never repeat it per candidate. Bind its stage chunks and subsequent traversal,
    fresh output masks, previous-state shares and no replay/duplicate/skipped
    chunk to the signed semantic identity and exact generated-source digest.
    Compile/preflight every public shape before protected source resolution.
@@ -37,8 +40,9 @@ Required wiring, in order:
    `cross_owner_exact_gc_materialized` / `exact_gc_to_joint_dp_vector_v1`,
    then implement the client reader. Contract state strings alone are not
    evidence. Keep generation-one and same-owner dispatch untouched.
-6. Run real process-isolated DSLite source/PSI/noise/replay/crash tests and the
-   n=10000,p=10,m=50 resource matrix. Current signed domains are smaller
+6. Run real process-isolated DSLite source/PSI/noise/replay/crash tests and
+   measured n in {2000,4000,10000}, grid in {16,32,50}, Q=5 for GLMM.
+   Admit only a measured <=60 GB / <=2 h envelope under clauses 4/5. Current signed domains are smaller
    (C<=64, B<=16; GEE B<=8,p<=3,m<=32) and do NOT meet that envelope.
 
 Test-only bridge: `go test -tags grouped_reference_test -c -o /tmp/grouped-reference.test .`.
@@ -60,3 +64,13 @@ fixtures, exclusively under `grouped_reference_test`.
 No shared Step-2 release wiring has landed in this lane. The materializer and
 client reader still reject every protected invocation. No callback injection,
 synthetic evaluator, environment flag or artifact state bypass is provided.
+
+Clause-5 additions (a5c7dc2): internal groupedScalarCompile,
+groupedShareBlockSums, groupedCompactRunGarbler/Evaluator. Existing family
+registrations still return legacy cluster prototypes; do not dispatch them
+as the new share-composed producer. New scalar chunks retain q16 profile
+semantics and include private validity. They do not perform Ring128/f100
+conversion, secure products, private masking, signed caps or release fusion.
+No new production operation is registered. Compact engine import is exactly
+Step-2 0006f1a for the two engine files; legacy entry points remain unchanged.
+Client registry now explicitly quarantines the three exported prototypes.

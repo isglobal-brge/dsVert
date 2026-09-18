@@ -1,0 +1,297 @@
+{
+  "mac": {
+    "top_level_pass": 23,
+    "passes_including_subtests": 56,
+    "fail": 0,
+    "skip": 1,
+    "measurements": [
+      {
+        "component": "softplus",
+        "count": 4,
+        "gates": 33544,
+        "and": 10124,
+        "tables": 323984,
+        "garbler_bytes": 342460,
+        "evaluator_bytes": 11812,
+        "compile_s": 0.357748,
+        "protocol_s": 0.050228,
+        "source": "3ec787dbbf8955163c2860107de450900ab7a8a9eb6a4ab90fbe060c8229e68e"
+      },
+      {
+        "component": "exp",
+        "count": 4,
+        "gates": 59388,
+        "and": 17872,
+        "tables": 571920,
+        "garbler_bytes": 590505,
+        "evaluator_bytes": 11812,
+        "compile_s": 0.287402,
+        "protocol_s": 0.052136,
+        "source": "4f4878eec01621d4ac20eca21d1fea106a3b8d3a4d9306d1c700e334a54f5aab"
+      },
+      {
+        "component": "exp_negative",
+        "count": 4,
+        "gates": 59388,
+        "and": 17872,
+        "tables": 571920,
+        "garbler_bytes": 590505,
+        "evaluator_bytes": 11812,
+        "compile_s": 0.291493,
+        "protocol_s": 0.055716,
+        "source": "0cdef7ef03998ef6d4b862667a1537776127c56e3d85ce5f6da3228bba770fbc"
+      },
+      {
+        "component": "log",
+        "count": 4,
+        "gates": 31816,
+        "and": 9548,
+        "tables": 305552,
+        "garbler_bytes": 323991,
+        "evaluator_bytes": 11812,
+        "compile_s": 0.35921,
+        "protocol_s": 0.051836,
+        "source": "957df025d32f309c38d4c2875d746d31121ef4fc15bfdfce52bcaaf1819c5d16"
+      },
+      {
+        "component": "sigmoid",
+        "count": 4,
+        "gates": 31700,
+        "and": 9540,
+        "tables": 305296,
+        "garbler_bytes": 323735,
+        "evaluator_bytes": 11812,
+        "compile_s": 0.315876,
+        "protocol_s": 0.041758,
+        "source": "a5cf880d0c0514b96e654e3aeb6d7ddfe26d298400eea11e7c2bc2f688532bd8"
+      },
+      {
+        "component": "sqrt_variance",
+        "count": 4,
+        "gates": 40068,
+        "and": 12324,
+        "tables": 394384,
+        "garbler_bytes": 412897,
+        "evaluator_bytes": 11812,
+        "compile_s": 0.570477,
+        "protocol_s": 0.155688,
+        "source": "a1f46d3de8eee56ae050448e725ee9d715224d0f92a5c5b057fb72b36ae2e7aa"
+      },
+      {
+        "component": "inverse_sqrt_variance",
+        "count": 4,
+        "gates": 43644,
+        "and": 13288,
+        "tables": 425232,
+        "garbler_bytes": 443744,
+        "evaluator_bytes": 11812,
+        "compile_s": 1.017702,
+        "protocol_s": 0.050194,
+        "source": "ea854ebaa4f22903e79951e031f4b0aa8a6817a3d6cbb23fab4e897a2aaadbf5"
+      }
+    ],
+    "scope": "Broad grouped and transport regression before record-context separation; subsequent affected tests are in mac_record_context_regression."
+  },
+  "pod": {
+    "top_level_pass": 4,
+    "passes_including_subtests": 11,
+    "fail": 0,
+    "skip": 0,
+    "measurements": [
+      {
+        "component": "softplus",
+        "count": 32,
+        "gates": 266560,
+        "and": 80544,
+        "tables": 2577424,
+        "garbler_bytes": 2654580,
+        "evaluator_bytes": 26152,
+        "compile_s": 17.887809,
+        "protocol_s": 1.110591,
+        "source": "c4fe904d06fdda6450d9192e6c6dd80037ba1e9e1c1f85f08b037481880d182d"
+      },
+      {
+        "component": "exp",
+        "count": 32,
+        "gates": 473312,
+        "and": 142528,
+        "tables": 4560912,
+        "garbler_bytes": 4639185,
+        "evaluator_bytes": 26152,
+        "compile_s": 15.913418,
+        "protocol_s": 1.59285,
+        "source": "0d922f5de4a188a391d619d4bf76e66d3ff31e7518566e261e307a3fc7aebc33"
+      },
+      {
+        "component": "exp_negative",
+        "count": 32,
+        "gates": 473312,
+        "and": 142528,
+        "tables": 4560912,
+        "garbler_bytes": 4639183,
+        "evaluator_bytes": 26152,
+        "compile_s": 15.287722,
+        "protocol_s": 1.30489,
+        "source": "51c833ee4c24ca8e45055c08b9ebc17e9de57e927a7a0654d4f3218345fc9c16"
+      },
+      {
+        "component": "log",
+        "count": 32,
+        "gates": 252736,
+        "and": 75936,
+        "tables": 2429968,
+        "garbler_bytes": 2507053,
+        "evaluator_bytes": 26152,
+        "compile_s": 16.900201,
+        "protocol_s": 1.093744,
+        "source": "64bccf1f8b504553f90f77437db9b907b4b6d826f3ef307af6487ca90ff9e939"
+      },
+      {
+        "component": "sigmoid",
+        "count": 32,
+        "gates": 251808,
+        "and": 75872,
+        "tables": 2427920,
+        "garbler_bytes": 2505004,
+        "evaluator_bytes": 26152,
+        "compile_s": 17.401807,
+        "protocol_s": 1.013385,
+        "source": "b36131777fe52cec31fb0f6a7d83852497da8d32264dfc39836a51e41f5c7562"
+      },
+      {
+        "component": "sqrt_variance",
+        "count": 32,
+        "gates": 318752,
+        "and": 98144,
+        "tables": 3140624,
+        "garbler_bytes": 3218104,
+        "evaluator_bytes": 26152,
+        "compile_s": 19.406263,
+        "protocol_s": 0.985213,
+        "source": "ba280d05cacd4b752a3865d4214751ea4b1253dce385126def3b1abcdc689440"
+      },
+      {
+        "component": "inverse_sqrt_variance",
+        "count": 32,
+        "gates": 347360,
+        "and": 105856,
+        "tables": 3387408,
+        "garbler_bytes": 3465032,
+        "evaluator_bytes": 26152,
+        "compile_s": 25.779127,
+        "protocol_s": 0.694747,
+        "source": "f910c9a525c524fd67ba2f9fbdab095e67c54440abcb1c3c71cb75eb0c8207bf"
+      }
+    ]
+  },
+  "scope": "Scalar-only components; not a full release or a signed admission capacity. Fresh masked outputs over encrypted two-peer net.Pipe; both write directions counted. No release-noise/source/routing/arithmetic-backend traffic.",
+  "source_sha256": {
+    "k2_exact_gc_compact.go": "2ae0e164f67e8b5222d95f498d323d21ee7777116ce6a7bc9f292721de720618",
+    "k2_exact_gc_core.go": "9a2829a522e53a026633009b198fc12db2e28fb9afaa3badea92cffabaeb0180",
+    "k2_exact_gc_grouped_loss_compact.go": "2fd9d6e4a349cedd53b303ecd0dd2c78ee29ae7c553d845d742e4c630381ff77",
+    "k2_exact_gc_grouped_loss_cost_test.go": "c411e05b7afb892764007a556fa88c6859385f7958a482da73d3deaf9fe00d21",
+    "k2_exact_gc_grouped_loss_exp.go": "256d89baf8f78e92360fb4dbdf040460540ab8d602075325f8cc40f898a0a48f",
+    "k2_exact_gc_grouped_loss_exp_test.go": "3156b841210ef705fb237480a8524ed0d4d535aad7180406d151337aac627388",
+    "k2_exact_gc_grouped_loss_linear.go": "2999d3ed2aac9e8ba6f88283fa9e88c1bff33c0cd948927989809e977d1cdd8f",
+    "k2_exact_gc_grouped_loss_linear_test.go": "be79944f41a0ba82b02161922b490c8f32d229919b936e7bebd84e9cce4a85ec",
+    "k2_exact_gc_grouped_loss_profile.go": "c18307ee1bfa7e49ab3b5b0223e96b4385a0e126cde1d3a1232550f4ca47997c",
+    "k2_exact_gc_grouped_loss_profile_tables.go": "bda8177f29da0cfe33db54b27e4ac3cb5e12aabf1862b0136bc6e3de6cbc0afb",
+    "k2_exact_gc_grouped_loss_profile_test.go": "bfaecd5d454ae3cb5850573d58d63528954e3a6714534394aec425885526978f",
+    "k2_exact_gc_grouped_loss_reference_test.go": "b66080ef36f0571db6bffd39eb776b122067ca7a4bfa34ac997dace8a7d44ab8",
+    "k2_exact_gc_grouped_loss_scalar.go": "f0f25c29ea61dac8c7c42ead338f2d460d2213c8b0544870cafb6f5ead2cfe87",
+    "k2_exact_gc_grouped_loss_scalar_test.go": "e88b04b1f11b3c492841f2b3a80dc79c094ab7942769aa487c7c724b8b3ad0f2"
+  },
+  "mac_record_context_regression": {
+    "top_level_pass": 12,
+    "passes_including_subtests": 31,
+    "fail": 0,
+    "skip": 0,
+    "measurements": [
+      {
+        "component": "softplus",
+        "count": 4,
+        "gates": 33544,
+        "and": 10124,
+        "tables": 323984,
+        "garbler_bytes": 342460,
+        "evaluator_bytes": 11812,
+        "compile_s": 0.148736,
+        "protocol_s": 0.021365,
+        "source": "3ec787dbbf8955163c2860107de450900ab7a8a9eb6a4ab90fbe060c8229e68e"
+      },
+      {
+        "component": "exp",
+        "count": 4,
+        "gates": 59388,
+        "and": 17872,
+        "tables": 571920,
+        "garbler_bytes": 590504,
+        "evaluator_bytes": 11812,
+        "compile_s": 0.125472,
+        "protocol_s": 0.024913,
+        "source": "4f4878eec01621d4ac20eca21d1fea106a3b8d3a4d9306d1c700e334a54f5aab"
+      },
+      {
+        "component": "exp_negative",
+        "count": 4,
+        "gates": 59388,
+        "and": 17872,
+        "tables": 571920,
+        "garbler_bytes": 590504,
+        "evaluator_bytes": 11812,
+        "compile_s": 0.123157,
+        "protocol_s": 0.025229,
+        "source": "0cdef7ef03998ef6d4b862667a1537776127c56e3d85ce5f6da3228bba770fbc"
+      },
+      {
+        "component": "log",
+        "count": 4,
+        "gates": 31816,
+        "and": 9548,
+        "tables": 305552,
+        "garbler_bytes": 323992,
+        "evaluator_bytes": 11812,
+        "compile_s": 0.136512,
+        "protocol_s": 0.021303,
+        "source": "957df025d32f309c38d4c2875d746d31121ef4fc15bfdfce52bcaaf1819c5d16"
+      },
+      {
+        "component": "sigmoid",
+        "count": 4,
+        "gates": 31700,
+        "and": 9540,
+        "tables": 305296,
+        "garbler_bytes": 323736,
+        "evaluator_bytes": 11812,
+        "compile_s": 0.137741,
+        "protocol_s": 0.022732,
+        "source": "a5cf880d0c0514b96e654e3aeb6d7ddfe26d298400eea11e7c2bc2f688532bd8"
+      },
+      {
+        "component": "sqrt_variance",
+        "count": 4,
+        "gates": 40068,
+        "and": 12324,
+        "tables": 394384,
+        "garbler_bytes": 412896,
+        "evaluator_bytes": 11812,
+        "compile_s": 0.243203,
+        "protocol_s": 0.02283,
+        "source": "a1f46d3de8eee56ae050448e725ee9d715224d0f92a5c5b057fb72b36ae2e7aa"
+      },
+      {
+        "component": "inverse_sqrt_variance",
+        "count": 4,
+        "gates": 43644,
+        "and": 13288,
+        "tables": 425232,
+        "garbler_bytes": 443744,
+        "evaluator_bytes": 11812,
+        "compile_s": 0.340099,
+        "protocol_s": 0.0226,
+        "source": "ea854ebaa4f22903e79951e031f4b0aa8a6817a3d6cbb23fab4e897a2aaadbf5"
+      }
+    ]
+  },
+  "pod_source_hashes_verified": true
+}

@@ -237,3 +237,73 @@ Import the explicitly requested compact framing from 0006f1a; move exact
 linear operations to local shares. Audit secret products, live-count
 reciprocals and private boundaries separately; none is a local linear map.
 Inherited full Go and R checks still have no terminal result on the pod.
+
+### Clause-5 implementation and verification — 2026-09-18
+
+The historical release-traffic blocker is withdrawn. No new full-release
+traffic rejection is asserted. Protected release remains incomplete; see the
+replaced BLOCKED_GROUPED.md and CLAUSE5_ARITHMETIC_GROUPED.md for the exact
+arithmetic/fusion dependency and unresolved lane work. No capacity in the
+requested 3x3 matrix is admitted from component-only measurements.
+
+Completed in this resume:
+- Scalar-only q16 chunks (1..32 values), private domain guards and aggregate
+  validity; invalid batches zero all outputs. Existing certified arithmetic
+  and profile hashes remain unchanged.
+- Local exact fixed-public-block share sums; no local squaring, truncation,
+  secret-boundary branch or ring-width change is substituted for secure MPC.
+- Requested compact engine import, grouped internal wrappers and independent
+  record-key domain for compact framing. Legacy routes remain untouched.
+- New registry entries quarantine the three client prototypes. Fixed this
+  lane's package-check inventory regression without advertising promotion.
+
+Verification:
+- Mac grouped plus affected legacy protocol/record tests: 23 top-level passes,
+  56 including subtests, zero failures; one old opt-in cost probe skipped.
+  After record-context separation: 12 affected top-level / 31 with subtests
+  passed, no failures (includes all seven scalar chunks and legacy transport).
+- Exact-rational 390-knot and ln2 certificate checker: PASS.
+- Client focused tests: grouped registry 8, capsule inventory 912, maturity
+  166, grouped contracts 151 assertions = 1237; zero failures/errors/warnings.
+- Pod count=32 scalar components pass all seven profiles including guards and
+  masks; see BENCH_GROUPED_CLAUSE5.md and clause5-components.json. Both traffic
+  directions are measured. Code hashes checked against the Mac.
+- First count=32 probe rejected exp because conditional array writes inflated
+  mux cost. Fixed with scalar temporaries; no gate limit was changed.
+
+Commands:
+```
+# dsVert/inst/dsvert-mpc
+ go test -run '^(TestGrouped|TestExactGCProtocolEndToEnd$|TestExactGCProtocolFreshArithmeticShares$|TestExactGCSecureRecords)' -json -count=1 -timeout=15m .
+ DSVERT_GROUPED_SCALAR_PROBE=1 go test -run '^TestGrouped(Scalar|ShareBlock|ClauseFive)' -json -count=1 -timeout=5m .
+# workspace
+ python3 dsVert/inst/certificates/grouped_exp_certificate.py --check
+# Client: devtools::load_all; test_file the four files named above.
+```
+
+Inherited client R CMD check completed: 1 ERROR, 3 WARNINGs, 1 NOTE; tests
+23868 pass / 1 failure / 51 skipped. Its error was the missing grouped inventory
+entries, now corrected by 429b2a7 and targeted tests. No clean-check claim.
+Warnings concern unchanged ds.vertMI.R non-ASCII, existing codoc mismatches,
+and duplicate analysis_id in ds.vertOrdinal.Rd. The first and last files were
+reconfirmed identical to cb26ecd. The inherited check's dependency NOTE is
+not a final check of this revision. Full Go and server R checks remain running
+at their previously recorded paths; no final pass is inferred from progress.
+
+Client R CMD build succeeds on the new snapshot. The required post-fix check
+is running under /workspace/dsvert/grouped/clause5/: client-check.log and
+client-check.exit. It uses the isolated Rlib, explicit companion source path,
+_R_CHECK_FORCE_SUGGESTS_=false, and retains tests. Collect rather than restart.
+The full protected two-peer DSLite release and its 3x3 performance matrix are
+NOT implemented; prior synthetic reference-fit comparisons remain the only
+DSLite utility evidence and must not be relabelled as authenticated releases.
+
+Commits: server f71d98c (resume), a5c7dc2 (components/compact engine),
+33c54d6 (record-domain separation); client 429b2a7 (registry regression fix).
+The final evidence/status commit is identified by git log -1 -- STATUS_GROUPED.md.
+No pushes, thesis edits, same-owner behavior changes or production promotion.
+
+Final record-domain-separated pod probe: 4 top-level / 11 including
+subtests pass, zero failures/skips, 146.310 s. Log scalar-context-final.jsonl.
+All recorded Go source hashes match between Mac and pod. The final JSON
+separates pre-context broad Mac regression from post-context affected tests.

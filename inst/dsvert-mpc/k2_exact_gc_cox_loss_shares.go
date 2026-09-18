@@ -48,11 +48,13 @@ func coxLossLayers(n int) [][]coxLossSwitch {
 // The sender holds x, the outcome owner holds c. Outputs sum to c*x in
 // Ring128. One checked OT transfers r or r+x; sender retains -r. This is NOT
 // dealer-generated Beaver material and does not reveal either input.
-func coxLossOTSelect(conn *p2p.Conn, owner bool, x []Uint128, choices []bool) ([]Uint128, error) {
+func coxLossOTSelect(conn *p2p.Conn, owner bool, x []Uint128, choices []bool, transfer *ot.COT) ([]Uint128, error) {
 	if len(x) < 1 || len(x) > coxLossOTBatch || (owner && len(choices) != len(x)) || (!owner && len(choices) != 0) {
 		return nil, coxLossError()
 	}
-	transfer := ot.NewCOT(ot.NewCO(rand.Reader), rand.Reader, true, false)
+	if transfer == nil {
+		transfer = ot.NewCOT(ot.NewCO(rand.Reader), rand.Reader, true, false)
+	}
 	out := make([]Uint128, len(x))
 	if owner {
 		labels := make([]ot.Label, len(x))

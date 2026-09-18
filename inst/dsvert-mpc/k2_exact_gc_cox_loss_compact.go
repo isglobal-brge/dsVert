@@ -48,7 +48,7 @@ func coxLossCompactDigest(session exactGCSession, c *circuit.Circuit, compact bo
 }
 
 func coxLossCompactGarbler(conn *p2p.Conn, circ *circuit.Circuit,
-	input *big.Int, session exactGCSession, compact bool) error {
+	input *big.Int, session exactGCSession, compact bool, oti *ot.COT) error {
 	digest := coxLossCompactDigest(session, circ, compact)
 	if err := conn.SendData(digest[:]); err != nil {
 		return fmt.Errorf("exact-gc: send context: %w", err)
@@ -106,7 +106,9 @@ func coxLossCompactGarbler(conn *p2p.Conn, circ *circuit.Circuit,
 		return fmt.Errorf("exact-gc: flush garbled circuit: %w", err)
 	}
 
-	oti := ot.NewCOT(ot.NewCO(crand.Reader), crand.Reader, true, false)
+	if oti == nil {
+		oti = ot.NewCOT(ot.NewCO(crand.Reader), crand.Reader, true, false)
+	}
 	if err := oti.InitSender(conn); err != nil {
 		return fmt.Errorf("exact-gc: initialize OT sender: %w", err)
 	}
@@ -151,7 +153,7 @@ func coxLossCompactGarbler(conn *p2p.Conn, circ *circuit.Circuit,
 }
 
 func coxLossCompactEvaluator(conn *p2p.Conn, circ *circuit.Circuit,
-	input *big.Int, session exactGCSession, compact bool) (*big.Int, error) {
+	input *big.Int, session exactGCSession, compact bool, oti *ot.COT) (*big.Int, error) {
 	digest := coxLossCompactDigest(session, circ, compact)
 	gotContext, err := conn.ReceiveData()
 	if err != nil {
@@ -213,7 +215,9 @@ func coxLossCompactEvaluator(conn *p2p.Conn, circ *circuit.Circuit,
 		}
 	}
 
-	oti := ot.NewCOT(ot.NewCO(crand.Reader), crand.Reader, true, false)
+	if oti == nil {
+		oti = ot.NewCOT(ot.NewCO(crand.Reader), crand.Reader, true, false)
+	}
 	if err := oti.InitReceiver(conn); err != nil {
 		return nil, fmt.Errorf("exact-gc: initialize OT receiver: %w", err)
 	}

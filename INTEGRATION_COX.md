@@ -9,7 +9,9 @@ are untouched. Do not enable the route by flipping a Boolean.
 
 Entry points (one registration function per language/package):
 
-- Go `registerCoxGridCrossLoss()` -> version, Plan, Compile.
+- Go `registerCoxGridCrossLoss()` -> Version, SharedPlan, SharedCompile, RunShares.
+  Use these share-based entries for transcript v2. Legacy Plan/Compile are only
+  retained for integer regression and must not be selected by the fused producer.
 - Server `.dsvert_dp_cox_grid_cross_register()` -> spec, contract validator,
   artifact, source contract, sensitivity, disabled producer.
 - Client `.dsvert_dp_cox_grid_cross_client_register()` -> validator, moment,
@@ -39,29 +41,41 @@ Entry points (one registration function per language/package):
    order. Supply Beneš controls with `primitiveVPermutationControls` and sorted
    tie-END bits; each tied censored patient is in the prefix. Outcome owner is
    the permutation garbler; reverse-role protocol coverage remains required.
-4. Bind `coxLossPlan`'s deterministic schedule hash and each ordinal through
-   `coxLossChunkBinding(contract, predecessor)`. Hash serialization is a stream
-   of header + canonical chunk JSON records; switch endpoints are reconstructed
-   from the primitive and checked but omitted from the signed serialization.
-   Version/source hash authentication must reject reordered, missing, substituted
-   or replayed chunks. Kernel shapes are fixed before private input access.
-5. Run prepare -> permutation -> forward -> backward -> finalize per candidate.
-   Prepare has triples (f100 dot,live,event), then validity, Ring128. Reduce
-   resulting shares modulo 2^64. Padded triples are authenticated (0,0,0).
-   Permutation tiles take touched rows in ascending public slot order, triples
-   plus shared validity, then garbler-only control words. Every output is masked.
-   Forward inputs: (eta_q16,live,event,tie_end)*rows, prefix_W, validity;
-   outputs: (eta_q16,event,tie_end,log_prefix_q20)*rows, prefix_W, validity.
-   Backward inputs: forward row tuples, reverse_H, cumulative_L, validity;
-   outputs: reverse_H,cumulative_L,validity. Start W/H/L at zero and never reset
-   across tiles. AND all dependency validities; fail closed at final injection.
-   Finalize accepts cumulative_L and validity and returns capped lattice q and
-   validity shares. Payload changes on invalid input are never publishable.
-6. Use `primitiveVRunGarbler/Evaluator` for authenticated sessions, checked OT,
-   encrypted records and fresh output masks. The garbler input arrays supplied
-   to these wrappers EXCLUDE final masks (wrappers generate them). Direct
-   circuit tests include masks only for synthetic reconstruction. No scheduler,
-   durable state store or network RPC is supplied by this family registration.
+4. Bind `coxLossPlanShares`'s canonical digest (spec, padded rows, J+2 packed
+   columns, 32-row scalar batches, 4096-word OT batches, compact framing and
+   streaming checked-OT mode). Authenticate generated profile/finalizer sources;
+   `coxLossProgramsMatch` rejects substituted program metadata before access.
+   The whole contract digest includes epsilon/delta, caps, source/PSI binding and
+   admission. The materializer locally adds the two owners' f100 dot shares,
+   then packs each PSI row as `[dot_0,...,dot_(J-1),live,event]` in Ring128.
+   Padded slots have authenticated zero dots/live/event. Outcome-owner time
+   keys remain local: their order is represented by private Beneš controls and
+   sorted tie-end bits, never exposed time ranks or event-dependent shapes.
+5. Compile with `SharedCompile`; call `RunShares` exactly once for the complete
+   release. It performs ONE packed OT Beneš permutation over all J columns and
+   metadata. Per candidate: exp batches consume joined f100 dots, round once to
+   q16, check live/event, and emit Ring64 weight/event-eta/active shares. Prefix
+   additions are local on shares. A private OT reverse doubling scan selects
+   the last prefix in every Breslow tie, including ties across chunk boundaries.
+   Fixed padded log batches consume selected prefixes and active shares. Sum
+   log contributions minus event-eta locally in Ring64; finalize once on the
+   whole-cohort lattice. No prefix or cohort addition runs inside GC. Logs run
+   for all padded slots with private event masking, so event counts stay private.
+   A complete coordinate and its validity are returned ONLY as local shares.
+6. Supply the existing authenticated peer channel/session and nonzero contract
+   digest. The internal runner uses encrypted records and step-2's compact
+   topology-bound framing (family-local adaptation of 0006f1a; replace with the
+   shared helpers at integration). Two distinct checked COT extensions persist
+   only within this connection, in opposite roles, with advancing PRG streams.
+   Every chunk chains ordinal/predecessor and both keyed state commitments into
+   the next GC context. Receipts contain no unkeyed private-state digest.
+   The outcome owner is the permutation/GC garbler. Source-bound controls and
+   time ties are the owner's responsibility under the pinned semi-honest model;
+   this does not claim a malicious-source proof. The fused lifecycle supplies
+   durable authenticated source/result receipts. On interruption, discard OT
+   streams and use a NEW session ID for a kernel restart before any DP commit;
+   do not reset/reuse an extension or replay encrypted record nonces. Current
+   runner state is in memory; persistence/resumption belongs to step 2.
 7. Inject the J coordinates ONCE into the authenticated existing joint DP source
    prefix, keeping it zero until all results/validities and receipts are complete.
    Calibrate the existing joint sampler to the full workload including every
@@ -77,8 +91,27 @@ Entry points (one registration function per language/package):
    swapped source columns, corrupted records/OT, stale profile, duplicate injection,
    crashes around commit, lost ACK, concurrent sticky replay. Test-only DSLite
    methods and reference noise are not substitutes for these gates.
-10. Meet or obtain reviewer resolution of the measured scalar/envelope cost target
-    before declaring N=10000,J=50 supported. No runner cap has been raised.
+10. Enforce the signed admitted-capacity envelope before protected access, in
+    addition to unchanged 32M-gate / 2 MiB-source / 512 Ki-bit runner limits.
+    Scalar batches fail compilation above 5000 non-XOR gates per row, INCLUDING
+    the source ABI bridge and output masks. The final measured envelope will be
+    recorded below; until then all production release paths remain disabled.
+
+## Revised envelope measurement
+
+The old 722 GB + 373 GB component model measures the superseded architecture
+and is not a current failed gate. The new benchmark executes the ENTIRE family
+kernel (packed permutation, all padded exp/log batches, exact share additions,
+private tie selection, finalizers and receipts) on two encrypted peers on the
+pod. It measures both directions, includes cold compilation in elapsed time and
+checks every reconstructed SYNTHETIC coordinate against the independent oracle.
+It does not yet include source/PSI resolution, authenticated DP fusion, sampler
+or sticky publication; those arrive from step 2 and must fit the remaining
+headroom at integration. It is not a two-host network/RTT measurement.
+
+The pod exposes 96 CPUs but its cgroup quota is 7.65 cores. Benchmark launcher
+records host details and uses at most two GOMAXPROCS=2 processes concurrently.
+The completed matrix and chosen public admission are pending measurement.
 
 ## Synthetic test boundary
 

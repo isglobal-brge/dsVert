@@ -59,7 +59,7 @@ func TestCoxGridCrossSharedProfiles(t *testing.T) {
 
 // Real two-peer encrypted protocols; reconstruction is test-only, after both
 // peers return. The production package has no plaintext/reference entry.
-func coxSharedProtocolFixture(t *testing.T, n, jcount int, programs *coxLossSharedPrograms) (map[string]any, error) {
+func coxSharedProtocolFixture(t *testing.T, n, jcount int, programs *coxLossSharedPrograms, scenario ...string) (map[string]any, error) {
 	t.Helper()
 	compileStart := time.Now()
 	caps := make([]uint64, jcount)
@@ -93,6 +93,16 @@ func coxSharedProtocolFixture(t *testing.T, n, jcount int, programs *coxLossShar
 			times[i] = float64((i * 37) % max(2, n/3))
 			live[i] = i%11 != 0
 			event[i] = i%3 != 0
+			if len(scenario) > 0 {
+				switch scenario[0] {
+				case "censored":
+					event[i] = false
+				case "invalid":
+					live[i] = false
+				case "tied":
+					times[i] = 1
+				}
+			}
 		}
 		for c := 0; c < cols; c++ {
 			v := new(big.Int)
@@ -181,12 +191,25 @@ func coxSharedProtocolFixture(t *testing.T, n, jcount int, programs *coxLossShar
 		"row_batch":         min(p.RowBatch, m)}, nil
 }
 func TestCoxGridCrossSharedProtocol(t *testing.T) {
-	result, err := coxSharedProtocolFixture(t, 34, 2, nil)
+	cap, _ := coxLossCap(34, 12, []float64{4, 4})
+	p, _ := coxLossPlanShares(coxLossSpec{34, 2, 12, []uint64{cap, cap}, CoxGridCrossProfileID})
+	programs, err := coxLossCompileShares(p)
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, _ := json.Marshal(result)
-	t.Log(string(data))
+	chunks := 0
+	for _, scenario := range []string{"mixed", "censored", "invalid", "tied"} {
+		result, err := coxSharedProtocolFixture(t, 34, 2, programs, scenario)
+		if err != nil {
+			t.Fatal(scenario, err)
+		}
+		if chunks != 0 && chunks != result["chunks"].(int) {
+			t.Fatal("private outcome changed chunk geometry")
+		}
+		chunks = result["chunks"].(int)
+		data, _ := json.Marshal(result)
+		t.Log(scenario, string(data))
+	}
 }
 func TestCoxGridCrossSharedEnvelope(t *testing.T) {
 	if os.Getenv("DSVERT_COX_ENVELOPE") != "1" {
@@ -240,7 +263,7 @@ func TestCoxGridCrossSharedPlanAndTopology(t *testing.T) {
 		t.Fatal("invalid public plan")
 	}
 	for _, mutate := range []func(*coxLossSharedPlan){
-		func(p *coxLossSharedPlan) { p.RowBatch++ }, func(p *coxLossSharedPlan) { p.OTBatch++ }, func(p *coxLossSharedPlan) { p.PackedColumns++ }, func(p *coxLossSharedPlan) { p.Version = "old" }, func(p *coxLossSharedPlan) { p.Framing = "legacy" },
+		func(p *coxLossSharedPlan) { p.RowBatch++ }, func(p *coxLossSharedPlan) { p.OTBatch++ }, func(p *coxLossSharedPlan) { p.PackedColumns++ }, func(p *coxLossSharedPlan) { p.Version = "old" }, func(p *coxLossSharedPlan) { p.Framing = "legacy" }, func(p *coxLossSharedPlan) { p.OTMode = "legacy" },
 	} {
 		q := p
 		mutate(&q)

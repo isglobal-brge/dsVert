@@ -8,6 +8,7 @@ import (
 	"io"
 	"math/big"
 
+	"github.com/markkurossi/mpc/ot"
 	"github.com/markkurossi/mpc/p2p"
 )
 
@@ -19,13 +20,14 @@ type coxLossSharedPlan struct {
 	RowBatch      int         `json:"row_batch"`
 	OTBatch       int         `json:"ot_batch"`
 	Framing       string      `json:"framing"`
+	OTMode        string      `json:"ot_mode"`
 }
 
 func coxLossPlanShares(s coxLossSpec) (coxLossSharedPlan, error) {
 	if s.validate() != nil {
 		return coxLossSharedPlan{}, coxLossError()
 	}
-	return coxLossSharedPlan{coxLossSharesVersion, s, intNextPowerOfTwo(s.Capacity), s.Candidates + 2, coxLossChunkRows, coxLossOTBatch, "fixed-topology-framing-v1"}, nil
+	return coxLossSharedPlan{coxLossSharesVersion, s, intNextPowerOfTwo(s.Capacity), s.Candidates + 2, coxLossChunkRows, coxLossOTBatch, "fixed-topology-framing-v1", "two_checked_streaming_extensions_per_connection_v1"}, nil
 }
 func (p coxLossSharedPlan) digest() ([32]byte, error) {
 	want, err := coxLossPlanShares(p.Spec)
@@ -54,6 +56,9 @@ func coxLossCompileShares(p coxLossSharedPlan) (*coxLossSharedPrograms, error) {
 	log, err := coxLossCompileSource(coxLossSharedLogSource(p.Spec.Capacity, rows))
 	if err != nil {
 		return nil, err
+	}
+	if exp.Circuit.Stats.NumNonXOR() > uint64(5000*rows) || log.Circuit.Stats.NumNonXOR() > uint64(5000*rows) {
+		return nil, coxLossError()
 	}
 	result := &coxLossSharedPrograms{Exp: exp, Log: log}
 	for j := 0; j < p.Spec.Candidates; j++ {
@@ -94,11 +99,13 @@ func coxLossProgramsMatch(p coxLossSharedPlan, programs *coxLossSharedPrograms) 
 }
 
 type coxLossShareRunner struct {
-	conn    *p2p.Conn
-	owner   bool
-	session exactGCSession
-	receipt [32]byte
-	ordinal int
+	conn     *p2p.Conn
+	owner    bool
+	session  exactGCSession
+	receipt  [32]byte
+	ordinal  int
+	gcOT     *ot.COT
+	selectOT *ot.COT
 }
 
 func (r *coxLossShareRunner) checkpoint(state []Uint128) error {
@@ -133,10 +140,10 @@ func (r *coxLossShareRunner) gc(p *primitiveVProgram, words []*big.Int) ([]*big.
 			}
 		}
 		inputs := append(append([]*big.Int(nil), words...), out...)
-		err = coxLossCompactGarbler(r.conn, p.Circuit, exactGCPackChunks(inputs, p.WordBits), session, true)
+		err = coxLossCompactGarbler(r.conn, p.Circuit, exactGCPackChunks(inputs, p.WordBits), session, true, r.gcOT)
 	} else {
 		var packed *big.Int
-		packed, err = coxLossCompactEvaluator(r.conn, p.Circuit, exactGCPackChunks(words, p.WordBits), session, true)
+		packed, err = coxLossCompactEvaluator(r.conn, p.Circuit, exactGCPackChunks(words, p.WordBits), session, true, r.gcOT)
 		if err == nil {
 			out = make([]*big.Int, p.OutputWords)
 			for i := range out {
@@ -178,7 +185,7 @@ func (r *coxLossShareRunner) permute(p coxLossSharedPlan, rows []Uint128, contro
 					}
 				}
 			}
-			masks, err := coxLossOTSelect(r.conn, r.owner, x, choices)
+			masks, err := coxLossOTSelect(r.conn, r.owner, x, choices, r.selectOT)
 			if err != nil {
 				return err
 			}
@@ -233,7 +240,7 @@ func (r *coxLossShareRunner) ties(risk []uint64, ends []bool) error {
 					choices[k] = endPrefix[i+distance] == endPrefix[i]
 				}
 			}
-			masks, err := coxLossOTSelect(r.conn, r.owner, x, choices)
+			masks, err := coxLossOTSelect(r.conn, r.owner, x, choices, r.selectOT)
 			if err != nil {
 				return err
 			}
@@ -290,7 +297,12 @@ func coxLossRunShares(rw io.ReadWriter, owner bool, p coxLossSharedPlan, program
 			failure = coxLossError()
 		}
 	}()
-	runner := coxLossShareRunner{conn: conn, owner: owner, session: base, receipt: sha256.Sum256(append(contract[:], digest[:]...))}
+	// Two distinct checked OT extensions persist only on this authenticated
+	// connection. The pinned library's shared mode advances its PRG streams on
+	// every Send/Receive; no base seeds or extension outputs are reset/reused.
+	gcOT := ot.NewCOT(ot.NewCO(rand.Reader), rand.Reader, true, true)
+	selectOT := ot.NewCOT(ot.NewCO(rand.Reader), rand.Reader, true, true)
+	runner := coxLossShareRunner{gcOT: gcOT, selectOT: selectOT, conn: conn, owner: owner, session: base, receipt: sha256.Sum256(append(contract[:], digest[:]...))}
 	rows := append([]Uint128(nil), packed...)
 	if err = runner.permute(p, rows, controls); err != nil {
 		return result, err

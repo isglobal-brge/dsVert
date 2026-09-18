@@ -279,6 +279,7 @@
       schedule_version = "cox-packed-ot-prefix-shares-v2",
       boundary_state = "ring64_prefix_tie_loss_shares_with_keyed_receipts_v2",
       framing = "fixed-topology-framing-v1",
+      ot_mode = "two_checked_streaming_extensions_per_connection_v1",
       event_count_oblivious = TRUE,
       log_rows = "all_public_padded_slots_private_event_mask_v2",
       output = "two_authority_additive_candidate_sum_shares_only_v1"),

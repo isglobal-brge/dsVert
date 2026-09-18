@@ -55,3 +55,20 @@ uint128FromLabel that silently truncates to Ring127. The additive Cox decoder
 reads all 128 label bits directly; the shared helper is untouched. Exp consumes
 the frozen Ring128 ABI but remasks only Ring64 outputs (public-zero upper words),
 which preserves the exact integer result and avoids unnecessary mask gates.
+
+Within one authenticated connection, reuse the pinned library's explicitly
+supported shared COT mode: one checked extension for GC input transfer and a
+separate, opposite-role checked extension for permutation/tie selection. The
+library advances cipher.Stream PRGs across calls and generates fresh correlation
+checks/hash seeds. Never reset these streams, persist/reuse their outputs, share
+one object between roles, or reuse a session ID on retry. This preserves checked
+OT while avoiding a new 128-base-OT setup for every tiny chunk. The mode is signed
+in both the Go plan and R transcript. Local encrypted equality still passes;
+onlinearity kernels including ABI checks/remasking cost 146975/32=4592.97
+non-XOR per exp and 69567/32=2173.97 per log at the maximal row tile.
+
+The pod advertises CPUs 0..95 but its actual cgroup-v1 quota is 765000/100000,
+**7.65 CPU cores**, shared with other work. Limit the final envelope matrix to two
+concurrent processes (GOMAXPROCS=2 each), record this in host evidence, and measure
+elapsed time honestly. The nine initial exploratory jobs were stopped before any
+completed envelope and archived separately; they are not gate evidence.

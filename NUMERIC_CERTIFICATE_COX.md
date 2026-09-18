@@ -110,3 +110,42 @@ predicate/boundary tests cover this issue. The standard compiler pruning/array-m
 coefficient-bit decision diagrams achieve 1514/1486 non-XOR gates for exp/log.
 This passes the scalar target; it does not establish the full 30 GB envelope.
 Measured costs and outstanding gates are recorded in STATUS_COX.md.
+
+## Clause-5 composition extension (2026-09-18)
+
+The scalar knots, fractional scales, rounding, cap derivation and sensitivity
+are unchanged. The share-based kernel computes exactly the same integer loss:
+
+1. A packed Ring128 OT switch outputs sums `(a,b)` when its bit is zero and
+   `(b,a)` when one. For evaluator difference d=b_E-a_E and uniform r, checked
+   OT gives the owner t=r+c*d and evaluator -r; owner routes its own shares and
+   both apply +/- their selected-difference share. Thus outputs reconstruct to
+   the primitive's identical Beneš permutation without reconstructing inputs.
+   The complete label is decoded as 128 bits; the legacy Ring127 helper is not
+   used. This leaves exact f100 dots unchanged under arbitrary owner partition.
+2. The exp bridge reuses the certified f100 range/slack and single q16 RNE.
+   It emits the same q20 exp, active event and event*eta, with uniform Ring64
+   masks. Ring128 transport upper output words are public zero and irrelevant
+   after reduction modulo 2^64; lower masks are independent uniform ring words.
+3. Prefix additions are linear in Ring64. The previous bound W<2^45 proves no
+   reconstructed overflow. Reverse doubling chooses a later prefix iff the
+   intervening original tie-end interval contains no end. Inductively, after
+   distance d a row has the prefix at its first tie end or at most 2d-1 rows
+   later; after all public powers of two it has exactly its tie-end prefix.
+   Private OT selects whole share words without rounding or a new approximation.
+4. The same normalized log profile is evaluated for all padded slots; zero-risk
+   inactive slots use the already-certified dummy argument 1. Invalid positive
+   event/zero-risk combinations fail the private validity gate. Private event
+   masking and local subtraction/addition give the same whole-cohort q20 loss.
+   Loss magnitude stays below 32*N*2^20; accumulated invalid-batch counts are
+   nonnegative and far below 2^64, so `1 - bad` equals one only with no failure.
+5. The unchanged finalizer performs one ties-even lattice rounding and clamp.
+   Therefore Go/R oracle equality, U_j, Delta1/Delta2 and N/64 approximation error
+   transfer exactly. No new numeric error or sensitivity allowance is needed.
+
+Each nonlinear tile includes range/validity checks and share conversion/masks.
+For 32 rows exp uses 146975 non-XOR gates (4592.97 per row); log at the maximal
+capacity uses approximately 69567 (2173.97 per row; exact capacity-specific
+counts are measured). Compilation rejects either profile above 5000 per row.
+All transport masks remain fresh; reusable checked OT advances its per-release
+streams, never reuses extension outputs, and cannot be restored/reset on retry.

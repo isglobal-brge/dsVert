@@ -24,6 +24,23 @@
     ],
     "claim_boundary": "A relay cannot make an honest peer accept a forged, substituted, cross-session, cross-purpose, reordered or conflicting peer payload. It can always withhold service or make a protected operation abort. This is not malicious-secure MPC and does not protect against participating peers that deliberately disclose or collude."
   },
+  "nonproduction_formal_routes": {
+    "production_ready": false,
+    "claim_boundary": "Registered prototype ingress and worker controls are not a production security attestation; fresh GLM and Cox routes fail closed before source access.",
+    "remote_endpoints": [
+      "dsvertFormalGLMRegisteredSourceDS",
+      "dsvertFormalGLMRegisteredFreshSourceDS",
+      "dsvertFormalGLMRegisteredJobControlDS",
+      "dsvertFormalCoxFreshSourceDS",
+      "dsvertFormalCoxWorkerControlDS"
+    ],
+    "evidence_files": [
+      "R/formalGLMRegisteredPhase18SourceDS.R",
+      "R/formalGLMRegisteredJobControlDS.R",
+      "R/formalCoxFreshSourceDS.R",
+      "R/formalCoxWorkerControlDS.R"
+    ]
+  },
   "channels": [
     {
       "id": "generic_dsi_relay_substrate",
@@ -372,6 +389,9 @@
         "dsvertDPSynopsisFinalizeAckDS",
         "dsvertDPSynopsisCategoricalCrossBindDS",
         "dsvertDPSynopsisCategoricalCrossFinalizeDS",
+        "dsvertDPSynopsisGaussianCrossBindDS",
+        "dsvertDPSynopsisGaussianCrossFinalizeDS",
+        "dsvertDPSynopsisGaussianCrossEvidenceDS",
         "dsvertDPSynopsisAlignmentMaskStartDS",
         "dsvertDPSynopsisAlignmentMaskStoreDS",
         "dsvertDPSynopsisAlignmentMaskSealDS",

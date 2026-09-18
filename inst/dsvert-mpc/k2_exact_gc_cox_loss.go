@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
+	"slices"
 )
 
 const coxGridCrossVersion = "cox_grid_cross_v1"
@@ -48,7 +49,7 @@ type coxLossChunk struct {
 	Candidate int             `json:"candidate"`
 	Start     int             `json:"start"`
 	Rows      int             `json:"rows"`
-	Switches  []coxLossSwitch `json:"switches,omitempty"`
+	Switches  []coxLossSwitch `json:"-"`
 }
 type coxLossSchedule struct {
 	Version    string         `json:"version"`
@@ -73,7 +74,7 @@ func coxLossPlan(s coxLossSpec) (coxLossSchedule, error) {
 		}
 		for start := 0; start < len(switches); start += coxLossChunkSwitches {
 			end := min(start+coxLossChunkSwitches, len(switches))
-			p.Chunks = append(p.Chunks, coxLossChunk{Kind: "permute", Candidate: j, Start: start, Switches: append([]coxLossSwitch(nil), switches[start:end]...)})
+			p.Chunks = append(p.Chunks, coxLossChunk{Kind: "permute", Candidate: j, Start: start, Switches: switches[start:end]})
 		}
 		for start := 0; start < net.PaddedRows; start += coxLossChunkRows {
 			p.Chunks = append(p.Chunks, coxLossChunk{Kind: "forward", Candidate: j, Start: start, Rows: min(coxLossChunkRows, net.PaddedRows-start)})
@@ -93,12 +94,28 @@ func (p coxLossSchedule) digest() ([32]byte, error) {
 	if err != nil {
 		return [32]byte{}, err
 	}
-	a, _ := json.Marshal(p)
-	b, _ := json.Marshal(want)
-	if string(a) != string(b) {
+	// Geometry is deterministically reconstructed, not repeated 50 times in
+	// the signed serialization. Still validate every supplied endpoint/control.
+	if p.Version != want.Version || p.PaddedRows != want.PaddedRows || len(p.Chunks) != len(want.Chunks) {
 		return [32]byte{}, coxLossError()
 	}
-	return sha256.Sum256(a), nil
+	h := sha256.New()
+	encoder := json.NewEncoder(h)
+	encoder.Encode(struct {
+		Version           string
+		Spec              coxLossSpec
+		PaddedRows, Count int
+	}{p.Version, p.Spec, p.PaddedRows, len(p.Chunks)})
+	for i, c := range p.Chunks {
+		expected := want.Chunks[i]
+		if c.Kind != expected.Kind || c.Candidate != expected.Candidate || c.Start != expected.Start || c.Rows != expected.Rows || !slices.Equal(c.Switches, expected.Switches) {
+			return [32]byte{}, coxLossError()
+		}
+		encoder.Encode(c)
+	}
+	var digest [32]byte
+	copy(digest[:], h.Sum(nil))
+	return digest, nil
 }
 
 // A caller binds contract+schedule+ordinal+predecessor receipts into each

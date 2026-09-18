@@ -1,7 +1,10 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"github.com/markkurossi/mpc/compiler"
+	"github.com/markkurossi/mpc/compiler/utils"
 	"math/big"
 	"sort"
 	"strings"
@@ -21,37 +24,91 @@ func coxLossProfileSource() string {
 			b.WriteString("x := uint32(a-1048576)\n")
 		}
 		b.WriteString("index := x >> 14\noffset := uint14(x & 16383)\n")
+		var bases, differences [64]uint32
 		for i := 0; i < 64; i++ {
-			var lo, hi uint32
 			if name == "exp" {
-				lo = CoxGridCrossExpKnotsQ20[i]
-				hi = CoxGridCrossExpKnotsQ20[i+1]
+				bases[i] = CoxGridCrossExpKnotsQ20[i]
+				differences[i] = CoxGridCrossExpKnotsQ20[i+1] - bases[i]
 			} else {
-				lo = uint32(CoxGridCrossLogKnotsQ20[i])
-				hi = uint32(CoxGridCrossLogKnotsQ20[i+1])
-			}
-			fmt.Fprintf(&b, "v%d := uint32(%d)\nd%d := uint32(%d)\n", i, lo, i, hi-lo)
-		}
-		for span := 1; span < 64; span *= 2 {
-			for i := 0; i < 64; i += span * 2 {
-				fmt.Fprintf(&b, "if (index & %d) != 0 { v%d=v%d\nd%d=d%d }\n", span, i, i+span, i, i+span)
+				bases[i] = uint32(CoxGridCrossLogKnotsQ20[i])
+				differences[i] = uint32(CoxGridCrossLogKnotsQ20[i+1]) - bases[i]
 			}
 		}
-		b.WriteString("product := wideMul(uint32(d0),uint32(offset))\ny := v0+uint32(product >> 14)\n")
+		coxLossEmitCoefficients(&b, bases, differences)
+		if name == "exp" {
+			b.WriteString("product := wideMul(uint30(d0),uint30(offset))\n")
+		} else {
+			b.WriteString("product := wideMul(uint14(d0),offset)\n")
+		}
+		b.WriteString("y := uint32(v0)+uint32(product >> 14)\n")
 		if name == "exp" {
 			fmt.Fprintf(&b, "if a == 524288 { y=uint32(%d) }\n", CoxGridCrossExpKnotsQ20[64])
 		}
 		b.WriteString("return y\n}\n")
 	}
-	b.WriteString("func coxlogrisk(a uint64) int64 {\nm := a\nk := int32(0)\n")
+	b.WriteString("func coxlogrisk(a uint64) int32 {\nm := uint45(a)\nk := int6(0)\n")
 	for _, shift := range []int{16, 8, 4, 2, 1} {
-		fmt.Fprintf(&b, "if m >= uint64(%d) { m=m >> %d\nk=k+%d }\n", uint64(1)<<uint(20+shift), shift, shift)
+		fmt.Fprintf(&b, "if m >= uint45(%d) { m=m >> %d\nk=k+%d }\n", uint64(1)<<uint(20+shift), shift, shift)
 	}
+	b.WriteString("small := uint21(m)\n")
 	for _, shift := range []int{16, 8, 4, 2, 1} {
-		fmt.Fprintf(&b, "if m < uint64(%d) { m=m << %d\nk=k-%d }\n", uint64(1)<<uint(21-shift), shift, shift)
+		fmt.Fprintf(&b, "if small < uint21(%d) { small=small << %d\nk=k-%d }\n", uint64(1)<<uint(21-shift), shift, shift)
 	}
-	fmt.Fprintf(&b, "return int64(coxlog(int32(m)))+int64(k)*%d\n}\n", CoxGridCrossLn2Q20)
+	fmt.Fprintf(&b, "return int32(coxlog(int32(small)))+int32(k)*%d\n}\n", CoxGridCrossLn2Q20)
 	return b.String()
+}
+
+// Public coefficient-bit decision diagrams share identical subfunctions.
+// Neither the source nor its geometry depends on a protected piece index.
+func coxLossEmitCoefficients(b *strings.Builder, bases, differences [64]uint32) {
+	for i := 0; i < 6; i++ {
+		fmt.Fprintf(b, "bit%d := uint1(index >> %d)\n", i, i)
+	}
+	cache := map[string]string{}
+	var emit func([]uint32, int) string
+	emit = func(values []uint32, level int) string {
+		same := true
+		for _, v := range values {
+			same = same && v == values[0]
+		}
+		if same {
+			return fmt.Sprintf("uint1(%d)", values[0])
+		}
+		key := fmt.Sprintf("%d/%v", level, values)
+		if v, ok := cache[key]; ok {
+			return v
+		}
+		a, z := make([]uint32, len(values)/2), make([]uint32, len(values)/2)
+		for i := range a {
+			a[i] = values[2*i]
+			z[i] = values[2*i+1]
+		}
+		lo, hi := emit(a, level+1), emit(z, level+1)
+		if lo == hi {
+			return lo
+		}
+		if lo == "uint1(0)" && hi == "uint1(1)" {
+			return fmt.Sprintf("bit%d", level)
+		}
+		name := fmt.Sprintf("lookup%d", len(cache))
+		cache[key] = name
+		fmt.Fprintf(b, "%s := %s\nif bit%d==1 {%s=%s}\n", name, lo, level, name, hi)
+		return name
+	}
+	for col, table := range [][64]uint32{bases, differences} {
+		name := []string{"v0", "d0"}[col]
+		fmt.Fprintf(b, "%s := uint32(0)\n", name)
+		for bit := 0; bit < 32; bit++ {
+			values := make([]uint32, 64)
+			for i, v := range table {
+				values[i] = (v >> bit) & 1
+			}
+			value := emit(values, 0)
+			if value != "uint1(0)" {
+				fmt.Fprintf(b, "%s = %s | (uint32(%s) << %d)\n", name, name, value, bit)
+			}
+		}
+	}
 }
 
 func coxLossEmitOutput(b *strings.Builder, values []string, inputWords int, width int) {
@@ -163,8 +220,8 @@ func coxLossScanSource(s coxLossSpec, chunk coxLossChunk) (string, int, int, int
 			for col, name := range []string{"eta", "live", "event", "end"} {
 				fmt.Fprintf(&b, "%s%d:=g[%d]+e[%d]\n", name, r, 4*r+col, 4*r+col)
 			}
-			fmt.Fprintf(&b, "good%d:=(live%d==0 || live%d==1) && (event%d==0 || event%d==1) && (end%d==0 || end%d==1)\nif live%d==1 {good%d=good%d && eta%d>=-524288 && eta%d<=524288}\nok=ok && good%d\nif !good%d || live%d!=1 {eta%d=0\nevent%d=0\nlive%d=0}\n", r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r)
-			fmt.Fprintf(&b, "w%d:=int64(coxexp(int32(eta%d)))\nif live%d==1 {risk=risk+w%d}\nz%d:=uint64(1048576)\nif end%d==1 && risk>0 {z%d=uint64(risk)}\nh%d:=coxlogrisk(z%d)\n", r, r, r, r, r, r, r, r, r)
+			fmt.Fprintf(&b, "good%d:=(live%d==0 || live%d==1) && (event%d==0 || event%d==1) && (end%d==0 || end%d==1)\nif live%d==1 {good%d=good%d && eta%d>=-int64(524288) && eta%d<=524288}\nok=ok && good%d\nif !good%d || live%d!=1 {eta%d=0\nevent%d=0\nlive%d=0}\n", r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r)
+			fmt.Fprintf(&b, "w%d:=int64(coxexp(int32(eta%d)))\nif live%d==1 {risk=risk+w%d}\nz%d:=uint64(1048576)\nif end%d==1 && risk>0 {z%d=uint64(risk)}\nh%d:=int64(coxlogrisk(z%d))\n", r, r, r, r, r, r, r, r, r)
 			values = append(values, fmt.Sprintf("eta%d", r), fmt.Sprintf("event%d", r), fmt.Sprintf("end%d", r), fmt.Sprintf("h%d", r))
 		}
 		fmt.Fprintf(&b, "ok=ok && risk<=%d\n", maxRisk)
@@ -173,14 +230,14 @@ func coxLossScanSource(s coxLossSpec, chunk coxLossChunk) (string, int, int, int
 		}
 		values = append(values, "risk")
 	} else {
-		fmt.Fprintf(&b, "h:=g[%d]+e[%d]\nloss:=g[%d]+e[%d]\nok=ok && h>=-9437184 && h<=18874368 && loss>=-%d && loss<=%d\nif !ok {h=0\nloss=0}\n", 4*n, 4*n, 4*n+1, 4*n+1, bound, bound)
+		fmt.Fprintf(&b, "h:=g[%d]+e[%d]\nloss:=g[%d]+e[%d]\nok=ok && h>=-int64(9437184) && h<=18874368 && loss>=-int64(%d) && loss<=%d\nif !ok {h=0\nloss=0}\n", 4*n, 4*n, 4*n+1, 4*n+1, bound, bound)
 		for r := n - 1; r >= 0; r-- {
 			for col, name := range []string{"eta", "event", "end", "logrisk"} {
 				fmt.Fprintf(&b, "%s%d:=g[%d]+e[%d]\n", name, r, 4*r+col, 4*r+col)
 			}
-			fmt.Fprintf(&b, "good%d:=eta%d>=-524288 && eta%d<=524288 && (event%d==0 || event%d==1) && (end%d==0 || end%d==1) && logrisk%d>=-9437184 && logrisk%d<=18874368\nok=ok && good%d\nif !good%d {eta%d=0\nevent%d=0\nend%d=0\nlogrisk%d=0}\nif end%d==1 {h=logrisk%d}\nif event%d==1 {loss=loss+h-(eta%d << 4)}\n", r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r)
+			fmt.Fprintf(&b, "good%d:=eta%d>=-int64(524288) && eta%d<=524288 && (event%d==0 || event%d==1) && (end%d==0 || end%d==1) && logrisk%d>=-int64(9437184) && logrisk%d<=18874368\nok=ok && good%d\nif !good%d {eta%d=0\nevent%d=0\nend%d=0\nlogrisk%d=0}\nif end%d==1 {h=logrisk%d}\nif event%d==1 {loss=loss+h-(eta%d << 4)}\n", r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r, r)
 		}
-		fmt.Fprintf(&b, "ok=ok && loss>=-%d && loss<=%d\n", bound, bound)
+		fmt.Fprintf(&b, "ok=ok && loss>=-int64(%d) && loss<=%d\n", bound, bound)
 		values = append(values, "h", "loss")
 	}
 	b.WriteString("valid:=int64(0)\nif ok {valid=1}\n")
@@ -206,7 +263,7 @@ func coxLossFinalizeSource(s coxLossSpec, j int) (string, int, int, int, int) {
 	source := fmt.Sprintf(`package main
 func main(g [4]int64,e [2]int64) [2]int64 {
  loss:=g[0]+e[0]
- ok:=g[1]+e[1]==1 && loss>=-%d && loss<=%d
+ ok:=g[1]+e[1]==1 && loss>=-int64(%d) && loss<=%d
  if loss<0 {loss=0}
  q:=loss >> %d
  r:=loss & %d
@@ -242,9 +299,33 @@ func coxLossCompileChunk(p coxLossSchedule, ordinal int) (*primitiveVProgram, er
 	default:
 		return nil, coxLossError()
 	}
-	program, err := primitiveVCompile(source, width, g, e, out)
+	program, err := coxLossCompileSource(source, width, g, e, out)
 	if err != nil {
 		return nil, coxLossError()
 	}
 	return program, nil
+}
+
+// Family-local compiler options: standard backend dead-gate pruning and array
+// multiplication. No shared primitive, protocol or circuit limits are changed.
+// The signed numeric contract pins this compiler profile alongside the source.
+func coxLossCompileSource(source string, bits, g, e, out int) (program *primitiveVProgram, failure error) {
+	defer func() {
+		if recover() != nil {
+			program = nil
+			failure = coxLossError()
+		}
+	}()
+	if len(source) == 0 || len(source) > 2<<20 || bits < 2 || bits > 128 || g <= out || e < 1 || out < 1 ||
+		g > exactGCMaxCircuitTypeBits/bits || e > exactGCMaxCircuitTypeBits/bits || out > exactGCMaxCircuitTypeBits/bits {
+		return nil, coxLossError()
+	}
+	params := utils.NewParams()
+	params.OptPruneGates = true
+	params.CircMultArrayTreshold = 128
+	c, _, err := compiler.New(params).Compile(source, nil)
+	if err != nil || c == nil || len(c.Inputs) != 2 || int(c.Inputs[0].Type.Bits) != g*bits || int(c.Inputs[1].Type.Bits) != e*bits || c.Outputs.Size() != out*bits || c.NumGates > 32000000 {
+		return nil, coxLossError()
+	}
+	return &primitiveVProgram{c, sha256.Sum256([]byte(source)), bits, g, e, out}, nil
 }

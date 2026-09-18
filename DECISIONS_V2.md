@@ -384,3 +384,7 @@ The first harness cleans private state on exit; therefore that extra release can
 ## 2026-09-18T21:38Z — resumed; measured Poisson startup recovery
 
 Use a 4GiB Go heap target for new Mac topology workers after the exact public Poisson shape cold/hot probe demonstrated 64.64 s cold compilation within the existing 120-second readiness window. Preserve the failed 2GiB run and adopt existing binomial work unchanged. Add a Poisson-only recovery mode to the topology coordinator; no source contract, circuit, worker timeout, privacy or transport cap is changed.
+
+## 2026-09-18T21:56Z — bounded relay diagnostic, no protocol change
+
+The synthetic n32/p10/grid8 binomial API diagnostic passes integer DP-oracle equality (572.189 s under concurrent Mac load). Function-stack samples place much of sampled exchange CPU in regex/base64 string handling; a one-second native sample also includes IPC and parsing. These observations do not isolate enough of total elapsed time to justify changing shared authenticated transport or caps. Retain current production code and active campaigns. The initial Rprof report includes repeated append headers as a pseudo-frame; its timings are diagnostic only, not a promotion benchmark. The reproduction script now strips subsequent headers before summarizing. No payloads or protected values are sampled.

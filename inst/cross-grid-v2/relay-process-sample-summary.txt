@@ -1,0 +1,51 @@
+Analysis of sampling R (pid 95157) every 1 millisecond
+Process:         R [95157]
+Path:            /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/bin/exec/R
+Load Address:    0x102f24000
+Identifier:      R
+Version:         0
+Code Type:       ARM64
+Platform:        macOS
+Parent Process:  R [94918]
+Target Type:     live task
+
+Date/Time:       2026-09-18 23:52:59.340 +0200
+Launch Time:     2026-09-18 23:43:40.245 +0200
+OS Version:      macOS 15.4.1 (24E263)
+Report Version:  7
+Analysis Tool:   /usr/bin/sample
+
+Physical footprint:         432.0M
+Physical footprint (peak):  474.7M
+Idle exit:                  untracked
+----
+
+Top-of-stack sample counts (includes an idle helper thread):
+
+        __semwait_signal  (in libsystem_kernel.dylib)        850
+        __read_nocancel  (in libsystem_kernel.dylib)        314
+        _platform_strcmp$VARIANT$Base  (in libsystem_platform.dylib)        65
+        Rf_mkCharLenCE  (in libR.dylib)        51
+        tre_tnfa_run_parallel  (in libR.dylib)        48
+        Ri18n_iswprint  (in libR.dylib)        45
+        _pcre2_strlen_8  (in libR.dylib)        43
+        Ri18n_wctype  (in libR.dylib)        35
+        DYLD-STUB$$_platform_strcmp  (in libsystem_platform.dylib)        21
+        DYLD-STUB$$strcmp  (in libR.dylib)        15
+        xxgetc  (in libR.dylib)        12
+        Rf_EncodeString  (in libR.dylib)        11
+        Rstrwid  (in libR.dylib)        11
+        __wait4_nocancel  (in libsystem_kernel.dylib)        11
+        bcEval_loop  (in libR.dylib)        11
+        Ri18n_iswalpha  (in libR.dylib)        10
+        Ri18n_iswctype  (in libR.dylib)        10
+        _UTF8_mbrtowc  (in libsystem_c.dylib)        9
+        StringValue  (in libR.dylib)        8
+        mbrtowc  (in libsystem_c.dylib)        8
+        _platform_memmove  (in libsystem_platform.dylib)        7
+        token_  (in libR.dylib)        7
+        DYLD-STUB$$mbrtowc  (in libR.dylib)        6
+        SETCAR  (in libR.dylib)        5
+        _platform_strlen  (in libsystem_platform.dylib)        5
+        sha256_process  (in digest.so)        5
+

@@ -11,7 +11,7 @@ run_family() {
   family="$1"
   for epsilon in 1 4 8; do
     sha256sum -c "$lane/logs/validation-support.sha256" > "$lane/logs/validation-${family}-e${epsilon}-source-check.log"
-    env GOMAXPROCS=2 DSVERT_GRID_VALIDATION_N=2000 DSVERT_GRID_VALIDATION_FAMILY="$family" DSVERT_GRID_VALIDATION_EPSILON="$epsilon" DSVERT_GRID_VALIDATION_INSTANCE_COUNT=20 DSVERT_GRID_VALIDATION_REAL_COUNT=2 DSVERT_GRID_VALIDATION_COLD=1 Rscript -e 'source("inst/cross-grid-v2/validate_dslite.R")' .. > "$lane/logs/validation-${family}-e${epsilon}.log" 2>&1
+    env GOMAXPROCS=2 DSVERT_GRID_VALIDATION_STATE_PARENT=/tmp/dsvert-crossowner-v2-state DSVERT_GRID_VALIDATION_N=2000 DSVERT_GRID_VALIDATION_FAMILY="$family" DSVERT_GRID_VALIDATION_EPSILON="$epsilon" DSVERT_GRID_VALIDATION_INSTANCE_COUNT=20 DSVERT_GRID_VALIDATION_REAL_COUNT=2 DSVERT_GRID_VALIDATION_COLD=1 Rscript -e 'source("inst/cross-grid-v2/validate_dslite.R")' .. > "$lane/logs/validation-${family}-e${epsilon}.log" 2>&1
     sha256sum -c "$lane/logs/validation-support.sha256" >> "$lane/logs/validation-${family}-e${epsilon}-source-check.log"
   done
 }

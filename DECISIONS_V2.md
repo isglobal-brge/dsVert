@@ -244,3 +244,7 @@ For validation, use the existing 8 MiB maximum exact-transport chunk setting (no
 Transport tuning correction: the worker allows 8 MiB, but that exceeds the existing client negotiated expression ceiling (768 KiB minus one byte). The experimental setting was rejected before PSI completion and removed; retain the default 480 KiB chunks. No expression/resource ceiling is raised.
 
 The new route must never silently select a non-MPC noise fallback. Its scoped admission therefore requires the certified discrete-Laplace mechanism; a catalog choosing another mechanism is rejected on both server and client. The required epsilon 1/4/8, delta=2^-100 matrix selects Laplace unchanged. Older Gaussian/convolution routes and their defaults remain unchanged; extending this new route to other mechanisms is not implicitly promoted.
+
+## 2026-09-18T17:33Z — pod private validation state
+
+The RunPod workspace filesystem cannot enforce the private-directory mode required by identity provisioning (requested 0700, observed 0777). Keep all production permission checks. The synthetic harness accepts `DSVERT_GRID_VALIDATION_STATE_PARENT`; the pod runner uses local `/tmp/dsvert-crossowner-v2-state` (verified 0700). This holds only ephemeral identities, shares, synthetic oracle inputs and stores, removed by the harness on exit. Source and public evidence remain under `/workspace/dsvert/crossowner-v2`. No production path or arithmetic ABI changes.

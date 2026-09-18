@@ -319,3 +319,14 @@ needed. These measurements cover the grid kernel and globally calibrated
 do not measure DataSHIELD framing or the catalog's additional count coordinate.
 Those remain separately identified wiring costs, never silently folded into
 the measured figures.
+
+### Completed n2000 pod measurements (2026-09-18T17:33Z)
+
+Both families use p10/grid50, 441 batches and four peer pairs. Integer and joint-DP oracle equality PASS. Raw evidence: `inst/cross-grid-v2/pod-full-n2000.log`.
+
+| Family | Total two-direction bytes | Compile / kernel / noise seconds | Total seconds | Fused AND/evaluation |
+|---|---:|---:|---:|---:|
+| Binomial | 18,085,815,835 | 84.344 / 314.840 / 231.637 | 630.821 | 4289.114 |
+| Poisson | 22,172,826,365 | 115.609 / 412.277 / 216.392 | 744.277 | 5551.050 |
+
+Scope remains kernel plus 50-candidate joint noise, excluding R authentication, catalog count and DataSHIELD framing.

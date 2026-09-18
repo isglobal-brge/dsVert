@@ -255,7 +255,7 @@
     invalid_time_order = "terminal_sentinel_then_aligned_slot_index_v1",
     signed_zero = "canonical_positive_zero_v1",
     padding = "always_invalid_zero_eta_zero_event_v1",
-    intermediate_output = "fresh_additive_shares_every_lane_every_chunk_v1")
+    intermediate_output = "private_share_state_with_authenticated_chunk_receipts_v2")
 }
 
 .dsvert_dp_cox_grid_cross_artifact <- function(spec) {
@@ -269,14 +269,18 @@
     sensitivity = spec$sensitivity,
     numeric_contract_sha256 = .dsvert_joint_dp_hash(spec$numeric_contract),
     private_layout_sha256 = .dsvert_joint_dp_hash(.dsvert_dp_cox_grid_cross_layout(spec)),
-    transcript = list(version = "dsvert-cox-cross-fixed-transcript-v1",
+    transcript = list(version = "dsvert-cox-cross-fixed-transcript-v2",
       operation = "dp.cox-grid-cross.v1", padded_units = spec$padded_capacity,
       candidate_count = length(spec$beta_grid), row_batch_size = 32,
-      permutation_switch_batch_size = 64,
+      permutation_count = 1, packed_columns = length(spec$beta_grid) + 2,
+      ot_word_batch_size = 4096,
       candidate_batch_size = 1,
-      traversal = "candidate_prepare_permute_forward_reverse_finalize_v1",
-      schedule_version = "cox-breslow-chunks-v1",
-      boundary_state = "prefix_W_reverse_H_L_never_reset_at_chunks_v1",
+      traversal = "packed_permute_then_candidate_exp_share_prefix_ot_ties_log_share_sum_finalize_v2",
+      schedule_version = "cox-packed-ot-prefix-shares-v2",
+      boundary_state = "ring64_prefix_tie_loss_shares_with_keyed_receipts_v2",
+      framing = "fixed-topology-framing-v1",
+      event_count_oblivious = TRUE,
+      log_rows = "all_public_padded_slots_private_event_mask_v2",
       output = "two_authority_additive_candidate_sum_shares_only_v1"),
     result_evidence_required = TRUE,
     implementation_state = "cross_owner_exact_gc_contract_only",

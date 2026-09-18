@@ -27,3 +27,31 @@ existing inventory suite and the Cox contract suite pass together after this
 change (39 Cox expectations). INTEGRATION_COX.md lists the exact public-export
 registration that remains. This supersedes the initial single-export decision;
 the final diff contains only new family files in both repositories.
+
+## 2026-09-18 resumed — revised clauses 4 and 5
+
+Both repositories were clean. The prior whole-envelope gate is superseded.
+Restructuring uses one packed Ring128-share permutation per release, local
+Ring64 prefix/loss sums, OT private tie selection, scalar-only profile batches,
+and the topology-bound compact framing from fetched step-2 commit 0006f1a.
+Private event counts require padded log batches. Authentication/fusion remains
+the step-2 integration boundary; no plaintext or production fallback is added.
+
+The OT switch sender retains -r and sends (r, r + right - left) with checked
+COT; the outcome owner selects its private routing bit and locally routes its
+own shares. Both update the two outputs by +/- their selected-difference share.
+The original Beneš topology/control numbering is unchanged; disjoint switches
+are batched in public layers. All J joined f100 dots, live and event are packed
+in one row, so there is exactly one permutation invocation per release.
+
+A reverse doubling scan selects the last prefix in each private time tie using
+OT on shares; ties spanning chunks are not opened or approximated. Logs run on
+ALL public padded slots, with private live/event masking. Running only a public
+number of actual events would disclose that number. Prefix and loss additions
+use local modulo-2^64 arithmetic with the existing no-wrap certificate.
+
+The initial encrypted regression exposed a legacy helper named
+uint128FromLabel that silently truncates to Ring127. The additive Cox decoder
+reads all 128 label bits directly; the shared helper is untouched. Exp consumes
+the frozen Ring128 ABI but remasks only Ring64 outputs (public-zero upper words),
+which preserves the exact integer result and avoids unnecessary mask gates.

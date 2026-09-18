@@ -112,3 +112,32 @@ Final functional commits:
 Subsequent commits record this handoff and check evidence only. Both final diffs
 against server 38146c0 / client cb26ecd contain only new family files. No existing
 file is modified after removal of our own temporary NAMESPACE export.
+
+## 2026-09-18 resumed — revised clauses 4 and 5
+
+Both repositories were clean. The prior whole-envelope gate is superseded.
+Restructuring uses one packed Ring128-share permutation per release, local
+Ring64 prefix/loss sums, OT private tie selection, scalar-only profile batches,
+and the topology-bound compact framing from fetched step-2 commit 0006f1a.
+Private event counts require padded log batches. Authentication/fusion remains
+the step-2 integration boundary; no plaintext or production fallback is added.
+
+### Clause-5 implementation checkpoint
+
+New family-only Go files implement compact topology-bound framing, packed
+Ring128 Beneš routing through checked OT, Ring64 prefix/loss additions, private
+OT tie-denominator selection, scalar exp/log batches, and keyed chunk receipts.
+The single registration now exposes SharedPlan, SharedCompile and RunShares;
+legacy Plan/Compile are retained for reference regression only.
+
+Targeted local shared-profile, topology/plan and compact-digest tests pass.
+The two-peer encrypted synthetic 34-row/2-candidate run also passes the integer
+oracle on the pod: 33 chunks, 33,725,420 two-direction bytes, 122.876 s cold
+compilation + 12.327 s online (135.203 s total). This is kernel evidence, NOT
+an authenticated source-to-joint-DP release. Nine requested envelope shapes
+are now running under /workspace/dsvert/cox/envelope-v2/; no capacity is admitted
+until their completed measurements are reviewed.
+
+R transcript v2 and canonical parity checks pass: server 626 expectations,
+client 39. The default targeted client invocation skipped the explicitly tagged
+DSLite fixture; its final run will supply the test-only executable.

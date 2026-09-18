@@ -6,7 +6,8 @@ Entry points:
 - Server `.dsvert_register_grouped_cross()` returns spec/contract/artifact/source
   builders and a fail-closed materializer (`production_enabled=FALSE`).
 - Go `registerGroupedLMM()`, `registerGroupedGLMMLoss()`, `registerGroupedGEE()`
-  return typed cluster compilers; no generic nonlinear RPC or CLI is registered.
+  return typed internal composition registries (with explicit legacy prototypes);
+  no generic nonlinear RPC or CLI is registered.
 - Client `.dsvert_dp_grouped_grid_cross_register()` supplies validators and
   postprocessing; public dp_lmm_grid/dp_glmm_grid/dp_gee_grid are exported.
   The reader always fails closed.
@@ -15,14 +16,14 @@ Required wiring, in order:
 1. Scalar <=5000-AND and outward coefficient gates now PASS (4f2d314).
    The old composed-GC traffic blocker is withdrawn under clause 5.
    Scalar-only compact chunks now pass with private guards/masks; see
-   BENCH_GROUPED_CLAUSE5.md. Complete exact two-authority share arithmetic
-   using the interface obligations in CLAUSE5_ARITHMETIC_GROUPED.md.
+   BENCH_GROUPED_CLAUSE5.md. The exact two-authority
+   product component is implemented; use the Addendum-3 interface below.
    Do not conflate a scalar gate pass with full-release admission.
    Complete GEE bread/meat error propagation; replace provisional R error=1.
-   Make Go/R caps identical: GLMM currently supplies a universal local cap,
-   R signs candidate-specific caps; GEE Go sums row-capped likelihood whereas
-   R signs a cluster cap. The fused adapter MUST enforce the final signed
-   cluster cap and map bread shifts/caps exactly before share accumulation.
+   GH5 Shares.FinalCompile now accepts the signed candidate cap; its legacy
+   compiler still uses a universal prototype cap. GEE legacy Go sums row-capped
+   likelihood whereas R signs a cluster cap. The fused adapter MUST enforce
+   the signed cluster cap and map bread shifts/caps before share accumulation.
 2. Validate both owner signatures, policy, PSI source, complete predictor dot
    at f100, clipping/encoding, grouping ownership, one-row/patient rule,
    no-eviction capacities, stable original AR1 slot distances and private
@@ -66,9 +67,9 @@ client reader still reject every protected invocation. No callback injection,
 synthetic evaluator, environment flag or artifact state bypass is provided.
 
 Clause-5 additions (a5c7dc2): internal groupedScalarCompile,
-groupedShareBlockSums, groupedCompactRunGarbler/Evaluator. Existing family
-registrations still return legacy cluster prototypes; do not dispatch them
-as the new share-composed producer. New scalar chunks retain q16 profile
+groupedShareBlockSums, groupedCompactRunGarbler/Evaluator. Family registrations now expose share-composition
+components plus explicitly identified legacy prototypes; do not dispatch the
+legacy fields as the new share-composed producer. New scalar chunks retain q16 profile
 semantics and include private validity. They do not perform Ring128/f100
 conversion, secure products, private masking, signed caps or release fusion.
 No new production operation is registered. Compact engine import is exactly

@@ -11,7 +11,7 @@
 .synopsis_exact_required <- c(".dsvert_dp_synopsis_execution_exact_gc_roles_v1",
   ".dsvert_dp_synopsis_execution_exact_gc_operation_v1")
 .synopsis_exact_require <- function() {
-  present <- vapply(.synopsis_exact_required, exists, logical(1L), mode = "function", inherits = TRUE)
+  present <- vapply(.synopsis_exact_required, exists, logical(1L), mode = "function", envir = asNamespace("dsVert"), inherits = FALSE)
   skip_if_not(all(present), paste("RED: missing", paste(
     .synopsis_exact_required[!present], collapse = ", ")))
 }
@@ -196,7 +196,7 @@ test_that("the remote exact-GC START response exposes only public liveness", {
 
 test_that("synopsis exact-GC adds only dedicated internal adapters", {
   present <- vapply(.synopsis_exact_required, exists, logical(1L),
-    mode = "function", inherits = TRUE)
+    mode = "function", envir = asNamespace("dsVert"), inherits = FALSE)
   expect_true(all(present), info = paste(
     "missing", paste(.synopsis_exact_required[!present], collapse = ", ")))
   if (all(present)) {

@@ -616,3 +616,7 @@ Full Go suite and server R CMD check started from the frozen archive. Server sta
 ## 2026-09-18T20:46Z — client full-suite result and targeted corrections
 
 Client R CMD check completed: **25,476 PASS / 4 FAIL / 45 SKIP**, testthat warnings 0; package check has 1 ERROR and 3 WARNING categories. Failures are missing shared inventory/explicit retry entries for the new route; corrected targeted audit passes **99 assertions** (`dsVertClient/inst/cross-grid-v2/check-inventories-targeted.log`). Two stale transport Rd files are regenerated. Two pre-existing packaging warnings await a narrowly scoped user decision; patch is prepared. Full server and Go suites remain running.
+
+## 2026-09-18T20:50Z — real transport regression rerun passes
+
+Two previously failing transport tests now pass **1213 assertions** with `NOT_CRAN=true`, after fixture metadata corrections only. Installed namespace-audit corrections are passing on the pod; the remaining START cases are still running. First client check/test logs are retained as `check-client-first.log` and `check-client-tests-first.log`. The n2000 production campaign passed 32 matching batch records per authority; no completed required DP release yet. Pod memory use ~11.8 GB; prior memory-failure counter remains 14 (unchanged).

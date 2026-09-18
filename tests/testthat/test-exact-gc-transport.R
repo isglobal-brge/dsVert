@@ -896,6 +896,10 @@ test_that("dynamic exact truncation and count guard complete over opaque spools"
           policy, manifest_json, source_contract = NULL) {
         parsed
       },
+      .dsvert_dp_gaussian_cross_layout = function(manifest) list(
+        enabled = TRUE, private_start = 2, transport_coordinate_count = 2,
+        blocks = list(private = list(start = 2, end = 2, length = 1,
+          input_family = "gaussian"))),
       .package = "dsVert")
   }
   run_alignment_terminal <- function(run, k, token, expected_state) {
@@ -933,6 +937,9 @@ test_that("dynamic exact truncation and count guard complete over opaque spools"
       batch$contract_hash <- contract_hash
       batch$source_count <- k
       batch$total <- as.numeric(2)
+      batch$projection_version <- "full-v1"
+      batch$source_offset <- 0
+      batch$alignment_contract <- .DSVERT_DP_ALIGNMENT_MASK_FULL_CONTRACT
       batch$chunk_count <- 1L
       batch$chunk_size <- .dsvert_dp_alignment_mask_chunk_size(k)
       batch$peer_binding_digest <- ss$.exact_gc_peer_binding_digest
@@ -3427,6 +3434,7 @@ test_that("checked vecmul contracts cover 4096/4097 and recompose 17 chunks", {
   make_contracts <- function(total_n) {
     contract_ss$.exact_gc_vecmul_input_stages[[batch]] <- list(
       state = "staged", total_n = total_n, policy_id = policy_id,
+      producer = "legacy.remote-slot-bind.v2",
       context_hash = strrep("b", 64L), plan = plan)
     count <- as.integer(ceiling(
       total_n / plan$max_chunk))

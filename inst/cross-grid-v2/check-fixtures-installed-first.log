@@ -1,0 +1,50 @@
+dp-count-execution: .........................................................................................................................................
+dp-gaussian-cross: .......................................
+dp-glm-grid-cross-contract: ....................................................................................................................................................................................................................................................................................................
+dp-synopsis-artifact: .........................................................
+dp-synopsis-exact-gc: ......1....SSS....SS
+dp-synopsis-execution-safety: ..................
+dp-synopsis-execution: 2S..SSS.....S
+
+══ Skipped ═════════════════════════════════════════════════════════════════════
+1. pinned exact-GC roles and operation are authority-only for K=2/3/5 ('test-dp-synopsis-exact-gc.R:264:3') - Reason: RED: missing .dsvert_dp_synopsis_execution_exact_gc_roles_v1, .dsvert_dp_synopsis_execution_exact_gc_operation_v1
+
+2. exact-GC normalizes the local Ed25519 public-key encoding ('test-dp-synopsis-exact-gc.R:346:3') - Reason: RED: missing .dsvert_dp_synopsis_execution_exact_gc_roles_v1, .dsvert_dp_synopsis_execution_exact_gc_operation_v1
+
+3. exact-GC accepts canonical list-shaped Synopsis authority roles ('test-dp-synopsis-exact-gc.R:372:3') - Reason: RED: missing .dsvert_dp_synopsis_execution_exact_gc_roles_v1, .dsvert_dp_synopsis_execution_exact_gc_operation_v1
+
+4. exact-GC START initializes after CAS and never writes LOCAL ('test-dp-synopsis-exact-gc.R:424:3') - Reason: RED: missing .dsvert_dp_synopsis_execution_exact_gc_roles_v1, .dsvert_dp_synopsis_execution_exact_gc_operation_v1
+
+5. exact-GC RESULT commits authenticated LOCAL before consume ('test-dp-synopsis-exact-gc.R:602:3') - Reason: RED: missing .dsvert_dp_synopsis_execution_exact_gc_roles_v1, .dsvert_dp_synopsis_execution_exact_gc_operation_v1
+
+6. the dedicated synopsis execution API is explicit and minimal ('test-dp-synopsis-execution.R:65:3') - Reason: RED: dedicated synopsis execution API is absent
+
+7. PREPARE is authority-only for K=2/3/5 and signs a closed receipt ('test-dp-synopsis-execution.R:99:3') - Reason: RED: missing .dsvert_dp_synopsis_execution_context_v1, .dsvert_dp_synopsis_execution_prepare_v1, .dsvert_dp_synopsis_execution_store_path_v1, .dsvert_dp_synopsis_execution_with_store_v1, .dsvert_dp_synopsis_execution_transaction_v1, .dsvert_dp_synopsis_execution_artifact_load_v1, .dsvert_dp_synopsis_execution_start_claim_v1
+
+8. PREPARE reads installed auth but no evidence, source, store or RNG ('test-dp-synopsis-execution.R:150:3') - Reason: RED: missing .dsvert_dp_synopsis_execution_context_v1, .dsvert_dp_synopsis_execution_prepare_v1, .dsvert_dp_synopsis_execution_store_path_v1, .dsvert_dp_synopsis_execution_with_store_v1, .dsvert_dp_synopsis_execution_transaction_v1, .dsvert_dp_synopsis_execution_artifact_load_v1, .dsvert_dp_synopsis_execution_start_claim_v1
+
+9. sticky contract survives sessions and operational replanning ('test-dp-synopsis-execution.R:191:3') - Reason: RED: missing .dsvert_dp_synopsis_execution_context_v1, .dsvert_dp_synopsis_execution_prepare_v1, .dsvert_dp_synopsis_execution_store_path_v1, .dsvert_dp_synopsis_execution_with_store_v1, .dsvert_dp_synopsis_execution_transaction_v1, .dsvert_dp_synopsis_execution_artifact_load_v1, .dsvert_dp_synopsis_execution_start_claim_v1
+
+10. the dedicated START claim is first-win and attempt-bound ('test-dp-synopsis-execution.R:287:3') - Reason: RED: missing .dsvert_dp_synopsis_execution_context_v1, .dsvert_dp_synopsis_execution_prepare_v1, .dsvert_dp_synopsis_execution_store_path_v1, .dsvert_dp_synopsis_execution_with_store_v1, .dsvert_dp_synopsis_execution_transaction_v1, .dsvert_dp_synopsis_execution_artifact_load_v1, .dsvert_dp_synopsis_execution_start_claim_v1
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Failure ('test-dp-synopsis-exact-gc.R:200:3'): synopsis exact-GC adds only
+Expected `all(present)` to be TRUE.
+Differences:
+`actual`:   FALSE
+`expected`: TRUE 
+
+missing .dsvert_dp_synopsis_execution_exact_gc_roles_v1, .dsvert_dp_synopsis_execution_exact_gc_operation_v1
+
+── 2. Failure ('test-dp-synopsis-execution.R:63:3'): the dedicated synopsis exec
+Expected `all(present)` to be TRUE.
+Differences:
+`actual`:   FALSE
+`expected`: TRUE 
+
+missing .dsvert_dp_synopsis_execution_context_v1, .dsvert_dp_synopsis_execution_prepare_v1, .dsvert_dp_synopsis_execution_store_path_v1, .dsvert_dp_synopsis_execution_with_store_v1, .dsvert_dp_synopsis_execution_transaction_v1, .dsvert_dp_synopsis_execution_artifact_load_v1, .dsvert_dp_synopsis_execution_start_claim_v1
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+Error:
+! Test failures.
+Execution halted

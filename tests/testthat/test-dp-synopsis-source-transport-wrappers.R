@@ -13,8 +13,7 @@
   ".dsvert_dp_synopsis_source_transport_prepare_v1",
   ".dsvert_dp_synopsis_source_transport_chunk_v1")
 .synopsis_wrapper_available <- function() all(vapply(
-  .synopsis_wrapper_symbols, exists, logical(1L), mode = "function",
-  inherits = TRUE))
+  .synopsis_wrapper_symbols, exists, logical(1L), mode = "function", envir = asNamespace("dsVert"), inherits = FALSE))
 
 .synopsis_wrapper_authority_mock <- function(
     fixture, peer, output, state, label) {
@@ -37,8 +36,7 @@
 
 test_that("synopsis source wrappers expose only the closed internal ABI", {
   available <- vapply(
-    .synopsis_wrapper_symbols, exists, logical(1L), mode = "function",
-    inherits = TRUE)
+    .synopsis_wrapper_symbols, exists, logical(1L), mode = "function", envir = asNamespace("dsVert"), inherits = FALSE)
   for (index in seq_along(available)) {
     expect_true(available[[index]], info = paste(
       "missing", .synopsis_wrapper_symbols[[index]]))

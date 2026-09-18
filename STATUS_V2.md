@@ -15,3 +15,92 @@ without modifying the other lanes present on the pod.
 Current milestone: certify and cost the replacement piecewise polynomial.
 No production release route has been enabled. Full suites will run only after
 implementation is frozen; development uses targeted checks.
+
+## 2026-09-18T13:05Z — numerical component and protocol probe
+
+Completed a test-only arithmetic/cost experiment, not the fused producer.
+The reproducible interval generator emits 30 candidate quadratic profiles,
+shared integer fixtures, log-factorial tables and proposed envelope caps.
+The original q64 profile, signed contract, source ABI and both release
+allowlists remain unchanged. New candidates are explicitly rejected by V1.
+
+Verification commands, from the package root unless stated otherwise:
+
+```
+python3 inst/cross-grid-v2/generate_profile.py --check
+Rscript inst/cross-grid-v2/validate_profile.R
+(cd inst/dsvert-mpc && go test -run '^TestCrossGrid(V1|PWV2)' -count=1 -json)
+# From the workspace, for each package name:
+PROCESSX_NOTIFY_OLD_SIGCHLD=true Rscript -e 'r <- testthat::test_local("dsVert", filter="dp-glm-grid-cross", reporter="silent", stop_on_failure=FALSE, stop_on_warning=FALSE); d <- as.data.frame(r); print(colSums(d[,c("nb","failed","skipped","error","warning","passed")]))'
+Rscript inst/cross-grid-v2/benchmark_profile.R .
+```
+
+| Targeted gate | Before (V1 focused record) | After Mac | Fail/error/skip |
+|---|---:|---:|---:|
+| Go top-level tests | 8 | 14 | 0 |
+| Go tests including subtests | 13 | 65 | 0 |
+| Server R cross contract + integer assertions | 353 | 353 | 0 |
+| Client R cross contract + integer + sensitivity assertions | 522 | 522 | 0 |
+
+New arithmetic checks additionally cover 4290 shared integer vectors, 491550
+dense points in each of R and Go, 990 independent high-precision comparisons,
+1200 synthetic vector-adjacency checks, all 65536 uint8 optimizer input pairs,
+and 16 real two-authority nonlinear evaluations. These are not DP releases.
+Raw evidence is in `inst/cross-grid-v2/`; the three layer reports enumerate
+exactly what has and has not been checked.
+
+The K=64 component benchmark reports 2773–4019 AND gates/evaluation,
+144–198 KB total protocol bytes/evaluation, 29–31 ms/evaluation on the Mac
+and 268–398 ms/evaluation across the recorded pod runs. See BENCH_V2 for the
+full per-family/domain table, public-size projections and timing limitations.
+The cost gate FAILS. Full-domain Poisson's large certified interpolation error
+also prevents claiming the required production utility gate.
+
+The first pod archive extraction printed ownership/xattr warnings. Contents
+were written successfully; matching SHA256 manifests subsequently verified
+all three new Go sources and the profile fixture before accepting pod evidence.
+Other pod lanes were not modified. No layout/tooling decision required user
+input.
+
+The initial expanded pod targeted run omitted `inst/cross-grid-v1` from the
+probe export: all six new tests passed, while seven V1 tests failed on missing
+fixture files. That log is preserved as `go-pod-missing-fixtures.jsonl`.
+Copied the unchanged V1 fixture directory and reran the same targeted command;
+this is an export-layout correction, not a code or expectation change.
+
+## 2026-09-18T13:08Z — final checkpoint: NOT DONE
+
+The corrected pod export passes 14 Go top-level tests / 65 including subtests,
+zero failures or skips. The pod also reproduces the interval certificate and
+passes the pure-R fixture, dense and sensitivity checks. Evidence:
+`go-pod-targeted.jsonl` and `r-pod-profile.log`. Pod runs used Go 1.25.7 and
+R 4.6.1; Mac runs used Go 1.25.7 and R 4.5.2.
+
+| Requested deliverable | Completion at this checkpoint |
+|---|---|
+| 1. Fused typed Go kernel + joint noise/release | NOT DONE. Certified test-only nonlinear candidates and real Yao/KOS component comparisons exist; measured candidate fails cost gate. |
+| 2. Full Mac/pod n,p,grid benchmark matrix | NOT DONE. Component probes, actual gates/bytes and explicitly labelled projections recorded in BENCH_V2. |
+| 3. Server materializer/release lifecycle | NOT DONE. No production route or state was changed. |
+| 4. Client cross-owner routes/DP selection | NOT DONE. Client remains at `cb26ecd`, clean. |
+| 5. Layered E2E/selection/check campaign | NOT DONE. Component evidence only; 120 oracle DP selections, 12 DSLite releases, direct callr lifecycle, full suites and R CMD check remain unrun. |
+| 6. Production API documentation | NOT DONE. Development/evidence docs supplied; no API changes to document or version bump to make. |
+
+Commits on server `feature/cross-owner-grids`:
+
+- `50948c4`: resumed scope and arithmetic-gate decisions.
+- `2ba2eba`: interval profiles, independent references, component circuit and
+  real-protocol tests, layer-specific evidence and explicit admission exclusion.
+- `c10bc0d`: Mac/pod benchmark driver, raw logs, matching source hashes, failed
+  cost gate and corrected pod targeted-suite evidence.
+- This final STATUS-only checkpoint is identified by `git log -1 -- STATUS_V2.md`.
+
+Reproduction is in BENCH_V2 and `inst/cross-grid-v2/README.md`. The pod export is
+`/workspace/dsvert/crossowner-v2/dsVert`; logs are in its sibling `logs/` directory.
+No full-suite pass, pre-existing NOTE classification, exact grid release,
+selection agreement, 30-minute workload result or promotion is claimed.
+
+Remaining first step: obtain an arithmetic design satisfying BOTH the cost and
+production utility gates, with a new certificate, before binding the new profile
+into the frozen source/release lifecycle. This is unfinished implementation,
+not a missing user decision or unavailable tool; no BLOCKED_V2 file is created.
+No tags, remotes, existing production code or client files were modified.

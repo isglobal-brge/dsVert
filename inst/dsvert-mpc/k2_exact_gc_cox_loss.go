@@ -148,7 +148,7 @@ type coxLossRegistration struct {
 // ONE registration function is the integration entry. No init/main/RPC entry
 // exposes either arbitrary kernels or plaintext evaluation in production.
 func registerCoxGridCrossLoss() coxLossRegistration {
-	return coxLossRegistration{Version: coxGridCrossVersion, Plan: coxLossPlan, Compile: coxLossCompileChunk, SharedPlan: coxLossPlanShares, SharedCompile: coxLossCompileShares, RunShares: coxLossRunShares}
+	return coxLossRegistration{Version: coxGridCrossVersion, Plan: coxLossPlan, Compile: coxLossCompileChunk, SharedPlan: coxLossAdmittedPlan, SharedCompile: coxLossAdmittedCompile, RunShares: coxLossAdmittedRun}
 }
 
 // Pure public cap arithmetic, mirrored in R. All divisions are outward and

@@ -195,3 +195,11 @@ family-kernel reports with all candidate coordinates equal to the integer oracle
 The larger five points are still pending; no final admission is selected.
 The isolated synopsis-artifact suite passes on BOTH current and primitive
 baseline sources; full installed-server check failures remain under investigation.
+
+Signed public resource admission is now implemented conservatively at the
+largest COMPLETED point so far (2000 rows x 50 candidates). This is provisional
+until all nine probes finish. Both R validators rebuild the admission metadata;
+Go's registered SharedPlan/SharedCompile/RunShares reject excess dimensions
+before compilation, I/O or source use. The internal measurement runner retains
+the theoretical envelope to measure inadmissible points. Targeted Go admission
+and both R Cox contract suites pass, including tampering re-signed by both peers.

@@ -214,6 +214,7 @@
       design_terms = as.list(predictors), intercept = FALSE,
       beta_grid = beta, beta_encoded = encoded,
       candidate_order = as.list(vapply(beta, .dsvert_joint_dp_hash, character(1L))),
+      resource_admission = .dsvert_dp_cox_grid_cross_admission(capacity, length(beta)),
       observation_capacity = capacity, padded_capacity = 2^ceiling(log2(capacity)),
       numeric_grid_bits = bits, adjacency = policy$adjacency, alignment = alignment,
       ties = "breslow", time_semantics = "bounded_observed_binary64_v1",

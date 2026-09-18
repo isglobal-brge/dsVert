@@ -172,3 +172,52 @@ measurements from projections, including the small remaining Poisson byte budget
 No production dispatch, server/client route, same-owner R path, tag or remote
 was changed. The shared Go protocol core changed only through opt-in framing;
 its legacy entry points and targeted tests retain prior behavior.
+
+## 2026-09-18T13:39Z — final checkpoint: NOT DONE
+
+This resume completes a certified range-reduced Poisson candidate, exact
+arithmetic/component tests, synthetic pooled objective comparisons and measured
+Mac/pod compact-transport probes. It does **not** complete Task V1 / Step 2.
+There is no external blocker or unanswered question; remaining work is unfinished
+engineering. No BLOCKED_V2.md is created and no promotion is requested.
+
+| Deliverable | Done / not done |
+|---|---|
+| 1. Fused typed kernel + joint DP release | **NOT DONE.** Nonlinear candidates, Go/R oracles and real two-authority component tests pass. Complete f100 source/predictor, private alignment/validity, bounded outcomes/log-factorial, clamped candidate sums, signed new-profile admission and joint noise/release are absent. |
+| 2. Full n,p,grid Mac/pod benchmark matrix | **NOT DONE.** Scalar/batch32 component measurements and source hashes are recorded. No full-size release, measured 60-GB gate or measured 30-minute workload result. |
+| 3. Server materializer and release lifecycle | **NOT DONE.** No server R dispatch/state change; direct callr admission/sticky/exactly-once/crash tests remain unrun. |
+| 4. Client routes and DP-best selection | **NOT DONE.** dsVertClient remains clean at cb26ecd; cross-owner release is not enabled. |
+| 5. Layered validation and package checks | **NOT DONE.** Layer-1 candidate arithmetic/pooled glm and Layer-2 component tests pass. Production-bound mathematics, full secure integer/lifecycle, 120 oracle DP selections, 12 real DSLite releases, full suites and R CMD check remain unrun. |
+| 6. Production API documentation | **NOT DONE.** Candidate proof and evidence docs updated only. No production R functions changed, no roxygen/API-state claim and no NEWS/DESCRIPTION version bump. |
+
+Exact implementation/evidence commits on dsVert feature/cross-owner-grids:
+
+- b270ebe — resume and revised cost gate.
+- 2751630 — certified range-reduced Poisson and exact R/Go/circuit arithmetic.
+- 0006f1a — opt-in topology-bound framing, both batched components and pooled R objective tests.
+- 699636e — final matching Mac/pod evidence and measured component benchmark report.
+- This STATUS-only checkpoint is identified by `git log -1 -- STATUS_V2.md`.
+
+Reproduction, from dsVert:
+
+```
+python3 inst/cross-grid-v2/generate_exp_reduced.py --check
+Rscript inst/cross-grid-v2/validate_pooled_objective.R
+(cd inst/dsvert-mpc && go test -run '^(TestCrossGridExpReducedV2|TestCrossGridBinomialV2BatchProtocol$|TestExactGCProtocolEndToEnd$|TestExactGCProtocolFreshArithmeticShares$|TestExactGCSecureRecords)' -json -count=1)
+Rscript inst/cross-grid-v2/benchmark_exp_reduced.R .
+```
+
+The pooled driver also checks both profile arithmetic oracles. Pod reproduction
+uses the nohup command in BENCH_V2 and the matching-source export at
+`/workspace/dsvert/crossowner-v2/dsVert`. Final raw pod logs are committed in
+`inst/cross-grid-v2/pod-exp-reduced/`; all selected tests pass 14 top-level /
+32 including subtests on both machines. Historical V1 full-suite uncertainties
+have not been relabelled as passes or pre-existing R CMD check NOTEs.
+
+Resume with the full fused source/loss kernel and explicit signed admission for
+the new certified profile identities, retaining the old V1 contracts unchanged.
+Then measure the full release's traffic/time, integrate the authenticated server
+and client lifecycle, and execute the outstanding layer-2/layer-3/DSLite gates.
+The nonlinear design no longer needs another wide-domain Poisson interpolation
+experiment; the full release budget still requires measurement. No tags or
+remote branches were modified; nothing was pushed.

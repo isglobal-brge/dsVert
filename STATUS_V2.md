@@ -435,3 +435,10 @@ campaign now runs n10000 before n2000. No successful full-size run is repeated.
 ## 2026-09-18T16:26Z — typed worker wiring
 
 Authenticated start uses server-minted typed state keys. A source/base64 mismatch found by the real DSLite harness is corrected at staging (including the private output mask seed); final stored shares use the same strict worker encoding. Targeted server contract file: **252 assertions, 0 failures/errors** (`staging-targeted.log`). Real DSLite completion remains pending. Packaged Go binaries rebuilt with the repository Makefile for all four supported platforms.
+
+## 2026-09-18T16:43Z — scoped one-draw sampler correction
+
+- The n=4 DSLite grid computation and DP publication completed, but the independent oracle gate rejected it: the legacy policy used convolution and the catalog added numeric moments. This is explicitly **not** a qualifying wiring release.
+- Corrected both new-family-only paths: count-plus-grid catalog and explicit <=51-coordinate joint exact-GC policy, using globally calibrated noise chunks. Existing sampler default remains dimension 1.
+- Targeted server contract + exact-noise adapter: **337 assertions, 0 failures/errors**. Client exact-noise + Synopsis adapter: **98 assertions, 0 failures/errors**, including legacy geometry and partial noise chunks. Fresh real/oracle smoke runs are in progress.
+- Remaining pod matrix queued under nohup PID 366920 after `FULL_MEASUREMENT_POD_DONE`; it excludes the already measured n10000/p10/grid50 configuration. No benchmark source is overwritten.

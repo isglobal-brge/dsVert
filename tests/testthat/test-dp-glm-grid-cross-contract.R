@@ -394,7 +394,7 @@ test_that("piecewise source projection preserves frozen f50/f0 slots", {
   }
 })
 
-.cross_grid_materializer_fixture <- function() {
+.cross_grid_materializer_fixture <- function(catalog = FALSE) {
   fixture <- .cross_grid_contract_fixture("binomial", bits = 16, capacity = 4)
   policy <- fixture$policy
   policy$domain <- "cross-grid-test"
@@ -410,6 +410,9 @@ test_that("piecewise source projection preserves frozen f50/f0 slots", {
   policy$contingency_unit_aggregation_policy <- "consistent_cell_else_exclude_v1"
   policy$numeric_bounds <- list(x = c(-2, 4), y = c(0, 1))
   policy$categorical_levels <- list()
+  if (catalog) policy$capsule_workload_scope <- list(mode = "catalog_v1",
+    numeric_moments = character(), categorical_marginals = character(),
+    categorical_pairs = list(), correlations = list())
   policy$datasets <- list(cohort = list(id = "cohort", version = "v1",
     snapshot_sha256 = NULL, alignment_manifest_hash = NULL,
     alignment_manifest_version = 1L))
@@ -455,6 +458,26 @@ test_that("grid staging uses the exact worker wire encoding and stable keys", {
   expect_identical(.dsvert_dp_glm_grid_cross_prepare(f$policy, as.raw(1:32),
     ss, "grid", 1), receipt)
   expect_identical(ss$.exact_gc_inputs[[receipt$source_key]], source)
+})
+
+test_that("only the signed grid catalog selects the expanded joint-GC policy", {
+  f <- .cross_grid_materializer_fixture(catalog = TRUE)
+  legacy <- .dsvert_joint_dp_vector_public_backend_choice(4)
+  expect_false(legacy$promoted)
+  expect_equal(legacy$maximum_promoted_coordinates, 1)
+  policy <- .dsvert_dp_glm_grid_cross_noise_policy(f$manifest)
+  expect_identical(policy, "dsvert-cross-grid-exact-gc-cost-policy-v2")
+  selected <- .dsvert_joint_dp_vector_public_backend_choice(4, policy)
+  expect_true(selected$promoted)
+  expect_equal(selected$maximum_promoted_coordinates, 51)
+  expect_error(.dsvert_joint_dp_vector_public_backend_choice(52, policy),
+    "certified envelope")
+  expect_error(.dsvert_joint_dp_vector_public_backend_choice(4, "unknown"),
+    "Invalid exact-GC cost policy")
+  plan <- .dsvert_dp_synopsis_physical_plan_v1(f$policy, f$manifest)
+  expect_identical(plan$profile$backend, .DSVERT_JOINT_DP_VECTOR_EXACT_GC_BACKEND)
+  expect_identical(plan$backend_selection$policy_version, policy)
+  expect_equal(plan$full_plan$total_coordinate_count, 4)
 })
 
 test_that("cross-grid workload admission and source contracts bind the new projection", {

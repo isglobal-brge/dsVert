@@ -2838,6 +2838,9 @@
         if (sum(matches) != 1L) .dsvert_dp_glm_grid_cross_fail()
         names(columns)[which(matches)]
       }, character(1L))
+      # This typed producer carries its own private source blocks. Referencing
+      # a covariate must not add unrelated public moment coordinates.
+      next
     }
     if (spec$kind %in% c("gaussian_ar1_working_gls_grid",
                          "gaussian_ar1_robust_working_gls_grid")) {

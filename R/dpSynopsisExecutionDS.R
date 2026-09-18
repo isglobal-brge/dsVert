@@ -133,6 +133,8 @@
       physical$full_plan$maximum_chunk_coordinates,
       "synopsis exact-GC chunk capacity", 1L, 128L))
     required <- min(.DSVERT_DP_SYNOPSIS_EXACT_CHUNK_COORDINATES, dimension)
+    if (identical(.dsvert_dp_glm_grid_cross_noise_policy(manifest),
+        "dsvert-cross-grid-exact-gc-cost-policy-v2")) required <- min(required, capacity)
     if (capacity < required) {
       stop("The synopsis exact-GC plan cannot serve canonical chunks.",
            call. = FALSE)
@@ -1452,13 +1454,15 @@
     context, prepares)
   physical <- context$authorization$artifact$physical_plan
   dimension <- context$contract$value$geometry$coordinate_count
-  choice <- .dsvert_joint_dp_vector_public_backend_choice(dimension)
+  cost_policy <- .dsvert_dp_glm_grid_cross_noise_policy(
+    .dsvert_dp_capsule_source_manifest(context$manifest_json))
+  choice <- .dsvert_joint_dp_vector_public_backend_choice(dimension, cost_policy)
   assessment <- .dsvert_joint_dp_vector_exact_gc_plan_assessment(
     context$authorization$manifest_sha256, context$vector$plan, choice)
   selection <- .dsvert_joint_dp_vector_exact_gc_selection(
     context$authorization$manifest_sha256, assessment)
   expected_selection <- .dsvert_dp_synopsis_backend_selection_v1(
-    context$vector$profile, dimension)
+    context$vector$profile, dimension, cost_policy)
   selection_agrees <- identical(selection$backend,
                                 expected_selection$backend) &&
     identical(selection$cost_policy_version,

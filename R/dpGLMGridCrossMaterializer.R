@@ -120,3 +120,10 @@
       !identical(value$spec$dataset, raw$dataset)) .dsvert_dp_glm_grid_cross_fail()
   value
 }
+
+# Scoped to signed new-family catalogs; sealed family choices retain policy v1.
+.dsvert_dp_glm_grid_cross_noise_policy <- function(manifest) {
+  if (length(.dsvert_dp_glm_grid_cross_artifacts(manifest))) {
+    "dsvert-cross-grid-exact-gc-cost-policy-v2"
+  } else .DSVERT_JOINT_DP_VECTOR_EXACT_GC_COST_POLICY_VERSION
+}

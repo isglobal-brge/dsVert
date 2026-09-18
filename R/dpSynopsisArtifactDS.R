@@ -177,7 +177,8 @@
     commitment_purpose = profile$commitment_purpose))
 }
 
-.dsvert_dp_synopsis_backend_selection_v1 <- function(profile, dimension) {
+.dsvert_dp_synopsis_backend_selection_v1 <- function(profile, dimension,
+    cost_policy_version = .DSVERT_JOINT_DP_VECTOR_EXACT_GC_COST_POLICY_VERSION) {
   if (isTRUE(profile$gaussian)) {
     return(.dsvert_dp_analysis_canonical_value_v1(list(
       version = "dsvert-stateless-catalog-synopsis-backend-selection-v1",
@@ -187,7 +188,7 @@
       selected_before_private_material = TRUE,
       retry_may_change_backend = FALSE)))
   }
-  choice <- .dsvert_joint_dp_vector_public_backend_choice(dimension)
+  choice <- .dsvert_joint_dp_vector_public_backend_choice(dimension, cost_policy_version)
   .dsvert_dp_analysis_canonical_value_v1(c(list(
     version = "dsvert-stateless-catalog-synopsis-backend-selection-v1",
     rule = "public_coordinate_ceiling_v1",
@@ -287,7 +288,8 @@
       total_coordinate_count = dimension)
   }
   choice <- if (gaussian) NULL else
-    .dsvert_joint_dp_vector_public_backend_choice(dimension)
+    .dsvert_joint_dp_vector_public_backend_choice(dimension,
+      .dsvert_dp_glm_grid_cross_noise_policy(manifest))
   profile <- .dsvert_joint_dp_vector_profile(
     mechanism, if (gaussian) NULL else choice$backend)
   plan <- .dsvert_joint_dp_vector_call_planner(
@@ -315,7 +317,7 @@
     profile = .dsvert_dp_synopsis_profile_v1(mechanism, profile$backend),
     lattice = lattice_identity,
     backend_selection = .dsvert_dp_synopsis_backend_selection_v1(
-      profile, dimension),
+      profile, dimension, .dsvert_dp_glm_grid_cross_noise_policy(manifest)),
     draw_law = draw_law,
     draw_law_sha256 = .dsvert_dp_synopsis_artifact_hash_v1(
       .DSVERT_DP_SYNOPSIS_DRAW_LAW_DOMAIN, draw_law)), projection)
@@ -608,7 +610,9 @@
   if (!identical(profile, .dsvert_dp_synopsis_profile_v1(
       profile$mechanism, profile$backend)) ||
       !identical(value$backend_selection,
-        .dsvert_dp_synopsis_backend_selection_v1(expected_raw, dimension))) {
+        .dsvert_dp_synopsis_backend_selection_v1(expected_raw, dimension,
+          value$backend_selection$policy_version %||%
+            .DSVERT_JOINT_DP_VECTOR_EXACT_GC_COST_POLICY_VERSION))) {
     stop("Invalid synopsis backend selection.", call. = FALSE)
   }
   request <- value$request
@@ -903,14 +907,15 @@
   dimension <- as.integer(validated$layout$coordinate_count)
   gaussian <- identical(mechanism, .DSVERT_JOINT_DP_GAUSSIAN_MECHANISM)
   backend <- if (gaussian) NULL else
-    .dsvert_joint_dp_vector_public_backend_choice(dimension)$backend
+    .dsvert_joint_dp_vector_public_backend_choice(dimension,
+      .dsvert_dp_glm_grid_cross_noise_policy(manifest))$backend
   profile <- .dsvert_joint_dp_vector_profile(mechanism, backend)
   expected_profile <- .dsvert_dp_synopsis_profile_v1(
     mechanism, profile$backend)
   expected_lattice <- .dsvert_dp_synopsis_lattice_v1(
     projection, validated, lattice)
   expected_selection <- .dsvert_dp_synopsis_backend_selection_v1(
-    profile, dimension)
+    profile, dimension, .dsvert_dp_glm_grid_cross_noise_policy(manifest))
   if (!identical(identity$profile, expected_profile) ||
       !identical(identity$lattice, expected_lattice) ||
       !identical(identity$backend_selection, expected_selection)) {

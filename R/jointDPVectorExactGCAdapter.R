@@ -58,17 +58,22 @@
 }
 
 .dsvert_joint_dp_vector_public_backend_choice <- function(
-    total_coordinate_count) {
+    total_coordinate_count, cost_policy_version =
+      .DSVERT_JOINT_DP_VECTOR_EXACT_GC_COST_POLICY_VERSION) {
+  maximum <- switch(cost_policy_version,
+    "dsvert-joint-dp-vector-exact-gc-cost-policy-v1" = 1L,
+    "dsvert-cross-grid-exact-gc-cost-policy-v2" = 51L,
+    stop("Invalid exact-GC cost policy.", call. = FALSE))
   total <- .dsvert_joint_dp_vector_exact_gc_integer(
     total_coordinate_count, "total coordinate count", 1L, 1000000L)
-  promoted <- total <=
-    .DSVERT_JOINT_DP_VECTOR_EXACT_GC_MAX_PROMOTED_COORDINATES
+  if (maximum == 51L && total > maximum) {
+    stop("Cross-grid exact-GC release exceeds the certified envelope.", call. = FALSE)
+  }
+  promoted <- total <= maximum
   list(
-    policy_version =
-      .DSVERT_JOINT_DP_VECTOR_EXACT_GC_COST_POLICY_VERSION,
+    policy_version = cost_policy_version,
     total_coordinate_count = total,
-    maximum_promoted_coordinates =
-      .DSVERT_JOINT_DP_VECTOR_EXACT_GC_MAX_PROMOTED_COORDINATES,
+    maximum_promoted_coordinates = maximum,
     promoted = promoted,
     backend = if (promoted) {
       .DSVERT_JOINT_DP_VECTOR_EXACT_GC_BACKEND
@@ -110,7 +115,7 @@
       plan$total_coordinate_count)
   }
   expected_choice <- .dsvert_joint_dp_vector_public_backend_choice(
-    plan$total_coordinate_count)
+    plan$total_coordinate_count, choice$policy_version)
   if (!is.list(choice) ||
       !identical(choice, expected_choice)) {
     stop("The exact-GC cost-policy decision is invalid.", call. = FALSE)
@@ -178,7 +183,7 @@
     assessment$maximum_chunk_coordinates,
     "exact-GC chunk capacity", 1L, 128L)
   choice <- .dsvert_joint_dp_vector_public_backend_choice(
-    assessment$total_coordinate_count)
+    assessment$total_coordinate_count, assessment$cost_policy_version)
   if (!identical(assessment$cost_policy_version, choice$policy_version) ||
       !identical(as.numeric(assessment$maximum_promoted_coordinates),
                  as.numeric(choice$maximum_promoted_coordinates)) ||
@@ -232,7 +237,7 @@
          call. = FALSE)
   }
   choice <- .dsvert_joint_dp_vector_public_backend_choice(
-    selection$total_coordinate_count)
+    selection$total_coordinate_count, selection$cost_policy_version)
   exact <- identical(selection$backend,
                      .DSVERT_JOINT_DP_VECTOR_EXACT_GC_BACKEND)
   coherent <- identical(selection$backend, choice$backend) &&

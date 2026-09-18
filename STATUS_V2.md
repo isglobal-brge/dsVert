@@ -661,3 +661,7 @@ The full-envelope K3 DSLite run is slower than the raw benchmark because it incl
 ## 2026-09-18T21:50Z — first fully qualifying n2000 release
 
 Binomial / epsilon4 / instance1: real DataSHIELD API release **2932.752 s**, bit-for-bit equality with the same-noise integer oracle; fresh-process lifecycle, exactly-once/replay and tamper checks pass. DP-best equals exact-best, loss gap zero. Evidence: `dslite-n2000-binomial-e4-first.log`. Required real-release count **1/12**; no 20-instance cell or aggregate statistics yet claimed. Its lane proceeds to the second independent signed instance. Other lanes and topology gates continue.
+
+## 2026-09-18T21:58Z — Poisson n2000 API and cold lifecycle equality
+
+Poisson / epsilon1 / instance1: **3390.267 s**, full integer DP vector matches the same-noise oracle; fresh-process exactly-once/replay/tamper checks pass. Selected exact-best, zero loss gap. `dslite-n2000-poisson-e1-first.log`. Required real-release count **2/12**, one complete result per family. No complete 20-instance cell or aggregate statistics claimed. All required campaigns continue.

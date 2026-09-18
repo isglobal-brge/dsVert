@@ -1,0 +1,10 @@
+DSLITE_ALIGNMENT_COMPLETE
+DSLITE_CUSTODIAN_SIGNATURES_COMPLETE
+DSLITE_PUBLIC_ADMISSION_COMPLETE
+Tracing function ".dsvert_dp_synopsis_client_replay" in package
+"namespace:dsVertClient"
+Untracing function ".dsvert_dp_synopsis_client_replay" in package
+"namespace:dsVertClient"
+DSLITE_ORACLE_BITWISE_EQUAL
+DIRECT_R_COLD_LIFECYCLE_EQUAL_TAMPER_REJECTED
+{"family":"poisson","n":2000,"p":6,"grid":2,"owners":2,"epsilon":1,"instance":1,"elapsed":3390.267,"oracle_only":false,"selected_candidate":2,"exact_best":2,"loss_gap":0,"artifact_key":"40348e9b99c95a9c5bcf0ac2ed81ccc52fa46e7be7fe610885238bf4427cda6d","certificate_sha256":"4c30e044d6da3b4ff69941d605b86fabe7a2902498c1aba7b373be1ac09b0dc7"} 

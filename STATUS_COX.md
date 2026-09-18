@@ -335,3 +335,8 @@ and hashed by summarize_shared_envelope_v2.py; matrix_complete=true,
 selected_capacity={capacity:4000,candidates:50}, six passing points. There are
 no remaining family measurements or tests. The kernel/ABI/profile did not
 change after the final tests; only documentation and evidence were finalized.
+
+Final measured-delivery revisions: **server 8dd48c8; client 12b1fec**.
+These revisions contain the complete code, nine-point evidence and handoff.
+This subsequent documentation-only receipt records their identifiers; both
+worktrees were clean after delivery commits. No push was performed.

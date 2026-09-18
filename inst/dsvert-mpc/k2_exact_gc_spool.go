@@ -243,64 +243,33 @@ func exactGCAtomicReplace(path string, data []byte) error {
 }
 
 func exactGCReadOffset(path string) (int64, error) {
-	name := filepath.Base(path)
-	for attempt := 0; attempt < 8; attempt++ {
-		before, err := os.Lstat(path)
-		if os.IsNotExist(err) {
-			runtime.Gosched()
-			continue
-		}
-		if err != nil {
-			return 0, fmt.Errorf("unsafe exact-gc offset state %s: %w", name, err)
-		}
-		if !before.Mode().IsRegular() || before.Mode()&os.ModeSymlink != 0 ||
-			before.Mode().Perm()&0o077 != 0 || before.Size() < 1 ||
-			before.Size() > 32 {
-			return 0, fmt.Errorf(
-				"unsafe exact-gc offset state %s: mode=%s size=%d",
-				name, before.Mode(), before.Size())
-		}
-		if !exactGCPrivateOwnedRegular(before) {
-			// A concurrent atomic replacement can make the old inode appear
-			// unlinked. Never accept it by pathname; retry a fresh snapshot.
-			runtime.Gosched()
-			continue
-		}
-		file, err := os.Open(path)
-		if os.IsNotExist(err) {
-			runtime.Gosched()
-			continue
-		}
-		if err != nil {
-			return 0, err
-		}
-		opened, statErr := file.Stat()
-		if statErr != nil {
-			_ = file.Close()
-			return 0, statErr
-		}
-		if !os.SameFile(before, opened) {
-			_ = file.Close()
-			runtime.Gosched()
-			continue
-		}
-		data := make([]byte, opened.Size())
-		_, readErr := io.ReadFull(file, data)
-		closeErr := file.Close()
-		if readErr != nil {
-			return 0, readErr
-		}
-		if closeErr != nil {
-			return 0, closeErr
-		}
-		value, parseErr := strconv.ParseInt(string(data), 10, 64)
-		if parseErr != nil || value < 0 || value > exactGCMaxAbsoluteOffset ||
-			strconv.FormatInt(value, 10) != string(data) {
-			return 0, fmt.Errorf("invalid exact-gc offset state")
-		}
-		return value, nil
+	file, err := exactGCOpenOffsetSnapshot(path)
+	if err != nil {
+		return 0, fmt.Errorf("unsafe exact-gc offset state %s: %w", filepath.Base(path), err)
 	}
-	return 0, fmt.Errorf("exact-gc offset state %s changed continuously", name)
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return 0, err
+	}
+	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 ||
+		info.Mode().Perm()&0o077 != 0 || info.Size() < 1 || info.Size() > 32 ||
+		!exactGCPrivateOwnedOffsetSnapshot(info) {
+		return 0, fmt.Errorf("unsafe exact-gc offset state %s", filepath.Base(path))
+	}
+	data := make([]byte, info.Size())
+	if _, err := io.ReadFull(file, data); err != nil {
+		return 0, err
+	}
+	if err := file.Close(); err != nil {
+		return 0, err
+	}
+	value, err := strconv.ParseInt(string(data), 10, 64)
+	if err != nil || value < 0 || value > exactGCMaxAbsoluteOffset ||
+		strconv.FormatInt(value, 10) != string(data) {
+		return 0, fmt.Errorf("invalid exact-gc offset state")
+	}
+	return value, nil
 }
 
 func exactGCWriteOffset(path string, value int64) error {

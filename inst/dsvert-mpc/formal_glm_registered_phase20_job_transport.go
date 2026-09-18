@@ -311,8 +311,17 @@ func formalGLMRegisteredPhase20JobTransportValidateScratchOnceV1(
 	} {
 		info, err := root.Lstat(name)
 		if err != nil || !info.Mode().IsRegular() ||
-			info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != 0o600 ||
-			!exactGCPrivateOwnedRegular(info) {
+			info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != 0o600 {
+			return fmt.Errorf("formal-glm registered Phase20 transport: unsafe scratch file %q", name)
+		}
+		private := exactGCPrivateOwnedRegular(info)
+		switch name {
+		case "inbound.state", "inbound.ack", "outbound.head", "outbound.ack":
+			// Atomic replacement can unlink this snapshot after pathname lookup.
+			// It remains private; actual offset reads pin and validate their inode.
+			private = exactGCPrivateOwnedOffsetSnapshot(info)
+		}
+		if !private {
 			return fmt.Errorf("formal-glm registered Phase20 transport: unsafe scratch file %q", name)
 		}
 	}

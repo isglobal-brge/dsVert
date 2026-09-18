@@ -2,6 +2,7 @@
   test_root <- normalizePath(
     file.path(testthat::test_path(), "..", ".."), mustWork = FALSE)
   candidates <- unique(c(
+    Sys.getenv("DSVERT_SERVER_SOURCE", unset = ""),
     test_root,
     file.path(test_root, "00_pkg_src", "dsVert"),
     getwd(),

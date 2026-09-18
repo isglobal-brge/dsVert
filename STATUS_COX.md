@@ -173,3 +173,8 @@ unseeded log, then rerun using `run_server_check_source_fixture_v2.sh`, which
 links the EXACT extracted checked archive's R directory to the expected test
 path. No package source or assertion is changed/skipped. This is a documented
 check-environment fixture, not a repaired production feature or suppressed test.
+
+Second completed envelope: N=2000,J=32, M=2048,
+**16,943,647,939 bytes; 2355.695 s (39.26 min)** including 111.608 s compilation.
+All 32 coordinates match the independent integer oracle. The 2000x50 and
+4000x16 runs are active next; final admission is not selected yet.

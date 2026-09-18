@@ -165,3 +165,26 @@ and `testthat::test_file(..., env=new.env(parent=asNamespace("dsVertClient")))`.
 An initial runner omitted that namespace parent and could not resolve internal
 functions; it is superseded by the successful run. Evidence:
 `/workspace/dsvert/nb/validation/client-inventory-final.{log,rds,exit}`.
+
+### Full-check checkpoint — 2026-09-18
+
+Both full package checks were launched on the ready pod in
+`/workspace/dsvert/nb/check/` using
+`R CMD check --no-manual --no-build-vignettes dsVert_1.2.0.tar.gz`
+and the analogous `dsVertClient_1.2.1.tar.gz`. Tests are enabled.
+Libraries: `/workspace/dsvert/nb/rlib`, plus the checked server library for
+the client. Missing suggested packages were installed, without disabling
+dependency enforcement. The pod reports 96 CPUs but its cgroup CPU quota is
+765000/100000 = 7.65 CPU-equivalents shared with concurrent sessions.
+
+Logs and eventual exit codes are
+`/workspace/dsvert/nb/validation/check-{server,client}-full.{log,exit}`;
+full test output is under each package's `.Rcheck/tests/testthat.Rout*`.
+At this checkpoint both tests remain active; server check PID 83548 / test
+PID 95251, client check PID 88951 / test PID 95384. Do not start duplicate
+runs if this session is interrupted. The client tarball predates the verified
+export correction `112a820`; its inventory failure is superseded only by the
+891-expectation corrected-source inventory run, not by a claimed clean full
+check. Server has emitted a source-layout failure reproduction for unchanged
+`test-dp-count-execution.R:802`, which reads an absent source R file from an
+installed-package check tree. Final summaries are still required.

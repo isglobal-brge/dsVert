@@ -65,3 +65,18 @@ These small/targeted gates do not replace the required n2000 or full topology
 releases.
 
 Required-size integration progress (2026-09-18T21:23Z): the first n2000, p6, grid2, binomial epsilon1 API release matched the complete oracle vector (`dslite-n2000-before-cold-bundle.log`). A subsequent fresh-process check exposed a stale deployment checksum manifest, correctly rejected before contract admission. The complete binary bundle was repaired; direct cold signed-profile admission at n2000 now passes for both families. This incomplete cell is retained as extra evidence and excluded from the final 120/12 matrix.
+
+
+Qualifying n2000 progress (2026-09-18T21:58Z): both entries below pass complete
+integer DP-vector equality through the real DSLite client API and the subsequent
+fresh-process exactly-once, replay and tamper checks. They count toward the
+required matrix; the complete six-cell evidence validator has not yet passed.
+
+| Family | Epsilon | Instance | API seconds | Evidence |
+|---|---:|---:|---:|---|
+| binomial | 4 | 1 | 2932.752 | `inst/cross-grid-v2/dslite-n2000-binomial-e4-first.log` |
+| poisson | 1 | 1 | 3390.267 | `inst/cross-grid-v2/dslite-n2000-poisson-e1-first.log` |
+
+Each uses n=2000, p=6 split 3/3, two signed candidates and delta=2^-100.
+The required count is 2/12; these individual results do not establish the
+20-instance selection statistics, other epsilon cells or K3/K5 topology gates.

@@ -572,3 +572,9 @@ Client `testthat::test_local(filter="^dp-glm-grid-cross-contract$")`: **319 asse
 ## 2026-09-18T19:27Z — larger typed startup passes; K3 full envelope admitted
 
 The n2000 pod retry has persisted its first grid batch on **both** authorities, confirming that the scoped readiness window permits actual larger typed-worker startup. This is progress within the first required release, not a completed DP release. Mac K3 n10000/p10/grid50 now passes real PSI, custodial signatures and public admission with the corrected canonical fixture; secure execution follows. Source/runtime remains frozen at server `83c7e66` (later commits add only evidence/tests) and client runtime `1acfd0c`.
+
+## 2026-09-18T19:35Z — bound admission reuse verified; campaigns restarted
+
+`bound-admission-targeted.log`: **292 assertions pass**, zero failures/errors. Full authentication remains mandatory at bind; subsequent lifecycle stages require the identical validated public request tuple and bound context. The previous n2000 attempt had persisted multiple matching batches but had not released a DP vector. Its log is archived as `validation-binomial-e1-before-bound-admission.log` on the pod; the K3 admission-only log is retained locally. Both are excluded from required release counts.
+
+Stopped only owned validation trees and the still-waiting full-check runner (PID620527; no full suite started). Restarted pod campaign PID **640037**, Mac topology native exec session **39769**. Benchmark lane continues unchanged. The refreshed source will be hashed into the final-check archive before requeuing full checks.

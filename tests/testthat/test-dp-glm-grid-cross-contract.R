@@ -651,3 +651,63 @@ test_that("cross-grid bootstrap binds the public plan without a circular schema 
   workload$gaussian$grid$spec$contract <- changed
   expect_false(identical(.dsvert_dp_glm_grid_cross_snapshot_workload(workload), plan))
 })
+
+test_that("session admission cannot be reused for changed public grid inputs", {
+  ss <- new.env(parent = emptyenv())
+  ss$.exact_gc_peer_binding_digest <- "pinned-test-binding"
+  admissions <- stages <- 0L
+  binding <- list(peer_binding_digest = ss$.exact_gc_peer_binding_digest,
+    contract_hash = strrep("c", 64), artifact = list(version = "test-artifact"))
+  testthat::local_mocked_bindings(
+    .S = function(...) ss,
+    .dsvert_dp_synopsis_remote_manifest_v1 = function(...) {
+      admissions <<- admissions + 1L
+      list(policy = list(peer_name = "test"), secret = as.raw(1:32))
+    },
+    .dsvert_dp_synopsis_remote_decode_v1 = function(...) list(),
+    .dsvert_dp_synopsis_remote_compilation_v1 = function(...) list(),
+    .dsvert_dp_synopsis_source_transport_context_v1 = function(...)
+      list(manifest_json = "{}", source_contract = list()),
+    .dsvert_dp_capsule_source_manifest = function(...) list(),
+    .dsvert_dp_synopsis_supported_glm_grid_cross_v1 = function(...) TRUE,
+    .dsvert_dp_glm_grid_cross_bind = function(...) {
+      if (is.null(ss$.dp_glm_grid_cross$grid)) ss$.dp_glm_grid_cross <- list(grid = binding)
+      "bound"
+    },
+    .dsvert_dp_glm_grid_cross_prepare = function(...) {
+      stages <<- stages + 1L
+      "prepared"
+    }, .package = "dsVert")
+  args <- list(manifest_sha256 = strrep("a", 64), claim_set_json = "{}",
+    compilation_json = "{}", analysis_id = "grid",
+    session_id = "12345678-1234-4234-9234-123456789abc", action = "prepare", batch = 1)
+  invoke <- function(value = args) do.call(dsvertDPSynopsisGLMGridCrossDS, value)
+  expect_error(invoke(), class = "dsvert_dp_public_failure")
+  expect_identical(stages, 0L)
+  bound <- args
+  bound$action <- "bind"
+  bound$batch <- 0
+  expect_identical(invoke(bound), "bound")
+  expect_identical(invoke(), "prepared")
+  expect_identical(invoke(), "prepared")
+  expect_identical(admissions, 1L)
+  expect_identical(stages, 2L)
+  for (field in c("manifest_sha256", "claim_set_json", "compilation_json")) {
+    changed <- args
+    changed[[field]] <- paste0(changed[[field]], " ")
+    expect_error(invoke(changed), class = "dsvert_dp_public_failure")
+  }
+  changed <- args
+  changed$analysis_id <- "other"
+  expect_error(invoke(changed), class = "dsvert_dp_public_failure")
+  changed <- args
+  changed$action <- NA_character_
+  expect_error(invoke(changed), class = "dsvert_dp_public_failure")
+  ss$.dp_glm_grid_cross$grid$artifact$version <- "changed"
+  expect_error(invoke(), class = "dsvert_dp_public_failure")
+  ss$.dp_glm_grid_cross$grid$artifact <- binding$artifact
+  ss$.exact_gc_peer_binding_digest <- "changed-pair"
+  expect_error(invoke(), class = "dsvert_dp_public_failure")
+  expect_identical(stages, 2L)
+  expect_identical(admissions, 1L)
+})

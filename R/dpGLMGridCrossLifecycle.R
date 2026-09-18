@@ -282,33 +282,49 @@
 dsvertDPSynopsisGLMGridCrossDS <- function(manifest_sha256, claim_set_json,
     compilation_json, analysis_id, session_id, action, batch = 0) {
   .dsvert_dp_synopsis_remote_public_v1({
-    context <- .dsvert_dp_synopsis_remote_manifest_v1(manifest_sha256)
-    claims <- .dsvert_dp_synopsis_remote_decode_v1(claim_set_json, "source Claim set")
-    compilation <- .dsvert_dp_synopsis_remote_compilation_v1(compilation_json)
-    source <- .dsvert_dp_synopsis_source_transport_context_v1(manifest_sha256,
-      compilation$artifact, claims, compilation$receipts,
-      .policy = context$policy, .secret = context$secret)
-    manifest <- .dsvert_dp_capsule_source_manifest(source$manifest_json)
-    if (!.dsvert_dp_synopsis_supported_glm_grid_cross_v1(manifest) ||
-        !is.character(action) || length(action) != 1L ||
+    if (!is.character(action) || length(action) != 1L || is.na(action) ||
         !action %in% c("bind", "prepare", "start", "store", "finalize")) {
       .dsvert_dp_glm_grid_cross_fail()
     }
     ss <- .S(.dsvert_relay_validate_session_id(session_id))
     analysis_id <- .dsvert_dp_capsule_id(analysis_id, "cross-grid analysis")
-    if (!identical(action, "bind")) {
-      binding <- .dsvert_dp_glm_grid_cross_binding(ss, analysis_id)
-      parsed <- .dsvert_dp_capsule_source_contract_json(context$policy,
-        source$manifest_json, source$source_contract)
-      if (!identical(binding$contract_hash, parsed$contract_hash) ||
-          !identical(.dsvert_joint_dp_hash(binding$artifact),
-            .dsvert_joint_dp_hash(.dsvert_dp_glm_grid_cross_artifacts(manifest)[[analysis_id]]))) {
+    request <- list(manifest_sha256 = manifest_sha256,
+      claim_set_json = claim_set_json, compilation_json = compilation_json)
+    if (identical(action, "bind")) {
+      context <- .dsvert_dp_synopsis_remote_manifest_v1(manifest_sha256)
+      claims <- .dsvert_dp_synopsis_remote_decode_v1(claim_set_json, "source Claim set")
+      compilation <- .dsvert_dp_synopsis_remote_compilation_v1(compilation_json)
+      source <- .dsvert_dp_synopsis_source_transport_context_v1(manifest_sha256,
+        compilation$artifact, claims, compilation$receipts,
+        .policy = context$policy, .secret = context$secret)
+      manifest <- .dsvert_dp_capsule_source_manifest(source$manifest_json)
+      if (!.dsvert_dp_synopsis_supported_glm_grid_cross_v1(manifest)) {
         .dsvert_dp_glm_grid_cross_fail()
       }
+      result <- .dsvert_dp_glm_grid_cross_bind(context$policy, context$secret,
+        source$manifest_json, source$source_contract, analysis_id, ss)
+      # Admission is immutable within this bound computation session. Retain the
+      # validated public bytes, not a caller-selectable shortcut or new token.
+      binding <- .dsvert_dp_glm_grid_cross_binding(ss, analysis_id)
+      if (!is.null(binding$admission) &&
+          !identical(binding$admission$request, request)) {
+        .dsvert_dp_glm_grid_cross_fail()
+      }
+      binding$admission <- list(request = request, policy = context$policy,
+        secret = context$secret, contract_hash = binding$contract_hash,
+        artifact_sha256 = .dsvert_joint_dp_hash(binding$artifact))
+      ss$.dp_glm_grid_cross[[analysis_id]] <- binding
+      return(result)
     }
+    binding <- .dsvert_dp_glm_grid_cross_binding(ss, analysis_id)
+    admission <- binding$admission
+    if (!is.list(admission) || !identical(admission$request, request) ||
+        !identical(admission$contract_hash, binding$contract_hash) ||
+        !identical(admission$artifact_sha256, .dsvert_joint_dp_hash(binding$artifact))) {
+      .dsvert_dp_glm_grid_cross_fail()
+    }
+    context <- admission
     switch(action,
-      bind = .dsvert_dp_glm_grid_cross_bind(context$policy, context$secret,
-        source$manifest_json, source$source_contract, analysis_id, ss),
       prepare = .dsvert_dp_glm_grid_cross_prepare(context$policy, context$secret,
         ss, analysis_id, batch),
       start = .dsvert_dp_glm_grid_cross_start(context$policy, ss, analysis_id, session_id, batch),

@@ -6,7 +6,7 @@ export GOMEMLIMIT=4GiB
 export GOGC=25
 export GOMAXPROCS=2
 cp inst/bin/darwin-arm64/dsvert-mpc inst/cross-grid-v2/build/dsvert-mpc
-shasum -a 256 inst/cross-grid-v2/validate_dslite.R inst/cross-grid-v2/prepare_oracle_noise.R inst/cross-grid-v2/validate_cold_lifecycle.R > inst/cross-grid-v2/topology-support.sha256
+shasum -a 256 R/*.R ../dsVertClient/R/*.R DESCRIPTION NAMESPACE ../dsVertClient/DESCRIPTION ../dsVertClient/NAMESPACE inst/bin/darwin-arm64/dsvert-mpc inst/cross-grid-v2/validate_dslite.R inst/cross-grid-v2/prepare_oracle_noise.R inst/cross-grid-v2/validate_cold_lifecycle.R > inst/cross-grid-v2/topology-support.sha256
 for family in binomial poisson; do
   for owners in 3 5; do
     if [ "$owners" = 3 ]; then n=10000; p=10; grid=50; else n=2000; p=6; grid=2; fi

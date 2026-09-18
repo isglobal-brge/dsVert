@@ -284,3 +284,9 @@ Targeted schedule tests: server 6 assertions and client 19 assertions, zero fail
 ## 2026-09-18T18:22Z — use idle Mac for independent topology evidence
 
 The required two-peer matrix remains on the pod; additional K3/K5 API topology checks move to the Mac after its complete benchmark matrix. These checks have no pod-only requirement, whereas full package suites still run on the pod. This avoids waiting for sequential topology runs on the CPU/memory-constrained shared pod and does not duplicate completed releases. Existing full-size pod cost evidence remains explicitly the raw Go kernel/noise measurement.
+
+## 2026-09-18T18:30Z — retain DSLite private storage IDs in the PSI relay
+
+The first K3 n10000 attempt failed before alignment, at the first large-envelope reference export. The existing relay demanded equality between the protocol UUID and `.S()`'s internally suffixed DSLite disk ID. Added a server-owned `.public_session_id` when creating `.S()` state; relay admission validates that public UUID and permits only the exact matching UUID plus the existing hashed DSLite suffix as its private storage ID. The private ID/path is never rewritten. Legacy nonsuffixed sessions and all cryptographic header/session bindings retain their behavior. Mismatched public and private UUIDs still reject. This is a second required shared PSI/DSLite infrastructure correction, not a family-specific bypass.
+
+A regression reproduces the original mismatch; after the fix, relay/session/security tests have **582 passing assertions**. The initial regression cleanup used the wrong deferred-cleanup ordering; corrected the test to close its own relay before restoring its temporary root, removing its transient resource-accounting interference. No resource cap was changed. The K2 n2000 pod path stays on its frozen b542b84 runtime because it uses inline PSI envelopes; the new relay path is validated separately by K3 and by full checks.

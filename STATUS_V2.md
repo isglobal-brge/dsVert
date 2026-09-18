@@ -522,3 +522,7 @@ Validation restart PID **496594** uses the checksum-matched native worker. Core 
 ## 2026-09-18T18:22Z — topology validation uses the now-idle Mac
 
 Stopped the waiting pod topology runner before any new topology attempt. `run_topology_validation_mac.sh` now runs the four additional K3/K5 releases sequentially on the Mac (native exec session 36588): K3 n10000/p10/grid50 and K5 n2000/p6/grid2 for each family, epsilon4. The original 120/12 two-peer matrix remains on the pod. This overlaps independent work without adding large PSI jobs to the pod's 50 GB quota. Mac topology uses the rebuilt arm64 worker, GOMAXPROCS=2, GOMEMLIMIT=4GiB, GOGC=25 and the same hash-frozen synthetic harness. No statistical or public-capacity scope changed.
+
+## 2026-09-18T18:30Z — large-envelope DSLite relay binding fixed
+
+K3 initial reference-exchange failure is retained in `topology-binomial-k3-before-relay.log`. Minimal regression confirms public-UUID/private-storage-ID mismatch; **582 targeted relay/security assertions pass** after preserving both identities explicitly. `psi-relay-before.log` and `psi-relay-targeted.log` record before/after. K3 is restarted with all server/client R sources, inventories, native worker and harness helpers hashed before/after each topology release. Pod K2 has completed real n2000 PSI, signatures and public admission and is running the release. No qualifying DP-vector match has yet been recorded.

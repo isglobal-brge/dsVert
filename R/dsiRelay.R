@@ -115,9 +115,16 @@
   session_id <- .dsvert_relay_validate_session_id(session_id)
   if (is.null(ss$.session_id)) {
     ss$.session_id <- session_id
-  } else if (!identical(ss$.session_id, session_id)) {
-    stop("DSI relay session ID does not match the private session.",
-         call. = FALSE)
+  } else {
+    public_id <- ss$.public_session_id %||% ss$.session_id
+    dslite_id <- is.character(ss$.session_id) && length(ss$.session_id) == 1L &&
+      !is.na(ss$.session_id) && grepl(paste0(
+        "^", session_id, "__dslite_[0-9a-f]{16}$"), ss$.session_id)
+    if (!identical(public_id, session_id) ||
+        !(identical(ss$.session_id, session_id) || dslite_id)) {
+      stop("DSI relay session ID does not match the private session.",
+           call. = FALSE)
+    }
   }
   own_pk <- .dsvert_relay_normalize_identity_pk(own_identity_pk)
   if (!is.character(trusted_identity_pks) || !length(trusted_identity_pks))

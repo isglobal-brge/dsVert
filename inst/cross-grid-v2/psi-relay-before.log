@@ -1,0 +1,21 @@
+dsi-relay-dslite-session: .1.2
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Failure ('test-dsi-relay-dslite-session.R:21:3'): relay public UUIDs retai
+Expected `.dsvert_relay_init(ss, session_id, identity, identity, "psi.padded.v4")` not to throw any errors.
+Actually got a <simpleError> with message:
+  DSI relay session ID does not match the private session.
+
+── 2. Error ('test-dsi-relay-dslite-session.R:23:3'): relay public UUIDs retain 
+Error: DSI relay state has not been initialised.
+Backtrace:
+    ▆
+ 1. ├─testthat::expect_identical(...) at test-dsi-relay-dslite-session.R:23:3
+ 2. │ └─testthat::quasi_label(enquo(object), label)
+ 3. │   └─rlang::eval_bare(expr, quo_get_env(quo))
+ 4. └─dsVert:::.dsvert_relay_state(ss)
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+Error:
+! Test failures.
+Execution halted

@@ -608,6 +608,7 @@ NULL
     s$.created_at <- .session_now()
     s$.last_activity <- s$.created_at
     s$.session_id <- paste0(session_id, host_marker)
+    s$.public_session_id <- session_id
     storage[[session_id]] <- s
     .reap_expired_sessions(storage)
   }

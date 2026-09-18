@@ -579,7 +579,7 @@ test_that("cross-grid private records resume across R processes and reject tampe
     share = .dsvert_dp_capsule_source_raw_b64(share))
   database <- tempfile(fileext = ".sqlite")
   on.exit(unlink(database), add = TRUE)
-  root <- normalizePath(file.path(testthat::test_path(), "..", ".."))
+  root <- .dsvert_test_source_root()
   process <- function(root, database, secret, record, mode, manifest, contract) {
     pkgload::load_all(root, quiet = TRUE)
     ns <- asNamespace("dsVert")

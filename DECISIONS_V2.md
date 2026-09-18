@@ -344,3 +344,7 @@ The full server suite exposed a missing documentation inventory entry for the ne
 ## 2026-09-18T20:30Z — derive check archive versions
 
 The runner incorrectly assumed both existing package versions were 1.2.0. Server is 1.2.0 and client is 1.2.1. Derive tarball names from each DESCRIPTION; no version or NEWS change. The already-built client archive is checked independently (PID739243) while the server suite continues, because its known inventory failure will stop the original sequential runner.
+
+## 2026-09-18T20:39Z — check-layout-compatible test fixtures
+
+The full server check exposed two source-root assumptions in tests: the Count static audit used `../../R`, and the grid callr test treated the Rcheck directory as a package source root. Use the existing source-tree discovery helpers for both. The Gaussian binding mock returned its assignment vector rather than the completion record returned by the actual alignment gate; return the legacy `full-v1` record after recording the assertion data. No production behavior changes. Pod reproduction confirms all three original errors; local targeted rerun passes 137 Count + 39 Gaussian + 292 grid assertions.

@@ -608,3 +608,7 @@ Full Go suite and server R CMD check started from the frozen archive. Server sta
 ## 2026-09-18T20:30Z — client full check started
 
 `R CMD check --no-manual dsVertClient_1.2.1.tar.gz` is running on the pod as PID739243. Corrected the reproduction runner to derive archive versions from DESCRIPTION; the client version 1.2.1 was already present and is unchanged. Server testthat and Go full suite continue on their original frozen archive.
+
+## 2026-09-18T20:39Z — three full-check fixture failures reproduced and corrected
+
+`check-fixtures-targeted.log`: **468 assertions pass** after source-path and alignment-mock corrections. The original pod check errors are reproduced in `check-failures-targeted.log` (to collect after final checks). An additional Synopsis artifact failure is being isolated: its standalone local test passes 57 assertions. Production validation continues with 13 matching durable batches on each n2000 authority; no final DP vector yet.

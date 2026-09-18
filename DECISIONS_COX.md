@@ -72,3 +72,13 @@ The pod advertises CPUs 0..95 but its actual cgroup-v1 quota is 765000/100000,
 concurrent processes (GOMAXPROCS=2 each), record this in host evidence, and measure
 elapsed time honestly. The nine initial exploratory jobs were stopped before any
 completed envelope and archived separately; they are not gate evidence.
+
+Receipt hardening during review: use a fresh 256-bit HMAC key PRIVATE to each
+party, never the shared channel MasterKey. A peer knows the latter and could
+otherwise dictionary-test low-entropy state, especially zero-coefficient
+candidates. The encrypted authenticated channel attributes receipt messages;
+private-key commitments hide their state. The exact receipt mode is signed.
+The private receipt key and OT streams are in-memory per attempt; future durable
+resume adapters must keep this key custodian-local and never log/publish it.
+Only PUBLIC synthetic runs used the preliminary receipts. Their incomplete
+measurements are archived and excluded; final measurements use this hardening.

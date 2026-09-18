@@ -67,8 +67,9 @@ Entry points (one registration function per language/package):
    topology-bound framing (family-local adaptation of 0006f1a; replace with the
    shared helpers at integration). Two distinct checked COT extensions persist
    only within this connection, in opposite roles, with advancing PRG streams.
-   Every chunk chains ordinal/predecessor and both keyed state commitments into
-   the next GC context. Receipts contain no unkeyed private-state digest.
+   Every chunk chains ordinal/predecessor and both PRIVATE-key state commitments into
+   the next GC context. Receipts contain no unkeyed private-state digest. Each commitment key is fresh
+   and known only to its custodian, never the shared channel key.
    The outcome owner is the permutation/GC garbler. Source-bound controls and
    time ties are the owner's responsibility under the pinned semi-honest model;
    this does not claim a malicious-source proof. The fused lifecycle supplies

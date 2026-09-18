@@ -289,3 +289,15 @@ func TestCoxGridCrossSharedCompactTopologyBinding(t *testing.T) {
 		t.Fatal("topology substitution accepted")
 	}
 }
+
+func TestCoxGridCrossSharedReceiptNeedsPrivateKey(t *testing.T) {
+	session := exactGCTestSession(exactGCCircuitSpec{Operation: exactGCPrimitiveV, RingBits: 128, VectorLen: 1})
+	if _, err := coxLossReceipt(nil, true, session, [32]byte{}, [32]byte{1}, 0, []Uint128{{}}); err == nil {
+		t.Fatal("unkeyed low-entropy state commitment accepted")
+	}
+	p, _ := coxLossPlanShares(coxLossSpec{2, 1, 12, []uint64{100}, CoxGridCrossProfileID})
+	p.ReceiptMode = "shared_channel_key"
+	if _, err := p.digest(); err == nil {
+		t.Fatal("non-hiding receipt mode accepted")
+	}
+}

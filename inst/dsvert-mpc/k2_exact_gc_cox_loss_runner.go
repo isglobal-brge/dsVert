@@ -21,13 +21,14 @@ type coxLossSharedPlan struct {
 	OTBatch       int         `json:"ot_batch"`
 	Framing       string      `json:"framing"`
 	OTMode        string      `json:"ot_mode"`
+	ReceiptMode   string      `json:"receipt_mode"`
 }
 
 func coxLossPlanShares(s coxLossSpec) (coxLossSharedPlan, error) {
 	if s.validate() != nil {
 		return coxLossSharedPlan{}, coxLossError()
 	}
-	return coxLossSharedPlan{coxLossSharesVersion, s, intNextPowerOfTwo(s.Capacity), s.Candidates + 2, coxLossChunkRows, coxLossOTBatch, "fixed-topology-framing-v1", "two_checked_streaming_extensions_per_connection_v1"}, nil
+	return coxLossSharedPlan{coxLossSharesVersion, s, intNextPowerOfTwo(s.Capacity), s.Candidates + 2, coxLossChunkRows, coxLossOTBatch, "fixed-topology-framing-v1", "two_checked_streaming_extensions_per_connection_v1", "private_keyed_state_commitments_v1"}, nil
 }
 func (p coxLossSharedPlan) digest() ([32]byte, error) {
 	want, err := coxLossPlanShares(p.Spec)
@@ -99,17 +100,18 @@ func coxLossProgramsMatch(p coxLossSharedPlan, programs *coxLossSharedPrograms) 
 }
 
 type coxLossShareRunner struct {
-	conn     *p2p.Conn
-	owner    bool
-	session  exactGCSession
-	receipt  [32]byte
-	ordinal  int
-	gcOT     *ot.COT
-	selectOT *ot.COT
+	conn              *p2p.Conn
+	owner             bool
+	session           exactGCSession
+	receipt           [32]byte
+	ordinal           int
+	gcOT              *ot.COT
+	selectOT          *ot.COT
+	privateReceiptKey [32]byte
 }
 
 func (r *coxLossShareRunner) checkpoint(state []Uint128) error {
-	next, err := coxLossReceipt(r.conn, r.owner, r.session, r.receipt, r.ordinal, state)
+	next, err := coxLossReceipt(r.conn, r.owner, r.session, r.privateReceiptKey, r.receipt, r.ordinal, state)
 	if err != nil {
 		return err
 	}
@@ -302,7 +304,11 @@ func coxLossRunShares(rw io.ReadWriter, owner bool, p coxLossSharedPlan, program
 	// every Send/Receive; no base seeds or extension outputs are reset/reused.
 	gcOT := ot.NewCOT(ot.NewCO(rand.Reader), rand.Reader, true, true)
 	selectOT := ot.NewCOT(ot.NewCO(rand.Reader), rand.Reader, true, true)
-	runner := coxLossShareRunner{gcOT: gcOT, selectOT: selectOT, conn: conn, owner: owner, session: base, receipt: sha256.Sum256(append(contract[:], digest[:]...))}
+	var receiptKey [32]byte
+	if _, err = rand.Read(receiptKey[:]); err != nil {
+		return result, coxLossError()
+	}
+	runner := coxLossShareRunner{privateReceiptKey: receiptKey, gcOT: gcOT, selectOT: selectOT, conn: conn, owner: owner, session: base, receipt: sha256.Sum256(append(contract[:], digest[:]...))}
 	rows := append([]Uint128(nil), packed...)
 	if err = runner.permute(p, rows, controls); err != nil {
 		return result, err

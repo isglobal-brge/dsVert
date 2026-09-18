@@ -92,11 +92,16 @@ func coxLossOTSelect(conn *p2p.Conn, owner bool, x []Uint128, choices []bool, tr
 	return out, nil
 }
 
-// receipt commits local random shares with a secret session key. Only keyed
+// receipt commits local shares with a fresh key PRIVATE to this party.
+// Never use the shared channel key: a peer could dictionary-test low-entropy
+// states (for example an all-zero coefficient candidate) against such a MAC. Only keyed
 // commitments cross the channel; never publish a raw private-state digest.
 // Both receipts, ordinal and prior receipt chain enter the next chunk context.
-func coxLossReceipt(conn *p2p.Conn, owner bool, session exactGCSession, previous [32]byte, ordinal int, state []Uint128) ([32]byte, error) {
-	h := hmac.New(sha256.New, session.MasterKey[:])
+func coxLossReceipt(conn *p2p.Conn, owner bool, session exactGCSession, privateKey [32]byte, previous [32]byte, ordinal int, state []Uint128) ([32]byte, error) {
+	if privateKey == [32]byte{} {
+		return [32]byte{}, coxLossError()
+	}
+	h := hmac.New(sha256.New, privateKey[:])
 	h.Write([]byte(coxLossSharesVersion))
 	h.Write(session.SessionID[:])
 	h.Write(previous[:])

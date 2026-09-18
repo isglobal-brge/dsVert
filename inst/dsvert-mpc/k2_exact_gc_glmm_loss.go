@@ -57,6 +57,7 @@ var groupedGLMMLogFactorials = [5]int64{0, 0, 45426, 117423, 208277}
 // or release capability; the fused producer must bind authenticated source,
 // routing, chunk sequence, caps and output evidence before invoking Compile.
 type groupedGLMMRegistration struct {
+	Shares                                groupedGLMMShareRegistration
 	Version, Profile, State, ReleaseState string
 	Validate                              func(groupedGLMMSpec) error
 	Bounds                                func(groupedGLMMSpec) (groupedGLMMCaps, error)
@@ -64,7 +65,7 @@ type groupedGLMMRegistration struct {
 }
 
 func registerGroupedGLMMLoss() groupedGLMMRegistration {
-	return groupedGLMMRegistration{groupedGLMMVersion, groupedProfileID, "cross_owner_exact_gc_materialized", "exact_gc_to_joint_dp_vector_v1", groupedGLMMValidate, groupedGLMMBounds, groupedGLMMCompile}
+	return groupedGLMMRegistration{groupedGLMMShareRegistry(), groupedGLMMVersion, groupedProfileID, "cross_owner_exact_gc_materialized", "exact_gc_to_joint_dp_vector_v1", groupedGLMMValidate, groupedGLMMBounds, groupedGLMMCompile}
 }
 
 // eta contains already-combined frozen-ABI q64 predictors. The exact public

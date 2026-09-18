@@ -532,3 +532,9 @@ K3 initial reference-exchange failure is retained in `topology-binomial-k3-befor
 K3 passed the large-envelope relay after the UUID fix, then failed at private membership sharing: target matching passed the entire 16384-slot bucket to a Ring63 bit helper capped at 4096. The purpose-bound membership caller now shares fixed 2048-coordinate chunks and concatenates canonical Ring63 records. The existing bit-helper cap remains unchanged; small buckets produce exactly the same bytes under the same entropy. Full wire shape, encrypted-envelope context, signed capacity and membership semantics are unchanged.
 
 Pure-R tests reconstruct all 16384 bits exactly, verify bounded entropy requests, reject wrong shapes/invalid bits, retain the old helper's oversized-vector rejection, and compare the small-bucket wire output with the original path. **89 assertions pass** across chunk/canonical Ring63 tests (`psi-membership-targeted.log`). This required shared PSI correction is recorded for other family lanes. The failed K3 attempt released no DP vector and remains `topology-binomial-k3-before-membership.log`.
+
+## 2026-09-18T18:42Z — package-check inputs synchronized; integration still running
+
+All **1376 runtime/test input hashes** match the pod check archive, including both packages and all four worker binaries (`final-check-inputs-preflight.log` on the pod). Server runtime/test sources correspond to **63d1c25**, client **ab56385**. Full suites have not started; the final check runner is prepared and will run after development integration settles. It verifies these inputs before and after testing.
+
+Pod matrix PID 496594 has completed n2000 PSI alignment, custodial signatures and public admission and is executing the private source/alignment stage of its first release. The cgroup memory-failure count remains 14 (no new failures since the compiler correction). Mac K3 retry is in secure PSI comparison; no topology release is counted yet.

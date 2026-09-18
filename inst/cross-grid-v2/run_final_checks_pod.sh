@@ -5,6 +5,7 @@ lane=/workspace/dsvert/crossowner-v2
 check=/var/lib/dsvert-crossowner-v2-checks
 while ! grep -q MATRIX_POD_DONE "$lane/logs/remaining-matrix-run.log"; do sleep 30; done
 cd "$check"
+sha256sum -c dsVert/inst/cross-grid-v2/final-check-inputs.sha256 > "$lane/logs/final-check-inputs-before.log"
 mkdir -p library
 export R_LIBS_USER="$check/library:${R_LIBS_USER:-}"
 export GOMAXPROCS=2
@@ -20,4 +21,5 @@ R CMD build dsVertClient > "$lane/logs/build-client.log" 2>&1
 R CMD check --no-manual dsVert_1.2.0.tar.gz > "$lane/logs/check-server.log" 2>&1
 R CMD check --no-manual dsVertClient_1.2.0.tar.gz > "$lane/logs/check-client.log" 2>&1
 wait "$go_pid"
+sha256sum -c dsVert/inst/cross-grid-v2/final-check-inputs.sha256 > "$lane/logs/final-check-inputs-after.log"
 printf 'FINAL_CHECKS_POD_DONE\n'

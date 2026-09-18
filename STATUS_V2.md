@@ -357,3 +357,21 @@ the full envelope and fused design; measure <=110 GB and <=4 h on the pod.
 First measure all row/candidate batches and joint noise at n2000/n10000,
 then complete signed admission, lifecycle, client and layered validation.
 Historical NOT DONE entries remain accurate until superseded by evidence.
+
+## 2026-09-18T14:58Z — signed profile admission tests
+
+Added explicit piecewise-profile contract construction/admission on server and
+client, with a new hash-pinned interval cap table for all M=1..1024. Both sides
+reconstruct caps, numeric metadata and signatures; legacy contracts retain V1.
+Targeted contract tests: server 175 before / 197 after; client 260 before /
+282 after, zero failures/errors. Commands: testthat::test_local(package,
+filter="dp-glm-grid-cross-contract"). Raw logs are profile-admission-{server,client}.log.
+The Python generator reproduces admission_certificate.json; the worker and
+production release path remain under development. No R route is enabled yet.
+
+The full-workload benchmark smoke test passes both families (3 rows, p5,
+9 candidates including a tail); all integer and joint-noise outputs match.
+The pod n2000 then n10000 campaign is running under nohup from
+run_full_measurement_pod.sh with 48 peer pairs. Its source snapshot is b88f986,
+verified by full-measurement-source.sha256. These computations exclude the
+unfinished R lifecycle and will not be labelled authenticated releases.

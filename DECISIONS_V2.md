@@ -164,3 +164,17 @@ The producer, not an RPC caller, derives these partial predictors.
     candidate-sum shares, then run the existing joint-noise circuit. Record
     kernel/noise computation separately from authenticated R/DataSHIELD release:
     the latter remains unfinished and cannot be claimed by a Go benchmark.
+
+30. New-profile contracts explicitly select `piecewise_v2`; the default V1
+    builder and old signatures retain q64 arithmetic. Reconstruction detects
+    the pinned numeric identity and recomputes every field before verifying
+    signatures. Production profile admission additionally rejects V1 arithmetic.
+31. Pin a compact outward-interval cap certificate for all five power-of-two
+    eta envelopes and every Poisson M=1..1024. Select the smallest common
+    envelope enclosing all signed candidate L1 norms using the V1 exact
+    expansion comparator. This deliberately uses conservative equal envelope
+    caps, rather than unproved runtime libm maxima. For g<=18,
+    ceil(U18/2^(18-g)) equals ceil(2^g*(L+2E)); integer clamp proves sensitivity.
+    Common envelopes may increase noise for heterogeneous grids; document this
+    limit. Features, f100 predictor, row/candidate traversal and output g remain
+    unchanged. The new certificate and profile hashes are signed on both sides.

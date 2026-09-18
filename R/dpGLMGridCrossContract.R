@@ -179,7 +179,10 @@
 
 # raw retains explicit coefficient-column association. Neither columns nor
 # candidate rows are silently permuted after signatures have been formed.
-.dsvert_dp_glm_grid_cross_spec <- function(raw, policy, schema) {
+.dsvert_dp_glm_grid_cross_spec <- function(
+    raw, policy, schema, execution_profile = "q64_v1") {
+  if (!execution_profile %in% c("q64_v1", "piecewise_v2") ||
+      length(execution_profile) != 1L) .dsvert_dp_glm_grid_cross_fail()
   .dsvert_dp_glm_grid_cross_fields(raw, c(
     "version", "analysis_id", "dataset", "outcome", "predictor_order",
     "beta_grid", "max_outcome", "alignment"))
@@ -276,7 +279,7 @@
   numeric <- .dsvert_dp_glm_grid_cross_numeric(family)
   sensitivity <- .dsvert_dp_glm_grid_cross_sensitivity(
     beta_grid, family, maximum, bits, capacity, policy$adjacency)
-  list(
+  result <- list(
     version = unname(.DSVERT_DP_GLM_GRID_CROSS_SPEC_VERSIONS[[family]]),
     family = family, analysis_id = raw$analysis_id, dataset = raw$dataset,
     schema_sha256 = schema$sha256,
@@ -305,6 +308,10 @@
     predictor_normalization = "bounded_patient_mean_to_unit_interval_v1",
     complete_case = "all_owned_input_validity_bits_and_private_alignment_v1",
     sensitivity = sensitivity)
+  if (identical(execution_profile, "piecewise_v2")) {
+    result <- .dsvert_dp_glm_grid_profile_spec(result)
+  }
+  result
 }
 
 .dsvert_dp_glm_grid_cross_spec_validate <- function(value, policy, schema) {
@@ -312,7 +319,9 @@
     raw <- value[c("version", "analysis_id", "dataset", "predictor_order",
                    "beta_grid", "max_outcome", "alignment")]
     raw$outcome <- value$outcome$reference
-    expected <- .dsvert_dp_glm_grid_cross_spec(raw, policy, schema)
+    profile <- if (identical(value$numeric_contract$profile_identity,
+        .DSVERT_DP_GLM_GRID_PROFILE_V2)) "piecewise_v2" else "q64_v1"
+    expected <- .dsvert_dp_glm_grid_cross_spec(raw, policy, schema, profile)
     .dsvert_dp_glm_grid_cross_equal(value, expected)
     expected
   }, error = .dsvert_dp_transcript_stop)

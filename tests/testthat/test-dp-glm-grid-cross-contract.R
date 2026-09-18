@@ -318,3 +318,45 @@ test_that("cross-grid scalar identifiers reject JSON array representations", {
   expect_error(.cross_grid_contract_validate(fixture, fixture$sign(forged)),
                class = "dsvert_dp_public_failure")
 })
+
+test_that("piecewise admission pins new arithmetic, caps and all signatures", {
+  for (family in c("binomial", "poisson")) {
+    fixture <- .cross_grid_contract_fixture(family, bits = 16, capacity = 2000)
+    spec <- .dsvert_dp_glm_grid_cross_spec(
+      fixture$raw, fixture$policy, fixture$authenticated, "piecewise_v2")
+    artifact <- .dsvert_dp_glm_grid_cross_artifact(spec)
+    value <- fixture$sign(list(version = fixture$contract$version, spec = spec,
+      artifact = artifact,
+      source_contract = .dsvert_dp_glm_grid_cross_source_contract(spec, artifact)))
+    admitted <- .dsvert_dp_glm_grid_profile_admit(
+      value, fixture$policy, fixture$schema)
+    expect_identical(admitted$spec$numeric_contract$profile_identity,
+                     .DSVERT_DP_GLM_GRID_PROFILE_V2)
+    caps <- vapply(spec$sensitivity$candidate_bounds, `[[`, numeric(1),
+                   "per_patient_cap")
+    expect_equal(spec$sensitivity$raw_l1_sensitivity, sum(caps))
+    expect_gte(spec$sensitivity$raw_l2_sensitivity, sqrt(sum(caps^2)))
+    expect_identical(spec$beta_encoded, fixture$contract$spec$beta_encoded)
+    expect_identical(.dsvert_dp_glm_grid_cross_layout(spec),
+                     fixture$contract$source_contract$private_layout)
+    expect_error(.dsvert_dp_glm_grid_profile_admit(
+      fixture$contract, fixture$policy, fixture$schema),
+      class = "dsvert_dp_public_failure")
+    for (field in c("profile_sha256", "certificate_sha256", "profile_envelope")) {
+      bad <- value
+      bad$spec$numeric_contract[[field]] <- "tampered"
+      expect_error(.dsvert_dp_glm_grid_profile_admit(
+        fixture$sign(bad), fixture$policy, fixture$schema),
+        class = "dsvert_dp_public_failure")
+    }
+    bad <- value
+    bad$spec$sensitivity$raw_l1_sensitivity <- 1
+    expect_error(.dsvert_dp_glm_grid_profile_admit(
+      fixture$sign(bad), fixture$policy, fixture$schema),
+      class = "dsvert_dp_public_failure")
+    bad <- value
+    bad$signatures$peer_b <- NULL
+    expect_error(.dsvert_dp_glm_grid_profile_admit(
+      bad, fixture$policy, fixture$schema), class = "dsvert_dp_public_failure")
+  }
+})

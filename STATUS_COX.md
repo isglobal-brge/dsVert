@@ -52,3 +52,25 @@ The readiness marker was present but RSQLite was missing; installed it only in
 /workspace/dsvert/cox/rlib. R library and other sessions were not modified.
 Final counts/check outcomes will be appended after completion; running checks
 are not claimed as passes here.
+
+## 2026-09-18 resumed — final Cox Go gate
+
+Pod final family suite passed: **16 top-level tests + 7 subtests**, no failures
+or skips, 657.494 seconds on the shared 96-vCPU Xeon pod (Go 1.25.7,
+GOMAXPROCS=8). `inst/cross-cox-v1/validation.json` retains names, command and
+log digest; `costs_pod.json` retains measured shapes, source digests and limits.
+The tagged Go test executable was rebuilt from the same final source.
+
+Maximal public chunks: prepare 322807 gates, permutation 417399, forward 487688,
+backward 140520, finalize 2967. Maximum measured source 71160 bytes, maximum
+typed input 53376 bits. All stay below unchanged 32M/2MiB/512Ki-bit runner caps.
+Encrypted two-row forward test: 495337 garbler-direction bytes (actual local
+secure records/OT); this is not a full authenticated release or inter-host RTT.
+
+The maximum-tile extrapolation for N=10000,J=50 is approximately **722.3 GB table
+bytes + 373.0 GB gate-frame bytes**, excluding labels, OT, evaluator traffic,
+source transport, PSI, noise and persistence. It is a component-call model, not
+an executed full-size release or a certified byte bound. The whole-envelope
+cost gate fails despite successful bounded kernels and scalar gate counts.
+The expensive repeated permutation reconstruction/remasking and linear scans
+must be redesigned/composed more efficiently before production scale admission.

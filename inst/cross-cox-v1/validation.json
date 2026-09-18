@@ -1,0 +1,49 @@
+{
+  "date": "2026-09-18",
+  "scope": "Cox targeted verification; whole-module/package checks recorded separately in STATUS_COX.md",
+  "go": {
+    "top_level_passed": 16,
+    "subtests_passed": 7,
+    "failed": 0,
+    "skipped": 0,
+    "elapsed_seconds": 657.494,
+    "passed_tests": [
+      "TestCoxGridCrossCompiledProfiles/exp",
+      "TestCoxGridCrossCompiledProfiles/logrisk",
+      "TestCoxGridCrossCompiledProfiles",
+      "TestCoxGridCrossPrepareRoundingAndSlack",
+      "TestCoxGridCrossChunkScheduleAndEquality",
+      "TestCoxGridCrossScheduleTamperAndEnvelope",
+      "TestCoxGridCrossForwardSingleRow",
+      "TestCoxGridCrossPrivatePredicates",
+      "TestCoxGridCrossFinalizeTiesClampValidity",
+      "TestCoxGridCrossEncryptedScan",
+      "TestCoxGridCrossMaximumChunkCaps/prepare",
+      "TestCoxGridCrossMaximumChunkCaps/permute",
+      "TestCoxGridCrossMaximumChunkCaps/forward",
+      "TestCoxGridCrossMaximumChunkCaps/backward",
+      "TestCoxGridCrossMaximumChunkCaps/finalize",
+      "TestCoxGridCrossMaximumChunkCaps",
+      "TestCoxGridCrossScalarGateTarget",
+      "TestCoxGridCrossProfileHashesAndKnots",
+      "TestCoxGridCrossProfileIntegerBoundaryFixtures",
+      "TestCoxGridCrossExpProfileExhaustiveQ16",
+      "TestCoxGridCrossLogProfileDenseNormalizationAndSlack",
+      "TestCoxGridCrossProfileDomainsFailClosed",
+      "TestCoxGridCrossProfileAnalyticErrorAndWidths"
+    ],
+    "log_sha256": "88e7c78813ffbf7fba790a38c3066429df6b734ccf0d524eeb9fc639315a7f1b",
+    "command": "GOMAXPROCS=8 go test -run '^TestCoxGridCross' -count=1 -json -timeout=15m ."
+  },
+  "r_targeted": {
+    "server_tests": 4,
+    "server_expectations": 626,
+    "client_contract_tests": 5,
+    "client_contract_expectations": 37,
+    "dslite_tests": 1,
+    "dslite_expectations": 23
+  },
+  "profile_generator": "interval --check passed on pod",
+  "observed_exp_max_relative_error": 0.00854687770277,
+  "observed_log_max_absolute_error": 4.30202593869e-05
+}

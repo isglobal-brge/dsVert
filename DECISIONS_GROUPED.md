@@ -45,3 +45,13 @@
 - Preserve unpromoted R error metadata for inspection, but explicitly prohibit
   using provisional GEE error=1 as a certificate. Full producer enabling is
   blocked by numeric/resource gates and unwired authenticated release stages.
+
+- Shared index-bit conditions cut scalar AND counts from 8623–10084 to
+  4027–5488 without changing profile arithmetic. Narrowing lookup value words
+  passed scalar fixtures but changed composed binomial GEE bread by several
+  integer ulps. Reverted narrowing; retained 32-bit lookup words. Expanded
+  compiled profile tests to 385 inputs per function (2695 total).
+- Rechecked upstream Step 2 at c10bc0d: it also explicitly fails the required
+  cost gate (2773–4019 ANDs/evaluation) and leaves production disabled.
+  Therefore no compliant approved shared emitter is available to substitute.
+  Do not bypass the arithmetic memo or raise limits to force integration.

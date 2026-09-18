@@ -51,7 +51,13 @@ func TestGroupedProfileCircuitEquality(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Logf("gates=%d AND=%d table_bytes=%d", program.Circuit.NumGates, program.Circuit.Stats[circuit.AND], primitiveVTableBytes(program.Circuit))
-			for _, x := range []int64{p.Lower, p.Lower + 1, p.Lower + p.Step/2, p.Upper - p.Step/2, p.Upper - 1, p.Upper} {
+			inputs := []int64{p.Upper}
+			for k := int64(0); k < 64; k++ {
+				for _, offset := range []int64{0, 1, p.Step/2 - 1, p.Step / 2, p.Step/2 + 1, p.Step - 1} {
+					inputs = append(inputs, p.Lower+k*p.Step+offset)
+				}
+			}
+			for _, x := range inputs {
 				want, _ := groupedProfileEval(name, x)
 				input := new(big.Int).Mod(big.NewInt(x), exactGCModulus(32))
 				got, err := program.Circuit.Compute([]*big.Int{input, new(big.Int)})

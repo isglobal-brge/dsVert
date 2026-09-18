@@ -77,7 +77,7 @@ proved bread/meat workload certificate. Do not promote it or use it as a
 utility guarantee. A certificate must propagate profile/correlation/f50 errors
 through bread and clipped score products and include shifts/quantization.
 
-The current scalar kernels measure 8623–10084 AND gates/evaluation, exceeding
+The current scalar kernels measure 4027–5488 AND gates/evaluation, exceeding
 the binding <=2000 target. No full-envelope utility/noise or <=30 GB assertion
 is established. Kernels are internal and all R production materializers/readers
 remain disabled. Neither numeric metadata nor successful reference tests are

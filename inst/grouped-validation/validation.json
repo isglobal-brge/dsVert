@@ -1,6 +1,8 @@
 {
-  "scope": "restricted grouped kernels, not production release",
+  "scope": "restricted grouped kernels; no promoted release",
   "command": "go test -run '^TestGrouped' -count=1 -timeout=15m -json .",
+  "passed_top_level": 9,
+  "passed_including_subtests": 24,
   "passed_tests": [
     "TestGroupedGEECircuitReference/binomial/independence",
     "TestGroupedGEECircuitReference/binomial/exchangeable",
@@ -13,90 +15,99 @@
     "TestGroupedGLMMCircuitReference/poisson",
     "TestGroupedGLMMCircuitReference",
     "TestGroupedProfileCertificate",
-    "TestGroupedProfileCircuitEquality/exp",
-    "TestGroupedProfileCircuitEquality/exp_negative",
-    "TestGroupedProfileCircuitEquality/log",
     "TestGroupedProfileCircuitEquality/sigmoid",
     "TestGroupedProfileCircuitEquality/sqrt_variance",
     "TestGroupedProfileCircuitEquality/inverse_sqrt_variance",
     "TestGroupedProfileCircuitEquality/softplus",
+    "TestGroupedProfileCircuitEquality/exp",
+    "TestGroupedProfileCircuitEquality/exp_negative",
+    "TestGroupedProfileCircuitEquality/log",
     "TestGroupedProfileCircuitEquality",
     "TestGroupedProfileManifest",
     "TestGroupedLMMCircuitReference",
     "TestGroupedLMMTargetsAndRounding",
-    "TestGroupedLMMEncryptedProtocol"
+    "TestGroupedLMMEncryptedProtocol",
+    "TestGroupedLMMCertifiedExtremes"
   ],
   "failures": 0,
+  "elapsed_seconds": 9.621,
   "costs": [
     {
       "test": "TestGroupedGEECircuitReference/binomial/independence",
-      "measurement": "k2_exact_gc_gee_loss_test.go:24: gates=1715435 table_bytes=17745840"
+      "measurement": "k2_exact_gc_gee_loss_test.go:24: gates=1610891 table_bytes=15980976"
     },
     {
       "test": "TestGroupedGEECircuitReference/binomial/exchangeable",
-      "measurement": "k2_exact_gc_gee_loss_test.go:24: gates=1721531 table_bytes=17796560"
+      "measurement": "k2_exact_gc_gee_loss_test.go:24: gates=1616987 table_bytes=16031696"
     },
     {
       "test": "TestGroupedGEECircuitReference/binomial/ar1",
-      "measurement": "k2_exact_gc_gee_loss_test.go:24: gates=1719625 table_bytes=17782448"
+      "measurement": "k2_exact_gc_gee_loss_test.go:24: gates=1615081 table_bytes=16017584"
     },
     {
       "test": "TestGroupedGEECircuitReference/poisson/independence",
-      "measurement": "k2_exact_gc_gee_loss_test.go:24: gates=1670399 table_bytes=17089968"
+      "measurement": "k2_exact_gc_gee_loss_test.go:24: gates=1591991 table_bytes=15766320"
     },
     {
       "test": "TestGroupedGEECircuitReference/poisson/exchangeable",
-      "measurement": "k2_exact_gc_gee_loss_test.go:24: gates=1676495 table_bytes=17140688"
+      "measurement": "k2_exact_gc_gee_loss_test.go:24: gates=1598087 table_bytes=15817040"
     },
     {
       "test": "TestGroupedGEECircuitReference/poisson/ar1",
-      "measurement": "k2_exact_gc_gee_loss_test.go:24: gates=1674589 table_bytes=17126576"
+      "measurement": "k2_exact_gc_gee_loss_test.go:24: gates=1596181 table_bytes=15802928"
     },
     {
       "test": "TestGroupedGLMMCircuitReference/binomial",
-      "measurement": "k2_exact_gc_glmm_loss_test.go:16: gates=464282 table_bytes=5769456"
+      "measurement": "k2_exact_gc_glmm_loss_test.go:16: gates=324890 table_bytes=3416304"
     },
     {
       "test": "TestGroupedGLMMCircuitReference/poisson",
-      "measurement": "k2_exact_gc_glmm_loss_test.go:16: gates=480866 table_bytes=5921712"
-    },
-    {
-      "test": "TestGroupedProfileCircuitEquality/exp",
-      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=25403 AND=10084 table_bytes=322704"
-    },
-    {
-      "test": "TestGroupedProfileCircuitEquality/exp_negative",
-      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=20823 AND=8623 table_bytes=275952"
-    },
-    {
-      "test": "TestGroupedProfileCircuitEquality/log",
-      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=23817 AND=9615 table_bytes=307696"
+      "measurement": "k2_exact_gc_glmm_loss_test.go:16: gates=341474 table_bytes=3568560"
     },
     {
       "test": "TestGroupedProfileCircuitEquality/sigmoid",
-      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=23994 AND=9677 table_bytes=309680"
+      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=15282 AND=5081 table_bytes=162608"
     },
     {
       "test": "TestGroupedProfileCircuitEquality/sqrt_variance",
-      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=23994 AND=9677 table_bytes=309680"
+      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=15282 AND=5081 table_bytes=162608"
     },
     {
       "test": "TestGroupedProfileCircuitEquality/inverse_sqrt_variance",
-      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=24180 AND=9742 table_bytes=311760"
+      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=15468 AND=5146 table_bytes=164688"
     },
     {
       "test": "TestGroupedProfileCircuitEquality/softplus",
-      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=23994 AND=9677 table_bytes=309680"
+      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=15282 AND=5081 table_bytes=162608"
+    },
+    {
+      "test": "TestGroupedProfileCircuitEquality/exp",
+      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=16691 AND=5488 table_bytes=175632"
+    },
+    {
+      "test": "TestGroupedProfileCircuitEquality/exp_negative",
+      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=12111 AND=4027 table_bytes=128880"
+    },
+    {
+      "test": "TestGroupedProfileCircuitEquality/log",
+      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=15105 AND=5019 table_bytes=160624"
     },
     {
       "test": "TestGroupedLMMCircuitReference",
       "measurement": "k2_exact_gc_lmm_loss_test.go:23: gates=271075 table_bytes=2487376"
     }
   ],
-  "log_sha256": "e46246510688fd3dbe0071f3ec6947c759aaf419ae66516bb1886fbf29908690",
-  "additional_test": {
-    "name": "TestGroupedLMMCertifiedExtremes",
-    "passed": true,
-    "scope": "32 slots, eta residual 17, sigma2 1/4, tau2 0/16, g18"
+  "log_sha256": "6692049730ac205a7a5b16fe77f75f31dd35d1346dcc3806268d8d11ce9c7467",
+  "source_sha256": {
+    "k2_exact_gc_gee_loss.go": "5694876b1e1324aa957ea3b38cdc78804f93cb9da3e0bf8614e50872a346a05c",
+    "k2_exact_gc_gee_loss_test.go": "5f87e80d4d84e49aa2f2382056ac21bdb8e8909dd4f9abab9eb0bf72d2c17265",
+    "k2_exact_gc_glmm_loss.go": "0ea6eb4366a6322684a877f0fbb0ae2ab02a9f44b0849e367c558beb47b6362c",
+    "k2_exact_gc_glmm_loss_test.go": "e5c00c20c68a2d4d424c646fbd46f35ec9baa308d156eab3128c84b7db263a21",
+    "k2_exact_gc_grouped_loss_profile.go": "a0534fecf892b7d0149539038bedbcec0dbb4575f8258cdc11f62a1d1bc6937d",
+    "k2_exact_gc_grouped_loss_profile_tables.go": "d8e61f461cb9f577fbdda898af77b210da8e97fa4daf6f71daaac17dcf455a48",
+    "k2_exact_gc_grouped_loss_profile_test.go": "32ce16e024c78a309884a2d75275263e19c6636baabdead29aac6c6a6ac758a2",
+    "k2_exact_gc_grouped_loss_reference_test.go": "ae78f9884e93ada163a1eab9547c28cd1c61db785d117e3f19f85eece845cde5",
+    "k2_exact_gc_lmm_loss.go": "28fa868801af0a024c9ea5f3d26e99e903b3dd8f3698230fcd11c40189b14cda",
+    "k2_exact_gc_lmm_loss_test.go": "d86b0cdbf6342337a55e7e1f629c01fad5894776dbc41068c5717710f70cfd1b"
   }
 }

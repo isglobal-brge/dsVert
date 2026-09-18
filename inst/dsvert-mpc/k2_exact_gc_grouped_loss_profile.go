@@ -84,7 +84,10 @@ func groupedProfileSource() string {
 			deltaBits = shift + 1
 		}
 		fmt.Fprintf(&b, "func %s(x int32) int32 {\n offset := x - int32(%d)\n index := uint6(offset >> %d)\n if x == int32(%d) { index = 63 }\n", groupedProfileFunction(name), p.Lower, shift, p.Upper)
-		// A mux tree over index bits avoids 64 full-width comparisons.
+		for level := 0; level < 6; level++ {
+			fmt.Fprintf(&b, "bit%d := (index & uint6(%d)) != uint6(0)\n", level, 1<<level)
+		}
+		// Reuse each index-bit condition across both tables.
 		for _, column := range []string{"base", "delta"} {
 			values := make([]string, 64)
 			for i := 0; i < 64; i++ {
@@ -102,7 +105,7 @@ func groupedProfileSource() string {
 				next := make([]string, len(values)/2)
 				for i := range next {
 					n := fmt.Sprintf("%s%d_%d", column, level, i)
-					fmt.Fprintf(&b, "%s := %s\n if (index & %d) != 0 { %s = %s }\n", n, values[2*i], 1<<level, n, values[2*i+1])
+					fmt.Fprintf(&b, "%s := %s\n if bit%d { %s = %s }\n", n, values[2*i], level, n, values[2*i+1])
 					next[i] = n
 				}
 				values = next

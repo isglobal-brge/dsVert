@@ -4,7 +4,7 @@
   "authoritative_registration_source": "dsVert/DESCRIPTION: AggregateMethods and AssignMethods",
   "authoritative_client_source": "dsVertClient/R parsed as R ASTs",
   "counts": {
-    "registered_ds_endpoints": 96,
+    "registered_ds_endpoints": 97,
     "registered_argument_constructor_aliases": 0,
     "direct_literal_call_endpoints": 171,
     "as_call_as_name_endpoints": 13,
@@ -59,6 +59,7 @@
       "dsvertDPSynopsisGaussianCrossBindDS",
       "dsvertDPSynopsisGaussianCrossFinalizeDS",
       "dsvertDPSynopsisGaussianCrossEvidenceDS",
+      "dsvertDPSynopsisGLMGridCrossDS",
       "dsvertDPSynopsisAlignmentMaskStartDS",
       "dsvertDPSynopsisAlignmentMaskStoreDS",
       "dsvertDPSynopsisAlignmentMaskSealDS",

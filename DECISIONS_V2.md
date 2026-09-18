@@ -336,3 +336,7 @@ Tests: authenticated cold/hot cache, byte-identical topology after changed publi
 ## 2026-09-18T20:16Z — relay correction
 
 The 8 MiB experiment above was rejected by the fixed negotiated expression policy before admission. Restore the existing 480 KiB default, as already established earlier in this log. Keep the authenticated public-circuit cache; do not alter expression caps.
+
+## 2026-09-18T20:28Z — remote inventory completeness
+
+The full server suite exposed a missing documentation inventory entry for the new registered `dsvertDPSynopsisGLMGridCrossDS` endpoint. Add it to the existing purpose-bound classification and update the registered count from 96 to 97. No endpoint registration or test assertion changes. The running frozen check keeps its original files; its failure is retained, then the corrected package must be checked again.

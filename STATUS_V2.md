@@ -594,3 +594,9 @@ Benchmark matrix continues on its original frozen worker: additional full n10000
 ## 2026-09-18T20:16Z — resumed; relay-window correction
 
 Both campaign attempts rejected the experimental 8 MiB window before admission with `dsvert_resource_oversize:v1`. This repeats the earlier documented transport constraint: the configurable worker ceiling does not imply compatibility with the fixed DataSHIELD expression limit. Restored the default 480 KiB window; no resource ceiling changed. Authenticated circuit caching remains enabled and verified. Failed attempts are archived and count as zero releases. Repositories were inspected before resuming; only campaign output files were untracked.
+
+## 2026-09-18T20:18Z — both benchmark matrices complete
+
+Pod `MATRIX_POD_DONE`; `summarize_bench.py` validates all 16 distinct cells, integer/DP-oracle equality, and full-envelope byte/time gates. Mac matrix also has 16/16 completed cells. Full-envelope pod: binomial 86,515,842,839 bytes / 2795.701 s; Poisson 106,763,755,314 bytes / 2695.032 s. Both pass 110 GB / 4 h; both exceed the original 30-minute reporting threshold. Scope excludes DataSHIELD framing and catalog count, explicitly stated in BENCH_V2.md.
+
+Restored-window validation runners: pod PID717883, Mac native session94315. Final-check runner PID718889 now has the completed benchmark marker and verified 1496-file source archive. Required release matrix remains in progress.

@@ -1,0 +1,9 @@
+=== RUN   TestCrossGridFullMeasurement
+=== RUN   TestCrossGridFullMeasurement/poisson
+    cross_grid_full_benchmark_test.go:146: compiled family=poisson rows=32 candidates=8 elapsed=113.325
+    cross_grid_full_benchmark_test.go:146: compiled family=poisson rows=8 candidates=8 elapsed=131.547
+    cross_grid_full_benchmark_test.go:210: KERNEL_MEASUREMENT family=poisson n=1000 p=10 grid=16 batches=64 and=87463472 wire_bytes=3296741385 seconds=63.783
+    cross_grid_full_benchmark_test.go:214: FULL_MEASUREMENT {"authenticated_server_release":false,"batches":64,"compile_seconds":131.55262428,"family":"poisson","grid":16,"integer_and_dp_oracle_equal":true,"joint_noise_seconds":60.799671719,"joint_noise_wire_bytes":201016661,"kernel_and":87463472,"kernel_and_per_eval":5466.467,"kernel_seconds":63.782657422,"kernel_wire_bytes":3296741385,"n":1000,"p":10,"peer_pairs":4,"total_seconds":256.134971841,"total_wire_bytes":3497758046}
+--- PASS: TestCrossGridFullMeasurement (256.14s)
+    --- PASS: TestCrossGridFullMeasurement/poisson (256.14s)
+PASS

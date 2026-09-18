@@ -514,6 +514,55 @@ test_that("cross-grid workload admission and source contracts bind the new proje
   expect_false(identical(first, .dsvert_dp_glm_grid_cross_key(manifest, changed, transport)))
 })
 
+test_that("fused grid source reads require the matching bilateral digest gate", {
+  f <- .cross_grid_materializer_fixture()
+  f$policy$peer_name <- "peer_a"
+  contract <- .dsvert_dp_capsule_source_contract(f$policy, f$manifest)
+  artifact <- .dsvert_dp_glm_grid_cross_artifacts(f$manifest)$grid
+  parsed <- list(manifest = f$manifest, contract = contract)
+  projections <- .dsvert_dp_alignment_mask_projections(parsed)
+  expect_length(projections, 1L)
+  projection <- projections[[1L]]
+  expect_identical(projection$version, "fused-grid-digest-v3")
+  expect_identical(projection$total, 1)
+  ss <- new.env(parent = emptyenv())
+  reads <- 0L
+  testthat::local_mocked_bindings(
+    .dsvert_dp_capsule_source_aggregate_range_internal = function(
+        policy, manifest_json, start, count, ...) {
+      reads <<- reads + 1L
+      raw(16L * count)
+    }, .package = "dsVert")
+  load <- function(value = artifact) .dsvert_dp_gaussian_cross_load_inputs(
+    f$policy, as.raw(1:32), f$manifest, value, "grid", ss)
+  expect_error(load(), "alignment gate is not complete")
+  expect_identical(reads, 0L)
+  batch <- new.env(parent = emptyenv())
+  batch$status <- "alignment_contract_invalid"
+  batch$capsule_id <- contract$capsule_id
+  batch$contract_hash <- .dsvert_joint_dp_hash(contract)
+  batch$projection_version <- projection$version
+  batch$source_offset <- projection$source_offset
+  batch$total <- projection$total
+  batch$alignment_contract <- projection$contract
+  batches <- .dsvert_dp_alignment_mask_batches(ss)
+  batches$fixture <- batch
+  expect_error(load(), "alignment gate is not complete")
+  expect_identical(reads, 0L)
+  batch$status <- "complete"
+  loaded <- load()
+  expect_length(loaded$values, length(artifact$input_variable_order))
+  expect_identical(reads, 2L * length(artifact$input_variable_order))
+  reads <- 0L
+  changed <- artifact
+  changed$implementation_state <- "other-producer"
+  expect_error(load(changed), class = "dsvert_dp_public_failure")
+  expect_identical(reads, 0L)
+  batch$source_offset <- batch$source_offset + 1
+  expect_error(load(), "projection")
+  expect_identical(reads, 0L)
+})
+
 
 test_that("cross-grid private records resume across R processes and reject tampering", {
   f <- .cross_grid_materializer_fixture()

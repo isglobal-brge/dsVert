@@ -820,8 +820,18 @@
   variables <- unname(as.character(artifact$input_variable_order))
   values <- validities <- vector("list", length(variables))
   names(values) <- names(validities) <- variables
-  .dsvert_dp_alignment_mask_complete_batch(
+  alignment <- .dsvert_dp_alignment_mask_complete_batch(
     ss, contract$capsule_id, parsed$contract_hash)
+  fused_grid <- identical(alignment$projection_version, "fused-grid-digest-v3")
+  if (fused_grid) {
+    # Only the certified typed grid producer can consume authenticated source
+    # shares after the digest-only gate. Legacy producers still use masked data.
+    expected <- .dsvert_dp_glm_grid_cross_artifacts(manifest)[[analysis_id]]
+    if (!is.list(expected)) .dsvert_dp_glm_grid_cross_fail()
+    .dsvert_dp_glm_grid_cross_equal(artifact, expected)
+    .dsvert_dp_alignment_mask_projection_for_batch(
+      list(manifest = manifest, contract = contract), alignment)
+  }
   for (variable in variables) {
     for (kind in c("value", "validity")) {
       key <- paste(analysis_id, variable, kind, sep = "::")
@@ -830,9 +840,15 @@
         stop("The cross-owner Gaussian private input shape changed.",
              call. = FALSE)
       }
-      raw <- .dsvert_dp_alignment_mask_range(
-        ss, contract$capsule_id, parsed$contract_hash,
-        block$start, block$length)
+      raw <- if (fused_grid) {
+        .dsvert_dp_capsule_source_aggregate_range_internal(
+          policy, manifest_json, block$start, block$length,
+          secret = secret, source_contract = source_contract)
+      } else {
+        .dsvert_dp_alignment_mask_range(
+          ss, contract$capsule_id, parsed$contract_hash,
+          block$start, block$length)
+      }
       encoded <- .dsvert_dp_gaussian_cross_standard_b64(
         raw, "cross-owner Gaussian masked aggregate share")
       .exact_gc_validate_residue_records(

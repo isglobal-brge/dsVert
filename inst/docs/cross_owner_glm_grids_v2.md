@@ -21,7 +21,10 @@ Custodians clip finite records to signed bounds, form the bounded patient mean,
 and encode normalized predictors at f50. Outcomes must be bounded integers
 (binomial 0/1; Poisson 0 through the signed maximum). Invalid/missing inputs
 exclude that patient's entire candidate-loss contribution. Validities and
-alignment checks remain private.
+alignment checks remain private. A grid-only source stream first passes the
+bilateral all-owner digest gate. Only then may the typed producer read the
+authenticated source shares; its fused circuit repeats the alignment guard for
+every row. Mixed-family streams retain the full private-coordinate mask path.
 
 The two computation authorities sum partial linear predictors exactly on the
 f100 lattice and evaluate the certified profile in Boolean MPC. Binomial uses

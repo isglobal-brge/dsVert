@@ -81,3 +81,12 @@ test_that("dot products retain wide products and do not depend on owner grouping
   beta <- lapply(c("0", "34359738368", "34359738368"), .cross_parse)
   expect_identical(.cross_format(.cross_eta(x, beta)), "1")
 })
+
+test_that("encoded coefficients preserve the certified L1 rounding slack", {
+  # Exact raw L1 is 16: (8-6u) + 4*(2+1.5u). Four ties round upward.
+  encoded <- sprintf("%.0f", c(8*2^50-6, rep(2*2^50+2, 4)))
+  profile <- .cross_numeric_profile(.cross_numeric_fixture())
+  expect_identical(.cross_reference_batch(
+    list(rep("1125899906842624", 4)), 0, matrix(1, 1, 5),
+    list(encoded), "4194305", "binomial", 18, profile), "4194304")
+})

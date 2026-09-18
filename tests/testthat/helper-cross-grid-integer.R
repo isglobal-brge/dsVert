@@ -168,7 +168,9 @@
       stopifnot(.cross_cmp_abs(value, .cross_pow2(53)) <= 0)
       value$s <- abs(value$s); total <- .cross_add(total, value)
     }
-    stopifnot(.cross_cmp_abs(total, .cross_pow2(54)) <= 0)
+    # Encoding can increase L1 by half an f50 ulp per public coefficient.
+    limit <- .cross_add(.cross_pow2(54), .cross_small(ceiling(length(row)/2)))
+    stopifnot(.cross_cmp_abs(total, limit) <= 0)
   }
   totals <- lapply(caps, function(x) .cross_int())
   for (i in seq_along(features)) {

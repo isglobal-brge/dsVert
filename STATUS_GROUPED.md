@@ -121,3 +121,15 @@ Implementation commits:
 - Server c1fe030 (contract scaffolding), d4392f9 (kernels/oracles/tests/docs),
   6f96f10 (safe cost optimization, expanded fixtures and arithmetic blocker).
 - Client 83512b6 (adapters), 872bb6d (profile hash/domain parity).
+
+## Resumed 2026-09-18 — revised reviewer gate
+
+Both repositories were clean at resume; no interrupted edits needed recovery.
+Read the recorded handoff and binding gate revision before implementation.
+The old <=2000 AND / <=30 GB finding is superseded, not a current blocker.
+Current acceptance is <=5000 AND per scalar nonlinearity and <=60 GB measured
+two-direction full-release traffic, with unchanged per-chunk runner caps.
+Upstream Step 2 is also actively resuming; it has not delivered release wiring.
+First new milestone: range-reduced exp and profile/circuit/oracle parity, then
+re-evaluate the complete chunk cost, remaining certificates and release gates.
+Prior pod checks still run; R_STACK_DONE reconfirmed.

@@ -55,3 +55,11 @@
   cost gate (2773–4019 ANDs/evaluation) and leaves production disabled.
   Therefore no compliant approved shared emitter is available to substitute.
   Do not bypass the arithmetic memo or raise limits to force integration.
+
+### Resumed 2026-09-18 — revised gate
+
+The reviewer's GATE_REVISION_2026-09-18.md overrides the former scalar and
+traffic budgets. Do not stop against the old threshold or interpret the new
+scalar threshold as a whole-release measurement. Preserve runner caps and
+production rejection until authenticated wiring and numeric gates pass.
+Range reduction must cover both Poisson exponentials and quadrature exp.

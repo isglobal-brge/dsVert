@@ -31,7 +31,12 @@ for (family in c("binomial", "poisson")) for (instance in 1:20) {
     env=c(DSVERT_CROSS_ORACLE_FIXTURE=input))
   stopifnot(result$status==0)
   exact <- as.numeric(unlist(jsonlite::fromJSON(output)$Exact))/2^16
-  unlink(c(input,output))
+  python <- Sys.getenv("DSVERT_CERTIFICATE_PYTHON", if (file.exists(
+    "/opt/homebrew/opt/python@3.11/bin/python3.11")) "/opt/homebrew/opt/python@3.11/bin/python3.11" else "python3")
+  high_output <- tempfile(tmpdir=build,fileext=".json")
+  processx::run(python,c(file.path(server,"inst/cross-grid-v2/validate_high_precision.py"),input,high_output))
+  high <- as.numeric(jsonlite::fromJSON(high_output))
+  unlink(c(input,output,high_output))
   fam <- if(family=="binomial") stats::binomial() else stats::poisson()
   independent <- vapply(beta,function(b) {
     mu <- fam$linkinv(drop(cbind(1,x)%*%b))
@@ -41,9 +46,10 @@ for (family in c("binomial", "poisson")) for (instance in 1:20) {
   fit <- stats::glm.fit(cbind(1,x),y,family=fam)
   error <- if(family=="binomial") entry$binomial_error else entry$poisson_error
   tolerance <- n*(as.numeric(error)+0.5/2^16+2^-44)
-  stopifnot(max(abs(exact-independent))<=tolerance, all(exact<=n*cap/2^16),all(exact>=0))
+  stopifnot(max(abs(exact-high))<=tolerance, max(abs(independent-high))<1e-8, max(abs(exact-independent))<=tolerance, all(exact<=n*cap/2^16),all(exact>=0))
   rows[[length(rows)+1L]] <- data.frame(family,instance,n,p=6,candidates=2,
-    max_absolute_error=max(abs(exact-independent)),certified_tolerance=tolerance,
+    max_absolute_error=max(abs(exact-independent)),
+    max_high_precision_error=max(abs(exact-high)),r_reference_error=max(abs(independent-high)),certified_tolerance=tolerance,
     l1=2*cap,l2=sqrt(2*cap^2),pooled_glm_converged=fit$converged)
 }
 report <- do.call(rbind,rows)

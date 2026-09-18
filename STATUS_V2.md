@@ -422,3 +422,12 @@ campaign now runs n10000 before n2000. No successful full-size run is repeated.
 - `go test -c -o ../cross-grid-v2/build/cross-grid-oracle.test` builds a test-only adapter, with no installed plaintext/noise command.
 - `Rscript inst/cross-grid-v2/validate_layered_math.R ..` — **40 n=2000/p=6 instances, 80 candidate objectives PASS** against independent R family deviance/saturated-constant evaluation, within certified profile + lattice error. `LAYER1_V2.md` links per-instance evidence.
 - Additional cross-package admission sanity: a client-generated/signed V2 contract is accepted by the server validator (`cross-package-profile.log`). The remaining DSLite failure is specifically the actual catalog's derived alignment-contract hash; debugging is confined to public schema/contract metadata. No secure grid/DP release success is claimed yet.
+
+## 2026-09-18T16:13Z — first measured full-size pod gate PASS
+
+- **Binomial n=10000/p=10/grid=50:** 86,515,842,839 bytes; 2,795.701 s (46m 36s), 2,191 batches, integer + joint-DP oracle equality. Revised <=110 GB / <=4 h gate PASS. Original 30-minute target exceeded and prominently recorded in BENCH_V2. This is the synthetic Go kernel+noise path, not a DataSHIELD framing measurement.
+- Poisson full-size run has started; both n=2000 runs follow in the same nohup campaign. Raw pod evidence copied to `inst/cross-grid-v2/pod-full-n10000.log`.
+- New client source geometry, authorized source-computation session, and explicit JSON framing are exercised by DSLite. The next required integration step is a server-minted typed start (added to the same authenticated lifecycle); no generic start route is exposed.
+- Paired-namespace targeted client tests: **710 assertions, 0 failures/errors**, filter `^dsi-text-frame$|dp-glm-grid-cross-contract|dp-glm-grid$`, including the exact newly expanded remote method/formal inventory.
+- Layer 1 now also compares all 80 n=2000 candidate losses with an independent 80-digit mpmath reference; all PASS.
+- Gate revision file now also contains clause 7 (K=3 and K=5 owner-topology releases). Kernel ABI already supports 2..64 owners; topology validation remains outstanding in addition to the original 12 two-peer releases. No topology evidence is claimed yet.

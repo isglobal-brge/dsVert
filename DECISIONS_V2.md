@@ -220,3 +220,11 @@ The producer, not an RPC caller, derives these partial predictors.
 - The new exported aggregate authenticates the existing Synopsis compilation before bind/prepare/store/finalize. The generic exact worker accepts the special plan only from this internally staged producer, never from generic user source staging.
 - Client certificate reuse: the existing two-authority signed Synopsis publication and authenticated source-contract binding prove the grid release route; grid validation additionally rechecks both custodians' complete signed arithmetic contract against the signed schema. The Gaussian-specific supplemental evidence rule remains unchanged for Gaussian models.
 - Client syntax permits additive `owner$column` references. Signature/cap validation and formula matching run after public catalog bootstrap but before any protected source claim or release. A previously unknown server-owned catalog cannot be validated before fetching its public metadata. No inference/standard errors are added.
+
+## 2026-09-18T16:08Z — DSLite wiring corrections
+
+- Preserve the actual signed PSI protocol version in the synthetic custodian bootstrap (currently 4), instead of the harness's initial hard-coded 1. No production alignment or signature check was weakened.
+- The Synopsis source-manifest adapter must recognize grid-private source geometry/purpose, in addition to its existing Gaussian/categorical branches.
+- A dedicated grid computation session receives the existing authenticated Synopsis PREPARE before exact transport setup. This supplies the authoritative artifact binding required by the pinned-peer handshake; generic unauthenticated setup is not used.
+- Register the new lifecycle method in the client's existing idempotent-call and JSON text-framing maps. Its large public compilation/claim arguments need the same DSLite-safe framing as existing cross-owner methods. No generic parser or admission exception was added.
+- No maintainer file requires a version/NEWS bump for this branch; versions and NEWS remain unchanged. Roxygen generated the changed GLM help section; unrelated pre-existing regeneration drift was discarded.

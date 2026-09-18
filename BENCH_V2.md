@@ -252,3 +252,46 @@ subtests with zero failures/skips. This is targeted verification, not a full
 suite or R CMD check. Earlier partial pod logs were superseded after the
 binomial batch and V1-exclusion cases were added; the final source hash check
 covers all files used by the recorded final run.
+
+## 2026-09-18T16:08Z — measured full-size campaign, in progress
+
+**The n=10,000 / p=10 / grid=50 binomial kernel exceeds 30 minutes.**
+The revised promotion envelope is <=110 GB bidirectional traffic and <=4 h
+per family (Addendum 5). The kernel alone measured **85,537,704,131 bytes**,
+**2,182.623 seconds (36m 23s)** and **2,144,565,601 AND gates**, over 2,191
+batches. Joint-noise bytes/time and compilation must still be added; no final
+full-release cost-gate result is claimed at this checkpoint.
+
+The pod advertises 96 vCPUs but its cgroup permits 765000/100000 = 7.65 CPU
+cores. Four peer pairs run concurrently under GOMAXPROCS=8. More concurrent
+pairs would oversubscribe this quota. Candidate-parallel batching and reuse of
+identical public circuit topologies are already enabled without changing the
+ABI. Obtaining the advertised CPU quota is the cheapest remaining elapsed-time
+reduction; narrowing arithmetic would require a new certificate and is not
+needed for the revised gate.
+
+Mac matrix first measured point (synthetic full workload plus globally
+calibrated joint noise; three concurrent peer pairs, GOMAXPROCS=6):
+
+| Family | n | p | Grid | Total seconds | Bidirectional bytes | Kernel AND/evaluation |
+|---|---:|---:|---:|---:|---:|---:|
+| Binomial | 1000 | 5 | 16 | 57.993 | 2,498,471,536 | 3886.020 |
+| Poisson | 1000 | 5 | 16 | 84.548 | 3,170,518,051 | 5147.717 |
+
+Both integer and DP oracle comparisons passed. These Go measurements are
+kernel + joint-noise releases (`authenticated_server_release=false`), excluding
+R/DataSHIELD framing and authenticated server lifecycle overhead. The mandatory
+DSLite wiring measurements are reported separately. Mac runs share the host
+with targeted R validation; the pod quota and concurrent host load are material
+to interpreting elapsed time.
+
+### Completed binomial full-size result (2026-09-18T16:13Z)
+
+**PASS revised full-size cost gate:** 86,515,842,839 bidirectional bytes
+(86.52 decimal GB) and 2,795.701 seconds (**46m 36s**) including compilation,
+all 2,191 kernel batches, and the globally calibrated 50-coordinate joint noise
+draw. Compilation: 183.660 s; kernel: 2,182.623 s; joint noise: 429.418 s and
+978,138,708 bytes. Integer and DP-oracle equality passed. Kernel AND/evaluation:
+4,289.131. This is the once-measured n=10,000/p=10/grid=50 binomial workload,
+not an extrapolation. The exact source snapshot is `89ee9be` plus its checked-in
+hash manifest. Poisson and n=2,000 measurements are still running.

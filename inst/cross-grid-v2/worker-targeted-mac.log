@@ -1,0 +1,30 @@
+=== RUN   TestCrossGridDurableWorkers
+=== RUN   TestCrossGridDurableWorkers/binomial
+=== RUN   TestCrossGridDurableWorkers/poisson
+--- PASS: TestCrossGridDurableWorkers (1.41s)
+    --- PASS: TestCrossGridDurableWorkers/binomial (0.66s)
+    --- PASS: TestCrossGridDurableWorkers/poisson (0.76s)
+=== RUN   TestCrossGridKernelTwoAuthority
+=== RUN   TestCrossGridKernelTwoAuthority/binomial
+    k2_exact_gc_glm_grid_protocol_test.go:78: family=binomial invalid=false wire-bytes=756049
+    k2_exact_gc_glm_grid_protocol_test.go:78: family=binomial invalid=true wire-bytes=756047
+=== RUN   TestCrossGridKernelTwoAuthority/poisson
+    k2_exact_gc_glm_grid_protocol_test.go:78: family=poisson invalid=false wire-bytes=918552
+    k2_exact_gc_glm_grid_protocol_test.go:78: family=poisson invalid=true wire-bytes=918552
+--- PASS: TestCrossGridKernelTwoAuthority (0.53s)
+    --- PASS: TestCrossGridKernelTwoAuthority/binomial (0.22s)
+    --- PASS: TestCrossGridKernelTwoAuthority/poisson (0.31s)
+=== RUN   TestCrossGridKernelJointNoise
+=== RUN   TestCrossGridKernelJointNoise/binomial
+    k2_exact_gc_glm_grid_protocol_test.go:147: real two-authority kernel plus joint-noise equality; no server lifecycle claim
+=== RUN   TestCrossGridKernelJointNoise/poisson
+    k2_exact_gc_glm_grid_protocol_test.go:147: real two-authority kernel plus joint-noise equality; no server lifecycle claim
+--- PASS: TestCrossGridKernelJointNoise (0.84s)
+    --- PASS: TestCrossGridKernelJointNoise/binomial (0.49s)
+    --- PASS: TestCrossGridKernelJointNoise/poisson (0.35s)
+=== RUN   TestCrossGridKernelPurposeAndAdmissionGate
+--- PASS: TestCrossGridKernelPurposeAndAdmissionGate (0.16s)
+=== RUN   TestExactGCWorkerConfigIsOneLinkAndRemovedBeforeUse
+--- PASS: TestExactGCWorkerConfigIsOneLinkAndRemovedBeforeUse (0.00s)
+PASS
+ok  	github.com/isglobal-brge/dsVert/dsvert-mpc	3.291s

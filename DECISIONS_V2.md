@@ -178,3 +178,13 @@ The producer, not an RPC caller, derives these partial predictors.
     Common envelopes may increase noise for heterogeneous grids; document this
     limit. Features, f100 predictor, row/candidate traversal and output g remain
     unchanged. The new certificate and profile hashes are signed on both sides.
+
+32. Extend the existing private exact-GC worker config with an optional typed
+    grid plan, accepted only for the new operation and its exact plan purpose.
+    Ordinary compiler/R staging remain closed until authenticated source binding
+    is implemented. Existing worker operations reject unexpected grid metadata.
+33. Durable-spool testing exposed a missing connection-finalization call in the
+    internal fused runner: net.Pipe hid an asynchronous final-ack flush race.
+    Use the existing exactGCFinishConn drain/flush before returning outputs.
+    No polynomial, output value, gate, or protocol message changes. The running
+    net.Pipe cost snapshot predates this lifecycle fix and is identified as such.

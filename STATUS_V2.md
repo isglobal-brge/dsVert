@@ -375,3 +375,14 @@ The pod n2000 then n10000 campaign is running under nohup from
 run_full_measurement_pod.sh with 48 peer pairs. Its source snapshot is b88f986,
 verified by full-measurement-source.sha256. These computations exclude the
 unfinished R lifecycle and will not be labelled authenticated releases.
+
+## 2026-09-18T15:00Z — durable Go worker integration
+
+Both-family encrypted durable-spool workers now match the integer oracle,
+remove source-bearing configs and reject terminal spool reuse. Targeted run:
+5 top-level / 11 including-subtest passes, zero failures/skips. It includes the
+existing config unlink test and the two-authority/joint-noise regressions.
+Command: go test -run '^(TestCrossGridDurableWorkers|TestExactGCWorkerConfigIsOneLinkAndRemovedBeforeUse|TestCrossGridKernelPurposeAndAdmissionGate|TestCrossGridKernelTwoAuthority|TestCrossGridKernelJointNoise)$' -count=1 -v.
+Evidence: worker-targeted-mac.log. The initial durable test stalled because the
+fused runner omitted exactGCFinishConn; the corrected run completes in 3.291s.
+This verifies worker persistence, not the pending R signed lifecycle.

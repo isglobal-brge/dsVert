@@ -80,7 +80,7 @@ func (k *crossGridKernelPrepared) run(rw io.ReadWriter, session exactGCSession, 
 	} else {
 		result, err = exactGCEvaluatorProtocolMode(conn, k.circuit, packed, session, true)
 	}
-	if err != nil {
+	if err = exactGCFinishConn(conn, rw, err); err != nil {
 		return nil, errCrossGridKernel
 	}
 	out := make([]*big.Int, len(k.plan.Beta)+1)

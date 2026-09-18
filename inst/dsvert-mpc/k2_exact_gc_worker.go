@@ -31,22 +31,23 @@ const (
 )
 
 type exactGCWorkerConfig struct {
-	Version     string `json:"version"`
-	Role        string `json:"role"`
-	SessionID   string `json:"session_id"`
-	MasterKey   string `json:"master_key"`
-	GarblerID   string `json:"garbler_id"`
-	EvaluatorID string `json:"evaluator_id"`
-	Purpose     string `json:"purpose"`
-	Operation   string `json:"operation"`
-	RingBits    int    `json:"ring_bits"`
-	FracBits    int    `json:"frac_bits"`
-	Threshold   string `json:"threshold,omitempty"`
-	MulBackend  string `json:"mul_backend,omitempty"`
-	BoundX      string `json:"bound_x,omitempty"`
-	BoundY      string `json:"bound_y,omitempty"`
-	VectorLen   int    `json:"vector_len"`
-	SourceShare string `json:"source_share"`
+	CrossGrid   *crossGridKernelPlan `json:"cross_grid,omitempty"`
+	Version     string               `json:"version"`
+	Role        string               `json:"role"`
+	SessionID   string               `json:"session_id"`
+	MasterKey   string               `json:"master_key"`
+	GarblerID   string               `json:"garbler_id"`
+	EvaluatorID string               `json:"evaluator_id"`
+	Purpose     string               `json:"purpose"`
+	Operation   string               `json:"operation"`
+	RingBits    int                  `json:"ring_bits"`
+	FracBits    int                  `json:"frac_bits"`
+	Threshold   string               `json:"threshold,omitempty"`
+	MulBackend  string               `json:"mul_backend,omitempty"`
+	BoundX      string               `json:"bound_x,omitempty"`
+	BoundY      string               `json:"bound_y,omitempty"`
+	VectorLen   int                  `json:"vector_len"`
+	SourceShare string               `json:"source_share"`
 	// JointDP and PrivateSeed remain in the same mode-0600,
 	// unlink-before-ready file as the ephemeral master key and input share.
 	// PrivateSeed is also accepted for a garbler-side Count clamp, where it
@@ -208,7 +209,22 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 	}
 	failureSession = &session
 	defer clear(session.MasterKey[:])
-	shares, err := exactGCDecodeWorkerShares(config.SourceShare, session.Spec)
+	var grid *crossGridKernelPrepared
+	shareSpec := session.Spec
+	if session.Spec.Operation == crossGridKernelOperation {
+		if config.CrossGrid == nil || config.JointDP != nil || config.JointDPVector != nil || config.JointDPGaussianOneDraw != nil || config.PrivateSeed != "" || config.CrossGrid.purpose() != session.Purpose || len(config.CrossGrid.Beta) != session.Spec.VectorLen {
+			return errCrossGridKernel
+		}
+		grid, err = crossGridKernelPrepare(*config.CrossGrid)
+		if err != nil {
+			return errCrossGridKernel
+		}
+		// Encoding only: the typed producer derives every predictor slot.
+		shareSpec = exactGCCircuitSpec{Operation: exactGCTruncateFloor, RingBits: 128, FracBits: 1, VectorLen: grid.plan.sourceCount()}
+	} else if config.CrossGrid != nil {
+		return errCrossGridKernel
+	}
+	shares, err := exactGCDecodeWorkerShares(config.SourceShare, shareSpec)
 	config.MasterKey = ""
 	config.SourceShare = ""
 	if err != nil {
@@ -288,7 +304,9 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 		return err
 	}
 	if config.Role == "garbler" {
-		if jointGaussianOneDrawSpec != nil {
+		if grid != nil {
+			outputShares, err = grid.run(spool, session, shares, exactGCRoleGarbler)
+		} else if jointGaussianOneDrawSpec != nil {
 			outputShares, err = jointDPGaussianOneDrawRunGarbler(
 				spool, session, *jointGaussianOneDrawSpec, shares, privateSeed)
 		} else if jointVectorSpec != nil {
@@ -304,7 +322,9 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 			outputShares, err = exactGCRunGarbler(spool, session, shares)
 		}
 	} else if config.Role == "evaluator" {
-		if jointGaussianOneDrawSpec != nil {
+		if grid != nil {
+			outputShares, err = grid.run(spool, session, shares, exactGCRoleEvaluator)
+		} else if jointGaussianOneDrawSpec != nil {
 			outputShares, err = jointDPGaussianOneDrawRunEvaluator(
 				spool, session, *jointGaussianOneDrawSpec, shares, privateSeed)
 		} else if jointVectorSpec != nil {
@@ -518,11 +538,15 @@ func exactGCEncodeWorkerResult(shares []*big.Int,
 		return result, nil
 	}
 	if session.Spec.Operation == exactGCMulTruncateChecked ||
-		session.Spec.Operation == exactGCCategoricalProductRing128 {
+		session.Spec.Operation == exactGCCategoricalProductRing128 ||
+		session.Spec.Operation == crossGridKernelOperation {
 		if len(shares) != session.Spec.VectorLen+1 {
 			return exactGCWorkerResult{}, fmt.Errorf("invalid checked multiplication result shape")
 		}
 		result.Kind = "checked-ring-share"
+		if session.Spec.Operation == crossGridKernelOperation {
+			result.Kind = "cross-grid-ring128-share-v2"
+		}
 		encoded, err := exactGCEncodeWorkerCanonicalShares(
 			shares[:session.Spec.VectorLen], session.Spec)
 		if err != nil {

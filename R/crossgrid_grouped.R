@@ -134,6 +134,7 @@
   list(version = "grouped-fixed-profile-numeric-v1",
        profile = if (lmm) "grouped-lmm-q64-random-intercept-v1" else
          "grouped-pwlinear-q16-k64-v1",
+       profile_sha256 = if (lmm) NULL else "a32101f12fec76cbed9ae0f5a8eaa6dab621acecb98c4a269fcee6912a5d3cfc",
        source_fraction_bits = 50, predictor_accumulation_fraction_bits = 100,
        predictor_rounding = "complete_dot_once_nearest_ties_even_v1",
        internal_fraction_bits = if (lmm) 64 else 16,

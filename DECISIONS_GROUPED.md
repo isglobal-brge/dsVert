@@ -25,3 +25,23 @@
    certificates, contracts and authenticated producer wiring agree.
 6. GEE uses the user-mandated same-owner likelihood+bread+clipped cluster-score
    meat workload. The design's alternative global score norm is not substituted.
+
+### Resumed audit outcomes
+
+- All scalar profiles use piecewise q16 integer interpolation, no exact
+  transcendental emitters. JSON coefficients are hash-bound in Go and R.
+- Fixed equal-width wideMul operands, runtime q64 reciprocal casting and
+  non-constant int192 count initialization for pinned MPCL behavior. Kept the
+  primitive untouched. Replaced GEE's constant power-of-two division with
+  explicit ties-even shifts (about 6.2M -> 1.7M gates in the three-slot probe).
+- Public GEE score clipping now requires quarter increments on both R sides,
+  matching Go; no clipping bound relaxed. Corrected log(3!) q16 from 117425 to
+  117423 in GLMM and R. Invalid GEE oracle inputs now zero every coordinate.
+- Tagged Go test executable is the only fixture-file evaluation entry. Synthetic
+  DSLite uses explicit base::identity registration only in tests. Its two
+  independent full-scale Laplace draws are conservative simulation, not a
+  substitute for authenticated joint noise. Pooled fits are comparison targets,
+  not computations permitted on protected data.
+- Preserve unpromoted R error metadata for inspection, but explicitly prohibit
+  using provisional GEE error=1 as a certificate. Full producer enabling is
+  blocked by numeric/resource gates and unwired authenticated release stages.

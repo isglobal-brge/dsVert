@@ -1,0 +1,102 @@
+{
+  "scope": "restricted grouped kernels, not production release",
+  "command": "go test -run '^TestGrouped' -count=1 -timeout=15m -json .",
+  "passed_tests": [
+    "TestGroupedGEECircuitReference/binomial/independence",
+    "TestGroupedGEECircuitReference/binomial/exchangeable",
+    "TestGroupedGEECircuitReference/binomial/ar1",
+    "TestGroupedGEECircuitReference/poisson/independence",
+    "TestGroupedGEECircuitReference/poisson/exchangeable",
+    "TestGroupedGEECircuitReference/poisson/ar1",
+    "TestGroupedGEECircuitReference",
+    "TestGroupedGLMMCircuitReference/binomial",
+    "TestGroupedGLMMCircuitReference/poisson",
+    "TestGroupedGLMMCircuitReference",
+    "TestGroupedProfileCertificate",
+    "TestGroupedProfileCircuitEquality/exp",
+    "TestGroupedProfileCircuitEquality/exp_negative",
+    "TestGroupedProfileCircuitEquality/log",
+    "TestGroupedProfileCircuitEquality/sigmoid",
+    "TestGroupedProfileCircuitEquality/sqrt_variance",
+    "TestGroupedProfileCircuitEquality/inverse_sqrt_variance",
+    "TestGroupedProfileCircuitEquality/softplus",
+    "TestGroupedProfileCircuitEquality",
+    "TestGroupedProfileManifest",
+    "TestGroupedLMMCircuitReference",
+    "TestGroupedLMMTargetsAndRounding",
+    "TestGroupedLMMEncryptedProtocol"
+  ],
+  "failures": 0,
+  "costs": [
+    {
+      "test": "TestGroupedGEECircuitReference/binomial/independence",
+      "measurement": "k2_exact_gc_gee_loss_test.go:24: gates=1715435 table_bytes=17745840"
+    },
+    {
+      "test": "TestGroupedGEECircuitReference/binomial/exchangeable",
+      "measurement": "k2_exact_gc_gee_loss_test.go:24: gates=1721531 table_bytes=17796560"
+    },
+    {
+      "test": "TestGroupedGEECircuitReference/binomial/ar1",
+      "measurement": "k2_exact_gc_gee_loss_test.go:24: gates=1719625 table_bytes=17782448"
+    },
+    {
+      "test": "TestGroupedGEECircuitReference/poisson/independence",
+      "measurement": "k2_exact_gc_gee_loss_test.go:24: gates=1670399 table_bytes=17089968"
+    },
+    {
+      "test": "TestGroupedGEECircuitReference/poisson/exchangeable",
+      "measurement": "k2_exact_gc_gee_loss_test.go:24: gates=1676495 table_bytes=17140688"
+    },
+    {
+      "test": "TestGroupedGEECircuitReference/poisson/ar1",
+      "measurement": "k2_exact_gc_gee_loss_test.go:24: gates=1674589 table_bytes=17126576"
+    },
+    {
+      "test": "TestGroupedGLMMCircuitReference/binomial",
+      "measurement": "k2_exact_gc_glmm_loss_test.go:16: gates=464282 table_bytes=5769456"
+    },
+    {
+      "test": "TestGroupedGLMMCircuitReference/poisson",
+      "measurement": "k2_exact_gc_glmm_loss_test.go:16: gates=480866 table_bytes=5921712"
+    },
+    {
+      "test": "TestGroupedProfileCircuitEquality/exp",
+      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=25403 AND=10084 table_bytes=322704"
+    },
+    {
+      "test": "TestGroupedProfileCircuitEquality/exp_negative",
+      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=20823 AND=8623 table_bytes=275952"
+    },
+    {
+      "test": "TestGroupedProfileCircuitEquality/log",
+      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=23817 AND=9615 table_bytes=307696"
+    },
+    {
+      "test": "TestGroupedProfileCircuitEquality/sigmoid",
+      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=23994 AND=9677 table_bytes=309680"
+    },
+    {
+      "test": "TestGroupedProfileCircuitEquality/sqrt_variance",
+      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=23994 AND=9677 table_bytes=309680"
+    },
+    {
+      "test": "TestGroupedProfileCircuitEquality/inverse_sqrt_variance",
+      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=24180 AND=9742 table_bytes=311760"
+    },
+    {
+      "test": "TestGroupedProfileCircuitEquality/softplus",
+      "measurement": "k2_exact_gc_grouped_loss_profile_test.go:53: gates=23994 AND=9677 table_bytes=309680"
+    },
+    {
+      "test": "TestGroupedLMMCircuitReference",
+      "measurement": "k2_exact_gc_lmm_loss_test.go:23: gates=271075 table_bytes=2487376"
+    }
+  ],
+  "log_sha256": "e46246510688fd3dbe0071f3ec6947c759aaf419ae66516bb1886fbf29908690",
+  "additional_test": {
+    "name": "TestGroupedLMMCertifiedExtremes",
+    "passed": true,
+    "scope": "32 slots, eta residual 17, sigma2 1/4, tau2 0/16, g18"
+  }
+}

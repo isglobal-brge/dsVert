@@ -102,3 +102,12 @@
     the new candidate and opt-in internal framing only. Production documentation
     remains part of the unfinished release deliverable. No BLOCKED_V2 file is
     warranted: the outstanding work is implementation, not a missing decision.
+
+## 2026-09-18T13:43Z — fused producer integration
+
+19. Form exact public-coefficient f100 partial predictors locally on Ring128
+shares, with the intercept on the garbler share only. Reconstruct and validate
+the original source records privately in the fused circuit; invalid rows zero
+their predictor before nonlinear evaluation. This avoids secret circuit
+multiplication by public coefficients without independently rounding owners.
+The producer, not an RPC caller, derives these partial predictors.

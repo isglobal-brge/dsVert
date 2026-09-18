@@ -221,3 +221,10 @@ and client lifecycle, and execute the outstanding layer-2/layer-3/DSLite gates.
 The nonlinear design no longer needs another wide-domain Poisson interpolation
 experiment; the full release budget still requires measurement. No tags or
 remote branches were modified; nothing was pushed.
+
+## 2026-09-18T13:43Z — resumed under Addendum 4
+
+Both worktrees are clean on feature/cross-owner-grids. The accepted component
+checkpoint is retained. R_STACK_DONE is confirmed on the pod. Implement the
+fused source/loss producer next, then the measured release and lifecycle gates.
+No full-suite rerun is started during development.

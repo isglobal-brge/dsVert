@@ -188,3 +188,12 @@ The producer, not an RPC caller, derives these partial predictors.
     Use the existing exactGCFinishConn drain/flush before returning outputs.
     No polynomial, output value, gate, or protocol message changes. The running
     net.Pipe cost snapshot predates this lifecycle fix and is identified as such.
+
+34. The pod exposes 96 CPUs but its cgroup CPU quota is 765000/100000,
+    i.e. 7.65 cores. Use GOMAXPROCS=8 and four concurrent two-peer pairs.
+    The first n2000 attempt was interrupted during compilation, before any
+    n10000 execution. Cache benchmark circuits only by the SHA256 of identical
+    generated source; each candidate batch keeps its own immutable coefficient
+    plan, predictor packer and purpose. This removes duplicate compilation,
+    not gates/evaluations. A 17-candidate smoke test exercises cache reuse and
+    tails, with complete integer/DP equality for both families.

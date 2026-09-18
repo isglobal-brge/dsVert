@@ -386,3 +386,12 @@ Command: go test -run '^(TestCrossGridDurableWorkers|TestExactGCWorkerConfigIsOn
 Evidence: worker-targeted-mac.log. The initial durable test stalled because the
 fused runner omitted exactGCFinishConn; the corrected run completes in 3.291s.
 This verifies worker persistence, not the pending R signed lifecycle.
+
+## 2026-09-18T15:03Z — pod scheduling correction
+
+The visible 96-vCPU count overstates this container's quota (7.65 CPU cores).
+Stopped the n2000 compile-only attempt and retained its interrupted log.
+No n10000 attempt had begun. Runner now uses four peer pairs/GOMAXPROCS=8
+and source-identical circuit reuse. Both-family n3/p5/grid17 smoke test passes
+including joint-noise equality and candidate tails. The matching-source pod
+campaign is restarted with the acknowledgement-drain fix included.

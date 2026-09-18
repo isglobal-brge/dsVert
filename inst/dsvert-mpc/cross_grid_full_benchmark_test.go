@@ -107,6 +107,7 @@ func crossGridFullMeasurement(t *testing.T, family string, n, predictors, m, wor
 	}
 	tasks := make([]task, 0)
 	kernels := make(map[string]*crossGridKernelPrepared)
+	circuits := make(map[[32]byte]*circuit.Circuit)
 	var gates uint64
 	for row := 0; row < n; row += 32 {
 		rows := min(32, n-row)
@@ -120,10 +121,23 @@ func crossGridFullMeasurement(t *testing.T, family string, n, predictors, m, wor
 				bp.Beta = base.Beta[col : col+count]
 				bp.Caps = base.Caps[col : col+count]
 				var err error
-				k, err = crossGridKernelPrepare(bp)
-				if err != nil {
-					t.Fatal(err)
+				source, sourceErr := crossGridKernelSource(bp)
+				if sourceErr != nil {
+					t.Fatal(sourceErr)
 				}
+				hash := sha256.Sum256([]byte(source))
+				compiled := circuits[hash]
+				if compiled == nil {
+					compiled, err = crossGridKernelCompile(bp)
+					if err != nil {
+						t.Fatal(err)
+					}
+					circuits[hash] = compiled
+					t.Logf("compiled family=%s rows=%d candidates=%d elapsed=%.3f", family, rows, count, time.Since(start).Seconds())
+				}
+				// Source-identical circuits share topology only. Each immutable
+				// plan retains its coefficients, private packer and purpose digest.
+				k = &crossGridKernelPrepared{plan: bp, circuit: compiled}
 				kernels[key] = k
 			}
 			tasks = append(tasks, task{row, col, k})

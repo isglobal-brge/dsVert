@@ -4,11 +4,13 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
 	"net"
 	"os"
 	"sort"
 	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -55,6 +57,24 @@ func TestCoxGridCrossSharedProfiles(t *testing.T) {
 		}
 	}
 	t.Logf("exp gates=%d tables=%d; log gates=%d tables=%d", exp.Circuit.NumGates, primitiveVTableBytes(exp.Circuit), log.Circuit.NumGates, primitiveVTableBytes(log.Circuit))
+}
+
+// The public benchmark stops when its resource gate is already disproved.
+// These counters and limits are test-only; they never inspect protected data.
+type coxBenchmarkConn struct {
+	*primitiveVCountingRW
+	attempted *atomic.Int64
+	stopped   *atomic.Bool
+	limit     int64
+}
+
+func (c *coxBenchmarkConn) Write(p []byte) (int, error) {
+	if c.attempted.Add(int64(len(p))) > c.limit {
+		c.stopped.Store(true)
+		c.Conn.Close()
+		return 0, io.ErrShortWrite
+	}
+	return c.primitiveVCountingRW.Write(p)
 }
 
 // Real two-peer encrypted protocols; reconstruction is test-only, after both
@@ -144,9 +164,17 @@ func coxSharedProtocolFixture(t *testing.T, n, jcount int, programs *coxLossShar
 	a, b := net.Pipe()
 	defer a.Close()
 	defer b.Close()
-	a.SetDeadline(time.Now().Add(4 * time.Hour))
-	b.SetDeadline(time.Now().Add(4 * time.Hour))
+	a.SetDeadline(compileStart.Add(2 * time.Hour))
+	b.SetDeadline(compileStart.Add(2 * time.Hour))
 	ga, eb := &primitiveVCountingRW{Conn: a}, &primitiveVCountingRW{Conn: b}
+	var attempted atomic.Int64
+	var stopped atomic.Bool
+	budget := int64(1 << 62)
+	if os.Getenv("DSVERT_COX_ENVELOPE") == "1" {
+		budget = 60000000000
+	}
+	garblerConn := &coxBenchmarkConn{ga, &attempted, &stopped, budget}
+	evaluatorConn := &coxBenchmarkConn{eb, &attempted, &stopped, budget}
 	session := exactGCTestSession(exactGCCircuitSpec{Operation: exactGCPrimitiveV, RingBits: 128, VectorLen: 1})
 	contract := sha256.Sum256([]byte(fmt.Sprintf("public synthetic measured Cox/%d/%d", n, jcount)))
 	type response struct {
@@ -156,18 +184,21 @@ func coxSharedProtocolFixture(t *testing.T, n, jcount int, programs *coxLossShar
 	ch := make(chan response, 1)
 	start := time.Now()
 	go func() {
-		out, e := coxLossRunShares(ga, true, p, programs, session, contract, owner, controls, ends)
+		out, e := coxLossRunShares(garblerConn, true, p, programs, session, contract, owner, controls, ends)
 		if e != nil {
 			a.Close()
 		}
 		ch <- response{out, e}
 	}()
-	other, e := coxLossRunShares(eb, false, p, programs, session, contract, peer, nil, nil)
+	other, e := coxLossRunShares(evaluatorConn, false, p, programs, session, contract, peer, nil, nil)
 	if e != nil {
 		b.Close()
 	}
 	own := <-ch
 	if e != nil || own.err != nil {
+		if stopped.Load() || time.Since(compileStart) >= 2*time.Hour {
+			return map[string]any{"capacity": n, "candidates": jcount, "padded_rows": m, "seconds": time.Since(compileStart).Seconds(), "compile_seconds": compileSeconds, "garbler_bytes": ga.Written, "evaluator_bytes": eb.Written, "total_bytes": ga.Written + eb.Written, "completed": false, "oracle_equal": false, "budget_stop": true, "traffic_budget_reached": stopped.Load(), "time_budget_seconds": 7200, "traffic_budget_bytes": budget, "production_fusion": false, "profile": CoxGridCrossProfileID}, nil
+		}
 		return nil, fmt.Errorf("synthetic protocol: %v / %v", own.err, e)
 	}
 	if own.result.Receipt != other.Receipt || own.result.Chunks != other.Chunks {
@@ -183,7 +214,7 @@ func coxSharedProtocolFixture(t *testing.T, n, jcount int, programs *coxLossShar
 			return nil, fmt.Errorf("synthetic oracle differs candidate %d: q=%d want=%d valid=%d", j, own.result.Coordinates[j]+other.Coordinates[j], want, own.result.Validity[j]+other.Validity[j])
 		}
 	}
-	return map[string]any{"capacity": n, "candidates": jcount, "padded_rows": m, "seconds": elapsed + compileSeconds, "online_seconds": elapsed, "compile_seconds": compileSeconds, "garbler_bytes": ga.Written, "evaluator_bytes": eb.Written, "total_bytes": ga.Written + eb.Written, "chunks": own.result.Chunks, "oracle_equal": true, "production_fusion": false, "transport": "two encrypted peers via net.Pipe; host recorded by benchmark launcher", "profile": CoxGridCrossProfileID,
+	return map[string]any{"capacity": n, "candidates": jcount, "padded_rows": m, "seconds": elapsed + compileSeconds, "online_seconds": elapsed, "compile_seconds": compileSeconds, "garbler_bytes": ga.Written, "evaluator_bytes": eb.Written, "total_bytes": ga.Written + eb.Written, "chunks": own.result.Chunks, "completed": true, "budget_stop": false, "oracle_equal": true, "production_fusion": false, "transport": "two encrypted peers via net.Pipe; host recorded by benchmark launcher", "profile": CoxGridCrossProfileID,
 		"exp_batch_nonxor":  programs.Exp.Circuit.Stats.NumNonXOR(),
 		"log_batch_nonxor":  programs.Log.Circuit.Stats.NumNonXOR(),
 		"exp_source_sha256": fmt.Sprintf("%x", programs.Exp.SourceSHA256),

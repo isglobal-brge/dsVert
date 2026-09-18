@@ -82,3 +82,14 @@ The private receipt key and OT streams are in-memory per attempt; future durable
 resume adapters must keep this key custodian-local and never log/publish it.
 Only PUBLIC synthetic runs used the preliminary receipts. Their incomplete
 measurements are archived and excluded; final measurements use this hardening.
+
+The benchmark harness now terminates out-of-envelope attempts at the actual
+60,000,000,000-byte or 7200-second gate. It records measured bytes, time and
+`completed=false,budget_stop=true`; these are censored lower-bound resource
+results, never full-release successes or oracle-equality claims. Continuing a
+known over-budget shape would not change admission. Completed shapes still run
+every candidate and check the independent integer oracle. The first two shapes
+(2000x16 and 2000x32) began with the identical production kernel and an unbounded
+traffic harness; their original binary digest is retained. Subsequent jobs use
+the bounded harness with a second recorded digest. This changes only test code,
+not the kernel, scalar sources, receipts, transport or contract.

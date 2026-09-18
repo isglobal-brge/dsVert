@@ -94,8 +94,7 @@ run <- function() {
   peers <<- boot(pins)
   conns <- we_connections(peers)
   for (peer in peers) peer$worker$run(function(n) {
-    options(dsvert.psi.max_input_ids = as.integer(2^ceiling(log2(max(64, n)))),
-      dsvert.exact_gc.chunk_bytes = 8 * 1024^2)
+    options(dsvert.psi.max_input_ids = as.integer(2^ceiling(log2(max(64, n)))))
     TRUE
   }, args = list(n))
   ds.psiAlign("D", "patient_id", "DA", datasources = conns, verbose = FALSE)

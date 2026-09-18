@@ -323,7 +323,7 @@ The new grid endpoint previously rebuilt and reverified the entire signed source
 
 This removes repeated work on immutable public contracts, not a protected computation or validation of newly supplied data. The byte-identity regression rejects missing admission, changed claims/compilation/manifest, another analysis, changed artifact and changed peer binding before a later-stage handler can execute. Targeted grid contract/lifecycle file: 292 assertions pass. Actual throughput improvement remains to be measured by the required API runs; no speedup is assumed in the reports.
 
-## 2026-09-18T20:12Z — authenticated public-circuit reuse and existing relay window
+## 2026-09-18T20:11Z — authenticated public-circuit reuse and existing relay window
 
 Observed pod typed-worker startup was 22.9–24.0 seconds per batch, followed by substantial relay time. Recompiling the same public topology for each of 63 or 2191 batches is unnecessary. The existing compiler's binary circuit format now supports a **session-local, HMAC-authenticated public topology cache**. Its key binds the complete generated source and pinned compiler/optimizer domain. Cached bytes contain no source shares, candidate-specific partial predictors, output masks or DP seeds. Coefficients remain in each admitted plan and its signed purpose; they affect private share multiplication, not cached topology. The cache directory is server-derived under the private session directory and removed by ordinary session cleanup. Files are owner-only, atomically installed, bounded in size, and authenticated before parsing; altered MAC/key/content, truncation, symlinks and unsafe permissions fail closed with the constant kernel error. This reuses the existing compiler Marshal/ParseMPCLC functions and POSIX directory-owner check; no formal-family implementation changes.
 
@@ -332,3 +332,7 @@ The private unlink-before-ready worker configuration gains an optional `cross_gr
 Validation peers now select the already-supported **8 MiB** exact-GC relay window instead of the 480 KiB default. Both client and server already enforce the 16 KiB–8 MiB range and bind the selected window in initialization. No transport cap or privacy default is increased. This is a harness deployment setting, not an arithmetic ABI change. GOMEMLIMIT/GOGC limits remain as previously documented.
 
 Tests: authenticated cold/hot cache, byte-identical topology after changed public coefficients, real two-peer oracle equality, tamper/authority/path rejection; durable CLI workers for both families; unchanged two-authority valid/invalid records and malformed-plan rejection (10 Go test/subtest results, all pass). R grid/lifecycle plus existing pair/readiness tests: **352 assertions pass**. Small-fixture warm loads are 0.005–0.008 seconds versus 0.25–0.42 seconds cold; no full-release speedup is extrapolated. Go 1.25.7 `make all` reproduces all four binary hashes on Mac and pod.
+
+## 2026-09-18T20:16Z — relay correction
+
+The 8 MiB experiment above was rejected by the fixed negotiated expression policy before admission. Restore the existing 480 KiB default, as already established earlier in this log. Keep the authenticated public-circuit cache; do not alter expression caps.

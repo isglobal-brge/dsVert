@@ -583,10 +583,14 @@ Stopped only owned validation trees and the still-waiting full-check runner (PID
 
 All 1494 hashes in `final-check-inputs.sha256` match the private POSIX pod archive after bound-admission changes. Full-check runner PID **646223** waits for the benchmark matrix's completion marker before starting the one full Go suite and both `R CMD check --no-manual` runs. Neither full suite has started yet. Runtime server source is `6fd6194`, client runtime `1acfd0c`; test/package inputs include client `b30631f` and the current manifest commit `0b053a7`. Current pod validation PID640037 has completed PSI; current Mac topology session39769 remains in PSI. No completed required release is yet claimed.
 
-## 2026-09-18T20:12Z — public-circuit cache verified and deployed
+## 2026-09-18T20:11Z — public-circuit cache verified and deployed
 
 `circuit-cache-worker-targeted.log`: **10 Go test/subtest results pass**, including authenticated cache reuse and actual two-peer oracle equality for both families. `circuit-cache-server-targeted.log`: **352 R assertions pass**, zero failures/errors. `circuit-cache-reproducible.log`: all four rebuilt artifacts verify; pod hashes exactly match local `inst/bin/SHA256SUMS`. New Linux SHA-256: `cb556efb40e4cf4a6e3fb984e494da4e7c0946e70b131d9ee8dbaffdbf166d3f`.
 
 Previous n2000 baseline reached at least 15 matching durable batches but no completed DP release. Archived pod log `validation-binomial-e1-before-circuit-cache.log`; Mac pre-cache admission log is retained. Only owned validation trees were stopped. Current pod runner PID **712021**, Mac topology native exec session **41282**, use the authenticated public-circuit cache and existing 8 MiB relay window. One brief Mac startup was restarted before PSI to include warning suppression on private cache-directory creation. Full-check waiter PID646223 was stopped before any full suite began; snapshot refresh follows this deployment.
 
 Benchmark matrix continues on its original frozen worker: additional full n10000/p5/grid50 measurements pass, binomial **75,062,442,900 bytes / 1659.673 s**, Poisson **95,310,355,319 bytes / 1905.672 s**. Required n10000/p10/grid50 measurements already passed as recorded above. Required 120/12 and K3/K5 releases remain NOT DONE; no interrupted attempt is counted.
+
+## 2026-09-18T20:16Z — resumed; relay-window correction
+
+Both campaign attempts rejected the experimental 8 MiB window before admission with `dsvert_resource_oversize:v1`. This repeats the earlier documented transport constraint: the configurable worker ceiling does not imply compatibility with the fixed DataSHIELD expression limit. Restored the default 480 KiB window; no resource ceiling changed. Authenticated circuit caching remains enabled and verified. Failed attempts are archived and count as zero releases. Repositories were inspected before resuming; only campaign output files were untracked.

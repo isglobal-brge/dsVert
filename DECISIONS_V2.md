@@ -58,3 +58,16 @@
     reduction, polynomial, rounding and power-of-two reconstruction separately.
     New arithmetic remains unadmitted until its signed identity and production
     lifecycle are implemented; never reinterpret existing signed q64 contracts.
+
+12. Certify eta26, ln2/reciprocal f30, reduced residual f24 and quadratic
+    mantissas f27, with K in {16,32,64} on [-1/2,1/2]. The shared source f50
+    encoding remains fixed. Use exact uint64 multiplication temporaries;
+    polynomial states fit signed32. Full-domain f16 output requires 40 bits
+    and a uint64 container. Narrow the residual subtraction only after proving
+    its signed30 bound. A six-stage guard/sticky barrel shifter rounds once.
+13. K=64 is both the cheapest measured range-reduced candidate (3540 AND,
+    versus 3546/3643 for K32/K16) and the most accurate. Select it for further
+    integration. Its pre-output loss bound is 3.17234243e-5 at A4 and 1.43799821
+    at A16. The R utility assertion is explicitly scoped to A4, 16 equal-cap
+    candidates, n2000 and epsilon<=8; arbitrary production grids still need
+    the admitted public utility/resource plan checks.

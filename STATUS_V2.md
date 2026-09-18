@@ -115,3 +115,14 @@ traffic at full size. Earlier cost-failure conclusions are historical and
 superseded, not new blockers. Whole-release traffic/time remains unmeasured.
 First work: range-reduced Poisson certificate and exact integer/circuit tests.
 No completed milestone is being rerun.
+
+## 2026-09-18T13:25Z — range-reduced arithmetic passes
+
+Added the new Poisson candidate certificate, independent R/Go integer oracles,
+shared fixtures and bit-exact circuit tests. Generator --check passes; pure R
+passes 1611 fixtures, 983055 dense points and 6000 adjacency checks. Targeted
+Go arithmetic adds 2 top-level / 8 including-subtest passes (no failures),
+983055 dense points and 975 independent high-precision comparisons.
+Commands and proof are in `inst/cross-grid-v2/EXP_REDUCED_CERTIFICATE.md`.
+K64 measures 3540 AND/evaluation, with error 3.17234243e-5 at A4 and 1.43799821
+at A16. It is not admitted and does not constitute the fused producer.

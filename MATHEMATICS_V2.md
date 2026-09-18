@@ -39,3 +39,26 @@ The fixture's conservative profile-envelope caps are derived with outward
 interval arithmetic and include twice the loss-error bound. These are proposed
 new caps, not a claim to reproduce or overwrite the frozen V1 caps. The V1
 caps/references remain tested separately and unchanged.
+
+## 2026-09-18 — range-reduced Poisson candidate
+
+The wide-domain Poisson utility limitation above is superseded for the new
+candidate by `inst/cross-grid-v2/EXP_REDUCED_CERTIFICATE.md`. V1 and the earlier
+candidate remain immutable. New fixture hash:
+`f2e17af1d27bbdabcc0ff3efe1021a1fd34dd471423503989020a9dbc4a8ba4b`.
+
+- Three K variants (16/32/64), 1,611 shared integer fixtures matching Python,
+  independent Go big.Int and pure-R limb arithmetic.
+- 983,055 dense evaluations in each of Go and R; 975 independent Go 256-bit
+  exponential comparisons. All remain below the analytic loss-error bounds.
+- R `dpois` objective comparisons and 6,000 synthetic adjacency checks, with
+  outward envelope caps including twice the profile error.
+- K=64, A=4, 16 equal-envelope candidates, n=2000, epsilon<=8: aggregate
+  approximation error <1% of Delta2/epsilon. This is a scoped utility regression,
+  not production calibration or certification for arbitrary candidate grids.
+- K=64 circuit: 3,540 AND/evaluation, below the revised 5,000 gate threshold.
+  This is still a nonlinear component; complete-release bytes are unmeasured.
+
+Evidence: `exp-reduced-arithmetic.log`, `exp-reduced-r.log` and the generator's
+`--check`. Production signed caps, full dot product, pooled glm and noise-scale
+integration remain outstanding; no new profile is admitted by V1 validators.

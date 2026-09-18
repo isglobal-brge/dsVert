@@ -1,0 +1,16 @@
+cross-grid-exp-reduced-k16-eta26-r24-q27-out16-v2 A 1 dense 65537 max_error 1.274825e-05 bound 3.756764e-05 
+cross-grid-exp-reduced-k16-eta26-r24-q27-out16-v2 A 2 dense 65537 max_error 2.177345e-05 bound 6.279105e-05 
+cross-grid-exp-reduced-k16-eta26-r24-q27-out16-v2 A 4 dense 65537 max_error 0.0001148291 bound 0.0003177326 
+cross-grid-exp-reduced-k16-eta26-r24-q27-out16-v2 A 8 dense 65537 max_error 0.005705004 bound 0.01612085 
+cross-grid-exp-reduced-k16-eta26-r24-q27-out16-v2 A 16 dense 65537 max_error 17.06658 bound 47.98736 
+cross-grid-exp-reduced-k32-eta26-r24-q27-out16-v2 A 1 dense 65537 max_error 8.222715e-06 bound 2.491025e-05 
+cross-grid-exp-reduced-k32-eta26-r24-q27-out16-v2 A 2 dense 65537 max_error 9.359152e-06 bound 2.838471e-05 
+cross-grid-exp-reduced-k32-eta26-r24-q27-out16-v2 A 4 dense 65537 max_error 2.116828e-05 bound 6.350222e-05 
+cross-grid-exp-reduced-k32-eta26-r24-q27-out16-v2 A 8 dense 65537 max_error 0.0008076111 bound 0.002240339 
+cross-grid-exp-reduced-k32-eta26-r24-q27-out16-v2 A 16 dense 65537 max_error 2.28992 bound 6.610149 
+cross-grid-exp-reduced-k64-eta26-r24-q27-out16-v2 A 1 dense 65537 max_error 7.72144e-06 bound 2.332808e-05 
+cross-grid-exp-reduced-k64-eta26-r24-q27-out16-v2 A 2 dense 65537 max_error 7.950178e-06 bound 2.408392e-05 
+cross-grid-exp-reduced-k64-eta26-r24-q27-out16-v2 A 4 dense 65537 max_error 1.035927e-05 bound 3.172342e-05 
+cross-grid-exp-reduced-k64-eta26-r24-q27-out16-v2 A 8 dense 65537 max_error 0.0001849873 bound 0.0005052752 
+cross-grid-exp-reduced-k64-eta26-r24-q27-out16-v2 A 16 dense 65537 max_error 0.428396 bound 1.437998 
+PASS: shared vectors, 983055 dense evaluations, Poisson objective/caps, 6000 adjacency checks and utility margin

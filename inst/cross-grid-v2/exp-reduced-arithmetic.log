@@ -1,0 +1,36 @@
+=== RUN   TestCrossGridExpReducedV2Certificate
+=== RUN   TestCrossGridExpReducedV2Certificate/cross-grid-exp-reduced-k16-eta26-r24-q27-out16-v2
+    cross_grid_exp_reduced_v2_test.go:178: A=1 dense_max=1.27482503e-05 loss_bound=3.75676359e-05
+    cross_grid_exp_reduced_v2_test.go:178: A=2 dense_max=2.17734468e-05 loss_bound=6.27910463e-05
+    cross_grid_exp_reduced_v2_test.go:178: A=4 dense_max=0.000114829103 loss_bound=0.000317732579
+    cross_grid_exp_reduced_v2_test.go:178: A=8 dense_max=0.00570500391 loss_bound=0.0161208459
+    cross_grid_exp_reduced_v2_test.go:178: A=16 dense_max=17.0665773 loss_bound=47.9873585
+=== RUN   TestCrossGridExpReducedV2Certificate/cross-grid-exp-reduced-k32-eta26-r24-q27-out16-v2
+    cross_grid_exp_reduced_v2_test.go:178: A=1 dense_max=8.22271476e-06 loss_bound=2.49102516e-05
+    cross_grid_exp_reduced_v2_test.go:178: A=2 dense_max=9.35915193e-06 loss_bound=2.83847086e-05
+    cross_grid_exp_reduced_v2_test.go:178: A=4 dense_max=2.11682818e-05 loss_bound=6.35022193e-05
+    cross_grid_exp_reduced_v2_test.go:178: A=8 dense_max=0.000807611069 loss_bound=0.00224033859
+    cross_grid_exp_reduced_v2_test.go:178: A=16 dense_max=2.28991983 loss_bound=6.61014935
+=== RUN   TestCrossGridExpReducedV2Certificate/cross-grid-exp-reduced-k64-eta26-r24-q27-out16-v2
+    cross_grid_exp_reduced_v2_test.go:178: A=1 dense_max=7.72143984e-06 loss_bound=2.33280786e-05
+    cross_grid_exp_reduced_v2_test.go:178: A=2 dense_max=7.95017841e-06 loss_bound=2.40839164e-05
+    cross_grid_exp_reduced_v2_test.go:178: A=4 dense_max=1.03592686e-05 loss_bound=3.17234243e-05
+    cross_grid_exp_reduced_v2_test.go:178: A=8 dense_max=0.000184987271 loss_bound=0.000505275179
+    cross_grid_exp_reduced_v2_test.go:178: A=16 dense_max=0.428395982 loss_bound=1.43799821
+--- PASS: TestCrossGridExpReducedV2Certificate (1.79s)
+    --- PASS: TestCrossGridExpReducedV2Certificate/cross-grid-exp-reduced-k16-eta26-r24-q27-out16-v2 (0.59s)
+    --- PASS: TestCrossGridExpReducedV2Certificate/cross-grid-exp-reduced-k32-eta26-r24-q27-out16-v2 (0.60s)
+    --- PASS: TestCrossGridExpReducedV2Certificate/cross-grid-exp-reduced-k64-eta26-r24-q27-out16-v2 (0.59s)
+=== RUN   TestCrossGridExpReducedV2Circuit
+=== RUN   TestCrossGridExpReducedV2Circuit/cross-grid-exp-reduced-k16-eta26-r24-q27-out16-v2
+    cross_grid_exp_reduced_v2_test.go:189: AND/eval=3643 gates=12367 table_bytes=116576
+=== RUN   TestCrossGridExpReducedV2Circuit/cross-grid-exp-reduced-k32-eta26-r24-q27-out16-v2
+    cross_grid_exp_reduced_v2_test.go:189: AND/eval=3546 gates=12152 table_bytes=113472
+=== RUN   TestCrossGridExpReducedV2Circuit/cross-grid-exp-reduced-k64-eta26-r24-q27-out16-v2
+    cross_grid_exp_reduced_v2_test.go:189: AND/eval=3540 gates=12224 table_bytes=113280
+--- PASS: TestCrossGridExpReducedV2Circuit (0.39s)
+    --- PASS: TestCrossGridExpReducedV2Circuit/cross-grid-exp-reduced-k16-eta26-r24-q27-out16-v2 (0.11s)
+    --- PASS: TestCrossGridExpReducedV2Circuit/cross-grid-exp-reduced-k32-eta26-r24-q27-out16-v2 (0.12s)
+    --- PASS: TestCrossGridExpReducedV2Circuit/cross-grid-exp-reduced-k64-eta26-r24-q27-out16-v2 (0.16s)
+PASS
+ok  	github.com/isglobal-brge/dsVert/dsvert-mpc	2.852s

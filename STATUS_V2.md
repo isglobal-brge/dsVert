@@ -495,3 +495,16 @@ Full checks are queued (PID **463014**) behind the remaining matrix to bound mem
 ## 2026-09-18T18:04Z — PSI capacity correction before validation retry
 
 A second n2000 PSI attempt exhausted memory despite GC controls, before any release. Scalar comparison source now passes old-source bitwise equivalence (180 eight-coordinate masked vectors), existing big-int and net.Pipe protocol tests: 13 passing test/subtest results, 0 failures. `psi-scalar-targeted.log`. Pod n2048 compile: **52.009 s, 3,002,371 gates**. The n4096 probe correctly failed the existing 512 Ki-bit input cap; PSI chunk geometry is corrected to 2048 on both sides, with server/client schedule tests **6 / 19 assertions green**. Full checks had not started; their waiting runner was stopped to refresh the frozen archive after these required shared-infrastructure corrections.
+
+## 2026-09-18T18:08Z — current gate table (supersedes historical checkpoint tables)
+
+| Deliverable | Current evidence / remaining gate |
+|---|---|
+| Fused typed kernel and joint noise | Implemented; integer/R references, boundaries, real two-peer components and small real DSLite equality pass. |
+| Benchmark matrix | Both full-size pod gates and both n2000 measurements pass. Mac 15/16 family/configuration records complete; final Poisson running. Remaining pod matrix resumed without repeating completed records. |
+| Server release lifecycle | Materialisation, signatures, sticky binding and injection implemented; interrupted Poisson smoke and direct cold-process/tamper checks pass. Full n2000 wiring still pending after PSI corrections. |
+| Client | Signed cross-owner acceptance, public preflight, transport and DP-best selection implemented and targeted tests pass. |
+| Layered validation/checks | Layer 1 and component/cold-record Layer 2 pass. **NOT DONE:** 120 oracle selections, 12 n2000 real API matches, K3/K5 releases, full Go/R checks. |
+| Documentation | Package docs and roxygen committed; final measured statistics and check results remain to be incorporated. Versions/NEWS unchanged. |
+
+Worker/source transfer for server b542b84 and client ab56385 is in progress; binaries will be checksum-verified before restarting. No qualifying n2000 release is yet claimed.

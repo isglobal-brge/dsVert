@@ -97,3 +97,7 @@ injection or crash/resume. None of the required two-process callr lifecycle or
 12 DSLite API releases has been executed. Record-level replay protection does
 not replace those lifecycle tests. The cost gate also remains a separate gate;
 passing integer equality does not authorize a production materialized state.
+
+## 2026-09-18T18:08Z — later evidence supersedes the historical open-component status
+
+See `LAYER2_V2.md` and the current table in `STATUS_V2.md`. Signed materialisation, authenticated lifecycle and joint release are implemented; real small DSLite equality and interrupted/cold-process persistence checks have now run. The required n2000 matrix and topology releases remain pending. Historical statements above describe their dated component checkpoint, not current implementation absence.

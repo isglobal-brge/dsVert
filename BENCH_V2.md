@@ -330,3 +330,7 @@ Both families use p10/grid50, 441 batches and four peer pairs. Integer and joint
 | Poisson | 22,172,826,365 | 115.609 / 412.277 / 216.392 | 744.277 | 5551.050 |
 
 Scope remains kernel plus 50-candidate joint noise, excluding R authentication, catalog count and DataSHIELD framing.
+
+### Whole-workload R driver
+
+`Rscript inst/cross-grid-v2/benchmark_full.R 1000 5 16` invokes the same oracle-checked Go measurement for both families. Explicit arguments accept only the requested n/p/grid matrix; defaults are four peer pairs and eight Go scheduler threads, overridable through the documented environment variables used by the shell runners. This can be long-running; completed measurements are not rerun merely to exercise the wrapper.

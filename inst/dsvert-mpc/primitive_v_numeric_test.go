@@ -265,3 +265,32 @@ func TestPrimitiveVNumericAnalyticCertificate(t *testing.T) {
 		t.Fatal("ln2 q64 nearest rounding certificate failed")
 	}
 }
+
+func TestPrimitiveVNumericCompiledShiftTies(t *testing.T) {
+	limit := new(big.Int).Mul(big.NewInt(17), primitiveVScale)
+	for _, c := range []struct {
+		name    string
+		divisor int64
+	}{{"primitiveVDiv64", 64}, {"primitiveVDiv2", 2}} {
+		t.Run(c.name, func(t *testing.T) {
+			p := primitiveVTestNumericProgram(t, c.name+"(x)")
+			divisor := big.NewInt(c.divisor)
+			largeQuotient := new(big.Int).Sub(new(big.Int).Quo(limit, divisor), big.NewInt(1))
+			values := []*big.Int{new(big.Int), new(big.Int).Set(limit), new(big.Int).Neg(limit)}
+			for _, quotient := range []*big.Int{big.NewInt(0), big.NewInt(1), big.NewInt(2), largeQuotient} {
+				halfway := new(big.Int).Add(new(big.Int).Mul(quotient, divisor), big.NewInt(c.divisor/2))
+				for _, offset := range []int64{-1, 0, 1} {
+					v := new(big.Int).Add(halfway, big.NewInt(offset))
+					values = append(values, v, new(big.Int).Neg(v))
+				}
+			}
+			for _, v := range values {
+				got := primitiveVTestCompute(t, p, []*big.Int{v, new(big.Int)}, []*big.Int{new(big.Int)})[0]
+				want := primitiveVRoundDivReference(v, divisor)
+				if got.Cmp(want) != 0 {
+					t.Fatal("compiled signed shift differs at a public tie or neighboring fixture")
+				}
+			}
+		})
+	}
+}

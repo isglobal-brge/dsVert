@@ -348,3 +348,7 @@ The runner incorrectly assumed both existing package versions were 1.2.0. Server
 ## 2026-09-18T20:39Z — check-layout-compatible test fixtures
 
 The full server check exposed two source-root assumptions in tests: the Count static audit used `../../R`, and the grid callr test treated the Rcheck directory as a package source root. Use the existing source-tree discovery helpers for both. The Gaussian binding mock returned its assignment vector rather than the completion record returned by the actual alignment gate; return the legacy `full-v1` record after recording the assertion data. No production behavior changes. Pod reproduction confirms all three original errors; local targeted rerun passes 137 Count + 39 Gaussian + 292 grid assertions.
+
+## 2026-09-18T20:48Z — isolated Synopsis test dependencies
+
+Nested Synopsis fixtures evaluate vector-helper definitions in a namespace-parented environment. Under installed checks that environment cannot resolve the shared source-root helper. Load `helper-source-tree.R` explicitly inside the private vector-binary fixture closure; production namespaces remain untouched. The execution-range test intentionally replaces manifests with a stub and mocks injection stages; add the new grid injection mock and its offset/count assertion alongside the Gaussian/categorical mocks. The corrected safety file passes 18 assertions. Installed-layout verification runs in a separate scratch test directory, preserving the original full-check archive.

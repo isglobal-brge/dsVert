@@ -105,6 +105,10 @@ test_that("execution ranges do not inherit transport chunk geometry", {
       connection, contract, capsule_id, start, count, secret) {
     events$range <<- c(start, count)
     share
+  }, .dsvert_dp_glm_grid_cross_inject = function(
+      connection, secret, manifest, contract, chunk, share) {
+    events$grid <<- chunk
+    share
   }, .dsvert_dp_gaussian_cross_inject_release_share_internal = function(
       connection, secret, manifest, contract, chunk, share) {
     events$gaussian <<- chunk
@@ -115,6 +119,8 @@ test_that("execution ranges do not inherit transport chunk geometry", {
     share
   }, .package = "dsVert")
   expect_identical(events$range, c(129, 128))
+  expect_identical(events$grid[c("offset", "count")],
+                   list(offset = 128, count = 128))
   expect_identical(events$gaussian[c("offset", "count")],
                    list(offset = 128, count = 128))
   expect_identical(events$categorical[c("offset", "count")],

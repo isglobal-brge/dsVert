@@ -11,6 +11,7 @@
 })
 
 .vector_capsule_binary <- local({
+  sys.source(testthat::test_path("helper-source-tree.R"), envir = environment())
   binary <- NULL
   function() {
     if (!is.null(binary) && file.exists(binary)) return(binary)

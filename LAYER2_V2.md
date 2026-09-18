@@ -94,3 +94,7 @@ Poisson/epsilon1 now also has both real release and cold-lifecycle matches
 (`inst/cross-grid-v2/dslite-n2000-poisson-e1-two-real.log`). Instance2 takes
 3247.900 s and its nonzero DP selection gap does not affect integer oracle
 equality. Required real-release progress is **5/12**.
+
+Binomial/epsilon1 completes both real release and cold-lifecycle matches in
+`inst/cross-grid-v2/dslite-n2000-binomial-e1-two-real.log`; instance2 takes
+2801.709 s. Required real-release progress is **6/12**.

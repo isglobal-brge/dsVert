@@ -717,3 +717,7 @@ Binomial / epsilon4: **20 distinct signed grids, 2 real API/oracle matches, 20/2
 ## 2026-09-18T22:54Z — Poisson epsilon1 completes both real releases
 
 Instance2 passes complete integer DP-vector/oracle equality and cold lifecycle checks in **3247.900 s**. It selects candidate1 versus exact-best2, with certified total-loss gap **64.7047** (reported JSON precision); production and oracle select the same DP candidate. Evidence: `dslite-n2000-poisson-e1-two-real.log`. Required count **5/12**; this cell proceeds through its other 18 oracle selections.
+
+## 2026-09-18T23:00Z — six required real releases pass
+
+Binomial / epsilon1 / instance2: **2801.709 s**, full integer DP-vector/oracle and cold-lifecycle checks pass; selected candidate1 versus exact-best2, certified loss gap **12.3388** at report precision. `dslite-n2000-binomial-e1-two-real.log` retains both independent releases. Required real-release count **6/12**; this cell now completes its oracle selections.

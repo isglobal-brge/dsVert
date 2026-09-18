@@ -644,3 +644,16 @@ Corrected archive `R CMD check --no-manual --no-tests`: server **0 ERROR / 0 WAR
 ## 2026-09-18T21:38Z — resumed; measured Poisson startup recovery
 
 Resumed from the prior status and inspected both worktrees. The full-shape public Poisson K3 cache probe passes: cold 64.641451 s, hot 1.432110 s, 65,045,429 serialized circuit bytes, using GOMEMLIMIT=4GiB. The earlier 2GiB topology attempt failed the unchanged worker readiness gate; its log is retained. Restarted only the Poisson K3/K5 lane with 4GiB (native session98206); the binomial K3 process and three pod validation lanes continue. This changes GC tuning only, not runtime caps or certified inputs. Full Go suite remains active.
+
+## 2026-09-18T21:45Z — current gate table (supersedes earlier tables)
+
+| Deliverable | Current evidence / remaining gate |
+|---|---|
+| Fused typed kernel and joint noise | Implemented; certified Go/R integer references, boundary/slack and real two-authority component tests pass. Full Go suite is still running. |
+| Benchmark matrix | **DONE:** all 16 family/configuration records on each host, plus n2000 pod releases. Full pod binomial 86,515,842,839 bytes / 2795.701 s; Poisson 106,763,755,314 bytes / 2695.032 s. Both pass 110 GB / 4 h and exceed the original 30-minute reporting threshold. These measure the raw secure kernel/noise protocol, excluding R/DSI framing. |
+| Server lifecycle and client | Implemented with targeted tests. One additional real n2000 binomial API release matches the oracle; its later deployment-check failure excludes it from the required matrix. Corrected cold admission passes both families. |
+| Layered validation | **NOT DONE:** the complete 120-selection / 12-release matrix and K3/K5 topology evidence remain active/pending. No aggregate selection statistics claimed. |
+| Package checks | Full R suites run once; all recorded failure scopes have passing targeted corrections. Server packaging has zero errors/warnings and one pre-existing NOTE. Client has two pre-existing packaging warnings; the prepared narrowly scoped patch awaits the user decision. Full Go completion pending. See CHECKS_V2.md. |
+| Documentation | API roxygen and package route documentation committed; final validation statistics/check results remain to incorporate. NEWS/DESCRIPTION versions unchanged. |
+
+The full-envelope K3 DSLite run is slower than the raw benchmark because it includes authenticated R/DSI frame relay. A separate single-batch synthetic function-stack profile investigates that overhead without changing the active campaigns, worker leases or transport geometry.

@@ -207,3 +207,17 @@ func TestCrossGridExpReducedV2Circuit(t *testing.T) {
 		})
 	}
 }
+
+func TestCrossGridExpReducedV2NotAdmittedAsV1(t *testing.T) {
+	for _, p := range crossGridExpReducedProfiles(t) {
+		contract, err := crossGridNumericContractV1("poisson")
+		if err != nil {
+			t.Fatal(err)
+		}
+		contract.ProfileIdentity = p.Identity
+		err = crossGridValidateNumericContractV1("poisson", contract)
+		if err == nil || err.Error() != "cross-grid contract rejected" {
+			t.Fatal("candidate crossed frozen admission boundary")
+		}
+	}
+}

@@ -126,3 +126,23 @@ Go arithmetic adds 2 top-level / 8 including-subtest passes (no failures),
 Commands and proof are in `inst/cross-grid-v2/EXP_REDUCED_CERTIFICATE.md`.
 K64 measures 3540 AND/evaluation, with error 3.17234243e-5 at A4 and 1.43799821
 at A16. It is not admitted and does not constitute the fused producer.
+
+## 2026-09-18T13:34Z — batched two-authority components and compact framing
+
+Mac targeted tests pass 14 top-level / 32 including-subtest tests, zero failures
+or skips. Eight top-level tests are existing protocol/encrypted-record checks;
+six are new range-reduced/binomial component and admission-exclusion tests.
+The corresponding pre-edit run of this exact combined selection does not exist;
+no before-count is inferred from the different historical 14/65 selection.
+
+The new opt-in framing commits the circuit topology before OT and eliminates
+redundant gate-row lengths. Existing callers continue using the old framing.
+32-evaluation encrypted net.Pipe measurements: binomial A4 2805.969 AND and
+~94036 B/evaluation, binomial A16 3077.969 AND and ~102747 B/evaluation;
+Poisson 3540.969 AND and ~117570 B/evaluation. Whole-release gates remain open.
+The pure-R pooled objective comparison also passes both families; see Layer 1.
+
+The first pod arithmetic/transport selection passed, then the local probe was
+extended with the binomial batch and explicit V1 exclusion tests. A final pod
+rerun of that changed selection plus both-family component benchmarks is running
+under nohup with GOMAXPROCS=8. No full suite or R CMD check has been run in V2.

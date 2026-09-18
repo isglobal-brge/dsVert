@@ -71,3 +71,23 @@
     at A16. The R utility assertion is explicitly scoped to A4, 16 equal-cap
     candidates, n2000 and epsilon<=8; arbitrary production grids still need
     the admitted public utility/resource plan checks.
+14. Add opt-in fixed-topology framing to the existing exact-GC protocol core.
+    The old entry functions always select the old mode, preserving their
+    context digest and every transmitted row-length word. The new mode omits
+    per-gate row lengths only after both peers authenticate a domain-separated
+    digest committing all gate operations/wires and input/output geometry.
+    This saves ~49 KB/evaluation for Poisson without changing arithmetic,
+    garbling, KOS OT, encryption or DP parameters. No production dispatcher
+    selects it yet. This is the sole changed shared infrastructure; other
+    family lanes can adopt it only with their own bound public plans.
+15. Batch 32 nonlinear evaluations for component measurements; report total
+    bidirectional encrypted bytes including fresh OT/setup. Binomial retains
+    its certified K64 polynomial and uses the same uint64 masked-output test
+    container for comparable framing. Its ~33 extra ANDs are container work.
+    Component projection is not a measured full-size release or evidence that
+    the full source/validity/loss/noise computation fits 60 GB or 30 minutes.
+16. Validate pooled synthetic objectives in Layer 1 now: n2000, p6 split3/3,
+    dyadic known coefficients, 16 nearby candidates plus glm's fitted vector.
+    Poisson outcomes are bounded at 4 before fitting, consistent with the
+    signed bounded-outcome semantics. Compare the same bounded data with
+    independent R distributions and glm logLik, never label this a DSLite run.

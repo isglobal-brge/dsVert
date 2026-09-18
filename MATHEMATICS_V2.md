@@ -62,3 +62,14 @@ candidate remain immutable. New fixture hash:
 Evidence: `exp-reduced-arithmetic.log`, `exp-reduced-r.log` and the generator's
 `--check`. Production signed caps, full dot product, pooled glm and noise-scale
 integration remain outstanding; no new profile is admitted by V1 validators.
+
+The pure-R pooled synthetic check now also passes:
+`Rscript inst/cross-grid-v2/validate_pooled_objective.R`.
+For n2000/p6, with covariates split 3/3 and 17 candidates including glm's fit,
+maximum total-loss errors are 0.004917793197 (binomial) and 0.0005407130684
+(Poisson), versus total certified tolerances 0.1098256 and 0.07870564.
+The distribution-based exact objectives agree with `-logLik(glm(...))` within
+1e-8 at the fitted candidates. For all 16 dyadic grid candidates, split partial
+predictors sum exactly to the pooled predictor. This proves synthetic Layer-1
+objective agreement, not the unimplemented protected f100 source processing.
+Evidence: `inst/cross-grid-v2/pooled-objective-r.log`.

@@ -1,0 +1,98 @@
+{
+  "version": "family-b-piecewise-boolean-cost-v1",
+  "measurement": "compiled circuit gate inventory and engine table-byte formula; no network benchmark",
+  "platform": "local Darwin arm64; Go 1.25.7; concurrent host load",
+  "profile_sha256": "fc0d85381d6effb30776848ccf301f4b9b18fc5dc55bdc80a8503f7d8916fcef",
+  "per_row_target_and_gates": 2000,
+  "bytes_per_and": 32,
+  "bytes_per_or": 48,
+  "bytes_per_inv": 16,
+  "excluded": [
+    "input OT",
+    "authenticated transport framing",
+    "PSI and source sharing",
+    "candidate reduction",
+    "joint DP sampling",
+    "sticky release"
+  ],
+  "rows": [
+    {
+      "family": "multinomial",
+      "classes": 2,
+      "and_gates": 42904,
+      "or_gates": 0,
+      "inv_gates": 1,
+      "garbled_table_bytes": 1372944,
+      "projected_table_bytes_n10000_m50": 686472000000,
+      "cost_target_passed": false
+    },
+    {
+      "family": "multinomial",
+      "classes": 3,
+      "and_gates": 57592,
+      "or_gates": 0,
+      "inv_gates": 1,
+      "garbled_table_bytes": 1842960,
+      "projected_table_bytes_n10000_m50": 921480000000,
+      "cost_target_passed": false
+    },
+    {
+      "family": "multinomial",
+      "classes": 8,
+      "and_gates": 131032,
+      "or_gates": 0,
+      "inv_gates": 1,
+      "garbled_table_bytes": 4193040,
+      "projected_table_bytes_n10000_m50": 2096520000000,
+      "cost_target_passed": false
+    },
+    {
+      "family": "ordinal",
+      "classes": 2,
+      "and_gates": 18172,
+      "or_gates": 0,
+      "inv_gates": 1,
+      "garbled_table_bytes": 581520,
+      "projected_table_bytes_n10000_m50": 290760000000,
+      "cost_target_passed": false
+    },
+    {
+      "family": "ordinal",
+      "classes": 3,
+      "and_gates": 31709,
+      "or_gates": 0,
+      "inv_gates": 1,
+      "garbled_table_bytes": 1014704,
+      "projected_table_bytes_n10000_m50": 507352000000,
+      "cost_target_passed": false
+    },
+    {
+      "family": "ordinal",
+      "classes": 8,
+      "and_gates": 33144,
+      "or_gates": 0,
+      "inv_gates": 1,
+      "garbled_table_bytes": 1060624,
+      "projected_table_bytes_n10000_m50": 530312000000,
+      "cost_target_passed": false
+    }
+  ],
+  "components": [
+    {
+      "kernel": "exp16",
+      "and_gates": 11050,
+      "garbled_table_bytes": 353616
+    },
+    {
+      "kernel": "log16",
+      "and_gates": 15251,
+      "garbled_table_bytes": 488048
+    },
+    {
+      "kernel": "soft16",
+      "and_gates": 12712,
+      "garbled_table_bytes": 406800
+    }
+  ],
+  "production_release_enabled": false
+}

@@ -614,6 +614,22 @@
        right = .psi_padded_ring63_b64(right))
 }
 
+.psi_padded_membership_share_bits <- function(
+    bits, capacity, random_bytes = .dsvert_secure_random_bytes) {
+  capacity <- .psi_padded_validate_capacity(capacity)
+  if (length(bits) != capacity) {
+    stop("Invalid padded PSI membership shape.", call. = FALSE)
+  }
+  chunks <- lapply(seq.int(1L, capacity,
+    by = .DSVERT_PSI_PADDED_AND_CHUNK_CAPACITY), function(first) {
+    last <- min(capacity, first + .DSVERT_PSI_PADDED_AND_CHUNK_CAPACITY - 1L)
+    .psi_padded_ring63_share_bits(bits[first:last], random_bytes)
+  })
+  combine <- function(side) .psi_padded_ring63_b64(do.call(c,
+    lapply(chunks, function(chunk) .psi_padded_ring63_raw(chunk[[side]]))))
+  list(left = combine("left"), right = combine("right"))
+}
+
 .psi_padded_ring63_sum <- function(values) {
   if (!is.list(values) || !length(values)) {
     stop("Padded PSI Ring63 sum requires at least one share.", call. = FALSE)
@@ -1629,8 +1645,8 @@ psiPaddedPrepareDS <- function(data_name, session_id) {
   mapping <- .psi_padded_match_map(
     matched$matched_own_rows, matched$matched_ref_indices,
     state$slot_valid, rep(TRUE, contract$capacity), contract$capacity)
-  shares <- .psi_padded_ring63_share_bits(
-    mapping$bits, random_bytes = random_bytes)
+  shares <- .psi_padded_membership_share_bits(
+    mapping$bits, contract$capacity, random_bytes = random_bytes)
   share_values <- list(shares$left, shares$right)
   identity <- .get_identity_keypair()
   exports <- lapply(seq_along(contract$compute_peers), function(index) {

@@ -526,3 +526,9 @@ Stopped the waiting pod topology runner before any new topology attempt. `run_to
 ## 2026-09-18T18:30Z — large-envelope DSLite relay binding fixed
 
 K3 initial reference-exchange failure is retained in `topology-binomial-k3-before-relay.log`. Minimal regression confirms public-UUID/private-storage-ID mismatch; **582 targeted relay/security assertions pass** after preserving both identities explicitly. `psi-relay-before.log` and `psi-relay-targeted.log` record before/after. K3 is restarted with all server/client R sources, inventories, native worker and harness helpers hashed before/after each topology release. Pod K2 has completed real n2000 PSI, signatures and public admission and is running the release. No qualifying DP-vector match has yet been recorded.
+
+## 2026-09-18T18:34Z — bound large PSI membership sharing without raising caps
+
+K3 passed the large-envelope relay after the UUID fix, then failed at private membership sharing: target matching passed the entire 16384-slot bucket to a Ring63 bit helper capped at 4096. The purpose-bound membership caller now shares fixed 2048-coordinate chunks and concatenates canonical Ring63 records. The existing bit-helper cap remains unchanged; small buckets produce exactly the same bytes under the same entropy. Full wire shape, encrypted-envelope context, signed capacity and membership semantics are unchanged.
+
+Pure-R tests reconstruct all 16384 bits exactly, verify bounded entropy requests, reject wrong shapes/invalid bits, retain the old helper's oversized-vector rejection, and compare the small-bucket wire output with the original path. **89 assertions pass** across chunk/canonical Ring63 tests (`psi-membership-targeted.log`). This required shared PSI correction is recorded for other family lanes. The failed K3 attempt released no DP vector and remains `topology-binomial-k3-before-membership.log`.

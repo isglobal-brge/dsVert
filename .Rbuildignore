@@ -19,3 +19,5 @@
 ^inst/k2-mpc-tool$
 ^\.claude$
 ^\.claude/
+
+^inst/cross-grid-v2/build$

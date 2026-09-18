@@ -431,3 +431,7 @@ campaign now runs n10000 before n2000. No successful full-size run is repeated.
 - Paired-namespace targeted client tests: **710 assertions, 0 failures/errors**, filter `^dsi-text-frame$|dp-glm-grid-cross-contract|dp-glm-grid$`, including the exact newly expanded remote method/formal inventory.
 - Layer 1 now also compares all 80 n=2000 candidate losses with an independent 80-digit mpmath reference; all PASS.
 - Gate revision file now also contains clause 7 (K=3 and K=5 owner-topology releases). Kernel ABI already supports 2..64 owners; topology validation remains outstanding in addition to the original 12 two-peer releases. No topology evidence is claimed yet.
+
+## 2026-09-18T16:26Z — typed worker wiring
+
+Authenticated start uses server-minted typed state keys. A source/base64 mismatch found by the real DSLite harness is corrected at staging (including the private output mask seed); final stored shares use the same strict worker encoding. Targeted server contract file: **252 assertions, 0 failures/errors** (`staging-targeted.log`). Real DSLite completion remains pending. Packaged Go binaries rebuilt with the repository Makefile for all four supported platforms.

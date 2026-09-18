@@ -228,3 +228,7 @@ The producer, not an RPC caller, derives these partial predictors.
 - A dedicated grid computation session receives the existing authenticated Synopsis PREPARE before exact transport setup. This supplies the authoritative artifact binding required by the pinned-peer handshake; generic unauthenticated setup is not used.
 - Register the new lifecycle method in the client's existing idempotent-call and JSON text-framing maps. Its large public compilation/claim arguments need the same DSLite-safe framing as existing cross-owner methods. No generic parser or admission exception was added.
 - No maintainer file requires a version/NEWS bump for this branch; versions and NEWS remain unchanged. Roxygen generated the changed GLM help section; unrelated pre-existing regeneration drift was discarded.
+
+## 2026-09-18T16:26Z — typed worker wiring
+
+The authenticated grid endpoint adds `start` rather than permitting generic client staging. State keys retain the exact worker namespace. Capsule-source transport uses URL-safe base64, but exact worker inputs/results use canonical standard base64; conversion occurs only at the internal typed producer boundary, with no relaxed decoder. The synthetic oracle wiring assertion compares the full authenticated decimal-integer replay vector before any conversion to doubles.

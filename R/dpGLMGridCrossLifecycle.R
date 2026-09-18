@@ -126,7 +126,7 @@
   }
   namespace <- substr(.dsvert_joint_dp_hash(list(binding$semantic_key, batch)), 1, 32)
   stage <- list(operation_id = paste0("op_", namespace),
-    source_key = paste0("grid_", namespace), output_key = paste0("grid_out_", namespace),
+    source_key = paste0("exact_gc_in_", namespace), output_key = paste0("exact_gc_out_", namespace),
     purpose = public$purpose, operation = "glm-grid-profile-v2", vector_len = length(candidates),
     candidates = candidates, plan = plan, batch = batch)
   previous <- binding$stages[[as.character(batch)]]
@@ -145,18 +145,28 @@
     seed <- .dsvert_dp_capsule_source_mac(secret, "cross-grid-output-mask-v2",
       .dsvert_joint_dp_hash(list(binding$semantic_key, batch)))
     ss$.exact_gc_inputs[[stage$source_key]] <- list(
-      share = .dsvert_dp_capsule_source_raw_b64(input), ring_bits = 128L,
+      share = gsub("[\r\n]", "", jsonlite::base64_enc(input)), ring_bits = 128L,
       vector_len = as.integer(length(candidates)), producer = producer,
       allowed_spec = .exact_gc_allowed_spec(stage$operation, stage$purpose,
         0L, "cross-grid-ring128-share-v2", 128L), claimed_by = NULL,
-      cross_grid = plan, cross_grid_mask_seed = .dsvert_dp_capsule_source_raw_b64(
-        .dsvert_dp_capsule_source_hex_raw(seed, "cross-grid mask seed")))
+      cross_grid = plan, cross_grid_mask_seed = gsub("[\r\n]", "", jsonlite::base64_enc(
+        .dsvert_dp_capsule_source_hex_raw(seed, "cross-grid mask seed"))))
     binding$stages[[as.character(batch)]] <- stage
     ss$.dp_glm_grid_cross[[analysis_id]] <- binding
   }
   .dsvert_dp_glm_grid_cross_public(binding, policy, "prepared",
     stage[c("operation_id", "source_key", "output_key", "purpose", "operation",
             "vector_len", "batch")])
+}
+
+.dsvert_dp_glm_grid_cross_start <- function(policy, ss, analysis_id, session_id, batch) {
+  binding <- .dsvert_dp_glm_grid_cross_binding(ss, analysis_id)
+  batch <- .dsvert_dp_glm_grid_cross_integer(batch, 1, binding$batch_count)
+  stage <- binding$stages[[as.character(batch)]]
+  if (is.null(stage)) .dsvert_dp_glm_grid_cross_fail()
+  .exact_gc_init_impl(ss, session_id, stage$operation_id, .DSVERT_EXACT_GC_CAPABILITY,
+    stage$source_key, stage$output_key, stage$operation, 128L, 0L,
+    stage$vector_len, stage$purpose)
 }
 
 .dsvert_dp_glm_grid_cross_store <- function(policy, secret, ss, analysis_id, batch) {
@@ -205,7 +215,7 @@
         semantic_key = binding$semantic_key,
         artifact_sha256 = .dsvert_joint_dp_hash(binding$artifact),
         source_contract_sha256 = binding$contract_hash,
-        share = .dsvert_dp_capsule_source_raw_b64(result))
+        share = gsub("[\r\n]", "", jsonlite::base64_enc(result)))
       .dsvert_dp_glm_grid_cross_save(con, secret, record, 0)
     })
   })
@@ -265,7 +275,7 @@
 #' @param compilation_json Authenticated Synopsis compilation.
 #' @param analysis_id Custodian-signed analysis identifier.
 #' @param session_id Existing two-peer exact-computation session.
-#' @param action One of bind, prepare, store or finalize.
+#' @param action One of bind, prepare, start, store or finalize.
 #' @param batch Public row/candidate batch index; zero outside batch stages.
 #' @return A signed public lifecycle receipt encoded as JSON.
 #' @export
@@ -281,7 +291,7 @@ dsvertDPSynopsisGLMGridCrossDS <- function(manifest_sha256, claim_set_json,
     manifest <- .dsvert_dp_capsule_source_manifest(source$manifest_json)
     if (!.dsvert_dp_synopsis_supported_glm_grid_cross_v1(manifest) ||
         !is.character(action) || length(action) != 1L ||
-        !action %in% c("bind", "prepare", "store", "finalize")) {
+        !action %in% c("bind", "prepare", "start", "store", "finalize")) {
       .dsvert_dp_glm_grid_cross_fail()
     }
     ss <- .S(.dsvert_relay_validate_session_id(session_id))
@@ -301,6 +311,7 @@ dsvertDPSynopsisGLMGridCrossDS <- function(manifest_sha256, claim_set_json,
         source$manifest_json, source$source_contract, analysis_id, ss),
       prepare = .dsvert_dp_glm_grid_cross_prepare(context$policy, context$secret,
         ss, analysis_id, batch),
+      start = .dsvert_dp_glm_grid_cross_start(context$policy, ss, analysis_id, session_id, batch),
       store = .dsvert_dp_glm_grid_cross_store(context$policy, context$secret,
         ss, analysis_id, batch),
       finalize = .dsvert_dp_glm_grid_cross_finalize(context$policy,

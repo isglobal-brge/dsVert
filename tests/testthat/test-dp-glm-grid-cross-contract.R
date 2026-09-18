@@ -429,6 +429,34 @@ test_that("piecewise source projection preserves frozen f50/f0 slots", {
   list(fixture = fixture, policy = policy, spec = spec, manifest = manifest)
 }
 
+test_that("grid staging uses the exact worker wire encoding and stable keys", {
+  f <- .cross_grid_materializer_fixture()
+  artifact <- .dsvert_dp_glm_grid_cross_artifacts(f$manifest)$grid
+  ss <- new.env(parent = emptyenv())
+  ss$.exact_gc_peer_binding_digest <- "test-pinned-pair"
+  ss$.exact_gc_inputs <- list()
+  ss$.dp_glm_grid_cross <- list(grid = list(artifact = artifact,
+    semantic_key = paste(rep("a", 64), collapse = ""), batch_count = 1,
+    peer_binding_digest = ss$.exact_gc_peer_binding_digest,
+    values = rep(list(as.raw(rep(255, 64))), 3),
+    validities = rep(list(raw(64)), 3),
+    alignment = raw(32 * length(f$spec$participating_peers)), stages = list()))
+  testthat::local_mocked_bindings(
+    .dsvert_dp_glm_grid_cross_public = function(binding, policy, phase, extra) extra)
+  receipt <- .dsvert_dp_glm_grid_cross_prepare(f$policy, as.raw(1:32), ss, "grid", 1)
+  expect_match(receipt$source_key, "^exact_gc_in_[a-f0-9]{32}$")
+  expect_match(receipt$output_key, "^exact_gc_out_[a-f0-9]{32}$")
+  source <- ss$.exact_gc_inputs[[receipt$source_key]]
+  records <- 24 + 2 * length(f$spec$participating_peers)
+  expect_length(.exact_gc_validate_residue_records(source$share, 128L, records,
+    "cross-grid source"), 16 * records)
+  expect_length(.exact_gc_standard_b64_raw(source$cross_grid_mask_seed, 32,
+    "cross-grid mask seed"), 32)
+  expect_identical(.dsvert_dp_glm_grid_cross_prepare(f$policy, as.raw(1:32),
+    ss, "grid", 1), receipt)
+  expect_identical(ss$.exact_gc_inputs[[receipt$source_key]], source)
+})
+
 test_that("cross-grid workload admission and source contracts bind the new projection", {
   f <- .cross_grid_materializer_fixture()
   fixture <- f$fixture

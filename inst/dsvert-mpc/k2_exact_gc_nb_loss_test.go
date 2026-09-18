@@ -191,7 +191,7 @@ func TestCrossGridNBV1CircuitMatchesIntegerReference(t *testing.T) {
 				y      int64
 				valid  bool
 				domain bool
-			}{{big.NewInt(0), 1, true, true}, {new(big.Int).Add(new(big.Int).Lsh(big.NewInt(16), 64), big.NewInt(270337)), 1024, true, true}, {new(big.Int).Neg(new(big.Int).Add(new(big.Int).Lsh(big.NewInt(16), 64), big.NewInt(270337))), 1024, true, true}, {big.NewInt(11), 17, false, true}, {big.NewInt(-11), 0, true, true}, {new(big.Int).Lsh(big.NewInt(17), 64), 0, true, false}, {big.NewInt(0), 1025, true, false}, {new(big.Int).Neg(crossGridPow2V1(191)), 0, true, false}, {new(big.Int).Add(new(big.Int).Lsh(big.NewInt(16), 64), big.NewInt(270338)), 0, true, false}, {new(big.Int).Neg(new(big.Int).Add(new(big.Int).Lsh(big.NewInt(16), 64), big.NewInt(270338))), 0, true, false}} {
+			}{{big.NewInt(0), 1, true, true}, {big.NewInt(0), 2, true, true}, {big.NewInt(0), 17, true, true}, {new(big.Int).Add(new(big.Int).Lsh(big.NewInt(16), 64), big.NewInt(270337)), 1024, true, true}, {new(big.Int).Neg(new(big.Int).Add(new(big.Int).Lsh(big.NewInt(16), 64), big.NewInt(270337))), 1024, true, true}, {big.NewInt(11), 17, false, true}, {big.NewInt(-11), 0, true, true}, {new(big.Int).Lsh(big.NewInt(17), 64), 0, true, false}, {big.NewInt(0), 1025, true, false}, {new(big.Int).Neg(crossGridPow2V1(191)), 0, true, false}, {new(big.Int).Add(new(big.Int).Lsh(big.NewInt(16), 64), big.NewInt(270338)), 0, true, false}, {new(big.Int).Neg(new(big.Int).Add(new(big.Int).Lsh(big.NewInt(16), 64), big.NewInt(270338))), 0, true, false}} {
 				valid := int64(0)
 				if c.valid {
 					valid = 1
@@ -217,6 +217,9 @@ func TestCrossGridNBV1CircuitMatchesIntegerReference(t *testing.T) {
 				want := big.NewInt(0)
 				if c.domain {
 					want = crossGridNBReferenceLossV1(p, c.eta, c.y, c.valid, exponent, 18, 1<<24)
+				}
+				if c.valid && c.eta.Sign() == 0 && (c.y == 2 || c.y == 17) && (want.Sign() <= 0 || want.Cmp(big.NewInt(1<<24)) >= 0) {
+					t.Fatal("nonzero constant lookup case must remain unsaturated")
 				}
 				if got.Cmp(want) != 0 || (guard.Cmp(big.NewInt(1)) == 0) != c.domain {
 					t.Fatalf("compiled NB circuit differs: case=%d eta=%s y=%d got=%s want=%s guard=%s domain=%t", i, c.eta, c.y, got, want, guard, c.domain)

@@ -188,3 +188,26 @@ export correction `112a820`; its inventory failure is superseded only by the
 check. Server has emitted a source-layout failure reproduction for unchanged
 `test-dp-count-execution.R:802`, which reads an absent source R file from an
 installed-package check tree. Final summaries are still required.
+
+### Completed client package verification — 2026-09-18
+
+The full client check finished: **29,193 passing expectations, 1 failure,
+47 skips**, with zero test warnings. The only failure is the premature-export
+inventory assertion fixed by `112a820` and rechecked successfully (891
+expectations). Skips include repository/sibling-source-dependent audits and
+opt-in campaigns; the separate family source campaign already passed. This is
+not described as a clean full check on the final source.
+
+Rebuilt final-source client check:
+`R CMD check --no-tests --no-manual --no-build-vignettes dsVertClient_1.2.1.tar.gz`
+in `/workspace/dsvert/nb/check-final/` completed with **exit 0, 3 WARNINGs**,
+no errors or notes. A programmatic comparison confirmed all three complete
+warning blocks are byte-identical to `baseline-client-check.log`: existing
+missing documentation, code/documentation mismatches and duplicated ordinal
+`analysis_id` documentation. No test or dependency gate was disabled in the
+preceding full-suite run. The final packaging check explicitly skips tests
+because the full suite and targeted correction were checked separately.
+
+Local evidence: `/tmp/fama-pod-validation/check-client-{full,final}.log`,
+`check-client-final.exit`, `client-inventory-final.log`, and
+`testthat.Rout.fail` (the earlier full client run).

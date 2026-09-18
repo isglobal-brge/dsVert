@@ -33,3 +33,11 @@ Clipped-score rounding to q16 adds <=2^-17 per component; because both exact
 and rounded scores stay in [-C,C], the meat perturbation is <=C/65536 plus
 final <=1/(2S). These conditional bounds exclude unfinished upstream factor
 errors. They are not a full-family certificate.
+
+## Addendum 4 preflight — 2026-09-18
+
+The binding ceiling is **110 GB / 4 h**. No release capacity is admitted;
+all requested shapes are rejected by current prototype contracts. See
+INTEGRATION_GROUPED.md's Addendum 4 section and
+`inst/grouped-validation/addendum4-preflight.json` for the unmeasured matrix
+and exact prerequisites. Component timings do not establish release capacity.

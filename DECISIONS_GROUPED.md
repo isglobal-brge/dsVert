@@ -145,3 +145,22 @@ Inherited pod checks still have no exit files; R_STACK_DONE reconfirmed.
 - GEE post-whitening moment components do not certify whitening itself. Keep
   that prerequisite and its error propagation explicit; do not label synthetic
   factor tests as correlated-family end-to-end tests or enable provisional error=1.
+
+## Resumed 2026-09-18 — bounded Addendum 4 preflight
+
+Both repositories were clean (server ccc19b7; client 338572b). Scope is only
+release measurements, measured signed capacities and preserved certificates.
+Clause 6 replaces the stale 60 GB/2 h handoff thresholds with 110 GB/4 h.
+Pod availability and R_STACK_DONE confirmed. No tooling blocker exists.
+
+Do not call a component repetition a full release, and do not call rejected
+public shapes a measured cost failure. All 27 requested shapes (10 slots per
+cluster, GH5) currently reject at the public contract boundary. This alone
+could be resolved by a measured new schedule; it is not a mathematical obstacle.
+The substantive GEE prerequisite is the still-missing private factor producer
+and propagated certificate documented before this resume. Addendum 4 accepts
+moment boundaries, not that absent producer. Completing it would be additional
+implementation beyond the requested measurement-only work. No capacity, epsilon,
+delta, numeric profile or sensitivity is changed without the required evidence.
+LMM/GH5 complete benchmark scheduling also remains unimplemented; do not
+attribute all unfinished measurement work to Step 2 or to the GEE prerequisite.

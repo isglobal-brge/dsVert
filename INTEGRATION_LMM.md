@@ -33,9 +33,17 @@ Required ordered wiring:
    requires 22,824 gates / 214,896 table bytes for the tested g16/U999 shape;
    no runner cap is raised. Measure the actual signed shapes before admission.
 6. Add full process-isolated R/DSLite lifecycle and the 3x3 full-release matrix,
-   then admit a measured <=60 GB, <=2 h capacity and connect the client reader.
+   then admit a measured <=110 GB, <=4 h capacity and connect the client reader.
 
 The reference equation, exact lift proof and error bound are in
 NUMERIC_CERTIFICATE_GROUPED.md. The Go independent residual oracle and pure-R
 limb oracle agree. Those tests are not an authenticated protected release.
 Neither full-release capacity nor source/primitive-to-DP integration is claimed.
+
+## Addendum 4 preflight — 2026-09-18
+
+The binding ceiling is **110 GB / 4 h**. No release capacity is admitted;
+all requested shapes are rejected by current prototype contracts. See
+INTEGRATION_GROUPED.md's Addendum 4 section and
+`inst/grouped-validation/addendum4-preflight.json` for the unmeasured matrix
+and exact prerequisites. Component timings do not establish release capacity.

@@ -43,7 +43,7 @@ Required wiring, in order:
    evidence. Keep generation-one and same-owner dispatch untouched.
 6. Run real process-isolated DSLite source/PSI/noise/replay/crash tests and
    measured n in {2000,4000,10000}, grid in {16,32,50}, Q=5 for GLMM.
-   Admit only a measured <=60 GB / <=2 h envelope under clauses 4/5. Current signed domains are smaller
+   Admit only a measured <=110 GB / <=4 h envelope under clauses 4/5. Current signed domains are smaller
    (C<=64, B<=16; GEE B<=8,p<=3,m<=32) and do NOT meet that envelope.
 
 Test-only bridge: `go test -tags grouped_reference_test -c -o /tmp/grouped-reference.test .`.
@@ -102,3 +102,23 @@ the nine release envelopes. LMM sufficient-statistic components and exact
 f264 output boundary are in INTEGRATION_LMM.md. GEE/GH5 share composition,
 full measurements and Step-2 fusion remain unfinished. Old ownership/traffic
 blocker conclusions are withdrawn; no new full-release traffic failure is claimed.
+
+## Addendum 4 preflight — 2026-09-18
+
+Binding capacity ceiling is now **110 GB two-direction traffic and 4 h on the
+pod** (clauses 4 and 6). No measured release capacity has been admitted.
+`inst/grouped-validation/addendum4-preflight.json` records all 27 requested
+family/n/grid cells as **not measured**, with null bytes/time. It is a signed
+shape rejection audit, not a resource benchmark or extrapolation. Current
+contracts retain C<=64, B<=16 (GEE B<=8 and grid<=32); these are prototype
+domains, not measured release capacities. Production remains fail closed.
+
+Measurement prerequisites remain separate from Step-2 lifecycle integration:
+a complete once-routed source-to-final-share schedule is not present in these
+registries; GEE additionally lacks its whitened-factor producer and propagated
+certificate. Testing supplied factors omits that work and cannot establish
+GEE release cost. A repeated component benchmark would also omit routing,
+validity, boundaries and composition. No >4 h run has established eligibility
+for addendum 4's extrapolation exception. Do not infer an envelope from the
+existing component timings. Step 2 still owns authenticated fusion/lifecycle;
+this audit implements neither and does not assign the missing GEE producer to it.

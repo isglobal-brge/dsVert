@@ -396,3 +396,57 @@ DSVERT_GROUPED_WIDE_PROBE=1 go test -run '^TestGrouped(WideScalarEncrypted|LMMWi
 R tests use the tagged binary via DSVERT_GROUPED_REFERENCE_BINARY and the
 helpers/test files named in the prior entries; the new file is
 `test-crossgrid-lmm-stats-integer.R`. No ordinary executable contains its fixture.
+
+## Resumed 2026-09-18 — Addendum 4 bounded measurement audit
+
+Clean server ccc19b7/client 338572b at resume; nothing interrupted to recover.
+Pod reachable and install log ends in R_STACK_DONE. Gate in current integration
+notes corrected to 110 GB two-direction / 4 h; old historical entries are
+retained as history. No fusion/lifecycle, numeric, sensitivity or production
+behavior changes made.
+
+**Requested matrix and admitted capacities remain incomplete.** Public-shape
+preflight covers 3 families x 3 n values x 3 grid sizes = 27 cells, ten row
+slots/cluster and GH5. All reject current contracts (C<=64, B<=16; GEE B<=8,
+grid<=32). JSON stores null traffic/time, not zero or extrapolated results.
+No full release was measured; no >4 h exception was invoked; no new signed
+capacity is justified. This is NOT a measured resource-gate failure.
+
+The GEE factor producer and full error propagation are still missing, as the
+previous handoff states. They cannot be excluded from GEE cost. This is a
+substantive prerequisite beyond Addendum 4's measurement-only scope, not a
+Step-2 lifecycle blocker. LMM/GH5 full benchmark schedule assembly also remains
+undone; its absence is recorded as unfinished work, not an external dependency.
+See BLOCKED_GROUPED.md for the precise distinction and remaining sequence.
+
+Verification on unchanged arithmetic/contract code:
+- Mac grouped Go: 35 top-level / 69 including subtests pass; zero failures,
+  one opt-in historical resource probe skipped; 10.084 s.
+- Exact-rational 390 profile knots and ln2 enclosure: PASS.
+- R server contracts 120, profile integer oracles 45, LMM integer oracle 5,
+  client contracts 151 assertions: 321 pass, zero failures/errors/warnings.
+- Public requested-shape audit: 27/27 fail closed with the transcript-safe
+  public error. This audit is not an oracle equality or transport benchmark.
+- Pod grouped regression rerun: 35 top-level / 69 including subtests pass,
+  zero failures, one opt-in probe skipped; 96.399 s. Log:
+  /workspace/dsvert/grouped/arithmetic/addendum4-go.jsonl. GEE registration
+  and GH5 composition source hashes match the local snapshot.
+
+Reproduce from workspace root (Go commands in dsVert/inst/dsvert-mpc):
+```
+go test -run '^TestGrouped' -json -count=1 -timeout=15m .
+go test -tags grouped_reference_test -c -o /tmp/grouped-addendum4-reference.test .
+python3 dsVert/inst/certificates/grouped_exp_certificate.py --check
+DSVERT_GROUPED_REFERENCE_BINARY=/tmp/grouped-addendum4-reference.test Rscript dsVert/inst/grouped-validation/addendum4-preflight.R
+```
+Client: load_all(dsVertClient), source helper-grouped-grid-cross.R and run
+`test-dp-grouped-grid-cross.R`. No new full suite launched: inherited full Go
+is still in Cox K3 and client R CMD check still in testthat at collection.
+Inherited server R CMD check has now finished with **1 ERROR, 2 WARNINGs,
+1 NOTE**, test summary 10899 pass / 143 fail / 32 skip / 2 warnings. Its log
+includes absent inst/bin/linux-amd64/dsvert-mpc errors. These failures are not
+classified as pre-existing or as a clean current-snapshot check. Log:
+/workspace/dsvert/grouped/final/dsVert.Rcheck/00check.log.
+
+No pushes or thesis edits. Client worktree unchanged. The final audit commit
+is identified by `git log -1 -- STATUS_GROUPED.md`.

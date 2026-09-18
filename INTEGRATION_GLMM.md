@@ -34,3 +34,11 @@ binomial/Poisson, both admitted variances, partial/empty clusters, rejection
 and cap tests pass. Scalar outputs remain Ring192 shares, avoiding unsafe local
 widening. Exp uses <5000 AND/value including masks; see Addendum-3 measurements.
 No full-release envelope or authenticated R release is claimed.
+
+## Addendum 4 preflight — 2026-09-18
+
+The binding ceiling is **110 GB / 4 h**. No release capacity is admitted;
+all requested shapes are rejected by current prototype contracts. See
+INTEGRATION_GROUPED.md's Addendum 4 section and
+`inst/grouped-validation/addendum4-preflight.json` for the unmeasured matrix
+and exact prerequisites. Component timings do not establish release capacity.

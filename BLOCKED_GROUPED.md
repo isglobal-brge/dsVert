@@ -1,29 +1,30 @@
-# Grouped release status after Addendum 3 — 2026-09-18
+# Addendum 4 measurement prerequisite — 2026-09-18
 
-The former arithmetic-ownership and composed-GC traffic blockers are resolved
-or withdrawn. Dealer-free checked-OT Ring192 products now exist in 80aee12.
-No dealer/approximate truncation route was adopted. Measured component results:
+The requested measurement/capacity task is **incomplete**. This is not a renewed
+traffic or scalar gate failure. The former traffic blocker remains withdrawn;
+the exact OT backend and accepted LMM/GH5/GEE moment components remain intact.
 
-| Component | Measured two-direction bytes | Elapsed pod seconds |
-|---|---:|---:|
-| 1024 exact Beaver products | 37,912,128 | 7.903936 |
-| 32 wide-output exp profiles | 5,252,563 | 0.901655 |
-| one signed Ring192-to-two-limb lift | 89,936 | 0.110025 |
-| one LMM final clamp/rescale | 277,399 | 0.261466 |
+The specific GEE prerequisite is still missing: the registration supplies
+MomentOperands/MomentSums/MomentBoundary/MeatOperands/MeatFinal but no private
+whitened-factor producer. Existing tests supply those factors. The propagated
+GEE error certificate and matching integer profile are also incomplete. Thus
+there is no complete GEE kernel whose release cost can be measured. This is
+owned grouped implementation work, not the external Step-2 fusion dependency.
+Implementing it is outside Addendum 4's “do only this” measurement scope.
 
-These are component runs, not full releases. No member of the requested 3x3
-matrix is admitted, and no new full-release traffic failure is asserted.
-Evidence: inst/grouped-validation/dealer-free-product.json and
-addendum3-validation.json. Existing signed capacities are unchanged.
+LMM and GH5 components exist; their complete source/routing/validity-to-output
+benchmark schedules still need assembly. That work is not intrinsically blocked
+by missing Step-2 lifecycle, and has NOT been completed in this resume. No
+component-only result is relabelled as a release measurement.
 
-The external release integration remains unavailable: Step 2, fetched through
-2f36f79, provides an internal fused GLM kernel and joint-noise tests but explicitly
-leaves authenticated R source/admission/lifecycle/client wiring unfinished.
-A local MAC, raw component output, or synthetic DSLite evaluation cannot replace
-that authorization/evidence boundary. Protected materializers/readers stay closed.
+Public preflight of all 27 requested cells (n=2000/4000/10000,
+grid=16/32/50, 10 slots per cluster, GLMM Q=5) rejects under current signed
+prototype limits. See inst/grouped-validation/addendum4-preflight.json. Its
+bytes/time are null, not zero. No run exceeded four hours; no extrapolation
+exception was used. No capacity has been measured or newly admitted under the
+110 GB / 4 h gate. Source materializers and client readers stay fail closed.
 
-This is NOT a claim that all remaining lane work is externally blocked.
-Private GEE whitening and its full certificate/oracle, complete grouped source
-and primitive scheduling, all nine full-release measurements, protected DSLite
-lifecycle tests, and completed current-snapshot package checks are still open.
-Exact integration steps are in INTEGRATION_GROUPED/LMM/GLMM/GEE.md.
+To unblock the complete requested matrix: complete and certify the GEE factor
+producer, assemble actual family benchmark schedules including one permutation,
+then measure before setting mirrored signed capacities. Authenticated
+fusion/lifecycle remains Step 2's separate responsibility and is not implemented.

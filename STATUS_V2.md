@@ -553,6 +553,8 @@ Stopped only the owned pod validation tree rooted at PID496594 (six processes) b
 
 Pod campaign restarted PID **572347** after removing the incompatible session field; its first n2000 PSI is complete. Mac full topology campaign restarted (native exec session **66240**) after correcting ten-predictor public radix ordering (`topology-public-order.log`). The previous large attempt's generic rejection is preserved in `topology-binomial-k3-before-authorization.log`; subsequent pure-public inspection identified the ordering cause. No failed/interrupted attempt is counted as a release.
 
-## 2026-09-18T19:11Z — broader targeted security run classified
+## 2026-09-18T19:08Z — broader targeted security run classified
 
 `relay-authorization-targeted.log` completed with three failures: one obsolete synthetic debug RDS under the ignored development build directory, a test treating empty `.Rbuildignore` lines as match-all patterns, and missing endpoint inventory entries. The inventory regression now passes (272-assertion targeted run above). Removed only the obsolete task-owned debug snapshot and empty build-ignore lines, then reran the package-artifact test. No security-profile or authorization assertion failed in the broader run. Full clean-source package suites remain pending on the pod.
+
+Package-artifact rerun: **5 assertions pass**, zero failures/errors (`package-artifact-targeted.log`). Final-check input manifest refreshed to **1494 files**, now also hashing client installed resources and package configure/binary inventories.

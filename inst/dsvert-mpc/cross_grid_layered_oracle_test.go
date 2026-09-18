@@ -7,8 +7,48 @@ import (
 	"encoding/json"
 	"math/big"
 	"os"
+	"path/filepath"
 	"testing"
 )
+
+func TestCrossGridLayeredOracleCandidateChunks(t *testing.T) {
+	for _, family := range []string{"binomial", "poisson"} {
+		t.Run(family, func(t *testing.T) {
+			dir := t.TempDir()
+			p := crossGridKernelPlan{Family: family, Rows: 32, Predictors: 1, Owners: 3,
+				A: 1, GridBits: 16, MaxOutcome: 1}
+			for j := 0; j < 10; j++ {
+				p.Beta = append(p.Beta, []string{"0", "0"})
+				p.Caps = append(p.Caps, 1<<24)
+			}
+			rows := make([][]string, 35)
+			for i := range rows {
+				rows[i] = []string{"0", "0"}
+			}
+			output := filepath.Join(dir, "out.json")
+			data, err := json.Marshal(map[string]any{"Plan": p, "Rows": rows, "Output": output})
+			if err != nil || os.WriteFile(filepath.Join(dir, "in.json"), data, 0600) != nil {
+				t.Fatal("cannot create synthetic chunk fixture")
+			}
+			t.Setenv("DSVERT_CROSS_ORACLE_FIXTURE", filepath.Join(dir, "in.json"))
+			TestCrossGridLayeredOracle(t)
+			data, err = os.ReadFile(output)
+			var result struct{ Exact []string }
+			if err != nil || json.Unmarshal(data, &result) != nil || len(result.Exact) != 10 {
+				t.Fatal("invalid oracle chunk result")
+			}
+			unit := int64(45426) // nearest integer to 2^16 * log(2)
+			if family == "poisson" {
+				unit = 65536 // exp(0) at the signed loss lattice
+			}
+			for _, value := range result.Exact {
+				if value != big.NewInt(35*unit).String() {
+					t.Fatal("candidate or row tail was not accumulated exactly once")
+				}
+			}
+		})
+	}
+}
 
 type crossGridOracleDraw struct {
 	Operation       string                              `json:"operation"`
@@ -43,31 +83,36 @@ func TestCrossGridLayeredOracle(t *testing.T) {
 	for i := range total {
 		total[i] = new(big.Int)
 	}
-	for start := 0; start < len(f.Rows); start += 32 {
-		p := f.Plan
-		p.Rows = min(32, len(f.Rows)-start)
-		if err := p.validate(); err != nil {
-			t.Fatal(err)
-		}
-		x := make([]*big.Int, 0, p.sourceCount())
-		for _, row := range f.Rows[start : start+p.Rows] {
-			if len(row) != p.Predictors+1 {
-				t.Fatal("invalid synthetic row")
+	for candidateStart := 0; candidateStart < len(f.Plan.Beta); candidateStart += 8 {
+		for start := 0; start < len(f.Rows); start += 32 {
+			p := f.Plan
+			end := min(candidateStart+8, len(f.Plan.Beta))
+			p.Beta = f.Plan.Beta[candidateStart:end]
+			p.Caps = f.Plan.Caps[candidateStart:end]
+			p.Rows = min(32, len(f.Rows)-start)
+			if err := p.validate(); err != nil {
+				t.Fatal(err)
 			}
-			for _, v := range row {
-				z, ok := new(big.Int).SetString(v, 10)
-				if !ok {
-					t.Fatal("invalid synthetic scalar")
+			x := make([]*big.Int, 0, p.sourceCount())
+			for _, row := range f.Rows[start : start+p.Rows] {
+				if len(row) != p.Predictors+1 {
+					t.Fatal("invalid synthetic row")
 				}
-				x = append(x, z, big.NewInt(1))
+				for _, v := range row {
+					z, ok := new(big.Int).SetString(v, 10)
+					if !ok {
+						t.Fatal("invalid synthetic scalar")
+					}
+					x = append(x, z, big.NewInt(1))
+				}
 			}
-		}
-		for owner := 0; owner < p.Owners; owner++ {
-			x = append(x, big.NewInt(1), big.NewInt(2))
-		}
-		loss := crossGridKernelOracle(t, p, x)
-		for i := range total {
-			total[i].Add(total[i], loss[i])
+			for owner := 0; owner < p.Owners; owner++ {
+				x = append(x, big.NewInt(1), big.NewInt(2))
+			}
+			loss := crossGridKernelOracle(t, p, x)
+			for i := range loss {
+				total[candidateStart+i].Add(total[candidateStart+i], loss[i])
+			}
 		}
 	}
 	raw := append([]*big.Int{big.NewInt(int64(len(f.Rows)))}, total...)

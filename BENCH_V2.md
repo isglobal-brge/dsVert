@@ -409,3 +409,7 @@ DSLite campaign has persisted 63 of 2191 loss batches. Its observed relay rate
 projects to tens of hours, not a measured completed API elapsed time. No
 full-size API cost pass is claimed. The published raw-kernel 110 GB / 4 h
 measurements explicitly exclude this R/DSI overhead.
+
+A third qualifying API result uses the same n2000/p6/grid2/K2 geometry:
+binomial epsilon1, **2838.057 s**, with complete oracle/cold-lifecycle checks
+(`dslite-n2000-binomial-e1-first.log`). The timing scope is unchanged.

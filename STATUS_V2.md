@@ -669,3 +669,7 @@ Poisson / epsilon1 / instance1: **3390.267 s**, full integer DP vector matches t
 ## 2026-09-18T22:03Z — distinguish API timing from raw cost gate
 
 BENCH_V2 now records the first two qualifying real API elapsed times and their exact timing scope. Mac K3/binomial has 63/2191 persisted batches; its current relay throughput projects to tens of hours. This is a projection, not a completed full-size API measurement or a new cost-gate pass. Continue the requested envelope unchanged. Required matrix remains 2/12; Go full suite is still running (about 1 h 42 min elapsed).
+
+## 2026-09-18T22:12Z — recovered binomial n2000 lane passes
+
+Binomial / epsilon1 / instance1: **2838.057 s**, bit-for-bit complete DP-vector equality and fresh-process lifecycle/replay/tamper checks pass. Selected exact-best, zero loss gap. Evidence: `dslite-n2000-binomial-e1-first.log`. Required real-release count **3/12**. All three pod lanes are now on their second independent signed grid; no complete 20-instance cell is claimed.

@@ -80,3 +80,8 @@ required matrix; the complete six-cell evidence validator has not yet passed.
 Each uses n=2000, p=6 split 3/3, two signed candidates and delta=2^-100.
 The required count is 2/12; these individual results do not establish the
 20-instance selection statistics, other epsilon cells or K3/K5 topology gates.
+
+The recovered binomial/epsilon1/instance1 also passes both gates in 2838.057 s
+(`inst/cross-grid-v2/dslite-n2000-binomial-e1-first.log`), bringing the required
+real-release count to **3/12**. The earlier failed cold-deployment attempt
+remains excluded.

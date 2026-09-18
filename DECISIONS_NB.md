@@ -79,3 +79,19 @@ production gate. The unrelated same-owner NB correction is outside this lane.
     allowing named-object key normalization. Numeric-profile tampering tests
     must change a value: the NB constant at y=1 is identically zero, so its
     negative control now changes zero to one.
+
+14. The DSLite synthetic harness rebinds/deparses registered method environments.
+    Its public signed metadata is therefore embedded as exact R serialization,
+    and each peer receives only its own synthetic local values. JSON formatting
+    of f50 numeric values was also observed to round 2^50 by four integer units.
+    The tagged test transport now uses canonical decimal integer strings with
+    exact parsing and unchanged range checks. These are test-harness transport
+    fixes; the frozen production Ring128 ABI is unchanged.
+
+## Resumed — 2026-09-18
+
+The quota outage did not invalidate the committed family implementation or
+focused results. Preserve the coherent documentation left in the worktree,
+finish package-check evidence, and retain fail-closed integration/cost gates.
+Do not replace the pinned arithmetic profile or reopen completed milestones
+merely to repeat validation.

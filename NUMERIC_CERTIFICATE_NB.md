@@ -35,9 +35,12 @@ With mu=exp(eta), the negative log PMF is
                -log Gamma(theta+y)+y*log(theta).
 
 This includes the full y-dependent log(theta+mu) term. For theta 2,y 1,eta 0,
-the exact loss is log(27/8). The equivalent form using
-y*softplus(log(theta)-eta) uses the identical softplus profile and public
-linear terms; NB introduces no distinct transcendental kernel.
+the exact loss is log(27/8). The real-arithmetic equivalent form using
+y*softplus(log(theta)-eta) needs no distinct transcendental kernel. It is not
+an interchangeable integer evaluation order: shifting the linear term from
+the q64 argument to the rounded q16 argument changes the loss unless the
+rounding difference is corrected. The pinned integer oracle and producer
+must retain the assembly below (or prove exact integer equality with it).
 
 The public artifact retains q64 log(theta) and C(theta,y) constants.
 C(theta,0)=0 and C(theta,y)-C(theta,y-1)=log(y)-log(theta+y-1)+log(theta).

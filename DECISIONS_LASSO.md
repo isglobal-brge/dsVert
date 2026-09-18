@@ -70,3 +70,11 @@
     integer common-lattice coordinates. Negative integer noise values remain
     valid; fractional raw coordinates fail with the fixed transcript-safe
     error. Public final objectives remain ordinary binary64 postprocessing.
+
+## Resumed — 2026-09-18
+
+The quota outage did not invalidate the committed family implementation or
+focused results. Preserve the coherent documentation left in the worktree,
+finish package-check evidence, and retain fail-closed integration/cost gates.
+Do not replace the pinned arithmetic profile or reopen completed milestones
+merely to repeat validation.

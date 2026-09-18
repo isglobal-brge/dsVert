@@ -60,3 +60,12 @@ GLM signatures and the public Gaussian artifact shape. The Gaussian fixture is
 checked against the existing client artifact validator. These helpers are test
 code and carry no production execution evidence. The family DSLite harness and
 tagged plaintext-reference audit are tracked by the parent family session.
+
+The Family A tagged DSLite campaign distinguishes arithmetic from runtime
+integration coverage. Binomial/Poisson reference cases still use the frozen
+Step 1 oracle while their piecewise producer is developed in parallel. Gaussian
+cases exercise the existing moment arithmetic and client artifact validation;
+their two-peer synthetic staging uses the common NB signed schema/contract
+fixture. It does not establish authenticated Gaussian server-manifest/session
+coverage. Completing that existing manifest/session adapter remains item 3
+above and is explicitly marked in each Gaussian result record.

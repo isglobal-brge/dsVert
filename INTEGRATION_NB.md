@@ -110,3 +110,27 @@ For utility, compare against the same clamped exact loss and allow
 workload N=10000,p=10,m=50,M=16,theta=2,A approximately16 at epsilon 1,4,8 and
 requires that bound below 1% of the Laplace whole-vector noise scale. This is a
 specific workload check, not a guarantee for every allowed capacity/grid.
+
+The Step 1 Go `CrossGridSignedContractV1` decoder is intentionally unchanged and
+cannot yet decode an NB signed envelope. Integration must register a typed NB
+spec/contract adapter for `theta_grid`, the new numeric-contract fields and
+`candidate_bounds` error fields (`certified_row_error`, `endpoint_error`). Do
+not relax the existing unknown-field rejection or map NB into an ordinary GLM
+spec. After signature/hash reconstruction, derive `ThetaExponent`, `MaxOutcome`,
+`OutputGridBits` and `PerPatientCap` from the signed candidate and pass those
+values to the registered Go builder. `arithmetic_width_bits=32` describes the
+nonlinear profile; source dot products and q64 constant/linear loss assembly
+retain their certified 192-bit representation. Preserve these distinct widths.
+
+If the outcome owner supplies a constant share, it must select the pinned q64
+`constant_q64[y+1]` entry for that signed theta (or prove exact integer equality
+with that entry). Native floating `lgamma` recomputation is not an interchangeable
+producer. Shares of y, constants and linear products must stay authenticated
+and private; the only released statistic is the jointly noised candidate vector.
+
+Public release planning must also compare the signed `N*(E_j+1/(2S))` utility
+bound with the selected mechanism's actual noise scale at its authorized
+budget. The 1% default-envelope regression is not an admission proof for larger
+capacities or smaller grids. Reject an unsupported utility/resource plan before
+source resolution; do not silently increase epsilon, replace the signed profile,
+or treat privacy-valid approximation as automatic utility acceptance.

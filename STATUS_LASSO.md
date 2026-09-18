@@ -120,3 +120,30 @@ These commits leave the shared NAMESPACE registration and combined reference
 harness to the parent integration session. This status record is followed by a
 documentation-only commit recording the implementation identities. No remote
 push or same-owner/sealed-route edit was performed.
+
+## Combined final pod campaign
+
+The paired final pod suites repeated all **104 server + 106 client LASSO
+expectations** successfully. The tagged two-peer DSLite reference harness also
+passed **2 blocks / 97 expectations**, covering NB plus binomial, Poisson and
+Gaussian LASSO at epsilon 1, 4 and 8. All 12 fixed synthetic cases selected the
+exact signed-grid best; pooled reference coefficients/objectives are recorded
+in client `inst/cross-grid-nb/reference_validation_fama.json`.
+
+This is bounded reference evidence: binomial/Poisson use the frozen Step 1
+oracle pending the parallel piecewise adapter. Gaussian moment arithmetic and
+client artifact validation pass; its synthetic peer staging uses common NB
+metadata and does not complete authenticated Gaussian server-manifest/session
+coverage. The report marks both limitations. Seeded noise replay is test
+reproducibility, not a production sticky-ledger test. See `STATUS_NB.md` for
+commands, counts, per-workload approximation/noise ratios and complete context.
+
+## Resumed — 2026-09-18 (reviewer quota-outage continuation)
+
+Read the binding arithmetic decision and existing family records before edits.
+Server HEAD was `92f29ee`; client HEAD was `a0c33bc`. Client was clean; server
+contained coherent documentation updates only, retained in this continuation.
+No implementation milestone was restarted. Existing focused test evidence is
+preserved. Package-check completion is the remaining verification task; full
+checks with tests enabled are being recorded separately from earlier no-tests
+checks. Production gates and the measured NB cost blocker remain unchanged.

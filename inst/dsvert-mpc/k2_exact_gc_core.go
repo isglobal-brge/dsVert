@@ -924,8 +924,12 @@ func exactGCHybridFinalizeOutput(raw, output []*big.Int,
 
 func exactGCGarblerProtocol(conn *p2p.Conn, circ *circuit.Circuit,
 	input *big.Int, session exactGCSession) error {
+	return exactGCGarblerProtocolMode(conn, circ, input, session, false)
+}
 
-	digest := exactGCContextDigest(session)
+func exactGCGarblerProtocolMode(conn *p2p.Conn, circ *circuit.Circuit,
+	input *big.Int, session exactGCSession, compact bool) error {
+	digest := exactGCProtocolDigest(session, circ, compact)
 	if err := conn.SendData(digest[:]); err != nil {
 		return fmt.Errorf("exact-gc: send context: %w", err)
 	}
@@ -959,8 +963,10 @@ func exactGCGarblerProtocol(conn *p2p.Conn, circ *circuit.Circuit,
 	}
 	var labelData ot.LabelData
 	for _, row := range garbled.Gates {
-		if err := conn.SendUint32(len(row)); err != nil {
-			return fmt.Errorf("exact-gc: send gate row size: %w", err)
+		if !compact {
+			if err := conn.SendUint32(len(row)); err != nil {
+				return fmt.Errorf("exact-gc: send gate row size: %w", err)
+			}
 		}
 		for _, label := range row {
 			if err := conn.SendLabel(label, &labelData); err != nil {
@@ -1026,8 +1032,12 @@ func exactGCGarblerProtocol(conn *p2p.Conn, circ *circuit.Circuit,
 
 func exactGCEvaluatorProtocol(conn *p2p.Conn, circ *circuit.Circuit,
 	input *big.Int, session exactGCSession) (*big.Int, error) {
+	return exactGCEvaluatorProtocolMode(conn, circ, input, session, false)
+}
 
-	digest := exactGCContextDigest(session)
+func exactGCEvaluatorProtocolMode(conn *p2p.Conn, circ *circuit.Circuit,
+	input *big.Int, session exactGCSession, compact bool) (*big.Int, error) {
+	digest := exactGCProtocolDigest(session, circ, compact)
 	gotContext, err := conn.ReceiveData()
 	if err != nil {
 		return nil, fmt.Errorf("exact-gc: receive context: %w", err)
@@ -1059,13 +1069,17 @@ func exactGCEvaluatorProtocol(conn *p2p.Conn, circ *circuit.Circuit,
 	garbled := make([][]ot.Label, circ.NumGates)
 	var labelData ot.LabelData
 	for i, gate := range circ.Gates {
-		count, err := conn.ReceiveUint32()
-		if err != nil {
-			return nil, fmt.Errorf("exact-gc: receive gate row size: %w", err)
-		}
 		expected := exactGCGarbledRowSize(gate.Op)
-		if count != expected {
-			return nil, fmt.Errorf("exact-gc: invalid row size for gate %d", i)
+		count := expected
+		if !compact {
+			var err error
+			count, err = conn.ReceiveUint32()
+			if err != nil {
+				return nil, fmt.Errorf("exact-gc: receive gate row size: %w", err)
+			}
+			if count != expected {
+				return nil, fmt.Errorf("exact-gc: invalid row size for gate %d", i)
+			}
 		}
 		row := make([]ot.Label, count)
 		for j := range row {

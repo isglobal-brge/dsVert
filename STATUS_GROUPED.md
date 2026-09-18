@@ -157,3 +157,74 @@ at this final code snapshot; collection pending.
 Pod transport probe has separately found an excessive full-schedule mandatory
 payload lower bound; this is not the old scalar gate failure. Complete results
 and final disposition will be recorded after remaining probes and check logs.
+
+## Revised gate handoff — 2026-09-18 13:40 UTC
+
+**Blocked for production/full-envelope delivery by the composed workload's
+traffic, not by the superseded scalar target.** See BLOCKED_GROUPED.md and
+BENCH_GROUPED.md. The requested protected release is NOT complete.
+
+The pod campaign passed all nine encrypted chunk probes (1 top-level / 9
+subtests), 383.42 s total. Per-profile mandatory table payload lower bounds
+for the hypothetical n=10000, grid=50 traversal are:
+- LMM: 289.408 GB.
+- Binomial/Poisson GH5: 442.677 / 603.141 GB.
+- GEE, only p=3: 7243.389–7327.613 GB across both families and all correlations.
+
+These are exact table-byte lower bounds from compiled chunks, NOT measured
+full-release totals. Measured two-direction chunk traffic, generated-source
+hashes and elapsed times are in revised-cost.json/log. All final local Go
+source hashes match the pod. None of the nine chunks raises a runner cap.
+The full workload would exceed 60 GB before source/routing/dot/noise traffic.
+No protected input or release was run; no production gate was opened.
+
+Completed this resume: certified range-reduced exp, all-table outward knot
+certificates, safe full-word Boolean lookup sharing, Go/R/client profile/hash
+parity, revised scalar cost assertions, exponent-boundary R oracle fixtures,
+new synthetic reference-fit comparison and two-direction pod measurements.
+Remaining work is explicitly enumerated in INTEGRATION_GROUPED.md, including
+GEE error propagation and Go/R cap mapping, full-size domain/schedule support,
+authenticated source/PSI/routing, chunk state, joint noise/sticky release and
+client reader. Do not bypass these gaps using test fixtures or state strings.
+
+### Broad checks: still pending, not a clean-check claim
+
+At 13:39:56 UTC the once-launched final full Go suite had 43 terminal pass
+events, no terminal failures yet, and was still in legacy Cox integration
+checks. It remains running at:
+`/workspace/dsvert/grouped/revised/full-go.jsonl`; exit file `full-go.exit`.
+Command: `go test -json -count=1 -timeout=0 ./...`.
+The benchmark expectation correction only changes the opt-in cost test, which
+this ordinary full run skips. The final corrected cost test separately passes.
+
+Both inherited R CMD checks reached testthat and remain active. They check the
+prior snapshot, NOT the newly committed range-exp update. Logs:
+`/workspace/dsvert/grouped/final/server-check-ready.log` and `client-check.log`.
+Current findings include server static-analysis NOTE and documentation
+warnings; client non-ASCII `R/ds.vertMI.R`, `.dsvert_exact_gc_run` codoc mismatch,
+duplicate `analysis_id` in `ds.vertOrdinal.Rd`, and unavailable-dsVert-namespace
+NOTE from check startup. The named client files match cb26ecd byte-for-byte;
+server findings concern unchanged existing functions. This is not a completed
+baseline comparison, and no pending test failure is classified as pre-existing.
+No completed R CMD check or full-suite pass is claimed. Exact progress is in
+inst/grouped-validation/revised-check-progress.json. Collect these running
+checks first on any resume; do not restart them unnecessarily.
+
+Commands additionally used this resume:
+```
+python3 dsVert/inst/certificates/grouped_exp_certificate.py --check
+(cd dsVert/inst/dsvert-mpc && go test -run '^TestGrouped' -json -count=1 -timeout=15m .)
+(cd dsVert/inst/dsvert-mpc && go test -tags grouped_reference_test -c -o /tmp/grouped-revised-reference.test .)
+# R: devtools::load_all paired source; source the grouped helpers; test_file:
+# server test-crossgrid-grouped.R, test-crossgrid-grouped-integer.R,
+# test-crossgrid-grouped-dslite.R; client test-dp-grouped-grid-cross.R.
+# Set DSVERT_GROUPED_REFERENCE_BINARY to the tagged executable for oracle/DSLite.
+# Pod, from revised/dsVert/inst/dsvert-mpc:
+DSVERT_GROUPED_COST_PROBE=1 go test -run '^TestGroupedRevisedGateMeasuredCosts$' -v -count=1 -timeout=30m .
+```
+
+Resume commits: server 43370ce (resume), 4f2d314 (certified arithmetic),
+067ac0a (resource evidence/handoff); client 016e400 (profile binding),
+607b0aa (status). The final status-only commit is identified by
+`git log -1 -- STATUS_GROUPED.md`. No pushes, thesis edits, shared producer
+changes, same-owner changes or generation-one changes.

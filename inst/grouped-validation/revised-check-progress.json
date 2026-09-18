@@ -1,0 +1,42 @@
+{
+  "collected_utc": "2026-09-18T13:39:56.258746+00:00",
+  "full_go": {
+    "terminal_counts_so_far": {
+      "pass": 43
+    },
+    "failed_tests_so_far": [],
+    "complete": false,
+    "log": "/workspace/dsvert/grouped/revised/full-go.jsonl"
+  },
+  "server_R_CMD_check": {
+    "complete": false,
+    "findings": [
+      "* checking R code for possible problems ... NOTE",
+      "* checking for missing documentation entries ... WARNING",
+      "* checking for code/documentation mismatches ... WARNING"
+    ],
+    "tail": [
+      "* checking for unstated dependencies in \u2018tests\u2019 ... OK",
+      "* checking tests ...",
+      "  Running \u2018testthat.R\u2019"
+    ],
+    "log": "/workspace/dsvert/grouped/final/server-check-ready.log",
+    "source_snapshot": "prior resumed session, before revised arithmetic"
+  },
+  "client_R_CMD_check": {
+    "complete": false,
+    "findings": [
+      "* checking code files for non-ASCII characters ... WARNING",
+      "* checking dependencies in R code ... NOTE",
+      "* checking for code/documentation mismatches ... WARNING",
+      "* checking Rd \\usage sections ... WARNING"
+    ],
+    "tail": [
+      "* checking for unstated dependencies in \u2018tests\u2019 ... OK",
+      "* checking tests ...",
+      "  Running \u2018testthat.R\u2019"
+    ],
+    "log": "/workspace/dsvert/grouped/final/client-check.log",
+    "source_snapshot": "prior resumed session, before revised arithmetic"
+  }
+}

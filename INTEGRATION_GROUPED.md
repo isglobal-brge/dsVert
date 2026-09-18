@@ -12,7 +12,10 @@ Entry points:
   The reader always fails closed.
 
 Required wiring, in order:
-1. Resolve the scalar profile cost and outward coefficient certificate gates.
+1. Scalar <=5000-AND and outward coefficient gates now PASS (4f2d314).
+   Rework the full chunk workload to fit the revised <=60 GB release budget;
+   measured chunk probes already give mandatory payload bounds above it.
+   Do not conflate a scalar gate pass with full-release admission.
    Complete GEE bread/meat error propagation; replace provisional R error=1.
    Make Go/R caps identical: GLMM currently supplies a universal local cap,
    R signs candidate-specific caps; GEE Go sums row-capped likelihood whereas
@@ -46,3 +49,14 @@ compares tagged integer grids with real finite-grid objectives and pooled
 lmer/glmer/geeglm fits, and uses two conservative synthetic Laplace draws plus
 client postprocessing at epsilon 1/4/8. It does NOT implement or claim the
 missing production fused path, real PSI, sticky ledger or authenticated noise.
+
+
+Revised profile: `grouped-pwlinear-q16-k64-range-exp-v2`; both R validators
+bind the new manifest hash. Re-sign manifests; never retain signatures over
+the old arithmetic. All six public coefficient tables now have rational
+interval certificates. Public test bridge also supplies profile-boundary
+fixtures, exclusively under `grouped_reference_test`.
+
+No shared Step-2 release wiring has landed in this lane. The materializer and
+client reader still reject every protected invocation. No callback injection,
+synthetic evaluator, environment flag or artifact state bypass is provided.

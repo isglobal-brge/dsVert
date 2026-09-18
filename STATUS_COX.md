@@ -203,3 +203,12 @@ Go's registered SharedPlan/SharedCompile/RunShares reject excess dimensions
 before compilation, I/O or source use. The internal measurement runner retains
 the theoretical envelope to measure inadmissible points. Targeted Go admission
 and both R Cox contract suites pass, including tampering re-signed by both peers.
+
+Installed primitive baseline comparison also reproduces the related synopsis
+failures: missing internal-symbol assertions (exact-gc, execution, source-gate,
+source-transport-wrappers), the legacy source-contract golden-hash mismatch,
+and the release helper-resolution error. The related baseline run hit testthat's
+10-failure display cap (one additional failure reported but not displayed);
+it is evidence of pre-existing failures, not a claimed clean or complete suite.
+The full current server check remains running. Full paired baseline log is
+retained in inst/cross-cox-v1/envelope_v2/synopsis-installed-baseline-related.log.

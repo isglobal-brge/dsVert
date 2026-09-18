@@ -54,3 +54,16 @@ Preserve the completed profile and certificate rather than changing signed
 numerics merely to meet a cost target. Verify the existing ring/spline route
 before claiming it can replace the measured Boolean adapter. The now-ready
 pod is available for final checks; earlier endpoint failures remain historical.
+
+The retained arithmetic-share alternative is not eligible for direct reuse.
+`inst/dsvert-mpc/k2_distributed_cmp.go` and
+`k2_distributed_cmp_ring127.go` explicitly document quarter-ring mask leakage
+and differential-wrap comparison failures;
+`TestQuarterRingDCFMaskHasDifferentialWrapCounterexample` and
+`TestQuarterRingDCFMaskLeaksCoarseRange` record regression counterexamples.
+`k2_spline_protocol_ring127.go` invokes this comparison in its indicator path.
+Changing the ring width or constraining the input does not eliminate the
+mask-distribution leakage. Its runtime-generated linear tables also do not
+implement the signed quadratic profile. Do not wire it as a cheaper family
+backend. A certified secure shared evaluator must arrive through the common
+primitive/integration work, with matching table/rounding and fresh cost proof.

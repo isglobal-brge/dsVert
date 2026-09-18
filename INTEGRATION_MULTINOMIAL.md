@@ -78,3 +78,13 @@ this adapter as the reviewer's compliant arithmetic-share producer.
 
 See `STATUS_MULTINOMIAL.md` for measured tests/cost and unresolved promotion
 gates, and `NUMERIC_CERTIFICATE_MULTINOMIAL.md` for approximation-aware utility.
+
+## Resumed primitive audit (2026-09-18)
+
+Do not substitute the retained Ring63/Ring127 spline comparison backend: its
+quarter-ring masks leak coarse ranges and permit differential-wrap errors,
+as documented in `k2_distributed_cmp.go`, `k2_distributed_cmp_ring127.go` and
+`k2_numeric_validation_test.go`. The shared primitive integration must provide
+a secure replacement before the arithmetic-share option can open the cost
+gate; widening the ring alone is insufficient. Preserve the signed quadratic
+profile and exact ties-even rounding when integrating that replacement.

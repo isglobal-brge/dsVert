@@ -46,3 +46,13 @@ uniform profile error are in `NUMERIC_CERTIFICATE_ORDINAL.md`. The tagged Go
 reference and R oracle are test-only. DSLite comparison to `MASS::polr` is a
 public-synthetic reference test; real PSI/MPC/noise execution remains an
 integration gate. Cost and validation evidence are in `STATUS_ORDINAL.md`.
+
+## Resumed primitive audit (2026-09-18)
+
+Do not substitute the retained Ring63/Ring127 spline comparison backend: its
+quarter-ring masks leak coarse ranges and permit differential-wrap errors,
+as documented in `k2_distributed_cmp.go`, `k2_distributed_cmp_ring127.go` and
+`k2_numeric_validation_test.go`. The shared primitive integration must provide
+a secure replacement before the arithmetic-share option can open the cost
+gate; widening the ring alone is insufficient. Preserve the signed quadratic
+profile and exact ties-even rounding when integrating that replacement.

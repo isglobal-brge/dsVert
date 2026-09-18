@@ -295,3 +295,27 @@ draw. Compilation: 183.660 s; kernel: 2,182.623 s; joint noise: 429.418 s and
 4,289.131. This is the once-measured n=10,000/p=10/grid=50 binomial workload,
 not an extrapolation. The exact source snapshot is `89ee9be` plus its checked-in
 hash manifest. Poisson and n=2,000 measurements are still running.
+
+### Both full-size pod family gates complete (2026-09-18T17:00Z)
+
+| Family | Measured two-direction bytes | Compile / kernel / joint-noise seconds | Total seconds | Fused AND/evaluation | Gate |
+|---|---:|---:|---:|---:|---|
+| Binomial | 86,515,842,839 | 183.660 / 2182.623 / 429.418 | 2795.701 | 4289.131 | PASS |
+| Poisson | 106,763,755,314 | 162.657 / 2296.387 / 235.988 | 2695.032 | 5551.022 | PASS |
+
+Both are once-measured n=10000/p=10/grid=50 runs with 2191 kernel
+batches, four peer pairs and integer/noise oracle equality. Poisson joint
+noise accounts for 1,024,744,380 bytes. Raw evidence:
+`inst/cross-grid-v2/pod-full-n10000.log`. The <=5000 AND gate applies
+to the scalar nonlinearity; this table counts the entire fused kernel,
+including validity/alignment, arithmetic and padded final batches.
+
+**Both exceed the original 30-minute target**, while passing the revised
+<=110 GB / <=4 h gate. The cheapest elapsed-time reduction is obtaining
+the advertised CPU allocation (actual cgroup quota 7.65 cores) and increasing
+parallel peer pairs within available memory. No arithmetic ABI change is
+needed. These measurements cover the grid kernel and globally calibrated
+50-candidate joint noise, with `authenticated_server_release=false`; they
+do not measure DataSHIELD framing or the catalog's additional count coordinate.
+Those remain separately identified wiring costs, never silently folded into
+the measured figures.

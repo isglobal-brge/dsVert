@@ -442,3 +442,15 @@ Authenticated start uses server-minted typed state keys. A source/base64 mismatc
 - Corrected both new-family-only paths: count-plus-grid catalog and explicit <=51-coordinate joint exact-GC policy, using globally calibrated noise chunks. Existing sampler default remains dimension 1.
 - Targeted server contract + exact-noise adapter: **337 assertions, 0 failures/errors**. Client exact-noise + Synopsis adapter: **98 assertions, 0 failures/errors**, including legacy geometry and partial noise chunks. Fresh real/oracle smoke runs are in progress.
 - Remaining pod matrix queued under nohup PID 366920 after `FULL_MEASUREMENT_POD_DONE`; it excludes the already measured n10000/p10/grid50 configuration. No benchmark source is overwritten.
+
+## 2026-09-18T16:53Z — first actual one-draw DSLite equality (small smoke)
+
+Binomial n=4/p=6/grid=2, epsilon=4: **real two-authority joint exact-GC DP vector bit-for-bit equal to the oracle**, selected candidate also equal; client elapsed 342.114 s under concurrent Mac matrix load. Evidence: `dslite-binomial-n4-first-bitwise.log`. The computation/certificate assertion completed, then Rscript reported a trailing parse error because its source file had been edited while R was incrementally reading it. This is not a clean script exit or one of the required n2000 releases. Subsequent invocations use `Rscript -e 'source("inst/cross-grid-v2/validate_dslite.R")' ..` to parse the complete source before execution.
+
+Client source-owner Claim coverage is now independent of public moment blocks; targeted contract/grid tests **320 assertions green**, including K=3 source coverage. The 20-instance n2000 oracle pilot is running. Final campaigns will plan production seeds/contracts for every instance and additionally run the first two through the real client, so the 12 real releases are a subset of the 120 reported selections.
+
+## 2026-09-18T17:00Z — both full-size pod arithmetic/traffic gates PASS
+
+Poisson n10000/p10/grid50 completes at **106,763,755,314 bytes / 2695.032 s**, with integer and joint-noise oracle equality. Binomial remains **86,515,842,839 bytes / 2795.701 s**. Both below the revised 110 GB / 4 h ceiling; both above the original 30-minute target. `BENCH_V2.md` reports phase costs, fused AND counts, CPU quota and the exact measurement scope. The nohup runner continues to both n2000 cases.
+
+Mac RAM is 16 GiB and concurrent validation caused memory pressure. The unnecessary extra oracle-only n2000 pilot was stopped during PSI (no selection outputs); final mixed campaigns share one PSI alignment with their two real releases. This does not count toward the required 120 selections.

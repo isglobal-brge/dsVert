@@ -2,7 +2,7 @@
 
 This document does not certify release promotion. The scalar interpolation
 bounds below and LMM arithmetic bound are separate from the incomplete GEE
-workload certificate and the failed nonlinear cost gate.
+workload certificate and the separate full-release traffic gate.
 
 ## Frozen boundary and integer statistic
 
@@ -31,7 +31,7 @@ makes omission of log determinant valid; variance candidate grids are rejected.
 ## Piecewise profiles
 
 The SHA256-bound JSON in inst/certificates contains 65 nearest-even q16 knots
-for each of seven 64-piece linear profiles. For interval width h and a uniform
+for each of six 64-piece linear profiles. For interval width h and a uniform
 second derivative bound M, interpolation error <= M*h^2/8. Knot rounding and
 interpolation rounding each contribute <= 1/(2*65536), giving
 E=M*h^2/8+1/65536. Profile input/output words are 32 bits; the single unsigned
@@ -41,8 +41,7 @@ belong to the enclosing kernel; standalone emitters are not RPCs.
 | Profile | Domain | M |
 |---|---|---:|
 | softplus | [-4,4] | 1/4 |
-| exp | [-4,4] | 55 |
-| exp_negative | [-16,0] | 1 |
+| exp_reduced | [-1/2,1/2] | 2 |
 | log | [1,5] | 1 |
 | sigmoid | [-4,4] | 1/10 |
 | sqrt(sigmoid variance) | [-4,4] | 1/8 |
@@ -77,8 +76,34 @@ proved bread/meat workload certificate. Do not promote it or use it as a
 utility guarantee. A certificate must propagate profile/correlation/f50 errors
 through bread and clipped score products and include shifts/quantization.
 
-The current scalar kernels measure 4027–5488 AND gates/evaluation, exceeding
-the binding <=2000 target. No full-envelope utility/noise or <=30 GB assertion
-is established. Kernels are internal and all R production materializers/readers
-remain disabled. Neither numeric metadata nor successful reference tests are
-execution evidence.
+### Revised arithmetic route, 2026-09-18
+
+All production-composition exp calls now use range reduction. For q16 input x,
+choose k=sign(x)*floor((abs(x)+22713)/45426), r=x-k*45426, so
+|r|<=22713 and the identity holds exactly in integers. Evaluate the short
+[-1/2,1/2] profile at r and apply 2^k with fixed five-stage barrel shifts;
+right shifts round ties to even. k's half ties are away from zero; correctness
+requires residual enclosure, not matching the nearest exponent for real ln2.
+The rational atanh enclosure proves |45426/65536-ln2|<1.5e-6.
+
+Let E=2/(8*64^2)+1/65536. For x in [-4,4], k<=6 and |k|<=6;
+error <=64 E +55*1.0001*6*1.5e-6 +1/(2*65536)<0.0055.
+For x in [-16,0], k<=0 and |k|<=23;
+error <=E+1.0001*23*1.5e-6+1/(2*65536)<0.00013.
+The factor 1.0001 bounds exp(|k|*1.5e-6). These compare q16 inputs;
+the enclosing GLMM adds eta/node quantization, factorial and logweight errors.
+The GLMM bound includes both eta and node half-ulps (one complete q16 ulp),
+plus frozen-ABI slack, instead of treating them as a single half-ulp.
+
+Exhaustive q16 checks measured maximum exp errors 0.002717181709 and
+0.000040219376, respectively. All runtime scalar emitters are below the
+revised 5000-AND ceiling (range exp: 4321 including input-share addition and
+output masking). The Boolean lookup shares constant-folded decision diagrams
+across bit planes, preserving full signed int32 values; composed GEE tests
+check against the independent integer reference.
+
+The new profile/hash are incompatible with the old table manifest and are
+bound by both R validators. A smaller scalar cost is not a full-release
+traffic measurement. The <=60 GB gate and authenticated release remain open;
+GEE's whole-workload certificate above remains unfinished. Production stays
+fail-closed.

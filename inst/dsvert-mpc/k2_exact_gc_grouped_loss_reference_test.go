@@ -13,6 +13,8 @@ import (
 
 type groupedReferenceRequest struct {
 	Family        string
+	Profile       string
+	InputQ16      []int64
 	Sigma, Tau    string
 	Eta, Residual []string
 	Features      [][]string
@@ -50,6 +52,15 @@ func TestGroupedReferenceBridge(t *testing.T) {
 	var values []int64
 	var valid bool
 	switch r.Family {
+	case "profile":
+		valid = true
+		for _, x := range r.InputQ16 {
+			value, e := groupedProfileEval(r.Profile, x)
+			if e != nil {
+				t.Fatal(e)
+			}
+			values = append(values, value)
+		}
 	case "lmm":
 		variance := parse([]string{r.Sigma, r.Tau})
 		r.LMM.Sigma2Q64 = variance[0]

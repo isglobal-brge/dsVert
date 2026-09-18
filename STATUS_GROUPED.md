@@ -133,3 +133,27 @@ Upstream Step 2 is also actively resuming; it has not delivered release wiring.
 First new milestone: range-reduced exp and profile/circuit/oracle parity, then
 re-evaluate the complete chunk cost, remaining certificates and release gates.
 Prior pod checks still run; R_STACK_DONE reconfirmed.
+
+### Revised scalar milestone — 2026-09-18
+
+PASS revised <=5000-AND scalar gate: softplus 2384, log 2240, sigmoid 2238,
+sqrt variance 2934, inverse sqrt variance 3175, reduced exp table 2063,
+complete range-reduced exp 4321. Counts include share addition/output mask.
+Exact-rational generator verifies all 390 coefficients, not just dense samples.
+All exp calls in GLMM/GEE now use range reduction and fixed barrel shifts.
+Profile/hash changed in both validators; old signatures cannot admit new math.
+
+Current targeted verification: 11 Go top-level / 25 with subtests passed,
+0 failures, 1 opt-in resource probe skipped in the ordinary run (executed
+separately on pod). Server contracts 120, client contracts 151, integer parity
+45, synthetic DSLite 202 assertions; no failures, errors or warnings.
+Synthetic lmer/glmer/geeglm comparison at epsilon 1/4/8 still selects the real
+grid best in 2/15 cells; max profile/real loss difference is now 0.007068514.
+These are synthetic comparisons, not authenticated protected releases.
+Evidence: inst/grouped-validation/revised-validation.json and
+revised-synthetic-comparison.json. Full pod Go regression run launched once
+at this final code snapshot; collection pending.
+
+Pod transport probe has separately found an excessive full-schedule mandatory
+payload lower bound; this is not the old scalar gate failure. Complete results
+and final disposition will be recorded after remaining probes and check logs.

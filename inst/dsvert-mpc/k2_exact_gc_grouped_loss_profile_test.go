@@ -13,7 +13,8 @@ import (
 
 func TestGroupedProfileCertificate(t *testing.T) {
 	functions := map[string]func(float64) float64{
-		"softplus": func(x float64) float64 { return math.Log1p(math.Exp(x)) }, "exp": math.Exp, "exp_negative": math.Exp, "log": math.Log,
+		"exp_reduced": math.Exp,
+		"softplus":    func(x float64) float64 { return math.Log1p(math.Exp(x)) }, "exp": math.Exp, "exp_negative": math.Exp, "log": math.Log,
 		"sigmoid":               func(x float64) float64 { return 1 / (1 + math.Exp(-x)) },
 		"sqrt_variance":         func(x float64) float64 { return 1 / (2 * math.Cosh(x/2)) },
 		"inverse_sqrt_variance": func(x float64) float64 { return 2 * math.Cosh(x/2) },
@@ -51,6 +52,9 @@ func TestGroupedProfileCircuitEquality(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Logf("gates=%d AND=%d table_bytes=%d", program.Circuit.NumGates, program.Circuit.Stats[circuit.AND], primitiveVTableBytes(program.Circuit))
+			if program.Circuit.Stats[circuit.AND] > 5000 {
+				t.Fatal("revised scalar AND gate exceeded")
+			}
 			inputs := []int64{p.Upper}
 			for k := int64(0); k < 64; k++ {
 				for _, offset := range []int64{0, 1, p.Step/2 - 1, p.Step / 2, p.Step/2 + 1, p.Step - 1} {

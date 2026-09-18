@@ -33,6 +33,14 @@
   profiles[[which(vapply(profiles, `[[`, character(1L), "name") == name)]]
 }
 .grouped_profile <- function(x, name) {
+  if (name %in% c("exp", "exp_negative")) {
+    lower <- if (name == "exp") -262144 else -1048576
+    upper <- if (name == "exp") 262144 else 0
+    stopifnot(length(x) == 1L, x == floor(x), x >= lower, x <= upper)
+    k <- floor((abs(x)+22713)/45426)*sign(x)
+    residual <- x-k*45426
+    return(round(.grouped_profile(residual, "exp_reduced")*2^k))
+  }
   table <- .grouped_profile_table(name)
   stopifnot(length(x) == 1L, x == floor(x), x >= table$lower, x <= table$upper)
   k <- min(63, floor((x-table$lower)/table$step))

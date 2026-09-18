@@ -63,3 +63,18 @@ traffic budgets. Do not stop against the old threshold or interpret the new
 scalar threshold as a whole-release measurement. Preserve runner caps and
 production rejection until authenticated wiring and numeric gates pass.
 Range reduction must cover both Poisson exponentials and quadrature exp.
+
+- Replaced lookup mux trees with shared Boolean bit-plane decision diagrams.
+  Full int32 values are reconstructed explicitly; this avoids the earlier
+  unsafe narrow-word optimization. Scalar and composed integer equality pass.
+- Replaced both exp tables with one [-1/2,1/2] table, q16 ln2 reduction and
+  fixed five-stage barrel shifts. MPCL rejects variable shift expressions;
+  fixed stages implement the required secret exponent without changing caps.
+  The profile now costs 4321 ANDs, below the revised 5000 ceiling.
+- Extended the exact-rational coefficient checker to all six tables (390
+  knots). GLMM error propagation now counts both eta and node half-ulps.
+  No epsilon, delta, signed coordinate cap or admission domain was weakened.
+- Whole-release traffic is a separate gate. Pod probes count writes on BOTH
+  encrypted transport endpoints. A chunk's exact garbled table payload times
+  the public number of chunks is a mandatory lower bound, not a measurement
+  of the full release. Never label extrapolated wire counts as observed totals.

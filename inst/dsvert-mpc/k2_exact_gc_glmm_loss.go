@@ -34,12 +34,12 @@ func groupedGLMMBounds(s groupedGLMMSpec) (groupedGLMMCaps, error) {
 		return groupedGLMMCaps{}, err
 	}
 	rowBound := 3.0
-	rowError := groupedProfiles["softplus"].Error + 0.5/65536
+	rowError := groupedProfiles["softplus"].Error + 1.0/65536 + 1e-12
 	if s.Family == "poisson" {
 		rowBound = 32
-		rowError = 12.25/512 + 1.0/65536 + 17.0/(2*65536) + 0.5/65536
+		rowError = groupedExpError + 17.0/65536 + 0.5/65536 + 1e-12
 	}
-	e := float64(s.Rows)*rowError + 0.5/65536 + 4*(groupedProfiles["exp_negative"].Error+1.0/8000000) + groupedProfiles["log"].Error
+	e := float64(s.Rows)*rowError + 0.5/65536 + 4*(groupedNegativeExpError+1.0/8000000) + groupedProfiles["log"].Error
 	scale := float64(int64(1) << s.OutputBits)
 	u := int64(math.Ceil(scale * (float64(s.Rows)*rowBound + e)))
 	d := int64(math.Ceil(scale*(rowBound+2*e) + 1))

@@ -8,9 +8,9 @@ import (
 	"strings"
 )
 
-const groupedProfileSHA256 = "a32101f12fec76cbed9ae0f5a8eaa6dab621acecb98c4a269fcee6912a5d3cfc"
+const groupedProfileSHA256 = "f72e66abaf2e503a809f23d4563418d2889843174109398ae48b02f0ec7edb84"
 
-const groupedProfileID = "grouped-pwlinear-q16-k64-v1"
+const groupedProfileID = "grouped-pwlinear-q16-k64-range-exp-v2"
 const groupedProfileScale int64 = 65536
 
 type groupedProfile struct {
@@ -37,6 +37,16 @@ func groupedRoundDiv(a, b int64) int64 {
 // groupedProfileEval evaluates the signed public profile, not a transcendental.
 // The caller must handle the negative-exp cutoff separately.
 func groupedProfileEval(name string, x int64) (int64, error) {
+	if name == "exp" || name == "exp_negative" {
+		lower, upper := int64(-262144), int64(262144)
+		if name == "exp_negative" {
+			lower, upper = -1048576, 0
+		}
+		if x < lower || x > upper {
+			return 0, errors.New("grouped profile rejected")
+		}
+		return groupedExpEval(x), nil
+	}
 	p, ok := groupedProfiles[name]
 	if !ok || x < p.Lower || x > p.Upper {
 		return 0, errors.New("grouped profile rejected")
@@ -87,32 +97,58 @@ func groupedProfileSource() string {
 		for level := 0; level < 6; level++ {
 			fmt.Fprintf(&b, "bit%d := (index & uint6(%d)) != uint6(0)\n", level, 1<<level)
 		}
-		// Reuse each index-bit condition across both tables.
+		// Bit-plane decision diagrams preserve full signed int32 table values.
+		// Constant subtrees collapse before MPCL compilation; shared Boolean
+		// nodes serve both columns without narrow signed-word casts.
+		nodes := map[string]string{}
+		var lookup func([]bool, int) string
+		lookup = func(values []bool, level int) string {
+			if len(values) == 1 {
+				if values[0] {
+					return "true"
+				}
+				return "false"
+			}
+			lo := lookup(values[:len(values)/2], level-1)
+			hi := lookup(values[len(values)/2:], level-1)
+			if lo == hi {
+				return lo
+			}
+			key := fmt.Sprintf("%d:%s:%s", level, lo, hi)
+			if n, ok := nodes[key]; ok {
+				return n
+			}
+			expression := fmt.Sprintf("(%s != ((%s != %s) && bit%d))", lo, lo, hi, level)
+			if lo == "false" && hi == "true" {
+				return fmt.Sprintf("bit%d", level)
+			}
+			if lo == "true" && hi == "false" {
+				return fmt.Sprintf("!bit%d", level)
+			}
+			n := fmt.Sprintf("lookup%d", len(nodes))
+			nodes[key] = n
+			fmt.Fprintf(&b, "%s := %s\n", n, expression)
+			return n
+		}
 		for _, column := range []string{"base", "delta"} {
-			values := make([]string, 64)
-			for i := 0; i < 64; i++ {
-				v := p.Knots[i]
-				if column == "delta" {
-					v = p.Knots[i+1] - p.Knots[i]
+			fmt.Fprintf(&b, "%s := int32(0)\n", column)
+			for bit := 0; bit < 32; bit++ {
+				values := make([]bool, 64)
+				for i := range values {
+					v := p.Knots[i]
+					if column == "delta" {
+						v = p.Knots[i+1] - p.Knots[i]
+					}
+					values[i] = (uint32(v) & (uint32(1) << bit)) != 0
 				}
-				if v < 0 {
-					values[i] = fmt.Sprintf("-int32(%d)", -v)
-				} else {
-					values[i] = fmt.Sprintf("int32(%d)", v)
+				expression := lookup(values, 5)
+				if expression == "false" {
+					continue
 				}
+				fmt.Fprintf(&b, "%sBit%d := uint1(0)\nif %s { %sBit%d = 1 }\n%s = %s | int32(uint32(%sBit%d) << %d)\n", column, bit, expression, column, bit, column, column, column, bit, bit)
 			}
-			for level := 0; len(values) > 1; level++ {
-				next := make([]string, len(values)/2)
-				for i := range next {
-					n := fmt.Sprintf("%s%d_%d", column, level, i)
-					fmt.Fprintf(&b, "%s := %s\n if bit%d { %s = %s }\n", n, values[2*i], level, n, values[2*i+1])
-					next[i] = n
-				}
-				values = next
-			}
-			fmt.Fprintf(&b, "%s := %s\n", column, values[0])
 		}
 		fmt.Fprintf(&b, "fraction := uint%d(offset & %d)\n if x == int32(%d) { fraction = %d }\n negative := delta < 0\n magnitude := delta\n if negative { magnitude = -delta }\n product := wideMul(uint%d(fraction), uint%d(magnitude))\n quotient := product >> %d\n remainder := product & %d\n if remainder > %d || (remainder == %d && (quotient & 1) != 0) { quotient = quotient + 1 }\n change := int32(quotient)\n if negative { change = -change }\n return base + change\n}\n", shift+1, p.Step-1, p.Upper, p.Step, deltaBits, deltaBits, shift, p.Step-1, p.Step/2, p.Step/2)
 	}
-	return b.String()
+	return b.String() + groupedExpSource()
 }

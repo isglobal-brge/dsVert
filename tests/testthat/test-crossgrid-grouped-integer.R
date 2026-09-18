@@ -26,3 +26,23 @@ test_that("pure R grouped integer oracles equal tagged Go references", {
       family,correlation,rho,65536,16,2^24,2^24))
   }
 })
+
+
+test_that("range-reduced exp R and tagged Go agree at exponent and knot boundaries", {
+  x <- unique(c(-1048576, 262144, 0,
+    as.vector(outer((-23:6)*45426, c(-22714,-22713,-22712,22712,22713,22714), `+`)),
+    as.vector(outer((-23:6)*45426, seq(-22528,22528,by=1024), `+`))))
+  for (name in c("exp", "exp_negative")) {
+    lo <- if(name == "exp") -262144 else -1048576
+    hi <- if(name == "exp") 262144 else 0
+    inputs <- x[x>=lo & x<=hi]
+    got <- .grouped_go_reference(list(Family="profile",Profile=name,InputQ16=as.list(inputs)))
+    expect_true(got$Valid)
+    expected <- vapply(inputs,.grouped_profile,numeric(1),name=name)
+    expect_equal(got$Values,expected)
+    bound <- if(name == "exp") .0055 else .00013
+    expect_lte(max(abs(expected/65536-exp(inputs/65536))),bound)
+    expect_error(.grouped_profile(lo-1,name))
+    expect_error(.grouped_profile(hi+1,name))
+  }
+})

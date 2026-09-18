@@ -1,0 +1,12 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/isglobal-brge/dsVert/dsvert-mpc
+cpu: Apple M2
+BenchmarkCrossGridBinomialV2BatchProtocol/A4/batch32/compact-8         	       3	  98725528 ns/op	      2806 AND/eval	   3085173 ns/eval	     94036 wire-B/eval
+BenchmarkCrossGridBinomialV2BatchProtocol/A16/batch32/compact-8        	       3	  98789458 ns/op	      3078 AND/eval	   3087171 ns/eval	    102747 wire-B/eval
+BenchmarkCrossGridExpReducedV2Protocol/batch1/compactfalse-8           	       3	  29427430 ns/op	      3540 AND/eval	  29427430 ns/eval	    185177 wire-B/eval
+BenchmarkCrossGridExpReducedV2Protocol/batch1/compacttrue-8            	       3	  25834805 ns/op	      3540 AND/eval	  25834805 ns/eval	    136197 wire-B/eval
+BenchmarkCrossGridExpReducedV2Protocol/batch32/compactfalse-8          	       3	  85274083 ns/op	      3541 AND/eval	   2664815 ns/eval	    166490 wire-B/eval
+BenchmarkCrossGridExpReducedV2Protocol/batch32/compacttrue-8           	       3	 148698847 ns/op	      3541 AND/eval	   4646839 ns/eval	    117570 wire-B/eval
+PASS
+ok  	github.com/isglobal-brge/dsVert/dsvert-mpc	25.584s

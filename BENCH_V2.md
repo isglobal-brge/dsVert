@@ -1,4 +1,8 @@
-# V2 component benchmark — COST GATE FAILED
+# V2 component benchmarks — full release gate NOT MEASURED
+
+**Revised gate (reviewer Addendum 3): <=5000 AND/evaluation and <=60 GB measured
+aggregate two-direction traffic for a full-size release, with pod elapsed time.
+The historical 2000-AND/30-GB failure below is superseded.**
 
 **The largest requested grid has NOT been run. There is no measured 30-minute
 whole-grid result. No fused grid kernel exists in this change.** These are real
@@ -83,3 +87,76 @@ Pod launch from the workspace used the required wrapper and dedicated directory:
 ```
 
 Evidence is in `inst/cross-grid-v2/bench-{mac,pod-default,pod-procs8}.log`.
+
+## Addendum 3: range-reduced exp and compact batched components
+
+These replace the old Poisson arithmetic proposal and superseded cost verdict;
+they still are **not the fused kernel or full-release benchmark matrix**.
+K=64, batches of 32 nonlinear evaluations, real Yao/KOS and encrypted net.Pipe,
+three measured iterations after calibration. The compiler runs outside timing.
+GOMAXPROCS=8 on the pod. The Mac and pod use the same 464 Go source/module,
+R/Python driver and JSON fixture files, verified by SHA256; see
+`final-mac-source.sha256` and `final-pod-source-verification.log`.
+
+| Component, compact batch32 | AND/eval (exact batch average) | Mac ms/eval | Pod ms/eval | Mac wire B/eval | Pod wire B/eval |
+|---|---:|---:|---:|---:|---:|
+| Binomial A4 | 2805.969 | 3.085 | 20.854 | 94036 | 94036 |
+| Binomial A16 | 3077.969 | 3.087 | 33.419 | 102747 | 102747 |
+| Range-reduced Poisson, A<=16 | 3540.969 | 4.647 | 28.204 | 117570 | 117570 |
+
+The Poisson circuit is common across A; its certificate derives an error/cap
+for each public A. Signed candidate-specific domain admission is not implemented.
+The new binomial test container masks uint64 outputs, explaining ~33 more ANDs
+than the old uint32 scalar component. No binomial polynomial changed.
+
+Poisson framing/setup comparison (same polynomial):
+
+| Batch / framing | Mac ms/eval | Pod ms/eval | Mac wire B/eval | Pod wire B/eval |
+|---|---:|---:|---:|---:|
+| 1 / legacy | 29.427 | 240.055 | 185177 | 185129 |
+| 1 / compact | 25.835 | 269.290 | 136197 | 136173 |
+| 32 / legacy | 2.665 | 32.406 | 166490 | 166490 |
+| 32 / compact | 4.647 | 28.204 | 117570 | 117570 |
+
+Compact framing authenticates a digest of the complete public topology and
+omits per-gate row-length words. The existing production entry points always
+retain legacy framing. Record encryption, garbling and KOS OT are unchanged.
+Variation in random protocol framing and shared-machine scheduling remains;
+three iterations do not establish a throughput guarantee.
+
+### Whole-size projections only — gate remains unmeasured
+
+Multiplying measured compact component bytes by 500000 gives 47.018 GB for
+binomial A4, 51.374 GB for binomial A16 and 58.785 GB for Poisson. Poisson has
+only about 1.215 GB left below the 60-GB limit for all additional work. These
+projections exclude the complete f100 predictor, source/alignment transport,
+outcome/log-factorial terms, loss clamping/reduction and joint DP release.
+They **do not prove the full-release traffic gate**.
+
+Multiplying the observed pod per-evaluation time by 500000 would give about
+174 / 278 / 235 minutes respectively. These are serial component extrapolations,
+not a measured release: fusion, signed row/candidate batching, reusable setup
+and public-plan scheduling have not been implemented. **The requested largest
+release has not been run; no measured >30-minute or <=30-minute result exists.**
+Do not extrapolate these rows to a certified capacity claim or silently change
+the ABI. The first cost-preserving integration is the frozen 32-row/8-candidate
+batch, with per-candidate output masks/reduction rather than the test interface's
+per-evaluation outputs. Any coarser precision would need a new certificate.
+
+### Reproduction and evidence
+
+```
+# Mac, from dsVert:
+Rscript inst/cross-grid-v2/benchmark_exp_reduced.R .
+# Pod, from workspace, after exporting the matching tracked sources:
+./pod4 'cd /workspace/dsvert/crossowner-v2/dsVert; nohup sh inst/cross-grid-v2/run_exp_reduced_pod.sh > /workspace/dsvert/crossowner-v2/logs/exp-reduced-run.log 2>&1 < /dev/null &'
+```
+
+Mac raw output: `inst/cross-grid-v2/exp-reduced-bench-mac.log`.
+Final pod output: `inst/cross-grid-v2/pod-exp-reduced/exp-reduced-bench.log`.
+The pod completion marker is `EXP_REDUCED_POD_DONE`. The same run passes the
+certificate, R arithmetic/pooled checks and 14 Go top-level tests / 32 including
+subtests with zero failures/skips. This is targeted verification, not a full
+suite or R CMD check. Earlier partial pod logs were superseded after the
+binomial batch and V1-exclusion cases were added; the final source hash check
+covers all files used by the recorded final run.

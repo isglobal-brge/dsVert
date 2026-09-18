@@ -61,3 +61,24 @@ net.Pipe connections. This interface is deliberately NOT a release interface:
 full private validity handling, f100 dot products, log-factorial selection,
 loss assembly, shared sums, DP noise, signed source/result bindings, exactly-once
 injection and crash recovery are not implemented by it.
+
+## Reviewer Addendum 3 follow-on
+
+The historical cost failure above used the superseded 2000-AND budget. The
+current binding gate is <=5000 AND/evaluation AND <=60 GB measured whole-release
+traffic, with pod elapsed time. Neither an isolated component nor a projection
+establishes that whole-release gate.
+
+The new `EXP_REDUCED_CERTIFICATE.md` describes the range-reduced Poisson
+candidate and its Go/R references. `validate_pooled_objective.R` tests the
+synthetic n2000/p6 objective against independent R distributions and glm.
+`benchmark_exp_reduced.R` benchmarks both binomial and range-reduced Poisson
+in the real two-authority engine, including compact batch-32 transport.
+`run_exp_reduced_pod.sh` runs the focused checks and component measurements
+under the required pod layout. The existing protocol entry points keep their
+old framing; the new topology-bound compact mode has no production dispatcher.
+
+No artifact in this directory implements signed grid admission, complete
+source/eta/loss computation, joint noise, server/client materialized state,
+exactly-once injection, DSLite release or the full n,p,grid benchmark matrix.
+Those omissions remain explicit in STATUS_V2.md and the three layer reports.

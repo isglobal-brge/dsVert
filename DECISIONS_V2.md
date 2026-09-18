@@ -91,3 +91,14 @@
     Poisson outcomes are bounded at 4 before fitting, consistent with the
     signed bounded-outcome semantics. Compare the same bounded data with
     independent R distributions and glm logLik, never label this a DSLite run.
+17. Keep the revised full-release cost gate OPEN. Compact batch32 component
+    traffic projects to 47.018/51.374 GB for binomial A4/A16 and 58.785 GB for
+    Poisson at 500000 evaluations. That is not sufficient headroom evidence
+    for the remaining source, loss and DP work. Pod measured component latency
+    is 20.854/33.419/28.204 ms per evaluation; do not label serial extrapolation
+    a measured whole-release result, or silently reduce the signed workload.
+18. No version bump, NEWS or production roxygen changes: no R API, client route
+    or materialized-state claim was introduced. Evidence documentation covers
+    the new candidate and opt-in internal framing only. Production documentation
+    remains part of the unfinished release deliverable. No BLOCKED_V2 file is
+    warranted: the outstanding work is implementation, not a missing decision.

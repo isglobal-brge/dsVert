@@ -60,3 +60,9 @@ Passes 14 top-level / 32 including-subtest tests, zero failed/skipped. Evidence:
 `inst/cross-grid-v2/exp-reduced-targeted.jsonl`. This does not cover the direct
 callr lifecycle, signed grid admission, joint noise, source injection or crash
 recovery listed as outstanding above.
+
+Final pod verification reproduces the Mac's 14 top-level / 32 including-subtest
+passes, zero failed/skipped. Raw log:
+`inst/cross-grid-v2/pod-exp-reduced/exp-reduced-targeted.jsonl`.
+All 464 source/fixture hashes were checked against the Mac manifest before
+accepting this run. This does not change the outstanding Layer-2 lifecycle gate.

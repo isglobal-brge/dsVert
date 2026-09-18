@@ -146,3 +146,29 @@ The first pod arithmetic/transport selection passed, then the local probe was
 extended with the binomial batch and explicit V1 exclusion tests. A final pod
 rerun of that changed selection plus both-family component benchmarks is running
 under nohup with GOMAXPROCS=8. No full suite or R CMD check has been run in V2.
+
+## 2026-09-18T13:39Z — final component evidence on Mac and pod
+
+The final nohup pod run prints EXP_REDUCED_POD_DONE and reproduces 14 Go
+top-level / 32 including-subtest passes, zero failures/skips; R arithmetic,
+certificate reproduction and pooled glm checks pass. Verified all 464 source,
+module and fixture hashes against the Mac export. Focused commands are recorded
+in SECURE_INTEGER_V2 and the checked-in pod runner; raw logs are under
+`inst/cross-grid-v2/pod-exp-reduced/`. An initial tar attempt emitted ownership
+warnings; re-export with --no-xattrs / --no-same-owner and the full hash check
+resolved that layout issue before accepting evidence.
+
+Compact batch32 component measurements (Mac / pod):
+
+| Family/domain | AND/eval | wire B/eval | ms/eval Mac / pod |
+|---|---:|---:|---:|
+| Binomial A4 | 2805.969 | ~94036 | 3.085 / 20.854 |
+| Binomial A16 | 3077.969 | ~102747 | 3.087 / 33.419 |
+| Poisson A<=16 | 3540.969 | ~117570 | 4.647 / 28.204 |
+
+The nonlinear AND gate passes the revised threshold. The measured whole-release
+60-GB and pod elapsed-time gates remain NOT RUN. BENCH_V2 explicitly separates
+measurements from projections, including the small remaining Poisson byte budget.
+No production dispatch, server/client route, same-owner R path, tag or remote
+was changed. The shared Go protocol core changed only through opt-in framing;
+its legacy entry points and targeted tests retain prior behavior.

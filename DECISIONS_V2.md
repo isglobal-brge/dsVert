@@ -388,3 +388,31 @@ Use a 4GiB Go heap target for new Mac topology workers after the exact public Po
 ## 2026-09-18T21:56Z — bounded relay diagnostic, no protocol change
 
 The synthetic n32/p10/grid8 binomial API diagnostic passes integer DP-oracle equality (572.189 s under concurrent Mac load). Function-stack samples place much of sampled exchange CPU in regex/base64 string handling; a one-second native sample also includes IPC and parsing. These observations do not isolate enough of total elapsed time to justify changing shared authenticated transport or caps. Retain current production code and active campaigns. The initial Rprof report includes repeated append headers as a pseudo-frame; its timings are diagnostic only, not a promotion benchmark. The reproduction script now strips subsequent headers before summarizing. No payloads or protected values are sampled.
+
+## 2026-09-18T22:25Z — concurrent cold compilation reproduces startup overrun
+
+The second Poisson K3 attempt again failed closed before readiness. Two
+concurrent independent public-shape compiles with GOMAXPROCS=2,
+GOMEMLIMIT=4GiB and GOGC=25 take **209.266947 / 210.008394 s**, versus
+64.641451 s for the earlier single compile. Both exceed the unchanged
+120-second readiness window; their public circuit bytes still match their
+own authenticated cache reload. Evidence: `cold-poisson-k3-pair-{1,2}.log`;
+reproduce by compiling `cold_shape_probe_test.go.txt` as a temporary Go test
+and launching two instances of that test binary concurrently with those
+settings. The diagnostic's readiness assertion correctly fails.
+
+Use the existing harness's synchronous DSI aggregate-job implementation for
+the Poisson topology retry, so each authority finishes startup before the
+other starts. `validate_dslite_sync.R` changes only the test connector's
+advertised aggregate capability; every call still passes through DSI and the
+strict DSLite allowlist. Capability/dispatch regression passes in
+`synchronous-connector-targeted.log`. No production R/Go source, arithmetic,
+privacy parameter, signed capacity, frame cap or readiness/runtime lease is
+changed. The original frozen harness and package hashes remain checked;
+the additional wrapper has its own before/after hash check.
+
+Poisson-only retry: `sh inst/cross-grid-v2/run_topology_validation_parallel_mac.sh
+--restart-poisson-sync`, native session95496. The failed 4GiB attempt is
+retained as `topology-poisson-k3-before-sync-start.log`. Binomial K3 and all
+three pod lanes continue unchanged. Required completed real releases remain
+3/12. Actual success of the synchronous full-size retry remains pending.

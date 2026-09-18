@@ -673,3 +673,31 @@ BENCH_V2 now records the first two qualifying real API elapsed times and their e
 ## 2026-09-18T22:12Z — recovered binomial n2000 lane passes
 
 Binomial / epsilon1 / instance1: **2838.057 s**, bit-for-bit complete DP-vector equality and fresh-process lifecycle/replay/tamper checks pass. Selected exact-best, zero loss gap. Evidence: `dslite-n2000-binomial-e1-first.log`. Required real-release count **3/12**. All three pod lanes are now on their second independent signed grid; no complete 20-instance cell is claimed.
+
+## 2026-09-18T22:25Z — concurrent cold compilation reproduces startup overrun
+
+The second Poisson K3 attempt again failed closed before readiness. Two
+concurrent independent public-shape compiles with GOMAXPROCS=2,
+GOMEMLIMIT=4GiB and GOGC=25 take **209.266947 / 210.008394 s**, versus
+64.641451 s for the earlier single compile. Both exceed the unchanged
+120-second readiness window; their public circuit bytes still match their
+own authenticated cache reload. Evidence: `cold-poisson-k3-pair-{1,2}.log`;
+reproduce by compiling `cold_shape_probe_test.go.txt` as a temporary Go test
+and launching two instances of that test binary concurrently with those
+settings. The diagnostic's readiness assertion correctly fails.
+
+Use the existing harness's synchronous DSI aggregate-job implementation for
+the Poisson topology retry, so each authority finishes startup before the
+other starts. `validate_dslite_sync.R` changes only the test connector's
+advertised aggregate capability; every call still passes through DSI and the
+strict DSLite allowlist. Capability/dispatch regression passes in
+`synchronous-connector-targeted.log`. No production R/Go source, arithmetic,
+privacy parameter, signed capacity, frame cap or readiness/runtime lease is
+changed. The original frozen harness and package hashes remain checked;
+the additional wrapper has its own before/after hash check.
+
+Poisson-only retry: `sh inst/cross-grid-v2/run_topology_validation_parallel_mac.sh
+--restart-poisson-sync`, native session95496. The failed 4GiB attempt is
+retained as `topology-poisson-k3-before-sync-start.log`. Binomial K3 and all
+three pod lanes continue unchanged. Required completed real releases remain
+3/12. Actual success of the synchronous full-size retry remains pending.

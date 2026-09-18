@@ -1,0 +1,6 @@
+=== RUN   TestCrossGridColdPoissonK3ShapeProbe
+    cross_grid_cold_shape_probe_test.go:28: public_shape rows=32 p=10 grid=8 owners=3 a=4 max_outcome=16 g=16 cold_seconds=209.266947 hot_seconds=2.881935 circuit_bytes=65045429
+    cross_grid_cold_shape_probe_test.go:29: public cold compilation exceeds existing readiness window
+--- FAIL: TestCrossGridColdPoissonK3ShapeProbe (212.16s)
+FAIL
+PROBE_EXIT_STATUS=1

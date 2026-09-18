@@ -112,6 +112,27 @@
   }, error = .dsvert_dp_transcript_stop)
 }
 
+# Grow a nonoverlapping expansion with error-free TwoSum operations. Checking
+# its final nonzero component compares the exact sum of the input binary64
+# coefficients with 16; ordinary sum() can round an excess back to 16.
+.dsvert_dp_glm_grid_cross_beta_l1_valid <- function(beta) {
+  expansion <- numeric()
+  for (value in c(abs(beta), -16)) {
+    next_expansion <- numeric()
+    total <- value
+    for (component in expansion) {
+      next_total <- total + component
+      virtual <- next_total - total
+      remainder <- (total - (next_total - virtual)) + (component - virtual)
+      if (remainder != 0) next_expansion <- c(next_expansion, remainder)
+      total <- next_total
+    }
+    if (total != 0) next_expansion <- c(next_expansion, total)
+    expansion <- next_expansion
+  }
+  !length(expansion) || tail(expansion, 1L) < 0
+}
+
 # Public bounds agree with the existing grid builders. All transported and
 # released integer coordinates remain exactly representable in R.
 .dsvert_dp_glm_grid_cross_sensitivity <- function(
@@ -166,11 +187,13 @@
     .DSVERT_DP_GLM_GRID_CROSS_SPEC_VERSIONS == raw$version]
   if (length(family) != 1L) .dsvert_dp_glm_grid_cross_fail()
   for (field in c("analysis_id", "dataset")) {
-    if (length(.dsvert_dp_glm_grid_cross_strings(raw[[field]])) != 1L) {
+    if (!is.character(raw[[field]]) || length(raw[[field]]) != 1L ||
+        length(.dsvert_dp_glm_grid_cross_strings(raw[[field]])) != 1L) {
       .dsvert_dp_glm_grid_cross_fail()
     }
   }
-  if (length(.dsvert_dp_glm_grid_cross_references(raw$outcome)) != 1L) {
+  if (!is.character(raw$outcome) || length(raw$outcome) != 1L ||
+      length(.dsvert_dp_glm_grid_cross_references(raw$outcome)) != 1L) {
     .dsvert_dp_glm_grid_cross_fail()
   }
   predictors <- .dsvert_dp_glm_grid_cross_references(raw$predictor_order)
@@ -238,7 +261,7 @@
     }
     if (!is.numeric(beta) || !is.null(names(beta)) || anyNA(beta) ||
         any(!is.finite(beta)) || length(beta) != 1L + length(predictors) ||
-        any(abs(beta) > 8) || sum(abs(beta)) > 16) {
+        any(abs(beta) > 8) || !.dsvert_dp_glm_grid_cross_beta_l1_valid(beta)) {
       .dsvert_dp_glm_grid_cross_fail()
     }
     as.list(as.numeric(beta))
@@ -266,7 +289,11 @@
     design_terms = as.list(c("(Intercept)", predictors)), intercept = TRUE,
     beta_grid = beta_grid,
     beta_encoded = lapply(beta_grid, function(beta) as.list(vapply(
-      beta, function(value) sprintf("%.0f", round(value * 2^50)),
+      beta, function(value) {
+        encoded <- round(value * 2^50)
+        if (encoded == 0) encoded <- 0
+        sprintf("%.0f", encoded)
+      },
       character(1L)))),
     candidate_order = as.list(vapply(beta_grid, .dsvert_joint_dp_hash,
                                      character(1L))),

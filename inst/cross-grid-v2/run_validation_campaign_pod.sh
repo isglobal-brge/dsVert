@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 lane=/workspace/dsvert/crossowner-v2
+export GOMEMLIMIT=6GiB
+export GOGC=25
 while ! grep -q FULL_MEASUREMENT_POD_DONE "$lane/logs/full-measurement-run.log"; do sleep 30; done
 cd "$lane/validation/dsVert"
 mkdir -p inst/cross-grid-v2/build
@@ -15,10 +17,6 @@ run_family() {
     sha256sum -c "$lane/logs/validation-support.sha256" >> "$lane/logs/validation-${family}-e${epsilon}-source-check.log"
   done
 }
-run_family binomial &
-binomial_pid=$!
-run_family poisson &
-poisson_pid=$!
-wait "$binomial_pid"
-wait "$poisson_pid"
+run_family binomial
+run_family poisson
 printf 'LAYERED_VALIDATION_POD_DONE\n'

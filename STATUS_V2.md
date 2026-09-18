@@ -479,3 +479,9 @@ The first pod validation attempt failed closed before identity creation: the `/w
 The `/tmp` attempt also failed before release: production noise roots explicitly reject temporary trees. The final synthetic state parent is `/var/lib/dsvert-crossowner-v2-validation`, verified root-owned mode 0700. No permission/noise-root validation is bypassed. Matrix restart PID **450578**.
 
 Additional clause-7 topology campaign uses the same hash-frozen harness and two compute/noise authorities: per family K3 at **n10000/p10/grid50**, and K5 at the explicitly smaller **n2000/p6/grid2**, epsilon4. Each release requires real multi-owner PSI, all signatures, full integer DP-vector oracle equality, DP selection equality and fresh-process record checks. Runner: `inst/cross-grid-v2/run_topology_validation_pod.sh`. These four releases are additional to, and not counted in, the 120/12 matrix.
+
+## 2026-09-18T17:47Z — serialized pod validation after memory exhaustion
+
+Concurrent large PSI setups reached the actual 50,000,000,000-byte cgroup memory ceiling (observed peak 50,000,023,552; fail counter 11). Binomial's R process segfaulted during polling; the other lanes failed closed during PSI transport. No alignment/release completed. A surviving worker held approximately 33 GB RSS, then exited before cleanup. Failure logs are retained on the pod in `logs/failed-concurrent-psi/`.
+
+Restarted the matrix sequentially by family under `GOMEMLIMIT=6GiB`, `GOGC=25`, two Go scheduler threads per worker (PID **458353**). The topology runner (PID **458354**) waits for successful completion of that matrix and also runs families sequentially. These are runtime scheduling/GC controls only; no circuit, capacity, transcript, privacy or admission limit changes. The remaining raw benchmark matrix still runs with its previously frozen settings.

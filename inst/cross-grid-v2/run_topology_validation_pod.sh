@@ -1,6 +1,9 @@
 #!/bin/sh
 set -eu
 lane=/workspace/dsvert/crossowner-v2
+export GOMEMLIMIT=6GiB
+export GOGC=25
+while ! grep -q LAYERED_VALIDATION_POD_DONE "$lane/logs/validation-campaign-run.log"; do sleep 30; done
 cd "$lane/validation/dsVert"
 # Reuse the frozen harness; these are additional releases, not the 120-instance matrix.
 run_family() {
@@ -12,10 +15,6 @@ run_family() {
     sha256sum -c "$lane/logs/validation-support.sha256" >> "$lane/logs/topology-${family}-k${owners}-source-check.log"
   done
 }
-run_family binomial &
-binomial_pid=$!
-run_family poisson &
-poisson_pid=$!
-wait "$binomial_pid"
-wait "$poisson_pid"
+run_family binomial
+run_family poisson
 printf 'TOPOLOGY_VALIDATION_POD_DONE\n'

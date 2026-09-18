@@ -258,3 +258,9 @@ Additional clause-7 topology campaign uses the same hash-frozen harness and two 
 ## 2026-09-18T17:39Z — documentation and check freeze
 
 Added matching package documentation for source ownership/signatures, PSI, certified arithmetic, scoped Laplace sampler, sticky lifecycle, states and finite-grid DP-best interpretation. Client roxygen and generated Rd describe the same route. No repository maintainer instruction requires a version/NEWS change for this development branch, so both versions remain 1.2.0 and NEWS is unchanged. Full checks use a dedicated frozen source archive; subsequent evidence files do not change runtime code.
+
+## 2026-09-18T17:47Z — serialized pod validation after memory exhaustion
+
+Concurrent large PSI setups reached the actual 50,000,000,000-byte cgroup memory ceiling (observed peak 50,000,023,552; fail counter 11). Binomial's R process segfaulted during polling; the other lanes failed closed during PSI transport. No alignment/release completed. A surviving worker held approximately 33 GB RSS, then exited before cleanup. Failure logs are retained on the pod in `logs/failed-concurrent-psi/`.
+
+Restarted the matrix sequentially by family under `GOMEMLIMIT=6GiB`, `GOGC=25`, two Go scheduler threads per worker (PID **458353**). The topology runner (PID **458354**) waits for successful completion of that matrix and also runs families sequentially. These are runtime scheduling/GC controls only; no circuit, capacity, transcript, privacy or admission limit changes. The remaining raw benchmark matrix still runs with its previously frozen settings.

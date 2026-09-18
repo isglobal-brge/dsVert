@@ -481,7 +481,7 @@ test_that("fixed-capacity pinned PSI completes K=2 with exact canonical order", 
   expect_length(unique(vapply(
     descriptors, `[[`, character(1L), "snapshot_sha256")), 2L)
   expect_true(all(vapply(descriptors, function(value) {
-    identical(value$alignment_manifest_version, 3L)
+    identical(value$alignment_manifest_version, 4L)
   }, logical(1L))))
 
   for (peer in names(result$aligned)) {

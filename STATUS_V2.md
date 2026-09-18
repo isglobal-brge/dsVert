@@ -624,3 +624,7 @@ Two previously failing transport tests now pass **1213 assertions** with `NOT_CR
 ## 2026-09-18T20:55Z — installed regressions pass; concurrent campaigns active
 
 `synopsis-installed-corrected-targeted.log`: **531 assertions pass**, zero failures/skips in the six corrected installed-layout Synopsis files. Server and Go full suites continue on their unchanged original archive. New pod scheduler PID829845 adopts existing n2000/binomial/epsilon1 PID718153, starts binomial/epsilon4 and Poisson/epsilon1, then fills the remaining cells. Mac scheduler native session29849 adopts K3/binomial PID22057 and starts K3/Poisson; K5 follows each family. Old waiting shells only were terminated; no live R release or MPC worker was stopped. Reproduction/adoption scripts are committed; required completed-release counts remain zero until final equality markers.
+
+## 2026-09-18T21:00Z — PSI and surface check regressions pass
+
+`psi-check-corrected-targeted.log`: **191 assertions pass** with NOT_CRAN=true after fixture-only corrections; remote inventory now matches registration. Existing PSI and six remote endpoint documentation gaps are corrected without changing their implementations. Pod additional cells have reached PSI/signature stages; adopted binomial/epsilon1 and both Mac K3 campaigns remain active. Full Go/server suites have not completed.

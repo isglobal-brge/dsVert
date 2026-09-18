@@ -364,3 +364,7 @@ Four shared Synopsis test files passed under pkgload but falsely reported missin
 ## 2026-09-18T20:55Z — independent validation-cell concurrency
 
 Sequential DSLite framing dominates elapsed time. Schedule at most three independent (family,epsilon) cells on the pod and both K3 family campaigns on the Mac; each subsequently runs its own smaller K5 gate. Stop only the old waiting shell coordinators and adopt their live R children (pod718153, Mac22057), preserving all active computation. New jobs use GOMAXPROCS=2, GOMEMLIMIT=2GiB, GOGC=25; adopted jobs retain their original settings. No arithmetic, ABI, privacy parameter, transport cap, signature, dataset or release key changes. Each completed cell requires the original hash checks and exact oracle/cold-lifecycle markers before the scheduler declares success.
+
+## 2026-09-18T21:00Z — PSI contract fixtures and existing endpoint documentation
+
+The full check exposed stale PSI fixture expectations against the existing v4 aligned-dataset binding and `privacy_unit_id` descriptor field. Assert the current frozen fields and the default privacy-unit value; no PSI production change. Regenerate the existing PSI descriptor Rd (Markdown enabled) and add internal documentation for six already-registered Gaussian Synopsis/formal publication endpoints that lacked aliases. These documentation additions do not alter endpoint registration or formal promotion state. Targeted PSI/remote-surface files pass 191 assertions.

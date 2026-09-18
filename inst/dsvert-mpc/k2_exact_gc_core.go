@@ -336,6 +336,13 @@ func (s exactGCCircuitSpec) validate() error {
 			s.MulBackend != "" || s.FracBits < 0 || s.FracBits >= s.RingBits {
 			return fmt.Errorf("exact-gc: invalid formal GLM DP bridge session shape")
 		}
+	case exactGCPrimitiveV:
+		// Internal composed circuits bind their complete public source and
+		// signed contract digest into Purpose. No generic RPC admits them.
+		if s.Threshold != nil || s.BoundX != nil || s.BoundY != nil ||
+			s.MulBackend != "" || s.FracBits != 0 || s.VectorLen != 1 {
+			return primitiveVError()
+		}
 	case exactGCCRTToRingChecked:
 		// The CRT moduli, product and signed magnitude certificate are bound
 		// into Purpose and validated by the specialised runner.  This generic
@@ -1301,6 +1308,9 @@ func exactGCMaxDirectMulChunk(ringBits int) int {
 func exactGCCompileCircuit(spec exactGCCircuitSpec) (*circuit.Circuit, error) {
 	if err := spec.validate(); err != nil {
 		return nil, err
+	}
+	if spec.Operation == exactGCPrimitiveV {
+		return nil, primitiveVError()
 	}
 	if spec.Operation == exactGCJointDPLaplace {
 		return nil, fmt.Errorf("exact-gc: joint-DP circuits require the purpose-bound specialised runner")

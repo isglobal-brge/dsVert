@@ -51,3 +51,15 @@ with `DSVERT_GRID_VALIDATION_FAMILY=poisson`,
 The private state parent must be mode 0700 and outside temporary and installed
 library trees. No seeds, private shares or noise-free protected losses are
 written to committed evidence.
+
+Additional integration evidence (2026-09-18T19:07Z):
+`topology-k3-small.log` records a real three-owner, two-authority binomial
+n4/p6/grid2/epsilon4 API release matching the complete production-noise oracle
+integer vector. `fused-alignment-targeted.log` verifies that grid-only raw
+source-share reads are impossible before the exact matching authenticated
+digest-gate terminal, and rejects changed artifacts/projections before reads.
+This specialization retains the independent fused per-row alignment guard.
+`relay-admission-targeted.log` includes the regression that a fresh DSLite
+session remains admissible to the closed Synopsis authorization state.
+These small/targeted gates do not replace the required n2000 or full topology
+releases.

@@ -19,7 +19,5 @@
 ^inst/k2-mpc-tool$
 ^\.claude$
 ^\.claude/
-
 ^inst/cross-grid-v2/(?!admission_certificate\.json$)
-
 ^((STATUS|DECISIONS|BLOCKED|BENCH|DP_SELECTION|LAYER[123]|MATHEMATICS|NUMERIC_CERTIFICATE|SECURE_INTEGER)_V[12]\.(md|json))$

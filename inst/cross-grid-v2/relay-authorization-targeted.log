@@ -1,0 +1,31 @@
+dp-synopsis-authorization: .................................................................................................
+dsi-relay-dslite-session: ........
+dsi-relay-substrate: ...........................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+package-artifact-security: 1..2.
+peer-relay-security-contract: ..........................................................................................................................3...........................................
+security-boundaries: ....................................................................................................
+security-profile: .........................................................................................................................................................................................
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Failure ('test-package-artifact-security.R:18:3'): installed artifacts con
+Expected `forbidden` to be identical to `character()`.
+Differences:
+Lengths differ: 1 is not 0
+
+── 2. Failure ('test-package-artifact-security.R:47:3'): source build policy ret
+Expected `any(vapply(notices, excluded, logical(1L)))` to be FALSE.
+Differences:
+`actual`:   TRUE 
+`expected`: FALSE
+
+
+── 3. Failure ('test-peer-relay-security-contract.R:93:3'): the peer-relay secur
+Expected `exposed` to have the same values as `setdiff(registered, local_only)`.
+Actual: "mpcTypedBlobReadDS", "mpcTypedBlobStoreDS", "mpcTypedBlobReceiptDS", "dsvertDPFrequencySourceWindowDS", "dsvertDPFrequencyFinalizeWindowDS", "psiPaddedInitDS", "psiPaddedBindDS", "psiPaddedConfirmDS", "psiPaddedPrepareDS", ...
+Expected: "dsvertDPCountFinalShareDS", "dsvertDPFrequencySourceWindowDS", "dsvertDPFrequencyFinalizeWindowDS", "dsvertDPFrequencyReplayDS", "dsvertDPSynopsisBootstrapDS", "dsvertDPSynopsisBindDS", "dsvertDPSynopsisClaimDS", "dsvertDPSynopsisCompileDS", "dsvertDPSynopsisPrepareDS", ...
+Absent: "dsvertDPSynopsisGaussianCrossBindDS", "dsvertDPSynopsisGLMGridCrossDS", "dsvertDPSynopsisGaussianCrossFinalizeDS", "dsvertDPSynopsisGaussianCrossEvidenceDS", "dsvertFormalGLMPublicResultDS", "dsvertFormalGLMRegisteredSourceDS", "dsvertFormalGLMRegisteredFreshSourceDS", "dsvertFormalGLMRegisteredJobControlDS", "dsvertFormalCoxFreshSourceDS", ...
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+Error:
+! Test failures.
+Execution halted

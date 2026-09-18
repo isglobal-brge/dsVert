@@ -93,3 +93,10 @@ every candidate and check the independent integer oracle. The first two shapes
 traffic harness; their original binary digest is retained. Subsequent jobs use
 the bounded harness with a second recorded digest. This changes only test code,
 not the kernel, scalar sources, receipts, transport or contract.
+
+Capacity selection is deterministic: among completed, oracle-equal runs within
+60 decimal GB and 7200 seconds, maximize N*J, then N on a tie. This selects one
+rectangular public admission rather than silently assuming an ordering between
+incomparable (N,J) pairs. The summary refuses to select until all nine requested
+shapes have a completed or explicitly resource-censored report. Censored runs
+never qualify; they report observed prefixes, not invented full-release totals.

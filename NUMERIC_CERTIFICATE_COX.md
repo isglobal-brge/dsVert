@@ -108,7 +108,8 @@ negative circuit constants use `-int64(magnitude)`; the pinned MPCL compiler
 misinterprets `int64(-magnitude)` in lower-bound comparisons. Permanent compiled
 predicate/boundary tests cover this issue. The standard compiler pruning/array-multiplier profile and shared public
 coefficient-bit decision diagrams achieve 1514/1486 non-XOR gates for exp/log.
-This passes the scalar target; it does not establish the full 30 GB envelope.
+The original 30 GB budget is superseded. Scalar counts alone do not establish
+the revised 60 GB / 2 h measured-envelope gate or a production capacity.
 Measured costs and outstanding gates are recorded in STATUS_COX.md.
 
 ## Clause-5 composition extension (2026-09-18)

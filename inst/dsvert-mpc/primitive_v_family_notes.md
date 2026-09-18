@@ -150,6 +150,13 @@ also costs B_j (not automatically 2B_j) under this cluster replacement definitio
 The output sum's other clusters cancel. Arbitrary regrouping of unrelated rows
 is outside this adjacency relation; it requires a new sensitivity proof.
 
+The current B_j are integers. At the frozen g in 8..18, U_j=B_j*2^g is even,
+so symmetric nearest-even rounding is monotone and obeys
+`RN(x+U_j)=RN(x)+U_j`. Consequently final-total quantization preserves the exact
+integer sensitivity U_j, including ties. This also holds when each cluster is
+quantized before summing. Arbitrary nonintegral caps or new grids require their
+own rounding-bound derivation.
+
 For Cox choose one aligned row as the DP unit, under add/remove or replacement
 inside the fixed public capacity. Its private time can change, affecting many
 risk sets. The universally safe exact integer coordinate bound is

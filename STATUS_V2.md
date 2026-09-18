@@ -620,3 +620,7 @@ Client R CMD check completed: **25,476 PASS / 4 FAIL / 45 SKIP**, testthat warni
 ## 2026-09-18T20:50Z — real transport regression rerun passes
 
 Two previously failing transport tests now pass **1213 assertions** with `NOT_CRAN=true`, after fixture metadata corrections only. Installed namespace-audit corrections are passing on the pod; the remaining START cases are still running. First client check/test logs are retained as `check-client-first.log` and `check-client-tests-first.log`. The n2000 production campaign passed 32 matching batch records per authority; no completed required DP release yet. Pod memory use ~11.8 GB; prior memory-failure counter remains 14 (unchanged).
+
+## 2026-09-18T20:55Z — installed regressions pass; concurrent campaigns active
+
+`synopsis-installed-corrected-targeted.log`: **531 assertions pass**, zero failures/skips in the six corrected installed-layout Synopsis files. Server and Go full suites continue on their unchanged original archive. New pod scheduler PID829845 adopts existing n2000/binomial/epsilon1 PID718153, starts binomial/epsilon4 and Poisson/epsilon1, then fills the remaining cells. Mac scheduler native session29849 adopts K3/binomial PID22057 and starts K3/Poisson; K5 follows each family. Old waiting shells only were terminated; no live R release or MPC worker was stopped. Reproduction/adoption scripts are committed; required completed-release counts remain zero until final equality markers.

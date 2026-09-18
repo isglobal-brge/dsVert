@@ -131,3 +131,17 @@ Inherited pod checks still have no exit files; R_STACK_DONE reconfirmed.
   R sides, an independent residual oracle and pure-R limb oracle. Retain the
   former prototype only under the explicit LegacyCompile registration field.
   The 1e-8 pre-output error bound still encloses the new equation analytically.
+
+- Wide scalar outputs must stay in Ring192 for subsequent exact products.
+  Narrowing a certified q16 argument modulo 2^32 is homomorphic; widening
+  an output share is not. Cast on circuit wires before fresh Ring192 masking.
+  The predecessor's wide-domain validity is mandatory, as modular narrowing
+  alone cannot reject an out-of-range alias. Guarded f100->q64->q16 conversion
+  preserves the frozen double-rounding boundary, including tie regression cases.
+- GH5 reuses y*eta across nodes; live*profile still requires one private product
+  per node. Count those products in the full schedule. Centering and truncation
+  boundaries preserve the prior GH5 integer oracle; final cap is explicitly
+  supplied from the signed per-candidate contract.
+- GEE post-whitening moment components do not certify whitening itself. Keep
+  that prerequisite and its error propagation explicit; do not label synthetic
+  factor tests as correlated-family end-to-end tests or enable provisional error=1.

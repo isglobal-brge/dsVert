@@ -346,3 +346,53 @@ This is work in progress: GEE/GH5 share composition and error/cap parity,
 source/primitive/fused release integration, measured full-release 3x3 envelopes,
 protected DSLite lifecycle and final package checks remain. Do not attribute
 all remaining lane implementation to the external Step-2 fusion dependency.
+
+### Addendum 3 current verification and unfinished work
+
+Latest targeted verification (final code snapshot):
+- Mac grouped Go: 35 top-level / 69 including subtests PASS, no failures,
+  one old opt-in resource probe skipped; 19.034 s. Compiles ordinary package.
+- Pod new components: 6 top-level PASS, no failures/skips; 9.616 s. The
+  count-32 Ring192 exp bridge uses 5,252,563 two-direction bytes / 0.901655 s.
+  Carry-correct lift: 89,936 bytes / 0.110025 s. LMM final boundary:
+  277,399 bytes / 0.261466 s. No full-release inference is made from these.
+- R: server contracts 120, existing oracles 45, new LMM oracle 5, synthetic
+  DSLite comparisons 202, client contracts 151 = 523 assertions; all pass,
+  no warnings/errors. DSLite now uses the NEW tagged LMM statistic. These
+  remain public-synthetic comparisons with simulated noise, not authorization.
+- Evidence: addendum3-validation.json and addendum3-synthetic-comparison.json
+  under inst/grouped-validation, including source hashes and measurement scope.
+
+Commits: 80aee12 exact OT products; 6587bc1 LMM statistics/boundaries;
+975e676 wide scalar bridge and GEE moment boundaries; 74571c0 GH5 composition;
+6670595 new LMM synthetic comparison. Client 91ea81b binds the new LMM profile.
+No pushes, thesis edits, same-owner changes, shared Step-2 edits or promotion.
+
+GEE moment tests use supplied whitened factors; they do NOT validate the missing
+private correlation/whitening producer. GEE propagated certificate and new
+integer/R profile parity remain incomplete. GH5 preserves its existing integer
+oracle but still needs authenticated source/mask/factorial and chunk scheduling.
+All families still need integrated full-release measurement/admitted capacities.
+
+Fetched upstream through 2f36f79: internal fused GLM/noise components exist,
+but authenticated R admission/source/lifecycle/client fusion remains explicitly
+unfinished. BLOCKED_GROUPED.md replaces the old dependency claim with measured
+component results, the precise external gap, and separate owned open work.
+This lane has NOT completed the requested protected release or full envelopes.
+
+Inherited checks remain running, not passed: revised/full-go.jsonl was in the
+legacy Cox live-control K3 test at last collection; final/server-check-ready.log
+and clause5/client-check.log remain in testthat. No completed R CMD check of
+this new snapshot is claimed. Do not classify pending failures as pre-existing.
+
+Commands from dsVert/inst/dsvert-mpc:
+```
+go test -run '^TestGrouped' -json -count=1 -timeout=15m .
+go test -race -run '^TestGrouped(WideRingOracle|DealerFreeProduct|ArithmeticRejects|ArithmeticRecord)' -count=1 -timeout=5m .
+go test -tags grouped_reference_test -c -o /tmp/grouped-stats-reference.test .
+DSVERT_GROUPED_ARITHMETIC_PROBE=1 go test -run '^TestGrouped(WideRingOracle|DealerFreeProduct|ArithmeticRejects|ArithmeticRecord|LMMMoment)' -json -count=1 -timeout=10m .
+DSVERT_GROUPED_WIDE_PROBE=1 go test -run '^TestGrouped(WideScalarEncrypted|LMMWideBoundaryEncrypted|LMMStatsCertificateBound|GEEExactMomentComposition|GLMMShare)' -json -count=1 -timeout=10m .
+```
+R tests use the tagged binary via DSVERT_GROUPED_REFERENCE_BINARY and the
+helpers/test files named in the prior entries; the new file is
+`test-crossgrid-lmm-stats-integer.R`. No ordinary executable contains its fixture.

@@ -82,3 +82,13 @@ owns this backend. Step 2 at 8b6c7bf records fusion as unfinished. Until the
 backend and receipt interface are fixed, a claimed measured full-release
 capacity would omit required protocol traffic and would be invalid. Scalar
 measurements alone cannot admit a signed (n,grid) envelope.
+
+## Addendum 3 resolution (2026-09-18)
+
+The ownership question above is resolved: this lane implements the dealer-free
+checked-OT backend in 80aee12. Do not reuse the historical "missing backend"
+statement as a current blocker. LMM components use exact Ring192 products and
+carry-correct two-limb final accumulation; GH5 composition has share-side sums
+and scalar-only profiles. GEE moment boundaries are implemented, but private
+whitening remains unfinished. INTEGRATION_GROUPED.md specifies the current
+backend receipt interface and external authenticated-fusion dependency.

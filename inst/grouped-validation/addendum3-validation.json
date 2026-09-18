@@ -1,0 +1,100 @@
+{
+  "mac_grouped": {
+    "top_level_pass": 35,
+    "all_pass": 69,
+    "fail": 0,
+    "skip": 1,
+    "measurements": [
+      "k2_exact_gc_grouped_loss_beaver_test.go:112: products=8 garbler_bytes=167041 evaluator_bytes=167040 seconds=0.057316",
+      "k2_exact_gc_grouped_loss_beaver_test.go:112: products=8 garbler_bytes=167041 evaluator_bytes=167040 seconds=0.056905",
+      "k2_exact_gc_grouped_loss_scalar_test.go:99: component=softplus count=4 gates=33544 and=10124 tables=323984 garbler_bytes=342461 evaluator_bytes=11812 compile_s=0.186035 protocol_s=0.027406 source=3ec787dbbf8955163c2860107de450900ab7a8a9eb6a4ab90fbe060c8229e68e",
+      "k2_exact_gc_grouped_loss_scalar_test.go:99: component=exp count=4 gates=59388 and=17872 tables=571920 garbler_bytes=590504 evaluator_bytes=11812 compile_s=0.155982 protocol_s=0.033420 source=4f4878eec01621d4ac20eca21d1fea106a3b8d3a4d9306d1c700e334a54f5aab",
+      "k2_exact_gc_grouped_loss_scalar_test.go:99: component=exp_negative count=4 gates=59388 and=17872 tables=571920 garbler_bytes=590505 evaluator_bytes=11812 compile_s=0.165803 protocol_s=0.034162 source=0cdef7ef03998ef6d4b862667a1537776127c56e3d85ce5f6da3228bba770fbc",
+      "k2_exact_gc_grouped_loss_scalar_test.go:99: component=log count=4 gates=31816 and=9548 tables=305552 garbler_bytes=323992 evaluator_bytes=11812 compile_s=0.178178 protocol_s=0.030172 source=957df025d32f309c38d4c2875d746d31121ef4fc15bfdfce52bcaaf1819c5d16",
+      "k2_exact_gc_grouped_loss_scalar_test.go:99: component=sigmoid count=4 gates=31700 and=9540 tables=305296 garbler_bytes=323735 evaluator_bytes=11812 compile_s=0.179397 protocol_s=0.031303 source=a5cf880d0c0514b96e654e3aeb6d7ddfe26d298400eea11e7c2bc2f688532bd8",
+      "k2_exact_gc_grouped_loss_scalar_test.go:99: component=sqrt_variance count=4 gates=40068 and=12324 tables=394384 garbler_bytes=412895 evaluator_bytes=11812 compile_s=0.329879 protocol_s=0.038703 source=a1f46d3de8eee56ae050448e725ee9d715224d0f92a5c5b057fb72b36ae2e7aa",
+      "k2_exact_gc_grouped_loss_scalar_test.go:99: component=inverse_sqrt_variance count=4 gates=43644 and=13288 tables=425232 garbler_bytes=443742 evaluator_bytes=11812 compile_s=0.625963 protocol_s=0.044861 source=ea854ebaa4f22903e79951e031f4b0aa8a6817a3d6cbb23fab4e897a2aaadbf5",
+      "k2_exact_gc_grouped_loss_share_probe_test.go:77: outputs=5 garbler_bytes=664881 evaluator_bytes=22056 seconds=0.048630 tables=602640 source=60b488846df79ca8ffec74b859708607f0e78a4d6998215fd97d9d3d1cd2dfcb",
+      "k2_exact_gc_grouped_loss_share_probe_test.go:84: outputs=1 garbler_bytes=77099 evaluator_bytes=12835 seconds=0.029499 tables=55216 source=bde5c3b89d0ed0aabd7df637e1ebef725a9eaefa9628c82d475d030411e33a9f",
+      "k2_exact_gc_grouped_loss_share_probe_test.go:90: outputs=2 garbler_bytes=258417 evaluator_bytes=18984 seconds=0.038709 tables=214896 source=f126ae1b32ed802c6882bbe48225d761eb3e2c3b8a65ecd2db328f883c0c7c2f",
+      "k2_exact_gc_lmm_loss_test.go:85: encrypted_garbler_bytes=2843194"
+    ],
+    "package_result": [
+      {
+        "Time": "2026-09-18T16:43:08.963693+02:00",
+        "Action": "pass",
+        "Package": "github.com/isglobal-brge/dsVert/dsvert-mpc",
+        "Elapsed": 19.034
+      }
+    ]
+  },
+  "pod_components": {
+    "top_level_pass": 6,
+    "all_pass": 6,
+    "fail": 0,
+    "skip": 0,
+    "measurements": [
+      "k2_exact_gc_grouped_loss_share_probe_test.go:77: outputs=33 garbler_bytes=5144415 evaluator_bytes=108148 seconds=0.901655 tables=4734992 source=a61fd8e07e9e0c3285225662b566c15d1f825ac32daa5ce21efbcc645b69d61d",
+      "k2_exact_gc_grouped_loss_share_probe_test.go:84: outputs=1 garbler_bytes=77100 evaluator_bytes=12836 seconds=0.110025 tables=55216 source=bde5c3b89d0ed0aabd7df637e1ebef725a9eaefa9628c82d475d030411e33a9f",
+      "k2_exact_gc_grouped_loss_share_probe_test.go:90: outputs=2 garbler_bytes=258415 evaluator_bytes=18984 seconds=0.261466 tables=214896 source=f126ae1b32ed802c6882bbe48225d761eb3e2c3b8a65ecd2db328f883c0c7c2f"
+    ],
+    "package_result": [
+      {
+        "Time": "2026-09-18T14:42:19.2848531Z",
+        "Action": "pass",
+        "Package": "github.com/isglobal-brge/dsVert/dsvert-mpc",
+        "Elapsed": 9.616
+      }
+    ]
+  },
+  "r_assertions": {
+    "server_contracts": 120,
+    "integer_oracles": 45,
+    "lmm_stats_oracle": 5,
+    "synthetic_dslite": 202,
+    "client_contracts": 151,
+    "failures": 0,
+    "warnings": 0
+  },
+  "scope": "component and synthetic reference checks; no full authenticated release; no admitted envelope",
+  "source_sha256": {
+    "k2_exact_gc_lmm_loss_test.go": "386798e89da0342eb0e72fc9b8d01aebc76f02689889a47aede675d971e7cdad",
+    "k2_exact_gc_gee_loss.go": "9a7d4c82df887d30f2935b322338ddf697dff7ab9a437ce502688cac7978c110",
+    "k2_exact_gc_grouped_loss_scalar_test.go": "e88b04b1f11b3c492841f2b3a80dc79c094ab7942769aa487c7c724b8b3ad0f2",
+    "k2_exact_gc_lmm_loss_boundary.go": "b83760d154b4662306c613d4a8230d3bcdd9c4ef7fa9436825f70093950db8aa",
+    "k2_exact_gc_lmm_loss_moments_reference_test.go": "70985d9e4237bba247a73f59afc45e3310a2d7c225803ddeba6c8b5211a94458",
+    "k2_exact_gc_glmm_loss_registration.go": "ca6b0ebca298f6b5ab5479c8e3e34aa0c8dcf7d6745a9a59983258f57fd7b587",
+    "k2_exact_gc_glmm_loss_test.go": "e5c00c20c68a2d4d424c646fbd46f35ec9baa308d156eab3128c84b7db263a21",
+    "k2_exact_gc_gee_loss_registration.go": "fa735dd60b49ffb1f8c60de7c0adb3538fb8884f5c553e493c363dafc99cbc00",
+    "k2_exact_gc_gee_loss_test.go": "5f87e80d4d84e49aa2f2382056ac21bdb8e8909dd4f9abab9eb0bf72d2c17265",
+    "k2_exact_gc_grouped_loss_wide_scalar_test.go": "c05520ad5238564f84b1282d7c61e5f3b6f33284bc138c089dc3ba062d4b6158",
+    "k2_exact_gc_grouped_loss_predictor_test.go": "3c3b766a81f301320721ac1f8acc71e108467890ddbf06617e050b1e1137303a",
+    "k2_exact_gc_gee_loss_moments_test.go": "5ea29c74bd6fb2221a0d624e978762c6c6503948815ecfe030cd7ecc1df9759f",
+    "k2_exact_gc_grouped_loss_predictor.go": "14def37e65d22321c0977a5d6e035b57dbcb9ad5924083a7effb1bf043d1a3d3",
+    "k2_exact_gc_glmm_loss.go": "0cdd21c8ef782144e94d760a40d90c9d5fdf2752cecc4b9f812d835dbc1079cd",
+    "k2_exact_gc_grouped_loss_profile_test.go": "bfaecd5d454ae3cb5850573d58d63528954e3a6714534394aec425885526978f",
+    "k2_exact_gc_lmm_loss_registration.go": "cbc8c3ee9c5e79f53640d602732ecc48ba142cd3a159e2cc9afbcb0f7899a0d4",
+    "k2_exact_gc_grouped_loss_beaver.go": "f0b75252f4030ecb393a901444ac9f0080a44599e66e1b5ef820dc4dc32b4c88",
+    "k2_exact_gc_grouped_loss_beaver_test.go": "9dd5540ef067c482b158eb3656ae2fac1c455e7d0c2a4259e311756d947b763e",
+    "k2_exact_gc_lmm_loss_stats_fixture_test.go": "a6e041903460a5900576fc0a8a9dcf5ae826a702de9ca7420a227c1587e1c166",
+    "k2_exact_gc_lmm_loss.go": "e868916d19e2806bcb80244354a3e2656afa7c99b68e536d0abebfb01fefd687",
+    "k2_exact_gc_glmm_loss_shares_test.go": "b5fed56d086020c7a7b68188d881fb8d00725953ebe8a44e41d8f4a375e3cb0d",
+    "k2_exact_gc_grouped_loss_profile.go": "c18307ee1bfa7e49ab3b5b0223e96b4385a0e126cde1d3a1232550f4ca47997c",
+    "k2_exact_gc_grouped_loss_compact.go": "2fd9d6e4a349cedd53b303ecd0dd2c78ee29ae7c553d845d742e4c630381ff77",
+    "k2_exact_gc_grouped_loss_linear_test.go": "be79944f41a0ba82b02161922b490c8f32d229919b936e7bebd84e9cce4a85ec",
+    "k2_exact_gc_gee_loss_moments.go": "70ac5eb6beae48f39fc79e869f9d75c86b6b575b08aa77522037a780c9bece09",
+    "k2_exact_gc_lmm_loss_moments_test.go": "1223e24ec0d4e766ff58b8f1c8b7090aba912d35367fd9c77d26f69204f228a1",
+    "k2_exact_gc_grouped_loss_cost_test.go": "c411e05b7afb892764007a556fa88c6859385f7958a482da73d3deaf9fe00d21",
+    "k2_exact_gc_grouped_loss_scalar.go": "f0f25c29ea61dac8c7c42ead338f2d460d2213c8b0544870cafb6f5ead2cfe87",
+    "k2_exact_gc_grouped_loss_share_probe_test.go": "10c08033260b162a3313fe95feafbf148c868608f7ca3d016af4a977add19c4d",
+    "k2_exact_gc_grouped_loss_profile_tables.go": "bda8177f29da0cfe33db54b27e4ac3cb5e12aabf1862b0136bc6e3de6cbc0afb",
+    "k2_exact_gc_grouped_loss_linear.go": "2999d3ed2aac9e8ba6f88283fa9e88c1bff33c0cd948927989809e977d1cdd8f",
+    "k2_exact_gc_glmm_loss_shares.go": "2d5341a02cd17df9b01827d27ceb4a9004d556ac6eb5593c55ff81d92d8dbc02",
+    "k2_exact_gc_grouped_loss_reference_test.go": "de787c657655eb2047ab56b74ea4f2dc326903a794f214457538fe4f0cb94208",
+    "k2_exact_gc_lmm_loss_moments.go": "902335edb6114b9fc296e1158cee0c0a8ba7f6da09abc52b843787e49f6ec1e3",
+    "k2_exact_gc_grouped_loss_wide_scalar.go": "0ee8fea0710b56bb6e58136a2df562593a716f56fff5cd7773390c403c7a477d",
+    "k2_exact_gc_grouped_loss_exp.go": "256d89baf8f78e92360fb4dbdf040460540ab8d602075325f8cc40f898a0a48f",
+    "k2_exact_gc_grouped_loss_exp_test.go": "3156b841210ef705fb237480a8524ed0d4d535aad7180406d151337aac627388",
+    "k2_exact_gc_lmm_loss_boundary_test.go": "a6446f80b3ac705d9fbe26e45f68aa8224078ffb9e385f7cbaacd62cdf4bffe7"
+  }
+}

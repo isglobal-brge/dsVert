@@ -22,6 +22,14 @@ run_cell() {
   env DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-crossowner-v2-validation DSVERT_GRID_VALIDATION_N=2000 DSVERT_GRID_VALIDATION_FAMILY="$family" DSVERT_GRID_VALIDATION_EPSILON="$epsilon" DSVERT_GRID_VALIDATION_INSTANCE_COUNT=20 DSVERT_GRID_VALIDATION_REAL_COUNT=2 DSVERT_GRID_VALIDATION_COLD=1 Rscript -e 'source("inst/cross-grid-v2/validate_dslite.R")' .. > "$lane/logs/validation-${family}-e${epsilon}.log" 2>&1
   check_cell "$family" "$epsilon"
 }
+# Resume only this lane after a failed post-release check; the other two lanes
+# remain active and their releases must not be repeated.
+if [ "${1:-}" = "--restart-first" ]; then
+  run_cell binomial 1
+  run_cell binomial 8
+  printf 'RECOVERED_FIRST_VALIDATION_LANE_DONE\n'
+  exit 0
+fi
 # Adopt the already-running first cell without repeating any release.
 adopt_pid=${1:?existing binomial epsilon-one R process required}
 (

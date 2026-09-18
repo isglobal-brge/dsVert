@@ -634,3 +634,9 @@ Two previously failing transport tests now pass **1213 assertions** with `NOT_CR
 Original full server check: **12944 PASS / 24 FAIL / 25 SKIP / 1 test warning**; package status 1 ERROR, 2 WARNINGs, 1 NOTE. Complete logs retained in `check-server-first.log` / `check-server-tests-first.log`. Fixture/inventory failures have targeted corrections; the last installed transport/legacy/blob rerun is active. Legacy golden mismatch reproduces on both 15e1de2 and 89ee9be; corrected local contract/blob tests pass **328 assertions**.
 
 Corrected archive `R CMD check --no-manual --no-tests`: server **0 ERROR / 0 WARNING / 1 pre-existing NOTE**; client **0 ERROR / 2 pre-existing WARNINGs**, pending the prepared MI/ordinal packaging patch. Full Go suite remains active. These packaging results do not claim a second full-suite pass. Initial n2000/binomial/epsilon1 has all 63 batch records plus its final aggregate on both authorities; the joint DP release is still running.
+
+## 2026-09-18T21:23Z — first n2000 real API equality; cold deployment repaired
+
+`dslite-n2000-before-cold-bundle.log` records **one real n2000/p6/grid2/binomial/epsilon1 API release with bit-for-bit oracle equality**. Its later cold-process admission failed closed on a stale packaged-worker checksum manifest. Repaired the deployment bundle; all four platform hashes pass, and fresh-process n2000 signed-profile admission passes for both families. The failed cell lacks its final summary records and is not counted in the required 120/12 aggregate matrix. Recovery runner PID960689 repeats that lane with fresh keys; other active releases were preserved.
+
+`final-server-failures-targeted.log`: **1871 installed-pod assertions pass** (25 legacy source-contract, 1543 exact transport, 303 typed blob). The original full-suite transport inactive-operation error did not reproduce; no timeout/lease was relaxed. Full Go suite remains running.

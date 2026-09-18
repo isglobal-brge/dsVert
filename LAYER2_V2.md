@@ -63,3 +63,5 @@ This specialization retains the independent fused per-row alignment guard.
 session remains admissible to the closed Synopsis authorization state.
 These small/targeted gates do not replace the required n2000 or full topology
 releases.
+
+Required-size integration progress (2026-09-18T21:23Z): the first n2000, p6, grid2, binomial epsilon1 API release matched the complete oracle vector (`dslite-n2000-before-cold-bundle.log`). A subsequent fresh-process check exposed a stale deployment checksum manifest, correctly rejected before contract admission. The complete binary bundle was repaired; direct cold signed-profile admission at n2000 now passes for both families. This incomplete cell is retained as extra evidence and excluded from the final 120/12 matrix.

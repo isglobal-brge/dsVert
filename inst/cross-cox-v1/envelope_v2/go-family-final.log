@@ -1,0 +1,195 @@
+=== RUN   TestCoxGridCrossMeasuredAdmission
+--- PASS: TestCoxGridCrossMeasuredAdmission (0.00s)
+=== RUN   TestCoxGridCrossFinalizerResourceBound
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=364 gates=2975 AND=875 tables=28016
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=376 gates=2979 AND=874 tables=27984
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=378 gates=2976 AND=873 tables=27952
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=364 gates=2972 AND=874 tables=27984
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=378 gates=2973 AND=872 tables=27920
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=378 gates=2985 AND=875 tables=28016
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=362 gates=2969 AND=873 tables=27952
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=376 gates=2978 AND=873 tables=27952
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=376 gates=2975 AND=872 tables=27920
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=360 gates=2966 AND=872 tables=27920
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=374 gates=2979 AND=873 tables=27952
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=374 gates=2976 AND=872 tables=27920
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=360 gates=2963 AND=871 tables=27888
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=374 gates=2976 AND=872 tables=27920
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=376 gates=2973 AND=871 tables=27888
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=358 gates=2960 AND=870 tables=27856
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=374 gates=2973 AND=871 tables=27888
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=374 gates=2970 AND=870 tables=27856
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=357 gates=2957 AND=869 tables=27824
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=373 gates=2970 AND=870 tables=27856
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=373 gates=2967 AND=869 tables=27824
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=357 gates=2954 AND=868 tables=27792
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=373 gates=2967 AND=869 tables=27824
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=375 gates=2964 AND=868 tables=27792
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=355 gates=2951 AND=867 tables=27760
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=373 gates=2964 AND=868 tables=27792
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=373 gates=2993 AND=867 tables=27760
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=354 gates=2948 AND=866 tables=27728
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=372 gates=2993 AND=867 tables=27760
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=372 gates=2958 AND=866 tables=27728
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=354 gates=2945 AND=865 tables=27696
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=372 gates=2955 AND=865 tables=27696
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=374 gates=2959 AND=866 tables=27728
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=366 gates=2971 AND=874 tables=27984
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=380 gates=2982 AND=873 tables=27952
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=380 gates=2990 AND=875 tables=28016
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=366 gates=2968 AND=873 tables=27952
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=380 gates=2983 AND=873 tables=27952
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=380 gates=2980 AND=872 tables=27920
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=364 gates=2965 AND=872 tables=27920
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=378 gates=2984 AND=873 tables=27952
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=378 gates=2981 AND=872 tables=27920
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=362 gates=2962 AND=871 tables=27888
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=376 gates=2978 AND=871 tables=27888
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=378 gates=2982 AND=872 tables=27920
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=362 gates=2959 AND=870 tables=27856
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=378 gates=2979 AND=871 tables=27888
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=378 gates=2979 AND=871 tables=27888
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=360 gates=2956 AND=869 tables=27824
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=376 gates=2976 AND=870 tables=27856
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=376 gates=2976 AND=870 tables=27856
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=359 gates=2953 AND=868 tables=27792
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=375 gates=2973 AND=869 tables=27824
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=377 gates=2973 AND=869 tables=27824
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=359 gates=2950 AND=867 tables=27760
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=377 gates=2970 AND=868 tables=27792
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=377 gates=3002 AND=868 tables=27792
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=357 gates=2947 AND=866 tables=27728
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=375 gates=2983 AND=862 tables=27600
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=375 gates=2948 AND=861 tables=27568
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=356 gates=2944 AND=865 tables=27696
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=374 gates=2968 AND=866 tables=27728
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=376 gates=2965 AND=865 tables=27696
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=356 gates=2941 AND=864 tables=27664
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=376 gates=2962 AND=864 tables=27664
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=376 gates=2966 AND=865 tables=27696
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=366 gates=2974 AND=875 tables=28016
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=380 gates=2978 AND=872 tables=27920
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=380 gates=2994 AND=876 tables=28048
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=366 gates=2971 AND=874 tables=27984
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=380 gates=2987 AND=874 tables=27984
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=382 gates=2984 AND=873 tables=27952
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=364 gates=2968 AND=873 tables=27952
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=380 gates=2981 AND=872 tables=27920
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=380 gates=2989 AND=874 tables=27984
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=362 gates=2965 AND=872 tables=27920
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=378 gates=2986 AND=873 tables=27952
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=378 gates=2986 AND=873 tables=27952
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=362 gates=2962 AND=871 tables=27888
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=378 gates=2976 AND=870 tables=27856
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=380 gates=2973 AND=869 tables=27824
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=360 gates=2959 AND=870 tables=27856
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=378 gates=2981 AND=871 tables=27888
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=378 gates=2978 AND=870 tables=27856
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=359 gates=2956 AND=869 tables=27824
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=377 gates=2978 AND=870 tables=27856
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=377 gates=3007 AND=869 tables=27824
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=359 gates=2953 AND=868 tables=27792
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=377 gates=3004 AND=868 tables=27792
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=377 gates=2976 AND=869 tables=27824
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=357 gates=2950 AND=867 tables=27760
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=375 gates=2973 AND=868 tables=27792
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=377 gates=2973 AND=868 tables=27792
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=356 gates=2947 AND=866 tables=27728
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=376 gates=2970 AND=867 tables=27760
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=376 gates=2970 AND=867 tables=27760
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=356 gates=2944 AND=865 tables=27696
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=376 gates=2967 AND=866 tables=27728
+    k2_exact_gc_cox_loss_admission_test.go:53: bits=64 inputs=4/2 output=2 source=376 gates=2967 AND=866 tables=27728
+    k2_exact_gc_cox_loss_admission_test.go:61: maximum finalizer non-XOR gates: 877
+--- PASS: TestCoxGridCrossFinalizerResourceBound (0.36s)
+=== RUN   TestCoxGridCrossCompiledProfiles
+=== RUN   TestCoxGridCrossCompiledProfiles/exp
+    k2_exact_gc_cox_loss_circuit_test.go:70: bits=64 inputs=2/1 output=1 source=52945 gates=5241 AND=1575 tables=50416
+=== RUN   TestCoxGridCrossCompiledProfiles/logrisk
+    k2_exact_gc_cox_loss_circuit_test.go:70: bits=64 inputs=2/1 output=1 source=52950 gates=5594 AND=1528 tables=48912
+--- PASS: TestCoxGridCrossCompiledProfiles (1.76s)
+    --- PASS: TestCoxGridCrossCompiledProfiles/exp (1.27s)
+    --- PASS: TestCoxGridCrossCompiledProfiles/logrisk (0.49s)
+=== RUN   TestCoxGridCrossPrepareRoundingAndSlack
+    k2_exact_gc_cox_loss_circuit_test.go:90: bits=128 inputs=8/4 output=4 source=835 gates=11567 AND=3476 tables=111248
+--- PASS: TestCoxGridCrossPrepareRoundingAndSlack (0.04s)
+=== RUN   TestCoxGridCrossChunkScheduleAndEquality
+--- PASS: TestCoxGridCrossChunkScheduleAndEquality (95.07s)
+=== RUN   TestCoxGridCrossScheduleTamperAndEnvelope
+--- PASS: TestCoxGridCrossScheduleTamperAndEnvelope (2.00s)
+=== RUN   TestCoxGridCrossForwardSingleRow
+    k2_exact_gc_cox_loss_circuit_test.go:265: bits=64 inputs=12/6 output=6 source=53642 gates=17381 AND=5159 tables=165104
+--- PASS: TestCoxGridCrossForwardSingleRow (2.73s)
+=== RUN   TestCoxGridCrossPrivatePredicates
+    k2_exact_gc_cox_loss_circuit_test.go:299: bits=64 inputs=8/4 output=4 source=445 gates=3801 AND=1063 tables=34032
+    k2_exact_gc_cox_loss_circuit_test.go:301: predicates [1 1 1 1]
+--- PASS: TestCoxGridCrossPrivatePredicates (0.00s)
+=== RUN   TestCoxGridCrossFinalizeTiesClampValidity
+    k2_exact_gc_cox_loss_circuit_test.go:311: bits=64 inputs=4/2 output=2 source=360 gates=2983 AND=878 tables=28112
+    k2_exact_gc_cox_loss_circuit_test.go:311: bits=64 inputs=4/2 output=2 source=351 gates=2959 AND=870 tables=27856
+    k2_exact_gc_cox_loss_circuit_test.go:311: bits=64 inputs=4/2 output=2 source=350 gates=2953 AND=868 tables=27792
+--- PASS: TestCoxGridCrossFinalizeTiesClampValidity (0.00s)
+=== RUN   TestCoxGridCrossEncryptedScan
+    k2_exact_gc_cox_loss_circuit_test.go:337: bits=64 inputs=20/10 output=10 source=54181 gates=32674 AND=9805 tables=313776
+    k2_exact_gc_cox_loss_circuit_test.go:352: encrypted forward 2-row garbler wire bytes=495336
+--- PASS: TestCoxGridCrossEncryptedScan (6.18s)
+=== RUN   TestCoxGridCrossMaximumChunkCaps
+=== RUN   TestCoxGridCrossMaximumChunkCaps/prepare
+    k2_exact_gc_cox_loss_circuit_test.go:377: bits=128 inputs=194/97 output=97 source=22822 gates=322807 AND=99390 tables=3180496
+=== RUN   TestCoxGridCrossMaximumChunkCaps/permute
+    k2_exact_gc_cox_loss_circuit_test.go:377: bits=64 inputs=834/385 output=385 source=39272 gates=417399 AND=93246 tables=2983888
+=== RUN   TestCoxGridCrossMaximumChunkCaps/forward
+    k2_exact_gc_cox_loss_circuit_test.go:377: bits=64 inputs=260/130 output=130 source=71160 gates=487688 AND=147201 tables=4710448
+=== RUN   TestCoxGridCrossMaximumChunkCaps/backward
+    k2_exact_gc_cox_loss_circuit_test.go:377: bits=64 inputs=134/131 output=3 source=12140 gates=140520 AND=44306 tables=1417808
+=== RUN   TestCoxGridCrossMaximumChunkCaps/finalize
+    k2_exact_gc_cox_loss_circuit_test.go:377: bits=64 inputs=4/2 output=2 source=376 gates=2967 AND=866 tables=27728
+--- PASS: TestCoxGridCrossMaximumChunkCaps (76.60s)
+    --- PASS: TestCoxGridCrossMaximumChunkCaps/prepare (0.86s)
+    --- PASS: TestCoxGridCrossMaximumChunkCaps/permute (2.95s)
+    --- PASS: TestCoxGridCrossMaximumChunkCaps/forward (72.60s)
+    --- PASS: TestCoxGridCrossMaximumChunkCaps/backward (0.18s)
+    --- PASS: TestCoxGridCrossMaximumChunkCaps/finalize (0.00s)
+=== RUN   TestCoxGridCrossScalarGateTarget
+    k2_exact_gc_cox_loss_circuit_test.go:400: scalar exp gates=4901 AND=1513 nonXOR=1514 tables=48432
+    k2_exact_gc_cox_loss_circuit_test.go:400: scalar logrisk gates=5253 AND=1485 nonXOR=1486 tables=47536
+--- PASS: TestCoxGridCrossScalarGateTarget (3.38s)
+=== RUN   TestCoxGridCrossProfileHashesAndKnots
+--- PASS: TestCoxGridCrossProfileHashesAndKnots (0.00s)
+=== RUN   TestCoxGridCrossProfileIntegerBoundaryFixtures
+--- PASS: TestCoxGridCrossProfileIntegerBoundaryFixtures (0.00s)
+=== RUN   TestCoxGridCrossExpProfileExhaustiveQ16
+    k2_exact_gc_cox_loss_profile_test.go:106: all 1,048,577 q16 inputs: maximum relative exp error 0.00854687770277 < 0.0144
+--- PASS: TestCoxGridCrossExpProfileExhaustiveQ16 (0.09s)
+=== RUN   TestCoxGridCrossLogProfileDenseNormalizationAndSlack
+    k2_exact_gc_cox_loss_profile_test.go:137: dense log maximum absolute error 4.30202593869e-05 < 6e-05
+--- PASS: TestCoxGridCrossLogProfileDenseNormalizationAndSlack (0.53s)
+=== RUN   TestCoxGridCrossProfileDomainsFailClosed
+--- PASS: TestCoxGridCrossProfileDomainsFailClosed (0.00s)
+=== RUN   TestCoxGridCrossProfileAnalyticErrorAndWidths
+--- PASS: TestCoxGridCrossProfileAnalyticErrorAndWidths (0.00s)
+=== RUN   TestCoxGridCrossSharedProfiles
+    k2_exact_gc_cox_loss_shares_test.go:20: bits=128 inputs=14/7 output=7 source=54790 gates=29759 AND=9484 tables=303504
+    k2_exact_gc_cox_loss_shares_test.go:39: bits=64 inputs=8/5 output=3 source=53533 gates=15445 AND=4526 tables=144848
+    k2_exact_gc_cox_loss_shares_test.go:59: exp gates=29759 tables=303504; log gates=15445 tables=144848
+--- PASS: TestCoxGridCrossSharedProfiles (4.40s)
+=== RUN   TestCoxGridCrossSharedProtocol
+    k2_exact_gc_cox_loss_shares_test.go:248: mixed {"budget_stop":false,"candidates":2,"capacity":34,"chunks":33,"compile_seconds":0.000017548,"completed":true,"evaluator_bytes":1195607,"exp_batch_nonxor":146975,"exp_source_sha256":"cdcb324eccf8bf0d93e3d0cff6cfce67964d066bb12893caaab7b1d70023c3f9","garbler_bytes":32078457,"log_batch_nonxor":69567,"log_source_sha256":"6bbe1273f58f41cbb626f22431c08b235d5d7ce5b98595b2e109d307cc5c5c7f","online_seconds":4.086017991,"oracle_equal":true,"padded_rows":64,"production_fusion":false,"profile":"cox-pwlinear64-exp-q16-q20-log-q20-v1","row_batch":32,"seconds":4.086035539,"total_bytes":33274064,"transport":"two encrypted peers via net.Pipe; host recorded by benchmark launcher"}
+    k2_exact_gc_cox_loss_shares_test.go:248: censored {"budget_stop":false,"candidates":2,"capacity":34,"chunks":33,"compile_seconds":0.000039307,"completed":true,"evaluator_bytes":1195608,"exp_batch_nonxor":146975,"exp_source_sha256":"cdcb324eccf8bf0d93e3d0cff6cfce67964d066bb12893caaab7b1d70023c3f9","garbler_bytes":32078456,"log_batch_nonxor":69567,"log_source_sha256":"6bbe1273f58f41cbb626f22431c08b235d5d7ce5b98595b2e109d307cc5c5c7f","online_seconds":3.543441441,"oracle_equal":true,"padded_rows":64,"production_fusion":false,"profile":"cox-pwlinear64-exp-q16-q20-log-q20-v1","row_batch":32,"seconds":3.5434807480000003,"total_bytes":33274064,"transport":"two encrypted peers via net.Pipe; host recorded by benchmark launcher"}
+    k2_exact_gc_cox_loss_shares_test.go:248: invalid {"budget_stop":false,"candidates":2,"capacity":34,"chunks":33,"compile_seconds":0.000035284,"completed":true,"evaluator_bytes":1195609,"exp_batch_nonxor":146975,"exp_source_sha256":"cdcb324eccf8bf0d93e3d0cff6cfce67964d066bb12893caaab7b1d70023c3f9","garbler_bytes":32078455,"log_batch_nonxor":69567,"log_source_sha256":"6bbe1273f58f41cbb626f22431c08b235d5d7ce5b98595b2e109d307cc5c5c7f","online_seconds":3.195827687,"oracle_equal":true,"padded_rows":64,"production_fusion":false,"profile":"cox-pwlinear64-exp-q16-q20-log-q20-v1","row_batch":32,"seconds":3.195862971,"total_bytes":33274064,"transport":"two encrypted peers via net.Pipe; host recorded by benchmark launcher"}
+    k2_exact_gc_cox_loss_shares_test.go:248: tied {"budget_stop":false,"candidates":2,"capacity":34,"chunks":33,"compile_seconds":0.000033882,"completed":true,"evaluator_bytes":1195606,"exp_batch_nonxor":146975,"exp_source_sha256":"cdcb324eccf8bf0d93e3d0cff6cfce67964d066bb12893caaab7b1d70023c3f9","garbler_bytes":32078456,"log_batch_nonxor":69567,"log_source_sha256":"6bbe1273f58f41cbb626f22431c08b235d5d7ce5b98595b2e109d307cc5c5c7f","online_seconds":3.72873499,"oracle_equal":true,"padded_rows":64,"production_fusion":false,"profile":"cox-pwlinear64-exp-q16-q20-log-q20-v1","row_batch":32,"seconds":3.728768872,"total_bytes":33274062,"transport":"two encrypted peers via net.Pipe; host recorded by benchmark launcher"}
+--- PASS: TestCoxGridCrossSharedProtocol (87.50s)
+=== RUN   TestCoxGridCrossSharedEnvelope
+    k2_exact_gc_cox_loss_shares_test.go:253: explicit public synthetic envelope run
+--- SKIP: TestCoxGridCrossSharedEnvelope (0.00s)
+=== RUN   TestCoxGridCrossSharedPlanAndTopology
+--- PASS: TestCoxGridCrossSharedPlanAndTopology (0.39s)
+=== RUN   TestCoxGridCrossSharedCompactTopologyBinding
+    k2_exact_gc_cox_loss_shares_test.go:318: bits=64 inputs=4/2 output=2 source=358 gates=2976 AND=875 tables=28016
+--- PASS: TestCoxGridCrossSharedCompactTopologyBinding (0.01s)
+=== RUN   TestCoxGridCrossSharedReceiptNeedsPrivateKey
+--- PASS: TestCoxGridCrossSharedReceiptNeedsPrivateKey (0.00s)
+=== RUN   TestCoxGridCrossSharedBudgetStop
+--- PASS: TestCoxGridCrossSharedBudgetStop (5.87s)
+PASS
+ok  	github.com/isglobal-brge/dsVert/dsvert-mpc	286.932s

@@ -257,3 +257,11 @@ A finalizer-only resource guard (4096 non-XOR gates) closes lattice/cap variatio
 around the grid_bits=12 envelope. The compiled 99-case public sweep reaches at
 most 877 gates. Exp/log circuits and all numeric semantics are unchanged; the
 whole Cox Go suite is being rerun after this final compiler guard.
+
+Final whole Cox Go suite completed after the finalizer guard:
+**24 top-level PASS + 7 nested PASS**, one opt-in envelope SKIP, no failures;
+286.932 seconds on the pod. Command (from dsVert/inst/dsvert-mpc):
+`GOMAXPROCS=2 go test -run '^TestCoxGridCross' -v -count=1 -timeout=30m .`.
+Log: inst/cross-cox-v1/envelope_v2/go-family-final.log. All remaining work is
+measurement/reporting; do not repeat the completed numerical or protocol suites
+unless implementation changes again.

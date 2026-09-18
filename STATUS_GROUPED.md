@@ -307,3 +307,12 @@ Final record-domain-separated pod probe: 4 top-level / 11 including
 subtests pass, zero failures/skips, 146.310 s. Log scalar-context-final.jsonl.
 All recorded Go source hashes match between Mac and pod. The final JSON
 separates pre-context broad Mac regression from post-context affected tests.
+
+## Resumed 2026-09-18 — Addendum 3 arithmetic ownership
+
+Both repositories are clean. The reviewer assigns dealer-free checked-OT exact
+arithmetic to this lane; the prior ownership dependency is resolved. Implement
+wide-ring Beaver products first, then candidate-independent LMM statistics,
+GEE and GH5 composition. Do not reuse Ring127 truncation or widen shares by
+zero extension. Full-release capacities still require full measurements.
+Inherited pod checks still have no exit files; R_STACK_DONE reconfirmed.

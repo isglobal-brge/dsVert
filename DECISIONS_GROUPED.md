@@ -106,3 +106,12 @@ Inherited full Go and R checks still have no terminal result on the pod.
   in a new grouped file. Adjusted existing inventory/maturity test expectations
   for the three quarantine entries; old methods remain promoted as before.
   Explicitly assert no invented legacy remote-call evidence for new prototypes.
+
+## Resumed 2026-09-18 — Addendum 3 arithmetic ownership
+
+Both repositories are clean. The reviewer assigns dealer-free checked-OT exact
+arithmetic to this lane; the prior ownership dependency is resolved. Implement
+wide-ring Beaver products first, then candidate-independent LMM statistics,
+GEE and GH5 composition. Do not reuse Ring127 truncation or widen shares by
+zero extension. Full-release capacities still require full measurements.
+Inherited pod checks still have no exit files; R_STACK_DONE reconfirmed.

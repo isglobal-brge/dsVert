@@ -106,6 +106,7 @@
        input_fraction_bits = 50, partial_predictor_fraction_bits = 100,
        eta_fraction_bits = 16, nonlinear_fraction_bits = 20,
        scalar_word_bits = 32, scalar_pieces = 64,
+       compiler_profile = "mpcl-c911bbd029d1-prune-array128-v1",
        eta_rounding = "one_rne_after_owner_sum_v1",
        interpolation_rounding = "floor_v1",
        log_normalization_rounding = "floor_v1",
@@ -270,14 +271,18 @@
     private_layout_sha256 = .dsvert_joint_dp_hash(.dsvert_dp_cox_grid_cross_layout(spec)),
     transcript = list(version = "dsvert-cox-cross-fixed-transcript-v1",
       operation = "dp.cox-grid-cross.v1", padded_units = spec$padded_capacity,
-      candidate_count = length(spec$beta_grid), row_batch_size = 1,
+      candidate_count = length(spec$beta_grid), row_batch_size = 32,
+      permutation_switch_batch_size = 64,
       candidate_batch_size = 1,
-      traversal = "permutation_stages_then_forward_then_reverse_v1",
+      traversal = "candidate_prepare_permute_forward_reverse_finalize_v1",
+      schedule_version = "cox-breslow-chunks-v1",
       boundary_state = "prefix_W_reverse_H_L_never_reset_at_chunks_v1",
       output = "two_authority_additive_candidate_sum_shares_only_v1"),
     result_evidence_required = TRUE,
-    implementation_state = "cross_owner_exact_gc_materialized",
-    cross_owner_state = "exact_gc_to_joint_dp_vector_v1",
+    implementation_state = "cross_owner_exact_gc_contract_only",
+    cross_owner_state = "exact_gc_to_joint_dp_vector_pending_v1",
+    required_result_states = list(implementation_state = "cross_owner_exact_gc_materialized",
+      cross_owner_state = "exact_gc_to_joint_dp_vector_v1"),
     runtime_enabled = FALSE)
 }
 
@@ -341,8 +346,10 @@
     artifact = .dsvert_dp_cox_grid_cross_artifact,
     source_contract = .dsvert_dp_cox_grid_cross_source_contract,
     sensitivity = .dsvert_dp_cox_grid_cross_sensitivity,
-    implementation_state = "cross_owner_exact_gc_materialized",
-    cross_owner_state = "exact_gc_to_joint_dp_vector_v1",
+    implementation_state = "cross_owner_exact_gc_contract_only",
+    cross_owner_state = "exact_gc_to_joint_dp_vector_pending_v1",
+    required_result_states = list(implementation_state = "cross_owner_exact_gc_materialized",
+      cross_owner_state = "exact_gc_to_joint_dp_vector_v1"),
     runtime_enabled = FALSE,
     produce = function(...) .dsvert_dp_cox_grid_cross_fail())
 }

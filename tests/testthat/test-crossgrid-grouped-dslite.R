@@ -61,7 +61,10 @@ test_that("two DSLite peers compare grouped candidates at epsilon 1 4 8", {
       } else exact_losses[j] <- exact_losses[j]+sum(if(poisson) exp(eta)-y[idx]*eta+lgamma(y[idx]+1) else log1p(exp(eta))-y[idx]*eta)
       r <- list(Eta=as.list(vapply(eta,q64,character(1L))),Live=as.list(rep(1,4)),Outcome=as.list(y[idx]))
       if(family=="lmm") {
-        r$Outcome <- NULL;r$Family <- "lmm";r$Residual <- as.list(vapply(y[idx]-eta,q64,character(1L)))
+        r$Outcome <- NULL;r$Family <- "lmm_stats"
+        encode50 <- function(v) .cross_format(.cross_small(round(v*2^50)))
+        r$Beta <- as.list(vapply(beta[[j]], encode50, character(1L)))
+        r$Features <- lapply(idx, function(i) list(encode50(1), f50[i], encode50(y[i])))
         r$Sigma <- q64(1);r$Tau <- q64(.25)
         r$LMM <- list(Slots=4,GridBits=16,ResidualCap=2,OutputCap=2^24)
       } else if(grepl("glmm$",family)) {

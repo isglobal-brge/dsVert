@@ -17,6 +17,7 @@ type groupedReferenceRequest struct {
 	InputQ16      []int64
 	Sigma, Tau    string
 	Eta, Residual []string
+	Beta          []string
 	Features      [][]string
 	Live, Outcome []int64
 	LMM           groupedLMMSpec
@@ -61,6 +62,22 @@ func TestGroupedReferenceBridge(t *testing.T) {
 			}
 			values = append(values, value)
 		}
+	case "lmm_stats":
+		variance := parse([]string{r.Sigma, r.Tau})
+		r.LMM.Sigma2Q64, r.LMM.Tau2Q64 = variance[0], variance[1]
+		if groupedLMMValidate(r.LMM) != nil || len(r.Features) != r.LMM.Slots || len(r.Beta) < 2 || len(r.Beta) > 17 {
+			t.Fatal("invalid test dimensions")
+		}
+		rows := make([][]*big.Int, len(r.Features))
+		for i, row := range r.Features {
+			if len(row) != len(r.Beta)+1 {
+				t.Fatal("invalid test dimensions")
+			}
+			rows[i] = parse(row)
+		}
+		value := groupedLMMStatsOracle(r.LMM, rows, parse(r.Beta))
+		values = []int64{value.Int64()}
+		valid = true
 	case "lmm":
 		variance := parse([]string{r.Sigma, r.Tau})
 		r.LMM.Sigma2Q64 = variance[0]

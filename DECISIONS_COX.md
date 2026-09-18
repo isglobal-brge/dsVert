@@ -100,3 +100,19 @@ rectangular public admission rather than silently assuming an ordering between
 incomparable (N,J) pairs. The summary refuses to select until all nine requested
 shapes have a completed or explicitly resource-censored report. Censored runs
 never qualify; they report observed prefixes, not invented full-release totals.
+
+### Resumed — 2026-09-18: measured admission and baseline check isolation
+
+The release-facing Go registration enforces the same conservative measured
+rectangle as both signed R specs. Measurements call the internal theoretical
+runner so that over-capacity public probes remain possible; integration must
+use the guarded registration. The final rectangle awaits all nine reports.
+Admission metadata binds execution and must not produce a fresh sticky semantic
+release when only deployment limits change.
+
+Installed-package synopsis-artifact failure was reproduced against BOTH this
+branch and independently installed primitive baseline 38146c0: the unchanged
+.vector_capsule_binary closure cannot resolve .dsvert_test_source_roots through
+its namespace parent. Both source-loaded test_local suites pass. Paired logs
+are retained in inst/cross-cox-v1/envelope_v2. Do not alter unrelated production
+or test namespaces to conceal the pre-existing installed-check failure.

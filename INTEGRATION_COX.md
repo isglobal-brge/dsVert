@@ -99,7 +99,10 @@ Entry points (one registration function per language/package):
     addition to unchanged 32M-gate / 2 MiB-source / 512 Ki-bit runner limits.
     Scalar batches fail compilation above 5000 non-XOR gates per row, INCLUDING
     the source ABI bridge and output masks. The final measured envelope will be
-    recorded below; until then all production release paths remain disabled.
+    recorded below. Registered SharedPlan/SharedCompile/RunShares already enforce
+    the measured rectangle, mirrored in spec.resource_admission on both R sides.
+    Do not call the unregistered measurement helpers to bypass this guard.
+    All production release paths remain disabled pending authenticated fusion.
 
 ## Revised envelope measurement
 

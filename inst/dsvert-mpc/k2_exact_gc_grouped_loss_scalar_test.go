@@ -124,6 +124,18 @@ func TestGroupedScalarAdmissionAndTopology(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := exactGCTestSession(exactGCCircuitSpec{Operation: exactGCPrimitiveV, RingBits: 32, VectorLen: 1})
+	contract := sha256.Sum256([]byte("record-context regression"))
+	legacy, err := p.session(s, contract)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compact, err := groupedCompactSession(p, s, contract)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exactGCContextDigest(legacy) == exactGCContextDigest(compact) {
+		t.Fatal("framing mode shares record-key context")
+	}
 	d := exactGCProtocolDigest(s, p.Circuit, true)
 	if d == exactGCProtocolDigest(s, p.Circuit, false) {
 		t.Fatal("framing mode unbound")

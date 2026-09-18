@@ -10,8 +10,23 @@ import (
 	"math/big"
 )
 
-func groupedCompactRunGarbler(rw io.ReadWriter, p *primitiveVProgram, base exactGCSession, contract [32]byte, words []*big.Int) ([]*big.Int, error) {
+// Bind framing mode before the record layer derives keys/nonces, as well as
+// in the GC topology digest. Legacy and compact runs cannot share a record
+// context even if a caller supplies the same base session/contract/source.
+func groupedCompactSession(p *primitiveVProgram, base exactGCSession, contract [32]byte) (exactGCSession, error) {
 	s, err := p.session(base, contract)
+	if err != nil {
+		return exactGCSession{}, primitiveVError()
+	}
+	s.Purpose += "/grouped-compact-v1"
+	if s.validate() != nil {
+		return exactGCSession{}, primitiveVError()
+	}
+	return s, nil
+}
+
+func groupedCompactRunGarbler(rw io.ReadWriter, p *primitiveVProgram, base exactGCSession, contract [32]byte, words []*big.Int) ([]*big.Int, error) {
+	s, err := groupedCompactSession(p, base, contract)
 	if err != nil || rw == nil {
 		return nil, primitiveVError()
 	}
@@ -39,7 +54,7 @@ func groupedCompactRunGarbler(rw io.ReadWriter, p *primitiveVProgram, base exact
 }
 
 func groupedCompactRunEvaluator(rw io.ReadWriter, p *primitiveVProgram, base exactGCSession, contract [32]byte, words []*big.Int) ([]*big.Int, error) {
-	s, err := p.session(base, contract)
+	s, err := groupedCompactSession(p, base, contract)
 	if err != nil || rw == nil {
 		return nil, primitiveVError()
 	}

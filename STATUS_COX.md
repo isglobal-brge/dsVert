@@ -185,3 +185,13 @@ no coordinate/validity arrays and the report must say incomplete/resource-stop.
 `go test -run '^TestCoxGridCrossSharedBudgetStop$' -count=1 -timeout=30s .` passes.
 This is additional targeted coverage after the 21-test broad family run; no
 production epsilon/delta, loss cap or transport budget was changed.
+
+### Resumed — 2026-09-18, additional completed matrix points
+
+Both worktrees were clean on resumption. Preserved two more full encrypted
+family-kernel reports with all candidate coordinates equal to the integer oracle:
+2000x50: **26,473,265,394 bytes; 2940.744 s**, including 99.978 s compilation;
+4000x16: **16,951,184,064 bytes; 1846.358 s**, including 61.373 s compilation.
+The larger five points are still pending; no final admission is selected.
+The isolated synopsis-artifact suite passes on BOTH current and primitive
+baseline sources; full installed-server check failures remain under investigation.

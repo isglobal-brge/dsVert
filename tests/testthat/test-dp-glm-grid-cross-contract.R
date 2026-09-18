@@ -467,6 +467,10 @@ test_that("only the signed grid catalog selects the expanded joint-GC policy", {
   expect_equal(legacy$maximum_promoted_coordinates, 1)
   policy <- .dsvert_dp_glm_grid_cross_noise_policy(f$manifest)
   expect_identical(policy, "dsvert-cross-grid-exact-gc-cost-policy-v2")
+  unsupported <- f$manifest
+  unsupported$workload$capsule_mechanism$mechanism <- "discrete-gaussian"
+  expect_error(.dsvert_dp_glm_grid_cross_noise_policy(unsupported),
+    class = "dsvert_dp_public_failure")
   selected <- .dsvert_joint_dp_vector_public_backend_choice(4, policy)
   expect_true(selected$promoted)
   expect_equal(selected$maximum_promoted_coordinates, 51)

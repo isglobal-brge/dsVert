@@ -14,3 +14,16 @@
 - Stream schedule hashing and reconstruct public switch geometry rather than serializing repeated switch arrays for every candidate. Verify actual supplied endpoints/control indices before hashing; public shape, candidate, ordinal and predecessor receipts remain bound.
 - Artifacts report contract-only/pending state while production is disabled. The requested final state strings are pinned in required_result_states. This follows DESIGN_COX section 9: a signed template must not claim completed materialization before lifecycle gates pass.
 - DSLite uses PUBLIC synthetic fixtures and a test-tagged Go evaluator only. Its two independent reference-noise contributions exercise utility/postprocessing, not the production exact sampler or sticky release proof. The test report explicitly says production_protocol=false. No test helper is exported or installed as an R production function.
+
+## 2026-09-18 resumed — public-surface gate
+The first full client R check found that exporting the disabled entry adds a
+name outside the exact 97-analysis/13-non-inference inventory. Registering it
+requires coordinated inventory and maturity-registry changes (and their fixed
+count/status tests), which belong with release integration. Removed our own
+NAMESPACE export; the implemented `dp_cox_grid` entry is now returned by
+`.dsvert_dp_cox_grid_cross_client_register()$entry` and remains namespace-internal.
+No pre-existing tests or registry tables were modified or bypassed. The complete
+existing inventory suite and the Cox contract suite pass together after this
+change (39 Cox expectations). INTEGRATION_COX.md lists the exact public-export
+registration that remains. This supersedes the initial single-export decision;
+the final diff contains only new family files in both repositories.

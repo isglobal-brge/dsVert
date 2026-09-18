@@ -725,3 +725,9 @@ Binomial / epsilon1 / instance2: **2801.709 s**, full integer DP-vector/oracle a
 ## 2026-09-18T23:06Z — final server packaging refresh passes
 
 After adding CHECKS_V2 to the existing report exclusion pattern, `R CMD build` and `R CMD check --no-manual --no-tests` pass with **0 ERROR / 0 WARNING / the same 1 pre-existing NOTE**. All **1497** package input hashes match the corrected pod archive. Reproduction script and complete check/build logs retained; the server tarball now also contains the final corrected test fixtures. Production code is unchanged.
+
+## 2026-09-18T23:09Z — second complete selection cell; Poisson topology starts
+
+Poisson / epsilon1: **20 distinct signed grids, 2 real API matches, 11/20 agreement, mean loss gap 31.235135, maximum 73.8808** at retained JSON precision. Complete logs and matching before/after helper hashes are committed; all 40 keys across the first two complete cells are distinct. Progress: **2/6 cells, 6/12 real releases**. The lane advances to Poisson / epsilon8.
+
+The synchronous Mac Poisson K3 retry has persisted five matching kernel batches, passing the previously failing readiness stage with the unchanged 120-second limit. Binomial K3 has 120/2191 batches. Neither full topology release is complete.

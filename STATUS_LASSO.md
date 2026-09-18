@@ -109,3 +109,14 @@ Local completed RDS records are `/tmp/dsvert-fama-lasso-server-settled.rds` and
 paired package `R CMD check`, DSLite and tagged Go reference evidence. No focused
 public-algebra result here claims production MPC, noise, replay or release
 integration; those gates remain described in `INTEGRATION_LASSO.md`.
+
+
+## Implementation commits
+
+- Server `9ff7d277b22aeb2181f9901c2b29abfd29391ec3` — isolated LASSO contract, public penalty, adapter, tests and documentation.
+- Client `786c6e8321277c75bbfebdbe418ac6ce99cc54fb` — mirrored signed contract, fail-closed public API, tests and manual.
+
+These commits leave the shared NAMESPACE registration and combined reference
+harness to the parent integration session. This status record is followed by a
+documentation-only commit recording the implementation identities. No remote
+push or same-owner/sealed-route edit was performed.

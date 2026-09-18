@@ -212,7 +212,7 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 	var grid *crossGridKernelPrepared
 	shareSpec := session.Spec
 	if session.Spec.Operation == crossGridKernelOperation {
-		if config.CrossGrid == nil || config.JointDP != nil || config.JointDPVector != nil || config.JointDPGaussianOneDraw != nil || config.PrivateSeed != "" || config.CrossGrid.purpose() != session.Purpose || len(config.CrossGrid.Beta) != session.Spec.VectorLen {
+		if config.CrossGrid == nil || config.JointDP != nil || config.JointDPVector != nil || config.JointDPGaussianOneDraw != nil || !config.CrossGrid.matchesPurpose(session.Purpose) || len(config.CrossGrid.Beta) != session.Spec.VectorLen {
 			return errCrossGridKernel
 		}
 		grid, err = crossGridKernelPrepare(*config.CrossGrid)
@@ -236,6 +236,7 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 	var jointGaussianOneDrawSpec *jointDPGaussianOneDrawSpec
 	var privateSeed [32]byte
 	deterministicClampMask := false
+	var gridMaskSeed *[32]byte
 	if session.Spec.Operation == exactGCJointDPLaplace {
 		parsed, seed, parseErr := jointDPGCWorkerInputs(config, session)
 		config.PrivateSeed = ""
@@ -278,6 +279,19 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 		clear(seed)
 		deterministicClampMask = true
 		defer clear(privateSeed[:])
+	} else if grid != nil && config.PrivateSeed != "" {
+		if config.Role != "garbler" {
+			return errCrossGridKernel
+		}
+		seed, parseErr := exactGCStrictBase64(config.PrivateSeed, 32)
+		config.PrivateSeed = ""
+		if parseErr != nil {
+			return errCrossGridKernel
+		}
+		copy(privateSeed[:], seed)
+		clear(seed)
+		defer clear(privateSeed[:])
+		gridMaskSeed = &privateSeed
 	} else if config.JointDP != nil || config.JointDPVector != nil ||
 		config.JointDPGaussianOneDraw != nil ||
 		config.PrivateSeed != "" {
@@ -305,7 +319,7 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 	}
 	if config.Role == "garbler" {
 		if grid != nil {
-			outputShares, err = grid.run(spool, session, shares, exactGCRoleGarbler)
+			outputShares, err = grid.runWithSeed(spool, session, shares, exactGCRoleGarbler, gridMaskSeed)
 		} else if jointGaussianOneDrawSpec != nil {
 			outputShares, err = jointDPGaussianOneDrawRunGarbler(
 				spool, session, *jointGaussianOneDrawSpec, shares, privateSeed)

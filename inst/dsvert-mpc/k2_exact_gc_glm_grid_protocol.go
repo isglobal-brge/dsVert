@@ -1,10 +1,12 @@
 package main
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"math/big"
 
@@ -45,8 +47,18 @@ func crossGridKernelPrepare(p crossGridKernelPlan) (*crossGridKernelPrepared, er
 }
 
 func (k *crossGridKernelPrepared) run(rw io.ReadWriter, session exactGCSession, source []*big.Int, role exactGCRole) ([]*big.Int, error) {
+	return k.runWithSeed(rw, session, source, role, nil)
+}
+
+func (p crossGridKernelPlan) matchesPurpose(value string) bool {
+	purpose := p.purpose()
+	producer := "dp." + p.Family + "-grid-cross.v1"
+	return value == purpose || value == fmt.Sprintf("source=%d:%s|purpose=%d:%s", len(producer), producer, len(purpose), purpose)
+}
+
+func (k *crossGridKernelPrepared) runWithSeed(rw io.ReadWriter, session exactGCSession, source []*big.Int, role exactGCRole, seed *[32]byte) ([]*big.Int, error) {
 	if k == nil || k.circuit == nil || rw == nil || session.validate() != nil ||
-		session.Spec.Operation != crossGridKernelOperation || session.Spec.VectorLen != len(k.plan.Beta) || session.Purpose != k.plan.purpose() || (role != exactGCRoleGarbler && role != exactGCRoleEvaluator) {
+		session.Spec.Operation != crossGridKernelOperation || session.Spec.VectorLen != len(k.plan.Beta) || !k.plan.matchesPurpose(session.Purpose) || (role != exactGCRoleGarbler && role != exactGCRoleEvaluator) {
 		return nil, errCrossGridKernel
 	}
 	input, err := crossGridKernelPrivateInput(k.plan, source, role == exactGCRoleGarbler)
@@ -59,7 +71,15 @@ func (k *crossGridKernelPrepared) run(rw io.ReadWriter, session exactGCSession, 
 		masks = make([]*big.Int, len(k.plan.Beta)+1)
 		defer exactGCZeroBigInts(masks)
 		for i := range masks {
-			masks[i], err = rand.Int(rand.Reader, exactGCModulus(128))
+			if seed == nil {
+				masks[i], err = rand.Int(rand.Reader, exactGCModulus(128))
+			} else {
+				mac := hmac.New(sha256.New, seed[:])
+				fmt.Fprintf(mac, "dsvert-cross-grid-output-mask-v2|%s|%d", k.plan.purpose(), i)
+				block := mac.Sum(nil)
+				masks[i] = new(big.Int).SetBytes(block[:16])
+				clear(block)
+			}
 			if err != nil {
 				return nil, errCrossGridKernel
 			}
@@ -96,4 +116,25 @@ func (k *crossGridKernelPrepared) run(rw io.ReadWriter, session exactGCSession, 
 		result.SetInt64(0)
 	}
 	return out, nil
+}
+
+// Public shape/purpose admission only. Source values never enter this command.
+func handleCrossGridBatchPlan() {
+	var p crossGridKernelPlan
+	mpcReadInput(&p)
+	if p.validate() != nil {
+		outputError("cross-grid plan rejected")
+		return
+	}
+	source, err := crossGridKernelSource(p)
+	if err != nil || len(source) > 2*1024*1024 {
+		outputError("cross-grid plan rejected")
+		return
+	}
+	inputBits := 128 * (2*(p.sourceCount()+p.Rows*len(p.Beta)) + len(p.Beta) + 1)
+	if inputBits > exactGCMaxCircuitTypeBits {
+		outputError("cross-grid plan rejected")
+		return
+	}
+	mpcWriteOutput(map[string]interface{}{"purpose": p.purpose(), "source_records": p.sourceCount(), "input_bits": inputBits, "source_bytes": len(source)})
 }

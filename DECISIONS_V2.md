@@ -197,3 +197,16 @@ The producer, not an RPC caller, derives these partial predictors.
     plan, predictor packer and purpose. This removes duplicate compilation,
     not gates/evaluations. A 17-candidate smoke test exercises cache reuse and
     tails, with complete integer/DP equality for both families.
+
+35. Derive the garbler's batch output masks from a private custodian HMAC of
+    the semantic release key and public batch index. Keep the transport session
+    and source-sharing randomness fresh on retry. This makes separately durable
+    peer outputs compatible after crashes without exposing masks/seeds. New
+    worker tests reproduce both shares across fresh transport and source shares.
+36. Use the vector sampler's admitted MaximumChunkCoordinates for the joint
+    noise phase, with one global-vector sensitivity/delta calibration and global
+    coordinate offsets. The first n2000 source/loss computation completed but
+    its unchunked 50-coordinate noise request failed the existing type limit.
+    This is a harness bug, not a changed privacy/circuit cap. No n10000 run had
+    begun. A 50-coordinate Mac smoke now passes both complete mechanisms; run
+    n10000 first on the next pod launch, then n2000.

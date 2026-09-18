@@ -4,7 +4,10 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
+	"math/big"
 	"math/rand"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -28,6 +31,8 @@ func TestCrossGridDurableWorkers(t *testing.T) {
 			gc, ec := base, base
 			gc.Role, gc.SpoolDir = "garbler", gd
 			ec.Role, ec.SpoolDir = "evaluator", ed
+			seed := sha256.Sum256([]byte("synthetic/sticky-mask/" + family))
+			gc.PrivateSeed = base64.StdEncoding.EncodeToString(seed[:])
 			gc.SourceShare = exactGCTestEncodeSource(t, left, encoding)
 			ec.SourceShare = exactGCTestEncodeSource(t, right, encoding)
 			gp, ep := exactGCTestWriteConfig(t, gd, gc), exactGCTestWriteConfig(t, ed, ec)
@@ -101,5 +106,55 @@ func TestCrossGridDurableWorkers(t *testing.T) {
 				t.Fatal("terminal spool replay accepted")
 			}
 		})
+	}
+}
+
+func TestCrossGridStickyOutputMasks(t *testing.T) {
+	p := crossGridKernelTestPlan("binomial")
+	k, err := crossGridKernelPrepare(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	x := crossGridKernelTestSource(p, rand.New(rand.NewSource(123)))
+	seed := sha256.Sum256([]byte("synthetic/release-key-and-batch"))
+	var priorG, priorE []*big.Int
+	for attempt := 0; attempt < 2; attempt++ {
+		left, right := exactGCTestSplit(rand.New(rand.NewSource(int64(attempt+1))), x, 128)
+		for i := p.Rows * 2 * (p.Predictors + 1); i < len(x); i++ {
+			right[i].Xor(left[i], x[i])
+		}
+		a, b := net.Pipe()
+		session := exactGCTestSession(exactGCCircuitSpec{Operation: crossGridKernelOperation, RingBits: 128, VectorLen: len(p.Beta)})
+		session.Purpose = p.purpose()
+		session.SessionID = sha256.Sum256([]byte(fmt.Sprint("synthetic/fresh-attempt/", attempt)))
+		var g []*big.Int
+		done := make(chan error, 1)
+		go func() {
+			var err error
+			g, err = k.runWithSeed(a, session, left, exactGCRoleGarbler, &seed)
+			if err != nil {
+				a.Close()
+			}
+			done <- err
+		}()
+		e, err := k.run(b, session, right, exactGCRoleEvaluator)
+		if err != nil {
+			b.Close()
+			<-done
+			t.Fatal(err)
+		}
+		if err = <-done; err != nil {
+			t.Fatal(err)
+		}
+		a.Close()
+		b.Close()
+		if attempt > 0 {
+			for j := range g {
+				if g[j].Cmp(priorG[j]) != 0 || e[j].Cmp(priorE[j]) != 0 {
+					t.Fatal("sticky output changed across fresh transport/source sharing")
+				}
+			}
+		}
+		priorG, priorE = g, e
 	}
 }

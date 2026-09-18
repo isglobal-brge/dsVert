@@ -395,3 +395,17 @@ No n10000 attempt had begun. Runner now uses four peer pairs/GOMAXPROCS=8
 and source-identical circuit reuse. Both-family n3/p5/grid17 smoke test passes
 including joint-noise equality and candidate tails. The matching-source pod
 campaign is restarted with the acknowledgement-drain fix included.
+
+## 2026-09-18T15:20Z — retry-safe worker masks and noise chunking
+
+Focused Go checks pass 4 top-level / 6 including-subtest tests, zero failures.
+The seeded mask regression preserves output shares across fresh sessions and
+fresh source sharing. Public worker planning also checks source/type limits.
+The 50-candidate smoke passes all candidate batches and admitted joint-noise
+chunks for both families (binomial 171.37s; Poisson 189.61s on Mac). Noise alone
+adds about 0.98 GB for binomial in this test; the full gate must include it.
+
+The previous n2000 binomial kernel completed; the harness then rejected its
+oversized unchunked noise call. Its log is retained on pod as
+full-n2000-noise-shape-failure.log; this is not a completed release. Corrected
+campaign now runs n10000 before n2000. No successful full-size run is repeated.

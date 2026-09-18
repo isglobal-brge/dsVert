@@ -29,9 +29,19 @@ func crossGridFullNoise(t testing.TB, p crossGridKernelPlan, n int, g, e, raw []
 	plan := jointDPVectorTestPlan(t, "4", "7.888609052210118054117285652827862296732064351090230047702789306640625e-31", sensitivity.String(), len(upper))
 	gs := sha256.Sum256([]byte(label + "/synthetic-g"))
 	es := sha256.Sum256([]byte(label + "/synthetic-e"))
-	spec := jointDPVectorTestSpec(t, plan, 0, upper, label, gs, es)
-	spec.OutputLatticeBits = p.GridBits
-	session := jointDPVectorTestSession(spec, label)
+	var wire uint64
+	for start := 0; start < len(upper); start += plan.MaximumChunkCoordinates {
+		end := min(len(upper), start+plan.MaximumChunkCoordinates)
+		wire += crossGridFullNoiseChunk(t, p.GridBits, plan, start, upper[start:end], g[start:end], e[start:end], raw[start:end], label, gs, es)
+	}
+	return wire
+}
+
+func crossGridFullNoiseChunk(t testing.TB, bits int, plan jointDPVectorPlanOutput, start int, upper []int64, g, e, raw []*big.Int, label string, gs, es [32]byte) uint64 {
+	t.Helper()
+	spec := jointDPVectorTestSpec(t, plan, start, upper, label, gs, es)
+	spec.OutputLatticeBits = bits
+	session := jointDPVectorTestSession(spec, fmt.Sprintf("%s/chunk/%d", label, start))
 	a, b := net.Pipe()
 	defer a.Close()
 	defer b.Close()
@@ -197,6 +207,7 @@ func crossGridFullMeasurement(t *testing.T, family string, n, predictors, m, wor
 	kernelSeconds := time.Since(compute).Seconds()
 	noiseStart := time.Now()
 	// One mechanism calibrates the entire vector, not independently calibrated batches.
+	t.Logf("KERNEL_MEASUREMENT family=%s n=%d p=%d grid=%d batches=%d and=%d wire_bytes=%d seconds=%.3f", family, n, predictors, m, completed, gates, wire, kernelSeconds)
 	noiseBytes := crossGridFullNoise(t, base, n, g, e, raw, fmt.Sprintf("synthetic/full/%s/%d/%d/%d", family, n, predictors, m))
 	report := map[string]interface{}{"family": family, "n": n, "p": predictors, "grid": m, "peer_pairs": workers, "batches": completed, "kernel_and": gates, "kernel_and_per_eval": float64(gates) / float64(n*m), "kernel_wire_bytes": wire, "joint_noise_wire_bytes": noiseBytes, "total_wire_bytes": wire + noiseBytes, "compile_seconds": compile.Seconds(), "kernel_seconds": kernelSeconds, "joint_noise_seconds": time.Since(noiseStart).Seconds(), "total_seconds": time.Since(start).Seconds(), "integer_and_dp_oracle_equal": true, "authenticated_server_release": false}
 	encoded, _ := json.Marshal(report)

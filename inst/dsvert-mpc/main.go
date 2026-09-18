@@ -303,6 +303,8 @@ func main() {
 		handleExactGCDeriveMaster()
 	case "exact-gc-capability":
 		handleExactGCCapability()
+	case "cross-grid-batch-plan-v2":
+		handleCrossGridBatchPlan()
 	case "exact-gc-plan-mul":
 		handleExactGCMulPlan()
 	case "joint-dp-laplace-plan-v2":

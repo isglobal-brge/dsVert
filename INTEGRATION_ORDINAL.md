@@ -23,6 +23,10 @@ with these ordinal-specific requirements:
    thresholds are canonical signed-decimal f50 integers in signed class order.
    `registration.Source` validates them and derives only PUBLIC gap constants.
    This host calculation must never receive a protected row or predictor.
+   The fused producer also needs strict Go signed-contract parsing/adaptation
+   for ordered `class_order`, `candidate_grid`, `candidate_encoded` and the new
+   numeric fields. These are not accepted by the frozen binomial/Poisson
+   envelope. Preserve unknown-field rejection and signed canonical equality.
 4. The Ring192 circuit garbler input has five coordinates: additive f100 eta,
    additive outcome, additive complete-case/alignment bit, loss mask, guard mask.
    The evaluator has the first three share coordinates. Output shares have the

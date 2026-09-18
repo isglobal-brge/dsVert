@@ -31,3 +31,26 @@ are test-only and never registered as worker operations.
 6. Keep public-synthetic DSLite reference tests clearly distinct from production
    MPC validation. Test-tagged plaintext evaluation must be absent from a
    production build and unreachable through registered commands.
+
+## Implementation and review decisions
+
+7. Pin `exp_profile(0)=65536` explicitly. The uncorrected last quadratic
+   produces 65535; that could make a max-shifted sum smaller than one and
+   underflow the bounded log argument. The profile hash covers this endpoint.
+8. Round directly from f100 to q16. A q64 intermediate can change a q16 tie;
+   fixtures cover halfway values plus/minus one f100 unit and both signs.
+9. Require exactly two participating custodians and equality with the two
+   compute/noise authorities. Requiring two compute peers alone was insufficient.
+   Server/client tests reject extra custodians and mismatched authority pairs.
+10. The standalone Boolean adapter fails the cost target even before considering
+    source/PSI/noise traffic. Keep it as certified equality/cost evidence and
+    keep all production release seams disabled. A cheaper secure evaluator
+    and share-based linear accumulation are prerequisites for promotion.
+
+
+## Resumed — 2026-09-18
+
+Preserve the completed profile and certificate rather than changing signed
+numerics merely to meet a cost target. Verify the existing ring/spline route
+before claiming it can replace the measured Boolean adapter. The now-ready
+pod is available for final checks; earlier endpoint failures remain historical.

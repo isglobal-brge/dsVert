@@ -24,11 +24,18 @@ Exactly this wiring remains for the fused producer:
 1. Register the descriptor in the new cross-grid dispatch only. Validate both
    custodians' signed contract/schema and the approved resource plan before
    resolving protected input. Match the Go profile/hash to the numeric contract.
+   Add strict Go signed-contract parsing/adaptation for `class_order`,
+   `non_reference_order`, `reference`, class-major `beta_encoded` and the new
+   numeric fields; the frozen binomial/Poisson Go envelope does not accept this
+   family payload. Preserve unknown-field rejection and canonical hash parity.
 2. Reuse frozen Ring128 source records, categorical outcome encoding and
    recipient-specific private PSI/alignment evidence. Resolve one signed
    category per patient; ambiguous/missing categories must be invalid, not
    averaged. Form exact f100 partial predictors in sufficiently wide shares,
    with the intercept once per nonreference class. Never round per owner.
+   Widen Ring128 source shares securely with the required carry correction;
+   simply zero-extending each additive residue to Ring192 is incorrect when
+   the original ring sum wraps. This conversion belongs inside the producer.
 3. Invoke `registration.Source(exactGCFamilyLossSpec{Classes, GridBits, Cap})`
    per candidate. Candidate/class order is signed; reference score is zero.
    The generator validates its public arguments before circuit compilation.
@@ -60,6 +67,14 @@ The Go plaintext bridge is `_test.go` plus build tag
 `dsvert_family_reference_test`. Compile it only with `go test -c -tags=...`;
 never add it to the executable command dispatch. R integer oracles remain
 under `tests/testthat/` only.
+
+The supplied source is a standalone Boolean adapter for correctness and cost
+measurement. It currently performs its ABI share additions and exponential sum
+inside that circuit. The scalable producer must move permitted linear sums
+and public-coefficient products to shares and replace the nonlinear evaluator
+with a cheaper secure implementation. Component profiles alone already exceed
+the cost target, so removing adapter overhead will not suffice. Do not promote
+this adapter as the reviewer's compliant arithmetic-share producer.
 
 See `STATUS_MULTINOMIAL.md` for measured tests/cost and unresolved promotion
 gates, and `NUMERIC_CERTIFICATE_MULTINOMIAL.md` for approximation-aware utility.

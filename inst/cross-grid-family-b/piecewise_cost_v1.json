@@ -94,5 +94,12 @@
       "garbled_table_bytes": 406800
     }
   ],
-  "production_release_enabled": false
+  "production_release_enabled": false,
+  "benchmark_public_spec": {
+    "grid_bits": 18,
+    "integer_cap": 12000000,
+    "ordinal_thresholds": "-8 + k/16, k=0..classes-2",
+    "predictor_formation": "outside measured adapter; f100 partial predictors are inputs",
+    "measurement_test": "TestExactGCFamilyClassCostMatrix"
+  }
 }

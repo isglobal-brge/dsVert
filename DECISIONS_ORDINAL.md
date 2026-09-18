@@ -30,3 +30,27 @@ use one log-sigmoid component. Private guards and masking apply to all rows.
 5. Record actual Boolean gate/traffic cost and treat the reviewer's cost target
    as an independent promotion gate. Public utility tests compare n times the
    certified error with the DP noise scale for their declared defaults.
+
+## Implementation and review decisions
+
+6. Keep the retained q64 exp/log helper exclusively for PUBLIC signed threshold
+   gaps, then round that constant to q16. Protected rows use only the new
+   low-precision profile. This avoids amplifying q16 exponential error near
+   gap=1/16 while keeping Go and pure-R constants identical.
+7. Select the public adjacent thresholds using the private outcome before
+   evaluating at most two softplus components. This keeps nonlinear work
+   bounded independently of the number of ordered classes.
+8. Require the participating pair to equal the two compute/noise authorities;
+   preserve the same guard in both validators. Existing same-owner routes
+   remain unchanged.
+9. Measured Boolean circuit cost exceeds the binding target. Registration and
+   public release remain fail closed; source-only numeric correctness and a
+   synthetic DSLite reference test do not authorize production promotion.
+
+
+## Resumed — 2026-09-18
+
+Preserve the completed profile and certificate rather than changing signed
+numerics merely to meet a cost target. Verify the existing ring/spline route
+before claiming it can replace the measured Boolean adapter. The now-ready
+pod is available for final checks; earlier endpoint failures remain historical.

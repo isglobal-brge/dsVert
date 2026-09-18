@@ -14,8 +14,11 @@
   binary <- NULL
   function() {
     if (!is.null(binary) && file.exists(binary)) return(binary)
-    source_candidates <- file.path(
-      .dsvert_test_source_roots(), "inst", "dsvert-mpc")
+    # This fixture is also parsed into namespace-backed helper environments,
+    # where the test suite's source-tree helper is not visible after install.
+    source_candidates <- file.path(c(
+      Sys.getenv("DSVERT_SERVER_SOURCE", unset = ""),
+      testthat::test_path("..", "..")), "inst", "dsvert-mpc")
     source_candidates <- source_candidates[
       file.exists(file.path(source_candidates, "main.go"))]
     if (!length(source_candidates)) {

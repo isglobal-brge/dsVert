@@ -33,7 +33,7 @@ test_that("the local PSI descriptor helper is complete and never remote", {
   descriptor <- dsvertPSISourceDescriptor(
     data, "patient_id", "cohort-main", "2026-08")
   expect_named(descriptor, c(
-    "id", "version", "id_col", "purpose", "snapshot_sha256"))
+    "id", "version", "id_col", "privacy_unit_id", "purpose", "snapshot_sha256"))
   expect_identical(descriptor$id_col, "patient_id")
   expect_match(descriptor$snapshot_sha256, "^[0-9a-f]{64}$")
   invalid <- data

@@ -248,3 +248,13 @@ The new route must never silently select a non-MPC noise fallback. Its scoped ad
 ## 2026-09-18T17:33Z — pod private validation state
 
 The RunPod workspace filesystem cannot enforce the private-directory mode required by identity provisioning (requested 0700, observed 0777). Keep all production permission checks. The synthetic harness accepts `DSVERT_GRID_VALIDATION_STATE_PARENT`; the pod runner uses local `/tmp/dsvert-crossowner-v2-state` (verified 0700). This holds only ephemeral identities, shares, synthetic oracle inputs and stores, removed by the harness on exit. Source and public evidence remain under `/workspace/dsvert/crossowner-v2`. No production path or arithmetic ABI changes.
+
+## 2026-09-18T17:35Z — private state location corrected; topology campaign
+
+The `/tmp` attempt also failed before release: production noise roots explicitly reject temporary trees. The final synthetic state parent is `/var/lib/dsvert-crossowner-v2-validation`, verified root-owned mode 0700. No permission/noise-root validation is bypassed. Matrix restart PID **450578**.
+
+Additional clause-7 topology campaign uses the same hash-frozen harness and two compute/noise authorities: per family K3 at **n10000/p10/grid50**, and K5 at the explicitly smaller **n2000/p6/grid2**, epsilon4. Each release requires real multi-owner PSI, all signatures, full integer DP-vector oracle equality, DP selection equality and fresh-process record checks. Runner: `inst/cross-grid-v2/run_topology_validation_pod.sh`. These four releases are additional to, and not counted in, the 120/12 matrix.
+
+## 2026-09-18T17:39Z — documentation and check freeze
+
+Added matching package documentation for source ownership/signatures, PSI, certified arithmetic, scoped Laplace sampler, sticky lifecycle, states and finite-grid DP-best interpretation. Client roxygen and generated Rd describe the same route. No repository maintainer instruction requires a version/NEWS change for this development branch, so both versions remain 1.2.0 and NEWS is unchanged. Full checks use a dedicated frozen source archive; subsequent evidence files do not change runtime code.

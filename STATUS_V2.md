@@ -473,3 +473,9 @@ Final targeted no-fallback guard tests: server **338 assertions green**; client 
 Both n2000/p10/grid50 pod measurements pass integer and joint-noise oracle equality: binomial **18,085,815,835 bytes / 630.821 s**; Poisson **22,172,826,365 bytes / 744.277 s**. Raw evidence: `inst/cross-grid-v2/pod-full-n2000.log`. Same explicitly unauthenticated Go measurement scope as the n10000 benchmark.
 
 The first pod validation attempt failed closed before identity creation: the `/workspace` mount reports mode 0777 even after requesting 0700. Restarted the unchanged security checks with ephemeral custodian state under verified mode-0700 `/tmp/dsvert-crossowner-v2-state`; code and evidence remain in the dedicated workspace lane. Nohup campaign PID **447927**, same 120 oracle/12 real matrix, helper hashes checked per cell. No failed attempt is counted as a release. Remaining pod and Mac benchmark matrices continue.
+
+## 2026-09-18T17:35Z — private state location corrected; topology campaign
+
+The `/tmp` attempt also failed before release: production noise roots explicitly reject temporary trees. The final synthetic state parent is `/var/lib/dsvert-crossowner-v2-validation`, verified root-owned mode 0700. No permission/noise-root validation is bypassed. Matrix restart PID **450578**.
+
+Additional clause-7 topology campaign uses the same hash-frozen harness and two compute/noise authorities: per family K3 at **n10000/p10/grid50**, and K5 at the explicitly smaller **n2000/p6/grid2**, epsilon4. Each release requires real multi-owner PSI, all signatures, full integer DP-vector oracle equality, DP selection equality and fresh-process record checks. Runner: `inst/cross-grid-v2/run_topology_validation_pod.sh`. These four releases are additional to, and not counted in, the 120/12 matrix.

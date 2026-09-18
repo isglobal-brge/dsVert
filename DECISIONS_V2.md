@@ -424,3 +424,7 @@ The full Go result is recorded as not green, not converted to a pass by changing
 ## 2026-09-18T23:06Z — keep execution reports outside the installed package
 
 Add CHECKS_V2 to the existing .Rbuildignore development-report pattern. Refresh only the server packaging check and input manifest; full test suites are not repeated for this packaging-only change. No package version or NEWS change is required.
+
+## 2026-09-18T23:16Z — topology scope remains unchanged pending reviewer decision
+
+Observed full-grid K3 DSLite throughput projects to tens of hours. Asked whether clause 7 permits the wiring gate at n10000/p10/grid2 alongside the completed full-envelope secure benchmarks. Keep grid50 running unless the reviewer explicitly authorizes a narrower validation grid. No production ABI, admission limit, privacy cap or route change is proposed.

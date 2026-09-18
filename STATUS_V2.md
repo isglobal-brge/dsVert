@@ -731,3 +731,9 @@ After adding CHECKS_V2 to the existing report exclusion pattern, `R CMD build` a
 Poisson / epsilon1: **20 distinct signed grids, 2 real API matches, 11/20 agreement, mean loss gap 31.235135, maximum 73.8808** at retained JSON precision. Complete logs and matching before/after helper hashes are committed; all 40 keys across the first two complete cells are distinct. Progress: **2/6 cells, 6/12 real releases**. The lane advances to Poisson / epsilon8.
 
 The synchronous Mac Poisson K3 retry has persisted five matching kernel batches, passing the previously failing readiness stage with the unchanged 120-second limit. Binomial K3 has 120/2191 batches. Neither full topology release is complete.
+
+## 2026-09-18T23:16Z — third complete selection cell
+
+Binomial / epsilon1: **20 distinct signed grids, 2 real API matches, 16/20 agreement, mean loss gap 2.68316, maximum 14.4925** at retained JSON precision. All 60 keys across the three completed cells are distinct; n2000/p6/grid2/K2 geometry and before/after hashes pass. Progress: **3/6 cells, 6/12 real releases**. The remaining lanes run binomial/epsilon8 and Poisson/epsilon4,8.
+
+Requested a reviewer scope decision on whether the K3 wiring grid may use two candidates at n10000/p10 while retaining the completed full-grid secure benchmarks. This is not an approved change: the full 50-candidate Mac runs continue pending explicit response. No blocker is declared.

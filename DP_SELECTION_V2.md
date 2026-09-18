@@ -18,10 +18,11 @@ synthetic net.Pipe composition tests. They are neither selection statistics nor
 DataSHIELD wiring releases and are not counted toward either validation matrix.
 
 
-Validated completed cells (remaining four cells pending):
+Validated completed cells (remaining three cells pending):
 
 | Family | Epsilon | Distinct grids | Real API matches | Selection agreement | Mean loss gap | Maximum loss gap |
 |---|---:|---:|---:|---:|---:|---:|
+| binomial | 1 | 20 | 2 | 16/20 | 2.68316 | 14.4925 |
 | binomial | 4 | 20 | 2 | 20/20 | 0 | 0 |
 | poisson | 1 | 20 | 2 | 11/20 | 31.2351 | 73.8808 |
 
@@ -38,3 +39,9 @@ The second cell is retained in `validation-poisson-e1.log` and its matching
 source-check log under `inst/cross-grid-v2`. All twenty keys are distinct;
 its two real releases pass both equality and fresh-process lifecycle gates.
 The reported mean uses the per-instance decimal precision retained in JSON.
+
+Binomial/epsilon1 is also complete (`validation-binomial-e1.log` and its
+source-check log). Across these three cells, all 60 artifact keys are distinct,
+all requested geometries match, and all six real releases have both required
+verification markers. The remaining epsilon8 binomial and epsilon4/8 Poisson
+cells are still running.

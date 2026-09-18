@@ -125,3 +125,18 @@ func TestPrimitiveVProtocolContextAndAdmission(t *testing.T) {
 		t.Fatal("oversized share admitted")
 	}
 }
+
+func TestPrimitiveVProtocolLMMPrivatePermutation(t *testing.T) {
+	spec := primitiveVFamilySpec{Family: primitiveVLMM, Rows: 2, Cap: 4, GroupCap: 2, RhoQ64: new(big.Int).Set(primitiveVScale)}
+	p, err := primitiveVCompileFamily(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := []*big.Int{new(big.Int).Set(primitiveVScale), new(big.Int).Lsh(big.NewInt(2), 64)}
+	g, e := primitiveVFamilyTestInputs(t, spec, values, []bool{true, true}, []bool{false, false}, []bool{true, false}, []int{1, 0})
+	out, _ := primitiveVTestProtocol(t, p, g[:len(g)-2], e)
+	// 1^2 + 2^2 - (1+2)^2/(1+2) = 2, for either private order.
+	if out[0].Cmp(new(big.Int).Lsh(big.NewInt(2), 64)) != 0 || out[1].Cmp(big.NewInt(1)) != 0 {
+		t.Fatal("coupled LMM encrypted protocol differs")
+	}
+}

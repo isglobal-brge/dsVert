@@ -32,7 +32,14 @@ type primitiveVProgram struct {
 
 // primitiveVCompile accepts only source constructed from validated public
 // parameters by internal emitters. It must never be exposed as an RPC.
-func primitiveVCompile(source string, wordBits, inputWordsG, inputWordsE, outputWords int) (*primitiveVProgram, error) {
+func primitiveVCompile(source string, wordBits, inputWordsG, inputWordsE, outputWords int) (program *primitiveVProgram, failure error) {
+	// The pinned MPCL backend can panic on unsupported constant-folding cases.
+	// Such public compilation failures never escape as diagnostics or success.
+	defer func() {
+		if recover() != nil {
+			program, failure = nil, primitiveVError()
+		}
+	}()
 	if len(source) == 0 || len(source) > 2<<20 || wordBits < 2 || wordBits > 256 ||
 		inputWordsG <= outputWords || inputWordsE < 1 || outputWords < 1 ||
 		inputWordsG > exactGCMaxCircuitTypeBits/wordBits || inputWordsE > exactGCMaxCircuitTypeBits/wordBits ||
@@ -41,10 +48,22 @@ func primitiveVCompile(source string, wordBits, inputWordsG, inputWordsE, output
 	}
 	c, _, err := compiler.New(utils.NewParams()).Compile(source, nil)
 	if err != nil || c == nil || len(c.Inputs) != 2 || int(c.Inputs[0].Type.Bits) != inputWordsG*wordBits ||
-		int(c.Inputs[1].Type.Bits) != inputWordsE*wordBits || c.Outputs.Size() != outputWords*wordBits || c.NumGates > 25000000 {
+		int(c.Inputs[1].Type.Bits) != inputWordsE*wordBits || c.Outputs.Size() != outputWords*wordBits || c.NumGates > 32000000 {
 		return nil, primitiveVError()
 	}
 	return &primitiveVProgram{c, sha256.Sum256([]byte(source)), wordBits, inputWordsG, inputWordsE, outputWords}, nil
+}
+
+func primitiveVCompileFamily(spec primitiveVFamilySpec) (*primitiveVProgram, error) {
+	shape, err := primitiveVFamilyInputShape(spec)
+	if err != nil || shape.InputWordsG > exactGCMaxCircuitTypeBits/192 || shape.InputWordsE > exactGCMaxCircuitTypeBits/192 {
+		return nil, primitiveVError()
+	}
+	source, err := primitiveVFamilyCircuitSource(spec)
+	if err != nil {
+		return nil, primitiveVError()
+	}
+	return primitiveVCompile(source, shape.WordBits, shape.InputWordsG, shape.InputWordsE, shape.OutputWords)
 }
 
 // The authenticated signed-contract hash must cover ownership, row capacity,

@@ -345,10 +345,14 @@ The full server suite exposed a missing documentation inventory entry for the ne
 
 The runner incorrectly assumed both existing package versions were 1.2.0. Server is 1.2.0 and client is 1.2.1. Derive tarball names from each DESCRIPTION; no version or NEWS change. The already-built client archive is checked independently (PID739243) while the server suite continues, because its known inventory failure will stop the original sequential runner.
 
-## 2026-09-18T20:39Z — check-layout-compatible test fixtures
+## 2026-09-18T20:36Z — check-layout-compatible test fixtures
 
 The full server check exposed two source-root assumptions in tests: the Count static audit used `../../R`, and the grid callr test treated the Rcheck directory as a package source root. Use the existing source-tree discovery helpers for both. The Gaussian binding mock returned its assignment vector rather than the completion record returned by the actual alignment gate; return the legacy `full-v1` record after recording the assertion data. No production behavior changes. Pod reproduction confirms all three original errors; local targeted rerun passes 137 Count + 39 Gaussian + 292 grid assertions.
 
-## 2026-09-18T20:48Z — isolated Synopsis test dependencies
+## 2026-09-18T20:40Z — isolated Synopsis test dependencies
 
 Nested Synopsis fixtures evaluate vector-helper definitions in a namespace-parented environment. Under installed checks that environment cannot resolve the shared source-root helper. Load `helper-source-tree.R` explicitly inside the private vector-binary fixture closure; production namespaces remain untouched. The execution-range test intentionally replaces manifests with a stub and mocks injection stages; add the new grid injection mock and its offset/count assertion alongside the Gaussian/categorical mocks. The corrected safety file passes 18 assertions. Installed-layout verification runs in a separate scratch test directory, preserving the original full-check archive.
+
+## 2026-09-18T20:46Z — client inventory and generated transport documentation
+
+Full client check: 25,476 passes, 45 skips, four inventory/retry-fixture failures; three check warning categories. Add the grid endpoint and Synopsis PREPARE to the shared AST-construction inventory (15 entries), and the already-audited grid endpoint to the explicit retry test. Targeted client audit passes 99 assertions. Regenerate only the two stale transport Rd files from their existing roxygen/function definitions. Two pre-existing warnings concern MI Unicode printing and duplicate ordinal documentation; a three-line semantics-preserving patch is prepared, awaiting the user because other-family edits were prohibited. No package version changes.

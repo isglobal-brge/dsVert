@@ -609,6 +609,10 @@ Full Go suite and server R CMD check started from the frozen archive. Server sta
 
 `R CMD check --no-manual dsVertClient_1.2.1.tar.gz` is running on the pod as PID739243. Corrected the reproduction runner to derive archive versions from DESCRIPTION; the client version 1.2.1 was already present and is unchanged. Server testthat and Go full suite continue on their original frozen archive.
 
-## 2026-09-18T20:39Z — three full-check fixture failures reproduced and corrected
+## 2026-09-18T20:36Z — three full-check fixture failures reproduced and corrected
 
 `check-fixtures-targeted.log`: **468 assertions pass** after source-path and alignment-mock corrections. The original pod check errors are reproduced in `check-failures-targeted.log` (to collect after final checks). An additional Synopsis artifact failure is being isolated: its standalone local test passes 57 assertions. Production validation continues with 13 matching durable batches on each n2000 authority; no final DP vector yet.
+
+## 2026-09-18T20:46Z — client full-suite result and targeted corrections
+
+Client R CMD check completed: **25,476 PASS / 4 FAIL / 45 SKIP**, testthat warnings 0; package check has 1 ERROR and 3 WARNING categories. Failures are missing shared inventory/explicit retry entries for the new route; corrected targeted audit passes **99 assertions** (`dsVertClient/inst/cross-grid-v2/check-inventories-targeted.log`). Two stale transport Rd files are regenerated. Two pre-existing packaging warnings await a narrowly scoped user decision; patch is prepared. Full server and Go suites remain running.

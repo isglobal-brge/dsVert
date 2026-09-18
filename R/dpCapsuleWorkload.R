@@ -1316,6 +1316,10 @@
   }
   version <- .dsvert_dp_capsule_id(raw$version, "Gaussian version")
   dataset <- .dsvert_dp_capsule_id(raw$dataset, "Gaussian dataset")
+  if (identical(version, "negative_binomial_grid_v1")) {
+    stop("The negative-binomial grid v1 is sealed and defective; use v2.",
+         call. = FALSE)
+  }
   if (identical(version, "ordinal_grid_v1")) {
     expected <- c(
       "version", "dataset", "outcome", "predictors", "intercept",
@@ -1741,7 +1745,7 @@
         candidate_grid = unname(candidate_grid),
         lambda_grid = unname(lambda_grid)) else list()))
   }
-  if (identical(version, "negative_binomial_grid_v1")) {
+  if (identical(version, "negative_binomial_grid_v2")) {
     expected <- c(
       "version", "dataset", "outcome", "predictors", "intercept",
       "max_outcome", "beta_grid", "theta_grid")
@@ -3961,9 +3965,13 @@
         lapply(spec$beta_grid, function(beta) {
           eta_bound <- sum(abs(beta))
           y <- 0:spec$max_outcome
+          # The corrected NB2 loss is convex in eta. Enumerating every
+          # admitted count at +/- sum(abs(beta)) bounds every normalized row.
+          # y*softplus(log(theta)-eta) includes y*log(theta+exp(eta))-y*eta.
           loss <- outer(y, c(-eta_bound, eta_bound), function(count, eta) {
             lgamma(theta) + lgamma(count + 1) - lgamma(count + theta) +
-              theta * log1pexp(eta - log(theta)) - count * eta
+              theta * log1pexp(eta - log(theta)) +
+              count * log1pexp(log(theta) - eta)
           })
           list(beta = as.numeric(beta), theta = as.numeric(theta),
                loss_bound = max(0, max(loss)))
@@ -3996,7 +4004,7 @@
       })
       names(predictor_bounds) <- spec$predictors
       gaussian_artifacts[[analysis_id]] <- list(
-        version = "bounded-negative-binomial-likelihood-grid-v1",
+        version = "bounded-negative-binomial-likelihood-grid-v2",
         spec_version = spec$version, analysis_id = analysis_id,
         dataset = spec$dataset, owner_peer = owners[[1L]],
         outcome = list(column = outcome$column, lower = outcome$lower,
@@ -4012,7 +4020,7 @@
         candidate_loss_bounds = as.list(unname(loss_bounds)),
         numeric_grid_bits = grid_bits, coordinate_count = candidate_count,
         coordinate_order = paste(
-          "theta_grid_then_beta_grid_negative_binomial_log_likelihood_v1",
+          "theta_grid_then_beta_grid_negative_binomial_log_likelihood_v2",
           sep = "_"),
         source_coordinate_scaling =
           "all_coordinates_already_on_common_numeric_lattice_v1",
@@ -4024,7 +4032,7 @@
           "nonfinite_predictor_excludes_patient_v1", sep = "_"),
         contribution_domain = paste(
           "one_bounded_patient_negative_binomial_log_likelihood",
-          "contribution_for_every_signed_candidate_v1", sep = "_"),
+          "contribution_for_every_signed_candidate_v2", sep = "_"),
         statistic_maximum = as.list(statistic_maximum),
         source_raw_l1_sensitivity = raw_l1,
         source_raw_l2_sensitivity = raw_l2,
@@ -4033,10 +4041,10 @@
         adjacency = global_policy$adjacency,
         adjacency_sensitivity_basis = paste(
           "one_patient_changes_one_candidate_loss_by_at_most_its_signed",
-          "negative_binomial_loss_bound_v1", sep = "_"),
+          "negative_binomial_loss_bound_v2", sep = "_"),
         estimation_scope = paste(
           "bounded_negative_binomial_fixed_covariates_finite_signed",
-          "beta_theta_grid_v1", sep = "_"),
+          "beta_theta_grid_v2", sep = "_"),
         implementation_state = "same_owner_materialized",
         cross_owner_state = "reserved_not_materialized")
       gaussian_coordinate_count <- .dsvert_dp_capsule_coordinate_add(

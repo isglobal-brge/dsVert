@@ -1187,7 +1187,8 @@
     eta <- as.numeric(design_matrix %*% candidate$beta)
     value <- lgamma(candidate$theta) + lgamma(outcome + 1) -
       lgamma(outcome + candidate$theta) +
-      candidate$theta * log1pexp(eta - log(candidate$theta)) - outcome * eta
+      candidate$theta * log1pexp(eta - log(candidate$theta)) +
+      outcome * log1pexp(log(candidate$theta) - eta)
     sum(as.numeric(round(pmax(0, value) * scale)))
   }, numeric(1L))
   if (anyNA(statistics) || any(!is.finite(statistics)) ||
@@ -1519,6 +1520,30 @@
   }
   logical_snapshot <- .dsvert_joint_dp_logical_snapshot(
     manifest$logical_snapshot)
+  for (artifact in manifest$workload$families$gaussian_models$artifacts) {
+    if (grepl("^bounded-negative-binomial-likelihood-grid-", artifact$version) ||
+        identical(artifact$spec_version, "negative_binomial_grid_v1") ||
+        identical(artifact$spec_version, "negative_binomial_grid_v2")) {
+      expected <- list(
+        version = "bounded-negative-binomial-likelihood-grid-v2",
+        spec_version = "negative_binomial_grid_v2",
+        coordinate_order =
+          "theta_grid_then_beta_grid_negative_binomial_log_likelihood_v2",
+        contribution_domain = paste(
+          "one_bounded_patient_negative_binomial_log_likelihood",
+          "contribution_for_every_signed_candidate_v2", sep = "_"),
+        adjacency_sensitivity_basis = paste(
+          "one_patient_changes_one_candidate_loss_by_at_most_its_signed",
+          "negative_binomial_loss_bound_v2", sep = "_"),
+        estimation_scope = paste(
+          "bounded_negative_binomial_fixed_covariates_finite_signed",
+          "beta_theta_grid_v2", sep = "_"))
+      if (!identical(artifact[names(expected)], expected)) {
+        stop("The signed negative-binomial grid semantics are invalid; v2 is required.",
+             call. = FALSE)
+      }
+    }
+  }
   identity <- if (.dsvert_dp_synopsis_policy_is_v1(policy)) {
     .dsvert_dp_synopsis_capsule_identity_validate_v1(
       policy, logical_snapshot, manifest$capsule_identity)
@@ -2186,7 +2211,7 @@
     }
     if (identical(
           artifact$version,
-          "bounded-negative-binomial-likelihood-grid-v1")) {
+          "bounded-negative-binomial-likelihood-grid-v2")) {
       outcome <- bounded_for(block$dataset, artifact$outcome$column)
       predictors <- lapply(artifact$predictor_order, function(variable) {
         bounded_for(block$dataset, artifact$predictors[[variable]]$column)

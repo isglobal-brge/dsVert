@@ -1415,30 +1415,33 @@ func exactGCCircuitSource(spec exactGCCircuitSpec) string {
 
 	switch spec.Operation {
 	case exactGCCompareSigned:
+		// Branch on a scalar, not an array assignment: the compiler otherwise
+		// retains whole-array branch states for every padded PSI coordinate.
 		thresholdResidue := new(big.Int).Set(spec.Threshold)
 		if thresholdResidue.Sign() < 0 {
 			thresholdResidue.Add(thresholdResidue, exactGCModulus(spec.RingBits))
 		}
-		less := fmt.Sprintf("((x[i] & %s(0x%s)) != 0) || x[i] < %s(%s)",
+		less := fmt.Sprintf("((x & %s(0x%s)) != 0) || x < %s(%s)",
 			uintType, sign, uintType, thresholdResidue.String())
 		if spec.Threshold.Sign() < 0 {
-			less = fmt.Sprintf("((x[i] & %s(0x%s)) != 0) && x[i] < %s(%s)",
+			less = fmt.Sprintf("((x & %s(0x%s)) != 0) && x < %s(%s)",
 				uintType, sign, uintType, thresholdResidue.String())
 		}
 		return fmt.Sprintf(`package main
 func main(g [%d]%s, e [%d]%s) [%d]%s {
 	var out [%d]%s
-	var x [%d]%s
+	var x, bit %s
 	for i := 0; i < %d; i++ {
-		x[i] = (g[i] + e[i]) & %s(0x%s)
-		out[i] = (%s(0) - g[%d+i]) & %s(0x%s)
-		if %s { out[i] = (%s(1) - g[%d+i]) & %s(0x%s) }
+		x = (g[i] + e[i]) & %s(0x%s)
+		bit = %s(0)
+		if %s { bit = %s(1) }
+		out[i] = (bit - g[%d+i]) & %s(0x%s)
 	}
 	return out
 }
-`, 2*n, uintType, n, uintType, n, uintType, n, uintType, n, uintType, n,
+`, 2*n, uintType, n, uintType, n, uintType, n, uintType, uintType, n,
 			uintType, mask,
-			uintType, n, uintType, mask, less, uintType, n, uintType, mask)
+			uintType, less, uintType, n, uintType, mask)
 
 	case exactGCTruncateFloor:
 		return exactGCTruncateCircuitSource(spec)

@@ -9,6 +9,8 @@
 .DSVERT_PSI_PADDED_SELECTION_MAGIC <- charToRaw("DVPSEL05")
 .DSVERT_PSI_PADDED_AND_PRODUCER <- "psi.padded.membership-sum.v5"
 .DSVERT_PSI_PADDED_AND_PURPOSE <- "psi-padded-and-v5"
+# Three uint64 input arrays must fit the unchanged 512 Ki-bit worker cap.
+.DSVERT_PSI_PADDED_AND_CHUNK_CAPACITY <- 2048L
 .PSI_PADDED_ATTESTATION_ATTRIBUTE <- "dsvert.psi.padded.attestation"
 .PSI_PADDED_FACTOR_REGISTRY_ATTRIBUTE <- "dsvert.psi.padded.factor-registry"
 .DSVERT_PSI_PADDED_FACTOR_REGISTRY_VERSION <-
@@ -1824,7 +1826,7 @@ psiPaddedMembershipAcceptDS <- function(
 
 .psi_padded_global_membership <- function(state) {
   contract <- state$contract
-  chunk_count <- as.integer(ceiling(contract$capacity / 4096L))
+  chunk_count <- as.integer(ceiling(contract$capacity / .DSVERT_PSI_PADDED_AND_CHUNK_CAPACITY))
   chunks <- state$global_membership_chunks
   if (!is.list(chunks) || !all(as.character(seq_len(chunk_count)) %in%
                                names(chunks))) {
@@ -2474,7 +2476,7 @@ psiPaddedMembershipAcceptDS <- function(
 .psi_padded_purge_exact_material <- function(ss, contract) {
   if (!is.environment(ss) || !is.list(contract)) return(invisible(FALSE))
   capacity <- .psi_padded_validate_capacity(contract$capacity)
-  chunk_count <- as.integer(ceiling(capacity / 4096L))
+  chunk_count <- as.integer(ceiling(capacity / .DSVERT_PSI_PADDED_AND_CHUNK_CAPACITY))
   for (chunk_index in seq_len(chunk_count)) {
     chunk <- .psi_padded_and_chunk_contract(contract, chunk_index)
     if (is.environment(ss$.exact_gc_ops) &&
@@ -2772,11 +2774,11 @@ psiPaddedAttestationDS <- function(data_name, session_id = "") {
     stop("Invalid padded PSI AND contract.", call. = FALSE)
   }
   capacity <- .psi_padded_validate_capacity(contract$capacity)
-  chunk_count <- as.integer(ceiling(capacity / 4096L))
+  chunk_count <- as.integer(ceiling(capacity / .DSVERT_PSI_PADDED_AND_CHUNK_CAPACITY))
   chunk_index <- .psi_padded_integer(
     chunk_index, "AND chunk index", 1L, chunk_count)
-  offset <- as.integer((chunk_index - 1L) * 4096L)
-  vector_len <- as.integer(min(4096L, capacity - offset))
+  offset <- as.integer((chunk_index - 1L) * .DSVERT_PSI_PADDED_AND_CHUNK_CAPACITY)
+  vector_len <- as.integer(min(.DSVERT_PSI_PADDED_AND_CHUNK_CAPACITY, capacity - offset))
   digest_input <- paste0(
     "dsvert-psi-padded-and-operation-v5|", contract$contract_hash, "|",
     sprintf("%08d", chunk_index), "|", sprintf("%08d", chunk_count))

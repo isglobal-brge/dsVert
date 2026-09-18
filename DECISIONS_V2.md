@@ -268,3 +268,15 @@ Restarted the matrix sequentially by family under `GOMEMLIMIT=6GiB`, `GOGC=25`, 
 ## 2026-09-18T17:54Z — preserve completed benchmark evidence
 
 A benchmark process interruption does not erase earlier completed family measurements. Resume only missing family/configuration pairs; retain original logs and label interrupted processes. FULL_MEASUREMENT is emitted only after integer and joint-noise equality assertions. The report additionally rejects explicit failed tests and verifies the full-envelope byte/time ceilings. Resumed measurements explicitly record different Go GC resource settings; the two original full-envelope results are unchanged.
+
+## 2026-09-18T17:59Z — required shared PSI compiler infrastructure
+
+The serialized n2000 PSI comparison still exhausted pod memory (cgroup fail count rose from 11 to 14); both peer workers exceeded roughly 19–20 GB RSS before failing closed. The existing generic compare source branches on assignments to an entire output array inside its loop. Changed only its source form to a scalar conditional followed by one array assignment. The signed comparison, masking, wire types, threshold, output shape, operation identity, PSI contract/chunk sizes and sealed route admission are unchanged. This shared infrastructure change is necessary to exercise the requested existing PSI path at capacity; it is not a new arithmetic profile or relaxed gate.
+
+Targeted tests compare the exact old array-branch source with the new source for nine width/threshold combinations and 20 random masked vectors each, plus existing independent big-integer and two-peer protocol tests. All pass in 0.673 s. Public capacity compilation at 2048/4096 is being measured before deployment; no capacity success is asserted yet.
+
+## 2026-09-18T18:04Z — PSI chunk size obeys the existing worker cap
+
+The scalar source compiles n2048 in 52.009 s (3,002,371 gates) on the pod. The former n4096 PSI chunk is rejected by the unchanged 524,288 typed-input-bit cap: three uint64 arrays need 786,432 bits. Lowered only the public PSI AND chunk capacity to 2048 on server and client. Chunk operation IDs already bind index and count; membership reconstruction and cleanup use the same constant. Small existing capacities (<=2048) retain their schedule; larger buckets use more chunks with identical membership semantics. No cryptographic/worker cap, privacy parameter, signed source binding or cross-grid ABI is relaxed. This shared PSI correction is required by the K3 full-envelope wiring gate and available to other family lanes.
+
+Targeted schedule tests: server 6 assertions and client 19 assertions, zero failures/errors. Server covers the full 16384 bucket without gaps/overlaps and distinct chunk IDs; client exercises 64 and 8192 buckets. The four packaged binaries were rebuilt after the scalar compiler change.

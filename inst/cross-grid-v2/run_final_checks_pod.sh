@@ -2,10 +2,13 @@
 set -eu
 lane=/workspace/dsvert/crossowner-v2
 check=/var/lib/dsvert-crossowner-v2-checks
+while ! grep -q MATRIX_POD_DONE "$lane/logs/remaining-matrix-run.log"; do sleep 30; done
 cd "$check"
 mkdir -p library
 export R_LIBS_USER="$check/library:${R_LIBS_USER:-}"
 export GOMAXPROCS=2
+export GOMEMLIMIT=6GiB
+export GOGC=25
 export NOT_CRAN=true
 Rscript -e 'p <- c("DSMolgenisArmadillo", "DSOpal", "opalr", "pkgdown"); missing <- p[!vapply(p, requireNamespace, logical(1), quietly=TRUE)]; if (length(missing)) install.packages(missing, repos="https://cloud.r-project.org", Ncpus=2)' > "$lane/logs/check-dependencies.log" 2>&1
 (cd dsVert/inst/dsvert-mpc && go test ./... -count=1 -timeout=0 > "$lane/logs/full-go-tests.log" 2>&1) &

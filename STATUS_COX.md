@@ -212,3 +212,20 @@ and the release helper-resolution error. The related baseline run hit testthat's
 it is evidence of pre-existing failures, not a claimed clean or complete suite.
 The full current server check remains running. Full paired baseline log is
 retained in inst/cross-cox-v1/envelope_v2/synopsis-installed-baseline-related.log.
+
+### Fifth envelope and completed server check
+
+4000x32 completes with oracle equality for every coordinate:
+**33,897,588,865 bytes; 4061.319 s (67.69 min)** including 69.612 s compilation.
+Five requested points are now complete; 4000x50 and the 10000-row probes remain.
+
+Full server R CMD check has completed with **1 ERROR, 2 WARNINGs, 1 NOTE**:
+test suite **FAIL 17 / WARN 0 / SKIP 30 / PASS 13279**. No Cox test failed.
+Preserved the complete check and test failure logs in envelope_v2. The already
+reproduced baseline synopsis failures account for twelve assertions/errors.
+Remaining groups are exact-GC multiplication stage availability, relay surface
+inventory, padded PSI descriptor version, PSI descriptor field inventory, and
+an absent formal-finalizer constant. Their installed-baseline comparisons are
+running; do not yet classify those five failures as independently reproduced.
+The full check preceded the small admission addition; both updated Cox contract
+suites and the Go admission test passed separately after that change.

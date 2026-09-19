@@ -227,3 +227,21 @@ test_that("NB2 default envelope approximation is below one percent of DP noise s
     expect_lt(accumulated_error, 0.01 * spec$natural_l1_sensitivity / epsilon)
   }
 })
+
+
+test_that("NB signed profiles enter Step-2 admission at K2/K3/K5", {
+  for (k in c(2L, 3L, 5L)) {
+    f <- .nb_grid_cross_fixture("dsVert", peer_count = k)
+    admitted <- .dsvert_dp_glm_grid_profile_admit(f$contract, f$policy, f$schema)
+    expect_true(.dsvert_dp_glm_grid_cross_equal(admitted, f$contract))
+    expect_length(admitted$spec$participating_peers, k)
+    expect_length(admitted$spec$computation_peers, 2L)
+    projected <- .dsvert_dp_glm_grid_cross_workload_artifact(admitted)
+    expect_equal(projected$theta_grid, admitted$spec$theta_grid)
+    expect_equal(projected$numeric_certificate, admitted$spec$numeric_contract)
+    tampered <- f$contract
+    tampered$spec$theta_grid[[1L]] <- 128
+    expect_error(.dsvert_dp_glm_grid_profile_admit(tampered, f$policy, f$schema),
+      class = "dsvert_dp_public_failure")
+  }
+})

@@ -1,19 +1,22 @@
 # Synthetic fixture only. No protected input, production oracle, or release seam.
 .family_b_identities <- local({
-  cached <- NULL
-  function() {
-    if (is.null(cached)) cached <<- stats::setNames(lapply(1:2, function(i) {
+  cached <- list()
+  function(peer_count = 2L) {
+    key <- as.character(peer_count)
+    if (is.null(cached[[key]])) cached[[key]] <<- stats::setNames(lapply(seq_len(peer_count), function(i) {
       .callMpcTool("derive-identity", list(seed = jsonlite::base64_enc(
         as.raw((seq_len(32) + 61L * i) %% 256L))))
-    }), c("peer_a", "peer_b"))
-    cached
+    }), paste0("peer_", letters[seq_len(peer_count)]))
+    cached[[key]]
   }
 })
 
 .family_b_contract_fixture <- function(family = "multinomial", beta_grid = NULL,
     candidate_grid = NULL, capacity = 2, bits = 18,
-    levels = c("a", "b", "c"), adjacency = "add_remove_patient") {
-  identities <- .family_b_identities()
+    levels = c("a", "b", "c"), adjacency = "add_remove_patient", peer_count = 2L) {
+  identities <- .family_b_identities(peer_count)
+  peers <- names(identities)
+  predictors <- c("peer_a$x", "peer_b$z", if (peer_count > 2L) paste0(peers[3:peer_count], "$x", 3:peer_count) else character())
   pins <- vapply(identities, function(identity) {
     .dsvert_relay_normalize_identity_pk(identity$identity_pk)
   }, character(1L))
@@ -31,6 +34,11 @@
           x = list(kind = "numeric", owner_peer = "peer_a", lower = 0, upper = 1),
           z = list(kind = "numeric", owner_peer = "peer_b", lower = 0, upper = 1),
           y = list(kind = "categorical", owner_peer = "peer_a", levels = sort(levels))))))
+  schema$datasets$cohort$patient_keys <- stats::setNames(as.list(rep("id", peer_count)), peers)
+  if (peer_count > 2L) for (i in 3:peer_count) {
+    schema$datasets$cohort$columns[[paste0("x", i)]] <- list(
+      kind = "numeric", owner_peer = peers[[i]], lower = 0, upper = 1)
+  }
   schema$signatures <- lapply(identities, function(identity) {
     .dsvert_relay_sign_message(.dsvert_dp_capsule_schema_message(schema), identity$identity_sk)
   })
@@ -38,7 +46,7 @@
     .dsvert_relay_verify_message)
   raw <- list(version = paste0(family, "_grid_cross_v1"), analysis_id = "family-b-grid",
     dataset = "cohort", outcome = "peer_a$y",
-    predictor_order = c("peer_a$x", "peer_b$z"), alignment = list(
+    predictor_order = predictors, alignment = list(
       version = "existing_prealigned_logical_dataset_v1",
       method = "pinned_psi_ordered_manifest_v1", alignment_group = "aligned",
       public_alignment_contract_sha256 = .dsvert_joint_dp_hash(list(
@@ -49,6 +57,9 @@
     raw$reference <- levels[1L]
     if (is.null(beta_grid)) beta_grid <- list(rep(0, 3L * (length(levels) - 1L)),
       rep(c(0, 0.5, -0.5), length(levels) - 1L))
+    if (peer_count > 2L) beta_grid <- lapply(beta_grid, function(beta)
+      unlist(lapply(split(beta, rep(seq_len(length(levels) - 1L), each = 3L)),
+        function(column) c(column, rep(0, peer_count - 2L))), use.names = FALSE))
     beta_grid <- lapply(beta_grid, as.list)
     raw$beta_grid <- beta_grid[order(vapply(beta_grid,
       .dsvert_dp_canonical_json, character(1L)), method = "radix")]
@@ -58,6 +69,7 @@
       list(beta = c(0, 0, 0), thresholds = seq(-1, 1, length.out = length(levels) - 1L)),
       list(beta = c(0, 0.5, -0.5), thresholds = seq(-1, 1, length.out = length(levels) - 1L)))
     candidate_grid <- lapply(candidate_grid, function(candidate) {
+      if (peer_count > 2L) candidate$beta <- c(candidate$beta, rep(0, peer_count - 2L))
       list(beta = as.list(candidate$beta), thresholds = as.list(candidate$thresholds))
     })
     raw$candidate_grid <- candidate_grid[order(vapply(candidate_grid,

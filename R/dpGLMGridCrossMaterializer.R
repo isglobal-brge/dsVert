@@ -14,9 +14,11 @@
   artifact$transcript$operation <- NULL
   descriptors <- lapply(spec$predictors, function(x)
     x[c("column", "dataset", "owner_peer", "lower", "upper")])
+  categorical <- spec$family %in% c("multinomial", "ordinal")
   extra <- list(
     dataset = spec$dataset, family = spec$family,
-    outcome = spec$outcome[c("column", "dataset", "owner_peer", "lower", "upper")],
+    outcome = spec$outcome[c("column", "dataset", "owner_peer",
+      if (categorical) "levels" else c("lower", "upper"))],
     predictors = descriptors,
     predictor_order = unlist(spec$predictor_order, use.names = FALSE),
     input_variable_order = unlist(spec$input_variable_order, use.names = FALSE),
@@ -35,6 +37,11 @@
     adjacency = spec$adjacency,
     estimation_scope = "certified_bounded_cross_owner_signed_grid_only_v2",
     signed_contract = .dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(contract)))
+  if (identical(spec$family, "nb")) extra$theta_grid <- spec$theta_grid
+  if (categorical) {
+    extra$class_count <- spec$class_count
+    extra$class_order <- spec$class_order
+  }
   c(artifact, extra)
 }
 
@@ -44,6 +51,11 @@
   for (variable in artifact$input_variable_order) {
     outcome <- identical(variable, spec$outcome$reference)
     descriptor <- if (outcome) artifact$outcome else artifact$predictors[[variable]]
+    categorical_outcome <- outcome && spec$family %in% c("multinomial", "ordinal")
+    if (categorical_outcome) {
+      descriptor$lower <- 0
+      descriptor$upper <- spec$max_outcome
+    }
     for (kind in c("value", "validity")) {
       size <- spec$observation_capacity
       end <- cursor + size - 1
@@ -59,6 +71,7 @@
         fraction_bits = if (identical(kind, "validity") || outcome) 0L else 50L,
         maximum = if (identical(kind, "validity")) 1 else
           if (outcome) spec$max_outcome else 2^50))
+      if (categorical_outcome) blocks[[key]]$levels <- unlist(spec$class_order, use.names = FALSE)
       cursor <- end + 1
     }
   }
@@ -66,6 +79,12 @@
 }
 
 .dsvert_dp_glm_grid_cross_source_values <- function(input, block) {
+  if (isTRUE(block$outcome) && !is.null(block$levels)) {
+    valid <- !is.na(input$cell)
+    result <- if (identical(block$kind, "validity")) as.numeric(valid) else as.numeric(input$cell) - 1
+    result[!valid] <- 0
+    return(result)
+  }
   valid <- input$valid
   if (isTRUE(block$outcome)) {
     valid <- valid & is.finite(input$unit_values) &

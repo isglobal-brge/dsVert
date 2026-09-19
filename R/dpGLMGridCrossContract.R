@@ -1,10 +1,15 @@
 # Frozen public contract only. No producer, remote method or release route is
 # enabled by these helpers. Existing same-owner specifications are untouched.
 .DSVERT_DP_GLM_GRID_CROSS_SPEC_VERSIONS <- c(
-  binomial = "binomial_grid_cross_v1", poisson = "poisson_grid_cross_v1")
+  binomial = "binomial_grid_cross_v1", poisson = "poisson_grid_cross_v1",
+  nb = "nb_grid_cross_v1", multinomial = "multinomial_grid_cross_v1",
+  ordinal = "ordinal_grid_cross_v1")
 .DSVERT_DP_GLM_GRID_CROSS_ARTIFACT_VERSIONS <- c(
   binomial = "bounded-binomial-cross-likelihood-grid-v1",
-  poisson = "bounded-poisson-cross-likelihood-grid-v1")
+  poisson = "bounded-poisson-cross-likelihood-grid-v1",
+  nb = "bounded-negative-binomial-cross-likelihood-grid-v1",
+  multinomial = "bounded-multinomial-cross-likelihood-grid-v1",
+  ordinal = "bounded-ordinal-cross-likelihood-grid-v1")
 .DSVERT_DP_GLM_GRID_CROSS_CONTRACT_VERSION <-
   "dsvert-cross-owner-grid-signed-contract-v1"
 .DSVERT_DP_GLM_GRID_CROSS_SIGNING_DOMAIN <-

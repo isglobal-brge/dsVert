@@ -92,6 +92,7 @@ func crossGridFullMeasurement(t *testing.T, family string, n, predictors, m, wor
 	base.Predictors = predictors
 	base.Beta = nil
 	base.Caps = nil
+	base.ThetaExponents = nil
 	cap := crossGridKernelCostPlan(t, family).Caps[0]
 	for j := 0; j < m; j++ {
 		// Distinct dyadic signed public candidates with exact L1=4 at either p.
@@ -110,6 +111,9 @@ func crossGridFullMeasurement(t *testing.T, family string, n, predictors, m, wor
 		}
 		base.Beta = append(base.Beta, beta)
 		base.Caps = append(base.Caps, cap)
+		if family == "nb" {
+			base.ThetaExponents = append(base.ThetaExponents, 7)
+		}
 	}
 	type task struct {
 		row, col int
@@ -130,6 +134,9 @@ func crossGridFullMeasurement(t *testing.T, family string, n, predictors, m, wor
 				bp.Rows = rows
 				bp.Beta = base.Beta[col : col+count]
 				bp.Caps = base.Caps[col : col+count]
+				if family == "nb" {
+					bp.ThetaExponents = base.ThetaExponents[col : col+count]
+				}
 				var err error
 				source, sourceErr := crossGridKernelSource(bp)
 				if sourceErr != nil {
@@ -210,6 +217,10 @@ func crossGridFullMeasurement(t *testing.T, family string, n, predictors, m, wor
 	t.Logf("KERNEL_MEASUREMENT family=%s n=%d p=%d grid=%d batches=%d and=%d wire_bytes=%d seconds=%.3f", family, n, predictors, m, completed, gates, wire, kernelSeconds)
 	noiseBytes := crossGridFullNoise(t, base, n, g, e, raw, fmt.Sprintf("synthetic/full/%s/%d/%d/%d", family, n, predictors, m))
 	report := map[string]interface{}{"family": family, "n": n, "p": predictors, "grid": m, "peer_pairs": workers, "batches": completed, "kernel_and": gates, "kernel_and_per_eval": float64(gates) / float64(n*m), "kernel_wire_bytes": wire, "joint_noise_wire_bytes": noiseBytes, "total_wire_bytes": wire + noiseBytes, "compile_seconds": compile.Seconds(), "kernel_seconds": kernelSeconds, "joint_noise_seconds": time.Since(noiseStart).Seconds(), "total_seconds": time.Since(start).Seconds(), "integer_and_dp_oracle_equal": true, "authenticated_server_release": false}
+	if family == "nb" {
+		report["max_outcome"] = base.MaxOutcome
+		report["theta_exponents"] = base.ThetaExponents
+	}
 	encoded, _ := json.Marshal(report)
 	t.Logf("FULL_MEASUREMENT %s", encoded)
 	if n == 10000 && predictors == 10 && m == 50 && (wire+noiseBytes > 110000000000 || time.Since(start) > 4*time.Hour) {
@@ -238,7 +249,7 @@ func TestCrossGridFullMeasurement(t *testing.T) {
 	if n > 10000 || p > 16 || m > 256 || workers > 48 {
 		t.Fatal("invalid public measurement dimensions")
 	}
-	for _, family := range []string{"binomial", "poisson"} {
+	for _, family := range []string{"binomial", "poisson", "nb"} {
 		t.Run(family, func(t *testing.T) { crossGridFullMeasurement(t, family, n, p, m, workers) })
 	}
 }

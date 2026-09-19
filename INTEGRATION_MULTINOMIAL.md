@@ -99,3 +99,10 @@ must add public exports together with accurate inventory/maturity entries
 and authenticated release wiring. Do not label the disabled routes promoted
 or modify sealed generation-one inventories in this lane. A new regression
 asserts that both functions exist, are unexported and have release disabled.
+
+
+## Integrator checkpoint — 2026-09-19
+
+The integrator now provides K-source/two-authority admission, signed class-order source encoding, a shared Step-2 batch and an anchored-certificate client adapter. The retained scalar tables use balanced coefficient selection with unchanged arithmetic. The categorical batch oracle passes classes2/3/8 at K2/K3/K5. Multinomial classes5..8 sign 16-row chunks to retain the existing input cap. Real authenticated lifecycle, n2000 topology and measured capacity remain pending.
+
+This checkpoint is not a promotion. Public entry points remain namespace-internal; no full green paired suite or release capacity is claimed.

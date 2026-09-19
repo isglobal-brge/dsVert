@@ -192,7 +192,7 @@ test_that("registration never authorizes release without the fused producer", {
   }
 })
 
-test_that("the two custodians are exactly the two compute and noise authorities", {
+test_that("categorical compute authorities must belong to the signed source owners", {
   for (family in c("multinomial", "ordinal")) {
     fixture <- .family_b_contract_fixture(family)
     policy <- fixture$policy
@@ -203,8 +203,10 @@ test_that("the two custodians are exactly the two compute and noise authorities"
     policy$designated_noise_peers <- c("peer_a", "peer_b")
     schema <- fixture$authenticated
     schema$unsigned$datasets$cohort$columns$x$owner_peer <- "peer_c"
+    schema$unsigned$datasets$cohort$columns$y$owner_peer <- "peer_c"
     raw <- fixture$raw
     raw$predictor_order <- c("peer_b$z", "peer_c$x")
+    raw$outcome <- "peer_c$y"
     expect_error(.dsvert_dp_categorical_grid_cross_spec(raw, policy, schema, family),
       class = "dsvert_dp_public_failure")
   }
@@ -240,4 +242,34 @@ test_that("pure R logarithm is accurate at normalization edges and ties", {
     expect_equal(.cross_double(.family_b_divround(.cross_small(a), .cross_small(b))),
       round(a / b))
   }
+})
+
+
+test_that("categorical profiles enter the shared lifecycle with K source owners", {
+  for (family in c("multinomial", "ordinal")) for (k in c(2L, 3L, 5L)) {
+    fixture <- .family_b_contract_fixture(family, peer_count = k)
+    admitted <- .dsvert_dp_glm_grid_profile_admit(fixture$contract,
+      fixture$policy, fixture$schema)
+    expect_true(.dsvert_dp_glm_grid_cross_equal(admitted, fixture$contract))
+    expect_length(admitted$spec$participating_peers, k)
+    expect_length(admitted$spec$computation_peers, 2L)
+    artifact <- .dsvert_dp_glm_grid_cross_workload_artifact(admitted)
+    blocks <- .dsvert_dp_glm_grid_cross_source_blocks(artifact, 1)$blocks
+    outcome <- Filter(function(block) isTRUE(block$outcome), blocks)
+    expect_equal(outcome[[1]]$levels, unlist(admitted$spec$class_order, use.names = FALSE))
+    expect_equal(.dsvert_dp_glm_grid_cross_source_values(list(cell = c(1, 3, NA, 2)),
+      outcome[[1]]), c(0, 2, 0, 1))
+    expect_equal(.dsvert_dp_glm_grid_cross_source_values(list(cell = c(1, 3, NA, 2)),
+      outcome[[2]]), c(1, 1, 0, 1))
+  }
+})
+
+test_that("eight-class multinomial signs chunks within the existing input cap", {
+  fixture <- .family_b_contract_fixture("multinomial", levels = letters[1:8],
+    capacity = 2000, peer_count = 5L)
+  expect_equal(fixture$contract$artifact$transcript$row_batch_size, 16)
+  changed <- fixture$contract
+  changed$artifact$transcript$row_batch_size <- 32
+  expect_error(.dsvert_dp_glm_grid_profile_admit(changed, fixture$policy, fixture$schema),
+    class = "dsvert_dp_public_failure")
 })

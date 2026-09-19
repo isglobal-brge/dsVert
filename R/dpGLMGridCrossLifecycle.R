@@ -103,7 +103,7 @@
     values = lapply(loaded$values, jsonlite::base64_dec),
     validities = lapply(loaded$validities, jsonlite::base64_dec),
     alignment = alignment, stages = list())
-  binding$batch_count <- ceiling(artifact$observation_capacity / 32) *
+  binding$batch_count <- ceiling(artifact$observation_capacity / artifact$transcript$row_batch_size) *
     ceiling(artifact$coordinate_count / 8)
   previous <- ss$.dp_glm_grid_cross[[analysis_id]]
   if (!is.null(previous)) {
@@ -123,15 +123,27 @@
   artifact <- binding$artifact
   spec <- .dsvert_dp_glm_grid_cross_embedded_contract(artifact)$spec
   columns <- ceiling(artifact$coordinate_count / 8)
-  row <- floor((batch - 1) / columns) * 32 + 1
+  row_batch_size <- artifact$transcript$row_batch_size
+  row <- floor((batch - 1) / columns) * row_batch_size + 1
   col <- ((batch - 1) %% columns) * 8 + 1
-  rows <- min(32, spec$observation_capacity - row + 1)
+  rows <- min(row_batch_size, spec$observation_capacity - row + 1)
   candidates <- seq.int(col, length.out = min(8, length(spec$beta_grid) - col + 1))
   plan <- list(Family = spec$family, Rows = rows,
     Predictors = length(spec$predictor_order), Owners = length(spec$participating_peers),
     A = spec$numeric_contract$profile_envelope, GridBits = spec$numeric_grid_bits,
     MaxOutcome = spec$max_outcome, Beta = spec$beta_encoded[candidates],
     Caps = lapply(spec$sensitivity$candidate_bounds[candidates], `[[`, "per_patient_cap"))
+  if (identical(spec$family, "nb")) {
+    plan$A <- 16
+    plan$ThetaExponents <- as.list(log2(unlist(spec$theta_grid[candidates])))
+  }
+  if (spec$family %in% c("multinomial", "ordinal")) {
+    plan$A <- if (identical(spec$family, "ordinal")) 8 else 16
+    plan$Classes <- spec$class_count
+    if (identical(spec$family, "ordinal")) {
+      plan$Thresholds <- lapply(spec$candidate_encoded[candidates], `[[`, "thresholds")
+    }
+  }
   public <- .callMpcTool("cross-grid-batch-plan-v2", plan)
   if (!is.list(public) || !is.character(public$purpose) ||
       public$input_bits > .DSVERT_EXACT_GC_MAX_CIRCUIT_TYPE_BITS) {

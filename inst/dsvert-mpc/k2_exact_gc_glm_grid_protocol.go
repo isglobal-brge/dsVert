@@ -38,7 +38,7 @@ func crossGridKernelPrepare(p crossGridKernelPlan) (*crossGridKernelPrepared, er
 }
 
 func crossGridKernelPreparedCircuit(p crossGridKernelPlan, c *circuit.Circuit) (*crossGridKernelPrepared, error) {
-	if p.validate() != nil || c == nil || c.Inputs.Size() > exactGCMaxCircuitTypeBits {
+	if p.validate() != nil || c == nil || c.Inputs.Size() > exactGCMaxCircuitTypeBits || c.NumGates > 32000000 {
 		return nil, errCrossGridKernel
 	}
 	// Own the public plan: later caller mutation cannot change packing or context.
@@ -135,7 +135,7 @@ func handleCrossGridBatchPlan() {
 		outputError("cross-grid plan rejected")
 		return
 	}
-	inputBits := 128 * (2*(p.sourceCount()+p.Rows*len(p.Beta)) + len(p.Beta) + 1)
+	inputBits := 128 * (2*(p.sourceCount()+p.Rows*len(p.Beta)*p.predictorGroups()) + len(p.Beta) + 1)
 	if inputBits > exactGCMaxCircuitTypeBits {
 		outputError("cross-grid plan rejected")
 		return

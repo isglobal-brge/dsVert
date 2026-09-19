@@ -135,3 +135,10 @@ budget. The 1% default-envelope regression is not an admission proof for larger
 capacities or smaller grids. Reject an unsupported utility/resource plan before
 source resolution; do not silently increase epsilon, replace the signed profile,
 or treat privacy-valid approximation as automatic utility acceptance.
+
+
+## Integrator checkpoint — 2026-09-19
+
+The integrator now routes NB2 through the Step-2 signed source, durable batch and authenticated DP release path. The final batch uses Ring128 loss assembly with a bounded-width supplement, the pinned q16 softplus/q64 profile, and an unsigned positive multiplier correcting a retained compiler issue. K2/K3/K5 batch oracles pass. A prior 192-bit n4/K3 authenticated smoke passes oracle, sticky replay, induced crash/recovery, cold lifecycle and tamper tests. Final Ring128 n2000 topology and measured capacity remain pending.
+
+This checkpoint is not a promotion. Public entry points remain namespace-internal; no full green paired suite or release capacity is claimed.

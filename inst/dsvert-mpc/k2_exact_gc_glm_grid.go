@@ -30,6 +30,9 @@ type crossGridKernelPlan struct {
 	Rows, Predictors, Owners, A, GridBits, MaxOutcome int
 	Beta                                              [][]string
 	Caps                                              []uint64
+	ThetaExponents                                    []int      `json:",omitempty"`
+	Classes                                           int        `json:",omitempty"`
+	Thresholds                                        [][]string `json:",omitempty"`
 }
 
 type crossGridKernelProfiles struct {
@@ -48,18 +51,51 @@ func crossGridKernelProfilesLoad() (crossGridKernelProfiles, error) {
 }
 
 func (p crossGridKernelPlan) validate() error {
-	if (p.Family != "binomial" && p.Family != "poisson") || p.Rows < 1 || p.Rows > 32 || p.Predictors < 1 || p.Predictors > 16 || p.Owners < 2 || p.Owners > 64 || p.GridBits < 8 || p.GridBits > 18 || p.MaxOutcome < 1 || p.MaxOutcome > 1024 || (p.Family == "binomial" && p.MaxOutcome != 1) || (p.A != 1 && p.A != 2 && p.A != 4 && p.A != 8 && p.A != 16) || len(p.Beta) < 1 || len(p.Beta) > 8 || len(p.Caps) != len(p.Beta) {
+	if (p.Family != "binomial" && p.Family != "poisson" && p.Family != "nb" && p.Family != "multinomial" && p.Family != "ordinal") || p.Rows < 1 || p.Rows > 32 || p.Predictors < 1 || p.Predictors > 16 || p.Owners < 2 || p.Owners > 64 || p.GridBits < 8 || p.GridBits > 18 || p.MaxOutcome < 1 || p.MaxOutcome > 1024 || (p.Family == "binomial" && p.MaxOutcome != 1) || (p.A != 1 && p.A != 2 && p.A != 4 && p.A != 8 && p.A != 16) || len(p.Beta) < 1 || len(p.Beta) > 8 || len(p.Caps) != len(p.Beta) {
+		return errCrossGridKernel
+	}
+	if p.Family == "nb" {
+		if p.A != 16 || len(p.ThetaExponents) != len(p.Beta) {
+			return errCrossGridKernel
+		}
+		for _, exponent := range p.ThetaExponents {
+			if exponent < -3 || exponent > 7 {
+				return errCrossGridKernel
+			}
+		}
+	} else if len(p.ThetaExponents) != 0 {
+		return errCrossGridKernel
+	}
+	if p.Family == "multinomial" || p.Family == "ordinal" {
+		if p.Classes < 2 || p.Classes > 8 || p.MaxOutcome != p.Classes-1 {
+			return errCrossGridKernel
+		}
+		if p.Family == "multinomial" {
+			if p.A != 16 || len(p.Thresholds) != 0 {
+				return errCrossGridKernel
+			}
+		} else {
+			if p.A != 8 || len(p.Thresholds) != len(p.Beta) {
+				return errCrossGridKernel
+			}
+			for j, thresholds := range p.Thresholds {
+				if _, err := exactGCOrdinalThresholds(exactGCFamilyLossSpec{Classes: p.Classes, GridBits: p.GridBits, Cap: int64(p.Caps[j]), Thresholds: thresholds}); err != nil {
+					return errCrossGridKernel
+				}
+			}
+		}
+	} else if p.Classes != 0 || len(p.Thresholds) != 0 {
 		return errCrossGridKernel
 	}
 	bound := new(big.Int).Lsh(big.NewInt(int64(p.A)), 50)
 	// Half-ulp encoding slack is admitted, then projected before the profile.
 	bound.Add(bound, big.NewInt(int64((p.Predictors+2)/2)))
 	for j, row := range p.Beta {
-		if len(row) != p.Predictors+1 || p.Caps[j] == 0 || p.Caps[j] > (1<<53-1)/uint64(p.Rows) {
+		if len(row) != (p.Predictors+1)*p.predictorGroups() || p.Caps[j] == 0 || p.Caps[j] > (1<<53-1)/uint64(p.Rows) {
 			return errCrossGridKernel
 		}
 		sum := new(big.Int)
-		for _, s := range row {
+		for k, s := range row {
 			if len(s) > 18 {
 				return errCrossGridKernel
 			}
@@ -72,8 +108,14 @@ func (p crossGridKernelPlan) validate() error {
 				return errCrossGridKernel
 			}
 			sum.Add(sum, a)
+			if (k+1)%(p.Predictors+1) == 0 {
+				if sum.Cmp(bound) > 0 {
+					return errCrossGridKernel
+				}
+				sum.SetInt64(0)
+			}
 		}
-		if sum.Cmp(bound) > 0 {
+		if p.Family == "ordinal" && row[0] != "0" {
 			return errCrossGridKernel
 		}
 	}
@@ -82,13 +124,20 @@ func (p crossGridKernelPlan) validate() error {
 
 func (p crossGridKernelPlan) sourceCount() int { return p.Rows*2*(p.Predictors+1) + 2*p.Owners }
 
+func (p crossGridKernelPlan) predictorGroups() int {
+	if p.Family == "multinomial" {
+		return p.Classes - 1
+	}
+	return 1
+}
+
 // Derive f100 shares without reconstruction, truncation or floating point.
 // Inputs are copied; the caller retains custody of its original source shares.
 func crossGridKernelPrivateInput(p crossGridKernelPlan, source []*big.Int, garbler bool) ([]*big.Int, error) {
 	if p.validate() != nil || len(source) != p.sourceCount() {
 		return nil, errCrossGridKernel
 	}
-	out := make([]*big.Int, 0, len(source)+p.Rows*len(p.Beta))
+	out := make([]*big.Int, 0, len(source)+p.Rows*len(p.Beta)*p.predictorGroups())
 	for _, v := range source {
 		if v == nil || v.Sign() < 0 || v.BitLen() > 128 {
 			return nil, errCrossGridKernel
@@ -98,16 +147,19 @@ func crossGridKernelPrivateInput(p crossGridKernelPlan, source []*big.Int, garbl
 	modulus := exactGCModulus(128)
 	for r := 0; r < p.Rows; r++ {
 		for _, beta := range p.Beta {
-			dot := new(big.Int)
-			if garbler {
-				dot.SetString(beta[0], 10)
-				dot.Lsh(dot, 50)
+			for group := 0; group < p.predictorGroups(); group++ {
+				coefficients := beta[group*(p.Predictors+1) : (group+1)*(p.Predictors+1)]
+				dot := new(big.Int)
+				if garbler {
+					dot.SetString(coefficients[0], 10)
+					dot.Lsh(dot, 50)
+				}
+				for k := 0; k < p.Predictors; k++ {
+					b, _ := new(big.Int).SetString(coefficients[k+1], 10)
+					dot.Add(dot, new(big.Int).Mul(source[r*2*(p.Predictors+1)+2*k], b))
+				}
+				out = append(out, dot.Mod(dot, modulus))
 			}
-			for k := 0; k < p.Predictors; k++ {
-				b, _ := new(big.Int).SetString(beta[k+1], 10)
-				dot.Add(dot, new(big.Int).Mul(source[r*2*(p.Predictors+1)+2*k], b))
-			}
-			out = append(out, dot.Mod(dot, modulus))
 		}
 	}
 	return out, nil
@@ -131,6 +183,12 @@ func crossGridKernelRoundSource(name string, shift int) string {
 func crossGridKernelSource(p crossGridKernelPlan) (string, error) {
 	if p.validate() != nil {
 		return "", errCrossGridKernel
+	}
+	if p.Family == "nb" {
+		return crossGridNBKernelSource(p)
+	}
+	if p.Family == "multinomial" || p.Family == "ordinal" {
+		return crossGridCategoricalKernelSource(p)
 	}
 	profiles, err := crossGridKernelProfilesLoad()
 	if err != nil {

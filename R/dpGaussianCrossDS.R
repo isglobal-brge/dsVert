@@ -435,10 +435,13 @@
     state$admission
   }
   bounded_for <- function(block) {
-    categorical <- identical(block$input_family, "categorical")
+    categorical <- identical(block$input_family, "categorical") ||
+      (identical(block$input_family, "glm_grid") && !is.null(block$levels))
     key <- paste(
       if (categorical) "categorical" else "numeric",
       block$dataset, block$variable, sep = "::")
+    if (categorical) key <- paste(key,
+      .dsvert_joint_dp_hash(as.list(block$levels)), sep = "::")
     if (!identical(state$bounded_key %||% "", key)) {
       admission <- admission_for(block$dataset)
       state$bounded_key <- key

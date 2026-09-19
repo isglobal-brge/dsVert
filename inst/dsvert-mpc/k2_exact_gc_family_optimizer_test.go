@@ -82,6 +82,9 @@ func TestIntegratorFamilyProfileOptimizer(t *testing.T) {
 			oldAND, oldBytes := count(baseline)
 			newAND, newBytes := count(optimized)
 			t.Logf("baseline_AND=%d optimized_AND=%d baseline_bytes=%d optimized_bytes=%d gate5000=%t", oldAND, newAND, oldBytes, newBytes, newAND <= 5000)
+			if newAND > 5000 {
+				t.Fatal("revised scalar gate exceeded")
+			}
 			values := []uint32{0, 1, 0x7fffffff, 0x80000000, 0xffffffff}
 			for segment := int64(-88); segment <= 88; segment++ {
 				for _, delta := range []int64{-1, 0, 1, 8192, 16383} {

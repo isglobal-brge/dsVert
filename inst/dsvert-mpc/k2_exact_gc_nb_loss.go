@@ -140,14 +140,28 @@ func exactGCNBSoftplusSourceV1(profile exactGCNBProfileV1, name string) string {
 // The pinned MPCL compiler does not sign-extend a negative decimal literal
 // reliably and can panic when it constant-folds zero minus a wide literal.
 func exactGCNBWideLiteralV1(value string) string {
+	return exactGCNBWideLiteralWidthV1(value, 192)
+}
+
+func exactGCNBWideLiteralWidthV1(value string, width uint) string {
 	n, _ := new(big.Int).SetString(value, 10)
 	if n.Sign() < 0 {
-		n.Add(n, new(big.Int).Lsh(big.NewInt(1), 192))
+		n.Add(n, new(big.Int).Lsh(big.NewInt(1), width))
 	}
-	return "int192(" + n.String() + ")"
+	return fmt.Sprintf("int%d(%s)", width, n.String())
 }
 
 func exactGCBuildNBLossV1(data []byte, p exactGCNBLossParametersV1) (exactGCNBLossKernelV1, error) {
+	return exactGCBuildNBLossWidthV1(data, p, 192)
+}
+
+// The pinned certificate bounds eta below 2^69 and the q64 loss below
+// 2^80. Its largest pre-division product is below 2^83. Thus signed128
+// preserves every intermediate and ties-even rounding in the shared batch.
+func exactGCBuildNBLossWidthV1(data []byte, p exactGCNBLossParametersV1, width uint) (exactGCNBLossKernelV1, error) {
+	if width != 128 && width != 192 {
+		return exactGCNBLossKernelV1{}, errors.New("cross-grid NB contract rejected")
+	}
 	if p.ThetaExponent < -3 || p.ThetaExponent > 7 || p.MaxOutcome < 1 || p.MaxOutcome > 1024 || p.OutputGridBits < 8 || p.OutputGridBits > 18 || p.PerPatientCap < 1 || p.PerPatientCap > 9007199254740991 {
 		return exactGCNBLossKernelV1{}, errors.New("cross-grid NB contract rejected")
 	}
@@ -173,11 +187,12 @@ func exactGCBuildNBLossV1(data []byte, p exactGCNBLossParametersV1) (exactGCNBLo
 	softplusDeclarations := exactGCNBSoftplusSourceV1(profile, softplusName)
 	s.WriteString(softplusDeclarations)
 	etaBound := new(big.Int).Add(new(big.Int).Lsh(big.NewInt(16), 64), big.NewInt(270337))
-	fmt.Fprintf(&s, "func %s(eta int192, outcome uint128, rowValid bool) (uint128, bool) {\n etaMagnitude := eta\n if etaMagnitude < int192(0) { etaMagnitude = -etaMagnitude }\n domainValid := etaMagnitude >= int192(0) && etaMagnitude <= int192(%s) && outcome <= uint128(%d)\n if !domainValid { eta = int192(0)\n outcome = uint128(0) }\n z := int32(%sRound48(eta - %s))\n soft := int192(%s(z)) << 48\n constant := int192(0)\n", name, etaBound, p.MaxOutcome, name, exactGCNBWideLiteralV1(theta.LogThetaQ64), softplusName)
+	fmt.Fprintf(&s, "func %s(eta int192, outcome uint128, rowValid bool) (uint128, bool) {\n etaMagnitude := eta\n if etaMagnitude < int192(0) { etaMagnitude = -etaMagnitude }\n domainValid := etaMagnitude >= int192(0) && etaMagnitude <= int192(%s) && outcome <= uint128(%d)\n if !domainValid { eta = int192(0)\n outcome = uint128(0) }\n z := int32(%sRound48(eta - %s))\n soft := int192(%s(z)) << 48\n constant := int192(0)\n", name, etaBound, p.MaxOutcome, name, exactGCNBWideLiteralWidthV1(theta.LogThetaQ64, width), softplusName)
 	for y := 1; y <= p.MaxOutcome; y++ {
-		fmt.Fprintf(&s, " if outcome == uint128(%d) { constant = %s }\n", y, exactGCNBWideLiteralV1(theta.ConstantQ64[y]))
+		fmt.Fprintf(&s, " if outcome == uint128(%d) { constant = %s }\n", y, exactGCNBWideLiteralWidthV1(theta.ConstantQ64[y], width))
 	}
-	fmt.Fprintf(&s, " loss := constant + %sRound3((int192(outcome) * int192(8) + int192(%d)) * soft) - int192(outcome) * eta\n if !rowValid || !domainValid { loss = int192(0) }\n if loss < int192(0) { loss = int192(0) }\n if loss > int192(%s) { loss = int192(%s) }\n return uint128(%sRound%d(loss)), domainValid\n}\n", name, theta.ThetaTimesEight,
+	fmt.Fprintf(&s, " loss := constant + %sRound3(int192(outcome * uint128(8) + uint128(%d)) * soft) - int192(outcome) * eta\n if !rowValid || !domainValid { loss = int192(0) }\n if loss < int192(0) { loss = int192(0) }\n if loss > int192(%s) { loss = int192(%s) }\n return uint128(%sRound%d(loss)), domainValid\n}\n", name, theta.ThetaTimesEight,
 		new(big.Int).Lsh(big.NewInt(p.PerPatientCap), uint(64-p.OutputGridBits)), new(big.Int).Lsh(big.NewInt(p.PerPatientCap), uint(64-p.OutputGridBits)), name, 64-p.OutputGridBits)
-	return exactGCNBLossKernelV1{Declarations: s.String(), Function: name, ProfileSHA256: CrossGridNBProfileSHA256V1, CertificateSHA256: CrossGridNBCertificateSHA256V1, SoftplusDeclarations: softplusDeclarations, SoftplusFunction: softplusName}, nil
+	declarations := strings.ReplaceAll(s.String(), "int192", fmt.Sprintf("int%d", width))
+	return exactGCNBLossKernelV1{Declarations: declarations, Function: name, ProfileSHA256: CrossGridNBProfileSHA256V1, CertificateSHA256: CrossGridNBCertificateSHA256V1, SoftplusDeclarations: softplusDeclarations, SoftplusFunction: softplusName}, nil
 }

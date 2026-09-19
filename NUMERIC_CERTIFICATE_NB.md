@@ -196,3 +196,44 @@ magnitude to the positive bound and explicitly rejects the signed minimum. Compi
 exercise negative log(theta)/constant tables, both domain endpoints, the
 one-integer-outside slack cases and signed-minimum input; no shared compiler
 or same-owner route is changed.
+
+
+## NB2 shared-batch arithmetic supplement — pending promotion
+
+The batch uses the pinned `cross-grid-nb2-softplus-pwq64-q16-domain22-v1`
+profile and certificate. It changes the loss assembly word size from 192 to
+128 bits; it does not change the coefficient table, q64 constants, rounding,
+row caps or sensitivity formula.
+
+For admitted f50 features and coefficients, the pinned certificate bounds the
+complete f100 dot by 2^105 and its rounded q64 eta by 2^69. Both fit signed
+Ring128. The dot is reconstructed only inside the circuit. The rounding shift
+of 36 is applied once to that complete dot, with ties to even.
+
+The profile bounds its q16 result by 2^21, so shifting by 48 gives a q64
+softplus value below 2^69. With y <= 1024 and theta <= 128, the unsigned
+integer multiplier 8*y + 8*theta is at most 9216 < 2^14. Its product with
+softplus is below 2^83. The y*eta product is below 2^79. The pinned certificate
+bounds the assembled q64 loss by 2^80. No admitted intermediate approaches
+the signed Ring128 boundary. A maximum allowed cap below 2^53, shifted by
+64-g with g >= 8, is below 2^109 and also fits.
+
+Negative q64 constants are emitted as width-specific two's-complement
+literals. The positive multiplier is formed in unsigned arithmetic before
+conversion to signed arithmetic: this avoids the retained compiler's
+incorrect result for the former mixed signed expression at theta=4.
+Outcome narrowing occurs only after the full Ring128 source value and its
+validity bit have been checked against the signed public outcome bound.
+Invalid rows are zeroed; the private domain/alignment guard remains in the
+shared-batch protocol.
+
+Completed pod checks include all 11 theta exponents at K2/K3/K5 against the
+independent lane integer oracle, plus boundary/representative eta values,
+outcomes through 1024, invalid domains and g8/g16/g18 width comparisons.
+These are representative circuit tests supporting the bounds above, not an
+exhaustive enumeration of the input domain. See `nb-ring128.log` and the
+pod log `integrator/logs/nb-width-certificate.log`.
+
+The completed authenticated NB smoke used the earlier 192-bit assembly.
+Final Ring128 authenticated validation, measured capacity and the full paired
+suite are still required before promotion.

@@ -259,9 +259,9 @@
     participants <- sort(unique(vapply(descriptors, `[[`, character(1L),
       "owner_peer")), method = "radix")
     compute <- sort(unname(policy$designated_noise_peers), method = "radix")
-    if (length(participants) != 2L || length(compute) != 2L ||
-        !identical(participants, compute) ||
-        anyDuplicated(compute) || !all(compute %in% names(policy$peer_pinset))) {
+    if (length(participants) < 2L || length(compute) != 2L ||
+        anyDuplicated(compute) || !all(compute %in% participants) ||
+        !setequal(participants, names(policy$peer_pinset))) {
       .dsvert_dp_glm_grid_cross_fail()
     }
     alignment <- list(version = "existing_prealigned_logical_dataset_v1",
@@ -351,7 +351,8 @@
       operation = paste0("dp.", spec$family, "-grid-cross.v1"),
       padded_units = spec$observation_capacity, candidate_count = length(spec$beta_grid),
       class_count = spec$class_count,
-      row_batch_size = min(32, spec$observation_capacity),
+      row_batch_size = min(if (identical(spec$family, "multinomial") && spec$class_count >= 5) 16 else 32,
+        spec$observation_capacity),
       candidate_batch_size = min(8, length(spec$beta_grid)),
       traversal = "row_batch_then_candidate_batch_v1",
       output = "two_authority_additive_candidate_sum_shares_only_v1"),

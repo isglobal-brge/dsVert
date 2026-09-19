@@ -69,6 +69,12 @@ func crossGridKernelTestInputs(t testing.TB, p crossGridKernelPlan, x []*big.Int
 
 func crossGridKernelOracle(t testing.TB, p crossGridKernelPlan, x []*big.Int) []*big.Int {
 	t.Helper()
+	if p.Family == "nb" {
+		return crossGridNBKernelOracle(t, p, x)
+	}
+	if p.Family == "multinomial" || p.Family == "ordinal" {
+		return crossGridCategoricalKernelOracle(t, p, x)
+	}
 	profiles, err := crossGridKernelProfilesLoad()
 	if err != nil {
 		t.Fatal(err)
@@ -378,7 +384,11 @@ func crossGridKernelCostPlan(t testing.TB, family string) crossGridKernelPlan {
 		t.Fatal("public profile fixture invalid")
 	}
 	var cap uint64
-	if family == "binomial" {
+	if family == "nb" {
+		// Conservative certified-domain bound: theta<=128, |eta|<=16,
+		// y<=16 give NB2 loss <4096, including the pinned approximation error.
+		cap = 1 << 28
+	} else if family == "binomial" {
 		for _, p := range profiles.Binomial {
 			if p.A == 4 {
 				cap = p.Caps[0].U
@@ -395,6 +405,10 @@ func crossGridKernelCostPlan(t testing.TB, family string) crossGridKernelPlan {
 		t.Fatal("missing certified cap")
 	}
 	p := crossGridKernelTestPlan(family)
+	if family == "nb" {
+		p.A = 16
+		p.MaxOutcome = 16
+	}
 	p.Rows = 32
 	p.Predictors = 10
 	p.Beta = nil
@@ -411,6 +425,9 @@ func crossGridKernelCostPlan(t testing.TB, family string) crossGridKernelPlan {
 		}
 		p.Beta = append(p.Beta, beta)
 		p.Caps = append(p.Caps, cap)
+		if family == "nb" {
+			p.ThetaExponents = append(p.ThetaExponents, 7)
+		}
 	}
 	return p
 }

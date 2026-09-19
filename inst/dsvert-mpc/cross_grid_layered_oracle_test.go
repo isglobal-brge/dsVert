@@ -89,6 +89,12 @@ func TestCrossGridLayeredOracle(t *testing.T) {
 			end := min(candidateStart+8, len(f.Plan.Beta))
 			p.Beta = f.Plan.Beta[candidateStart:end]
 			p.Caps = f.Plan.Caps[candidateStart:end]
+			if p.Family == "nb" {
+				p.ThetaExponents = f.Plan.ThetaExponents[candidateStart:end]
+			}
+			if p.Family == "ordinal" {
+				p.Thresholds = f.Plan.Thresholds[candidateStart:end]
+			}
 			p.Rows = min(32, len(f.Rows)-start)
 			if err := p.validate(); err != nil {
 				t.Fatal(err)

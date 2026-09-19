@@ -76,6 +76,14 @@
 }
 
 .dsvert_dp_glm_grid_profile_admit <- function(contract, policy, schema) {
+  version <- tryCatch(contract$spec$version, error = function(error) NULL)
+  if (identical(version, "nb_grid_cross_v1")) {
+    return(.dsvert_dp_nb_grid_cross_contract_validate(contract, policy, schema))
+  }
+  if (isTRUE(version %in% c("multinomial_grid_cross_v1", "ordinal_grid_cross_v1"))) {
+    family <- sub("_grid_cross_v1$", "", version)
+    return(.dsvert_dp_categorical_grid_cross_contract_validate(contract, policy, schema, family))
+  }
   value <- .dsvert_dp_glm_grid_cross_contract_validate(contract, policy, schema)
   if (!identical(value$spec$numeric_contract$profile_identity,
                  .DSVERT_DP_GLM_GRID_PROFILE_V2)) {

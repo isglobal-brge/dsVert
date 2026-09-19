@@ -1,19 +1,21 @@
 # Synthetic public signed fixtures only. Also sourced by the DSLite test harness.
 .nb_grid_cross_fixture <- function(package = "dsVert", capacity = 8, bits = 18,
                                   beta_grid = list(c(-1, 1, 0), c(0, 1, 0)),
-                                  theta_grid = c(0.125, 2), max_outcome = 3) {
+                                  theta_grid = c(0.125, 2), max_outcome = 3, peer_count = 2L) {
   ns <- asNamespace(package)
   fn <- function(name) get(name, envir = ns, inherits = FALSE)
   server <- identical(package, "dsVert")
   hash <- fn(if (server) ".dsvert_joint_dp_hash" else ".dsvert_dp_capsule_source_hash")
   json <- fn(if (server) ".dsvert_dp_canonical_json" else ".dsvert_joint_dp_client_json")
   prefix <- if (server) ".DSVERT_DP_" else ".DSVERT_CLIENT_DP_"
-  peers <- c("peer_a", "peer_b")
+  peers <- paste0("peer_", letters[seq_len(peer_count)])
+  if (peer_count > 2L) beta_grid <- lapply(beta_grid, function(b) c(b, rep(0, peer_count - 2L)))
+  predictors <- c("peer_a$x", "peer_b$z", if (peer_count > 2L) paste0(peers[3:peer_count], "$x", 3:peer_count) else character())
   keys <- stats::setNames(lapply(peers, function(peer) openssl::ed25519_keygen()), peers)
   b64 <- function(x) sub("=+$", "", chartr("+/", "-_", gsub("[\r\n]", "", jsonlite::base64_enc(x))))
   pins <- vapply(keys, function(key) b64(tail(as.raw(as.list(key)$pubkey), 32L)), character(1L))
   policy <- list(peer_pinset = pins, peer_pinset_sha256 = hash(as.list(pins)),
-                 designated_noise_peers = peers, unit_capacity = capacity,
+                 designated_noise_peers = peers[1:2], unit_capacity = capacity,
                  numeric_grid_bits = bits, adjacency = "add_remove_patient")
   snapshot <- list(logical_snapshot_id = "nb-cohort", version = "v1",
                    alignment_protocol_version = 1)
@@ -25,6 +27,11 @@
         x = list(kind = "numeric", owner_peer = "peer_a", lower = -2, upper = 4),
         z = list(kind = "numeric", owner_peer = "peer_b", lower = 0, upper = 10),
         y = list(kind = "numeric", owner_peer = "peer_a", lower = 0, upper = max_outcome)))))
+  schema$datasets$cohort$patient_keys <- stats::setNames(as.list(rep("id", peer_count)), peers)
+  if (peer_count > 2L) for (i in 3:peer_count) {
+    schema$datasets$cohort$columns[[paste0("x", i)]] <- list(kind = "numeric",
+      owner_peer = peers[[i]], lower = 0, upper = 1)
+  }
   sign_schema <- function(value) {
     value$signatures <- NULL
     message <- if (server) fn(".dsvert_dp_capsule_schema_message")(value) else {
@@ -39,7 +46,7 @@
   } else fn(".dsvert_dp_glm_grid_cross_schema_validate")(
     policy, snapshot, schema, fn(".dsvert_dp_glm_grid_cross_verify"))
   raw <- list(version = "nb_grid_cross_v1", analysis_id = "nb_grid", dataset = "cohort",
-    outcome = "peer_a$y", predictor_order = c("peer_a$x", "peer_b$z"),
+    outcome = "peer_a$y", predictor_order = predictors,
     beta_grid = beta_grid, theta_grid = theta_grid, max_outcome = max_outcome,
     alignment = list(version = "existing_prealigned_logical_dataset_v1",
       method = "pinned_psi_ordered_manifest_v1", alignment_group = "aligned",

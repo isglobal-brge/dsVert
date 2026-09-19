@@ -1,0 +1,141 @@
+dp-synopsis-exact-gc: ......1....SSS....SS
+dp-synopsis-execution: 2S..SSS.....S
+dp-synopsis-release: ...................................3.............
+dp-synopsis-source-contract: ......................45.
+dp-synopsis-source-gate: 67SSSS
+dp-synopsis-source-transport-wrappers: 89aSSS...........
+dp-synopsis-start: .............................................................................b.............
+
+══ Skipped ═════════════════════════════════════════════════════════════════════
+1. pinned exact-GC roles and operation are authority-only for K=2/3/5 ('test-dp-synopsis-exact-gc.R:264:3') - Reason: RED: missing .dsvert_dp_synopsis_execution_exact_gc_roles_v1, .dsvert_dp_synopsis_execution_exact_gc_operation_v1
+
+2. exact-GC normalizes the local Ed25519 public-key encoding ('test-dp-synopsis-exact-gc.R:346:3') - Reason: RED: missing .dsvert_dp_synopsis_execution_exact_gc_roles_v1, .dsvert_dp_synopsis_execution_exact_gc_operation_v1
+
+3. exact-GC accepts canonical list-shaped Synopsis authority roles ('test-dp-synopsis-exact-gc.R:372:3') - Reason: RED: missing .dsvert_dp_synopsis_execution_exact_gc_roles_v1, .dsvert_dp_synopsis_execution_exact_gc_operation_v1
+
+4. exact-GC START initializes after CAS and never writes LOCAL ('test-dp-synopsis-exact-gc.R:424:3') - Reason: RED: missing .dsvert_dp_synopsis_execution_exact_gc_roles_v1, .dsvert_dp_synopsis_execution_exact_gc_operation_v1
+
+5. exact-GC RESULT commits authenticated LOCAL before consume ('test-dp-synopsis-exact-gc.R:602:3') - Reason: RED: missing .dsvert_dp_synopsis_execution_exact_gc_roles_v1, .dsvert_dp_synopsis_execution_exact_gc_operation_v1
+
+6. the dedicated synopsis execution API is explicit and minimal ('test-dp-synopsis-execution.R:65:3') - Reason: RED: dedicated synopsis execution API is absent
+
+7. PREPARE is authority-only for K=2/3/5 and signs a closed receipt ('test-dp-synopsis-execution.R:99:3') - Reason: RED: missing .dsvert_dp_synopsis_execution_context_v1, .dsvert_dp_synopsis_execution_prepare_v1, .dsvert_dp_synopsis_execution_store_path_v1, .dsvert_dp_synopsis_execution_with_store_v1, .dsvert_dp_synopsis_execution_transaction_v1, .dsvert_dp_synopsis_execution_artifact_load_v1, .dsvert_dp_synopsis_execution_start_claim_v1
+
+8. PREPARE reads installed auth but no evidence, source, store or RNG ('test-dp-synopsis-execution.R:150:3') - Reason: RED: missing .dsvert_dp_synopsis_execution_context_v1, .dsvert_dp_synopsis_execution_prepare_v1, .dsvert_dp_synopsis_execution_store_path_v1, .dsvert_dp_synopsis_execution_with_store_v1, .dsvert_dp_synopsis_execution_transaction_v1, .dsvert_dp_synopsis_execution_artifact_load_v1, .dsvert_dp_synopsis_execution_start_claim_v1
+
+9. sticky contract survives sessions and operational replanning ('test-dp-synopsis-execution.R:191:3') - Reason: RED: missing .dsvert_dp_synopsis_execution_context_v1, .dsvert_dp_synopsis_execution_prepare_v1, .dsvert_dp_synopsis_execution_store_path_v1, .dsvert_dp_synopsis_execution_with_store_v1, .dsvert_dp_synopsis_execution_transaction_v1, .dsvert_dp_synopsis_execution_artifact_load_v1, .dsvert_dp_synopsis_execution_start_claim_v1
+
+10. the dedicated START claim is first-win and attempt-bound ('test-dp-synopsis-execution.R:287:3') - Reason: RED: missing .dsvert_dp_synopsis_execution_context_v1, .dsvert_dp_synopsis_execution_prepare_v1, .dsvert_dp_synopsis_execution_store_path_v1, .dsvert_dp_synopsis_execution_with_store_v1, .dsvert_dp_synopsis_execution_transaction_v1, .dsvert_dp_synopsis_execution_artifact_load_v1, .dsvert_dp_synopsis_execution_start_claim_v1
+
+11. data-free context validates cache and exact K before source work ('test-dp-synopsis-source-gate.R:83:3') - Reason: RED: source context/gate missing
+
+12. all peers validate context but only sources receive callbacks ('test-dp-synopsis-source-gate.R:109:3') - Reason: RED: source context/gate missing
+
+13. gate validates unsigned evidence from the same fresh producer ('test-dp-synopsis-source-gate.R:144:3') - Reason: RED: source context/gate missing
+
+14. A to B source mismatch fails before durable state or RNG ('test-dp-synopsis-source-gate.R:199:3') - Reason: RED: source context/gate missing
+
+15. ticket derives its namespace from context before durable work ('test-dp-synopsis-source-transport-wrappers.R:66:3') - Reason: RED: wrappers missing
+
+16. prepare installs only gate-owned producer callbacks ('test-dp-synopsis-source-transport-wrappers.R:112:3') - Reason: RED: wrappers missing
+
+17. chunk rejects a foreign transfer id before opening its store ('test-dp-synopsis-source-transport-wrappers.R:164:3') - Reason: RED: wrappers missing
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Failure ('test-dp-synopsis-exact-gc.R:200:3'): synopsis exact-GC adds only
+Expected `all(present)` to be TRUE.
+Differences:
+`actual`:   FALSE
+`expected`: TRUE 
+
+missing .dsvert_dp_synopsis_execution_exact_gc_roles_v1, .dsvert_dp_synopsis_execution_exact_gc_operation_v1
+
+── 2. Failure ('test-dp-synopsis-execution.R:63:3'): the dedicated synopsis exec
+Expected `all(present)` to be TRUE.
+Differences:
+`actual`:   FALSE
+`expected`: TRUE 
+
+missing .dsvert_dp_synopsis_execution_context_v1, .dsvert_dp_synopsis_execution_prepare_v1, .dsvert_dp_synopsis_execution_store_path_v1, .dsvert_dp_synopsis_execution_with_store_v1, .dsvert_dp_synopsis_execution_transaction_v1, .dsvert_dp_synopsis_execution_artifact_load_v1, .dsvert_dp_synopsis_execution_start_claim_v1
+
+── 3. Error ('test-dp-synopsis-release.R:273:3'): RELEASE runs convolution/Gauss
+Error in `.dsvert_test_source_roots()`: could not find function ".dsvert_test_source_roots"
+Backtrace:
+     ▆
+  1. └─dsVert (local) .synopsis_release_setup(gaussian = TRUE) at test-dp-synopsis-release.R:273:3
+  2.   └─start$.synopsis_start_convolution_fixture(...) at test-dp-synopsis-release.R:103:3
+  3.     └─base::lapply(peers, input$mint, planner = planner)
+  4.       └─dsVert (local) FUN(X[[i]], ...)
+  5.         └─dsVert:::.dsvert_dp_synopsis_local_compile_v1(...)
+  6.           └─dsVert:::.dsvert_dp_synopsis_artifact_v1(...)
+  7.             └─dsVert:::.dsvert_dp_synopsis_physical_plan_v1(...)
+  8.               └─dsVert:::.dsvert_joint_dp_vector_call_planner(...)
+  9.                 └─dsVert (local) planner(input)
+ 10.                   └─dsVert (local) .vector_capsule_run("joint-dp-vector-gaussian-plan-v2", value)
+ 11.                     ├─base::system2(...)
+ 12.                     │ ├─base::paste(c(env, shQuote(command), args), collapse = " ")
+ 13.                     │ └─base::shQuote(command)
+ 14.                     │   └─base::grepl("'", string)
+ 15.                     │     └─base::is.factor(x)
+ 16.                     └─dsVert (local) .vector_capsule_binary()
+ 17.                       └─base::file.path(.dsvert_test_source_roots(), "inst", "dsvert-mpc")
+
+── 4. Failure ('test-dp-synopsis-source-contract.R:121:3'): durable synopsis sou
+Expected `legacy$contract_hash` to be identical to `legacy_golden`.
+Differences:
+1/1 mismatches
+x[1]: "cad5136408f323b3b3efc218fdd3ece3117eb2c92312a7ef079e4d2bfa5bacfd"
+y[1]: "79b06f468913dd865d185bdeff344eeabfd483c22933fe63739b09d1d78c1104"
+
+── 5. Failure ('test-dp-synopsis-source-contract.R:122:3'): durable synopsis sou
+Expected `digest::digest(legacy$contract_json, algo = "sha256", serialize = FALSE)` to be identical to `legacy_golden`.
+Differences:
+1/1 mismatches
+x[1]: "cad5136408f323b3b3efc218fdd3ece3117eb2c92312a7ef079e4d2bfa5bacfd"
+y[1]: "79b06f468913dd865d185bdeff344eeabfd483c22933fe63739b09d1d78c1104"
+
+── 6. Failure ('test-dp-synopsis-source-gate.R:69:3'): synopsis source context a
+Expected `available[[1L]]` to be TRUE.
+Differences:
+`actual`:   FALSE
+`expected`: TRUE 
+
+missing .dsvert_dp_synopsis_source_transport_context_v1
+
+── 7. Failure ('test-dp-synopsis-source-gate.R:70:3'): synopsis source context a
+Expected `available[[2L]]` to be TRUE.
+Differences:
+`actual`:   FALSE
+`expected`: TRUE 
+
+missing .dsvert_dp_synopsis_source_transport_gate_v1
+
+── 8. Failure ('test-dp-synopsis-source-transport-wrappers.R:43:5'): synopsis so
+Expected `available[[index]]` to be TRUE.
+Differences:
+`actual`:   FALSE
+`expected`: TRUE 
+
+missing .dsvert_dp_synopsis_source_transport_ticket_v1
+
+── 9. Failure ('test-dp-synopsis-source-transport-wrappers.R:43:5'): synopsis so
+Expected `available[[index]]` to be TRUE.
+Differences:
+`actual`:   FALSE
+`expected`: TRUE 
+
+missing .dsvert_dp_synopsis_source_transport_prepare_v1
+
+── 10. Failure ('test-dp-synopsis-source-transport-wrappers.R:43:5'): synopsis s
+Expected `available[[index]]` to be TRUE.
+Differences:
+`actual`:   FALSE
+`expected`: TRUE 
+
+missing .dsvert_dp_synopsis_source_transport_chunk_v1
+  ... and 1 more
+
+
+Maximum number of 10 failures reached, some test results may be missing.
+
+══ DONE ════════════════════════════════════════════════════════════════════════

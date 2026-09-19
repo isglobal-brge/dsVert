@@ -1,0 +1,11 @@
+[
+  {
+    "test": "two DSLite custodians exercise tagged Cox oracle and DP grid selection",
+    "failed": 0,
+    "skipped": false,
+    "error": false,
+    "warning": 0,
+    "passed": 23,
+    "real": 10.415
+  }
+]

@@ -1,0 +1,253 @@
+
+R version 4.6.1 (2026-06-24) -- "Happy Hop"
+Copyright (C) 2026 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> # This file is part of the standard testthat testing infrastructure.
+> # Test-only security overrides live under tests/testthat/setup-security-gate.R
+> # and are never installed with the package.
+> # testthat imports processx before the fork-based concurrency regressions run.
+> # Preserve processx's preceding SIGCHLD handler so base parallel can reap its
+> # children cleanly at interpreter shutdown on Unix.
+> if (.Platform$OS.type != "windows") {
++   Sys.setenv(PROCESSX_NOTIFY_OLD_SIGCHLD = "true")
++ }
+> library(testthat)
+> library(dsVert)
+> 
+> test_check("dsVert")
+Saving _problems/test-dp-synopsis-artifact-412.R
+Saving _problems/test-dp-synopsis-exact-gc-201.R
+Saving _problems/test-dp-synopsis-execution-64.R
+Saving _problems/test-dp-synopsis-release-273.R
+Saving _problems/test-dp-synopsis-source-contract-121.R
+Saving _problems/test-dp-synopsis-source-contract-124.R
+Saving _problems/test-dp-synopsis-source-gate-69.R
+Saving _problems/test-dp-synopsis-source-gate-70.R
+Saving _problems/test-dp-synopsis-source-transport-wrappers-44.R
+Saving _problems/test-dp-synopsis-source-transport-wrappers-44.R
+Saving _problems/test-dp-synopsis-source-transport-wrappers-44.R
+Saving _problems/test-dp-synopsis-start-308.R
+Saving _problems/test-exact-gc-transport-3441.R
+Saving _problems/test-peer-relay-security-contract-93.R
+Saving _problems/test-psi-padded-e2e-485.R
+Saving _problems/test-psi-source-authorization-36.R
+Saving _problems/test-typed-blob-transport-116.R
+[ FAIL 17 | WARN 0 | SKIP 30 | PASS 13279 ]
+
+══ Skipped tests (30) ══════════════════════════════════════════════════════════
+• Go runtime source tree is unavailable (2):
+  'test-mpc-runtime-contract.R:164:3', 'test-mpc-runtime-contract.R:216:3'
+• Go source tree is unavailable for this static audit (1):
+  'test-crypto-backend-denylist.R:6:3'
+• On CRAN (5): 'test-exact-gc-transport.R:523:3',
+  'test-exact-gc-transport.R:590:3', 'test-psi-padded-e2e.R:551:3',
+  'test-psi-padded-e2e.R:644:3', 'test-psi-padded-e2e.R:923:3'
+• RED: dedicated synopsis execution API is absent (1):
+  'test-dp-synopsis-execution.R:65:3'
+• RED: missing .dsvert_dp_synopsis_execution_context_v1,
+  .dsvert_dp_synopsis_execution_prepare_v1,
+  .dsvert_dp_synopsis_execution_store_path_v1,
+  .dsvert_dp_synopsis_execution_with_store_v1,
+  .dsvert_dp_synopsis_execution_transaction_v1,
+  .dsvert_dp_synopsis_execution_artifact_load_v1,
+  .dsvert_dp_synopsis_execution_start_claim_v1 (4):
+  'test-dp-synopsis-execution.R:99:3', 'test-dp-synopsis-execution.R:150:3',
+  'test-dp-synopsis-execution.R:191:3', 'test-dp-synopsis-execution.R:287:3'
+• RED: missing .dsvert_dp_synopsis_execution_exact_gc_roles_v1,
+  .dsvert_dp_synopsis_execution_exact_gc_operation_v1 (5):
+  'test-dp-synopsis-exact-gc.R:264:3', 'test-dp-synopsis-exact-gc.R:346:3',
+  'test-dp-synopsis-exact-gc.R:372:3', 'test-dp-synopsis-exact-gc.R:424:3',
+  'test-dp-synopsis-exact-gc.R:602:3'
+• RED: source context/gate missing (4): 'test-dp-synopsis-source-gate.R:83:3',
+  'test-dp-synopsis-source-gate.R:109:3',
+  'test-dp-synopsis-source-gate.R:144:3',
+  'test-dp-synopsis-source-gate.R:199:3'
+• RED: wrappers missing (3):
+  'test-dp-synopsis-source-transport-wrappers.R:66:3',
+  'test-dp-synopsis-source-transport-wrappers.R:112:3',
+  'test-dp-synopsis-source-transport-wrappers.R:164:3'
+• source-only test artifact is unavailable: .Rbuildignore (1):
+  'test-package-artifact-security.R:35:3'
+• source-only test artifact is unavailable: inst/dsvert-mpc/main.go (4):
+  'test-exact-arithmetic-inventory.R:41:3',
+  'test-formal-cox-capsule-internal.R:953:3', 'test-go-command-surface.R:11:3',
+  'test-go-command-surface.R:28:3'
+
+══ Failed tests ════════════════════════════════════════════════════════════════
+── Error ('test-dp-synopsis-artifact.R:409:3'): a manifest-certified Gaussian plan produces the same artifact ──
+Error in `.dsvert_test_source_roots()`: could not find function ".dsvert_test_source_roots"
+Backtrace:
+     ▆
+  1. └─dsVert:::.dsvert_dp_synopsis_artifact_v1(...) at test-dp-synopsis-artifact.R:409:3
+  2.   └─dsVert:::.dsvert_dp_synopsis_physical_plan_v1(...)
+  3.     └─dsVert:::.dsvert_joint_dp_vector_call_planner(...)
+  4.       └─dsVert (local) planner(input)
+  5.         └─dsVert (local) .vector_capsule_run("joint-dp-vector-gaussian-plan-v2", value)
+  6.           ├─base::system2(...)
+  7.           │ ├─base::paste(c(env, shQuote(command), args), collapse = " ")
+  8.           │ └─base::shQuote(command)
+  9.           │   └─base::grepl("'", string)
+ 10.           │     └─base::is.factor(x)
+ 11.           └─dsVert (local) .vector_capsule_binary()
+ 12.             └─base::file.path(.dsvert_test_source_roots(), "inst", "dsvert-mpc")
+── Failure ('test-dp-synopsis-exact-gc.R:200:3'): synopsis exact-GC adds only dedicated internal adapters ──
+Expected `all(present)` to be TRUE.
+Differences:
+`actual`:   FALSE
+`expected`: TRUE 
+
+missing .dsvert_dp_synopsis_execution_exact_gc_roles_v1, .dsvert_dp_synopsis_execution_exact_gc_operation_v1
+── Failure ('test-dp-synopsis-execution.R:63:3'): the dedicated synopsis execution API is explicit and minimal ──
+Expected `all(present)` to be TRUE.
+Differences:
+`actual`:   FALSE
+`expected`: TRUE 
+
+missing .dsvert_dp_synopsis_execution_context_v1, .dsvert_dp_synopsis_execution_prepare_v1, .dsvert_dp_synopsis_execution_store_path_v1, .dsvert_dp_synopsis_execution_with_store_v1, .dsvert_dp_synopsis_execution_transaction_v1, .dsvert_dp_synopsis_execution_artifact_load_v1, .dsvert_dp_synopsis_execution_start_claim_v1
+── Error ('test-dp-synopsis-release.R:273:3'): RELEASE runs convolution/Gaussian and routes K=2/3/5 authorities ──
+Error in `.dsvert_test_source_roots()`: could not find function ".dsvert_test_source_roots"
+Backtrace:
+     ▆
+  1. └─dsVert (local) .synopsis_release_setup(gaussian = TRUE) at test-dp-synopsis-release.R:273:3
+  2.   └─start$.synopsis_start_convolution_fixture(...) at test-dp-synopsis-release.R:103:3
+  3.     └─base::lapply(peers, input$mint, planner = planner)
+  4.       └─dsVert (local) FUN(X[[i]], ...)
+  5.         └─dsVert:::.dsvert_dp_synopsis_local_compile_v1(...)
+  6.           └─dsVert:::.dsvert_dp_synopsis_artifact_v1(...)
+  7.             └─dsVert:::.dsvert_dp_synopsis_physical_plan_v1(...)
+  8.               └─dsVert:::.dsvert_joint_dp_vector_call_planner(...)
+  9.                 └─dsVert (local) planner(input)
+ 10.                   └─dsVert (local) .vector_capsule_run("joint-dp-vector-gaussian-plan-v2", value)
+ 11.                     ├─base::system2(...)
+ 12.                     │ ├─base::paste(c(env, shQuote(command), args), collapse = " ")
+ 13.                     │ └─base::shQuote(command)
+ 14.                     │   └─base::grepl("'", string)
+ 15.                     │     └─base::is.factor(x)
+ 16.                     └─dsVert (local) .vector_capsule_binary()
+ 17.                       └─base::file.path(.dsvert_test_source_roots(), "inst", "dsvert-mpc")
+── Failure ('test-dp-synopsis-source-contract.R:121:3'): durable synopsis source contracts isolate artifact namespaces ──
+Expected `legacy$contract_hash` to be identical to `legacy_golden`.
+Differences:
+1/1 mismatches
+x[1]: "cad5136408f323b3b3efc218fdd3ece3117eb2c92312a7ef079e4d2bfa5bacfd"
+y[1]: "79b06f468913dd865d185bdeff344eeabfd483c22933fe63739b09d1d78c1104"
+── Failure ('test-dp-synopsis-source-contract.R:122:3'): durable synopsis source contracts isolate artifact namespaces ──
+Expected `digest::digest(legacy$contract_json, algo = "sha256", serialize = FALSE)` to be identical to `legacy_golden`.
+Differences:
+1/1 mismatches
+x[1]: "cad5136408f323b3b3efc218fdd3ece3117eb2c92312a7ef079e4d2bfa5bacfd"
+y[1]: "79b06f468913dd865d185bdeff344eeabfd483c22933fe63739b09d1d78c1104"
+── Failure ('test-dp-synopsis-source-gate.R:69:3'): synopsis source context and gate have a closed internal ABI ──
+Expected `available[[1L]]` to be TRUE.
+Differences:
+`actual`:   FALSE
+`expected`: TRUE 
+
+missing .dsvert_dp_synopsis_source_transport_context_v1
+── Failure ('test-dp-synopsis-source-gate.R:70:3'): synopsis source context and gate have a closed internal ABI ──
+Expected `available[[2L]]` to be TRUE.
+Differences:
+`actual`:   FALSE
+`expected`: TRUE 
+
+missing .dsvert_dp_synopsis_source_transport_gate_v1
+── Failure ('test-dp-synopsis-source-transport-wrappers.R:43:5'): synopsis source wrappers expose only the closed internal ABI ──
+Expected `available[[index]]` to be TRUE.
+Differences:
+`actual`:   FALSE
+`expected`: TRUE 
+
+missing .dsvert_dp_synopsis_source_transport_ticket_v1
+── Failure ('test-dp-synopsis-source-transport-wrappers.R:43:5'): synopsis source wrappers expose only the closed internal ABI ──
+Expected `available[[index]]` to be TRUE.
+Differences:
+`actual`:   FALSE
+`expected`: TRUE 
+
+missing .dsvert_dp_synopsis_source_transport_prepare_v1
+── Failure ('test-dp-synopsis-source-transport-wrappers.R:43:5'): synopsis source wrappers expose only the closed internal ABI ──
+Expected `available[[index]]` to be TRUE.
+Differences:
+`actual`:   FALSE
+`expected`: TRUE 
+
+missing .dsvert_dp_synopsis_source_transport_chunk_v1
+── Error ('test-dp-synopsis-start.R:308:3'): manifest-certified Gaussian START uses its productive worker ──
+Error in `.dsvert_test_source_roots()`: could not find function ".dsvert_test_source_roots"
+Backtrace:
+     ▆
+  1. └─dsVert (local) .synopsis_start_convolution_fixture(2L, gaussian = TRUE) at test-dp-synopsis-start.R:308:3
+  2.   └─base::lapply(peers, input$mint, planner = planner) at test-dp-synopsis-start.R:60:5
+  3.     └─dsVert (local) FUN(X[[i]], ...)
+  4.       └─dsVert:::.dsvert_dp_synopsis_local_compile_v1(...) at test-dp-synopsis-start.R:53:5
+  5.         └─dsVert:::.dsvert_dp_synopsis_artifact_v1(...)
+  6.           └─dsVert:::.dsvert_dp_synopsis_physical_plan_v1(...)
+  7.             └─dsVert:::.dsvert_joint_dp_vector_call_planner(...)
+  8.               └─dsVert (local) planner(input)
+  9.                 └─dsVert (local) .vector_capsule_run("joint-dp-vector-gaussian-plan-v2", value)
+ 10.                   ├─base::system2(...)
+ 11.                   │ ├─base::paste(c(env, shQuote(command), args), collapse = " ")
+ 12.                   │ └─base::shQuote(command)
+ 13.                   │   └─base::grepl("'", string)
+ 14.                   │     └─base::is.factor(x)
+ 15.                   └─dsVert (local) .vector_capsule_binary()
+ 16.                     └─base::file.path(.dsvert_test_source_roots(), "inst", "dsvert-mpc")
+── Error ('test-exact-gc-transport.R:3439:7'): checked vecmul contracts cover 4096/4097 and recompose 17 chunks ──
+Error: Exact-gc multiplication producer state is unavailable.
+Backtrace:
+    ▆
+ 1. └─dsVert (local) make_contracts(4096L) at test-exact-gc-transport.R:3444:3
+ 2.   └─base::lapply(...) at test-exact-gc-transport.R:3433:5
+ 3.     └─dsVert (local) FUN(X[[i]], ...)
+ 4.       └─dsVert:::.exact_gc_checked_mul_contract(...) at test-exact-gc-transport.R:3439:7
+ 5.         └─dsVert:::.exact_gc_checked_mul_stage_operation(input_stage)
+── Failure ('test-peer-relay-security-contract.R:93:3'): the peer-relay security matrix covers the complete active surface ──
+Expected `exposed` to have the same values as `setdiff(registered, local_only)`.
+Actual: "mpcTypedBlobReadDS", "mpcTypedBlobStoreDS", "mpcTypedBlobReceiptDS", "dsvertDPFrequencySourceWindowDS", "dsvertDPFrequencyFinalizeWindowDS", "psiPaddedInitDS", "psiPaddedBindDS", "psiPaddedConfirmDS", "psiPaddedPrepareDS", ...
+Expected: "dsvertDPCountFinalShareDS", "dsvertDPFrequencySourceWindowDS", "dsvertDPFrequencyFinalizeWindowDS", "dsvertDPFrequencyReplayDS", "dsvertDPSynopsisBootstrapDS", "dsvertDPSynopsisBindDS", "dsvertDPSynopsisClaimDS", "dsvertDPSynopsisCompileDS", "dsvertDPSynopsisPrepareDS", ...
+Absent: "dsvertDPSynopsisGaussianCrossBindDS", "dsvertDPSynopsisGaussianCrossFinalizeDS", "dsvertDPSynopsisGaussianCrossEvidenceDS", "dsvertFormalGLMPublicResultDS", "dsvertFormalGLMRegisteredSourceDS", "dsvertFormalGLMRegisteredFreshSourceDS", "dsvertFormalGLMRegisteredJobControlDS", "dsvertFormalCoxFreshSourceDS", "dsvertFormalCoxWorkerControlDS", ...
+── Failure ('test-psi-padded-e2e.R:483:3'): fixed-capacity pinned PSI completes K=2 with exact canonical order ──
+Expected `all(...)` to be TRUE.
+Differences:
+`actual`:   FALSE
+`expected`: TRUE 
+
+── Failure ('test-psi-source-authorization.R:35:3'): the local PSI descriptor helper is complete and never remote ──
+Expected `descriptor` to have names `c("id", "version", "id_col", "purpose", "snapshot_sha256")`.
+Differences:
+    actual            | expected             
+[1] "id"              | "id"              [1]
+[2] "version"         | "version"         [2]
+[3] "id_col"          | "id_col"          [3]
+[4] "privacy_unit_id" -                      
+[5] "purpose"         | "purpose"         [4]
+[6] "snapshot_sha256" | "snapshot_sha256" [5]
+
+── Error ('test-typed-blob-transport.R:114:3'): optional formal routing does not block Synopsis tickets ──
+Error in `FUN(X[[i]], ...)`: object '.DSVERT_FORMAL_FINALIZER_HANDOFF_CAPABILITY' not found
+Backtrace:
+    ▆
+ 1. ├─testthat::expect_identical(...) at test-typed-blob-transport.R:114:3
+ 2. │ └─testthat::quasi_label(enquo(object), label)
+ 3. │   └─rlang::eval_bare(expr, quo_get_env(quo))
+ 4. ├─base::unname(vapply(names(expected), get, character(1L), inherits = TRUE))
+ 5. └─base::vapply(names(expected), get, character(1L), inherits = TRUE)
+ 6.   └─base (local) FUN(X[[i]], ...)
+
+[ FAIL 17 | WARN 0 | SKIP 30 | PASS 13279 ]
+Error:
+! Test failures.
+Execution halted

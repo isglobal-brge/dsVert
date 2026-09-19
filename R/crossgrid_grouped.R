@@ -176,7 +176,10 @@
          if (lmm) 1e-8 else if (gee) max(unlist(errors)) else 1,
        quadrature_error_included = FALSE,
        integer_cap_enforced = TRUE, arithmetic_certificate_required = TRUE)
-  if (gee) out$coordinate_error_bounds <- errors
+  if (gee) {
+    out$coordinate_error_bounds <- errors
+    out$factorial_q16 <- as.list(c(0, 0, 45426, 117425, 208277))
+  }
   out
 }
 

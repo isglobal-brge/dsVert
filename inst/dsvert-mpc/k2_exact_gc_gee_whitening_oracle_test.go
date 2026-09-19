@@ -47,7 +47,7 @@ func groupedGEEWhiteningOracle(s groupedGEESpec, rows []groupedGEERow, clusterCa
 			mu, _ = groupedProfileEval("exp", eta)
 			a, _ = groupedProfileEval("exp", groupedRoundDiv(eta, 2))
 			b, _ = groupedProfileEval("exp", -groupedRoundDiv(eta, 2))
-			l = mu + groupedGEELogFactorial[row.Outcome]
+			l = mu + groupedGEEWhiteningLogFactorial[row.Outcome]
 		}
 		loss.Add(loss, new(big.Int).Lsh(big.NewInt(l-row.Outcome*eta), 16))
 		for k := 0; k < d; k++ {

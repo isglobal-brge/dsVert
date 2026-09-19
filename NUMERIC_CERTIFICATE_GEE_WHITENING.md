@@ -19,6 +19,12 @@ rho in {0,1/4,1/2}. Raw complete predictors are f100, rounded once to q64,
 then q16 for the pinned scalar tables. The scalar table SHA256 remains
 f72e66abaf2e503a809f23d4563418d2889843174109398ae48b02f0ec7edb84.
 The new profile name is incompatible with the old inverse-matrix q16 assembly.
+The v3 public factorial coefficients are `[0,0,45426,117425,208277]`.
+In particular, the legacy y=3 value117423 was not nearest rounding and is not
+used in v3. `TestGroupedGEEFactorialCertificate` encloses log2 and log3 with
+64 terms of the rational atanh series and a positive geometric tail bound;
+log6=log2+log3 and log24=3log2+log3 lie strictly within their half-ulp cells.
+The signed R numeric contracts explicitly carry these coefficients.
 The complete signed predictor/source receipt is a mandatory input prerequisite.
 
 ## Private whitening

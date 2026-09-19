@@ -25,6 +25,9 @@ func TestGroupedGEEPrivateFactorProtocol(t *testing.T) {
 					{new(big.Int).Lsh(big.NewInt(99), 64), []*big.Int{big.NewInt(-10)}, 99, 0},
 					{new(big.Int).Lsh(big.NewInt(2), 64), []*big.Int{new(big.Int).Lsh(big.NewInt(1), 50)}, 0, 1},
 				}
+				if family == "poisson" {
+					rows[0].Outcome = 3
+				}
 				if family == "poisson" && cor == "ar1" {
 					s.Predictors = 3
 					for i := range rows {

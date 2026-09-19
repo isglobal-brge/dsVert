@@ -239,3 +239,34 @@ func TestGroupedGEEWhiteningCertificateAndLimits(t *testing.T) {
 		}
 	}
 }
+
+func TestGroupedGEEFactorialCertificate(t *testing.T) {
+	// Exact rational log(n)=2*sum z^(2k+1)/(2k+1), z=(n-1)/(n+1).
+	// The omitted positive tail is <=2*z^(2N+1)/((2N+1)*(1-z^2)).
+	// Factorials use log2, log6=log2+log3, log24=3log2+log3, so z<=1/2.
+	enclosure := func(n int64) (*big.Rat, *big.Rat) {
+		z := big.NewRat(n-1, n+1)
+		square := new(big.Rat).Mul(z, z)
+		power := new(big.Rat).Set(z)
+		sum := new(big.Rat)
+		const N = 64
+		for k := 0; k < N; k++ {
+			sum.Add(sum, new(big.Rat).Quo(power, big.NewRat(int64(2*k+1), 1)))
+			power.Mul(power, square)
+		}
+		lower := new(big.Rat).Mul(big.NewRat(2, 1), sum)
+		tail := new(big.Rat).Quo(new(big.Rat).Mul(big.NewRat(2, 1), power), new(big.Rat).Mul(big.NewRat(2*N+1, 1), new(big.Rat).Sub(big.NewRat(1, 1), square)))
+		return lower, new(big.Rat).Add(lower, tail)
+	}
+	lo2, hi2 := enclosure(2)
+	lo3, hi3 := enclosure(3)
+	for y, weights := range [][2]int64{{0, 0}, {0, 0}, {1, 0}, {1, 1}, {3, 1}} {
+		lower := new(big.Rat).Add(new(big.Rat).Mul(big.NewRat(weights[0], 1), lo2), new(big.Rat).Mul(big.NewRat(weights[1], 1), lo3))
+		upper := new(big.Rat).Add(new(big.Rat).Mul(big.NewRat(weights[0], 1), hi2), new(big.Rat).Mul(big.NewRat(weights[1], 1), hi3))
+		lowCell := big.NewRat(2*groupedGEEWhiteningLogFactorial[y]-1, 131072)
+		highCell := big.NewRat(2*groupedGEEWhiteningLogFactorial[y]+1, 131072)
+		if lower.Cmp(lowCell) <= 0 || upper.Cmp(highCell) >= 0 {
+			t.Fatalf("log(%d!) is outside the claimed nearest-q16 cell", y)
+		}
+	}
+}

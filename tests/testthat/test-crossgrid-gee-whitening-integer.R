@@ -3,20 +3,21 @@ test_that("private GEE whitening assembly equals the independent R integer oracl
   f <- matrix(vapply(c(.5,0,1), function(x) .cross_format(.cross_small(x*2^50)), character(1)),3,1)
   for (family in c("binomial","poisson")) for (correlation in c("independence","exchangeable","ar1")) {
     maximum <- if (family=="binomial") 1 else 4
+    observed <- if (family=="poisson") 3 else 1
     rho <- if (correlation=="independence") 0 else .5
     for (live in list(c(1,0,1),c(0,0,0),c(1,1,1))) {
       spec <- list(Slots=3L,Predictors=1L,GridBits=8L,Family=family,Correlation=correlation,
         RhoQ16=rho*65536,ScoreClipQ16=65536,RowLossCap=10000000,BreadCap=100000000,MaxOutcome=maximum)
       got <- .grouped_go_reference(list(Family="gee_whitening",Eta=as.list(eta),
-        Features=lapply(f,function(x) list(x)),Outcome=as.list(c(maximum,0,0)),
+        Features=lapply(f,function(x) list(x)),Outcome=as.list(c(observed,0,0)),
         Live=as.list(live),GEE=spec,ClusterCap=100000000))
-      expected <- .grouped_gee_whitening_integer(eta,f,c(maximum,0,0),live,
+      expected <- .grouped_gee_whitening_integer(eta,f,c(observed,0,0),live,
         family,correlation,rho,65536,100000000,100000000,8)
       expect_true(got$Valid)
       expect_equal(got$Values,expected,tolerance=0)
       # Independent real estimand, using a dense covariance solve only in this
       # public synthetic oracle. It does not reuse the whitening coefficients.
-      X <- cbind(1,c(.5,0,1)); et <- c(-3,0,2); y <- c(maximum,0,0)
+      X <- cbind(1,c(.5,0,1)); et <- c(-3,0,2); y <- c(observed,0,0)
       mu <- if (family=="binomial") plogis(et) else exp(et)
       variance <- if (family=="binomial") mu*(1-mu) else mu
       U <- X*sqrt(variance); z <- (y-mu)/sqrt(variance)

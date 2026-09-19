@@ -6,6 +6,10 @@ import (
 	"strings"
 )
 
+// Correct RN-even q16 log(y!) coefficients for the v3 profile. The legacy
+// prototype's y=3 constant is retained only by its own historical oracle.
+var groupedGEEWhiteningLogFactorial = [5]int64{0, 0, 45426, 117425, 208277}
+
 // Raw original-slot rows: complete f100 eta, p f50 features, integer y, live.
 // The materializer must bind eta to the complete signed predictor; these
 // internal arithmetic components cannot establish source provenance by itself.
@@ -38,7 +42,7 @@ func groupedGEEInputCompile(s groupedGEESpec) (*primitiveVProgram, error) {
 		fmt.Fprintf(&b, "lf%d:=int192(0)\n", r)
 		if s.Family == "poisson" {
 			for y := 2; y <= int(s.MaxOutcome); y++ {
-				fmt.Fprintf(&b, "if y%d==%d { lf%d=int192(%d) }\n", r, y, r, groupedGEELogFactorial[y])
+				fmt.Fprintf(&b, "if y%d==%d { lf%d=int192(%d) }\n", r, y, r, groupedGEEWhiteningLogFactorial[y])
 			}
 		}
 	}

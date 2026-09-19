@@ -31,7 +31,7 @@
       mu <- .grouped_profile(eta,"exp")
       a <- .grouped_profile(round(eta/2),"exp")
       b <- .grouped_profile(-round(eta/2),"exp")
-      loss <- mu-outcome[i]*eta+c(0,0,45426,117423,208277)[outcome[i]+1L]
+      loss <- mu-outcome[i]*eta+c(0,0,45426,117425,208277)[outcome[i]+1L]
     }
     total_loss <- .cross_add(total_loss,.cross_shift_left(.cross_small(loss),16))
     for (k in seq_len(d)) base[[i,k]] <- .cross_mul(.cross_small(x[k]),.cross_small(a))

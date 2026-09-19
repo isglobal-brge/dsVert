@@ -791,3 +791,9 @@ Poisson / epsilon8 / instance2 passes integer DP-vector equality and cold exactl
 ## 2026-09-19T01:11Z — fifth complete selection cell
 
 Binomial / epsilon8: **20 distinct signed grids, 2 real API matches, 20/20 agreement, mean/max loss gap 0/0**. Complete logs and matching before/after helper hashes are committed. All 100 keys across five completed cells are distinct; geometry and both real lifecycle markers pass. Progress: **5/6 cells, 12/12 real releases**. Poisson/epsilon8 is finishing its oracle selections.
+
+## 2026-09-19T01:19Z — complete layered 120 / 12 matrix PASS
+
+All **120 distinct signed-grid oracle selections and 12 real two-authority DataSHIELD API releases pass** the final aggregate validator. Each real release matches the complete integer production-noise oracle vector and passes cold exactly-once/replay/tamper checks. All six cells have twenty ordered records, the requested n2000/p6/grid2/K2 geometry, two real plus eighteen oracle-only paths, and matching before/after frozen-helper checks. Poisson/epsilon8 completes with **19/20 agreement, mean gap 3.52114, maximum 70.4227** at displayed precision.
+
+Command: `python3 inst/cross-grid-v2/summarize_validation.py inst/cross-grid-v2 LAYER3_V2.md`. Generated LAYER3_V2, consolidated DP_SELECTION_V2/LAYER2_V2, complete logs and API timings are committed. The same validator passed on the pod, allowing queued K5 PID2108230 to start. K3/K5 topology completion and the pending narrow client packaging-warning scope decision remain open; no full-task completion or promotion is claimed.

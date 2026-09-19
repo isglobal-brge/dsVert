@@ -388,7 +388,7 @@ Source logs: `matrix-pod-n1000-p10-g16-binomial.log`, `matrix-pod-n1000-p10-g16-
 Interrupted process logs retained: `matrix-pod-n1000-p5-g50.log`. Only completed FULL_MEASUREMENT records with successful integer/DP oracle checks are included; missing family results were resumed separately. Resumed pod runs use GOMEMLIMIT=6GiB/GOGC=25; the original full-envelope measurements retain their original GC settings.
 
 
-## Real DataSHIELD API timings — required matrix in progress
+## Real DataSHIELD API timings — twelve required releases complete
 
 These twelve completed synthetic releases are wiring measurements, separate from
 the full-size raw Go matrix above. Timing wraps the exported `ds.vertGLM()`
@@ -421,8 +421,8 @@ Evidence under `inst/cross-grid-v2`:
 - `dslite-n2000-binomial-e8-two-real.log`
 - `dslite-n2000-poisson-e8-two-real.log`
 
-The required twelve real API releases are complete; the remaining oracle
-selections and aggregate 120-key validation are still running. Mac K3
+The twelve real API releases and aggregate 120-key selection validation
+are complete; see LAYER3_V2.md. Mac K3
 n10000/p10/grid50 DSLite campaigns are still running; their observed relay
 throughput projects to tens of hours. That is a projection, not a measured
 completed API elapsed time. No full-size API cost pass is claimed. The raw

@@ -1,7 +1,7 @@
 # Layer 2: secure integer computation and authenticated persistence
 
-Component gates pass; the n2000 API matrix and additional owner topologies
-are still running. This report does not claim those pending releases.
+Component gates and all twelve required n2000 API releases pass. Additional
+K3/K5 owner topology gates are still running and are not claimed complete.
 
 ## Secure arithmetic
 
@@ -64,65 +64,21 @@ session remains admissible to the closed Synopsis authorization state.
 These small/targeted gates do not replace the required n2000 or full topology
 releases.
 
-Required-size integration progress (2026-09-18T21:23Z): the first n2000, p6, grid2, binomial epsilon1 API release matched the complete oracle vector (`dslite-n2000-before-cold-bundle.log`). A subsequent fresh-process check exposed a stale deployment checksum manifest, correctly rejected before contract admission. The complete binary bundle was repaired; direct cold signed-profile admission at n2000 now passes for both families. This incomplete cell is retained as extra evidence and excluded from the final 120/12 matrix.
+## Required-size real release gate — PASS
 
+All twelve required releases pass: n2000/p6/grid2/K2, two independent signed
+grids per family and epsilon in {1,4,8}, delta=2^-100. Each uses the actual
+DataSHIELD client API, matches the complete authenticated integer DP vector
+and selected candidate against the production-seeded oracle, and passes
+fresh-process exactly-once/replay/tamper checks on both authorities.
 
-Qualifying n2000 progress (2026-09-18T21:58Z): both entries below pass complete
-integer DP-vector equality through the real DSLite client API and the subsequent
-fresh-process exactly-once, replay and tamper checks. They count toward the
-required matrix; the complete six-cell evidence validator has not yet passed.
+The complete six-cell logs are `inst/cross-grid-v2/validation-{family}-e{epsilon}.log`
+with matching before/after `-source-check.log` evidence. The aggregate validator
+passes all 120 unique keys and all twelve real-release verification pairs.
+[LAYER3_V2.md](LAYER3_V2.md) records selection statistics and all API times.
 
-| Family | Epsilon | Instance | API seconds | Evidence |
-|---|---:|---:|---:|---|
-| binomial | 4 | 1 | 2932.752 | `inst/cross-grid-v2/dslite-n2000-binomial-e4-first.log` |
-| poisson | 1 | 1 | 3390.267 | `inst/cross-grid-v2/dslite-n2000-poisson-e1-first.log` |
-
-Each uses n=2000, p=6 split 3/3, two signed candidates and delta=2^-100.
-The required count is 2/12; these individual results do not establish the
-20-instance selection statistics, other epsilon cells or K3/K5 topology gates.
-
-The recovered binomial/epsilon1/instance1 also passes both gates in 2838.057 s
-(`inst/cross-grid-v2/dslite-n2000-binomial-e1-first.log`), bringing the required
-real-release count to **3/12**. The earlier failed cold-deployment attempt
-remains excluded.
-
-Binomial/epsilon4 now has both required independent real releases with both
-verification markers (`inst/cross-grid-v2/dslite-n2000-binomial-e4-two-real.log`).
-Instance2 takes 2767.322 s. Required real-release progress is **4/12**.
-
-Poisson/epsilon1 now also has both real release and cold-lifecycle matches
-(`inst/cross-grid-v2/dslite-n2000-poisson-e1-two-real.log`). Instance2 takes
-3247.900 s and its nonzero DP selection gap does not affect integer oracle
-equality. Required real-release progress is **5/12**.
-
-Binomial/epsilon1 completes both real release and cold-lifecycle matches in
-`inst/cross-grid-v2/dslite-n2000-binomial-e1-two-real.log`; instance2 takes
-2801.709 s. Required real-release progress is **6/12**.
-
-Poisson/epsilon4/instance1 passes both required gates in **3782.294 s**
-(`inst/cross-grid-v2/dslite-n2000-poisson-e4-first.log`), bringing real-release
-progress to **7/12**. This cell is not yet complete.
-
-Binomial/epsilon8/instance1 passes both gates in **3216.212 s**
-(`inst/cross-grid-v2/dslite-n2000-binomial-e8-first.log`). Required real-release
-progress is **8/12**; the full cell remains pending.
-
-Poisson/epsilon8/instance1 passes both gates in **3675.475 s**
-(`inst/cross-grid-v2/dslite-n2000-poisson-e8-first.log`). Required real-release
-progress is **9/12**, with at least one qualifying release in every family/epsilon cell.
-
-Poisson/epsilon4 completes both real releases and cold-lifecycle checks
-(`inst/cross-grid-v2/dslite-n2000-poisson-e4-two-real.log`); instance2 takes
-**3369.260 s**. Required progress is **10/12**.
-
-Binomial/epsilon8 completes both real releases and cold-lifecycle checks
-(`inst/cross-grid-v2/dslite-n2000-binomial-e8-two-real.log`); instance2 takes
-**2822.927 s**. Required progress is **11/12**.
-
-Poisson/epsilon8 completes both real releases and cold-lifecycle checks
-(`inst/cross-grid-v2/dslite-n2000-poisson-e8-two-real.log`); instance2 takes
-**3195.671 s**. Required real-release gate is **12/12 PASS**: two independent
-signed grids for each family and epsilon in {1,4,8}, all at n2000/p6/grid2/K2.
-Every release matches the complete integer production-noise oracle vector
-and passes fresh-process exactly-once/replay/tamper checks. The complete
-120-selection aggregate and additional K3/K5 topologies remain separate gates.
+An earlier n2000 binomial attempt matched its vector but subsequently rejected
+a stale worker-bundle manifest in the cold process. That excluded attempt is
+retained in `dslite-n2000-before-cold-bundle.log`; the repaired bundle was used
+for the full successful matrix. Neither that attempt nor small smoke/topology
+probes count toward the required twelve.

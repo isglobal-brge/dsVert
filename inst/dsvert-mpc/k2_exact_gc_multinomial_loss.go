@@ -140,23 +140,22 @@ func soft16(x uint32) uint32 {
 // signed products fit 32 bits; no wide protected transcendental remains.
 func exactGCFamilyEmitPolynomial(b *strings.Builder, name string, table [64][3]int64, shift uint) {
 	fmt.Fprintf(b, "func %s(x uint32) uint32 {\ni:=x>>%d\nt:=x&uint32(%d)\nif i>=uint32(64) { i=uint32(63); t=uint32(%d) }\n", name, shift, (1<<shift)-1, 1<<shift)
-	for k, v := range table {
-		prefix := "if i>=uint32(%d) { "
-		if k == 0 {
-			prefix = ""
+	b.WriteString("a:=uint32(0)\nb:=uint32(0)\nc:=uint32(0)\n")
+	var selectRow func(int, int)
+	selectRow = func(lo, hi int) {
+		if hi-lo == 1 {
+			v := table[lo]
+			fmt.Fprintf(b, "a=uint32(%d)\nb=uint32(%d)\nc=uint32(%d)\n", uint32(v[2]), uint32(v[1]), uint32(v[0]))
+			return
 		}
-		if k != 0 {
-			fmt.Fprintf(b, prefix, k)
-		}
-		assign := ":="
-		if k != 0 {
-			assign = "="
-		}
-		fmt.Fprintf(b, "a%suint32(%d)\nb%suint32(%d)\nc%suint32(%d)\n", assign, uint32(v[2]), assign, uint32(v[1]), assign, uint32(v[0]))
-		if k != 0 {
-			b.WriteString("}\n")
-		}
+		mid := (lo + hi) / 2
+		fmt.Fprintf(b, "if i<uint32(%d) {\n", mid)
+		selectRow(lo, mid)
+		b.WriteString("} else {\n")
+		selectRow(mid, hi)
+		b.WriteString("}\n")
 	}
+	selectRow(0, len(table))
 	b.WriteString("return rnd16((rnd16(a*t)+b)*t)+c\n}\n")
 }
 

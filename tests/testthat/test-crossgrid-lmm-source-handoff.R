@@ -1,88 +1,3 @@
-.lmm_transport_fixture <- function(f) {
-  artifact <- .dsvert_dp_grouped_cross_workload_artifact(f$contract)
-  families <- setNames(rep(list(list(artifacts = list())), 10L), c(
-    "admitted_count", "numeric_moments", "numeric_pair_moments", "gaussian_models",
-    "fixed_numeric_histograms", "categorical_marginals", "categorical_pairs",
-    "correlation_artifacts", "describe_artifacts", "survival_artifacts"))
-  families$admitted_count <- list(owner_peer = "peer_a", dataset = "cohort")
-  families$survival_artifacts <- list()
-  families$gaussian_models$artifacts <- list(grouped = artifact)
-  manifest <- list(logical_snapshot = f$contract$spec$logical_snapshot,
-    capsule_identity = list(capsule_id = strrep("6", 64)),
-    workload = list(coordinate_count = artifact$coordinate_count + 1L,
-      families = families, capsule_mechanism = list(source_context_hash = strrep("a", 64))))
-  layout <- .dsvert_dp_lmm_cross_transport_layout(manifest, artifact)
-  transport <- list(version = .DSVERT_DP_GLM_GRID_CROSS_SOURCE_VERSION,
-    purpose = .DSVERT_DP_GLM_GRID_CROSS_SOURCE_PURPOSE,
-    capsule_id = manifest$capsule_identity$capsule_id,
-    logical_snapshot_sha256 = .dsvert_joint_dp_hash(manifest$logical_snapshot),
-    workload_sha256 = .dsvert_joint_dp_hash(manifest$workload),
-    source_context_hash = manifest$workload$capsule_mechanism$source_context_hash,
-    peer_pinset_sha256 = f$policy$peer_pinset_sha256,
-    source_peers = artifact$participating_peers,
-    designated_noise_peers = artifact$computation_peers,
-    coordinate_count = layout$transport_coordinate_count,
-    coordinate_order_sha256 = layout$transport_coordinate_order_sha256,
-    ring_bits = 128, record_bytes = 16,
-    record_encoding = "little_endian_unsigned_fixed_16_bytes",
-    chunk_coordinates = 8192, chunk_count = ceiling(layout$transport_coordinate_count / 8192),
-    chunk_shape = "fixed_release_prefix_and_capacity_padded_private_slices",
-    history_gate = FALSE, ready_for_sampling = FALSE,
-    release_coordinate_count = layout$release_coordinate_count,
-    release_coordinate_order_sha256 = layout$release_coordinate_order_sha256,
-    private_layout_sha256 = layout$transport_coordinate_order_sha256,
-    cross_input_peers = artifact$participating_peers,
-    private_alignment_consensus = .DSVERT_DP_CAPSULE_SOURCE_ALIGNMENT_SHARING)
-  list(artifact = artifact, manifest = manifest, transport = transport, layout = layout)
-}
-
-.lmm_handoff_fixture <- function(owners = 2L) {
-  f <- .grouped_contract_fixture("lmm", owners = owners)
-  f$policy$peer_name <- "peer_a"
-  f$secret <- as.raw(seq_len(32L))
-  f$ss <- new.env(parent = emptyenv())
-  f$ss$.exact_gc_peer_binding_digest <- strrep("8", 64)
-  f$ss$.exact_gc_transport_initialized <- TRUE
-  f$ss$.exact_gc_self_name <- "peer_a"
-  f$ss$peer_transport_pks <- list(peer_b = "private-test-transport")
-  f$ss$.exact_gc_peer_identity_pks <- list(peer_b = "pinned-test-peer")
-  batches <- .dsvert_dp_alignment_mask_batches(f$ss)
-  batch <- new.env(parent = emptyenv())
-  batch$status <- "complete"
-  batch$peer_binding_digest <- f$ss$.exact_gc_peer_binding_digest
-  batch$terminal_peer_blob_digest <- strrep("9", 64)
-  batch$first_validity_share <- jsonlite::base64_enc(as.raw(1))
-  batches$fixture <- batch
-  f$contract <- .dsvert_dp_grouped_cross_contract_validate(
-    f$contract, f$policy, f$schema)
-  context <- .lmm_transport_fixture(f)
-  f[names(context)] <- context
-  f$source_hash <- .dsvert_joint_dp_hash(f$transport)
-  batch$capsule_id <- f$transport$capsule_id
-  batch$contract_hash <- f$source_hash
-  layout <- f$layout
-  route <- layout$blocks[["grouped::peer_a$cluster::value"]]
-  presence <- layout$blocks[["grouped::peer_a$cluster::validity"]]
-  payload <- numeric(layout$transport_coordinate_count)
-  payload[route$start + 0:7] <- c(1, 0, 1, 0, 0, 0, 0, 0)
-  payload[presence$start + 0:7] <- c(1, 1, 1, 0, 1, 0, 0, 0)
-  f$producer <- structure(list(
-    version = .DSVERT_DP_CAPSULE_LOCAL_MATERIAL_VERSION,
-    purpose = .DSVERT_DP_CAPSULE_LOCAL_MATERIAL_PURPOSE,
-    capsule_id = f$transport$capsule_id, peer_name = "peer_a",
-    logical_snapshot = f$contract$spec$logical_snapshot,
-    source_context_hash = strrep("a", 64), coordinate_count = length(payload),
-    coordinate_order_sha256 = layout$transport_coordinate_order_sha256, snapshot_binding_sha256 = strrep("c", 64),
-    producer_version = .DSVERT_DP_GAUSSIAN_CROSS_SOURCE_PRODUCER_VERSION,
-    state = "internal_incremental_secret_share_input_never_release",
-    value_commitment_sha256 = strrep("d", 64), authenticatable_sha256 = strrep("e", 64),
-    private_alignment_consensus_hash = strrep("f", 64),
-    read_range = function(start, count) payload[seq.int(start, length.out = count)],
-    generation_chunks = function(...) list(), reset = function() invisible(NULL)),
-    class = c("dsvert_capsule_source_producer", "list"))
-  f
-}
-
 test_that("LMM handoff transposes opaque shares into typed rows after private alignment", {
   for (owners in c(2L, 3L, 5L)) {
     f <- .lmm_handoff_fixture(owners)
@@ -95,6 +10,9 @@ test_that("LMM handoff transposes opaque shares into typed rows after private al
     run <- function() .dsvert_dp_lmm_cross_source_handoff(f$contract, f$policy,
       f$schema, f$source_hash, values, validities, f$ss, f$transport$capsule_id)
     handoff <- run()
+    peer_ids <- vapply(unname(f$policy$peer_pinset[unlist(spec$computation_peers)]),
+      .dsvert_relay_peer_id, character(1L))
+    first_admission <- as.raw(as.integer(peer_ids[[1L]] == sort(peer_ids, method = "radix")[[1L]]))
     expect_identical(handoff$plan$Numeric$Sigma2Q64, "18446744073709551616")
     expect_identical(handoff$plan$Numeric$Tau2Q64, "4611686018427387904")
     expect_identical(handoff$plan$Beta, spec$beta_encoded)
@@ -111,15 +29,16 @@ test_that("LMM handoff transposes opaque shares into typed rows after private al
       expect_identical(jsonlite::base64_dec(handoff$metadata$Share)[target],
         unname(do.call(c, lapply(columns, `[`, source))))
     }
-    expect_true(all(jsonlite::base64_dec(handoff$numeric$Validity) == as.raw(1)))
+    expect_true(all(jsonlite::base64_dec(handoff$numeric$Validity) == first_admission))
     f$policy$peer_name <- "peer_b"
     f$ss$.exact_gc_self_name <- "peer_b"
     f$ss$peer_transport_pks <- list(peer_a = "private-test-transport")
     f$ss$.exact_gc_peer_identity_pks <- list(peer_a = "pinned-test-peer")
     f$ss$.dp_alignment_mask_batches$fixture$first_validity_share <- jsonlite::base64_enc(as.raw(0))
-    expect_true(all(jsonlite::base64_dec(run()$numeric$Validity) == as.raw(0)))
+    second_admission <- as.raw(1L - as.integer(first_admission))
+    expect_true(all(jsonlite::base64_dec(run()$numeric$Validity) == second_admission))
     f$ss$.dp_alignment_mask_batches$fixture$first_validity_share <- jsonlite::base64_enc(as.raw(1))
-    expect_true(all(jsonlite::base64_dec(run()$numeric$Validity) == as.raw(1)))
+    expect_true(all(jsonlite::base64_dec(run()$numeric$Validity) == second_admission))
     f$ss$.dp_alignment_mask_batches$fixture$status <- "alignment_contract_invalid"
     expect_error(run(), "alignment gate is not complete")
     f$ss$.dp_alignment_mask_batches$fixture$status <- "running"
@@ -300,7 +219,7 @@ test_that("private worker preparation uses pinned identity roles and keeps nativ
       expect_false(simplify_output)
       received[[length(received) + 1L]] <<- input_data
       list(worker_input = opaque, purpose = paste0("grouped-lmm-staged-v1/", strrep("a", 64)),
-           vector_len = 3)
+           vector_len = 3, stage_plan_digest = strrep("c", 64))
     })
   run <- function(route = sidecar, producer = f$producer) {
     .dsvert_dp_lmm_cross_prepare_worker(f$policy, f$secret, manifest, transport,
@@ -359,7 +278,7 @@ test_that("real staged preparation CLI preserves typed source bytes and exact na
     store_directory = normalizePath(directory), store_key = jsonlite::base64_enc(f$secret),
     routing = routing)
   result <- .callMpcTool("grouped-lmm-staged-prepare-v1", request, simplify_output = FALSE)
-  expect_setequal(names(result), c("worker_input", "purpose", "vector_len"))
+  expect_setequal(names(result), c("worker_input", "purpose", "vector_len", "stage_plan_digest"))
   expect_equal(result$vector_len, length(spec$beta_grid))
   expect_match(result$purpose, "^grouped-lmm-staged-v1/[0-9a-f]{64}$")
   native <- rawToChar(jsonlite::base64_dec(result$worker_input))
@@ -369,4 +288,77 @@ test_that("real staged preparation CLI preserves typed source bytes and exact na
   expect_match(native, paste0('"Share":"', handoff$metadata$Share, '"'), fixed = TRUE)
   expect_identical(.callMpcTool("grouped-lmm-staged-prepare-v1", request,
     simplify_output = FALSE), result)
+})
+
+test_that("fresh and unilateral alignment attempts retain the same native source bytes", {
+  f <- .lmm_handoff_fixture()
+  pins <- f$policy$peer_pinset
+  ids <- setNames(paste0("dsv1_", c(strrep("1", 64), strrep("2", 64))), names(pins))
+  sidecar <- .dsvert_dp_lmm_cross_route_sidecar(f$policy, f$secret, f$manifest,
+    f$transport, f$schema, "grouped", f$producer)
+  root <- tempfile("lmm-cold-source-")
+  dir.create(root, mode = "0700")
+  on.exit(unlink(root, recursive = TRUE), add = TRUE)
+  variables <- c(unlist(f$contract$spec$predictor_order), f$contract$spec$outcome$reference,
+    f$contract$spec$grouping$reference)
+  values <- validities <- setNames(rep(list(raw(16L * 8L)), length(variables)), variables)
+  source_reads <- 0L
+  reject_source <- FALSE
+  local_mocked_bindings(
+    .dsvert_relay_peer_id = function(pk) unname(ids[match(pk, unname(pins))]),
+    .key_get = function(key, ss) unname(pins[[ss$.exact_gc_self_name]]),
+    .dsvert_dp_capsule_source_store_path = function(policy) file.path(root, policy$peer_name, "source.sqlite"),
+    .dsvert_dp_lmm_cross_load_handoff = function(policy, secret, manifest,
+        source_contract, schema_manifest, ss, analysis_id) {
+      source_reads <<- source_reads + 1L
+      if (reject_source) .dsvert_dp_grouped_cross_fail()
+      # The real source-store MAC and immutable aggregate checks have separate
+      # coverage. Keep their returned additive bytes fixed across sessions.
+      .dsvert_dp_lmm_cross_source_handoff(f$contract, policy, schema_manifest,
+        f$source_hash, values, validities, ss, source_contract$capsule_id)
+    }, .package = "dsVert")
+  fresh <- function(peer, mask, attempt) {
+    ss <- list2env(as.list.environment(f$ss, all.names = TRUE), parent = emptyenv())
+    ss$session_id <- sprintf("00000000-0000-4000-8000-%012d", attempt)
+    ss$.exact_gc_self_name <- peer
+    other <- setdiff(names(pins), peer)
+    ss$peer_transport_pks <- setNames(list("test-transport"), other)
+    ss$.exact_gc_peer_identity_pks <- as.list(pins[other])
+    ss$.exact_gc_peer_binding_digest <- .dsvert_joint_dp_hash(list(attempt = attempt))
+    ss$.dp_alignment_mask_batches <- new.env(parent = emptyenv())
+    batch <- list2env(as.list.environment(f$ss$.dp_alignment_mask_batches$fixture, all.names = TRUE), parent = emptyenv())
+    batch$first_validity_share <- jsonlite::base64_enc(as.raw(mask))
+    batch$peer_binding_digest <- ss$.exact_gc_peer_binding_digest
+    batch$terminal_peer_blob_digest <- .dsvert_joint_dp_hash(list(terminal = attempt))
+    ss$.dp_alignment_mask_batches$fixture <- batch
+    ss
+  }
+  prepare <- function(peer, ss, producer = f$producer) {
+    policy <- f$policy; policy$peer_name <- peer
+    .dsvert_dp_lmm_cross_prepare_worker(policy, f$secret, f$manifest, f$transport,
+      f$schema, ss, "grouped", if (peer == "peer_a") sidecar else NULL,
+      if (peer == "peer_a") producer else NULL)
+  }
+  # A prepares on attempt1; B first prepares only after a reconnect/attempt2.
+  # These two random local output masks need not belong to one XOR sharing.
+  a <- prepare("peer_a", fresh("peer_a", 0L, 1L))
+  b <- prepare("peer_b", fresh("peer_b", 0L, 2L))
+  expect_identical(prepare("peer_a", fresh("peer_a", 1L, 2L)), a)
+  expect_identical(prepare("peer_b", fresh("peer_b", 1L, 3L)), b)
+  expect_identical(a$stage_plan_digest, b$stage_plan_digest)
+  expect_identical(source_reads, 4L)
+  for (status in c("running", "alignment_contract_invalid")) {
+    ss <- fresh("peer_a", 1L, 4L)
+    ss$.dp_alignment_mask_batches$fixture$status <- status
+    expect_error(prepare("peer_a", ss), "alignment gate is not complete")
+  }
+  changed <- f$producer; changed$snapshot_binding_sha256 <- strrep("9", 64)
+  expect_error(prepare("peer_a", fresh("peer_a", 1L, 5L), changed), class = "dsvert_dp_public_failure")
+  reject_source <- TRUE
+  expect_error(prepare("peer_b", fresh("peer_b", 1L, 6L)), class = "dsvert_dp_public_failure")
+  reject_source <- FALSE
+  # Changing additive source bytes still changes the sealed native input.
+  # The native durable-source replacement test rejects that changed input.
+  values[[1L]][[1L]] <- as.raw(1)
+  expect_false(identical(prepare("peer_b", fresh("peer_b", 1L, 7L))$grouped_lmm, b$grouped_lmm))
 })

@@ -23,7 +23,9 @@
   residual <- max(vapply(spec$sensitivity$candidate_bounds, function(bound) {
     max(abs(bound$eta_upper), abs(1 - bound$eta_lower))
   }, numeric(1L)))
-  list(version = "dsvert-lmm-staged-source-handoff-v1",
+  ml <- identical(spec$parameters$objective, "ml")
+  variance <- if (ml) spec$parameters$variance_grid[[1L]] else spec$parameters
+  plan <- list(version = "dsvert-lmm-staged-source-handoff-v1",
     spec_sha256 = .dsvert_joint_dp_hash(spec),
     source_contract_sha256 = source_contract_sha256,
     profile_sha256 = .dsvert_joint_dp_hash(spec$numeric_contract),
@@ -35,10 +37,18 @@
       GridBits = spec$numeric_grid_bits, ResidualCap = max(1, ceiling(residual)),
       # Signed variances are dyadic q16 values. Binary scaling is exact even
       # above 2^53; decimal strings preserve every integer bit in the Go ABI.
-      Sigma2Q64 = sprintf("%.0f", spec$parameters$residual_variance * 2^64),
-      Tau2Q64 = sprintf("%.0f", spec$parameters$random_intercept_variance * 2^64),
+      Sigma2Q64 = sprintf("%.0f", variance$residual_variance * 2^64),
+      Tau2Q64 = sprintf("%.0f", variance$random_intercept_variance * 2^64),
       OutputCap = sprintf("%.0f", max(caps))),
     Beta = spec$beta_encoded, Caps = as.list(sprintf("%.0f", caps)))
+  if (ml) {
+    plan$Objective <- "ml"
+    plan$VarianceGrid <- lapply(spec$parameters$variance_grid, function(pair) {
+      list(Sigma2Q64 = sprintf("%.0f", pair$residual_variance * 2^64),
+        Tau2Q64 = sprintf("%.0f", pair$random_intercept_variance * 2^64))
+    })
+  }
+  plan
 }
 
 .dsvert_dp_lmm_cross_source_alignment <- function(spec, policy, ss, capsule_id,
@@ -73,10 +83,19 @@
   contract <- .dsvert_dp_lmm_cross_source_contract(
     contract, policy, schema_manifest, source_contract_sha256)
   spec <- contract$spec
-  alignment <- .dsvert_dp_lmm_cross_source_alignment(
+  .dsvert_dp_lmm_cross_source_alignment(
     spec, policy, ss, capsule_id, source_contract_sha256)
-  validity <- .exact_gc_standard_b64_raw(alignment$first_validity_share,
-    1L, "private LMM source alignment validity")
+  # The authenticated terminal alignment protocol has already opened its
+  # global admission bit; status complete means TRUE. Reshare that public
+  # admission canonically, so fresh GC output masks cannot change the durable
+  # native source binding, including after a unilateral first-bind crash.
+  # Private row presence, candidate validity and conversion bits are untouched.
+  peers <- unlist(spec$computation_peers, use.names = FALSE)
+  ids <- vapply(peers, function(peer)
+    .dsvert_relay_peer_id(unname(policy$peer_pinset[[peer]])), character(1L))
+  if (anyDuplicated(ids)) .dsvert_dp_grouped_cross_fail()
+  garbler <- peers[[order(ids, method = "radix")[[1L]]]]
+  validity <- as.raw(as.integer(identical(policy$peer_name, garbler)))
   numeric <- c(unlist(spec$predictor_order, use.names = FALSE), spec$outcome$reference)
   variables <- c(numeric, spec$grouping$reference)
   rows <- spec$grouping$padded_slots
@@ -98,7 +117,7 @@
     }), use.names = FALSE)
     bytes <- as.raw(words)[index]
     encode <- function(value) gsub("[\r\n]", "", jsonlite::base64_enc(value))
-    # Carry the actual GC equality result, not a locally reconstructed true bit.
+    # Only the already-public successful alignment admission is reshared.
     list(Share = encode(bytes), Validity = encode(rep(validity, rows * length(blocks))))
   }
   list(plan = .dsvert_dp_lmm_cross_source_plan(contract, source_contract_sha256),

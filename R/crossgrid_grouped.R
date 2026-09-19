@@ -16,6 +16,9 @@
 }
 
 .dsvert_dp_grouped_cross_parameters <- function(value, family) {
+  if (identical(family, "lmm") && "objective" %in% names(value)) {
+    return(.dsvert_dp_grouped_cross_ml_parameters(value))
+  }
   fields <- if (family == "lmm") {
     c("residual_variance", "random_intercept_variance")
   } else if (grepl("_glmm$", family)) {
@@ -58,6 +61,10 @@
 .dsvert_dp_grouped_cross_sensitivity <- function(
     beta_grid, family, max_outcome, grid_bits, grouping, parameters, adjacency,
     numeric_contract) {
+  if (identical(family, "lmm") && identical(parameters$objective, "ml")) {
+    return(.dsvert_dp_grouped_cross_ml_sensitivity(beta_grid, grid_bits, grouping,
+      parameters, adjacency, numeric_contract))
+  }
   scale <- 2^grid_bits
   B <- grouping$max_patients_per_cluster
   C <- grouping$cluster_capacity
@@ -159,6 +166,9 @@
 }
 
 .dsvert_dp_grouped_cross_numeric <- function(family, grouping, parameters) {
+  if (identical(family, "lmm") && identical(parameters$objective, "ml")) {
+    return(.dsvert_dp_grouped_cross_ml_numeric(grouping, parameters))
+  }
   B <- grouping$max_patients_per_cluster
   lmm <- identical(family, "lmm")
   gee <- grepl("_gee$", family)
@@ -264,6 +274,21 @@
     encoding = "signed_level_index_zero_based_v1")), reference)
   base$grouping <- grouping
   base$parameters <- parameters
+  if (identical(family, "lmm") && identical(parameters$objective, "ml")) {
+    if (length(parameters$variance_grid) * length(base$beta_grid) > 256L) {
+      .dsvert_dp_grouped_cross_fail()
+    }
+    base$candidate_grid <- unlist(lapply(seq_along(parameters$variance_grid), function(v) {
+      lapply(seq_along(base$beta_grid), function(b) {
+        list(variance_index = v, beta_index = b)
+      })
+    }), recursive = FALSE)
+    base$candidate_order <- lapply(base$candidate_grid, function(candidate) {
+      .dsvert_joint_dp_hash(list(objective = "ml",
+        variance = parameters$variance_grid[[candidate$variance_index]],
+        beta = base$beta_grid[[candidate$beta_index]]))
+    })
+  }
   base$numeric_contract <- .dsvert_dp_grouped_cross_numeric(family, grouping, parameters)
   base$preprocessing <- if (family == "lmm") {
     "clip_each_finite_record_then_patient_mean_unit_interval_outcome_v1"

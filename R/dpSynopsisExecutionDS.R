@@ -1484,7 +1484,7 @@
   }
   positions <- seq.int(chunk$offset + 1L, chunk$offset + chunk$count)
   release <- context$vector$release_contract
-  worker <- .dsvert_joint_dp_vector_exact_gc_compile(list(
+  worker_input <- list(
     version = context$vector$profile$input_version,
     ring_bits = 128L, frac_bits = 0L,
     total_coordinate_count = release$coordinate_count,
@@ -1499,8 +1499,11 @@
     garbler_commitment_context = roles$garbler_commitment_context,
     evaluator_commitment_context = roles$evaluator_commitment_context,
     garbler_seed_commitment = roles$garbler_seed_commitment,
-    evaluator_seed_commitment = roles$evaluator_seed_commitment),
-  .compiler = .exact_compiler)
+    evaluator_seed_commitment = roles$evaluator_seed_commitment)
+  staged <- .dsvert_dp_lmm_cross_sampler_binding(.policy, .secret,
+    .dsvert_dp_capsule_source_manifest(context$manifest_json), context$source_contract)
+  if (!is.null(staged)) worker_input$source_stage_plan_digest <- staged$stage_plan_digest
+  worker <- .dsvert_joint_dp_vector_exact_gc_compile(worker_input, .compiler = .exact_compiler)
   if (is.list(worker) && is.list(worker$plan)) {
     worker$plan <- .dsvert_dp_analysis_canonical_value_v1(worker$plan)
   }
@@ -1711,6 +1714,11 @@
   }
   context <- .dsvert_dp_synopsis_execution_context_v1(
     ss, session_id, .policy, .secret, .identity, .cache_get)
+  if (!isTRUE(context$vector$profile$exact_gc) &&
+      length(.dsvert_dp_lmm_cross_artifacts(
+        .dsvert_dp_capsule_source_manifest(context$manifest_json)))) {
+    stop("Staged LMM requires the Synopsis exact-GC validity gate.", call. = FALSE)
+  }
   chunk <- .dsvert_dp_synopsis_execution_chunk_v1(context, chunk_index)
   prepares <- .dsvert_dp_synopsis_execution_prepare_set_v1(
     first_prepare, second_prepare, context, .policy, .verifier)

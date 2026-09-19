@@ -31,24 +31,25 @@ const (
 )
 
 type exactGCWorkerConfig struct {
-	GroupedLMM  *groupedLMMWorkerInput `json:"grouped_lmm,omitempty"`
-	CrossGrid   *crossGridKernelPlan   `json:"cross_grid,omitempty"`
-	Version     string                 `json:"version"`
-	Role        string                 `json:"role"`
-	SessionID   string                 `json:"session_id"`
-	MasterKey   string                 `json:"master_key"`
-	GarblerID   string                 `json:"garbler_id"`
-	EvaluatorID string                 `json:"evaluator_id"`
-	Purpose     string                 `json:"purpose"`
-	Operation   string                 `json:"operation"`
-	RingBits    int                    `json:"ring_bits"`
-	FracBits    int                    `json:"frac_bits"`
-	Threshold   string                 `json:"threshold,omitempty"`
-	MulBackend  string                 `json:"mul_backend,omitempty"`
-	BoundX      string                 `json:"bound_x,omitempty"`
-	BoundY      string                 `json:"bound_y,omitempty"`
-	VectorLen   int                    `json:"vector_len"`
-	SourceShare string                 `json:"source_share"`
+	GroupedLMM     *groupedLMMWorkerInput `json:"grouped_lmm,omitempty"`
+	CrossGrid      *crossGridKernelPlan   `json:"cross_grid,omitempty"`
+	Version        string                 `json:"version"`
+	Role           string                 `json:"role"`
+	SessionID      string                 `json:"session_id"`
+	MasterKey      string                 `json:"master_key"`
+	GarblerID      string                 `json:"garbler_id"`
+	EvaluatorID    string                 `json:"evaluator_id"`
+	Purpose        string                 `json:"purpose"`
+	Operation      string                 `json:"operation"`
+	RingBits       int                    `json:"ring_bits"`
+	FracBits       int                    `json:"frac_bits"`
+	Threshold      string                 `json:"threshold,omitempty"`
+	MulBackend     string                 `json:"mul_backend,omitempty"`
+	BoundX         string                 `json:"bound_x,omitempty"`
+	BoundY         string                 `json:"bound_y,omitempty"`
+	VectorLen      int                    `json:"vector_len"`
+	SourceValidity string                 `json:"source_validity,omitempty"`
+	SourceShare    string                 `json:"source_share"`
 	// JointDP and PrivateSeed remain in the same mode-0600,
 	// unlink-before-ready file as the ephemeral master key and input share.
 	// PrivateSeed is also accepted for a garbler-side Count clamp, where it
@@ -171,6 +172,7 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 	defer func() {
 		config.MasterKey = ""
 		config.SourceShare = ""
+		config.SourceValidity = ""
 		config.PrivateSeed = ""
 		config.HeartbeatKey = ""
 		config.GroupedLMM = nil
@@ -211,6 +213,9 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 		config.BoundX, config.BoundY, config.VectorLen)
 	if err != nil {
 		return err
+	}
+	if session.Spec.Operation != jointDPVectorOperation && config.SourceValidity != "" {
+		return fmt.Errorf("unexpected private source validity")
 	}
 	failureSession = &session
 	defer clear(session.MasterKey[:])
@@ -255,6 +260,7 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 	defer exactGCZeroBigInts(shares)
 	var jointSpec *jointDPGCLaplaceSpec
 	var jointVectorSpec *jointDPVectorSpec
+	var sourceValidity []bool
 	var jointGaussianOneDrawSpec *jointDPGaussianOneDrawSpec
 	var privateSeed [32]byte
 	deterministicClampMask := false
@@ -274,6 +280,12 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 		if parseErr != nil {
 			return parseErr
 		}
+		sourceValidity, parseErr = parsed.decodeSourceValidity(config.SourceValidity)
+		config.SourceValidity = ""
+		if parseErr != nil {
+			return parseErr
+		}
+		defer clear(sourceValidity)
 		jointVectorSpec = &parsed
 		privateSeed = seed
 		defer clear(privateSeed[:])
@@ -352,7 +364,7 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 				spool, session, *jointGaussianOneDrawSpec, shares, privateSeed)
 		} else if jointVectorSpec != nil {
 			outputShares, err = jointDPVectorRunGarbler(
-				spool, session, *jointVectorSpec, shares, privateSeed)
+				spool, session, *jointVectorSpec, shares, privateSeed, sourceValidity)
 		} else if jointSpec != nil {
 			outputShares, err = jointDPGCRunGarbler(
 				spool, session, *jointSpec, shares, privateSeed)
@@ -370,7 +382,7 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 				spool, session, *jointGaussianOneDrawSpec, shares, privateSeed)
 		} else if jointVectorSpec != nil {
 			outputShares, err = jointDPVectorRunEvaluator(
-				spool, session, *jointVectorSpec, shares, privateSeed)
+				spool, session, *jointVectorSpec, shares, privateSeed, sourceValidity)
 		} else if jointSpec != nil {
 			outputShares, err = jointDPGCRunEvaluator(
 				spool, session, *jointSpec, shares, privateSeed)

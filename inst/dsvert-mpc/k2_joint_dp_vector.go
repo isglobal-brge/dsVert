@@ -363,6 +363,7 @@ func jointDPPlanVectorLaplaceAccounting(
 }
 
 type jointDPVectorSpec struct {
+	SourceStagePlanDigest      string
 	RingBits                   int
 	FracBits                   int
 	OutputLatticeBits          int
@@ -385,6 +386,7 @@ type jointDPVectorSpec struct {
 }
 
 type jointDPVectorWorkerPolicy struct {
+	SourceStagePlanDigest          string   `json:"source_stage_plan_digest,omitempty"`
 	Version                        string   `json:"version"`
 	Sampler                        string   `json:"sampler"`
 	TotalCoordinateCount           int      `json:"total_coordinate_count"`
@@ -412,6 +414,9 @@ type jointDPVectorWorkerPolicy struct {
 }
 
 func (s jointDPVectorSpec) validate() error {
+	if err := s.validateSourcePlan(); err != nil {
+		return err
+	}
 	if s.RingBits != 128 || s.FracBits != 0 ||
 		s.OutputLatticeBits < 1 || s.OutputLatticeBits > 62 ||
 		s.TotalCoordinateCount < 1 || s.TotalCoordinateCount > jointDPVectorMaxTotal ||
@@ -487,6 +492,10 @@ func (s jointDPVectorSpec) contractDigest() [32]byte {
 	for _, upper := range s.RawUpperBounds {
 		write(upper.String())
 	}
+	if s.SourceStagePlanDigest != "" {
+		write("private-source-validity-v1")
+		write(s.SourceStagePlanDigest)
+	}
 	var result [32]byte
 	copy(result[:], h.Sum(nil))
 	return result
@@ -509,6 +518,9 @@ func (s jointDPVectorSpec) circuitShapeDigest() [32]byte {
 	for _, shift := range s.ScaleShifts {
 		h.Write([]byte{0})
 		h.Write([]byte(strconv.Itoa(shift)))
+	}
+	if s.SourceStagePlanDigest != "" {
+		h.Write([]byte("\x00private-source-validity-v1"))
 	}
 	var result [32]byte
 	copy(result[:], h.Sum(nil))
@@ -541,14 +553,18 @@ func jointDPVectorCircuitSource(s jointDPVectorSpec) string {
 	randomType := fmt.Sprintf("uint%d", s.UniformBits)
 	var source strings.Builder
 	source.WriteString("package main\n")
+	validityField := ""
+	if s.SourceStagePlanDigest != "" {
+		validityField = fmt.Sprintf("\tSourceValidity [%d]bool\n", s.CoordinateCount)
+	}
 	fmt.Fprintf(&source,
-		"type Garbler struct {\n\tStat [%d]uint128\n\tRandom [%d]%s\n\tRawUpper [%d]uint128\n\tOutputMask [%d]uint128\n\tValidityMask bool\n}\n",
+		"type Garbler struct {\n\tStat [%d]uint128\n\tRandom [%d]%s\n%s\tRawUpper [%d]uint128\n\tOutputMask [%d]uint128\n\tValidityMask bool\n}\n",
 		s.CoordinateCount, 2*s.CoordinateCount*s.BinaryGeometricBits,
-		randomType, s.CoordinateCount, s.CoordinateCount)
+		randomType, validityField, s.CoordinateCount, s.CoordinateCount)
 	fmt.Fprintf(&source,
-		"type Evaluator struct {\n\tStat [%d]uint128\n\tRandom [%d]%s\n}\n",
+		"type Evaluator struct {\n\tStat [%d]uint128\n\tRandom [%d]%s\n%s}\n",
 		s.CoordinateCount, 2*s.CoordinateCount*s.BinaryGeometricBits,
-		randomType)
+		randomType, validityField)
 	fmt.Fprintf(&source, "func main(g Garbler, e Evaluator) [%d]uint128 {\n",
 		s.CoordinateCount+1)
 	fmt.Fprintf(&source, "\tvar geom [%d]uint128\n", 2*s.CoordinateCount)
@@ -567,6 +583,11 @@ func jointDPVectorCircuitSource(s jointDPVectorSpec) string {
 		}
 	}
 	source.WriteString("\tvalid := true\n")
+	if s.SourceStagePlanDigest != "" {
+		for i := 0; i < s.CoordinateCount; i++ {
+			fmt.Fprintf(&source, "\tvalid = valid && (g.SourceValidity[%d] != e.SourceValidity[%d])\n", i, i)
+		}
+	}
 	for coordinate := 0; coordinate < s.CoordinateCount; coordinate++ {
 		fmt.Fprintf(&source,
 			"\traw%d := g.Stat[%d] + e.Stat[%d]\n\tvalid = valid && raw%d <= g.RawUpper[%d]\n",
@@ -705,7 +726,7 @@ func jointDPVectorDeterministicMasks(seed [32]byte, digest [32]byte,
 
 func jointDPVectorPackInput(shares []*big.Int, random []*big.Int,
 	upper, masks []*big.Int, validityMask bool, s jointDPVectorSpec,
-	garbler bool) *big.Int {
+	garbler bool, sourceValidity ...[]bool) *big.Int {
 	fields := make([]struct {
 		value *big.Int
 		bits  int
@@ -721,6 +742,11 @@ func jointDPVectorPackInput(shares []*big.Int, random []*big.Int,
 	}
 	for _, word := range random {
 		add(word, s.UniformBits)
+	}
+	if s.SourceStagePlanDigest != "" && len(sourceValidity) == 1 {
+		for _, bit := range sourceValidity[0] {
+			add(new(big.Int).SetUint64(boolToUint64(bit)), 1)
+		}
 	}
 	if garbler {
 		for _, bound := range upper {
@@ -748,7 +774,10 @@ func jointDPVectorValidateSession(session exactGCSession,
 }
 
 func jointDPVectorRunGarbler(rw io.ReadWriter, session exactGCSession,
-	s jointDPVectorSpec, shares []*big.Int, seed [32]byte) ([]*big.Int, error) {
+	s jointDPVectorSpec, shares []*big.Int, seed [32]byte, sourceValidity ...[]bool) ([]*big.Int, error) {
+	if err := s.validateSourceValidity(sourceValidity); err != nil {
+		return nil, err
+	}
 	if rw == nil {
 		return nil, fmt.Errorf("joint-dp-vector-gc: nil peer channel")
 	}
@@ -781,7 +810,7 @@ func jointDPVectorRunGarbler(rw io.ReadWriter, session exactGCSession,
 		seed, digest, s.CoordinateCount)
 	defer exactGCZeroBigInts(masks)
 	input := jointDPVectorPackInput(
-		shares, random, s.RawUpperBounds, masks, validityMask, s, true)
+		shares, random, s.RawUpperBounds, masks, validityMask, s, true, sourceValidity...)
 	secure, err := newExactGCSecureRecordRW(rw, session, exactGCRoleGarbler)
 	if err != nil {
 		return nil, err
@@ -800,7 +829,10 @@ func jointDPVectorRunGarbler(rw io.ReadWriter, session exactGCSession,
 }
 
 func jointDPVectorRunEvaluator(rw io.ReadWriter, session exactGCSession,
-	s jointDPVectorSpec, shares []*big.Int, seed [32]byte) ([]*big.Int, error) {
+	s jointDPVectorSpec, shares []*big.Int, seed [32]byte, sourceValidity ...[]bool) ([]*big.Int, error) {
+	if err := s.validateSourceValidity(sourceValidity); err != nil {
+		return nil, err
+	}
 	if rw == nil {
 		return nil, fmt.Errorf("joint-dp-vector-gc: nil peer channel")
 	}
@@ -828,7 +860,7 @@ func jointDPVectorRunEvaluator(rw io.ReadWriter, session exactGCSession,
 	if err != nil {
 		return nil, err
 	}
-	input := jointDPVectorPackInput(shares, random, nil, nil, false, s, false)
+	input := jointDPVectorPackInput(shares, random, nil, nil, false, s, false, sourceValidity...)
 	secure, err := newExactGCSecureRecordRW(rw, session, exactGCRoleEvaluator)
 	if err != nil {
 		return nil, err

@@ -105,8 +105,12 @@ to [0,2^50] and checks public beta endpoints with the retained encoding slack.
 
 The R source loader verifies signed contract/layout/snapshot/peer bindings,
 the existing successful alignment gate and actual private-store MACs and chunk
-identities before repacking predictor, outcome and routing-label shares. It
-carries the alignment circuit's XOR validity into every source coordinate.
+identities before repacking predictor, outcome and routing-label shares. The
+alignment protocol already opens its global admission result; only a true
+result reaches complete status. That public result is canonically XOR-shared
+as owner 1 / peer 0 so reconnects preserve identical worker source bytes even
+if the alignment circuit uses new output masks. Private row presence and all
+downstream candidate validity remain private and are never replaced by true.
 The owner sidecar binds the source snapshot, value and private alignment MACs.
 
 The server-local `grouped-lmm-staged-prepare-v1` command consumes exact decimal
@@ -117,20 +121,57 @@ binding rejects replaced source material even when cold replay skips callbacks.
 All configuration material stays outside public receipts; the durable directory
 must survive disposal of an ephemeral transport spool. The worker draws no noise.
 
+## ML variance grid and terminal DP validity
+
+The optional typed `Objective="ml"` and ordered `VarianceGrid` extend LMM with
+`r'V^-1r + log|V| + n*log(4)`. Coefficient candidates remain unique; terminal
+coordinates are variance-major then coefficient-major, with V*K signed caps.
+The first variance matches the legacy Numeric fields. Empty optional fields
+preserve the fixed-covariance graph and its serialization.
+
+The ML graph computes exact moments once, then branches precision and loss
+arithmetic per variance. A private live count selects an exact rational,
+upward-rounded q64 log table. Its shifted determinant is added at f264 before
+clamp/quantization. `NUMERIC_CERTIFICATE_LMM_ML.md` proves the log enclosure,
+12B bound and retained 1e-8 error allowance. REML remains unadmitted.
+Both R validators bind the ML objective, certificate bytes, canonical variance
+order, expanded caps and candidate identities. Source preparation preserves
+all variance bits as decimal strings. Public preparation now also returns the
+expected `stage_plan_digest`, which R checks against the worker terminal.
+
+The internal R lifecycle connects source preparation to the typed worker and
+persists complete losses, private candidate validity and terminal receipt. A
+separate MAC-protected public binding row is committed atomically; sampler
+planning reads that row without loading private losses before its START claim.
+Private injection follows the existing claimed source boundary. The client
+compares both authorities' signed stage identities and persistence receipts.
+
+The existing discrete-Laplace sampler optionally binds `source_stage_plan_digest`
+and requires packed `source_validity` in its private worker config. The circuit
+ANDs all incoming XOR bits with its range checks and gates the terminal result.
+Neither bit shares nor attempt-varying stage receipts enter the noise identity.
+The empty legacy path preserves circuit source and digests. Canonical lengths,
+padding bits, missing validity and extra validity are checked before readiness.
+Staged LMM rejects non-exact Synopsis samplers before START and rejects the
+legacy capsule lifecycle, whose source encoding cannot retain this private
+validity contract. Only the integrated Synopsis exact-GC route is supported.
+
 ## Remaining integration
 
-1. Connect the internal source loader, preparation and typed worker to the
-   authenticated R lifecycle, its terminal validity gate and sticky DP handoff.
-   The public catalogs and grouped release reader remain closed. The actual
-   pinned-identity garbler must own routing; owner names alone do not set roles.
-2. Reconcile the signed family scope with the requested ML/REML language. The
-   retained LMM certificate is a fixed-variance quadratic objective; do not
-   relabel it as a new ML/REML variance-grid implementation.
-3. Prove LMM at n2000 with bilateral/unilateral recovery, cold replay, tamper
-   rejection, paired tests and measured capacity under 256GB/6h before moving
-   to the next family. C<=64 remains the signed production guard. A completed
-   n2000/C500/B4/p3 router component measured 1,037,600,408 two-way bytes and
-   193.021 seconds with exact oracle equality; it omits owner materialization,
-   LMM arithmetic and DP and therefore does not admit full-family C500 capacity.
+The signed public workload catalogs and grouped release reader remain closed.
+Connect their admission, client source-layout projection, artifact validation
+and released-coordinate reader to the completed internal path. The actual
+pinned-identity garbler must own routing; owner name order does not set roles.
 
-No family promotion or full paired-suite result is established here.
+A real internal n2000/C500/B4/p3/J2 fixed-covariance worker completed all 244
+stages with an independent integer oracle, 6,222,758,629 computation bytes and
+715.079 seconds. Cold replay, source/stage tamper rejection, and actual late
+bilateral/unilateral stage recovery passed. This is authenticated synthetic
+source/worker evidence, not production owner materialization, the new ML grid,
+or a DP release. It does not raise the signed C<=64 production guard.
+
+Prove the first complete signed LMM n2000 ML release, including actual owner
+materialization, sticky DP, bilateral/unilateral recovery, cold replay and
+source/stage tamper rejection. Measure complete-family C500/frontier capacity
+under 256GB/6h and run the full paired suite before promotion and before moving
+to GLMM binomial. No family promotion or full paired-suite result is established.

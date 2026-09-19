@@ -134,6 +134,10 @@ func reverseBytesCopy(raw []byte) []byte {
 
 func groupedLMMStagedRunTest(t *testing.T, s groupedLMMStagedSpec, rows [][]*big.Int, invalid bool, scenario string) ([]byte, []byte) {
 	t.Helper()
+	faultStage := "lmm.grid"
+	if s.Objective == "ml" {
+		faultStage = "lmm.ml.variance.000.objective"
+	}
 	graphA, err := groupedLMMBuildStagedGraph(s, exactGCRoleGarbler)
 	if err != nil {
 		t.Fatal(err)
@@ -204,7 +208,7 @@ func groupedLMMStagedRunTest(t *testing.T, s groupedLMMStagedSpec, rows [][]*big
 		executors := [2]*crossGridStageExecutor{{Store: stores[0], Base: transport}, {Store: stores[1], Base: transport}}
 		if faultRole >= 0 {
 			executors[faultRole].fault = func(at string, r crossGridStageRecord) error {
-				if r.StageID == "lmm.grid" && at == event {
+				if r.StageID == faultStage && at == event {
 					return errors.New("synthetic midstage death")
 				}
 				return nil
@@ -255,7 +259,7 @@ func groupedLMMStagedRunTest(t *testing.T, s groupedLMMStagedSpec, rows [][]*big
 					t.Fatal(err)
 				}
 				receipts[stage.ID] = record.StageReceipt
-				if stage.ID == "lmm.grid" {
+				if stage.ID == faultStage {
 					records[role] = record
 					break
 				}

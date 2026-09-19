@@ -81,9 +81,9 @@ type groupedLMMWorkerPrepared struct {
 func groupedLMMWorkerPrepare(config exactGCWorkerConfig, session exactGCSession) (*groupedLMMWorkerPrepared, error) {
 	in := config.GroupedLMM
 	if in == nil || session.Spec.Operation != groupedLMMWorkerOperation || session.validate() != nil ||
-		config.SourceShare != "" || config.CrossGrid != nil || config.CrossGridCache != nil ||
+		config.SourceShare != "" || config.SourceValidity != "" || config.CrossGrid != nil || config.CrossGridCache != nil ||
 		config.JointDP != nil || config.JointDPVector != nil || config.JointDPGaussianOneDraw != nil || config.PrivateSeed != "" ||
-		session.Purpose != groupedLMMWorkerPurpose(in.Spec) || session.Spec.VectorLen != len(in.Spec.LMM.Beta) ||
+		session.Purpose != groupedLMMWorkerPurpose(in.Spec) || session.Spec.VectorLen != len(in.Spec.LMM.Caps) ||
 		session.GarblerID != in.Spec.Authorities[0] || session.EvaluatorID != in.Spec.Authorities[1] ||
 		!filepath.IsAbs(in.StoreDirectory) || filepath.Clean(in.StoreDirectory) != in.StoreDirectory {
 		return nil, errCrossGridStage

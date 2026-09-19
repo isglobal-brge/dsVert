@@ -3151,6 +3151,8 @@
       share <- .dsvert_dp_categorical_cross_inject_release_share_internal(
         connection, secret, parsed$manifest, contract, chunk, share,
         policy = policy)
+      share <- .dsvert_dp_lmm_cross_inject(
+        connection, secret, parsed$manifest, contract, chunk, share, policy)
     }
     if (length(share) != chunk$count * 16L) {
       stop("The biomedical capsule source aggregate has the wrong byte shape.",

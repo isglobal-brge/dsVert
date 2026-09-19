@@ -62,15 +62,20 @@
     store_directory = normalizePath(directory), store_key = gsub("[\r\n]", "",
       jsonlite::base64_enc(.dsvert_dp_capsule_source_hex_raw(key, "LMM durable stage key"))),
     routing = routing), simplify_output = FALSE)
-  .dsvert_dp_glm_grid_cross_fields(result, c("worker_input", "purpose", "vector_len"))
+  .dsvert_dp_glm_grid_cross_fields(result,
+    c("worker_input", "purpose", "vector_len", "stage_plan_digest"))
   if (!is.character(result$worker_input) || length(result$worker_input) != 1L ||
       is.na(result$worker_input) || !nzchar(result$worker_input) ||
       nchar(result$worker_input, type = "bytes") > 64 * 1024^2 ||
       !is.character(result$purpose) || length(result$purpose) != 1L ||
       is.na(result$purpose) || !grepl("^grouped-lmm-staged-v1/[0-9a-f]{64}$", result$purpose) ||
+      !is.character(result$stage_plan_digest) || length(result$stage_plan_digest) != 1L ||
+      is.na(result$stage_plan_digest) || !grepl("^[0-9a-f]{64}$", result$stage_plan_digest) ||
+      identical(result$stage_plan_digest, strrep("0", 64)) ||
       !identical(as.numeric(result$vector_len), as.numeric(artifact$coordinate_count))) {
     .dsvert_dp_grouped_cross_fail()
   }
   list(operation = "grouped-lmm-staged-v1", purpose = result$purpose,
-    vector_len = result$vector_len, grouped_lmm = result$worker_input)
+    vector_len = result$vector_len, stage_plan_digest = result$stage_plan_digest,
+    grouped_lmm = result$worker_input)
 }

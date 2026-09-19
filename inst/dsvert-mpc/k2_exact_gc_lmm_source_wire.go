@@ -20,8 +20,10 @@ type groupedLMMSourceWirePlan struct {
 		ResidualCap                   int64
 		Sigma2Q64, Tau2Q64, OutputCap string
 	}
-	Beta [][]string
-	Caps []string
+	Beta         [][]string
+	Caps         []string
+	Objective    string                                `json:",omitempty"`
+	VarianceGrid []struct{ Sigma2Q64, Tau2Q64 string } `json:",omitempty"`
 }
 
 type groupedLMMSourceWireOutput struct{ Share, Validity string }
@@ -73,7 +75,7 @@ func groupedLMMPrepareWire(input groupedLMMPrepareWireInput) (*groupedLMMWorkerI
 		return nil, errCrossGridStage
 	}
 	if w.Version != "dsvert-lmm-staged-source-handoff-v1" || w.Numeric.Slots != w.Slots ||
-		len(w.Beta) != len(w.Caps) || len(w.Caps) < 1 || len(w.Caps) > 256 {
+		len(w.Beta) < 1 || len(w.Caps) < 1 || len(w.Caps) > 256 {
 		return nil, errCrossGridStage
 	}
 	digests := [5][32]byte{}
@@ -104,7 +106,19 @@ func groupedLMMPrepareWire(input groupedLMMPrepareWireInput) (*groupedLMMWorkerI
 			Numeric: groupedLMMSpec{Slots: w.Slots, GridBits: w.Numeric.GridBits, ResidualCap: w.Numeric.ResidualCap,
 				Sigma2Q64: integers[0], Tau2Q64: integers[1], OutputCap: integers[2].Int64()},
 			SourceDigest: digests[1], ProfileDigest: profile, RoutedStage: "lmm.source.ring192"}}
-	for i, beta := range w.Beta {
+	spec.LMM.Objective = w.Objective
+	for _, pair := range w.VarianceGrid {
+		sigma, e := groupedLMMWireInteger(pair.Sigma2Q64)
+		if e != nil {
+			return nil, e
+		}
+		tau, e := groupedLMMWireInteger(pair.Tau2Q64)
+		if e != nil {
+			return nil, e
+		}
+		spec.LMM.VarianceGrid = append(spec.LMM.VarianceGrid, groupedLMMVariance{Sigma2Q64: sigma, Tau2Q64: tau})
+	}
+	for _, beta := range w.Beta {
 		row := make([]*big.Int, len(beta))
 		for j, text := range beta {
 			var err error
@@ -113,11 +127,13 @@ func groupedLMMPrepareWire(input groupedLMMPrepareWireInput) (*groupedLMMWorkerI
 				return nil, err
 			}
 		}
-		cap, err := groupedLMMWireInteger(w.Caps[i])
+		spec.LMM.Beta = append(spec.LMM.Beta, row)
+	}
+	for _, text := range w.Caps {
+		cap, err := groupedLMMWireInteger(text)
 		if err != nil || !cap.IsInt64() {
 			return nil, errCrossGridStage
 		}
-		spec.LMM.Beta = append(spec.LMM.Beta, row)
 		spec.LMM.Caps = append(spec.LMM.Caps, cap.Int64())
 	}
 	plans, err := groupedLMMSourcePlans(spec)
@@ -182,9 +198,25 @@ func handleGroupedLMMPrepareWire() {
 		outputError("LMM staged handoff rejected")
 		return
 	}
+	keyBytes, err := exactGCStrictBase64(worker.StoreKey, 32)
+	if err != nil {
+		outputError("LMM staged handoff rejected")
+		return
+	}
+	var key [32]byte
+	copy(key[:], keyBytes)
+	defer clear(key[:])
+	defer clear(keyBytes)
+	graph, err := groupedLMMBuildSourceGraph(worker.Spec, worker.Source.Role, worker.Source, worker.Routing, key)
+	if err != nil {
+		outputError("LMM staged handoff rejected")
+		return
+	}
+	digest := crossGridStageHash("public-plan", graph.Graph)
 	mpcWriteOutput(struct {
-		WorkerInput string `json:"worker_input"`
-		Purpose     string `json:"purpose"`
-		VectorLen   int    `json:"vector_len"`
-	}{encoded, groupedLMMWorkerPurpose(worker.Spec), len(worker.Spec.LMM.Beta)})
+		StagePlanDigest string `json:"stage_plan_digest"`
+		WorkerInput     string `json:"worker_input"`
+		Purpose         string `json:"purpose"`
+		VectorLen       int    `json:"vector_len"`
+	}{hex.EncodeToString(digest[:]), encoded, groupedLMMWorkerPurpose(worker.Spec), len(worker.Spec.LMM.Caps)})
 }

@@ -271,6 +271,7 @@
     .dsvert_dp_glm_grid_cross_fail()
   }
   artifacts <- .dsvert_dp_glm_grid_cross_artifacts(manifest)
+  artifacts <- Filter(function(artifact) !identical(artifact$family, "lmm"), artifacts)
   layout <- .dsvert_dp_capsule_coordinate_layout(manifest)
   for (id in names(artifacts)) {
     record <- .dsvert_dp_glm_grid_cross_load(con, secret, contract$capsule_id, id, 0)
@@ -342,6 +343,11 @@ dsvertDPSynopsisGLMGridCrossDS <- function(manifest_sha256, claim_set_json,
       if (!.dsvert_dp_synopsis_supported_glm_grid_cross_v1(manifest)) {
         .dsvert_dp_glm_grid_cross_fail()
       }
+      if (identical(manifest$workload$families$gaussian_models$artifacts[[analysis_id]]$family, "lmm")) {
+        if (!identical(as.numeric(batch), 0)) .dsvert_dp_grouped_cross_fail()
+        return(.dsvert_dp_lmm_cross_remote_bind(context, source, compilation,
+          claims, request, analysis_id, ss, parent.frame()))
+      }
       result <- .dsvert_dp_glm_grid_cross_bind(context$policy, context$secret,
         source$manifest_json, source$source_contract, analysis_id, ss)
       # Admission is immutable within this bound computation session. Retain the
@@ -356,6 +362,9 @@ dsvertDPSynopsisGLMGridCrossDS <- function(manifest_sha256, claim_set_json,
         artifact_sha256 = .dsvert_joint_dp_hash(binding$artifact))
       ss$.dp_glm_grid_cross[[analysis_id]] <- binding
       return(result)
+    }
+    if (!is.null(ss$.dp_lmm_grid_cross[[analysis_id]])) {
+      return(.dsvert_dp_lmm_cross_dispatch(ss, analysis_id, session_id, request, action, batch))
     }
     binding <- .dsvert_dp_glm_grid_cross_binding(ss, analysis_id)
     admission <- binding$admission

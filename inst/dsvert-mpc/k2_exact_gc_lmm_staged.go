@@ -19,7 +19,9 @@ type groupedLMMStagedSpec struct {
 	Beta                        [][]*big.Int
 	Caps                        []int64
 	SourceDigest, ProfileDigest [32]byte
-	RoutedStage                 string // authenticated Ring192 f50, cluster/slot/column order
+	RoutedStage                 string               // authenticated Ring192 f50, cluster/slot/column order
+	Objective                   string               `json:",omitempty"`
+	VarianceGrid                []groupedLMMVariance `json:",omitempty"`
 }
 
 type groupedLMMStagedGraph struct {
@@ -30,9 +32,12 @@ type groupedLMMStagedGraph struct {
 func (s groupedLMMStagedSpec) validate() error {
 	if s.Moments.validate() != nil || groupedLMMValidate(s.Numeric) != nil ||
 		s.Numeric.Slots != s.Moments.Slots || len(s.Beta) < 1 || len(s.Beta) > 256 ||
-		len(s.Caps) != len(s.Beta) || s.SourceDigest == ([32]byte{}) ||
+		s.SourceDigest == ([32]byte{}) ||
 		s.ProfileDigest == ([32]byte{}) || s.RoutedStage == "" {
 		return primitiveVError()
+	}
+	if err := groupedLMMValidateObjective(s); err != nil {
+		return err
 	}
 	// Reuse the public-coefficient validator without invoking private arithmetic.
 	n := s.Moments.Clusters * s.Moments.triangle()
@@ -52,6 +57,9 @@ func (s groupedLMMStagedSpec) validate() error {
 func groupedLMMBuildStagedGraph(s groupedLMMStagedSpec, role exactGCRole) (*groupedLMMStagedGraph, error) {
 	if s.validate() != nil || (role != exactGCRoleGarbler && role != exactGCRoleEvaluator) {
 		return nil, primitiveVError()
+	}
+	if s.Objective == "ml" {
+		return groupedLMMBuildMLStagedGraph(s, role)
 	}
 	raw, err := json.Marshal(s)
 	if err != nil {

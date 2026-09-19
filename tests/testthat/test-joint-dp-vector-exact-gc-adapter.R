@@ -74,6 +74,51 @@
     worker = worker, binding = binding)
 }
 
+test_that("staged candidate validity stays private and bound to the sampler plan", {
+  f <- .exact_gc_vector_adapter_fixture()
+  plan_digest <- f$hex("stage-plan")
+  f$input$source_stage_plan_digest <- plan_digest
+  f$output$worker_policy$source_stage_plan_digest <- plan_digest
+  worker <- .dsvert_joint_dp_vector_exact_gc_compile(f$input, .compiler = function(input) {
+    expect_identical(input$source_stage_plan_digest, plan_digest)
+    expect_false("source_validity" %in% names(input))
+    f$output
+  })
+  changed <- f$input; changed$source_validity <- "AQ=="
+  expect_error(.dsvert_joint_dp_vector_exact_gc_compile(changed), "public metadata only")
+  changed <- f$output; changed$worker_policy$source_stage_plan_digest <- NULL
+  expect_error(.dsvert_joint_dp_vector_exact_gc_compile(f$input,
+    .compiler = function(input) changed), "conflicting contract")
+  binding <- .dsvert_joint_dp_vector_exact_gc_binding(f$selection, f$manifest,
+    f$release, f$transcript, 0L, worker)
+  ss <- new.env(parent = emptyenv())
+  source <- raw(16L)
+  attr(source, "dsvert_staged_source") <- list(validity_share = "AA==",
+    stage_receipt = f$hex("terminal-receipt"), stage_plan_digest = plan_digest)
+  initialize <- function(...) list(state = "running", stored = FALSE)
+  run <- function(value = source, current_worker = worker, current_binding = binding) {
+    .dsvert_joint_dp_vector_exact_gc_start(ss, "00000000-0000-4000-8000-000000000001",
+      current_binding, f$selection, f$manifest, f$release, f$transcript, 0L,
+      current_worker, value, strrep("1", 64), .initialize = initialize)
+  }
+  expect_error(run(raw(16L)), "lacks its staged validity")
+  changed <- source; attr(changed, "dsvert_staged_source")$stage_plan_digest <- f$hex("other-plan")
+  expect_error(run(changed), "lacks its staged validity")
+  changed <- source; attr(changed, "dsvert_staged_source")$validity_share <- "Ag=="
+  expect_error(run(changed), "Non-canonical")
+  started <- run()
+  expect_identical(ss$.exact_gc_inputs[[binding$source_key]]$source_validity, "AA==")
+  expect_identical(ss$.exact_gc_inputs[[binding$source_key]]$source_stage_plan_digest, plan_digest)
+  expect_false(any(c("validity_share", "source_validity", "stage_receipt", "source_share") %in% names(started)))
+  expect_error(run(source, f$worker, f$binding), "did not bind")
+  state <- new.env(parent = emptyenv()); state$status <- "failed"; state$retryable <- TRUE
+  operations <- .exact_gc_ops(ss)
+  operations[[binding$operation_id]] <- state
+  changed <- source; attr(changed, "dsvert_staged_source")$validity_share <- "AQ=="
+  expect_error(run(changed), "changed on retry")
+  expect_identical(run(), started)
+})
+
 .exact_gc_vector_real_worker <- function(coordinate_count) {
   hex <- function(label) digest::digest(
     label, algo = "sha256", serialize = FALSE)

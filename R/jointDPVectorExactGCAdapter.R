@@ -268,13 +268,20 @@
     "raw_upper_bounds", "transcript_hash",
     "garbler_commitment_context", "evaluator_commitment_context",
     "garbler_seed_commitment", "evaluator_seed_commitment")
+  if (!is.null(input$source_stage_plan_digest)) {
+    .dsvert_joint_dp_vector_exact_gc_hex(input$source_stage_plan_digest, "source stage plan")
+    if (identical(input$source_stage_plan_digest, strrep("0", 64))) {
+      stop("Invalid source stage plan.", call. = FALSE)
+    }
+    required <- c(required, "source_stage_plan_digest")
+  }
   recursive_names <- function(value) {
     if (!is.list(value)) return(character())
     c(names(value), unlist(lapply(value, recursive_names), use.names = FALSE))
   }
   if (!is.list(input) || !setequal(names(input), required) ||
       length(intersect(recursive_names(input),
-                       c("source_share", "private_seed")))) {
+                       c("source_share", "source_validity", "private_seed")))) {
     stop("The exact-GC compiler accepts public metadata only.",
          call. = FALSE)
   }
@@ -344,6 +351,8 @@
                  total) ||
       !identical(output$worker_policy$transcript_hash,
                  input$transcript_hash) ||
+      !identical(output$worker_policy$source_stage_plan_digest,
+                 input$source_stage_plan_digest) ||
       !identical(output$plan$version,
                  "dsvert-joint-dp-vector-laplace-plan-v3") ||
       !identical(output$plan$sampler,
@@ -516,6 +525,22 @@
   count <- .dsvert_joint_dp_vector_exact_gc_integer(
     worker_contract$worker_policy$coordinate_count,
     "exact-GC coordinate count", 1L, 128L)
+  staged <- attr(source_share, "dsvert_staged_source", exact = TRUE)
+  expected_plan <- worker_contract$worker_policy$source_stage_plan_digest
+  if (!is.null(expected_plan)) {
+    if (!is.list(staged) || !setequal(names(staged),
+        c("validity_share", "stage_receipt", "stage_plan_digest")) ||
+        !identical(staged$stage_plan_digest, expected_plan)) {
+      stop("The exact-GC source lacks its staged validity binding.", call. = FALSE)
+    }
+    .exact_gc_validate_packed_bits(staged$validity_share, count, "staged DP source validity")
+    .dsvert_joint_dp_vector_exact_gc_hex(staged$stage_receipt, "staged DP source receipt")
+    if (identical(staged$stage_receipt, strrep("0", 64))) {
+      stop("Invalid staged DP source receipt.", call. = FALSE)
+    }
+  } else if (!is.null(staged)) {
+    stop("The exact-GC sampler did not bind the staged source validity.", call. = FALSE)
+  }
   source_b64 <- if (is.raw(source_share)) {
     if (length(source_share) != count * 16L) {
       stop("The private Ring128 vector share has the wrong shape.",
@@ -535,6 +560,27 @@
       ss, binding$source_key, source_b64, 128L, count,
       binding$source_producer, binding$operation, binding$purpose, 0L,
       binding$output_kind)
+  }
+  if (!is.null(staged)) {
+    source <- ss$.exact_gc_inputs[[binding$source_key]]
+    if (is.null(source) && !identical(previous$status, "complete")) {
+      stop("Missing staged DP input.", call. = FALSE)
+    }
+    if (!is.null(source) && !identical(source$share, source_b64)) {
+      stop("The staged DP source changed on retry.", call. = FALSE)
+    }
+    if (!is.null(source$source_validity) &&
+        (!identical(source$source_validity, staged$validity_share) ||
+         !identical(source$source_stage_plan_digest, staged$stage_plan_digest) ||
+         !identical(source$source_stage_receipt, staged$stage_receipt))) {
+      stop("The staged DP source changed on retry.", call. = FALSE)
+    }
+    if (!is.null(source)) {
+      source$source_validity <- staged$validity_share
+      source$source_stage_plan_digest <- staged$stage_plan_digest
+      source$source_stage_receipt <- staged$stage_receipt
+      ss$.exact_gc_inputs[[binding$source_key]] <- source
+    }
   }
   init_args <- list(
     ss = ss, session_id = session_id,

@@ -183,7 +183,7 @@
         }, logical(1L)))) {
       stop("Invalid durable synopsis policy snapshot.", call. = FALSE)
     }
-    fields <- unlist(fields, use.names = FALSE)
+    fields <- as.character(unlist(fields, use.names = FALSE))
     if (anyDuplicated(fields) ||
         !identical(fields, sort(fields, method = "radix"))) {
       stop("Invalid durable synopsis policy snapshot.", call. = FALSE)

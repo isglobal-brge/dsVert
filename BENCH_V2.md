@@ -390,7 +390,7 @@ Interrupted process logs retained: `matrix-pod-n1000-p5-g50.log`. Only completed
 
 ## Real DataSHIELD API timings — required matrix in progress
 
-These eleven completed synthetic releases are wiring measurements, separate from
+These twelve completed synthetic releases are wiring measurements, separate from
 the full-size raw Go matrix above. Timing wraps the exported `ds.vertGLM()`
 call: authenticated materialisation, framed MPC, joint noise and publication.
 It excludes preceding PSI/signature setup and subsequent oracle/cold-lifecycle
@@ -410,6 +410,7 @@ exactly-once/replay/tamper checks. All use n=2000, p=6, grid=2, two owners.
 | poisson | 4 | 1 | 3782.294 |
 | poisson | 4 | 2 | 3369.260 |
 | poisson | 8 | 1 | 3675.475 |
+| poisson | 8 | 2 | 3195.671 |
 
 Evidence under `inst/cross-grid-v2`:
 
@@ -418,9 +419,10 @@ Evidence under `inst/cross-grid-v2`:
 - `validation-poisson-e1.log`
 - `dslite-n2000-poisson-e4-two-real.log`
 - `dslite-n2000-binomial-e8-two-real.log`
-- `dslite-n2000-poisson-e8-first.log`
+- `dslite-n2000-poisson-e8-two-real.log`
 
-The required twelve-release matrix remains incomplete. Mac K3
+The required twelve real API releases are complete; the remaining oracle
+selections and aggregate 120-key validation are still running. Mac K3
 n10000/p10/grid50 DSLite campaigns are still running; their observed relay
 throughput projects to tens of hours. That is a projection, not a measured
 completed API elapsed time. No full-size API cost pass is claimed. The raw

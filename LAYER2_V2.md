@@ -118,3 +118,11 @@ Poisson/epsilon4 completes both real releases and cold-lifecycle checks
 Binomial/epsilon8 completes both real releases and cold-lifecycle checks
 (`inst/cross-grid-v2/dslite-n2000-binomial-e8-two-real.log`); instance2 takes
 **2822.927 s**. Required progress is **11/12**.
+
+Poisson/epsilon8 completes both real releases and cold-lifecycle checks
+(`inst/cross-grid-v2/dslite-n2000-poisson-e8-two-real.log`); instance2 takes
+**3195.671 s**. Required real-release gate is **12/12 PASS**: two independent
+signed grids for each family and epsilon in {1,4,8}, all at n2000/p6/grid2/K2.
+Every release matches the complete integer production-noise oracle vector
+and passes fresh-process exactly-once/replay/tamper checks. The complete
+120-selection aggregate and additional K3/K5 topologies remain separate gates.

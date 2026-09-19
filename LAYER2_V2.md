@@ -114,3 +114,7 @@ progress is **9/12**, with at least one qualifying release in every family/epsil
 Poisson/epsilon4 completes both real releases and cold-lifecycle checks
 (`inst/cross-grid-v2/dslite-n2000-poisson-e4-two-real.log`); instance2 takes
 **3369.260 s**. Required progress is **10/12**.
+
+Binomial/epsilon8 completes both real releases and cold-lifecycle checks
+(`inst/cross-grid-v2/dslite-n2000-binomial-e8-two-real.log`); instance2 takes
+**2822.927 s**. Required progress is **11/12**.

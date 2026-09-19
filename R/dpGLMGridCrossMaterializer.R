@@ -47,6 +47,9 @@
 
 .dsvert_dp_glm_grid_cross_source_blocks <- function(artifact, cursor) {
   spec <- .dsvert_dp_glm_grid_cross_embedded_contract(artifact)$spec
+  if (spec$family %in% .DSVERT_DP_GROUPED_CROSS_FAMILIES) {
+    return(.dsvert_dp_grouped_cross_source_blocks(artifact, cursor))
+  }
   blocks <- list()
   for (variable in artifact$input_variable_order) {
     outcome <- identical(variable, spec$outcome$reference)
@@ -79,28 +82,91 @@
 }
 
 .dsvert_dp_glm_grid_cross_source_values <- function(input, block) {
-  if (isTRUE(block$outcome) && !is.null(block$levels)) {
+  if ((isTRUE(block$outcome) || isTRUE(block$private_routing_input)) &&
+      !is.null(block$levels)) {
     valid <- !is.na(input$cell)
     result <- if (identical(block$kind, "validity")) as.numeric(valid) else as.numeric(input$cell) - 1
     result[!valid] <- 0
     return(result)
   }
   valid <- input$valid
-  if (isTRUE(block$outcome)) {
+  integer_outcome <- isTRUE(block$outcome) &&
+    !identical(block$outcome_encoding$kind, "fixed_point")
+  if (integer_outcome) {
     valid <- valid & is.finite(input$unit_values) &
       input$unit_values == floor(input$unit_values) &
       input$unit_values >= 0 & input$unit_values <= block$upper
   }
   result <- if (identical(block$kind, "validity")) {
     as.numeric(valid)
-  } else if (isTRUE(block$outcome)) {
+  } else if (integer_outcome) {
     input$unit_values
   } else {
     round(pmin(1, pmax(0, (input$unit_values - block$lower) /
-      (block$upper - block$lower))) * 2^50)
+      (block$upper - block$lower))) * 2^block$fraction_bits)
   }
   result[!valid] <- 0
   result
+}
+
+# Routing labels travel only in the authenticated private Ring128 suffix. The
+# signed source contract pins their owner, level order and value/validity blocks;
+# the staged router consumes these shares without opening label membership.
+.dsvert_dp_grouped_cross_workload_artifact <- function(contract) {
+  artifact <- .dsvert_dp_glm_grid_cross_workload_artifact(contract)
+  spec <- contract$spec
+  artifact$transcript$producer <- paste0("dp.", spec$family, "-grid-cross.v1")
+  artifact$outcome_encoding <- spec$outcome_encoding
+  artifact$predictor_encoding <- spec$predictor_encoding
+  artifact$routing_inputs <- spec$routing_inputs
+  artifact$grouping <- spec$grouping
+  artifact$parameters <- spec$parameters
+  artifact$candidate_loss_bounds <- lapply(spec$sensitivity$candidate_bounds,
+                                           `[[`, "per_cluster_caps")
+  artifact
+}
+
+.dsvert_dp_grouped_cross_source_blocks <- function(artifact, cursor) {
+  spec <- .dsvert_dp_glm_grid_cross_embedded_contract(artifact)$spec
+  layout <- .dsvert_dp_grouped_cross_layout(spec)
+  blocks <- list()
+  for (signed_block in layout$blocks) {
+    variable <- signed_block$reference
+    outcome <- identical(variable, spec$outcome$reference)
+    routing <- isTRUE(signed_block$private_routing_input)
+    descriptor <- if (routing) spec$routing_inputs[[variable]] else {
+      if (outcome) spec$outcome else spec$predictors[[variable]]
+    }
+    for (kind in c("value", "validity")) {
+      size <- signed_block$length
+      end <- cursor + size - 1
+      if (end > .DSVERT_DP_GAUSSIAN_CROSS_MAX_TRANSPORT_COORDINATES) {
+        .dsvert_dp_grouped_cross_fail()
+      }
+      key <- paste(artifact$analysis_id, variable, kind, sep = "::")
+      block <- list(input_family = "grouped_grid", analysis_id = artifact$analysis_id,
+        variable = descriptor$column, kind = kind, outcome = outcome,
+        dataset = descriptor$dataset, owner_peer = descriptor$owner_peer,
+        start = as.integer(cursor), end = as.integer(end), length = as.integer(size),
+        fraction_bits = if (kind == "validity") 0L else signed_block$value_fraction_bits,
+        maximum = if (kind == "validity") 1 else signed_block$value_maximum,
+        private_routing_input = routing)
+      if (routing) block$levels <- unlist(descriptor$levels, use.names = FALSE) else {
+        block$lower <- descriptor$lower
+        block$upper <- descriptor$upper
+        if (outcome) block$outcome_encoding <- spec$outcome_encoding
+      }
+      blocks[[key]] <- block
+      cursor <- end + 1
+    }
+  }
+  list(blocks = blocks, cursor = cursor)
+}
+
+.dsvert_dp_grouped_cross_source_values <- function(input, block) {
+  result <- .dsvert_dp_glm_grid_cross_source_values(input, block)
+  if (length(result) > block$length) .dsvert_dp_grouped_cross_fail()
+  c(result, rep(0, block$length - length(result)))
 }
 
 .dsvert_dp_glm_grid_cross_embedded_contract <- function(artifact) {

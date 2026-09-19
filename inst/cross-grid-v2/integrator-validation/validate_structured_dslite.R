@@ -76,7 +76,17 @@ run <- function() {
   event <- rbinom(n, 1, .7)
   ids <- sprintf("synthetic-%06d", seq_len(n))
   owner_names <- paste0("site_", letters[seq_len(owner_count)])
-  allocation <- pmin(owner_count, 1L + floor((seq_len(predictors)-1L) * owner_count / predictors))
+  if (cox) {
+    allocation <- pmin(owner_count, 1L + floor((seq_len(predictors)-1L) * owner_count / predictors))
+  } else {
+    # The first owner supplies private routing; the second supplies outcomes.
+    # K2 collapses covariates onto the routing owner, K3 onto owner C, and K5
+    # partitions covariates over C..E, giving every pinned owner a source role.
+    covariate_owners <- if (owner_count == 2L) 1L else seq.int(3L, owner_count)
+    stopifnot(predictors >= length(covariate_owners))
+    allocation <- covariate_owners[1L + floor((seq_len(predictors)-1L) *
+      length(covariate_owners) / predictors)]
+  }
   variable_names <- if (predictors == 10L) sprintf("x%02d", seq_len(predictors)) else paste0("x", seq_len(predictors))
   predictor_order <- paste0(owner_names[allocation], "$", variable_names)
   stopifnot(identical(predictor_order, sort(predictor_order, method = "radix")))
@@ -84,9 +94,10 @@ run <- function() {
     result <- data.frame(patient_id = ids)
     if (owner == 1L) {
       if (cox) { result$time <- time; result$event <- event } else {
-        result$y <- y; result$cluster <- factor(cluster, levels = cluster_levels)
+        result$cluster <- factor(cluster, levels = cluster_levels)
       }
     }
+    if (!cox && owner == 2L) result$y <- y
     for (j in which(allocation == owner)) result[[variable_names[[j]]]] <- x[, j]
     result
   }), owner_names)
@@ -198,7 +209,7 @@ run <- function() {
     if (cox) {
       raw_spec$time <- "site_a$time"; raw_spec$event <- "site_a$event"
     } else {
-      raw_spec$outcome <- "site_a$y"; raw_spec$max_outcome <- maximum
+      raw_spec$outcome <- "site_b$y"; raw_spec$max_outcome <- maximum
       raw_spec$grouping <- list(reference = "site_a$cluster", cluster_capacity = cluster_count,
         max_patients_per_cluster = cluster_size, patient_rule = "one_analysis_row_per_patient_v1",
         ordering = "stable_signed_slots_preserve_gaps_v1")
@@ -217,7 +228,7 @@ run <- function() {
   cat("DSLITE_STRUCTURED_SPEC_COMPLETE\n")
   workload <- list(version = "dsvert-biomedical-capsule-workload-contract-v2",
     describe = list(), survival = list(), vertical_cross = list(),
-    gaussian = list(grid = list(owner_peer = "site_a", spec = list(
+    gaussian = list(grid = list(owner_peer = contract$spec$owner_peer, spec = list(
       version = contract$spec$version, dataset = "DA", contract = contract))))
   # Compute the schema fixed point before asking custodians to sign it.
   schema$signatures <- NULL
@@ -242,7 +253,7 @@ run <- function() {
   stopifnot(identical(cf(".dsvert_dp_capsule_manifest_expected_snapshot")(
     snapshot_context,schema$datasets,schema$logical_snapshot$alignment_protocol_version,workload),schema$logical_snapshot))
 
-  peers$site_a$worker$run(function(contract) {
+  peers[[contract$spec$owner_peer]]$worker$run(function(contract) {
     options(dsvert.dp.gaussian_specs = list(grid = list(version = contract$spec$version,
       dataset = "DA", contract = dsVert:::.dsvert_dp_canonical_json(
         dsVert:::.dsvert_dp_canonical_query_value(contract)))))
@@ -342,11 +353,11 @@ run <- function() {
   }
   if (real_release) {
   formula <- stats::as.formula(paste(if (cox) "Surv(site_a$time, site_a$event)" else
-    "site_a$y", "~", paste(predictor_order, collapse = " + ")))
+    "site_b$y", "~", paste(predictor_order, collapse = " + ")))
   invoke <- function() {
     if (cox) cf("dp_cox_grid")(formula, data = "DA", analysis_id = "grid", datasources = conns) else {
       entry <- if (family == "lmm") "dp_lmm_grid" else if (gee) "dp_gee_grid" else "dp_glmm_grid"
-      cf(entry)("site_a$y", predictor_order, contract, policy, schema, datasources = conns)
+      cf(entry)("site_b$y", predictor_order, contract, policy, schema, datasources = conns)
     }
   }
   if (identical(Sys.getenv("DSVERT_GRID_VALIDATION_INTERRUPT"), "1")) {

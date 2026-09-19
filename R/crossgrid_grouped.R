@@ -195,8 +195,9 @@
     "beta_grid", "max_outcome", "alignment", "grouping", "parameters"))
   family <- sub("_grid_cross_v1$", "", raw$version)
   if (length(family) != 1L || !family %in% .DSVERT_DP_GROUPED_CROSS_FAMILIES ||
-      !identical(raw$version, paste0(family, "_grid_cross_v1")) ||
-      length(policy$peer_pinset) != 2L) .dsvert_dp_grouped_cross_fail()
+      !identical(raw$version, paste0(family, "_grid_cross_v1"))) {
+    .dsvert_dp_grouped_cross_fail()
+  }
   # Reuse frozen canonical schema/owner/beta/alignment validation, then replace
   # family-specific source encoding, profile, statistic and sensitivity.
   base_raw <- raw[setdiff(names(raw), c("grouping", "parameters"))]
@@ -204,9 +205,6 @@
     "poisson_grid_cross_v1"
   } else "binomial_grid_cross_v1"
   base <- .dsvert_dp_glm_grid_cross_spec(base_raw, policy, schema)
-  if (!setequal(unlist(base$participating_peers), unlist(base$computation_peers))) {
-    .dsvert_dp_grouped_cross_fail()
-  }
   .dsvert_dp_glm_grid_cross_fields(raw$grouping, c(
     "reference", "cluster_capacity", "max_patients_per_cluster", "patient_rule",
     "ordering"))
@@ -223,8 +221,14 @@
     identical(sub("^[^$]+\\$", "", name), column_name) &&
       identical(columns[[name]]$owner_peer, owner)
   }, logical(1L))
-  if (sum(match) != 1L || !owner %in% unlist(base$computation_peers) ||
+  if (sum(match) != 1L || !owner %in% names(policy$peer_pinset) ||
       !identical(columns[[which(match)]]$kind, "categorical")) {
+    .dsvert_dp_grouped_cross_fail()
+  }
+  participants <- sort(unique(c(unlist(base$participating_peers), owner)),
+                       method = "radix")
+  if (!setequal(participants, names(policy$peer_pinset)) ||
+      !all(unlist(base$computation_peers) %in% participants)) {
     .dsvert_dp_grouped_cross_fail()
   }
   C <- .dsvert_dp_glm_grid_cross_integer(raw$grouping$cluster_capacity, 1, 64)
@@ -248,6 +252,16 @@
   }
   base$version <- raw$version
   base$family <- family
+  base$participating_peers <- as.list(participants)
+  base$outcome_encoding <- if (family == "lmm") {
+    list(kind = "fixed_point", q = 50)
+  } else list(kind = "integer")
+  base$predictor_encoding <- list(kind = "fixed_point", q = 50)
+  base$routing_inputs <- setNames(list(list(reference = reference,
+    dataset = raw$dataset, owner_peer = owner, column = column_name,
+    kind = "categorical", levels = as.list(unlist(columns[[which(match)]]$levels,
+      use.names = FALSE)),
+    encoding = "signed_level_index_zero_based_v1")), reference)
   base$grouping <- grouping
   base$parameters <- parameters
   base$numeric_contract <- .dsvert_dp_grouped_cross_numeric(family, grouping, parameters)
@@ -288,8 +302,25 @@
     layout$blocks[[index]]$value_maximum <- 2^50
     layout$blocks[[index]]$value_encoding <- "normalized_unsigned_fixed_point_v1"
   }
+  routing <- spec$routing_inputs[[spec$grouping$reference]]
+  cursor <- layout$transport_coordinate_count + 1
+  layout$blocks[[length(layout$blocks) + 1L]] <- list(
+    reference = routing$reference, owner_peer = routing$owner_peer,
+    value_start = cursor, validity_start = cursor + layout$padded_units,
+    length = layout$padded_units, value_fraction_bits = 0,
+    value_encoding = routing$encoding,
+    value_maximum = length(routing$levels) - 1,
+    validity_fraction_bits = 0, validity_maximum = 1,
+    private_routing_input = TRUE)
+  layout$transport_coordinate_count <- cursor + 2 * layout$padded_units - 1
+  if (layout$transport_coordinate_count > 64 * 1024^2) {
+    .dsvert_dp_grouped_cross_fail()
+  }
+  layout$block_order <- "predictors_then_outcome_then_private_routing_each_values_then_validity_v1"
   layout$grouping_controls <- list(
     source_peer = spec$grouping$owner_peer, private_control_bits = TRUE,
+    source_reference = routing$reference,
+    source_encoding_sha256 = .dsvert_joint_dp_hash(routing),
     padded_slots = spec$grouping$padded_slots,
     next_power_two_padding = TRUE, primitive = spec$grouping$routing,
     authenticated_private_sidecar_required = TRUE)

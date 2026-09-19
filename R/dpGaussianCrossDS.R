@@ -436,7 +436,7 @@
   }
   bounded_for <- function(block) {
     categorical <- identical(block$input_family, "categorical") ||
-      (identical(block$input_family, "glm_grid") && !is.null(block$levels))
+      (isTRUE(block$input_family %in% c("glm_grid", "grouped_grid")) && !is.null(block$levels))
     key <- paste(
       if (categorical) "categorical" else "numeric",
       block$dataset, block$variable, sep = "::")
@@ -469,9 +469,11 @@
     input <- bounded_for(block)
     scale <- 2^as.integer(context$manifest$bounds$numeric_grid_bits)
     categorical <- identical(block$input_family, "categorical")
-    grid <- identical(block$input_family, "glm_grid")
+    grid <- isTRUE(block$input_family %in% c("glm_grid", "grouped_grid"))
     if (grid) scale <- block$maximum
-    values <- if (grid) {
+    values <- if (identical(block$input_family, "grouped_grid")) {
+      .dsvert_dp_grouped_cross_source_values(input, block)
+    } else if (grid) {
       .dsvert_dp_glm_grid_cross_source_values(input, block)
     } else if (categorical && identical(block$kind, "validity")) {
       as.numeric(!is.na(input$cell)) * scale

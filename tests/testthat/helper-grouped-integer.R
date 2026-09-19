@@ -83,7 +83,7 @@
   if (!any(live == 1)) return("0")
   nodes <- if (variance == 0) rep(0, 5) else c(-93617, -44421, 0, 44421, 93617)
   logweights <- c(-294042, -98614, -41196, -98614, -294042)
-  factorial <- c(0, 0, 45426, 117423, 208277)
+  factorial <- c(0, 0, 45426, 117425, 208277)
   eta <- vapply(eta_q64, function(x) .cross_double(.cross_round_shift(.cross_parse(x), 48)), numeric(1L))
   terms <- logweights
   for (q in seq_len(5)) for (i in seq_along(live)) if (live[i] == 1) {

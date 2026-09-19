@@ -44,7 +44,7 @@ func TestGroupedGLMMShareComposition(t *testing.T) {
 					e := primitiveVRoundDivReference(eta[i], new(big.Int).Lsh(big.NewInt(1), 48)).Int64()
 					values[1][i] = groupedWordFromBig(big.NewInt(outcome[i] * e))
 					values[2][i] = groupedWordFromBig(big.NewInt(outcome[i]))
-					values[3][i] = groupedWordFromBig(big.NewInt(groupedGLMMLogFactorials[outcome[i]]))
+					values[3][i] = groupedWordFromBig(big.NewInt(live[i]))
 					for q := 0; q < 5; q++ {
 						argument := e
 						if variance != 0 {
@@ -109,6 +109,15 @@ func TestGroupedGLMMShareComposition(t *testing.T) {
 				}
 				got := primitiveVTestCompute(t, final, []*big.Int{centered[5], big.NewInt(log), big.NewInt(count), big.NewInt(1), new(big.Int), new(big.Int)}, []*big.Int{new(big.Int), new(big.Int), new(big.Int), new(big.Int)})
 				want, valid, err := groupedGLMMReference(s, eta, live, outcome)
+				// At g16 the candidate-independent integer translation is exact;
+				// this independently checks selection against the legacy full loss.
+				if family == "poisson" {
+					for i, active := range live {
+						if active == 1 {
+							want += 2*65536 - groupedGLMMLogFactorials[outcome[i]]
+						}
+					}
+				}
 				if err != nil || !valid || got[0].Int64() != want || got[1].Int64() != 1 {
 					t.Fatalf("%s variance=%d got=%v want=%d err=%v", family, variance, got, want, err)
 				}

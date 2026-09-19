@@ -86,7 +86,7 @@
       loss <- if (poisson) {
         # Safe asymmetric endpoint maximum plus explicit profile error slack.
         max(outer(0:max_outcome, c(-T, T), function(y, eta) {
-          exp(eta) - y * eta + lgamma(y + 1)
+          exp(eta) - y * eta + if (glmm) 2 else lgamma(y + 1)
         }))
       } else T + log1p(exp(-T))
       caps <- ceiling(scale * (B * loss + error))
@@ -165,7 +165,8 @@
   errors <- if (gee) .dsvert_dp_grouped_gee_errors(family, B, parameters$score_clip) else NULL
   out <- list(version = "grouped-fixed-profile-numeric-v1",
        profile = if (lmm) "grouped-lmm-stats-f264-q64-v2" else if (gee)
-         "grouped-gee-whitening-f96-q64-v3" else "grouped-pwlinear-q16-k64-range-exp-v2",
+         "grouped-gee-whitening-f96-q64-v3" else if (family == "poisson_glmm")
+         "grouped-gh5-poisson-selection-shift2-q16-v3" else "grouped-pwlinear-q16-k64-range-exp-v2",
        profile_sha256 = if (lmm) NULL else "f72e66abaf2e503a809f23d4563418d2889843174109398ae48b02f0ec7edb84",
        source_fraction_bits = 50, predictor_accumulation_fraction_bits = 100,
        predictor_rounding = if (lmm) "exact_f100_dot_no_intermediate_rounding_v1" else
@@ -176,6 +177,11 @@
          if (lmm) 1e-8 else if (gee) max(unlist(errors)) else 1,
        quadrature_error_included = FALSE,
        integer_cap_enforced = TRUE, arithmetic_certificate_required = TRUE)
+  if (family == "poisson_glmm") {
+    out$objective <- "gh5_negative_log_kernel_without_factorial_v1"
+    out$per_live_row_shift <- 2
+    out$full_likelihood_value <- FALSE
+  }
   if (gee) {
     out$coordinate_error_bounds <- errors
     out$factorial_q16 <- as.list(c(0, 0, 45426, 117425, 208277))

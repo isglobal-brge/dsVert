@@ -51,7 +51,8 @@ func groupedGLMMBounds(s groupedGLMMSpec) (groupedGLMMCaps, error) {
 
 var groupedGLMMNodes = [5]int64{-93617, -44421, 0, 44421, 93617}
 var groupedGLMMLogWeights = [5]int64{-294042, -98614, -41196, -98614, -294042}
-var groupedGLMMLogFactorials = [5]int64{0, 0, 45426, 117423, 208277}
+// Legacy full loss VALUE only; the share-composed selection omits factorials.
+var groupedGLMMLogFactorials = [5]int64{0, 0, 45426, 117425, 208277}
 
 // Registration is the only family integration entry. It creates no dispatch
 // or release capability; the fused producer must bind authenticated source,

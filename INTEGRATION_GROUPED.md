@@ -122,3 +122,21 @@ validity, boundaries and composition. No >4 h run has established eligibility
 for addendum 4's extrapolation exception. Do not infer an envelope from the
 existing component timings. Step 2 still owns authenticated fusion/lifecycle;
 this audit implements neither and does not assign the missing GEE producer to it.
+
+## Cycle 3 selection audit
+
+The share-composed Poisson GLMM selection now omits log(y!) and uses exactly
+2 per privately live row as a candidate-independent nonnegative shift. The
+last `ScoreShares` operand is now **live shares**, not factorial shares. The
+registry names `grouped-gh5-poisson-selection-shift2-q16-v3`; mirrored signed
+R contracts bind this profile and shifted caps. The legacy monolithic loss
+VALUE keeps factorials, with log(3!) corrected to117425. See
+`NUMERIC_CERTIFICATE_GLMM_SELECTION.md`. The future authenticated scheduler
+must bind and validate live masks and the new profile, not use an old operand
+schedule. Production dispatch remains disabled; this is not release evidence.
+
+The prior GEE arithmetic gap is already closed by v3 (INTEGRATION_GEE.md).
+Remaining grouped work is authenticated source/grouping, durable composition,
+terminal validity/caps, joint DP and measured capacity. Current C<=64/B<=16
+(GEE B<=8) signed shapes reject n2000. Any expanded grouping capacity must be
+measured and enforced before claiming n2000 lifecycle evidence.

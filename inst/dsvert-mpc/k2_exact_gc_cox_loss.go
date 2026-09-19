@@ -137,18 +137,19 @@ func coxLossChunkBinding(p coxLossSchedule, ordinal int, contract, predecessor [
 }
 
 type coxLossRegistration struct {
-	Version       string
-	Plan          func(coxLossSpec) (coxLossSchedule, error)
-	Compile       func(coxLossSchedule, int) (*primitiveVProgram, error)
-	SharedPlan    func(coxLossSpec) (coxLossSharedPlan, error)
-	SharedCompile func(coxLossSharedPlan) (*coxLossSharedPrograms, error)
-	RunShares     func(io.ReadWriter, bool, coxLossSharedPlan, *coxLossSharedPrograms, exactGCSession, [32]byte, []Uint128, []bool, []bool) (coxLossShareResult, error)
+	JointDPBridgeCompile func(uint64) (*primitiveVProgram, error)
+	Version              string
+	Plan                 func(coxLossSpec) (coxLossSchedule, error)
+	Compile              func(coxLossSchedule, int) (*primitiveVProgram, error)
+	SharedPlan           func(coxLossSpec) (coxLossSharedPlan, error)
+	SharedCompile        func(coxLossSharedPlan) (*coxLossSharedPrograms, error)
+	RunShares            func(io.ReadWriter, bool, coxLossSharedPlan, *coxLossSharedPrograms, exactGCSession, [32]byte, []Uint128, []bool, []bool) (coxLossShareResult, error)
 }
 
 // ONE registration function is the integration entry. No init/main/RPC entry
 // exposes either arbitrary kernels or plaintext evaluation in production.
 func registerCoxGridCrossLoss() coxLossRegistration {
-	return coxLossRegistration{Version: coxGridCrossVersion, Plan: coxLossPlan, Compile: coxLossCompileChunk, SharedPlan: coxLossAdmittedPlan, SharedCompile: coxLossAdmittedCompile, RunShares: coxLossAdmittedRun}
+	return coxLossRegistration{JointDPBridgeCompile: coxLossJointDPBridgeCompile, Version: coxGridCrossVersion, Plan: coxLossPlan, Compile: coxLossCompileChunk, SharedPlan: coxLossAdmittedPlan, SharedCompile: coxLossAdmittedCompile, RunShares: coxLossAdmittedRun}
 }
 
 // Pure public cap arithmetic, mirrored in R. All divisions are outward and

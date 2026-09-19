@@ -151,3 +151,16 @@ with Breslow ties. It exercises the R contract/postprocessing path and compares
 Go with an independent pure-R integer risk-set evaluator. It is deliberately
 labelled `production_protocol=FALSE`: it does not certify joint sampler security,
 PSI/source authentication, or a sticky production lifecycle.
+
+## Cycle 3 terminal bridge component
+
+`registerCoxGridCrossLoss().JointDPBridgeCompile(cap)` now provides the internal
+one-coordinate Ring64-to-Ring128 circuit described in step7. It rejects
+non-64-bit input words, reconstructs q and validity MODULO2^64, checks v=1 and
+q<=the signed cap, and remasks both outputs in Ring128. It enforces the4096
+non-XOR finalizer gate. No result is opened and no RPC is added.
+
+This compiler is NOT yet invoked by the authenticated durable producer. That
+producer must bind source/cap/receipts, use fresh output masks, conjoin every
+validity and inject the completed vector once before joint DP. The existing
+kernel measurement does not include this bridge or prove a complete release.

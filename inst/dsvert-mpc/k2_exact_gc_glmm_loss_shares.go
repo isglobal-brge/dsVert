@@ -8,12 +8,14 @@ import (
 
 // Local GH5 composition for ONE fixed public cluster/candidate. maskedProfile
 // contains live*profile(eta+node), produced by checked OT; yEta contains the
-// exact y*eta q16 product ONCE per row, reused at all nodes. Outcome/factorial
-// shares were privately validated and masked upstream. No row is opened.
+// exact y*eta q16 product ONCE per row, reused at all nodes. Outcome/live
+// shares were privately validated and masked upstream. Poisson selection omits
+// log(y!) and adds exactly 2 per live row to keep the loss nonnegative. This
+// candidate-independent shift is not a released full likelihood value. No row is opened.
 // All products here are public-node-by-share or local additions, at f16.
-func groupedGLMMScoreShares(s groupedGLMMSpec, role exactGCRole, maskedProfile, yEta, outcome, logFactorial []groupedWord) ([5]groupedWord, error) {
+func groupedGLMMScoreShares(s groupedGLMMSpec, role exactGCRole, maskedProfile, yEta, outcome, live []groupedWord) ([5]groupedWord, error) {
 	var score [5]groupedWord
-	if groupedGLMMValidate(s) != nil || (role != exactGCRoleGarbler && role != exactGCRoleEvaluator) || len(maskedProfile) != s.Rows*5 || len(yEta) != s.Rows || len(outcome) != s.Rows || len(logFactorial) != s.Rows {
+	if groupedGLMMValidate(s) != nil || (role != exactGCRoleGarbler && role != exactGCRoleEvaluator) || len(maskedProfile) != s.Rows*5 || len(yEta) != s.Rows || len(outcome) != s.Rows || len(live) != s.Rows {
 		return score, primitiveVError()
 	}
 	for q := range score {
@@ -27,7 +29,7 @@ func groupedGLMMScoreShares(s groupedGLMMSpec, role exactGCRole, maskedProfile, 
 		for i := 0; i < s.Rows; i++ {
 			score[q] = score[q].add(yEta[i]).add(outcome[i].mul(groupedWordFromBig(big.NewInt(node)))).sub(maskedProfile[i*5+q])
 			if s.Family == "poisson" {
-				score[q] = score[q].sub(logFactorial[i])
+				score[q] = score[q].sub(live[i].mul(groupedWordFromBig(big.NewInt(2 * 65536))))
 			}
 		}
 	}

@@ -107,3 +107,16 @@ test_that("grouped registration cannot authorize a protected producer", {
   expect_true(layout$grouping_controls$authenticated_private_sidecar_required)
   expect_equal(layout$release_coordinate_count, 3)
 })
+
+test_that("Poisson GLMM signs the factorial-free selection shift", {
+  f <- .grouped_contract_fixture("poisson_glmm")
+  numeric <- f$contract$spec$numeric_contract
+  expect_false(numeric$full_likelihood_value)
+  expect_equal(numeric$per_live_row_shift, 2)
+  for (field in c("profile", "objective", "per_live_row_shift", "full_likelihood_value")) {
+    bad <- f$unsigned
+    bad$spec$numeric_contract[[field]] <- NULL
+    expect_error(.dsvert_dp_grouped_cross_contract_validate(
+      f$sign(bad), f$policy, f$schema), class = "dsvert_dp_public_failure")
+  }
+})

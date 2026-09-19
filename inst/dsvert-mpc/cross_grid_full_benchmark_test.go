@@ -223,7 +223,7 @@ func crossGridFullMeasurement(t *testing.T, family string, n, predictors, m, wor
 	}
 	encoded, _ := json.Marshal(report)
 	t.Logf("FULL_MEASUREMENT %s", encoded)
-	if n == 10000 && predictors == 10 && m == 50 && (wire+noiseBytes > 110000000000 || time.Since(start) > 4*time.Hour) {
+	if wire+noiseBytes > 110000000000 || time.Since(start) > 4*time.Hour {
 		t.Fatal("whole-workload resource gate exceeded")
 	}
 }

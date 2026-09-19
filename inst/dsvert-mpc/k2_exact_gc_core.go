@@ -301,6 +301,13 @@ func (s exactGCCircuitSpec) validate() error {
 			s.Threshold != nil || s.BoundX != nil || s.BoundY != nil || s.MulBackend != "" {
 			return errCrossGridKernel
 		}
+	case groupedLMMWorkerOperation:
+		// Only the typed signed-source stage adapter executes this operation;
+		// the ordinary circuit compiler has no implementation for it.
+		if s.RingBits != 128 || s.FracBits != 0 || s.VectorLen > 256 ||
+			s.Threshold != nil || s.BoundX != nil || s.BoundY != nil || s.MulBackend != "" {
+			return errCrossGridStage
+		}
 	case jointDPVectorOperation:
 		// Bounds, global sensitivity, dyadic probabilities and exact delta
 		// accounting live in the specialised vector policy.  The generic

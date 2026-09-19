@@ -305,6 +305,8 @@ func main() {
 		handleExactGCCapability()
 	case "cross-grid-batch-plan-v2":
 		handleCrossGridBatchPlan()
+	case "grouped-lmm-staged-prepare-v1":
+		handleGroupedLMMPrepareWire()
 	case "exact-gc-plan-mul":
 		handleExactGCMulPlan()
 	case "joint-dp-laplace-plan-v2":

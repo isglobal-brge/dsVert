@@ -6,9 +6,11 @@ GEE v3 producer/certificate, GH5 factorial exclusion, Cox bridge, exact OT
 products and independent oracles are unchanged.
 
 `cross_grid_stage*.go` implements a two-authority durable stage graph.
-`k2_exact_gc_lmm_staged.go` composes the retained LMM arithmetic from an already
-authenticated, routed Ring192 input to Ring128 candidate losses. It does not
-implement source routing, an ML/REML variance grid, or the R release handoff.
+`k2_exact_gc_lmm_staged.go` composes the retained LMM arithmetic from an
+authenticated, routed Ring192 input to Ring128 candidate losses. Cycle7 joins
+authenticated typed sources, private routing and exact conversion to that graph
+through `k2_exact_gc_lmm_source_staged.go`. The typed background worker uses the
+existing spool/heartbeat protocol. The public R release lifecycle remains closed.
 
 ## ABI and authentication
 
@@ -24,8 +26,11 @@ receipt, output mask domain, private masked share and authority-local share MAC.
 Words are little-endian additive shares. Validity is one XOR-shared bit in one
 byte per coordinate. Private kernels conjoin source, profile and product
 correctness; local AND of shares is forbidden. Private presence/live bits are
-data and must be distinguished from arithmetic correctness by the source/router
-adapter. That adapter is not yet implemented.
+data and are distinguished from arithmetic correctness by the source/router
+adapter. The adapter privately verifies binary presence, normalized numeric
+bounds, source/sidecar label equality and grouping capacity. Missing values
+retain their original within-cluster slots. Numeric f50 and metadata q0 are
+separate source stages; the routed result is homogeneous f50.
 
 The reserved consecutive coordinate names `<coordinate>:limb:0` and
 `<coordinate>:limb:1` describe one little-endian Ring384 additive share carried
@@ -72,34 +77,60 @@ PREPARE/COMMIT boundaries, restarts from disk, and compares exact final bytes
 with the independent integer/noise reference. Cold replay forbids kernel calls.
 This test does not substitute for a DSLite family release.
 
-## Section C arithmetic correction still required
+## Approved Section C conversion
 
-The literal masked-lift formula in EXECUTOR_SPEC.md C omits modular carry. For
-M=2^128, x=1 and r=M-1, it opens z=(x+r) mod M=0 and computes z-r=1-M in
-Ring192, not 1. In general the exact unsigned lift is
+The reviewer approved the private carry correction in cycle7. The original
+formula failed at M=2^128, x=1 and r=M-1. The canonical unsigned lift is
 
     z - lift(r) + [z < r] * M.
 
-Signed fixed-point extension also subtracts `[x >= M/2] * M`. Both bits must
-remain private. A private reconstruct/sign-extend/remask circuit is an available
-implementation, but the literal three steps cannot satisfy exactness. Tests
-retain the counterexample and the corrected integer identity. No incorrect
-conversion or public carry has been implemented; correction was raised to the
-reviewer during this cycle.
+Signed extension also subtracts `[x >= M/2] * M`. The implementation in
+`cross_grid_stage_conversion.go` privately creates the dual-ring mask from
+independent uniform local contributions, opens only z through an attempt-scoped
+encrypted channel, and computes the carry/sign correction inside GC. Neither
+comparison bit is opened. The stage retains scale, coordinate order and sticky
+validity, with its own durable MAC and receipt. Masks are never obtained by
+locally widening Ring128 shares or deriving them from a shared transport key.
+Both named acceptance tests and real signed/unsigned private-protocol,
+bilateral/unilateral recovery and cold-replay tests pass on pod4.
+
+## Source and worker handoff
+
+`cross_grid_grouped_route.go` authenticates the owner-local routing sidecar,
+re-derives stable Beneš controls, normalizes at most 16 rows per circuit and
+uses fixed public checked-OT tiles of at most 4096 words. The grouping owner
+must be the actual garbler in this adapter. Labels, controls, counts and raw
+label digests never enter a public plan. LMM admission pins normalized values
+to [0,2^50] and checks public beta endpoints with the retained encoding slack.
+
+The R source loader verifies signed contract/layout/snapshot/peer bindings,
+the existing successful alignment gate and actual private-store MACs and chunk
+identities before repacking predictor, outcome and routing-label shares. It
+carries the alignment circuit's XOR validity into every source coordinate.
+The owner sidecar binds the source snapshot, value and private alignment MACs.
+
+The server-local `grouped-lmm-staged-prepare-v1` command consumes exact decimal
+parameters and returns opaque native worker material. No aggregate endpoint
+exposes it. `grouped-lmm-staged-v1` returns local Ring128 shares, packed candidate
+validity, terminal receipt and plan digest. A durable authority-keyed source
+binding rejects replaced source material even when cold replay skips callbacks.
+All configuration material stays outside public receipts; the durable directory
+must survive disposal of an ephemeral transport spool. The worker draws no noise.
 
 ## Remaining integration
 
-1. Authenticate the grouping owner's actual private routing controls against
-   the source snapshot/PSI order; pack once using fixed public switch topology,
-   preserving padding and original slot gaps.
-2. Implement the corrected private Ring128-to-Ring192 conversion and connect
-   signed materialization/routing to the new executor.
-3. Complete the signed family adapter and R lifecycle/worker/DP handoff. The
+1. Connect the internal source loader, preparation and typed worker to the
+   authenticated R lifecycle, its terminal validity gate and sticky DP handoff.
+   The public catalogs and grouped release reader remain closed. The actual
+   pinned-identity garbler must own routing; owner names alone do not set roles.
+2. Reconcile the signed family scope with the requested ML/REML language. The
    retained LMM certificate is a fixed-variance quadratic objective; do not
    relabel it as a new ML/REML variance-grid implementation.
-4. Prove LMM at n2000 with bilateral/unilateral recovery, cold replay, tamper
+3. Prove LMM at n2000 with bilateral/unilateral recovery, cold replay, tamper
    rejection, paired tests and measured capacity under 256GB/6h before moving
-   to the next family. C<=64 remains the signed production guard; C500 in a
-   graph-shape test is not measured admission.
+   to the next family. C<=64 remains the signed production guard. A completed
+   n2000/C500/B4/p3 router component measured 1,037,600,408 two-way bytes and
+   193.021 seconds with exact oracle equality; it omits owner materialization,
+   LMM arithmetic and DP and therefore does not admit full-family C500 capacity.
 
 No family promotion or full paired-suite result is established here.

@@ -757,3 +757,7 @@ Resumed from the recorded state, inspected both worktrees, and preserved the act
 | Docs | Route/API docs committed. Final aggregate results and reproduction summary remain pending. |
 
 The table supersedes the earlier current-gate table; this is an ongoing run, not a completion or promotion claim.
+
+## 2026-09-19T00:12Z — eighth required real release passes
+
+Binomial / epsilon8 / instance1 passes both integer DP-vector equality and cold exactly-once/replay/tamper checks in **3216.212 s**, selecting the exact-best candidate with zero loss gap. Evidence: `dslite-n2000-binomial-e8-first.log`. Required progress **8/12**; this cell continues with its second real release. Poisson/epsilon8 has an oracle-equality marker but is not counted until its cold checks complete.

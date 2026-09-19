@@ -102,3 +102,7 @@ Binomial/epsilon1 completes both real release and cold-lifecycle matches in
 Poisson/epsilon4/instance1 passes both required gates in **3782.294 s**
 (`inst/cross-grid-v2/dslite-n2000-poisson-e4-first.log`), bringing real-release
 progress to **7/12**. This cell is not yet complete.
+
+Binomial/epsilon8/instance1 passes both gates in **3216.212 s**
+(`inst/cross-grid-v2/dslite-n2000-binomial-e8-first.log`). Required real-release
+progress is **8/12**; the full cell remains pending.

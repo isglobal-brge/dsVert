@@ -1,16 +1,21 @@
 .lasso_cross_fixture <- function(family = "binomial", capacity = 8, bits = 8,
-                                 beta_grid = list(c(0, 0, 0), c(0, 1, 0))) {
+                                 beta_grid = list(c(0, 0, 0), c(0, 1, 0)),
+                                 peer_count = 2L, execution_profile = "q64_v1") {
   client <- exists(".dsvert_dp_glm_grid_cross_schema_validate", mode = "function")
   hash <- if (client) .dsvert_dp_capsule_source_hash else .dsvert_joint_dp_hash
   json <- if (client) .dsvert_joint_dp_client_json else .dsvert_dp_canonical_json
-  keys <- stats::setNames(lapply(1:2, function(i) openssl::ed25519_keygen()),
-                          c("peer_a", "peer_b"))
+  peers <- paste0("peer_", letters[seq_len(peer_count)])
+  keys <- stats::setNames(lapply(peers, function(i) openssl::ed25519_keygen()), peers)
+  if (peer_count > 2L) beta_grid <- lapply(beta_grid, function(b)
+    c(b, rep(0, peer_count - 2L)))
+  predictors <- c("peer_a$x", "peer_b$z", if (peer_count > 2L)
+    paste0(peers[3:peer_count], "$x", 3:peer_count) else character())
   b64 <- function(value) sub("=+$", "", chartr("+/", "-_",
     gsub("[\r\n]", "", jsonlite::base64_enc(value))))
   pins <- vapply(keys, function(key) b64(tail(as.raw(as.list(key)$pubkey), 32)),
                  character(1L))
   policy <- list(peer_pinset = pins, peer_pinset_sha256 = hash(as.list(pins)),
-    designated_noise_peers = names(pins), unit_capacity = capacity,
+    designated_noise_peers = names(pins)[1:2], unit_capacity = capacity,
     numeric_grid_bits = bits, adjacency = "add_remove_patient")
   snapshot <- list(logical_snapshot_id = "lasso-cohort", version = "v1",
                    alignment_protocol_version = 1)
@@ -23,6 +28,11 @@
       columns = list(x = list(kind = "numeric", owner_peer = "peer_a", lower = 0, upper = 1),
         z = list(kind = "numeric", owner_peer = "peer_b", lower = 0, upper = 1),
         y = list(kind = "numeric", owner_peer = "peer_a", lower = 0, upper = maximum)))))
+  schema$datasets$cohort$patient_keys <- stats::setNames(as.list(rep("id", peer_count)), peers)
+  if (peer_count > 2L) for (i in 3:peer_count) {
+    schema$datasets$cohort$columns[[paste0("x", i)]] <- list(
+      kind = "numeric", owner_peer = peers[[i]], lower = 0, upper = 1)
+  }
   schema$version <- if (client) .DSVERT_CLIENT_DP_CAPSULE_SCHEMA_VERSION else
     .DSVERT_DP_CAPSULE_SCHEMA_VERSION
   schema_message <- if (client) charToRaw(paste0(
@@ -35,13 +45,13 @@
   beta_grid <- beta_grid[order(vapply(beta_grid, function(beta) json(as.list(beta)), character(1L)), method = "radix")]
   raw <- list(version = paste0(if (family == "gaussian") "binomial" else family, "_grid_cross_v1"),
     analysis_id = "loss", dataset = "cohort", outcome = "peer_a$y",
-    predictor_order = c("peer_a$x", "peer_b$z"), beta_grid = beta_grid,
+    predictor_order = predictors, beta_grid = beta_grid,
     max_outcome = maximum, alignment = list(version = "existing_prealigned_logical_dataset_v1",
       method = "pinned_psi_ordered_manifest_v1", alignment_group = "aligned",
       public_alignment_contract_sha256 = hash(list(logical_snapshot = snapshot,
         alignment_group = "aligned", method = "pinned_psi_ordered_manifest_v1")),
       public_patient_dependent_hash = FALSE))
-  spec <- .dsvert_dp_glm_grid_cross_spec(raw, policy, authenticated)
+  spec <- .dsvert_dp_glm_grid_cross_spec(raw, policy, authenticated, execution_profile)
   artifact <- .dsvert_dp_glm_grid_cross_artifact(spec)
   base_contract <- list(version = "dsvert-cross-owner-grid-signed-contract-v1",
     spec = spec, artifact = artifact,

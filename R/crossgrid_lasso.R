@@ -94,15 +94,16 @@
                  "cross_owner_exact_gc_materialized") ||
       !identical(artifact$cross_owner_state, "exact_gc_to_joint_dp_vector_v1") ||
       !isTRUE(spec$intercept) ||
-      length(unique(unlist(spec$participating_peers))) != 2L ||
-      !setequal(unlist(spec$participating_peers),
-                unlist(spec$computation_peers)) ||
+      length(unique(unlist(spec$participating_peers))) < 2L ||
+      !setequal(unlist(spec$participating_peers), names(policy$peer_pinset)) ||
+      length(unique(unlist(spec$computation_peers))) != 2L ||
+      !all(unlist(spec$computation_peers) %in% unlist(spec$participating_peers)) ||
       !setequal(unlist(spec$computation_peers),
                 unname(policy$designated_noise_peers)) ||
-      length(policy$peer_pinset) != 2L) .dsvert_dp_glm_grid_cross_fail()
+      length(policy$peer_pinset) < 2L) .dsvert_dp_glm_grid_cross_fail()
   bits <- .dsvert_dp_glm_grid_cross_integer(spec$numeric_grid_bits, 8, 18)
   if (bits != .dsvert_dp_glm_grid_cross_integer(policy$numeric_grid_bits, 8, 18) ||
-      !setequal(unlist(spec$computation_peers), names(policy$peer_pinset))) {
+      !setequal(unlist(spec$participating_peers), names(policy$peer_pinset))) {
     .dsvert_dp_glm_grid_cross_fail()
   }
   capacity <- .dsvert_dp_glm_grid_cross_integer(policy$unit_capacity, 1, 2^31 - 1)

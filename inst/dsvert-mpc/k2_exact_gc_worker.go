@@ -31,25 +31,26 @@ const (
 )
 
 type exactGCWorkerConfig struct {
-	GroupedLMM     *groupedLMMWorkerInput `json:"grouped_lmm,omitempty"`
-	CrossGrid      *crossGridKernelPlan   `json:"cross_grid,omitempty"`
-	Version        string                 `json:"version"`
-	Role           string                 `json:"role"`
-	SessionID      string                 `json:"session_id"`
-	MasterKey      string                 `json:"master_key"`
-	GarblerID      string                 `json:"garbler_id"`
-	EvaluatorID    string                 `json:"evaluator_id"`
-	Purpose        string                 `json:"purpose"`
-	Operation      string                 `json:"operation"`
-	RingBits       int                    `json:"ring_bits"`
-	FracBits       int                    `json:"frac_bits"`
-	Threshold      string                 `json:"threshold,omitempty"`
-	MulBackend     string                 `json:"mul_backend,omitempty"`
-	BoundX         string                 `json:"bound_x,omitempty"`
-	BoundY         string                 `json:"bound_y,omitempty"`
-	VectorLen      int                    `json:"vector_len"`
-	SourceValidity string                 `json:"source_validity,omitempty"`
-	SourceShare    string                 `json:"source_share"`
+	GroupedLMM     *groupedLMMWorkerInput  `json:"grouped_lmm,omitempty"`
+	GroupedGLMM    *groupedGLMMWorkerInput `json:"grouped_glmm,omitempty"`
+	CrossGrid      *crossGridKernelPlan    `json:"cross_grid,omitempty"`
+	Version        string                  `json:"version"`
+	Role           string                  `json:"role"`
+	SessionID      string                  `json:"session_id"`
+	MasterKey      string                  `json:"master_key"`
+	GarblerID      string                  `json:"garbler_id"`
+	EvaluatorID    string                  `json:"evaluator_id"`
+	Purpose        string                  `json:"purpose"`
+	Operation      string                  `json:"operation"`
+	RingBits       int                     `json:"ring_bits"`
+	FracBits       int                     `json:"frac_bits"`
+	Threshold      string                  `json:"threshold,omitempty"`
+	MulBackend     string                  `json:"mul_backend,omitempty"`
+	BoundX         string                  `json:"bound_x,omitempty"`
+	BoundY         string                  `json:"bound_y,omitempty"`
+	VectorLen      int                     `json:"vector_len"`
+	SourceValidity string                  `json:"source_validity,omitempty"`
+	SourceShare    string                  `json:"source_share"`
 	// JointDP and PrivateSeed remain in the same mode-0600,
 	// unlink-before-ready file as the ephemeral master key and input share.
 	// PrivateSeed is also accepted for a garbler-side Count clamp, where it
@@ -176,6 +177,7 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 		config.PrivateSeed = ""
 		config.HeartbeatKey = ""
 		config.GroupedLMM = nil
+		config.GroupedGLMM = nil
 		if returnErr != nil && canReportFailure {
 			if markerErr := exactGCCommitWorkerFailure(
 				config.SpoolDir, config, failureSession, returnErr); markerErr != nil {
@@ -219,6 +221,17 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 	}
 	failureSession = &session
 	defer clear(session.MasterKey[:])
+	var stagedGLMM *groupedGLMMWorkerPrepared
+	if session.Spec.Operation == groupedGLMMWorkerOperation {
+		stagedGLMM, err = groupedGLMMWorkerPrepare(config, session)
+		if err != nil {
+			return err
+		}
+		defer clear(stagedGLMM.key[:])
+		config.GroupedGLMM = nil
+	} else if config.GroupedGLMM != nil {
+		return errCrossGridStage
+	}
 	var stagedLMM *groupedLMMWorkerPrepared
 	if session.Spec.Operation == groupedLMMWorkerOperation {
 		stagedLMM, err = groupedLMMWorkerPrepare(config, session)
@@ -249,7 +262,7 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 		return errCrossGridKernel
 	}
 	var shares []*big.Int
-	if stagedLMM == nil {
+	if stagedLMM == nil && stagedGLMM == nil {
 		shares, err = exactGCDecodeWorkerShares(config.SourceShare, shareSpec)
 	}
 	config.MasterKey = ""
@@ -352,7 +365,11 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 	if err := exactGCPrivateMarker(config.SpoolDir, "ready", []byte("1")); err != nil {
 		return err
 	}
-	if stagedLMM != nil {
+	if stagedGLMM != nil {
+		var result exactGCWorkerResult
+		result, err = stagedGLMM.run(spool, session)
+		stagedResult = &result
+	} else if stagedLMM != nil {
 		var result exactGCWorkerResult
 		result, err = stagedLMM.run(spool, session)
 		stagedResult = &result

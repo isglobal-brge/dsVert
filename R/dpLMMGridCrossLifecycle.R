@@ -8,7 +8,7 @@
 }
 
 .dsvert_dp_lmm_cross_public <- function(binding, policy, phase, extra = list()) {
-  unsigned <- c(list(version = "dsvert-lmm-staged-receipt-v1", phase = phase,
+  unsigned <- c(list(version = .dsvert_dp_staged_grouped_tag(binding$artifact, "-staged-receipt-v1", "dsvert-"), phase = phase,
     capsule_id = binding$contract$capsule_id, analysis_id = binding$analysis_id,
     peer_name = policy$peer_name,
     peer_identity_pk = unname(policy$peer_pinset[[policy$peer_name]]),
@@ -39,7 +39,7 @@
   binding <- list(analysis_id = analysis_id, artifact = context$artifact,
     contract = context$source_contract, contract_hash = context$source_hash,
     semantic_key = semantic_key, peer_binding_digest = ss$.exact_gc_peer_binding_digest,
-    stage = stage, worker_input = worker$grouped_lmm)
+    stage = stage, worker_input = worker[[paste0("grouped_", .dsvert_dp_staged_grouped_kind(context$artifact$family))]])
   previous <- ss$.dp_lmm_grid_cross[[analysis_id]]
   if (!is.null(previous)) {
     .dsvert_dp_glm_grid_cross_equal(previous[setdiff(names(previous), "admission")], binding)
@@ -124,8 +124,8 @@
   record <- .dsvert_dp_glm_grid_cross_load(con, secret,
     contract$capsule_id, artifact$analysis_id, batch)
   if (is.null(record)) return(NULL)
-  expected <- list(version = if (batch == 0L) "lmm-staged-complete-result-v1" else
-      "lmm-staged-persisted-result-v1", capsule_id = contract$capsule_id,
+  expected <- list(version = if (batch == 0L) .dsvert_dp_staged_grouped_tag(artifact, "-staged-complete-result-v1") else
+      .dsvert_dp_staged_grouped_tag(artifact, "-staged-persisted-result-v1"), capsule_id = contract$capsule_id,
     analysis_id = artifact$analysis_id,
     semantic_key = .dsvert_dp_glm_grid_cross_key(manifest, artifact, contract),
     artifact_sha256 = .dsvert_joint_dp_hash(artifact),
@@ -153,8 +153,8 @@
   record <- .dsvert_dp_glm_grid_cross_load(con, secret,
     binding$contract$capsule_id, binding$analysis_id, batch)
   if (is.null(record)) return(NULL)
-  expected <- list(version = if (batch == 0L) "lmm-staged-complete-result-v1" else
-      "lmm-staged-persisted-result-v1", capsule_id = binding$contract$capsule_id,
+  expected <- list(version = if (batch == 0L) .dsvert_dp_staged_grouped_tag(binding$artifact, "-staged-complete-result-v1") else
+      .dsvert_dp_staged_grouped_tag(binding$artifact, "-staged-persisted-result-v1"), capsule_id = binding$contract$capsule_id,
     analysis_id = binding$analysis_id, semantic_key = binding$semantic_key,
     artifact_sha256 = .dsvert_joint_dp_hash(binding$artifact),
     source_contract_sha256 = binding$contract_hash,
@@ -172,10 +172,12 @@
   binding <- .dsvert_dp_lmm_cross_binding(ss, analysis_id)
   stage <- binding$stage
   source <- list(share = "", ring_bits = 128L, vector_len = as.integer(stage$vector_len),
-    producer = "dp.lmm-grid-cross.staged-v1",
+    producer = .dsvert_dp_staged_grouped_tag(binding$artifact, "-grid-cross.staged-v1", "dp."),
     allowed_spec = .exact_gc_allowed_spec(stage$operation, stage$purpose, 0L,
-      "grouped-lmm-staged-ring128-share-v1", 128L), claimed_by = NULL,
+      .dsvert_dp_staged_grouped_tag(binding$artifact, "-staged-ring128-share-v1", "grouped-"), 128L), claimed_by = NULL,
     grouped_lmm = binding$worker_input)
+  names(source)[names(source) == "grouped_lmm"] <-
+    paste0("grouped_", .dsvert_dp_staged_grouped_kind(binding$artifact$family))
   previous <- ss$.exact_gc_inputs[[stage$source_key]]
   if (is.null(previous)) ss$.exact_gc_inputs[[stage$source_key]] <- source else {
     .dsvert_dp_glm_grid_cross_equal(previous[setdiff(names(previous), "claimed_by")],
@@ -199,14 +201,15 @@
   binding <- .dsvert_dp_lmm_cross_binding(ss, analysis_id)
   stage <- binding$stage
   value <- .exact_gc_consume_output(ss, stage$output_key, stage$operation_id,
-    "grouped-lmm-staged-ring128-share-v1", stage$operation, stage$purpose,
-    128L, 0L, stage$vector_len, "dp.lmm-grid-cross.staged-v1", consume = FALSE)
+    .dsvert_dp_staged_grouped_tag(binding$artifact, "-staged-ring128-share-v1", "grouped-"), stage$operation, stage$purpose,
+    128L, 0L, stage$vector_len,
+    .dsvert_dp_staged_grouped_tag(binding$artifact, "-grid-cross.staged-v1", "dp."), consume = FALSE)
   if (!identical(value$stage_plan_digest, stage$stage_plan_digest)) .dsvert_dp_grouped_cross_fail()
   .exact_gc_standard_b64_raw(value$share, 16 * stage$vector_len, "staged LMM result")
   .exact_gc_validate_packed_bits(value$validity_share, stage$vector_len, "staged LMM result validity")
   .dsvert_joint_dp_vector_exact_gc_hex(value$stage_receipt, "staged LMM terminal receipt")
   if (identical(value$stage_receipt, strrep("0", 64))) .dsvert_dp_grouped_cross_fail()
-  record <- c(list(version = "lmm-staged-persisted-result-v1",
+  record <- c(list(version = .dsvert_dp_staged_grouped_tag(binding$artifact, "-staged-persisted-result-v1"),
     capsule_id = binding$contract$capsule_id, analysis_id = analysis_id,
     semantic_key = binding$semantic_key, batch = 1L,
     artifact_sha256 = .dsvert_joint_dp_hash(binding$artifact),
@@ -226,11 +229,11 @@
     .dsvert_dp_capsule_source_transaction(con, {
       record <- .dsvert_dp_lmm_cross_persisted(con, secret, binding, 1L)
       if (is.null(record)) .dsvert_dp_grouped_cross_fail()
-      record$version <- "lmm-staged-complete-result-v1"
+      record$version <- .dsvert_dp_staged_grouped_tag(binding$artifact, "-staged-complete-result-v1")
       record$batch <- NULL
       .dsvert_dp_glm_grid_cross_save(con, secret, record, 0L)
       public <- record[setdiff(names(record), c("share", "validity_share"))]
-      public$version <- "lmm-staged-terminal-binding-v1"
+      public$version <- .dsvert_dp_staged_grouped_tag(binding$artifact, "-staged-terminal-binding-v1")
       public$batch <- -1L
       .dsvert_dp_glm_grid_cross_save(con, secret, public, -1L)
       record
@@ -241,9 +244,7 @@
 }
 
 .dsvert_dp_lmm_cross_artifacts <- function(manifest) {
-  Filter(function(artifact) identical(artifact$family, "lmm") &&
-      identical(artifact$version, "bounded-lmm-cross-grid-v1") &&
-      identical(artifact$spec_version, "lmm_grid_cross_v1"),
+  Filter(.dsvert_dp_staged_grouped_artifact,
     manifest$workload$families$gaussian_models$artifacts)
 }
 
@@ -261,8 +262,8 @@
 }
 
 .dsvert_dp_lmm_cross_public_record_validate <- function(record, manifest, artifact, contract) {
-  if (is.null(record) || !identical(artifact$family, "lmm")) .dsvert_dp_grouped_cross_fail()
-  expected <- list(version = "lmm-staged-terminal-binding-v1", capsule_id = contract$capsule_id,
+  if (is.null(record) || !.dsvert_dp_staged_grouped_artifact(artifact)) .dsvert_dp_grouped_cross_fail()
+  expected <- list(version = .dsvert_dp_staged_grouped_tag(artifact, "-staged-terminal-binding-v1"), capsule_id = contract$capsule_id,
     analysis_id = artifact$analysis_id, batch = -1L,
     semantic_key = .dsvert_dp_glm_grid_cross_key(manifest, artifact, contract),
     artifact_sha256 = .dsvert_joint_dp_hash(artifact), source_contract_sha256 = .dsvert_joint_dp_hash(contract))
@@ -273,7 +274,7 @@
     if (identical(record[[field]], strrep("0", 64))) .dsvert_dp_grouped_cross_fail()
   }
   if (!is.character(record$purpose) || length(record$purpose) != 1L || is.na(record$purpose) ||
-      !grepl("^grouped-lmm-staged-v1/[0-9a-f]{64}$", record$purpose)) .dsvert_dp_grouped_cross_fail()
+      !grepl(.dsvert_dp_staged_grouped_tag(artifact, "-staged-v1/[0-9a-f]{64}$", "^grouped-"), record$purpose)) .dsvert_dp_grouped_cross_fail()
   record
 }
 

@@ -10,6 +10,7 @@
     .dsvert_dp_glm_grid_cross_embedded_contract(artifact),
     policy, schema_manifest, source_hash)
   spec <- contract$spec
+  kind <- .dsvert_dp_staged_grouped_kind(spec$family)
   peers <- unlist(spec$computation_peers, use.names = FALSE)
   parties <- .exact_gc_vecmul_party_context(ss)
   ids <- vapply(peers, function(peer)
@@ -48,16 +49,16 @@
     source_contract, schema_manifest, ss, analysis_id)
   semantic_key <- .dsvert_dp_glm_grid_cross_key(manifest, artifact, source_contract)
   directory <- file.path(dirname(.dsvert_dp_capsule_source_store_path(policy)),
-    "lmm-staged-v1", semantic_key)
+    paste0(kind, "-staged-v1"), semantic_key)
   if (!dir.exists(directory) &&
       !dir.create(directory, recursive = TRUE, mode = "0700", showWarnings = FALSE)) {
     .dsvert_dp_grouped_cross_fail()
   }
   if (.dsvert_dp_path_is_link(directory) ||
       !.dsvert_dp_private_mode(directory, directory = TRUE)) .dsvert_dp_grouped_cross_fail()
-  key <- .dsvert_dp_capsule_source_mac(secret, "grouped-lmm-stage-store-key-v1", semantic_key)
-  result <- .callMpcTool("grouped-lmm-staged-prepare-v1", list(
-    handoff = handoff, role = role, session = paste0("lmm-staged-", semantic_key),
+  key <- .dsvert_dp_capsule_source_mac(secret, paste0("grouped-", kind, "-stage-store-key-v1"), semantic_key)
+  result <- .callMpcTool(paste0("grouped-", kind, "-staged-prepare-v1"), list(
+    handoff = handoff, role = role, session = paste0(kind, "-staged-", semantic_key),
     authorities = as.list(authorities), semantic_key = semantic_key,
     store_directory = normalizePath(directory), store_key = gsub("[\r\n]", "",
       jsonlite::base64_enc(.dsvert_dp_capsule_source_hex_raw(key, "LMM durable stage key"))),
@@ -68,14 +69,16 @@
       is.na(result$worker_input) || !nzchar(result$worker_input) ||
       nchar(result$worker_input, type = "bytes") > 64 * 1024^2 ||
       !is.character(result$purpose) || length(result$purpose) != 1L ||
-      is.na(result$purpose) || !grepl("^grouped-lmm-staged-v1/[0-9a-f]{64}$", result$purpose) ||
+      is.na(result$purpose) || !grepl(paste0("^grouped-", kind, "-staged-v1/[0-9a-f]{64}$"), result$purpose) ||
       !is.character(result$stage_plan_digest) || length(result$stage_plan_digest) != 1L ||
       is.na(result$stage_plan_digest) || !grepl("^[0-9a-f]{64}$", result$stage_plan_digest) ||
       identical(result$stage_plan_digest, strrep("0", 64)) ||
       !identical(as.numeric(result$vector_len), as.numeric(artifact$coordinate_count))) {
     .dsvert_dp_grouped_cross_fail()
   }
-  list(operation = "grouped-lmm-staged-v1", purpose = result$purpose,
+  worker <- list(operation = paste0("grouped-", kind, "-staged-v1"), purpose = result$purpose,
     vector_len = result$vector_len, stage_plan_digest = result$stage_plan_digest,
     grouped_lmm = result$worker_input)
+  names(worker)[names(worker) == "grouped_lmm"] <- paste0("grouped_", kind)
+  worker
 }

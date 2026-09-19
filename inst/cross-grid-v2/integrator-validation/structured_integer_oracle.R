@@ -60,9 +60,10 @@ structured_integer_oracle <- function(server_dir, client_dir, spec, x, y, cluste
       rep(TRUE, nrow(x)), spec$sensitivity$maximum_coordinates[[j]], spec$numeric_grid_bits))
   }, character(1L)))
   # GH5 coefficient selection has the signed +2/live-row shift and no factorial.
-  glmm_selection <- function(q64, outcomes, live, family, cap) {
+  glmm_selection <- function(q64, outcomes, live, family, cap, variance) {
     if (!any(live == 1)) return(0)
-    nodes <- if (spec$parameters$random_intercept_variance == 0) rep(0, 5) else
+    stopifnot(variance %in% c(0, .25))
+    nodes <- if (variance == 0) rep(0, 5) else
       c(-93617, -44421, 0, 44421, 93617)
     terms <- c(-294042, -98614, -41196, -98614, -294042)
     q16 <- vapply(q64, function(v) e$.cross_double(
@@ -84,7 +85,8 @@ structured_integer_oracle <- function(server_dir, client_dir, spec, x, y, cluste
   labels <- sort(unique(cluster), method = "radix")
   stopifnot(length(labels) <= spec$grouping$cluster_capacity)
   ml <- identical(spec$family, "lmm") && identical(spec$parameters$objective, "ml")
-  candidates <- if (ml) spec$candidate_grid else lapply(seq_along(beta50),
+  glmm_grid <- grepl("_glmm$", spec$family) && !is.null(spec$parameters$variance_grid)
+  candidates <- if (ml || glmm_grid) spec$candidate_grid else lapply(seq_along(beta50),
     function(j) list(beta_index = j))
   if (ml) {
     tables <- structured_lmm_log_tables(spec$parameters, B)
@@ -141,7 +143,9 @@ structured_integer_oracle <- function(server_dir, client_dir, spec, x, y, cluste
           e$.cross_format(e$.cross_shift_left(e$.cross_small(spec$parameters$random_intercept_variance*4), 62)),
           caps[1], bits))
       } else if (grepl("_glmm$", spec$family)) {
-        glmm_selection(q, outcomes, live, sub("_glmm$", "", spec$family), caps[1])
+        variance <- if (glmm_grid) spec$parameters$variance_grid[[candidate$variance_index]] else
+          spec$parameters$random_intercept_variance
+        glmm_selection(q, outcomes, live, sub("_glmm$", "", spec$family), caps[1], variance)
       } else {
         e$.grouped_gee_whitening_integer(q, features, outcomes, live,
           sub("_gee$", "", spec$family), spec$parameters$correlation,

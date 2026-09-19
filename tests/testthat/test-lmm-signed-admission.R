@@ -118,7 +118,7 @@ test_that("LMM discovery and workload admission retain private grouping", {
   catalog <- list(workload = list(families = list(gaussian_models = list(
     artifacts = setNames(lapply(versions, function(v) list(version = v)),
                          .DSVERT_DP_GROUPED_CROSS_FAMILIES)))))
-  expect_named(.dsvert_dp_glm_grid_cross_artifacts(catalog), "lmm")
+  expect_named(.dsvert_dp_glm_grid_cross_artifacts(catalog), c("lmm", "binomial_glmm"))
 })
 
 test_that("n2000 admission binds only the exact LMM C500 B4 p3 J4 domain", {

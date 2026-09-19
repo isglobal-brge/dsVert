@@ -251,7 +251,9 @@ test_that("private worker preparation uses pinned identity roles and keeps nativ
 })
 
 test_that("real staged preparation CLI preserves typed source bytes and exact native integers", {
-  f <- .lmm_handoff_fixture()
+  for (family in c("lmm", "binomial_glmm")) {
+  kind <- .dsvert_dp_staged_grouped_kind(family)
+  f <- .lmm_handoff_fixture(family = family)
   spec <- f$contract$spec
   variables <- c(unlist(spec$predictor_order), spec$outcome$reference, spec$grouping$reference)
   word_bytes <- function(values) {
@@ -277,21 +279,29 @@ test_that("real staged preparation CLI preserves typed source bytes and exact na
     authorities = as.list(unname(authorities)), semantic_key = strrep("5", 64),
     store_directory = normalizePath(directory), store_key = jsonlite::base64_enc(f$secret),
     routing = routing)
-  result <- .callMpcTool("grouped-lmm-staged-prepare-v1", request, simplify_output = FALSE)
+  result <- .callMpcTool(paste0("grouped-", kind, "-staged-prepare-v1"), request, simplify_output = FALSE)
   expect_setequal(names(result), c("worker_input", "purpose", "vector_len", "stage_plan_digest"))
-  expect_equal(result$vector_len, length(spec$beta_grid))
-  expect_match(result$purpose, "^grouped-lmm-staged-v1/[0-9a-f]{64}$")
+  expect_equal(result$vector_len, f$artifact$coordinate_count)
+  expect_match(result$purpose, paste0("^grouped-", kind, "-staged-v1/[0-9a-f]{64}$"))
   native <- rawToChar(jsonlite::base64_dec(result$worker_input))
+  if (family == "lmm") {
   expect_match(native, paste0('"Sigma2Q64":', handoff$plan$Numeric$Sigma2Q64, ','), fixed = TRUE)
   expect_match(native, paste0('"Tau2Q64":', handoff$plan$Numeric$Tau2Q64, ','), fixed = TRUE)
+  } else {
+    expect_match(native, '"VarianceGrid":[0,16384]', fixed = TRUE)
+    expect_match(native, paste0('"Share":"', handoff$outcome$Share, '"'), fixed = TRUE)
+  }
   expect_match(native, paste0('"Share":"', handoff$numeric$Share, '"'), fixed = TRUE)
   expect_match(native, paste0('"Share":"', handoff$metadata$Share, '"'), fixed = TRUE)
-  expect_identical(.callMpcTool("grouped-lmm-staged-prepare-v1", request,
+  expect_identical(.callMpcTool(paste0("grouped-", kind, "-staged-prepare-v1"), request,
     simplify_output = FALSE), result)
+  }
 })
 
 test_that("fresh and unilateral alignment attempts retain the same native source bytes", {
-  f <- .lmm_handoff_fixture()
+  for (family in c("lmm", "binomial_glmm")) {
+  field <- paste0("grouped_", .dsvert_dp_staged_grouped_kind(family))
+  f <- .lmm_handoff_fixture(family = family)
   pins <- f$policy$peer_pinset
   ids <- setNames(paste0("dsv1_", c(strrep("1", 64), strrep("2", 64))), names(pins))
   sidecar <- .dsvert_dp_lmm_cross_route_sidecar(f$policy, f$secret, f$manifest,
@@ -360,5 +370,6 @@ test_that("fresh and unilateral alignment attempts retain the same native source
   # Changing additive source bytes still changes the sealed native input.
   # The native durable-source replacement test rejects that changed input.
   values[[1L]][[1L]] <- as.raw(1)
-  expect_false(identical(prepare("peer_b", fresh("peer_b", 1L, 7L))$grouped_lmm, b$grouped_lmm))
+  expect_false(identical(prepare("peer_b", fresh("peer_b", 1L, 7L))[[field]], b[[field]]))
+  }
 })

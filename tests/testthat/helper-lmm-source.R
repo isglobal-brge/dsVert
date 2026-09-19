@@ -36,8 +36,17 @@
   list(artifact = artifact, manifest = manifest, transport = transport, layout = layout)
 }
 
-.lmm_handoff_fixture <- function(owners = 2L) {
-  f <- .grouped_contract_fixture("lmm", owners = owners)
+.lmm_handoff_fixture <- function(owners = 2L, family = "lmm") {
+  f <- .grouped_contract_fixture(family, owners = owners)
+  if (identical(family, "binomial_glmm")) {
+    f$raw$beta_grid <- f$raw$beta_grid[1:2]
+    f$raw$parameters <- list(variance_grid = list(0, .25), quadrature = "gh5_fixed_v1")
+    spec <- .dsvert_dp_grouped_cross_spec(f$raw, f$policy, f$authenticated)
+    artifact <- .dsvert_dp_grouped_cross_artifact(spec)
+    f$contract <- f$sign(list(version = .DSVERT_DP_GROUPED_CROSS_VERSION,
+      spec = spec, artifact = artifact,
+      source_contract = .dsvert_dp_grouped_cross_source_contract(spec, artifact)))
+  }
   f$policy$peer_name <- "peer_a"
   f$secret <- as.raw(seq_len(32L))
   f$ss <- new.env(parent = emptyenv())

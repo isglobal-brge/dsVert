@@ -271,7 +271,7 @@
     .dsvert_dp_glm_grid_cross_fail()
   }
   artifacts <- .dsvert_dp_glm_grid_cross_artifacts(manifest)
-  artifacts <- Filter(function(artifact) !identical(artifact$family, "lmm"), artifacts)
+  artifacts <- Filter(function(artifact) !.dsvert_dp_staged_grouped_artifact(artifact), artifacts)
   layout <- .dsvert_dp_capsule_coordinate_layout(manifest)
   for (id in names(artifacts)) {
     record <- .dsvert_dp_glm_grid_cross_load(con, secret, contract$capsule_id, id, 0)
@@ -361,7 +361,7 @@ dsvertDPSynopsisGLMGridCrossDS <- function(manifest_sha256, claim_set_json,
         .dsvert_dp_glm_grid_cross_fail()
       }
       ss <- .S(session_id)
-      if (identical(manifest$workload$families$gaussian_models$artifacts[[analysis_id]]$family, "lmm")) {
+      if (.dsvert_dp_staged_grouped_artifact(manifest$workload$families$gaussian_models$artifacts[[analysis_id]])) {
         if (!identical(as.numeric(batch), 0)) .dsvert_dp_grouped_cross_fail()
         return(.dsvert_dp_lmm_cross_remote_bind(context, source, compilation,
           claims, request, analysis_id, ss, parent.frame()))

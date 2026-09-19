@@ -19,6 +19,19 @@
   if (identical(family, "lmm") && "objective" %in% names(value)) {
     return(.dsvert_dp_grouped_cross_ml_parameters(value))
   }
+  if (identical(family, "binomial_glmm") && "variance_grid" %in% names(value)) {
+    .dsvert_dp_glm_grid_cross_fields(value, c("variance_grid", "quadrature"))
+    if (!is.list(value$variance_grid) || !is.null(names(value$variance_grid)) ||
+        !length(value$variance_grid) || length(value$variance_grid) > 2L ||
+        !identical(value$quadrature, "gh5_fixed_v1")) .dsvert_dp_grouped_cross_fail()
+    grid <- lapply(value$variance_grid, function(tau) {
+      tau <- .dsvert_dp_grouped_cross_scalar(tau, 0, .25)
+      if (!tau %in% c(0, .25)) .dsvert_dp_grouped_cross_fail()
+      tau
+    })
+    if (any(diff(unlist(grid, use.names = FALSE)) <= 0)) .dsvert_dp_grouped_cross_fail()
+    return(list(variance_grid = grid, quadrature = "gh5_fixed_v1"))
+  }
   fields <- if (family == "lmm") {
     c("residual_variance", "random_intercept_variance")
   } else if (grepl("_glmm$", family)) {
@@ -74,7 +87,13 @@
     }
     2
   }
-  bounds <- lapply(beta_grid, function(beta) {
+  bounds <- if (identical(family, "binomial_glmm") && !is.null(parameters$variance_grid)) {
+    unlist(lapply(parameters$variance_grid, function(tau) {
+      .dsvert_dp_grouped_cross_sensitivity(beta_grid, family, max_outcome,
+        grid_bits, grouping, list(random_intercept_variance = tau,
+          quadrature = parameters$quadrature), adjacency, numeric_contract)$candidate_bounds
+    }), recursive = FALSE)
+  } else lapply(beta_grid, function(beta) {
     beta <- unlist(beta, use.names = FALSE)
     a <- beta[1L] + sum(pmin(beta[-1L], 0))
     b <- beta[1L] + sum(pmax(beta[-1L], 0))
@@ -196,6 +215,27 @@
     out$coordinate_error_bounds <- errors
     out$factorial_q16 <- as.list(c(0, 0, 45426, 117425, 208277))
   }
+  if (identical(family, "binomial_glmm") && !is.null(parameters$variance_grid)) {
+    certificate <- "76490f13d69f7968b5fa435f1ac7b5da844b8f7476ad582669b4e41a95960377"
+    paths <- system.file("certificates", c("grouped_binomial_glmm_gh5_v1.json",
+      "grouped_pwlinear_q16_v1.json"), package = "dsVert")
+    hashes <- c(certificate, out$profile_sha256)
+    if (length(paths) != 2L || any(!nzchar(paths)) ||
+        !identical(unname(vapply(paths, function(path) digest::digest(
+          file = path, algo = "sha256"), character(1L))), hashes)) {
+      .dsvert_dp_grouped_cross_fail()
+    }
+    # Retained groupedGLMMBounds plus worst final g>=8 quantization. The
+    # signed error=1 strictly encloses this finite-GH5 arithmetic bound.
+    error <- B*(34/65536 + 1e-12) + 1/131072 +
+      4*(.00013 + 1/8000000) + 33/65536 + 1/512
+    if (error >= out$per_cluster_error_bound) .dsvert_dp_grouped_cross_fail()
+    out$certificate_sha256 <- certificate
+    out$version <- "grouped-binomial-glmm-variance-grid-numeric-v1"
+    out$objective <- "finite_gh5_binomial_negative_log_likelihood_v1"
+    out$candidate_traversal <- "variance_then_beta_v1"
+    out$composition_error_bound <- error * (1 + 256*.Machine$double.eps)
+  }
   out
 }
 
@@ -242,7 +282,7 @@
     .dsvert_dp_grouped_cross_fail()
   }
   C <- .dsvert_dp_glm_grid_cross_integer(raw$grouping$cluster_capacity,
-    1, if (identical(family, "lmm")) 500 else 64)
+    1, if (family %in% c("lmm", "binomial_glmm")) 500 else 64)
   B <- .dsvert_dp_glm_grid_cross_integer(raw$grouping$max_patients_per_cluster,
                                        1, if (grepl("_gee$", family)) 8 else 16)
   if (base$observation_capacity > B*C ||
@@ -258,13 +298,15 @@
   if (C > 64) {
     # A separate signed validation domain; this descriptor is not capacity or
     # promotion evidence. Preserve the existing small-domain contract bytes.
-    if (!identical(family, "lmm") || C != 500 || B != 4 ||
-        base$observation_capacity != 2000 || length(base$predictors) > 3L ||
-        !identical(parameters$objective, "ml") ||
+    if (C != 500 || B != 4 || base$observation_capacity != 2000 ||
+        length(base$predictors) > 3L ||
+        !(identical(family, "lmm") && identical(parameters$objective, "ml") ||
+          identical(family, "binomial_glmm") && !is.null(parameters$variance_grid)) ||
         length(parameters$variance_grid) * length(base$beta_grid) > 4L) {
       .dsvert_dp_grouped_cross_fail()
     }
-    grouping$capacity_profile <- "lmm-ml-n2000-c500-b4-p3-j4-v1"
+    grouping$capacity_profile <- if (identical(family, "lmm"))
+      "lmm-ml-n2000-c500-b4-p3-j4-v1" else "binomial-glmm-gh5-n2000-c500-b4-p3-j4-v1"
   }
   radius <- vapply(base$beta_grid, function(beta) sum(abs(unlist(beta))), numeric(1L))
   if ((grepl("_glmm$", family) && (any(radius > 1) || base$max_outcome > 4)) ||
@@ -299,6 +341,31 @@
       .dsvert_joint_dp_hash(list(objective = "ml",
         variance = parameters$variance_grid[[candidate$variance_index]],
         beta = base$beta_grid[[candidate$beta_index]]))
+    })
+  }
+  if (identical(family, "binomial_glmm") && !is.null(parameters$variance_grid)) {
+    if (length(base$predictors) > 3L ||
+        length(parameters$variance_grid) * length(base$beta_grid) > 4L) {
+      .dsvert_dp_grouped_cross_fail()
+    }
+    # Native predictor validation bounds the encoded complete dot. These
+    # integer endpoint sums are exact in binary64 at p<=3 and |beta|<=1.
+    for (encoded in base$beta_encoded) {
+      beta <- as.numeric(unlist(encoded, use.names = FALSE))
+      if (beta[1L] + sum(pmin(beta[-1L], 0)) < -2^50 ||
+          beta[1L] + sum(pmax(beta[-1L], 0)) > 2^50) {
+        .dsvert_dp_grouped_cross_fail()
+      }
+    }
+    base$candidate_grid <- unlist(lapply(seq_along(parameters$variance_grid), function(v) {
+      lapply(seq_along(base$beta_grid), function(b) {
+        list(variance_index = v, beta_index = b)
+      })
+    }), recursive = FALSE)
+    base$candidate_order <- lapply(base$candidate_grid, function(candidate) {
+      .dsvert_joint_dp_hash(list(objective = "finite_gh5_binomial_negative_log_likelihood_v1",
+        random_intercept_variance = parameters$variance_grid[[candidate$variance_index]],
+        quadrature = parameters$quadrature, beta = base$beta_grid[[candidate$beta_index]]))
     })
   }
   base$numeric_contract <- .dsvert_dp_grouped_cross_numeric(family, grouping, parameters)

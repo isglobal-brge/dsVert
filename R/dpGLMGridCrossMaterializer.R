@@ -4,7 +4,7 @@
   if (!is.list(artifacts)) return(list())
   artifacts[vapply(artifacts, function(artifact) is.list(artifact) &&
     artifact$version %in% c(unname(.DSVERT_DP_GLM_GRID_CROSS_ARTIFACT_VERSIONS),
-      "bounded-lmm-cross-grid-v1"),
+      "bounded-lmm-cross-grid-v1", "bounded-binomial-glmm-cross-grid-v1"),
     logical(1L))]
 }
 
@@ -124,7 +124,7 @@
   artifact$parameters <- spec$parameters
   artifact$candidate_loss_bounds <- lapply(spec$sensitivity$candidate_bounds,
                                            `[[`, "per_cluster_caps")
-  if (identical(spec$family, "lmm")) {
+  if (spec$family %in% c("lmm", "binomial_glmm")) {
     artifact$source_coordinate_scaling <- "all_coordinates_already_on_common_numeric_lattice_v1"
     # Capsule manifests use homogeneous vectors, including scalar leaves.
     # Preserve the original signed contract string while projecting its arrays.

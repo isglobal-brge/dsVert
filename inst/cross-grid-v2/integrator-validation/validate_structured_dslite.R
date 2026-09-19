@@ -9,13 +9,16 @@ n <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_N", "4"))
 family <- Sys.getenv("DSVERT_GRID_VALIDATION_FAMILY")
 cox <- identical(family, "cox")
 gee <- grepl("_gee$", family)
+staged <- family %in% c("lmm", "binomial_glmm")
+staged_kind <- if (family == "lmm") "lmm" else "glmm"
+staged_marker <- paste0("DSLITE_", toupper(staged_kind))
 epsilon <- as.numeric(Sys.getenv("DSVERT_GRID_VALIDATION_EPSILON", "4"))
 instance <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_INSTANCE", "1"))
 instance_count <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_INSTANCE_COUNT", "1"))
 oracle_only <- identical(Sys.getenv("DSVERT_GRID_VALIDATION_ORACLE_ONLY"), "1")
 first_instance <- instance
 real_count <- if (oracle_only) 0L else as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_REAL_COUNT", "2"))
-predictors <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_P", if (gee || family == "lmm") "3" else "6"))
+predictors <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_P", if (gee || staged) "3" else "6"))
 grid_size <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_GRID", "2"))
 owner_count <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_OWNERS", "2"))
 stopifnot(n > 0, family %in% c("lmm", "binomial_glmm", "poisson_glmm",
@@ -24,7 +27,7 @@ stopifnot(n > 0, family %in% c("lmm", "binomial_glmm", "poisson_glmm",
   grid_size >= 2L, grid_size <= 50L, !oracle_only, instance_count == 1L, real_count >= 1L,
   identical(Sys.getenv("DSVERT_GRID_VALIDATION_COLD"), "1"),
   Sys.getenv("DSVERT_GRID_VALIDATION_INTERRUPT") %in%
-    if (family == "lmm") c("0", "1") else "1")
+    if (staged) c("0", "1") else "1")
 server_dir <- file.path(root, "dsVert")
 client_dir <- file.path(root, "dsVertClient")
 source(file.path(client_dir, "inst/validation/v1.2.0/worked_example_custodian.R"))
@@ -112,7 +115,7 @@ state <- tempfile("cross-grid-dslite-", tmpdir = state_parent)
 replay_only <- identical(Sys.getenv("DSVERT_GRID_VALIDATION_REPLAY_ONLY"), "1")
 if (replay_only) {
   state <- normalizePath(Sys.getenv("DSVERT_GRID_VALIDATION_EXISTING_STATE"), mustWork = TRUE)
-  stopifnot(family == "lmm", identical(Sys.getenv("DSVERT_GRID_VALIDATION_KEEP_STATE"), "1"),
+  stopifnot(staged, identical(Sys.getenv("DSVERT_GRID_VALIDATION_KEEP_STATE"), "1"),
     identical(Sys.getenv("DSVERT_GRID_VALIDATION_INTERRUPT"), "0"))
 }
 dir.create(state, recursive = TRUE, mode = "0700", showWarnings = FALSE)
@@ -125,8 +128,8 @@ trace(".dsvert_dp_lmm_cross_public_evidence_set", where = asNamespace("dsVertCli
     Sys.chmod(path, "0600")
   }))
 trace(".dsvert_dp_gaussian_synopsis_certificate_validate", where = asNamespace("dsVertClient"),
-  print = FALSE, tracer = quote(if (identical(certificate$descriptor$version,
-      "bounded-lmm-cross-grid-v1")) {
+  print = FALSE, tracer = quote(if (certificate$descriptor$version %in%
+      c("bounded-lmm-cross-grid-v1", "bounded-binomial-glmm-cross-grid-v1")) {
     path <- file.path(state, "synthetic-public-certificate.rds")
     saveRDS(list(object = object, certificate = certificate), path)
     Sys.chmod(path, "0600")
@@ -175,7 +178,8 @@ structured_lmm_cold_lifecycle <- function(server_dir, contract, schema) {
     changed_stage$stage_plan_digest <- strrep("1", 64)
     stage_swap <- rejected(read(stage = changed_stage))
     changed_stage <- fixture$stage
-    changed_stage$purpose <- paste0("grouped-lmm-staged-v1/", strrep("2", 64))
+    changed_stage$purpose <- paste0("grouped-",
+      sf(".dsvert_dp_staged_grouped_kind")(artifact$family), "-staged-v1/", strrep("2", 64))
     stage_purpose <- rejected(read(stage = changed_stage))
     row <- DBI::dbGetQuery(scratch, paste("SELECT chunk_index FROM source_aggregate_chunks",
       "WHERE capsule_id=? ORDER BY chunk_index LIMIT 1"), params = list(fixture$source_contract$capsule_id))
@@ -290,7 +294,7 @@ run <- function() {
   # Assign the synthetic authorities before any pinset or contract is signed.
   # The grouping owner keeps its raw data; only unused bootstrap state homes
   # are assigned to owner names so A is the actual transport garbler.
-  if (family == "lmm") {
+  if (staged) {
     identity_ids <- vapply(peers[owner_names[1:2]], function(peer) peer$worker$run(function() {
       dsVert:::.dsvert_relay_peer_id(dsVert:::.get_identity_keypair()$identity_pk)
     }), character(1L))
@@ -305,7 +309,7 @@ run <- function() {
       identity_ids <- identity_ids[2:1]
     }
     stopifnot(order(identity_ids, method = "radix")[[1L]] == 1L)
-    cat("DSLITE_LMM_GROUPING_OWNER_PINNED_GARBLER\n")
+    cat(paste0(staged_marker, "_GROUPING_OWNER_PINNED_GARBLER\n"))
   }
   pins <- stats::setNames(lapply(names(raw), function(peer) {
     other <- setdiff(names(raw), peer)
@@ -388,7 +392,8 @@ run <- function() {
       raw_spec$parameters <- if (family == "lmm")
         list(objective = "ml", variance_grid = list(
           list(residual_variance = .5, random_intercept_variance = .25),
-          list(residual_variance = 1, random_intercept_variance = .25))) else if (gee)
+          list(residual_variance = 1, random_intercept_variance = .25))) else if (family == "binomial_glmm")
+        list(variance_grid = list(0, .25), quadrature = "gh5_fixed_v1") else if (gee)
         list(correlation = "exchangeable", rho = .25, score_clip = 1) else
         list(random_intercept_variance = .25, quadrature = "gh5_fixed_v1")
     }
@@ -520,7 +525,7 @@ run <- function() {
       tracer = quote(assign(".grid_lifecycle_fixture", list(policy = policy,
         secret = secret, manifest_json = manifest_json,
         source_contract = source_contract), .GlobalEnv)))
-    if (identical(Sys.getenv("DSVERT_GRID_VALIDATION_FAMILY"), "lmm")) {
+    if (Sys.getenv("DSVERT_GRID_VALIDATION_FAMILY") %in% c("lmm", "binomial_glmm")) {
       source(file.path(server_dir, "inst/cross-grid-v2/validate_cold_lifecycle.R"))
       assign(".grid_interrupt_mode", "none", .GlobalEnv)
       assign(".grid_interrupted", FALSE, .GlobalEnv)
@@ -616,7 +621,7 @@ run <- function() {
     stop(error)
   })
   cat("DSLITE_PUBLIC_ADMISSION_COMPLETE\n")
-  if (family == "lmm") {
+  if (staged) {
     replay_fixture <- file.path(state, "synthetic-public-replay-fixture.rds")
     saveRDS(list(synthetic_fixture_seed = 20260918 + instance,
       n = n, predictors = predictors, owners = owner_count,
@@ -633,7 +638,7 @@ run <- function() {
     TRUE
   })
   real_release <- instance < first_instance + real_count
-  if (family != "lmm") {
+  if (!staged) {
     source(file.path(server_dir, "inst/cross-grid-v2/prepare_oracle_noise.R"))
     planned <- tryCatch(grid_oracle_noise(peers, conns,
       cf(".dsvert_dp_synopsis_bootstrap_build_v1")(conns)), error = function(error) {
@@ -658,12 +663,12 @@ run <- function() {
   protocol_before <- c(requests = structured_traffic$requests, responses = structured_traffic$responses)
   recovery_exercised <- identical(Sys.getenv("DSVERT_GRID_VALIDATION_INTERRUPT"), "1")
   native_verified <- FALSE
-  if (family == "lmm" && recovery_exercised) {
+  if (staged && recovery_exercised) {
     source(file.path(root, "integrator-validation/lmm_native_recovery.R"))
-    native_recovery <- structured_lmm_native_recovery(peers[owner_names[1:2]])
+    native_recovery <- structured_lmm_native_recovery(peers[owner_names[1:2]], kind = staged_kind)
     on.exit(native_recovery$stop(), add = TRUE)
     for (mode in c("prepared", "bilateral_prepare", "unilateral_commit", "committed", "unilateral")) {
-      cat("DSLITE_LMM_RECOVERY_BEGIN", mode, "\n")
+      cat(paste0(staged_marker, "_RECOVERY_BEGIN"), mode, "\n")
       native_mode <- mode %in% c("bilateral_prepare", "unilateral_commit")
       if (native_mode) native_recovery$begin(mode)
       for (peer in peers[owner_names[1:2]]) peer$worker$run(function(mode) {
@@ -678,7 +683,7 @@ run <- function() {
         if (mode == "unilateral") c(FALSE, TRUE) else c(TRUE, TRUE)
       native_fired <- !native_mode || native_recovery$interrupted()
       if (!inherits(interrupted, "error") || !identical(unname(flags), expected_flags) || !native_fired) {
-        cat("DSLITE_LMM_UNEXPECTED_RECOVERY_RESULT", mode,
+        cat(paste0(staged_marker, "_UNEXPECTED_RECOVERY_RESULT"), mode,
           if (inherits(interrupted, "error")) conditionMessage(interrupted) else "release returned", "\n")
         print(structured_traffic$last_submitted)
         print(structured_traffic$failed_calls)
@@ -704,9 +709,9 @@ run <- function() {
       if (mode == "committed") {
         native_verified <- native_recovery$verify()
         native_recovery$stop()
-        cat("DSLITE_LMM_NATIVE_PREPARE_REMASK_AND_UNILATERAL_COMMIT_EXACT_REPLAY_VERIFIED\n")
+        cat(paste0(staged_marker, "_NATIVE_PREPARE_REMASK_AND_UNILATERAL_COMMIT_EXACT_REPLAY_VERIFIED\n"))
       }
-      cat("DSLITE_LMM_RECOVERY_BOUNDARY", mode, "OBSERVED\n")
+      cat(paste0(staged_marker, "_RECOVERY_BOUNDARY"), mode, "OBSERVED\n")
     }
     for (peer in peers[owner_names[1:2]]) peer$worker$run(function() {
       assign(".grid_interrupt_mode", "none", .GlobalEnv)
@@ -738,13 +743,13 @@ run <- function() {
     fit_path <- file.path(state, "synthetic-public-replayed-fit.rds")
     saveRDS(fit, fit_path)
     Sys.chmod(fit_path, "0600")
-    cat("DSLITE_LMM_RETAINED_PUBLISHED_REPLAY_AUTHENTICATED\n")
+    cat(paste0(staged_marker, "_RETAINED_PUBLISHED_REPLAY_AUTHENTICATED\n"))
     return(invisible(fit))
   }
   end_to_end_release_elapsed <- proc.time()[["elapsed"]] - end_to_end_started
   end_to_end_serialized_rpc_bytes <- structured_traffic$requests + structured_traffic$responses
   successful_call_elapsed <- elapsed
-  if (family == "lmm") elapsed <- proc.time()[["elapsed"]] - release_started
+  if (staged) elapsed <- proc.time()[["elapsed"]] - release_started
   release_protocol_bytes <- sum(c(requests = structured_traffic$requests,
     responses = structured_traffic$responses) - protocol_before)
   protocol_payload <- lapply(peers, function(peer) peer$worker$run(function() {
@@ -763,7 +768,7 @@ run <- function() {
     sort(unique(vapply(records, function(record) cf(".dsvert_joint_dp_client_json")(
       cf(".dsvert_joint_dp_client_canonical")(record[fields])), character(1))), method = "radix")
   }
-  if (family == "lmm") {
+  if (staged) {
     captures <- actual_captures
     planned <- list(artifact_key = fit$provenance_certificate$artifact_key)
   } else stopifnot(identical(capture_identity(actual_captures), capture_identity(captures)))
@@ -808,7 +813,7 @@ run <- function() {
     Sys.chmod(file.path(state, "public-release-mismatch.rds"), "0600")
   }
   stopifnot(identical(unname(observed), unname(oracle$Released)))
-  candidate_count <- if (family == "lmm") length(spec$candidate_grid) else length(spec$beta_grid)
+  candidate_count <- if (staged) length(spec$candidate_grid) else length(spec$beta_grid)
   width <- length(exact) / candidate_count
   loss_indices <- seq.int(1L, length(exact), by = width)
   released_losses <- as.numeric(oracle$Released[-1])[loss_indices]
@@ -824,7 +829,7 @@ run <- function() {
   stopifnot(inherits(rejected, "dsvert_dp_public_failure"))
   cat("DSLITE_ORACLE_BITWISE_EQUAL_STICKY_TAMPER_REJECTED", family, "\n")
   if (identical(Sys.getenv("DSVERT_GRID_VALIDATION_COLD"), "1")) {
-    cold <- if (family == "lmm") lapply(peers[owner_names[1:2]], function(peer)
+    cold <- if (staged) lapply(peers[owner_names[1:2]], function(peer)
       peer$worker$run(structured_lmm_cold_lifecycle, args = list(server_dir, contract, schema))) else
       lapply(peers[owner_names[1:2]], function(peer) peer$worker$run(
       function(server_dir, contract, schema) {
@@ -833,7 +838,7 @@ run <- function() {
       }, args = list(server_dir, contract, schema)))
     stopifnot(all(unlist(cold)))
     cat("DIRECT_R_COLD_LIFECYCLE_EQUAL_TAMPER_REJECTED\n")
-    if (family == "lmm") {
+    if (staged) {
       policies[[contract$spec$owner_peer]]$gaussian_specs <- list(grid = list(
         version = contract$spec$version, dataset = "DA", contract =
           cf(".dsvert_joint_dp_client_json")(cf(".dsvert_joint_dp_client_canonical")(contract))))
@@ -856,7 +861,7 @@ run <- function() {
       cold_checked <- ds.validateDPGaussianCertificate(cold_fit$provenance_certificate)
       stopifnot(identical(cold_checked$integrity_valid, TRUE),
         identical(cold_checked$authenticity, "session_transport_anchored"))
-      cat("DSLITE_LMM_COLD_EXPORTED_API_EQUAL_AUTHENTICATED\n")
+      cat(paste0(staged_marker, "_COLD_EXPORTED_API_EQUAL_AUTHENTICATED\n"))
     }
   }
   }
@@ -870,7 +875,9 @@ run <- function() {
     native_recovery = if (native_verified) "prepare_remask_and_unilateral_commit_exact_replay" else "not_exercised",
     end_to_end_release_elapsed = end_to_end_release_elapsed,
     end_to_end_serialized_rpc_bytes = end_to_end_serialized_rpc_bytes,
-    end_to_end_scope = "fixture-bootstrap-PSI-signing-source-staged-LMM-and-DP-through-first-successful-release-including-retries-before-oracle-and-replay",
+    end_to_end_scope = paste0("fixture-bootstrap-PSI-signing-source-staged-",
+      if (family == "lmm") "LMM" else family,
+      "-and-DP-through-first-successful-release-including-retries-before-oracle-and-replay"),
     release_serialized_rpc_bytes = release_protocol_bytes,
     serialized_rpc_scope = "R-v3-serialized-DSI-request-response-objects-including-retries-excluding-IPC-framing",
     protocol_payload = protocol_payload,

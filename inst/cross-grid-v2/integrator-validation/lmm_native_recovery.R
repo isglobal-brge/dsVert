@@ -8,6 +8,9 @@ structured_lmm_native_probe <- function(session_id, operation_id,
   fixture <- get0(".grid_lifecycle_fixture", .GlobalEnv)
   if (is.null(fixture) || !identical(fixture$stage$operation_id, operation_id)) return(NULL)
   sf <- function(name) get(name, asNamespace("dsVert"), inherits = FALSE)
+  manifest <- sf(".dsvert_dp_capsule_source_manifest")(fixture$manifest_json)
+  artifact <- sf(".dsvert_dp_lmm_cross_artifacts")(manifest)[[1L]]
+  kind <- sf(".dsvert_dp_staged_grouped_kind")(artifact$family)
   if (action %in% c("pause", "resume", "terminate")) {
     # The synthetic trace retains the session privately during the authorized
     # start. Calling .S here would correctly reject an out-of-entrypoint read.
@@ -16,7 +19,7 @@ structured_lmm_native_probe <- function(session_id, operation_id,
       identical(captured$session_id, session_id),
       identical(captured$operation_id, operation_id))
     worker <- sf(".exact_gc_operation_state")(captured$session, operation_id)
-    stopifnot(identical(worker$operation, "grouped-lmm-staged-v1"),
+    stopifnot(identical(worker$operation, paste0("grouped-", kind, "-staged-v1")),
       identical(worker$session_id, session_id),
       identical(worker$operation_id, operation_id))
     stopifnot(inherits(worker$process, "process"))
@@ -29,13 +32,11 @@ structured_lmm_native_probe <- function(session_id, operation_id,
     }
     return(TRUE)
   }
-  manifest <- sf(".dsvert_dp_capsule_source_manifest")(fixture$manifest_json)
-  artifact <- sf(".dsvert_dp_lmm_cross_artifacts")(manifest)[[1L]]
   semantic <- sf(".dsvert_dp_glm_grid_cross_key")(manifest, artifact, fixture$source_contract)
   directory <- file.path(dirname(sf(".dsvert_dp_capsule_source_store_path")(fixture$policy)),
-    "lmm-staged-v1", semantic)
+    paste0(kind, "-staged-v1"), semantic)
   key <- sf(".dsvert_dp_capsule_source_hex_raw")(sf(".dsvert_dp_capsule_source_mac")(
-    fixture$secret, "grouped-lmm-stage-store-key-v1", semantic), "synthetic stage MAC key")
+    fixture$secret, paste0("grouped-", kind, "-stage-store-key-v1"), semantic), "synthetic stage MAC key")
   cached <- get0(".grid_native_recovery_path", .GlobalEnv)
   files <- if (is.list(cached) && identical(cached$semantic, semantic)) cached$path else
     list.files(directory, pattern = "\\.stage$", full.names = TRUE)
@@ -58,12 +59,12 @@ structured_lmm_native_probe <- function(session_id, operation_id,
       as.raw(0), payload), algo = "sha256", serialize = FALSE, raw = TRUE)
     stopifnot(identical(mac, bytes[seq_len(32L)]))
     record <- jsonlite::fromJSON(rawToChar(payload), simplifyVector = FALSE)
-    if (!identical(record$StageID, "lmm.source.numeric")) next
+    if (!identical(record$StageID, paste0(kind, ".source.numeric"))) next
     hex <- function(value) paste(sprintf("%02x", as.integer(unlist(value))), collapse = "")
     expected_role <- if (identical(fixture$policy$peer_name,
       sf(".dsvert_dp_glm_grid_cross_embedded_contract")(artifact)$spec$grouping$owner_peer)) 0 else 1
     stopifnot(identical(record$Version, "cross-grid-stage-record-v1"),
-      identical(record$Session, paste0("lmm-staged-", semantic)),
+      identical(record$Session, paste0(kind, "-staged-", semantic)),
       identical(record$ABI$ID, record$StageID),
       identical(hex(record$PlanDigest), fixture$stage$stage_plan_digest),
       identical(as.numeric(record$Role), expected_role),
@@ -101,8 +102,10 @@ structured_lmm_native_probe <- function(session_id, operation_id,
     role = as.numeric(selected$Role), authenticated = TRUE)
 }
 
-structured_lmm_native_recovery <- function(peers) {
+structured_lmm_native_recovery <- function(peers, kind = "lmm") {
   stopifnot(identical(names(peers), c("site_a", "site_b")))
+  stopifnot(kind %in% c("lmm", "glmm"))
+  marker <- paste0("DSLITE_", toupper(kind))
   state <- new.env(parent = emptyenv())
   state$mode <- "none"
   state$fired <- FALSE
@@ -121,7 +124,7 @@ structured_lmm_native_recovery <- function(peers) {
     request <- as.list(expressions[[1L]])
     session <- request$session_id
     id <- request$operation_id
-    # A signed LMM operation is identified by its bound public operation ID,
+    # A signed staged operation is identified by its bound public operation ID,
     # not by inspecting or substituting an encrypted relay payload.
     records <- probe(session, id)
     if (any(vapply(records, is.null, logical(1L)))) return(invisible(NULL))
@@ -129,7 +132,7 @@ structured_lmm_native_recovery <- function(peers) {
       c("PREPARE", "COMMIT")
     states <- vapply(records, `[[`, character(1L), "state")
     if (!identical(states, state$last_states)) {
-      cat("DSLITE_LMM_NATIVE_RECOVERY_STATE", state$mode, unname(states), "\n")
+      cat(paste0(marker, "_NATIVE_RECOVERY_STATE"), state$mode, unname(states), "\n")
       state$last_states <- states
     }
     if (state$mode == "bilateral_prepare" && identical(states[[1L]], "PREPARE")) {
@@ -161,7 +164,7 @@ structured_lmm_native_recovery <- function(peers) {
     state$session <- session
     state$operation <- id
     state$mode <- "none"
-    stop("Synthetic interruption at authenticated native LMM stage boundary", call. = FALSE)
+    stop("Synthetic interruption at authenticated native staged boundary", call. = FALSE)
   }
   assign(".grid_lmm_native_barrier", barrier, .GlobalEnv)
   trace(".dsvert_fanout_cycle", where = asNamespace("dsVertClient"), print = FALSE,

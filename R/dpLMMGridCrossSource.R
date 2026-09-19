@@ -7,11 +7,15 @@
   contract <- .dsvert_dp_grouped_cross_contract_validate(
     contract, policy, schema_manifest)
   spec <- contract$spec
-  if (!identical(spec$family, "lmm") ||
+  if (!spec$family %in% c("lmm", "binomial_glmm") ||
       !is.character(source_contract_sha256) ||
       length(source_contract_sha256) != 1L || is.na(source_contract_sha256) ||
       !grepl("^[0-9a-f]{64}$", source_contract_sha256) ||
       identical(source_contract_sha256, strrep("0", 64))) {
+    .dsvert_dp_grouped_cross_fail()
+  }
+  if (identical(spec$family, "binomial_glmm") &&
+      !identical(spec$numeric_contract$version, "grouped-binomial-glmm-variance-grid-numeric-v1")) {
     .dsvert_dp_grouped_cross_fail()
   }
   contract
@@ -20,6 +24,21 @@
 .dsvert_dp_lmm_cross_source_plan <- function(contract, source_contract_sha256) {
   spec <- contract$spec
   caps <- unlist(spec$sensitivity$per_cluster_caps, use.names = FALSE)
+  if (identical(spec$family, "binomial_glmm")) {
+    return(list(version = "dsvert-glmm-staged-source-handoff-v1",
+      spec_sha256 = .dsvert_joint_dp_hash(spec),
+      source_contract_sha256 = source_contract_sha256,
+      profile_sha256 = spec$numeric_contract$certificate_sha256,
+      schema_sha256 = spec$schema_sha256,
+      Clusters = spec$grouping$cluster_capacity,
+      Slots = spec$grouping$max_patients_per_cluster,
+      Predictors = length(spec$predictor_order),
+      Numeric = list(Slots = spec$grouping$max_patients_per_cluster,
+        GridBits = spec$numeric_grid_bits, OutputCap = sprintf("%.0f", max(caps))),
+      Beta = spec$beta_encoded, Caps = as.list(sprintf("%.0f", caps)),
+      VarianceGrid = lapply(spec$parameters$variance_grid, function(variance)
+        sprintf("%.0f", variance * 2^16))))
+  }
   residual <- max(vapply(spec$sensitivity$candidate_bounds, function(bound) {
     max(abs(bound$eta_upper), abs(1 - bound$eta_lower))
   }, numeric(1L)))
@@ -120,6 +139,13 @@
     # Only the already-public successful alignment admission is reshared.
     list(Share = encode(bytes), Validity = encode(rep(validity, rows * length(blocks))))
   }
+  if (identical(spec$family, "binomial_glmm")) {
+    return(list(plan = .dsvert_dp_lmm_cross_source_plan(contract, source_contract_sha256),
+      numeric = pack(values[unlist(spec$predictor_order, use.names = FALSE)]),
+      outcome = pack(values[spec$outcome$reference]),
+      metadata = pack(c(validities[numeric],
+        values[spec$grouping$reference], validities[spec$grouping$reference]))))
+  }
   list(plan = .dsvert_dp_lmm_cross_source_plan(contract, source_contract_sha256),
     numeric = pack(values[numeric]),
     metadata = pack(c(validities[numeric],
@@ -176,7 +202,7 @@
       any(labels < 0 | labels > routing$maximum) ||
       !is.numeric(present) || length(present) != routing$length || anyNA(present) ||
       any(!present %in% c(0, 1))) .dsvert_dp_grouped_cross_fail()
-  value <- list(version = "dsvert-lmm-owner-route-source-v1", binding = binding,
+  value <- list(version = .dsvert_dp_staged_grouped_tag(context$spec, "-owner-route-source-v1", "dsvert-"), binding = binding,
     labels = as.list(as.integer(labels)), present = as.list(as.logical(present)))
   value$mac <- .dsvert_dp_capsule_source_mac(secret, "grouped-route-owner-source-v1",
     .dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(value)))
@@ -192,7 +218,7 @@
   unsigned <- sidecar[setdiff(names(sidecar), "mac")]
   expected_mac <- .dsvert_dp_capsule_source_mac(secret, "grouped-route-owner-source-v1",
     .dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(unsigned)))
-  if (!identical(sidecar$version, "dsvert-lmm-owner-route-source-v1") ||
+  if (!identical(sidecar$version, .dsvert_dp_staged_grouped_tag(context$spec, "-owner-route-source-v1", "dsvert-")) ||
       !isTRUE(.dsvert_joint_dp_dsi_hex_equal(sidecar$mac, expected_mac))) {
     .dsvert_dp_grouped_cross_fail()
   }

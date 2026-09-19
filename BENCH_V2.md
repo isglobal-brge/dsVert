@@ -427,3 +427,12 @@ n10000/p10/grid50 DSLite campaigns are still running; their observed relay
 throughput projects to tens of hours. That is a projection, not a measured
 completed API elapsed time. No full-size API cost pass is claimed. The raw
 kernel 110 GB / 4 h measurements explicitly exclude this R/DSI overhead.
+
+## Additional K5 API timing
+
+Binomial, n2000/p6/grid2, five source owners, epsilon4: **3226.806 s**.
+The real DP vector matches the integer oracle; cold lifecycle and all
+274 before/after source checks pass. Selected candidate2 equals exact-best2,
+with zero gap. Evidence: `topology-binomial-k5.log`. Timing has the same
+API-only scope as above and does not replace the full-size raw cost gate.
+Poisson K5 and both full-grid K3 results remain pending.

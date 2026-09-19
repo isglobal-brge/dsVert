@@ -82,3 +82,18 @@ a stale worker-bundle manifest in the cold process. That excluded attempt is
 retained in `dslite-n2000-before-cold-bundle.log`; the repaired bundle was used
 for the full successful matrix. Neither that attempt nor small smoke/topology
 probes count toward the required twelve.
+
+## Additional source-owner topology gates
+
+Binomial K5 **PASS**, n2000/p6/grid2/epsilon4: all five owners align and sign;
+the real two-authority API release matches the complete integer oracle
+vector and passes cold exactly-once/replay/tamper checks. It selects
+candidate2, the exact best, with zero loss gap; API time is **3226.806 s**.
+`inst/cross-grid-v2/topology-binomial-k5.log` and its source-check log retain
+the result and all 274 before/after frozen R/binary/harness checks;
+`topology-k5-support.sha256` identifies those inputs.
+
+This is the explicitly smaller K5 envelope permitted by clause 7. Poisson
+K5 and both n10000/p10/grid50 K3 releases are still running; no completion
+is claimed for them. Reproduce the K5 sequence with
+`run_k5_after_matrix_pod.sh` after the complete selection matrix.

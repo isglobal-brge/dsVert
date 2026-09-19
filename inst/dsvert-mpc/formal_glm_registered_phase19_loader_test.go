@@ -7,6 +7,9 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -727,7 +730,23 @@ func TestFormalGLMRegisteredPhase19LoaderHotLoopUsesValidationContextV3(
 	if loopStart < 0 {
 		t.Fatal("loader source-major loop is absent")
 	}
-	hotLoop := source[loopStart:]
+	positions := token.NewFileSet()
+	syntax, err := parser.ParseFile(positions, "formal_glm_registered_phase19_loader.go", source, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var hotLoop []byte
+	ast.Inspect(syntax, func(node ast.Node) bool {
+		loop, ok := node.(*ast.RangeStmt)
+		if ok && positions.Position(loop.Pos()).Offset == loopStart {
+			hotLoop = source[loopStart:positions.Position(loop.End()).Offset]
+			return false
+		}
+		return true
+	})
+	if len(hotLoop) == 0 {
+		t.Fatal("loader source-major loop could not be isolated")
+	}
 	for _, forbidden := range []string{
 		"store.contract", "store.pins", "reflect.DeepEqual(",
 	} {

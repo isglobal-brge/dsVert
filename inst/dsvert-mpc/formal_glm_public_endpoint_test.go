@@ -1936,13 +1936,41 @@ func TestFormalGLMPublicEndpointResolveK2ClosedSelector(t *testing.T) {
 	}
 
 	tampered := fixture.selector
-	tampered.Family = "poisson"
+	tampered.Family = "gaussian"
 	tamperedJSON, err := json.Marshal(tampered)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := endpoint.Resolve(tamperedJSON); err == nil {
-		t.Fatal("Resolve accepted non-binomial selector tamper")
+		t.Fatal("Resolve accepted unsupported selector family")
+	}
+
+	// Poisson is supported, but cannot resolve this binomial artifact.
+	poisson := fixture.selector
+	poisson.Family = "poisson"
+	poissonJSON, err := json.Marshal(poisson)
+	if err != nil {
+		t.Fatal(err)
+	}
+	poissonResolved, err := endpoint.Resolve(poissonJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	poissonReceipt, err := formalGLMValidatePublicEndpointReceiptV1(
+		[]byte(poissonResolved.ReceiptFrameJSON), fixture.phase21.pins)
+	if err != nil {
+		t.Fatal(err)
+	}
+	poissonSHA256, err := formalGLMPublicSelectorSHA256V1(poisson)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if poissonReceipt.State != formalGLMPublicResolveAbsent ||
+		poissonReceipt.Resolution != nil || poissonReceipt.Provision != nil ||
+		poissonReceipt.SelectorSHA256 != poissonSHA256 ||
+		poissonReceipt.SelectorSHA256 == receipt.SelectorSHA256 ||
+		poissonReceipt.ProductionReady {
+		t.Fatalf("Poisson selector crossed the binomial artifact boundary: %+v", poissonReceipt)
 	}
 
 	var receiptObject map[string]any

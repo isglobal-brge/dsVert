@@ -108,7 +108,7 @@ test_that("test-only session blobs stay outside the service state root", {
                          ROCK_HOME = NA_character_))
   ss <- new.env(parent = emptyenv())
   ss$.session_id <- "security-test-session"
-  on.exit(.session_dir_cleanup(ss), add = TRUE)
+  withr::defer(.session_dir_cleanup(ss))
   path <- .ensure_session_dir(ss)
   expect_true(startsWith(
     normalizePath(path, winslash = "/", mustWork = TRUE),

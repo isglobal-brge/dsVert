@@ -116,7 +116,7 @@ test_that("durable synopsis source contracts isolate artifact namespaces", {
   tampered_claim_set$sha256 <- strrep("f", 64L)
   expect_error(build(claim_set = tampered_claim_set))
 
-  # Verified unchanged against frozen step-1 snapshot 15e1de2.
+  # The released catalog binds strict_missing_categorical, even when empty.
   legacy_golden <-
     "cad5136408f323b3b3efc218fdd3ece3117eb2c92312a7ef079e4d2bfa5bacfd"
   expect_identical(legacy$contract_hash, legacy_golden)

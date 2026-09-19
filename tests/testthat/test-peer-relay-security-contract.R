@@ -81,6 +81,13 @@ test_that("the peer-relay security matrix covers the complete active surface", {
   }, channels)
   exposed <- unique(unlist(lapply(
     production, `[[`, "remote_endpoints"), use.names = FALSE))
+  prototype <- matrix$nonproduction_formal_routes
+  expect_identical(prototype$production_ready, FALSE)
+  expect_setequal(unlist(prototype$remote_endpoints), c(
+    "dsvertFormalGLMRegisteredSourceDS",
+    "dsvertFormalGLMRegisteredFreshSourceDS",
+    "dsvertFormalGLMRegisteredJobControlDS",
+    "dsvertFormalCoxFreshSourceDS", "dsvertFormalCoxWorkerControlDS"))
   local_only <- c(
     "dsvertSecurityProfileDS", "dsvertTransportProbeDS",
     "dsvertIdentityPkDS", "dsvertNumericPolicyDS", "dsvertColNamesDS",
@@ -88,10 +95,13 @@ test_that("the peer-relay security matrix covers the complete active surface", {
     "dsvertDPCountAuthorizeDS", "dsvertDPCountStartDS",
     "dsvertDPCountReleaseDS", "dsvertDPFrequencyClaimDS",
     "dsvertDPFrequencyCompileDS", "dsvertDPFrequencyAuthorizeDS",
-    "dsvertDPFrequencyCleanupDS")
+    "dsvertDPFrequencyCleanupDS",
+    "dsvertFormalGLMPublicResultDS", "dsvertFormalCoxPublicResultDS",
+    "dsvertFormalCoxDiscretePublicResultDS")
   registered <- .dsvert_registered_remote_methods(
     .dsvert_test_package_file("DESCRIPTION"))
-  expect_setequal(exposed, setdiff(registered, local_only))
+  expect_setequal(c(exposed, unlist(prototype$remote_endpoints)),
+                  setdiff(registered, local_only))
 
   separate <- Filter(function(channel) {
     identical(channel$status, "registered_separate_profile")

@@ -16,7 +16,33 @@ import (
 	"testing"
 )
 
-const formalCoxRSchemaFixtureScript = `
+const formalCoxRFixtureEncodingScript = `
+formal_cox_fixture_base64 <- function(value) {
+  base64_to_base64url(gsub("[[:space:]]", "",
+    jsonlite::base64_enc(value)))
+}
+`
+
+const formalCoxRFixtureEncodingCheckScript = `
+source("../../R/mpcUtils.R")
+value <- as.raw(0:255)
+encoded <- formal_cox_fixture_base64(value)
+decoded <- jsonlite::base64_dec(.base64url_to_base64(encoded))
+if (!identical(decoded, value)) {
+  stop("Cox fixture encoding changed bytes from the complete byte range.")
+}
+`
+
+func TestFormalCoxRFixtureBase64PreservesBytes(t *testing.T) {
+	command := exec.Command("Rscript", "--vanilla", "-e",
+		formalCoxRFixtureEncodingScript+formalCoxRFixtureEncodingCheckScript)
+	command.Env = append(os.Environ(), "R_TESTS=")
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("Cox fixture base64 round trip: %v\n%s", err, output)
+	}
+}
+
+const formalCoxRSchemaFixtureScript = formalCoxRFixtureEncodingScript + `
 source("../../R/mpcUtils.R")
 source("../../R/dsiRelay.R")
 source("../../R/dpPolicyDS.R")
@@ -49,9 +75,7 @@ unsigned <- .dsvert_formal_cox_schema_compile(
   frac_bits = 8L)
 message <- .dsvert_formal_cox_schema_message(unsigned)
 signatures <- lapply(keys, function(key) {
-  base64_to_base64url(gsub(
-    "[\\r\\n[:space:]]", "",
-    jsonlite::base64_enc(openssl::ed25519_sign(message, key))))
+  formal_cox_fixture_base64(openssl::ed25519_sign(message, key))
 })
 schema <- .dsvert_formal_cox_schema_seal(unsigned, signatures)
 cat(.dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(schema)))

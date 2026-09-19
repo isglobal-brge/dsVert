@@ -4,7 +4,11 @@
 
 .joint_test_fixture <- function(external_anchor = FALSE) {
   root <- tempfile("joint-dp-control-")
-  dir.create(root)
+  dir.create(root, mode = "0700")
+  withr::local_options(list(
+    dsvert.identity_seed_path = file.path(root, "identity.seed")),
+    .local_envir = parent.frame())
+  .dsvert_init_identity_seed(.allow_test_path = TRUE)
   pins <- c(
     peer_a = .joint_test_b64url(as.raw(seq_len(32L))),
     peer_b = .joint_test_b64url(as.raw(32L + seq_len(32L))))

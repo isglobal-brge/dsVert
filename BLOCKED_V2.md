@@ -1,3 +1,41 @@
+# OPEN — client clean-check scope decision
+
+The earlier arithmetic/resource block below is resolved. The remaining external
+decision concerns the client's two pre-existing R CMD check warnings.
+
+## Precise question
+
+May the prepared three-line patch in
+`../dsVertClient/inst/cross-grid-v2/preexisting-check-warnings.patch` be applied
+despite the instruction to keep other families untouched? It replaces the MI
+print literal's multiplication sign with an identical-output Unicode escape,
+and removes a duplicate ordinal `analysis_id` documentation entry from roxygen
+and its Rd output. No model, privacy or release behavior changes.
+
+The question was already submitted during this run and has no answer yet.
+`git apply --check inst/cross-grid-v2/preexisting-check-warnings.patch` passes
+in dsVertClient; the patch remains unapplied. Approval is needed because the
+user simultaneously requires clean package checks (or pre-existing NOTEs)
+and prohibits unrelated-family edits. These are WARNINGs, not NOTEs. No skill
+or automatic approval review imposed this requirement.
+
+## Evidence and unaffected work
+
+`inst/cross-grid-v2/check-client-packaging-corrected.log`, lines34–39 and59–65,
+identifies non-ASCII `R/ds.vertMI.R` and duplicate `analysis_id` in
+`ds.vertOrdinal.Rd`; line75 reports two warnings. CHECKS_V2 records the
+baseline findings. The server check passes with one pre-existing NOTE.
+
+The 120-selection / 12-real-release matrix and both K5 family gates now pass.
+The full-size K3 releases remain active under completion observers at their
+unchanged n10000/p10/grid50 envelope. They are **not complete**, and their
+slowness is not declared an external blocker. The optional narrower-K3 scope
+question remains unapproved; no reduction has been made.
+
+---
+
+# Historical resolved resource decision
+
 # RESOLVED — reviewer Addendum 5
 
 The reviewer retained n=10000, p=10, grid=50 and the current fused design,

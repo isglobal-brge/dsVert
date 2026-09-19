@@ -442,3 +442,9 @@ Command: `nohup sh inst/cross-grid-v2/run_k5_after_matrix_pod.sh 829845 960689`;
 ## 2026-09-19T02:21Z — disarm only the completed topology duplicate
 
 After the pod binomial K5 gate passes, remove its old Mac post-K3 K5 queue, preserving the running K3 R process and its three peers. Replace the queue with a completion-only observer that validates full n10000/p10/grid50/K3 geometry, equality, lifecycle and hashes. Keep the Poisson queue until its pod K5 gate succeeds. This changes scheduling only, not signed inputs or runtime.
+
+## 2026-09-19T03:33Z — preserve K3 after both K5 gates pass
+
+Poisson K5 passes all release/lifecycle/hash gates, so stop only its redundant Mac queue shell PID29677. R PID29687 and peers29932/29963/29991 remain alive; completion-only observer PID59302 checks the unchanged n10000/p10/grid50/K3 release. Binomial observer PID80298 likewise remains responsible for R PID22057. Both full-grid computations continue.
+
+The client clean-check requirement cannot be closed while the explicit prohibition on other-family edits remains unqualified: its two existing warnings require the prepared three-line MI/ordinal patch. `git apply --check` passes; do not apply it or infer approval from elapsed time. Record this precise outstanding scope decision in BLOCKED_V2. This is not a resource/tooling block, and does not stop the independent K3 jobs.

@@ -97,3 +97,10 @@ This is the explicitly smaller K5 envelope permitted by clause 7. Poisson
 K5 and both n10000/p10/grid50 K3 releases are still running; no completion
 is claimed for them. Reproduce the K5 sequence with
 `run_k5_after_matrix_pod.sh` after the complete selection matrix.
+
+Poisson K5 **PASS** at the same n2000/p6/grid2/epsilon4 envelope: complete
+integer DP-vector oracle equality, cold exactly-once/replay/tamper checks,
+and all 274 before/after source hashes pass. API time **3810.832 s**; selected
+candidate2 equals exact-best2 with zero gap. Evidence: `topology-poisson-k5.log`,
+its source-check log, and `topology-k5-queued.log` with `K5_TOPOLOGY_POD_DONE`.
+Both K5 family gates are complete. Both full-grid K3 gates remain running.

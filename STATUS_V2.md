@@ -803,3 +803,54 @@ Command: `python3 inst/cross-grid-v2/summarize_validation.py inst/cross-grid-v2 
 Real five-owner release at the explicitly smaller **n2000/p6/grid2/epsilon4** envelope passes all-owner PSI/signatures, complete integer DP-vector oracle equality and cold exactly-once/replay/tamper checks. API time **3226.806 s**, selected candidate2 = exact-best2, zero gap. All **274** frozen package R/binary/harness inputs match before and after. Evidence: `topology-binomial-k5.log`, matching source-check log and `topology-k5-support.sha256`. Poisson K5 has started setup on the pod. Both full-grid Mac K3 releases remain active.
 
 Removed only the now-redundant binomial Mac post-K3 K5 queue shells (PIDs47587/47583). K3 R PID22057 and peers22169/22173/22177 remain alive. `watch_k3_completion_mac.sh binomial 22057` (PID80298) preserves final geometry/equality/lifecycle/hash validation without rerunning K5; shell syntax passes. No active release was restarted.
+
+## 2026-09-19T03:33Z — both K5 topology gates PASS; remaining decision recorded
+
+Poisson K5 n2000/p6/grid2/epsilon4 passes full integer DP-vector equality,
+cold exactly-once/replay/tamper checks and all 274 before/after source hashes.
+API time **3810.832 s**, selected/exact-best candidate2, zero loss gap. The pod
+runner ends with `K5_TOPOLOGY_POD_DONE`. Both K5 gates now pass.
+
+Stop only redundant Mac Poisson queue shell29677; preserve R29687 and all
+three peers. Completion observer59302 checks the original full-grid K3 result
+and hashes, with no additional K5 run. Binomial R22057 and observer80298 also
+continue. Latest public batch counts: binomial **371/2191**, Poisson **201/2191**,
+matching on each authority pair. Neither K3 release is complete.
+
+The prepared client warning patch still passes `git apply --check`. Its pending
+scope decision is recorded in BLOCKED_V2; no other-family edits or warning
+waiver are assumed. No new resource or tooling blocker is claimed.
+
+## Current done / not done, commits and reproduction
+
+| Deliverable | Result |
+|---|---|
+| Certified kernel, joint noise, server and client route | Implemented; targeted gates pass. |
+| Raw secure benchmark matrices | DONE on Mac and pod, plus n2000 measurements. Full pod releases pass 110 GB / 4 h; both exceed 30 minutes. API overhead is excluded explicitly. |
+| Layered mathematics and 120 / 12 validation | PASS. LAYER1_V2, LAYER2_V2 and generated LAYER3_V2 contain the evidence. |
+| K5 topologies | PASS for both families at n2000/p6/grid2/epsilon4. |
+| Full-envelope K3 topologies | NOT DONE; both n10000/p10/grid50 releases remain active on the Mac. |
+| Package checks | Server 0 errors / 0 warnings / 1 pre-existing NOTE. Client 2 pre-existing warnings; exact corrective patch awaits scope approval. |
+| Full suites | Executed once. Corrected R failure scopes pass targeted reruns. Go retains 31 documented baseline Cox/GLM failures; no claim of a green full Go suite. |
+| Docs/version | Roxygen and route docs committed; no NEWS or DESCRIPTION version change. Final K3 results remain to record. |
+
+Key implementation commits: `2751630` certified exp, `2771a99` fused kernel,
+`89ee9be` sticky masks/global noise, `41a2ca0` server materialiser, `79b0937`
+alignment gate, `6fd6194` bound admission, `e1a32cd` authenticated public cache.
+Benchmark evidence: `9292d98` Mac matrix, `28b8f7b` pod matrix. Validation:
+`9d345d9` complete 120/12 matrix, `062935f` binomial K5; the following report
+commit adds Poisson K5 evidence. Client HEAD: `84748c1d97a00b89495dd2e2006f348f4d6d0d59`.
+
+Reproduction from dsVert:
+
+```sh
+python3 inst/cross-grid-v2/summarize_validation.py inst/cross-grid-v2 LAYER3_V2.md
+# Fresh synthetic campaigns (do not rerun the active K3 releases):
+# pod: sh inst/cross-grid-v2/run_validation_campaign_pod.sh
+# pod, after its matrix completes: sh inst/cross-grid-v2/run_k5_after_matrix_pod.sh
+```
+
+BENCH_V2 and CHECKS_V2 retain exact benchmark/check commands and immutable
+logs. Active K3 logs are `topology-{binomial,poisson}-k3.log`; their observers
+write `topology-{binomial,poisson}-k3-completion-watch.log` and closing source
+checks. No push, tag modification, full-task completion or promotion is claimed.

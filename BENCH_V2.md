@@ -436,3 +436,8 @@ The real DP vector matches the integer oracle; cold lifecycle and all
 with zero gap. Evidence: `topology-binomial-k5.log`. Timing has the same
 API-only scope as above and does not replace the full-size raw cost gate.
 Poisson K5 and both full-grid K3 results remain pending.
+
+Poisson K5, at the same n2000/p6/grid2/epsilon4 envelope: **3810.832 s**.
+Oracle equality, cold lifecycle and all 274 source checks pass; selected
+candidate2 equals exact-best2 with zero gap. Evidence: `topology-poisson-k5.log`.
+Both K5 releases are complete; full-grid K3 API measurements remain pending.

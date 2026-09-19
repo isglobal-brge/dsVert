@@ -12,6 +12,7 @@ import (
 )
 
 type groupedReferenceRequest struct {
+	ClusterCap    int64
 	Family        string
 	Profile       string
 	InputQ16      []int64
@@ -52,6 +53,7 @@ func TestGroupedReferenceBridge(t *testing.T) {
 	}
 	var values []int64
 	var valid bool
+	var errorBounds map[string]float64
 	switch r.Family {
 	case "profile":
 		valid = true
@@ -97,7 +99,7 @@ func TestGroupedReferenceBridge(t *testing.T) {
 		err = e
 		valid = ok
 		values = []int64{value}
-	case "gee":
+	case "gee", "gee_whitening":
 		eta := parse(r.Eta)
 		rows := make([]groupedGEERow, len(eta))
 		if len(r.Features) != len(eta) || len(r.Live) != len(eta) || len(r.Outcome) != len(eta) {
@@ -106,7 +108,19 @@ func TestGroupedReferenceBridge(t *testing.T) {
 		for i := range rows {
 			rows[i] = groupedGEERow{eta[i], parse(r.Features[i]), r.Outcome[i], r.Live[i]}
 		}
-		values, valid, err = groupedGEEReference(r.GEE, rows)
+		if r.Family == "gee_whitening" {
+			values, valid = groupedGEEWhiteningOracle(r.GEE, rows, r.ClusterCap)
+			cert, e := groupedGEEWhiteningCertificate(r.GEE)
+			if e != nil {
+				t.Fatal(e)
+			}
+			errorBounds = map[string]float64{}
+			for name, value := range map[string]*big.Rat{"likelihood": cert.Likelihood, "bread": cert.Bread, "meat": cert.Meat} {
+				errorBounds[name], _ = value.Float64()
+			}
+		} else {
+			values, valid, err = groupedGEEReference(r.GEE, rows)
+		}
 	default:
 		t.Fatal("invalid test family")
 	}
@@ -114,9 +128,10 @@ func TestGroupedReferenceBridge(t *testing.T) {
 		t.Fatal(err)
 	}
 	data, err = json.Marshal(struct {
-		Values []int64
-		Valid  bool
-	}{values, valid})
+		Values      []int64
+		Valid       bool
+		ErrorBounds map[string]float64 `json:",omitempty"`
+	}{values, valid, errorBounds})
 	if err != nil {
 		t.Fatal(err)
 	}

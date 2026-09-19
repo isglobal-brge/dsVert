@@ -1,43 +1,56 @@
-# GEE composition integration — incomplete predecessor
+# GEE composition integration — certified arithmetic predecessor
 
-`registerGroupedGEE()` now exposes MomentOperands, MomentSums, MomentBoundary,
-MeatOperands and MeatFinal; LegacyCompile is only the preceding monolithic
-prototype. The new components accept receipt-bound whitened `(u,z)` row factors
-at q64, form exact f128 private products through the dealer-free OT component,
-reduce locally, clip/round cluster scores, and form exact clipped-score meat.
-Bread and meat use the signed column-major upper triangle, caps and shifts.
-Private validity accompanies every boundary output.
+The v3 private whitening-factor producer is implemented and registered through
+`groupedGEERegistry().ProduceFactors`. It validates complete f100 predictors,
+f50 features, integer outcomes and live bits at full Ring192 width; invokes
+the pinned certified scalar profiles; constructs correlation-dependent private
+whitening; uses dealer-free exact OT for factor products; and returns freshly
+masked q64 factors, q32 cluster likelihood, private validity, a numeric
+certificate and the contract/profile/spec-bound schedule digest.
 
-The tested components do NOT create the private whitening factors. Their tests
-exercise supplied synthetic factors and all three correlation-dependent output
-mappings, NOT end-to-end exchangeable/AR1 generation. This mandatory predecessor
-is still owned by this lane:
-- privately validated feature/outcome/complete-case inputs and scalar profile
-  factors, using the new guarded predictor and Ring192 scalar bridge;
-- inverse working-correlation construction with secret live count, and stable
-  original-slot gaps for AR1 after missingness; no public count or unsafe
-  full-block inverse with zeroed rows;
-- a measured efficient factor/product schedule, with grouping ONCE per release;
-- complete propagated likelihood/bread/meat error certificate and matching R
-  integer oracle/profile binding. The existing provisional GEE error=1 is NOT
-  certified by these component tests and MUST NOT authorize promotion.
+Exchangeable whitening selects coefficients using the SECRET live count. AR1
+innovations preserve ORIGINAL slot distances across missingness. No count,
+predecessor, working matrix or factor is opened. The existing MomentOperands,
+MomentSums, MomentBoundary, MeatOperands and MeatFinal remain the downstream
+likelihood+bread+clipped-meat composition; this is not a GLM wrapper.
+`LegacyCompile` remains the old q16 inverse-matrix prototype and is not the
+new profile's evaluator.
 
-After those prerequisites: map the signed per-cluster likelihood cap rather
-than summing only prototype row caps, connect authenticated Step-2 fusion,
-run protected DSLite/geepack comparisons, measure all nine full envelopes and
-admit only a measured capacity. R production dispatch remains disabled.
+`NUMERIC_CERTIFICATE_GEE_WHITENING.md` gives the exact coefficient enclosure,
+scalar/input/feature/whitening error propagation and signed range proof.
+The mirrored R contracts bind `grouped-gee-whitening-f96-q64-v3`, the retained
+scalar hash, and explicit per-coordinate error bounds. They no longer use the
+provisional GEE error=1. Likelihood must use the signed PER-CLUSTER cap through
+`groupedGEELikelihoodCompile`, never a sum of prototype row caps.
 
-For exact q64 factor inputs, products/sums have zero arithmetic error while
-inside the certified signed Ring192 range. Bread's final rounding adds <=1/(2S).
-Clipped-score rounding to q16 adds <=2^-17 per component; because both exact
-and rounded scores stay in [-C,C], the meat perturbation is <=C/65536 plus
-final <=1/(2S). These conditional bounds exclude unfinished upstream factor
-errors. They are not a full-family certificate.
+## Pod verification, 2026-09-19
 
-## Addendum 4 preflight — 2026-09-18
+- Encrypted two-authority factor producer: binomial/Poisson crossed with
+  independence/exchangeable/AR1, all six PASS. Outputs compose with the retained
+  moment/meat boundaries and equal the new integer oracle. Three-slot/one-
+  predictor producer probes use9.36--9.95MB and2.1--2.8s; NOT release envelopes.
+- All four-slot live patterns at every admitted rho: W'W agrees with an
+  independently inverted real covariance, including AR1 missingness gaps.
+- Wrapped input/output shares, invalid full-width inputs and validity,
+  maximum B8/p3/g18 compilation and rational root enclosure checks: PASS.
+- New and legacy focused GEE Go tests: PASS,35.099s.
+- Paired focused R contracts, independent pure-R integer assembly, old retained
+  scalar/legacy oracles, real covariance-solve error comparisons, and exact
+  client/server certificate agreement:432 assertions PASS, no skips/errors.
+  Root workspace evidence: `integrator-evidence/resume-20260919/gee-*.log`.
 
-The binding ceiling is **110 GB / 4 h**. No release capacity is admitted;
-all requested shapes are rejected by current prototype contracts. See
-INTEGRATION_GROUPED.md's Addendum 4 section and
-`inst/grouped-validation/addendum4-preflight.json` for the unmeasured matrix
-and exact prerequisites. Component timings do not establish release capacity.
+## Still required before promotion
+
+The producer is an INTERNAL arithmetic component, not a release RPC. Its input
+must be bound to authenticated complete predictors and once-only grouping.
+The fused scheduler still must persist and replay each stage with authenticated
+receipts, bind factorial/live/profile state, propagate returned validity into
+EVERY likelihood/bread/meat terminal boundary, map signed caps, and feed the
+existing two-authority DP lifecycle. The component schedule digest is not a
+substitute for durable receipts or a completed authenticated server release.
+
+Production dispatch stays disabled. No grouped release capacity is admitted.
+The prior27 Addendum4 public-shape rejections were preflights, not measurements.
+All families remain subject to the binding110GB/4h gate (admitted capacity if
+needed), real n2000 K2/K3/K5 releases, cold/replay/recovery/tamper evidence and
+a green paired suite. No GEE family is promoted by these arithmetic results.

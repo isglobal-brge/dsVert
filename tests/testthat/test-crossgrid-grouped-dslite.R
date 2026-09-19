@@ -70,7 +70,7 @@ test_that("two DSLite peers compare grouped candidates at epsilon 1 4 8", {
       } else if(grepl("glmm$",family)) {
         r$Family <- "glmm";r$GLMM <- list(Family=if(poisson) "poisson" else "binomial",Rows=4,OutputBits=16,VarianceQ16=16384)
       } else {
-        r$Family <- "gee";r$Features <- lapply(f50[idx],function(v) list(v))
+        r$Family <- "gee_whitening";r$ClusterCap <- 4*2^24;r$Features <- lapply(f50[idx],function(v) list(v))
         r$GEE <- list(Slots=4,Predictors=1,GridBits=16,Family=if(poisson) "poisson" else "binomial",
           Correlation="exchangeable",RhoQ16=16384,ScoreClipQ16=65536,RowLossCap=2^24,BreadCap=2^24,MaxOutcome=if(poisson) 4 else 1)
       }

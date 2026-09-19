@@ -128,22 +128,56 @@
        natural_l1_sensitivity = l1/scale, natural_l2_sensitivity = l2/scale)
 }
 
+# Propagated v3 GEE bounds; exact-rational derivation is in
+# NUMERIC_CERTIFICATE_GEE_WHITENING.md. g>=8, so 1/512 covers final rounding.
+.dsvert_dp_grouped_gee_errors <- function(family, B, clip) {
+  eta_error <- 1/131072 + 1e-12
+  feature_error <- 1/131072 + 2^-51
+  if (identical(family, "binomial_gee")) {
+    mu_error <- 69/327680 + eta_error/4
+    a_error <- 17/65536 + eta_error/4
+    b_error <- 257/65536 + 4*eta_error
+    loss_error <- 33/65536 + eta_error
+    A <- .5; Z <- 8; residual_bound <- 1
+  } else {
+    mu_error <- .0055 + 55*eta_error
+    a_error <- .0055 + 8*(eta_error/2 + 1/131072)
+    b_error <- a_error
+    loss_error <- .0055 + 59*eta_error + 1/131072
+    A <- 8; Z <- 40; residual_bound <- 55
+  }
+  eu <- a_error + (A+a_error)*feature_error
+  ez <- residual_bound*b_error + (8+b_error)*mu_error
+  Eu <- 4*eu + 10*B*2^-64*(A+eu) + 2^-65
+  Ez <- 4*ez + 10*B*2^-64*(Z+ez) + 2^-65
+  score <- B*(4*A*Ez + 4*Z*Eu + Eu*Ez)
+  bread <- B*(8*A*Eu + Eu^2)
+  meat <- min(2*clip^2, 2*clip*(score+1/131072))
+  # Outward slack exceeds rounding accumulated by these positive operations.
+  as.list(c(likelihood=B*loss_error+1/512, bread=bread+1/512,
+            meat=meat+1/512)*(1+256*.Machine$double.eps))
+}
+
 .dsvert_dp_grouped_cross_numeric <- function(family, grouping, parameters) {
   B <- grouping$max_patients_per_cluster
   lmm <- identical(family, "lmm")
-  list(version = "grouped-fixed-profile-numeric-v1",
-       profile = if (lmm) "grouped-lmm-stats-f264-q64-v2" else
-         "grouped-pwlinear-q16-k64-range-exp-v2",
+  gee <- grepl("_gee$", family)
+  errors <- if (gee) .dsvert_dp_grouped_gee_errors(family, B, parameters$score_clip) else NULL
+  out <- list(version = "grouped-fixed-profile-numeric-v1",
+       profile = if (lmm) "grouped-lmm-stats-f264-q64-v2" else if (gee)
+         "grouped-gee-whitening-f96-q64-v3" else "grouped-pwlinear-q16-k64-range-exp-v2",
        profile_sha256 = if (lmm) NULL else "f72e66abaf2e503a809f23d4563418d2889843174109398ae48b02f0ec7edb84",
        source_fraction_bits = 50, predictor_accumulation_fraction_bits = 100,
        predictor_rounding = if (lmm) "exact_f100_dot_no_intermediate_rounding_v1" else
          "complete_dot_once_nearest_ties_even_v1",
-       internal_fraction_bits = if (lmm) 64 else 16,
+       internal_fraction_bits = if (lmm || gee) 64 else 16,
        nonlinear_word_bits = if (lmm) 0 else 32,
        rounding = "nearest_ties_even_v1", per_cluster_error_bound =
-         if (lmm) 1e-8 else if (grepl("_glmm$", family)) 1 else 1,
+         if (lmm) 1e-8 else if (gee) max(unlist(errors)) else 1,
        quadrature_error_included = FALSE,
        integer_cap_enforced = TRUE, arithmetic_certificate_required = TRUE)
+  if (gee) out$coordinate_error_bounds <- errors
+  out
 }
 
 .dsvert_dp_grouped_cross_spec <- function(raw, policy, schema) {

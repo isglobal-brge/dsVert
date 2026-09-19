@@ -1,8 +1,9 @@
 # Grouped arithmetic extension — restricted prototype
 
 This document does not certify release promotion. The scalar interpolation
-bounds below and LMM arithmetic bound are separate from the incomplete GEE
-workload certificate and the separate full-release traffic gate.
+bounds below and LMM arithmetic bound are retained. The completed v3 GEE
+arithmetic certificate is in NUMERIC_CERTIFICATE_GEE_WHITENING.md; the
+full-release lifecycle and capacity gates remain open.
 
 ## Frozen boundary and integer statistic
 
@@ -71,7 +72,9 @@ random-effect integral or lme4 adaptive quadrature.
 
 ## Gates still closed
 
-The recovered R `per_cluster_error_bound=1` for GEE is provisional, NOT a
+Historical v2 finding (superseded for new v3 contracts by
+NUMERIC_CERTIFICATE_GEE_WHITENING.md): the recovered R
+`per_cluster_error_bound=1` for GEE was provisional, NOT a
 proved bread/meat workload certificate. Do not promote it or use it as a
 utility guarantee. A certificate must propagate profile/correlation/f50 errors
 through bread and clipped score products and include shifts/quantization.

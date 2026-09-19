@@ -787,3 +787,7 @@ Poisson / epsilon4: **20 distinct signed grids, 2 real API matches, 16/20 agreem
 ## 2026-09-19T01:07Z — all twelve required real releases pass
 
 Poisson / epsilon8 / instance2 passes integer DP-vector equality and cold exactly-once/replay/tamper checks in **3195.671 s**, selecting the exact-best candidate with zero loss gap. Both independent real releases are retained in `dslite-n2000-poisson-e8-two-real.log`. Required real API gate **12/12 PASS**, two per family/epsilon cell. The remaining oracle selections and aggregate 120-key check still run; K3/K5 topology gates remain incomplete. This is not a full-task completion claim.
+
+## 2026-09-19T01:11Z — fifth complete selection cell
+
+Binomial / epsilon8: **20 distinct signed grids, 2 real API matches, 20/20 agreement, mean/max loss gap 0/0**. Complete logs and matching before/after helper hashes are committed. All 100 keys across five completed cells are distinct; geometry and both real lifecycle markers pass. Progress: **5/6 cells, 12/12 real releases**. Poisson/epsilon8 is finishing its oracle selections.

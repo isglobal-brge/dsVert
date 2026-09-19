@@ -18,12 +18,13 @@ synthetic net.Pipe composition tests. They are neither selection statistics nor
 DataSHIELD wiring releases and are not counted toward either validation matrix.
 
 
-Validated completed cells (remaining two cells pending):
+Validated completed cells (last cell pending):
 
 | Family | Epsilon | Distinct grids | Real API matches | Selection agreement | Mean loss gap | Maximum loss gap |
 |---|---:|---:|---:|---:|---:|---:|
 | binomial | 1 | 20 | 2 | 16/20 | 2.68316 | 14.4925 |
 | binomial | 4 | 20 | 2 | 20/20 | 0 | 0 |
+| binomial | 8 | 20 | 2 | 20/20 | 0 | 0 |
 | poisson | 1 | 20 | 2 | 11/20 | 31.2351 | 73.8808 |
 | poisson | 4 | 20 | 2 | 16/20 | 14.2878 | 75.0381 |
 
@@ -52,3 +53,8 @@ log). All 80 keys across four complete cells are distinct; geometry, two real
 release equalities, cold lifecycle checks and before/after hashes pass. Its
 mean loss gap is 14.287785 at retained JSON precision. Both epsilon8 cells
 remain in progress.
+
+Binomial/epsilon8 is complete (`validation-binomial-e8.log` and its source-check
+log): 20/20 agreement and zero gaps. All 100 keys across five complete cells
+are distinct; geometry and verification/hash markers pass. Poisson/epsilon8
+is the last incomplete selection cell; both of its real releases already pass.

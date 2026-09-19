@@ -31,7 +31,7 @@
   worker <- .dsvert_dp_lmm_cross_prepare_worker(policy, secret, manifest,
     source_contract, schema_manifest, ss, analysis_id, routing_sidecar, producer)
   semantic_key <- .dsvert_dp_glm_grid_cross_key(manifest, context$artifact, source_contract)
-  suffix <- substr(.dsvert_joint_dp_hash(list(semantic_key,
+  suffix <- substr(.dsvert_joint_dp_hash(list(semantic_key = semantic_key,
     operation = worker$operation)), 1L, 32L)
   stage <- c(list(operation_id = paste0("op_", suffix),
     source_key = paste0("exact_gc_in_", suffix), output_key = paste0("exact_gc_out_", suffix)),
@@ -56,6 +56,8 @@
   contract <- .dsvert_dp_glm_grid_cross_embedded_contract(artifact)
   policy <- context$policy
   secret <- context$secret
+  schema <- .dsvert_dp_lmm_cross_signed_schema(policy, secret,
+    request$manifest_sha256, manifest)
   producer <- routing <- NULL
   if (identical(policy$peer_name, contract$spec$grouping$owner_peer)) {
     gate <- .dsvert_dp_synopsis_source_transport_gate_v1(request$manifest_sha256,
@@ -86,10 +88,10 @@
       }
     })
     routing <- .dsvert_dp_lmm_cross_route_sidecar(policy, secret, manifest,
-      source$source_contract, manifest$signed_schema, analysis_id, producer)
+      source$source_contract, schema, analysis_id, producer)
   }
   result <- .dsvert_dp_lmm_cross_bind(policy, secret, manifest, source$source_contract,
-    manifest$signed_schema, analysis_id, ss, routing, producer)
+    schema, analysis_id, ss, routing, producer)
   binding <- .dsvert_dp_lmm_cross_binding(ss, analysis_id)
   if (!is.null(binding$admission) && !identical(binding$admission$request, request)) {
     .dsvert_dp_grouped_cross_fail()
@@ -245,7 +247,7 @@
     manifest$workload$families$gaussian_models$artifacts)
 }
 
-.dsvert_dp_lmm_cross_sampler_binding <- function(policy, secret, manifest, contract) {
+.dsvert_dp_lmm_cross_public_record <- function(policy, secret, manifest, contract) {
   artifacts <- .dsvert_dp_lmm_cross_artifacts(manifest)
   if (!length(artifacts)) return(NULL)
   if (length(artifacts) != 1L) .dsvert_dp_grouped_cross_fail()
@@ -254,19 +256,70 @@
     # separately authenticated public terminal identity at this point.
     artifact <- artifacts[[1L]]
     record <- .dsvert_dp_glm_grid_cross_load(con, secret, contract$capsule_id, artifact$analysis_id, -1L)
-    if (is.null(record)) .dsvert_dp_grouped_cross_fail()
-    expected <- list(version = "lmm-staged-terminal-binding-v1", capsule_id = contract$capsule_id,
-      analysis_id = artifact$analysis_id, batch = -1L,
-      semantic_key = .dsvert_dp_glm_grid_cross_key(manifest, artifact, contract),
-      artifact_sha256 = .dsvert_joint_dp_hash(artifact), source_contract_sha256 = .dsvert_joint_dp_hash(contract))
-    .dsvert_dp_glm_grid_cross_fields(record, c(names(expected), "purpose", "stage_receipt", "stage_plan_digest"))
-    .dsvert_dp_glm_grid_cross_equal(record[names(expected)], expected)
-    for (field in c("stage_receipt", "stage_plan_digest")) {
-      .dsvert_joint_dp_vector_exact_gc_hex(record[[field]], "staged LMM public terminal identity")
-      if (identical(record[[field]], strrep("0", 64))) .dsvert_dp_grouped_cross_fail()
-    }
-    record[c("stage_receipt", "stage_plan_digest")]
+    .dsvert_dp_lmm_cross_public_record_validate(record, manifest, artifact, contract)
   })
+}
+
+.dsvert_dp_lmm_cross_public_record_validate <- function(record, manifest, artifact, contract) {
+  if (is.null(record) || !identical(artifact$family, "lmm")) .dsvert_dp_grouped_cross_fail()
+  expected <- list(version = "lmm-staged-terminal-binding-v1", capsule_id = contract$capsule_id,
+    analysis_id = artifact$analysis_id, batch = -1L,
+    semantic_key = .dsvert_dp_glm_grid_cross_key(manifest, artifact, contract),
+    artifact_sha256 = .dsvert_joint_dp_hash(artifact), source_contract_sha256 = .dsvert_joint_dp_hash(contract))
+  .dsvert_dp_glm_grid_cross_fields(record, c(names(expected), "purpose", "stage_receipt", "stage_plan_digest"))
+  .dsvert_dp_glm_grid_cross_equal(record[names(expected)], expected)
+  for (field in c("stage_receipt", "stage_plan_digest")) {
+    .dsvert_joint_dp_vector_exact_gc_hex(record[[field]], "staged LMM public terminal identity")
+    if (identical(record[[field]], strrep("0", 64))) .dsvert_dp_grouped_cross_fail()
+  }
+  if (!is.character(record$purpose) || length(record$purpose) != 1L || is.na(record$purpose) ||
+      !grepl("^grouped-lmm-staged-v1/[0-9a-f]{64}$", record$purpose)) .dsvert_dp_grouped_cross_fail()
+  record
+}
+
+.dsvert_dp_lmm_cross_compaction_evidence <- function(con, secret, manifest, contract) {
+  rows <- DBI::dbGetQuery(con, paste("SELECT record_json, row_mac FROM source_cross_grid_records",
+    "WHERE capsule_id = ? AND batch_index < 0"), params = list(contract$capsule_id))
+  if (!nrow(rows)) return(invisible(NULL))
+  artifacts <- .dsvert_dp_lmm_cross_artifacts(manifest)
+  # One small public identity fits the existing 16 KiB retained-receipt budget.
+  # Validate before retaining: an arbitrary negative-index private row cannot
+  # bypass compaction merely by using the public record's index.
+  if (nrow(rows) != 1L || length(artifacts) != 1L ||
+      nchar(rows$record_json[[1L]], type = "bytes") > 4096L) .dsvert_dp_grouped_cross_fail()
+  record <- .dsvert_dp_capsule_source_record_decode(rows, secret,
+    "source_cross_grid_records", "staged LMM public terminal identity")
+  .dsvert_dp_lmm_cross_public_record_validate(record, manifest, artifacts[[1L]], contract)
+  invisible(NULL)
+}
+
+.dsvert_dp_lmm_cross_sampler_binding <- function(policy, secret, manifest, contract) {
+  record <- .dsvert_dp_lmm_cross_public_record(policy, secret, manifest, contract)
+  if (is.null(record)) return(NULL)
+  record[c("stage_receipt", "stage_plan_digest")]
+}
+
+.dsvert_dp_lmm_cross_evidence <- function(policy, secret, manifest, contract, analysis_id,
+    manifest_sha256, artifact_key) {
+  schema <- .dsvert_dp_lmm_cross_signed_schema(policy, secret, manifest_sha256, manifest)
+  context <- .dsvert_dp_lmm_cross_source_context(policy, manifest, contract,
+    schema, analysis_id)
+  if (!policy$peer_name %in% unlist(context$spec$computation_peers, use.names = FALSE)) {
+    .dsvert_dp_grouped_cross_fail()
+  }
+  record <- .dsvert_dp_lmm_cross_public_record(policy, secret, manifest, contract)
+  if (is.null(record) || !identical(record$analysis_id, analysis_id)) .dsvert_dp_grouped_cross_fail()
+  publication <- .dsvert_dp_synopsis_publication_v1(manifest_sha256, policy, secret)
+  released <- publication$release_receipt
+  if (!identical(publication$artifact_key, artifact_key) ||
+      !identical(released$artifact_key, artifact_key) ||
+      !identical(released$source_contract_sha256, context$source_hash)) .dsvert_dp_grouped_cross_fail()
+  binding <- list(contract = context$source_contract, analysis_id = analysis_id,
+    semantic_key = record$semantic_key, artifact = context$artifact,
+    contract_hash = context$source_hash, stage = list(stage_plan_digest = record$stage_plan_digest))
+  .dsvert_dp_lmm_cross_public(binding, policy, "published", c(list(
+    coordinate_count = context$artifact$coordinate_count, stage_receipt = record$stage_receipt),
+    released[c("artifact_key", "execution_id", "final_vector_root", "result_set_sha256")]))
 }
 
 .dsvert_dp_lmm_cross_inject <- function(con, secret, manifest, contract, chunk, share, policy) {

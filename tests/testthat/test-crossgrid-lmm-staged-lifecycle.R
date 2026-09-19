@@ -9,6 +9,27 @@
   list(state = state, result = result)
 }
 
+test_that("staged LMM bind constructs a stable canonical operation identity", {
+  f <- .lmm_handoff_fixture()
+  worker <- list(operation = "grouped-lmm-staged-v1",
+    purpose = paste0("grouped-lmm-staged-v1/", strrep("b", 64)),
+    vector_len = f$artifact$coordinate_count, stage_plan_digest = strrep("c", 64),
+    grouped_lmm = "opaque-native-input")
+  local_mocked_bindings(
+    .dsvert_dp_lmm_cross_source_context = function(...) list(artifact = f$artifact,
+      source_contract = f$transport, source_hash = f$source_hash),
+    .dsvert_dp_lmm_cross_prepare_worker = function(...) worker,
+    .dsvert_dp_lmm_cross_public = function(binding, ...) binding$stage)
+  bind <- function() .dsvert_dp_lmm_cross_bind(f$policy, f$secret, f$manifest,
+    f$transport, f$schema, "grouped", f$ss)
+  first <- bind()
+  expect_match(first$operation_id, "^op_[0-9a-f]{32}$")
+  expect_identical(bind(), first)
+  expect_identical(f$ss$.dp_lmm_grid_cross$grouped$worker_input, worker$grouped_lmm)
+  worker$stage_plan_digest <- strrep("d", 64)
+  expect_error(bind())
+})
+
 test_that("staged LMM result retains private candidate validity and committed identities", {
   f <- .lmm_staged_result_fixture(10L)
   f$result$validity_share <- jsonlite::base64_enc(as.raw(c(170, 2)))

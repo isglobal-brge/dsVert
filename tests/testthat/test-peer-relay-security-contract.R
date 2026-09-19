@@ -15,6 +15,8 @@
 }
 
 test_that("the peer-relay security matrix covers the complete active surface", {
+  .dsvert_test_set_remote_gate("disclosure_safe")
+  on.exit(.dsvert_test_set_remote_gate("compatibility_tests"), add = TRUE)
   matrix <- jsonlite::fromJSON(
     .peer_relay_matrix_path(), simplifyVector = FALSE)
   expect_identical(
@@ -95,9 +97,7 @@ test_that("the peer-relay security matrix covers the complete active surface", {
     "dsvertDPCountAuthorizeDS", "dsvertDPCountStartDS",
     "dsvertDPCountReleaseDS", "dsvertDPFrequencyClaimDS",
     "dsvertDPFrequencyCompileDS", "dsvertDPFrequencyAuthorizeDS",
-    "dsvertDPFrequencyCleanupDS",
-    "dsvertFormalGLMPublicResultDS", "dsvertFormalCoxPublicResultDS",
-    "dsvertFormalCoxDiscretePublicResultDS")
+    "dsvertDPFrequencyCleanupDS")
   registered <- .dsvert_registered_remote_methods(
     .dsvert_test_package_file("DESCRIPTION"))
   expect_setequal(c(exposed, unlist(prototype$remote_endpoints)),

@@ -77,6 +77,15 @@
 
 .dsvert_dp_glm_grid_profile_admit <- function(contract, policy, schema) {
   version <- tryCatch(contract$spec$version, error = function(error) NULL)
+  if (identical(version, "lmm_grid_cross_v1")) {
+    value <- .dsvert_dp_grouped_cross_contract_validate(contract, policy, schema)
+    if (!identical(value$spec$parameters$objective, "ml") ||
+        !identical(value$spec$numeric_contract$profile,
+                   "grouped-lmm-ml-variance-f264-q64-log-up-v1")) {
+      .dsvert_dp_glm_grid_cross_fail()
+    }
+    return(value)
+  }
   if (identical(version, "nb_grid_cross_v1")) {
     return(.dsvert_dp_nb_grid_cross_contract_validate(contract, policy, schema))
   }

@@ -409,7 +409,7 @@
     spec <- tryCatch(.dsvert_dp_capsule_gaussian_spec(
       policy, analysis_id, gaussian, require_public_bounds = FALSE),
       error = function(error) NULL)
-    if (!is.null(spec) && identical(spec$kind, "glm_grid_cross")) {
+    if (!is.null(spec) && spec$kind %in% c("glm_grid_cross", "lmm_grid_cross")) {
       contract <- spec$contract
       if (!identical(contract$spec$outcome$owner_peer, policy$peer_name) ||
           !spec$dataset %in% names(mapping$datasets) ||
@@ -883,7 +883,8 @@
   }
   for (analysis_id in names(specs$gaussian)) {
     raw <- specs$gaussian[[analysis_id]]
-    if (raw$version %in% unname(.DSVERT_DP_GLM_GRID_CROSS_SPEC_VERSIONS)) next
+    if (raw$version %in% c(unname(.DSVERT_DP_GLM_GRID_CROSS_SPEC_VERSIONS),
+                          "lmm_grid_cross_v1")) next
     if (!identical(raw$version, "random_intercept_v1")) {
       raw$predictors <- unname(as.character(unlist(
         raw$predictors, use.names = FALSE)))

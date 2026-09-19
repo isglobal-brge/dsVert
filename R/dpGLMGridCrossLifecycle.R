@@ -317,7 +317,7 @@
 #' @param compilation_json Authenticated Synopsis compilation.
 #' @param analysis_id Custodian-signed analysis identifier.
 #' @param session_id Existing two-peer exact-computation session.
-#' @param action One of bind, prepare, start, store or finalize.
+#' @param action One of bind, prepare, start, store, finalize or evidence.
 #' @param batch Public row/candidate batch index; zero outside batch stages.
 #' @return A signed public lifecycle receipt encoded as JSON.
 #' @export
@@ -325,17 +325,34 @@ dsvertDPSynopsisGLMGridCrossDS <- function(manifest_sha256, claim_set_json,
     compilation_json, analysis_id, session_id, action, batch = 0) {
   .dsvert_dp_synopsis_remote_public_v1({
     if (!is.character(action) || length(action) != 1L || is.na(action) ||
-        !action %in% c("bind", "prepare", "start", "store", "finalize")) {
+        !action %in% c("bind", "prepare", "start", "store", "finalize", "evidence")) {
       .dsvert_dp_glm_grid_cross_fail()
     }
-    ss <- .S(.dsvert_relay_validate_session_id(session_id))
+    session_id <- .dsvert_relay_validate_session_id(session_id)
     analysis_id <- .dsvert_dp_capsule_id(analysis_id, "cross-grid analysis")
     request <- list(manifest_sha256 = manifest_sha256,
       claim_set_json = claim_set_json, compilation_json = compilation_json)
-    if (identical(action, "bind")) {
+    if (action %in% c("bind", "evidence")) {
       context <- .dsvert_dp_synopsis_remote_manifest_v1(manifest_sha256)
-      claims <- .dsvert_dp_synopsis_remote_decode_v1(claim_set_json, "source Claim set")
       compilation <- .dsvert_dp_synopsis_remote_compilation_v1(compilation_json)
+      if (identical(action, "evidence")) {
+        if (!identical(as.numeric(batch), 0)) .dsvert_dp_grouped_cross_fail()
+        publication <- .dsvert_dp_synopsis_publication_v1(manifest_sha256,
+          context$policy, context$secret)
+        .dsvert_dp_glm_grid_cross_equal(compilation$artifact, publication$artifact)
+        .dsvert_dp_glm_grid_cross_equal(compilation$receipts, publication$compile_receipts)
+        manifest <- context$manifest
+        if (!.dsvert_dp_synopsis_supported_glm_grid_cross_v1(manifest)) {
+          .dsvert_dp_glm_grid_cross_fail()
+        }
+        source_contract <- .dsvert_dp_synopsis_source_contract_from_hashes_v1(
+          context$policy, manifest, publication$artifact_key,
+          publication$artifact$semantic$source_claim_set_sha256)
+        return(.dsvert_dp_lmm_cross_evidence(context$policy, context$secret,
+          manifest, source_contract, analysis_id, manifest_sha256,
+          publication$artifact_key))
+      }
+      claims <- .dsvert_dp_synopsis_remote_decode_v1(claim_set_json, "source Claim set")
       source <- .dsvert_dp_synopsis_source_transport_context_v1(manifest_sha256,
         compilation$artifact, claims, compilation$receipts,
         .policy = context$policy, .secret = context$secret)
@@ -343,6 +360,7 @@ dsvertDPSynopsisGLMGridCrossDS <- function(manifest_sha256, claim_set_json,
       if (!.dsvert_dp_synopsis_supported_glm_grid_cross_v1(manifest)) {
         .dsvert_dp_glm_grid_cross_fail()
       }
+      ss <- .S(session_id)
       if (identical(manifest$workload$families$gaussian_models$artifacts[[analysis_id]]$family, "lmm")) {
         if (!identical(as.numeric(batch), 0)) .dsvert_dp_grouped_cross_fail()
         return(.dsvert_dp_lmm_cross_remote_bind(context, source, compilation,
@@ -363,6 +381,7 @@ dsvertDPSynopsisGLMGridCrossDS <- function(manifest_sha256, claim_set_json,
       ss$.dp_glm_grid_cross[[analysis_id]] <- binding
       return(result)
     }
+    ss <- .S(session_id)
     if (!is.null(ss$.dp_lmm_grid_cross[[analysis_id]])) {
       return(.dsvert_dp_lmm_cross_dispatch(ss, analysis_id, session_id, request, action, batch))
     }

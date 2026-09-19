@@ -27,6 +27,7 @@
   if (is.list(record) && identical(
       record$version, .DSVERT_DP_SYNOPSIS_MANIFEST_CACHE_VERSION)) {
     fields <- c(fields, "policy_snapshot")
+    if ("signed_schema" %in% names(record)) fields <- c(fields, "signed_schema")
   }
   valid <- is.list(record) && !is.null(names(record)) &&
     !anyNA(names(record)) && !anyDuplicated(names(record)) &&

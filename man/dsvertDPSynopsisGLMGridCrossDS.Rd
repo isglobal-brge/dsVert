@@ -20,7 +20,7 @@ dsvertDPSynopsisGLMGridCrossDS(
 \item{compilation_json}{Authenticated Synopsis compilation.}
 \item{analysis_id}{Custodian-signed analysis identifier.}
 \item{session_id}{Existing two-peer exact-computation session.}
-\item{action}{One of bind, prepare, start, store or finalize.}
+\item{action}{One of bind, prepare, start, store, finalize or evidence.}
 \item{batch}{Public row/candidate batch index; zero outside batch stages.}
 }
 \value{A signed public lifecycle receipt encoded as JSON.}

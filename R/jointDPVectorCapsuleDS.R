@@ -4369,8 +4369,10 @@
         "DELETE FROM source_recipient_keys WHERE capsule_id = ?",
         params = list(capsule_id))
       DBI::dbExecute(connection,
-        "DELETE FROM source_cross_grid_records WHERE capsule_id = ?",
+        "DELETE FROM source_cross_grid_records WHERE capsule_id = ? AND batch_index >= 0",
         params = list(capsule_id))
+      .dsvert_dp_lmm_cross_compaction_evidence(connection, secret,
+        .dsvert_dp_capsule_source_manifest(manifest_json), contract)
       DBI::dbExecute(connection,
         "DELETE FROM source_cross_gaussian_results WHERE capsule_id = ?",
         params = list(capsule_id))
@@ -4384,7 +4386,8 @@
         "source_cross_categorical_results")
       retained_capsule_rows <- sum(vapply(capsule_tables, function(table) {
         DBI::dbGetQuery(connection, paste(
-          "SELECT COUNT(*) AS n FROM", table, "WHERE capsule_id = ?"),
+          "SELECT COUNT(*) AS n FROM", table, "WHERE capsule_id = ?",
+          if (identical(table, "source_cross_grid_records")) "AND batch_index >= 0" else ""),
           params = list(capsule_id))$n[[1L]]
       }, numeric(1L)))
       retained_transfer_rows <- 0

@@ -241,7 +241,8 @@
       !all(unlist(base$computation_peers) %in% participants)) {
     .dsvert_dp_grouped_cross_fail()
   }
-  C <- .dsvert_dp_glm_grid_cross_integer(raw$grouping$cluster_capacity, 1, 64)
+  C <- .dsvert_dp_glm_grid_cross_integer(raw$grouping$cluster_capacity,
+    1, if (identical(family, "lmm")) 500 else 64)
   B <- .dsvert_dp_glm_grid_cross_integer(raw$grouping$max_patients_per_cluster,
                                        1, if (grepl("_gee$", family)) 8 else 16)
   if (base$observation_capacity > B*C ||
@@ -254,6 +255,17 @@
     completeness = "private_and_after_routing_v1",
     overflow = "reject_outside_signed_admitted_domain_v1")
   parameters <- .dsvert_dp_grouped_cross_parameters(raw$parameters, family)
+  if (C > 64) {
+    # A separate signed validation domain; this descriptor is not capacity or
+    # promotion evidence. Preserve the existing small-domain contract bytes.
+    if (!identical(family, "lmm") || C != 500 || B != 4 ||
+        base$observation_capacity != 2000 || length(base$predictors) > 3L ||
+        !identical(parameters$objective, "ml") ||
+        length(parameters$variance_grid) * length(base$beta_grid) > 4L) {
+      .dsvert_dp_grouped_cross_fail()
+    }
+    grouping$capacity_profile <- "lmm-ml-n2000-c500-b4-p3-j4-v1"
+  }
   radius <- vapply(base$beta_grid, function(beta) sum(abs(unlist(beta))), numeric(1L))
   if ((grepl("_glmm$", family) && (any(radius > 1) || base$max_outcome > 4)) ||
       (grepl("_gee$", family) && (any(radius > 4) || base$max_outcome > 4 ||

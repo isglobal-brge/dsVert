@@ -202,7 +202,7 @@
           "bounded-poisson-likelihood-grid-v1",
           "bounded-binomial-lasso-grid-v1",
           "bounded-poisson-lasso-grid-v1",
-          "bounded-negative-binomial-likelihood-grid-v1",
+          "bounded-negative-binomial-likelihood-grid-v2",
           "bounded-multinomial-likelihood-grid-v1",
           "bounded-ordinal-likelihood-grid-v1")
       }, logical(1L)))) return(TRUE)

@@ -1503,7 +1503,7 @@
           }, character(1L)))
         } else if (spec$version %in% c("binomial_grid_v1",
                                        "poisson_grid_v1",
-                                       "negative_binomial_grid_v1",
+                                       "negative_binomial_grid_v2",
                                        "multinomial_grid_v1",
                                        "ordinal_grid_v1")) {
           spec$predictors <- unname(vapply(spec$predictors, function(reference) {

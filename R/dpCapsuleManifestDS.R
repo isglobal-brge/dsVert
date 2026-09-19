@@ -927,7 +927,7 @@
       raw$variance_ratio_grid <- unname(as.numeric(unlist(
         raw$variance_ratio_grid, use.names = FALSE)))
     }
-    if (identical(raw$version, "negative_binomial_grid_v1")) {
+    if (identical(raw$version, "negative_binomial_grid_v2")) {
       raw$theta_grid <- unname(as.numeric(unlist(
         raw$theta_grid, use.names = FALSE)))
     }

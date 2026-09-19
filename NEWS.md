@@ -1,3 +1,10 @@
+# Development: NB grid correction
+
+* Correct the same-owner NB2 grid loss and re-derive its signed row caps and
+  sensitivity. The new spec/artifact semantics are v2; defective v1 is sealed
+  and rejected. Custodians must sign a new v2 workload, with a new sticky
+  identity and privacy accounting. See `inst/docs/negative_binomial_grid_v2.md`.
+
 # dsVert 1.2.0
 
 ### Security hardening

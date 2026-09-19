@@ -1,0 +1,45 @@
+
+R version 4.6.1 (2026-06-24) -- "Happy Hop"
+Copyright (C) 2026 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> # This file is part of the standard testthat testing infrastructure.
+> # Test-only security overrides live under tests/testthat/setup-security-gate.R
+> # and are never installed with the package.
+> # testthat imports processx before the fork-based concurrency regressions run.
+> # Preserve processx's preceding SIGCHLD handler so base parallel can reap its
+> # children cleanly at interpreter shutdown on Unix.
+> if (.Platform$OS.type != "windows") {
++   Sys.setenv(PROCESSX_NOTIFY_OLD_SIGCHLD = "true")
++ }
+> library(testthat)
+> library(dsVert)
+> 
+> test_check("dsVert")
+Saving _problems/test-dp-count-execution-802.R
+Saving _problems/test-dp-policy-ledger-1157.R
+Saving _problems/test-dp-synopsis-artifact-412.R
+Saving _problems/test-dp-synopsis-exact-gc-201.R
+Saving _problems/test-dp-synopsis-execution-64.R
+Saving _problems/test-dp-synopsis-release-273.R
+Saving _problems/test-dp-synopsis-source-contract-121.R
+Saving _problems/test-dp-synopsis-source-contract-124.R
+Saving _problems/test-dp-synopsis-source-gate-69.R
+Saving _problems/test-dp-synopsis-source-gate-70.R
+Saving _problems/test-dp-synopsis-source-transport-wrappers-44.R
+Saving _problems/test-dp-synopsis-source-transport-wrappers-44.R
+Saving _problems/test-dp-synopsis-source-transport-wrappers-44.R
+Saving _problems/test-dp-synopsis-start-308.R
+Saving _problems/test-exact-gc-transport-3441.R

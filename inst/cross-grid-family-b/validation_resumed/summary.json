@@ -1,0 +1,79 @@
+{
+  "schema_version": "family-b-resumed-validation-v1",
+  "date": "2026-09-18",
+  "production_release_enabled": false,
+  "environment": {
+    "platform": "x86_64-pc-linux-gnu",
+    "R": "4.6.1",
+    "pod_path": "/workspace/dsvert/famB/resumed",
+    "logical_cpus": 96,
+    "cgroup_cpu_equivalents": 7.65
+  },
+  "go_family": {
+    "passed": true,
+    "top_level_tests": 13,
+    "subtests": 9,
+    "test_seconds": 8.179,
+    "scope": "explicit family Go files; excludes unrelated module integration tests"
+  },
+  "client": {
+    "snapshot": "5cc5d92",
+    "check_completed": true,
+    "check_command": "R CMD check --no-manual --no-build-vignettes dsVertClient_1.2.1.tar.gz",
+    "check_errors": 0,
+    "check_warnings": 3,
+    "check_notes": 0,
+    "test_failures": 0,
+    "test_warnings": 0,
+    "test_skips": 45,
+    "test_passes": 25763,
+    "test_elapsed_seconds": 1317.467,
+    "warnings_in_unchanged_starting_files": true,
+    "public_exports_deferred_to_integration": true
+  },
+  "server": {
+    "snapshot": "b40a90b",
+    "implementation_commit": "3ed672e",
+    "check_completed": false,
+    "check_command": "R CMD check --no-manual --no-build-vignettes dsVert_1.2.0.tar.gz",
+    "stop_reason": "90-minute limit after recorded failures in unchanged tests",
+    "agent_imposed_bound_seconds": 5400,
+    "actual_check_seconds": 5403.92,
+    "partial_static_warnings": 2,
+    "partial_static_notes": 1,
+    "final_check_status": null,
+    "final_test_counts": null,
+    "recorded_problem_locations": [
+      "test-dp-count-execution-802",
+      "test-dp-policy-ledger-1157",
+      "test-dp-synopsis-artifact-412",
+      "test-dp-synopsis-exact-gc-201",
+      "test-dp-synopsis-execution-64",
+      "test-dp-synopsis-release-273",
+      "test-dp-synopsis-source-contract-121",
+      "test-dp-synopsis-source-contract-124",
+      "test-dp-synopsis-source-gate-69",
+      "test-dp-synopsis-source-gate-70",
+      "test-dp-synopsis-source-transport-wrappers-44",
+      "test-dp-synopsis-start-308",
+      "test-exact-gc-transport-3441"
+    ],
+    "original_source_and_tests_unchanged_from": "4d7e6ae",
+    "independent_failure_evidence": [
+      "Count test reads a source-tree-only path absent from the packaged check",
+      "Fresh policy-ledger reproduction requires completed authenticated padded-PSI alignment",
+      "Fresh synopsis-artifact-only run lacks .dsvert_test_source_roots() in its Gaussian planner fixture"
+    ]
+  },
+  "focused_client_correction": {
+    "expectations_passed": 1250,
+    "scope": "capsule inventory and both family cross-grid tests; included in the full client result, not additive coverage"
+  },
+  "remaining_gates": [
+    "secure profile evaluator within binding cost budget",
+    "categorical fused producer and authenticated private alignment/guard/reduction",
+    "two-authority joint DP and sticky release",
+    "public exports plus accurate shared inventory/maturity registration",
+    "completed full server check after baseline failures are addressed"
+  ]
+}

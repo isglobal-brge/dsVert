@@ -1,0 +1,44 @@
+{
+  "certificate": {
+    "cap_rule": "ceil(2^g*(exact_loss_bound+2*prequantization_error+output_rounding_error))",
+    "certified_utility_envelope": {
+      "candidates": 50,
+      "epsilon": [
+        1,
+        4,
+        8
+      ],
+      "grid_bits": 18,
+      "maximum_error_to_laplace_scale_ratio": "0.06",
+      "multinomial_A": 16,
+      "multinomial_classes": 8,
+      "ordinal_T": 16,
+      "ordinal_gap": "1/16",
+      "rows": 10000
+    },
+    "domain": {
+      "class_count_max": 8,
+      "class_count_min": 2,
+      "multinomial_class_l1_max": 16,
+      "ordinal_beta_l1_max": 8,
+      "ordinal_gap_min": "1/16",
+      "ordinal_threshold_abs_max": 8
+    },
+    "exp_error_bound_rational": "47233/320864256",
+    "fraction_bits": 16,
+    "frozen_encoding_error_allowance": "0.000000000001",
+    "horner_and_coefficient_rounding": "2^-17*(2+2*h+h^2)",
+    "interpolation": "sup_abs_third_derivative*h^3/(72*sqrt(3))",
+    "multinomial_prequantization_error_bound": "0.0011",
+    "normalized_log_error_bound_rational": "496102395623/10766335717933056",
+    "ordinal_prequantization_error_bound": "0.00012",
+    "output_rounding_error": "0 if grid_bits>=16 else 2^(-grid_bits-1)",
+    "pieces_per_kernel": 64,
+    "profile_sha256": "fc0d85381d6effb30776848ccf301f4b9b18fc5dc55bdc80a8503f7d8916fcef",
+    "public_gap_q64_error_bound": "0.00000014",
+    "softminus_error_bound_rational": "5369/169869312",
+    "version": "cross-grid-family-b-piecewise-certificate-v1",
+    "word_bits": 32
+  },
+  "certificate_sha256": "b480edd4ab1ad8f2403026f2d718bfd093068816160a893ee0f7935056251f67"
+}

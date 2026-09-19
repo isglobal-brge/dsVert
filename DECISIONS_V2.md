@@ -432,3 +432,9 @@ Observed full-grid K3 DSLite throughput projects to tens of hours. Asked whether
 ## 2026-09-19T00:01Z — aggregate evidence requires frozen-helper checks
 
 The final selection summarizer now rejects any cell without exactly the three expected helper hash checks both before and after execution, and reports each real API elapsed time with its timing scope. Preserve the pod helper hash manifest locally; all three files match. This changes only report generation, not the running harness or production. Syntax and rejection of the incomplete matrix pass; a successful full-matrix report still requires all six actual completed cells.
+
+## 2026-09-19T00:33Z — queue K5 after the pod selection matrix
+
+Queue the explicitly smaller K5 envelope (n2000/p6/grid2, epsilon4, one real release per family) on the pod after both existing matrix coordinators exit. The new runner requires the complete 120/12 evidence validator to pass first, then runs families sequentially through the existing synchronous DSLite connector, checking full vector equality and cold lifecycle markers. Freeze and check package R sources, binary and harness hashes before/after each topology release. This avoids making K5 wait for the much longer full-grid Mac K3 runs; no K3 capacity or production limit changes.
+
+Command: `nohup sh inst/cross-grid-v2/run_k5_after_matrix_pod.sh 829845 960689`; queued PID **2108230**, log `/workspace/dsvert/crossowner-v2/logs/topology-k5-queued.log`. Shell syntax passes. The copied summarizer/wrapper do not alter the three frozen active-cell helpers. Once pod K5 succeeds, disarm the old Mac post-K3 K5 queues before they can duplicate those releases; preserve both running K3 R processes. No K5 result is yet claimed.

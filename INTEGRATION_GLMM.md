@@ -1,3 +1,21 @@
+# Cycle 12 continuation harvest — 2026-09-20
+
+Documentation-only checkpoint; production source/runtime pair remains
+ba436a1/496c053. At 23:56:17 UTC, original frozen n2000 K2 drivers are active:
+LMM b3a2b1d/e748f05 has 229 committed stages per authority; binomial
+56cc3dd/496c053 has 16. All 2,500/2,526 respective frozen files rehash correctly.
+Neither has complete release metrics. K3/K5/recovery/paired remain unstarted.
+No promotion or n2000 capacity is established. Old-runtime measurements retain
+their original identities. The ba436a1 paired suite is still running server
+tests; client tests are queued. Existing detached collectors remain active.
+
+The workspace's integrator-evidence/cycle12-20260920/CONTINUATION_HARVEST.json
+pins the immutable original-driver capture and the newer paired observation.
+STATUS_INTEGRATOR.md and progress.json retain pending gates. No production
+change, frozen-snapshot modification, relaunch, tag, push or thesis edit.
+
+---
+
 # Cycle 12 public-program reuse — 2026-09-20
 
 The binomial stage executor now compiles each public 32-coordinate program

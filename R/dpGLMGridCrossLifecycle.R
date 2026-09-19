@@ -41,6 +41,23 @@
   invisible(record)
 }
 
+.dsvert_dp_glm_grid_cross_persisted <- function(con, secret, binding, stage) {
+  record <- .dsvert_dp_glm_grid_cross_load(con, secret,
+    binding$contract$capsule_id, binding$analysis_id, stage$batch)
+  if (is.null(record)) return(NULL)
+  if (!identical(record$version, "cross-grid-persisted-batch-v2") ||
+      !identical(record$semantic_key, binding$semantic_key) ||
+      !identical(record$plan_sha256, .dsvert_joint_dp_hash(stage$plan))) {
+    .dsvert_dp_glm_grid_cross_fail()
+  }
+  .exact_gc_standard_b64_raw(record$share, 16 * stage$vector_len,
+                            "cross-grid private result")
+  validity <- .exact_gc_standard_b64_raw(record$validity_share, 1L,
+                                        "cross-grid private validity")
+  if (!as.integer(validity[[1L]]) %in% 0:1) .dsvert_dp_glm_grid_cross_fail()
+  record
+}
+
 .dsvert_dp_glm_grid_cross_binding <- function(ss, analysis_id) {
   binding <- ss$.dp_glm_grid_cross[[analysis_id]]
   if (!is.list(binding) || !identical(binding$peer_binding_digest,
@@ -179,9 +196,12 @@
     binding$stages[[as.character(batch)]] <- stage
     ss$.dp_glm_grid_cross[[analysis_id]] <- binding
   }
-  .dsvert_dp_glm_grid_cross_public(binding, policy, "prepared",
+  persisted <- .dsvert_dp_capsule_source_with_store(policy, secret, function(con) {
+    !is.null(.dsvert_dp_glm_grid_cross_persisted(con, secret, binding, stage))
+  })
+  .dsvert_dp_glm_grid_cross_public(binding, policy, "prepared", c(
     stage[c("operation_id", "source_key", "output_key", "purpose", "operation",
-            "vector_len", "batch")])
+            "vector_len", "batch")], list(persisted = persisted)))
 }
 
 .dsvert_dp_glm_grid_cross_start <- function(policy, ss, analysis_id, session_id, batch) {
@@ -222,14 +242,10 @@
   .dsvert_dp_capsule_source_with_store(policy, secret, function(con) {
     .dsvert_dp_capsule_source_transaction(con, {
       for (batch in seq_len(binding$batch_count)) {
-        record <- .dsvert_dp_glm_grid_cross_load(con, secret,
-          binding$contract$capsule_id, analysis_id, batch)
         stage <- binding$stages[[as.character(batch)]]
-        if (is.null(record) || is.null(stage) ||
-            !identical(record$semantic_key, binding$semantic_key) ||
-            !identical(record$plan_sha256, .dsvert_joint_dp_hash(stage$plan))) {
-          .dsvert_dp_glm_grid_cross_fail()
-        }
+        if (is.null(stage)) .dsvert_dp_glm_grid_cross_fail()
+        record <- .dsvert_dp_glm_grid_cross_persisted(con, secret, binding, stage)
+        if (is.null(record)) .dsvert_dp_glm_grid_cross_fail()
         share <- .exact_gc_standard_b64_raw(record$share,
           16 * stage$vector_len, "cross-grid private result")
         bytes <- seq.int((stage$candidates[[1]] - 1) * 16 + 1, length.out = length(share))

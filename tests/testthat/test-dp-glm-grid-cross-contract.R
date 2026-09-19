@@ -445,6 +445,8 @@ test_that("grid staging uses the exact worker wire encoding and stable keys", {
     validities = rep(list(raw(64)), 3),
     alignment = raw(32 * length(f$spec$participating_peers)), stages = list()))
   testthat::local_mocked_bindings(
+    .dsvert_dp_capsule_source_with_store = function(policy, secret, fn) fn(NULL),
+    .dsvert_dp_glm_grid_cross_load = function(...) NULL,
     .dsvert_dp_glm_grid_cross_public = function(binding, policy, phase, extra) extra)
   receipt <- .dsvert_dp_glm_grid_cross_prepare(f$policy, as.raw(1:32), ss, "grid", 1)
   expect_match(receipt$source_key, "^exact_gc_in_[a-f0-9]{32}$")
@@ -710,4 +712,67 @@ test_that("session admission cannot be reused for changed public grid inputs", {
   expect_error(invoke(), class = "dsvert_dp_public_failure")
   expect_identical(stages, 2L)
   expect_identical(admissions, 1L)
+})
+
+
+test_that("durable batch reuse authenticates the stored plan and private widths", {
+  f <- .cross_grid_materializer_fixture()
+  secret <- as.raw(1:32)
+  binding <- list(contract = list(capsule_id = "test-capsule"),
+    analysis_id = "grid", semantic_key = strrep("a", 64))
+  stage <- list(batch = 1, vector_len = 3, plan = list(Family = "binomial"))
+  record <- list(version = "cross-grid-persisted-batch-v2",
+    capsule_id = "test-capsule", analysis_id = "grid", batch = 1,
+    semantic_key = binding$semantic_key,
+    plan_sha256 = .dsvert_joint_dp_hash(stage$plan),
+    share = jsonlite::base64_enc(raw(48)),
+    validity_share = jsonlite::base64_enc(raw(1)))
+  checks <- .dsvert_dp_capsule_source_with_store(f$policy, secret, function(con) {
+    missing <- is.null(.dsvert_dp_glm_grid_cross_persisted(con, secret, binding, stage))
+    .dsvert_dp_glm_grid_cross_save(con, secret, record, 1)
+    .dsvert_dp_glm_grid_cross_equal(
+      .dsvert_dp_glm_grid_cross_persisted(con, secret, binding, stage), record)
+    wrong <- binding; wrong$semantic_key <- strrep("b", 64)
+    key <- tryCatch(.dsvert_dp_glm_grid_cross_persisted(con, secret, wrong, stage), error = identity)
+    wrong <- stage; wrong$plan$Family <- "poisson"
+    plan <- tryCatch(.dsvert_dp_glm_grid_cross_persisted(con, secret, binding, wrong), error = identity)
+    wrong <- stage; wrong$vector_len <- 2
+    width <- tryCatch(.dsvert_dp_glm_grid_cross_persisted(con, secret, binding, wrong), error = identity)
+    DBI::dbExecute(con, "UPDATE source_cross_grid_records SET record_json='{}'")
+    tamper <- tryCatch(.dsvert_dp_glm_grid_cross_persisted(con, secret, binding, stage), error = identity)
+    list(missing = missing, key = key, plan = plan, width = width, tamper = tamper)
+  })
+  expect_true(checks$missing)
+  expect_s3_class(checks$key, "dsvert_dp_public_failure")
+  expect_s3_class(checks$plan, "dsvert_dp_public_failure")
+  expect_s3_class(checks$width, "error")
+  expect_s3_class(checks$tamper, "error")
+})
+
+
+test_that("structured snapshot identity reaches a fixed point without enabling release", {
+  families <- c("lmm", "binomial_glmm", "poisson_glmm", "binomial_gee", "poisson_gee", "cox")
+  for (family in families) {
+    version <- paste0(family, "_grid_cross_v1")
+    contract <- list(spec = list(version = version, dataset = "cohort",
+      schema_sha256 = "first", logical_snapshot = list(version = "first"),
+      alignment = list(public_alignment_contract_sha256 = "first", method = "pinned"),
+      beta_grid = list(c(0, .25)), numeric_contract = list(profile = "signed-profile"),
+      grouping = list(max_patients_per_cluster = 4)), signatures = list(a = "first"))
+    workload <- list(gaussian = list(grid = list(owner_peer = "site_a", spec = list(
+      version = version, dataset = "cohort", contract = contract))))
+    first <- .dsvert_dp_glm_grid_cross_snapshot_workload(workload)
+    changed <- workload
+    changed$gaussian$grid$spec$contract$spec$schema_sha256 <- "second"
+    changed$gaussian$grid$spec$contract$spec$logical_snapshot$version <- "second"
+    changed$gaussian$grid$spec$contract$spec$alignment$public_alignment_contract_sha256 <- "second"
+    changed$gaussian$grid$spec$contract$signatures$a <- "second"
+    expect_identical(.dsvert_dp_glm_grid_cross_snapshot_workload(changed), first)
+    for (field in c("beta_grid", "numeric_contract", "grouping")) {
+      altered <- workload
+      altered$gaussian$grid$spec$contract$spec[[field]] <- list(changed = TRUE)
+      expect_false(identical(.dsvert_dp_glm_grid_cross_snapshot_workload(altered), first))
+    }
+    expect_error(.dsvert_dp_glm_grid_profile_admit(contract, list(), list()))
+  }
 })

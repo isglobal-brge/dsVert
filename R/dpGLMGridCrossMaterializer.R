@@ -116,7 +116,11 @@
 .dsvert_dp_glm_grid_cross_snapshot_workload <- function(workload) {
   for (id in names(workload$gaussian)) {
     raw <- workload$gaussian[[id]]$spec
-    if (!raw$version %in% unname(.DSVERT_DP_GLM_GRID_CROSS_SPEC_VERSIONS)) next
+    # Snapshot identity must not recursively include its own signatures/hashes.
+    # Recognizing a public plan here does not authorize its producer or reader.
+    versions <- c(unname(.DSVERT_DP_GLM_GRID_CROSS_SPEC_VERSIONS),
+      paste0(.DSVERT_DP_GROUPED_CROSS_FAMILIES, "_grid_cross_v1"), "cox_grid_cross_v1")
+    if (!raw$version %in% versions) next
     contract <- .dsvert_dp_glm_grid_cross_raw_contract(raw)
     plan <- contract$spec
     plan$schema_sha256 <- NULL

@@ -122,8 +122,22 @@ func TestCrossGridLayeredOracle(t *testing.T) {
 		}
 	}
 	raw := append([]*big.Int{big.NewInt(int64(len(f.Rows)))}, total...)
+	released := crossGridOracleRelease(t, raw, f.Draws)
+
+	exact := make([]string, len(total))
+	for i := range total {
+		exact[i] = total[i].String()
+	}
+	out, err := json.Marshal(struct{ Exact, Released []string }{exact, released})
+	if err != nil || os.WriteFile(f.Output, out, 0600) != nil {
+		t.Fatal("cannot write synthetic oracle result")
+	}
+}
+
+func crossGridOracleRelease(t *testing.T, raw []*big.Int, draws []crossGridOracleDraw) []string {
+	t.Helper()
 	released := make([]string, len(raw))
-	for _, d := range f.Draws {
+	for _, d := range draws {
 		var gs, es [32]byte
 		for _, pair := range []struct {
 			text string
@@ -165,7 +179,7 @@ func TestCrossGridLayeredOracle(t *testing.T) {
 			t.Fatal("missing production noise policy")
 		}
 		for j, z := range noise {
-			if start+j >= len(raw) {
+			if start+j < 0 || start+j >= len(raw) || released[start+j] != "" {
 				t.Fatal("invalid oracle coordinate")
 			}
 			u := new(big.Int).Lsh(new(big.Int).Set(upper[j]), uint(shifts[j]))
@@ -180,12 +194,5 @@ func TestCrossGridLayeredOracle(t *testing.T) {
 			released[start+j] = value.String()
 		}
 	}
-	exact := make([]string, len(total))
-	for i := range total {
-		exact[i] = total[i].String()
-	}
-	out, err := json.Marshal(struct{ Exact, Released []string }{exact, released})
-	if err != nil || os.WriteFile(f.Output, out, 0600) != nil {
-		t.Fatal("cannot write synthetic oracle result")
-	}
+	return released
 }

@@ -854,3 +854,7 @@ BENCH_V2 and CHECKS_V2 retain exact benchmark/check commands and immutable
 logs. Active K3 logs are `topology-{binomial,poisson}-k3.log`; their observers
 write `topology-{binomial,poisson}-k3-completion-watch.log` and closing source
 checks. No push, tag modification, full-task completion or promotion is claimed.
+
+### 2026-09-19T03:33Z — completion observer durability correction
+
+The one-command background Mac observer shells did not persist after their tool calls returned; their logs were empty. The actual K3 R processes stayed alive throughout. Restarted only the completion observers as foreground commands in persistent native exec sessions **75792** (binomial) and **54611** (Poisson), and verified both shell processes are alive. These supersede observer PIDs80298/59302 above; no secure computation or release was restarted.

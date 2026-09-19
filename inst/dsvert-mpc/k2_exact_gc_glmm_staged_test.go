@@ -206,6 +206,33 @@ func TestGroupedGLMMStagedGraphTwoAuthority(t *testing.T) {
 	}
 }
 
+func TestGroupedGLMMStagedRepeatedFullAndTailChunks(t *testing.T) {
+	// 65 clusters exercise multiple full 32-coordinate chunks and a tail in
+	// every chunked stage, including cluster logsum guards and profiles.
+	s := groupedGLMMStagedTestSpec()
+	s.Clusters, s.Slots = 65, 1
+	s.Beta = s.Beta[1:]
+	s.Caps, s.VarianceGrid = []int64{2000}, []int64{16384}
+	f := new(big.Int).Lsh(big.NewInt(1), 50)
+	rows := make([][]*big.Int, s.Clusters)
+	for i := range rows {
+		rows[i] = []*big.Int{new(big.Int), new(big.Int), new(big.Int)}
+		if i%7 == 0 {
+			continue
+		}
+		rows[i][0].Set(f)
+		rows[i][1].Mul(new(big.Int).Rsh(new(big.Int).Set(f), 4), big.NewInt(int64(i%17)))
+		if i%2 == 0 {
+			rows[i][2].Set(f)
+		}
+	}
+	got, validity := groupedGLMMStagedRunTest(t, s, rows, false, "fresh")
+	if len(validity) != 1 || validity[0] != 1 ||
+		crossGridStageTestInteger(got).Cmp(groupedGLMMStagedOracle(s, rows, 0)) != 0 {
+		t.Fatal("reused public full/tail programs changed the staged oracle")
+	}
+}
+
 func groupedGLMMStagedRunTest(t *testing.T, s groupedGLMMStagedSpec, rows [][]*big.Int, invalid bool, scenario string) ([]byte, []byte) {
 	t.Helper()
 	faultStage := "glmm.candidate.000.center"

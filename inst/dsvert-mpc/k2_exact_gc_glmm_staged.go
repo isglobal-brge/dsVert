@@ -136,6 +136,7 @@ func groupedGLMMBuildStagedGraph(s groupedGLMMStagedSpec, role exactGCRole) (*gr
 		}
 		out := make([]groupedWord, 2*rows+s.Clusters)
 		var flags []byte
+		var program *primitiveVProgram
 		for start := 0; start < rows; start += 32 {
 			n := min(32, rows-start)
 			input := make([]groupedWord, 2*n)
@@ -143,9 +144,11 @@ func groupedGLMMBuildStagedGraph(s groupedGLMMStagedSpec, role exactGCRole) (*gr
 				input[2*i] = r[(start+i)*cols]
 				input[2*i+1] = r[(start+i)*cols+cols-1]
 			}
-			program, e := groupedGLMMGuardCompile(n, true)
-			if e != nil {
-				return crossGridStageOutput{}, e
+			if program == nil || program.InputWordsE != 2*n {
+				program, e = groupedGLMMGuardCompile(n, true)
+				if e != nil {
+					return crossGridStageOutput{}, e
+				}
 			}
 			v, e := groupedGLMMStagedPrimitive(rw, a, role, fmt.Sprintf("live/%d", start), profile, program, input)
 			if e != nil {
@@ -172,6 +175,7 @@ func groupedGLMMBuildStagedGraph(s groupedGLMMStagedSpec, role exactGCRole) (*gr
 			}
 			out := make([]groupedWord, rows)
 			var flags []byte
+			var program *primitiveVProgram
 			for start := 0; start < rows; start += 32 {
 				n := min(32, rows-start)
 				dot := make([]groupedWord, n)
@@ -180,9 +184,11 @@ func groupedGLMMBuildStagedGraph(s groupedGLMMStagedSpec, role exactGCRole) (*gr
 						dot[i] = dot[i].add(r[(start+i)*cols+j].mul(groupedWordFromBig(b)))
 					}
 				}
-				program, e := groupedPredictorCompile(n, 1)
-				if e != nil {
-					return crossGridStageOutput{}, e
+				if program == nil || program.InputWordsE != n {
+					program, e = groupedPredictorCompile(n, 1)
+					if e != nil {
+						return crossGridStageOutput{}, e
+					}
 				}
 				v, e := groupedGLMMStagedPrimitive(rw, a, role, fmt.Sprintf("predictor/%d", start), profile, program, dot)
 				if e != nil {
@@ -238,6 +244,9 @@ func groupedGLMMBuildStagedGraph(s groupedGLMMStagedSpec, role exactGCRole) (*gr
 				}
 				out := make([]groupedWord, 5*rows)
 				var flags []byte
+				// Retain only the current public chunk shape within this stage
+				// attempt. Protocol calls still draw fresh masks and OT state.
+				var program *primitiveVProgram
 				for start := 0; start < len(out); start += 32 {
 					n := min(32, len(out)-start)
 					args := make([]groupedWord, n)
@@ -250,9 +259,11 @@ func groupedGLMMBuildStagedGraph(s groupedGLMMStagedSpec, role exactGCRole) (*gr
 					}
 					// Predictor range is full-width certified and the public node is <2^17;
 					// hence every reconstructed q16 argument is a signed int32 here.
-					program, e := groupedWideScalarCompile("softplus", n)
-					if e != nil {
-						return crossGridStageOutput{}, e
+					if program == nil || program.InputWordsE != n {
+						program, e = groupedWideScalarCompile("softplus", n)
+						if e != nil {
+							return crossGridStageOutput{}, e
+						}
 					}
 					v, e := groupedGLMMStagedPrimitive(rw, a, role, fmt.Sprintf("softplus/%d", start), profile, program, args)
 					if e != nil {
@@ -342,6 +353,7 @@ func groupedGLMMBuildStagedGraph(s groupedGLMMStagedSpec, role exactGCRole) (*gr
 				}
 				out := make([]groupedWord, s.Clusters)
 				var flags []byte
+				var program *primitiveVProgram
 				for start := 0; start < 5*s.Clusters; start += 32 {
 					n := min(32, 5*s.Clusters-start)
 					args := make([]groupedWord, n)
@@ -349,9 +361,11 @@ func groupedGLMMBuildStagedGraph(s groupedGLMMStagedSpec, role exactGCRole) (*gr
 						k := start + i
 						args[i] = center[6*(k/5)+k%5]
 					}
-					program, e := groupedWideScalarCompile("exp_negative", n)
-					if e != nil {
-						return crossGridStageOutput{}, e
+					if program == nil || program.InputWordsE != n {
+						program, e = groupedWideScalarCompile("exp_negative", n)
+						if e != nil {
+							return crossGridStageOutput{}, e
+						}
 					}
 					v, e := groupedGLMMStagedPrimitive(rw, a, role, fmt.Sprintf("exp-negative/%d", start), profile, program, args)
 					if e != nil {
@@ -375,20 +389,25 @@ func groupedGLMMBuildStagedGraph(s groupedGLMMStagedSpec, role exactGCRole) (*gr
 				}
 				out := make([]groupedWord, s.Clusters)
 				var flags []byte
+				var guard, program *primitiveVProgram
 				for start := 0; start < s.Clusters; start += 32 {
 					n := min(32, s.Clusters-start)
-					guard, e := groupedGLMMGuardCompile(n, false)
-					if e != nil {
-						return crossGridStageOutput{}, e
+					if guard == nil || guard.InputWordsE != n {
+						guard, e = groupedGLMMGuardCompile(n, false)
+						if e != nil {
+							return crossGridStageOutput{}, e
+						}
 					}
 					v, e := groupedGLMMStagedPrimitive(rw, a, role, fmt.Sprintf("log-guard/%d", start), profile, guard, sum[start:start+n])
 					if e != nil {
 						return crossGridStageOutput{}, e
 					}
 					flags = append(flags, byte(v[n][0]&1))
-					program, e := groupedWideScalarCompile("log", n)
-					if e != nil {
-						return crossGridStageOutput{}, e
+					if program == nil || program.InputWordsE != n {
+						program, e = groupedWideScalarCompile("log", n)
+						if e != nil {
+							return crossGridStageOutput{}, e
+						}
 					}
 					v, e = groupedGLMMStagedPrimitive(rw, a, role, fmt.Sprintf("log/%d", start), profile, program, v[:n])
 					if e != nil {

@@ -1,3 +1,29 @@
+# Cycle 12 public-program reuse — 2026-09-20
+
+The binomial stage executor now compiles each public 32-coordinate program
+once per stage attempt and replaces it for the final short chunk. This removes
+repeated compilation measured in an isolated native diagnostic. Live/outcome
+guards, predictor, softplus, negative exponential and guarded logsum retain
+their exact generated program bytes. Each chunk still creates fresh protocol
+sessions, masks, garbling and OT state; nothing private is cached.
+
+Pod4 native proof passes source/router/conversion, the complete GH5 oracle
+matrix, bilateral and unilateral recovery, fresh randomness, cold replay,
+invalidity/high-alias rejection, g8/g18, signed caps, source/stage tamper and
+actual spool workers. A new C65 fixture exercises repeated full chunks and
+tails through the encrypted durable graph. Original and updated public graph
+fingerprints match for both small and n2000 shapes. All four packaged runtimes
+were rebuilt and checksummed against the proved native source.
+
+Raw native proof, source hashes, compilation measurements and independent
+review are in the workspace's `integrator-evidence/cycle12-20260920/`.
+These component results do not establish signed n2000 capacity or promotion.
+The cycle10 LMM and cycle11 binomial n2000 drivers retain their frozen source
+identities. A fresh signed smoke must validate these rebuilt runtimes; old
+release results must not be relabeled as measurements of this revision.
+
+---
+
 # Cycle 11 authenticated binomial GH5 stage graph — 2026-09-20
 
 The binomial variance-grid producer is now connected to the shared authenticated

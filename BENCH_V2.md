@@ -388,28 +388,38 @@ Source logs: `matrix-pod-n1000-p10-g16-binomial.log`, `matrix-pod-n1000-p10-g16-
 Interrupted process logs retained: `matrix-pod-n1000-p5-g50.log`. Only completed FULL_MEASUREMENT records with successful integer/DP oracle checks are included; missing family results were resumed separately. Resumed pod runs use GOMEMLIMIT=6GiB/GOGC=25; the original full-envelope measurements retain their original GC settings.
 
 
-## Initial real DataSHIELD API timings (2026-09-18T22:03Z)
+## Real DataSHIELD API timings — required matrix in progress
 
-These completed synthetic releases are additional wiring measurements, not
-replacements for the full-size raw Go matrix above. Timing wraps the exported
-`ds.vertGLM()` call: it includes authenticated materialisation, framed MPC,
-joint noise and publication, but excludes the preceding PSI/signature setup
-and subsequent oracle/cold-lifecycle verification. All reported integer
-DP-vector and cold-lifecycle checks pass.
+These nine completed synthetic releases are wiring measurements, separate from
+the full-size raw Go matrix above. Timing wraps the exported `ds.vertGLM()`
+call: authenticated materialisation, framed MPC, joint noise and publication.
+It excludes preceding PSI/signature setup and subsequent oracle/cold-lifecycle
+verification. Every row passes complete integer DP-vector equality and cold
+exactly-once/replay/tamper checks. All use n=2000, p=6, grid=2, two owners.
 
-| Family | n | p | Grid | Owners | Epsilon | API seconds |
-|---|---:|---:|---:|---:|---:|---:|
-| binomial | 2000 | 6 | 2 | 2 | 4 | 2932.752 |
-| poisson | 2000 | 6 | 2 | 2 | 1 | 3390.267 |
+| Family | Epsilon | Instance | API seconds |
+|---|---:|---:|---:|
+| binomial | 1 | 1 | 2838.057 |
+| binomial | 1 | 2 | 2801.709 |
+| binomial | 4 | 1 | 2932.752 |
+| binomial | 4 | 2 | 2767.322 |
+| binomial | 8 | 1 | 3216.212 |
+| poisson | 1 | 1 | 3390.267 |
+| poisson | 1 | 2 | 3247.900 |
+| poisson | 4 | 1 | 3782.294 |
+| poisson | 8 | 1 | 3675.475 |
 
-Evidence: `dslite-n2000-binomial-e4-first.log` and
-`dslite-n2000-poisson-e1-first.log`. These are individual completed releases;
-the complete required matrix remains pending. The Mac K3 n10000/p10/grid50
-DSLite campaign has persisted 63 of 2191 loss batches. Its observed relay rate
-projects to tens of hours, not a measured completed API elapsed time. No
-full-size API cost pass is claimed. The published raw-kernel 110 GB / 4 h
-measurements explicitly exclude this R/DSI overhead.
+Evidence under `inst/cross-grid-v2`:
 
-A third qualifying API result uses the same n2000/p6/grid2/K2 geometry:
-binomial epsilon1, **2838.057 s**, with complete oracle/cold-lifecycle checks
-(`dslite-n2000-binomial-e1-first.log`). The timing scope is unchanged.
+- `validation-binomial-e1.log`
+- `validation-binomial-e4.log`
+- `validation-poisson-e1.log`
+- `dslite-n2000-poisson-e4-first.log`
+- `dslite-n2000-binomial-e8-first.log`
+- `dslite-n2000-poisson-e8-first.log`
+
+The required twelve-release matrix remains incomplete. Mac K3
+n10000/p10/grid50 DSLite campaigns are still running; their observed relay
+throughput projects to tens of hours. That is a projection, not a measured
+completed API elapsed time. No full-size API cost pass is claimed. The raw
+kernel 110 GB / 4 h measurements explicitly exclude this R/DSI overhead.

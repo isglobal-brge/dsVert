@@ -106,3 +106,7 @@ progress to **7/12**. This cell is not yet complete.
 Binomial/epsilon8/instance1 passes both gates in **3216.212 s**
 (`inst/cross-grid-v2/dslite-n2000-binomial-e8-first.log`). Required real-release
 progress is **8/12**; the full cell remains pending.
+
+Poisson/epsilon8/instance1 passes both gates in **3675.475 s**
+(`inst/cross-grid-v2/dslite-n2000-poisson-e8-first.log`). Required real-release
+progress is **9/12**, with at least one qualifying release in every family/epsilon cell.

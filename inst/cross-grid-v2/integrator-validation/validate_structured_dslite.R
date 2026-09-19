@@ -536,6 +536,10 @@ run <- function() {
             stop("Synthetic interruption after staged prepared receipt", call. = FALSE)
           }
         }))
+      trace(".dsvert_dp_lmm_cross_start", where = asNamespace("dsVert"), print = FALSE,
+        exit = quote(assign(".grid_native_recovery_session", list(
+          session_id = session_id, operation_id = stage$operation_id,
+          session = ss), .GlobalEnv)))
       trace(".dsvert_dp_lmm_cross_store", where = asNamespace("dsVert"), print = FALSE,
         tracer = quote({
           mode <- get(".grid_interrupt_mode", .GlobalEnv)

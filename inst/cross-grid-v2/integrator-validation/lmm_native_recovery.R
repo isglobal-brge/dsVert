@@ -9,9 +9,16 @@ structured_lmm_native_probe <- function(session_id, operation_id,
   if (is.null(fixture) || !identical(fixture$stage$operation_id, operation_id)) return(NULL)
   sf <- function(name) get(name, asNamespace("dsVert"), inherits = FALSE)
   if (action %in% c("pause", "resume", "terminate")) {
-    ss <- sf(".S")(session_id)
-    worker <- sf(".exact_gc_operation_state")(ss, operation_id)
-    stopifnot(identical(worker$operation, "grouped-lmm-staged-v1"))
+    # The synthetic trace retains the session privately during the authorized
+    # start. Calling .S here would correctly reject an out-of-entrypoint read.
+    captured <- get0(".grid_native_recovery_session", .GlobalEnv)
+    stopifnot(is.list(captured), is.environment(captured$session),
+      identical(captured$session_id, session_id),
+      identical(captured$operation_id, operation_id))
+    worker <- sf(".exact_gc_operation_state")(captured$session, operation_id)
+    stopifnot(identical(worker$operation, "grouped-lmm-staged-v1"),
+      identical(worker$session_id, session_id),
+      identical(worker$operation_id, operation_id))
     stopifnot(inherits(worker$process, "process"))
     if (worker$process$is_alive()) {
       if (action == "terminate") {

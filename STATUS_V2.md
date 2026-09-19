@@ -741,3 +741,19 @@ Requested a reviewer scope decision on whether the K3 wiring grid may use two ca
 ## 2026-09-18T23:57Z — seventh required real release passes
 
 Poisson / epsilon4 / instance1 passes full integer DP-vector equality and fresh-process exactly-once/replay/tamper checks in **3782.294 s**, selecting the exact-best candidate with zero loss gap. Evidence: `dslite-n2000-poisson-e4-first.log`. Progress is **7/12 required real releases, 3/6 complete selection cells**. The second release in this cell has started; the other two cells and both full-grid topology lanes continue.
+
+## 2026-09-19T00:06Z — resumed validation monitoring; current gates
+
+Resumed from the recorded state, inspected both worktrees, and preserved the active jobs. Coherent evidence and the report-only hash-check change are committed as `392b703` and `65af92f`; client HEAD remains `84748c1`. No production source or frozen harness changed.
+
+| Gate | Current result |
+|---|---|
+| Kernel, server, client | Implemented; targeted arithmetic, admission, transport and lifecycle checks pass. |
+| Raw secure benchmarks | DONE: complete Mac/pod matrices and n2000 measurements; full pod releases pass 110 GB / 4 h. R/DSI overhead excluded. |
+| Required layered matrix | NOT DONE: 60/120 selections in three complete cells; 7/12 real API releases pass. Other cells running. |
+| K3 / K5 topology | NOT DONE: full-grid K3 runs active; K5 follows each family. No scope reduction approved. |
+| Full suites | Executed once. Corrected R failure scopes pass targeted reruns. Go retains 31 documented baseline Cox/GLM failures; full Go is not green. |
+| Packaging | Server 0 errors / 0 warnings / 1 pre-existing NOTE. Client has 2 pre-existing warnings; narrow other-family documentation/literal patch awaits scope approval. |
+| Docs | Route/API docs committed. Final aggregate results and reproduction summary remain pending. |
+
+The table supersedes the earlier current-gate table; this is an ongoing run, not a completion or promotion claim.

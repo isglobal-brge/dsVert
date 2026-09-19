@@ -779,3 +779,7 @@ Poisson / epsilon4 / instance2 passes integer DP-vector equality and cold exactl
 ## 2026-09-19T01:00Z — eleventh required real release passes
 
 Binomial / epsilon8 / instance2 passes integer DP-vector equality and cold exactly-once/replay/tamper checks in **2822.927 s**, selecting the exact-best candidate with zero loss gap. Both independent real releases are retained in `dslite-n2000-binomial-e8-two-real.log`. Required progress **11/12**; the second Poisson/epsilon8 real release is still running. This binomial cell proceeds through its remaining oracle selections.
+
+## 2026-09-19T01:06Z — fourth complete selection cell
+
+Poisson / epsilon4: **20 distinct signed grids, 2 real API matches, 16/20 agreement, mean loss gap 14.287785, maximum 75.0381** at retained JSON precision. Complete logs and matching before/after helper hashes are committed. All 80 keys across four completed cells are distinct; requested geometry and both real lifecycle markers pass. Progress: **4/6 cells, 11/12 real releases**. Both epsilon8 cells remain active.

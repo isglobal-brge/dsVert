@@ -134,7 +134,7 @@ func TestGroupedRevisedGateMeasuredCosts(t *testing.T) {
 				"protocol_seconds": seconds, "garbler_bytes": garbler, "evaluator_bytes": evaluator,
 				"hypothetical_n10000_grid50_chunks": chunks, "mandatory_table_byte_lower_bound": tables * chunks,
 				"sample_wire_bytes_times_chunks_NOT_full_measurement": (garbler + evaluator) * chunks,
-				"lower_bound_exceeds_60GB":                            tables*chunks > 60000000000,
+				"lower_bound_exceeds_256GB":                            tables*chunks > 256000000000,
 				"includes_routing_dot_noise_ledger":                   false, "full_release_measured": false,
 				"go": runtime.Version(), "goos": runtime.GOOS, "goarch": runtime.GOARCH,
 			}

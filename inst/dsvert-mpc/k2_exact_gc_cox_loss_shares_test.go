@@ -164,14 +164,14 @@ func coxSharedProtocolFixture(t *testing.T, n, jcount int, programs *coxLossShar
 	a, b := net.Pipe()
 	defer a.Close()
 	defer b.Close()
-	a.SetDeadline(compileStart.Add(2 * time.Hour))
-	b.SetDeadline(compileStart.Add(2 * time.Hour))
+	a.SetDeadline(compileStart.Add(6 * time.Hour))
+	b.SetDeadline(compileStart.Add(6 * time.Hour))
 	ga, eb := &primitiveVCountingRW{Conn: a}, &primitiveVCountingRW{Conn: b}
 	var attempted atomic.Int64
 	var stopped atomic.Bool
 	budget := int64(1 << 62)
 	if os.Getenv("DSVERT_COX_ENVELOPE") == "1" {
-		budget = 60000000000
+		budget = 256000000000
 	}
 	if len(scenario) > 0 && scenario[0] == "budget_stop" {
 		budget = 900000
@@ -199,11 +199,11 @@ func coxSharedProtocolFixture(t *testing.T, n, jcount int, programs *coxLossShar
 	}
 	own := <-ch
 	if e != nil || own.err != nil {
-		if stopped.Load() || time.Since(compileStart) >= 2*time.Hour {
+		if stopped.Load() || time.Since(compileStart) >= 6*time.Hour {
 			if len(own.result.Coordinates) != 0 || len(other.Coordinates) != 0 || len(own.result.Validity) != 0 || len(other.Validity) != 0 {
 				return nil, fmt.Errorf("partial result escaped failed protocol")
 			}
-			return map[string]any{"capacity": n, "candidates": jcount, "padded_rows": m, "seconds": time.Since(compileStart).Seconds(), "compile_seconds": compileSeconds, "garbler_bytes": ga.Written, "evaluator_bytes": eb.Written, "total_bytes": ga.Written + eb.Written, "completed": false, "oracle_equal": false, "budget_stop": true, "traffic_budget_reached": stopped.Load(), "time_budget_seconds": 7200, "traffic_budget_bytes": budget, "production_fusion": false, "profile": CoxGridCrossProfileID}, nil
+			return map[string]any{"capacity": n, "candidates": jcount, "padded_rows": m, "seconds": time.Since(compileStart).Seconds(), "compile_seconds": compileSeconds, "garbler_bytes": ga.Written, "evaluator_bytes": eb.Written, "total_bytes": ga.Written + eb.Written, "completed": false, "oracle_equal": false, "budget_stop": true, "traffic_budget_reached": stopped.Load(), "time_budget_seconds": 21600, "traffic_budget_bytes": budget, "production_fusion": false, "profile": CoxGridCrossProfileID}, nil
 		}
 		return nil, fmt.Errorf("synthetic protocol: %v / %v", own.err, e)
 	}

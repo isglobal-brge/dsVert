@@ -1,5 +1,17 @@
 # Cox integration boundary
 
+## Gate revision 2 — 2026-09-19
+
+The binding ceiling is uniformly **256,000,000,000 bytes / 21,600 seconds**
+for every family. The completed Cox n4000/grid50 kernel point still passes;
+remaining arithmetic headroom is203,037,695,617 bytes /15,936.326 seconds.
+The n10000 points below were censored by the OLD60GB budget; they remain
+incomplete and cannot establish a larger admitted capacity. The signed
+rectangle remains n<=4000/grid<=50 pending a completed larger measurement.
+Historical limits and headroom below describe the original runs only.
+No authenticated release or promotion follows from this reassessment.
+
+
 This branch supplies an internal chunk producer library and signed R contracts.
 It does **not** promote a working production release. `runtime_enabled=FALSE`,
 server `produce()` and the client release function fail with the fixed public

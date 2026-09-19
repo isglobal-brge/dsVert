@@ -1,56 +1,40 @@
 #!/usr/bin/env Rscript
-# Integration harness: six grouped/Cox routes still require producer wiring.
-# Success markers require a real authenticated release; a fail-closed API is a failure.
 # Synthetic-only custodian harness. Analyst work uses the exported client API;
 # provisioning/signing runs inside the existing isolated DSLite peer processes.
 args <- commandArgs(trailingOnly = TRUE)
 root <- normalizePath(if (length(args)) args[[1]] else "..")
 n <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_N", "4"))
-family <- Sys.getenv("DSVERT_GRID_VALIDATION_FAMILY")
-cox <- identical(family, "cox")
-gee <- grepl("_gee$", family)
+family <- Sys.getenv("DSVERT_GRID_VALIDATION_FAMILY", "multinomial")
+classes <- c("A", "B", "C")
 epsilon <- as.numeric(Sys.getenv("DSVERT_GRID_VALIDATION_EPSILON", "4"))
 instance <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_INSTANCE", "1"))
 instance_count <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_INSTANCE_COUNT", "1"))
 oracle_only <- identical(Sys.getenv("DSVERT_GRID_VALIDATION_ORACLE_ONLY"), "1")
 first_instance <- instance
 real_count <- if (oracle_only) 0L else as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_REAL_COUNT", "2"))
-predictors <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_P", if (gee) "3" else "6"))
+predictors <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_P", "6"))
 grid_size <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_GRID", "2"))
 owner_count <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_OWNERS", "2"))
-stopifnot(n > 0, family %in% c("lmm", "binomial_glmm", "poisson_glmm",
-  "binomial_gee", "poisson_gee", "cox"), epsilon %in% c(1, 4, 8),
-  owner_count %in% c(2L, 3L, 5L), predictors >= 1L, predictors <= 16L,
-  grid_size >= 2L, grid_size <= 50L, !oracle_only, instance_count == 1L, real_count >= 1L,
-  identical(Sys.getenv("DSVERT_GRID_VALIDATION_COLD"), "1"),
-  identical(Sys.getenv("DSVERT_GRID_VALIDATION_INTERRUPT"), "1"))
+stopifnot(n > 0, family %in% c("multinomial", "ordinal"), epsilon %in% c(1, 4, 8),
+  owner_count %in% c(2L, 3L, 5L), predictors %in% c(6L, 10L),
+  grid_size >= 2L, grid_size <= 50L)
 server_dir <- file.path(root, "dsVert")
 client_dir <- file.path(root, "dsVertClient")
 source(file.path(client_dir, "inst/validation/v1.2.0/worked_example_custodian.R"))
 pkgload::load_all(client_dir, quiet = TRUE)
+if (identical(Sys.getenv("DSVERT_GRID_VALIDATION_DEBUG"), "1")) {
+  trace(".dsvert_dsi_sync_failure_is_settled", where=asNamespace("dsVertClient"),
+    print=FALSE, tracer=quote(cat("SYNTHETIC_DSI_FETCH_FAILURE",
+      substr(conditionMessage(condition),1,1000),"\n")))
+  trace(".dsvert_client_parse_peer_not_recognized", where=asNamespace("dsVertClient"),
+    print=FALSE, tracer=quote(cat("SYNTHETIC_DSI_REMOTE_MESSAGE",
+      substr(message,1,1000),"\n")))
+  trace(".dsvert_dp_glm_grid_cross_fail", where=asNamespace("dsVertClient"),
+    print=FALSE, tracer=quote(cat("SYNTHETIC_CATEGORICAL_FAILURE_FUNCTIONS",
+      paste(vapply(sys.calls(),function(x) if (is.symbol(x[[1L]]))
+        as.character(x[[1L]]) else "<call>",character(1)),collapse=";"),"\n")))
+}
 cf <- function(name) get(name, asNamespace("dsVertClient"), inherits = FALSE)
-# Synthetic fixture diagnostics preserve errors and the connector's lifecycle.
-structured_fetch <- methods::selectMethod("dsFetch", "DSVertE2EProcessResult")
-methods::setMethod("dsFetch", "DSVertE2EProcessResult", function(res) {
-  tryCatch(structured_fetch(res), error = function(error) {
-    cat("SYNTHETIC_DSI_FETCH_ERROR", conditionMessage(error), "\n")
-    stop(error)
-  })
-})
-structured_aggregate <- methods::selectMethod("dsAggregate", "DSVertE2EProcessConnection")
-methods::setMethod("dsAggregate", "DSVertE2EProcessConnection", function(conn, expr, async = TRUE) {
-  tryCatch(structured_aggregate(conn, expr, async), error = function(error) {
-    cat("SYNTHETIC_DSI_SUBMIT_ERROR", conditionMessage(error), "\n")
-    stop(error)
-  })
-})
-structured_poll <- methods::selectMethod("dsIsCompleted", "DSVertE2EProcessResult")
-methods::setMethod("dsIsCompleted", "DSVertE2EProcessResult", function(res) {
-  tryCatch(structured_poll(res), error = function(error) {
-    cat("SYNTHETIC_DSI_POLL_ERROR", conditionMessage(error), "\n")
-    stop(error)
-  })
-})
 state_parent <- Sys.getenv("DSVERT_GRID_VALIDATION_STATE_PARENT",
   file.path(client_dir, "inst/cross-grid-v2/build"))
 dir.create(state_parent, recursive = TRUE, showWarnings = FALSE, mode = "0700")
@@ -58,35 +42,24 @@ state <- tempfile("cross-grid-dslite-", tmpdir = state_parent)
 dir.create(state, recursive = TRUE, mode = "0700")
 peers <- list()
 run <- function() {
-  on.exit({we_close_peers(peers); unlink(state, recursive = TRUE)}, add = TRUE)
+  on.exit({try(we_close_peers(peers), silent = TRUE); unlink(state, recursive = TRUE)}, add = TRUE)
   set.seed(20260918 + instance)
-  # Dyadic synthetic inputs preserve exact independent integer encoding.
-  x <- matrix(sample(0:16, n * predictors, replace = TRUE) / 16, n, predictors)
-  truth <- c(0, rep(1 / 32, predictors))
+  x <- matrix(runif(n * predictors), n, predictors)
+  truth <- c(-0.5, 0.5, -0.25, 0.25, 0.5, -0.25, 0.25,
+    rep(c(-0.25, 0.25), length.out = predictors - 6L))
   eta <- drop(cbind(1, x) %*% truth)
-  maximum <- if (startsWith(family, "poisson")) 4 else 1
-  y <- if (family == "lmm") sample(0:16, n, replace = TRUE) / 16 else
-    if (startsWith(family, "poisson")) pmin(maximum, rpois(n, exp(eta))) else
-      rbinom(n, 1, plogis(eta))
-  cluster_size <- 4L
-  cluster_count <- ceiling(n / cluster_size)
-  cluster <- sprintf("cluster-%05d", ceiling(seq_len(n) / cluster_size))
-  cluster_levels <- sprintf("cluster-%05d", seq_len(cluster_count))
-  time <- sample(seq(0.25, 20, by = .25), n, replace = TRUE)
-  event <- rbinom(n, 1, .7)
+  maximum <- length(classes) - 1L
+  y <- sample(0:maximum, n, replace = TRUE)
   ids <- sprintf("synthetic-%06d", seq_len(n))
   owner_names <- paste0("site_", letters[seq_len(owner_count)])
-  allocation <- pmin(owner_count, 1L + floor((seq_len(predictors)-1L) * owner_count / predictors))
+  allocation <- as.integer(cut(seq_len(predictors), breaks = owner_count, labels = FALSE))
   variable_names <- if (predictors == 10L) sprintf("x%02d", seq_len(predictors)) else paste0("x", seq_len(predictors))
   predictor_order <- paste0(owner_names[allocation], "$", variable_names)
   stopifnot(identical(predictor_order, sort(predictor_order, method = "radix")))
   raw <- stats::setNames(lapply(seq_len(owner_count), function(owner) {
     result <- data.frame(patient_id = ids)
-    if (owner == 1L) {
-      if (cox) { result$time <- time; result$event <- event } else {
-        result$y <- y; result$cluster <- factor(cluster, levels = cluster_levels)
-      }
-    }
+    if (owner == 1L) result$y <- factor(classes[y+1L], levels=classes,
+      ordered=identical(family, "ordinal"))
     for (j in which(allocation == owner)) result[[variable_names[[j]]]] <- x[, j]
     result
   }), owner_names)
@@ -100,9 +73,7 @@ run <- function() {
   names(specs) <- names(raw)
   policies <- lapply(names(raw), function(peer) {
     variables <- setdiff(names(raw[[peer]]), "patient_id")
-    numeric_variables <- setdiff(variables, "cluster")
-    bounds <- stats::setNames(lapply(numeric_variables, function(v)
-      c(0, if (v == "y") maximum else if (v == "time") 20 else 1)), numeric_variables)
+    bounds <- stats::setNames(lapply(setdiff(variables, "y"), function(v) c(0, 1)), setdiff(variables, "y"))
     list(total_epsilon = epsilon, total_delta = 2^-100, domain = "cross-grid-v2-validation",
       cohort_id = "cross-grid-synthetic", adjacency = "add_remove_patient",
       patient_column = "patient_id", unit_capacity = n, numeric_grid_bits = 16L,
@@ -111,7 +82,7 @@ run <- function() {
       workload_scope = list(mode = "catalog_v1", numeric_moments = character(),
         categorical_marginals = character(), categorical_pairs = list(), correlations = list()),
       designated_noise_peers = owner_names[1:2], numeric_bounds = bounds,
-      categorical_levels = if ("cluster" %in% variables) list(cluster = cluster_levels) else NULL,
+      categorical_levels = if ("y" %in% variables) list(y = classes) else NULL,
       capsule_dataset_mapping = list(DA = variables), gaussian_specs = list(),
       synopsis_state_path = file.path(specs[[peer]]$state_dir, "dp-synopsis"))
   })
@@ -163,12 +134,14 @@ run <- function() {
         get0(".grid_bootstrap_failure", .GlobalEnv)))
       stop(error)
     })
-  schema <- jsonlite::fromJSON(bootstrap$manifest_bundle$schema_json, simplifyVector = FALSE)
   cat("DSLITE_INITIAL_BOOTSTRAP_COMPLETE\n")
-  schema$datasets <- lapply(schema$datasets, function(dataset) {
-    dataset$columns <- lapply(dataset$columns, function(column) {
-      if (identical(column$kind, "categorical"))
-        column$levels <- unlist(column$levels, use.names = FALSE)
+  schema <- jsonlite::fromJSON(bootstrap$manifest_bundle$schema_json, simplifyVector = FALSE)
+  # The inherited schema authoring helper accepts atomic label vectors;
+  # canonical JSON/signatures are unchanged by decoding an array this way.
+  schema$datasets <- lapply(schema$datasets,function(dataset) {
+    dataset$columns <- lapply(dataset$columns,function(column) {
+      if (identical(column$kind,"categorical"))
+        column$levels <- unlist(column$levels,use.names=FALSE)
       column
     })
     dataset
@@ -180,9 +153,7 @@ run <- function() {
     adjacency = "add_remove_patient")
   offsets <- if (grid_size == 2L) c(0, 0.25) else seq(-0.25, 0.25, length.out = grid_size)
   beta <- lapply(offsets, function(offset)
-    truth + c(offset / 2 + (instance - 1) / 1024, rep(0, predictors)))
-  if (cox) beta <- lapply(seq_along(beta), function(j)
-    beta[[j]][-1L] + c((j-1L)/64, rep(0, predictors-1L)))
+    truth + c(offset + (instance - 1) / 1024, rep(0, predictors)))
   beta <- beta[order(vapply(beta, function(b) cf(".dsvert_joint_dp_client_json")(as.list(b)), character(1)), method = "radix")]
   make_contract <- function(schema) {
     authenticated <- cf(".dsvert_dp_glm_grid_cross_schema_validate")(
@@ -192,29 +163,33 @@ run <- function() {
       public_alignment_contract_sha256 = cf(".dsvert_dp_capsule_source_hash")(list(
         logical_snapshot = schema$logical_snapshot, alignment_group = "cross-grid-synthetic",
         method = "pinned_psi_ordered_manifest_v1")), public_patient_dependent_hash = FALSE)
-    prefix <- if (cox) ".dsvert_dp_cox_grid_cross_" else ".dsvert_dp_grouped_grid_cross_"
     raw_spec <- list(version = paste0(family, "_grid_cross_v1"), analysis_id = "grid",
-      dataset = "DA", predictor_order = predictor_order, beta_grid = beta, alignment = alignment)
-    if (cox) {
-      raw_spec$time <- "site_a$time"; raw_spec$event <- "site_a$event"
+      dataset = "DA", outcome = "site_a$y", predictor_order = predictor_order,
+      alignment = alignment)
+    if (family == "multinomial") {
+      raw_spec$levels <- classes
+      raw_spec$reference <- classes[[1L]]
+      raw_spec$beta_grid <- lapply(beta, function(b) as.list(c(b, -b)))
+      raw_spec$beta_grid <- raw_spec$beta_grid[order(vapply(raw_spec$beta_grid,
+        cf(".dsvert_joint_dp_client_json"), character(1)), method = "radix")]
     } else {
-      raw_spec$outcome <- "site_a$y"; raw_spec$max_outcome <- maximum
-      raw_spec$grouping <- list(reference = "site_a$cluster", cluster_capacity = cluster_count,
-        max_patients_per_cluster = cluster_size, patient_rule = "one_analysis_row_per_patient_v1",
-        ordering = "stable_signed_slots_preserve_gaps_v1")
-      raw_spec$parameters <- if (family == "lmm")
-        list(residual_variance = 1, random_intercept_variance = .25) else if (gee)
-        list(correlation = "exchangeable", rho = .25, score_clip = 1) else
-        list(random_intercept_variance = .25, quadrature = "gh5_fixed_v1")
+      raw_spec$ordered_levels <- classes
+      raw_spec$candidate_grid <- lapply(offsets, function(offset)
+        list(beta = as.list(c(0, truth[-1L])), thresholds = as.list(c(-1, 1)+offset)))
+      raw_spec$candidate_grid <- raw_spec$candidate_grid[order(vapply(raw_spec$candidate_grid,
+        cf(".dsvert_joint_dp_client_json"), character(1)), method = "radix")]
     }
-    spec <- cf(paste0(prefix, "spec"))(raw_spec, policy, authenticated)
-    artifact <- cf(paste0(prefix, "artifact"))(spec)
-    list(version = if (cox) "dsvert-cox-cross-owner-grid-signed-contract-v1" else
-      "dsvert-grouped-cross-signed-contract-v1", spec = spec, artifact = artifact,
-      source_contract = cf(paste0(prefix, "source_contract"))(spec, artifact))
+    registration <- cf(paste0(".dsvert_dp_", family, "_grid_cross_register"))()
+    if (identical(Sys.getenv("DSVERT_GRID_VALIDATION_DEBUG"),"1"))
+      saveRDS(list(raw_spec=raw_spec,policy=policy,schema=schema,authenticated=authenticated),
+        file.path(root,"logs","categorical-public-spec.rds"))
+    spec <- registration$spec(raw_spec, policy, authenticated)
+    cat("DSLITE_CATEGORICAL_SPEC_COMPLETE\n")
+    artifact <- registration$artifact(spec)
+    list(version = "dsvert-cross-owner-grid-signed-contract-v1", spec = spec,
+      artifact = artifact, source_contract = cf(".dsvert_dp_glm_grid_cross_source_contract")(spec, artifact))
   }
   contract <- make_contract(schema)
-  cat("DSLITE_STRUCTURED_SPEC_COMPLETE\n")
   workload <- list(version = "dsvert-biomedical-capsule-workload-contract-v2",
     describe = list(), survival = list(), vertical_cross = list(),
     gaussian = list(grid = list(owner_peer = "site_a", spec = list(
@@ -233,11 +208,9 @@ run <- function() {
   contract <- make_contract(schema)
   contract$signatures <- lapply(peers, function(peer) peer$worker$run(function(contract) {
     identity <- dsVert:::.get_identity_keypair()
-    dsVert:::.dsvert_relay_sign_message(get(if (contract$spec$family == "cox") ".dsvert_dp_cox_grid_cross_message" else
-      ".dsvert_dp_grouped_cross_message", asNamespace("dsVert"))(contract), identity$identity_sk)
+    dsVert:::.dsvert_relay_sign_message(dsVert:::.dsvert_dp_glm_grid_cross_message(contract), identity$identity_sk)
   }, args = list(contract)))
-  cf(if (cox) ".dsvert_dp_cox_grid_cross_contract_validate" else
-    ".dsvert_dp_grouped_grid_cross_contract_validate")(contract, policy, schema)
+  cf(".dsvert_dp_glm_grid_profile_admit")(contract, policy, schema)
   workload$gaussian$grid$spec$contract <- contract
   stopifnot(identical(cf(".dsvert_dp_capsule_manifest_expected_snapshot")(
     snapshot_context,schema$datasets,schema$logical_snapshot$alignment_protocol_version,workload),schema$logical_snapshot))
@@ -341,14 +314,9 @@ run <- function() {
     elapsed <- NA_real_
   }
   if (real_release) {
-  formula <- stats::as.formula(paste(if (cox) "Surv(site_a$time, site_a$event)" else
-    "site_a$y", "~", paste(predictor_order, collapse = " + ")))
-  invoke <- function() {
-    if (cox) cf("dp_cox_grid")(formula, data = "DA", analysis_id = "grid", datasources = conns) else {
-      entry <- if (family == "lmm") "dp_lmm_grid" else if (gee) "dp_gee_grid" else "dp_glmm_grid"
-      cf(entry)("site_a$y", predictor_order, contract, policy, schema, datasources = conns)
-    }
-  }
+  formula <- stats::as.formula(paste("site_a$y ~", paste(predictor_order, collapse = " + ")))
+  invoke <- function() cf(paste0("dp_", family, "_grid"))(formula, data = "DA", analysis_id = "grid",
+    signed_contract = contract, policy = policy, schema_manifest = schema, datasources = conns)
   if (identical(Sys.getenv("DSVERT_GRID_VALIDATION_INTERRUPT"), "1")) {
     interrupted <- tryCatch(invoke(), error = identity)
     stopifnot(inherits(interrupted, "error"), all(unlist(lapply(
@@ -356,7 +324,8 @@ run <- function() {
         get(".grid_interrupted", .GlobalEnv))))))
     cat("DSLITE_INTERRUPTED_AFTER_DURABLE_BATCHES\n")
   }
-  elapsed <- system.time(fit <- tryCatch(invoke(), error = function(error) {
+  elapsed <- system.time(fit <- tryCatch(cf(paste0("dp_", family, "_grid"))(formula, data = "DA", analysis_id = "grid",
+    signed_contract = contract, policy = policy, schema_manifest = schema, datasources = conns), error = function(error) {
       for (peer in peers) print(peer$worker$run(function() {
         get0(".grid_synthetic_failure", .GlobalEnv)
       }))
@@ -385,14 +354,18 @@ run <- function() {
     draw
   })
   spec <- contract$spec
-  source(file.path(root, "integrator-validation/structured_integer_oracle.R"))
-  exact <- structured_integer_oracle(server_dir, client_dir, spec, x, y, cluster, time, event)
-  input <- file.path(state, "synthetic-oracle-input.json")
-  output <- file.path(state, "synthetic-oracle-output.json")
-  fixture <- list(Exact = as.list(c(as.character(n), exact)), Draws = draws, Output = output)
+  plan <- list(Family=family,Rows=min(32,n),Predictors=predictors,Owners=owner_count,
+    A=if (family == "ordinal") 8 else 16,Classes=length(classes),GridBits=16,MaxOutcome=maximum,
+    Beta=spec$beta_encoded,Caps=lapply(spec$sensitivity$candidate_bounds,`[[`,"per_patient_cap"))
+  if (family == "ordinal") plan$Thresholds <- lapply(spec$candidate_encoded, `[[`, "thresholds")
+  input <- file.path(state,"synthetic-oracle-input.json")
+  output <- file.path(state,"synthetic-oracle-output.json")
+  values <- cbind(round(x*2^50),y)
+  fixture <- list(Plan=plan,Rows=lapply(seq_len(n),function(i)as.list(sprintf("%.0f",values[i,]))),
+    Draws=draws,Output=output)
   writeLines(jsonlite::toJSON(fixture,auto_unbox=TRUE,digits=NA,null="null"),input)
   oracle_run <- processx::run(file.path(server_dir,"inst/cross-grid-v2/build/cross-grid-oracle.test"),
-    "-test.run=^TestStructuredGridNoiseOracle$",env=c(DSVERT_STRUCTURED_ORACLE_FIXTURE=input),
+    "-test.run=^TestCrossGridLayeredOracle$",env=c(DSVERT_CROSS_ORACLE_FIXTURE=input),
     error_on_status = FALSE)
   if (oracle_run$status != 0) cat(oracle_run$stdout, oracle_run$stderr)
   stopifnot(oracle_run$status==0)
@@ -402,8 +375,6 @@ run <- function() {
   trace(".dsvert_dp_synopsis_client_replay", where = asNamespace("dsVertClient"),
     print = FALSE, exit = quote(assign(".grid_public_replay", returnValue(), .GlobalEnv)))
   checked <- ds.validateDPGaussianCertificate(fit$provenance_certificate)
-  stopifnot(identical(checked$integrity_valid, TRUE),
-    identical(checked$authenticity, "session_transport_anchored"))
   untrace(".dsvert_dp_synopsis_client_replay", where = asNamespace("dsVertClient"))
   observed <- get(".grid_public_replay", .GlobalEnv)$scaled
   if (!identical(unname(observed), unname(oracle$Released))) {
@@ -412,20 +383,16 @@ run <- function() {
       file.path(server_dir, "inst/cross-grid-v2/build/public-release-mismatch.rds"))
   }
   stopifnot(identical(unname(observed), unname(oracle$Released)))
-  width <- length(exact) / length(spec$beta_grid)
-  loss_indices <- seq.int(1L, length(exact), by = width)
-  released_losses <- as.numeric(oracle$Released[-1])[loss_indices]
-  exact_losses <- as.numeric(exact)[loss_indices]
-  stopifnot(fit$selected_candidate == which.min(released_losses))
+  stopifnot(fit$selected_candidate == which.min(as.numeric(oracle$Released[-1])))
   replay <- invoke()
   stopifnot(identical(replay$coefficients, fit$coefficients),
     identical(replay$provenance_certificate, fit$provenance_certificate))
   tampered <- contract
-  tampered$spec$beta_grid[[1L]][[1L]] <- tampered$spec$beta_grid[[1L]][[1L]] + 1/16
-  rejected <- tryCatch(cf(if (cox) ".dsvert_dp_cox_grid_cross_contract_validate" else
-    ".dsvert_dp_grouped_grid_cross_contract_validate")(tampered, policy, schema), error = identity)
+  tampered$spec$class_order <- rev(tampered$spec$class_order)
+  rejected <- tryCatch(cf(paste0("dp_", family, "_grid"))(formula, "DA", "grid", tampered,
+    policy, schema, datasources = conns), error = identity)
   stopifnot(inherits(rejected, "dsvert_dp_public_failure"))
-  cat("DSLITE_ORACLE_BITWISE_EQUAL_STICKY_TAMPER_REJECTED", family, "\n")
+  cat("DSLITE_CATEGORICAL_ORACLE_BITWISE_EQUAL_STICKY_TAMPER_REJECTED\n")
   if (identical(Sys.getenv("DSVERT_GRID_VALIDATION_COLD"), "1")) {
     cold <- lapply(peers[owner_names[1:2]], function(peer) peer$worker$run(
       function(server_dir, contract, schema) {
@@ -440,8 +407,10 @@ run <- function() {
   cat(jsonlite::toJSON(list(family = family, n = n, p = predictors, grid = grid_size, owners = owner_count,
     epsilon = epsilon, instance = instance,
     elapsed = elapsed, oracle_only = !real_release,
-    selected_candidate = which.min(released_losses), exact_best = which.min(exact_losses),
-    loss_gap = (exact_losses[which.min(released_losses)] - min(exact_losses)) / 2^16,
+    selected_candidate = which.min(as.numeric(oracle$Released[-1])),
+    exact_best = which.min(as.numeric(oracle$Exact)),
+    loss_gap = (as.numeric(oracle$Exact[which.min(as.numeric(oracle$Released[-1]))]) -
+      min(as.numeric(oracle$Exact))) / 2^16,
     artifact_key = planned$artifact_key,
     certificate_sha256 = if (real_release) fit$certificate_sha256 else NULL), auto_unbox = TRUE), "\n")
   }

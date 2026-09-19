@@ -51,6 +51,6 @@ substitute for durable receipts or a completed authenticated server release.
 
 Production dispatch stays disabled. No grouped release capacity is admitted.
 The prior27 Addendum4 public-shape rejections were preflights, not measurements.
-All families remain subject to the binding110GB/4h gate (admitted capacity if
+All families remain subject to the binding256GB/6h uniform gate (revision2) (admitted capacity if
 needed), real n2000 K2/K3/K5 releases, cold/replay/recovery/tamper evidence and
 a green paired suite. No GEE family is promoted by these arithmetic results.

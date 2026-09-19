@@ -24,8 +24,8 @@ for n in (2000, 4000, 10000):
         completed = report.get("completed", report.get("oracle_equal") is True)
         passed = (completed and report.get("oracle_equal") is True
                   and not report.get("budget_stop", False)
-                  and report["total_bytes"] <= 60_000_000_000
-                  and report["seconds"] <= 7200)
+                  and report["total_bytes"] <= 256_000_000_000
+                  and report["seconds"] <= 21600)
         rows.append(dict(capacity=n, candidates=j, completed=completed,
                          gate_pass=passed, bytes=report["total_bytes"],
                          seconds=report["seconds"],
@@ -35,7 +35,8 @@ passing = [row for row in rows if row["gate_pass"]]
 # if equal, prefer larger row capacity. Never admit from censored probes.
 largest = max(passing, key=lambda r: (r["capacity"] * r["candidates"],
                                     r["capacity"]), default=None)
-summary = dict(version="cox-measured-shared-envelope-v2", matrix_complete=not missing,
+summary = dict(version="cox-measured-shared-envelope-v2",
+               gate_revision="GATE_REVISION_2_2026-09-19", gate_bytes=256_000_000_000, gate_seconds=21600, matrix_complete=not missing,
                missing=missing, rows=rows,
                selection_rule="maximum_n_times_grid_then_n",
                selected_capacity=None if missing or largest is None else

@@ -110,3 +110,7 @@ progress is **8/12**; the full cell remains pending.
 Poisson/epsilon8/instance1 passes both gates in **3675.475 s**
 (`inst/cross-grid-v2/dslite-n2000-poisson-e8-first.log`). Required real-release
 progress is **9/12**, with at least one qualifying release in every family/epsilon cell.
+
+Poisson/epsilon4 completes both real releases and cold-lifecycle checks
+(`inst/cross-grid-v2/dslite-n2000-poisson-e4-two-real.log`); instance2 takes
+**3369.260 s**. Required progress is **10/12**.

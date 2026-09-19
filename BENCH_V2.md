@@ -390,7 +390,7 @@ Interrupted process logs retained: `matrix-pod-n1000-p5-g50.log`. Only completed
 
 ## Real DataSHIELD API timings — required matrix in progress
 
-These nine completed synthetic releases are wiring measurements, separate from
+These ten completed synthetic releases are wiring measurements, separate from
 the full-size raw Go matrix above. Timing wraps the exported `ds.vertGLM()`
 call: authenticated materialisation, framed MPC, joint noise and publication.
 It excludes preceding PSI/signature setup and subsequent oracle/cold-lifecycle
@@ -407,6 +407,7 @@ exactly-once/replay/tamper checks. All use n=2000, p=6, grid=2, two owners.
 | poisson | 1 | 1 | 3390.267 |
 | poisson | 1 | 2 | 3247.900 |
 | poisson | 4 | 1 | 3782.294 |
+| poisson | 4 | 2 | 3369.260 |
 | poisson | 8 | 1 | 3675.475 |
 
 Evidence under `inst/cross-grid-v2`:
@@ -414,7 +415,7 @@ Evidence under `inst/cross-grid-v2`:
 - `validation-binomial-e1.log`
 - `validation-binomial-e4.log`
 - `validation-poisson-e1.log`
-- `dslite-n2000-poisson-e4-first.log`
+- `dslite-n2000-poisson-e4-two-real.log`
 - `dslite-n2000-binomial-e8-first.log`
 - `dslite-n2000-poisson-e8-first.log`
 

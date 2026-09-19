@@ -771,3 +771,7 @@ Poisson / epsilon8 / instance1 passes both integer DP-vector equality and cold e
 Queue the explicitly smaller K5 envelope (n2000/p6/grid2, epsilon4, one real release per family) on the pod after both existing matrix coordinators exit. The new runner requires the complete 120/12 evidence validator to pass first, then runs families sequentially through the existing synchronous DSLite connector, checking full vector equality and cold lifecycle markers. Freeze and check package R sources, binary and harness hashes before/after each topology release. This avoids making K5 wait for the much longer full-grid Mac K3 runs; no K3 capacity or production limit changes.
 
 Command: `nohup sh inst/cross-grid-v2/run_k5_after_matrix_pod.sh 829845 960689`; queued PID **2108230**, log `/workspace/dsvert/crossowner-v2/logs/topology-k5-queued.log`. Shell syntax passes. The copied summarizer/wrapper do not alter the three frozen active-cell helpers. Once pod K5 succeeds, disarm the old Mac post-K3 K5 queues before they can duplicate those releases; preserve both running K3 R processes. No K5 result is yet claimed.
+
+## 2026-09-19T00:54Z — tenth required real release passes
+
+Poisson / epsilon4 / instance2 passes integer DP-vector equality and cold exactly-once/replay/tamper checks in **3369.260 s**, selecting the exact-best candidate with zero loss gap. Both independent real releases are retained in `dslite-n2000-poisson-e4-two-real.log`. Required progress **10/12**; the remaining eighteen oracle selections for this cell are running.

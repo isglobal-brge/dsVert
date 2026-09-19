@@ -1,0 +1,173 @@
+{
+  "version": "primitive-v-cost-observations-v1",
+  "environment": {
+    "cpu": "Intel Xeon Gold 6342 @ 2.80GHz",
+    "logical_cpus": 96,
+    "ram_bytes": 540644081664,
+    "go": "go1.25.7",
+    "goos": "linux",
+    "goarch": "amd64",
+    "gpu_used": false
+  },
+  "measurement_utc": "2026-09-18T12:06:27Z",
+  "readiness": "R_STACK_DONE observed in /workspace/logs/install_r.log before launching tests and measurements",
+  "remote_directory": "/workspace/dsvert/primitive/verification-20260918T120404Z-ba9421",
+  "measurement": "public synthetic exact-GC microcircuits over local encrypted net.Pipe; source in primitive_v_benchmark_test.go",
+  "measurement_method": "Dependency-closure harness copied 159 required production declarations verbatim across 27 Go files; subsequent ordinary full-package validation is recorded in STATUS_P.md.",
+  "harness_archive_sha256": "dc4a57697c5ec1c4b6ab213da16d7e99f6ca0929a77e2e1ca5d53fcb33cee80e",
+  "measured_source_commit": "33daa5c",
+  "production_source_sha256": {
+    "primitive_v_family.go": "282ce63f167313ad4ac8f8a38462588e203a530b59ad50ed9f9fe978dc430a86",
+    "primitive_v_family_reference.go": "f30971d7ca8eab47effd29e16e0a561cd694b7b3b51888b77664f19b8388a04a",
+    "primitive_v_numeric.go": "ee001194128982820fa441c7526faacad68f8f614b60fc0c7783c0b6798f7302",
+    "primitive_v_permute.go": "1c927a64fb73e22633240e01d9af836d7268fd66717e49eabe895d0993ec6f00",
+    "primitive_v_protocol.go": "eb05074f26a093ae5fc2f0c675eb79ce33040c5667af39c399e1495db41f69a9",
+    "primitive_v_reduce.go": "17ba4b29cba3f380d396fe6c0228505fea7da2c6fd00dc64235527b581677734"
+  },
+  "microcircuits": [
+    {
+      "compile_seconds": 0.010442227,
+      "garbler_wire_bytes": 51740,
+      "gates": 2868,
+      "go": "go1.25.7",
+      "goarch": "amd64",
+      "goos": "linux",
+      "heap_sys_bytes": 11894784,
+      "nonxor_gates": 575,
+      "operation": "add",
+      "protocol_seconds": 0.065042736,
+      "table_bytes": 18384,
+      "wires": 3444
+    },
+    {
+      "compile_seconds": 0.040360021,
+      "garbler_wire_bytes": 743403,
+      "gates": 54773,
+      "go": "go1.25.7",
+      "goarch": "amd64",
+      "goos": "linux",
+      "heap_sys_bytes": 28246016,
+      "nonxor_gates": 15689,
+      "operation": "mulq64",
+      "protocol_seconds": 0.094099258,
+      "table_bytes": 502032,
+      "wires": 55349
+    },
+    {
+      "compile_seconds": 0.354407093,
+      "garbler_wire_bytes": 8579004,
+      "gates": 643178,
+      "go": "go1.25.7",
+      "goarch": "amd64",
+      "goos": "linux",
+      "heap_sys_bytes": 182714368,
+      "nonxor_gates": 186867,
+      "operation": "exp",
+      "protocol_seconds": 0.375804543,
+      "table_bytes": 5979728,
+      "wires": 643754
+    },
+    {
+      "compile_seconds": 0.362381273,
+      "garbler_wire_bytes": 9388023,
+      "gates": 704461,
+      "go": "go1.25.7",
+      "goarch": "amd64",
+      "goos": "linux",
+      "heap_sys_bytes": 232357888,
+      "nonxor_gates": 204475,
+      "operation": "expnegative",
+      "protocol_seconds": 0.388617308,
+      "table_bytes": 6543184,
+      "wires": 705037
+    },
+    {
+      "compile_seconds": 0.616001962,
+      "garbler_wire_bytes": 14531229,
+      "gates": 1114215,
+      "go": "go1.25.7",
+      "goarch": "amd64",
+      "goos": "linux",
+      "heap_sys_bytes": 349110272,
+      "nonxor_gates": 313892,
+      "operation": "log",
+      "protocol_seconds": 0.51345285,
+      "table_bytes": 10044528,
+      "wires": 1114791
+    },
+    {
+      "compile_seconds": 0.260375515,
+      "garbler_wire_bytes": 7359265,
+      "gates": 609966,
+      "go": "go1.25.7",
+      "goarch": "amd64",
+      "goos": "linux",
+      "heap_sys_bytes": 395247616,
+      "nonxor_gates": 152635,
+      "operation": "rounddiv_positive",
+      "protocol_seconds": 0.311301785,
+      "table_bytes": 4884304,
+      "wires": 610926
+    },
+    {
+      "compile_seconds": 1.247089936,
+      "garbler_wire_bytes": 24807945,
+      "gates": 1935094,
+      "go": "go1.25.7",
+      "goarch": "amd64",
+      "goos": "linux",
+      "heap_sys_bytes": 554205184,
+      "nonxor_gates": 529662,
+      "operation": "dot10",
+      "protocol_seconds": 0.919039347,
+      "table_bytes": 16949168,
+      "wires": 1939126
+    }
+  ],
+  "permutation": {
+    "rows": 10000,
+    "padded_rows": 16384,
+    "switches": 221184,
+    "route_seconds": 0.010034923,
+    "route_alloc_bytes": 5102976,
+    "route_allocations": 12804,
+    "compile_fixture": {
+      "rows": 32,
+      "columns": 3,
+      "word_bits": 192,
+      "seconds": 0.902510823,
+      "alloc_bytes": 550699448,
+      "allocations": 2485214,
+      "switch_and_gates": 82944,
+      "switch_xor_gates": 414720
+    }
+  },
+  "complete_family_compile_observations": [
+    {
+      "family": "cox_breslow",
+      "rows": 2,
+      "gates": 3831103,
+      "and_gates": 1093548,
+      "compile_seconds": 2.222734967,
+      "table_bytes": 34993552
+    },
+    {
+      "family": "lmm_random_intercept",
+      "rows": 3,
+      "gates": 5082865,
+      "and_gates": 1367096,
+      "compile_seconds": 2.759380598,
+      "table_bytes": 43747088
+    },
+    {
+      "family": "binomial_glmm_gh5",
+      "rows": 2,
+      "gates": 28020152,
+      "and_gates": 8017134,
+      "compile_seconds": 20.432836624,
+      "table_bytes": 256548304
+    }
+  ],
+  "target_model_reference": "costs_mac.json#target_model",
+  "interpretation": "Same deterministic gates/table payload as Mac. Wire bytes measure only garbler direction. Protocol timings use local encrypted net.Pipe, not inter-host network RTT. HeapSys is cumulative reservation, not peak RSS. Full 10000-row 50-candidate circuit was not executed."
+}

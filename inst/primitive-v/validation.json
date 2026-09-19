@@ -1,0 +1,156 @@
+{
+  "version": "primitive-v-validation-v1",
+  "code_commit": "33daa5c",
+  "full_tracked_pod_build": {
+    "command": "go test -c",
+    "exit_code": 0,
+    "wall_seconds": 83
+  },
+  "runs": [
+    {
+      "command": "go test -run '^TestPrimitiveV' -count=1 -json -timeout=15m .",
+      "host": "pod full tracked checkout",
+      "log_sha256": "fa01a589de326a157eb0eaa9716c85ad575a46beb4d2bd49fd73ebb64dbf85ee",
+      "pass": {
+        "top_level": 20,
+        "subtests": 15,
+        "names": [
+          "TestPrimitiveVFamilyCircuitEquality/cox_breslow",
+          "TestPrimitiveVFamilyCircuitEquality/lmm_random_intercept",
+          "TestPrimitiveVFamilyCircuitEquality/binomial_glmm_gh5",
+          "TestPrimitiveVFamilyCircuitEquality",
+          "TestPrimitiveVFamilyPlaintextTargetsAndBreslowTies",
+          "TestPrimitiveVFamilyFailClosed",
+          "TestPrimitiveVFamilySignedLiterals",
+          "TestPrimitiveVNumericCircuitEquality/exp",
+          "TestPrimitiveVNumericCircuitEquality/log",
+          "TestPrimitiveVNumericCircuitEquality/negative_exp",
+          "TestPrimitiveVNumericCircuitEquality",
+          "TestPrimitiveVNumericIndependentAccuracy",
+          "TestPrimitiveVNumericRoundTies",
+          "TestPrimitiveVNumericAnalyticCertificate",
+          "TestPrimitiveVNumericCompiledShiftTies/primitiveVDiv64",
+          "TestPrimitiveVNumericCompiledShiftTies/primitiveVDiv2",
+          "TestPrimitiveVNumericCompiledShiftTies",
+          "TestPrimitiveVPermutationExhaustive",
+          "TestPrimitiveVPermutationRandomPaddedRecords",
+          "TestPrimitiveVPermutationCompiledEqualityAndGateBound/n1_c1_w8",
+          "TestPrimitiveVPermutationCompiledEqualityAndGateBound/n2_c3_w8",
+          "TestPrimitiveVPermutationCompiledEqualityAndGateBound/n3_c2_w63",
+          "TestPrimitiveVPermutationCompiledEqualityAndGateBound/n4_c1_w128",
+          "TestPrimitiveVPermutationCompiledEqualityAndGateBound/n5_c3_w192",
+          "TestPrimitiveVPermutationCompiledEqualityAndGateBound/n8_c2_w192",
+          "TestPrimitiveVPermutationCompiledEqualityAndGateBound/n17_c1_w16",
+          "TestPrimitiveVPermutationCompiledEqualityAndGateBound",
+          "TestPrimitiveVPermutationRejectsInvalid",
+          "TestPrimitiveVPermutationCostAtTarget",
+          "TestPrimitiveVProtocolMaskedValidityAndNative192",
+          "TestPrimitiveVProtocolContextAndAdmission",
+          "TestPrimitiveVProtocolLMMPrivatePermutation",
+          "TestPrimitiveVSegmentedReduceCircuitEquality",
+          "TestPrimitiveVPrefixLogSumExpCircuitEquality",
+          "TestPrimitiveVReduceShapeAndLargePrefix"
+        ]
+      },
+      "fail": {
+        "top_level": 0,
+        "subtests": 0,
+        "names": []
+      },
+      "skip": {
+        "top_level": 1,
+        "subtests": 0,
+        "names": [
+          "TestPrimitiveVMeasuredCosts"
+        ]
+      },
+      "package_result": [
+        {
+          "Action": "pass",
+          "Elapsed": 109.807
+        }
+      ]
+    },
+    {
+      "command": "go test -run '^(TestExactGCSecureRecords|TestExactGCAlignmentMask|TestExactGCAlignmentMismatch|TestExactGCCategoricalProduct|TestCrossGrid)' -json -count=1 -timeout=10m .",
+      "host": "Mac full checkout",
+      "log_sha256": "3371213076b7497907fe0904ed0a14bc1351a22a113110c6acaee38a9c5a371a",
+      "pass": {
+        "top_level": 20,
+        "subtests": 16,
+        "names": [
+          "TestCrossGridV1SignedRContractStructRoundTrip",
+          "TestCrossGridV1ProfileAndContract",
+          "TestCrossGridV1BatchReferenceFixtures/binomial",
+          "TestCrossGridV1BatchReferenceFixtures/poisson",
+          "TestCrossGridV1BatchReferenceFixtures",
+          "TestCrossGridV1RoundingAndSaturation",
+          "TestCrossGridV1NonlinearAgainstHighPrecision",
+          "TestCrossGridV1SixteenPredictorsEveryGridPrecision",
+          "TestCrossGridV1CertificateBudgetsAndWidths",
+          "TestCrossGridV1EncodingThroughLossCertificate/positive",
+          "TestCrossGridV1EncodingThroughLossCertificate/negative",
+          "TestCrossGridV1EncodingThroughLossCertificate/mixed",
+          "TestCrossGridV1EncodingThroughLossCertificate",
+          "TestExactGCAlignmentMaskRing128K2K3K5/K2",
+          "TestExactGCAlignmentMaskRing128K2K3K5/K3",
+          "TestExactGCAlignmentMaskRing128K2K3K5/K5",
+          "TestExactGCAlignmentMaskRing128K2K3K5",
+          "TestExactGCAlignmentMismatchLocationHasOneFixedCircuitShape",
+          "TestExactGCAlignmentMaskRejectsTypeConfusionAndOversize",
+          "TestExactGCAlignmentMaskUsesFullRingOutputMasks",
+          "TestExactGCCategoricalProductRing128ExactAndFailClosed",
+          "TestExactGCCategoricalProductRing128RejectsTypeConfusion",
+          "TestExactGCSecureRecordsRoundTripAndHidePlaintext",
+          "TestExactGCSecureRecordsRejectReplay",
+          "TestExactGCSecureRecordsRejectTamperContextAndRole/ciphertext_tamper",
+          "TestExactGCSecureRecordsRejectTamperContextAndRole/context_mismatch",
+          "TestExactGCSecureRecordsRejectTamperContextAndRole/wrong_role",
+          "TestExactGCSecureRecordsRejectTamperContextAndRole",
+          "TestExactGCSecureRecordsRejectMalformedHeaderAndOversize/oversize",
+          "TestExactGCSecureRecordsRejectMalformedHeaderAndOversize/zero_size",
+          "TestExactGCSecureRecordsRejectMalformedHeaderAndOversize/magic",
+          "TestExactGCSecureRecordsRejectMalformedHeaderAndOversize/version",
+          "TestExactGCSecureRecordsRejectMalformedHeaderAndOversize/reserved",
+          "TestExactGCSecureRecordsRejectMalformedHeaderAndOversize",
+          "TestExactGCSecureRecordsSplitLargeWrites",
+          "TestExactGCSecureRecordsPublishWholeFrames"
+        ]
+      },
+      "fail": {
+        "top_level": 0,
+        "subtests": 0,
+        "names": []
+      },
+      "skip": {
+        "top_level": 0,
+        "subtests": 0,
+        "names": []
+      },
+      "package_result": [
+        {
+          "Action": "pass",
+          "Elapsed": 24.527
+        }
+      ]
+    }
+  ],
+  "benchmarks": {
+    "command": "PRIMITIVE_V_BENCH=1 go test -run '^TestPrimitiveVMeasuredCosts$' -count=1 -v -timeout=15m .",
+    "mac": {
+      "top_level_pass": 1,
+      "subtest_pass": 7,
+      "costs": "costs_mac.json"
+    },
+    "pod": {
+      "top_level_pass": 1,
+      "subtest_pass": 7,
+      "costs": "costs_pod.json"
+    }
+  },
+  "limitations": [
+    "No full multi-hour Go or R suite run.",
+    "Full n=10000,p=10,grid=50 costs are analytical component models, not a measured encrypted run.",
+    "Mac redundant GH5 compile interrupted under contention; complete-family equality verified on pod."
+  ]
+}

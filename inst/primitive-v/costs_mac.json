@@ -1,0 +1,205 @@
+{
+  "version": "primitive-v-cost-observations-v1",
+  "environment": {
+    "cpu": "Apple M2",
+    "ram_bytes": 17179869184,
+    "concurrent_workloads": true
+  },
+  "measurement": "public synthetic exact-GC microcircuits over local encrypted net.Pipe; source in primitive_v_benchmark_test.go",
+  "microcircuits": [
+    {
+      "compile_seconds": 0.003867833,
+      "garbler_wire_bytes": 51739,
+      "gates": 2868,
+      "go": "go1.25.7",
+      "goarch": "arm64",
+      "goos": "darwin",
+      "heap_sys_bytes": 8060928,
+      "nonxor_gates": 575,
+      "operation": "add",
+      "protocol_seconds": 0.055554542,
+      "table_bytes": 18384,
+      "wires": 3444
+    },
+    {
+      "compile_seconds": 0.313943584,
+      "garbler_wire_bytes": 743405,
+      "gates": 54773,
+      "go": "go1.25.7",
+      "goarch": "arm64",
+      "goos": "darwin",
+      "heap_sys_bytes": 20512768,
+      "nonxor_gates": 15689,
+      "operation": "mulq64",
+      "protocol_seconds": 0.50538025,
+      "table_bytes": 502032,
+      "wires": 55349
+    },
+    {
+      "compile_seconds": 5.111988792,
+      "garbler_wire_bytes": 8579004,
+      "gates": 643178,
+      "go": "go1.25.7",
+      "goarch": "arm64",
+      "goos": "darwin",
+      "heap_sys_bytes": 175669248,
+      "nonxor_gates": 186867,
+      "operation": "exp",
+      "protocol_seconds": 1.469254542,
+      "table_bytes": 5979728,
+      "wires": 643754
+    },
+    {
+      "compile_seconds": 0.716865875,
+      "garbler_wire_bytes": 9388024,
+      "gates": 704461,
+      "go": "go1.25.7",
+      "goarch": "arm64",
+      "goos": "darwin",
+      "heap_sys_bytes": 242745344,
+      "nonxor_gates": 204475,
+      "operation": "expnegative",
+      "protocol_seconds": 0.211876125,
+      "table_bytes": 6543184,
+      "wires": 705037
+    },
+    {
+      "compile_seconds": 4.868474375,
+      "garbler_wire_bytes": 14531229,
+      "gates": 1114215,
+      "go": "go1.25.7",
+      "goarch": "arm64",
+      "goos": "darwin",
+      "heap_sys_bytes": 309821440,
+      "nonxor_gates": 313892,
+      "operation": "log",
+      "protocol_seconds": 0.459429542,
+      "table_bytes": 10044528,
+      "wires": 1114791
+    },
+    {
+      "compile_seconds": 0.430547708,
+      "garbler_wire_bytes": 7359263,
+      "gates": 609966,
+      "go": "go1.25.7",
+      "goarch": "arm64",
+      "goos": "darwin",
+      "heap_sys_bytes": 381124608,
+      "nonxor_gates": 152635,
+      "operation": "rounddiv_positive",
+      "protocol_seconds": 0.570450084,
+      "table_bytes": 4884304,
+      "wires": 610926
+    },
+    {
+      "compile_seconds": 6.316312833,
+      "garbler_wire_bytes": 24807945,
+      "gates": 1935094,
+      "go": "go1.25.7",
+      "goarch": "arm64",
+      "goos": "darwin",
+      "heap_sys_bytes": 599228416,
+      "nonxor_gates": 529662,
+      "operation": "dot10",
+      "protocol_seconds": 7.572644917,
+      "table_bytes": 16949168,
+      "wires": 1939126
+    }
+  ],
+  "permutation": {
+    "rows": 10000,
+    "padded_rows": 16384,
+    "switches": 221184,
+    "route_seconds": 0.008956792,
+    "route_alloc_bytes": 5097664,
+    "route_allocations": 12800,
+    "compile_fixture": {
+      "rows": 32,
+      "columns": 3,
+      "word_bits": 192,
+      "seconds": 7.863868541,
+      "alloc_bytes": 550215648,
+      "switch_and_gates": 82944,
+      "switch_xor_gates": 414720
+    }
+  },
+  "target_model": {
+    "rows": 10000,
+    "padded_rows": 16384,
+    "predictors": 10,
+    "candidates": 50,
+    "scope": "Component-sum scaling model, not compiled full-size workload or timing prediction. Includes nonlinear/moment components and 50 full192x3 permutation networks; excludes family guards/reductions/candidate bridge and dot producer. Constant propagation and sharing affect actual circuit counts.",
+    "families": {
+      "cox_breslow": {
+        "component_calls": {
+          "exp": 819200,
+          "log": 819200
+        },
+        "isolated_components_gates": 1439656345600,
+        "isolated_components_table_bytes": 13127070515200,
+        "permutation_switch_gates": 38220595200,
+        "permutation_table_bytes": 203843174400,
+        "permutation_gate_stream_bytes": 356725555200
+      },
+      "lmm_random_intercept": {
+        "component_calls": {
+          "mulq64": 1638400,
+          "rounddiv_positive": 819200
+        },
+        "isolated_components_gates": 589424230400,
+        "isolated_components_table_bytes": 4823751065600,
+        "permutation_switch_gates": 38220595200,
+        "permutation_table_bytes": 203843174400,
+        "permutation_gate_stream_bytes": 356725555200
+      },
+      "binomial_glmm_gh5": {
+        "component_calls": {
+          "exp": 4096000,
+          "expnegative": 4096000,
+          "log": 4915200
+        },
+        "isolated_components_gates": 10996518912000,
+        "isolated_components_table_bytes": 100664711577600,
+        "permutation_switch_gates": 38220595200,
+        "permutation_table_bytes": 203843174400,
+        "permutation_gate_stream_bytes": 356725555200
+      }
+    },
+    "dot10_generic_gc_baseline": {
+      "calls": 500000,
+      "gates": 967547000000,
+      "table_bytes": 8474584000000,
+      "scope": "Separate illustrative GC dot baseline, not a required production design. Public MACs may execute locally on shares; final conversion stays inside MPC."
+    }
+  },
+  "measured_source_commit": "4b5c1a8",
+  "production_source_sha256": {
+    "primitive_v_family.go": "282ce63f167313ad4ac8f8a38462588e203a530b59ad50ed9f9fe978dc430a86",
+    "primitive_v_family_reference.go": "f30971d7ca8eab47effd29e16e0a561cd694b7b3b51888b77664f19b8388a04a",
+    "primitive_v_numeric.go": "ee001194128982820fa441c7526faacad68f8f614b60fc0c7783c0b6798f7302",
+    "primitive_v_permute.go": "1c927a64fb73e22633240e01d9af836d7268fd66717e49eabe895d0993ec6f00",
+    "primitive_v_protocol.go": "eb05074f26a093ae5fc2f0c675eb79ce33040c5667af39c399e1495db41f69a9",
+    "primitive_v_reduce.go": "17ba4b29cba3f380d396fe6c0228505fea7da2c6fd00dc64235527b581677734"
+  },
+  "related_pod_measurement": "costs_pod.json",
+  "measurement_method": "Dependency-closure harness copied the required production declarations verbatim; full-package regression checks are recorded in STATUS_P.md.",
+  "complete_family_compile_observations": [
+    {
+      "family": "cox_breslow",
+      "rows": 2,
+      "gates": 3831103,
+      "and_gates": 1093548,
+      "compile_seconds": 100.964123208,
+      "table_bytes": 34993552
+    },
+    {
+      "family": "lmm_random_intercept",
+      "rows": 3,
+      "gates": 5082865,
+      "and_gates": 1367096,
+      "compile_seconds": 119.455768916,
+      "table_bytes": 43747088
+    }
+  ],
+  "complete_family_compile_limitation": "Redundant GH5 Mac compilation was interrupted under heavy concurrent workloads after the identical circuit passed on the pod. No completed Mac GH5 or full-size workload timing is claimed."
+}

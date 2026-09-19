@@ -428,3 +428,7 @@ Add CHECKS_V2 to the existing .Rbuildignore development-report pattern. Refresh 
 ## 2026-09-18T23:16Z — topology scope remains unchanged pending reviewer decision
 
 Observed full-grid K3 DSLite throughput projects to tens of hours. Asked whether clause 7 permits the wiring gate at n10000/p10/grid2 alongside the completed full-envelope secure benchmarks. Keep grid50 running unless the reviewer explicitly authorizes a narrower validation grid. No production ABI, admission limit, privacy cap or route change is proposed.
+
+## 2026-09-19T00:01Z — aggregate evidence requires frozen-helper checks
+
+The final selection summarizer now rejects any cell without exactly the three expected helper hash checks both before and after execution, and reports each real API elapsed time with its timing scope. Preserve the pod helper hash manifest locally; all three files match. This changes only report generation, not the running harness or production. Syntax and rejection of the incomplete matrix pass; a successful full-matrix report still requires all six actual completed cells.

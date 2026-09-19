@@ -19,9 +19,14 @@ lines = ["# Layer 3: production-seeded DP selection and real API equality", "",
          "| Family | Epsilon | Instances | Real API equalities | Selection agreement | Mean loss gap | Maximum loss gap |",
          "|---|---:|---:|---:|---:|---:|---:|"]
 all_keys = set()
+api_timings = []
 for family in ("binomial", "poisson"):
     for epsilon in (1, 4, 8):
         path = args.logs / f"validation-{family}-e{epsilon}.log"
+        checks = args.logs / f"validation-{family}-e{epsilon}-source-check.log"
+        expected_checks = [f"inst/cross-grid-v2/{name}.R: OK" for name in
+                           ("validate_dslite", "prepare_oracle_noise", "validate_cold_lifecycle")]
+        assert checks.read_text().splitlines() == expected_checks * 2, checks
         content = path.read_text()
         records = [json.loads(line) for line in content.splitlines()
                    if line.startswith('{"family":')]
@@ -40,6 +45,7 @@ for family in ("binomial", "poisson"):
             assert record["loss_gap"] >= 0, path
             if not record["oracle_only"]:
                 assert len(record["certificate_sha256"]) == 64, path
+                api_timings.append(f"| {family} | {epsilon} | {record['instance']} | {record['elapsed']:.3f} |")
         agreement = sum(r["selected_candidate"] == r["exact_best"] for r in records)
         gaps = [r["loss_gap"] for r in records]
         lines.append(f"| {family} | {epsilon} | 20 | 2 | {agreement}/20 | {mean(gaps):.6g} | {max(gaps):.6g} |")
@@ -50,6 +56,12 @@ lines += ["", "PASS: 120 distinct artifact keys, 120 oracle selections and 12 re
           "ties. Reported gaps inherit the harness JSON's decimal precision. "
           "These small-grid statistics do not establish continuous-MLE accuracy "
           "or utility for all admitted grids.", "",
+          "## Real API elapsed times", "",
+          "Timing wraps `ds.vertGLM()`, including authenticated materialisation, "
+          "MPC, joint noise and publication. It excludes preceding PSI/signature "
+          "setup and subsequent oracle/cold-lifecycle verification.", "",
+          "| Family | Epsilon | Instance | API seconds |",
+          "|---|---:|---:|---:|", *api_timings, "",
           "Reproduce with `run_validation_campaign_pod.sh`, then "
           "`python3 inst/cross-grid-v2/summarize_validation.py <logs> LAYER3_V2.md`. "
           "The matrix runner checks frozen helper hashes before and after each cell.", ""]

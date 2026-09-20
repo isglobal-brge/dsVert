@@ -1,0 +1,34 @@
+{
+  "observed_utc": "2026-09-20T13:18:28.459605+00:00",
+  "source_commits": {
+    "dsVert": "c0cf297922b5566e1d6a73964e71ed57464113dd",
+    "dsVertClient": "5b6458fa7264909eaa1bbdb63d8b0ccc22acc40a"
+  },
+  "tests": 54,
+  "assertions": 2463,
+  "failures": 0,
+  "errors": 0,
+  "warnings": 0,
+  "skips": 0,
+  "frozen_source_files": 2709,
+  "frozen_source_changed": [],
+  "final_source_differences": [],
+  "manifest_sha256": "56e4329777555886e63d78a59ceae9c133532d10076c91edb9c5cea9648110d8",
+  "base_commits": {
+    "dsVert": "9193ac4b227d814885d165504bfa6f2a050a7da4",
+    "dsVertClient": "5b6458fa7264909eaa1bbdb63d8b0ccc22acc40a"
+  },
+  "scope": "Internal authenticated Cox remote-bind adapter, with upstream Synopsis context/cache and snapshot resolver test doubles, real signed Cox source/route checks, durable source store and native worker preparation for K2/K3/K5; shared LMM/GLMM/Synopsis regressions and current-native Gaussian fallback. No public Cox dispatch, complete DP release, capacity or promotion.",
+  "test_results": {
+    "test-crossgrid-cox.R.csv": "cd7adf5bdb49a0a39ef0a26aed69b117a8e20a4941c2c1ab1881fc13442d56ff",
+    "test-crossgrid-glmm-gaussian-preflight.R.csv": "2569ae982fdb8fd1d2759b4346c59f5f39317e0801bf68c8c0042b8cb566f14c",
+    "test-crossgrid-glmm-staged-lifecycle.R.csv": "9719b53095c8dff7556651b16decc12be966b07bef59222fec891875c2de3774",
+    "test-crossgrid-lmm-sampler-admission.R.csv": "62272a5b0014f4b8562993212319327da68c34baab8102b319954d071c6ed32c",
+    "test-crossgrid-lmm-schema-cache.R.csv": "8e1e3def7835a6a197040808f88c6b5a2651bfca11285638dcc3e8fee4678845",
+    "test-crossgrid-lmm-staged-lifecycle.R.csv": "ed9b40e01e8b99bd103ddc9652888cf3e23e2312c8ed924377f6c1c5c0849433",
+    "test-crossgrid-poisson-glmm-staged-lifecycle.R.csv": "94533f5213fe4de6bc6f26388a57ec9aee2858a1aaff00c56378c19fd5602f4c",
+    "test-dp-synopsis-exact-gc.R.csv": "78d448a0dd6ea2193b447376cc2e77e88891a5d7a32b1c284d9633138e3dab8b",
+    "test-dp-synopsis-execution-safety.R.csv": "ac5b89a726e520329a66c03c29f048528c083ad9d775df19133f613e3f7c6ea2"
+  },
+  "log_sha256": "ee13901d33458e47cb1043ee12552552cf5899ed3943a53e4c71a881aa7effbb"
+}

@@ -1,0 +1,11 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-synopsis-exact-gc.R","dp-synopsis-exact-gc","the remote exact-GC START response exposes only public liveness",6,0,FALSE,FALSE,0,0.0270000000000152,0.00199999999999889,0.0419999999999732,6
+"test-dp-synopsis-exact-gc.R","dp-synopsis-exact-gc","synopsis exact-GC adds only dedicated internal adapters",5,0,FALSE,FALSE,0,0.00499999999999545,0.00100000000000122,0.0110000000000241,5
+"test-dp-synopsis-exact-gc.R","dp-synopsis-exact-gc","synopsis execution migrates authenticated v2 stores to v3",2,0,FALSE,FALSE,0,0.972999999999985,0.083000000000002,1.06400000000002,2
+"test-dp-synopsis-exact-gc.R","dp-synopsis-exact-gc","pinned exact-GC roles and operation are authority-only for K=2/3/5",71,0,FALSE,FALSE,0,11.415,0.866999999999997,12.295,71
+"test-dp-synopsis-exact-gc.R","dp-synopsis-exact-gc","exact-GC normalizes the local Ed25519 public-key encoding",5,0,FALSE,FALSE,0,2.923,0.220000000000002,3.14400000000001,5
+"test-dp-synopsis-exact-gc.R","dp-synopsis-exact-gc","exact-GC accepts canonical list-shaped Synopsis authority roles",5,0,FALSE,FALSE,0,2.94899999999998,0.215999999999998,3.16700000000003,5
+"test-dp-synopsis-exact-gc.R","dp-synopsis-exact-gc","productive exact-GC worker preserves its signed plan shape",4,0,FALSE,FALSE,0,3.08600000000001,0.206,3.36200000000002,4
+"test-dp-synopsis-exact-gc.R","dp-synopsis-exact-gc","exact-GC START initializes after CAS and never writes LOCAL",36,0,FALSE,FALSE,0,5.81900000000002,0.403000000000002,6.22999999999996,36
+"test-dp-synopsis-exact-gc.R","dp-synopsis-exact-gc","exact-GC RESULT commits authenticated LOCAL before consume",20,0,FALSE,FALSE,0,4.08199999999999,0.297999999999998,4.38099999999997,20
+"test-dp-synopsis-exact-gc.R","dp-synopsis-exact-gc","exact-GC compilation binds the Cox public stage before private source access",11,0,FALSE,FALSE,0,3.005,0.213000000000001,3.22299999999996,11

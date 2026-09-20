@@ -1,3 +1,25 @@
+# Cycle18: authenticated owner-local source input materialization
+
+The internal source adapter now verifies the signed Cox source context and
+resolved snapshot/PSI bindings before materializing owner-local columns. It
+binds local dataset IDs, versions and patient keys to the signed schema,
+rejects repeated patients, and uses the existing admission slot ordering.
+Predictors use exact binary64 rational normalization and the existing f50
+round-to-nearest-even quantizer. Finite nonbinary events are invalid before
+clipping. Times retain clipped binary64 values locally; only their validity
+lanes enter the private source blocks. Padding is zero and blocks retain the
+signed source order. K2/K3/K5 focused tests, tamper checks, subnormal/overflow
+normalization boundaries and an independently computed rounding case pass.
+
+This produces private inputs for the existing source transport. Producer
+commitment/sharing/persistence integration, the additive-validity private
+complete-case stage, durable R/DP lifecycle and public release reader remain
+pending. No Cox signed release, capacity measurement or promotion is claimed.
+The authenticated loader and time sidecar from cycles17/18 remain retained.
+Evidence: cycle18-20260920/continuation3 (18 tests/1020 assertions, no nonpasses).
+
+---
+
 # Cycle14 continued: exact R/native source adapters
 
 The private `cox-loss-staged-prepare-v1` CLI now accepts canonical decimal caps,

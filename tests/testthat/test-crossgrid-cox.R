@@ -492,6 +492,78 @@ test_that("Cox source alignment requires the signed time owner at the actual gar
   }
 })
 
+test_that("Cox source normalization retains binary64 rationals and one f50 rounding", {
+  normalize <- .dsvert_dp_cox_cross_normalize
+  expect_identical(normalize(c(-1, 0, 2^-51, 3 * 2^-51, 1, 2), 0, 1),
+    c(0, 0, 0, 2, 2^50, 2^50))
+  expect_identical(normalize(c(-1e308, 0, 1e308), -1e308, 1e308), c(0, 2^49, 2^50))
+  expect_identical(normalize(c(0, 2^-1074, 2 * 2^-1074), 0, 2 * 2^-1074),
+    c(0, 2^49, 2^50))
+  # Exact fractions computed independently from the binary64 representations.
+  expect_identical(normalize(c(0.1, 0.2, 0.3), 0.1, 0.3), c(0, 2^49, 2^50))
+  expect_identical(normalize(2.0836687828389904, -0.6447899655735372,
+    2.61975068798887), 941011853324399)
+  expect_error(normalize(NA_real_, 0, 1), class = "dsvert_dp_public_failure")
+  expect_error(normalize(0, 1, 1), class = "dsvert_dp_public_failure")
+})
+
+.cox_resolved_fixture <- function(f, data, peer) {
+  policy <- f$policy
+  policy$peer_name <- peer
+  policy$patient_column <- "patient"
+  policy$max_records_per_unit <- 2L # Cox must reject duplicates even under this policy.
+  policy$overflow_policy <- "reject_snapshot"
+  aligned <- .dsvert_test_padded_dp_binding(data, "patient", "aligned", "v1",
+    policy$peer_pinset)
+  policy$datasets <- list(aligned = aligned$descriptor)
+  list(policy = policy, snapshots = list(aligned = list(data = aligned$data,
+    dataset = list(public = list(data_name = "aligned", id = "aligned", version = "v1"),
+      fingerprint = .dsvert_dp_snapshot_digest(aligned$data)))))
+}
+
+test_that("Cox materializes authenticated owner inputs in aligned patient slots", {
+  for (owners in c(2L, 3L, 5L)) {
+    f <- .cox_cross_server_fixture(capacity = 5, owners = owners)
+    t <- .cox_transport_fixture(f)
+    data <- data.frame(patient = c("b", "a", "d", "c"),
+      time = c(5, -1, Inf, 30), event = c(0.5, 1, 2, 0),
+      x = c(0.5, -1, Inf, 2), z = c(1, 0.25, NA, -1))
+    for (peer in paste0("site_", letters[seq_len(owners)])) {
+      if (peer %in% paste0("site_", letters[3:5])) data[[paste0("x_", peer)]] <- data$z
+      resolved <- .cox_resolved_fixture(f, data, peer)
+      run <- function(input = resolved) .dsvert_dp_cox_cross_materialize_inputs(
+        input$policy, t$manifest, t$transport, f$schema_manifest, "cox_grid", input$snapshots)
+      result <- run()
+      expected <- t$layout$blocks[vapply(t$layout$blocks, function(b)
+        identical(b$owner_peer, peer), logical(1L))]
+      expect_identical(names(result$blocks), names(expected))
+      expect_true(all(lengths(result$blocks) == 8L))
+      expect_true(all(vapply(result$blocks, function(x) all(tail(x, 4) == 0), logical(1L))))
+      if (peer == "site_a") {
+        expect_identical(result$blocks[["cox_grid::site_a$x::value"]], c(0, 2^49, 2^50, 0, 0, 0, 0, 0))
+        expect_identical(result$blocks[["cox_grid::site_a$event::validity"]], c(1, 0, 1, 0, 0, 0, 0, 0))
+        expect_identical(result$times, c(0, 5, 20, 0, 0))
+        expect_identical(result$time_valid, c(TRUE, TRUE, TRUE, FALSE, FALSE))
+        expect_false(any(grepl("time::value", names(result$blocks), fixed = TRUE)))
+      } else {
+        expect_null(result$times)
+        expect_null(result$time_valid)
+      }
+      changed <- resolved
+      changed$snapshots$aligned$data$x[1L] <- 0.75
+      expect_error(run(changed)) # Snapshot/PSI authentication precedes materialization.
+      changed <- resolved
+      changed$policy$datasets$aligned$alignment_manifest_hash <- NULL
+      expect_error(run(changed), class = "dsvert_dp_public_failure")
+      expect_error(run(.cox_resolved_fixture(f, rbind(data, data[1L, ]), peer)))
+      changed <- resolved
+      changed$policy$datasets$aligned$id <- "other"
+      changed$snapshots$aligned$dataset$public$id <- "other"
+      expect_error(run(changed))
+    }
+  }
+})
+
 test_that("Cox owner time sidecar binds exact times and committed source order", {
   for (owners in c(2L, 3L, 5L)) {
     f <- .cox_cross_server_fixture(capacity = 5, owners = owners)

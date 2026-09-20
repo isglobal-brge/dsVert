@@ -1,0 +1,26 @@
+{
+  "cycle": 64,
+  "observed_utc": "2026-09-20T18:15:37.760637+00:00",
+  "promoted_count": 4,
+  "counts": {
+    "FLEET": {
+      "terminal": 8,
+      "passed": 6
+    },
+    "COX": {
+      "terminal": 3,
+      "passed": 3
+    },
+    "GEE": {
+      "terminal": 0,
+      "passed": 0
+    }
+  },
+  "fleet_nonterminal": 8,
+  "cox_dedicated_nonterminal": 1,
+  "gee_dedicated_nonterminal": 8,
+  "capacity_promotion_gate": false,
+  "frozen_runs_restarted": 0,
+  "runtime_changes": false,
+  "manifest_changed": false
+}

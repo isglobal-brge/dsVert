@@ -1,0 +1,47 @@
+FAILURE: 'test-crossgrid-cox.R:537:5' -------------
+Expected `read(cold)` to equal `read()`.
+Differences:
+Names: 2 string mismatches
+Component 1: Component 1: Modes: logical, numeric
+Component 1: Component 1: target is logical, current is numeric
+Component 1: Component 2: Modes: logical, numeric
+Component 1: Component 2: target is logical, current is numeric
+Component 1: Component 3: Modes: logical, numeric
+Component 1: Component 3: target is logical, current is numeric
+Component 1: Component 4: Modes: logical, numeric
+Component 1: Component 4: target is logical, current is numeric
+...
+
+FAILURE: 'test-crossgrid-cox.R:537:5' -------------
+Expected `read(cold)` to equal `read()`.
+Differences:
+Names: 2 string mismatches
+Component 1: Component 1: Modes: logical, numeric
+Component 1: Component 1: target is logical, current is numeric
+Component 1: Component 2: Modes: logical, numeric
+Component 1: Component 2: target is logical, current is numeric
+Component 1: Component 3: Modes: logical, numeric
+Component 1: Component 3: target is logical, current is numeric
+Component 1: Component 4: Modes: logical, numeric
+Component 1: Component 4: target is logical, current is numeric
+...
+
+FAILURE: 'test-crossgrid-cox.R:537:5' -------------
+Expected `read(cold)` to equal `read()`.
+Differences:
+Names: 2 string mismatches
+Component 1: Component 1: Modes: logical, numeric
+Component 1: Component 1: target is logical, current is numeric
+Component 1: Component 2: Modes: logical, numeric
+Component 1: Component 2: target is logical, current is numeric
+Component 1: Component 3: Modes: logical, numeric
+Component 1: Component 3: target is logical, current is numeric
+Component 1: Component 4: Modes: logical, numeric
+Component 1: Component 4: target is logical, current is numeric
+...
+
+[ FAIL 3 | WARN 0 | SKIP 0 | PASS 911 ]
+Error in utils::write.table(d, "integrator-evidence/cycle18-20260920/continuation2/cox-sidecar.csv",  : 
+  unimplemented type 'list' in 'EncodeElement'
+Calls: write.csv -> eval.parent -> eval -> eval -> <Anonymous>
+Execution halted

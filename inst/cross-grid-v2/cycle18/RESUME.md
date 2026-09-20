@@ -1,3 +1,5 @@
+Latest: `continuation2/RESUME.md` and `continuation2/progress.json`; code cc862ea/4c6c562, LMM K2 still active, no promotion.
+
 Latest continuation: `continuation/RESUME.md` and `continuation/progress.json`.
 Code `fe4c953/4c6c562`; LMM n2000/K2 still active, no promotion.
 

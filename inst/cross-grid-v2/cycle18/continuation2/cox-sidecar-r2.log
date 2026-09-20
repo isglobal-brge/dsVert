@@ -1,0 +1,5 @@
+[ FAIL 0 | WARN 0 | SKIP 0 | PASS 914 ]
+Error in utils::write.table(d, "integrator-evidence/cycle18-20260920/continuation2/cox-sidecar-r2.csv",  : 
+  unimplemented type 'list' in 'EncodeElement'
+Calls: write.csv -> eval.parent -> eval -> eval -> <Anonymous>
+Execution halted

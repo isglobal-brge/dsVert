@@ -1,0 +1,245 @@
+{
+  "checkpoint_utc": "2026-09-20T06:50:09.745306+00:00",
+  "production_source": {
+    "dsVert": "cc862ea5da622b284fe5d06b70cd465b803aa78c",
+    "dsVertClient": "4c6c5622fbdc2ae97de315f18c18901d452f3c09"
+  },
+  "native_runtime_source": "b59d34c",
+  "promoted": false,
+  "lmm": {
+    "observed_utc": "2026-09-20T06:48:31.355035+00:00",
+    "launch": {
+      "snapshot": "/workspace/dsvert/executor-cycle16-lmm-release-r2",
+      "pid": 1182464,
+      "stat": "1182464 (python3) R 1180331 1182464 1182464 0 -1 4194560 33 0 0 0 0 0 0 0 20 0 1 0 747161533 8716288 0 18446744073709551615 4321280 7095309 140728242490176 0 0 0 0 0 0 0 0 0 17 58 0 0 0 0 0 9612768 10920768 167260160 140728242490895 140728242490956 140728242490956 140728242491367 0\n",
+      "stdin": "/dev/null",
+      "command": [
+        "python3",
+        "-u",
+        "dsVert/inst/cross-grid-v2/cycle16/run-sequence.py"
+      ],
+      "repositories": {
+        "dsVert": "bc59147a2e94d0dd835bf6cb74ebaea81afa29fe",
+        "dsVertClient": "6ba11a0f1ebc4a4400ce444fc32d81ed54aadb03"
+      },
+      "manifest_sha256": "0956a5547b41bf0ef2ce31eea893f245f3de3c3be402a31375a43a87ccb922ab",
+      "source_files": 2553,
+      "promoted": false
+    },
+    "progress": {
+      "utc": "2026-09-20T01:54:22.320871+00:00",
+      "event": "release_start",
+      "promoted": false,
+      "n": 2000,
+      "owners": 2,
+      "recovery": 0
+    },
+    "sequence_exit": null,
+    "files": {
+      "lmm-n4-k2-baseline.exit": {
+        "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+      },
+      "lmm-n4-k2-baseline-resources.json": {
+        "sha256": "c40c9aad503ad5eb855edbf70ffd2a7712bb58fc45bc9bc819719881461cb366"
+      },
+      "lmm-n4-k2-baseline-metrics.json": {
+        "sha256": "c8200e117789f20ade2c2657ff7c29f06904def340bba65c3a7d7600b9917d70"
+      },
+      "lmm-n4-k2-baseline.log": {
+        "sha256": "bf24b22a0bcb5df5a13ee8e510ebc747b23aa78980b9867583d6328419098e1b"
+      },
+      "progress.json": {
+        "sha256": "4bef89e511daa50a50f7d47dde298c8c283680ad73c7d9240a0c51f7725dd033"
+      },
+      "sequence.jsonl": {
+        "sha256": "cdd1b6533b828c30c25ee570ff3fe3cfe5998879a66003e22794c90eb60cbd02"
+      },
+      "launch.json": {
+        "sha256": "fdbdb97a1a1bd9b480a3e167a87d7b4a445007a05140958fabd1562c800239e2"
+      },
+      "launch.log": {
+        "sha256": "1d22ba18b48731085c40dc4e5050ca4c8c4cb71982334585e756d5a4fe01c24d"
+      },
+      "lmm-n2000-k2-baseline.log.tail": {
+        "sha256": "5546d54cb20bfb8077458bd831038b1adcefcfca6e4500ef86fab77cdf539081"
+      },
+      "oracle-build.log.tail": {
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "promoted": false,
+    "controller": {
+      "same_start": true,
+      "cwd": "/workspace/dsvert/executor-cycle16-lmm-release-r2",
+      "stdin": "/dev/null",
+      "command": "python3 -u dsVert/inst/cross-grid-v2/cycle16/run-sequence.py "
+    },
+    "source": {
+      "manifest_sha256": "0956a5547b41bf0ef2ce31eea893f245f3de3c3be402a31375a43a87ccb922ab",
+      "files": 2553,
+      "repositories": {
+        "dsVert": "bc59147a2e94d0dd835bf6cb74ebaea81afa29fe",
+        "dsVertClient": "6ba11a0f1ebc4a4400ce444fc32d81ed54aadb03"
+      },
+      "mismatches": []
+    },
+    "capture": "captures/20260920T064836043658Z"
+  },
+  "glmm": {
+    "observed_utc": "2026-09-20T06:48:31.385956+00:00",
+    "launch": {
+      "snapshot": "/workspace/dsvert/executor-cycle17-glmm-release-r1",
+      "pid": 1984876,
+      "stat": "1984876 (python3) R 1983154 1984876 1984876 0 -1 4194560 20 0 0 0 0 0 0 0 20 0 1 0 748706651 7421952 0 18446744073709551615 4321280 7095309 140728627416960 0 0 0 0 0 0 0 0 0 17 91 0 0 0 0 0 9612768 10920768 337178624 140728627424781 140728627424844 140728627424844 140728627425255 0\n",
+      "stdin": "/dev/null",
+      "command": [
+        "python3",
+        "-u",
+        "dsVert/inst/cross-grid-v2/cycle17/run-glmm-queue.py"
+      ],
+      "repositories": {
+        "dsVert": "cd54dd5a38d4f229d0b6595fa64ecb050ac4ebd8",
+        "dsVertClient": "6ba11a0f1ebc4a4400ce444fc32d81ed54aadb03"
+      },
+      "manifest_sha256": "692d7960a40825911c16f79aa8b1142f7a0632666e2447a4796523f2a899e23f",
+      "source_files": 2556,
+      "promoted": false
+    },
+    "progress": {
+      "family": "binomial_glmm",
+      "promoted": false
+    },
+    "sequence_exit": null,
+    "files": {
+      "queue-progress.json": {
+        "sha256": "0a7bc30a328731d77b8e53c4e8acd4d094fe756690ae91456a65a9256a1c3253"
+      },
+      "launch.json": {
+        "sha256": "c481eca7d0e209c01a74ddc737c677d747ad4cbf0be98bcf7f4392868af93c69"
+      },
+      "launch.log": {
+        "sha256": "ffe2320aaf2258b156379876b440b95bf7d60a981c07a437e6962d52915aafea"
+      },
+      "binomial_glmm/progress.json": {
+        "sha256": "cf9d7f5d02e363082021f34987cbc877495b6eb4a3b358956526bcdec9f98f18"
+      },
+      "binomial_glmm/sequence.jsonl": {
+        "sha256": "ffe2320aaf2258b156379876b440b95bf7d60a981c07a437e6962d52915aafea"
+      },
+      "oracle-build.log.tail": {
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "promoted": false,
+    "controller": {
+      "same_start": true,
+      "cwd": "/workspace/dsvert/executor-cycle17-glmm-release-r1",
+      "stdin": "/dev/null",
+      "command": "python3 -u dsVert/inst/cross-grid-v2/cycle17/run-glmm-queue.py "
+    },
+    "sequences": {
+      "binomial_glmm": {
+        "utc": "2026-09-20T05:56:55.964354+00:00",
+        "event": "waiting_for_shared_release_lock",
+        "promoted": false
+      }
+    },
+    "source": {
+      "manifest_sha256": "692d7960a40825911c16f79aa8b1142f7a0632666e2447a4796523f2a899e23f",
+      "files": 2556,
+      "repositories": {
+        "dsVert": "cd54dd5a38d4f229d0b6595fa64ecb050ac4ebd8",
+        "dsVertClient": "6ba11a0f1ebc4a4400ce444fc32d81ed54aadb03"
+      },
+      "mismatches": []
+    },
+    "capture": "captures/20260920T064836115922Z"
+  },
+  "lmm_progress_only": {
+    "observed_utc": "2026-09-20T06:47:01.995229+00:00",
+    "unauthenticated_progress_only": true,
+    "sites": {
+      "site_a": {
+        "states": {
+          "COMMIT": 205,
+          "RUNNING": 1
+        },
+        "active": [
+          {
+            "stage": "lmm.products.000012",
+            "state": "RUNNING",
+            "mtime_utc": "2026-09-20T06:46:09.178153+00:00"
+          }
+        ],
+        "latest": [
+          {
+            "stage": "lmm.products.000010",
+            "state": "COMMIT",
+            "mtime_utc": "2026-09-20T06:44:22.749306+00:00"
+          },
+          {
+            "stage": "lmm.products.000011",
+            "state": "COMMIT",
+            "mtime_utc": "2026-09-20T06:46:05.286159+00:00"
+          },
+          {
+            "stage": "lmm.products.000012",
+            "state": "RUNNING",
+            "mtime_utc": "2026-09-20T06:46:09.178153+00:00"
+          }
+        ]
+      },
+      "site_b": {
+        "states": {
+          "COMMIT": 205,
+          "RUNNING": 1
+        },
+        "active": [
+          {
+            "stage": "lmm.products.000012",
+            "state": "RUNNING",
+            "mtime_utc": "2026-09-20T06:46:09.574152+00:00"
+          }
+        ],
+        "latest": [
+          {
+            "stage": "lmm.products.000010",
+            "state": "COMMIT",
+            "mtime_utc": "2026-09-20T06:44:23.288306+00:00"
+          },
+          {
+            "stage": "lmm.products.000011",
+            "state": "COMMIT",
+            "mtime_utc": "2026-09-20T06:46:05.827158+00:00"
+          },
+          {
+            "stage": "lmm.products.000012",
+            "state": "RUNNING",
+            "mtime_utc": "2026-09-20T06:46:09.574152+00:00"
+          }
+        ]
+      }
+    }
+  },
+  "cox_focused": {
+    "tests": 16,
+    "passed": 914,
+    "failed": 0,
+    "warnings": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "cox_scope": "Internal owner-local sidecar adapter only; production source materializer, private complete-case and signed DP lifecycle remain incomplete",
+  "gee_alpha": "Pending estimator/privacy/global-sensitivity contract; retained fixed-rho proof unchanged",
+  "paired_current": {
+    "verification": {
+      "source_changed": [],
+      "source_files_checked": 2563,
+      "analysis_script_sha256": "179225ea4fb1920eea4216bc11b0c94f971f9cb49ef54f1e6f67e072ddcd4933",
+      "partial_observation": true,
+      "observed_utc": "2026-09-20T06:48:37.938811+00:00"
+    },
+    "capture": "integrator-evidence/cycle18-20260920/paired/harvest-partial-20260920T064830Z",
+    "complete": false
+  }
+}

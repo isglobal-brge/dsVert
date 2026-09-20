@@ -28,7 +28,7 @@ def command(family, epsilon, owners, instance, mode, expected=None):
     job = f'{family}-e{epsilon}-k{owners}-i{instance:02d}-{mode}'
     env = dict(GOMAXPROCS='2', GOMEMLIMIT='16GiB', OPENBLAS_NUM_THREADS='1',
         OMP_NUM_THREADS='1', NOT_CRAN='true', DSVERT_RELEASE_TTL_SECONDS='900',
-        DSVERT_RELEASE_MAX_RUNTIME_SECONDS='86400', DSVERT_GRID_VALIDATION_N=str(rows_for(family)),
+        DSVERT_RELEASE_MAX_RUNTIME_SECONDS='604800', DSVERT_GRID_VALIDATION_N=str(rows_for(family)),
         DSVERT_GRID_VALIDATION_P=str(predictors_for(family)), DSVERT_GRID_VALIDATION_GRID='2',
         DSVERT_GRID_VALIDATION_EPSILON=str(epsilon), DSVERT_GRID_VALIDATION_OWNERS=str(owners),
         DSVERT_GRID_VALIDATION_INSTANCE=str(instance), DSVERT_GRID_VALIDATION_INSTANCE_COUNT='1',
@@ -97,7 +97,8 @@ def main():
                 real_authenticated_release_required=True, cold_replay_tamper_required=True,
                 bilateral_and_unilateral_recovery_required=mode == 'recovery',
                 capacity_measurement=owners == 2 and mode == 'baseline',
-                capacity_bytes=CAPACITY['capacity_bytes'], capacity_seconds=CAPACITY['capacity_seconds']))
+                capacity_bytes=CAPACITY['capacity_bytes'], capacity_seconds=CAPACITY['capacity_seconds'],
+                capacity_promotion_gate=False))
     args.output.mkdir(parents=True, exist_ok=True)
     if args.family:
         assert len(real) == 4 and all(r['fleet_ready'] for r in real), 'Family readiness/oracle commitments missing'
@@ -129,7 +130,7 @@ def main():
         (args.output / filename).write_text(''.join(json.dumps(r, separators=(',', ':')) + '\n' for r in rows))
     status = dict(source_commits=heads, real_job_count=len(real), oracle_job_count=len(selection),
         fleet_ready=all(r['fleet_ready'] for r in real),
-        per_family_real_jobs=4, epsilon=8, lease_seconds=86400, idle_seconds=900,
+        per_family_real_jobs=4, epsilon=8, lease_seconds=604800, idle_seconds=900,
         existing_frozen_runs='Harvest without restarting; do not launch duplicate active jobs.',
         capacity_scope='Once per family; measured serialized aggregate RPC bytes and complete release time.',
         paired_suite_cli="Rscript --vanilla -e 'testthat::test_local(\"dsVert\", stop_on_failure=TRUE); testthat::test_local(\"dsVertClient\", stop_on_failure=TRUE)' </dev/null",

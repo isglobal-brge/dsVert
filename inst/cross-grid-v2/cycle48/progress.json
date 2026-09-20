@@ -1,0 +1,23 @@
+{
+  "cycle": 48,
+  "observed_utc": "2026-09-20T17:38:44.394854+00:00",
+  "promoted_count": 4,
+  "fleet_terminal": 4,
+  "fleet_pass": 3,
+  "fleet_fail": 1,
+  "fleet_running": 12,
+  "cox_running": 4,
+  "gee_running": 8,
+  "capacity_promotion_gate": false,
+  "frozen_runs_restarted": 0,
+  "runtime_changes": false,
+  "source_attribution": "All results retain original per-job source pins",
+  "inputs_sha256": {
+    "FLEET_RESCORED.jsonl": "be6e281ac28a5a9494dbde2689269f487b9269e3b0407dc290b874068cdccef7",
+    "COX_RESULTS.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "FLEET_LIVE_STATUS.json": "9b5a8fd44abdc6e00f6329598c62faa584a10b2618957e03f4962d3573288a0a",
+    "COX_CHECKPOINT.json": "316672476c35a6fbe29f90a56a788cbd806a68fe8a2cfea3be31bbd8cadd6360",
+    "GEE_CHECKPOINT.json": "eb0585bb341354d91e8757a0181f5dae187d2c338f1fcb1fc5329271040d35f5",
+    "GEE_COLLECTION_STATE.json": "ddc2bb3536f4ae2cd2a7dc7854715507c5ae866158f856c2e8bd905f09cb0af8"
+  }
+}

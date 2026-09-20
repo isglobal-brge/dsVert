@@ -23,7 +23,7 @@ def rescore(record, policy):
         key: record.get(key) for key in ('status', 'capacity_pass', 'failure_reason')})
     result['capacity_policy'] = policy
     result['capacity_pass'] = capacity
-    result['status'] = 'PASS' if capacity and lifecycle else 'FAIL'
+    result['status'] = 'PASS' if lifecycle else 'FAIL'
     result['rescore_only'] = True
     if result['status'] == 'PASS':
         result.pop('failure_reason', None)

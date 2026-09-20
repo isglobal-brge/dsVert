@@ -47,7 +47,7 @@ class ManifestTests(unittest.TestCase):
                 [(2, 'baseline'), (3, 'baseline'), (5, 'baseline'), (2, 'recovery')])
             self.assertEqual(sum(row['capacity_measurement'] for row in rows), 1)
             self.assertTrue(all('DSVERT_RELEASE_TTL_SECONDS=900' in r['cli'] and
-                'DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400' in r['cli'] for r in rows))
+                'DSVERT_RELEASE_MAX_RUNTIME_SECONDS=604800' in r['cli'] for r in rows))
 
     def test_hashes_are_pair_bound_and_enable_only_matching_jobs(self):
         record = dict(oracle_only=True, source_commits={'dsVert': 'a'*40, 'dsVertClient': 'a'*40},

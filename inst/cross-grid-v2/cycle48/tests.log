@@ -1,0 +1,11 @@
+.......
+----------------------------------------------------------------------
+Ran 7 tests in 0.167s
+
+OK
+{"real_jobs": 24, "oracle_jobs": 1080, "ready_real_jobs": 0}
+{"family": "cox", "ready_real_jobs": 4, "other_release_rows_unchanged": 20}
+{"real_jobs": 24, "oracle_jobs": 1080, "ready_real_jobs": 0}
+{"real_jobs": 24, "oracle_jobs": 1080, "ready_real_jobs": 2}
+{"real_jobs": 24, "oracle_jobs": 1080, "ready_real_jobs": 2}
+{"real_jobs": 24, "oracle_jobs": 1080, "ready_real_jobs": 0}

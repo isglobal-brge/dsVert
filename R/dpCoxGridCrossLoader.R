@@ -70,6 +70,16 @@
       !setequal(c(parties$self_name, parties$peer_name), peers)) {
     .dsvert_dp_cox_grid_cross_fail()
   }
+  # Reuse the staged LMM identity check: names alone do not bind this live
+  # transport to the signed source authorities.
+  ids <- vapply(peers, function(peer)
+    .dsvert_relay_peer_id(unname(policy$peer_pinset[[peer]])), character(1L))
+  names(ids) <- peers
+  if (anyDuplicated(ids) ||
+      !identical(.dsvert_relay_peer_id(.key_get("identity_pk", ss)),
+                 unname(ids[[parties$self_name]])) ||
+      !identical(.dsvert_relay_peer_id(ss$.exact_gc_peer_identity_pks[[parties$peer_name]]),
+                 unname(ids[[parties$peer_name]]))) .dsvert_dp_cox_grid_cross_fail()
   alignment <- .dsvert_dp_alignment_mask_complete_batch(
     ss, capsule_id, source_contract_sha256)
   if (!identical(alignment$peer_binding_digest, ss$.exact_gc_peer_binding_digest) ||

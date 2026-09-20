@@ -462,7 +462,8 @@ test_that("Cox input loader verifies actual store MACs and all-owner completion"
   f$ss$.exact_gc_transport_initialized <- TRUE
   f$ss$.exact_gc_self_name <- "site_a"
   f$ss$peer_transport_pks <- list(site_b = "private-test-transport")
-  f$ss$.exact_gc_peer_identity_pks <- list(site_b = "pinned-test-peer")
+  f$ss$.exact_gc_peer_identity_pks <- as.list(f$policy$peer_pinset["site_b"])
+  .key_put("identity_pk", unname(f$policy$peer_pinset[["site_a"]]), f$ss)
   batches <- .dsvert_dp_alignment_mask_batches(f$ss)
   batch <- new.env(parent = emptyenv())
   batch$status <- "complete"
@@ -529,6 +530,15 @@ test_that("Cox input loader verifies actual store MACs and all-owner completion"
   }
   expected <- list(context = .dsvert_dp_cox_cross_source_context(f$policy,
     manifest, transport, f$schema_manifest, "cox_grid"), values = values, validities = validities)
+  expect_identical(load(), expected)
+  # Keep the authenticated peer names and alignment digest unchanged while
+  # substituting another owner's real key. Both transport roles must reject.
+  f$ss$.exact_gc_peer_identity_pks$site_b <- unname(f$policy$peer_pinset[["site_c"]])
+  expect_error(load(), class = "dsvert_dp_public_failure")
+  f$ss$.exact_gc_peer_identity_pks$site_b <- unname(f$policy$peer_pinset[["site_b"]])
+  .key_put("identity_pk", unname(f$policy$peer_pinset[["site_c"]]), f$ss)
+  expect_error(load(), class = "dsvert_dp_public_failure")
+  .key_put("identity_pk", unname(f$policy$peer_pinset[["site_a"]]), f$ss)
   expect_identical(load(), expected)
   update <- function(record) .dsvert_dp_capsule_source_record_update(con,
     "source_aggregate_chunks", record, f$secret,

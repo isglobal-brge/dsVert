@@ -169,3 +169,38 @@
   }
   list(blocks = blocks, cursor = cursor)
 }
+
+# Private typed CLI boundary after source receipt/alignment verification. The
+# opaque payload contains shares and key material and must never enter a receipt.
+.dsvert_dp_cox_cross_prepare_native <- function(handoff, role, session, authorities,
+    semantic_key, store_directory, store_key, routing = NULL, routing_digest = "") {
+  if (!is.raw(store_key) || length(store_key) != 32L ||
+      !is.character(store_directory) || length(store_directory) != 1L ||
+      is.na(store_directory) || !dir.exists(store_directory) ||
+      .dsvert_dp_path_is_link(store_directory) ||
+      !.dsvert_dp_private_mode(store_directory, directory = TRUE)) {
+    .dsvert_dp_cox_grid_cross_fail()
+  }
+  result <- .callMpcTool("cox-loss-staged-prepare-v1", list(
+    handoff = handoff, role = role, session = session, authorities = as.list(authorities),
+    semantic_key = semantic_key, store_directory = normalizePath(store_directory),
+    store_key = gsub("[\r\n]", "", jsonlite::base64_enc(store_key)),
+    routing = routing, routing_digest = routing_digest), simplify_output = FALSE)
+  .dsvert_dp_glm_grid_cross_fields(result,
+    c("stage_plan_digest", "worker_input", "purpose", "vector_len", "routing_digest"))
+  digest <- function(value) is.character(value) && length(value) == 1L && !is.na(value) &&
+    grepl("^[0-9a-f]{64}$", value) && !identical(value, strrep("0", 64))
+  if (!digest(result$stage_plan_digest) || !digest(result$routing_digest) ||
+      !is.character(result$purpose) || length(result$purpose) != 1L ||
+      is.na(result$purpose) || !grepl("^cox-loss-staged-v1/[0-9a-f]{64}$", result$purpose) ||
+      !is.character(result$worker_input) || length(result$worker_input) != 1L ||
+      is.na(result$worker_input) || !nzchar(result$worker_input) ||
+      nchar(result$worker_input, type = "bytes") > 64 * 1024^2 ||
+      !identical(as.numeric(result$vector_len), as.numeric(length(handoff$plan$caps))) ||
+      (nzchar(routing_digest) && !identical(result$routing_digest, routing_digest))) {
+    .dsvert_dp_cox_grid_cross_fail()
+  }
+  list(operation = "cox-loss-staged-v1", purpose = result$purpose,
+    vector_len = result$vector_len, stage_plan_digest = result$stage_plan_digest,
+    routing_digest = result$routing_digest, cox_loss = result$worker_input)
+}

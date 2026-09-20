@@ -328,3 +328,47 @@ test_that("Cox source block layout covers every owner without transporting obser
     expect_true(all(vapply(blocks, function(block) block$length == 8L, logical(1))))
   }
 })
+
+# Explicit runtime overlay enables the actual CLI bridge in release proofs.
+if (nzchar(Sys.getenv("DSVERT_COX_STAGED_TEST_BINARY"))) {
+  test_that("signed Cox K2 K3 K5 handoffs cross the actual native CLI boundary", {
+    binary <- Sys.getenv("DSVERT_COX_STAGED_TEST_BINARY")
+    expect_true(file.exists(binary))
+    withr::local_options(dsvert.mpc_binary = normalizePath(binary))
+    directory <- tempfile("cox-native-owner-"); dir.create(directory, mode = "0700")
+    other_directory <- tempfile("cox-native-evaluator-"); dir.create(other_directory, mode = "0700")
+    on.exit(unlink(c(directory, other_directory), recursive = TRUE), add = TRUE)
+    for (owners in c(2L, 3L, 5L)) {
+      f <- .cox_cross_server_fixture(capacity = 4, owners = owners)
+      spec <- f$contract$spec
+      peers <- unlist(spec$participating_peers, use.names = FALSE)
+      count <- 4 * length(spec$beta_grid)
+      contributions <- setNames(rep(list(raw(16 * count)), owners), peers)
+      handoff <- .dsvert_dp_cox_cross_source_handoff(f$contract, f$policy,
+        f$schema_manifest, strrep("2", 64), contributions, raw(count), raw(128), raw(8))
+      route <- .dsvert_dp_cox_cross_private_routing(c(2, 5, 5, 1), rep(TRUE, 4), 4)
+      prepare <- function(role, routing, digest = "", value = handoff) {
+        .dsvert_dp_cox_cross_prepare_native(value, role, paste0("cox-r-native-k", owners),
+          c("a", "b"), strrep("3", 64),
+          if (role == "garbler") directory else other_directory,
+          as.raw(rep(if (role == "garbler") 7 else 8, 32)), routing, digest)
+      }
+      owner <- prepare("garbler", route)
+      evaluator <- prepare("evaluator", NULL, owner$routing_digest)
+      expect_identical(owner$stage_plan_digest, evaluator$stage_plan_digest)
+      expect_identical(owner$purpose, evaluator$purpose)
+      expect_equal(owner$vector_len, length(spec$beta_grid))
+      expect_identical(owner$operation, "cox-loss-staged-v1")
+      expect_type(owner$cox_loss, "character")
+      expect_false(identical(owner$cox_loss, evaluator$cox_loss))
+      native <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(owner$cox_loss)),
+        simplifyVector = FALSE)
+      expect_equal(unlist(native$spec$Cox$Plan$spec$caps),
+        as.numeric(unlist(handoff$plan$caps)))
+      expect_error(prepare("evaluator", route, owner$routing_digest))
+      expect_error(prepare("garbler", route, strrep("9", 64)))
+      tampered <- handoff; tampered$plan$caps[[1]] <- "1e5"
+      expect_error(prepare("garbler", route, value = tampered))
+    }
+  })
+}

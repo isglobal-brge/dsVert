@@ -8,6 +8,8 @@ columns and public f50 coefficients, sum the ordered K-owner contributions,
 construct private time order/ties and validate the opaque worker preparation.
 K2/K3/K5 actual R->native CLI handoffs pass; native spool/oracle/cold coverage
 and four rebuilt runtimes are retained in cycle14 continuation evidence.
+Final focused pod suites pass957 server/364 client assertions with zero
+failures/errors/warnings/skips;2554 source/runtime hashes reverified.
 
 These are source adapters, not a complete authenticated capsule producer.
 Still needed: exact producer normalization, authenticated source loading,

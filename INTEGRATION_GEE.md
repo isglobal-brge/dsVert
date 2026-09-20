@@ -21,6 +21,10 @@ Cox interoperability. The build driver mistakenly required nine test names;
 two names do not exist. Its exit1 is retained alongside the exact seven-test
 reviewed PASS, without rerunning or relabeling the source.
 
+Final isolated pod R proof on887d170/6ba11a0 plus this rebuilt runtime overlay
+passes957 server/364 client assertions, no failures/errors/warnings/skips;2554
+source/runtime files reverified. This is focused proof, not full paired/release.
+
 Evidence: workspace integrator-evidence/cycle14-20260920/continuation/,
 wiring-build-PASS.json and wiring-build/. No signed GEE n4 release, n2000
 capacity, or promotion has been established. Resolve the alpha scope before

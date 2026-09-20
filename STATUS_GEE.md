@@ -1,6 +1,6 @@
 # Fixed working-correlation GEE status — 2026-09-20
 
-**PENDING real release proof. Neither GEE family is promoted at this checkpoint.**
+**PENDING n2000 release proof. Neither GEE family is promoted at this checkpoint.**
 The accepted target is binomial and Poisson GEE with analyst-specified fixed
 working correlation. The pending gates below require retained evidence from
 this isolated lane; a contract change or a focused test pass does not fill them.
@@ -88,7 +88,7 @@ flags remain false; release promotion requires separate evidence.
 | Frozen pod build and focused native/R/integer-oracle tests | PASS r7: 25 native via verified reuse + 953 fresh focused R; zero failures/errors/skips/warnings | Same combined runs |
 | Explicit full transport, lease and publication regression files | PASS r7: 1,740 assertions; zero failures/errors/skips/warnings | Same combined run |
 | r6 n4 independence-rho0 real DP preflight | FAILED during first DP sampler chunk; exit 1 | NOT RUN after binomial gate failed |
-| r7 n4 independence-rho0 real DP preflight | RUNNING; no completed release | PENDING |
+| r7 n4 independence-rho0 real DP preflight | PASS: bitwise oracle, sticky/tamper/cold; 1,958.903 s, 1,331,068,356 RPC bytes | RUNNING |
 | Real n2000 epsilon8 K2 release and bitwise oracle equality | PENDING | PENDING |
 | Real n2000 epsilon8 K3 release and bitwise oracle equality | PENDING | PENDING |
 | Real n2000 epsilon8 K5 release and bitwise oracle equality | PENDING | PENDING |
@@ -412,3 +412,40 @@ three planned execution chunks and START records for indices 0 and 1 on both
 authorities. Both publication counts were zero. No record JSON, shares, seeds,
 payloads, keys or row MACs were read. This confirms advancement to the second
 sampler chunk; full release proof remains pending.
+
+## r7 binomial preflight PASS and fleet continuation — 2026-09-20
+
+The binomial n4 independence-rho0 release finished at **10:52:54 UTC**, exit 0.
+All required bitwise-oracle, sticky/tamper, cold-lifecycle and authenticated
+cold exported-API markers passed, with the frozen source unchanged. Measured
+bootstrap-through-first-publication time was **1,958.903 seconds** and serialized
+RPC traffic **1,331,068,356 bytes**; this n4 result is not n2000 capacity evidence.
+The [retained final evidence](inst/cross-grid-v2/gee-fixed-rho/evidence/r7-binomial-n4-final)
+has resources SHA256
+`9508644e066ba1aba50e83ef8f20e37b26e332a16d512a91477ce6becf448f42`
+and SHA256SUMS digest
+`13602393976cf686bb0ad09134e66fecdd4e948ca6a5f303c947440ce9ac743d`.
+The same controller launched Poisson n4 at 10:53:12 UTC; it is still running.
+
+Fresh full paired suites started at 11:02 UTC on idle fleet pods: server on
+pod11 (R PID `803805`) and client on pod16 (R PID `27156`). Both use copies of
+r7 with the unchanged source manifest and oracle hashes verified before launch.
+The transferred archive SHA256 is
+`dbd01b46d4508a4813a261bacd07080124984e59e975777b472c0421ea93da42`.
+The [Poisson contract](inst/cross-grid-v2/gee-fixed-rho/POISSON_CONTRACT.md)
+now explicitly separates the independence-rho0 promotion target from optional
+exchangeable/AR1 cells and the integrator-owned Gaussian support issue.
+Package code and shared joint-DP code are unchanged in this continuation.
+
+The detached local fleet dispatcher PID `28004` owns the pending n2000 schedule;
+its live state is
+`inst/cross-grid-v2/gee-fixed-rho/evidence/r7-fleet/dispatch-state.json`.
+After both n4 children finish successfully, it stops only the old pod4 scheduling
+parent to prevent duplicate n2000 jobs. Any paired child already started by
+that parent may finish. After both fresh paired suites pass, it launches one
+family shard per idle pod, each K3 capacity baseline, K2 recovery, then K5.
+The six releases remain gated and unlaunched at this checkpoint. Pods 5–10
+refuse connections; the other inspected reachable pods are busy and untouched.
+No optional-correlation release is needed for promotion. Both families remain
+**Promoted=No** until all required n2000, recovery, paired and capacity evidence
+passes. No push, tag, thesis edit or math-tier escalation was performed.

@@ -99,3 +99,21 @@ Review `.rds`/`.csv` results, failures, errors, skips and warnings. Promotion
 requires both paired passes and the per-family topology/recovery evidence.
 The driver emits `promoted:false`; only the reviewed promotion record may
 declare the measured scope promoted.
+
+The r7 fleet continuation uses `run-paired.py` to run the complete server suite
+on idle pod11 and complete client suite on idle pod16 against byte-verified
+copies of the same frozen pair. Its source and oracle verification runs before
+and after each suite; any warning or skip remains a review gate. New controller
+scripts live outside the frozen package trees. The dedicated remote root is
+`/workspace/dsvert/gee-fixed-rho-r7-fleet` on each pod.
+
+`continue-fleet-r7.py` is a single detached local dispatcher. Inspect
+`evidence/r7-fleet/dispatch-state.json` before any manual launch. It waits for
+both r7 n4 preflights and both fresh paired suites. Once both preflights finish,
+it stops only pod4's old scheduling parent before that parent can launch a
+duplicate n2000 campaign; an already-running paired child may finish. It then
+uses `run-fleet-shard.py` for binomial on pod11 and Poisson on pod16. Each shard
+runs K3 baseline first for uninterrupted capacity, K2 recovery, then K5 baseline,
+stopping on failure. At most one real release runs per pod, with two pods in
+parallel. No busy fleet pod is repurposed. All launches use `/dev/null` stdin.
+See [POISSON_CONTRACT.md](POISSON_CONTRACT.md) for the finalized Poisson scope.

@@ -1,0 +1,24 @@
+{
+  "recorded_utc": "2026-09-20T11:11:46.383228+00:00",
+  "records": [
+    {
+      "pod": 11,
+      "package": "dsVert",
+      "files": [
+        "launch.json",
+        "suite.log"
+      ],
+      "state": "RUNNING_PARTIAL_NOT_A_PASS"
+    },
+    {
+      "pod": 16,
+      "package": "dsVertClient",
+      "files": [
+        "launch.json",
+        "suite.log"
+      ],
+      "state": "RUNNING_PARTIAL_NOT_A_PASS"
+    }
+  ],
+  "scope": "Byte-preserving public launch/progress copies; incomplete suite output is not a pass"
+}

@@ -1,0 +1,20 @@
+{
+  "package": "dsVertClient",
+  "source_manifest_sha256": "a57e599d16f284612554484ad041f1a43f03a5149eaa040435131e8d13a9294d",
+  "source_repositories": {
+    "dsVert": "74a408fcb42b30916460c54975449f43fcde49a8",
+    "dsVertClient": "20adcc8cd237abba5aee6f58d941d7b2eebab77e"
+  },
+  "promoted": false,
+  "started_unix": 1789902120.8918803,
+  "proof_passed": false,
+  "command": [
+    "Rscript",
+    "--vanilla",
+    "/workspace/dsvert/gee-fixed-rho-r7-fleet/dsVert/inst/cross-grid-v2/cycle16/run-paired.R",
+    "/workspace/dsvert/gee-fixed-rho-r7-fleet",
+    "dsVertClient"
+  ],
+  "pid": 27156,
+  "stdin": "/dev/null"
+}

@@ -18,10 +18,10 @@
     },
     "harness_sha256": "ed366186f9b3137c0245453905f1f3125a3c9728ed7791f6bad55cf7b93a70a3",
     "source_manifest_sha256": "a57e599d16f284612554484ad041f1a43f03a5149eaa040435131e8d13a9294d",
-    "workdir": "/workspace/dsvert/gee-fixed-rho-r7",
+    "workdir": "/workspace/dsvert/gee-fixed-rho-r7-fleet",
     "promoted": false,
     "fleet_ready": false,
-    "pending": "r7 binomial n4 second DP sampler chunk started; publication, Poisson n4, paired suites and all n2000 evidence pending",
+    "pending": "Binomial n4 PASS; Poisson n4 and fresh fleet paired suites running; six n2000 releases gated",
     "real_authenticated_release_required": true,
     "cold_replay_tamper_required": true,
     "bilateral_and_unilateral_recovery_required": true,
@@ -113,6 +113,11 @@
         "errors": 0,
         "skips": 0,
         "warnings": 0
+      },
+      "n4_preflight": {
+        "status": "PASS",
+        "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/r7-binomial-n4-final/logs/gee-fixed-rho/binomial_gee-n4-k2-independence-rho0-baseline-resources.json",
+        "sha256": "9508644e066ba1aba50e83ef8f20e37b26e332a16d512a91477ce6becf448f42"
       }
     },
     "oracle_commitment": {
@@ -121,7 +126,7 @@
       "expected_oracle_sha256": "623653b980fefa7b7b42a599ffe5ee4fea52465324f55fd047e7c9383c5c500d",
       "real_authenticated_release": false
     },
-    "maximum_concurrent_jobs": 1,
+    "maximum_concurrent_jobs": 2,
     "capacity_observation": {
       "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/local/capacity-observation-20260920.md",
       "sha256": "f6ceb1ce5af77db022a5539a42abcd927a412766fd0bd89bb747267d18081596",
@@ -129,7 +134,15 @@
     },
     "harness_path": "dsVert/inst/cross-grid-v2/gee-fixed-rho/run-release.py",
     "one_real_release_per_transport": true,
-    "execution_chunk_coordinates": 16
+    "execution_chunk_coordinates": 16,
+    "execution_pool": "pod11 dedicated frozen r7 copy",
+    "one_real_release_per_pod": true,
+    "maximum_concurrent_releases_per_pod": 1,
+    "promotion_working_correlation": {
+      "correlation": "independence",
+      "rho": 0
+    },
+    "optional_correlations_required_for_promotion": false
   },
   {
     "family": "poisson_gee",
@@ -150,10 +163,10 @@
     },
     "harness_sha256": "ed366186f9b3137c0245453905f1f3125a3c9728ed7791f6bad55cf7b93a70a3",
     "source_manifest_sha256": "a57e599d16f284612554484ad041f1a43f03a5149eaa040435131e8d13a9294d",
-    "workdir": "/workspace/dsvert/gee-fixed-rho-r7",
+    "workdir": "/workspace/dsvert/gee-fixed-rho-r7-fleet",
     "promoted": false,
     "fleet_ready": false,
-    "pending": "r7 binomial n4 second DP sampler chunk started; publication, Poisson n4, paired suites and all n2000 evidence pending",
+    "pending": "Binomial n4 PASS; Poisson n4 and fresh fleet paired suites running; six n2000 releases gated",
     "real_authenticated_release_required": true,
     "cold_replay_tamper_required": true,
     "bilateral_and_unilateral_recovery_required": true,
@@ -245,6 +258,11 @@
         "errors": 0,
         "skips": 0,
         "warnings": 0
+      },
+      "n4_preflight": {
+        "status": "RUNNING",
+        "artifact": null,
+        "sha256": null
       }
     },
     "oracle_commitment": {
@@ -253,7 +271,7 @@
       "expected_oracle_sha256": "3b4cce7f7b713a1f1801e6965821753012865d3d84590b97b8023c3fff7be858",
       "real_authenticated_release": false
     },
-    "maximum_concurrent_jobs": 1,
+    "maximum_concurrent_jobs": 2,
     "capacity_observation": {
       "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/local/capacity-observation-20260920.md",
       "sha256": "f6ceb1ce5af77db022a5539a42abcd927a412766fd0bd89bb747267d18081596",
@@ -261,6 +279,14 @@
     },
     "harness_path": "dsVert/inst/cross-grid-v2/gee-fixed-rho/run-release.py",
     "one_real_release_per_transport": true,
-    "execution_chunk_coordinates": 16
+    "execution_chunk_coordinates": 16,
+    "execution_pool": "pod16 dedicated frozen r7 copy",
+    "one_real_release_per_pod": true,
+    "maximum_concurrent_releases_per_pod": 1,
+    "promotion_working_correlation": {
+      "correlation": "independence",
+      "rho": 0
+    },
+    "optional_correlations_required_for_promotion": false
   }
 ]

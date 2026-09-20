@@ -1,6 +1,6 @@
 {
   "status": "INCOMPLETE_NOT_PROMOTED",
-  "recorded_utc": "2026-09-20T10:39:52Z",
+  "recorded_utc": "2026-09-20T11:13:24.675341+00:00",
   "implementation_commits": {
     "dsVert": "902ccf46d0f9b844155ff4316ac91cac2a2ba75b",
     "dsVertClient": "6d94d4c9e15b9261a31b4499837d200ea1caea17"
@@ -36,8 +36,8 @@
     "K5": "one baseline release"
   },
   "remote_state": "SSH restored at 08:28 UTC after banner timeouts / connection resets beginning about 08:23 UTC; no pod restart or other-owner job intervention attempted",
-  "last_confirmed_smoke_state": "At10:39:52UTC both r7 binomial n4 authorities recorded3 executionchunks, STARTindices0/1, publicationcount0; detachedcontroller active. All larger release/promotion gates remain pending.",
-  "last_confirmed_paired_state": "r4 server PASS 22532 assertions, zero failures/errors/skips/warnings; r4 client still running. Fresh paired suites required for changed shared transport code.",
+  "last_confirmed_smoke_state": "r7 binomial n4 PASS at 10:52:54 UTC, bitwise/sticky/tamper/cold markers true; controller running Poisson n4.",
+  "last_confirmed_paired_state": "Fresh r7 server suite running on pod11 (R PID803805), client on pod16 (R PID27156), exact frozen source and tagged oracle verified before both launches.",
   "own_controllers": {
     "binomial_n4": 2390941,
     "poisson_n4": 2390942,
@@ -64,20 +64,21 @@
     "readiness_evidence_root": "/workspace/dsvert/gee-fixed-rho-r7",
     "native_evidence_root": "/workspace/dsvert/gee-fixed-rho-r6",
     "oracle_records": "/workspace/dsvert/gee-fixed-rho-r7/logs/oracle-commitments",
-    "maximum_concurrent_jobs": 1,
+    "maximum_concurrent_jobs": 2,
     "launched": false,
     "readiness_evidence_requirement": "Native614 identical input/runtime reuse plus fresh r7 focused R/transport regressions, both serial independence n4 preflights, verified matching oracle commitments and both full paired suites",
     "source_manifest_sha256": "a57e599d16f284612554484ad041f1a43f03a5149eaa040435131e8d13a9294d",
     "source_frozen": true,
     "readiness_gates_passed": false,
-    "oracle_commitments_ready": true
+    "oracle_commitments_ready": true,
+    "dispatch_controller_pid": 28004
   },
   "next_steps": [
-    "Read r7 continuation-state.json and inspect current gate; do not duplicate jobs or mutate frozen source.",
-    "Retain fresh r7 focused/transport and both n4 preflight results, including worker errors and OOM counters if either fails.",
-    "Fresh r7 paired suites run after both preflights, then controller runs six serial n2000 jobs if all gates pass.",
-    "Preserve r6 private stores: r7 is a fresh synthetic proof identity with attempt-bound16/16/11 geometry, not recovery or migration of r6.",
-    "Verify bitwise oracle/recovery/tamper/capacity evidence and source hashes before promotion; keep flagsfalse until all actual gates pass."
+    "Inspect local fleet dispatch-state.json before launching anything; dispatcher owns the planned transition and prevents duplicate pod4 n2000 jobs.",
+    "Poll existing r7 Poisson n4 preflight to completion; binomial n4 is PASS and retained. Do not launch another pod4 release.",
+    "Review fresh server/client fleet suites; dispatcher requires both source-bound passes without unreviewed warnings/skips.",
+    "After preflights and paired suites pass, dispatcher launches two family shards, each K3 capacity then K2 recovery then K5, one real release per pod.",
+    "Harvest terminal public logs, hashes, real bitwise/recovery/tamper/capacity evidence; promote only when all actual gates pass."
   ],
   "binomial_n4_failure": {
     "exit_code": 1,
@@ -260,7 +261,7 @@
     "controller_state_path": "/workspace/dsvert/gee-fixed-rho-r7/logs/continuation-state.json",
     "runtime_sha256": "a59e004567027fc0c09c620cf9ab8dcae0000efb4477f14672997fd800b150c6",
     "oracle_sha256": "3b6fa438856c989f97270c351e1dc0b9eec7fdfaf001ec8d892c090cf2f7d3f1",
-    "current_step": "Binomial n4 producer complete; both authorities started second of3 DP sampler chunks. Publicationcount0, no additional OOM observed. Poisson/paired/n2000 remain gated.",
+    "current_step": "Poisson n4 preflight running after successful binomial n4.",
     "n2000_jobs_launched": 0,
     "promoted": false,
     "execution_chunk_coordinates": 16,
@@ -342,6 +343,15 @@
       ],
       "published_release_count_per_authority": 0,
       "scope": "Read-only allowlisted integer geometry/chunk indices and publication count; no record_json, shares, seeds, payloads, keys or row MACs read; partial execution evidence only"
+    },
+    "binomial_n4_final": {
+      "proof_passed": true,
+      "exit_code": 0,
+      "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/r7-binomial-n4-final/logs/gee-fixed-rho/binomial_gee-n4-k2-independence-rho0-baseline-resources.json",
+      "sha256": "9508644e066ba1aba50e83ef8f20e37b26e332a16d512a91477ce6becf448f42",
+      "end_to_end_release_seconds": 1958.903,
+      "end_to_end_serialized_rpc_bytes": 1331068356,
+      "sha256sums_sha256": "13602393976cf686bb0ad09134e66fecdd4e948ca6a5f303c947440ce9ac743d"
     }
   },
   "performance_profile": {
@@ -350,5 +360,41 @@
     "scope": "Public synthetic local macOS authenticated frame microbenchmark; excludes DSI and live workers; not pod capacity evidence",
     "warmed_elapsed_seconds": 0.17775,
     "runtime_changes_from_profile": false
+  },
+  "fleet_continuation": {
+    "local_controller_pid": 28004,
+    "state_path": "inst/cross-grid-v2/gee-fixed-rho/evidence/r7-fleet/dispatch-state.json",
+    "script": "inst/cross-grid-v2/gee-fixed-rho/continue-fleet-r7.py",
+    "remote_root": "/workspace/dsvert/gee-fixed-rho-r7-fleet",
+    "source_manifest_sha256": "a57e599d16f284612554484ad041f1a43f03a5149eaa040435131e8d13a9294d",
+    "source_archive_sha256": "dbd01b46d4508a4813a261bacd07080124984e59e975777b472c0421ea93da42",
+    "pods": {
+      "11": {
+        "paired_package": "dsVert",
+        "paired_r_pid": 803805,
+        "release_family": "binomial_gee"
+      },
+      "16": {
+        "paired_package": "dsVertClient",
+        "paired_r_pid": 27156,
+        "release_family": "poisson_gee"
+      }
+    },
+    "release_order_per_family": [
+      3,
+      2,
+      5
+    ],
+    "status": "waiting_both_n4_and_both_paired",
+    "handoff": "After both n4 proofs finish, stop only pod4 scheduling parent before its serial campaign; any existing paired child may finish. No release child is interrupted.",
+    "one_real_release_per_pod": true,
+    "maximum_concurrent_jobs": 2,
+    "stdin": "/dev/null",
+    "promoted": false,
+    "paired_launch_evidence": {
+      "directory": "inst/cross-grid-v2/gee-fixed-rho/evidence/r7-fleet-launch",
+      "sha256sums_sha256": "ce3f927df8fe58bd80c2f9fb88b877276777b6a37e520c9257e325da1435957f",
+      "status": "RUNNING_PARTIAL_NOT_A_PASS"
+    }
   }
 }

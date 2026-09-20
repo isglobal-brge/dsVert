@@ -1,0 +1,12 @@
+{
+  "pid": 28004,
+  "started_unix": 1789902478.393215,
+  "stdin": "/dev/null",
+  "start_new_session": true,
+  "scripts": {
+    "continue-fleet-r7.py": "9c2f31f926d836df8d9b40bd292eb9a20073711f4541fb9beeef53545d7267a8",
+    "run-fleet-shard.py": "03c47511c3403847892215a7beefffcfeb7e4b33538f015d641d0f2cd49dd999",
+    "run-paired.py": "cd2cc2cf29c5d4ee84c4975bf0935fe4515c7047bd9f286030d51f1ce1936bf8"
+  },
+  "source_archive_sha256": "dbd01b46d4508a4813a261bacd07080124984e59e975777b472c0421ea93da42"
+}

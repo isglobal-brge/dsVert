@@ -17,6 +17,7 @@ type coxLossSourceWirePlan struct {
 	Capacity             int      `json:"capacity"`
 	GridBits             int      `json:"grid_bits"`
 	Caps                 []string `json:"caps"`
+	PresenceColumns      int      `json:"presence_columns,omitempty"`
 }
 type coxLossSourceWireOutput struct{ Share, Validity string }
 type coxLossSourceWireHandoff struct {
@@ -47,7 +48,9 @@ func coxLossPrepareWire(input coxLossPrepareWireInput) (*coxLossWorkerInput, err
 	} else if input.Role != "garbler" {
 		return nil, errCrossGridStage
 	}
-	if w.Version != "dsvert-cox-staged-source-handoff-v1" || len(w.Caps) < 1 || len(w.Caps) > 50 {
+	if (w.Version != "dsvert-cox-staged-source-handoff-v1" && w.Version != "dsvert-cox-staged-source-handoff-v2") || len(w.Caps) < 1 || len(w.Caps) > 50 ||
+		(w.Version == "dsvert-cox-staged-source-handoff-v1" && w.PresenceColumns != 0) ||
+		(w.Version == "dsvert-cox-staged-source-handoff-v2" && (w.PresenceColumns < 3 || w.PresenceColumns > 18)) {
 		return nil, errCrossGridStage
 	}
 	var digests [5][32]byte
@@ -79,6 +82,14 @@ func coxLossPrepareWire(input coxLossPrepareWireInput) (*coxLossWorkerInput, err
 			coords[j] = fmt.Sprintf("%s/%d", name, j)
 		}
 		spec.Cox.Sources[i] = crossGridStagePlan{ID: "cox.source." + name, Kind: "cox.authenticated-source", Ring: 128, FPScale: []int{100, 0}[i], CoordOrder: coords, PublicBounds: map[string]int{"capacity": w.Capacity, "padded_rows": plan.PaddedRows, "candidates": len(caps)}, SourceDigest: digests[1], ProfileDigest: contract}
+	}
+	if w.PresenceColumns != 0 {
+		spec.PresenceColumns = w.PresenceColumns
+		_, composed, err := coxLossPresencePlans(spec.Cox, w.PresenceColumns)
+		if err != nil {
+			return nil, err
+		}
+		spec.Cox.Sources[1] = composed
 	}
 	keyBytes, err := exactGCStrictBase64(input.StoreKey, 32)
 	if err != nil {

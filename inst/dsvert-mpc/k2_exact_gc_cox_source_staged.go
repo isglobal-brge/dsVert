@@ -16,6 +16,7 @@ type coxLossSourceSpec struct {
 	Authorities               [2]string
 	SchemaDigest, SemanticKey [32]byte
 	Cox                       coxLossStagedSpec
+	PresenceColumns           int `json:",omitempty"`
 }
 
 type coxLossSourceRecord struct {
@@ -44,6 +45,14 @@ func coxLossSourcePlans(s coxLossSourceSpec) ([]crossGridStagePlan, error) {
 	}
 	plans := append([]crossGridStagePlan(nil), c.Sources[:]...)
 	counts := [2]int{c.Plan.PaddedRows * c.Plan.Spec.Candidates, 2 * c.Plan.PaddedRows}
+	if s.PresenceColumns != 0 {
+		raw, composed, err := coxLossPresencePlans(c, s.PresenceColumns)
+		if err != nil || crossGridStageHash("plan", composed) != crossGridStageHash("plan", c.Sources[1]) {
+			return nil, errCrossGridStage
+		}
+		plans[1] = raw
+		counts[1] = len(raw.CoordOrder)
+	}
 	for i, p := range plans {
 		if p.Ring != 128 || p.FPScale != []int{100, 0}[i] || len(p.CoordOrder) != counts[i] || len(p.Predecessors) != 0 || p.SourceDigest != c.SourceDigest || p.ProfileDigest != c.Contract {
 			return nil, errCrossGridStage
@@ -99,6 +108,15 @@ func coxLossBuildSourceGraph(s coxLossSourceSpec, role exactGCRole, source *coxL
 			}
 			return crossGridStageClone(value), nil
 		})
+	}
+	if s.PresenceColumns != 0 {
+		plan, compute, err := coxLossCompleteCaseStage(plans[1], s.Cox.Plan.Spec.Capacity,
+			s.Cox.Plan.PaddedRows, s.PresenceColumns, role)
+		if err != nil {
+			return nil, err
+		}
+		graph.Graph.Stages = append(graph.Graph.Stages, plan)
+		graph.Compute = append(graph.Compute, compute)
 	}
 	arithmetic, err := coxLossBuildStagedGraph(s.Cox, role, side, key)
 	if err != nil {

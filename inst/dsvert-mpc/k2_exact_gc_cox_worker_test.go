@@ -144,6 +144,54 @@ func TestCoxLossWorkerSourceBindingRejectsReplacement(t *testing.T) {
 
 func TestCoxLossStagedSpoolWorkers(t *testing.T) {
 	s, sources, side, rows := coxLossSourceFixture(t)
+	coxLossTestSpoolWorkers(t, s, sources, side, rows)
+}
+
+func TestCoxCompleteCaseSpoolWorkers(t *testing.T) {
+	s, sources, side, rows := coxLossSourceFixture(t)
+	s.PresenceColumns = 3
+	_, composed, err := coxLossPresencePlans(s.Cox, s.PresenceColumns)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Cox.Sources[1] = composed
+	side, err = coxLossSealStagedRouting(s.Cox, side.Controls, side.Ends, crossGridStageTestKey(0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Cox.RoutingDigest = side.MAC
+	for role := range sources {
+		var metadata crossGridStageOutput
+		for row := 0; row < s.Cox.Plan.PaddedRows; row++ {
+			// Original live is one private presence column. The other columns
+			// are publicly present; the resulting live/event matches the oracle.
+			for c := 0; c < 4; c++ {
+				word, valid := make([]byte, 16), byte(0)
+				if role == 0 {
+					word[0], valid = 1, 1
+				}
+				if c == 0 || c == 3 {
+					lane := 2 * row
+					if c == 3 {
+						lane++
+					}
+					copy(word, sources[role].LiveEvent.Share[16*lane:16*(lane+1)])
+					valid = sources[role].LiveEvent.Validity[lane]
+				}
+				metadata.Share = append(metadata.Share, word...)
+				metadata.Validity = append(metadata.Validity, valid)
+			}
+		}
+		sources[role], err = coxLossSealSource(s, exactGCRole(role), sources[role].Predictors, metadata, crossGridStageTestKey(exactGCRole(role)))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	coxLossTestSpoolWorkers(t, s, sources, side, rows)
+}
+
+func coxLossTestSpoolWorkers(t *testing.T, s coxLossSourceSpec, sources [2]*coxLossSourceRecord, side *coxLossStagedRouting, rows []uint64) {
+	t.Helper()
 	directories := [2]string{filepath.Join(t.TempDir(), "durable"), filepath.Join(t.TempDir(), "durable")}
 	var prior [2]exactGCWorkerResult
 	for attempt := 0; attempt < 2; attempt++ {

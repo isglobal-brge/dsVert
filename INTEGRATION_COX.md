@@ -1,3 +1,38 @@
+# Cycle21: private complete-case source composition
+
+The authenticated store loader now constructs a v2 private native handoff from
+full-width additive presence words and exact f100 owner predictor contributions.
+The new durable stage privately checks presence/event words are binary, ANDs
+all predictor/time/event presence, zeros missing/padded live-event rows and
+propagates source validity. Missingness is data; malformed words invalidate the
+terminal release through the retained Cox validity gate. Neither is opened.
+The native graph requires this stage before risk-set arithmetic and the private
+Ring64-to-Ring128 bridge. The v1 internal handoff and hash domains are retained.
+Only the already-public successful alignment admission is canonically reshared.
+
+The new v2 path is provisionally bounded to N<=400 observations, following the
+latest instruction's smaller ceiling; the older signed kernel admission remains
+N<=4000/J<=50. The reviewer diagnosis says4000, while the latest request says
+400-cluster; clarification is pending. No n2000 v2 admission is claimed.
+All16 signed predictor columns are supported (18 presence columns including
+time/event). Immutable public programs are reused across identical chunks;
+private masks/OT and durable attempt domains remain fresh.
+
+Fresh native proof covers wraparound, high-bit aliases, source invalidity,
+missing/padded rows, repeated full chunks, bilateral abort with new nonces,
+unilateral COMMIT/PREPARE with preserved shares, cold replay and native spool
+workers equal to the independent Cox oracle. Focused actual R/native CLI proof:
+20 tests/1349 assertions PASS, no failures/errors/warnings/skips. The initial
+wrapped-base64 fixture failure is retained; the fixture now uses canonical
+base64, as the production adapter already does. Four runtimes rebuilt.
+Evidence: integrator-evidence/cycle21-20260920/ in the integration workspace.
+
+Producer persistence/source registration, signed R/DP release orchestration and
+authenticated public reader remain incomplete. This is a private source-stage
+proof, not a signed DP release, capacity measurement or promotion. GEE untouched.
+
+---
+
 # Cycle18: authenticated owner-local source input materialization
 
 The internal source adapter now verifies the signed Cox source context and

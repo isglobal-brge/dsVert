@@ -376,6 +376,19 @@ if (nzchar(Sys.getenv("DSVERT_COX_STAGED_TEST_BINARY"))) {
       expect_error(prepare("garbler", route, strrep("9", 64)))
       tampered <- handoff; tampered$plan$caps[[1]] <- "1e5"
       expect_error(prepare("garbler", route, value = tampered))
+      composed <- handoff
+      composed$plan$version <- "dsvert-cox-staged-source-handoff-v2"
+      composed$plan$presence_columns <- length(spec$predictors) + 2L
+      size <- 4 * (composed$plan$presence_columns + 1L)
+      composed$live_event <- list(Share = gsub("[\r\n]", "", jsonlite::base64_enc(raw(16 * size))),
+        Validity = gsub("[\r\n]", "", jsonlite::base64_enc(raw(size))))
+      owner_v2 <- prepare("garbler", route, value = composed)
+      peer_v2 <- prepare("evaluator", NULL, owner_v2$routing_digest, composed)
+      expect_identical(owner_v2$stage_plan_digest, peer_v2$stage_plan_digest)
+      expect_false(identical(owner_v2$stage_plan_digest, owner$stage_plan_digest))
+      native_v2 <- jsonlite::fromJSON(rawToChar(jsonlite::base64_dec(owner_v2$cox_loss)),
+        simplifyVector = FALSE)
+      expect_equal(native_v2$spec$PresenceColumns, composed$plan$presence_columns)
     }
   })
 }
@@ -721,6 +734,25 @@ test_that("Cox input loader verifies actual store MACs and all-owner completion"
   expected <- list(context = .dsvert_dp_cox_cross_source_context(f$policy,
     manifest, transport, f$schema_manifest, "cox_grid"), values = values, validities = validities)
   expect_identical(load(), expected)
+  handoff <- .dsvert_dp_cox_cross_load_handoff(f$policy, f$secret, manifest,
+    transport, f$schema_manifest, f$ss, "cox_grid")
+  expect_identical(handoff$plan$version, "dsvert-cox-staged-source-handoff-v2")
+  expect_equal(handoff$plan$presence_columns, length(validities))
+  packed <- jsonlite::base64_dec(handoff$live_event$Share)
+  blocks <- c(validities, list(values[[f$contract$spec$event$reference]]))
+  for (row in seq_len(f$contract$spec$padded_capacity)) {
+    for (column in seq_along(blocks)) {
+      offset <- ((row - 1) * length(blocks) + column - 1) * 16
+      expect_identical(packed[offset + seq_len(16)],
+        blocks[[column]][(row - 1) * 16 + seq_len(16)])
+    }
+  }
+  expect_identical(jsonlite::base64_dec(handoff$live_event$Validity),
+    as.raw(rep(1, f$contract$spec$padded_capacity * length(blocks))))
+  batch$status <- "pending"
+  expect_error(.dsvert_dp_cox_cross_load_handoff(f$policy, f$secret, manifest,
+    transport, f$schema_manifest, f$ss, "cox_grid"))
+  batch$status <- "complete"
   # Keep the authenticated peer names and alignment digest unchanged while
   # substituting another owner's real key. Both transport roles must reject.
   f$ss$.exact_gc_peer_identity_pks$site_b <- unname(f$policy$peer_pinset[["site_c"]])

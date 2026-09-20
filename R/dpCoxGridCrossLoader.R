@@ -166,3 +166,41 @@
   # or ready-made live/event lanes; the private complete-case stage consumes them.
   list(context = context, values = loaded$values, validities = loaded$validities)
 }
+
+# Private loader-to-native adapter. The completed alignment bit is public TRUE;
+# row presence stays additive and is conjoined only in the native durable stage.
+.dsvert_dp_cox_cross_load_handoff <- function(policy, secret, manifest,
+    source_contract, schema_manifest, ss, analysis_id) {
+  input <- .dsvert_dp_cox_cross_load_inputs(policy, secret, manifest,
+    source_contract, schema_manifest, ss, analysis_id)
+  context <- input$context
+  spec <- context$spec
+  rows <- spec$padded_capacity
+  predictors <- unlist(spec$predictor_order, use.names = FALSE)
+  owners <- unlist(spec$participating_peers, use.names = FALSE)
+  dots <- raw(16 * rows * length(spec$beta_grid))
+  for (owner in owners) {
+    owned <- predictors[vapply(spec$predictors[predictors], function(x)
+      identical(x$owner_peer, owner), logical(1L))]
+    dots <- .dsvert_dp_capsule_source_add_ring128(dots,
+      .dsvert_dp_cox_cross_owner_predictors(context$contract, policy,
+        schema_manifest, owner, if (length(owned)) input$values[owned] else list()))
+  }
+  # Source alignment already checked the time owner against the live garbler.
+  validity <- as.raw(as.integer(identical(policy$peer_name, spec$time$owner_peer)))
+  encode <- function(value) gsub("[\r\n]", "", jsonlite::base64_enc(value))
+  blocks <- c(input$validities, list(input$values[[spec$event$reference]]))
+  bytes <- do.call(c, blocks)
+  index <- unlist(lapply(seq_len(rows), function(row)
+    unlist(lapply(seq_along(blocks), function(column)
+      (column - 1L) * 16 * rows + (row - 1L) * 16 + seq_len(16L)),
+      use.names = FALSE)), use.names = FALSE)
+  plan <- .dsvert_dp_cox_cross_source_plan(context$contract, context$source_hash)
+  plan$version <- "dsvert-cox-staged-source-handoff-v2"
+  plan$presence_columns <- length(input$validities)
+  list(plan = plan,
+    predictors = list(Share = encode(dots),
+      Validity = encode(rep(validity, rows * length(spec$beta_grid)))),
+    live_event = list(Share = encode(bytes[index]),
+      Validity = encode(rep(validity, rows * length(blocks)))))
+}

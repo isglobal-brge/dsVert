@@ -72,4 +72,38 @@ func TestCoxLossExactSourceWire(t *testing.T) {
 			}
 		})
 	}
+	t.Run("private-complete-case-v2", func(t *testing.T) {
+		v2 := input
+		v2.Handoff.Plan.Version = "dsvert-cox-staged-source-handoff-v2"
+		v2.Handoff.Plan.PresenceColumns = 4
+		v2.Handoff.LiveEvent = coxLossSourceWireOutput{base64.StdEncoding.EncodeToString(make([]byte, 16*4*5)), base64.StdEncoding.EncodeToString(make([]byte, 4*5))}
+		owner, err := coxLossPrepareWire(v2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		graph, err := coxLossBuildSourceGraph(owner.Spec, 0, owner.Source, owner.Routing, key)
+		if err != nil || len(graph.Graph.Stages) != 4 {
+			t.Fatal("complete-case graph missing", err)
+		}
+		if graph.Graph.Stages[2].Kind != "cox.private-complete-case" || graph.Graph.Stages[3].Predecessors[1] != graph.Graph.Stages[2].ID {
+			t.Fatal("Cox arithmetic bypassed private composition")
+		}
+		v2.Role, v2.Routing, v2.RoutingDigest = "evaluator", nil, hex.EncodeToString(owner.Spec.Cox.RoutingDigest[:])
+		peer, err := coxLossPrepareWire(v2)
+		if err != nil || !reflect.DeepEqual(owner.Spec, peer.Spec) {
+			t.Fatal("v2 public graph disagreement", err)
+		}
+		if coxLossWorkerPurpose(owner.Spec) == coxLossWorkerPurpose(worker.Spec) {
+			t.Fatal("v2 reused v1 purpose")
+		}
+		bad := owner.Spec
+		bad.PresenceColumns++
+		if _, err := coxLossBuildSourceGraph(bad, 0, owner.Source, owner.Routing, key); err == nil {
+			t.Fatal("presence shape substitution")
+		}
+		v2.Handoff.Plan.Version = "dsvert-cox-staged-source-handoff-v1"
+		if _, err := coxLossPrepareWire(v2); err == nil {
+			t.Fatal("v2 metadata accepted as v1 live/event")
+		}
+	})
 }

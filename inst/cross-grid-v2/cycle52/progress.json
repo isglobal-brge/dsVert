@@ -1,0 +1,15 @@
+{
+  "cycle": 52,
+  "observed_utc": "2026-09-20T17:49:03.410967+00:00",
+  "promoted_count": 4,
+  "fleet_terminal": 4,
+  "fleet_pass": 3,
+  "fleet_fail": 1,
+  "fleet_nonterminal": 12,
+  "cox_dedicated_nonterminal": 4,
+  "gee_dedicated_nonterminal": 8,
+  "capacity_promotion_gate": false,
+  "frozen_runs_restarted": 0,
+  "runtime_changes": false,
+  "manifest_changed": false
+}

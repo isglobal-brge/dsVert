@@ -1,0 +1,11 @@
+{
+  "pid": 2728246,
+  "stdin": "/dev/null",
+  "started_unix": 1789895964.34749,
+  "controller_sha256": "736a8f05d642234c71341bd5b342c10b333c400d16320123e2935d62fd320094",
+  "source_archive_sha256": "58a0a6471e98ba256494157c7798b7d9001b2f180cc55bea721e924d64e61937",
+  "repositories": {
+    "dsVert": "9b6c1a18de6b1b68a1ef6832991ece1ea680eb9a",
+    "dsVertClient": "6d94d4c9e15b9261a31b4499837d200ea1caea17"
+  }
+}

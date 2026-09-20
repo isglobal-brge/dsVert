@@ -1,0 +1,19 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-crossgrid-gee-public-admission.R","crossgrid-gee-public-admission","GEE public admission binds fixed correlation and rejects legacy and LMM swaps",78,0,FALSE,FALSE,0,9.198,1.181,14.592,78
+"test-crossgrid-gee-public-admission.R","crossgrid-gee-public-admission","ordinary local GEE materialization leaves its release block zero for every source owner",30,0,FALSE,FALSE,0,1.555,0.158,2.342,30
+"test-dp-synopsis-exact-gc.R","dp-synopsis-exact-gc","the remote exact-GC START response exposes only public liveness",6,0,FALSE,FALSE,0,0.020999999999999,0.00100000000000011,0.0219999999999985,6
+"test-dp-synopsis-exact-gc.R","dp-synopsis-exact-gc","synopsis exact-GC adds only dedicated internal adapters",5,0,FALSE,FALSE,0,0.00300000000000011,0.00099999999999989,0.00400000000000134,5
+"test-dp-synopsis-exact-gc.R","dp-synopsis-exact-gc","synopsis execution migrates authenticated v2 stores to v3",2,0,FALSE,FALSE,0,3.263,0.0730000000000002,3.336,2
+"test-dp-synopsis-exact-gc.R","dp-synopsis-exact-gc","pinned exact-GC roles and operation are authority-only for K=2/3/5",71,0,FALSE,FALSE,0,9.796,0.651,10.448,71
+"test-dp-synopsis-exact-gc.R","dp-synopsis-exact-gc","exact-GC normalizes the local Ed25519 public-key encoding",5,0,FALSE,FALSE,0,2.594,0.148,2.744,5
+"test-dp-synopsis-exact-gc.R","dp-synopsis-exact-gc","exact-GC accepts canonical list-shaped Synopsis authority roles",5,0,FALSE,FALSE,0,2.543,0.202,2.747,5
+"test-dp-synopsis-exact-gc.R","dp-synopsis-exact-gc","productive exact-GC worker preserves its signed plan shape",4,0,FALSE,FALSE,0,2.628,0.171,2.838,4
+"test-dp-synopsis-exact-gc.R","dp-synopsis-exact-gc","exact-GC START initializes after CAS and never writes LOCAL",36,0,FALSE,FALSE,0,5.204,0.358,5.567,36
+"test-dp-synopsis-exact-gc.R","dp-synopsis-exact-gc","exact-GC RESULT commits authenticated LOCAL before consume",20,0,FALSE,FALSE,0,3.496,0.212,3.709,20
+"test-dp-synopsis-execution.R","dp-synopsis-execution","the dedicated synopsis execution API is explicit and minimal",7,0,FALSE,FALSE,0,0.00500000000000256,0,0.00500000000000256,7
+"test-dp-synopsis-execution.R","dp-synopsis-execution","execution context authenticates one manifest record per request",2,0,FALSE,FALSE,0,1.495,0.0840000000000001,1.57899999999999,2
+"test-dp-synopsis-execution.R","dp-synopsis-execution","PREPARE is authority-only for K=2/3/5 and signs a closed receipt",27,0,FALSE,FALSE,0,9.453,0.661,10.118,27
+"test-dp-synopsis-execution.R","dp-synopsis-execution","PREPARE reads installed auth but no evidence, source, store or RNG",5,0,FALSE,FALSE,0,3.151,0.209,3.361,5
+"test-dp-synopsis-execution.R","dp-synopsis-execution","sticky contract survives sessions and operational replanning",8,0,FALSE,FALSE,0,15.437,1.515,20.369,8
+"test-dp-synopsis-execution.R","dp-synopsis-execution","the two signed PREPARE records form one closed authority set",5,0,FALSE,FALSE,0,14.026,1.594,21.893,5
+"test-dp-synopsis-execution.R","dp-synopsis-execution","the dedicated START claim is first-win and attempt-bound",8,0,FALSE,FALSE,0,5.684,0.628,7.54299999999999,8

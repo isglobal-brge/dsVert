@@ -52,6 +52,14 @@ transport caps or acceptance gates. The r4 binomial sampler failure coincided
 with container memory pressure, but its cause was not recovered. Serial
 scheduling is a resource mitigation, not evidence that OOM caused that failure.
 
+Authenticated staged fixed-rho GEE uses a deterministic sampler execution
+width of at most 16 coordinates, additionally bounded by the certified physical
+plan. The 43-coordinate proof cell therefore uses 16/16/11. The complete-vector
+privacy plan, sensitivity and coordinate caps are unchanged. Geometry is bound
+into PREPARE and the noise transcript: do not rechunk an existing release or
+migrate its private state. A changed implementation is tested under a fresh
+synthetic proof identity; recovery retains that identity and geometry.
+
 All jobs require an actual exported-API DP release, exact integer-oracle
 equality, identical sticky replay, rejected signed-contract tampering,
 authenticated cold lifecycle rejection tests and cold exported-API equality.

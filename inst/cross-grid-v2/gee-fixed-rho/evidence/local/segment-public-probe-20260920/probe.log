@@ -1,0 +1,5 @@
+ segments elapsed_seconds user_seconds system_seconds
+        1         0.00500      0.00500        0.00000
+      100         0.01150      0.01125        0.00100
+      800         0.10825      0.09750        0.00825
+PUBLIC_SEGMENT_SCAN_RESULTS /tmp/gee-segment-scan.gUNvvL/results.json 

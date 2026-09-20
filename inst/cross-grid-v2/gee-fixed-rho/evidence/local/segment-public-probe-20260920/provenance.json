@@ -1,0 +1,13 @@
+{
+  "scope": "Local public sparse segment-directory enumeration only; not pod4 or release evidence",
+  "process_exit_code": 0,
+  "system": "Darwin",
+  "release": "24.4.0",
+  "machine": "arm64",
+  "retained_utc": "2026-09-20T09:36:33.445569+00:00",
+  "original_directory": "/tmp/gee-segment-scan.gUNvvL",
+  "authenticated_release": false,
+  "protected_data": false,
+  "dp_noise": false,
+  "fixture_removed": true
+}

@@ -1,0 +1,22 @@
+dp-synopsis-exact-downstream: 12.............................................................................................................................................
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Failure ('test-dp-synopsis-exact-downstream.R:152:5'): fixed-rho GEE sched
+Expected `context$attempt$value$execution_geometry` to equal `list(chunk_coordinates = 16L, chunk_count = 3L)`.
+Differences:
+Component “chunk_coordinates”: Mean relative difference: 0.5555556
+Component “chunk_count”: Mean relative difference: 0.5
+
+── 2. Error ('test-dp-synopsis-exact-downstream.R:154:27'): fixed-rho GEE schedu
+Error: Invalid joint-DP vector synopsis execution chunk index.
+Backtrace:
+    ▆
+ 1. └─base::lapply(...) at test-dp-synopsis-exact-downstream.R:154:5
+ 2.   └─dsVert (local) FUN(X[[i]], ...)
+ 3.     └─dsVert:::.dsvert_dp_synopsis_execution_chunk_v1(context, index) at test-dp-synopsis-exact-downstream.R:154:27
+ 4.       └─dsVert:::.dsvert_joint_dp_vector_index(...) at dsVert/R/dpSynopsisExecutionDS.R:811:3
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+Error:
+! Test failures.
+Execution halted

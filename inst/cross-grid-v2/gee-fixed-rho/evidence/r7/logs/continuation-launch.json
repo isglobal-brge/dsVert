@@ -1,0 +1,13 @@
+{
+  "pid": 2957748,
+  "started_unix": 1789899010.1178265,
+  "started_utc": "2026-09-20T10:10:10Z",
+  "stdin": "/dev/null",
+  "source_archive_sha256": "453d03331d903286810c3f1dc3a56a93c5c4f262250ad2578c7c4120c6159001",
+  "controller_sha256": "beb9afcce8d4f26f08abd1b7fcbb5a571a4bb3b384624c30906543f65689efc8",
+  "repositories": {
+    "dsVert": "74a408fcb42b30916460c54975449f43fcde49a8",
+    "dsVertClient": "20adcc8cd237abba5aee6f58d941d7b2eebab77e"
+  },
+  "archive_from_committed_git_objects": true
+}

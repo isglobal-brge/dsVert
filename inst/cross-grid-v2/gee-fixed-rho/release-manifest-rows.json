@@ -13,15 +13,15 @@
       "dsVertClient": "4c6c5622fbdc2ae97de315f18c18901d452f3c09"
     },
     "source_commits": {
-      "dsVert": "a3964d39c26909d8f805f64cbfe2ad3a81b138b5",
-      "dsVertClient": "6d94d4c9e15b9261a31b4499837d200ea1caea17"
+      "dsVert": "74a408fcb42b30916460c54975449f43fcde49a8",
+      "dsVertClient": "20adcc8cd237abba5aee6f58d941d7b2eebab77e"
     },
-    "harness_sha256": "ae277c438f4b4a0381524f4e09b248236752f6ce7e17e5a42da7698325ec9ccb",
-    "source_manifest_sha256": "f6f7e9543975ffd0de441fce2c4259088f7446040fdfc1f9216cea7795cae6d0",
-    "workdir": "/workspace/dsvert/gee-fixed-rho-r5",
+    "harness_sha256": "ed366186f9b3137c0245453905f1f3125a3c9728ed7791f6bad55cf7b93a70a3",
+    "source_manifest_sha256": "a57e599d16f284612554484ad041f1a43f03a5149eaa040435131e8d13a9294d",
+    "workdir": "/workspace/dsvert/gee-fixed-rho-r7",
     "promoted": false,
     "fleet_ready": false,
-    "pending": "r5 continuation running; successful serial signed smokes and real topology/recovery/tamper/paired/capacity proof pending",
+    "pending": "r7 binomial independence n4 preflight running; Poisson n4, paired and all n2000 release/recovery/tamper/capacity evidence pending",
     "real_authenticated_release_required": true,
     "cold_replay_tamper_required": true,
     "bilateral_and_unilateral_recovery_required": true,
@@ -30,8 +30,8 @@
     "capacity_seconds": 21600,
     "working_correlation": {
       "mode": "fixed_analyst_specified",
-      "correlation": "exchangeable",
-      "rho": 0.25,
+      "correlation": "independence",
+      "rho": 0,
       "score_clip": 1,
       "composition": "staged_fixed_rho_v1"
     },
@@ -57,29 +57,29 @@
     "required_evidence": {
       "focused": {
         "status": "PASS",
-        "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/focused-proof.json",
-        "sha256": "31038750daf4b189d3ce2501efd4b16e349b49a3d2889c9d47d5278d373592be"
+        "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/r7/focused-proof.json",
+        "sha256": "4723ff7d9ffbb58b0823262b5b4d4db2b6dedd033f41360c4eaf8418ecb348cd"
       },
       "K2": {
         "status": "PENDING",
         "artifact": null,
         "sha256": null,
         "K": 2,
-        "expected_oracle_sha256": "6226c79ddfccb4068a41e91056f13a5bf1c24753e9a0581c716d0d108f6e6feb"
+        "expected_oracle_sha256": "623653b980fefa7b7b42a599ffe5ee4fea52465324f55fd047e7c9383c5c500d"
       },
       "K3": {
         "status": "PENDING",
         "artifact": null,
         "sha256": null,
         "K": 3,
-        "expected_oracle_sha256": "6226c79ddfccb4068a41e91056f13a5bf1c24753e9a0581c716d0d108f6e6feb"
+        "expected_oracle_sha256": "623653b980fefa7b7b42a599ffe5ee4fea52465324f55fd047e7c9383c5c500d"
       },
       "K5": {
         "status": "PENDING",
         "artifact": null,
         "sha256": null,
         "K": 5,
-        "expected_oracle_sha256": "6226c79ddfccb4068a41e91056f13a5bf1c24753e9a0581c716d0d108f6e6feb"
+        "expected_oracle_sha256": "623653b980fefa7b7b42a599ffe5ee4fea52465324f55fd047e7c9383c5c500d"
       },
       "recovery": {
         "status": "PENDING",
@@ -103,12 +103,22 @@
         "sha256": null,
         "measured_serialized_rpc_bytes": null,
         "measured_release_seconds": null
+      },
+      "transport_regressions": {
+        "status": "PASS",
+        "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/r7/logs/transport-regressions.csv",
+        "sha256": "261522b52bc29be3ec81c2ebfab4301ca25ab317974d69f4aec868213a5fe034",
+        "assertions": 1740,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "warnings": 0
       }
     },
     "oracle_commitment": {
       "artifact": "inst/cross-grid-v2/gee-fixed-rho/oracle-commitments/binomial_gee-n2000.json",
-      "sha256": "293414f31e23aba4f4551569228f1680cac70e4b344b111ef94c2b0f9a6d48ac",
-      "expected_oracle_sha256": "6226c79ddfccb4068a41e91056f13a5bf1c24753e9a0581c716d0d108f6e6feb",
+      "sha256": "5e3f983d6166c492772e30766611598b462c94061731012f61f4b171eb55e6fc",
+      "expected_oracle_sha256": "623653b980fefa7b7b42a599ffe5ee4fea52465324f55fd047e7c9383c5c500d",
       "real_authenticated_release": false
     },
     "maximum_concurrent_jobs": 1,
@@ -116,7 +126,10 @@
       "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/local/capacity-observation-20260920.md",
       "sha256": "f6ceb1ce5af77db022a5539a42abcd927a412766fd0bd89bb747267d18081596",
       "measured_n2000_capacity": false
-    }
+    },
+    "harness_path": "dsVert/inst/cross-grid-v2/gee-fixed-rho/run-release.py",
+    "one_real_release_per_transport": true,
+    "execution_chunk_coordinates": 16
   },
   {
     "family": "poisson_gee",
@@ -132,15 +145,15 @@
       "dsVertClient": "4c6c5622fbdc2ae97de315f18c18901d452f3c09"
     },
     "source_commits": {
-      "dsVert": "a3964d39c26909d8f805f64cbfe2ad3a81b138b5",
-      "dsVertClient": "6d94d4c9e15b9261a31b4499837d200ea1caea17"
+      "dsVert": "74a408fcb42b30916460c54975449f43fcde49a8",
+      "dsVertClient": "20adcc8cd237abba5aee6f58d941d7b2eebab77e"
     },
-    "harness_sha256": "ae277c438f4b4a0381524f4e09b248236752f6ce7e17e5a42da7698325ec9ccb",
-    "source_manifest_sha256": "f6f7e9543975ffd0de441fce2c4259088f7446040fdfc1f9216cea7795cae6d0",
-    "workdir": "/workspace/dsvert/gee-fixed-rho-r5",
+    "harness_sha256": "ed366186f9b3137c0245453905f1f3125a3c9728ed7791f6bad55cf7b93a70a3",
+    "source_manifest_sha256": "a57e599d16f284612554484ad041f1a43f03a5149eaa040435131e8d13a9294d",
+    "workdir": "/workspace/dsvert/gee-fixed-rho-r7",
     "promoted": false,
     "fleet_ready": false,
-    "pending": "r5 continuation running; successful serial signed smokes and real topology/recovery/tamper/paired/capacity proof pending",
+    "pending": "r7 binomial independence n4 preflight running; Poisson n4, paired and all n2000 release/recovery/tamper/capacity evidence pending",
     "real_authenticated_release_required": true,
     "cold_replay_tamper_required": true,
     "bilateral_and_unilateral_recovery_required": true,
@@ -149,8 +162,8 @@
     "capacity_seconds": 21600,
     "working_correlation": {
       "mode": "fixed_analyst_specified",
-      "correlation": "exchangeable",
-      "rho": 0.25,
+      "correlation": "independence",
+      "rho": 0,
       "score_clip": 1,
       "composition": "staged_fixed_rho_v1"
     },
@@ -176,29 +189,29 @@
     "required_evidence": {
       "focused": {
         "status": "PASS",
-        "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/focused-proof.json",
-        "sha256": "31038750daf4b189d3ce2501efd4b16e349b49a3d2889c9d47d5278d373592be"
+        "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/r7/focused-proof.json",
+        "sha256": "4723ff7d9ffbb58b0823262b5b4d4db2b6dedd033f41360c4eaf8418ecb348cd"
       },
       "K2": {
         "status": "PENDING",
         "artifact": null,
         "sha256": null,
         "K": 2,
-        "expected_oracle_sha256": "b245f22eaced4faa21b2c2e05ac13f4d3ff5f05616f5b72a4744a91879ec2821"
+        "expected_oracle_sha256": "3b4cce7f7b713a1f1801e6965821753012865d3d84590b97b8023c3fff7be858"
       },
       "K3": {
         "status": "PENDING",
         "artifact": null,
         "sha256": null,
         "K": 3,
-        "expected_oracle_sha256": "b245f22eaced4faa21b2c2e05ac13f4d3ff5f05616f5b72a4744a91879ec2821"
+        "expected_oracle_sha256": "3b4cce7f7b713a1f1801e6965821753012865d3d84590b97b8023c3fff7be858"
       },
       "K5": {
         "status": "PENDING",
         "artifact": null,
         "sha256": null,
         "K": 5,
-        "expected_oracle_sha256": "b245f22eaced4faa21b2c2e05ac13f4d3ff5f05616f5b72a4744a91879ec2821"
+        "expected_oracle_sha256": "3b4cce7f7b713a1f1801e6965821753012865d3d84590b97b8023c3fff7be858"
       },
       "recovery": {
         "status": "PENDING",
@@ -222,12 +235,22 @@
         "sha256": null,
         "measured_serialized_rpc_bytes": null,
         "measured_release_seconds": null
+      },
+      "transport_regressions": {
+        "status": "PASS",
+        "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/r7/logs/transport-regressions.csv",
+        "sha256": "261522b52bc29be3ec81c2ebfab4301ca25ab317974d69f4aec868213a5fe034",
+        "assertions": 1740,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "warnings": 0
       }
     },
     "oracle_commitment": {
       "artifact": "inst/cross-grid-v2/gee-fixed-rho/oracle-commitments/poisson_gee-n2000.json",
-      "sha256": "3afa265fe906f19b2ced8ec87872ee40c435c866b1b2fb62b71f7a11adf00318",
-      "expected_oracle_sha256": "b245f22eaced4faa21b2c2e05ac13f4d3ff5f05616f5b72a4744a91879ec2821",
+      "sha256": "b1de1e4862fc3f514afe262122eef4e6a255168e5d0e1ba0fcf44de2bd0bd939",
+      "expected_oracle_sha256": "3b4cce7f7b713a1f1801e6965821753012865d3d84590b97b8023c3fff7be858",
       "real_authenticated_release": false
     },
     "maximum_concurrent_jobs": 1,
@@ -235,6 +258,9 @@
       "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/local/capacity-observation-20260920.md",
       "sha256": "f6ceb1ce5af77db022a5539a42abcd927a412766fd0bd89bb747267d18081596",
       "measured_n2000_capacity": false
-    }
+    },
+    "harness_path": "dsVert/inst/cross-grid-v2/gee-fixed-rho/run-release.py",
+    "one_real_release_per_transport": true,
+    "execution_chunk_coordinates": 16
   }
 ]

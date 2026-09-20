@@ -1,0 +1,14 @@
+{
+  "1": {
+    "logical_bytes": 1048576,
+    "allocated_bytes": 1048576
+  },
+  "100": {
+    "logical_bytes": 104857600,
+    "allocated_bytes": 104857600
+  },
+  "800": {
+    "logical_bytes": 838860800,
+    "allocated_bytes": 838860800
+  }
+}

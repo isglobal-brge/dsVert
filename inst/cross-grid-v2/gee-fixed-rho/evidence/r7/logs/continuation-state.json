@@ -1,0 +1,106 @@
+{
+  "status": "running_binomial_gee-n4",
+  "promoted": false,
+  "started_unix": 1789899010.179583,
+  "steps": [
+    {
+      "name": "runtime-build",
+      "command": [
+        "make",
+        "all"
+      ],
+      "started_unix": 1789899010.179602,
+      "pid": 2957760,
+      "stdin": "/dev/null",
+      "exit_code": 0,
+      "finished_unix": 1789899021.81053
+    },
+    {
+      "name": "oracle-build",
+      "command": [
+        "go",
+        "test",
+        "-c",
+        "-tags",
+        "grouped_reference_test,dsvert_family_reference",
+        "-o",
+        "/workspace/dsvert/gee-fixed-rho-r7/logs/structured-oracle.test",
+        "."
+      ],
+      "started_unix": 1789899021.8239527,
+      "pid": 2958609,
+      "stdin": "/dev/null",
+      "exit_code": 0,
+      "finished_unix": 1789899052.7951458
+    },
+    {
+      "name": "gee-r-focused",
+      "command": [
+        "Rscript",
+        "--vanilla",
+        "/workspace/dsvert/gee-fixed-rho-r7/dsVert/inst/cross-grid-v2/gee-fixed-rho/run-focused.R",
+        "/workspace/dsvert/gee-fixed-rho-r7"
+      ],
+      "started_unix": 1789899072.3464968,
+      "pid": 2962259,
+      "stdin": "/dev/null",
+      "exit_code": 0,
+      "finished_unix": 1789899193.361678
+    },
+    {
+      "name": "transport-regressions",
+      "command": [
+        "Rscript",
+        "--vanilla",
+        "-e",
+        "pkgload::load_all(\"dsVertClient\",quiet=TRUE); r<-testthat::test_local(\"dsVert\",filter=\"^(dp-synopsis-exact-downstream|exact-gc-release-policy|exact-gc-transport)$\",reporter=\"summary\",stop_on_failure=FALSE); s<-as.data.frame(r); write.csv(s[setdiff(names(s),\"result\")],\"logs/transport-regressions.csv\",row.names=FALSE); stopifnot(nrow(s)>0,!anyNA(s[c(\"failed\",\"error\")]),!any(s$failed>0|s$error)); cat(\"GEE_TRANSPORT_REGRESSIONS_PASS\",sum(s$passed),\"assertions\",sum(s$skipped),\"skips\",sum(s$warning),\"warnings\\n\")"
+      ],
+      "started_unix": 1789899202.3730838,
+      "pid": 2973686,
+      "stdin": "/dev/null",
+      "exit_code": 0,
+      "finished_unix": 1789899426.1055026
+    },
+    {
+      "name": "binomial_gee-n4",
+      "command": [
+        "python3",
+        "/workspace/dsvert/gee-fixed-rho-r7/dsVert/inst/cross-grid-v2/gee-fixed-rho/run-release.py",
+        "binomial_gee",
+        "2",
+        "--n",
+        "4",
+        "--expected-oracle-sha256",
+        "932f139f647c72939a197bac7283475f86d0bb51115f1347ec6aa33cc239103b"
+      ],
+      "started_unix": 1789899435.7829075,
+      "pid": 2995126,
+      "stdin": "/dev/null"
+    }
+  ],
+  "working_correlation": {
+    "correlation": "independence",
+    "rho": 0
+  },
+  "maximum_concurrent_releases": 1,
+  "sampler_execution_coordinates": 16,
+  "fresh_synthetic_proof_identity": true,
+  "prior_identity_migrated": false,
+  "updated_unix": 1789899435.7849677,
+  "source_manifest_sha256": "a57e599d16f284612554484ad041f1a43f03a5149eaa040435131e8d13a9294d",
+  "repositories": {
+    "dsVert": "74a408fcb42b30916460c54975449f43fcde49a8",
+    "dsVertClient": "20adcc8cd237abba5aee6f58d941d7b2eebab77e"
+  },
+  "native_reuse": {
+    "snapshot": "/workspace/dsvert/gee-fixed-rho-r6",
+    "manifest_sha256": "d41a66b168b424e78da3134eb14462e24cb4b5454981ec8c20f18b852500201c",
+    "matching_source_files": 614,
+    "native_test_log_sha256": "bed1e242d84b00803eebf94d25beae26a1e967a35e3fae744c6684575785a961",
+    "native_test_exit_code": 0,
+    "runtime_sha256": "a59e004567027fc0c09c620cf9ab8dcae0000efb4477f14672997fd800b150c6",
+    "oracle_sha256": "3b6fa438856c989f97270c351e1dc0b9eec7fdfaf001ec8d892c090cf2f7d3f1",
+    "prior_oracle_sha256": "1deee926d09fb3caf0022a41821533040cce9c6b29ccb9bd9afde557ebc4a900",
+    "oracle_rebuilt_from_identical_native_inputs": true
+  }
+}

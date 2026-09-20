@@ -1,0 +1,8 @@
+{
+  "pid": 2610081,
+  "action": "cancelled_obsolete_waiting_controller_before_any_release_launch",
+  "previous_status": "waiting_for_paired-driver.exit",
+  "unix": 1789895453.8335621,
+  "reason": "Resume uses fresh independence rho0 snapshot and serial releases",
+  "n2000_jobs_launched": 0
+}

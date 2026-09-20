@@ -1,0 +1,23 @@
+{"status": "running_build-focused", "unix": 1789895964.4258583}
+{"status": "finished_build-focused", "unix": 1789896515.0474474}
+{"status": "running_transport-regressions", "unix": 1789896524.238783}
+{"status": "finished_transport-regressions", "unix": 1789896763.710481}
+{"status": "running_binomial_gee-oracle-n4", "unix": 1789896768.6721356}
+{"status": "finished_binomial_gee-oracle-n4", "unix": 1789896794.9907265}
+{"status": "running_poisson_gee-oracle-n4", "unix": 1789896799.7568696}
+{"status": "finished_poisson_gee-oracle-n4", "unix": 1789896827.1155198}
+{"status": "running_binomial_gee-oracle-n2000", "unix": 1789896832.1470146}
+{"status": "running_poisson_gee-oracle-n2000", "unix": 1789896837.2622855}
+{"status": "running_binomial_gee-n4", "unix": 1789896842.425735}
+{"status": "finished_binomial_gee-n4", "unix": 1789897855.4705229}
+Traceback (most recent call last):
+  File "/workspace/dsvert/gee-fixed-rho-r6/logs/continue-serial.py", line 51, in <module>
+    run(family+'-n4',['python3',str(lane/'run-release.py'),family,'2','--n','4','--expected-oracle-sha256',expected])
+  File "/workspace/dsvert/gee-fixed-rho-r6/logs/continue-serial.py", line 36, in run
+    def run(name,command):finish(start(name,command))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/dsvert/gee-fixed-rho-r6/logs/continue-serial.py", line 35, in finish
+    assert code==0,record['name']+' failed; remaining gates not launched'
+           ^^^^^^^
+AssertionError: binomial_gee-n4 failed; remaining gates not launched
+{"status": "failed_no_remaining_jobs_launched", "unix": 1789897855.4835463}

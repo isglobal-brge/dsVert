@@ -1,0 +1,23 @@
+dp-cox-grid-cross: ..............................................................................................................................................................................................
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+dp-cox-catalog-draft: ...............
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+dp-capsule-manifest-client: .......................................................................................1
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Error ('test-dp-capsule-manifest-client.R:433:5'): manifest bootstrap prod
+Error in `local_mocked_bindings(..., .package = .package)`: Multiple packages loaded with pkgload
+Backtrace:
+    ▆
+ 1. └─testthat::with_mocked_bindings(...) at test-dp-capsule-manifest-client.R:433:5
+ 2.   └─testthat::local_mocked_bindings(..., .package = .package)
+ 3.     ├─.package %||% dev_package()
+ 4.     └─testthat:::dev_package()
+ 5.       └─cli::cli_abort("Multiple packages loaded with pkgload", call = call)
+ 6.         └─rlang::abort(...)
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+Error: all(!frame$error) is not TRUE
+Execution halted

@@ -1,0 +1,11 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-cox-grid-cross.R","dp-cox-grid-cross","Cox client accepts only a literal additive Surv formula",8,0,FALSE,FALSE,0,0.0160000000000018,0,0.0169999999999995,8
+"test-dp-cox-grid-cross.R","dp-cox-grid-cross","Cox cross-owner contracts require both real custodian signatures",12,0,FALSE,FALSE,0,0.734999999999999,0.0880000000000001,0.823,12
+"test-dp-cox-grid-cross.R","dp-cox-grid-cross","Cox client canonical argmin rescales slopes and omits inference",13,0,FALSE,FALSE,0,0.231999999999999,0.018,0.248999999999999,13
+"test-dp-cox-grid-cross.R","dp-cox-grid-cross","production Cox client is closed and exposes no test evaluator",5,0,FALSE,FALSE,0,0.0069999999999979,0.00099999999999989,0.00700000000000145,5
+"test-dp-cox-grid-cross.R","dp-cox-grid-cross","Cox result validates all source owners separately from computation peers",20,0,FALSE,FALSE,0,1.36,0.145,1.516,20
+"test-dp-cox-grid-cross.R","dp-cox-grid-cross","Cox server and client canonical contracts agree",1,0,FALSE,FALSE,0,0.873999999999999,0.046,1.306,1
+"test-dp-cox-grid-cross.R","dp-cox-grid-cross","Cox measured admission is enforced even with both valid signatures",11,0,FALSE,FALSE,0,1.699,0.0880000000000001,1.788,11
+"test-dp-cox-grid-cross.R","dp-cox-grid-cross","Cox signed layout pins the terminal share conversion for fusion",4,0,FALSE,FALSE,0,0.158999999999999,0.0169999999999999,0.177,4
+"test-dp-cox-grid-cross.R","dp-cox-grid-cross","Cox K-owner source contracts retain exactly two computation authorities",62,0,FALSE,FALSE,0,2.519,0.286,2.807,62
+"test-dp-cox-grid-cross.R","dp-cox-grid-cross","Cox catalog fragments bind time and event to the advertising owner",54,9,FALSE,FALSE,0,2.084,0.121,2.206,45

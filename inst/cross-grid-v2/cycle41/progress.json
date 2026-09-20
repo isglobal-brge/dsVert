@@ -1,0 +1,24 @@
+{
+  "observed_utc": "2026-09-20T15:06:10.135214+00:00",
+  "source_commits": {
+    "dsVert": "6dbbf529ba162ee4d369b435b5e7dad3e08a6b2c",
+    "dsVertClient": "55f4793778d4d1613320dfc96e8c7fea576d6a82"
+  },
+  "promoted_count": 4,
+  "promoted_source_pair": "f3795a2/e748f05",
+  "proof": "R_PROOF.json",
+  "manifest": "MANIFEST_VALIDATION.json",
+  "lmm": "LMM_HARVEST.json",
+  "simple_paired": "SIMPLE_PAIRED_HEALTH.json",
+  "production_client_changed": true,
+  "production_server_changed": false,
+  "native_runtime_changed": false,
+  "gee_files_edited": false,
+  "pending": [
+    "Cox artifact admission/source orchestration/complete DP lifecycle",
+    "LMM relay batching and fresh equality/capacity",
+    "Heavy promotion gates",
+    "Confirmatory simple paired completion",
+    "Pod16 worker readiness diagnosis"
+  ]
+}

@@ -1,0 +1,13 @@
+dp-cox-catalog-draft: 1
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Error ('test-dp-cox-catalog-draft.R:33:5'): Cox signed drafts preserve con
+Error: A peer returned an invalid custodian workload specification
+Backtrace:
+    ▆
+ 1. └─dsVertClient:::.dsvert_dp_capsule_manifest_draft(...) at test-dp-cox-catalog-draft.R:33:5
+ 2.   └─dsVertClient:::.dsvert_dp_capsule_manifest_fragments(draft$workload_fragments) at dsVertClient/R/dp_capsule_manifest.R:1137:3
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+Error: all(!frame$error) is not TRUE
+Execution halted

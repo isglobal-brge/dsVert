@@ -1,0 +1,22 @@
+{
+  "proof-r1": {
+    "files": 2956,
+    "unchanged": true,
+    "manifest_sha256": "ea16c1c40d5fa49fa6afbfc95bcdf40e97697c8f119c1682d0be74a1cd4bc1bb"
+  },
+  "proof-r2": {
+    "files": 2957,
+    "unchanged": true,
+    "manifest_sha256": "32e7eb18f1860f03054e6b6a0eaf659d86c78c46f89f989bdcd1f87df7882779"
+  },
+  "proof-r3": {
+    "files": 2957,
+    "unchanged": true,
+    "manifest_sha256": "5038a3a327fdcd827b2927637075a61355569be85635595bbb967066400ac383"
+  },
+  "baseline": {
+    "files": 2957,
+    "unchanged": true,
+    "manifest_sha256": "5d8c15417bb183d61b352e84bdc1da60fca5c4bcabb62b0234c671d36e1b42e4"
+  }
+}

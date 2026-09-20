@@ -1,0 +1,17 @@
+{
+  "real_jobs": 24,
+  "ready": 6,
+  "jobs": [
+    "lmm-e8-k2-i01-baseline",
+    "lmm-e8-k2-i01-recovery",
+    "binomial_glmm-e8-k2-i01-baseline",
+    "binomial_glmm-e8-k2-i01-recovery",
+    "poisson_glmm-e8-k2-i01-baseline",
+    "poisson_glmm-e8-k2-i01-recovery"
+  ],
+  "source_commits": {
+    "dsVert": "6dbbf529ba162ee4d369b435b5e7dad3e08a6b2c",
+    "dsVertClient": "55f4793778d4d1613320dfc96e8c7fea576d6a82"
+  },
+  "manifest_sha256": "88cd7c71846b614f40ab43cb1a4b6218316ecc7d6ddfe45faa3d324968024499"
+}

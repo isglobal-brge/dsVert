@@ -1,0 +1,8 @@
+{
+  "pid": 2392876,
+  "stdin": "/dev/null",
+  "command": [
+    "python3",
+    "/workspace/dsvert/gee-fixed-rho-r4/logs/run-focused-controller.py"
+  ]
+}

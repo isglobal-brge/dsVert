@@ -11,15 +11,21 @@ import (
 
 func TestGroupedGEEPrivateFactorProtocol(t *testing.T) {
 	for _, family := range []string{"binomial", "poisson"} {
-		for _, cor := range []string{"independence", "exchangeable", "ar1"} {
-			t.Run(family+"/"+cor, func(t *testing.T) {
+		for _, working := range []struct {
+			correlation string
+			rho         int64
+		}{
+			{"independence", 0},
+			{"exchangeable", 0}, {"exchangeable", 16384}, {"exchangeable", 32768},
+			{"ar1", 0}, {"ar1", 16384}, {"ar1", 32768},
+		} {
+			cor, rho := working.correlation, working.rho
+			t.Run(fmt.Sprintf("%s/%s/rho-q16-%d", family, cor, rho), func(t *testing.T) {
 				s := groupedGEESpec{Slots: 3, Predictors: 1, GridBits: 16, Family: family, Correlation: cor, ScoreClipQ16: 65536, RowLossCap: 10000000, BreadCap: 100000000, MaxOutcome: 1}
 				if family == "poisson" {
 					s.MaxOutcome = 4
 				}
-				if cor != "independence" {
-					s.RhoQ16 = 32768
-				}
+				s.RhoQ16 = rho
 				rows := []groupedGEERow{
 					{new(big.Int).Lsh(big.NewInt(-3), 64), []*big.Int{new(big.Int).Lsh(big.NewInt(1), 49)}, s.MaxOutcome, 1},
 					{new(big.Int).Lsh(big.NewInt(99), 64), []*big.Int{big.NewInt(-10)}, 99, 0},

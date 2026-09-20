@@ -1,0 +1,400 @@
+{
+  "status": "INCOMPLETE_NOT_PROMOTED",
+  "recorded_utc": "2026-09-20T11:13:24.675341+00:00",
+  "implementation_commits": {
+    "dsVert": "902ccf46d0f9b844155ff4316ac91cac2a2ba75b",
+    "dsVertClient": "6d94d4c9e15b9261a31b4499837d200ea1caea17"
+  },
+  "last_proof_snapshot": "/workspace/dsvert/gee-fixed-rho-r7",
+  "last_proof_manifest_sha256": "a57e599d16f284612554484ad041f1a43f03a5149eaa040435131e8d13a9294d",
+  "focused": {
+    "native_passes": 25,
+    "server_assertions": 629,
+    "client_assertions": 324,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "warnings": 0,
+    "evidence_scope": "r7 fresh focused R; 25 native tests reused only after all614 native inputs, runtime and trusted r6 log/exit hashes matched",
+    "r5_completed_utc": "2026-09-20T08:55:42+00:00",
+    "r5_elapsed_seconds": 113.309429,
+    "r5_exit_code": 0,
+    "r5_source_unchanged": true,
+    "r6_native_passes": 25,
+    "r6_server_assertions": 629,
+    "r6_client_assertions": 288,
+    "r6_transport_assertions": 1697,
+    "r6_failures": 0,
+    "r6_errors": 0,
+    "r6_skips": 0,
+    "r6_warnings": 0
+  },
+  "planned_n2000_jobs": 6,
+  "planned_topologies": {
+    "K2": "one release including recovery, sticky replay and tamper rejection",
+    "K3": "one baseline release and measured capacity cell",
+    "K5": "one baseline release"
+  },
+  "remote_state": "SSH restored at 08:28 UTC after banner timeouts / connection resets beginning about 08:23 UTC; no pod restart or other-owner job intervention attempted",
+  "last_confirmed_smoke_state": "r7 binomial n4 PASS at 10:52:54 UTC, bitwise/sticky/tamper/cold markers true; controller running Poisson n4.",
+  "last_confirmed_paired_state": "Fresh r7 server suite running on pod11 (R PID803805), client on pod16 (R PID27156), exact frozen source and tagged oracle verified before both launches.",
+  "own_controllers": {
+    "binomial_n4": 2390941,
+    "poisson_n4": 2390942,
+    "paired": 2390940,
+    "original_eight_job_waiter": 2478097,
+    "r5_continuation": 2610081,
+    "r6_continuation": 2728246,
+    "r7_continuation": 2957748
+  },
+  "original_waiter": {
+    "log": "/workspace/dsvert/gee-fixed-rho-r4/logs/campaign-waiter.log",
+    "campaign_state": "/workspace/dsvert/gee-fixed-rho-r4/logs/gee-campaign/campaign.json",
+    "last_observed": "cancelled before any n2000 launch",
+    "cancellation_confirmed": true,
+    "note": "Old eight-job waiter was cancelled after SSH recovered; it did not launch a campaign.",
+    "cancelled_utc": "2026-09-20T08:28:26+00:00",
+    "n2000_launches_before_cancellation": 0
+  },
+  "new_six_job_schedule": {
+    "source": "inst/cross-grid-v2/gee-fixed-rho/run-campaign.py",
+    "manifest": "inst/cross-grid-v2/gee-fixed-rho/RELEASE_MANIFEST_GEE.jsonl",
+    "fleet_ready": false,
+    "new_snapshot": "/workspace/dsvert/gee-fixed-rho-r7",
+    "readiness_evidence_root": "/workspace/dsvert/gee-fixed-rho-r7",
+    "native_evidence_root": "/workspace/dsvert/gee-fixed-rho-r6",
+    "oracle_records": "/workspace/dsvert/gee-fixed-rho-r7/logs/oracle-commitments",
+    "maximum_concurrent_jobs": 2,
+    "launched": false,
+    "readiness_evidence_requirement": "Native614 identical input/runtime reuse plus fresh r7 focused R/transport regressions, both serial independence n4 preflights, verified matching oracle commitments and both full paired suites",
+    "source_manifest_sha256": "a57e599d16f284612554484ad041f1a43f03a5149eaa040435131e8d13a9294d",
+    "source_frozen": true,
+    "readiness_gates_passed": false,
+    "oracle_commitments_ready": true,
+    "dispatch_controller_pid": 28004
+  },
+  "next_steps": [
+    "Inspect local fleet dispatch-state.json before launching anything; dispatcher owns the planned transition and prevents duplicate pod4 n2000 jobs.",
+    "Poll existing r7 Poisson n4 preflight to completion; binomial n4 is PASS and retained. Do not launch another pod4 release.",
+    "Review fresh server/client fleet suites; dispatcher requires both source-bound passes without unreviewed warnings/skips.",
+    "After preflights and paired suites pass, dispatcher launches two family shards, each K3 capacity then K2 recovery then K5, one real release per pod.",
+    "Harvest terminal public logs, hashes, real bitwise/recovery/tamper/capacity evidence; promote only when all actual gates pass."
+  ],
+  "binomial_n4_failure": {
+    "exit_code": 1,
+    "proof_passed": false,
+    "phase": "first joint-dp-vector-laplace-v3 sampler chunk after GEE producer completion and dsvertDPSynopsisStartDS",
+    "sampler_chunk_coordinates": 36,
+    "sampler_coordinate_offset": 0,
+    "result_recorded": false,
+    "release_recorded": false,
+    "controller_wall_seconds": 1272.69586091768,
+    "r_elapsed_seconds": 1161,
+    "max_child_rss_kib_linux": 11830076,
+    "underlying_worker_error": "UNKNOWN: abort removed private logs; old main failure handler omitted the captured worker error"
+  },
+  "resource_observation": {
+    "container_memory_limit_bytes": 49999998976,
+    "container_memory_max_usage_bytes": 50000031744,
+    "cumulative_oom_kill": 7,
+    "cumulative_memory_failcnt": 66,
+    "event_timestamps_available": false,
+    "binomial_oom_causation": "UNPROVEN",
+    "kernel_log_access": "dmesg denied; journal has no available files"
+  },
+  "local_followup": {
+    "gee_failure_diagnostics": "Main/recovery failure handlers preserve captured operation/error message and available worker exit status before peer shutdown",
+    "resource_mitigation": "One actual release at a time, two authorities per release; mitigation does not prove OOM causation",
+    "epsilon_delta_numeric_transport_acceptance_caps_changed": false,
+    "transport_8_mib_override_applied": false,
+    "retained_client_dsi_expression_cap_bytes": 786431,
+    "included_in_r5_source_commit": "a3964d39c26909d8f805f64cbfe2ad3a81b138b5"
+  },
+  "prior_r4_proof": {
+    "snapshot": "/workspace/dsvert/gee-fixed-rho-r4",
+    "source_manifest_sha256": "1d4b78e617c85b7874d0b56c09f03977e1606a1b0b60e8869d2126e5427934df",
+    "source_commits": {
+      "dsVert": "902ccf46d0f9b844155ff4316ac91cac2a2ba75b",
+      "dsVertClient": "6d94d4c9e15b9261a31b4499837d200ea1caea17"
+    }
+  },
+  "current_source_commits": {
+    "dsVert": "74a408fcb42b30916460c54975449f43fcde49a8",
+    "dsVertClient": "20adcc8cd237abba5aee6f58d941d7b2eebab77e"
+  },
+  "r5_execution": {
+    "snapshot": "/workspace/dsvert/gee-fixed-rho-r5",
+    "source_manifest_sha256": "f6f7e9543975ffd0de441fce2c4259088f7446040fdfc1f9216cea7795cae6d0",
+    "controller_pid": 2610081,
+    "stdin": "/dev/null",
+    "started_unix": 1789894423.8225856,
+    "started_utc": "2026-09-20T08:53:43+00:00",
+    "controller_sha256": "9964c40d890a07f8ea575476390c33ff1b5f7ddb03f85a8fb4f0cd9e3591b985",
+    "controller_state_path": "/workspace/dsvert/gee-fixed-rho-r5/logs/continuation-state.json",
+    "current_step": "Cancelled while waiting for paired driver; no fresh smokes or n2000 launches",
+    "prior_controller_waits": {
+      "poisson_n4": 2390942,
+      "paired": 2390940
+    },
+    "prior_sampler_pids_required_finished": [
+      2496615,
+      2496655
+    ],
+    "paired_reuse": {
+      "snapshot": "/workspace/dsvert/gee-fixed-rho-r4",
+      "full_suite_pass_required": true,
+      "compared_inputs": "All R/Go/go.mod/go.sum/certificates/runtimes",
+      "changed_files": [
+        "dsVert/inst/cross-grid-v2/integrator-validation/validate_structured_dslite.R"
+      ],
+      "package_code_and_tests_identical": true
+    },
+    "native_reuse": {
+      "snapshot": "/workspace/dsvert/gee-fixed-rho-dev-r3",
+      "matching_source_inputs": 614,
+      "copied_runtime_and_oracle_hashes_verified": true
+    },
+    "fresh_smokes": "Both n4 families serially; successful source-bound proofs required before campaign",
+    "n2000_jobs_launched": 0,
+    "promoted": false,
+    "retained_public_artifacts": {
+      "directory": "inst/cross-grid-v2/gee-fixed-rho/evidence/r5",
+      "file_count": 12,
+      "sha256sums_sha256": "212490d7ac25ea0d71f21558f683e6778a3496dcb806739fc68063b7f82f858a",
+      "note": "Controller state/log are byte-preserving checkpoint copies, not future final statuses"
+    },
+    "status": "cancelled_obsolete_waiting_controller",
+    "cancelled_utc": "2026-09-20T09:10:53+00:00"
+  },
+  "capacity_warning": {
+    "note": "inst/cross-grid-v2/gee-fixed-rho/evidence/local/capacity-observation-20260920.md",
+    "observed_n4_cluster_block_seconds_approx": 412,
+    "scaling_clusters": 500,
+    "projected_hours_approx": 57,
+    "interpretation": "Warning projection from n4 timing; not an n2000 measurement, completion forecast or lower bound",
+    "measured_n2000_capacity": false,
+    "acceptance_ceiling_seconds": 21600,
+    "caps_raised": false,
+    "note_sha256": "f6ceb1ce5af77db022a5539a42abcd927a412766fd0bd89bb747267d18081596"
+  },
+  "default_working_correlation": {
+    "correlation": "independence",
+    "rho": 0,
+    "mode": "fixed_analyst_specified"
+  },
+  "r6_execution": {
+    "snapshot": "/workspace/dsvert/gee-fixed-rho-r6",
+    "source_manifest_sha256": "d41a66b168b424e78da3134eb14462e24cb4b5454981ec8c20f18b852500201c",
+    "source_commits": {
+      "dsVert": "9b6c1a18de6b1b68a1ef6832991ece1ea680eb9a",
+      "dsVertClient": "6d94d4c9e15b9261a31b4499837d200ea1caea17"
+    },
+    "controller_pid": 2728246,
+    "stdin": "/dev/null",
+    "started_utc": "2026-09-20T09:19:24+00:00",
+    "controller_sha256": "736a8f05d642234c71341bd5b342c10b333c400d16320123e2935d62fd320094",
+    "source_archive_sha256": "58a0a6471e98ba256494157c7798b7d9001b2f180cc55bea721e924d64e61937",
+    "controller_state_path": "/workspace/dsvert/gee-fixed-rho-r6/logs/continuation-state.json",
+    "runtime_sha256": "a59e004567027fc0c09c620cf9ab8dcae0000efb4477f14672997fd800b150c6",
+    "oracle_sha256": "1deee926d09fb3caf0022a41821533040cce9c6b29ccb9bd9afde557ebc4a900",
+    "current_step": "FAILED binomial n4 preflight; controller exited 1 and launched no remaining gated jobs.",
+    "n2000_jobs_launched": 0,
+    "promoted": false,
+    "retained_public_artifacts": {
+      "directory": "inst/cross-grid-v2/gee-fixed-rho/evidence/r6",
+      "file_count": 38,
+      "sha256sums_sha256": "730730faaed93525deb3375d6c54c35cfea8a57cc579afaf45111161d728e755"
+    },
+    "oracle_commitments": {
+      "binomial_gee": "623653b980fefa7b7b42a599ffe5ee4fea52465324f55fd047e7c9383c5c500d",
+      "poisson_gee": "3b4cce7f7b713a1f1801e6965821753012865d3d84590b97b8023c3fff7be858"
+    },
+    "status": "failed_no_remaining_jobs_launched",
+    "binomial_n4_failure": {
+      "exit_code": 1,
+      "proof_passed": false,
+      "operation": "joint-dp-vector-laplace-v3",
+      "failure_code": "infrastructure_unavailable",
+      "worker_exit_status": -9,
+      "controller_elapsed_seconds": 994.257451,
+      "r_elapsed_seconds": 895.1,
+      "max_child_rss_kib_linux": 22097240,
+      "all_oracle_replay_markers": false,
+      "cgroup_oom_kill_before": 7,
+      "cgroup_oom_kill_after": 8,
+      "interpretation": "Correlated OOM kill strongly supports memory pressure; exact worker-PID kernel attribution unavailable."
+    }
+  },
+  "release_path_corrections": {
+    "source_commit": "9b6c1a18de6b1b68a1ef6832991ece1ea680eb9a",
+    "publication_geometry": "Typed FINAL_SHARE permits capacity-bounded exact chunk <= min(64,total); signed attempt and full context/segment equality remain required. Regression reproduces 43/36 rejection and rejects coherent 22 substitution.",
+    "worker_failure": "Failed operations bypass lease revalidation and retain allowlisted private failure code until explicit cleanup; prevents cleared heartbeat key masking terminal failure.",
+    "serialization": "Lane-only shared flock inherited by R prevents overlapping new lane release launchers. Obsolete r5 controller cancelled separately.",
+    "leases": {
+      "inactivity_seconds": 900,
+      "total_seconds": 86400
+    },
+    "unchanged": [
+      "epsilon",
+      "delta",
+      "numeric certificate",
+      "sensitivity",
+      "native math",
+      "acceptance caps",
+      "source/input/gate/DSI caps"
+    ],
+    "original_binomial_failure_cause": "UNKNOWN; the fixed failed-state masking bug is not evidence of original OOM causation."
+  },
+  "r7_execution": {
+    "snapshot": "/workspace/dsvert/gee-fixed-rho-r7",
+    "source_manifest_sha256": "a57e599d16f284612554484ad041f1a43f03a5149eaa040435131e8d13a9294d",
+    "source_commits": {
+      "dsVert": "74a408fcb42b30916460c54975449f43fcde49a8",
+      "dsVertClient": "20adcc8cd237abba5aee6f58d941d7b2eebab77e"
+    },
+    "controller_pid": 2957748,
+    "stdin": "/dev/null",
+    "started_utc": "2026-09-20T10:10:10Z",
+    "controller_sha256": "beb9afcce8d4f26f08abd1b7fcbb5a571a4bb3b384624c30906543f65689efc8",
+    "source_archive_sha256": "453d03331d903286810c3f1dc3a56a93c5c4f262250ad2578c7c4120c6159001",
+    "archive_from_committed_git_objects": true,
+    "controller_state_path": "/workspace/dsvert/gee-fixed-rho-r7/logs/continuation-state.json",
+    "runtime_sha256": "a59e004567027fc0c09c620cf9ab8dcae0000efb4477f14672997fd800b150c6",
+    "oracle_sha256": "3b6fa438856c989f97270c351e1dc0b9eec7fdfaf001ec8d892c090cf2f7d3f1",
+    "current_step": "Poisson n4 preflight running after successful binomial n4.",
+    "n2000_jobs_launched": 0,
+    "promoted": false,
+    "execution_chunk_coordinates": 16,
+    "fresh_synthetic_proof_identity": true,
+    "prior_identity_migrated": false,
+    "native_reuse": {
+      "snapshot": "/workspace/dsvert/gee-fixed-rho-r6",
+      "matching_source_files": 614,
+      "native_passes": 25,
+      "trusted_manifest_log_exit_hashes_verified": true
+    },
+    "focused": {
+      "server_assertions": 629,
+      "client_assertions": 324,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "warnings": 0,
+      "elapsed_seconds": 121.015181,
+      "exit_code": 0
+    },
+    "resource_observer": {
+      "pid": 2977167,
+      "started_utc": "2026-09-20T10:14:40Z",
+      "stdin": "/dev/null",
+      "script_sha256": "db0627cd470bae8e13f0387006a27d7a355f7b71d997f99181deca3f672785c9",
+      "scope": "Public process PID/name/RSS/CPU ticks and cgroup counters only; no private payload/config/state reads"
+    },
+    "retained_public_artifacts": {
+      "directory": "inst/cross-grid-v2/gee-fixed-rho/evidence/r7",
+      "file_count": 27,
+      "sha256sums_sha256": "3c584a3e93b4fcf60c6d76997be74c6897d69ec3d150635d6aeb937d885e01d0",
+      "note": "Continuation-state and controller log are immutable copies at10:17 launch checkpoint, not future terminal statuses"
+    },
+    "transport_regressions": {
+      "passed": 1740,
+      "failed": 0,
+      "error": 0,
+      "skipped": 0,
+      "warning": 0,
+      "cases": 37
+    },
+    "binomial_n4_driver_pid": 2995126,
+    "binomial_n4_r_pid": 2995287,
+    "binomial_n4_started_utc": "2026-09-20T10:17:20.394914+00:00",
+    "live_sampler_checkpoint": {
+      "recorded_utc": "2026-09-20T10:36:20Z",
+      "worker_pids": [
+        3056954,
+        3057008
+      ],
+      "operation_id": "op_7d677b3d792420120e2061abc802275c",
+      "native_producer_stages_per_peer": 25,
+      "sender_outbound_head": 163654001,
+      "sender_outbound_ack_before": 70287432,
+      "sender_outbound_ack_after": 115015752,
+      "observation_elapsed_seconds": 105,
+      "oom_kill_before": 8,
+      "oom_kill_latest": 8,
+      "sampled_peak_container_bytes": 19643416576,
+      "container_limit_bytes": 49999998976,
+      "worker_hwm_kib_observed": [
+        5589256,
+        4988628
+      ],
+      "scope": "Partial first sampler observation only; no completed release or capacity evidence",
+      "retained_directory": "inst/cross-grid-v2/gee-fixed-rho/evidence/r7-progress",
+      "file_count": 7,
+      "sha256sums_sha256": "861ee5b273357fb16f7624e5eb4786badb3cfbf8bb8140b10dd6607659185f6f"
+    },
+    "second_chunk_observation": {
+      "recorded_utc": "2026-09-20T10:39:52Z",
+      "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/r7-progress/logs/sampler-chunk-progress.json",
+      "sha256": "c7e4ecabf8d8723877d9c07ae5452ace5ac4a78dc0dcf1f583ba5e459e79af41",
+      "execution_chunks": 3,
+      "started_chunk_indices_per_authority": [
+        0,
+        1
+      ],
+      "published_release_count_per_authority": 0,
+      "scope": "Read-only allowlisted integer geometry/chunk indices and publication count; no record_json, shares, seeds, payloads, keys or row MACs read; partial execution evidence only"
+    },
+    "binomial_n4_final": {
+      "proof_passed": true,
+      "exit_code": 0,
+      "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/r7-binomial-n4-final/logs/gee-fixed-rho/binomial_gee-n4-k2-independence-rho0-baseline-resources.json",
+      "sha256": "9508644e066ba1aba50e83ef8f20e37b26e332a16d512a91477ce6becf448f42",
+      "end_to_end_release_seconds": 1958.903,
+      "end_to_end_serialized_rpc_bytes": 1331068356,
+      "sha256sums_sha256": "13602393976cf686bb0ad09134e66fecdd4e948ca6a5f303c947440ce9ac743d"
+    }
+  },
+  "performance_profile": {
+    "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/local/public-authenticated-exchange-profile-20260920.json",
+    "sha256": "ca863b8626414d9b94b2d0a1f754732098af7286bb9fe12fcaee7ed1665a0294",
+    "scope": "Public synthetic local macOS authenticated frame microbenchmark; excludes DSI and live workers; not pod capacity evidence",
+    "warmed_elapsed_seconds": 0.17775,
+    "runtime_changes_from_profile": false
+  },
+  "fleet_continuation": {
+    "local_controller_pid": 28004,
+    "state_path": "inst/cross-grid-v2/gee-fixed-rho/evidence/r7-fleet/dispatch-state.json",
+    "script": "inst/cross-grid-v2/gee-fixed-rho/continue-fleet-r7.py",
+    "remote_root": "/workspace/dsvert/gee-fixed-rho-r7-fleet",
+    "source_manifest_sha256": "a57e599d16f284612554484ad041f1a43f03a5149eaa040435131e8d13a9294d",
+    "source_archive_sha256": "dbd01b46d4508a4813a261bacd07080124984e59e975777b472c0421ea93da42",
+    "pods": {
+      "11": {
+        "paired_package": "dsVert",
+        "paired_r_pid": 803805,
+        "release_family": "binomial_gee"
+      },
+      "16": {
+        "paired_package": "dsVertClient",
+        "paired_r_pid": 27156,
+        "release_family": "poisson_gee"
+      }
+    },
+    "release_order_per_family": [
+      3,
+      2,
+      5
+    ],
+    "status": "waiting_both_n4_and_both_paired",
+    "handoff": "After both n4 proofs finish, stop only pod4 scheduling parent before its serial campaign; any existing paired child may finish. No release child is interrupted.",
+    "one_real_release_per_pod": true,
+    "maximum_concurrent_jobs": 2,
+    "stdin": "/dev/null",
+    "promoted": false,
+    "paired_launch_evidence": {
+      "directory": "inst/cross-grid-v2/gee-fixed-rho/evidence/r7-fleet-launch",
+      "sha256sums_sha256": "ce3f927df8fe58bd80c2f9fb88b877276777b6a37e520c9257e325da1435957f",
+      "status": "RUNNING_PARTIAL_NOT_A_PASS"
+    }
+  }
+}

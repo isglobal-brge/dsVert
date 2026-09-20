@@ -1,0 +1,9 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-synopsis-exact-downstream.R","dp-synopsis-exact-downstream","fixed-rho GEE schedules bounded chunks without changing the full draw plan",31,0,FALSE,FALSE,0,20.7,1.036,25.56,31
+"test-dp-synopsis-exact-downstream.R","dp-synopsis-exact-downstream","exact synopsis FINAL_SHARE authenticates all three fixed-rho GEE segments",10,0,FALSE,FALSE,0,0.242999999999999,0.00300000000000011,0.252000000000002,10
+"test-dp-synopsis-exact-downstream.R","dp-synopsis-exact-downstream","exact synopsis FINAL_SHARE admits capacity-bounded GEE chunks",12,0,FALSE,FALSE,0,0.0799999999999983,0.00299999999999989,0.0829999999999984,12
+"test-dp-synopsis-exact-downstream.R","dp-synopsis-exact-downstream","exact synopsis FINAL_SHARE transports validity and binding",25,0,FALSE,FALSE,0,11.822,0.833,12.83,25
+"test-dp-synopsis-exact-downstream.R","dp-synopsis-exact-downstream","exact synopsis segments and final certificates fail closed",22,0,FALSE,FALSE,0,8.465,0.695,9.45199999999999,22
+"test-dp-synopsis-exact-downstream.R","dp-synopsis-exact-downstream","exact FINAL_SHARE excludes K3 and K5 witnesses",36,0,FALSE,FALSE,0,16.864,1.793,18.941,36
+"test-dp-synopsis-exact-downstream.R","dp-synopsis-exact-downstream","exact synopsis RELEASE finalizes binding and validity",20,0,FALSE,FALSE,0,8.551,0.815,11.447,20
+"test-dp-synopsis-exact-downstream.R","dp-synopsis-exact-downstream","exact synopsis REPLAY is public-only",16,0,FALSE,FALSE,0,8.834,1.001,14.501,16

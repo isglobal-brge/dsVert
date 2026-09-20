@@ -1,0 +1,8 @@
+{
+  "pid": 2977167,
+  "controller_pid": 2957748,
+  "stdin": "/dev/null",
+  "started_utc": "2026-09-20T10:14:40Z",
+  "script_sha256": "db0627cd470bae8e13f0387006a27d7a355f7b71d997f99181deca3f672785c9",
+  "scope": "Public process names/PIDs/RSS/CPU ticks and cgroup counters only; no payloads/configuration/private state read"
+}

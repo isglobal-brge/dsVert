@@ -4,8 +4,8 @@ test_that("private GEE whitening assembly equals the independent R integer oracl
   for (family in c("binomial","poisson")) for (correlation in c("independence","exchangeable","ar1")) {
     maximum <- if (family=="binomial") 1 else 4
     observed <- if (family=="poisson") 3 else 1
-    rho <- if (correlation=="independence") 0 else .5
-    for (live in list(c(1,0,1),c(0,0,0),c(1,1,1))) {
+    rhos <- if (correlation=="independence") 0 else c(0,.25,.5)
+    for (rho in rhos) for (live in list(c(1,0,1),c(0,0,0),c(1,1,1))) {
       spec <- list(Slots=3L,Predictors=1L,GridBits=8L,Family=family,Correlation=correlation,
         RhoQ16=rho*65536,ScoreClipQ16=65536,RowLossCap=10000000,BreadCap=100000000,MaxOutcome=maximum)
       got <- .grouped_go_reference(list(Family="gee_whitening",Eta=as.list(eta),
@@ -50,11 +50,13 @@ test_that("private GEE whitening assembly equals the independent R integer oracl
 test_that("GEE v3 certificate is bound into both signed validators", {
   for (family in c("binomial_gee","poisson_gee")) {
     grouping <- list(max_patients_per_cluster=8)
-    parameters <- list(score_clip=4)
+    parameters <- list(score_clip=4, composition="staged_fixed_rho_v1")
     server <- .dsvert_dp_grouped_cross_numeric(family,grouping,parameters)
     client <- get(".dsvert_dp_grouped_grid_cross_numeric",asNamespace("dsVertClient"))(family,grouping,parameters)
     expect_identical(server,client)
     expect_identical(server$profile,"grouped-gee-whitening-f96-q64-v3")
+    expect_identical(server$correlation_contract,"signed-analyst-fixed-rho-v1")
+    expect_identical(server$working_correlation$estimation,"none")
     expect_equal(server$per_cluster_error_bound,max(unlist(server$coordinate_error_bounds)))
     expect_false(identical(server$per_cluster_error_bound,1))
   }

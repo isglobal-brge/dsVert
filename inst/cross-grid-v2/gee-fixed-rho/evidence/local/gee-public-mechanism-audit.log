@@ -1,0 +1,31 @@
+RETAINED_SELECTOR_RESULT binomial_gee discrete-laplace fixed_work_gaussian_unavailable_explicit_laplace_fallback 
+RETAINED_SELECTOR_RESULT poisson_gee discrete-laplace fixed_work_gaussian_unavailable_explicit_laplace_fallback 
+         family  g  correlation  rho       l1           l2 natural_l2
+1  binomial_gee 16 independence 0.00  5320065   835227.273   12.74456
+2  binomial_gee 16 exchangeable 0.00  7463645  1177643.783   17.96942
+3  binomial_gee 16 exchangeable 0.25  8337485  1341511.792   20.46985
+4  binomial_gee 16 exchangeable 0.50 10085085  1689466.050   25.77921
+5  binomial_gee 16          ar1 0.00  7463645  1177643.783   17.96942
+6  binomial_gee 16          ar1 0.25  9211285  1512877.519   23.08468
+7  binomial_gee 16          ar1 0.50 12706525  2238066.343   34.15018
+8  binomial_gee  8 independence 0.00    20789     3263.710   12.74887
+9  binomial_gee  8 exchangeable 0.00    29169     4602.767   17.97956
+10 binomial_gee  8 exchangeable 0.25    32609     5248.103   20.50040
+11 binomial_gee  8 exchangeable 0.50    39409     6602.316   25.79030
+12 binomial_gee  8          ar1 0.00    29169     4602.767   17.97956
+13 binomial_gee  8          ar1 0.25    36009     5915.115   23.10592
+14 binomial_gee  8          ar1 0.50    49649     8745.368   34.16159
+15  poisson_gee 16 independence 0.00 20006363  3930063.200   59.96801
+16  poisson_gee 16 exchangeable 0.00 34123323  6733400.382  102.74354
+17  poisson_gee 16 exchangeable 0.25 38473203  7652853.709  116.77328
+18  poisson_gee 16 exchangeable 0.50 47173043  9523545.314  145.31777
+19  poisson_gee 16          ar1 0.00 34123323  6733400.382  102.74354
+20  poisson_gee 16          ar1 0.25 42823123  8584052.215  130.98224
+21  poisson_gee 16          ar1 0.50 60222803 12372828.559  188.79438
+22  poisson_gee  8 independence 0.00    78166    15354.822   59.97977
+23  poisson_gee  8 exchangeable 0.00   133326    26309.017  102.76960
+24  poisson_gee  8 exchangeable 0.25   150326    29902.481  116.80657
+25  poisson_gee  8 exchangeable 0.50   184286    37204.854  145.33146
+26  poisson_gee  8          ar1 0.00   133326    26309.017  102.76960
+27  poisson_gee  8          ar1 0.25   167286    33533.195  130.98904
+28  poisson_gee  8          ar1 0.50   235246    48331.461  188.79477

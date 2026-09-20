@@ -1,7 +1,7 @@
 package main
 
-// Internal signed-fixed-rho-v3 predecessor only. The typed source adapter constructs every stage;
-// no analyst-supplied stage graph or circuit is accepted.
+// Signed analyst-specified fixed working correlation. The typed source adapter
+// constructs every stage; no analyst-supplied graph or circuit is accepted.
 import (
 	"bytes"
 	"crypto/hmac"

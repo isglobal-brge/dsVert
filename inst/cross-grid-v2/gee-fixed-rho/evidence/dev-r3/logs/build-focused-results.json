@@ -1,0 +1,52 @@
+[
+  {
+    "name": "runtime-build",
+    "command": [
+      "make",
+      "all"
+    ],
+    "returncode": 0,
+    "elapsed_seconds": 60.203684721142054
+  },
+  {
+    "name": "oracle-build",
+    "command": [
+      "go",
+      "test",
+      "-c",
+      "-tags",
+      "grouped_reference_test,dsvert_family_reference",
+      "-o",
+      "/workspace/dsvert/gee-fixed-rho-dev-r3/logs/structured-oracle.test",
+      "."
+    ],
+    "returncode": 0,
+    "elapsed_seconds": 30.828928955830634
+  },
+  {
+    "name": "gee-native-focused",
+    "command": [
+      "go",
+      "test",
+      "-v",
+      "-count=1",
+      "-run",
+      "^TestGroupedGEE",
+      "-timeout=30m",
+      "."
+    ],
+    "returncode": 0,
+    "elapsed_seconds": 380.9081787029281
+  },
+  {
+    "name": "gee-r-focused",
+    "command": [
+      "Rscript",
+      "--vanilla",
+      "dsVert/inst/cross-grid-v2/gee-fixed-rho/run-focused.R",
+      "/workspace/dsvert/gee-fixed-rho-dev-r3"
+    ],
+    "returncode": 0,
+    "elapsed_seconds": 119.06580103561282
+  }
+]

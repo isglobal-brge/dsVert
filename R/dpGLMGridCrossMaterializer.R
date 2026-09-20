@@ -3,9 +3,10 @@
   artifacts <- manifest$workload$families$gaussian_models$artifacts
   if (!is.list(artifacts)) return(list())
   artifacts[vapply(artifacts, function(artifact) is.list(artifact) &&
-    artifact$version %in% c(unname(.DSVERT_DP_GLM_GRID_CROSS_ARTIFACT_VERSIONS),
+    (artifact$version %in% c(unname(.DSVERT_DP_GLM_GRID_CROSS_ARTIFACT_VERSIONS),
       "bounded-lmm-cross-grid-v1", "bounded-binomial-glmm-cross-grid-v1", "bounded-poisson-glmm-cross-grid-v1",
-      .DSVERT_DP_COX_GRID_CROSS_ARTIFACT_VERSION),
+      .DSVERT_DP_COX_GRID_CROSS_ARTIFACT_VERSION) ||
+      .dsvert_dp_staged_grouped_artifact(artifact)),
     logical(1L))]
 }
 

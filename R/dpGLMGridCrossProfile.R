@@ -80,6 +80,15 @@
   if (identical(version, "cox_grid_cross_v1")) {
     return(.dsvert_dp_cox_grid_cross_contract_validate(contract, policy, schema))
   }
+  if (version %in% c("binomial_gee_grid_cross_v1", "poisson_gee_grid_cross_v1")) {
+    value <- .dsvert_dp_grouped_cross_contract_validate(contract, policy, schema)
+    if (!identical(value$spec$parameters$composition, "staged_fixed_rho_v1") ||
+        !identical(value$spec$numeric_contract$version, "grouped-gee-fixed-rho-staged-numeric-v1") ||
+        !identical(value$spec$numeric_contract$correlation_contract, "signed-analyst-fixed-rho-v1")) {
+      .dsvert_dp_glm_grid_cross_fail()
+    }
+    return(value)
+  }
   if (version %in% c("binomial_glmm_grid_cross_v1", "poisson_glmm_grid_cross_v1")) {
     value <- .dsvert_dp_grouped_cross_contract_validate(contract, policy, schema)
     if (!identical(value$spec$numeric_contract$version,

@@ -1,7 +1,7 @@
 package main
 
-// Authenticated fixed-rho v3 predecessor. Source/routing runs once, before
-// candidate expansion. This internal graph does not admit an estimated alpha.
+// Authenticated analyst-specified fixed working correlation. Source/routing
+// runs once, before candidate expansion. No estimated correlation is admitted.
 import (
 	"crypto/hmac"
 	"crypto/sha256"
@@ -31,14 +31,15 @@ type groupedGEESourceRecord struct {
 }
 
 type groupedGEESourceGraph struct {
-	Graph   crossGridStageGraph
-	Compute []crossGridStageCompute
+	Graph    crossGridStageGraph
+	Compute  []crossGridStageCompute
+	programs groupedGEEPublicPrograms
 }
 
 func groupedGEESourcePlans(s groupedGEESourceSpec) ([]crossGridStagePlan, error) {
 	r := s.Route
 	f := new(big.Int).Lsh(big.NewInt(1), 50)
-	if groupedGEEValidate(s.Numeric) != nil || r.validate() != nil || s.Session == "" || s.Authorities[0] == s.Authorities[1] || s.SchemaDigest == ([32]byte{}) || s.SemanticKey == ([32]byte{}) || s.Contract == ([32]byte{}) || s.CorrelationContract != "signed-fixed-rho-v3-predecessor" || r.Clusters > 500 || r.Clusters*r.Slots > 2000 || r.Slots != s.Numeric.Slots || r.Predictors != s.Numeric.Predictors || r.NumericStage != "gee.source.normalized" || r.MetadataStage != "gee.source.metadata" || r.ProfileDigest != s.Contract || !r.Nonnegative || r.NumericBound.Cmp(f) != 0 || r.OutcomeBound == nil || r.OutcomeBound.Cmp(new(big.Int).Mul(f, big.NewInt(s.Numeric.MaxOutcome))) != 0 || len(s.Beta) < 1 || len(s.Beta) > 4 || len(s.Caps) != len(s.Beta) {
+	if groupedGEEValidate(s.Numeric) != nil || r.validate() != nil || s.Session == "" || s.Authorities[0] == s.Authorities[1] || s.SchemaDigest == ([32]byte{}) || s.SemanticKey == ([32]byte{}) || s.Contract == ([32]byte{}) || s.CorrelationContract != "signed-analyst-fixed-rho-v1" || r.Clusters > 500 || r.Clusters*r.Slots > 2000 || r.Slots != s.Numeric.Slots || r.Predictors != s.Numeric.Predictors || r.NumericStage != "gee.source.normalized" || r.MetadataStage != "gee.source.metadata" || r.ProfileDigest != s.Contract || !r.Nonnegative || r.NumericBound.Cmp(f) != 0 || r.OutcomeBound == nil || r.OutcomeBound.Cmp(new(big.Int).Mul(f, big.NewInt(s.Numeric.MaxOutcome))) != 0 || len(s.Beta) < 1 || len(s.Beta) > 4 || len(s.Caps) != len(s.Beta) {
 		return nil, errCrossGridStage
 	}
 	limit := new(big.Int).Lsh(big.NewInt(4), 50)
@@ -110,7 +111,8 @@ func groupedGEEBuildSourceGraph(s groupedGEESourceSpec, role exactGCRole, source
 	if err != nil || source == nil || role > exactGCRoleEvaluator || key == ([32]byte{}) || source.Version != "gee-fixed-rho-v3-source-v1" || source.Role != role || source.Binding != crossGridStageHash("gee-fixed-rho-source-binding", s) || !hmac.Equal(source.MAC, groupedGEESourceMAC(key, *source)) || plans[0].validateOutput(source.Numeric) != nil || plans[1].validateOutput(source.Outcome) != nil || plans[2].validateOutput(source.Metadata) != nil {
 		return nil, errCrossGridStage
 	}
-	graph := &groupedGEESourceGraph{Graph: crossGridStageGraph{Version: "cross-grid-stage-graph-v1", Family: "gee-fixed-rho-v3-predecessor", Session: s.Session, Authorities: s.Authorities, SchemaDigest: s.SchemaDigest, SemanticKey: s.SemanticKey, Stages: plans}}
+	programs := make(groupedGEEPublicPrograms)
+	graph := &groupedGEESourceGraph{Graph: crossGridStageGraph{Version: "cross-grid-stage-graph-v1", Family: "gee-analyst-fixed-rho-v1", Session: s.Session, Authorities: s.Authorities, SchemaDigest: s.SchemaDigest, SemanticKey: s.SemanticKey, Stages: plans}, programs: programs}
 	for _, value := range []crossGridStageOutput{source.Numeric, source.Outcome, source.Metadata} {
 		value := crossGridStageClone(value)
 		graph.Compute = append(graph.Compute, func(_ io.ReadWriter, _ crossGridStageAttempt, in []crossGridStageOutput) (crossGridStageOutput, error) {
@@ -143,8 +145,20 @@ func groupedGEEBuildSourceGraph(s groupedGEESourceSpec, role exactGCRole, source
 	if err != nil {
 		return nil, err
 	}
+	// Commit one global source predicate at the existing conversion boundary.
+	// Every downstream source view may then copy one XOR validity share: the
+	// executor remasks coordinates independently but preserves their predicate.
+	// Binding the changed validity meaning prevents replay of the old lift ABI.
+	lift.ProfileDigest = crossGridStageHash("gee-source-global-validity-v1", lift)
+	lift.Kind = "gee.ring192-global-source-validity-v1"
 	graph.Graph.Stages = append(graph.Graph.Stages, lift)
-	graph.Compute = append(graph.Compute, convert)
+	graph.Compute = append(graph.Compute, func(rw io.ReadWriter, a crossGridStageAttempt, in []crossGridStageOutput) (crossGridStageOutput, error) {
+		out, err := convert(rw, a, in)
+		if err != nil {
+			return crossGridStageOutput{}, err
+		}
+		return programs.sourceValidity(rw, a, role, out)
+	})
 	profile := crossGridStageHash("gee-fixed-rho-source-spec", s)
 	n, p := s.Numeric.Slots, s.Numeric.Predictors
 	add := func(id, kind string, scale, width int, previous []string, compute crossGridStageCompute) crossGridStagePlan {
@@ -173,7 +187,7 @@ func groupedGEEBuildSourceGraph(s groupedGEESourceSpec, role exactGCRole, source
 			for row := 0; row < n; row++ {
 				copy(out[row*p:(row+1)*p], r[(cluster*n+row)*(p+2)+1:(cluster*n+row)*(p+2)+1+p])
 			}
-			return groupedGLMMStagedOutput(rw, a, role, out, in)
+			return groupedGEEStagedOutput(out, groupedWord{uint64(in[0].Validity[0])}), nil
 		})
 		outcome := add(prefix+".outcome-live", "gee.full-width-y-live-q0", 0, 2*n, []string{lift.ID}, func(rw io.ReadWriter, a crossGridStageAttempt, in []crossGridStageOutput) (crossGridStageOutput, error) {
 			if len(in) != 1 {
@@ -188,7 +202,12 @@ func groupedGEEBuildSourceGraph(s groupedGEESourceSpec, role exactGCRole, source
 				args[2*row] = r[(cluster*n+row)*(p+2)]
 				args[2*row+1] = r[(cluster*n+row)*(p+2)+p+1]
 			}
-			guard, e := groupedGLMMOutcomeGuardCompile(n, true, int(s.Numeric.MaxOutcome))
+			guard, e := programs.compile("outcome-guard", struct {
+				Slots      int
+				MaxOutcome int64
+			}{n, s.Numeric.MaxOutcome}, func() (*primitiveVProgram, error) {
+				return groupedGLMMOutcomeGuardCompile(n, true, int(s.Numeric.MaxOutcome))
+			})
 			if e != nil {
 				return crossGridStageOutput{}, e
 			}
@@ -200,7 +219,11 @@ func groupedGEEBuildSourceGraph(s groupedGEESourceSpec, role exactGCRole, source
 			for row := 0; row < n; row++ {
 				out[2*row], out[2*row+1] = checked[2*row+1], checked[2*row]
 			}
-			return groupedGLMMStagedOutput(rw, a, role, out, append(in, crossGridStageOutput{Validity: []byte{byte(checked[2*n][0] & 1)}}))
+			valid, e := programs.validity(rw, a, role, "outcome-validity", []byte{in[0].Validity[0], byte(checked[2*n][0] & 1)})
+			if e != nil {
+				return crossGridStageOutput{}, e
+			}
+			return groupedGEEStagedOutput(out, valid), nil
 		})
 		for candidate, beta := range s.Beta {
 			candidate, beta := candidate, beta
@@ -219,9 +242,9 @@ func groupedGEEBuildSourceGraph(s groupedGEESourceSpec, role exactGCRole, source
 						out[row] = out[row].add(r[(cluster*n+row)*(p+2)+j].mul(groupedWordFromBig(b)))
 					}
 				}
-				return groupedGLMMStagedOutput(rw, a, role, out, in)
+				return groupedGEEStagedOutput(out, groupedWord{uint64(in[0].Validity[0])}), nil
 			})
-			numeric, err := groupedGEEBuildStagedGraph(groupedGEEStagedSpec{Numeric: s.Numeric, ClusterCap: s.Caps[candidate], Prefix: candidatePrefix, SourceDigest: s.Route.SourceDigest, Contract: s.Contract, Sources: [3]crossGridStagePlan{eta, features, outcome}, CorrelationContract: s.CorrelationContract}, role)
+			numeric, err := groupedGEEBuildStagedGraph(groupedGEEStagedSpec{Numeric: s.Numeric, ClusterCap: s.Caps[candidate], Prefix: candidatePrefix, SourceDigest: s.Route.SourceDigest, Contract: s.Contract, Sources: [3]crossGridStagePlan{eta, features, outcome}, CorrelationContract: s.CorrelationContract, programs: programs}, role)
 			if err != nil {
 				return nil, err
 			}
@@ -247,11 +270,11 @@ func groupedGEEBuildSourceGraph(s groupedGEESourceSpec, role exactGCRole, source
 			}
 			flags = append(flags, input.Validity...)
 		}
-		valid, e := groupedGLMMStagedValidity(rw, a, role, "gee/terminal-validity", flags)
+		valid, e := programs.validity(rw, a, role, "terminal-validity", flags)
 		if e != nil {
 			return crossGridStageOutput{}, e
 		}
-		gate, e := groupedGEEStagedUnpackCompile(make([]int, len(out)))
+		gate, e := programs.compile("unpack", make([]int, len(out)), func() (*primitiveVProgram, error) { return groupedGEEStagedUnpackCompile(make([]int, len(out))) })
 		if e != nil {
 			return crossGridStageOutput{}, e
 		}

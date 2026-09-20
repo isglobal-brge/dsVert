@@ -1,0 +1,114 @@
+{
+  "scope": "Local public sparse-file segment-directory enumeration only; no worker, transport, crypto or DP release",
+  "source_file": "dsVert/R/exactGCTransportDS.R",
+  "source_sha256": "e3f6a20fde15a1690eb293db4d8e1993f35f5eef2929e1f2b45f25b4d0f77c11",
+  "bytes_per_segment": 1048576,
+  "counts": [1, 100, 800],
+  "repetitions": 4,
+  "summary": [
+    {
+      "segments": 1,
+      "elapsed_seconds": 0.005,
+      "user_seconds": 0.005,
+      "system_seconds": 0
+    },
+    {
+      "segments": 100,
+      "elapsed_seconds": 0.0115000000000001,
+      "user_seconds": 0.01125,
+      "system_seconds": 0.001
+    },
+    {
+      "segments": 800,
+      "elapsed_seconds": 0.10825,
+      "user_seconds": 0.0975,
+      "system_seconds": 0.00825
+    }
+  ],
+  "runs": [
+    {
+      "segments": 1,
+      "trial": 1,
+      "elapsed_seconds": 0.00099999999999989,
+      "user_seconds": 0.00099999999999989,
+      "system_seconds": 0
+    },
+    {
+      "segments": 1,
+      "trial": 2,
+      "elapsed_seconds": 0.0180000000000002,
+      "user_seconds": 0.0180000000000002,
+      "system_seconds": 0
+    },
+    {
+      "segments": 1,
+      "trial": 3,
+      "elapsed_seconds": 0.00099999999999989,
+      "user_seconds": 0.00099999999999989,
+      "system_seconds": 0
+    },
+    {
+      "segments": 1,
+      "trial": 4,
+      "elapsed_seconds": 0,
+      "user_seconds": 0,
+      "system_seconds": 0
+    },
+    {
+      "segments": 100,
+      "trial": 1,
+      "elapsed_seconds": 0.0150000000000001,
+      "user_seconds": 0.0150000000000001,
+      "system_seconds": 0.001
+    },
+    {
+      "segments": 100,
+      "trial": 2,
+      "elapsed_seconds": 0.0110000000000001,
+      "user_seconds": 0.00999999999999979,
+      "system_seconds": 0.001
+    },
+    {
+      "segments": 100,
+      "trial": 3,
+      "elapsed_seconds": 0.00999999999999979,
+      "user_seconds": 0.0100000000000002,
+      "system_seconds": 0.001
+    },
+    {
+      "segments": 100,
+      "trial": 4,
+      "elapsed_seconds": 0.0100000000000002,
+      "user_seconds": 0.00999999999999979,
+      "system_seconds": 0.001
+    },
+    {
+      "segments": 800,
+      "trial": 1,
+      "elapsed_seconds": 0.0920000000000001,
+      "user_seconds": 0.085,
+      "system_seconds": 0.00600000000000001
+    },
+    {
+      "segments": 800,
+      "trial": 2,
+      "elapsed_seconds": 0.134,
+      "user_seconds": 0.116,
+      "system_seconds": 0.011
+    },
+    {
+      "segments": 800,
+      "trial": 3,
+      "elapsed_seconds": 0.107,
+      "user_seconds": 0.097,
+      "system_seconds": 0.00799999999999999
+    },
+    {
+      "segments": 800,
+      "trial": 4,
+      "elapsed_seconds": 0.1,
+      "user_seconds": 0.0920000000000001,
+      "system_seconds": 0.00800000000000001
+    }
+  ]
+}

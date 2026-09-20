@@ -1,0 +1,43 @@
+{
+  "source_manifest_sha256": "d41a66b168b424e78da3134eb14462e24cb4b5454981ec8c20f18b852500201c",
+  "source_commits": {
+    "dsVert": "9b6c1a18de6b1b68a1ef6832991ece1ea680eb9a",
+    "dsVertClient": "6d94d4c9e15b9261a31b4499837d200ea1caea17"
+  },
+  "native_top_level_passes": 25,
+  "packages": {
+    "dsVert": {
+      "passed": 629,
+      "failed": 0,
+      "error": 0,
+      "skipped": 0,
+      "warning": 0,
+      "cases": 12,
+      "artifact": "logs/dsVert-gee-focused.csv",
+      "sha256": "683f960837f9a1b04ad80685e16ca580e0cf369cfd1340ae4829b5ff35510e8a"
+    },
+    "dsVertClient": {
+      "passed": 288,
+      "failed": 0,
+      "error": 0,
+      "skipped": 0,
+      "warning": 0,
+      "cases": 7,
+      "artifact": "logs/dsVertClient-gee-focused.csv",
+      "sha256": "7d8d89e06760111a1e234f00ee3c0a8d9107e3866f0da4dff53729568f29e142"
+    }
+  },
+  "transport_regressions": {
+    "passed": 1697,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0,
+    "warning": 0,
+    "cases": 35,
+    "artifact": "logs/transport-regressions.csv",
+    "sha256": "65d89cd293008a93b11c5ae7e99e0d0a65f1ca8299c465ede4ade01f815f0c9c"
+  },
+  "real_authenticated_release": false,
+  "promoted": false,
+  "proof_scope": "Combined family build/native/focused/transport regression gates; not real DP release or measured n2000 capacity"
+}

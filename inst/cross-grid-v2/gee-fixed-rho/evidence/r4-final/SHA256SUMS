@@ -1,0 +1,10 @@
+ec8d5e181ae05f06e1868f2427631ea8ca224c7f9933707effe082eab35b383d  base-commits.json
+1d4b78e617c85b7874d0b56c09f03977e1606a1b0b60e8869d2126e5427934df  frozen-source-manifest.json
+bab8fe5c59145a901f17463b799b819142b6816dd673ef4e1dba8c13558804a2  logs/dsVert-paired.csv
+9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa  logs/dsVert-paired.exit
+aefb082cc244c506837c62055d4b8c3e8be5afce24b433606c2f9fe1c182caa2  logs/dsVert-paired.launch.json
+150580e9b74a978e1a93a437decb09658599fba72d2c99508a304bba0cc68cf1  logs/dsVert-paired.log
+02a8374a70d12fa27268cd3b1a67c772787df4ccc81b15f720539e1ae7d40cc1  logs/gee-fixed-rho/poisson_gee-n4-k2-exchangeable-rho0.25-baseline-launch.json
+b7eab029a44866255d0103f14863f811a64544245c62c98458e10a9968ab44b8  logs/gee-fixed-rho/poisson_gee-n4-k2-exchangeable-rho0.25-baseline-resources.json
+4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865  logs/gee-fixed-rho/poisson_gee-n4-k2-exchangeable-rho0.25-baseline.exit
+4ed2cd82ebcba0f0ce1e8f16fb9dc914535d2ce1daafec30e7f9e924fa692c37  logs/gee-fixed-rho/poisson_gee-n4-k2-exchangeable-rho0.25-baseline.log

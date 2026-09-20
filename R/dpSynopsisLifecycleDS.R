@@ -1478,7 +1478,7 @@
       } else if (identical(family, "gaussian")) {
         if (spec$version %in% c(unname(.DSVERT_DP_GLM_GRID_CROSS_SPEC_VERSIONS),
                               "lmm_grid_cross_v1", "binomial_glmm_grid_cross_v1", "poisson_glmm_grid_cross_v1",
-                              "cox_grid_cross_v1")) {
+                              "cox_grid_cross_v1", "binomial_gee_grid_cross_v1", "poisson_gee_grid_cross_v1")) {
           # References inside a custodian-signed contract are immutable.
           next
         }

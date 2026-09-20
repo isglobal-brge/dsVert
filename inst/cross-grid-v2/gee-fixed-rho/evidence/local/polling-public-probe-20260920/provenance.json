@@ -1,0 +1,12 @@
+{
+  "scope": "Local public DSI/callr polling microbenchmark only; not pod4, exactGC or DP release evidence",
+  "process_exit_code": 0,
+  "system": "Darwin",
+  "release": "24.4.0",
+  "machine": "arm64",
+  "retained_utc": "2026-09-20T09:34:35.126221+00:00",
+  "original_directory": "/tmp/gee-relay-polling.ZEniWq",
+  "authenticated_release": false,
+  "protected_data": false,
+  "dp_noise": false
+}

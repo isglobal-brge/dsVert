@@ -1,0 +1,51 @@
+[
+  {
+    "name": "gee-r-focused",
+    "pid": 2390939,
+    "stdin": "/dev/null",
+    "command": [
+      "python3",
+      "-c",
+      "from pathlib import Path\nimport subprocess, sys, time, json\nr=Path.cwd(); start=time.monotonic()\nwith (r/'logs/gee-r-focused.log').open('x') as log:\n code=subprocess.call(['Rscript','--vanilla','dsVert/inst/cross-grid-v2/gee-fixed-rho/run-focused.R',str(r)],stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT)\n(r/'logs/gee-r-focused.exit').write_text(str(code)+'\n')\nprint(json.dumps(dict(exit_code=code,elapsed_seconds=time.monotonic()-start)),flush=True)\nsys.exit(code)\n"
+    ]
+  },
+  {
+    "name": "paired",
+    "pid": 2390940,
+    "stdin": "/dev/null",
+    "command": [
+      "python3",
+      "dsVert/inst/cross-grid-v2/cycle18/run-paired.py"
+    ]
+  },
+  {
+    "name": "binomial_gee-n4",
+    "pid": 2390941,
+    "stdin": "/dev/null",
+    "command": [
+      "python3",
+      "/workspace/dsvert/gee-fixed-rho-r4/dsVert/inst/cross-grid-v2/gee-fixed-rho/run-release.py",
+      "binomial_gee",
+      "2",
+      "--n",
+      "4",
+      "--expected-oracle-sha256",
+      "f4d286b8316e3d61e4dd3cb1d9fe02b5746cdaa390cec897bab7020a2cd52f54"
+    ]
+  },
+  {
+    "name": "poisson_gee-n4",
+    "pid": 2390942,
+    "stdin": "/dev/null",
+    "command": [
+      "python3",
+      "/workspace/dsvert/gee-fixed-rho-r4/dsVert/inst/cross-grid-v2/gee-fixed-rho/run-release.py",
+      "poisson_gee",
+      "2",
+      "--n",
+      "4",
+      "--expected-oracle-sha256",
+      "b57466c45e0053949928414e98affb57ddb4804300137f23adc21bfbab622076"
+    ]
+  }
+]

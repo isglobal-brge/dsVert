@@ -136,6 +136,16 @@
     if (.dsvert_dp_glm_grid_cross_noise_policy(manifest) %in% c(
         "dsvert-cross-grid-exact-gc-cost-policy-v2",
         "dsvert-lmm-grid-exact-gc-cost-policy-v1")) required <- min(required, capacity)
+    artifacts <- semantic$catalog_projection$catalog$families$gaussian_models$artifacts
+    if (any(vapply(artifacts, function(artifact) {
+      .dsvert_dp_staged_grouped_artifact(artifact) &&
+        artifact$family %in% c("binomial_gee", "poisson_gee")
+    }, logical(1L)))) {
+      # Reduce fixed-rho GEE sampler memory with deterministic 16-coordinate
+      # chunks, mirrored by the client. The full-vector privacy plan stays
+      # intact; PREPARE binds this geometry into the execution attempt.
+      required <- min(required, 16L)
+    }
     if (capacity < required) {
       stop("The synopsis exact-GC plan cannot serve canonical chunks.",
            call. = FALSE)

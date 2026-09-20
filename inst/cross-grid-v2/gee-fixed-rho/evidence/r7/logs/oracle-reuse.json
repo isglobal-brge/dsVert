@@ -1,0 +1,26 @@
+[
+  {
+    "path": "/workspace/dsvert/gee-fixed-rho-r6/logs/oracle-commitments/binomial_gee-n4.json",
+    "sha256": "e191e6211ffdb75b512bedb00202b813272f34891485c211df31e3886dbf835f",
+    "dependency_hashes_match": true,
+    "expected_oracle_sha256": "932f139f647c72939a197bac7283475f86d0bb51115f1347ec6aa33cc239103b"
+  },
+  {
+    "path": "/workspace/dsvert/gee-fixed-rho-r6/logs/oracle-commitments/binomial_gee-n2000.json",
+    "sha256": "5e3f983d6166c492772e30766611598b462c94061731012f61f4b171eb55e6fc",
+    "dependency_hashes_match": true,
+    "expected_oracle_sha256": "623653b980fefa7b7b42a599ffe5ee4fea52465324f55fd047e7c9383c5c500d"
+  },
+  {
+    "path": "/workspace/dsvert/gee-fixed-rho-r6/logs/oracle-commitments/poisson_gee-n4.json",
+    "sha256": "3dcadada291462800ffb4fb1e5727bc31d15e9cb3bd4f467e4aa1068355debae",
+    "dependency_hashes_match": true,
+    "expected_oracle_sha256": "733e35e0341634f6e73b872187de8e8183319bc15dc6e2842f9d40c76fd3722c"
+  },
+  {
+    "path": "/workspace/dsvert/gee-fixed-rho-r6/logs/oracle-commitments/poisson_gee-n2000.json",
+    "sha256": "b1de1e4862fc3f514afe262122eef4e6a255168e5d0e1ba0fcf44de2bd0bd939",
+    "dependency_hashes_match": true,
+    "expected_oracle_sha256": "3b4cce7f7b713a1f1801e6965821753012865d3d84590b97b8023c3fff7be858"
+  }
+]

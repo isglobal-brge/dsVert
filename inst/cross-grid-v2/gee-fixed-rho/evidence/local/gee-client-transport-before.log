@@ -1,0 +1,14 @@
+dp-gee-staged-transport: 1
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Error ('test-dp-gee-staged-transport.R:37:3'): fixed-rho GEE reaches the e
+Error: Invalid exact MPC operation contract.
+Backtrace:
+    ▆
+ 1. ├─base::do.call(.dsvert_exact_gc_run, args) at test-dp-gee-staged-transport.R:37:3
+ 2. └─dsVertClient (local) `<fn>`(...)
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+Error:
+! Test failures.
+Execution halted

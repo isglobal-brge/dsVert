@@ -15,7 +15,7 @@ import (
 )
 
 func groupedGEEStagedTestSpec(family string) groupedGEEStagedSpec {
-	s := groupedGEEStagedSpec{Numeric: groupedGEESpec{Slots: 3, Predictors: 1, GridBits: 16, Family: family, Correlation: "ar1", RhoQ16: 32768, ScoreClipQ16: 65536, RowLossCap: 10000000, BreadCap: 100000000, MaxOutcome: 1}, ClusterCap: 100000000, Prefix: "gee.test", SourceDigest: sha256.Sum256([]byte("synthetic sources")), Contract: sha256.Sum256([]byte("synthetic fixed rho")), CorrelationContract: "signed-fixed-rho-v3-predecessor"}
+	s := groupedGEEStagedSpec{Numeric: groupedGEESpec{Slots: 3, Predictors: 1, GridBits: 16, Family: family, Correlation: "ar1", RhoQ16: 32768, ScoreClipQ16: 65536, RowLossCap: 10000000, BreadCap: 100000000, MaxOutcome: 1}, ClusterCap: 100000000, Prefix: "gee.test", SourceDigest: sha256.Sum256([]byte("synthetic sources")), Contract: sha256.Sum256([]byte("synthetic fixed rho")), CorrelationContract: "signed-analyst-fixed-rho-v1"}
 	if family == "poisson" {
 		s.Numeric.MaxOutcome = 4
 	}
@@ -73,6 +73,10 @@ func TestGroupedGEEStagedContract(t *testing.T) {
 		changed.CorrelationContract = "moment-estimated-alpha"
 		if _, err := groupedGEEBuildStagedGraph(changed, exactGCRoleGarbler); err == nil {
 			t.Fatal("unresolved estimator admitted")
+		}
+		changed.CorrelationContract = "signed-fixed-rho-v3-predecessor"
+		if _, err := groupedGEEBuildStagedGraph(changed, exactGCRoleGarbler); err == nil {
+			t.Fatal("unsigned promotion of predecessor admitted")
 		}
 		changed = s
 		changed.Sources[0].FPScale = 64

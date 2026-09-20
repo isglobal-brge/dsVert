@@ -1,7 +1,7 @@
 package main
 
-// Internal fixed-rho v3 predecessor composition. This is not H.4's unresolved
-// moment-estimated-alpha contract and does not authorize a public release.
+// Signed analyst-specified working-correlation composition. Rho is fixed
+// before observing protected data; no shared correlation estimate is admitted.
 // One instance consumes one candidate/cluster after once-only private routing.
 import (
 	"fmt"
@@ -17,6 +17,7 @@ type groupedGEEStagedSpec struct {
 	// Ring192 records: complete eta q100, features q50, then row-major y/live q0.
 	Sources             [3]crossGridStagePlan
 	CorrelationContract string
+	programs            groupedGEEPublicPrograms // graph-local public topology, excluded from signed JSON
 }
 
 type groupedGEEStagedGraph struct {
@@ -61,7 +62,7 @@ func groupedGEEBuildStagedGraph(s groupedGEEStagedSpec, role exactGCRole) (*grou
 	n, p := s.Numeric.Slots, s.Numeric.Predictors
 	d := p + 1
 	tri := d * (d + 1) / 2
-	if groupedGEEValidate(s.Numeric) != nil || s.ClusterCap < 1 || s.ClusterCap > 1<<40 || s.SourceDigest == ([32]byte{}) || s.Contract == ([32]byte{}) || exactGCValidateLabel("stage", s.Prefix, 80) != nil || s.CorrelationContract != "signed-fixed-rho-v3-predecessor" || (role != exactGCRoleGarbler && role != exactGCRoleEvaluator) {
+	if groupedGEEValidate(s.Numeric) != nil || s.ClusterCap < 1 || s.ClusterCap > 1<<40 || s.SourceDigest == ([32]byte{}) || s.Contract == ([32]byte{}) || exactGCValidateLabel("stage", s.Prefix, 80) != nil || s.CorrelationContract != "signed-analyst-fixed-rho-v1" || (role != exactGCRoleGarbler && role != exactGCRoleEvaluator) {
 		return nil, primitiveVError()
 	}
 	widths := [3]int{n, n * p, 2 * n}
@@ -77,6 +78,10 @@ func groupedGEEBuildStagedGraph(s groupedGEEStagedSpec, role exactGCRole) (*grou
 				return nil, primitiveVError()
 			}
 		}
+	}
+	programs := s.programs
+	if programs == nil {
+		programs = make(groupedGEEPublicPrograms)
 	}
 	profile := crossGridStageHash("gee-fixed-rho-v3-staged", s)
 	graph := &groupedGEEStagedGraph{}
@@ -119,15 +124,15 @@ func groupedGEEBuildStagedGraph(s groupedGEEStagedSpec, role exactGCRole) (*grou
 			raw = append(raw, fields[1][i*p:(i+1)*p]...)
 			raw = append(raw, fields[2][2*i:2*i+2]...)
 		}
-		inputValid, err := groupedLMMStagedValidity(rw, a, role, "gee/source-validity", flags)
+		inputValid, err := programs.validity(rw, a, role, "source-validity", flags)
 		if err != nil {
 			return crossGridStageOutput{}, err
 		}
-		result, err := groupedGEERegistry().ProduceFactors(rw, groupedLMMStagedSession(a, "gee/producer"), role, profile, s.Numeric, raw)
+		result, err := groupedGEEProduceFactorsCached(rw, groupedLMMStagedSession(a, "gee/producer"), role, profile, s.Numeric, raw, programs)
 		if err != nil {
 			return crossGridStageOutput{}, err
 		}
-		vp, err := groupedGEEValidityCompile(2)
+		vp, err := programs.compile("additive-validity", 2, func() (*primitiveVProgram, error) { return groupedGEEValidityCompile(2) })
 		if err != nil {
 			return crossGridStageOutput{}, err
 		}
@@ -147,7 +152,7 @@ func groupedGEEBuildStagedGraph(s groupedGEEStagedSpec, role exactGCRole) (*grou
 		if err != nil {
 			return crossGridStageOutput{}, err
 		}
-		valid, err := groupedLMMStagedValidity(rw, a, role, "gee/factor-validity", in[0].Validity)
+		valid, err := programs.validity(rw, a, role, "factor-validity", in[0].Validity)
 		if err != nil {
 			return crossGridStageOutput{}, err
 		}
@@ -163,7 +168,7 @@ func groupedGEEBuildStagedGraph(s groupedGEEStagedSpec, role exactGCRole) (*grou
 		if err != nil {
 			return crossGridStageOutput{}, err
 		}
-		program, err := groupedGEEMomentBoundaryCompile(s.Numeric)
+		program, err := programs.compile("moment-boundary", s.Numeric, func() (*primitiveVProgram, error) { return groupedGEEMomentBoundaryCompile(s.Numeric) })
 		if err != nil {
 			return crossGridStageOutput{}, err
 		}
@@ -189,7 +194,7 @@ func groupedGEEBuildStagedGraph(s groupedGEEStagedSpec, role exactGCRole) (*grou
 		if err != nil {
 			return crossGridStageOutput{}, err
 		}
-		valid, err := groupedLMMStagedValidity(rw, a, role, "gee/moment-validity", in[0].Validity)
+		valid, err := programs.validity(rw, a, role, "moment-validity", in[0].Validity)
 		if err != nil {
 			return crossGridStageOutput{}, err
 		}
@@ -201,7 +206,7 @@ func groupedGEEBuildStagedGraph(s groupedGEEStagedSpec, role exactGCRole) (*grou
 			shifts[d+i] = 64 - s.Numeric.GridBits
 		}
 		shifts[len(shifts)-1] = 32
-		unpack, err := groupedGEEStagedUnpackCompile(shifts)
+		unpack, err := programs.compile("unpack", shifts, func() (*primitiveVProgram, error) { return groupedGEEStagedUnpackCompile(shifts) })
 		if err != nil {
 			return crossGridStageOutput{}, err
 		}
@@ -218,7 +223,7 @@ func groupedGEEBuildStagedGraph(s groupedGEEStagedSpec, role exactGCRole) (*grou
 		if err != nil {
 			return crossGridStageOutput{}, err
 		}
-		meatProgram, err := groupedGEEMeatFinalCompile(s.Numeric)
+		meatProgram, err := programs.compile("meat-final", s.Numeric, func() (*primitiveVProgram, error) { return groupedGEEMeatFinalCompile(s.Numeric) })
 		if err != nil {
 			return crossGridStageOutput{}, err
 		}
@@ -226,7 +231,10 @@ func groupedGEEBuildStagedGraph(s groupedGEEStagedSpec, role exactGCRole) (*grou
 		if err != nil {
 			return crossGridStageOutput{}, err
 		}
-		lossProgram, err := groupedGEELikelihoodCompile(s.Numeric, s.ClusterCap)
+		lossProgram, err := programs.compile("likelihood", struct {
+			Numeric groupedGEESpec
+			Cap     int64
+		}{s.Numeric, s.ClusterCap}, func() (*primitiveVProgram, error) { return groupedGEELikelihoodCompile(s.Numeric, s.ClusterCap) })
 		if err != nil {
 			return crossGridStageOutput{}, err
 		}
@@ -234,7 +242,7 @@ func groupedGEEBuildStagedGraph(s groupedGEEStagedSpec, role exactGCRole) (*grou
 		if err != nil {
 			return crossGridStageOutput{}, err
 		}
-		vp, err := groupedGEEValidityCompile(3)
+		vp, err := programs.compile("additive-validity", 3, func() (*primitiveVProgram, error) { return groupedGEEValidityCompile(3) })
 		if err != nil {
 			return crossGridStageOutput{}, err
 		}
@@ -245,7 +253,7 @@ func groupedGEEBuildStagedGraph(s groupedGEEStagedSpec, role exactGCRole) (*grou
 		out := append([]groupedWord{loss[0]}, decoded[d:d+tri]...)
 		out = append(out, meat[:tri]...)
 		// Zero every branch if any branch rejected; never release partial validity.
-		gate, err := groupedGEEStagedUnpackCompile(make([]int, len(out)))
+		gate, err := programs.compile("unpack", make([]int, len(out)), func() (*primitiveVProgram, error) { return groupedGEEStagedUnpackCompile(make([]int, len(out))) })
 		if err != nil {
 			return crossGridStageOutput{}, err
 		}

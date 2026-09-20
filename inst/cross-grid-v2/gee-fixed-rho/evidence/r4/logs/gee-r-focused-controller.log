@@ -1,0 +1,4 @@
+  File "<string>", line 6
+    (r/'logs/gee-r-focused.exit').write_text(str(code)+'
+                                                       ^
+SyntaxError: unterminated string literal (detected at line 6)

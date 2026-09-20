@@ -19,7 +19,7 @@ func groupedGEESourceFixture(t *testing.T, family string) (groupedGEESourceSpec,
 	old, raw, side, routed := groupedGLMMSourceFixture(t, family)
 	numeric := groupedGEEStagedTestSpec(family).Numeric
 	numeric.Slots = old.Route.Slots
-	s := groupedGEESourceSpec{Session: "gee-fixed-rho-source-test", Authorities: old.Authorities, SchemaDigest: old.SchemaDigest, SemanticKey: old.SemanticKey, Contract: sha256.Sum256([]byte("signed GEE fixed-rho predecessor")), Route: old.Route, Numeric: numeric, Beta: old.GLMM.Beta, Caps: []int64{100000000, 100000000}, CorrelationContract: "signed-fixed-rho-v3-predecessor"}
+	s := groupedGEESourceSpec{Session: "gee-fixed-rho-source-test", Authorities: old.Authorities, SchemaDigest: old.SchemaDigest, SemanticKey: old.SemanticKey, Contract: sha256.Sum256([]byte("signed GEE fixed-rho predecessor")), Route: old.Route, Numeric: numeric, Beta: old.GLMM.Beta, Caps: []int64{100000000, 100000000}, CorrelationContract: "signed-analyst-fixed-rho-v1"}
 	s.Route.NumericStage, s.Route.MetadataStage = "gee.source.normalized", "gee.source.metadata"
 	s.Route.ProfileDigest = s.Contract
 	s.Route.OutcomeBound = new(big.Int).Lsh(big.NewInt(s.Numeric.MaxOutcome), 50)
@@ -79,12 +79,15 @@ func TestGroupedGEESourceContract(t *testing.T) {
 			}
 			if stage.ID == "gee.source.ring192" {
 				lifts++
+				if stage.Kind != "gee.ring192-global-source-validity-v1" {
+					t.Fatal("source lift does not bind uniform global validity")
+				}
 			}
 		}
 		if routes != 1 || lifts != 1 || graph.Graph.Stages[len(graph.Graph.Stages)-1].Ring != 128 {
 			t.Fatal("source routing/conversion repeated by candidate")
 		}
-		for _, change := range []string{"family", "alpha", "feature-bound", "outcome-bound", "beta", "source-tamper"} {
+		for _, change := range []string{"family", "alpha", "predecessor-contract", "rho", "correlation", "feature-bound", "outcome-bound", "beta", "source-tamper"} {
 			raw, _ := json.Marshal(s)
 			var bad groupedGEESourceSpec
 			json.Unmarshal(raw, &bad)
@@ -102,6 +105,12 @@ func TestGroupedGEESourceContract(t *testing.T) {
 				}
 			case "alpha":
 				bad.CorrelationContract = "moment-estimated-alpha"
+			case "predecessor-contract":
+				bad.CorrelationContract = "signed-fixed-rho-v3-predecessor"
+			case "rho":
+				bad.Numeric.RhoQ16 = 16384
+			case "correlation":
+				bad.Numeric.Correlation = "exchangeable"
 			case "feature-bound":
 				bad.Route.NumericBound.Lsh(big.NewInt(4), 50)
 			case "outcome-bound":
@@ -244,8 +253,13 @@ func groupedGEESourceGraphRunFixture(t *testing.T, s groupedGEESourceSpec, sourc
 					}
 				}
 			}
+			compiled := [2]int{len(localGraphs[0].programs), len(localGraphs[1].programs)}
+			t.Logf("public_programs_per_authority=%v clusters=%d candidates=%d predictors=%d", compiled, s.Route.Clusters, len(s.Beta), s.Numeric.Predictors)
 			cold := run(false, true)
 			for role := range out {
+				if len(localGraphs[role].programs) != compiled[role] {
+					t.Fatal("cold replay compiled a new arithmetic program")
+				}
 				if cold[role].err != nil || len(cold[role].out) != len(out[role].out) {
 					t.Fatalf("cold replay: %v", cold[role].err)
 				}

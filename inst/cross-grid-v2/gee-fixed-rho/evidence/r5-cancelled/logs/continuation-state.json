@@ -1,0 +1,27 @@
+{
+  "status": "waiting_for_paired-driver.exit",
+  "promoted": false,
+  "started_unix": 1789894423.882338,
+  "steps": [
+    {
+      "name": "gee-r-focused",
+      "command": [
+        "Rscript",
+        "--vanilla",
+        "/workspace/dsvert/gee-fixed-rho-r5/dsVert/inst/cross-grid-v2/gee-fixed-rho/run-focused.R",
+        "/workspace/dsvert/gee-fixed-rho-r5"
+      ],
+      "started_unix": 1789894428.69275,
+      "pid": 2610254,
+      "exit_code": 0,
+      "finished_unix": 1789894542.0021787
+    },
+    {
+      "name": "prior_result",
+      "path": "/workspace/dsvert/gee-fixed-rho-r4/logs/gee-fixed-rho/poisson_gee-n4-k2-exchangeable-rho0.25-baseline.exit",
+      "exit_code": 1
+    }
+  ],
+  "source_manifest_sha256": "f6f7e9543975ffd0de441fce2c4259088f7446040fdfc1f9216cea7795cae6d0",
+  "updated_unix": 1789895386.617657
+}

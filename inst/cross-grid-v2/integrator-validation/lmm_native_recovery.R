@@ -13,6 +13,7 @@ structured_lmm_native_probe <- function(session_id, operation_id,
   artifact <- sf(if (cox) ".dsvert_dp_cox_cross_artifacts" else
     ".dsvert_dp_lmm_cross_artifacts")(manifest)[[1L]]
   kind <- if (cox) "cox" else sf(".dsvert_dp_staged_grouped_kind")(artifact$family)
+  stage_prefix <- if (kind == "gee-fixed-rho") "gee" else kind
   if (action %in% c("pause", "resume", "terminate")) {
     # The synthetic trace retains the session privately during the authorized
     # start. Calling .S here would correctly reject an out-of-entrypoint read.
@@ -64,7 +65,7 @@ structured_lmm_native_probe <- function(session_id, operation_id,
     stopifnot(identical(mac, bytes[seq_len(32L)]))
     record <- jsonlite::fromJSON(rawToChar(payload), simplifyVector = FALSE)
     if (!identical(record$StageID, if (cox) "cox.source.predictors" else
-        paste0(kind, ".source.numeric"))) next
+        paste0(stage_prefix, ".source.numeric"))) next
     hex <- function(value) paste(sprintf("%02x", as.integer(unlist(value))), collapse = "")
     spec <- sf(".dsvert_dp_glm_grid_cross_embedded_contract")(artifact)$spec
     expected_role <- if (identical(fixture$policy$peer_name,
@@ -110,7 +111,7 @@ structured_lmm_native_probe <- function(session_id, operation_id,
 
 structured_lmm_native_recovery <- function(peers, kind = "lmm") {
   stopifnot(identical(names(peers), c("site_a", "site_b")))
-  stopifnot(kind %in% c("lmm", "glmm", "cox"))
+  stopifnot(kind %in% c("lmm", "glmm", "cox", "gee-fixed-rho"))
   marker <- paste0("DSLITE_", toupper(kind))
   state <- new.env(parent = emptyenv())
   state$mode <- "none"

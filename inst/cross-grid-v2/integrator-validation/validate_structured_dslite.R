@@ -9,8 +9,8 @@ n <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_N", "4"))
 family <- Sys.getenv("DSVERT_GRID_VALIDATION_FAMILY")
 cox <- identical(family, "cox")
 gee <- grepl("_gee$", family)
-staged <- family %in% c("lmm", "binomial_glmm", "poisson_glmm", "cox")
-staged_kind <- if (cox) "cox" else if (family == "lmm") "lmm" else "glmm"
+staged <- family %in% c("lmm", "binomial_glmm", "poisson_glmm", "cox") || gee
+staged_kind <- if (cox) "cox" else if (family == "lmm") "lmm" else if (gee) "gee-fixed-rho" else "glmm"
 staged_marker <- paste0("DSLITE_", toupper(staged_kind))
 epsilon <- as.numeric(Sys.getenv("DSVERT_GRID_VALIDATION_EPSILON", "4"))
 instance <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_INSTANCE", "1"))
@@ -21,6 +21,11 @@ real_count <- if (oracle_only) 0L else as.integer(Sys.getenv("DSVERT_GRID_VALIDA
 predictors <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_P", if (gee || staged) "3" else "6"))
 grid_size <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_GRID", "2"))
 owner_count <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_OWNERS", "2"))
+gee_correlation <- Sys.getenv("DSVERT_GEE_CORRELATION", "exchangeable")
+gee_rho <- as.numeric(Sys.getenv("DSVERT_GEE_RHO", "0.25"))
+if (gee) stopifnot(gee_correlation %in% c("independence", "exchangeable", "ar1"),
+  gee_rho %in% c(0, .25, .5), gee_correlation != "independence" || gee_rho == 0,
+  predictors <= 3L, grid_size <= 4L)
 stopifnot(n > 0, family %in% c("lmm", "binomial_glmm", "poisson_glmm",
   "binomial_gee", "poisson_gee", "cox"), epsilon %in% c(1, 4, 8),
   owner_count %in% c(2L, 3L, 5L), predictors >= 1L, predictors <= 16L,
@@ -169,7 +174,8 @@ trace(if (cox) ".dsvert_dp_cox_cross_public_evidence_set" else
   }))
 trace(".dsvert_dp_gaussian_synopsis_certificate_validate", where = asNamespace("dsVertClient"),
   print = FALSE, tracer = quote(if (certificate$descriptor$version %in%
-      c("bounded-lmm-cross-grid-v1", "bounded-binomial-glmm-cross-grid-v1", "bounded-poisson-glmm-cross-grid-v1", "bounded-cox-breslow-observed-cross-grid-v1")) {
+      c("bounded-lmm-cross-grid-v1", "bounded-binomial-glmm-cross-grid-v1", "bounded-poisson-glmm-cross-grid-v1",
+        "bounded-binomial-gee-cross-grid-v1", "bounded-poisson-gee-cross-grid-v1", "bounded-cox-breslow-observed-cross-grid-v1")) {
     path <- file.path(state, "synthetic-public-certificate.rds")
     saveRDS(list(object = object, certificate = certificate), path)
     Sys.chmod(path, "0600")
@@ -370,17 +376,21 @@ run <- function() {
   peers <<- boot(pins)
   cat("DSLITE_BOOT_PINNED_COMPLETE\n")
   conns <- we_connections(peers)
-  for (peer in peers) peer$worker$run(function(n) {
+  for (peer in peers) peer$worker$run(function(n, gee) {
     options(dsvert.psi.max_input_ids = as.integer(2^ceiling(log2(max(64, n)))))
     trace(".exact_gc_record_private_error", where = asNamespace("dsVert"), print = FALSE,
-      tracer = quote(assign(".grid_early_worker_error", list(operation = state$operation,
-        message = message,
-        # Synthetic fixture only: preserve startup errors before spool cleanup.
-        worker_log = if (!is.null(state$spool) && file.exists(file.path(state$spool, "worker-private.log")))
-          readLines(file.path(state$spool, "worker-private.log"), n = 12L, warn = FALSE)
-          else character()), .GlobalEnv)))
+      tracer = substitute({
+        captured <- list(operation = state$operation, message = message,
+          # Synthetic fixture only: preserve startup errors before spool cleanup.
+          worker_log = if (!is.null(state$spool) && file.exists(file.path(state$spool, "worker-private.log")))
+            readLines(file.path(state$spool, "worker-private.log"), n = 12L, warn = FALSE)
+            else character())
+        if (GEE) captured$worker_exit_status <- tryCatch(
+          state$process$get_exit_status(), error = function(error) NA_integer_)
+        assign(".grid_early_worker_error", captured, .GlobalEnv)
+      }, list(GEE = gee)))
     TRUE
-  }, args = list(n))
+  }, args = list(n, gee))
   cat("DSLITE_ALIGNMENT_START\n")
   tryCatch(ds.psiAlign("D", "patient_id", "DA", datasources = conns, verbose = FALSE),
     error = function(error) {
@@ -448,7 +458,8 @@ run <- function() {
           list(residual_variance = .5, random_intercept_variance = .25),
           list(residual_variance = 1, random_intercept_variance = .25))) else if (family %in% c("binomial_glmm", "poisson_glmm"))
         list(variance_grid = list(0, .25), quadrature = "gh5_fixed_v1") else if (gee)
-        list(correlation = "exchangeable", rho = .25, score_clip = 1) else
+        list(correlation = gee_correlation, rho = gee_rho, score_clip = 1,
+          composition = "staged_fixed_rho_v1") else
         list(random_intercept_variance = .25, quadrature = "gh5_fixed_v1")
     }
     spec <- cf(paste0(prefix, "spec"))(raw_spec, policy, authenticated)
@@ -581,7 +592,8 @@ run <- function() {
       tracer = quote(assign(".grid_lifecycle_fixture", list(policy = policy,
         secret = secret, manifest_json = manifest_json,
         source_contract = source_contract), .GlobalEnv)))
-    if (Sys.getenv("DSVERT_GRID_VALIDATION_FAMILY") %in% c("lmm", "binomial_glmm", "poisson_glmm", "cox")) {
+    if (Sys.getenv("DSVERT_GRID_VALIDATION_FAMILY") %in% c("lmm", "binomial_glmm", "poisson_glmm",
+        "cox", "binomial_gee", "poisson_gee")) {
       source(file.path(server_dir, "inst/cross-grid-v2/validate_cold_lifecycle.R"))
       assign(".grid_interrupt_mode", "none", .GlobalEnv)
       assign(".grid_interrupted", FALSE, .GlobalEnv)
@@ -763,6 +775,8 @@ run <- function() {
           native_errors = get0(".grid_native_error_history", .GlobalEnv),
           grouped_failure = get0(".grid_grouped_failure", .GlobalEnv),
           mismatch = get0(".grid_public_mismatch", .GlobalEnv))))
+        if (gee) for (peer in peers) print(peer$worker$run(function() list(
+          gee_worker_error = get0(".grid_early_worker_error", .GlobalEnv))))
       }
       stopifnot(inherits(interrupted, "error"), identical(unname(flags), expected_flags), native_fired)
       persisted <- vapply(peers[owner_names[1:2]], function(peer) peer$worker$run(function() {
@@ -804,6 +818,8 @@ run <- function() {
         mechanism_selection = get0(".grid_public_mechanism_selection", .GlobalEnv),
         native_errors = get0(".grid_native_error_history", .GlobalEnv),
         grouped_failure = get0(".grid_grouped_failure", .GlobalEnv))))
+      if (gee) for (peer in peers) print(peer$worker$run(function() list(
+        gee_worker_error = get0(".grid_early_worker_error", .GlobalEnv))))
       stop(error)
     }))[["elapsed"]]
   if (replay_only) {
@@ -873,7 +889,7 @@ run <- function() {
   if (oracle_run$status != 0) cat(oracle_run$stdout, oracle_run$stderr)
   stopifnot(oracle_run$status==0)
   oracle <- jsonlite::fromJSON(output)
-  candidate_count <- if (staged && !cox) length(spec$candidate_grid) else length(spec$beta_grid)
+  candidate_count <- if (staged && !cox && !gee) length(spec$candidate_grid) else length(spec$beta_grid)
   width <- length(exact) / candidate_count
   loss_indices <- seq.int(1L, length(exact), by = width)
   released_losses <- as.numeric(oracle$Released[-1])[loss_indices]
@@ -906,6 +922,9 @@ run <- function() {
   checked <- ds.validateDPGaussianCertificate(fit$provenance_certificate)
   stopifnot(identical(checked$integrity_valid, TRUE),
     identical(checked$authenticity, "session_transport_anchored"))
+  if (gee) stopifnot(length(checked$coordinates) == length(exact),
+    identical(unname(checked$sufficient_statistics_dp$candidate_negative_log_likelihoods),
+      unname(checked$coordinates[loss_indices])))
   untrace(".dsvert_dp_synopsis_client_replay", where = asNamespace("dsVertClient"))
   observed <- get(".grid_public_replay", .GlobalEnv)$scaled
   if (!identical(unname(observed), unname(oracle$Released))) {
@@ -966,6 +985,9 @@ run <- function() {
 
   summary <- list(family = family, n = n, p = predictors, grid = grid_size,
     candidates = candidate_count, clusters = cluster_count, slots = cluster_size, owners = owner_count,
+    working_correlation = if (gee) list(mode = "fixed_analyst_specified",
+      correlation = spec$parameters$correlation, rho = spec$parameters$rho,
+      score_clip = spec$parameters$score_clip, composition = spec$parameters$composition) else NULL,
     epsilon = epsilon, instance = instance,
     elapsed = elapsed, successful_call_elapsed = successful_call_elapsed,
     uninterrupted_baseline_elapsed = if (!recovery_exercised) successful_call_elapsed else NULL,

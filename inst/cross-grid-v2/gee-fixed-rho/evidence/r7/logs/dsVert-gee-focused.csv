@@ -1,0 +1,13 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-crossgrid-gee-public-admission.R","crossgrid-gee-public-admission","GEE public admission binds fixed correlation and rejects legacy and LMM swaps",78,0,FALSE,FALSE,0,20.373,3.169,30.479,78
+"test-crossgrid-gee-public-admission.R","crossgrid-gee-public-admission","ordinary local GEE materialization leaves its release block zero for every source owner",30,0,FALSE,FALSE,0,3.187,0.297,4.378,30
+"test-crossgrid-gee-staged-contract.R","crossgrid-gee-staged-contract","fixed-rho staged GEE binds native cap scales and keeps legacy contracts",54,0,FALSE,FALSE,0,3.879,0.376,5.826,54
+"test-crossgrid-gee-staged-contract.R","crossgrid-gee-staged-contract","GEE n2000 descriptor is an explicit bounded measurement domain",6,0,FALSE,FALSE,0,0.477000000000004,0.0540000000000003,0.738999999999997,6
+"test-crossgrid-gee-staged-contract.R","crossgrid-gee-staged-contract","fixed-rho sensitivity counts affected clusters, not cluster capacity",14,0,FALSE,FALSE,0,0.823999999999998,0.0939999999999994,1.29799999999999,14
+"test-crossgrid-gee-staged-contract.R","crossgrid-gee-staged-contract","analyst fixed-rho parameters admit exactly the retained working correlations",72,0,FALSE,FALSE,0,0.325000000000003,0.00400000000000045,0.388000000000005,72
+"test-crossgrid-gee-staged-handoff.R","crossgrid-gee-staged-handoff","fixed-rho GEE handoffs preserve signed native units and private source blocks",28,0,FALSE,FALSE,0,3.634,0.265,5.03,28
+"test-crossgrid-gee-staged-handoff.R","crossgrid-gee-staged-handoff","Fixed-rho GEE durable terminal records retain private validity and reject LMM swaps",15,0,FALSE,FALSE,0,1.125,0.0529999999999999,1.422,15
+"test-crossgrid-gee-staged-handoff.R","crossgrid-gee-staged-handoff","fixed-rho GEE worker preparation uses pinned identity roles and keeps native JSON opaque",20,0,FALSE,FALSE,0,3.582,0.262,4.658,20
+"test-crossgrid-gee-staged-handoff.R","crossgrid-gee-staged-handoff","real GEE preparation CLI retains both families and every terminal coordinate",48,0,FALSE,FALSE,0,4.22,0.281,5.515,48
+"test-crossgrid-gee-whitening-integer.R","crossgrid-gee-whitening-integer","private GEE whitening assembly equals the independent R integer oracle",252,0,FALSE,FALSE,0,3.601,0.601,7.325,252
+"test-crossgrid-gee-whitening-integer.R","crossgrid-gee-whitening-integer","GEE v3 certificate is bound into both signed validators",12,0,FALSE,FALSE,0,0.351000000000006,0.0579999999999998,0.472000000000008,12

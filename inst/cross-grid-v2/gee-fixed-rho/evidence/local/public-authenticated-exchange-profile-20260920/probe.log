@@ -1,0 +1,65 @@
+   iteration elapsed  user system child_user child_system
+1          0   0.313 0.263  0.012      0.020        0.013
+2          1   0.409 0.359  0.014      0.019        0.012
+3          2   0.187 0.140  0.011      0.019        0.012
+4          3   0.175 0.128  0.011      0.018        0.011
+5          4   0.178 0.131  0.011      0.018        0.011
+6          5   0.171 0.125  0.011      0.017        0.011
+7          6   0.181 0.133  0.011      0.019        0.012
+8          7   0.174 0.127  0.010      0.018        0.012
+9          8   0.173 0.126  0.010      0.018        0.012
+10         9   0.183 0.134  0.012      0.019        0.013
+MEAN_TIMINGS
+     elapsed         user       system   child_user child_system 
+      0.2144       0.1666       0.0113       0.0185       0.0119 
+LAST_PROFILE_SELF
+                       self.time self.pct total.time total.pct
+"gsub"                     0.011    20.37      0.018     33.33
+"file.info"                0.010    18.52      0.010     18.52
+"grepl"                    0.009    16.67      0.009     16.67
+"digest::digest"           0.003     5.56      0.003      5.56
+"file.exists"              0.003     5.56      0.003      5.56
+"Sys.readlink"             0.003     5.56      0.003      5.56
+"dir.exists"               0.002     3.70      0.002      3.70
+"normalizePath"            0.002     3.70      0.002      3.70
+"Sys.info"                 0.002     3.70      0.002      3.70
+"FUN"                      0.001     1.85      0.006     11.11
+"system2"                  0.001     1.85      0.003      5.56
+"close.connection"         0.001     1.85      0.001      1.85
+"dir.create"               0.001     1.85      0.001      1.85
+"file.rename"              0.001     1.85      0.001      1.85
+"file"                     0.001     1.85      0.001      1.85
+"jsonlite::base64_enc"     0.001     1.85      0.001      1.85
+"seek.connection"          0.001     1.85      0.001      1.85
+"tempfile"                 0.001     1.85      0.001      1.85
+LAST_PROFILE_TOTAL
+                               total.time total.pct self.time self.pct
+"exactGCExchangeDS"                 0.054    100.00     0.000     0.00
+"main"                              0.054    100.00     0.000     0.00
+".exact_gc_exchange_impl"           0.053     98.15     0.000     0.00
+"doTryCatch"                        0.053     98.15     0.000     0.00
+"tryCatch"                          0.053     98.15     0.000     0.00
+"tryCatchList"                      0.053     98.15     0.000     0.00
+"tryCatchOne"                       0.053     98.15     0.000     0.00
+".exact_gc_with_lock"               0.049     90.74     0.000     0.00
+"force"                             0.048     88.89     0.000     0.00
+".callMpcTool"                      0.019     35.19     0.000     0.00
+"gsub"                              0.018     33.33     0.011    20.37
+".exact_gc_validate_envelope"       0.018     33.33     0.000     0.00
+".exact_gc_make_envelope"           0.017     31.48     0.000     0.00
+"base64_to_base64url"               0.017     31.48     0.000     0.00
+"is.factor"                         0.015     27.78     0.000     0.00
+".exact_gc_b64url_decode"           0.012     22.22     0.000     0.00
+".exact_gc_b64url_encode"           0.011     20.37     0.000     0.00
+"file.info"                         0.010     18.52     0.010    18.52
+"grepl"                             0.009     16.67     0.009    16.67
+".get_identity_keypair"             0.007     12.96     0.000     0.00
+"FUN"                               0.006     11.11     0.001     1.85
+".dsvert_relay_sign_message"        0.006     11.11     0.000     0.00
+".dsvert_relay_verify_message"      0.006     11.11     0.000     0.00
+".secure_unlink"                    0.006     11.11     0.000     0.00
+".sign_transport_pk"                0.006     11.11     0.000     0.00
+BINARY /Users/david/Documents/GitHub/dsvert-gee/dsVert/inst/bin/darwin-arm64/dsvert-mpc 
+SOURCE_SHA256 R/exactGCTransportDS.R e3f6a20fde15a1690eb293db4d8e1993f35f5eef2929e1f2b45f25b4d0f77c11 
+SOURCE_SHA256 R/mpcUtils.R b73438d15708550468c23cc1afea22b4bc04543a2baeed50e2e0b3752f98924b 
+SOURCE_SHA256 R/dsiRelay.R cf04a73730ebc53f8f601b5b488de01ee3d94ee1e085bba37b35c7e41daa8664 

@@ -31,6 +31,36 @@ stopifnot(n > 0, family %in% c("lmm", "binomial_glmm", "poisson_glmm",
 server_dir <- file.path(root, "dsVert")
 client_dir <- file.path(root, "dsVertClient")
 source(file.path(client_dir, "inst/validation/v1.2.0/worked_example_custodian.R"))
+# Custodian-side release policy, applied to every fresh/cold isolated peer.
+# This changes execution leases only; the release driver's 256GB/6h capacity
+# gate remains independent. Unset variables preserve the server defaults.
+structured_transport_policy <- list()
+for (setting in c("ttl_seconds", "max_runtime_seconds")) {
+  value <- Sys.getenv(paste0("DSVERT_RELEASE_", toupper(setting)))
+  if (nzchar(value)) {
+    parsed <- suppressWarnings(as.numeric(value))
+    stopifnot(length(parsed) == 1L, is.finite(parsed), parsed == floor(parsed))
+    structured_transport_policy[[paste0("dsvert.exact_gc.", setting)]] <- parsed
+  }
+}
+structured_boot_peer <- we_boot_peer
+we_boot_peer <- function(...) {
+  peer <- structured_boot_peer(...)
+  tryCatch({
+    effective <- peer$worker$run(function(policy) {
+      do.call(options, policy)
+      ttl <- dsVert:::.exact_gc_ttl_seconds()
+      list(ttl_seconds = ttl,
+        max_runtime_seconds = dsVert:::.exact_gc_max_runtime_seconds(ttl),
+        pid = Sys.getpid())
+    }, args = list(structured_transport_policy))
+    cat("DSLITE_ISOLATED_PEER_LEASE", jsonlite::toJSON(effective, auto_unbox = TRUE), "\n")
+    peer
+  }, error = function(error) {
+    try(peer$worker$close(), silent = TRUE)
+    stop(error)
+  })
+}
 pkgload::load_all(client_dir, quiet = TRUE)
 cf <- function(name) get(name, asNamespace("dsVertClient"), inherits = FALSE)
 trace("stop", where = baseenv(), print = FALSE, tracer = quote({

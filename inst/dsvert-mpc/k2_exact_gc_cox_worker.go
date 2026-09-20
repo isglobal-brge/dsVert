@@ -1,6 +1,6 @@
 package main
 
-// Typed server-local bridge. The signed GLMM adapter constructs every stage;
+// Typed server-local bridge. The signed Cox adapter constructs every stage;
 // no analyst-supplied stage graph or circuit is accepted.
 import (
 	"bytes"
@@ -16,19 +16,19 @@ import (
 	"strings"
 )
 
-const groupedGLMMWorkerOperation exactGCOperation = "grouped-glmm-staged-v1"
+const coxLossWorkerOperation exactGCOperation = "cox-loss-staged-v1"
 
-type groupedGLMMWorkerInput struct {
-	Spec           groupedGLMMSourceSpec    `json:"spec"`
-	Source         *groupedGLMMSourceRecord `json:"source"`
-	Routing        *groupedRouteSidecar     `json:"routing,omitempty"`
-	StoreDirectory string                   `json:"store_directory"`
-	StoreKey       string                   `json:"store_key"`
+type coxLossWorkerInput struct {
+	Spec           coxLossSourceSpec     `json:"spec"`
+	Source         *coxLossSourceRecord  `json:"source"`
+	Routing        *coxLossStagedRouting `json:"routing,omitempty"`
+	StoreDirectory string                `json:"store_directory"`
+	StoreKey       string                `json:"store_key"`
 }
 
-// R carries one opaque string, preserving every native f50/f64 integer bit.
-func (in *groupedGLMMWorkerInput) MarshalJSON() ([]byte, error) {
-	type native groupedGLMMWorkerInput
+// Transport carries one opaque string, preserving native caps and source words.
+func (in *coxLossWorkerInput) MarshalJSON() ([]byte, error) {
+	type native coxLossWorkerInput
 	raw, err := json.Marshal((*native)(in))
 	if err != nil {
 		return nil, err
@@ -37,7 +37,7 @@ func (in *groupedGLMMWorkerInput) MarshalJSON() ([]byte, error) {
 	return json.Marshal(base64.StdEncoding.EncodeToString(raw))
 }
 
-func (in *groupedGLMMWorkerInput) UnmarshalJSON(raw []byte) error {
+func (in *coxLossWorkerInput) UnmarshalJSON(raw []byte) error {
 	var encoded string
 	if json.Unmarshal(raw, &encoded) != nil {
 		return errCrossGridStage
@@ -47,7 +47,7 @@ func (in *groupedGLMMWorkerInput) UnmarshalJSON(raw []byte) error {
 		return errCrossGridStage
 	}
 	defer clear(decoded)
-	type native groupedGLMMWorkerInput
+	type native coxLossWorkerInput
 	var value native
 	decoder := json.NewDecoder(bytes.NewReader(decoded))
 	decoder.DisallowUnknownFields()
@@ -62,28 +62,28 @@ func (in *groupedGLMMWorkerInput) UnmarshalJSON(raw []byte) error {
 	if !bytes.Equal(decoded, canonical) {
 		return errCrossGridStage
 	}
-	*in = groupedGLMMWorkerInput(value)
+	*in = coxLossWorkerInput(value)
 	return nil
 }
 
-func groupedGLMMWorkerPurpose(spec groupedGLMMSourceSpec) string {
-	digest := crossGridStageHash("glmm-worker-public-source-spec-v1", spec)
-	return fmt.Sprintf("%s/%x", groupedGLMMWorkerOperation, digest)
+func coxLossWorkerPurpose(spec coxLossSourceSpec) string {
+	digest := crossGridStageHash("cox-worker-public-source-spec-v1", spec)
+	return fmt.Sprintf("%s/%x", coxLossWorkerOperation, digest)
 }
 
-type groupedGLMMWorkerPrepared struct {
-	graph        *groupedGLMMSourceGraph
+type coxLossWorkerPrepared struct {
+	graph        *coxLossSourceGraph
 	directory    string
 	key, binding [32]byte
 	role         exactGCRole
 }
 
-func groupedGLMMWorkerPrepare(config exactGCWorkerConfig, session exactGCSession) (*groupedGLMMWorkerPrepared, error) {
-	in := config.GroupedGLMM
-	if in == nil || session.Spec.Operation != groupedGLMMWorkerOperation || session.validate() != nil ||
-		config.SourceShare != "" || config.SourceValidity != "" || config.CoxLoss != nil || config.GroupedLMM != nil || config.GroupedGEE != nil || config.CrossGrid != nil || config.CrossGridCache != nil ||
+func coxLossWorkerPrepare(config exactGCWorkerConfig, session exactGCSession) (*coxLossWorkerPrepared, error) {
+	in := config.CoxLoss
+	if in == nil || session.Spec.Operation != coxLossWorkerOperation || session.validate() != nil ||
+		config.SourceShare != "" || config.SourceValidity != "" || config.GroupedLMM != nil || config.GroupedGLMM != nil || config.GroupedGEE != nil || config.CrossGrid != nil || config.CrossGridCache != nil ||
 		config.JointDP != nil || config.JointDPVector != nil || config.JointDPGaussianOneDraw != nil || config.PrivateSeed != "" ||
-		session.Purpose != groupedGLMMWorkerPurpose(in.Spec) || session.Spec.VectorLen != len(in.Spec.GLMM.Caps) ||
+		session.Purpose != coxLossWorkerPurpose(in.Spec) || session.Spec.VectorLen != in.Spec.Cox.Plan.Spec.Candidates ||
 		session.GarblerID != in.Spec.Authorities[0] || session.EvaluatorID != in.Spec.Authorities[1] ||
 		!filepath.IsAbs(in.StoreDirectory) || filepath.Clean(in.StoreDirectory) != in.StoreDirectory {
 		return nil, errCrossGridStage
@@ -107,30 +107,30 @@ func groupedGLMMWorkerPrepare(config exactGCWorkerConfig, session exactGCSession
 	copy(key[:], rawKey)
 	clear(rawKey)
 	defer clear(key[:])
-	graph, err := groupedGLMMBuildSourceGraph(in.Spec, role, in.Source, in.Routing, key)
+	graph, err := coxLossBuildSourceGraph(in.Spec, role, in.Source, in.Routing, key)
 	if err != nil {
 		return nil, err
 	}
 	// Never public: authenticates exact local source bytes across cold replay.
 	raw, err := json.Marshal(struct {
 		Plan    [32]byte
-		Source  *groupedGLMMSourceRecord
-		Routing *groupedRouteSidecar
+		Source  *coxLossSourceRecord
+		Routing *coxLossStagedRouting
 	}{crossGridStageHash("public-plan", graph.Graph), in.Source, in.Routing})
 	if err != nil {
 		return nil, errCrossGridStage
 	}
 	defer clear(raw)
 	m := hmac.New(sha256.New, key[:])
-	m.Write([]byte("dsvert/grouped-glmm-worker-private-source-binding/v1\x00"))
+	m.Write([]byte("dsvert/cox-loss-worker-private-source-binding/v1\x00"))
 	m.Write(raw)
-	prepared := &groupedGLMMWorkerPrepared{graph: graph, directory: in.StoreDirectory, key: key, role: role}
+	prepared := &coxLossWorkerPrepared{graph: graph, directory: in.StoreDirectory, key: key, role: role}
 	copy(prepared.binding[:], m.Sum(nil))
 	return prepared, nil
 }
 
-func (p *groupedGLMMWorkerPrepared) bindSource(store *crossGridStageStore) error {
-	const name = "glmm-source.binding"
+func (p *coxLossWorkerPrepared) bindSource(store *crossGridStageStore) error {
+	const name = "cox-source.binding"
 	info, err := store.root.Lstat(name)
 	if err == nil {
 		if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || !exactGCPrivateOwnedRegular(info) || info.Size() != 32 {
@@ -164,7 +164,7 @@ func (p *groupedGLMMWorkerPrepared) bindSource(store *crossGridStageStore) error
 	if err != nil {
 		return err
 	}
-	temporary := ".glmm-source-" + hex.EncodeToString(token[:])
+	temporary := ".cox-source-" + hex.EncodeToString(token[:])
 	file, err := store.root.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		return err
@@ -191,7 +191,7 @@ func (p *groupedGLMMWorkerPrepared) bindSource(store *crossGridStageStore) error
 	return directory.Sync()
 }
 
-func (p *groupedGLMMWorkerPrepared) run(rw io.ReadWriter, session exactGCSession) (exactGCWorkerResult, error) {
+func (p *coxLossWorkerPrepared) run(rw io.ReadWriter, session exactGCSession) (exactGCWorkerResult, error) {
 	store, err := crossGridStageOpenStore(p.directory, p.key, p.graph.Graph, p.role)
 	if err != nil {
 		return exactGCWorkerResult{}, err
@@ -230,7 +230,7 @@ func (p *groupedGLMMWorkerPrepared) run(rw io.ReadWriter, session exactGCSession
 		flags[i] = bit == 1
 	}
 	context := exactGCContextDigest(session)
-	return exactGCWorkerResult{Version: exactGCWorkerResultVersion, Kind: "grouped-glmm-staged-ring128-share-v1",
+	return exactGCWorkerResult{Version: exactGCWorkerResultVersion, Kind: "cox-loss-staged-ring128-share-v1",
 		RingBits: 128, VectorLen: session.Spec.VectorLen, Share: base64.StdEncoding.EncodeToString(output.Share),
 		ValidityShare: packBoolsB64(flags), ContextHash: hex.EncodeToString(context[:]),
 		StageReceipt: hex.EncodeToString(terminal.StageReceipt[:]), StagePlanDigest: hex.EncodeToString(store.plan[:])}, nil

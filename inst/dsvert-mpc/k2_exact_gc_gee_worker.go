@@ -81,7 +81,7 @@ type groupedGEEWorkerPrepared struct {
 func groupedGEEWorkerPrepare(config exactGCWorkerConfig, session exactGCSession) (*groupedGEEWorkerPrepared, error) {
 	in := config.GroupedGEE
 	if in == nil || session.Spec.Operation != groupedGEEWorkerOperation || session.validate() != nil ||
-		config.SourceShare != "" || config.SourceValidity != "" || config.GroupedLMM != nil || config.GroupedGLMM != nil || config.CrossGrid != nil || config.CrossGridCache != nil ||
+		config.SourceShare != "" || config.SourceValidity != "" || config.CoxLoss != nil || config.GroupedLMM != nil || config.GroupedGLMM != nil || config.CrossGrid != nil || config.CrossGridCache != nil ||
 		config.JointDP != nil || config.JointDPVector != nil || config.JointDPGaussianOneDraw != nil || config.PrivateSeed != "" ||
 		session.Purpose != groupedGEEWorkerPurpose(in.Spec) || session.Spec.VectorLen != len(in.Spec.Caps)*(1+(in.Spec.Numeric.Predictors+1)*(in.Spec.Numeric.Predictors+2)) ||
 		session.GarblerID != in.Spec.Authorities[0] || session.EvaluatorID != in.Spec.Authorities[1] ||

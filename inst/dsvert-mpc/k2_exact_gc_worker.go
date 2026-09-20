@@ -32,6 +32,7 @@ const (
 
 type exactGCWorkerConfig struct {
 	GroupedGEE     *groupedGEEWorkerInput  `json:"grouped_gee,omitempty"`
+	CoxLoss        *coxLossWorkerInput     `json:"cox_loss,omitempty"`
 	GroupedLMM     *groupedLMMWorkerInput  `json:"grouped_lmm,omitempty"`
 	GroupedGLMM    *groupedGLMMWorkerInput `json:"grouped_glmm,omitempty"`
 	CrossGrid      *crossGridKernelPlan    `json:"cross_grid,omitempty"`
@@ -180,6 +181,7 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 		config.GroupedLMM = nil
 		config.GroupedGLMM = nil
 		config.GroupedGEE = nil
+		config.CoxLoss = nil
 		if returnErr != nil && canReportFailure {
 			if markerErr := exactGCCommitWorkerFailure(
 				config.SpoolDir, config, failureSession, returnErr); markerErr != nil {
@@ -223,6 +225,17 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 	}
 	failureSession = &session
 	defer clear(session.MasterKey[:])
+	var stagedCox *coxLossWorkerPrepared
+	if session.Spec.Operation == coxLossWorkerOperation {
+		stagedCox, err = coxLossWorkerPrepare(config, session)
+		if err != nil {
+			return err
+		}
+		defer clear(stagedCox.key[:])
+		config.CoxLoss = nil
+	} else if config.CoxLoss != nil {
+		return errCrossGridStage
+	}
 	var stagedGEE *groupedGEEWorkerPrepared
 	if session.Spec.Operation == groupedGEEWorkerOperation {
 		stagedGEE, err = groupedGEEWorkerPrepare(config, session)
@@ -275,7 +288,7 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 		return errCrossGridKernel
 	}
 	var shares []*big.Int
-	if stagedLMM == nil && stagedGLMM == nil && stagedGEE == nil {
+	if stagedLMM == nil && stagedGLMM == nil && stagedGEE == nil && stagedCox == nil {
 		shares, err = exactGCDecodeWorkerShares(config.SourceShare, shareSpec)
 	}
 	config.MasterKey = ""
@@ -378,7 +391,11 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 	if err := exactGCPrivateMarker(config.SpoolDir, "ready", []byte("1")); err != nil {
 		return err
 	}
-	if stagedGEE != nil {
+	if stagedCox != nil {
+		var result exactGCWorkerResult
+		result, err = stagedCox.run(spool, session)
+		stagedResult = &result
+	} else if stagedGEE != nil {
 		var result exactGCWorkerResult
 		result, err = stagedGEE.run(spool, session)
 		stagedResult = &result

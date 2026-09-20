@@ -372,3 +372,190 @@ if (nzchar(Sys.getenv("DSVERT_COX_STAGED_TEST_BINARY"))) {
     }
   })
 }
+
+.cox_transport_fixture <- function(f) {
+  artifact <- .dsvert_dp_cox_cross_workload_artifact(f$contract)
+  families <- setNames(rep(list(list(artifacts = list())), 10L), c(
+    "admitted_count", "numeric_moments", "numeric_pair_moments", "gaussian_models",
+    "fixed_numeric_histograms", "categorical_marginals", "categorical_pairs",
+    "correlation_artifacts", "describe_artifacts", "survival_artifacts"))
+  families$admitted_count <- list(owner_peer = "site_a", dataset = "aligned")
+  families$survival_artifacts <- list()
+  families$gaussian_models$artifacts <- list(cox_grid = artifact)
+  manifest <- list(logical_snapshot = f$contract$spec$logical_snapshot,
+    capsule_identity = list(capsule_id = strrep("6", 64)),
+    workload = list(coordinate_count = artifact$coordinate_count + 1L,
+      families = families, capsule_mechanism = list(source_context_hash = strrep("a", 64))))
+  layout <- .dsvert_dp_cox_cross_transport_layout(manifest, artifact)
+  transport <- list(version = .DSVERT_DP_GLM_GRID_CROSS_SOURCE_VERSION,
+    purpose = .DSVERT_DP_GLM_GRID_CROSS_SOURCE_PURPOSE,
+    capsule_id = manifest$capsule_identity$capsule_id,
+    logical_snapshot_sha256 = .dsvert_joint_dp_hash(manifest$logical_snapshot),
+    workload_sha256 = .dsvert_joint_dp_hash(manifest$workload),
+    source_context_hash = manifest$workload$capsule_mechanism$source_context_hash,
+    peer_pinset_sha256 = f$policy$peer_pinset_sha256,
+    source_peers = artifact$participating_peers,
+    designated_noise_peers = artifact$computation_peers,
+    coordinate_count = layout$transport_coordinate_count,
+    coordinate_order_sha256 = layout$transport_coordinate_order_sha256,
+    ring_bits = 128, record_bytes = 16,
+    record_encoding = "little_endian_unsigned_fixed_16_bytes",
+    chunk_coordinates = 8192, chunk_count = ceiling(layout$transport_coordinate_count / 8192),
+    chunk_shape = "fixed_release_prefix_and_capacity_padded_private_slices",
+    history_gate = FALSE, ready_for_sampling = FALSE,
+    release_coordinate_count = layout$release_coordinate_count,
+    release_coordinate_order_sha256 = layout$release_coordinate_order_sha256,
+    private_layout_sha256 = layout$transport_coordinate_order_sha256,
+    cross_input_peers = artifact$participating_peers,
+    private_alignment_consensus = .DSVERT_DP_CAPSULE_SOURCE_ALIGNMENT_SHARING)
+  list(artifact = artifact, manifest = manifest, transport = transport, layout = layout)
+}
+
+test_that("Cox workload and source context authenticate K-owner transport without time values", {
+  for (owners in c(2L, 3L, 5L)) {
+    f <- .cox_cross_server_fixture(capacity = 17, owners = owners)
+    t <- .cox_transport_fixture(f)
+    context <- function(manifest = t$manifest, transport = t$transport) {
+      .dsvert_dp_cox_cross_source_context(f$policy, manifest, transport,
+        f$schema_manifest, "cox_grid")
+    }
+    validated <- context()
+    expect_identical(validated$spec, .dsvert_dp_canonical_query_value(f$contract$spec))
+    expect_false(t$artifact$intercept)
+    expect_false(t$artifact$runtime_enabled)
+    expect_null(t$artifact$outcome)
+    expect_null(t$artifact$grouping)
+    expect_identical(t$artifact$numeric_certificate, f$contract$spec$numeric_contract)
+    expect_identical(t$artifact$statistic_maximum, f$contract$spec$sensitivity$maximum_coordinates)
+    expect_equal(t$layout$private_start, 8193)
+    expect_identical(unlist(t$layout$source_peers), paste0("site_", letters[seq_len(owners)]))
+    expect_length(t$layout$computation_peers, 2L)
+    blocks <- t$layout$blocks
+    time <- blocks[vapply(blocks, function(b) b$private_time_validity, logical(1))]
+    expect_length(time, 1L)
+    expect_identical(time[[1L]]$kind, "validity")
+    expect_true(all(vapply(blocks, function(b) b$length == 32L, logical(1))))
+    for (field in c("workload_sha256", "logical_snapshot_sha256", "peer_pinset_sha256",
+        "coordinate_order_sha256", "private_layout_sha256", "source_context_hash")) {
+      changed <- t$transport; changed[[field]] <- strrep("b", 64)
+      expect_error(context(transport = changed))
+    }
+    changed <- t$manifest
+    changed$workload$families$gaussian_models$artifacts$cox_grid$intercept <- TRUE
+    expect_error(context(manifest = changed), class = "dsvert_dp_public_failure")
+    changed <- t$manifest
+    changed$logical_snapshot$version <- "other"
+    expect_error(context(manifest = changed), class = "dsvert_dp_public_failure")
+    changed <- t$transport; changed$source_peers <- changed$source_peers[-owners]
+    expect_error(context(transport = changed))
+  }
+})
+
+test_that("Cox input loader verifies actual store MACs and all-owner completion", {
+  f <- .cox_cross_server_fixture(capacity = 16, owners = 5L)
+  transport_fixture <- .cox_transport_fixture(f)
+  f[names(transport_fixture)] <- transport_fixture
+  f$policy$peer_name <- "site_a"
+  f$secret <- as.raw(seq_len(32L))
+  f$ss <- new.env(parent = emptyenv())
+  f$ss$.exact_gc_peer_binding_digest <- strrep("8", 64)
+  f$ss$.exact_gc_transport_initialized <- TRUE
+  f$ss$.exact_gc_self_name <- "site_a"
+  f$ss$peer_transport_pks <- list(site_b = "private-test-transport")
+  f$ss$.exact_gc_peer_identity_pks <- list(site_b = "pinned-test-peer")
+  batches <- .dsvert_dp_alignment_mask_batches(f$ss)
+  batch <- new.env(parent = emptyenv())
+  batch$status <- "complete"
+  batch$peer_binding_digest <- f$ss$.exact_gc_peer_binding_digest
+  batch$terminal_peer_blob_digest <- strrep("9", 64)
+  batch$first_validity_share <- jsonlite::base64_enc(as.raw(1))
+  batches$fixture <- batch
+  artifact <- f$artifact
+  manifest <- f$manifest
+  transport <- f$transport
+  layout <- f$layout
+  expect_identical(.dsvert_dp_capsule_source_contract_validate(transport), transport)
+  source_hash <- .dsvert_joint_dp_hash(transport)
+  batch <- f$ss$.dp_alignment_mask_batches$fixture
+  batch$capsule_id <- transport$capsule_id
+  batch$contract_hash <- source_hash
+  batch$projection_version <- "private-suffix-v2"
+  batch$source_offset <- layout$private_start - 1
+  batch$total <- layout$transport_coordinate_count - layout$private_start + 1
+  batch$alignment_contract <- .DSVERT_DP_ALIGNMENT_MASK_PRIVATE_CONTRACT
+  con <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(con), add = TRUE)
+  DBI::dbExecute(con, paste("CREATE TABLE source_incoming_state (",
+    "capsule_id TEXT PRIMARY KEY, record_json TEXT NOT NULL, row_mac TEXT NOT NULL)"))
+  DBI::dbExecute(con, paste("CREATE TABLE source_aggregate_chunks (",
+    "capsule_id TEXT, chunk_index INTEGER, record_json TEXT NOT NULL, row_mac TEXT NOT NULL,",
+    "PRIMARY KEY(capsule_id,chunk_index))"))
+  state <- list(version = .DSVERT_DP_CAPSULE_SOURCE_STORE_VERSION,
+    capsule_id = transport$capsule_id, contract_hash = source_hash,
+    recipient_name = "site_a", next_source_index = 6, next_chunk_index = 0,
+    complete = TRUE, private_alignment_consensus_shares = setNames(
+      rep(list(.dsvert_relay_b64url_encode(raw(32))), 5L), unlist(artifact$participating_peers)))
+  .dsvert_dp_capsule_source_record_insert(con, "source_incoming_state", "capsule_id",
+    list(transport$capsule_id), state, f$secret)
+  all_bytes <- raw(16 * layout$transport_coordinate_count)
+  variables <- c(unlist(f$contract$spec$predictor_order), f$contract$spec$event$reference,
+    f$contract$spec$time$reference)
+  validities <- setNames(vector("list", length(variables)), variables)
+  values <- validities[setdiff(variables, f$contract$spec$time$reference)]
+  for (i in seq_along(layout$blocks)) {
+    block <- layout$blocks[[i]]
+    bytes <- as.raw(rep(i * 16 + seq_len(block$length), each = 16))
+    all_bytes[seq.int((block$start - 1) * 16 + 1, length.out = length(bytes))] <- bytes
+    variable <- block$reference
+    if (block$kind == "value") values[[variable]] <- bytes else validities[[variable]] <- bytes
+  }
+  records <- lapply(seq_len(transport$chunk_count) - 1, function(index) {
+    geometry <- .dsvert_dp_capsule_source_chunk_geometry(transport, index)
+    bytes <- all_bytes[seq.int(geometry$offset * 16 + 1, length.out = geometry$count * 16)]
+    record <- list(version = .DSVERT_DP_CAPSULE_SOURCE_STORE_VERSION,
+      capsule_id = transport$capsule_id, contract_hash = source_hash,
+      recipient_name = "site_a", chunk_index = index, coordinates_in_chunk = geometry$count,
+      source_count = 5, aggregate_b64 = .dsvert_dp_capsule_source_raw_b64(bytes))
+    .dsvert_dp_capsule_source_record_insert(con, "source_aggregate_chunks",
+      c("capsule_id", "chunk_index"), list(transport$capsule_id, index), record, f$secret)
+    record
+  })
+  # Only connection acquisition is replaced. Real private row MACs, source
+  # contract identities, source counts, chunk geometry and bytes are verified.
+  local_mocked_bindings(.dsvert_dp_capsule_source_with_store = function(policy, secret, code) code(con))
+  load <- function(current_manifest = manifest, current_transport = transport) {
+    .dsvert_dp_cox_cross_load_inputs(f$policy, f$secret, current_manifest,
+      current_transport, f$schema_manifest, f$ss, "cox_grid")
+  }
+  expected <- list(context = .dsvert_dp_cox_cross_source_context(f$policy,
+    manifest, transport, f$schema_manifest, "cox_grid"), values = values, validities = validities)
+  expect_identical(load(), expected)
+  update <- function(record) .dsvert_dp_capsule_source_record_update(con,
+    "source_aggregate_chunks", record, f$secret,
+    "capsule_id = ? AND chunk_index = ?", list(transport$capsule_id, 1L))
+  for (field in c("capsule_id", "contract_hash", "recipient_name", "chunk_index")) {
+    changed <- records[[2L]]
+    changed[[field]] <- if (field == "chunk_index") 0 else "different-source"
+    update(changed)
+    expect_error(load(), class = "dsvert_dp_public_failure")
+  }
+  changed <- records[[2L]]
+  changed$source_count <- 4
+  update(changed)
+  expect_error(load(), "completeness validation")
+  update(records[[2L]])
+  DBI::dbExecute(con, "UPDATE source_aggregate_chunks SET row_mac=? WHERE chunk_index=1",
+                 params = list(strrep("0", 64)))
+  expect_error(load(), "private-store authentication")
+  update(records[[2L]])
+  batch$source_offset <- batch$source_offset + 1
+  expect_error(load(), class = "dsvert_dp_public_failure")
+  batch$source_offset <- batch$source_offset - 1
+  changed_manifest <- manifest
+  changed_manifest$workload$families$gaussian_models$artifacts$cox_grid$time$owner_peer <- "site_b$other"
+  expect_error(load(current_manifest = changed_manifest), class = "dsvert_dp_public_failure")
+  changed_transport <- transport
+  changed_transport$workload_sha256 <- strrep("0", 64)
+  expect_error(load(current_transport = changed_transport))
+  expect_identical(load(), expected)
+})

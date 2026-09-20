@@ -260,14 +260,19 @@ func groupedLMMBuildStagedGraph(s groupedLMMStagedSpec, role exactGCRole) (*grou
 			return crossGridStageOutput{}, e
 		}
 		words := make([]groupedWord, 2*triangle)
+		var program *primitiveVProgram
+		compiledCount := 0
 		for start := 0; start < triangle; start += 32 {
 			count := triangle - start
 			if count > 32 {
 				count = 32
 			}
-			program, e := groupedLMMLiftCompile(count)
-			if e != nil {
-				return crossGridStageOutput{}, e
+			if count != compiledCount {
+				program, e = groupedLMMLiftCompile(count)
+				if e != nil {
+					return crossGridStageOutput{}, e
+				}
+				compiledCount = count
 			}
 			high, e := groupedLMMStagedPrimitive(rw, attempt, role, fmt.Sprintf("lift/%d", start), profile, program, low[start:start+count])
 			if e != nil {

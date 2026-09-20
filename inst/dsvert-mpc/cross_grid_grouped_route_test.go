@@ -110,7 +110,7 @@ func TestGroupedRouteSidecarAndPublicTopology(t *testing.T) {
 }
 
 func TestGroupedRouteTwoAuthorityDurable(t *testing.T) {
-	for _, scenario := range []string{"fresh-cold", "private-padding", "bilateral-recovery", "unilateral-recovery", "source-invalid", "nonbinary-presence", "source-label-mismatch", "private-capacity-overflow", "numeric-bound", "nonnegative-domain", "outcome-bound", "outcome-overflow", "feature-bound-under-poisson"} {
+	for _, scenario := range []string{"repeated-full-tail", "bilateral-normalize", "unilateral-normalize", "fresh-cold", "private-padding", "bilateral-recovery", "unilateral-recovery", "source-invalid", "nonbinary-presence", "source-label-mismatch", "private-capacity-overflow", "numeric-bound", "nonnegative-domain", "outcome-bound", "outcome-overflow", "feature-bound-under-poisson"} {
 		t.Run(scenario, func(t *testing.T) { groupedRouteRunTest(t, scenario) })
 	}
 }
@@ -164,6 +164,34 @@ func groupedRouteRunTest(t *testing.T, scenario string) {
 	if scenario == "source-label-mismatch" {
 		metadata[2] = big.NewInt(0)
 	}
+	// 36 rows exercise two identical 16-row programs and a distinct 4-row tail.
+	// Keep a missing slot in every four-row block, including both full chunks.
+	repeated := scenario == "repeated-full-tail" || scenario == "bilateral-normalize" || scenario == "unilateral-normalize"
+	if repeated {
+		s.Clusters = 18
+		for block := 1; block < 9; block++ {
+			for _, value := range numeric[:8] {
+				numeric = append(numeric, new(big.Int).Set(value))
+			}
+			for row := 0; row < 4; row++ {
+				labels = append(labels, labels[row]+2*block)
+				present = append(present, true)
+				for c := 0; c < 4; c++ {
+					value := new(big.Int).Set(metadata[4*row+c])
+					if c == 2 {
+						value.Add(value, big.NewInt(int64(2*block)))
+					}
+					metadata = append(metadata, value)
+				}
+			}
+		}
+	}
+	faultStage := "grouped.route.layer.000.tile.0000"
+	bilateral := scenario == "bilateral-recovery" || scenario == "bilateral-normalize"
+	unilateral := scenario == "unilateral-recovery" || scenario == "unilateral-normalize"
+	if repeated {
+		faultStage = "grouped.route.normalize.000001"
+	}
 	keys := [2][32]byte{crossGridStageTestKey(0), crossGridStageTestKey(1)}
 	side, err := groupedRouteSeal(s, labels, present, keys[0])
 	if err != nil {
@@ -195,7 +223,7 @@ func groupedRouteRunTest(t *testing.T, scenario string) {
 		Authorities: [2]string{base.GarblerID, base.EvaluatorID}, SchemaDigest: sha256.Sum256([]byte("signed grouped route schema")), SemanticKey: sha256.Sum256([]byte("sticky grouped route release"))}
 	for field, id := range []string{s.NumericStage, s.MetadataStage} {
 		p := crossGridStagePlan{ID: id, Kind: "test.authenticated-source", Ring: 128, FPScale: 50,
-			CoordOrder: make([]string, len(sources[0][field].Validity)), PublicBounds: map[string]int{"rows": 4}, SourceDigest: s.SourceDigest, ProfileDigest: s.ProfileDigest}
+			CoordOrder: make([]string, len(sources[0][field].Validity)), PublicBounds: map[string]int{"rows": len(labels)}, SourceDigest: s.SourceDigest, ProfileDigest: s.ProfileDigest}
 		if field == 1 {
 			p.FPScale = 0
 		}
@@ -247,12 +275,12 @@ func groupedRouteRunTest(t *testing.T, scenario string) {
 		executors := [2]*crossGridStageExecutor{{Store: stores[0], Base: base}, {Store: stores[1], Base: base}}
 		if fault != "" {
 			events := [2]string{"after-prepare", "after-prepare"}
-			if fault == "unilateral-recovery" {
+			if unilateral {
 				events = [2]string{"after-commit", "after-prepare-exchange"}
 			}
 			for role, event := range events {
 				executors[role].fault = func(at string, r crossGridStageRecord) error {
-					if r.StageID == "grouped.route.layer.000.tile.0000" && at == event {
+					if r.StageID == faultStage && at == event {
 						return errors.New("synthetic routing interruption")
 					}
 					return nil
@@ -299,7 +327,7 @@ func groupedRouteRunTest(t *testing.T, scenario string) {
 					t.Fatal(e)
 				}
 				receipts[abi.ID] = r.StageReceipt
-				if abi.ID == "grouped.route.layer.000.tile.0000" {
+				if abi.ID == faultStage {
 					records[role] = r
 					break
 				}
@@ -309,14 +337,14 @@ func groupedRouteRunTest(t *testing.T, scenario string) {
 		return records
 	}
 	var interrupted [2]crossGridStageRecord
-	if scenario == "bilateral-recovery" || scenario == "unilateral-recovery" {
+	if bilateral || unilateral {
 		failed := run(scenario, false)
 		if failed[0].err == nil || failed[1].err == nil {
 			t.Fatal("routing interruption did not interrupt both peers")
 		}
 		interrupted = readTile()
 		want := [2]string{"PREPARE", "PREPARE"}
-		if scenario == "unilateral-recovery" {
+		if unilateral {
 			want[0] = "COMMIT"
 		}
 		for role, r := range interrupted {
@@ -332,7 +360,7 @@ func groupedRouteRunTest(t *testing.T, scenario string) {
 		}
 	}
 	a, b := got[0].out[len(plan.Stages)-1], got[1].out[len(plan.Stages)-1]
-	valid := scenario == "outcome-bound" || scenario == "fresh-cold" || scenario == "private-padding" || scenario == "bilateral-recovery" || scenario == "unilateral-recovery"
+	valid := repeated || scenario == "outcome-bound" || scenario == "fresh-cold" || scenario == "private-padding" || scenario == "bilateral-recovery" || scenario == "unilateral-recovery"
 	for i := range a.Validity {
 		want := byte(0)
 		if valid {
@@ -347,10 +375,17 @@ func groupedRouteRunTest(t *testing.T, scenario string) {
 		if scenario == "private-padding" {
 			permutation = []int{1, 3, 2, 0}
 		}
+		if repeated {
+			for block := 1; block < 9; block++ {
+				for _, row := range permutation[:4] {
+					permutation = append(permutation, row+4*block)
+				}
+			}
+		}
 		for destination, source := range permutation {
 			for c := 0; c < 3; c++ {
 				want := new(big.Int)
-				if source != 1 && present[source] {
+				if source%4 != 1 && present[source] {
 					if c == 0 {
 						want.Lsh(big.NewInt(1), 50)
 					} else {
@@ -365,11 +400,11 @@ func groupedRouteRunTest(t *testing.T, scenario string) {
 			}
 		}
 	}
-	if scenario == "bilateral-recovery" || scenario == "unilateral-recovery" {
+	if bilateral || unilateral {
 		after := readTile()
 		for role, r := range after {
 			old := interrupted[role]
-			if scenario == "bilateral-recovery" {
+			if bilateral {
 				if r.AttemptNonce == old.AttemptNonce || r.OutputMaskDomainTag == old.OutputMaskDomainTag || r.StageReceipt == old.StageReceipt {
 					t.Fatal("aborted routing tile reused attempt randomness")
 				}
@@ -378,7 +413,7 @@ func groupedRouteRunTest(t *testing.T, scenario string) {
 			}
 		}
 	}
-	if scenario == "fresh-cold" {
+	if scenario == "fresh-cold" || repeated {
 		replayed := run("", true)
 		for role, result := range replayed {
 			if result.err != nil || !bytes.Equal(result.out[len(plan.Stages)-1].Share, got[role].out[len(plan.Stages)-1].Share) {

@@ -124,6 +124,32 @@ func TestGroupedLMMStagedGraphTwoAuthority(t *testing.T) {
 	}
 }
 
+// Eleven clusters produce 66 Gram coordinates: two full lift chunks and a tail.
+func TestGroupedLMMStagedRepeatedLiftChunks(t *testing.T) {
+	s := groupedLMMStagedTestSpec()
+	s.Moments.Clusters = 11
+	f := new(big.Int).Lsh(big.NewInt(1), 50)
+	rows := make([][]*big.Int, 22)
+	for i := range rows {
+		rows[i] = []*big.Int{new(big.Int).Set(f), new(big.Int).Rsh(new(big.Int).Set(f), uint(1+i%3)), new(big.Int).Rsh(new(big.Int).Set(f), 2)}
+	}
+	for _, scenario := range []string{"fresh", "bilateral-midstage-recovery", "unilateral-commit-recovery"} {
+		t.Run(scenario, func(t *testing.T) {
+			got, valid := groupedLMMStagedRunTest(t, s, rows, false, scenario)
+			for j, beta := range s.Beta {
+				want := new(big.Int)
+				for c := 0; c < s.Moments.Clusters; c++ {
+					want.Add(want, groupedLMMStatsOracle(s.Numeric, rows[2*c:2*c+2], beta))
+				}
+				value := new(big.Int).SetBytes(reverseBytesCopy(got[16*j : 16*(j+1)]))
+				if valid[j] != 1 || value.Cmp(want) != 0 {
+					t.Fatalf("candidate %d: got %s valid %d, want %s", j, value, valid[j], want)
+				}
+			}
+		})
+	}
+}
+
 func reverseBytesCopy(raw []byte) []byte {
 	out := append([]byte(nil), raw...)
 	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {

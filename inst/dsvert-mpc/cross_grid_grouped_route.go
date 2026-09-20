@@ -145,6 +145,9 @@ func groupedRouteBuildStagedGraph(s groupedRouteStagedSpec, role exactGCRole, si
 			SourceDigest: s.SourceDigest, ProfileDigest: profile, Predecessors: previous})
 		graph.Compute = append(graph.Compute, compute)
 	}
+	// The executor visits stages sequentially. Cache only immutable public
+	// programs within this signed graph; each run still draws fresh cryptography.
+	normalizePrograms := map[string]*primitiveVProgram{}
 	chunks := []string{}
 	for start := 0; start < rows; start += 16 {
 		start, count := start, min(16, rows-start)
@@ -154,7 +157,7 @@ func groupedRouteBuildStagedGraph(s groupedRouteStagedSpec, role exactGCRole, si
 			if len(in) != 2 || groupedRouteCheckOutput(in[0], rows*(cols-1)) != nil || groupedRouteCheckOutput(in[1], rows*(cols+1)) != nil {
 				return crossGridStageOutput{}, errCrossGridStage
 			}
-			return groupedRouteNormalize(rw, a, role, s, side, start, count, in)
+			return groupedRouteNormalize(rw, a, role, s, side, start, count, in, normalizePrograms)
 		})
 	}
 	add("grouped.route.normalized", "grouped.normalized-assembly", n*cols, chunks, func(rw io.ReadWriter, a crossGridStageAttempt, in []crossGridStageOutput) (crossGridStageOutput, error) {
@@ -246,7 +249,7 @@ func groupedRouteCheckOutput(in crossGridStageOutput, count int) error {
 	return nil
 }
 
-func groupedRouteNormalize(rw io.ReadWriter, a crossGridStageAttempt, role exactGCRole, s groupedRouteStagedSpec, side *groupedRouteSidecar, start, count int, in []crossGridStageOutput) (crossGridStageOutput, error) {
+func groupedRouteNormalize(rw io.ReadWriter, a crossGridStageAttempt, role exactGCRole, s groupedRouteStagedSpec, side *groupedRouteSidecar, start, count int, in []crossGridStageOutput, programs map[string]*primitiveVProgram) (crossGridStageOutput, error) {
 	// Per row: numeric, presence+label+labelPresence, owner's label+presence,
 	// packed XOR arithmetic validity. The final input is private capacityOK.
 	numeric, metadata, cols := s.Predictors+1, s.Predictors+3, s.Predictors+2
@@ -310,9 +313,15 @@ func groupedRouteNormalize(rw io.ReadWriter, a crossGridStageAttempt, role exact
 		fmt.Fprintf(&source, "out[%d]=%s-g[%d]\n", i, value, inputs+i)
 	}
 	source.WriteString("return out\n}\n")
-	program, err := primitiveVCompile(source.String(), 128, inputs+outputs, inputs, outputs)
-	if err != nil {
-		return crossGridStageOutput{}, err
+	publicSource := source.String()
+	program := programs[publicSource]
+	if program == nil {
+		var err error
+		program, err = primitiveVCompile(publicSource, 128, inputs+outputs, inputs, outputs)
+		if err != nil {
+			return crossGridStageOutput{}, err
+		}
+		programs[publicSource] = program
 	}
 	run := primitiveVRunGarbler
 	if role == exactGCRoleEvaluator {

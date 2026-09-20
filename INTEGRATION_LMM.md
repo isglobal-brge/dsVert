@@ -1,3 +1,38 @@
+# Cycle20: reuse immutable public normalization and lift programs
+
+The private routing graph caches normalization programs by their complete public
+source text. At n2000 this compiles the identical 16-row program once per
+per-authority graph instead of 125 times. A partial final chunk has its own
+program. Cache lifetime is one sequential graph; owner inputs, masks, wire
+labels, OT streams, sessions and durable outputs are not cached. Every stage
+still checks current source shape and uses its existing attempt domain.
+
+The LMM signed-limb lift similarly compiles once for full 32-coordinate chunks
+and once for a tail within each stage attempt. No integer expression, rounding,
+cap, epsilon/delta, stage ID, source/profile hash or receipt rule changes.
+This does not share programs between variance branches.
+
+Fresh native baseline and modified snapshots both pass 13 selected LMM/router
+checks, including a new 36-row repeated/full/tail normalization fixture with
+bilateral and unilateral normalization recovery, and an 11-cluster repeated
+lift fixture against independent integer oracles. Cold replay, source rejection,
+ML arithmetic and actual spool workers pass. This is local Go1.25.7 native
+component evidence, not a signed n2000 release or measured wall-time speedup.
+Shared GLMM regression checks also pass 10 selected native tests,
+including both outcomes, private source validation and recovery. Four platform
+runtimes were rebuilt from the verified modified snapshot with Go1.25.7.
+Full authenticated relay batching, signed optimized-source lifecycle proofs,
+full paired suites and the capacity envelope remain pending.
+
+The binding release methodology is four real epsilon8 jobs per heavy family:
+K2/K3/K5 plus one K2 recovery/cold/tamper job, one per fleet pod. Selection grids
+are oracle-only; measure capacity once per family against 256GB/6h separately.
+Historical matrices and ceilings below are superseded by that methodology.
+
+Evidence: workspace `integrator-evidence/cycle20-20260920/`.
+
+---
+
 # LMM sufficient-statistic integration — not a release capability
 
 `registerGroupedLMM()` returns the new typed components. `LegacyCompile` is

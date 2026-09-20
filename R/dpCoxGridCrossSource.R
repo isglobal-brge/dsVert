@@ -81,7 +81,8 @@
     .dsvert_relay_peer_id(unname(policy$peer_pinset[[peer]])), character(1L))
   if (anyDuplicated(ids) || !identical(owner, peers[[order(ids, method = "radix")[[1L]]]]) ||
       !identical(policy$peer_name, owner) || !identical(producer$peer_name, owner) ||
-      !identical(producer$capsule_id, source_contract$capsule_id) ||
+      !identical(producer$capsule_id,
+                 .dsvert_dp_capsule_source_manifest_capsule_id(source_contract)) ||
       !identical(producer$logical_snapshot, spec$logical_snapshot) ||
       !identical(producer$source_context_hash, source_contract$source_context_hash) ||
       !identical(producer$coordinate_order_sha256, layout$transport_coordinate_order_sha256) ||

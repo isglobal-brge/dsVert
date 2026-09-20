@@ -836,3 +836,95 @@ test_that("Cox producer commits authenticated inputs with the capsule transport 
     }
   }
 })
+
+test_that("Cox cold source binding verifies durable owner commitments in synopsis namespaces", {
+  for (owners in c(2L, 3L, 5L)) {
+    f <- .cox_cross_server_fixture(capacity = 5, owners = owners)
+    t <- .cox_transport_fixture(f)
+    base <- t$transport
+    binding <- list(version = .DSVERT_DP_SYNOPSIS_SOURCE_CONTRACT_VERSION,
+      manifest_capsule_id = base$capsule_id, artifact_key = strrep("b", 64),
+      source_claim_set_sha256 = strrep("c", 64))
+    t$transport$capsule_id <- .dsvert_dp_synopsis_source_namespace_id_v1(binding)
+    t$transport$synopsis_binding <- binding
+    data <- data.frame(patient = c("b", "a", "d", "c"), time = c(5, 2, Inf, 5),
+      event = c(0, 1, 1, 0), x = c(.5, 0, Inf, 1), z = c(1, .25, NA, 0))
+    for (peer in paste0("site_", letters[seq_len(owners)])) {
+      if (peer %in% paste0("site_", letters[3:5])) data[[paste0("x_", peer)]] <- data$z
+      resolved <- .cox_resolved_fixture(f, data, peer)
+      policy <- resolved$policy
+      policy$ledger_path <- tempfile("cox-committed-source-")
+      policy$ledger_private <- TRUE
+      secret <- as.raw(seq_len(32))
+      source_hash <- .dsvert_joint_dp_hash(t$transport)
+      transfer <- .dsvert_dp_capsule_source_transfer_id(t$transport, peer)
+      make <- function(contract) .dsvert_dp_cox_cross_source_producer(policy, secret,
+        t$manifest, contract, f$schema_manifest, "cox_grid", resolved$snapshots)
+      original <- make(base)
+      current <- make(t$transport)
+      expect_identical(current$producer$capsule_id, base$capsule_id)
+      expect_identical(current$producer$value_commitment_sha256,
+        original$producer$value_commitment_sha256)
+      expect_identical(current$producer$snapshot_binding_sha256,
+        original$producer$snapshot_binding_sha256)
+      private <- .dsvert_dp_capsule_source_producer_private(secret, current$producer,
+        source_hash, require_commitment = TRUE)
+      store <- function(code) .dsvert_dp_capsule_source_with_store(policy, secret, code)
+      load <- function(snapshots = resolved$snapshots) .dsvert_dp_cox_cross_committed_source(
+        policy, secret, t$manifest, t$transport, f$schema_manifest, "cox_grid", snapshots)
+      expect_error(load(), "snapshot changed")
+      record <- list(version = .DSVERT_DP_CAPSULE_SOURCE_STORE_VERSION,
+        transfer_id = transfer, capsule_id = t$transport$capsule_id,
+        source_name = peer, contract_hash = source_hash, status = "ready",
+        private_snapshot_mac = private$snapshot_mac, private_value_mac = private$value_mac,
+        private_alignment_consensus_hash = private$alignment_consensus_hash)
+      store(function(con) .dsvert_dp_capsule_source_record_insert(con, "source_outbound",
+        c("transfer_id", "capsule_id", "status"),
+        list(transfer, t$transport$capsule_id, "ready"), record, secret))
+      # Every call opens a new SQLite connection and rematerializes the source.
+      restored <- load()
+      expect_identical(restored$private_route, current$private_route)
+      expect_identical(restored$producer$value_commitment_sha256,
+        current$producer$value_commitment_sha256)
+      expect_identical(restored$producer$read_range(1, restored$producer$coordinate_count),
+        current$producer$read_range(1, current$producer$coordinate_count))
+      update <- function(value) store(function(con) {
+        .dsvert_dp_capsule_source_record_update(con, "source_outbound", value, secret,
+          "transfer_id = ?", list(transfer))
+        DBI::dbExecute(con, "UPDATE source_outbound SET status=? WHERE transfer_id=?",
+          params = list(value$status, transfer))
+      })
+      for (field in c("capsule_id", "source_name", "contract_hash",
+          "private_snapshot_mac", "private_value_mac", "private_alignment_consensus_hash")) {
+        changed <- record; changed[[field]] <- strrep("0", 64)
+        update(changed)
+        expect_error(load(), "snapshot changed")
+      }
+      update(record)
+      changed <- resolved$snapshots
+      changed$aligned$dataset$fingerprint <- strrep("0", 64)
+      expect_error(load(changed), "snapshot changed")
+      if (peer == "site_a") {
+        changed_data <- data; changed_data$time[1] <- 3
+        changed <- .cox_resolved_fixture(f, changed_data, peer)
+        expect_error(load(changed$snapshots), "snapshot digest changed")
+        previous_datasets <- policy$datasets
+        policy$datasets <- changed$policy$datasets
+        expect_error(load(changed$snapshots), "snapshot changed")
+        policy$datasets <- previous_datasets
+      }
+      changed <- record; changed$status <- "building"
+      update(changed)
+      expect_error(load(), "snapshot changed")
+      changed$status <- "complete"
+      update(changed)
+      expect_identical(load()$private_route, current$private_route)
+      store(function(con) DBI::dbExecute(con, "UPDATE source_outbound SET row_mac=?",
+        params = list(strrep("0", 64))))
+      expect_error(load(), "private-store authentication")
+      .dsvert_resource_external_unregister(.dsvert_dp_capsule_source_resource_owner(policy))
+      path <- .dsvert_dp_capsule_source_store_path(policy)
+      unlink(c(path, paste0(path, c(".lock", "-wal", "-shm"))), force = TRUE)
+    }
+  }
+})

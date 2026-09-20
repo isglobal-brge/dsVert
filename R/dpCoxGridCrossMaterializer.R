@@ -131,7 +131,8 @@
     private_alignment_consensus_hash = alignment[[1L]],
     snapshot_binding_sha256 = .dsvert_joint_dp_hash(list(
       protocol = "dsvert-biomedical-capsule-local-snapshots-v1",
-      capsule_id = source_contract$capsule_id, peer_name = policy$peer_name,
+      capsule_id = .dsvert_dp_capsule_source_manifest_capsule_id(source_contract),
+      peer_name = policy$peer_name,
       datasets = lapply(snapshots, function(snapshot) list(public = snapshot$dataset$public,
         protected_fingerprint = snapshot$dataset$fingerprint)))))
 }
@@ -162,7 +163,8 @@
   values <- .dsvert_dp_integer_vector(values, "private Cox source coordinates")
   binding <- list(version = .DSVERT_DP_CAPSULE_LOCAL_MATERIAL_VERSION,
     purpose = .DSVERT_DP_CAPSULE_LOCAL_MATERIAL_PURPOSE,
-    capsule_id = source_contract$capsule_id, peer_name = policy$peer_name,
+    capsule_id = .dsvert_dp_capsule_source_manifest_capsule_id(source_contract),
+    peer_name = policy$peer_name,
     logical_snapshot = manifest$logical_snapshot,
     source_context_hash = source_contract$source_context_hash,
     coordinate_count = layout$transport_coordinate_count,
@@ -202,4 +204,35 @@
     .dsvert_dp_cox_cross_route_sidecar(policy, secret, manifest, source_contract,
       schema_manifest, analysis_id, producer, input$times, input$time_valid) else NULL
   list(producer = producer, private_route = route)
+}
+
+# Rehydrate the owner-local routing only after matching the durable source
+# commitment, as in the existing staged LMM bind. Recompute from authenticated
+# snapshots on every bind, including cold replay; never trust a stale sidecar.
+.dsvert_dp_cox_cross_committed_source <- function(policy, secret, manifest,
+    source_contract, schema_manifest, analysis_id, resolved_snapshots) {
+  result <- .dsvert_dp_cox_cross_source_producer(policy, secret, manifest,
+    source_contract, schema_manifest, analysis_id, resolved_snapshots)
+  source_hash <- .dsvert_joint_dp_hash(source_contract)
+  private <- .dsvert_dp_capsule_source_producer_private(secret, result$producer,
+    source_hash, require_commitment = TRUE)
+  accepted <- FALSE
+  on.exit(if (!accepted) private$reset(), add = TRUE)
+  transfer_id <- .dsvert_dp_capsule_source_transfer_id(source_contract, policy$peer_name)
+  .dsvert_dp_capsule_source_with_store(policy, secret, function(con) {
+    .dsvert_dp_capsule_source_require_not_compacted(con, source_contract$capsule_id, secret)
+    outbound <- .dsvert_dp_capsule_source_outbound_load(con, transfer_id, secret)
+    if (is.null(outbound) || !outbound$status %in% c("ready", "complete") ||
+        !identical(outbound$transfer_id, transfer_id) ||
+        !identical(outbound$capsule_id, source_contract$capsule_id) ||
+        !identical(outbound$source_name, policy$peer_name) ||
+        !identical(outbound$contract_hash, source_hash) ||
+        !.dsvert_joint_dp_dsi_hex_equal(outbound$private_snapshot_mac, private$snapshot_mac) ||
+        !.dsvert_joint_dp_dsi_hex_equal(outbound$private_value_mac, private$value_mac) ||
+        !identical(outbound$private_alignment_consensus_hash, private$alignment_consensus_hash)) {
+      .dsvert_dp_capsule_source_snapshot_changed()
+    }
+  })
+  accepted <- TRUE
+  result
 }

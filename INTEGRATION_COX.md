@@ -1,3 +1,33 @@
+# Cycle22: synopsis namespace and durable source revalidation
+
+The private Cox producer now keeps the original manifest capsule ID in its
+material and snapshot commitments, while the existing source transport uses
+the artifact-specific synopsis namespace. The time-owner route validator uses
+the same distinction. Changing only that namespace preserves the underlying
+source commitment; source-store MACs remain bound to the transport contract.
+
+The new internal committed-source adapter follows the LMM bind pattern: it
+rematerializes authenticated snapshots and returns owner-local routing only
+after checking the durable outbound owner, namespace, contract, status, snapshot,
+value and private alignment commitments. Cold binds reopen the existing SQLite
+store; changed source data and corrupted MACs reject. No new storage protocol,
+endpoint or public receipt is introduced.
+
+Fresh immutable R/native proof:21 tests/1525 assertions PASS, zero nonpasses;
+all1710 snapshot files unchanged. K2/K3/K5, namespaced commitment equality,
+ready/complete cold binds, actual native CLI, changed times with both original
+and updated local descriptors, substituted commitments and private-store MAC
+corruption are covered. Initial test-only error-message mismatches are retained.
+Native binaries and arithmetic are unchanged from502b005. Evidence is
+integrator-evidence/cycle22-20260920/r-proof/ in the integration workspace.
+
+This closes a private durable revalidation boundary, not the signed lifecycle.
+Actual public source registration/sharing orchestration, R-to-DP dispatch and
+public release reader remain incomplete. N<=400 v2 scope is unchanged; no
+n2000 capacity or promotion is claimed. GEE-owned files remain untouched.
+
+---
+
 # Cycle21: private complete-case source composition
 
 The authenticated store loader now constructs a v2 private native handoff from

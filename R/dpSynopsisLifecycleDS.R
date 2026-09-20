@@ -2684,7 +2684,8 @@
         manifest_json, algo = "sha256", serialize = FALSE),
       manifest_json = manifest_json,
       policy_snapshot = .dsvert_dp_synopsis_policy_snapshot_v1(policy)))
-    if (length(.dsvert_dp_lmm_cross_artifacts(manifest))) {
+    if (length(.dsvert_dp_lmm_cross_artifacts(manifest)) ||
+        length(.dsvert_dp_cox_cross_artifacts(manifest))) {
       # Retain authenticated public schema bytes for staged bind/cold evidence;
       # the manifest and its sticky semantic identity remain unchanged.
       record$signed_schema <- signed$value

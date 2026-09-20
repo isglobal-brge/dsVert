@@ -82,13 +82,33 @@
   list(bound = bound, routing_receipt = prepared$routing_receipt)
 }
 
-# Internal DP adapters: public identity is read before START; private candidate
-# shares/validities are consumed only by the post-START source path. Registration
-# and remote dispatch must compose these adapters before admitting Cox releases.
-.dsvert_dp_cox_cross_sampler_binding <- function(policy, secret, manifest,
-    source_contract, schema_manifest, analysis_id) {
-  context <- .dsvert_dp_cox_cross_source_context(policy, manifest,
+# DP adapters: public identity is read before START; private candidate
+# shares/validities are consumed only by the post-START source path.
+.dsvert_dp_cox_cross_artifacts <- function(manifest) {
+  Filter(function(artifact) identical(artifact$family, "cox"),
+    manifest$workload$families$gaussian_models$artifacts)
+}
+
+.dsvert_dp_cox_cross_release_context <- function(policy, secret, manifest,
+    source_contract, schema_manifest = NULL, analysis_id = NULL) {
+  artifacts <- .dsvert_dp_cox_cross_artifacts(manifest)
+  if (!length(artifacts)) return(NULL)
+  if (length(artifacts) != 1L) .dsvert_dp_cox_grid_cross_fail()
+  if (is.null(analysis_id)) analysis_id <- artifacts[[1L]]$analysis_id
+  if (!identical(analysis_id, artifacts[[1L]]$analysis_id)) .dsvert_dp_cox_grid_cross_fail()
+  if (is.null(schema_manifest)) {
+    schema_manifest <- .dsvert_dp_lmm_cross_signed_schema(policy, secret,
+      .dsvert_joint_dp_hash(manifest), manifest)
+  }
+  .dsvert_dp_cox_cross_source_context(policy, manifest,
     source_contract, schema_manifest, analysis_id)
+}
+
+.dsvert_dp_cox_cross_sampler_binding <- function(policy, secret, manifest,
+    source_contract, schema_manifest = NULL, analysis_id = NULL) {
+  context <- .dsvert_dp_cox_cross_release_context(policy, secret, manifest,
+    source_contract, schema_manifest, analysis_id)
+  if (is.null(context)) return(NULL)
   record <- .dsvert_dp_cox_cross_public_record(policy, secret, manifest, context)
   record[c("stage_receipt", "stage_plan_digest")]
 }
@@ -130,9 +150,10 @@
 }
 
 .dsvert_dp_cox_cross_inject <- function(con, secret, manifest, source_contract,
-    chunk, share, policy, schema_manifest, analysis_id) {
-  context <- .dsvert_dp_cox_cross_source_context(policy, manifest,
+    chunk, share, policy, schema_manifest = NULL, analysis_id = NULL) {
+  context <- .dsvert_dp_cox_cross_release_context(policy, secret, manifest,
     source_contract, schema_manifest, analysis_id)
+  if (is.null(context)) return(share)
   .dsvert_dp_staged_cross_inject_artifact(con, secret, manifest, source_contract,
     chunk, share, policy, context$artifact, context$spec$time$owner_peer)
 }

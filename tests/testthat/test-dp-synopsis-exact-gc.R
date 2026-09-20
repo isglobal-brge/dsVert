@@ -695,3 +695,33 @@ test_that("exact-GC RESULT commits authenticated LOCAL before consume", {
     .package = "dsVert")
   expect_identical(replay, start_receipt)
 })
+
+
+test_that("exact-GC compilation binds the Cox public stage before private source access", {
+  fixture <- .synopsis_exact_fixture(2L)
+  .synopsis_exact_cleanup(fixture)
+  setup <- .synopsis_exact_setup(fixture)
+  peer <- setup$authorities[[1L]]
+  context <- .synopsis_exact_context(fixture, setup, peer)
+  session <- .synopsis_exact_session(fixture, setup, peer)
+  stage <- strrep("c", 64)
+  observed <- NULL
+  local_mocked_bindings(
+    .exact_gc_validate_bound_peer_context = .synopsis_exact_validate_binding,
+    .dsvert_dp_cox_cross_sampler_binding = function(policy, secret, manifest, contract) {
+      expect_identical(contract, context$source_contract)
+      list(stage_receipt = strrep("d", 64), stage_plan_digest = stage)
+    },
+    .dsvert_dp_capsule_source_aggregate_release_range_internal = function(...) stop("private read"))
+  compile <- .synopsis_exact_compiler(context, function(input) observed <<- input)
+  expect_error(.synopsis_exact_operation(fixture, setup, peer, context, session, compile),
+    "conflicting contract")
+  compiler <- function(input) {
+    worker <- compile(input)
+    worker$worker_policy$source_stage_plan_digest <- input$source_stage_plan_digest
+    worker
+  }
+  operation <- .synopsis_exact_operation(fixture, setup, peer, context, session, compiler)
+  expect_identical(observed$source_stage_plan_digest, stage)
+  expect_identical(operation$worker$plan, context$vector$plan)
+})

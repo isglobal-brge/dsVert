@@ -2413,8 +2413,9 @@
   contract <- .dsvert_joint_dp_vector_contract(
     .policy, manifest_json, release_instance_json,
     .planner, secret = .secret)
-  if (length(.dsvert_dp_lmm_cross_artifacts(contract$manifest))) {
-    stop("Staged LMM requires the Synopsis exact-GC validity gate.", call. = FALSE)
+  if (length(.dsvert_dp_lmm_cross_artifacts(contract$manifest)) ||
+      length(.dsvert_dp_cox_cross_artifacts(contract$manifest))) {
+    stop("Staged source requires the Synopsis exact-GC validity gate.", call. = FALSE)
   }
   if (!.policy$peer_name %in% contract$designated) {
     stop("Only a designated pinned noise peer may prepare the vector release.",
@@ -2732,8 +2733,9 @@
   contract <- .dsvert_joint_dp_vector_contract(
     .policy, manifest_json, release_instance_json,
     .planner, secret = .secret)
-  if (length(.dsvert_dp_lmm_cross_artifacts(contract$manifest))) {
-    stop("Staged LMM requires the Synopsis exact-GC validity gate.", call. = FALSE)
+  if (length(.dsvert_dp_lmm_cross_artifacts(contract$manifest)) ||
+      length(.dsvert_dp_cox_cross_artifacts(contract$manifest))) {
+    stop("Staged source requires the Synopsis exact-GC validity gate.", call. = FALSE)
   }
   if (!.policy$peer_name %in% contract$designated) {
     stop("Only a designated pinned noise peer may sample a vector chunk.",

@@ -1170,7 +1170,34 @@ test_that("Cox terminal persistence reuses authenticated staged rows without pub
       list(offset = offset, count = count), raw(16L * count), current,
       f$schema_manifest, "cox_grid")
   }
+  # Production hooks derive the analysis and use the authenticated schema cache.
+  schema_reads <- 0L
+  local_mocked_bindings(.dsvert_dp_lmm_cross_signed_schema = function(p, s, hash, manifest) {
+    expect_identical(hash, .dsvert_joint_dp_hash(t$manifest))
+    expect_identical(manifest, t$manifest)
+    schema_reads <<- schema_reads + 1L
+    f$schema_manifest
+  })
+  automatic_sampler <- function() .dsvert_dp_cox_cross_sampler_binding(policy, secret,
+    t$manifest, t$transport)
+  expect_identical(automatic_sampler(), sampler())
+  complete_source <- TRUE
+  local_mocked_bindings(
+    .dsvert_dp_capsule_source_contract_json = function(...) list(manifest = t$manifest,
+      contract = t$transport, contract_hash = .dsvert_joint_dp_hash(t$transport)),
+    .dsvert_dp_capsule_source_incoming_load = function(...) list(complete = complete_source,
+      contract_hash = .dsvert_joint_dp_hash(t$transport)),
+    .dsvert_dp_capsule_source_aggregate_range_in_store = function(connection, contract,
+        capsule_id, start, count, secret) raw(count * 16L))
+  release_range <- function() .dsvert_dp_capsule_source_aggregate_release_range_internal(
+    policy, "fixture", 0L, 4L, secret, t$transport)
   injected <- inject()
+  expect_identical(release_range(), injected)
+  reads <- schema_reads
+  complete_source <- FALSE
+  expect_error(release_range(), "incomplete")
+  expect_identical(schema_reads, reads)
+  complete_source <- TRUE
   expect_identical(as.raw(injected)[17:64], jsonlite::base64_dec(value$share))
   metadata <- attr(injected, "dsvert_staged_source")
   expect_identical(metadata[c("stage_receipt", "stage_plan_digest")], sampler())
@@ -1188,11 +1215,15 @@ test_that("Cox terminal persistence reuses authenticated staged rows without pub
   expect_true(.dsvert_dp_lmm_cross_prepare(policy, secret, ss, "cox_grid")$persisted)
   expect_identical(.dsvert_dp_lmm_cross_finalize(policy, secret, ss, "cox_grid"), complete)
   expect_identical(inject(), injected)
+  expect_identical(release_range(), injected)
+  expect_identical(automatic_sampler(), sampler())
   expect_identical(sampler(), value[c("stage_receipt", "stage_plan_digest")])
   # Public pre-START binding does not read the private candidate row.
   DBI::dbExecute(con, "UPDATE source_cross_grid_records SET row_mac = 'tampered' WHERE batch_index=0")
   expect_identical(sampler(), value[c("stage_receipt", "stage_plan_digest")])
   expect_error(inject())
+  expect_identical(automatic_sampler(), sampler())
+  expect_error(release_range())
   worker$stage_plan_digest <- strrep("e", 64)
   expect_error(bind())
   worker$stage_plan_digest <- strrep("c", 64)
@@ -1318,4 +1349,115 @@ test_that("Cox publication evidence binds signed authorities to durable public p
   DBI::dbExecute(con, "DELETE FROM source_cross_grid_records")
   expect_error(evidence(), class = "dsvert_dp_public_failure")
   expect_false(.dsvert_dp_staged_grouped_artifact(t$artifact))
+})
+
+
+test_that("Cox automatic DP dispatch is inert for other families and rejects mixed artifacts", {
+  f <- .cox_cross_server_fixture(capacity = 4)
+  t <- .cox_transport_fixture(f)
+  manifest <- t$manifest
+  manifest$workload$families$gaussian_models$artifacts <- list()
+  local_mocked_bindings(.dsvert_dp_lmm_cross_signed_schema = function(...) stop("cache read"))
+  expect_null(.dsvert_dp_cox_cross_sampler_binding(f$policy, raw(32), manifest, t$transport))
+  expect_identical(.dsvert_dp_cox_cross_inject(NULL, raw(32), manifest, t$transport,
+    list(count = 4L), raw(64), f$policy), raw(64))
+  expect_error(.dsvert_dp_cox_cross_sampler_binding(f$policy, raw(32), t$manifest,
+    t$transport), "cache read")
+  manifest <- t$manifest
+  manifest$workload$families$gaussian_models$artifacts$second <- t$artifact
+  expect_error(.dsvert_dp_cox_cross_sampler_binding(f$policy, raw(32), manifest,
+    t$transport, f$schema_manifest))
+  expect_error(.dsvert_dp_cox_cross_sampler_binding(f$policy, raw(32), t$manifest,
+    t$transport, f$schema_manifest, "wrong-analysis"))
+})
+
+
+test_that("Cox cannot discard private validity through non-exact or legacy sampling", {
+  f <- .cox_cross_server_fixture(capacity = 4)
+  t <- .cox_transport_fixture(f)
+  context <- list(manifest_json = .dsvert_dp_canonical_json(
+    .dsvert_dp_canonical_query_value(t$manifest)),
+    vector = list(profile = list(exact_gc = FALSE)))
+  contract <- list(manifest = t$manifest, designated = "site_a")
+  forbidden <- function(...) stop("private material or claim reached")
+  local_mocked_bindings(
+    .dsvert_dp_synopsis_execution_context_v1 = function(...) context,
+    .dsvert_dp_synopsis_execution_chunk_v1 = function(...) stop("chunk sentinel"),
+    .dsvert_dp_synopsis_execution_start_claim_v1 = forbidden,
+    .dsvert_joint_dp_vector_instance_from_receipts = function(...) "bound-instance",
+    .dsvert_joint_dp_vector_instance_claim_preflight = function(...) invisible(NULL),
+    .dsvert_joint_dp_vector_contract = function(...) contract,
+    .dsvert_joint_dp_vector_instance_claim_contract = forbidden)
+  for (exact in list(FALSE, NULL, NA)) {
+    context$vector$profile$exact_gc <- exact
+    expect_error(.dsvert_dp_synopsis_execution_start_v1(new.env(), "session",
+      NULL, NULL, 0L, .policy = list(), .secret = raw(32), .identity = list(),
+      .source_reader = forbidden, .sampler = forbidden), "Synopsis exact-GC validity gate")
+  }
+  context$vector$profile$exact_gc <- TRUE
+  expect_error(.dsvert_dp_synopsis_execution_start_v1(new.env(), "session",
+    NULL, NULL, 0L, .policy = list(), .secret = raw(32), .identity = list(),
+    .source_reader = forbidden, .sampler = forbidden), "chunk sentinel")
+  for (exact in c(FALSE, TRUE)) {
+    contract$profile <- list(exact_gc = exact)
+    expect_error(.dsvert_joint_dp_vector_start_impl("manifest", "first", "second", 0L,
+      .policy = list(peer_name = "site_a"), .secret = raw(32),
+      .source_reader = forbidden, .sampler = forbidden), "Synopsis exact-GC validity gate")
+  }
+})
+
+
+test_that("Cox automatic context authenticates cold cached schema and rejects tampering", {
+  helpers <- new.env(parent = asNamespace("dsVert"))
+  for (expression in parse(test_path("test-dp-synopsis-no-lifetime-red.R"))) {
+    if (is.call(expression) && identical(expression[[1L]], as.name("<-")) &&
+        as.character(expression[[2L]]) %in% c(
+          ".synopsis_no_lifetime_b64url", ".synopsis_no_lifetime_policies")) eval(expression, helpers)
+  }
+  f <- .cox_cross_server_fixture(capacity = 4)
+  t <- .cox_transport_fixture(f)
+  policy <- helpers$.synopsis_no_lifetime_policies(2L)[[1L]]
+  policy[names(f$policy)] <- f$policy
+  policy$peer_name <- "site_a"
+  policy$own_identity_pk <- unname(policy$peer_pinset[[policy$peer_name]])
+  policy$patient_column <- "patient"
+  policy$datasets <- list(aligned = list(id = "aligned", version = "v1",
+    snapshot_sha256 = NULL, alignment_manifest_hash = NULL, alignment_manifest_version = 1L))
+  policy$numeric_bounds <- list(event = c(0, 1), time = c(0, 20), x = c(0, 1), z = c(0, 1))
+  policy$categorical_levels <- list()
+  secret <- raw(32)
+  t$manifest$workload$schema_attestation <- list(version = .DSVERT_DP_CAPSULE_SCHEMA_VERSION,
+    manifest_sha256 = f$schema$sha256, signatures = f$schema$signatures, signers = f$schema$signers)
+  t$transport$workload_sha256 <- .dsvert_joint_dp_hash(t$manifest$workload)
+  manifest <- .dsvert_dp_canonical_query_value(t$manifest)
+  manifest_json <- .dsvert_dp_canonical_json(manifest)
+  record <- .dsvert_dp_canonical_query_value(list(
+    version = .DSVERT_DP_SYNOPSIS_MANIFEST_CACHE_VERSION,
+    cache_key = strrep("1", 64), public_capsule_key = strrep("2", 64),
+    local_authority_sha256 = .dsvert_dp_synopsis_manifest_local_authority_v1(policy, secret),
+    schema_sha256 = f$schema$sha256, workload_contract_sha256 = strrep("3", 64),
+    manifest_sha256 = .dsvert_joint_dp_hash(manifest), manifest_json = manifest_json,
+    policy_snapshot = .dsvert_dp_synopsis_policy_snapshot_v1(policy), signed_schema = f$schema_manifest))
+  .dsvert_dp_synopsis_manifest_cache_put_v1(policy, secret, record)
+  read <- function() .dsvert_dp_cox_cross_release_context(policy, secret, manifest, t$transport)
+  expect_identical(read(), .dsvert_dp_cox_cross_source_context(policy, manifest,
+    t$transport, f$schema_manifest, "cox_grid"))
+  # Each read opens the MAC-authenticated SQLite cache again.
+  expect_identical(read(), read())
+  write_record <- function(value, valid_mac = TRUE) {
+    json <- .dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(value))
+    mac <- if (valid_mac) .dsvert_dp_synopsis_manifest_mac_v1(secret, "record", json) else strrep("0", 64)
+    .dsvert_dp_synopsis_manifest_store_with_v1(policy, secret, function(con) {
+      DBI::dbExecute(con, "UPDATE synopsis_manifests SET record_json=?, row_mac=? WHERE cache_key=?",
+        params = list(json, mac, record$cache_key))
+    })
+  }
+  changed <- record; changed$signed_schema <- NULL
+  write_record(changed); expect_error(read())
+  changed <- record; changed$signed_schema$datasets$aligned$columns$time$upper <- 21
+  write_record(changed); expect_error(read())
+  changed <- record; changed$signed_schema$signatures$site_a <- strrep("a", 86)
+  write_record(changed); expect_error(read())
+  write_record(record, FALSE); expect_error(read(), "authentication")
+  write_record(record); expect_identical(read()$spec$analysis_id, "cox_grid")
 })

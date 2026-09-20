@@ -11,6 +11,7 @@ structured_lmm_native_probe <- function(session_id, operation_id,
   manifest <- sf(".dsvert_dp_capsule_source_manifest")(fixture$manifest_json)
   artifact <- sf(".dsvert_dp_lmm_cross_artifacts")(manifest)[[1L]]
   kind <- sf(".dsvert_dp_staged_grouped_kind")(artifact$family)
+  stage_prefix <- if (kind == "gee-fixed-rho") "gee" else kind
   if (action %in% c("pause", "resume", "terminate")) {
     # The synthetic trace retains the session privately during the authorized
     # start. Calling .S here would correctly reject an out-of-entrypoint read.
@@ -59,7 +60,7 @@ structured_lmm_native_probe <- function(session_id, operation_id,
       as.raw(0), payload), algo = "sha256", serialize = FALSE, raw = TRUE)
     stopifnot(identical(mac, bytes[seq_len(32L)]))
     record <- jsonlite::fromJSON(rawToChar(payload), simplifyVector = FALSE)
-    if (!identical(record$StageID, paste0(kind, ".source.numeric"))) next
+    if (!identical(record$StageID, paste0(stage_prefix, ".source.numeric"))) next
     hex <- function(value) paste(sprintf("%02x", as.integer(unlist(value))), collapse = "")
     expected_role <- if (identical(fixture$policy$peer_name,
       sf(".dsvert_dp_glm_grid_cross_embedded_contract")(artifact)$spec$grouping$owner_peer)) 0 else 1
@@ -104,7 +105,7 @@ structured_lmm_native_probe <- function(session_id, operation_id,
 
 structured_lmm_native_recovery <- function(peers, kind = "lmm") {
   stopifnot(identical(names(peers), c("site_a", "site_b")))
-  stopifnot(kind %in% c("lmm", "glmm"))
+  stopifnot(kind %in% c("lmm", "glmm", "gee-fixed-rho"))
   marker <- paste0("DSLITE_", toupper(kind))
   state <- new.env(parent = emptyenv())
   state$mode <- "none"

@@ -10,7 +10,7 @@ test_that("fixed-rho GEE handoffs preserve signed native units and private sourc
       f$source_hash, values, validities, f$ss, f$transport$capsule_id)
     expect_named(handoff, c("plan", "numeric", "outcome", "metadata"))
     expect_identical(handoff$plan$version, "dsvert-gee-fixed-rho-staged-source-handoff-v1")
-    expect_identical(handoff$plan$correlation_contract, "signed-fixed-rho-v3-predecessor")
+    expect_identical(handoff$plan$correlation_contract, "signed-analyst-fixed-rho-v1")
     expect_identical(handoff$plan$Numeric$ScoreClipQ16, "65536")
     expect_identical(handoff$plan$Numeric$RhoQ16, "0")
     expect_identical(handoff$plan$Numeric$RowLossCap, "1")
@@ -202,7 +202,7 @@ test_that("real GEE preparation CLI retains both families and every terminal coo
       expect_match(result$purpose, "^grouped-gee-fixed-rho-staged-v1/[0-9a-f]{64}$")
       native <- rawToChar(jsonlite::base64_dec(result$worker_input))
       expect_match(native, paste0('"Family":"', sub("_gee$", "", family), '"'), fixed = TRUE)
-      expect_match(native, '"CorrelationContract":"signed-fixed-rho-v3-predecessor"', fixed = TRUE)
+      expect_match(native, '"CorrelationContract":"signed-analyst-fixed-rho-v1"', fixed = TRUE)
       for (block in c("numeric", "outcome", "metadata")) {
         expect_match(native, paste0('"Share":"', handoff[[block]]$Share, '"'), fixed = TRUE)
       }

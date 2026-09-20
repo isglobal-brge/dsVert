@@ -1,0 +1,210 @@
+[
+  {
+    "family": "binomial_gee",
+    "n": 2000,
+    "p": 3,
+    "grid": 2,
+    "clusters": 500,
+    "slots": 4,
+    "epsilon": 8,
+    "delta": "2^-100",
+    "base_source_commits": {
+      "dsVert": "2146bf158abb68951dab0e4f96f4bcbca311ee91",
+      "dsVertClient": "4c6c5622fbdc2ae97de315f18c18901d452f3c09"
+    },
+    "source_commits": null,
+    "harness_sha256": null,
+    "source_manifest_sha256": null,
+    "workdir": "fresh isolated prepared /workspace/dsvert/gee-* pod4 snapshot",
+    "promoted": false,
+    "fleet_ready": false,
+    "pending": "frozen focused, real K2/K3/K5, recovery, tamper, paired and capacity proof",
+    "real_authenticated_release_required": true,
+    "cold_replay_tamper_required": true,
+    "bilateral_and_unilateral_recovery_required": true,
+    "capacity_measurement": true,
+    "capacity_bytes": 256000000000,
+    "capacity_seconds": 21600,
+    "working_correlation": {
+      "mode": "fixed_analyst_specified",
+      "correlation": "exchangeable",
+      "rho": 0.25,
+      "score_clip": 1,
+      "composition": "staged_fixed_rho_v1"
+    },
+    "correlation_contract": "signed-analyst-fixed-rho-v1",
+    "certificate_sha256": "82df4b2c32f19f0ac248acbd424f079edd5e29546f95e6e3c520c2e2232be3e3",
+    "numeric_domain": {
+      "predictors_max": 3,
+      "candidates_max": 4,
+      "slots_max": 8,
+      "correlations": [
+        "independence",
+        "exchangeable",
+        "ar1"
+      ],
+      "rho_q16": [
+        0,
+        16384,
+        32768
+      ],
+      "independence_rho_q16": 0
+    },
+    "estimated_alpha": false,
+    "required_evidence": {
+      "focused": {
+        "status": "PENDING",
+        "artifact": null,
+        "sha256": null
+      },
+      "K2": {
+        "status": "PENDING",
+        "artifact": null,
+        "sha256": null,
+        "K": 2,
+        "expected_oracle_sha256": null
+      },
+      "K3": {
+        "status": "PENDING",
+        "artifact": null,
+        "sha256": null,
+        "K": 3,
+        "expected_oracle_sha256": null
+      },
+      "K5": {
+        "status": "PENDING",
+        "artifact": null,
+        "sha256": null,
+        "K": 5,
+        "expected_oracle_sha256": null
+      },
+      "recovery": {
+        "status": "PENDING",
+        "artifact": null,
+        "sha256": null,
+        "K": 2
+      },
+      "tamper_reject": {
+        "status": "PENDING",
+        "artifact": null,
+        "sha256": null
+      },
+      "paired": {
+        "status": "PENDING",
+        "artifact": null,
+        "sha256": null
+      },
+      "capacity": {
+        "status": "PENDING",
+        "artifact": null,
+        "sha256": null,
+        "measured_serialized_rpc_bytes": null,
+        "measured_release_seconds": null
+      }
+    }
+  },
+  {
+    "family": "poisson_gee",
+    "n": 2000,
+    "p": 3,
+    "grid": 2,
+    "clusters": 500,
+    "slots": 4,
+    "epsilon": 8,
+    "delta": "2^-100",
+    "base_source_commits": {
+      "dsVert": "2146bf158abb68951dab0e4f96f4bcbca311ee91",
+      "dsVertClient": "4c6c5622fbdc2ae97de315f18c18901d452f3c09"
+    },
+    "source_commits": null,
+    "harness_sha256": null,
+    "source_manifest_sha256": null,
+    "workdir": "fresh isolated prepared /workspace/dsvert/gee-* pod4 snapshot",
+    "promoted": false,
+    "fleet_ready": false,
+    "pending": "frozen focused, real K2/K3/K5, recovery, tamper, paired and capacity proof",
+    "real_authenticated_release_required": true,
+    "cold_replay_tamper_required": true,
+    "bilateral_and_unilateral_recovery_required": true,
+    "capacity_measurement": true,
+    "capacity_bytes": 256000000000,
+    "capacity_seconds": 21600,
+    "working_correlation": {
+      "mode": "fixed_analyst_specified",
+      "correlation": "exchangeable",
+      "rho": 0.25,
+      "score_clip": 1,
+      "composition": "staged_fixed_rho_v1"
+    },
+    "correlation_contract": "signed-analyst-fixed-rho-v1",
+    "certificate_sha256": "82df4b2c32f19f0ac248acbd424f079edd5e29546f95e6e3c520c2e2232be3e3",
+    "numeric_domain": {
+      "predictors_max": 3,
+      "candidates_max": 4,
+      "slots_max": 8,
+      "correlations": [
+        "independence",
+        "exchangeable",
+        "ar1"
+      ],
+      "rho_q16": [
+        0,
+        16384,
+        32768
+      ],
+      "independence_rho_q16": 0
+    },
+    "estimated_alpha": false,
+    "required_evidence": {
+      "focused": {
+        "status": "PENDING",
+        "artifact": null,
+        "sha256": null
+      },
+      "K2": {
+        "status": "PENDING",
+        "artifact": null,
+        "sha256": null,
+        "K": 2,
+        "expected_oracle_sha256": null
+      },
+      "K3": {
+        "status": "PENDING",
+        "artifact": null,
+        "sha256": null,
+        "K": 3,
+        "expected_oracle_sha256": null
+      },
+      "K5": {
+        "status": "PENDING",
+        "artifact": null,
+        "sha256": null,
+        "K": 5,
+        "expected_oracle_sha256": null
+      },
+      "recovery": {
+        "status": "PENDING",
+        "artifact": null,
+        "sha256": null,
+        "K": 2
+      },
+      "tamper_reject": {
+        "status": "PENDING",
+        "artifact": null,
+        "sha256": null
+      },
+      "paired": {
+        "status": "PENDING",
+        "artifact": null,
+        "sha256": null
+      },
+      "capacity": {
+        "status": "PENDING",
+        "artifact": null,
+        "sha256": null,
+        "measured_serialized_rpc_bytes": null,
+        "measured_release_seconds": null
+      }
+    }
+  }
+]

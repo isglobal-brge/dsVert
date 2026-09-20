@@ -41,7 +41,7 @@
       Clusters = spec$grouping$cluster_capacity,
       Slots = spec$grouping$max_patients_per_cluster,
       Predictors = length(spec$predictor_order),
-      correlation_contract = "signed-fixed-rho-v3-predecessor",
+      correlation_contract = spec$numeric_contract$correlation_contract,
       Numeric = numeric, Beta = spec$beta_encoded, Caps = caps))
   }
   if (spec$family %in% c("binomial_glmm", "poisson_glmm")) {

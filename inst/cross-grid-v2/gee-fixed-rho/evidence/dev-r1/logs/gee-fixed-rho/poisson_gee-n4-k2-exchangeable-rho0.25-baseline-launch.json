@@ -1,0 +1,22 @@
+{
+  "command": [
+    "Rscript",
+    "--vanilla",
+    "/workspace/dsvert/gee-fixed-rho-dev-r1/dsVert/inst/cross-grid-v2/integrator-validation/validate_poisson_gee_dslite.R",
+    "/workspace/dsvert/gee-fixed-rho-dev-r1"
+  ],
+  "pid": 2281935,
+  "started_utc": "2026-09-20T07:34:26.155655+00:00",
+  "stdin": "/dev/null",
+  "source_repositories": {
+    "dsVert": {
+      "head": "2146bf158abb68951dab0e4f96f4bcbca311ee91",
+      "branch": "gee-fixed-rho"
+    },
+    "dsVertClient": {
+      "head": "4c6c5622fbdc2ae97de315f18c18901d452f3c09",
+      "branch": "gee-fixed-rho"
+    }
+  },
+  "source_manifest_sha256": "4f3f7041c0b2f504bd9690dc5786f0cafea97ac16c938165d6d0c134d1ab48b4"
+}

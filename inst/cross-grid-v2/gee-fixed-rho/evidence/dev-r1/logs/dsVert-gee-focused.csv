@@ -1,0 +1,12 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-crossgrid-gee-public-admission.R","crossgrid-gee-public-admission","GEE public admission binds fixed correlation and rejects legacy and LMM swaps",78,0,FALSE,FALSE,0,22.484,3.291,36.978,78
+"test-crossgrid-gee-staged-contract.R","crossgrid-gee-staged-contract","fixed-rho staged GEE binds native cap scales and keeps legacy contracts",54,0,FALSE,FALSE,0,4.34,0.348999999999999,6.879,54
+"test-crossgrid-gee-staged-contract.R","crossgrid-gee-staged-contract","GEE n2000 descriptor is an explicit bounded measurement domain",6,0,FALSE,FALSE,0,0.498000000000005,0.0419999999999998,0.751000000000005,6
+"test-crossgrid-gee-staged-contract.R","crossgrid-gee-staged-contract","fixed-rho sensitivity counts affected clusters, not cluster capacity",14,0,FALSE,FALSE,0,0.941000000000003,0.0730000000000004,1.532,14
+"test-crossgrid-gee-staged-contract.R","crossgrid-gee-staged-contract","analyst fixed-rho parameters admit exactly the retained working correlations",72,0,FALSE,FALSE,0,0.348000000000006,0.00400000000000045,0.442999999999998,72
+"test-crossgrid-gee-staged-handoff.R","crossgrid-gee-staged-handoff","fixed-rho GEE handoffs preserve signed native units and private source blocks",28,0,FALSE,FALSE,0,4.206,0.311999999999999,5.989,28
+"test-crossgrid-gee-staged-handoff.R","crossgrid-gee-staged-handoff","Fixed-rho GEE durable terminal records retain private validity and reject LMM swaps",15,0,FALSE,FALSE,0,1.213,0.100000000000001,1.663,15
+"test-crossgrid-gee-staged-handoff.R","crossgrid-gee-staged-handoff","fixed-rho GEE worker preparation uses pinned identity roles and keeps native JSON opaque",20,0,FALSE,FALSE,0,3.862,0.363,5.324,20
+"test-crossgrid-gee-staged-handoff.R","crossgrid-gee-staged-handoff","real GEE preparation CLI retains both families and every terminal coordinate",48,0,FALSE,FALSE,0,4.415,0.33,6.07899999999999,48
+"test-crossgrid-gee-whitening-integer.R","crossgrid-gee-whitening-integer","private GEE whitening assembly equals the independent R integer oracle",252,0,FALSE,FALSE,0,3.75,0.467,8.372,252
+"test-crossgrid-gee-whitening-integer.R","crossgrid-gee-whitening-integer","GEE v3 certificate is bound into both signed validators",12,0,FALSE,FALSE,0,0.387,0.0250000000000004,0.459999999999994,12

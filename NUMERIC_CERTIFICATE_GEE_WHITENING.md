@@ -27,6 +27,45 @@ log6=log2+log3 and log24=3log2+log3 lie strictly within their half-ulp cells.
 The signed R numeric contracts explicitly carry these coefficients.
 The complete signed predictor/source receipt is a mandatory input prerequisite.
 
+## Fixed analyst-specified correlation and patient sensitivity
+
+The signed staged contract is `signed-analyst-fixed-rho-v1`. The analyst
+specifies rho before protected computation; it is constant across candidates,
+clusters, and neighboring protected datasets. Independence requires rho=0;
+exchangeable and AR1 admit rho in {0,1/4,1/2}. The coefficient called alpha in
+the whitening implementation is (1-rho)^(-1/2), a deterministic public
+coefficient, not an estimate from residuals or protected patients. Signed
+contracts reject estimator fields, other rho values, and estimated-alpha
+composition. The certificate digest and full signed specification bind this
+scope into the source, stages, output artifact, and release identity.
+
+For a fixed signed contract, write q_c(D) for the complete quantized vector
+from cluster c, in candidate-major likelihood/bread-upper/meat-upper order.
+Each coordinate k is privately clamped into [0,L_k], including its exact
+bread or meat shift. The complete released statistic before DP noise is
+T(D)=sum_c q_c(D). With the signed grouping and fixed rho, patient add/remove
+can change only one q_c, so |T_k(D)-T_k(D')|<=L_k. Patient replacement with
+possible movement changes at most two q_c, giving <=2L_k. Consequently, for
+m=1 (add/remove) or m=2 (replacement),
+
+    Delta_1 = m * sum_k L_k
+    Delta_2 = m * sqrt(sum_k L_k^2).
+
+The R contract rounds Delta_2 outward. These are whole-vector global bounds,
+not coordinatewise privacy budgets. Candidate count and every bread/meat
+coordinate are included in the sums. Public cluster capacity changes only
+the vector's maximum value, C_clusters*L_k; it does not multiply sensitivity.
+The arithmetic and signed range caps, epsilon, delta, and runner caps are
+unchanged by the fixed-correlation scope decision.
+
+A protected shared estimate of rho could change every q_c when one patient
+changes. Merely keeping that estimate private does not justify the preceding
+bound; the generic range argument becomes C_clusters*L_k per coordinate
+(500 times the add/remove bound at C_clusters=500).
+Estimated correlation therefore remains future work requiring an explicit
+estimator and a bounded global sensitivity proof or separately accounted
+privacy mechanism. This certificate makes no estimated-correlation claim.
+
 ## Private whitening
 
 Independent rows use W=I on live slots. Exchangeable rows use
@@ -96,6 +135,25 @@ whitening validity is conjuncted. Base factors/losses are checked within
 Thus OT products and linear reductions have zero modular arithmetic error.
 Any failed private predicate zeros all factors and clears validity; the fused
 release MUST gate likelihood, bread and meat on the returned validity.
+
+The staged source lift now privately conjoins every conversion validity bit
+once and broadcasts shares of that predicate. Independent coordinate
+remasking preserves its logical value. Features and complete predictors may
+therefore copy one authenticated validity share; the outcome view additionally
+conjoins its own full-width outcome guard. This is the same global source
+conjunction previously repeated by every view. Every terminal branch still
+inherits it. The lift kind `gee.ring192-global-source-validity-v1` and profile
+digest bind this invariant into the graph, source binding and durable receipts;
+an old per-coordinate-validity record cannot be replayed under the new ABI.
+
+Each sequential source graph caches only public compiled circuit topology,
+keyed by emitter and its complete public numeric parameters, caps and shapes.
+The cache contains no inputs, validity values, masks, labels, OT state or DP
+randomness. Every execution still draws fresh cryptographic material and uses
+the current stage-attempt session. Committed stages retain exact replay;
+uncommitted attempts retain bilateral abort and fresh remasking. Circuit reuse
+and the source conjunction change no arithmetic target, rounding, range cap,
+sensitivity or sticky release identity. They establish no performance bound.
 
 The producer binds its encrypted stage purposes and OT plans to the signed
 contract digest, spec, new profile and scalar hash. It returns only local

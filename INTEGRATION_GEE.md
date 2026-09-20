@@ -1,3 +1,57 @@
+# Accepted fixed working-correlation scope — 2026-09-20
+
+The reviewer has accepted binomial and Poisson GEE with **analyst-specified,
+data-independent, candidate-independent fixed rho** as the promotion target.
+The active signed correlation contract is `signed-analyst-fixed-rho-v1`.
+Independence requires rho=0; exchangeable and AR1 retain rho in {0,1/4,1/2}.
+The composition remains `staged_fixed_rho_v1`, using the v3 whitening producer,
+likelihood, bread, clipped-score meat, exact OT products, and integer oracle.
+The metadata decision changes no arithmetic profile, epsilon/delta, sensitivity
+cap, or runner cap. Legacy non-staged contract bytes remain unchanged.
+
+Both R validators bind the same fixed-correlation declaration and certificate
+SHA256 `82df4b2c32f19f0ac248acbd424f079edd5e29546f95e6e3c520c2e2232be3e3`.
+The certificate remains an arithmetic/privacy-scope certificate: it does not
+by itself claim release promotion or measured capacity. The release proof
+record must establish those gates separately.
+
+`NUMERIC_CERTIFICATE_GEE_WHITENING.md` gives the whole-vector patient
+sensitivity bound. Add/remove changes one bounded cluster vector;
+replacement/movement changes at most two. The bound includes every candidate,
+likelihood, bread and meat coordinate, and is independent of public cluster
+capacity. The R checks compare small and C500 contracts and both adjacencies;
+the independent R integer oracle covers all retained rho values, empty/full
+clusters, and missingness gaps against the native profile and a dense real
+covariance calculation.
+
+Estimated correlation is scoped future work. The implementation coefficient
+alpha=(1-rho)^(-1/2) is not an estimator. A protected shared estimate can change
+all cluster vectors; retaining its secrecy does not preserve the fixed-rho
+sensitivity proof. No estimated-alpha method is implemented or promoted here.
+
+The current source graph reuses immutable public compiled programs within
+that graph, with emitter/numeric/cap/shape-bound keys. Inputs, secret validity,
+garbling labels, masks, OT and DP state are never cached. The Ring128-to-192
+source boundary privately conjoins all source validity once; features and
+predictors propagate that predicate, and outcome views add their own guard.
+The changed validity meaning is bound by lift kind
+`gee.ring192-global-source-validity-v1` and a new profile digest. Stage IDs,
+counts and predecessor dependencies remain unchanged. Source HMACs and stage
+receipts prevent old-ABI replay; each uncommitted retry retains fresh attempt
+nonces and crypto, while committed replay preserves the sticky release.
+
+The isolated pre-optimization r1 native focused proof passed all 23 top-level
+GEE tests (package elapsed 426.303s). That evidence covers the earlier frozen
+source. The optimized source requires a separate pod proof, including the
+new public-cache/freshness and global-validity checks, complete integer-oracle
+parity and recovery tests. No measured speedup or release capacity is claimed
+from compilation reuse or validity reduction alone.
+
+The entries below are historical checkpoints. Their closed-admission and
+predecessor wording records the state before this accepted scope decision.
+
+---
+
 # Cycle14 continued: fixed-rho R/native boundaries
 
 The explicit `parameters$composition="staged_fixed_rho_v1"` contract now binds

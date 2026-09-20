@@ -1,0 +1,70 @@
+dp-gee-staged-transport: ................
+exact-gc-transport: ................................................................................................................................................................................................................................................................
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+                                                                                    test
+1         fixed-rho GEE reaches the exact transport only with its Ring128 family binding
+2                   exact client pump retries identical fan-out requests without a quota
+3  exact client pump does not poll the sender while one delivery waits for its recipient
+4                       client derives the same execution-free Count binding for K=2,3,5
+5                           exact client emits one complete direct scalar delivery shape
+6                        worker heartbeats renew inactivity but never the total deadline
+7                   present malformed exact response is fatal and raw errors do not leak
+8            exact capability contract advertises only proved rings and floor truncation
+9                         formal GLM schedule is transport-only and remains unadvertised
+10                client multiprecision shape policy matches the server through Ring4096
+11               Ring4096 exact truncation reaches the pump only within its proved shape
+12                   exact operation contexts have canonical CSPRNG-derived capabilities
+13                     joint-DP vector client has no output-share reconstruction surface
+14                       exact vecmul chunk identities cover datasets beyond one circuit
+15                           direct exact vecmul uses checked chunks and no Beaver relay
+16                    categorical producer manifests select the scaled-indicator circuit
+17                         exact vecmul rejects a partial validity fan-out before commit
+18                   producer manifests are claimed per peer without remote slot binding
+19                          Ring127 GLM initializes pinned peers before producer minting
+20                        failed checked vecmul aborts both its chunk and retained batch
+21                           Ring127 common helper cannot fall back to legacy truncation
+22                             fresh Ring127 destinations avoid the overwrite-copy round
+23                     Ring127 exact transport readiness is explicit and operation-local
+24                               nested Ring127 primitive propagates one ready transport
+25                        Ring127 Clenshaw products are one-shot across stages and calls
+26                      GLM softplus stages claim producer manifests without legacy Bind
+27                          GLM softplus uses all fixed producer stages and no slot Bind
+28                      public Ring127 scaling uses additive shares and exact truncation
+29                       exact transport setup uses only exact-specific pinned endpoints
+30                      analysis-bound setup selects authorities by full K identity pins
+31                        client accepts only analysis-bound scalar Count initialization
+32                 cross transport mints and consumes peer-specific cleanup capabilities
+   failed error passed skipped
+1       0 FALSE     16   FALSE
+2       0 FALSE     66   FALSE
+3       0 FALSE      1   FALSE
+4       0 FALSE      4   FALSE
+5       0 FALSE      3   FALSE
+6       0 FALSE      4   FALSE
+7       0 FALSE      4   FALSE
+8       0 FALSE     18   FALSE
+9       0 FALSE      7   FALSE
+10      0 FALSE      3   FALSE
+11      0 FALSE      5   FALSE
+12      0 FALSE      4   FALSE
+13      0 FALSE      5   FALSE
+14      0 FALSE      7   FALSE
+15      0 FALSE     30   FALSE
+16      0 FALSE      6   FALSE
+17      0 FALSE      4   FALSE
+18      0 FALSE      6   FALSE
+19      0 FALSE      4   FALSE
+20      0 FALSE      2   FALSE
+21      0 FALSE      8   FALSE
+22      0 FALSE      1   FALSE
+23      0 FALSE      5   FALSE
+24      0 FALSE      2   FALSE
+25      0 FALSE      4   FALSE
+26      0 FALSE      8   FALSE
+27      0 FALSE      8   FALSE
+28      0 FALSE     10   FALSE
+29      0 FALSE      4   FALSE
+30      0 FALSE      5   FALSE
+31      0 FALSE      6   FALSE
+32      0 FALSE     12   FALSE

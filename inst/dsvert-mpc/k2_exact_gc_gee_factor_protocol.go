@@ -35,6 +35,10 @@ func groupedGEEValidityCompile(n int) (*primitiveVProgram, error) {
 }
 
 func groupedGEEProduceFactors(rw io.ReadWriter, base exactGCSession, role exactGCRole, contract [32]byte, s groupedGEESpec, raw []groupedWord) (*groupedGEEFactorResult, error) {
+	return groupedGEEProduceFactorsCached(rw, base, role, contract, s, raw, make(groupedGEEPublicPrograms))
+}
+
+func groupedGEEProduceFactorsCached(rw io.ReadWriter, base exactGCSession, role exactGCRole, contract [32]byte, s groupedGEESpec, raw []groupedWord, programs groupedGEEPublicPrograms) (*groupedGEEFactorResult, error) {
 	if rw == nil || base.validate() != nil || (role != exactGCRoleGarbler && role != exactGCRoleEvaluator) || contract == ([32]byte{}) || groupedGEEValidate(s) != nil || len(raw) != s.Slots*(s.Predictors+3) {
 		return nil, primitiveVError()
 	}
@@ -89,7 +93,7 @@ func groupedGEEProduceFactors(rw io.ReadWriter, base exactGCSession, role exactG
 		}
 		return result.Shares, nil
 	}
-	inputProgram, err := groupedGEEInputCompile(s)
+	inputProgram, err := programs.compile("input", s, func() (*primitiveVProgram, error) { return groupedGEEInputCompile(s) })
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +108,7 @@ func groupedGEEProduceFactors(rw io.ReadWriter, base exactGCSession, role exactG
 	for i := range live {
 		live[i] = normalized[i*ow+ow-2]
 	}
-	whiteProgram, err := groupedGEEWhiteningCompile(s)
+	whiteProgram, err := programs.compile("whitening", s, func() (*primitiveVProgram, error) { return groupedGEEWhiteningCompile(s) })
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +132,10 @@ func groupedGEEProduceFactors(rw io.ReadWriter, base exactGCSession, role exactG
 		for i := range args {
 			args[i] = normalized[i*ow+offset]
 		}
-		p, err := groupedWideScalarCompile(name, n)
+		p, err := programs.compile("scalar", struct {
+			Name  string
+			Count int
+		}{name, n}, func() (*primitiveVProgram, error) { return groupedWideScalarCompile(name, n) })
 		if err != nil {
 			return nil, err
 		}
@@ -144,7 +151,7 @@ func groupedGEEProduceFactors(rw io.ReadWriter, base exactGCSession, role exactG
 			}
 		}
 	}
-	validityProgram, err := groupedGEEValidityCompile(len(flags))
+	validityProgram, err := programs.compile("additive-validity", len(flags), func() (*primitiveVProgram, error) { return groupedGEEValidityCompile(len(flags)) })
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +171,7 @@ func groupedGEEProduceFactors(rw io.ReadWriter, base exactGCSession, role exactG
 	if err != nil {
 		return nil, err
 	}
-	baseProgram, err := groupedGEEBaseBoundaryCompile(s)
+	baseProgram, err := programs.compile("base-boundary", s, func() (*primitiveVProgram, error) { return groupedGEEBaseBoundaryCompile(s) })
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +197,7 @@ func groupedGEEProduceFactors(rw io.ReadWriter, base exactGCSession, role exactG
 	if err != nil {
 		return nil, err
 	}
-	factorProgram, err := groupedGEEFactorBoundaryCompile(s)
+	factorProgram, err := programs.compile("factor-boundary", s, func() (*primitiveVProgram, error) { return groupedGEEFactorBoundaryCompile(s) })
 	if err != nil {
 		return nil, err
 	}

@@ -234,7 +234,7 @@
     out$coordinate_error_bounds <- errors
     out$factorial_q16 <- as.list(c(0, 0, 45426, 117425, 208277))
     if (identical(parameters$composition, "staged_fixed_rho_v1")) {
-      certificate <- "fea095616d5b12346790ba11a1b3a86e6ad76ee6b0d2aac35670a1a495dc1f20"
+      certificate <- "82df4b2c32f19f0ac248acbd424f079edd5e29546f95e6e3c520c2e2232be3e3"
       paths <- system.file("certificates", c("grouped_gee_fixed_rho_staged_v1.json",
         "grouped_pwlinear_q16_v1.json"), package = "dsVert")
       if (length(paths) != 2L || any(!nzchar(paths)) ||
@@ -244,7 +244,9 @@
       }
       out$version <- "grouped-gee-fixed-rho-staged-numeric-v1"
       out$certificate_sha256 <- certificate
-      out$correlation_contract <- "signed-fixed-rho-v3-predecessor"
+      out$correlation_contract <- "signed-analyst-fixed-rho-v1"
+      out$working_correlation <- list(rho_source = "analyst_specified_signed_parameter_v1",
+        data_independent = TRUE, candidate_independent = TRUE, estimation = "none")
       out$candidate_traversal <- "beta_grid_v1"
       out$bread_cap_contract <- "common_maximum_beta_bread_base_cap_qg_v1"
       out$factor_transport <- "q32_likelihood_left_shift_32_to_common_q64_v1"
@@ -525,7 +527,7 @@
        cross_owner_state = "exact_gc_to_joint_dp_vector_v1")
   if (identical(spec$parameters$composition, "staged_fixed_rho_v1")) {
     out$composition <- "staged_fixed_rho_v1"
-    out$correlation_contract <- "signed-fixed-rho-v3-predecessor"
+    out$correlation_contract <- "signed-analyst-fixed-rho-v1"
   }
   out
 }

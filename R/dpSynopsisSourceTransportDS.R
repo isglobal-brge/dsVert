@@ -135,10 +135,11 @@
   materializer <- function(
       policy, manifest, resolved_snapshots,
       compute_commitment, include_release) {
-    .dsvert_dp_gaussian_cross_source_producer(
+    .dsvert_dp_synopsis_source_producer_v1(
       policy, manifest, resolved_snapshots,
       compute_commitment = compute_commitment,
-      include_release = include_release)
+      include_release = include_release, source_contract = source_contract,
+      secret = .secret)
   }
   producer_validator <- function(producer, policy, manifest, contract) {
     if (!identical(contract, source_contract)) return(FALSE)

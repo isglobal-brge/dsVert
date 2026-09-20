@@ -236,3 +236,28 @@
   accepted <- TRUE
   result
 }
+
+# Claim and durable sharing must read the same exact coordinates. Cox retains
+# its binary64-rational producer; the artifact namespace only changes storage.
+.dsvert_dp_synopsis_source_producer_v1 <- function(policy, manifest,
+    resolved_snapshots, compute_commitment, include_release,
+    source_contract = NULL, secret = NULL) {
+  artifacts <- .dsvert_dp_cox_cross_artifacts(manifest)
+  if (!length(artifacts)) {
+    return(.dsvert_dp_gaussian_cross_source_producer(policy, manifest,
+      resolved_snapshots, compute_commitment = compute_commitment,
+      include_release = include_release))
+  }
+  if (length(artifacts) != 1L ||
+      !identical(artifacts[[1L]]$version, .DSVERT_DP_COX_GRID_CROSS_ARTIFACT_VERSION)) {
+    .dsvert_dp_cox_grid_cross_fail()
+  }
+  if (is.null(secret)) secret <- .dsvert_dp_secret()
+  if (is.null(source_contract)) {
+    source_contract <- .dsvert_dp_capsule_source_contract(policy, manifest)
+  }
+  schema <- .dsvert_dp_lmm_cross_signed_schema(policy, secret,
+    .dsvert_joint_dp_hash(manifest), manifest)
+  .dsvert_dp_cox_cross_source_producer(policy, secret, manifest,
+    source_contract, schema, artifacts[[1L]]$analysis_id, resolved_snapshots)$producer
+}

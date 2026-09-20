@@ -1622,3 +1622,66 @@ test_that("Cox automatic context authenticates cold cached schema and rejects ta
   write_record(record, FALSE); expect_error(read(), "authentication")
   write_record(record); expect_identical(read()$spec$analysis_id, "cox_grid")
 })
+
+test_that("Synopsis Cox Claim and sharing use identical exact source coordinates", {
+  for (owners in c(2L, 3L, 5L)) {
+    f <- .cox_cross_server_fixture(capacity = 5, owners = owners)
+    t <- .cox_transport_fixture(f)
+    secret <- as.raw(seq_len(32))
+    data <- data.frame(patient = c("b", "a", "d", "c"), time = c(5, 2, Inf, 5),
+      event = c(0, 1, 1, 0), x = c(.5, 0, Inf, 1), z = c(1, .25, NA, 0))
+    binding <- list(version = .DSVERT_DP_SYNOPSIS_SOURCE_CONTRACT_VERSION,
+      manifest_capsule_id = t$transport$capsule_id, artifact_key = strrep("d", 64),
+      source_claim_set_sha256 = strrep("e", 64))
+    namespaced <- t$transport
+    namespaced$capsule_id <- .dsvert_dp_synopsis_source_namespace_id_v1(binding)
+    namespaced$synopsis_binding <- binding
+    schema_calls <- 0L
+    local_mocked_bindings(
+      .dsvert_dp_secret = function() secret,
+      .dsvert_dp_capsule_source_contract = function(policy, manifest) {
+        expect_identical(manifest, t$manifest)
+        t$transport
+      },
+      .dsvert_dp_lmm_cross_signed_schema = function(policy, supplied_secret, hash, manifest) {
+        expect_identical(supplied_secret, secret)
+        expect_identical(hash, .dsvert_joint_dp_hash(t$manifest))
+        expect_identical(manifest, t$manifest)
+        schema_calls <<- schema_calls + 1L
+        f$schema_manifest
+      },
+      .dsvert_dp_gaussian_cross_source_producer = function(...) stop("wrong generic producer"))
+    for (peer in paste0("site_", letters[seq_len(owners)])) {
+      if (peer %in% paste0("site_", letters[3:5])) data[[paste0("x_", peer)]] <- data$z
+      resolved <- .cox_resolved_fixture(f, data, peer)
+      policy <- resolved$policy
+      claim <- .dsvert_dp_synopsis_source_producer_v1(policy, t$manifest,
+        resolved$snapshots, FALSE, TRUE)
+      local_mocked_bindings(.dsvert_dp_synopsis_source_transport_context_v1 = function(...) {
+        list(source_contract = namespaced, manifest_json = "fixture",
+          local_claim = list(source_identity_pk = "fixture", signature = "fixture"))
+      })
+      gate <- .dsvert_dp_synopsis_source_transport_gate_v1("fixture", NULL, NULL, NULL,
+        .policy = policy, .secret = secret)
+      shared <- gate$materializer(policy, t$manifest, resolved$snapshots, TRUE, TRUE)
+      expected <- .dsvert_dp_cox_cross_source_producer(policy, secret, t$manifest,
+        t$transport, f$schema_manifest, "cox_grid", resolved$snapshots)$producer
+      expect_identical(claim$value_commitment_sha256, expected$value_commitment_sha256)
+      expect_identical(shared$value_commitment_sha256, claim$value_commitment_sha256)
+      expect_identical(shared$capsule_id, t$transport$capsule_id)
+      expect_identical(shared$read_range(1, shared$coordinate_count),
+        claim$read_range(1, claim$coordinate_count))
+      changed <- namespaced; changed$workload_sha256 <- strrep("f", 64)
+      expect_error(.dsvert_dp_synopsis_source_producer_v1(policy, t$manifest,
+        resolved$snapshots, TRUE, TRUE, changed, secret))
+      altered <- t$manifest
+      altered$workload$families$gaussian_models$artifacts$cox_grid$version <- "untrusted"
+      expect_error(.dsvert_dp_synopsis_source_producer_v1(policy, altered,
+        resolved$snapshots, TRUE, TRUE, namespaced, secret))
+    }
+    expect_identical(schema_calls, as.integer(3 * owners))
+    local_mocked_bindings(.dsvert_dp_lmm_cross_signed_schema = function(...) stop("schema authentication"))
+    expect_error(.dsvert_dp_synopsis_source_producer_v1(policy, t$manifest,
+      resolved$snapshots, FALSE, TRUE), "schema authentication")
+  }
+})

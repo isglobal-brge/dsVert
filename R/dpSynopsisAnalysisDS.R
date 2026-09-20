@@ -443,7 +443,7 @@
   owns_release <- any(vapply(release$blocks, function(block) {
     identical(block$owner_peer, peer)
   }, logical(1L)))
-  producer <- .dsvert_dp_gaussian_cross_source_producer(
+  producer <- .dsvert_dp_synopsis_source_producer_v1(
     policy, manifest, resolved_snapshots, compute_commitment = FALSE,
     include_release = owns_release)
   on.exit(producer$reset(), add = TRUE)

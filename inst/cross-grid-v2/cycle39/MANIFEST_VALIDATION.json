@@ -1,0 +1,22 @@
+{
+  "source_commits": {
+    "dsVert": "ea1b6d5ced4ba45b8e64cd5e25938bada525ecfe",
+    "dsVertClient": "0a86516b0332ffe0089c088a30f9d05763444a2e"
+  },
+  "real_jobs": 24,
+  "oracle_jobs": 1080,
+  "ready_real_jobs": 12,
+  "per_family_real_jobs": {
+    "lmm": 4,
+    "binomial_glmm": 4,
+    "poisson_glmm": 4,
+    "binomial_gee": 4,
+    "poisson_gee": 4,
+    "cox": 4
+  },
+  "sha256": {
+    "RELEASE_MANIFEST.jsonl": "bc33ecc429a66a0a72dbe71a13e6453c6cd33edf729f50588e5e6f38b9c87d36",
+    "SELECTION_MANIFEST.jsonl": "4749212311e292ab23410ee1f73164faf948a1590817ee0ee7706c50137cdb88",
+    "RELEASE_MANIFEST_STATUS.json": "3cc66978b607241cc1296f39bfc6776afa44dd9efad85e2f15891f3ea4c66784"
+  }
+}

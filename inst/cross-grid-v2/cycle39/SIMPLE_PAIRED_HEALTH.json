@@ -1,0 +1,17 @@
+{
+  "observed_utc": "2026-09-20T14:18:54.864522+00:00",
+  "launch": {
+    "package": "dsVertClient",
+    "started_utc": "2026-09-20T08:48:41.941704+00:00",
+    "pid": 773252,
+    "stdin": "/dev/null"
+  },
+  "log_size": 28124,
+  "log_mtime_utc": "2026-09-20T14:17:42+00:00",
+  "completed": false,
+  "command": "/usr/lib/R/bin/exec/R --no-echo --no-restore --vanilla --file=run-paired.R --args /workspace/dsvert-simple-paired-cycle21 dsVertClient ",
+  "cwd": "/workspace/dsvert-simple-paired-cycle21/dsVertClient/tests/testthat",
+  "stat": "773252 (R) S 712118 712036 712036 0 -1 4194560 175833421 37068074 38 13 1795007 59740 16393 35728 20 0 2 0 222533655 5055012864 1177995 18446744073709551615 101789884727296 101789884727765 140729398106672 0 0 0 0 0 81482 0 0 0 17 40 0 0 0 0 0 101789884738968 101789884739600 101790849187840 140729398111311 140729398111446 140729398111446 140729398112226 0\n",
+  "wait_channel": "0",
+  "children": []
+}

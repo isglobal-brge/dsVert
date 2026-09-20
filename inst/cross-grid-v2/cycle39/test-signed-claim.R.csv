@@ -1,0 +1,2 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-signed-claim.R","signed-claim","Signed Cox Claim commitment agrees with the sharing validator",8,0,FALSE,FALSE,0,6.272,0.474,7.81,8

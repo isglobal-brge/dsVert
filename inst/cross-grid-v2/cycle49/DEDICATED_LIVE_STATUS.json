@@ -1,0 +1,186 @@
+[
+  {
+    "lane": "cox",
+    "pod": "pod-cox-1",
+    "assignment": {
+      "family": "cox",
+      "epsilon": 8,
+      "K": 2,
+      "mode": "baseline"
+    },
+    "observed_utc": "2026-09-20T17:40:48.969984+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": null
+    }
+  },
+  {
+    "lane": "cox",
+    "pod": "pod-cox-2",
+    "assignment": {
+      "family": "cox",
+      "epsilon": 8,
+      "K": 3,
+      "mode": "baseline"
+    },
+    "observed_utc": "2026-09-20T17:40:48.986046+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": null
+    }
+  },
+  {
+    "lane": "cox",
+    "pod": "pod-cox-3",
+    "assignment": {
+      "family": "cox",
+      "epsilon": 8,
+      "K": 5,
+      "mode": "baseline"
+    },
+    "observed_utc": "2026-09-20T17:40:48.992508+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": null
+    }
+  },
+  {
+    "lane": "cox",
+    "pod": "pod-cox-4",
+    "assignment": {
+      "family": "cox",
+      "epsilon": 8,
+      "K": 2,
+      "mode": "recovery"
+    },
+    "observed_utc": "2026-09-20T17:40:50.383290+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": null
+    }
+  },
+  {
+    "lane": "gee",
+    "pod": "pod-gee-1",
+    "assignment": {
+      "family": "binomial_gee",
+      "K": 2,
+      "mode": "baseline"
+    },
+    "observed_utc": "2026-09-20T17:40:48.842260+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": null
+    }
+  },
+  {
+    "lane": "gee",
+    "pod": "pod-gee-2",
+    "assignment": {
+      "family": "poisson_gee",
+      "K": 2,
+      "mode": "baseline"
+    },
+    "observed_utc": "2026-09-20T17:40:48.956921+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": null
+    }
+  },
+  {
+    "lane": "gee",
+    "pod": "pod-gee-3",
+    "assignment": {
+      "family": "binomial_gee",
+      "K": 3,
+      "mode": "baseline"
+    },
+    "observed_utc": "2026-09-20T17:40:50.344895+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": null
+    }
+  },
+  {
+    "lane": "gee",
+    "pod": "pod-gee-4",
+    "assignment": {
+      "family": "poisson_gee",
+      "K": 3,
+      "mode": "baseline"
+    },
+    "observed_utc": "2026-09-20T17:40:50.387870+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": null
+    }
+  },
+  {
+    "lane": "gee",
+    "pod": "pod-gee-5",
+    "assignment": {
+      "family": "binomial_gee",
+      "K": 5,
+      "mode": "baseline"
+    },
+    "observed_utc": "2026-09-20T17:40:49.176308+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": null
+    }
+  },
+  {
+    "lane": "gee",
+    "pod": "pod-gee-6",
+    "assignment": {
+      "family": "poisson_gee",
+      "K": 5,
+      "mode": "baseline"
+    },
+    "observed_utc": "2026-09-20T17:40:49.168388+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": null
+    }
+  },
+  {
+    "lane": "gee",
+    "pod": "pod-gee-7",
+    "assignment": {
+      "family": "binomial_gee",
+      "K": 2,
+      "mode": "recovery"
+    },
+    "observed_utc": "2026-09-20T17:40:49.174883+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": null
+    }
+  },
+  {
+    "lane": "gee",
+    "pod": "pod-gee-8",
+    "assignment": {
+      "family": "poisson_gee",
+      "K": 2,
+      "mode": "recovery"
+    },
+    "observed_utc": "2026-09-20T17:40:49.763029+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": null
+    }
+  }
+]

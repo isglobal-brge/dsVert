@@ -1,0 +1,11 @@
+ERROR: 'test-crossgrid-cox.R:556:7' ---------------
+Error: PSI alignment identifiers must be present and unique
+Backtrace:
+    ▆
+ 1. └─dsVert (local) .cox_resolved_fixture(f, rbind(data, data[1L, ]), peer) at test-crossgrid-cox.R:556:7
+ 2.   └─.dsvert_test_padded_dp_binding(...) at test-crossgrid-cox.R:514:3
+ 3.     ├─dsVert:::.psi_padded_attach_attestation(...) at tests/testthat/helper-padded-dp-binding.R:32:3
+ 4.     └─dsVert:::.psi_attach_alignment_manifest(data, id_col, token) at tests/testthat/helper-padded-dp-binding.R:32:3
+ 5.       └─dsVert:::.psi_alignment_order_binding(data[[id_col]], token) at dsVert/R/psiProtocol.R:172:3
+
+[ FAIL 1 | WARN 0 | SKIP 0 | PASS 930 ]

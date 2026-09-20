@@ -1,0 +1,67 @@
+{
+  "observed_utc": "2026-09-20T07:00:13.130229+00:00",
+  "unauthenticated_progress_only": true,
+  "sites": {
+    "site_a": {
+      "states": {
+        "COMMIT": 213,
+        "RUNNING": 1
+      },
+      "active": [
+        {
+          "stage": "lmm.products.000020",
+          "state": "RUNNING",
+          "mtime_utc": "2026-09-20T07:00:01.740923+00:00"
+        }
+      ],
+      "latest": [
+        {
+          "stage": "lmm.products.000018",
+          "state": "COMMIT",
+          "mtime_utc": "2026-09-20T06:58:13.981082+00:00"
+        },
+        {
+          "stage": "lmm.products.000019",
+          "state": "COMMIT",
+          "mtime_utc": "2026-09-20T06:59:57.376930+00:00"
+        },
+        {
+          "stage": "lmm.products.000020",
+          "state": "RUNNING",
+          "mtime_utc": "2026-09-20T07:00:01.740923+00:00"
+        }
+      ]
+    },
+    "site_b": {
+      "states": {
+        "COMMIT": 213,
+        "RUNNING": 1
+      },
+      "active": [
+        {
+          "stage": "lmm.products.000020",
+          "state": "RUNNING",
+          "mtime_utc": "2026-09-20T07:00:02.275922+00:00"
+        }
+      ],
+      "latest": [
+        {
+          "stage": "lmm.products.000018",
+          "state": "COMMIT",
+          "mtime_utc": "2026-09-20T06:58:14.510082+00:00"
+        },
+        {
+          "stage": "lmm.products.000019",
+          "state": "COMMIT",
+          "mtime_utc": "2026-09-20T06:59:57.939929+00:00"
+        },
+        {
+          "stage": "lmm.products.000020",
+          "state": "RUNNING",
+          "mtime_utc": "2026-09-20T07:00:02.275922+00:00"
+        }
+      ]
+    }
+  }
+}
+

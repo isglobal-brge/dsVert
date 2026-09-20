@@ -1,0 +1,4 @@
+  PID STARTED                      COMMAND
+49135 Sun Sep 20 03:41:12 2026     /opt/homebrew/Cellar/python@3.11/3.11.14_1/Frameworks/Python.framework/Versions/3.11/Resources/Python.app/Contents/MacOS/Python -u /Users/david/Documents/GitHub/dsvert-crossowner/integrator-evidence/cycle16-20260920/harvest.py --watch
+69790 Sun Sep 20 08:01:32 2026     /opt/homebrew/Cellar/python@3.11/3.11.14_1/Frameworks/Python.framework/Versions/3.11/Resources/Python.app/Contents/MacOS/Python -u /Users/david/Documents/GitHub/dsvert-crossowner/integrator-evidence/cycle17-20260920/harvest.py --watch
+78671 Sun Sep 20 08:18:52 2026     /opt/homebrew/Cellar/python@3.11/3.11.14_1/Frameworks/Python.framework/Versions/3.11/Resources/Python.app/Contents/MacOS/Python -u /Users/david/Documents/GitHub/dsvert-crossowner/integrator-evidence/cycle18-20260920/paired/watch-and-harvest.py

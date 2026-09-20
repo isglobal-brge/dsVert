@@ -9,8 +9,8 @@ n <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_N", "4"))
 family <- Sys.getenv("DSVERT_GRID_VALIDATION_FAMILY")
 cox <- identical(family, "cox")
 gee <- grepl("_gee$", family)
-staged <- family %in% c("lmm", "binomial_glmm", "poisson_glmm")
-staged_kind <- if (family == "lmm") "lmm" else "glmm"
+staged <- family %in% c("lmm", "binomial_glmm", "poisson_glmm", "cox")
+staged_kind <- if (cox) "cox" else if (family == "lmm") "lmm" else "glmm"
 staged_marker <- paste0("DSLITE_", toupper(staged_kind))
 epsilon <- as.numeric(Sys.getenv("DSVERT_GRID_VALIDATION_EPSILON", "4"))
 instance <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_INSTANCE", "1"))
@@ -29,8 +29,16 @@ stopifnot(n > 0, family %in% c("lmm", "binomial_glmm", "poisson_glmm",
   identical(Sys.getenv("DSVERT_GRID_VALIDATION_COLD"), "1"),
   Sys.getenv("DSVERT_GRID_VALIDATION_INTERRUPT") %in%
     if (staged) c("0", "1") else "1")
+if (cox) stopifnot(n >= 2L, n <= 400L)
 server_dir <- file.path(root, "dsVert")
 client_dir <- file.path(root, "dsVertClient")
+if (cox) {
+  oracle_binary <- file.path(server_dir, "inst/cross-grid-v2/build/cross-grid-oracle.test")
+  registered <- processx::run(oracle_binary,
+    "-test.list=^TestStructuredGridNoiseOracle$", error_on_status = FALSE)
+  stopifnot(registered$status == 0L,
+    "TestStructuredGridNoiseOracle" %in% strsplit(registered$stdout, "\n", fixed = TRUE)[[1L]])
+}
 source(file.path(client_dir, "inst/validation/v1.2.0/worked_example_custodian.R"))
 # Custodian-side release policy, applied to every fresh/cold isolated peer.
 # This changes execution leases only; the release driver's 256GB/8h capacity
@@ -150,7 +158,8 @@ if (replay_only) {
     identical(Sys.getenv("DSVERT_GRID_VALIDATION_INTERRUPT"), "0"))
 }
 dir.create(state, recursive = TRUE, mode = "0700", showWarnings = FALSE)
-trace(".dsvert_dp_lmm_cross_public_evidence_set", where = asNamespace("dsVertClient"),
+trace(if (cox) ".dsvert_dp_cox_cross_public_evidence_set" else
+  ".dsvert_dp_lmm_cross_public_evidence_set", where = asNamespace("dsVertClient"),
   print = FALSE, tracer = quote({
     path <- file.path(state, "synthetic-public-evidence.rds")
     saveRDS(list(responses = responses,
@@ -160,7 +169,7 @@ trace(".dsvert_dp_lmm_cross_public_evidence_set", where = asNamespace("dsVertCli
   }))
 trace(".dsvert_dp_gaussian_synopsis_certificate_validate", where = asNamespace("dsVertClient"),
   print = FALSE, tracer = quote(if (certificate$descriptor$version %in%
-      c("bounded-lmm-cross-grid-v1", "bounded-binomial-glmm-cross-grid-v1", "bounded-poisson-glmm-cross-grid-v1")) {
+      c("bounded-lmm-cross-grid-v1", "bounded-binomial-glmm-cross-grid-v1", "bounded-poisson-glmm-cross-grid-v1", "bounded-cox-breslow-observed-cross-grid-v1")) {
     path <- file.path(state, "synthetic-public-certificate.rds")
     saveRDS(list(object = object, certificate = certificate), path)
     Sys.chmod(path, "0600")
@@ -180,7 +189,9 @@ structured_lmm_cold_lifecycle <- function(server_dir, contract, schema) {
     scratch <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
     on.exit(DBI::dbDisconnect(scratch), add = TRUE)
     RSQLite::sqliteCopyDatabase(source, scratch)
-    artifact <- sf(".dsvert_dp_lmm_cross_artifacts")(manifest)[[1L]]
+    cox <- identical(contract$spec$family, "cox")
+    artifact <- sf(if (cox) ".dsvert_dp_cox_cross_artifacts" else
+      ".dsvert_dp_lmm_cross_artifacts")(manifest)[[1L]]
     read <- function(source_contract = fixture$source_contract, stage = fixture$stage) {
       sf(".dsvert_dp_lmm_cross_record")(scratch, fixture$secret, manifest,
         artifact, source_contract, stage = stage)
@@ -195,8 +206,12 @@ structured_lmm_cold_lifecycle <- function(server_dir, contract, schema) {
     block <- sf(".dsvert_dp_capsule_coordinate_layout")(manifest)$blocks[["gaussian_models::grid"]]
     base <- as.raw(rep(7, 16 * block$length))
     chunk <- list(offset = block$start - 1, count = block$length)
-    inject <- function() sf(".dsvert_dp_lmm_cross_inject")(scratch, fixture$secret,
-      manifest, fixture$source_contract, chunk, base, fixture$policy)
+    inject <- function() {
+      if (cox) sf(".dsvert_dp_cox_cross_inject")(scratch, fixture$secret,
+        manifest, fixture$source_contract, chunk, base, fixture$policy, schema) else
+      sf(".dsvert_dp_lmm_cross_inject")(scratch, fixture$secret,
+        manifest, fixture$source_contract, chunk, base, fixture$policy)
+    }
     first <- inject()
     expected <- sf(".dsvert_dp_capsule_source_add_ring128")(base,
       sf(".exact_gc_standard_b64_raw")(record$share, length(base), "synthetic LMM result"))
@@ -209,8 +224,9 @@ structured_lmm_cold_lifecycle <- function(server_dir, contract, schema) {
     changed_stage$stage_plan_digest <- strrep("1", 64)
     stage_swap <- rejected(read(stage = changed_stage))
     changed_stage <- fixture$stage
-    changed_stage$purpose <- paste0("grouped-",
-      sf(".dsvert_dp_staged_grouped_kind")(artifact$family), "-staged-v1/", strrep("2", 64))
+    changed_stage$purpose <- if (cox) paste0("cox-loss-staged-v1/", strrep("2", 64)) else
+      paste0("grouped-", sf(".dsvert_dp_staged_grouped_kind")(artifact$family),
+        "-staged-v1/", strrep("2", 64))
     stage_purpose <- rejected(read(stage = changed_stage))
     row <- DBI::dbGetQuery(scratch, paste("SELECT chunk_index FROM source_aggregate_chunks",
       "WHERE capsule_id=? ORDER BY chunk_index LIMIT 1"), params = list(fixture$source_contract$capsule_id))
@@ -256,6 +272,7 @@ run <- function() {
   ids <- sprintf("synthetic-%06d", seq_len(n))
   owner_names <- paste0("site_", letters[seq_len(owner_count)])
   if (cox) {
+    stopifnot(predictors >= owner_count)
     allocation <- pmin(owner_count, 1L + floor((seq_len(predictors)-1L) * owner_count / predictors))
   } else {
     # The first owner supplies private routing; the second supplies outcomes.
@@ -324,7 +341,7 @@ run <- function() {
     stop(error)
   })
   # Assign the synthetic authorities before any pinset or contract is signed.
-  # The grouping owner keeps its raw data; only unused bootstrap state homes
+  # The grouping or Cox time/event owner keeps its raw data; only unused bootstrap state homes
   # are assigned to owner names so A is the actual transport garbler.
   if (staged) {
     identity_ids <- vapply(peers[owner_names[1:2]], function(peer) peer$worker$run(function() {
@@ -341,7 +358,8 @@ run <- function() {
       identity_ids <- identity_ids[2:1]
     }
     stopifnot(order(identity_ids, method = "radix")[[1L]] == 1L)
-    cat(paste0(staged_marker, "_GROUPING_OWNER_PINNED_GARBLER\n"))
+    cat(paste0(staged_marker, if (cox) "_TIME_EVENT_OWNER_PINNED_GARBLER\n" else
+      "_GROUPING_OWNER_PINNED_GARBLER\n"))
   }
   pins <- stats::setNames(lapply(names(raw), function(peer) {
     other <- setdiff(names(raw), peer)
@@ -563,11 +581,13 @@ run <- function() {
       tracer = quote(assign(".grid_lifecycle_fixture", list(policy = policy,
         secret = secret, manifest_json = manifest_json,
         source_contract = source_contract), .GlobalEnv)))
-    if (Sys.getenv("DSVERT_GRID_VALIDATION_FAMILY") %in% c("lmm", "binomial_glmm", "poisson_glmm")) {
+    if (Sys.getenv("DSVERT_GRID_VALIDATION_FAMILY") %in% c("lmm", "binomial_glmm", "poisson_glmm", "cox")) {
       source(file.path(server_dir, "inst/cross-grid-v2/validate_cold_lifecycle.R"))
       assign(".grid_interrupt_mode", "none", .GlobalEnv)
       assign(".grid_interrupted", FALSE, .GlobalEnv)
-      trace(".dsvert_dp_lmm_cross_bind", where = asNamespace("dsVert"), print = FALSE,
+      trace(if (identical(Sys.getenv("DSVERT_GRID_VALIDATION_FAMILY"), "cox"))
+        ".dsvert_dp_cox_cross_bind" else ".dsvert_dp_lmm_cross_bind",
+        where = asNamespace("dsVert"), print = FALSE,
         exit = quote(assign(".grid_lifecycle_fixture", list(policy = policy, secret = secret,
           manifest_json = .dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(manifest)),
           source_contract = source_contract,
@@ -675,7 +695,8 @@ run <- function() {
   }
   if (replay_only) for (peer in peers) peer$worker$run(function() {
     for (name in c(".dsvert_dp_capsule_source_prepare_impl",
-        ".dsvert_dp_lmm_cross_prepare_worker", ".dsvert_dp_synopsis_execution_start_v1")) {
+        ".dsvert_dp_lmm_cross_prepare_worker", ".dsvert_dp_cox_cross_prepare_worker",
+        ".dsvert_dp_synopsis_local_claim_v1", ".dsvert_dp_synopsis_execution_start_v1")) {
       trace(name, where = asNamespace("dsVert"), print = FALSE,
         tracer = quote(stop("Synthetic published replay forbids a new producer", call. = FALSE)))
     }
@@ -698,7 +719,7 @@ run <- function() {
   formula <- stats::as.formula(paste(if (cox) "Surv(site_a$time, site_a$event)" else
     "site_b$y", "~", paste(predictor_order, collapse = " + ")))
   invoke <- function() {
-    if (cox) cf("dp_cox_grid")(formula, data = "DA", analysis_id = "grid", datasources = conns) else {
+    if (cox) getExportedValue("dsVertClient", "dp_cox_grid")(formula, data = "DA", analysis_id = "grid", datasources = conns) else {
       entry <- if (family == "lmm") "dp_lmm_grid" else if (gee) "dp_gee_grid" else "dp_glmm_grid"
       getExportedValue("dsVertClient", entry)(
         "site_b$y", predictor_order, contract, policy, schema, datasources = conns)
@@ -852,7 +873,7 @@ run <- function() {
   if (oracle_run$status != 0) cat(oracle_run$stdout, oracle_run$stderr)
   stopifnot(oracle_run$status==0)
   oracle <- jsonlite::fromJSON(output)
-  candidate_count <- if (staged) length(spec$candidate_grid) else length(spec$beta_grid)
+  candidate_count <- if (staged && !cox) length(spec$candidate_grid) else length(spec$beta_grid)
   width <- length(exact) / candidate_count
   loss_indices <- seq.int(1L, length(exact), by = width)
   released_losses <- as.numeric(oracle$Released[-1])[loss_indices]
@@ -924,7 +945,8 @@ run <- function() {
       for (peer in peers) peer$worker$run(function(n) {
         options(dsvert.psi.max_input_ids = as.integer(2^ceiling(log2(max(64, n)))))
         for (name in c(".dsvert_dp_capsule_source_prepare_impl",
-            ".dsvert_dp_lmm_cross_prepare_worker", ".dsvert_dp_synopsis_execution_start_v1")) {
+            ".dsvert_dp_lmm_cross_prepare_worker", ".dsvert_dp_cox_cross_prepare_worker",
+            ".dsvert_dp_synopsis_local_claim_v1", ".dsvert_dp_synopsis_execution_start_v1")) {
           trace(name, where = asNamespace("dsVert"), print = FALSE,
             tracer = quote(stop("Synthetic cold replay forbids a new producer", call. = FALSE)))
         }

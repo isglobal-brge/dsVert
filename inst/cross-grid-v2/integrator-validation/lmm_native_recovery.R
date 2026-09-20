@@ -9,8 +9,10 @@ structured_lmm_native_probe <- function(session_id, operation_id,
   if (is.null(fixture) || !identical(fixture$stage$operation_id, operation_id)) return(NULL)
   sf <- function(name) get(name, asNamespace("dsVert"), inherits = FALSE)
   manifest <- sf(".dsvert_dp_capsule_source_manifest")(fixture$manifest_json)
-  artifact <- sf(".dsvert_dp_lmm_cross_artifacts")(manifest)[[1L]]
-  kind <- sf(".dsvert_dp_staged_grouped_kind")(artifact$family)
+  cox <- length(sf(".dsvert_dp_cox_cross_artifacts")(manifest)) > 0L
+  artifact <- sf(if (cox) ".dsvert_dp_cox_cross_artifacts" else
+    ".dsvert_dp_lmm_cross_artifacts")(manifest)[[1L]]
+  kind <- if (cox) "cox" else sf(".dsvert_dp_staged_grouped_kind")(artifact$family)
   if (action %in% c("pause", "resume", "terminate")) {
     # The synthetic trace retains the session privately during the authorized
     # start. Calling .S here would correctly reject an out-of-entrypoint read.
@@ -19,7 +21,8 @@ structured_lmm_native_probe <- function(session_id, operation_id,
       identical(captured$session_id, session_id),
       identical(captured$operation_id, operation_id))
     worker <- sf(".exact_gc_operation_state")(captured$session, operation_id)
-    stopifnot(identical(worker$operation, paste0("grouped-", kind, "-staged-v1")),
+    stopifnot(identical(worker$operation, if (cox) "cox-loss-staged-v1" else
+      paste0("grouped-", kind, "-staged-v1")),
       identical(worker$session_id, session_id),
       identical(worker$operation_id, operation_id))
     stopifnot(inherits(worker$process, "process"))
@@ -28,7 +31,7 @@ structured_lmm_native_probe <- function(session_id, operation_id,
         worker$process$kill()
         worker$process$wait(timeout = 5000)
       } else stopifnot(tools::pskill(worker$process$get_pid(),
-        signal = if (action == "pause") 19L else 18L))
+        signal = if (action == "pause") tools::SIGSTOP else tools::SIGCONT))
     }
     return(TRUE)
   }
@@ -36,7 +39,8 @@ structured_lmm_native_probe <- function(session_id, operation_id,
   directory <- file.path(dirname(sf(".dsvert_dp_capsule_source_store_path")(fixture$policy)),
     paste0(kind, "-staged-v1"), semantic)
   key <- sf(".dsvert_dp_capsule_source_hex_raw")(sf(".dsvert_dp_capsule_source_mac")(
-    fixture$secret, paste0("grouped-", kind, "-stage-store-key-v1"), semantic), "synthetic stage MAC key")
+    fixture$secret, if (cox) "cox-stage-store-key-v1" else
+      paste0("grouped-", kind, "-stage-store-key-v1"), semantic), "synthetic stage MAC key")
   cached <- get0(".grid_native_recovery_path", .GlobalEnv)
   files <- if (is.list(cached) && identical(cached$semantic, semantic)) cached$path else
     list.files(directory, pattern = "\\.stage$", full.names = TRUE)
@@ -59,10 +63,12 @@ structured_lmm_native_probe <- function(session_id, operation_id,
       as.raw(0), payload), algo = "sha256", serialize = FALSE, raw = TRUE)
     stopifnot(identical(mac, bytes[seq_len(32L)]))
     record <- jsonlite::fromJSON(rawToChar(payload), simplifyVector = FALSE)
-    if (!identical(record$StageID, paste0(kind, ".source.numeric"))) next
+    if (!identical(record$StageID, if (cox) "cox.source.predictors" else
+        paste0(kind, ".source.numeric"))) next
     hex <- function(value) paste(sprintf("%02x", as.integer(unlist(value))), collapse = "")
+    spec <- sf(".dsvert_dp_glm_grid_cross_embedded_contract")(artifact)$spec
     expected_role <- if (identical(fixture$policy$peer_name,
-      sf(".dsvert_dp_glm_grid_cross_embedded_contract")(artifact)$spec$grouping$owner_peer)) 0 else 1
+      if (cox) spec$time$owner_peer else spec$grouping$owner_peer)) 0 else 1
     stopifnot(identical(record$Version, "cross-grid-stage-record-v1"),
       identical(record$Session, paste0(kind, "-staged-", semantic)),
       identical(record$ABI$ID, record$StageID),
@@ -104,7 +110,7 @@ structured_lmm_native_probe <- function(session_id, operation_id,
 
 structured_lmm_native_recovery <- function(peers, kind = "lmm") {
   stopifnot(identical(names(peers), c("site_a", "site_b")))
-  stopifnot(kind %in% c("lmm", "glmm"))
+  stopifnot(kind %in% c("lmm", "glmm", "cox"))
   marker <- paste0("DSLITE_", toupper(kind))
   state <- new.env(parent = emptyenv())
   state$mode <- "none"

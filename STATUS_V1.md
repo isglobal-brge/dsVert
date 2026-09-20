@@ -1,6 +1,6 @@
 # Status V1 — contract and reference
 
-Step 1 implementation is complete; full-suite verification is running. Promotion is reserved for Claude's review. No release path is enabled.
+Step 1 implementation is complete; full-suite verification is running. Promotion requires independent review. No release path is enabled.
 
 ## Delivered
 

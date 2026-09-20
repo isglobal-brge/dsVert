@@ -84,7 +84,7 @@ dsvertLMMLocalGramDS <- function(data_name, columns,
   n <- nrow(data)
 
   tx <- list()  # named numeric columns (transformed)
-  # Column standardization (Codex-approved structural fix, 2026-04-19):
+  # Column standardization:
   # dividing each raw column by its public SD before cluster-mean centering
   # equalizes the Gram diagonal and reduces kappa(X~^T X~) from O(1e5-1e6)
   # to O(1-1e3), amplifying MPC precision from rel~1e-4 to rel~1e-8 on
@@ -119,8 +119,7 @@ dsvertLMMLocalGramDS <- function(data_name, columns,
     val[is.na(val)] <- 1
     tx[[intercept_col]] <- val
   }
-  # Post-centering L2 standardization. This is the Codex-approved
-  # structural fix (2026-04-19) that closes the X4 rel<1e-4 gap:
+  # Post-centering L2 standardization closes the X4 rel<1e-4 gap:
   # the raw Gram X~^T X~ has kappaapprox5.57e5 on mixed-scale designs; dividing
   # each centered column by its L2 norm shrinks kappa to O(10), amplifying
   # MPC precision from rel~1e-4 to rel~1e-8. Scales are returned to the
@@ -173,8 +172,7 @@ dsvertLMMLocalGramDS <- function(data_name, columns,
   # Share each transformed column as Ring63 FP for subsequent Beaver
   # dot products with the peer's columns. Own share stored under a
   # canonical session key; peer share sealed into a single blob.
-  # SNR-boost via SHARE_SCALE (Codex 2026-04-19 late, band-aid for Ring63
-  # FP floor): multiply every shared column by share_scale so cross-Gram
+  # SNR-boost via SHARE_SCALE (band-aid for Ring63 FP floor): multiply every shared column by share_scale so cross-Gram
   # Beaver products operate on values with larger absolute magnitude
   # vs the fixed ~1e-4 absolute Ring63 noise. Per docs/acceptance
   # Sec.LMM iterative-refinement band-aid. X, ytilde both pre-multiplied so the

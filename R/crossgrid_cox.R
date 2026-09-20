@@ -163,8 +163,8 @@
     participants <- sort(unique(vapply(
       descriptors, `[[`, character(1L), "owner_peer")), method = "radix")
     compute <- sort(unname(policy$designated_noise_peers), method = "radix")
-    if (length(participants) != 2L || length(compute) != 2L ||
-        anyDuplicated(compute) || !identical(compute, participants) ||
+    if (!length(participants) %in% 2:5 || length(compute) != 2L ||
+        anyDuplicated(compute) || !all(compute %in% participants) ||
         !setequal(names(policy$peer_pinset), participants) ||
         !identical(descriptors[[raw$time]]$owner_peer,
                    descriptors[[raw$event]]$owner_peer) ||
@@ -243,13 +243,16 @@
 .dsvert_dp_cox_grid_cross_layout <- function(spec) {
   m <- spec$padded_capacity
   log_m <- as.integer(log2(m))
-  list(version = "dsvert-cox-cross-private-source-layout-v1",
+  list(version = if (length(spec$participating_peers) == 2L)
+      "dsvert-cox-cross-private-source-layout-v1" else "dsvert-cox-cross-private-source-layout-v2",
     ring_bits = 128, release_coordinate_count = length(spec$beta_grid),
     kernel_output_ring_bits = 64, joint_dp_source_ring_bits = 128,
     output_conversion = "mod64_reconstruct_cast_remask_in_authenticated_fusion_v1",
     padded_units = m, partial_predictor_fraction_bits = 100,
     release_prefix_source_rule = "all_zero_until_authenticated_result_injection_v1",
-    partial_predictors = "two_owners_exact_f100_additive_ring128_v1",
+    partial_predictors = if (length(spec$participating_peers) == 2L)
+      "two_owners_exact_f100_additive_ring128_v1" else
+      "all_source_owners_exact_f100_additive_ring128_v1",
     validity = "private_alignment_and_all_input_validity_v1",
     event = "private_outcome_owner_bit_v1",
     permutation = "private_descending_time_benes_controls_v1",
@@ -326,7 +329,7 @@
     .dsvert_dp_glm_grid_cross_fields(value, c(
       "version", "spec", "artifact", "source_contract", "signatures"))
     if (!identical(value$version, .DSVERT_DP_COX_GRID_CROSS_CONTRACT_VERSION) ||
-        length(policy$peer_pinset) != 2L) .dsvert_dp_cox_grid_cross_fail()
+        !length(policy$peer_pinset) %in% 2:5) .dsvert_dp_cox_grid_cross_fail()
     schema <- .dsvert_dp_capsule_schema(
       policy, schema_manifest$logical_snapshot, schema_manifest, .verifier)
     spec <- .dsvert_dp_cox_grid_cross_spec_validate(value$spec, policy, schema)

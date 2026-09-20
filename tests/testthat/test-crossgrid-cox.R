@@ -1,5 +1,5 @@
-.cox_cross_server_fixture <- function(capacity = 16, beta_grid = NULL) {
-  peers <- c("site_a", "site_b")
+.cox_cross_server_fixture <- function(capacity = 16, beta_grid = NULL, owners = 2L) {
+  peers <- paste0("site_", letters[seq_len(owners)])
   keys <- stats::setNames(lapply(peers, function(peer) openssl::ed25519_keygen()), peers)
   b64 <- function(value) sub("=+$", "", chartr("+/", "-_",
     gsub("[\r\n]", "", jsonlite::base64_enc(value))))
@@ -7,7 +7,7 @@
                  character(1L))
   policy <- list(peer_pinset = pins,
     peer_pinset_sha256 = .dsvert_joint_dp_hash(as.list(pins)),
-    designated_noise_peers = peers, unit_capacity = capacity,
+    designated_noise_peers = peers[1:2], unit_capacity = capacity,
     numeric_grid_bits = 8, adjacency = "add_remove_patient")
   snapshot <- list(logical_snapshot_id = "cohort", version = "v1",
                    alignment_protocol_version = 1)
@@ -15,12 +15,19 @@
     logical_snapshot = snapshot, peer_pinset_sha256 = policy$peer_pinset_sha256,
     datasets = list(aligned = list(dataset_id = "aligned", dataset_version = "v1",
       schema_version = "v1", alignment_group = "group",
-      patient_keys = list(site_a = "patient", site_b = "patient"),
+      patient_keys = setNames(rep(list("patient"), owners), peers),
       columns = list(
         event = list(kind = "numeric", owner_peer = "site_a", lower = 0, upper = 1),
         time = list(kind = "numeric", owner_peer = "site_a", lower = 0, upper = 20),
         x = list(kind = "numeric", owner_peer = "site_a", lower = 0, upper = 1),
         z = list(kind = "numeric", owner_peer = "site_b", lower = 0, upper = 1)))))
+  extra_predictors <- character()
+  if (owners > 2L) for (peer in peers[-c(1L, 2L)]) {
+    column <- paste0("x_", peer)
+    schema_unsigned$datasets$aligned$columns[[column]] <- list(
+      kind = "numeric", owner_peer = peer, lower = 0, upper = 1)
+    extra_predictors <- c(extra_predictors, paste0(peer, "$", column))
+  }
   sign_schema <- function(value) {
     value$signatures <- NULL
     message <- .dsvert_dp_capsule_schema_message(value)
@@ -31,13 +38,14 @@
   schema_manifest <- sign_schema(schema_unsigned)
   schema <- .dsvert_dp_capsule_schema(policy, snapshot,
     schema_manifest, .dsvert_relay_verify_message)
-  if (is.null(beta_grid)) beta_grid <- list(c(0, 0), c(1, -0.5), c(1, 0))
+  if (is.null(beta_grid)) beta_grid <- lapply(list(c(0, 0), c(1, -0.5), c(1, 0)),
+    function(beta) c(beta, rep(0, length(extra_predictors))))
   beta_grid <- beta_grid[order(vapply(beta_grid, function(beta) {
     .dsvert_dp_canonical_json(as.list(beta))
   }, character(1L)), method = "radix")]
   raw <- list(version = "cox_grid_cross_v1", analysis_id = "cox_grid",
     dataset = "aligned", time = "site_a$time", event = "site_a$event",
-    predictor_order = c("site_a$x", "site_b$z"), beta_grid = beta_grid,
+    predictor_order = c("site_a$x", "site_b$z", extra_predictors), beta_grid = beta_grid,
     alignment = list(version = "existing_prealigned_logical_dataset_v1",
       method = "pinned_psi_ordered_manifest_v1", alignment_group = "group",
       public_alignment_contract_sha256 = .dsvert_joint_dp_hash(list(
@@ -165,4 +173,53 @@ test_that("Cox signed layout pins the terminal share conversion for fusion", {
   changed$source_contract$private_layout$kernel_output_ring_bits <- 128
   expect_error(.dsvert_dp_cox_grid_cross_contract_validate(
     f$sign(changed), f$policy, f$schema_manifest), class = "dsvert_dp_public_failure")
+})
+
+test_that("Cox K-owner source contracts retain exactly two computation authorities", {
+  for (owners in c(2L, 3L, 5L)) {
+    f <- .cox_cross_server_fixture(owners = owners)
+    validate <- function(value) .dsvert_dp_cox_grid_cross_contract_validate(
+      value, f$policy, f$schema_manifest)
+    spec <- validate(f$contract)$spec
+    expect_length(spec$participating_peers, owners)
+    expect_identical(unlist(spec$computation_peers, use.names = FALSE), c("site_a", "site_b"))
+    source <- f$contract$source_contract
+    expect_identical(source$source_peers, spec$participating_peers)
+    expect_identical(source$recipients, spec$computation_peers)
+    layout <- .dsvert_dp_cox_grid_cross_layout(spec)
+    expect_identical(layout$version, if (owners == 2L)
+      "dsvert-cox-cross-private-source-layout-v1" else "dsvert-cox-cross-private-source-layout-v2")
+    expect_identical(layout$partial_predictors, if (owners == 2L)
+      "two_owners_exact_f100_additive_ring128_v1" else "all_source_owners_exact_f100_additive_ring128_v1")
+    expect_identical(layout$release_prefix_source_rule,
+      "all_zero_until_authenticated_result_injection_v1")
+    expect_identical(spec$numeric_contract$eta_rounding, "one_rne_after_owner_sum_v1")
+    for (peer in names(f$keys)) {
+      changed <- f$contract; changed$signatures[[peer]] <- NULL
+      expect_error(validate(changed), class = "dsvert_dp_public_failure")
+    }
+    for (mutate in list(
+      function(x) { x$spec$participating_peers <- x$spec$participating_peers[-1]; x },
+      function(x) { x$spec$computation_peers <- rev(x$spec$computation_peers); x },
+      function(x) { x$source_contract$source_peers <- x$source_contract$source_peers[-1]; x },
+      function(x) { x$source_contract$recipients <- x$source_contract$recipients[1]; x })) {
+      expect_error(validate(f$sign(mutate(f$contract))), class = "dsvert_dp_public_failure")
+    }
+    for (compute in list("site_a", c("site_a", "site_a"), c("site_a", "absent"),
+                         c("site_a", "site_b", "site_c"))) {
+      policy <- f$policy; policy$designated_noise_peers <- compute
+      expect_error(.dsvert_dp_cox_grid_cross_spec(f$raw, policy, f$schema),
+        class = "dsvert_dp_public_failure")
+    }
+    if (owners > 2L) {
+      changed <- f$contract
+      changed$source_contract$private_layout$partial_predictors <-
+        "two_owners_exact_f100_additive_ring128_v1"
+      expect_error(validate(f$sign(changed)), class = "dsvert_dp_public_failure")
+      raw <- f$raw; raw$predictor_order <- raw$predictor_order[-length(raw$predictor_order)]
+      raw$beta_grid <- lapply(raw$beta_grid, function(beta) beta[-length(beta)])
+      expect_error(.dsvert_dp_cox_grid_cross_spec(raw, f$policy, f$schema),
+        class = "dsvert_dp_public_failure")
+    }
+  }
 })

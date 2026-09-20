@@ -1,3 +1,29 @@
+# Cycle 14 signed proof continuation — 2026-09-20
+
+Combined runtime checkpoint is 4749d84; client test-only correction is 6d9b0d9.
+Poisson's independent native proof passes 29 top-level tests (one opt-in router
+capacity probe skipped), and its tagged focused suites now pass 1,025 server /
+726 client assertions with zero failures/warnings/skips. The first client run
+retained three stale discovery expectations; only that test was corrected.
+Its failure and stopped gate are preserved in executor-cycle14-poisson-dev-r1.
+
+Fresh executor-cycle14-poisson-dev-r2 retains the EXACT original Poisson
+production code/runtime d9348bf/d27c566, with a single explicitly hashed client
+test overlay from 6d9b0d9. Unchanged native/oracle/server proofs retain their
+original cwd/timestamps; only the corrected client suite was rerun. Detached
+gate PID971774 freezes/launches signed n4 smoke, then a separate serialized
+n2000 K2→K3→K5→recovery→paired queue only after actual smoke proof. It never
+promotes and never changes original LMM/binomial snapshots. Consult cycle14
+progress.json/latest.json for current phase; no signed smoke pass is claimed
+by this source checkpoint, nor are old-runtime metrics assigned to 4749d84.
+
+The original cycle12 paired server suite at ba436a1/496c053 now has reviewed
+RDS/CSV proof: 1,170 tests /21,264 assertions, zero failures/errors/warnings/
+skips, all 2,526 source hashes unchanged. Its client suite remains active;
+this server half alone is not the paired gate or n2000 capacity proof.
+
+---
+
 # Cycle 14 packaged native checkpoint — 2026-09-20
 
 All four packaged runtimes are rebuilt from source 8e1cd96/f4c3faa on pod4;

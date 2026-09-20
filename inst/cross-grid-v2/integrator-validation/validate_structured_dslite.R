@@ -284,7 +284,8 @@ run <- function() {
     home <- file.path(state, peer)
     dir.create(home, mode = "0700", showWarnings = FALSE)
     list(name = peer, state_dir = home, dslite_home = file.path(home, "dslite"),
-      mpc_binary = file.path(server_dir, "inst/bin/linux-amd64/dsvert-mpc"),
+      # Resolve and checksum the loaded package's native platform runtime.
+      mpc_binary = "",
       dataset_id = "cross-grid-synthetic", dataset_version = "v1")
   })
   names(specs) <- names(raw)

@@ -356,7 +356,11 @@ run <- function() {
     options(dsvert.psi.max_input_ids = as.integer(2^ceiling(log2(max(64, n)))))
     trace(".exact_gc_record_private_error", where = asNamespace("dsVert"), print = FALSE,
       tracer = quote(assign(".grid_early_worker_error", list(operation = state$operation,
-        message = message), .GlobalEnv)))
+        message = message,
+        # Synthetic fixture only: preserve startup errors before spool cleanup.
+        worker_log = if (!is.null(state$spool) && file.exists(file.path(state$spool, "worker-private.log")))
+          readLines(file.path(state$spool, "worker-private.log"), n = 12L, warn = FALSE)
+          else character()), .GlobalEnv)))
     TRUE
   }, args = list(n))
   cat("DSLITE_ALIGNMENT_START\n")
@@ -493,6 +497,8 @@ run <- function() {
         }
       }
     }))
+    trace(".dsvert_dp_capsule_mechanism_selection", where = asNamespace("dsVert"), print = FALSE,
+      exit = quote(assign(".grid_public_mechanism_selection", returnValue(), .GlobalEnv)))
     namespace <- asNamespace("dsVert")
     native_call <- local({
       original <- get(".callMpcTool", namespace, inherits = FALSE)
@@ -653,6 +659,12 @@ run <- function() {
     stop(error)
   })
   cat("DSLITE_PUBLIC_ADMISSION_COMPLETE\n")
+  for (name in names(peers)) {
+    selection <- peers[[name]]$worker$run(function()
+      get0(".grid_public_mechanism_selection", .GlobalEnv))
+    cat("DSLITE_PUBLIC_MECHANISM_SELECTION", name,
+      jsonlite::toJSON(selection, auto_unbox = TRUE, digits = NA), "\n")
+  }
   if (staged) {
     replay_fixture <- file.path(state, "synthetic-public-replay-fixture.rds")
     saveRDS(list(synthetic_fixture_seed = 20260918 + instance,
@@ -725,6 +737,8 @@ run <- function() {
           failure = get0(".grid_synthetic_failure", .GlobalEnv),
           history = get0(".grid_synthetic_failure_history", .GlobalEnv),
           stop_history = get0(".grid_stop_history", .GlobalEnv),
+          worker_error = get0(".grid_early_worker_error", .GlobalEnv),
+          mechanism_selection = get0(".grid_public_mechanism_selection", .GlobalEnv),
           native_errors = get0(".grid_native_error_history", .GlobalEnv),
           grouped_failure = get0(".grid_grouped_failure", .GlobalEnv),
           mismatch = get0(".grid_public_mismatch", .GlobalEnv))))
@@ -765,6 +779,8 @@ run <- function() {
         failure = get0(".grid_synthetic_failure", .GlobalEnv),
         history = get0(".grid_synthetic_failure_history", .GlobalEnv),
         stop_history = get0(".grid_stop_history", .GlobalEnv),
+        worker_error = get0(".grid_early_worker_error", .GlobalEnv),
+        mechanism_selection = get0(".grid_public_mechanism_selection", .GlobalEnv),
         native_errors = get0(".grid_native_error_history", .GlobalEnv),
         grouped_failure = get0(".grid_grouped_failure", .GlobalEnv))))
       stop(error)

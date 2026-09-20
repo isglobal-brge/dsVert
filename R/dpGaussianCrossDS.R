@@ -74,6 +74,17 @@
   artifacts <- .dsvert_dp_gaussian_cross_artifacts(manifest)
   categorical_artifacts <- .dsvert_dp_categorical_cross_artifacts(manifest)
   grid_artifacts <- .dsvert_dp_glm_grid_cross_artifacts(manifest)
+  cox_artifacts <- Filter(function(artifact)
+    identical(artifact$version, .DSVERT_DP_COX_GRID_CROSS_ARTIFACT_VERSION),
+    manifest$workload$families$gaussian_models$artifacts)
+  if (length(cox_artifacts)) {
+    # Cox has event/time presence and exact f50 inputs, not a GLM outcome or
+    # grouped source. Its sole-artifact projection also rejects mixed layouts.
+    shape <- .dsvert_dp_cox_cross_transport_layout(manifest, cox_artifacts[[1L]])
+    .dsvert_dp_glm_grid_cross_equal(release_layout,
+      .dsvert_dp_capsule_coordinate_layout(manifest))
+    return(c(shape, list(enabled = TRUE)))
+  }
   if (!length(artifacts) && !length(categorical_artifacts) && !length(grid_artifacts)) {
     return(list(
       version = .DSVERT_DP_GAUSSIAN_CROSS_LAYOUT_VERSION,

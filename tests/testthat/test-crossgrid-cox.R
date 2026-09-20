@@ -431,6 +431,43 @@ if (nzchar(Sys.getenv("DSVERT_COX_STAGED_TEST_BINARY"))) {
   list(artifact = artifact, manifest = manifest, transport = transport, layout = layout)
 }
 
+test_that("Cox shared source contracts preserve the exact private projection and namespace", {
+  for (owners in c(2L, 3L, 5L)) {
+    f <- .cox_cross_server_fixture(capacity = 17, owners = owners)
+    t <- .cox_transport_fixture(f)
+    t$manifest$capsule_identity$contract <- list(peer_pinset_sha256 = f$policy$peer_pinset_sha256)
+    # Workload catalog admission is not part of this contract-construction test.
+    local_mocked_bindings(.dsvert_dp_capsule_materializer_manifest = function(policy, manifest) {
+      expect_identical(policy, f$policy)
+      list(layout = .dsvert_dp_capsule_coordinate_layout(manifest), identity = manifest$capsule_identity)
+    })
+    layout <- .dsvert_dp_gaussian_cross_layout(t$manifest)
+    expect_identical(layout$enabled, TRUE)
+    expect_identical(layout[setdiff(names(layout), "enabled")], t$layout)
+    source <- .dsvert_dp_capsule_source_contract(f$policy, t$manifest)
+    expect_identical(source, .dsvert_dp_canonical_query_value(t$transport))
+    .dsvert_dp_cox_cross_source_context(f$policy, t$manifest, source, f$schema_manifest, "cox_grid")
+    key <- strrep("d", 64); claims <- strrep("e", 64)
+    namespaced <- .dsvert_dp_synopsis_source_contract_from_hashes_v1(f$policy, t$manifest, key, claims)
+    expect_false(identical(namespaced$capsule_id, source$capsule_id))
+    expect_identical(namespaced$synopsis_binding$manifest_capsule_id, source$capsule_id)
+    context <- .dsvert_dp_cox_cross_source_context(f$policy, t$manifest, namespaced,
+      f$schema_manifest, "cox_grid")
+    expect_identical(context$source_hash, .dsvert_joint_dp_hash(namespaced))
+    json <- .dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(t$manifest))
+    expect_identical(.dsvert_dp_capsule_source_contract_json(f$policy, json, namespaced)$contract,
+      namespaced)
+    altered <- namespaced; altered$coordinate_order_sha256 <- strrep("f", 64)
+    expect_error(.dsvert_dp_capsule_source_contract_json(f$policy, json, altered))
+    mixed <- t$manifest
+    mixed$workload$families$gaussian_models$artifacts$duplicate <- t$artifact
+    expect_error(.dsvert_dp_gaussian_cross_layout(mixed))
+    wrong <- .dsvert_dp_capsule_coordinate_layout(t$manifest); wrong$sha256 <- strrep("f", 64)
+    expect_error(.dsvert_dp_gaussian_cross_layout(t$manifest, wrong))
+    expect_length(.dsvert_dp_glm_grid_cross_artifacts(t$manifest), 0L)
+  }
+})
+
 test_that("Cox workload and source context authenticate K-owner transport without time values", {
   for (owners in c(2L, 3L, 5L)) {
     f <- .cox_cross_server_fixture(capacity = 17, owners = owners)
@@ -1328,6 +1365,12 @@ test_that("Cox terminal persistence reuses authenticated staged rows without pub
 test_that("Cox publication evidence binds signed authorities to durable public provenance", {
   f <- .cox_cross_server_fixture(capacity = 4, owners = 3L)
   t <- .cox_transport_fixture(f)
+  t$manifest$capsule_identity$contract <- list(peer_pinset_sha256 = f$policy$peer_pinset_sha256)
+  namespace <- list(version = .DSVERT_DP_SYNOPSIS_SOURCE_CONTRACT_VERSION,
+    manifest_capsule_id = t$transport$capsule_id, artifact_key = strrep("d", 64),
+    source_claim_set_sha256 = strrep("4", 64))
+  t$transport$capsule_id <- .dsvert_dp_synopsis_source_namespace_id_v1(namespace)
+  t$transport$synopsis_binding <- namespace
   secret <- as.raw(rep(7, 32))
   policy <- f$policy; policy$peer_name <- "site_a"
   context <- .dsvert_dp_cox_cross_source_context(policy, t$manifest,
@@ -1386,6 +1429,9 @@ test_that("Cox publication evidence binds signed authorities to durable public p
     artifact_key = artifact_key, source_contract_sha256 = context$source_hash,
     execution_id = strrep("1", 64), final_vector_root = strrep("2", 64),
     result_set_sha256 = strrep("3", 64)))
+  publication$artifact <- list(semantic = list(source_claim_set_sha256 = namespace$source_claim_set_sha256))
+  publication$compile_receipts <- list("fixture-compile-receipts")
+  compilation <- list(artifact = publication$artifact, receipts = publication$compile_receipts)
   sign <- .dsvert_dp_capsule_source_sign
   local_mocked_bindings(
     .dsvert_dp_capsule_source_with_store = function(policy, secret, code) code(con),
@@ -1409,6 +1455,29 @@ test_that("Cox publication evidence binds signed authorities to durable public p
   expect_identical(a$stage_plan_digest, row$stage_plan_digest)
   expect_false(a$private_result_exposed)
   expect_false(any(c("share", "validity_share", "cox_loss") %in% names(a)))
+  local_mocked_bindings(
+    .dsvert_dp_synopsis_remote_manifest_v1 = function(...) {
+      list(policy = policy, secret = secret, manifest = t$manifest)
+    },
+    .dsvert_dp_synopsis_remote_compilation_v1 = function(...) compilation,
+    .dsvert_dp_lmm_cross_signed_schema = function(...) f$schema_manifest,
+    .dsvert_dp_capsule_materializer_manifest = function(policy, manifest) {
+      list(layout = .dsvert_dp_capsule_coordinate_layout(manifest), identity = manifest$capsule_identity)
+    },
+    .S = function(...) stop("cold evidence must not need a live session"))
+  remote <- function(analysis = "cox_grid", batch = 0, route = "") dsvertDPSynopsisGLMGridCrossDS(
+    manifest_hash, "unused-claims", "fixture-compilation", analysis,
+    "12345678-1234-4234-9234-123456789abc", "evidence", batch, route)
+  expect_identical(remote(), first)
+  expect_error(remote(analysis = "absent"), class = "dsvert_dp_public_failure")
+  expect_error(remote(batch = 1), class = "dsvert_dp_public_failure")
+  expect_error(remote(route = "{}"), class = "dsvert_dp_public_failure")
+  compilation$receipts <- list("swapped")
+  expect_error(remote(), class = "dsvert_dp_public_failure")
+  compilation$receipts <- publication$compile_receipts
+  compilation$artifact$semantic$source_claim_set_sha256 <- strrep("f", 64)
+  expect_error(remote(), class = "dsvert_dp_public_failure")
+  compilation$artifact <- publication$artifact
   policy$peer_name <- "site_b"
   b <- decode(evidence())
   expect_true(.dsvert_dp_capsule_source_verify(b, policy, "cross-grid-result", "site_b"))
@@ -1418,11 +1487,13 @@ test_that("Cox publication evidence binds signed authorities to durable public p
   expect_false(.dsvert_dp_capsule_source_verify(changed, policy, "cross-grid-result", "site_b"))
   policy$peer_name <- "site_c"
   expect_error(evidence(), class = "dsvert_dp_public_failure")
+  expect_error(remote(), class = "dsvert_dp_public_failure")
   policy$peer_name <- "site_a"
   # Cold reads require no live session and no private candidate rows.
   DBI::dbDisconnect(con); con <- DBI::dbConnect(RSQLite::SQLite(), database)
   expect_null(compact())
   expect_identical(evidence(), first)
+  expect_identical(remote(), first)
   original <- publication
   publication$artifact_key <- strrep("f", 64)
   expect_error(evidence(), class = "dsvert_dp_public_failure")
@@ -1435,6 +1506,7 @@ test_that("Cox publication evidence binds signed authorities to durable public p
   DBI::dbExecute(con, "UPDATE source_cross_grid_records SET row_mac = 'tampered'")
   expect_error(compact())
   expect_error(evidence())
+  expect_error(remote(), class = "dsvert_dp_public_failure")
   DBI::dbExecute(con, "DELETE FROM source_cross_grid_records")
   expect_error(evidence(), class = "dsvert_dp_public_failure")
   expect_false(.dsvert_dp_staged_grouped_artifact(t$artifact))

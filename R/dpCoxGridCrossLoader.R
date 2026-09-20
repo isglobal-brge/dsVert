@@ -9,8 +9,8 @@
   }
   start <- ceiling(release$coordinate_count / 8192) * 8192 + 1
   projection <- .dsvert_dp_cox_cross_source_blocks(artifact, start)
-  # Same transport-layout hash domain as the existing source protocol. Cox
-  # registration remains closed; this explicit single-Cox projection is local.
+  # Shared source-contract construction uses this exact single-Cox projection;
+  # public workload admission and source orchestration are separate gates.
   shape <- list(version = .DSVERT_DP_GAUSSIAN_CROSS_LAYOUT_VERSION,
     capsule_id = manifest$capsule_identity$capsule_id,
     release_coordinate_count = as.integer(release$coordinate_count),

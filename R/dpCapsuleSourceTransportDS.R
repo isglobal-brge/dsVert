@@ -169,7 +169,10 @@
   cross_layout <- .dsvert_dp_gaussian_cross_layout(manifest, layout)
   categorical_cross <- length(
     .dsvert_dp_categorical_cross_artifacts(manifest)) > 0L
-  grid_cross <- length(.dsvert_dp_glm_grid_cross_artifacts(manifest)) > 0L
+  grid_cross <- length(.dsvert_dp_glm_grid_cross_artifacts(manifest)) > 0L ||
+    any(vapply(manifest$workload$families$gaussian_models$artifacts,
+      function(artifact) identical(artifact$version,
+        .DSVERT_DP_COX_GRID_CROSS_ARTIFACT_VERSION), logical(1L)))
   ordinary_source_peers <- vapply(
     layout$blocks, `[[`, character(1L), "owner_peer")
   cross_source_peers <- if (isTRUE(cross_layout$enabled)) {

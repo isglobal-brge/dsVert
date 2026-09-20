@@ -353,12 +353,21 @@ dsvertDPSynopsisGLMGridCrossDS <- function(manifest_sha256, claim_set_json,
         .dsvert_dp_glm_grid_cross_equal(compilation$artifact, publication$artifact)
         .dsvert_dp_glm_grid_cross_equal(compilation$receipts, publication$compile_receipts)
         manifest <- context$manifest
-        if (!.dsvert_dp_synopsis_supported_glm_grid_cross_v1(manifest)) {
+        artifact <- manifest$workload$families$gaussian_models$artifacts[[analysis_id]]
+        cox <- identical(artifact$version, .DSVERT_DP_COX_GRID_CROSS_ARTIFACT_VERSION)
+        if (!cox && !.dsvert_dp_synopsis_supported_glm_grid_cross_v1(manifest)) {
           .dsvert_dp_glm_grid_cross_fail()
         }
         source_contract <- .dsvert_dp_synopsis_source_contract_from_hashes_v1(
           context$policy, manifest, publication$artifact_key,
           publication$artifact$semantic$source_claim_set_sha256)
+        if (cox) {
+          schema <- .dsvert_dp_lmm_cross_signed_schema(context$policy, context$secret,
+            manifest_sha256, manifest)
+          return(.dsvert_dp_cox_cross_evidence(context$policy, context$secret,
+            manifest, source_contract, schema, analysis_id, manifest_sha256,
+            publication$artifact_key))
+        }
         return(.dsvert_dp_lmm_cross_evidence(context$policy, context$secret,
           manifest, source_contract, analysis_id, manifest_sha256,
           publication$artifact_key))

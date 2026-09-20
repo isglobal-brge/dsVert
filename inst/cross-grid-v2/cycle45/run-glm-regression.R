@@ -1,0 +1,7 @@
+setwd('integrator-evidence/cycle45-20260920/proof-snapshot')
+pkgload::load_all('dsVertClient', quiet = TRUE)
+e <- new.env(parent = asNamespace('dsVertClient'))
+for (path in list.files('dsVertClient/tests/testthat', '^helper.*[.]R$', full.names=TRUE)) sys.source(path, e)
+result <- testthat::test_file('dsVertClient/tests/testthat/test-dp-glm-grid-cross-contract.R', env=e, reporter='summary')
+frame <- as.data.frame(result)
+write.csv(frame[, !vapply(frame, is.list, logical(1L))], '../test-dp-glm-grid-cross-contract.R.csv', row.names=FALSE)

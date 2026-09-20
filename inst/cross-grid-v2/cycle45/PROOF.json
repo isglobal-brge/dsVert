@@ -1,0 +1,63 @@
+{
+  "observed_utc": "2026-09-20T16:08:54.406936+00:00",
+  "execution_source_commits": {
+    "dsVert": "e25bb191381c0acd38de75980531aae9449eb564",
+    "dsVertClient": "bf737442adbca7ac733518da32c9cb0cd6338870"
+  },
+  "suites": [
+    {
+      "file": "test-dp-categorical-cross-transport.R.csv",
+      "tests": 5,
+      "assertions": 79
+    },
+    {
+      "file": "test-dp-cox-admission-dispatch.R.csv",
+      "tests": 2,
+      "assertions": 61
+    },
+    {
+      "file": "test-dp-cox-catalog-draft.R.csv",
+      "tests": 1,
+      "assertions": 15
+    },
+    {
+      "file": "test-dp-cox-cross-public-evidence.R.csv",
+      "tests": 2,
+      "assertions": 186
+    },
+    {
+      "file": "test-dp-cox-staged-orchestration.R.csv",
+      "tests": 2,
+      "assertions": 201
+    },
+    {
+      "file": "test-dp-glm-grid-cross-contract.R.csv",
+      "tests": 20,
+      "assertions": 360
+    },
+    {
+      "file": "test-dp-lmm-cross-public-release.R.csv",
+      "tests": 5,
+      "assertions": 177
+    }
+  ],
+  "tests": 37,
+  "assertions": 1079,
+  "nonpasses": 0,
+  "frozen_files": 19373,
+  "source_mismatches": [],
+  "changed_file_sha256": {
+    "R/dp_categorical_cross_transport.R": "1ad9260f2d8cf73ecccf47ef45b5b10cf16d5f90fbd55a290e47d7eaa6fedc5f",
+    "R/dp_cox_grid_cross_release.R": "3ee572167757e3957811fa5f6f37ed490a8b76e850fd5b85ae8515d8192a867e",
+    "R/dp_glm_grid_cross_materializer.R": "f73aa0f6f46e5c311b928db7382b0192a7c15197abaff7786fbac9267b531772",
+    "R/dp_glm_grid_cross_profile.R": "8fdc2d90c1187524059d5fc779174b424b5b12aca592522111d82e2f1d9678f7",
+    "R/dp_glm_grid_cross_release.R": "7eeba7e9bfd2bb985ae5b423bbf9bb1ef92836ba4f55679b441333ac8c9a221a",
+    "R/dp_synopsis_vector_runner.R": "825a69e46738c6356e64f28807504986ae5334e1f0dbbb207b8f8dabdcd8a3a0",
+    "R/ds.vertDPGaussian.R": "4661fe1822136a53dd533665b9b89eef70bca73c812bd61eff203f54d76a8966",
+    "tests/testthat/test-dp-cox-admission-dispatch.R": "57badaa2d3eab837ca4d7748606140971961402fdfa07941391d52ddb6ebd750",
+    "tests/testthat/test-dp-cox-cross-public-evidence.R": "addec71f09e97306c6dfd619fd5d7729b98bf7e3715e3b1119a435f6de2f7f80",
+    "tests/testthat/test-dp-cox-staged-orchestration.R": "e8aded8c64bb39d42edf65f39182ec3f5e8c662324bc8c4c05b8b3ffb94ba463"
+  },
+  "scope": "Fresh local immutable snapshot; actual Ed25519 signed contracts/schema/receipts and server/client layout equality at K2/K3/K5. Orchestration uses transport/native test doubles. No complete source-to-native-to-DP release or capacity claim.",
+  "harness_notes": "Initial discovery expectation updated to new behavior. Initial dual-pkgload GLM regression could not infer package; rerun in a fresh client-only R process passed, without source changes. Raw first failures retained. Test runner environment/CSV serialization setup errors occurred before retained complete suites."
+}

@@ -1,0 +1,8 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dsi-text-frame.R","dsi-text-frame","client DSI framing matches the server golden wire contract",2,0,FALSE,FALSE,0,0.210000000000001,0.006,0.245000000000001,2
+"test-dsi-text-frame.R","dsi-text-frame","DSV1 package generations fail closed in both directions and mixed",5,0,FALSE,FALSE,0,0.0239999999999991,0.004,0.0380000000000003,5
+"test-dsi-text-frame.R","dsi-text-frame","promoted DSI JSON map is exactly 50 methods and 100 formals",104,0,FALSE,FALSE,0,0.512,0.054,0.614000000000001,104
+"test-dsi-text-frame.R","dsi-text-frame","rewriter frames only the explicit promoted arguments once",252,0,FALSE,FALSE,0,0.834,0.102,1.04,252
+"test-dsi-text-frame.R","dsi-text-frame","aggregate and cleanup boundaries frame before validation and send",7,0,FALSE,FALSE,0,0.0920000000000005,0.003,0.102,7
+"test-dsi-text-frame.R","dsi-text-frame","source W=8 measures framed expressions and shrinks adversarial B",7,0,FALSE,FALSE,0,5.162,0.049,5.636,7
+"test-dsi-text-frame.R","dsi-text-frame","real DSLite carries framed JSON for all seven promoted families",17,0,FALSE,FALSE,0,1.541,0.071,1.703,17

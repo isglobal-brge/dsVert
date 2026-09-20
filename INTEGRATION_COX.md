@@ -360,3 +360,21 @@ execution/DP injection and authenticated release reader are still incomplete.
 This preparation boundary does not admit a public Cox release. Its conservative
 N<=400 v2 guard remains unchanged; the historical N<=4000 kernel measurement
 above is not full-lifecycle capacity evidence for this path.
+
+## Cycle 26 authenticated R worker transport
+
+The existing exact-GC R transport now accepts the native `cox-loss-staged-v1`
+operation, retains its purpose and passes only its exclusive opaque `cox_loss`
+input to the private worker configuration. It uses the staged startup window,
+removes that input from retained configuration state, and validates the Ring128
+loss shares, packed candidate validity and nonzero terminal receipt/plan digests.
+Other operation types reject a Cox payload; Cox rejects grouped/profile payloads.
+
+The shared relay integration fixture now executes a small v2 Cox graph with
+private presence composition through both real workers and authenticated R
+spools, checking reconstructed empty-cohort losses, validity and the agreed
+terminal receipt. The focused source/result tests reject mixed inputs and
+malformed terminal data. This is worker transport coverage, not a signed DP
+release or capacity measurement. Public source registration, durable R terminal
+persistence/DP injection and the authenticated release reader remain pending.
+The N<=400 private-v2 scope and packaged native runtime are unchanged.

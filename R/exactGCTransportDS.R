@@ -286,6 +286,7 @@
 }
 
 .exact_gc_output_kind <- function(operation) {
+  if (identical(operation, "cox-loss-staged-v1")) return("cox-loss-staged-ring128-share-v1")
   if (identical(operation, "glm-grid-profile-v2")) return("cross-grid-ring128-share-v2")
   if (identical(operation, "grouped-lmm-staged-v1")) return("grouped-lmm-staged-ring128-share-v1")
   if (identical(operation, "grouped-glmm-staged-v1")) return("grouped-glmm-staged-ring128-share-v1")
@@ -2424,10 +2425,10 @@
       "joint-dp-laplace-v2",
       "joint-dp-vector-laplace-v3",
       "joint-dp-vector-gaussian-one-draw-v1",
-      "alignment-mask-ring128", "glm-grid-profile-v2", "grouped-lmm-staged-v1", "grouped-glmm-staged-v1", "grouped-gee-fixed-rho-staged-v1")) {
+      "alignment-mask-ring128", "glm-grid-profile-v2", "grouped-lmm-staged-v1", "grouped-glmm-staged-v1", "grouped-gee-fixed-rho-staged-v1", "cox-loss-staged-v1")) {
     required <- c(required, "validity_share")
   }
-  if (state$operation %in% c("grouped-lmm-staged-v1", "grouped-glmm-staged-v1", "grouped-gee-fixed-rho-staged-v1")) {
+  if (state$operation %in% c("grouped-lmm-staged-v1", "grouped-glmm-staged-v1", "grouped-gee-fixed-rho-staged-v1", "cox-loss-staged-v1")) {
     required <- c(required, "stage_receipt", "stage_plan_digest")
   }
   if (!is.list(result) || !identical(sort(names(result)), sort(required)) ||
@@ -2448,7 +2449,7 @@
       "joint-dp-vector-ring128-share-v1",
       "joint-dp-vector-gaussian-one-draw-ring128-share-v1",
       "alignment-masked-ring128-share-v1", "cross-grid-ring128-share-v2",
-      "grouped-lmm-staged-ring128-share-v1", "grouped-glmm-staged-ring128-share-v1", "grouped-gee-fixed-rho-staged-ring128-share-v1")) {
+      "grouped-lmm-staged-ring128-share-v1", "grouped-glmm-staged-ring128-share-v1", "grouped-gee-fixed-rho-staged-ring128-share-v1", "cox-loss-staged-ring128-share-v1")) {
     state$vector_len * .exact_gc_record_bytes(state$ring_bits)
   } else {
     as.integer(ceiling(output_len / 8))
@@ -2458,7 +2459,7 @@
       "joint-dp-vector-ring128-share-v1",
       "joint-dp-vector-gaussian-one-draw-ring128-share-v1",
       "alignment-masked-ring128-share-v1", "cross-grid-ring128-share-v2",
-      "grouped-lmm-staged-ring128-share-v1", "grouped-glmm-staged-ring128-share-v1", "grouped-gee-fixed-rho-staged-ring128-share-v1")) {
+      "grouped-lmm-staged-ring128-share-v1", "grouped-glmm-staged-ring128-share-v1", "grouped-gee-fixed-rho-staged-ring128-share-v1", "cox-loss-staged-ring128-share-v1")) {
     .exact_gc_validate_residue_records(
       result$share, state$ring_bits, state$vector_len,
       "exact-gc result share")
@@ -2492,7 +2493,7 @@
     }
     output$validity_share <- result$validity_share
   }
-  if (expected_kind %in% c("grouped-lmm-staged-ring128-share-v1", "grouped-glmm-staged-ring128-share-v1", "grouped-gee-fixed-rho-staged-ring128-share-v1")) {
+  if (expected_kind %in% c("grouped-lmm-staged-ring128-share-v1", "grouped-glmm-staged-ring128-share-v1", "grouped-gee-fixed-rho-staged-ring128-share-v1", "cox-loss-staged-ring128-share-v1")) {
     .exact_gc_validate_packed_bits(result$validity_share, state$vector_len,
       "staged LMM candidate validity share")
     for (field in c("stage_receipt", "stage_plan_digest")) {
@@ -2995,7 +2996,7 @@
       "count-guard", "clamp-count", "joint-dp-laplace-v2",
       "joint-dp-vector-laplace-v3",
       "joint-dp-vector-gaussian-one-draw-v1",
-      "alignment-mask-ring128", "glm-grid-profile-v2", "grouped-lmm-staged-v1", "grouped-glmm-staged-v1", "grouped-gee-fixed-rho-staged-v1")) {
+      "alignment-mask-ring128", "glm-grid-profile-v2", "grouped-lmm-staged-v1", "grouped-glmm-staged-v1", "grouped-gee-fixed-rho-staged-v1", "cox-loss-staged-v1")) {
     stop("Unsupported exact-gc high-level operation.", call. = FALSE)
   }
   ring_candidate <- suppressWarnings(as.numeric(ring))
@@ -3014,7 +3015,7 @@
       "compare-signed", "count-guard", "clamp-count",
       "joint-dp-laplace-v2", "joint-dp-vector-laplace-v3",
       "joint-dp-vector-gaussian-one-draw-v1",
-      "alignment-mask-ring128", "grouped-lmm-staged-v1", "grouped-glmm-staged-v1", "grouped-gee-fixed-rho-staged-v1") &&
+      "alignment-mask-ring128", "grouped-lmm-staged-v1", "grouped-glmm-staged-v1", "grouped-gee-fixed-rho-staged-v1", "cox-loss-staged-v1") &&
       frac_bits != 0L) {
     stop("Exact comparisons do not use fractional bits.", call. = FALSE)
   }
@@ -3393,6 +3394,9 @@
     .exact_gc_validate_residue_records(source$share, 128L,
       validated_plan$source_records, "cross-grid source")
   } else if (!is.null(source$cross_grid)) .dsvert_dp_glm_grid_cross_fail()
+  if (identical(operation, "cox-loss-staged-v1")) {
+    .dsvert_dp_cox_cross_validate_worker_source(source, ring, frac_bits, purpose)
+  } else if (!is.null(source$cox_loss)) .dsvert_dp_cox_grid_cross_fail()
   staged <- operation %in% c("grouped-lmm-staged-v1", "grouped-glmm-staged-v1", "grouped-gee-fixed-rho-staged-v1")
   if (staged) {
     kind <- sub("^grouped-(.*)-staged-v1$", "\\1", operation)
@@ -3424,7 +3428,7 @@
   public_spec <- c(requested_spec, list(source_producer = source_producer))
   protocol_purpose <- if (operation %in% c(
       "joint-dp-laplace-v2", "joint-dp-vector-laplace-v3",
-      "joint-dp-vector-gaussian-one-draw-v1", "grouped-lmm-staged-v1", "grouped-glmm-staged-v1", "grouped-gee-fixed-rho-staged-v1")) {
+      "joint-dp-vector-gaussian-one-draw-v1", "grouped-lmm-staged-v1", "grouped-glmm-staged-v1", "grouped-gee-fixed-rho-staged-v1", "cox-loss-staged-v1")) {
     # The joint-DP circuit purpose is already the digest of a transcript that
     # binds the server-minted bounded-source producer and both pinned peers.
     # The specialised worker independently requires this exact digest string.
@@ -3559,6 +3563,7 @@
     vector_len = vector_len,
     cross_grid = if (identical(operation, "glm-grid-profile-v2")) source$cross_grid else NULL,
     cross_grid_cache = if (identical(operation, "glm-grid-profile-v2")) source$cross_grid_cache else NULL,
+    cox_loss = if (identical(operation, "cox-loss-staged-v1")) source$cox_loss else NULL,
     grouped_lmm = if (identical(operation, "grouped-lmm-staged-v1")) source$grouped_lmm else NULL,
     grouped_glmm = if (identical(operation, "grouped-glmm-staged-v1")) source$grouped_glmm else NULL,
     grouped_gee = if (identical(operation, "grouped-gee-fixed-rho-staged-v1")) source$grouped_gee else NULL,
@@ -3598,6 +3603,7 @@
   .private_write_lines(as.character(jsonlite::toJSON(
     config, auto_unbox = TRUE, null = "null")), config_path)
   config$cross_grid_cache <- NULL
+  config$cox_loss <- NULL
   config$grouped_lmm <- NULL
   config$grouped_glmm <- NULL
   config$grouped_gee <- NULL
@@ -3630,7 +3636,7 @@
   # The typed grid producer compiles its admitted public circuit before reading
   # sources or marking ready. Its certified batches exceed the generic five-
   # second startup window on the benchmark pod; retain the old window elsewhere.
-  ready_polls <- if (operation %in% c("glm-grid-profile-v2", "grouped-lmm-staged-v1", "grouped-glmm-staged-v1", "grouped-gee-fixed-rho-staged-v1")) 2400L else 100L
+  ready_polls <- if (operation %in% c("glm-grid-profile-v2", "grouped-lmm-staged-v1", "grouped-glmm-staged-v1", "grouped-gee-fixed-rho-staged-v1", "cox-loss-staged-v1")) 2400L else 100L
   for (ready_poll in seq_len(ready_polls)) {
     alive <- isTRUE(tryCatch(process$is_alive(), error = function(e) FALSE))
     if (!alive) break

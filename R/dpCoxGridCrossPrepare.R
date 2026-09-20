@@ -68,3 +68,18 @@
     worker[c("routing_digest", "stage_plan_digest")]), policy, "cross-grid-result")
   list(worker = worker, routing_receipt = routing_receipt)
 }
+
+# A Cox source is an exclusive opaque native input, never a public ring share.
+.dsvert_dp_cox_cross_validate_worker_source <- function(source, ring, frac_bits, purpose) {
+  input <- source$cox_loss
+  other <- Filter(Negate(is.null), source[c("grouped_lmm", "grouped_glmm", "grouped_gee", "cross_grid")])
+  if (ring != 128L || frac_bits != 0L || length(other) != 0L ||
+      !identical(source$producer, "dp.cox-grid-cross.staged-v1") ||
+      !identical(source$share, "") || !is.character(input) ||
+      length(input) != 1L || is.na(input) || !nzchar(input) ||
+      nchar(input, type = "bytes") > 64 * 1024^2 ||
+      !grepl("^cox-loss-staged-v1/[0-9a-f]{64}$", purpose)) {
+    .dsvert_dp_cox_grid_cross_fail()
+  }
+  invisible(NULL)
+}

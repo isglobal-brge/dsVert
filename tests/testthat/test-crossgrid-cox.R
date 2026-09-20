@@ -1043,3 +1043,42 @@ if (nzchar(Sys.getenv("DSVERT_COX_STAGED_TEST_BINARY"))) {
     }
   })
 }
+
+test_that("Cox transport rejects mixed opaque inputs and malformed terminal records", {
+  purpose <- paste0("cox-loss-staged-v1/", strrep("a", 64))
+  source <- list(share = "", cox_loss = "opaque", producer = "dp.cox-grid-cross.staged-v1")
+  validate <- function(value = source, ring = 128L, frac = 0L, label = purpose)
+    .dsvert_dp_cox_cross_validate_worker_source(value, ring, frac, label)
+  expect_null(validate())
+  for (field in c("grouped_lmm", "grouped_glmm", "grouped_gee", "cross_grid")) {
+    changed <- source; changed[[field]] <- "mixed"
+    expect_error(validate(changed), class = "dsvert_dp_public_failure")
+  }
+  for (field in names(source)) {
+    changed <- source; changed[[field]] <- NULL
+    expect_error(validate(changed), class = "dsvert_dp_public_failure")
+  }
+  expect_error(validate(ring = 127L), class = "dsvert_dp_public_failure")
+  expect_error(validate(frac = 1L), class = "dsvert_dp_public_failure")
+  expect_error(validate(label = sub("cox-loss", "grouped-lmm", purpose)), class = "dsvert_dp_public_failure")
+  state <- list(operation_id = paste0("op_", strrep("a", 32)), operation = "cox-loss-staged-v1",
+    purpose = purpose, source_producer = source$producer, ring_bits = 128L,
+    frac_bits = 0L, vector_len = 10L, context_hash = strrep("b", 64))
+  result <- list(version = "dsvert-exact-gc-result-v1", kind = "cox-loss-staged-ring128-share-v1",
+    ring_bits = 128L, vector_len = 10L, share = gsub("[\r\n]", "", jsonlite::base64_enc(raw(160))),
+    validity_share = jsonlite::base64_enc(as.raw(c(170, 2))), context_hash = state$context_hash,
+    stage_receipt = strrep("c", 64), stage_plan_digest = strrep("d", 64))
+  value <- .exact_gc_validate_result(state, result)
+  expect_identical(value$validity_share, result$validity_share)
+  expect_identical(value$stage_plan_digest, result$stage_plan_digest)
+  for (field in c("stage_receipt", "stage_plan_digest")) {
+    changed <- result; changed[[field]] <- strrep("0", 64)
+    expect_error(.exact_gc_validate_result(state, changed), "terminal identity")
+    changed[[field]] <- NULL
+    expect_error(.exact_gc_validate_result(state, changed), "context")
+  }
+  changed <- result; changed$validity_share <- jsonlite::base64_enc(as.raw(c(170, 4)))
+  expect_error(.exact_gc_validate_result(state, changed), "Non-canonical")
+  changed <- result; changed$share <- jsonlite::base64_enc(raw(16))
+  expect_error(.exact_gc_validate_result(state, changed))
+})

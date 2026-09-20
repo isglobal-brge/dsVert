@@ -741,6 +741,53 @@ test_that("dynamic exact truncation and count guard complete over opaque spools"
     list(left = left, right = right)
   }
 
+  # Exercise the actual Cox v2 worker through the authenticated R relay.
+  cox_root <- tempfile("cox-relay-"); dir.create(cox_root, mode = "0700")
+  on.exit(unlink(cox_root, recursive = TRUE), add = TRUE)
+  cox_ids <- sort(vapply(c(identity_a$identity_pk, identity_b$identity_pk),
+    .dsvert_relay_peer_id, character(1L)), method = "radix")
+  cox_workers <- list()
+  cox_route <- .dsvert_dp_cox_cross_private_routing(c(2, 5, 5, 1), rep(TRUE, 4), 4)
+  for (role in c("garbler", "evaluator")) {
+    directory <- file.path(cox_root, role); dir.create(directory, mode = "0700")
+    encode <- function(value) gsub("[\r\n]", "", jsonlite::base64_enc(value))
+    valid <- if (role == "garbler") 1L else 0L
+    handoff <- list(plan = list(version = "dsvert-cox-staged-source-handoff-v2",
+      spec_sha256 = strrep("1", 64), source_contract_sha256 = strrep("2", 64),
+      profile_sha256 = strrep("3", 64), schema_sha256 = strrep("4", 64),
+      capacity = 4L, grid_bits = 8L, caps = list("1000000", "1000000"), presence_columns = 3L),
+      predictors = list(Share = encode(raw(128)), Validity = encode(as.raw(rep(valid, 8)))),
+      live_event = list(Share = encode(raw(256)), Validity = encode(as.raw(rep(valid, 16)))))
+    cox_workers[[role]] <- .dsvert_dp_cox_cross_prepare_native(handoff, role,
+      "cox-r-relay-test", unname(cox_ids), strrep("5", 64), directory,
+      as.raw(rep(if (role == "garbler") 7 else 8, 32)),
+      if (role == "garbler") cox_route else NULL,
+      if (role == "garbler") "" else cox_workers$garbler$routing_digest)
+  }
+  cox_op <- "op_78787878787878787878787878787878"
+  cox_in <- "exact_gc_in_78787878787878787878787878787878"
+  cox_out <- "exact_gc_out_78787878787878787878787878787878"
+  cox_purpose <- cox_workers$garbler$purpose
+  cox_kind <- "cox-loss-staged-ring128-share-v1"
+  for (ss in list(ss_a, ss_b)) {
+    id <- .dsvert_relay_peer_id(.key_get("identity_pk", ss))
+    role <- if (id == cox_ids[[1L]]) "garbler" else "evaluator"
+    ss$.exact_gc_inputs[[cox_in]] <- list(share = "", ring_bits = 128L, vector_len = 2L,
+      producer = "dp.cox-grid-cross.staged-v1", cox_loss = cox_workers[[role]]$cox_loss,
+      allowed_spec = .exact_gc_allowed_spec("cox-loss-staged-v1", cox_purpose, 0L, cox_kind, 128L))
+  }
+  init_pair(cox_op, cox_in, cox_out, "cox-loss-staged-v1", 128L, 0L, 2L, cox_purpose)
+  .exact_gc_test_pump(ss_a, ss_b, session_id, cox_op, seed_a, seed_b)
+  cox_results <- lapply(list(ss_a, ss_b), function(ss) .exact_gc_consume_output(
+    ss, cox_out, cox_op, cox_kind, "cox-loss-staged-v1", cox_purpose, 128L, 0L, 2L,
+    "dp.cox-grid-cross.staged-v1"))
+  expect_identical(cox_results[[1L]]$stage_receipt, cox_results[[2L]]$stage_receipt)
+  expect_identical(cox_results[[1L]]$stage_plan_digest, cox_workers$garbler$stage_plan_digest)
+  expect_identical(.exact_gc_test_add_le(jsonlite::base64_dec(cox_results[[1L]]$share),
+    jsonlite::base64_dec(cox_results[[2L]]$share), 128L), raw(32))
+  expect_identical(bitwXor(as.integer(jsonlite::base64_dec(cox_results[[1L]]$validity_share)),
+    as.integer(jsonlite::base64_dec(cox_results[[2L]]$validity_share))), 3L)
+
   trunc_op <- "op_11111111111111111111111111111111"
   trunc_in <- "exact_gc_in_11111111111111111111111111111111"
   trunc_out <- "exact_gc_out_11111111111111111111111111111111"

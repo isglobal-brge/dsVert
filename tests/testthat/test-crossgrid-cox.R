@@ -223,3 +223,39 @@ test_that("Cox K-owner source contracts retain exactly two computation authoriti
     }
   }
 })
+
+test_that("Cox staged source combines every signed owner in exact Ring128", {
+  for (owners in c(2L, 3L, 5L)) {
+    f <- .cox_cross_server_fixture(capacity = 4, owners = owners)
+    spec <- f$contract$spec
+    count <- spec$padded_capacity * length(spec$beta_grid)
+    inputs <- setNames(rep(list(raw(16 * count)), owners),
+      unlist(spec$participating_peers, use.names = FALSE))
+    # Wrap modulo 2^128 at coordinate zero, retaining a separate coordinate.
+    inputs[[1L]][1:16] <- as.raw(255)
+    inputs[[2L]][c(1L, 17L)] <- as.raw(c(1, 123))
+    run <- function(values = inputs, validity = raw(count))
+      .dsvert_dp_cox_cross_source_handoff(f$contract, f$policy, f$schema_manifest,
+        strrep("1", 64), values, validity, raw(32 * spec$padded_capacity),
+        raw(2 * spec$padded_capacity))
+    result <- run()
+    expected <- raw(16 * count); expected[[17L]] <- as.raw(123)
+    expect_identical(jsonlite::base64_dec(result$predictors$Share), expected)
+    expect_identical(result$plan$caps, as.list(sprintf("%.0f",
+      unlist(spec$sensitivity$maximum_coordinates, use.names = FALSE))))
+    expect_error(run(inputs[-1L]), class = "dsvert_dp_public_failure")
+    expect_error(run(rev(inputs)), class = "dsvert_dp_public_failure")
+    expect_error(run(validity = as.raw(rep(2, count))), class = "dsvert_dp_public_failure")
+  }
+})
+
+test_that("Cox private routing retains ties censor slots and invalid padding", {
+  route <- .dsvert_dp_cox_cross_private_routing(c(2, 5, 5, NA, -0),
+    c(TRUE, TRUE, TRUE, FALSE, TRUE), 8)
+  expect_identical(unlist(route$permutation), c(1L, 2L, 0L, 4L, 3L, 5L, 6L, 7L))
+  expect_identical(unlist(route$ends), c(FALSE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, TRUE))
+  expect_error(.dsvert_dp_cox_cross_private_routing(c(1, Inf), c(TRUE, TRUE), 2),
+    class = "dsvert_dp_public_failure")
+  expect_error(.dsvert_dp_cox_cross_private_routing(c(1, 2), c(TRUE, TRUE), 3),
+    class = "dsvert_dp_public_failure")
+})

@@ -1741,3 +1741,88 @@ test_that("Cox catalog preserves time/event ownership and its signed contract", 
     expect_identical(decoded$specs$gaussian$cox_grid, .dsvert_dp_canonical_query_value(raw))
   }
 })
+
+test_that("Cox workload admission authenticates schema and accounts for signed sensitivity", {
+  for (owners in c(2L, 3L, 5L)) {
+    f <- .cox_cross_server_fixture(capacity = 5, owners = owners)
+    policy <- f$policy
+    policy$domain <- "cox-admission-test"
+    policy$cohort_id <- "cox-cohort"
+    policy$peer_name <- "site_a"
+    policy$peer_count <- owners
+    policy$global_total_epsilon <- 8
+    policy$global_total_delta <- 2^-100
+    policy$lifetime_max_distinct_capsules <- 1L
+    policy$patient_column <- "patient"
+    policy$max_records_per_unit <- 1L
+    policy$overflow_policy <- "reject_snapshot"
+    policy$contingency_unit_aggregation_policy <- "consistent_cell_else_exclude_v1"
+    policy$numeric_bounds <- list(time = c(0, 20), event = c(0, 1), x = c(0, 1))
+    policy$categorical_levels <- list()
+    policy$capsule_workload_scope <- list(mode = "catalog_v1",
+      numeric_moments = character(), categorical_marginals = character(),
+      categorical_pairs = list(), correlations = list())
+    policy$datasets <- list(aligned = list(id = "aligned", version = "v1",
+      snapshot_sha256 = NULL, alignment_manifest_hash = NULL,
+      alignment_manifest_version = 1L))
+    policy$noise_root <- list(epoch = 1, key_id = "test-root")
+    policy$ledger_path <- tempfile("cox-admission-")
+    admit <- function(contract = f$contract, schema = f$schema_manifest) {
+      .dsvert_dp_capsule_workload_manifest(policy, schema$logical_snapshot, schema,
+        describe_specs = list(), survival_specs = list(), vertical_cross_specs = list(),
+        gaussian_specs = list(cox_grid = list(version = "cox_grid_cross_v1",
+          dataset = "aligned", contract = contract)))
+    }
+    manifest <- admit()
+    json <- .dsvert_dp_canonical_json(manifest)
+    expect_identical(.dsvert_dp_canonical_json(.dsvert_dp_capsule_source_manifest(json)), json)
+    family <- manifest$workload$families$gaussian_models
+    artifact <- family$artifacts$cox_grid
+    expected <- .dsvert_dp_cox_cross_workload_artifact(f$contract)
+    expect_identical(.dsvert_dp_canonical_query_value(artifact),
+      .dsvert_dp_canonical_query_value(expected))
+    expect_equal(family$coordinate_count, length(f$contract$spec$beta_grid))
+    sensitivity <- f$contract$spec$sensitivity
+    expect_equal(family$l1_sensitivity, sensitivity$raw_l1_sensitivity)
+    expect_equal(family$l2_sensitivity, sensitivity$raw_l2_sensitivity)
+    expect_equal(family$natural_l1_sensitivity, sensitivity$natural_l1_sensitivity)
+    expect_equal(family$natural_l2_sensitivity, sensitivity$natural_l2_sensitivity)
+    expect_length(manifest$workload$families$numeric_moments$artifacts, 0L)
+    lattice <- .dsvert_joint_dp_vector_lattice_vectors(list(manifest = manifest,
+      layout = .dsvert_dp_capsule_coordinate_layout(manifest)))
+    expect_equal(lattice$scale_shifts, c(8L, rep(0L, length(f$contract$spec$beta_grid))))
+    expect_equal(as.numeric(lattice$raw_upper_bounds),
+      c(5, unlist(sensitivity$maximum_coordinates, use.names = FALSE)))
+    layout <- .dsvert_dp_gaussian_cross_layout(manifest)
+    expect_equal(layout$release_coordinate_count, 1 + length(f$contract$spec$beta_grid))
+    expect_identical(unlist(layout$source_peers), names(f$keys))
+    time <- Filter(function(block) isTRUE(block$private_time_validity), layout$blocks)
+    expect_length(time, 1L)
+    expect_identical(time[[1L]]$kind, "validity")
+    source <- .dsvert_dp_capsule_source_contract(policy, manifest)
+    context <- .dsvert_dp_cox_cross_source_context(policy, manifest, source,
+      f$schema_manifest, "cox_grid")
+    expect_identical(context$layout$transport_coordinate_order_sha256,
+      layout$transport_coordinate_order_sha256)
+    expect_identical(source$private_layout_sha256,
+      layout$transport_coordinate_order_sha256)
+    # Admission of signed metadata is separate from enabling a public release.
+    expect_false(.dsvert_dp_synopsis_supported_glm_grid_cross_v1(manifest))
+    expect_false(artifact$runtime_enabled)
+    for (peer in names(f$keys)) {
+      changed <- f$contract; changed$signatures[[peer]] <- NULL
+      expect_error(admit(changed), class = "dsvert_dp_public_failure")
+    }
+    for (field in c("sensitivity", "numeric_contract", "complete_case")) {
+      changed <- f$contract; changed$spec[[field]] <- list()
+      expect_error(admit(f$sign(changed)), class = "dsvert_dp_public_failure")
+    }
+    changed <- f$schema_manifest
+    changed$datasets$aligned$columns$time$upper <- 21
+    expect_error(admit(schema = changed))
+    expect_error(admit(schema = f$sign_schema(changed)),
+      "A local numeric bound conflicts with the signed schema", fixed = TRUE)
+    changed <- f$contract; changed$artifact$runtime_enabled <- TRUE
+    expect_error(admit(f$sign(changed)), class = "dsvert_dp_public_failure")
+  }
+})

@@ -3436,11 +3436,12 @@
   for (analysis_id in names(gaussian_specs)) {
     spec <- .dsvert_dp_capsule_gaussian_spec(
       global_policy, analysis_id, gaussian_specs)
-    if (identical(spec$kind, "cox_grid_cross")) .dsvert_dp_cox_grid_cross_fail()
-    if (spec$kind %in% c("glm_grid_cross", "lmm_grid_cross")) {
+    if (spec$kind %in% c("glm_grid_cross", "lmm_grid_cross", "cox_grid_cross")) {
       contract <- .dsvert_dp_glm_grid_profile_admit(
         spec$contract, global_policy, schema_manifest)
-      artifact <- if (identical(spec$kind, "lmm_grid_cross")) {
+      artifact <- if (identical(spec$kind, "cox_grid_cross")) {
+        .dsvert_dp_cox_cross_workload_artifact(contract)
+      } else if (identical(spec$kind, "lmm_grid_cross")) {
         .dsvert_dp_grouped_cross_workload_artifact(contract)
       } else .dsvert_dp_glm_grid_cross_workload_artifact(contract)
       gaussian_artifacts[[analysis_id]] <- artifact

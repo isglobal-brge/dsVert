@@ -1,0 +1,16 @@
+{
+  "smoke_exit": 0,
+  "smoke_markers": {
+    "DSLITE_LMM_RECOVERY_BOUNDARY prepared OBSERVED": true,
+    "DSLITE_LMM_RECOVERY_BOUNDARY bilateral_prepare OBSERVED": true,
+    "DSLITE_LMM_RECOVERY_BOUNDARY unilateral_commit OBSERVED": true,
+    "DSLITE_LMM_RECOVERY_BOUNDARY committed OBSERVED": true,
+    "DSLITE_LMM_RECOVERY_BOUNDARY unilateral OBSERVED": true,
+    "DSLITE_LMM_NATIVE_PREPARE_REMASK_AND_UNILATERAL_COMMIT_EXACT_REPLAY_VERIFIED": true,
+    "DSLITE_ORACLE_BITWISE_EQUAL_STICKY_TAMPER_REJECTED lmm": true,
+    "DIRECT_R_COLD_LIFECYCLE_EQUAL_TAMPER_REJECTED": true,
+    "DSLITE_LMM_COLD_EXPORTED_API_EQUAL_AUTHENTICATED": true
+  },
+  "paired_exits": {},
+  "paired_source_files": 3025
+}

@@ -378,3 +378,20 @@ malformed terminal data. This is worker transport coverage, not a signed DP
 release or capacity measurement. Public source registration, durable R terminal
 persistence/DP injection and the authenticated release reader remain pending.
 The N<=400 private-v2 scope and packaged native runtime are unchanged.
+
+## Cycle 46 signed workload admission
+
+The workload builder now sends Cox contracts through the real signed-schema and
+unanimous-contract validator, projects the existing Cox artifact, and accumulates
+its signed raw/natural L1 and L2 sensitivities through the shared grid branch.
+K2/K3/K5 tests exercise full workload construction, canonical JSON round-trip,
+exact release-lattice bounds, source-contract construction and authenticated Cox
+source context without catalog/schema/source-contract mocks. Time values remain
+owner-local; the transport carries only their private presence bits.
+
+This admits authenticated metadata, not a public DP release. Runtime flags stay
+false and the public Synopsis support predicate still rejects Cox. Coordinated
+publication/certificate/public-reader wiring and a real signed source-to-native-
+to-DP proof are pending. When enabling generic server discovery, exclude Cox from
+legacy GLM result injection so its dedicated injection runs only once. Keep the
+N<=400 scope. No native, noise, arithmetic or capacity change is made here.

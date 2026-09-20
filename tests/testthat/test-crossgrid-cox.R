@@ -89,9 +89,9 @@ test_that("Cox server authenticates both signatures and rejects cap/profile tamp
     x <- f$contract; x$spec[[field]] <- NULL
     expect_error(validate(f$sign(x)), class = "dsvert_dp_public_failure")
   }
-  x <- f$contract; x$artifact$runtime_enabled <- TRUE
+  x <- f$contract; x$artifact$runtime_enabled <- FALSE
   expect_error(validate(f$sign(x)), class = "dsvert_dp_public_failure")
-  expect_false(.dsvert_dp_cox_grid_cross_register()$runtime_enabled)
+  expect_true(.dsvert_dp_cox_grid_cross_register()$runtime_enabled)
   expect_error(.dsvert_dp_cox_grid_cross_register()$produce(), class = "dsvert_dp_public_failure")
 })
 
@@ -102,6 +102,16 @@ test_that("pure R Cox integer profiles match all shared Go boundary fixtures", {
   for (n in c(2:50, 127, 1024, 10000)) {
     expect_gte(.dsvert_dp_cox_grid_cross_log_upper_q24(n) / 2^24, log(n))
   }
+})
+
+test_that("Cox runtime admission is limited to the 400-patient cluster scope", {
+  f <- .cox_cross_server_fixture(capacity = 400)
+  expect_equal(f$contract$spec$observation_capacity, 400)
+  expect_identical(.dsvert_dp_cox_grid_cross_contract_validate(
+    f$contract, f$policy, f$schema_manifest),
+    .dsvert_dp_canonical_query_value(f$contract))
+  expect_error(.cox_cross_server_fixture(capacity = 401),
+    class = "dsvert_dp_public_failure")
 })
 
 test_that("Cox whole-coordinate sensitivities cover changed risk sets", {
@@ -150,12 +160,13 @@ test_that("Cox measured admission is enforced even with both valid signatures", 
   admission <- .dsvert_dp_cox_grid_cross_admission(2, 1)
   n <- admission$maximum_rows; j <- admission$maximum_candidates
   grid <- lapply(seq_len(j), function(i) c(i / 100, 0))
-  f <- .cox_cross_server_fixture(capacity = n, beta_grid = grid)
+  f <- .cox_cross_server_fixture(capacity = min(n, 400), beta_grid = grid)
   validate <- function(value) .dsvert_dp_cox_grid_cross_contract_validate(
     value, f$policy, f$schema_manifest)
   expect_silent(validate(f$contract))
   expect_identical(f$contract$spec$resource_admission, admission)
-  expect_error(.cox_cross_server_fixture(capacity = n + 1), class = "dsvert_dp_public_failure")
+  expect_error(.dsvert_dp_cox_grid_cross_admission(n + 1, j),
+    class = "dsvert_dp_public_failure")
   expect_error(.cox_cross_server_fixture(beta_grid = c(grid, list(c(1, 0)))),
     class = "dsvert_dp_public_failure")
   for (field in names(admission)) {
@@ -446,6 +457,11 @@ test_that("Cox shared source contracts preserve the exact private projection and
     expect_identical(layout[setdiff(names(layout), "enabled")], t$layout)
     source <- .dsvert_dp_capsule_source_contract(f$policy, t$manifest)
     expect_identical(source, .dsvert_dp_canonical_query_value(t$transport))
+    projection <- .dsvert_dp_alignment_mask_private_projection(
+      list(manifest = t$manifest, contract = source))
+    expect_identical(projection$version, "private-suffix-v2")
+    expect_equal(projection$source_offset, layout$private_start - 1L)
+    expect_equal(projection$total, sum(vapply(layout$blocks, `[[`, numeric(1L), "length")))
     .dsvert_dp_cox_cross_source_context(f$policy, t$manifest, source, f$schema_manifest, "cox_grid")
     key <- strrep("d", 64); claims <- strrep("e", 64)
     namespaced <- .dsvert_dp_synopsis_source_contract_from_hashes_v1(f$policy, t$manifest, key, claims)
@@ -464,7 +480,12 @@ test_that("Cox shared source contracts preserve the exact private projection and
     expect_error(.dsvert_dp_gaussian_cross_layout(mixed))
     wrong <- .dsvert_dp_capsule_coordinate_layout(t$manifest); wrong$sha256 <- strrep("f", 64)
     expect_error(.dsvert_dp_gaussian_cross_layout(t$manifest, wrong))
-    expect_length(.dsvert_dp_glm_grid_cross_artifacts(t$manifest), 0L)
+    expect_length(.dsvert_dp_glm_grid_cross_artifacts(t$manifest), 1L)
+    # Cox is injected only by its dedicated staged reader, never the GLM reader.
+    base <- as.raw(rep(7, 16L))
+    expect_identical(.dsvert_dp_glm_grid_cross_inject(NULL, NULL, t$manifest,
+      t$transport, list(offset = 0L, count = 1L), base), base)
+    expect_false(.dsvert_dp_synopsis_supported_glm_grid_cross_v1(mixed))
   }
 })
 
@@ -479,7 +500,7 @@ test_that("Cox workload and source context authenticate K-owner transport withou
     validated <- context()
     expect_identical(validated$spec, .dsvert_dp_canonical_query_value(f$contract$spec))
     expect_false(t$artifact$intercept)
-    expect_false(t$artifact$runtime_enabled)
+    expect_true(t$artifact$runtime_enabled)
     expect_null(t$artifact$outcome)
     expect_null(t$artifact$grouping)
     expect_identical(t$artifact$numeric_certificate, f$contract$spec$numeric_contract)
@@ -491,6 +512,9 @@ test_that("Cox workload and source context authenticate K-owner transport withou
     time <- blocks[vapply(blocks, function(b) b$private_time_validity, logical(1))]
     expect_length(time, 1L)
     expect_identical(time[[1L]]$kind, "validity")
+    expect_false(time[[1L]]$outcome)
+    expect_true(all(vapply(blocks, function(b)
+      identical(b$input_family, "cox_grid"), logical(1L))))
     expect_true(all(vapply(blocks, function(b) b$length == 32L, logical(1))))
     for (field in c("workload_sha256", "logical_snapshot_sha256", "peer_pinset_sha256",
         "coordinate_order_sha256", "private_layout_sha256", "source_context_hash")) {
@@ -506,6 +530,34 @@ test_that("Cox workload and source context authenticate K-owner transport withou
     changed <- t$transport; changed$source_peers <- changed$source_peers[-owners]
     expect_error(context(transport = changed))
   }
+})
+
+test_that("Cox and GLM artifacts cannot share a staged source or release", {
+  f <- .cox_cross_server_fixture(capacity = 4)
+  t <- .cox_transport_fixture(f)
+  raw <- list(version = "binomial_grid_cross_v1", analysis_id = "binomial_grid",
+    dataset = "aligned", outcome = "site_a$event",
+    predictor_order = f$raw$predictor_order,
+    beta_grid = list(c(0, 0, 0)), max_outcome = 1, alignment = f$raw$alignment)
+  spec <- .dsvert_dp_glm_grid_cross_spec(raw, f$policy, f$schema)
+  artifact <- .dsvert_dp_glm_grid_cross_artifact(spec)
+  contract <- list(version = .DSVERT_DP_GLM_GRID_CROSS_CONTRACT_VERSION,
+    spec = spec, artifact = artifact,
+    source_contract = .dsvert_dp_glm_grid_cross_source_contract(spec, artifact))
+  message <- .dsvert_dp_glm_grid_cross_message(contract)
+  contract$signatures <- lapply(f$keys, function(key)
+    f$b64(openssl::ed25519_sign(message, key)))
+  contract <- .dsvert_dp_glm_grid_cross_contract_validate(contract,
+    f$policy, f$schema_manifest)
+  mixed <- t$manifest
+  mixed$workload$families$gaussian_models$artifacts$binomial_grid <-
+    .dsvert_dp_glm_grid_cross_workload_artifact(contract)
+  mixed$workload$coordinate_count <- mixed$workload$coordinate_count + artifact$coordinate_count
+  expect_length(.dsvert_dp_glm_grid_cross_artifacts(mixed), 2L)
+  expect_false(.dsvert_dp_synopsis_supported_glm_grid_cross_v1(mixed))
+  expect_error(.dsvert_dp_gaussian_cross_layout(mixed))
+  expect_error(.dsvert_dp_cox_cross_source_context(f$policy, mixed,
+    t$transport, f$schema_manifest, "cox_grid"), class = "dsvert_dp_public_failure")
 })
 
 test_that("Cox source alignment requires the signed time owner at the actual garbler", {
@@ -1145,11 +1197,15 @@ if (nzchar(Sys.getenv("DSVERT_COX_STAGED_TEST_BINARY"))) {
             session_id = "12345678-1234-4234-9234-123456789abc", action = action,
             batch = batch, routing_receipt_json = route)))
         }
-        # Canonical JSON reorders receipt fields on the evaluator's wire path.
-        # Compare every public byte after canonicalization, including signatures.
-        expect_identical(encode(invoke()), encode(bound))
-        expect_identical(encode(invoke()), encode(bound))
-        expect_identical(encode(invoke(encode(receipt))), encode(bound))
+        # The endpoint returns canonical JSON with an object-valued bound
+        # receipt, matching the strict client reader and preserving signatures.
+        wire <- bound
+        wire$bound <- .dsvert_dp_synopsis_remote_json_v1(wire$bound,
+          "Cox bound receipt", .DSVERT_DP_SYNOPSIS_REMOTE_RECEIPT_MAX_BYTES)
+        expected <- .dsvert_dp_capsule_source_encode_json(wire)
+        expect_identical(invoke(), expected)
+        expect_identical(invoke(), expected)
+        expect_identical(invoke(encode(receipt)), expected)
         expect_identical(jsonlite::fromJSON(invoke("", "prepare"))$phase, "prepared")
         reads <- snapshot_reads
         if (peer == "site_b") expect_error(invoke(""), class = "dsvert_dp_public_failure")
@@ -1806,9 +1862,9 @@ test_that("Cox workload admission authenticates schema and accounts for signed s
       layout$transport_coordinate_order_sha256)
     expect_identical(source$private_layout_sha256,
       layout$transport_coordinate_order_sha256)
-    # Admission of signed metadata is separate from enabling a public release.
-    expect_false(.dsvert_dp_synopsis_supported_glm_grid_cross_v1(manifest))
-    expect_false(artifact$runtime_enabled)
+    # Signed metadata enables the authenticated staged release path.
+    expect_true(.dsvert_dp_synopsis_supported_glm_grid_cross_v1(manifest))
+    expect_true(artifact$runtime_enabled)
     for (peer in names(f$keys)) {
       changed <- f$contract; changed$signatures[[peer]] <- NULL
       expect_error(admit(changed), class = "dsvert_dp_public_failure")
@@ -1822,7 +1878,7 @@ test_that("Cox workload admission authenticates schema and accounts for signed s
     expect_error(admit(schema = changed))
     expect_error(admit(schema = f$sign_schema(changed)),
       "A local numeric bound conflicts with the signed schema", fixed = TRUE)
-    changed <- f$contract; changed$artifact$runtime_enabled <- TRUE
+    changed <- f$contract; changed$artifact$runtime_enabled <- FALSE
     expect_error(admit(f$sign(changed)), class = "dsvert_dp_public_failure")
   }
 })

@@ -271,7 +271,8 @@
     .dsvert_dp_glm_grid_cross_fail()
   }
   artifacts <- .dsvert_dp_glm_grid_cross_artifacts(manifest)
-  artifacts <- Filter(function(artifact) !.dsvert_dp_staged_grouped_artifact(artifact), artifacts)
+  artifacts <- Filter(function(artifact) !.dsvert_dp_staged_grouped_artifact(artifact) &&
+    !identical(artifact$version, .DSVERT_DP_COX_GRID_CROSS_ARTIFACT_VERSION), artifacts)
   layout <- .dsvert_dp_capsule_coordinate_layout(manifest)
   for (id in names(artifacts)) {
     record <- .dsvert_dp_glm_grid_cross_load(con, secret, contract$capsule_id, id, 0)
@@ -387,8 +388,12 @@ dsvertDPSynopsisGLMGridCrossDS <- function(manifest_sha256, claim_set_json,
         } else NULL
         # The Cox adapter authenticates the exact single-artifact projection,
         # signed schema and source contract; no generic/grouped source fallback.
-        return(.dsvert_dp_cox_cross_remote_bind(context, source, compilation,
-          claims, request, analysis_id, .S(session_id), parent.frame(), routing_receipt))
+        result <- .dsvert_dp_cox_cross_remote_bind(context, source, compilation,
+          claims, request, analysis_id, .S(session_id), parent.frame(), routing_receipt)
+        result$bound <- .dsvert_dp_synopsis_remote_json_v1(result$bound,
+          "Cox bound receipt", .DSVERT_DP_SYNOPSIS_REMOTE_RECEIPT_MAX_BYTES)
+        return(.dsvert_dp_synopsis_remote_encode_v1(result,
+          "Cox bind response", .DSVERT_DP_SYNOPSIS_REMOTE_RECEIPT_MAX_BYTES))
       }
       if (nzchar(routing_receipt_json) ||
           !.dsvert_dp_synopsis_supported_glm_grid_cross_v1(manifest)) {

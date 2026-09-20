@@ -201,7 +201,7 @@
       .dsvert_dp_cox_grid_cross_fail()
     }
     bits <- .dsvert_dp_glm_grid_cross_integer(policy$numeric_grid_bits, 8, 18)
-    capacity <- .dsvert_dp_glm_grid_cross_integer(policy$unit_capacity, 2, 10000)
+    capacity <- .dsvert_dp_glm_grid_cross_integer(policy$unit_capacity, 2, 400)
     list(version = raw$version, family = "cox", analysis_id = raw$analysis_id,
       dataset = raw$dataset, schema_sha256 = schema$sha256,
       logical_snapshot = schema$unsigned$logical_snapshot,
@@ -291,11 +291,11 @@
       log_rows = "all_public_padded_slots_private_event_mask_v2",
       output = "two_authority_additive_candidate_sum_shares_only_v1"),
     result_evidence_required = TRUE,
-    implementation_state = "cross_owner_exact_gc_contract_only",
-    cross_owner_state = "exact_gc_to_joint_dp_vector_pending_v1",
+    implementation_state = "cross_owner_exact_gc_materialized",
+    cross_owner_state = "exact_gc_to_joint_dp_vector_v1",
     required_result_states = list(implementation_state = "cross_owner_exact_gc_materialized",
       cross_owner_state = "exact_gc_to_joint_dp_vector_v1"),
-    runtime_enabled = FALSE)
+    runtime_enabled = TRUE)
 }
 
 .dsvert_dp_cox_grid_cross_artifact_validate <- function(value, spec) {
@@ -358,10 +358,10 @@
     artifact = .dsvert_dp_cox_grid_cross_artifact,
     source_contract = .dsvert_dp_cox_grid_cross_source_contract,
     sensitivity = .dsvert_dp_cox_grid_cross_sensitivity,
-    implementation_state = "cross_owner_exact_gc_contract_only",
-    cross_owner_state = "exact_gc_to_joint_dp_vector_pending_v1",
+    implementation_state = "cross_owner_exact_gc_materialized",
+    cross_owner_state = "exact_gc_to_joint_dp_vector_v1",
     required_result_states = list(implementation_state = "cross_owner_exact_gc_materialized",
       cross_owner_state = "exact_gc_to_joint_dp_vector_v1"),
-    runtime_enabled = FALSE,
+    runtime_enabled = TRUE,
     produce = function(...) .dsvert_dp_cox_grid_cross_fail())
 }

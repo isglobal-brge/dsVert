@@ -1,0 +1,65 @@
+{
+  "version": "cox-ultra-synthetic-oracle-commitments-v1",
+  "created_utc": "2026-09-20T17:12:06.466368+00:00",
+  "scope": "n400/p5/grid2/eps8 source-only signed oracle preparation plus independent synthetic integer/noise evaluation; no Cox source producer or authenticated release invoked; no fleet capacity claim",
+  "source_binding": "snapshot_base_commits identify checkout HEAD; immutable source-manifest hashes record actual bytes, including then-uncommitted integration changes. No committed-pair equivalence is asserted by this record.",
+  "sequential_oracle_jobs": true,
+  "oracle_hash_scope": "UTF-8 count then exact integer coordinates, LF terminated",
+  "expected_oracle_sha256": "ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d",
+  "rows": [
+    {
+      "owners": 2,
+      "snapshot": "integrator-evidence/cox-ultra/oracle-k2-r2",
+      "metrics": "integrator-evidence/cox-ultra/oracle-k2-r2/logs/metrics.json",
+      "metrics_sha256": "cefc8bfd068c0308feb268325f07c20f33cb5382773ba6f0e80fb7f94561fb7d",
+      "log": "integrator-evidence/cox-ultra/oracle-k2-r2/logs/proof.log",
+      "log_sha256": "9cd91c62dfc5420b393c889c1e6afe112cea7850cc380fcc9a2c8a8324adb3c0",
+      "exit_code": 0,
+      "expected_oracle_sha256": "ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d",
+      "snapshot_source_manifest_sha256": "39e435e0a8c39c3243b344d09e9b299a41691fc1bb417696a20dd06c8ad1f9ad",
+      "snapshot_base_commits": {
+        "dsVert": "ad276b565d85fce3d01204365cce25b5380c99d3",
+        "dsVertClient": "f011cc40158a9fa43f2a837ab8b2581b569e4851"
+      },
+      "oracle_binary_sha256": "af980051f9366b649828f791e4f1987edc899fdb920254e867199665f05c5258"
+    },
+    {
+      "owners": 3,
+      "snapshot": "integrator-evidence/cox-ultra/oracle-k3",
+      "metrics": "integrator-evidence/cox-ultra/oracle-k3/logs/metrics.json",
+      "metrics_sha256": "c30093fb275ceecce69f05091d21bfdab058988e477a393bfd74e8534f6f66f1",
+      "log": "integrator-evidence/cox-ultra/oracle-k3/logs/proof.log",
+      "log_sha256": "0a38becfb0f686a20d9d9612b26dbf3150be5bafb713b7265807b008adbd734f",
+      "exit_code": 0,
+      "expected_oracle_sha256": "ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d",
+      "snapshot_source_manifest_sha256": "39e435e0a8c39c3243b344d09e9b299a41691fc1bb417696a20dd06c8ad1f9ad",
+      "snapshot_base_commits": {
+        "dsVert": "ad276b565d85fce3d01204365cce25b5380c99d3",
+        "dsVertClient": "f011cc40158a9fa43f2a837ab8b2581b569e4851"
+      },
+      "oracle_binary_sha256": "af980051f9366b649828f791e4f1987edc899fdb920254e867199665f05c5258"
+    },
+    {
+      "owners": 5,
+      "snapshot": "integrator-evidence/cox-ultra/oracle-k5",
+      "metrics": "integrator-evidence/cox-ultra/oracle-k5/logs/metrics.json",
+      "metrics_sha256": "f4e2ab76cd96ce33a833b5ecac8368e02531ac3966df24b4537faab54b928231",
+      "log": "integrator-evidence/cox-ultra/oracle-k5/logs/proof.log",
+      "log_sha256": "f1db98f8e5437162a98fa48b70e0469763eb04336b2f66558780723a4bb24c67",
+      "exit_code": 0,
+      "expected_oracle_sha256": "ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d",
+      "snapshot_source_manifest_sha256": "1a906efe8a17cd2d3f35435e88dc85fc22394574a7c52a3932c792cefe38a0fa",
+      "snapshot_base_commits": {
+        "dsVert": "ad276b565d85fce3d01204365cce25b5380c99d3",
+        "dsVertClient": "37f19caca4a75347bf94f08fad53aa06659556aa"
+      },
+      "oracle_binary_sha256": "af980051f9366b649828f791e4f1987edc899fdb920254e867199665f05c5258"
+    }
+  ],
+  "superseded_run": {
+    "snapshot": "integrator-evidence/cox-ultra/oracle-k2",
+    "status": "failed",
+    "reason": "stale test-only helper binary lacked TestStructuredGridNoiseOracle; preserved trace, then complete fresh K2-r2 run with rebuilt test binary",
+    "rebuild_evidence": "integrator-evidence/cox-ultra/proof-r2/BINARY_REBUILD.json"
+  }
+}

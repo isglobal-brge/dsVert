@@ -1,0 +1,26 @@
+{
+  "test-dp-cox-synopsis-schema.R.csv": {
+    "cases": 1,
+    "passed": 12,
+    "failed": 0,
+    "errors": 0,
+    "skips": 0,
+    "warnings": 0
+  },
+  "test-crossgrid-cox.R.csv": {
+    "cases": 34,
+    "passed": 2988,
+    "failed": 0,
+    "errors": 0,
+    "skips": 0,
+    "warnings": 0
+  },
+  "test-dp-glm-grid-cross-contract.R.csv": {
+    "cases": 21,
+    "passed": 328,
+    "failed": 0,
+    "errors": 0,
+    "skips": 0,
+    "warnings": 0
+  }
+}

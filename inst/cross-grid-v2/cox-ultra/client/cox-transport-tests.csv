@@ -1,0 +1,33 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-cox-exact-transport.R","dp-cox-exact-transport","Cox staged transport accepts only its typed server-minted operation",17,0,FALSE,FALSE,0,0.985,0.031,1.218,17
+"test-exact-gc-transport.R","exact-gc-transport","exact client pump retries identical fan-out requests without a quota",66,0,FALSE,FALSE,0,0.269,0.023,0.335,66
+"test-exact-gc-transport.R","exact-gc-transport","exact client pump does not poll the sender while one delivery waits for its recipient",1,0,FALSE,FALSE,0,0.0659999999999998,0.001,0.0750000000000002,1
+"test-exact-gc-transport.R","exact-gc-transport","client derives the same execution-free Count binding for K=2,3,5",4,0,FALSE,FALSE,0,1.139,0.159,1.608,4
+"test-exact-gc-transport.R","exact-gc-transport","exact client emits one complete direct scalar delivery shape",3,0,FALSE,FALSE,0,0.00999999999999979,0.001,0.0110000000000001,3
+"test-exact-gc-transport.R","exact-gc-transport","worker heartbeats renew inactivity but never the total deadline",4,0,FALSE,FALSE,0,0.0289999999999999,0.002,0.0369999999999999,4
+"test-exact-gc-transport.R","exact-gc-transport","present malformed exact response is fatal and raw errors do not leak",4,0,FALSE,FALSE,0,0.0110000000000001,0.002,0.0129999999999999,4
+"test-exact-gc-transport.R","exact-gc-transport","exact capability contract advertises only proved rings and floor truncation",18,0,FALSE,FALSE,0,0.0459999999999994,0.01,0.0700000000000003,18
+"test-exact-gc-transport.R","exact-gc-transport","formal GLM schedule is transport-only and remains unadvertised",7,0,FALSE,FALSE,0,0.0300000000000002,0.004,0.0419999999999998,7
+"test-exact-gc-transport.R","exact-gc-transport","client multiprecision shape policy matches the server through Ring4096",3,0,FALSE,FALSE,0,0.0110000000000001,0.001,0.0140000000000002,3
+"test-exact-gc-transport.R","exact-gc-transport","Ring4096 exact truncation reaches the pump only within its proved shape",5,0,FALSE,FALSE,0,0.0140000000000002,0.002,0.0170000000000003,5
+"test-exact-gc-transport.R","exact-gc-transport","exact operation contexts have canonical CSPRNG-derived capabilities",4,0,FALSE,FALSE,0,0.0110000000000001,0.001,0.0189999999999992,4
+"test-exact-gc-transport.R","exact-gc-transport","joint-DP vector client has no output-share reconstruction surface",5,0,FALSE,FALSE,0,0.0190000000000001,0.00399999999999995,0.0259999999999998,5
+"test-exact-gc-transport.R","exact-gc-transport","exact vecmul chunk identities cover datasets beyond one circuit",7,0,FALSE,FALSE,0,0.0149999999999997,0.003,0.0209999999999999,7
+"test-exact-gc-transport.R","exact-gc-transport","direct exact vecmul uses checked chunks and no Beaver relay",30,0,FALSE,FALSE,0,0.189,0.00800000000000001,0.234999999999999,30
+"test-exact-gc-transport.R","exact-gc-transport","categorical producer manifests select the scaled-indicator circuit",6,0,FALSE,FALSE,0,0.282,0.005,0.325,6
+"test-exact-gc-transport.R","exact-gc-transport","exact vecmul rejects a partial validity fan-out before commit",4,0,FALSE,FALSE,0,0.0529999999999999,0.003,0.0609999999999999,4
+"test-exact-gc-transport.R","exact-gc-transport","producer manifests are claimed per peer without remote slot binding",6,0,FALSE,FALSE,0,0.0350000000000001,0.004,0.04,6
+"test-exact-gc-transport.R","exact-gc-transport","Ring127 GLM initializes pinned peers before producer minting",4,0,FALSE,FALSE,0,0.00999999999999979,0.002,0.0119999999999996,4
+"test-exact-gc-transport.R","exact-gc-transport","failed checked vecmul aborts both its chunk and retained batch",2,0,FALSE,FALSE,0,0.024,0.001,0.0280000000000005,2
+"test-exact-gc-transport.R","exact-gc-transport","Ring127 common helper cannot fall back to legacy truncation",8,0,FALSE,FALSE,0,0.0140000000000002,0.002,0.0199999999999996,8
+"test-exact-gc-transport.R","exact-gc-transport","fresh Ring127 destinations avoid the overwrite-copy round",1,0,FALSE,FALSE,0,0.0129999999999999,0.001,0.0139999999999993,1
+"test-exact-gc-transport.R","exact-gc-transport","Ring127 exact transport readiness is explicit and operation-local",5,0,FALSE,FALSE,0,0.0120000000000005,0.002,0.0149999999999997,5
+"test-exact-gc-transport.R","exact-gc-transport","nested Ring127 primitive propagates one ready transport",2,0,FALSE,FALSE,0,0.00600000000000023,0.002,0.00699999999999967,2
+"test-exact-gc-transport.R","exact-gc-transport","Ring127 Clenshaw products are one-shot across stages and calls",4,0,FALSE,FALSE,0,0.0469999999999997,0.002,0.0570000000000004,4
+"test-exact-gc-transport.R","exact-gc-transport","GLM softplus stages claim producer manifests without legacy Bind",8,0,FALSE,FALSE,0,0.0179999999999998,0.004,0.0229999999999997,8
+"test-exact-gc-transport.R","exact-gc-transport","GLM softplus uses all fixed producer stages and no slot Bind",8,0,FALSE,FALSE,0,0.105,0.002,0.114,8
+"test-exact-gc-transport.R","exact-gc-transport","public Ring127 scaling uses additive shares and exact truncation",10,0,FALSE,FALSE,0,0.0339999999999998,0.003,0.0389999999999997,10
+"test-exact-gc-transport.R","exact-gc-transport","exact transport setup uses only exact-specific pinned endpoints",4,0,FALSE,FALSE,0,0.0250000000000004,0.003,0.0280000000000005,4
+"test-exact-gc-transport.R","exact-gc-transport","analysis-bound setup selects authorities by full K identity pins",5,0,FALSE,FALSE,0,0.613,0.092,0.77,5
+"test-exact-gc-transport.R","exact-gc-transport","client accepts only analysis-bound scalar Count initialization",6,0,FALSE,FALSE,0,0.847,0.187,1.102,6
+"test-exact-gc-transport.R","exact-gc-transport","cross transport mints and consumes peer-specific cleanup capabilities",12,0,FALSE,FALSE,0,0.111,0.005,0.122,12

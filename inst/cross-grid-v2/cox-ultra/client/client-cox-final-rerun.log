@@ -1,0 +1,86 @@
+dp-cox-grid-cross: ..............................................................................................................................................................................................
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+🥳
+dp-cox-grid-cross-e2e: ..........................
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+dp-cox-cross-public-evidence: ..........................................................................................................................................................................................................................................................................................
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+                                  file
+1     test-dp-cox-admission-dispatch.R
+2     test-dp-cox-admission-dispatch.R
+3     test-dp-cox-admission-dispatch.R
+4          test-dp-cox-catalog-draft.R
+18            test-dp-cox-owner-bind.R
+19          test-dp-cox-partial-grid.R
+20          test-dp-cox-partial-grid.R
+21          test-dp-cox-partial-grid.R
+22         test-dp-cox-source-layout.R
+23  test-dp-cox-staged-orchestration.R
+24  test-dp-cox-staged-orchestration.R
+14            test-dp-cox-grid-cross.R
+25            test-dp-cox-grid-cross.R
+31            test-dp-cox-grid-cross.R
+41            test-dp-cox-grid-cross.R
+5             test-dp-cox-grid-cross.R
+6             test-dp-cox-grid-cross.R
+7             test-dp-cox-grid-cross.R
+8             test-dp-cox-grid-cross.R
+9             test-dp-cox-grid-cross.R
+10            test-dp-cox-grid-cross.R
+11        test-dp-cox-grid-cross-e2e.R
+12 test-dp-cox-cross-public-evidence.R
+13 test-dp-cox-cross-public-evidence.R
+                                                                                 test
+1               Cox discovery and generic layout preserve private padded source lanes
+2                            Cox rejects mixed-family runtime and transport manifests
+3          Cox reconstruction rejects changed arithmetic, source and request bindings
+4       Cox signed drafts preserve contracts and reject a different advertising owner
+18               Cox binds the owner first and authenticates the public routing relay
+19                   Cox partial-likelihood grid validates only its signed candidates
+20                    Cox partial-likelihood Synopsis uses one certified signed block
+21                                 Cox partial-grid frontdoor rejects legacy controls
+22                      Cox client source lanes match the authenticated server layout
+23                  Cox transport commitment agrees with the server at every topology
+24      Cox signed orchestration preserves bilateral persistence and terminal binding
+14                            Cox client accepts only a literal additive Surv formula
+25                   Cox cross-owner contracts require both real custodian signatures
+31                    Cox client canonical argmin rescales slopes and omits inference
+41 production Cox client requires authenticated sources and exposes no test evaluator
+5            Cox result validates all source owners separately from computation peers
+6                                     Cox server and client canonical contracts agree
+7            Cox integrated row scope and measured admission require valid signatures
+8                     Cox signed layout pins the terminal share conversion for fusion
+9             Cox K-owner source contracts retain exactly two computation authorities
+10                 Cox catalog fragments bind time and event to the advertising owner
+11             two DSLite custodians exercise tagged Cox oracle and DP grid selection
+12   Cox public evidence authenticates cold two-authority source and release bindings
+13                           Cox public evidence retains the private-v2 400-row scope
+    nb failed error skipped
+1   48      0 FALSE   FALSE
+2    4      0 FALSE   FALSE
+3   13      0 FALSE   FALSE
+4   15      0 FALSE   FALSE
+18  75      0 FALSE   FALSE
+19   4      0 FALSE   FALSE
+20   3      0 FALSE   FALSE
+21   6      0 FALSE   FALSE
+22  87      0 FALSE   FALSE
+23   6      0 FALSE   FALSE
+24 243      0 FALSE   FALSE
+14   8      0 FALSE   FALSE
+25  12      0 FALSE   FALSE
+31  13      0 FALSE   FALSE
+41   5      0 FALSE   FALSE
+5   20      0 FALSE   FALSE
+6    1      0 FALSE   FALSE
+7   11      0 FALSE   FALSE
+8    4      0 FALSE   FALSE
+9   62      0 FALSE   FALSE
+10  54      0 FALSE   FALSE
+11  26      0 FALSE   FALSE
+12 281      0 FALSE   FALSE
+13   1      0 FALSE   FALSE
+TOTAL tests: 24 passed: 1002 failed: 0 errors: 0 skipped: 0 

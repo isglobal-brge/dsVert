@@ -1,0 +1,491 @@
+{
+  "scope": "Retained public synthetic validation evidence; source snapshots, native binaries and private durable stores remain outside this archive. Paths in original records retain original provenance.",
+  "files": [
+    {
+      "source": "integrator-evidence/cox-ultra/ORACLE_COMMITMENTS.json",
+      "archive": "ORACLE_COMMITMENTS.json",
+      "bytes": 3902,
+      "sha256": "327a73e98500b33dc709fe729393984cc97dc7170de1328c6c163637010bb39f"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/ORACLE_SOURCE_EQUIVALENCE.json",
+      "archive": "ORACLE_SOURCE_EQUIVALENCE.json",
+      "bytes": 281122,
+      "sha256": "804340b45f944d1b254d7e878a11cf4833c7381b1d843477015abcea931da6dc"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/ORACLE_SOURCE_EQUIVALENCE.md",
+      "archive": "ORACLE_SOURCE_EQUIVALENCE.md",
+      "bytes": 2893,
+      "sha256": "0462e959736b37882a696f74bffdcbcabca72b840a7bb1218416c429b82ab9fe"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/ORACLE_SUMMARY.json",
+      "archive": "ORACLE_SUMMARY.json",
+      "bytes": 8341,
+      "sha256": "a240ee88a8a611e53cadce9308ff48111bf5abf48028744de40c1971c44552b1"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/SCOPE_CHECK.json",
+      "archive": "SCOPE_CHECK.json",
+      "bytes": 1786,
+      "sha256": "1186dd37d6d42c32ea959423f15648cacd6ed3b8d184ede6f31720278566e952"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/SOURCE_PROOF_EQUIVALENCE.json",
+      "archive": "SOURCE_PROOF_EQUIVALENCE.json",
+      "bytes": 272311,
+      "sha256": "7f92a780dd84ea56419e8509467496fc62cf86303446bc8ecc258ba1c093a48a"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/SUITE_COUNTS.json",
+      "archive": "SUITE_COUNTS.json",
+      "bytes": 1835,
+      "sha256": "a085f91a1091a2ffffe1328178148e295fde322c551a9a0ca621ae241fef86f4"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/MANIFEST_VALIDATION.json",
+      "archive": "MANIFEST_VALIDATION.json",
+      "bytes": 2428,
+      "sha256": "afa8d83b37c636f7410d4859b75d2ef1ec76549b98f9f1c1a757e5a08141e918"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/FINAL_MANIFEST_REVIEW.md",
+      "archive": "FINAL_MANIFEST_REVIEW.md",
+      "bytes": 2008,
+      "sha256": "9b344f130d897c3e2a89afcc56da8df446b1fd2d1d35c3281498cdf9e98acf34"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/baseline-certificate.json",
+      "archive": "baseline-certificate.json",
+      "bytes": 230564,
+      "sha256": "54a1a56be6531ac27990c0edc7c297292f86fbf15994c344515eeea7fa318736"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/baseline-offline-verification.json",
+      "archive": "baseline-offline-verification.json",
+      "bytes": 413,
+      "sha256": "9df96c2050368fa0f83055661d66e0cf9d68e7b3fe7e3904e91c4edb017561ee"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/baseline-offline.log",
+      "archive": "baseline-offline.log",
+      "bytes": 504,
+      "sha256": "7f5bada7e1b7bf4ab1e73af3a9bf29b1d0a9a943e988b9484c24bf4281bf6ad5"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/baseline-trusted-pins.json",
+      "archive": "baseline-trusted-pins.json",
+      "bytes": 121,
+      "sha256": "b2caec25bd30455ab353bc4353a8a4c23cfae5d0b80a04262925feb22cec4b5f"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/bind-oracle-records.py",
+      "archive": "bind-oracle-records.py",
+      "bytes": 7693,
+      "sha256": "ea049648330052bf1106d45b917a527f83ef72452eaae8b17f9a6608dd8a8649"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/launch-proof.py",
+      "archive": "launch-proof.py",
+      "bytes": 3879,
+      "sha256": "2ff38a784d48f3c3a7bf55bb5e37fece673767489c423542210ddac379c3fc73"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/validate-final-manifest.py",
+      "archive": "validate-final-manifest.py",
+      "bytes": 4836,
+      "sha256": "5313006f93e84616d55f20d016dbc66c9ebaf01b75d03dc45c4bb959c8f785c8"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/go-cox-focused.jsonl",
+      "archive": "go-cox-focused.jsonl",
+      "bytes": 39715,
+      "sha256": "0e3ec67319237714a35ba5a40a1cf826a6df9b3bea1923095285b5d25c3163cd"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/go-cox-focused.stderr",
+      "archive": "go-cox-focused.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/publication-tests.md",
+      "archive": "publication-tests.md",
+      "bytes": 1300,
+      "sha256": "1d13e4ab758e8dc929f8b1d72cd6b0376e074070fdfcd49a40ec881f0726ce41"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/client/client-cox-tests.csv",
+      "archive": "client/client-cox-tests.csv",
+      "bytes": 4381,
+      "sha256": "fb29be6faa39fd6c1c71ab5394bfd84dfb25dc8ffa98274a4bc52ab85c7a5e52"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/client/client-cox-final-rerun.csv",
+      "archive": "client/client-cox-final-rerun.csv",
+      "bytes": 2321,
+      "sha256": "f2e39665ab7ad80c1525610c83dff62840f334db252706e12a85578ea3cf5a38"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/client/client-cox-final-rerun.log",
+      "archive": "client/client-cox-final-rerun.log",
+      "bytes": 5154,
+      "sha256": "de19d483631419e5ef508e5a14fdc86d54e8db7a2dc54a2786a2344efcc6f078"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/client/client-cox-oracle-tests.csv",
+      "archive": "client/client-cox-oracle-tests.csv",
+      "bytes": 266,
+      "sha256": "759e403b6869e6a6065137a100469b567b029889cf9ad9de2cb6284634a0c938"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/client/client-cox-oracle-tests.log",
+      "archive": "client/client-cox-oracle-tests.log",
+      "bytes": 475,
+      "sha256": "1c271bd6f296d5f5eebb2cd08dab2f9b3fa71c14e23e9db3a3b96ad460cba8af"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/client/cox-transport-tests.csv",
+      "archive": "client/cox-transport-tests.csv",
+      "bytes": 5678,
+      "sha256": "088da5b92a99af7a0ed2b195fa77299a35652b07bc614edfbff3c7d0d8a3d544"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/client/cox-transport-tests.log",
+      "archive": "client/cox-transport-tests.log",
+      "bytes": 839,
+      "sha256": "47b40638ccd47c693fdabb168cb65195f4b74af3b7cd41a78030071375ad6804"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/client/manifest-generator-tests.log",
+      "archive": "client/manifest-generator-tests.log",
+      "bytes": 1025,
+      "sha256": "8c24bd364700be09e06ab961084336b1967902c02bcc81e87ff8ba14c4682287"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/client/tagged-oracle-report.json",
+      "archive": "client/tagged-oracle-report.json",
+      "bytes": 1280,
+      "sha256": "489679e2a0369de5b45e93fd5aea2a14f7d9c25048c30737e063570e0f68562a"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/client-registry/run-tests.R",
+      "archive": "client-registry/run-tests.R",
+      "bytes": 1116,
+      "sha256": "2d28e488e4118aa1e042de65a3160e068b10eecd160e5776b360dc9af07f6230"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/client-registry/run-tests.log",
+      "archive": "client-registry/run-tests.log",
+      "bytes": 2268,
+      "sha256": "33c8bd1bad5ce90ddb4d6bc340231410c5a464f1975a504c4deed03c5ba0b4ac"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/client-registry/summary.json",
+      "archive": "client-registry/summary.json",
+      "bytes": 179,
+      "sha256": "72aa299538e373dac7b82c7868f95ed1cacec6cc3567c35abfdb909541500bf3"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/client-registry/test-capsule-method-inventory.R.csv",
+      "archive": "client-registry/test-capsule-method-inventory.R.csv",
+      "bytes": 2335,
+      "sha256": "616a0b187b497a97ca95a5fd9cc3ea1105f58c096b6551107a593352d2427b06"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/client-registry/test-dp-grouped-grid-cross-registry.R.csv",
+      "archive": "client-registry/test-dp-grouped-grid-cross-registry.R.csv",
+      "bytes": 489,
+      "sha256": "1f178dd41383fc2a5a25cb10ceb8fd8987c5c480b2ddbbafe784b1bd43ca9b62"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/client-registry/test-method-status.R.csv",
+      "archive": "client-registry/test-method-status.R.csv",
+      "bytes": 556,
+      "sha256": "5e5b11c15e5a4286337b85dc62e46ce87891dae5fd3adf7f83c38f4596375c34"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracles-bound/cox-k2.json",
+      "archive": "oracles-bound/cox-k2.json",
+      "bytes": 1234,
+      "sha256": "7d70dfe93881b815b1f07f626202e5d9614442bbb21915b8b7ac022738053380"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracles-bound/cox-k3.json",
+      "archive": "oracles-bound/cox-k3.json",
+      "bytes": 1231,
+      "sha256": "f0bb8dd4559e0ee424451e0ffc15c9d186912119eb7de92c6677712b735bc2c1"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracles-bound/cox-k5.json",
+      "archive": "oracles-bound/cox-k5.json",
+      "bytes": 1215,
+      "sha256": "816c36eb4c6a7dd7850cff070ac50b2b3cbdabced5cb4c349409f8cff8ecf387"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/prior-manifests/RELEASE_MANIFEST.jsonl",
+      "archive": "prior-manifests/RELEASE_MANIFEST.jsonl",
+      "bytes": 45872,
+      "sha256": "9f3780b3a195ee7ef56607a2f2dd3b9682c1644157e272aec4aa0f4f083adc82"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/prior-manifests/RELEASE_MANIFEST_STATUS.json",
+      "archive": "prior-manifests/RELEASE_MANIFEST_STATUS.json",
+      "bytes": 1902,
+      "sha256": "5e0f402c8beb063a31fc04ccbb10fe52f5059b70ad9e7c26fb5beaf0bec2148a"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/proof-r2/BINARY_REBUILD.json",
+      "archive": "proof-r2/BINARY_REBUILD.json",
+      "bytes": 79313,
+      "sha256": "e2e241a1dd535af27822cefcf250f561718321d98ebe9f37a533f21fe73bb040"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/proof-r3/frozen-source-manifest.json",
+      "archive": "proof-r3/frozen-source-manifest.json",
+      "bytes": 149,
+      "sha256": "6283852c844b2841448df0179a82106a164c6db264916573d1943e2475105e92"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/proof-r3/launch.json",
+      "archive": "proof-r3/launch.json",
+      "bytes": 1536,
+      "sha256": "23e200d45e3ea95db50431bee9faaa7b4da2b3b0e6b30c277faafacb1de66933"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/proof-r3/source-manifest.json",
+      "archive": "proof-r3/source-manifest.json",
+      "bytes": 411600,
+      "sha256": "37d9abcd7842db9736d5491afd496dea240d74abc68bbf3f9be0229275589f27"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/proof-r3/logs/exit.json",
+      "archive": "proof-r3/logs/exit.json",
+      "bytes": 17,
+      "sha256": "e89df0eae5ec7db81135aed16463968955c578bcc4f2ec43172eff351f080c17"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/proof-r3/logs/metrics.json",
+      "archive": "proof-r3/logs/metrics.json",
+      "bytes": 1230,
+      "sha256": "7ffebb25d73d61077398626b7a9cecb0592eb2fc61325261b5042a076a4ad947"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/proof-r3/logs/proof.log",
+      "archive": "proof-r3/logs/proof.log",
+      "bytes": 8334,
+      "sha256": "8cc42e69816e45c3b1bb5859d6131e608a915877f2687da940c442f1d0392981"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/proof-r4-recovery/frozen-source-manifest.json",
+      "archive": "proof-r4-recovery/frozen-source-manifest.json",
+      "bytes": 149,
+      "sha256": "0cc889e2037c683d5ace7c059b45daf17c01b6e31921b786a8d712241d31a295"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/proof-r4-recovery/launch.json",
+      "archive": "proof-r4-recovery/launch.json",
+      "bytes": 1563,
+      "sha256": "aafd383329b866cc644da36339721f2bca924a8bbe3e9739da41cc18743c395e"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/proof-r4-recovery/source-manifest.json",
+      "archive": "proof-r4-recovery/source-manifest.json",
+      "bytes": 411733,
+      "sha256": "1a906efe8a17cd2d3f35435e88dc85fc22394574a7c52a3932c792cefe38a0fa"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/proof-r4-recovery/logs/exit.json",
+      "archive": "proof-r4-recovery/logs/exit.json",
+      "bytes": 17,
+      "sha256": "e89df0eae5ec7db81135aed16463968955c578bcc4f2ec43172eff351f080c17"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/proof-r4-recovery/logs/metrics.json",
+      "archive": "proof-r4-recovery/logs/metrics.json",
+      "bytes": 1261,
+      "sha256": "c5b2b84213d7e2e47d6bf424935af3035c89af3d21620bbd17bf4c8d7bc58556"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/proof-r4-recovery/logs/proof.log",
+      "archive": "proof-r4-recovery/logs/proof.log",
+      "bytes": 12087,
+      "sha256": "6d7feb018d98cddf9663bc900282916998fd9c163a50d2abe5616d125f61566a"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracle-k2-r2/frozen-source-manifest.json",
+      "archive": "oracle-k2-r2/frozen-source-manifest.json",
+      "bytes": 149,
+      "sha256": "6283852c844b2841448df0179a82106a164c6db264916573d1943e2475105e92"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracle-k2-r2/launch.json",
+      "archive": "oracle-k2-r2/launch.json",
+      "bytes": 1512,
+      "sha256": "f60f1126972bc2c3c93d7dab48e20aed3cd4a00fa1f7941756724003f03bc46d"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracle-k2-r2/source-manifest.json",
+      "archive": "oracle-k2-r2/source-manifest.json",
+      "bytes": 411600,
+      "sha256": "39e435e0a8c39c3243b344d09e9b299a41691fc1bb417696a20dd06c8ad1f9ad"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracle-k2-r2/logs/exit.json",
+      "archive": "oracle-k2-r2/logs/exit.json",
+      "bytes": 17,
+      "sha256": "e89df0eae5ec7db81135aed16463968955c578bcc4f2ec43172eff351f080c17"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracle-k2-r2/logs/metrics.json",
+      "archive": "oracle-k2-r2/logs/metrics.json",
+      "bytes": 538,
+      "sha256": "cefc8bfd068c0308feb268325f07c20f33cb5382773ba6f0e80fb7f94561fb7d"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracle-k2-r2/logs/proof.log",
+      "archive": "oracle-k2-r2/logs/proof.log",
+      "bytes": 5716,
+      "sha256": "9cd91c62dfc5420b393c889c1e6afe112cea7850cc380fcc9a2c8a8324adb3c0"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracle-k3/frozen-source-manifest.json",
+      "archive": "oracle-k3/frozen-source-manifest.json",
+      "bytes": 149,
+      "sha256": "6283852c844b2841448df0179a82106a164c6db264916573d1943e2475105e92"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracle-k3/launch.json",
+      "archive": "oracle-k3/launch.json",
+      "bytes": 1503,
+      "sha256": "0c3a10d0a01dc1a72368315bd31866a7e5cb40e36a940166fc8b17ce554e4c84"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracle-k3/source-manifest.json",
+      "archive": "oracle-k3/source-manifest.json",
+      "bytes": 411600,
+      "sha256": "39e435e0a8c39c3243b344d09e9b299a41691fc1bb417696a20dd06c8ad1f9ad"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracle-k3/logs/exit.json",
+      "archive": "oracle-k3/logs/exit.json",
+      "bytes": 17,
+      "sha256": "e89df0eae5ec7db81135aed16463968955c578bcc4f2ec43172eff351f080c17"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracle-k3/logs/metrics.json",
+      "archive": "oracle-k3/logs/metrics.json",
+      "bytes": 538,
+      "sha256": "c30093fb275ceecce69f05091d21bfdab058988e477a393bfd74e8534f6f66f1"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracle-k3/logs/proof.log",
+      "archive": "oracle-k3/logs/proof.log",
+      "bytes": 7428,
+      "sha256": "0a38becfb0f686a20d9d9612b26dbf3150be5bafb713b7265807b008adbd734f"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracle-k5/frozen-source-manifest.json",
+      "archive": "oracle-k5/frozen-source-manifest.json",
+      "bytes": 149,
+      "sha256": "0cc889e2037c683d5ace7c059b45daf17c01b6e31921b786a8d712241d31a295"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracle-k5/launch.json",
+      "archive": "oracle-k5/launch.json",
+      "bytes": 1503,
+      "sha256": "8f49ee912be81f14208fc662ebcd81f2448899dd30d6bbecfe981132df0af301"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracle-k5/source-manifest.json",
+      "archive": "oracle-k5/source-manifest.json",
+      "bytes": 411733,
+      "sha256": "1a906efe8a17cd2d3f35435e88dc85fc22394574a7c52a3932c792cefe38a0fa"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracle-k5/logs/exit.json",
+      "archive": "oracle-k5/logs/exit.json",
+      "bytes": 17,
+      "sha256": "e89df0eae5ec7db81135aed16463968955c578bcc4f2ec43172eff351f080c17"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracle-k5/logs/metrics.json",
+      "archive": "oracle-k5/logs/metrics.json",
+      "bytes": 522,
+      "sha256": "f4e2ab76cd96ce33a833b5ecac8368e02531ac3966df24b4537faab54b928231"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra/oracle-k5/logs/proof.log",
+      "archive": "oracle-k5/logs/proof.log",
+      "bytes": 10836,
+      "sha256": "f1db98f8e5437162a98fa48b70e0469763eb04336b2f66558780723a4bb24c67"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra-runtime/SUMMARY.json",
+      "archive": "server-suites/SUMMARY.json",
+      "bytes": 447,
+      "sha256": "7944bab3c81975b9d164f9764fe1b55b729511605387072b9061d366e6631a70"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra-runtime/bind-wire.log",
+      "archive": "server-suites/bind-wire.log",
+      "bytes": 108,
+      "sha256": "0ff106dfe6004f1873c5c4e42e98a2ddf890466c7aec92541be24388993323af"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra-runtime/run-bind.R",
+      "archive": "server-suites/run-bind.R",
+      "bytes": 671,
+      "sha256": "ab9ea827c29812eb1a0cc2b9c1b4232d1d1bc5c167b7d6d9d9b769e0a7ebe45f"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra-runtime/run-tests.R",
+      "archive": "server-suites/run-tests.R",
+      "bytes": 993,
+      "sha256": "ca4964850684195dd328220ba01b4d39eec1be377eabe4332474d480d4f9a22e"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra-runtime/server-tests-initial.log",
+      "archive": "server-suites/server-tests-initial.log",
+      "bytes": 4391,
+      "sha256": "16d5f752510e121cebef5630e253a99febac964f63c5dba2f462b5087dec10eb"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra-runtime/server-tests.log",
+      "archive": "server-suites/server-tests.log",
+      "bytes": 4382,
+      "sha256": "a8b9e85bdac950b5c5ae54e48d27af5b9808275ba31ddd2efcc74d53cb1b9b12"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra-runtime/test-crossgrid-cox.R.csv",
+      "archive": "server-suites/test-crossgrid-cox.R.csv",
+      "bytes": 5804,
+      "sha256": "d2bb1bc60dca16501e451ccf5634f1812d56f91522953f868bd487af876065a6"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra-runtime/test-dp-cox-synopsis-schema.R.csv",
+      "archive": "server-suites/test-dp-cox-synopsis-schema.R.csv",
+      "bytes": 318,
+      "sha256": "d9c397eacea7d878cf1509dac0e4ca0bf75bef1a1156b9e5aa45a40ea77a8507"
+    },
+    {
+      "source": "integrator-evidence/cox-ultra-runtime/test-dp-glm-grid-cross-contract.R.csv",
+      "archive": "server-suites/test-dp-glm-grid-cross-contract.R.csv",
+      "bytes": 4456,
+      "sha256": "3c62e584d49b1a21e72ba003867408f299a0dc7dae7f4bf2576b409afa6ee768"
+    },
+    {
+      "source": "integrator-evidence/RELEASE_MANIFEST.jsonl",
+      "archive": "RELEASE_MANIFEST.jsonl",
+      "bytes": 46348,
+      "sha256": "39337a1ffd1911cc0a5cee4375739ecbf22ea9036af92956c42a820265dca3f2"
+    },
+    {
+      "source": "integrator-evidence/RELEASE_MANIFEST_STATUS.json",
+      "archive": "RELEASE_MANIFEST_STATUS.json",
+      "bytes": 2341,
+      "sha256": "c4e8c5177ee4a5b012944eed61d2cb109bc6b29916873cdb8e845da4d28261a2"
+    }
+  ]
+}

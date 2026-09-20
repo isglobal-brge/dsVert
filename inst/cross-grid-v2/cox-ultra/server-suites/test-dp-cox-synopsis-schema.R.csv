@@ -1,0 +1,2 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-cox-synopsis-schema.R","dp-cox-synopsis-schema","Synopsis preserves signed Cox time/event contracts without Gaussian outcome resolution",12,0,FALSE,FALSE,0,1.18899999999996,0.182000000000009,1.64400000000001,12

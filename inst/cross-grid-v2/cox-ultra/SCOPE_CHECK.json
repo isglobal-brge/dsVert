@@ -1,0 +1,45 @@
+{
+  "base_commits": {
+    "dsVert": "ad276b565d85fce3d01204365cce25b5380c99d3",
+    "dsVertClient": "bf737442adbca7ac733518da32c9cb0cd6338870"
+  },
+  "changed_paths": {
+    "dsVert": [
+      "R/crossgrid_cox.R",
+      "R/dpGLMGridCrossLifecycle.R",
+      "R/dpGLMGridCrossMaterializer.R",
+      "R/dpSynopsisLifecycleDS.R",
+      "inst/cross-grid-v2/integrator-validation/generate-release-manifest.py",
+      "inst/cross-grid-v2/integrator-validation/lmm_native_recovery.R",
+      "inst/cross-grid-v2/integrator-validation/test_release_manifest.py",
+      "inst/cross-grid-v2/integrator-validation/validate_structured_dslite.R",
+      "tests/testthat/test-crossgrid-cox.R",
+      "tests/testthat/test-dp-cox-synopsis-schema.R"
+    ],
+    "dsVertClient": [
+      "NAMESPACE",
+      "R/dp_cox_grid_cross.R",
+      "R/dp_cox_grid_cross_release.R",
+      "R/dp_gaussian_certificate.R",
+      "R/dp_grouped_grid_cross_registry.R",
+      "R/dp_synopsis_vector_runner.R",
+      "R/ds.vertDP.R",
+      "R/exact_gc_transport.R",
+      "man/dp_cox_grid.Rd",
+      "tests/testthat/test-capsule-method-inventory.R",
+      "tests/testthat/test-dp-cox-admission-dispatch.R",
+      "tests/testthat/test-dp-cox-cross-public-evidence.R",
+      "tests/testthat/test-dp-cox-exact-transport.R",
+      "tests/testthat/test-dp-cox-grid-cross-e2e.R",
+      "tests/testthat/test-dp-cox-grid-cross.R",
+      "tests/testthat/test-dp-cox-source-layout.R",
+      "tests/testthat/test-dp-cox-staged-orchestration.R",
+      "tests/testthat/test-dp-grouped-grid-cross-registry.R",
+      "tests/testthat/test-method-status.R"
+    ]
+  },
+  "native_math_kernels_and_binaries_unchanged": true,
+  "gee_files_unchanged": true,
+  "shared_optional_gaussian_implementation_unchanged": true,
+  "heavy_fleet_jobs_launched": 0
+}

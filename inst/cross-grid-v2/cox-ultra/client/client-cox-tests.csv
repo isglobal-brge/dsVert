@@ -1,0 +1,25 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-cox-admission-dispatch.R","dp-cox-admission-dispatch","Cox discovery and generic layout preserve private padded source lanes",48,0,FALSE,FALSE,0,3.203,0.203,3.446,48
+"test-dp-cox-admission-dispatch.R","dp-cox-admission-dispatch","Cox rejects mixed-family runtime and transport manifests",4,0,FALSE,FALSE,0,0.327,0.022,0.351000000000001,4
+"test-dp-cox-admission-dispatch.R","dp-cox-admission-dispatch","Cox reconstruction rejects changed arithmetic, source and request bindings",13,0,FALSE,FALSE,0,0.478000000000002,0.023,0.501999999999999,13
+"test-dp-cox-catalog-draft.R","dp-cox-catalog-draft","Cox signed drafts preserve contracts and reject a different advertising owner",15,0,FALSE,FALSE,0,1.631,0.064,1.701,15
+"test-dp-cox-owner-bind.R","dp-cox-owner-bind","Cox binds the owner first and authenticates the public routing relay",75,0,FALSE,FALSE,0,1.629,0.0490000000000004,1.69500000000001,75
+"test-dp-cox-partial-grid.R","dp-cox-partial-grid","Cox partial-likelihood grid validates only its signed candidates",4,0,FALSE,FALSE,0,0.174999999999997,0.00199999999999978,0.177000000000007,4
+"test-dp-cox-partial-grid.R","dp-cox-partial-grid","Cox partial-likelihood Synopsis uses one certified signed block",3,0,FALSE,FALSE,0,0.0319999999999965,0.00100000000000033,0.0330000000000013,3
+"test-dp-cox-partial-grid.R","dp-cox-partial-grid","Cox partial-grid frontdoor rejects legacy controls",6,0,FALSE,FALSE,0,0.0409999999999968,0.000999999999999446,0.0419999999999874,6
+"test-dp-cox-source-layout.R","dp-cox-source-layout","Cox client source lanes match the authenticated server layout",87,0,FALSE,FALSE,0,1.221,0.0970000000000004,1.32000000000001,87
+"test-dp-cox-staged-orchestration.R","dp-cox-staged-orchestration","Cox transport commitment agrees with the server at every topology",6,0,FALSE,FALSE,0,0.535000000000011,0.0379999999999994,0.575999999999993,6
+"test-dp-cox-staged-orchestration.R","dp-cox-staged-orchestration","Cox signed orchestration preserves bilateral persistence and terminal binding",243,0,FALSE,FALSE,0,12.038,0.479,12.576,243
+"test-dp-cox-grid-cross.R","dp-cox-grid-cross","Cox client accepts only a literal additive Surv formula",8,0,FALSE,FALSE,0,0.135,0.012,0.358000000000001,8
+"test-dp-cox-grid-cross.R","dp-cox-grid-cross","Cox cross-owner contracts require both real custodian signatures",12,0,FALSE,FALSE,0,3.073,0.379,11.645,12
+"test-dp-cox-grid-cross.R","dp-cox-grid-cross","Cox client canonical argmin rescales slopes and omits inference",13,0,FALSE,FALSE,0,0.674,0.0760000000000001,1.406,13
+"test-dp-cox-grid-cross.R","dp-cox-grid-cross","production Cox client requires authenticated sources and exposes no test evaluator",5,0,FALSE,FALSE,0,0.0389999999999997,0.00499999999999989,0.187000000000005,5
+"test-dp-cox-grid-cross.R","dp-cox-grid-cross","Cox result validates all source owners separately from computation peers",20,0,FALSE,FALSE,0,2.948,0.39,5.913,20
+"test-dp-cox-grid-cross.R","dp-cox-grid-cross","Cox server and client canonical contracts agree",1,0,FALSE,FALSE,0,1.691,0.127,2.64899999999999,1
+"test-dp-cox-grid-cross.R","dp-cox-grid-cross","Cox integrated row scope and measured admission require valid signatures",11,0,FALSE,FALSE,0,3.322,0.215,5.277,11
+"test-dp-cox-grid-cross.R","dp-cox-grid-cross","Cox signed layout pins the terminal share conversion for fusion",4,0,FALSE,FALSE,0,0.285,0.042,0.522999999999996,4
+"test-dp-cox-grid-cross.R","dp-cox-grid-cross","Cox K-owner source contracts retain exactly two computation authorities",62,0,FALSE,FALSE,0,5.079,0.804,7.093,62
+"test-dp-cox-grid-cross.R","dp-cox-grid-cross","Cox catalog fragments bind time and event to the advertising owner",54,0,FALSE,FALSE,0,4.285,0.308,6.15600000000001,54
+"test-dp-cox-grid-cross-e2e.R","dp-cox-grid-cross-e2e","two DSLite custodians exercise tagged Cox oracle and DP grid selection",26,0,FALSE,FALSE,0,3.566,0.274,5.80499999999999,26
+"test-dp-cox-cross-public-evidence.R","dp-cox-cross-public-evidence","Cox public evidence authenticates cold two-authority source and release bindings",281,0,FALSE,FALSE,0,60.816,4.868,90.518,281
+"test-dp-cox-cross-public-evidence.R","dp-cox-cross-public-evidence","Cox public evidence retains the private-v2 400-row scope",1,0,FALSE,FALSE,0,0.227000000000004,0.0300000000000011,0.272999999999996,1

@@ -1,0 +1,49 @@
+Tracing function "stop" in package "base"
+Tracing function ".dsvert_dp_glm_grid_cross_transcript_stop" in
+package "namespace:dsVertClient"
+Tracing function ".dsvert_dp_cox_cross_public_evidence_set" in
+package "namespace:dsVertClient"
+Tracing function ".dsvert_dp_gaussian_synopsis_certificate_validate"
+in package "namespace:dsVertClient"
+DSLITE_BOOT_INITIAL_START
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":21100} 
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":21358} 
+DSLITE_BOOT_INITIAL_COMPLETE
+DSLITE_RPC_COMPLETE dsvertIdentityPkDS 
+DSLITE_COX_TIME_EVENT_OWNER_PINNED_GARBLER
+DSLITE_BOOT_PINNED_START
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":21879} 
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":22139} 
+DSLITE_BOOT_PINNED_COMPLETE
+DSLITE_ALIGNMENT_START
+DSLITE_RPC_COMPLETE dsvertTransportProbeDS 
+DSLITE_RPC_COMPLETE psiPaddedInitDS 
+DSLITE_RPC_COMPLETE psiPaddedBindDS 
+DSLITE_RPC_COMPLETE psiPaddedConfirmDS 
+DSLITE_RPC_COMPLETE psiPaddedPrepareDS 
+DSLITE_RPC_COMPLETE psiPaddedReferenceExportDS 
+DSLITE_RPC_COMPLETE psiPaddedTargetProcessDS 
+DSLITE_RPC_COMPLETE psiPaddedReferenceDoubleDS 
+DSLITE_RPC_COMPLETE psiPaddedTargetMatchDS 
+DSLITE_RPC_COMPLETE psiPaddedMembershipAcceptDS 
+DSLITE_RPC_COMPLETE psiPaddedANDStartDS 
+DSLITE_RPC_COMPLETE exactGCExchangeDS 
+DSLITE_RPC_COMPLETE psiPaddedANDFinalizeDS 
+DSLITE_RPC_COMPLETE psiPaddedANDAcceptDS 
+DSLITE_RPC_COMPLETE psiPaddedFinalPrepareDS 
+DSLITE_RPC_COMPLETE psiPaddedAttestationDS 
+DSLITE_ALIGNMENT_COMPLETE
+DSLITE_RPC_COMPLETE dsvertDPSynopsisBootstrapDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisBindDS 
+DSLITE_INITIAL_BOOTSTRAP_COMPLETE
+DSLITE_STRUCTURED_SPEC_COMPLETE
+DSLITE_CUSTODIAN_SIGNATURES_COMPLETE
+DSLITE_PUBLIC_ADMISSION_COMPLETE
+DSLITE_PUBLIC_MECHANISM_SELECTION site_a {"mechanism":"discrete-laplace","sensitivity_norm":"l1","sensitivity":332213946,"uses_delta":true,"certificate":{"version":"biomedical-capsule-noise-selection-v4","selector":"formal_fixed_work_backend_minimum_simultaneous_95_radius_v2","objective":"simultaneous_95_abs","tie_break":"laplace_unless_fixed_work_gaussian_strictly_improves","coordinate_count":3,"epsilon":8,"allocated_delta":7.88860905221012e-31,"gaussian_eligible":true,"positive_delta_reserved":true,"deployed_backends":"joint-discrete-laplace-v3","gaussian_backend_available":false,"gaussian_unavailable_reason":"formal_fixed_work_gaussian_plan_unavailable","gaussian_calibration_request":{"epsilon":"7.9999999999997726e+00","delta":"7.8886090522098938e-31","l2_sensitivity_steps":"2.3486511655005422e+08","total_coordinate_count":3},"gaussian_calibration_rounding":{"declared_policy_values":"binary64_policy_values","epsilon":"inward_128_machine_epsilon_relative_guard_v1","delta":"inward_128_machine_epsilon_relative_guard_v1","l2_sensitivity":"outward_128_machine_epsilon_relative_guard_v1"},"gaussian_plan":{},"gaussian_plan_sha256":{},"laplace_simultaneous_95_abs":170024795,"gaussian_simultaneous_95_abs":{},"deployment_rule":"formal_backend_or_explicit_laplace_fallback","winner":"laplace","utility_winner":"laplace","decision":"fixed_work_gaussian_unavailable_explicit_laplace_fallback","canonical_selector_invoked":true,"selector_certificate_sha256":"b51ff4fa407a4f607197ac26cf1b38df803be13cc7ea81dbb5d79a8b0e01cbd1"}} 
+DSLITE_PUBLIC_MECHANISM_SELECTION site_b {"mechanism":"discrete-laplace","sensitivity_norm":"l1","sensitivity":332213946,"uses_delta":true,"certificate":{"version":"biomedical-capsule-noise-selection-v4","selector":"formal_fixed_work_backend_minimum_simultaneous_95_radius_v2","objective":"simultaneous_95_abs","tie_break":"laplace_unless_fixed_work_gaussian_strictly_improves","coordinate_count":3,"epsilon":8,"allocated_delta":7.88860905221012e-31,"gaussian_eligible":true,"positive_delta_reserved":true,"deployed_backends":"joint-discrete-laplace-v3","gaussian_backend_available":false,"gaussian_unavailable_reason":"formal_fixed_work_gaussian_plan_unavailable","gaussian_calibration_request":{"epsilon":"7.9999999999997726e+00","delta":"7.8886090522098938e-31","l2_sensitivity_steps":"2.3486511655005422e+08","total_coordinate_count":3},"gaussian_calibration_rounding":{"declared_policy_values":"binary64_policy_values","epsilon":"inward_128_machine_epsilon_relative_guard_v1","delta":"inward_128_machine_epsilon_relative_guard_v1","l2_sensitivity":"outward_128_machine_epsilon_relative_guard_v1"},"gaussian_plan":{},"gaussian_plan_sha256":{},"laplace_simultaneous_95_abs":170024795,"gaussian_simultaneous_95_abs":{},"deployment_rule":"formal_backend_or_explicit_laplace_fallback","winner":"laplace","utility_winner":"laplace","decision":"fixed_work_gaussian_unavailable_explicit_laplace_fallback","canonical_selector_invoked":true,"selector_certificate_sha256":"b51ff4fa407a4f607197ac26cf1b38df803be13cc7ea81dbb5d79a8b0e01cbd1"}} 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisClaimDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisCompileDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisPrepareDS 
+DSLITE_RPC_COMPLETE exactGCTransportInitDS 
+DSLITE_RPC_COMPLETE exactGCBindPeersDS 
+STRUCTURED_SELECTION_ORACLE_ONLY {"source_commits":{"dsVert":"ad276b565d85fce3d01204365cce25b5380c99d3","dsVertClient":"f011cc40158a9fa43f2a837ab8b2581b569e4851"},"family":"cox","n":400,"p":5,"grid":2,"candidates":2,"clusters":100,"slots":4,"owners":2,"epsilon":8,"instance":1,"oracle_only":true,"real_authenticated_release":false,"expected_oracle_sha256":"ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d","oracle_hash_scope":"UTF-8 count then exact integer coordinates, LF terminated","selected_candidate":2,"exact_best":1,"loss_gap":0.008880615234375} 

@@ -38,13 +38,7 @@
   # arithmetic is exact; never decode f100 words into binary64 or shift shares.
   predictors <- raw(16 * count)
   for (contribution in owner_predictors) {
-    carry <- integer(count)
-    for (byte in seq_len(16L)) {
-      index <- seq.int(byte, length(predictors), by = 16L)
-      total <- as.integer(predictors[index]) + as.integer(contribution[index]) + carry
-      predictors[index] <- as.raw(total %% 256L)
-      carry <- total %/% 256L
-    }
+    predictors <- .dsvert_dp_capsule_source_add_ring128(predictors, contribution)
   }
   encode <- function(value) gsub("[\r\n]", "", jsonlite::base64_enc(value))
   list(plan = plan,
@@ -70,4 +64,108 @@
   ends <- c(sorted[-length(sorted)] != sorted[-1L] |
     sorted_valid[-length(sorted_valid)] != sorted_valid[-1L], TRUE)
   list(permutation = as.list(as.integer(permutation - 1L)), ends = as.list(ends))
+}
+
+# Multiply Ring128 shares by a public signed f50 coefficient. Base-256 schoolbook
+# arithmetic keeps every intermediate below 2^24, including on random shares.
+.dsvert_dp_cox_cross_multiply_public <- function(shares, coefficient) {
+  if (!is.raw(shares) || !length(shares) || length(shares) %% 16L != 0L ||
+      !is.numeric(coefficient) || length(coefficient) != 1L || is.na(coefficient) ||
+      !is.finite(coefficient) || coefficient != round(coefficient) ||
+      abs(coefficient) > 2^52) .dsvert_dp_cox_grid_cross_fail()
+  count <- length(shares) / 16L
+  input <- matrix(as.integer(shares), nrow = 16L)
+  result <- matrix(0, nrow = 16L, ncol = count)
+  magnitude <- abs(coefficient)
+  for (offset in 0:6) {
+    digit <- magnitude %% 256
+    magnitude <- floor(magnitude / 256)
+    carry <- numeric(count)
+    for (limb in seq_len(16L - offset)) {
+      index <- limb + offset
+      total <- result[index, ] + input[limb, ] * digit + carry
+      result[index, ] <- total %% 256
+      carry <- floor(total / 256)
+    }
+  }
+  result <- as.raw(result)
+  if (coefficient < 0) {
+    result <- as.raw(bitwXor(as.integer(result), 255L))
+    one <- raw(length(result)); one[seq.int(1L, length(one), by = 16L)] <- as.raw(1L)
+    result <- .dsvert_dp_capsule_source_add_ring128(result, one)
+  }
+  result
+}
+
+# The source loader supplies one authority's authenticated f50 shares, grouped
+# by signed owner. No private value is reconstructed while forming complete dots.
+.dsvert_dp_cox_cross_owner_predictors <- function(contract, policy, schema_manifest,
+                                                owner, values) {
+  contract <- .dsvert_dp_cox_grid_cross_contract_validate(contract, policy, schema_manifest)
+  spec <- contract$spec
+  if (!is.character(owner) || length(owner) != 1L || is.na(owner) ||
+      !owner %in% unlist(spec$participating_peers, use.names = FALSE)) {
+    .dsvert_dp_cox_grid_cross_fail()
+  }
+  predictors <- unlist(spec$predictor_order, use.names = FALSE)
+  owned <- predictors[vapply(spec$predictors[predictors], function(descriptor)
+    identical(descriptor$owner_peer, owner), logical(1L))]
+  rows <- spec$padded_capacity
+  if (!is.list(values) || !identical(names(values), if (length(owned)) owned else NULL) ||
+      !all(vapply(values, function(value) is.raw(value) && length(value) == 16 * rows,
+        logical(1L)))) .dsvert_dp_cox_grid_cross_fail()
+  candidates <- length(spec$beta_encoded)
+  dots <- lapply(seq_len(candidates), function(candidate) {
+    result <- raw(16 * rows)
+    for (variable in owned) {
+      text <- spec$beta_encoded[[candidate]][[match(variable, predictors)]]
+      coefficient <- as.numeric(text)
+      if (!identical(sprintf("%.0f", coefficient), text)) .dsvert_dp_cox_grid_cross_fail()
+      result <- .dsvert_dp_capsule_source_add_ring128(result,
+        .dsvert_dp_cox_cross_multiply_public(values[[variable]], coefficient))
+    }
+    result
+  })
+  # The native packed runner consumes row-major candidate lanes.
+  index <- unlist(lapply(seq_len(rows), function(row) {
+    unlist(lapply(seq_len(candidates), function(candidate) {
+      (candidate - 1L) * 16 * rows + (row - 1L) * 16 + seq_len(16L)
+    }), use.names = FALSE)
+  }), use.names = FALSE)
+  do.call(c, dots)[index]
+}
+
+# Fixed-shape source suffix. Observed times stay at their owner; only their
+# validity lanes join the private complete-case conjunction. Event values are
+# q0 and normalized predictors q50, including when source and compute owners differ.
+.dsvert_dp_cox_cross_source_blocks <- function(artifact, cursor) {
+  spec <- .dsvert_dp_glm_grid_cross_embedded_contract(artifact)$spec
+  if (!identical(spec$family, "cox")) .dsvert_dp_cox_grid_cross_fail()
+  blocks <- list()
+  descriptors <- c(spec$predictors, setNames(list(spec$event, spec$time),
+    c(spec$event$reference, spec$time$reference)))
+  for (reference in names(descriptors)) {
+    descriptor <- descriptors[[reference]]
+    time <- identical(reference, spec$time$reference)
+    event <- identical(reference, spec$event$reference)
+    for (kind in if (time) "validity" else c("value", "validity")) {
+      size <- spec$padded_capacity
+      end <- cursor + size - 1
+      if (!is.numeric(cursor) || length(cursor) != 1L || !is.finite(cursor) ||
+          cursor < 1 || cursor != round(cursor) ||
+          end > .DSVERT_DP_GAUSSIAN_CROSS_MAX_TRANSPORT_COORDINATES) {
+        .dsvert_dp_cox_grid_cross_fail()
+      }
+      key <- paste(artifact$analysis_id, reference, kind, sep = "::")
+      blocks[[key]] <- list(input_family = "cox_grid", analysis_id = artifact$analysis_id,
+        reference = reference, variable = descriptor$column, dataset = descriptor$dataset,
+        owner_peer = descriptor$owner_peer, kind = kind, outcome = event,
+        private_time_validity = time, lower = descriptor$lower, upper = descriptor$upper,
+        start = as.integer(cursor), end = as.integer(end), length = as.integer(size),
+        fraction_bits = if (kind == "validity" || event) 0L else 50L,
+        maximum = if (kind == "validity" || event) 1 else 2^50)
+      cursor <- end + 1
+    }
+  }
+  list(blocks = blocks, cursor = cursor)
 }

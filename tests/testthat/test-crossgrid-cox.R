@@ -259,3 +259,72 @@ test_that("Cox private routing retains ties censor slots and invalid padding", {
   expect_error(.dsvert_dp_cox_cross_private_routing(c(1, 2), c(TRUE, TRUE), 3),
     class = "dsvert_dp_public_failure")
 })
+
+test_that("Cox public f50 multiplication preserves additive sharing and f100 precision", {
+  word <- function(bytes) { value <- raw(16); value[seq_along(bytes)] <- as.raw(bytes); value }
+  # -1 times a full-width random-looking share uses modular signed arithmetic.
+  value <- as.raw(0:15)
+  negated <- .dsvert_dp_cox_cross_multiply_public(value, -1)
+  expect_identical(.dsvert_dp_capsule_source_add_ring128(value, negated), raw(16))
+  expect_identical(.dsvert_dp_cox_cross_multiply_public(word(255), 257), word(c(255, 255)))
+  expect_identical(.dsvert_dp_cox_cross_multiply_public(word(c(0, 1)), 2^50),
+    c(raw(7), as.raw(4), raw(8)))
+  left <- as.raw(255:240); right <- as.raw(239:224)
+  for (coefficient in c(-2^52, -2^50, 0, 1, 2^50, 2^52)) {
+    expect_identical(.dsvert_dp_cox_cross_multiply_public(
+      .dsvert_dp_capsule_source_add_ring128(left, right), coefficient),
+      .dsvert_dp_capsule_source_add_ring128(
+        .dsvert_dp_cox_cross_multiply_public(left, coefficient),
+        .dsvert_dp_cox_cross_multiply_public(right, coefficient)))
+  }
+  expect_error(.dsvert_dp_cox_cross_multiply_public(value, 0.5), class = "dsvert_dp_public_failure")
+})
+
+test_that("Cox owner materialization retains K2 K3 K5 candidate and owner order", {
+  for (owners in c(2L, 3L, 5L)) {
+    f <- .cox_cross_server_fixture(capacity = 4, owners = owners)
+    spec <- f$contract$spec
+    predictors <- unlist(spec$predictor_order, use.names = FALSE)
+    shares <- setNames(lapply(seq_along(predictors), function(index) {
+      value <- raw(64); value[c(1, 17, 33, 49)] <- as.raw(index); value
+    }), predictors)
+    peers <- unlist(spec$participating_peers, use.names = FALSE)
+    contributions <- setNames(lapply(peers, function(peer) {
+      owned <- predictors[vapply(spec$predictors[predictors], function(x)
+        identical(x$owner_peer, peer), logical(1))]
+      .dsvert_dp_cox_cross_owner_predictors(f$contract, f$policy, f$schema_manifest,
+        peer, shares[owned])
+    }), peers)
+    result <- .dsvert_dp_cox_cross_source_handoff(f$contract, f$policy,
+      f$schema_manifest, strrep("2", 64), contributions,
+      raw(4 * length(spec$beta_grid)), raw(128), raw(8))
+    candidate_words <- lapply(spec$beta_encoded, function(beta) {
+      out <- raw(16)
+      for (column in seq_along(beta)) out <- .dsvert_dp_capsule_source_add_ring128(out,
+        .dsvert_dp_cox_cross_multiply_public(shares[[column]][1:16], as.numeric(beta[[column]])))
+      out
+    })
+    expect_identical(jsonlite::base64_dec(result$predictors$Share), rep(do.call(c, candidate_words), 4))
+    expect_error(.dsvert_dp_cox_cross_owner_predictors(f$contract, f$policy,
+      f$schema_manifest, peers[[1]], shares), class = "dsvert_dp_public_failure")
+  }
+})
+
+test_that("Cox source block layout covers every owner without transporting observed times", {
+  for (owners in c(2L, 3L, 5L)) {
+    f <- .cox_cross_server_fixture(capacity = 5, owners = owners)
+    artifact <- c(f$contract$artifact, list(signed_contract =
+      .dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(f$contract))))
+    projection <- .dsvert_dp_cox_cross_source_blocks(artifact, 7)
+    blocks <- projection$blocks
+    expect_equal(length(blocks), 2 * length(f$contract$spec$predictors) + 3)
+    expect_equal(projection$cursor, 7 + 8 * length(blocks))
+    expect_setequal(vapply(blocks, `[[`, character(1), "owner_peer"),
+      unlist(f$contract$spec$participating_peers, use.names = FALSE))
+    time <- blocks[vapply(blocks, `[[`, logical(1), "private_time_validity")]
+    expect_length(time, 1)
+    expect_identical(time[[1]]$kind, "validity")
+    expect_identical(time[[1]]$fraction_bits, 0L)
+    expect_true(all(vapply(blocks, function(block) block$length == 8L, logical(1))))
+  }
+})

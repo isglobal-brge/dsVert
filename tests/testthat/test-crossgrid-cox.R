@@ -1226,6 +1226,41 @@ test_that("Cox publication evidence binds signed authorities to durable public p
     stage_receipt = strrep("b", 64), stage_plan_digest = strrep("c", 64))
   save <- function(value = row) .dsvert_dp_glm_grid_cross_save(con, secret, value, -1L)
   save()
+  compact <- function(manifest = t$manifest) .dsvert_dp_lmm_cross_compaction_evidence(
+    con, secret, manifest, t$transport)
+  expect_null(compact())
+  # Retention authenticates both the public payload and its database address.
+  for (field in c("share", "validity_share", "cox_loss")) {
+    DBI::dbExecute(con, "DELETE FROM source_cross_grid_records")
+    private <- row; private[[field]] <- "private"
+    save(private)
+    expect_error(compact())
+  }
+  DBI::dbExecute(con, "DELETE FROM source_cross_grid_records")
+  save()
+  DBI::dbExecute(con, "UPDATE source_cross_grid_records SET batch_index = -2")
+  expect_error(compact())
+  DBI::dbExecute(con, "UPDATE source_cross_grid_records SET batch_index = -1, analysis_id = 'swapped'")
+  expect_error(compact())
+  DBI::dbExecute(con, "UPDATE source_cross_grid_records SET analysis_id = 'cox_grid'")
+  for (field in c("family", "version", "spec_version")) {
+    wrong <- t$manifest
+    wrong$workload$families$gaussian_models$artifacts$cox_grid[[field]] <- "unsupported"
+    expect_error(compact(wrong))
+  }
+  duplicate <- t$manifest
+  duplicate$workload$families$gaussian_models$artifacts$duplicate <- t$artifact
+  expect_error(compact(duplicate))
+  DBI::dbExecute(con, paste("INSERT INTO source_cross_grid_records",
+    "SELECT capsule_id, analysis_id, -2, record_json, row_mac FROM source_cross_grid_records"))
+  expect_error(compact())
+  DBI::dbExecute(con, "DELETE FROM source_cross_grid_records WHERE batch_index = -2")
+  oversized <- row; oversized$purpose <- paste(rep("a", 4097), collapse = "")
+  DBI::dbExecute(con, "DELETE FROM source_cross_grid_records")
+  save(oversized)
+  expect_error(compact())
+  DBI::dbExecute(con, "DELETE FROM source_cross_grid_records")
+  save()
   artifact_key <- strrep("d", 64); manifest_hash <- strrep("e", 64)
   publication <- list(artifact_key = artifact_key, release_receipt = list(
     artifact_key = artifact_key, source_contract_sha256 = context$source_hash,
@@ -1266,6 +1301,7 @@ test_that("Cox publication evidence binds signed authorities to durable public p
   policy$peer_name <- "site_a"
   # Cold reads require no live session and no private candidate rows.
   DBI::dbDisconnect(con); con <- DBI::dbConnect(RSQLite::SQLite(), database)
+  expect_null(compact())
   expect_identical(evidence(), first)
   original <- publication
   publication$artifact_key <- strrep("f", 64)
@@ -1277,6 +1313,7 @@ test_that("Cox publication evidence binds signed authorities to durable public p
     publication <- original
   }
   DBI::dbExecute(con, "UPDATE source_cross_grid_records SET row_mac = 'tampered'")
+  expect_error(compact())
   expect_error(evidence())
   DBI::dbExecute(con, "DELETE FROM source_cross_grid_records")
   expect_error(evidence(), class = "dsvert_dp_public_failure")

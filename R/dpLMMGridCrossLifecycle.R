@@ -288,15 +288,21 @@
 }
 
 .dsvert_dp_lmm_cross_compaction_evidence <- function(con, secret, manifest, contract) {
-  rows <- DBI::dbGetQuery(con, paste("SELECT record_json, row_mac FROM source_cross_grid_records",
+  rows <- DBI::dbGetQuery(con, paste("SELECT analysis_id, batch_index, record_json, row_mac FROM source_cross_grid_records",
     "WHERE capsule_id = ? AND batch_index < 0"), params = list(contract$capsule_id))
   if (!nrow(rows)) return(invisible(NULL))
-  artifacts <- .dsvert_dp_lmm_cross_artifacts(manifest)
+  artifacts <- Filter(function(artifact) .dsvert_dp_staged_grouped_artifact(artifact) ||
+    (identical(artifact$family, "cox") &&
+      identical(artifact$version, .DSVERT_DP_COX_GRID_CROSS_ARTIFACT_VERSION) &&
+      identical(artifact$spec_version, .DSVERT_DP_COX_GRID_CROSS_SPEC_VERSION)),
+    manifest$workload$families$gaussian_models$artifacts)
   # One small public identity fits the existing 16 KiB retained-receipt budget.
   # Validate before retaining: an arbitrary negative-index private row cannot
   # bypass compaction merely by using the public record's index.
   if (nrow(rows) != 1L || length(artifacts) != 1L ||
       nchar(rows$record_json[[1L]], type = "bytes") > 4096L) .dsvert_dp_grouped_cross_fail()
+  if (rows$batch_index[[1L]] != -1L ||
+      !identical(rows$analysis_id[[1L]], artifacts[[1L]]$analysis_id)) .dsvert_dp_grouped_cross_fail()
   record <- .dsvert_dp_capsule_source_record_decode(rows, secret,
     "source_cross_grid_records", "staged LMM public terminal identity")
   .dsvert_dp_lmm_cross_public_record_validate(record, manifest, artifacts[[1L]], contract)

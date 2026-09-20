@@ -18,9 +18,11 @@ serialization retain their prior bytes.
 Local focused native/source/router/wire tests and mirrored R contract/reader
 tests pass. The release integer oracle agrees with the retained full-likelihood
 oracle translated before quantization/clipping at g8/g16/g18. Three existing
-server reference-dependent tests require the tagged oracle on pod4. Rebuilt
-runtime, signed n4 smoke, n2000 capacity/recovery and full paired proofs remain
-pending at this source checkpoint. No Poisson promotion is claimed.
+server reference-dependent tests require the tagged oracle on pod4. The isolated Poisson source snapshot
+d9348bf/d27c566 now has four rebuilt/checksummed runtimes and a passing pod4
+focused native suite (768.165s; one opt-in n2000 router-capacity test skipped).
+Its independent integer oracle passes; tagged R focused proof, signed n4 smoke,
+n2000 capacity/recovery and full paired proofs are tracked by a detached gate. No Poisson promotion is claimed.
 
 Cycle14 prioritizes code wiring over waiting for original release drivers.
 The original LMM/binomial frozen snapshots remain unchanged and unpromoted;

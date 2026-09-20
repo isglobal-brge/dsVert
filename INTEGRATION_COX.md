@@ -1,3 +1,40 @@
+# Cycle 14 authenticated durable native composition — 2026-09-20
+
+The native Cox path now consumes authenticated complete f100 predictors and
+q0 live/event source records in original PSI order. An owner-keyed MAC binds
+the private permutation/tie sidecar to the full public plan. The durable
+arithmetic phase invokes the retained admitted packed runner once across all
+candidates, then invokes the actual private Ring64→128 bridge before storing
+any result. Ring64 prefix/tie intermediates remain attempt-local; an aborted
+phase restarts with fresh streams. No local upward share extension is used.
+
+The source adapter binds role, version, session, authorities, schema, semantic
+key, source/profile/routing identities, every local share and validity byte.
+The native `cox-loss-staged-v1` worker accepts an opaque exact integer payload,
+binds the authenticated source beside the durable store, and emits only the
+typed Ring128 candidate vector and private validity. Other typed workers reject
+mixed Cox input. The native n4/J2 graph/source proof covers the independent
+Breslow oracle, event/censor ties, padding, bilateral fresh-attempt recovery,
+unilateral COMMIT reconciliation, producer-forbidden cold replay and source/
+sidecar tamper/replacement rejection. The n4/J2 worker also passes its oracle and fresh-transport cold replay with
+identical persisted shares, validities and receipts. Worker-specific logs are retained under
+the workspace's integrator-evidence/cycle14-20260920/native-worker directory.
+
+Mirrored signed R contracts now admit K2/K3/K5 source ownership while retaining
+exactly two computation authorities. K2 spec/artifact/source bytes are unchanged;
+K>2 binds an explicit all-source-owner f100 layout. Every source pin must own a
+signed input. These are source-contract prerequisites, not release promotion.
+
+Still required before signed n4 smoke: actual R owner materialization of
+complete predictors and the time/event private ordering sidecar, native worker
+handoff, signed terminal/DP lifecycle and public reader/export integration.
+The native sealed-source adapter authenticates already-materialized inputs;
+it does not itself establish those R boundaries. No signed Cox smoke or n2000
+driver has been launched. Capacity and all full paired/n2000 gates remain
+unproved. No new arithmetic/protocol blocker or impossibility is asserted.
+
+---
+
 # Cox integration boundary
 
 ## Gate revision 2 — 2026-09-19

@@ -1,3 +1,43 @@
+# Cycle 14 durable fixed-rho predecessor — 2026-09-20
+
+Both GEE families now have native authenticated source, once-only grouping,
+corrected Ring128→192 conversion and complete f100 predictor composition.
+The actual v3 whitening producer feeds durable q64 factor and moment records,
+then encrypted clipped-score products and the complete likelihood/bread/meat
+terminal. Mixed logical scales are embedded exactly in a common lattice and
+extracted on private wires; additive shares are never locally right-shifted.
+Candidate-major cluster sums reduce downward to Ring128 while retaining every
+source/branch validity bit for the sticky terminal interface.
+
+The native operation `grouped-gee-fixed-rho-staged-v1` accepts an opaque exact
+integer payload and binds role, source bytes, specification, durable store and
+output shape. Other worker operations reject this input. Native n4 two-peer
+source/worker tests pass for binomial and Poisson: independent full-vector
+oracle equality, source/count/high-alias rejection, bilateral conversion and
+unilateral route recovery, authenticated source replacement rejection, and
+fresh-transport cold replay. Numeric-stage tests also cover all three terminal
+branches, lattice checks and signed cap/clip/rho/order bindings. These are
+native component/worker proofs, not signed public releases or capacity results.
+The n4/p3/J2 full source graph also passes both families: all 42 Ring128
+coordinates match the independent oracle, with distinct columns/betas and
+producer-forbidden cold replay (14.349s).
+
+The implemented contract is explicitly `signed-fixed-rho-v3-predecessor`.
+H.4's candidate-independent moment estimator is still unspecified, including
+its residual reference, degenerate cases, projection/privacy and whole-release
+sensitivity. The existing alpha=(1-rho)^(-1/2) coefficient is not that estimator.
+No estimator is invented and no arithmetic impossibility is asserted. Both
+public GEE readers remain closed pending the requested correlation contract,
+mirrored staged composition/certificate and R source/worker/terminal admission.
+No signed GEE n4 smoke or n2000 release driver has been launched.
+
+Raw local proofs and exact pending R surfaces are in the workspace's
+integrator-evidence/cycle14-20260920/native, native-worker and GEE_R_WIRING_NOTE.md.
+The original LMM/binomial release snapshots remain untouched. No GEE promotion
+or measured n2000 capacity is claimed.
+
+---
+
 # GEE composition integration — certified arithmetic predecessor
 
 The v3 private whitening-factor producer is implemented and registered through

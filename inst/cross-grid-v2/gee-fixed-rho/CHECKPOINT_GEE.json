@@ -1,6 +1,6 @@
 {
   "status": "INCOMPLETE_NOT_PROMOTED",
-  "recorded_utc": "2026-09-20T10:17:00.152454+00:00",
+  "recorded_utc": "2026-09-20T10:36:20Z",
   "implementation_commits": {
     "dsVert": "902ccf46d0f9b844155ff4316ac91cac2a2ba75b",
     "dsVertClient": "6d94d4c9e15b9261a31b4499837d200ea1caea17"
@@ -36,7 +36,7 @@
     "K5": "one baseline release"
   },
   "remote_state": "SSH restored at 08:28 UTC after banner timeouts / connection resets beginning about 08:23 UTC; no pod restart or other-owner job intervention attempted",
-  "last_confirmed_smoke_state": "r6 binomial n4 failed with workerSIGKILL and correlated OOM event; r7 fresh independence binomial n4 running after all prerequisite source/transport tests passed. No n2000 release launched.",
+  "last_confirmed_smoke_state": "At10:36:20UTC r7 binomial n4 had completed protected GEE production and first DP sampler was alive/streaming with no new OOM kill; no publication yet. Poisson n4/fresh paired/n2000 remain gated. r6 failed evidence preserved.",
   "last_confirmed_paired_state": "r4 server PASS 22532 assertions, zero failures/errors/skips/warnings; r4 client still running. Fresh paired suites required for changed shared transport code.",
   "own_controllers": {
     "binomial_n4": 2390941,
@@ -260,7 +260,7 @@
     "controller_state_path": "/workspace/dsvert/gee-fixed-rho-r7/logs/continuation-state.json",
     "runtime_sha256": "a59e004567027fc0c09c620cf9ab8dcae0000efb4477f14672997fd800b150c6",
     "oracle_sha256": "3b6fa438856c989f97270c351e1dc0b9eec7fdfaf001ec8d892c090cf2f7d3f1",
-    "current_step": "Fresh focused953 R and1740 transport assertions PASS; binomial n4 real preflight running",
+    "current_step": "Binomial n4 producer completed25stages; first16-coordinate DP sampler alive and streaming, no publication yet. Poisson, paired and all n2000 jobs gated.",
     "n2000_jobs_launched": 0,
     "promoted": false,
     "execution_chunk_coordinates": 16,
@@ -305,6 +305,38 @@
     },
     "binomial_n4_driver_pid": 2995126,
     "binomial_n4_r_pid": 2995287,
-    "binomial_n4_started_utc": "2026-09-20T10:17:20.394914+00:00"
+    "binomial_n4_started_utc": "2026-09-20T10:17:20.394914+00:00",
+    "live_sampler_checkpoint": {
+      "recorded_utc": "2026-09-20T10:36:20Z",
+      "worker_pids": [
+        3056954,
+        3057008
+      ],
+      "operation_id": "op_7d677b3d792420120e2061abc802275c",
+      "native_producer_stages_per_peer": 25,
+      "sender_outbound_head": 163654001,
+      "sender_outbound_ack_before": 70287432,
+      "sender_outbound_ack_after": 115015752,
+      "observation_elapsed_seconds": 105,
+      "oom_kill_before": 8,
+      "oom_kill_latest": 8,
+      "sampled_peak_container_bytes": 19643416576,
+      "container_limit_bytes": 49999998976,
+      "worker_hwm_kib_observed": [
+        5589256,
+        4980672
+      ],
+      "scope": "Partial first sampler observation only; no completed release or capacity evidence",
+      "retained_directory": "inst/cross-grid-v2/gee-fixed-rho/evidence/r7-progress",
+      "file_count": 6,
+      "sha256sums_sha256": "81574a70ee304c832ccae214f3739a2d6e4d3fe9f4ebbd71c411476f7a25b0b9"
+    }
+  },
+  "performance_profile": {
+    "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/local/public-authenticated-exchange-profile-20260920.json",
+    "sha256": "ca863b8626414d9b94b2d0a1f754732098af7286bb9fe12fcaee7ed1665a0294",
+    "scope": "Public synthetic local macOS authenticated frame microbenchmark; excludes DSI and live workers; not pod capacity evidence",
+    "warmed_elapsed_seconds": 0.17775,
+    "runtime_changes_from_profile": false
   }
 }

@@ -387,3 +387,22 @@ evidence. The current six planned rows and both family summaries bind the
 verified independence commitments and frozen r7 source, with
 `fleet_ready:false` and `promoted:false` until their respective gates pass.
 Neither family has a completed r6 DP release or any n2000 release evidence.
+
+## r7 live sampler checkpoint — 10:36:20 UTC
+
+The binomial n4 producer completed all 25 stages per authority. Its first
+16-coordinate DP sampler workers, PIDs `3056954` and `3057008`, remain alive
+with fresh heartbeats and no error/abort markers. Sender acknowledgement
+advanced from 70,287,432 to 115,015,752 raw protocol bytes in 105 seconds;
+these are not serialized release RPC metrics. Observed worker high-water marks
+are 5,589,256 and 4,980,672 KiB, and sampled container use peaked at
+19,643,416,576 bytes against the 49,999,998,976-byte limit. The OOM counter
+remains 8. This is partial first-chunk evidence, not proof that every chunk
+fits, a completed publication, or measured n2000 capacity.
+
+Six public checkpoint copies are retained in
+[`evidence/r7-progress`](inst/cross-grid-v2/gee-fixed-rho/evidence/r7-progress),
+with `SHA256SUMS` digest
+`81574a70ee304c832ccae214f3739a2d6e4d3fe9f4ebbd71c411476f7a25b0b9`. The detached controller remains
+active; Poisson n4, both fresh paired suites and all six n2000 jobs are still
+gated. Both families remain unpromoted.

@@ -1,0 +1,36 @@
+{
+  "recorded_utc": "2026-09-20T10:34:35Z",
+  "scope": "Partial live sampler observation, not completed release/capacity evidence",
+  "workers": [
+    {
+      "pid": 3056954,
+      "operation_id": "op_7d677b3d792420120e2061abc802275c",
+      "markers": {
+        "ready": true,
+        "done": false,
+        "error": false,
+        "failure.json": false,
+        "abort": false
+      },
+      "worker_heartbeat_age_seconds": 4.792847394943237,
+      "outbound.head": 163654001,
+      "outbound.ack": 70287432,
+      "inbound.ack": 72
+    },
+    {
+      "pid": 3057008,
+      "operation_id": "op_7d677b3d792420120e2061abc802275c",
+      "markers": {
+        "ready": true,
+        "done": false,
+        "error": false,
+        "failure.json": false,
+        "abort": false
+      },
+      "worker_heartbeat_age_seconds": 4.137131452560425,
+      "outbound.head": 72,
+      "outbound.ack": 72,
+      "inbound.ack": 70287432
+    }
+  ]
+}

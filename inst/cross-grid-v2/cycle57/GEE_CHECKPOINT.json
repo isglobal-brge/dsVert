@@ -1,0 +1,257 @@
+{
+  "status": "eight_releases_running",
+  "source": {
+    "repositories": {
+      "dsVert": "3c7a185ff2fd8987c3dc49911143542e9652f30b",
+      "dsVertClient": "20adcc8cd237abba5aee6f58d941d7b2eebab77e"
+    },
+    "manifest_sha256": "01aea53af677f138563f68bbd054066eccae71eae2b10738d6b020e13e487aa4",
+    "runtime_sha256": "a59e004567027fc0c09c620cf9ab8dcae0000efb4477f14672997fd800b150c6",
+    "native_inputs_matched": 630
+  },
+  "pods": [
+    {
+      "id": "3xybr5ukczlgdy",
+      "name": "pod-gee-1",
+      "vcpuCount": 32,
+      "gpuCount": 0,
+      "cpuFlavorId": "cpu3c",
+      "costPerHr": 0.96,
+      "imageName": "ubuntu:22.04",
+      "containerDiskInGb": 50,
+      "volumeInGb": 0,
+      "memoryInGb": 64,
+      "wrapper": "/Users/david/Documents/GitHub/dsvert-gee/dsVert/inst/cross-grid-v2/gee-fixed-rho/pods/pod-gee-1",
+      "copy_wrapper": "/Users/david/Documents/GitHub/dsvert-gee/dsVert/inst/cross-grid-v2/gee-fixed-rho/pods/pod-gee-1cp",
+      "assignment": {
+        "family": "binomial_gee",
+        "K": 2,
+        "mode": "baseline"
+      },
+      "status": "release_running",
+      "remote_root": "/workspace/dsvert-gee-state",
+      "dp_state_parent": "/var/lib/dsvert-gee-state",
+      "endpoint": {
+        "ip": "91.199.227.82",
+        "isIpPublic": true,
+        "privatePort": 22,
+        "publicPort": 33080
+      },
+      "smoke_proof": "/Users/david/Documents/GitHub/dsvert-fleet-heavy/gee-pods/artifacts/pod-gee-1-smoke.json",
+      "release_pid": 43112
+    },
+    {
+      "id": "p8tdiplu5g5xfs",
+      "name": "pod-gee-2",
+      "vcpuCount": 32,
+      "gpuCount": 0,
+      "cpuFlavorId": "cpu3c",
+      "costPerHr": 0.96,
+      "imageName": "ubuntu:22.04",
+      "containerDiskInGb": 50,
+      "volumeInGb": 0,
+      "memoryInGb": 64,
+      "wrapper": "/Users/david/Documents/GitHub/dsvert-gee/dsVert/inst/cross-grid-v2/gee-fixed-rho/pods/pod-gee-2",
+      "copy_wrapper": "/Users/david/Documents/GitHub/dsvert-gee/dsVert/inst/cross-grid-v2/gee-fixed-rho/pods/pod-gee-2cp",
+      "assignment": {
+        "family": "poisson_gee",
+        "K": 2,
+        "mode": "baseline"
+      },
+      "status": "release_running",
+      "remote_root": "/workspace/dsvert-gee-state",
+      "dp_state_parent": "/var/lib/dsvert-gee-state",
+      "endpoint": {
+        "ip": "213.173.105.103",
+        "isIpPublic": true,
+        "privatePort": 22,
+        "publicPort": 26124
+      },
+      "smoke_proof": "/Users/david/Documents/GitHub/dsvert-fleet-heavy/gee-pods/artifacts/pod-gee-2-smoke.json",
+      "release_pid": 42989
+    },
+    {
+      "id": "s9tppv08vmnqvh",
+      "name": "pod-gee-3",
+      "vcpuCount": 32,
+      "gpuCount": 0,
+      "cpuFlavorId": "cpu3c",
+      "costPerHr": 0.96,
+      "imageName": "ubuntu:22.04",
+      "containerDiskInGb": 50,
+      "volumeInGb": 0,
+      "memoryInGb": 64,
+      "wrapper": "/Users/david/Documents/GitHub/dsvert-gee/dsVert/inst/cross-grid-v2/gee-fixed-rho/pods/pod-gee-3",
+      "copy_wrapper": "/Users/david/Documents/GitHub/dsvert-gee/dsVert/inst/cross-grid-v2/gee-fixed-rho/pods/pod-gee-3cp",
+      "assignment": {
+        "family": "binomial_gee",
+        "K": 3,
+        "mode": "baseline"
+      },
+      "status": "release_running",
+      "remote_root": "/workspace/dsvert-gee-state",
+      "dp_state_parent": "/var/lib/dsvert-gee-state",
+      "endpoint": {
+        "ip": "38.80.152.147",
+        "isIpPublic": true,
+        "privatePort": 22,
+        "publicPort": 36299
+      },
+      "smoke_proof": "/Users/david/Documents/GitHub/dsvert-fleet-heavy/gee-pods/artifacts/pod-gee-3-smoke.json",
+      "release_pid": 43111
+    },
+    {
+      "id": "l06w9oilff4inp",
+      "name": "pod-gee-4",
+      "vcpuCount": 32,
+      "gpuCount": 0,
+      "cpuFlavorId": "cpu3c",
+      "costPerHr": 0.96,
+      "imageName": "ubuntu:22.04",
+      "containerDiskInGb": 50,
+      "volumeInGb": 0,
+      "memoryInGb": 64,
+      "wrapper": "/Users/david/Documents/GitHub/dsvert-gee/dsVert/inst/cross-grid-v2/gee-fixed-rho/pods/pod-gee-4",
+      "copy_wrapper": "/Users/david/Documents/GitHub/dsvert-gee/dsVert/inst/cross-grid-v2/gee-fixed-rho/pods/pod-gee-4cp",
+      "assignment": {
+        "family": "poisson_gee",
+        "K": 3,
+        "mode": "baseline"
+      },
+      "status": "release_running",
+      "remote_root": "/workspace/dsvert-gee-state",
+      "dp_state_parent": "/var/lib/dsvert-gee-state",
+      "endpoint": {
+        "ip": "38.80.152.147",
+        "isIpPublic": true,
+        "privatePort": 22,
+        "publicPort": 36924
+      },
+      "smoke_proof": "/Users/david/Documents/GitHub/dsvert-fleet-heavy/gee-pods/artifacts/pod-gee-4-smoke.json",
+      "release_pid": 43100
+    },
+    {
+      "id": "irwlteb70p2wl3",
+      "name": "pod-gee-5",
+      "vcpuCount": 32,
+      "gpuCount": 0,
+      "cpuFlavorId": "cpu3c",
+      "costPerHr": 0.96,
+      "imageName": "ubuntu:22.04",
+      "containerDiskInGb": 50,
+      "volumeInGb": 0,
+      "memoryInGb": 64,
+      "wrapper": "/Users/david/Documents/GitHub/dsvert-gee/dsVert/inst/cross-grid-v2/gee-fixed-rho/pods/pod-gee-5",
+      "copy_wrapper": "/Users/david/Documents/GitHub/dsvert-gee/dsVert/inst/cross-grid-v2/gee-fixed-rho/pods/pod-gee-5cp",
+      "assignment": {
+        "family": "binomial_gee",
+        "K": 5,
+        "mode": "baseline"
+      },
+      "status": "release_running",
+      "remote_root": "/workspace/dsvert-gee-state",
+      "dp_state_parent": "/var/lib/dsvert-gee-state",
+      "endpoint": {
+        "ip": "157.157.221.29",
+        "isIpPublic": true,
+        "privatePort": 22,
+        "publicPort": 37454
+      },
+      "smoke_proof": "/Users/david/Documents/GitHub/dsvert-fleet-heavy/gee-pods/artifacts/pod-gee-5-smoke.json",
+      "release_pid": 43977
+    },
+    {
+      "id": "a0iqasngalem6w",
+      "name": "pod-gee-6",
+      "vcpuCount": 32,
+      "gpuCount": 0,
+      "cpuFlavorId": "cpu3c",
+      "costPerHr": 0.96,
+      "imageName": "ubuntu:22.04",
+      "containerDiskInGb": 50,
+      "volumeInGb": 0,
+      "memoryInGb": 64,
+      "wrapper": "/Users/david/Documents/GitHub/dsvert-gee/dsVert/inst/cross-grid-v2/gee-fixed-rho/pods/pod-gee-6",
+      "copy_wrapper": "/Users/david/Documents/GitHub/dsvert-gee/dsVert/inst/cross-grid-v2/gee-fixed-rho/pods/pod-gee-6cp",
+      "assignment": {
+        "family": "poisson_gee",
+        "K": 5,
+        "mode": "baseline"
+      },
+      "status": "release_running",
+      "remote_root": "/workspace/dsvert-gee-state",
+      "dp_state_parent": "/var/lib/dsvert-gee-state",
+      "endpoint": {
+        "ip": "157.157.221.29",
+        "isIpPublic": true,
+        "privatePort": 22,
+        "publicPort": 37056
+      },
+      "smoke_proof": "/Users/david/Documents/GitHub/dsvert-fleet-heavy/gee-pods/artifacts/pod-gee-6-smoke.json",
+      "release_pid": 43746
+    },
+    {
+      "id": "yutpfreudx196h",
+      "name": "pod-gee-7",
+      "vcpuCount": 32,
+      "gpuCount": 0,
+      "cpuFlavorId": "cpu3c",
+      "costPerHr": 0.96,
+      "imageName": "ubuntu:22.04",
+      "containerDiskInGb": 50,
+      "volumeInGb": 0,
+      "memoryInGb": 64,
+      "wrapper": "/Users/david/Documents/GitHub/dsvert-gee/dsVert/inst/cross-grid-v2/gee-fixed-rho/pods/pod-gee-7",
+      "copy_wrapper": "/Users/david/Documents/GitHub/dsvert-gee/dsVert/inst/cross-grid-v2/gee-fixed-rho/pods/pod-gee-7cp",
+      "assignment": {
+        "family": "binomial_gee",
+        "K": 2,
+        "mode": "recovery"
+      },
+      "status": "release_running",
+      "remote_root": "/workspace/dsvert-gee-state",
+      "dp_state_parent": "/var/lib/dsvert-gee-state",
+      "endpoint": {
+        "ip": "157.157.221.29",
+        "isIpPublic": true,
+        "privatePort": 22,
+        "publicPort": 37840
+      },
+      "smoke_proof": "/Users/david/Documents/GitHub/dsvert-fleet-heavy/gee-pods/artifacts/pod-gee-7-smoke.json",
+      "release_pid": 43840
+    },
+    {
+      "id": "ks1lmrmmhlovtv",
+      "name": "pod-gee-8",
+      "vcpuCount": 32,
+      "gpuCount": 0,
+      "cpuFlavorId": "cpu3c",
+      "costPerHr": 0.96,
+      "imageName": "ubuntu:22.04",
+      "containerDiskInGb": 50,
+      "volumeInGb": 0,
+      "memoryInGb": 64,
+      "wrapper": "/Users/david/Documents/GitHub/dsvert-gee/dsVert/inst/cross-grid-v2/gee-fixed-rho/pods/pod-gee-8",
+      "copy_wrapper": "/Users/david/Documents/GitHub/dsvert-gee/dsVert/inst/cross-grid-v2/gee-fixed-rho/pods/pod-gee-8cp",
+      "assignment": {
+        "family": "poisson_gee",
+        "K": 2,
+        "mode": "recovery"
+      },
+      "status": "release_running",
+      "remote_root": "/workspace/dsvert-gee-state",
+      "dp_state_parent": "/var/lib/dsvert-gee-state",
+      "endpoint": {
+        "ip": "205.196.19.26",
+        "isIpPublic": true,
+        "privatePort": 22,
+        "publicPort": 11829
+      },
+      "smoke_proof": "/Users/david/Documents/GitHub/dsvert-fleet-heavy/gee-pods/artifacts/pod-gee-8-smoke.json",
+      "release_pid": 43023
+    }
+  ],
+  "controller_pid": 60317,
+  "stdin": "/dev/null",
+  "updated_unix": 1789915149.1934562
+}

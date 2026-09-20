@@ -116,8 +116,30 @@ func TestGroupedRouteTwoAuthorityDurable(t *testing.T) {
 }
 
 func groupedRouteRunTest(t *testing.T, scenario string) {
+	groupedRouteRunTestBatch(t, scenario, 16)
+}
+
+func TestGroupedRouteBatchedTwoAuthorityDurable(t *testing.T) {
+	for _, scenario := range []string{"repeated-full-tail", "bilateral-normalize", "unilateral-normalize", "source-invalid", "nonbinary-presence", "source-label-mismatch", "private-capacity-overflow", "numeric-bound", "nonnegative-domain", "outcome-overflow", "feature-bound-under-poisson"} {
+		t.Run(scenario, func(t *testing.T) { groupedRouteRunTestBatch(t, scenario, 128) })
+	}
+}
+
+func TestGroupedRouteBatchEquality(t *testing.T) {
+	a := groupedRouteRunTestBatch(t, "repeated-full-tail", 16, 260)
+	b := groupedRouteRunTestBatch(t, "repeated-full-tail", 128, 260)
+	if a != b {
+		t.Fatal("relay batching changed opened routing output/validity")
+	}
+}
+
+func groupedRouteRunTestBatch(t *testing.T, scenario string, batch int, repeatedRows ...int) [32]byte {
 	t.Helper()
 	s := groupedRouteTestSpec()
+	rows := 2*batch + 4
+	if len(repeatedRows) == 1 {
+		rows = repeatedRows[0]
+	}
 	if scenario == "nonnegative-domain" {
 		s.Nonnegative = true
 	}
@@ -164,12 +186,12 @@ func groupedRouteRunTest(t *testing.T, scenario string) {
 	if scenario == "source-label-mismatch" {
 		metadata[2] = big.NewInt(0)
 	}
-	// 36 rows exercise two identical 16-row programs and a distinct 4-row tail.
+	// Two full batches and a four-row tail exercise public program reuse.
 	// Keep a missing slot in every four-row block, including both full chunks.
 	repeated := scenario == "repeated-full-tail" || scenario == "bilateral-normalize" || scenario == "unilateral-normalize"
 	if repeated {
-		s.Clusters = 18
-		for block := 1; block < 9; block++ {
+		s.Clusters = rows / 2
+		for block := 1; block < rows/4; block++ {
 			for _, value := range numeric[:8] {
 				numeric = append(numeric, new(big.Int).Set(value))
 			}
@@ -244,7 +266,7 @@ func groupedRouteRunTest(t *testing.T, scenario string) {
 		if role == 0 {
 			owner = side
 		}
-		graph, err := groupedRouteBuildStagedGraph(s, exactGCRole(role), owner, keys[role])
+		graph, err := groupedRouteBuildStagedGraphBatch(s, exactGCRole(role), owner, keys[role], batch)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -376,7 +398,7 @@ func groupedRouteRunTest(t *testing.T, scenario string) {
 			permutation = []int{1, 3, 2, 0}
 		}
 		if repeated {
-			for block := 1; block < 9; block++ {
+			for block := 1; block < rows/4; block++ {
 				for _, row := range permutation[:4] {
 					permutation = append(permutation, row+4*block)
 				}
@@ -421,4 +443,13 @@ func groupedRouteRunTest(t *testing.T, scenario string) {
 			}
 		}
 	}
+	opened := make([]byte, len(a.Share)+len(a.Validity))
+	for i := range a.Validity {
+		value := getUint128LE(a.Share[16*i:]).Add(getUint128LE(b.Share[16*i:]))
+		putUint128LE(opened[16*i:], value)
+		opened[len(a.Share)+i] = a.Validity[i] ^ b.Validity[i]
+	}
+	digest := sha256.Sum256(opened)
+	t.Logf("batch=%d rows=%d opened_sha256=%x", batch, len(labels), digest)
+	return digest
 }

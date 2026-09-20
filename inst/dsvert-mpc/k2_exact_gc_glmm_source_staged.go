@@ -139,16 +139,16 @@ func groupedGLMMBuildSourceGraph(s groupedGLMMSourceSpec, role exactGCRole,
 			return crossGridStageClone(input), nil
 		})
 	}
-	normal, normalize := groupedGLMMSourceNormalization(s, role)
+	normal, normalize := groupedGLMMSourceNormalizationBatch(s, role, 256)
 	graph.Graph.Stages = append(graph.Graph.Stages, normal)
 	graph.Compute = append(graph.Compute, normalize)
-	route, err := groupedRouteBuildStagedGraph(s.Route, role, sidecar, key)
+	route, err := groupedRouteBuildStagedGraphBatched(s.Route, role, sidecar, key)
 	if err != nil || len(route.Plans) == 0 {
 		return nil, errCrossGridStage
 	}
 	graph.Graph.Stages = append(graph.Graph.Stages, route.Plans...)
 	graph.Compute = append(graph.Compute, route.Compute...)
-	lift, convert, err := crossGridStageBuildConversion(route.Plans[len(route.Plans)-1], s.GLMM.RoutedStage, true, role)
+	lift, convert, err := crossGridStageBuildConversionBatch(route.Plans[len(route.Plans)-1], s.GLMM.RoutedStage, true, role, crossGridStageConversionRelayBatch)
 	if err != nil {
 		return nil, err
 	}
@@ -169,6 +169,10 @@ func groupedGLMMBuildSourceGraph(s groupedGLMMSourceSpec, role exactGCRole,
 // Typed q0 y is reconstructed and checked at full width before multiplication
 // by 2^50. Feature shares remain f50 throughout; no local division is performed.
 func groupedGLMMSourceNormalization(s groupedGLMMSourceSpec, role exactGCRole) (crossGridStagePlan, crossGridStageCompute) {
+	return groupedGLMMSourceNormalizationBatch(s, role, 32)
+}
+
+func groupedGLMMSourceNormalizationBatch(s groupedGLMMSourceSpec, role exactGCRole, batch int) (crossGridStagePlan, crossGridStageCompute) {
 	rows, p := s.Route.Clusters*s.Route.Slots, s.Route.Predictors
 	coordinates := make([]string, rows*(p+1))
 	for i := range coordinates {
@@ -179,14 +183,18 @@ func groupedGLMMSourceNormalization(s groupedGLMMSourceSpec, role exactGCRole) (
 		plan.Kind = "glmm.count-q0-to-homogeneous-f50"
 		plan.PublicBounds["max_outcome"] = s.GLMM.MaxOutcome
 	}
+	if batch != 32 {
+		plan.PublicBounds["outcome_batch_rows"] = batch
+	}
 	compute := func(rw io.ReadWriter, a crossGridStageAttempt, in []crossGridStageOutput) (crossGridStageOutput, error) {
 		if len(in) != 2 || groupedRouteCheckOutput(in[0], rows*p) != nil || groupedRouteCheckOutput(in[1], rows) != nil {
 			return crossGridStageOutput{}, errCrossGridStage
 		}
 		out := crossGridStageOutput{Share: make([]byte, 16*rows*(p+1)), Validity: make([]byte, rows*(p+1))}
 		var flags []byte
-		for start := 0; start < rows; start += 32 {
-			n := min(32, rows-start)
+		compiled := make(map[int]*primitiveVProgram)
+		for start := 0; start < rows; start += batch {
+			n := min(batch, rows-start)
 			var b strings.Builder
 			fmt.Fprintf(&b, "package main\nfunc main(g [%d]uint128,e [%d]uint128) [%d]uint128 {\nvar out [%d]uint128\nvalid:=true\n", 2*n+1, n, n+1, n+1)
 			words := make([]*big.Int, n)
@@ -200,9 +208,14 @@ func groupedGLMMSourceNormalization(s groupedGLMMSourceSpec, role exactGCRole) (
 				}
 			}
 			fmt.Fprintf(&b, "v:=uint128(0)\nif valid {v=1}\nout[%d]=v-g[%d]\nreturn out\n}\n", n, 2*n)
-			program, e := primitiveVCompile(b.String(), 128, 2*n+1, n, n+1)
-			if e != nil {
-				return crossGridStageOutput{}, e
+			program := compiled[n]
+			if program == nil {
+				var e error
+				program, e = primitiveVCompile(b.String(), 128, 2*n+1, n, n+1)
+				if e != nil {
+					return crossGridStageOutput{}, e
+				}
+				compiled[n] = program
 			}
 			run := primitiveVRunGarbler
 			if role == exactGCRoleEvaluator {

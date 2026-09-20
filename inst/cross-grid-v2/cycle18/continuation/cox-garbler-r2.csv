@@ -1,0 +1,16 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-crossgrid-cox.R","crossgrid-cox","Cox server authenticates both signatures and rejects cap/profile tampering",10,0,FALSE,FALSE,0,0.963,0.071,1.201,10
+"test-crossgrid-cox.R","crossgrid-cox","pure R Cox integer profiles match all shared Go boundary fixtures",356,0,FALSE,FALSE,0,0.366,0.034,0.401,356
+"test-crossgrid-cox.R","crossgrid-cox","Cox whole-coordinate sensitivities cover changed risk sets",244,0,FALSE,FALSE,0,0.461,0.064,0.525,244
+"test-crossgrid-cox.R","crossgrid-cox","Cox range cap encloses approximation and keeps error below DP noise",16,0,FALSE,FALSE,0,0.0140000000000002,0.001,0.0140000000000002,16
+"test-crossgrid-cox.R","crossgrid-cox","Cox measured admission is enforced even with both valid signatures",11,0,FALSE,FALSE,0,1.228,0.068,1.488,11
+"test-crossgrid-cox.R","crossgrid-cox","Cox signed layout pins the terminal share conversion for fusion",4,0,FALSE,FALSE,0,0.116,0.011,0.159,4
+"test-crossgrid-cox.R","crossgrid-cox","Cox K-owner source contracts retain exactly two computation authorities",62,0,FALSE,FALSE,0,2.27,0.297,3.468,62
+"test-crossgrid-cox.R","crossgrid-cox","Cox staged source combines every signed owner in exact Ring128",15,0,FALSE,FALSE,0,1.221,0.19,2.11,15
+"test-crossgrid-cox.R","crossgrid-cox","Cox private routing retains ties censor slots and invalid padding",4,0,FALSE,FALSE,0,0.0129999999999999,0,0.0139999999999993,4
+"test-crossgrid-cox.R","crossgrid-cox","Cox public f50 multiplication preserves additive sharing and f100 precision",10,0,FALSE,FALSE,0,0.016,0.001,0.0169999999999995,10
+"test-crossgrid-cox.R","crossgrid-cox","Cox owner materialization retains K2 K3 K5 candidate and owner order",6,0,FALSE,FALSE,0,1.576,0.248,2.806,6
+"test-crossgrid-cox.R","crossgrid-cox","Cox source block layout covers every owner without transporting observed times",21,0,FALSE,FALSE,0,0.24,0.0290000000000001,0.347,21
+"test-crossgrid-cox.R","crossgrid-cox","Cox workload and source context authenticate K-owner transport without time values",66,0,FALSE,FALSE,0,3.027,0.359,4.563,66
+"test-crossgrid-cox.R","crossgrid-cox","Cox source alignment requires the signed time owner at the actual garbler",8,0,FALSE,FALSE,0,0.401999999999999,0.0509999999999999,0.611999999999998,8
+"test-crossgrid-cox.R","crossgrid-cox","Cox input loader verifies actual store MACs and all-owner completion",15,0,FALSE,FALSE,0,2.679,0.305,4.186,15

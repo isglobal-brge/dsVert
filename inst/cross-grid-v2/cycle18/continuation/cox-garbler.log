@@ -1,0 +1,64 @@
+crossgrid-cox: .........................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................1.2.3.4................
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Failure ('test-crossgrid-cox.R:485:7'): Cox source alignment requires the 
+Expected `.dsvert_dp_cox_grid_cross_contract_validate(...)` to be identical to `f$contract`.
+Differences:
+Names: 5 string mismatches
+Component 1: Modes: list, character
+Component 1: names for target but not for current
+Component 1: Length mismatch: comparison on first 1 components
+Component 1: Component 1: 1 string mismatch
+Component 2: Names: 2 string mismatches
+Component 2: Length mismatch: comparison on first 2 components
+Component 2: Component 1: 1 string mismatch
+Component 2: Component 2: 1 string mismatch
+...
+
+── 2. Failure ('test-crossgrid-cox.R:485:7'): Cox source alignment requires the 
+Expected `.dsvert_dp_cox_grid_cross_contract_validate(...)` to be identical to `f$contract`.
+Differences:
+Names: 5 string mismatches
+Component 1: Modes: list, character
+Component 1: names for target but not for current
+Component 1: Length mismatch: comparison on first 1 components
+Component 1: Component 1: 1 string mismatch
+Component 2: Names: 2 string mismatches
+Component 2: Length mismatch: comparison on first 2 components
+Component 2: Component 1: 1 string mismatch
+Component 2: Component 2: 1 string mismatch
+...
+
+── 3. Failure ('test-crossgrid-cox.R:485:7'): Cox source alignment requires the 
+Expected `.dsvert_dp_cox_grid_cross_contract_validate(...)` to be identical to `f$contract`.
+Differences:
+Names: 5 string mismatches
+Component 1: Modes: list, character
+Component 1: names for target but not for current
+Component 1: Length mismatch: comparison on first 1 components
+Component 1: Component 1: 1 string mismatch
+Component 2: Names: 2 string mismatches
+Component 2: Length mismatch: comparison on first 2 components
+Component 2: Component 1: 1 string mismatch
+Component 2: Component 2: 1 string mismatch
+...
+
+── 4. Failure ('test-crossgrid-cox.R:485:7'): Cox source alignment requires the 
+Expected `.dsvert_dp_cox_grid_cross_contract_validate(...)` to be identical to `f$contract`.
+Differences:
+Names: 5 string mismatches
+Component 1: Modes: list, character
+Component 1: names for target but not for current
+Component 1: Length mismatch: comparison on first 1 components
+Component 1: Component 1: 1 string mismatch
+Component 2: Names: 2 string mismatches
+Component 2: Length mismatch: comparison on first 2 components
+Component 2: Component 1: 1 string mismatch
+Component 2: Component 2: 1 string mismatch
+...
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+Error in utils::write.table(d, "integrator-evidence/cycle18-20260920/cox-garbler.csv",  : 
+  unimplemented type 'list' in 'EncodeElement'
+Calls: write.csv -> eval.parent -> eval -> eval -> <Anonymous>
+Execution halted

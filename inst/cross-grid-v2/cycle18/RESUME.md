@@ -1,3 +1,6 @@
+Latest continuation: `continuation/RESUME.md` and `continuation/progress.json`.
+Code `fe4c953/4c6c562`; LMM n2000/K2 still active, no promotion.
+
 # Cycle18 checkpoint — LMM public sampler cap repaired; promotion pending
 
 Production code: server `12aec48`, client `4c6c562`. LMM cap change itself is

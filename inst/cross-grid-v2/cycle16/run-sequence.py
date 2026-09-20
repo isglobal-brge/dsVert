@@ -1,4 +1,4 @@
-"""Fresh LMM proof sequence; immutable inputs, isolated peers, no promotion."""
+"""Fresh LMM/GLMM proof sequence; immutable inputs, isolated peers, no promotion."""
 import datetime
 import fcntl
 import hashlib
@@ -10,7 +10,11 @@ import sys
 import traceback
 
 root = Path.cwd().resolve()
-logs = root / 'logs'
+family = os.environ.get('DSVERT_RELEASE_FAMILY', 'lmm')
+assert family in ('lmm', 'binomial_glmm', 'poisson_glmm')
+logs = root / 'logs' if family == 'lmm' else root / 'logs' / family
+if family != 'lmm':
+    logs.mkdir()
 scripts = Path('dsVert/inst/cross-grid-v2/cycle16')
 events = (logs / 'sequence.jsonl').open('x')
 lock = Path('/workspace/dsvert/cycle14-heavy-release.lock').open('a')
@@ -50,11 +54,11 @@ try:
         subprocess.run([sys.executable, str(scripts / 'run-release.py'),
                         str(n), str(owners), str(recovery)], stdin=subprocess.DEVNULL,
                        check=True)
-        label = f'lmm-n{n}-k{owners}-' + ('recovery' if recovery else 'baseline')
+        label = f'{family}-n{n}-k{owners}-' + ('recovery' if recovery else 'baseline')
         proof = json.loads((logs / (label + '-resources.json')).read_text())
         assert proof['proof_passed'], label
         emit('release_pass', label=label, capacity=proof['capacity_gate'])
-    env = dict(os.environ, R_LIBS_USER='/workspace/dsvert/gobase/R-library',
+    env = dict(os.environ, DSVERT_PAIRED_LOG_DIR=str(logs), R_LIBS_USER='/workspace/dsvert/gobase/R-library',
                PATH='/usr/local/go/bin:' + os.environ.get('PATH', ''),
                GOMAXPROCS='2', GOMEMLIMIT='8GiB', OPENBLAS_NUM_THREADS='1', OMP_NUM_THREADS='1')
     for package in ('dsVert', 'dsVertClient'):

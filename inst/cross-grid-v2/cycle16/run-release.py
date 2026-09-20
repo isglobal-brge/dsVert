@@ -1,4 +1,4 @@
-"""Run one signed LMM proof in this snapshot; never sets promotion."""
+"""Run one signed LMM/GLMM proof in this snapshot; never sets promotion."""
 import json
 import math
 import os
@@ -9,13 +9,17 @@ import sys
 import time
 
 root = Path.cwd().resolve()
+family = os.environ.get('DSVERT_RELEASE_FAMILY', 'lmm')
+assert family in ('lmm', 'binomial_glmm', 'poisson_glmm')
+logs = root / 'logs' if family == 'lmm' else root / 'logs' / family
+marker = 'DSLITE_LMM' if family == 'lmm' else 'DSLITE_GLMM'
 n, owners, interrupts = map(int, sys.argv[1:])
 assert n in (4, 2000) and owners in (2, 3, 5) and interrupts in (0, 1)
-label = f'lmm-n{n}-k{owners}-' + ('recovery' if interrupts else 'baseline')
-log_path = root / 'logs' / (label + '.log')
-metrics_path = root / 'logs' / (label + '-metrics.json')
-result_path = root / 'logs' / (label + '-resources.json')
-exit_path = root / 'logs' / (label + '.exit')
+label = f'{family}-n{n}-k{owners}-' + ('recovery' if interrupts else 'baseline')
+log_path = logs / (label + '.log')
+metrics_path = logs / (label + '-metrics.json')
+result_path = logs / (label + '-resources.json')
+exit_path = logs / (label + '.exit')
 assert all(not p.exists() for p in (log_path, metrics_path, result_path, exit_path)), 'Use a fresh snapshot for each retry'
 manifest = json.loads((root / 'frozen-source-manifest.json').read_text())
 import hashlib
@@ -38,15 +42,15 @@ env.update(R_LIBS_USER='/workspace/dsvert/gobase/R-library',
 started = time.monotonic()
 with log_path.open('x') as log:
     result = subprocess.run(['Rscript', '--vanilla',
-        'integrator-validation/validate_lmm_dslite.R', str(root)],
+        f'integrator-validation/validate_{family}_dslite.R', str(root)],
         cwd=root, env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
 usage = resource.getrusage(resource.RUSAGE_CHILDREN)
-required = ['DSLITE_ORACLE_BITWISE_EQUAL_STICKY_TAMPER_REJECTED lmm',
+required = ['DSLITE_ORACLE_BITWISE_EQUAL_STICKY_TAMPER_REJECTED ' + family,
     'DIRECT_R_COLD_LIFECYCLE_EQUAL_TAMPER_REJECTED',
-    'DSLITE_LMM_COLD_EXPORTED_API_EQUAL_AUTHENTICATED']
+    marker + '_COLD_EXPORTED_API_EQUAL_AUTHENTICATED']
 if interrupts:
-    required += ['DSLITE_LMM_NATIVE_PREPARE_REMASK_AND_UNILATERAL_COMMIT_EXACT_REPLAY_VERIFIED']
-    required += ['DSLITE_LMM_RECOVERY_BOUNDARY ' + mode + ' OBSERVED' for mode in
+    required += [marker + '_NATIVE_PREPARE_REMASK_AND_UNILATERAL_COMMIT_EXACT_REPLAY_VERIFIED']
+    required += [marker + '_RECOVERY_BOUNDARY ' + mode + ' OBSERVED' for mode in
         ('prepared', 'bilateral_prepare', 'unilateral_commit', 'committed', 'unilateral')]
 log = log_path.read_text(errors='replace')
 record = {'measurement': label, 'transport_policy': {'ttl_seconds': 900, 'max_runtime_seconds': 86400}, 'process_wall_seconds': time.monotonic() - started,
@@ -58,7 +62,7 @@ if metrics_path.exists():
     metrics = json.loads(metrics_path.read_text())
     values = [metrics.get('end_to_end_serialized_rpc_bytes'), metrics.get('end_to_end_release_elapsed')]
     record['release_metrics'] = metrics
-    record['metric_shape_passed'] = (metrics.get('family') == 'lmm' and
+    record['metric_shape_passed'] = (metrics.get('family') == family and
         metrics.get('n') == n and metrics.get('p') == 3 and metrics.get('grid') == 2 and metrics.get('candidates') == 4 and
         metrics.get('owners') == owners and metrics.get('slots') == 4 and
         metrics.get('clusters') == math.ceil(n / 4) and metrics.get('oracle_only') is False)

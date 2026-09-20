@@ -39,7 +39,7 @@
   binding <- list(analysis_id = analysis_id, artifact = context$artifact,
     contract = context$source_contract, contract_hash = context$source_hash,
     semantic_key = semantic_key, peer_binding_digest = ss$.exact_gc_peer_binding_digest,
-    stage = stage, worker_input = worker[[paste0("grouped_", .dsvert_dp_staged_grouped_kind(context$artifact$family))]])
+    stage = stage, worker_input = worker[[.dsvert_dp_staged_grouped_input_key(context$artifact$family)]])
   previous <- ss$.dp_lmm_grid_cross[[analysis_id]]
   if (!is.null(previous)) {
     .dsvert_dp_glm_grid_cross_equal(previous[setdiff(names(previous), "admission")], binding)
@@ -177,7 +177,7 @@
       .dsvert_dp_staged_grouped_tag(binding$artifact, "-staged-ring128-share-v1", "grouped-"), 128L), claimed_by = NULL,
     grouped_lmm = binding$worker_input)
   names(source)[names(source) == "grouped_lmm"] <-
-    paste0("grouped_", .dsvert_dp_staged_grouped_kind(binding$artifact$family))
+    .dsvert_dp_staged_grouped_input_key(binding$artifact$family)
   previous <- ss$.exact_gc_inputs[[stage$source_key]]
   if (is.null(previous)) ss$.exact_gc_inputs[[stage$source_key]] <- source else {
     .dsvert_dp_glm_grid_cross_equal(previous[setdiff(names(previous), "claimed_by")],

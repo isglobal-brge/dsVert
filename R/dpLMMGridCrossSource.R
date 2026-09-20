@@ -7,7 +7,7 @@
   contract <- .dsvert_dp_grouped_cross_contract_validate(
     contract, policy, schema_manifest)
   spec <- contract$spec
-  if (!spec$family %in% c("lmm", "binomial_glmm", "poisson_glmm") ||
+  if (!spec$family %in% c("lmm", "binomial_glmm", "poisson_glmm", "binomial_gee", "poisson_gee") ||
       !is.character(source_contract_sha256) ||
       length(source_contract_sha256) != 1L || is.na(source_contract_sha256) ||
       !grepl("^[0-9a-f]{64}$", source_contract_sha256) ||
@@ -18,12 +18,32 @@
       !identical(spec$numeric_contract$version, paste0("grouped-", sub("_glmm$", "", spec$family), "-glmm-variance-grid-numeric-v1"))) {
     .dsvert_dp_grouped_cross_fail()
   }
+  if (grepl("_gee$", spec$family) &&
+      (!identical(spec$parameters$composition, "staged_fixed_rho_v1") ||
+       !identical(spec$numeric_contract$version, "grouped-gee-fixed-rho-staged-numeric-v1"))) {
+    .dsvert_dp_grouped_cross_fail()
+  }
   contract
 }
 
 .dsvert_dp_lmm_cross_source_plan <- function(contract, source_contract_sha256) {
   spec <- contract$spec
   caps <- unlist(spec$sensitivity$per_cluster_caps, use.names = FALSE)
+  if (grepl("_gee$", spec$family)) {
+    numeric <- spec$staged_numeric
+    caps <- numeric$Caps
+    numeric$Caps <- NULL
+    return(list(version = "dsvert-gee-fixed-rho-staged-source-handoff-v1",
+      spec_sha256 = .dsvert_joint_dp_hash(spec),
+      source_contract_sha256 = source_contract_sha256,
+      profile_sha256 = .dsvert_joint_dp_hash(spec$numeric_contract),
+      schema_sha256 = spec$schema_sha256,
+      Clusters = spec$grouping$cluster_capacity,
+      Slots = spec$grouping$max_patients_per_cluster,
+      Predictors = length(spec$predictor_order),
+      correlation_contract = "signed-fixed-rho-v3-predecessor",
+      Numeric = numeric, Beta = spec$beta_encoded, Caps = caps))
+  }
   if (spec$family %in% c("binomial_glmm", "poisson_glmm")) {
     plan <- list(version = "dsvert-glmm-staged-source-handoff-v1",
       spec_sha256 = .dsvert_joint_dp_hash(spec),
@@ -144,7 +164,7 @@
     # Only the already-public successful alignment admission is reshared.
     list(Share = encode(bytes), Validity = encode(rep(validity, rows * length(blocks))))
   }
-  if (spec$family %in% c("binomial_glmm", "poisson_glmm")) {
+  if (spec$family %in% c("binomial_glmm", "poisson_glmm", "binomial_gee", "poisson_gee")) {
     return(list(plan = .dsvert_dp_lmm_cross_source_plan(contract, source_contract_sha256),
       numeric = pack(values[unlist(spec$predictor_order, use.names = FALSE)]),
       outcome = pack(values[spec$outcome$reference]),

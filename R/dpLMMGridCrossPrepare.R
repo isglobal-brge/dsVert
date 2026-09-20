@@ -79,6 +79,6 @@
   worker <- list(operation = paste0("grouped-", kind, "-staged-v1"), purpose = result$purpose,
     vector_len = result$vector_len, stage_plan_digest = result$stage_plan_digest,
     grouped_lmm = result$worker_input)
-  names(worker)[names(worker) == "grouped_lmm"] <- paste0("grouped_", kind)
+  names(worker)[names(worker) == "grouped_lmm"] <- .dsvert_dp_staged_grouped_input_key(spec$family)
   worker
 }

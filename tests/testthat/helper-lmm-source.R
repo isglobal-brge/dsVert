@@ -36,11 +36,19 @@
   list(artifact = artifact, manifest = manifest, transport = transport, layout = layout)
 }
 
-.lmm_handoff_fixture <- function(owners = 2L, family = "lmm") {
+.lmm_handoff_fixture <- function(owners = 2L, family = "lmm", staged_gee = FALSE) {
   f <- .grouped_contract_fixture(family, owners = owners)
   if (family %in% c("binomial_glmm", "poisson_glmm")) {
     f$raw$beta_grid <- f$raw$beta_grid[1:2]
     f$raw$parameters <- list(variance_grid = list(0, .25), quadrature = "gh5_fixed_v1")
+    spec <- .dsvert_dp_grouped_cross_spec(f$raw, f$policy, f$authenticated)
+    artifact <- .dsvert_dp_grouped_cross_artifact(spec)
+    f$contract <- f$sign(list(version = .DSVERT_DP_GROUPED_CROSS_VERSION,
+      spec = spec, artifact = artifact,
+      source_contract = .dsvert_dp_grouped_cross_source_contract(spec, artifact)))
+  }
+  if (staged_gee) {
+    f$raw$parameters$composition <- "staged_fixed_rho_v1"
     spec <- .dsvert_dp_grouped_cross_spec(f$raw, f$policy, f$authenticated)
     artifact <- .dsvert_dp_grouped_cross_artifact(spec)
     f$contract <- f$sign(list(version = .DSVERT_DP_GROUPED_CROSS_VERSION,

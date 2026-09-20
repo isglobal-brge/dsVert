@@ -1,0 +1,64 @@
+=== RUN   TestCrossGridNBComposition
+    k2_exact_gc_nb_composition_test.go:51: eta_want=22379823139608346624 fields=[22379823139608346624 22379823139608346624 117694 1] loss_want=117694
+    k2_exact_gc_nb_composition_test.go:51: eta_want=10431712546344591360 fields=[10431712546344591360 10431712546344591360 173378 1] loss_want=173378
+--- PASS: TestCrossGridNBComposition (0.15s)
+=== RUN   TestCrossGridNBSharedBatchOracle
+    k2_exact_gc_nb_grid_test.go:21: owners=2 theta_exponent=-3 AND=26549 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=2 theta_exponent=-2 AND=26221 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=2 theta_exponent=-1 AND=25905 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=2 theta_exponent=0 AND=25133 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=2 theta_exponent=1 AND=26001 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=2 theta_exponent=2 AND=25993 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=2 theta_exponent=3 AND=25873 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=2 theta_exponent=4 AND=26157 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=2 theta_exponent=5 AND=26429 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=2 theta_exponent=6 AND=26681 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=2 theta_exponent=7 AND=26925 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=3 theta_exponent=-3 AND=26805 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=3 theta_exponent=-2 AND=26477 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=3 theta_exponent=-1 AND=26161 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=3 theta_exponent=0 AND=25389 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=3 theta_exponent=1 AND=26257 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=3 theta_exponent=2 AND=26249 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=3 theta_exponent=3 AND=26129 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=3 theta_exponent=4 AND=26413 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=3 theta_exponent=5 AND=26685 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=3 theta_exponent=6 AND=26937 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=3 theta_exponent=7 AND=27181 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=5 theta_exponent=-3 AND=27317 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=5 theta_exponent=-2 AND=26989 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=5 theta_exponent=-1 AND=26673 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=5 theta_exponent=0 AND=25901 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=5 theta_exponent=1 AND=26769 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=5 theta_exponent=2 AND=26761 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=5 theta_exponent=3 AND=26641 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=5 theta_exponent=4 AND=26925 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=5 theta_exponent=5 AND=27197 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=5 theta_exponent=6 AND=27449 rows=2 candidates=2
+    k2_exact_gc_nb_grid_test.go:21: owners=5 theta_exponent=7 AND=27693 rows=2 candidates=2
+--- PASS: TestCrossGridNBSharedBatchOracle (20.23s)
+=== RUN   TestCrossGridNBSharedPlanRejectsTheta
+--- PASS: TestCrossGridNBSharedPlanRejectsTheta (0.00s)
+=== RUN   TestCrossGridNBV1IndependentLikelihoodAndBoundaryError
+--- PASS: TestCrossGridNBV1IndependentLikelihoodAndBoundaryError (1.44s)
+=== RUN   TestCrossGridNB128CertifiedDomain
+    k2_exact_gc_nb_width_test.go:52: theta=-3 grid_bits=8 full_domain_oracle_equal=true
+    k2_exact_gc_nb_width_test.go:52: theta=-3 grid_bits=16 full_domain_oracle_equal=true
+    k2_exact_gc_nb_width_test.go:52: theta=-3 grid_bits=18 full_domain_oracle_equal=true
+    k2_exact_gc_nb_width_test.go:52: theta=-2 grid_bits=16 full_domain_oracle_equal=true
+    k2_exact_gc_nb_width_test.go:52: theta=-1 grid_bits=16 full_domain_oracle_equal=true
+    k2_exact_gc_nb_width_test.go:52: theta=0 grid_bits=16 full_domain_oracle_equal=true
+    k2_exact_gc_nb_width_test.go:52: theta=1 grid_bits=16 full_domain_oracle_equal=true
+    k2_exact_gc_nb_width_test.go:52: theta=2 grid_bits=8 full_domain_oracle_equal=true
+    k2_exact_gc_nb_width_test.go:52: theta=2 grid_bits=16 full_domain_oracle_equal=true
+    k2_exact_gc_nb_width_test.go:52: theta=2 grid_bits=18 full_domain_oracle_equal=true
+    k2_exact_gc_nb_width_test.go:52: theta=3 grid_bits=16 full_domain_oracle_equal=true
+    k2_exact_gc_nb_width_test.go:52: theta=4 grid_bits=16 full_domain_oracle_equal=true
+    k2_exact_gc_nb_width_test.go:52: theta=5 grid_bits=16 full_domain_oracle_equal=true
+    k2_exact_gc_nb_width_test.go:52: theta=6 grid_bits=16 full_domain_oracle_equal=true
+    k2_exact_gc_nb_width_test.go:52: theta=7 grid_bits=8 full_domain_oracle_equal=true
+    k2_exact_gc_nb_width_test.go:52: theta=7 grid_bits=16 full_domain_oracle_equal=true
+    k2_exact_gc_nb_width_test.go:52: theta=7 grid_bits=18 full_domain_oracle_equal=true
+--- PASS: TestCrossGridNB128CertifiedDomain (10.24s)
+PASS
+ok  	github.com/isglobal-brge/dsVert/dsvert-mpc	32.548s

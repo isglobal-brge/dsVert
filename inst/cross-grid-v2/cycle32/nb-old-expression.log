@@ -1,0 +1,9 @@
+=== RUN   TestCrossGridNBComposition
+    k2_exact_gc_nb_composition_test.go:51: eta_want=22379823139608346624 fields=[22379823139608346624 22379823139608346624 0 1] loss_want=117694
+    k2_exact_gc_nb_composition_test.go:53: NB composition changed certified loss
+    k2_exact_gc_nb_composition_test.go:51: eta_want=10431712546344591360 fields=[10431712546344591360 10431712546344591360 0 1] loss_want=173378
+    k2_exact_gc_nb_composition_test.go:53: NB composition changed certified loss
+--- FAIL: TestCrossGridNBComposition (0.18s)
+FAIL
+FAIL	github.com/isglobal-brge/dsVert/dsvert-mpc	0.602s
+FAIL

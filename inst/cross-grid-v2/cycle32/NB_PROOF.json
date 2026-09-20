@@ -1,0 +1,36 @@
+{
+  "observed_utc": "2026-09-20T12:14:44.487397+00:00",
+  "fix_commit": "5a7f1471d1445915e5ae68dff133dac0d1ebe832",
+  "fleet_source": "f3795a2afc4fbb03eb7137ee3fbccefc75748c76",
+  "fresh_tests": 5,
+  "exit_code": 0,
+  "test_elapsed_seconds": 32.548,
+  "frozen_source_files": 978,
+  "frozen_source_changed": [],
+  "current_source_equal": {
+    "inst/dsvert-mpc/k2_exact_gc_nb_loss.go": true,
+    "inst/dsvert-mpc/k2_exact_gc_nb_composition_test.go": true,
+    "inst/dsvert-mpc/k2_exact_gc_nb_grid_test.go": true,
+    "inst/dsvert-mpc/k2_exact_gc_nb_width_test.go": true
+  },
+  "old_expression_control_exit": 1,
+  "old_expression_losses": [
+    0,
+    0
+  ],
+  "fixed_expression_losses": [
+    117694,
+    173378
+  ],
+  "domain_validity": [
+    1,
+    1
+  ],
+  "diagnosis": "Signed compiler expression assembly; already fixed before fleet source. Unsigned positive multiplier construction preserves admitted domain and exact arithmetic.",
+  "release_cells": "Nine actual post-fix fleet releases re-audited, not re-executed in cycle32; all oracle-equal/lifecycle/capacity PASS.",
+  "logs": {
+    "nb-regression.log": "70b57b440f1807ad912fff6b52f1799b75d22ff25f50bbd21777eda5fdbf7688",
+    "nb-old-expression.log": "47c291804e54bb62d87781cad6d8ba01261946afb506038cb29d9db717460158"
+  },
+  "retained_setup_failure": "First archive command named nonexistent inst/cross-grid-numeric; failed before test execution. Retried using the complete committed inst tree."
+}

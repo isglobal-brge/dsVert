@@ -1,0 +1,26 @@
+{
+  "heavy_manifests_unchanged": true,
+  "prior": {
+    "source_commits": {
+      "dsVert": "9f9d435b5a696a9bc359aa60f28d88874065416a",
+      "dsVertClient": "b9d2f6aabcdeca148f13e28ae523918d6734eb7b"
+    },
+    "real_jobs": 24,
+    "oracle_jobs": 1080,
+    "ready_real_jobs": 12,
+    "per_family_real_jobs": {
+      "lmm": 4,
+      "binomial_glmm": 4,
+      "poisson_glmm": 4,
+      "binomial_gee": 4,
+      "poisson_gee": 4,
+      "cox": 4
+    },
+    "sha256": {
+      "RELEASE_MANIFEST.jsonl": "4f1e6392eefd1678a7608d9bbbdc228e5c77cfcbdb080dab4ad5d2941f3b7ccc",
+      "SELECTION_MANIFEST.jsonl": "bf8bfa112993dd02b54e94f6984a3f129ad05a636c5062f8e8e4f68f12d3aec5",
+      "RELEASE_MANIFEST_STATUS.json": "ef855be266a8f3a636ba726659c2929d56e0e9a16cb06d072c85276fa48bd810"
+    }
+  },
+  "promotion_rows": 4
+}

@@ -1,0 +1,23 @@
+{
+  "source_commits": {
+    "dsVert": "9f9d435b5a696a9bc359aa60f28d88874065416a",
+    "dsVertClient": "b9d2f6aabcdeca148f13e28ae523918d6734eb7b"
+  },
+  "promoted_count": 4,
+  "promoted_source_pair": "f3795a2/e748f05",
+  "promotions": "PROMOTIONS.json",
+  "nb_math_resolution": "NB_PROOF.json",
+  "simple_paired": "SIMPLE_PAIRED.json",
+  "lmm": "LMM_HARVEST.json",
+  "reviewer_fleet": "REVIEWER_FLEET_OBSERVATION.json",
+  "manifest": "MANIFEST_VALIDATION.json",
+  "production_code_changed": false,
+  "gee_files_edited": false,
+  "pending": [
+    "confirmatory simple client paired completion",
+    "LMM relay batching and fresh baseline/recovery equivalence",
+    "Cox signed source orchestration and authenticated DP-vector reader",
+    "heavy lifecycle/capacity gates",
+    "pod16 alignment-mask worker native failure cause"
+  ]
+}

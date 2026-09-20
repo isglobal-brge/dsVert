@@ -1,12 +1,12 @@
 {
   "status": "INCOMPLETE_NOT_PROMOTED",
-  "recorded_utc": "2026-09-20T08:44:56.570745+00:00",
+  "recorded_utc": "2026-09-20T08:57:12.446300+00:00",
   "implementation_commits": {
     "dsVert": "902ccf46d0f9b844155ff4316ac91cac2a2ba75b",
     "dsVertClient": "6d94d4c9e15b9261a31b4499837d200ea1caea17"
   },
-  "last_proof_snapshot": "/workspace/dsvert/gee-fixed-rho-r4",
-  "last_proof_manifest_sha256": "1d4b78e617c85b7874d0b56c09f03977e1606a1b0b60e8869d2126e5427934df",
+  "last_proof_snapshot": "/workspace/dsvert/gee-fixed-rho-r5",
+  "last_proof_manifest_sha256": "f6f7e9543975ffd0de441fce2c4259088f7446040fdfc1f9216cea7795cae6d0",
   "focused": {
     "native_passes": 25,
     "server_assertions": 629,
@@ -14,7 +14,12 @@
     "failures": 0,
     "errors": 0,
     "skips": 0,
-    "warnings": 0
+    "warnings": 0,
+    "evidence_scope": "Native dev-r3; fresh R r5 passed with frozen-source verification",
+    "r5_completed_utc": "2026-09-20T08:55:42+00:00",
+    "r5_elapsed_seconds": 113.309429,
+    "r5_exit_code": 0,
+    "r5_source_unchanged": true
   },
   "planned_n2000_jobs": 6,
   "planned_topologies": {
@@ -24,12 +29,13 @@
   },
   "remote_state": "SSH restored at 08:28 UTC after banner timeouts / connection resets beginning about 08:23 UTC; no pod restart or other-owner job intervention attempted",
   "last_confirmed_smoke_state": "Both GEE producers completed; r4 binomial n4 FAILED exit 1 during first DP exact-exchange sampler chunk, with no result/release; Poisson n4 remains active with final evidence pending",
-  "last_confirmed_paired_state": "Paired suite active; final server/client results pending",
+  "last_confirmed_paired_state": "Paired server suite still active at joint-dp-vector-release-ledger at 08:56:30 UTC; final server/client results pending",
   "own_controllers": {
     "binomial_n4": 2390941,
     "poisson_n4": 2390942,
     "paired": 2390940,
-    "original_eight_job_waiter": 2478097
+    "original_eight_job_waiter": 2478097,
+    "r5_continuation": 2610081
   },
   "original_waiter": {
     "log": "/workspace/dsvert/gee-fixed-rho-r4/logs/campaign-waiter.log",
@@ -44,21 +50,24 @@
     "source": "inst/cross-grid-v2/gee-fixed-rho/run-campaign.py",
     "manifest": "inst/cross-grid-v2/gee-fixed-rho/RELEASE_MANIFEST_GEE.jsonl",
     "fleet_ready": false,
-    "new_snapshot": "NOT CREATED; r5 source freeze remains pending",
-    "readiness_evidence_root": null,
+    "new_snapshot": "/workspace/dsvert/gee-fixed-rho-r5",
+    "readiness_evidence_root": "/workspace/dsvert/gee-fixed-rho-r5",
     "native_evidence_root": "/workspace/dsvert/gee-fixed-rho-dev-r3",
     "oracle_records": "/workspace/dsvert/gee-oracle-20260920-r2",
     "maximum_concurrent_jobs": 1,
     "launched": false,
-    "readiness_evidence_requirement": "Fresh-source focused R pass and both successful serial n4 smokes; failed r4 binomial proof cannot satisfy readiness"
+    "readiness_evidence_requirement": "Fresh r5 focused R pass, full source-matched r4 paired pass, old Poisson controller/workers finished, and both fresh successful serial n4 smokes",
+    "source_manifest_sha256": "f6f7e9543975ffd0de441fce2c4259088f7446040fdfc1f9216cea7795cae6d0",
+    "source_frozen": true,
+    "readiness_gates_passed": false
   },
   "next_steps": [
-    "Retain r4 binomial failed public evidence and source binding; record underlying worker cause as unknown.",
-    "Collect final Poisson n4 and paired results without mutating their frozen r4 source or private jobs; preserve failures/skips/warnings.",
-    "Commit the diagnostic and serial-scheduling changes, then create an isolated new snapshot; no r5 snapshot exists yet.",
-    "Reuse native evidence only after matching every Go source input; obtain fresh focused R and successful serial n4 smoke gates for the updated harness.",
-    "Launch the local six-job serial plan only after readiness and precommitted oracle/source gates pass; no n2000 campaign has launched.",
-    "Collect actual n2000 oracle/recovery/tamper and capacity results; promotion remains false until every required gate passes."
+    "Read the live r5 continuation-state.json and retain completed jobs; current retained focused R and source-verification evidence already passed.",
+    "Allow r4 Poisson and paired jobs to finish without modifying their frozen source/private state; continuation requires paired pass and old sampler termination.",
+    "Run the two fresh source-bound n4 smokes serially through the launched r5 continuation; any failed required gate stops subsequent jobs.",
+    "Only after all readiness/oracle/source gates pass may the committed six-job serial n2000 campaign start; none has launched at this checkpoint.",
+    "Collect actual n2000 oracle/recovery/tamper and measured capacity results under unchanged caps; the 57-hour warning projection is not proof.",
+    "Keep promotion false until every required gate passes and the evidence is reviewed."
   ],
   "binomial_n4_failure": {
     "exit_code": 1,
@@ -87,6 +96,72 @@
     "resource_mitigation": "One actual release at a time, two authorities per release; mitigation does not prove OOM causation",
     "epsilon_delta_numeric_transport_acceptance_caps_changed": false,
     "transport_8_mib_override_applied": false,
-    "retained_client_dsi_expression_cap_bytes": 786431
+    "retained_client_dsi_expression_cap_bytes": 786431,
+    "included_in_r5_source_commit": "a3964d39c26909d8f805f64cbfe2ad3a81b138b5"
+  },
+  "prior_r4_proof": {
+    "snapshot": "/workspace/dsvert/gee-fixed-rho-r4",
+    "source_manifest_sha256": "1d4b78e617c85b7874d0b56c09f03977e1606a1b0b60e8869d2126e5427934df",
+    "source_commits": {
+      "dsVert": "902ccf46d0f9b844155ff4316ac91cac2a2ba75b",
+      "dsVertClient": "6d94d4c9e15b9261a31b4499837d200ea1caea17"
+    }
+  },
+  "current_source_commits": {
+    "dsVert": "a3964d39c26909d8f805f64cbfe2ad3a81b138b5",
+    "dsVertClient": "6d94d4c9e15b9261a31b4499837d200ea1caea17"
+  },
+  "r5_execution": {
+    "snapshot": "/workspace/dsvert/gee-fixed-rho-r5",
+    "source_manifest_sha256": "f6f7e9543975ffd0de441fce2c4259088f7446040fdfc1f9216cea7795cae6d0",
+    "controller_pid": 2610081,
+    "stdin": "/dev/null",
+    "started_unix": 1789894423.8225856,
+    "started_utc": "2026-09-20T08:53:43+00:00",
+    "controller_sha256": "9964c40d890a07f8ea575476390c33ff1b5f7ddb03f85a8fb4f0cd9e3591b985",
+    "controller_state_path": "/workspace/dsvert/gee-fixed-rho-r5/logs/continuation-state.json",
+    "current_step": "Focused R passed; waiting for r4 Poisson n4 exit",
+    "prior_controller_waits": {
+      "poisson_n4": 2390942,
+      "paired": 2390940
+    },
+    "prior_sampler_pids_required_finished": [
+      2496615,
+      2496655
+    ],
+    "paired_reuse": {
+      "snapshot": "/workspace/dsvert/gee-fixed-rho-r4",
+      "full_suite_pass_required": true,
+      "compared_inputs": "All R/Go/go.mod/go.sum/certificates/runtimes",
+      "changed_files": [
+        "dsVert/inst/cross-grid-v2/integrator-validation/validate_structured_dslite.R"
+      ],
+      "package_code_and_tests_identical": true
+    },
+    "native_reuse": {
+      "snapshot": "/workspace/dsvert/gee-fixed-rho-dev-r3",
+      "matching_source_inputs": 614,
+      "copied_runtime_and_oracle_hashes_verified": true
+    },
+    "fresh_smokes": "Both n4 families serially; successful source-bound proofs required before campaign",
+    "n2000_jobs_launched": 0,
+    "promoted": false,
+    "retained_public_artifacts": {
+      "directory": "inst/cross-grid-v2/gee-fixed-rho/evidence/r5",
+      "file_count": 12,
+      "sha256sums_sha256": "212490d7ac25ea0d71f21558f683e6778a3496dcb806739fc68063b7f82f858a",
+      "note": "Controller state/log are byte-preserving checkpoint copies, not future final statuses"
+    }
+  },
+  "capacity_warning": {
+    "note": "inst/cross-grid-v2/gee-fixed-rho/evidence/local/capacity-observation-20260920.md",
+    "observed_n4_cluster_block_seconds_approx": 412,
+    "scaling_clusters": 500,
+    "projected_hours_approx": 57,
+    "interpretation": "Warning projection from n4 timing; not an n2000 measurement, completion forecast or lower bound",
+    "measured_n2000_capacity": false,
+    "acceptance_ceiling_seconds": 21600,
+    "caps_raised": false,
+    "note_sha256": "f6ceb1ce5af77db022a5539a42abcd927a412766fd0bd89bb747267d18081596"
   }
 }

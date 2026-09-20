@@ -22,10 +22,13 @@ The implementation is committed separately from those bases:
 | dsVert | `902ccf46d0f9b844155ff4316ac91cac2a2ba75b` |
 | dsVertClient | `6d94d4c9e15b9261a31b4499837d200ea1caea17` |
 
-The current proof snapshot is `/workspace/dsvert/gee-fixed-rho-r4`, with frozen
-manifest SHA256 `1d4b78e617c85b7874d0b56c09f03977e1606a1b0b60e8869d2126e5427934df`.
+The current proof snapshot is `/workspace/dsvert/gee-fixed-rho-r5`, from server
+source commit `a3964d39c26909d8f805f64cbfe2ad3a81b138b5` and the unchanged client
+implementation commit above. Its frozen manifest SHA256 is
+`f6f7e9543975ffd0de441fce2c4259088f7446040fdfc1f9216cea7795cae6d0`.
 It reuses the r3 rebuilt runtime and tagged oracle after matching all 614 native
-source inputs, including `go.mod` and `go.sum`. Exact build hashes are recorded
+source inputs, including `go.mod` and `go.sum`, and verifying the copied runtime
+and oracle hashes. Exact build hashes are recorded
 in [PROMOTION_GEE_FIXED_RHO.md](PROMOTION_GEE_FIXED_RHO.md). Build and proof use
 this lane's own `/workspace/dsvert/gee-*` snapshots on pod4. The
 integrator worktrees and frozen LMM jobs are not this lane's execution targets.
@@ -73,7 +76,7 @@ flags remain false; release promotion requires separate evidence.
 | Gate | Binomial GEE | Poisson GEE |
 |---|---|---|
 | Local R contract/admission sanity | PASS, shared 254 server +272 client assertions | Same focused run |
-| Frozen pod build and focused native/R/integer-oracle tests | PASS native/build dev-r3 and R recheck r4 | Same combined runs |
+| Frozen pod build and focused native/R/integer-oracle tests | PASS native/build dev-r3 and R recheck r5 | Same combined runs |
 | Real n2000 epsilon8 K2 release and bitwise oracle equality | PENDING | PENDING |
 | Real n2000 epsilon8 K3 release and bitwise oracle equality | PENDING | PENDING |
 | Real n2000 epsilon8 K5 release and bitwise oracle equality | PENDING | PENDING |
@@ -196,13 +199,34 @@ These are plaintext synthetic oracle commitments, not authenticated DP releases.
 The local six-row [release manifest](inst/cross-grid-v2/gee-fixed-rho/RELEASE_MANIFEST_GEE.jsonl)
 plans one publication per family/topology: K2 includes recovery, K3 supplies the
 ordinary capacity measurement, and K5 supplies the remaining topology proof.
-Its new source freeze is pending and every row has `fleet_ready:false` and
+The r5 source freeze is complete; proof execution remains gated and
 `promoted:false`.
 
 [CHECKPOINT_GEE.json](inst/cross-grid-v2/gee-fixed-rho/CHECKPOINT_GEE.json)
 records exact own-job PIDs, snapshot paths, evidence bindings and continuation
-steps. The serial six-job controller is local and has not launched; no r5
-snapshot has been created.
+steps. The r5 continuation launched at **08:53:43 UTC**, PID `2610081`, with
+stdin `/dev/null`. Its controller SHA256 is
+`9964c40d890a07f8ea575476390c33ff1b5f7ddb03f85a8fb4f0cd9e3591b985`.
+Fresh r5 focused R tests passed at **08:55:42 UTC** in 113.309429 seconds:
+629 server plus 288 client assertions, zero failures/errors/skips/warnings,
+with frozen-source verification passing. The continuation is now waiting for
+the r4 Poisson controller to exit. Before fresh smokes it also requires the
+full r4 paired suite to pass,
+and old sampler PIDs `2496615`/`2496655` to finish. Paired-source comparison
+found only the standalone GEE failure-diagnostic harness changed across all
+R/Go/certificate/runtime inputs; package code and tests are identical.
+
+It then runs the two fresh n4 families serially. Only successful source-bound
+smokes and all remaining gates permit the six serial n2000 jobs. **No n2000
+job has launched and neither family is promoted.** Any failed required gate
+stops subsequent jobs.
+
+The [capacity observation note](inst/cross-grid-v2/gee-fixed-rho/evidence/local/capacity-observation-20260920.md)
+records active relay throughput and repeated n4 stage timing. Multiplying its
+approximately 412-second cluster block by 500 gives a roughly **57-hour warning
+projection**, not an n2000 measurement, completion forecast or lower bound.
+The six-hour acceptance gate and all other caps remain unchanged; the projection
+does not fill a capacity result.
 
 ## Estimated correlation boundary
 

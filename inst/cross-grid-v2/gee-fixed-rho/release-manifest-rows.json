@@ -13,15 +13,15 @@
       "dsVertClient": "4c6c5622fbdc2ae97de315f18c18901d452f3c09"
     },
     "source_commits": {
-      "dsVert": "902ccf46d0f9b844155ff4316ac91cac2a2ba75b",
+      "dsVert": "a3964d39c26909d8f805f64cbfe2ad3a81b138b5",
       "dsVertClient": "6d94d4c9e15b9261a31b4499837d200ea1caea17"
     },
     "harness_sha256": "ae277c438f4b4a0381524f4e09b248236752f6ce7e17e5a42da7698325ec9ccb",
-    "source_manifest_sha256": "1d4b78e617c85b7874d0b56c09f03977e1606a1b0b60e8869d2126e5427934df",
-    "workdir": "/workspace/dsvert/gee-fixed-rho-r4",
+    "source_manifest_sha256": "f6f7e9543975ffd0de441fce2c4259088f7446040fdfc1f9216cea7795cae6d0",
+    "workdir": "/workspace/dsvert/gee-fixed-rho-r5",
     "promoted": false,
     "fleet_ready": false,
-    "pending": "serial six-job source freeze; successful signed smokes; real topology/recovery/tamper/paired/capacity proof",
+    "pending": "r5 continuation running; successful serial signed smokes and real topology/recovery/tamper/paired/capacity proof pending",
     "real_authenticated_release_required": true,
     "cold_replay_tamper_required": true,
     "bilateral_and_unilateral_recovery_required": true,
@@ -58,7 +58,7 @@
       "focused": {
         "status": "PASS",
         "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/focused-proof.json",
-        "sha256": "15b749c49ad32c3d1397783d721fa5caa758fd5131426d4a1b2aa75cb69e1147"
+        "sha256": "31038750daf4b189d3ce2501efd4b16e349b49a3d2889c9d47d5278d373592be"
       },
       "K2": {
         "status": "PENDING",
@@ -110,6 +110,12 @@
       "sha256": "293414f31e23aba4f4551569228f1680cac70e4b344b111ef94c2b0f9a6d48ac",
       "expected_oracle_sha256": "6226c79ddfccb4068a41e91056f13a5bf1c24753e9a0581c716d0d108f6e6feb",
       "real_authenticated_release": false
+    },
+    "maximum_concurrent_jobs": 1,
+    "capacity_observation": {
+      "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/local/capacity-observation-20260920.md",
+      "sha256": "f6ceb1ce5af77db022a5539a42abcd927a412766fd0bd89bb747267d18081596",
+      "measured_n2000_capacity": false
     }
   },
   {
@@ -126,15 +132,15 @@
       "dsVertClient": "4c6c5622fbdc2ae97de315f18c18901d452f3c09"
     },
     "source_commits": {
-      "dsVert": "902ccf46d0f9b844155ff4316ac91cac2a2ba75b",
+      "dsVert": "a3964d39c26909d8f805f64cbfe2ad3a81b138b5",
       "dsVertClient": "6d94d4c9e15b9261a31b4499837d200ea1caea17"
     },
     "harness_sha256": "ae277c438f4b4a0381524f4e09b248236752f6ce7e17e5a42da7698325ec9ccb",
-    "source_manifest_sha256": "1d4b78e617c85b7874d0b56c09f03977e1606a1b0b60e8869d2126e5427934df",
-    "workdir": "/workspace/dsvert/gee-fixed-rho-r4",
+    "source_manifest_sha256": "f6f7e9543975ffd0de441fce2c4259088f7446040fdfc1f9216cea7795cae6d0",
+    "workdir": "/workspace/dsvert/gee-fixed-rho-r5",
     "promoted": false,
     "fleet_ready": false,
-    "pending": "serial six-job source freeze; successful signed smokes; real topology/recovery/tamper/paired/capacity proof",
+    "pending": "r5 continuation running; successful serial signed smokes and real topology/recovery/tamper/paired/capacity proof pending",
     "real_authenticated_release_required": true,
     "cold_replay_tamper_required": true,
     "bilateral_and_unilateral_recovery_required": true,
@@ -171,7 +177,7 @@
       "focused": {
         "status": "PASS",
         "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/focused-proof.json",
-        "sha256": "15b749c49ad32c3d1397783d721fa5caa758fd5131426d4a1b2aa75cb69e1147"
+        "sha256": "31038750daf4b189d3ce2501efd4b16e349b49a3d2889c9d47d5278d373592be"
       },
       "K2": {
         "status": "PENDING",
@@ -223,6 +229,12 @@
       "sha256": "3afa265fe906f19b2ced8ec87872ee40c435c866b1b2fb62b71f7a11adf00318",
       "expected_oracle_sha256": "b245f22eaced4faa21b2c2e05ac13f4d3ff5f05616f5b72a4744a91879ec2821",
       "real_authenticated_release": false
+    },
+    "maximum_concurrent_jobs": 1,
+    "capacity_observation": {
+      "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/local/capacity-observation-20260920.md",
+      "sha256": "f6ceb1ce5af77db022a5539a42abcd927a412766fd0bd89bb747267d18081596",
+      "measured_n2000_capacity": false
     }
   }
 ]

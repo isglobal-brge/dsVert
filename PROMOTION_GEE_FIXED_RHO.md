@@ -17,16 +17,19 @@ estimate alpha for this promotion; it does not establish estimated-alpha GEE.
 | Client base commit | `4c6c5622fbdc2ae97de315f18c18901d452f3c09` |
 | Server implementation commit | `902ccf46d0f9b844155ff4316ac91cac2a2ba75b` |
 | Client implementation commit | `6d94d4c9e15b9261a31b4499837d200ea1caea17` |
-| Current frozen pod snapshot | `/workspace/dsvert/gee-fixed-rho-r4` |
-| Current frozen source manifest SHA256 | `1d4b78e617c85b7874d0b56c09f03977e1606a1b0b60e8869d2126e5427934df` |
+| Current server proof-source commit | `a3964d39c26909d8f805f64cbfe2ad3a81b138b5` |
+| Current frozen pod snapshot | `/workspace/dsvert/gee-fixed-rho-r5` |
+| Current frozen source manifest SHA256 | `f6f7e9543975ffd0de441fce2c4259088f7446040fdfc1f9216cea7795cae6d0` |
 | Rebuilt Linux amd64 runtime SHA256 | `a59e004567027fc0c09c620cf9ab8dcae0000efb4477f14672997fd800b150c6` |
 | Rebuilt tagged integer-oracle SHA256 | `e7415b4a13f534dbeb9e698920ea887f9f965cf09cb69c67a6df21271fd53ec2` |
 | Numeric certificate SHA256 | `82df4b2c32f19f0ac248acbd424f079edd5e29546f95e6e3c520c2e2232be3e3` |
 
-The base commits precede the implementation commits above. The r4 manifest
-binds the committed pair with no dirty overlay. Its rebuilt binaries come from
-the frozen dev-r3 snapshot after all 614 native source inputs, including
-`go.mod` and `go.sum`, matched. The dev-r3 source manifest SHA256 is
+The base commits precede the implementation commits above. Historical r4
+evidence binds server `902ccf46` and the unchanged client. Current r5 binds
+server `a3964d39` and that client with no dirty overlay. Its rebuilt binaries
+come from the frozen dev-r3 snapshot after all 614 native source inputs,
+including `go.mod` and `go.sum`, matched and the copied runtime/oracle hashes
+were verified. The dev-r3 source manifest SHA256 is
 `cc108c3eb3881957c98534c4d65e73a6c6b09990018cde584db58bb95cdd0305`.
 Real release and paired-suite proof remain pending. Detached jobs use
 `< /dev/null` in the lane's own `/workspace/dsvert/gee-*` snapshots on pod4.
@@ -64,7 +67,7 @@ command, source-only proof or synthetic noise simulation for a real release.
 
 | Evidence | Binomial GEE | Poisson GEE |
 |---|---|---|
-| Focused native/R/integer-oracle proof on the frozen pod build | PASS native/build dev-r3 and R recheck r4 | Same combined runs |
+| Focused native/R/integer-oracle proof on the frozen pod build | PASS native/build dev-r3 and R recheck r5 | Same combined runs |
 | K2 n2000 real epsilon=8 release, `DSLITE_ORACLE_BITWISE_EQUAL` | PENDING | PENDING |
 | K3 n2000 real epsilon=8 release, `DSLITE_ORACLE_BITWISE_EQUAL` | PENDING | PENDING |
 | K5 n2000 real epsilon=8 release, `DSLITE_ORACLE_BITWISE_EQUAL` | PENDING | PENDING |
@@ -99,6 +102,8 @@ copies verified against their snapshot hashes:
 | [r4](inst/cross-grid-v2/gee-fixed-rho/evidence/r4) focused R proof, failed binomial n4 and waiter cancellation, 15 files | Source manifest `1d4b78e617c85b7874d0b56c09f03977e1606a1b0b60e8869d2126e5427934df` |
 | [r4/SHA256SUMS](inst/cross-grid-v2/gee-fixed-rho/evidence/r4/SHA256SUMS) | `52ed2d2bc42ea263942512b928f3b5c359e1c0501d0e87c9c9390eb65593a30b` |
 | r4 `logs/gee-r-focused.log` | `be0b1110033bdbbd7df95a3f436e66e4b3553474003bbc6498ae0715dd8957e5` |
+| [r5](inst/cross-grid-v2/gee-fixed-rho/evidence/r5) frozen source/controller and focused R proof, 12 files | Source manifest `f6f7e9543975ffd0de441fce2c4259088f7446040fdfc1f9216cea7795cae6d0` |
+| [r5/SHA256SUMS](inst/cross-grid-v2/gee-fixed-rho/evidence/r5/SHA256SUMS) | `212490d7ac25ea0d71f21558f683e6778a3496dcb806739fc68063b7f82f858a` |
 
 The evidence copies include manifests, base-commit records and public build,
 test and failed-smoke logs/status/metrics. They exclude private state, source
@@ -198,8 +203,8 @@ applicable and add explicit pending evidence cells. They are not executable
 per-job rows and must not be appended to the integrator's global manifest as
 completed evidence. The six executable planned rows are in
 [RELEASE_MANIFEST_GEE.jsonl](inst/cross-grid-v2/gee-fixed-rho/RELEASE_MANIFEST_GEE.jsonl).
-They retain the independent n2000 oracle commitments, with source binding and
-`fleet_ready:false` pending a new orchestration freeze. K2 includes recovery in
+They retain the independent n2000 oracle commitments and r5 source binding;
+actual execution remains gated on the required proofs. K2 includes recovery in
 its sole publication; K3 and K5 are baselines. Capacity is measured at K3.
 Neither these planned rows nor the family summaries assert promotion. No push,
 tag or thesis edit is part of this lane.
@@ -209,5 +214,19 @@ was confirmed cancelled at 08:28:26 UTC before any n2000 launch, as recorded in
 [STATUS_GEE.md](STATUS_GEE.md) and
 [CHECKPOINT_GEE.json](inst/cross-grid-v2/gee-fixed-rho/CHECKPOINT_GEE.json).
 No n2000 release result, paired pass or capacity result is inferred from a
-running process. The revised serial six-job plan remains local and unlaunched;
-no r5 snapshot has been created.
+running process. The r5 continuation launched at 08:53:43 UTC, PID `2610081`,
+stdin `/dev/null`, controller SHA256
+`9964c40d890a07f8ea575476390c33ff1b5f7ddb03f85a8fb4f0cd9e3591b985`.
+Fresh r5 focused R tests passed at 08:55:42 UTC in 113.309429 seconds: 629 server
+plus 288 client assertions, zero failures/errors/skips/warnings, with frozen-
+source verification passing. The continuation is now waiting for the r4
+Poisson controller's exit; it also requires both full paired package passes and old sampler
+PIDs `2496615`/`2496655` to finish. Comparing all R/Go/certificate/runtime inputs
+for paired reuse found only the standalone GEE failure-diagnostic harness
+changed; package code and tests are identical. Two fresh n4 smokes run serially
+before the six-job n2000 campaign can pass its gates. No n2000 job has launched.
+
+The [capacity observation note](inst/cross-grid-v2/gee-fixed-rho/evidence/local/capacity-observation-20260920.md)
+provides public counters and n4 stage timing. Its roughly 57-hour n2000 scaling
+projection is a warning, not a measured n2000 result, completion forecast or
+lower bound. All caps, including the six-hour acceptance gate, remain unchanged.

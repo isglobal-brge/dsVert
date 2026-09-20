@@ -12,16 +12,24 @@ HARNESS_DIR = 'dsVert/inst/cross-grid-v2/integrator-validation'
 CAPACITY = json.loads(Path(__file__).with_name('release-capacity.json').read_text())
 FAMILIES = ('lmm', 'binomial_glmm', 'poisson_glmm', 'binomial_gee', 'poisson_gee', 'cox')
 PENDING = {'binomial_gee': 'estimated-alpha contract and signed lifecycle',
-           'poisson_gee': 'estimated-alpha contract and signed lifecycle',
-           'cox': 'authenticated source composition and signed lifecycle'}
+           'poisson_gee': 'estimated-alpha contract and signed lifecycle'}
+
+
+def rows_for(family):
+    return 400 if family == 'cox' else 2000
+
+
+def predictors_for(family):
+    # Every pinned Cox owner must contribute a signed source column at K5.
+    return 5 if family == 'cox' else 3
 
 
 def command(family, epsilon, owners, instance, mode, expected=None):
     job = f'{family}-e{epsilon}-k{owners}-i{instance:02d}-{mode}'
     env = dict(GOMAXPROCS='2', GOMEMLIMIT='16GiB', OPENBLAS_NUM_THREADS='1',
         OMP_NUM_THREADS='1', NOT_CRAN='true', DSVERT_RELEASE_TTL_SECONDS='900',
-        DSVERT_RELEASE_MAX_RUNTIME_SECONDS='86400', DSVERT_GRID_VALIDATION_N='2000',
-        DSVERT_GRID_VALIDATION_P='3', DSVERT_GRID_VALIDATION_GRID='2',
+        DSVERT_RELEASE_MAX_RUNTIME_SECONDS='86400', DSVERT_GRID_VALIDATION_N=str(rows_for(family)),
+        DSVERT_GRID_VALIDATION_P=str(predictors_for(family)), DSVERT_GRID_VALIDATION_GRID='2',
         DSVERT_GRID_VALIDATION_EPSILON=str(epsilon), DSVERT_GRID_VALIDATION_OWNERS=str(owners),
         DSVERT_GRID_VALIDATION_INSTANCE=str(instance), DSVERT_GRID_VALIDATION_INSTANCE_COUNT='1',
         DSVERT_GRID_VALIDATION_REAL_COUNT='0' if mode == 'oracle' else '1',
@@ -42,6 +50,8 @@ def main():
     parser.add_argument('--oracle-records', type=Path,
         help='Directory of retained oracle-only metrics from this committed pair')
     parser.add_argument('--output', type=Path, default=ROOT / 'integrator-evidence')
+    parser.add_argument('--family', choices=FAMILIES,
+        help='Replace only this family\'s four release rows, preserving other fleet jobs')
     args = parser.parse_args()
     heads = {repo: subprocess.check_output(['git', '-C', str(ROOT / repo),
         'rev-parse', 'HEAD'], text=True).strip() for repo in ('dsVert', 'dsVertClient')}
@@ -54,16 +64,17 @@ def main():
             if record.get('oracle_only') is not True:
                 continue
             assert record['source_commits'] == heads, f'Stale oracle record: {path}'
-            assert (record['n'], record['p'], record['grid']) == (2000, 3, 2), path
+            assert (record['n'], record['p'], record['grid']) == (
+                rows_for(record['family']), predictors_for(record['family']), 2), path
             digest = record['expected_oracle_sha256']
             assert len(digest) == 64 and all(c in '0123456789abcdef' for c in digest), path
             key = (record['family'], record['owners'], record['instance'])
             assert key not in records or records[key] == digest, f'Conflicting oracle: {path}'
             records[key] = digest
     real, selection = [], []
-    for family in FAMILIES:
+    for family in ((args.family,) if args.family else FAMILIES):
         harness = ROOT / HARNESS_DIR / f'validate_{family}_dslite.R'
-        common = dict(family=family, n=2000, p=3, grid=2, source_commits=heads,
+        common = dict(family=family, n=rows_for(family), p=predictors_for(family), grid=2, source_commits=heads,
             harness_sha256=hashlib.sha256(harness.read_bytes()).hexdigest(),
             workdir='fresh isolated prepared workspace containing the committed pair',
             promoted=False)
@@ -88,6 +99,32 @@ def main():
                 capacity_measurement=owners == 2 and mode == 'baseline',
                 capacity_bytes=CAPACITY['capacity_bytes'], capacity_seconds=CAPACITY['capacity_seconds']))
     args.output.mkdir(parents=True, exist_ok=True)
+    if args.family:
+        assert len(real) == 4 and all(r['fleet_ready'] for r in real), 'Family readiness/oracle commitments missing'
+        manifest = args.output / 'RELEASE_MANIFEST.jsonl'
+        original = manifest.read_text().splitlines(keepends=True)
+        replacements = {r['job_id']: json.dumps(r, separators=(',', ':')) + '\n' for r in real}
+        retained = []
+        for line in original:
+            row = json.loads(line)
+            if row['family'] == args.family:
+                retained.append(replacements.pop(row['job_id']))
+            else:
+                retained.append(line)
+        assert not replacements, 'Expected four existing family rows'
+        manifest.write_text(''.join(retained))
+        status_path = args.output / 'RELEASE_MANIFEST_STATUS.json'
+        status = json.loads(status_path.read_text())
+        status.setdefault('family_source_commits', {})[args.family] = heads
+        status.setdefault('family_prepare_cli', {})[args.family] = shlex.join([
+            'bash', f'{HARNESS_DIR}/prepare-release-workspace.sh', *heads.values()])
+        status.setdefault('pending_families', {}).pop(args.family, None)
+        status['fleet_ready'] = all(json.loads(line)['fleet_ready'] for line in retained)
+        status['source_commit_scope'] = 'Each release row pins its own source pair; family updates preserve other rows byte-for-byte.'
+        status_path.write_text(json.dumps(status, indent=2) + '\n')
+        print(json.dumps({'family': args.family, 'ready_real_jobs': len(real),
+            'other_release_rows_unchanged': len(original) - len(real)}))
+        return
     for filename, rows in [('RELEASE_MANIFEST.jsonl', real), ('SELECTION_MANIFEST.jsonl', selection)]:
         (args.output / filename).write_text(''.join(json.dumps(r, separators=(',', ':')) + '\n' for r in rows))
     status = dict(source_commits=heads, real_job_count=len(real), oracle_job_count=len(selection),

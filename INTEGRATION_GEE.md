@@ -1,3 +1,20 @@
+# Cycle 14 packaged native checkpoint — 2026-09-20
+
+All four packaged runtimes are rebuilt from source 8e1cd96/f4c3faa on pod4;
+all 609 native build inputs and installed runtime checksums match. The final
+Linux focused check passes 11 tests, zero failures/skips (77.267s), including
+GEE n4/p3 full-vector source composition, Cox n4 spool/cold replay and typed
+LMM/GLMM/GEE/Cox source-binding/configuration regression. Evidence is in the
+workspace integrator-evidence/cycle14-20260920/frontier-build-PASS.json.
+
+These runtimes include the complete native frontier. The independent Poisson
+signed proof pipeline remains frozen on d9348bf/d27c566 with its own rebuilt
+runtime hashes; its eventual smoke/capacity metrics are not measurements of
+this combined runtime. GEE/Cox signed R release integration remains pending.
+No family is promoted by this packaging checkpoint.
+
+---
+
 # Cycle 14 durable fixed-rho predecessor — 2026-09-20
 
 Both GEE families now have native authenticated source, once-only grouping,

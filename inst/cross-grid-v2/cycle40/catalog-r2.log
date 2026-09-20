@@ -1,0 +1,15 @@
+crossgrid-cox: ................1
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Error ('test-crossgrid-cox.R:1738:5'): Cox catalog preserves time/event ow
+<dsvert_capsule_manifest_rejected/error/condition>
+Error: Invalid canonical biomedical capsule workload contract
+Backtrace:
+    ▆
+ 1. └─dsVert:::.dsvert_dp_capsule_manifest_workload_contract(...) at test-crossgrid-cox.R:1738:5
+ 2.   └─dsVert:::.dsvert_dp_capsule_manifest_decode(...) at dsVert/R/dpCapsuleManifestDS.R:797:3
+ 3.     └─dsVert:::.dsvert_dp_capsule_manifest_abort(...) at dsVert/R/dpCapsuleManifestDS.R:86:5
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+Error: all(!frame$error) is not TRUE
+Execution halted

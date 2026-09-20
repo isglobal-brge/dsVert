@@ -1,0 +1,52 @@
+{
+  "observed_utc": "2026-09-20T14:51:46.079308+00:00",
+  "source_commits": {
+    "dsVert": "391742c0fda3b99215fdd578d7c325e5d3a1e9fb",
+    "dsVertClient": "0a86516b0332ffe0089c088a30f9d05763444a2e"
+  },
+  "changed_files": [
+    "R/dpCapsuleManifestDS.R",
+    "R/dpCapsuleWorkload.R",
+    "tests/testthat/test-crossgrid-cox.R"
+  ],
+  "tests": 63,
+  "assertions": 3320,
+  "failures": 0,
+  "errors": 0,
+  "warnings": 0,
+  "skips": 0,
+  "snapshots": {
+    "proof-r1": {
+      "files": 2892,
+      "source_manifest_sha256": "8d56cd5106372e50f5d95bfcb0efa4a24a4a76e244b1e4162eb17b086b94a85d",
+      "unchanged": true,
+      "final_differences": [
+        "dsVert/tests/testthat/test-crossgrid-cox.R"
+      ]
+    },
+    "proof-r2": {
+      "files": 2892,
+      "source_manifest_sha256": "d540ea0410b19568e1247cfa1411332198f99ad6bc41e57f780002328e282c75",
+      "unchanged": true,
+      "final_differences": [
+        "dsVert/tests/testthat/test-crossgrid-cox.R"
+      ]
+    },
+    "proof-r3": {
+      "files": 2892,
+      "source_manifest_sha256": "8c02b43bec469a8911305fb55778c1c03e09f8b52dc5d171938ec0f204474081",
+      "unchanged": true,
+      "final_differences": []
+    },
+    "prior_code_control": {
+      "source_overlay": {
+        "dsVert/R/dpCapsuleManifestDS.R": "5cf997618bba91718bf9d08cdd57175995c0382faa2ff53eb8d521fe51a54b40",
+        "dsVert/R/dpCapsuleWorkload.R": "06eb03d44d0c01492ff3df0577292388b0600d191b58eb28f917ad69f808d12a"
+      },
+      "other_files_unchanged": true,
+      "expected_rejection": "A custodian Gaussian specification is not locally owned"
+    }
+  },
+  "scope": "Real Cox catalog parser/local custodian normalization/global raw-contract normalization and column resolution at K2/K3/K5, without catalog or schema test doubles in the new test. Existing Cox/native/durable, shared GLM/manifest and current-native Gaussian fallback regressions. Public Cox release admission remains explicitly closed. Not a complete Cox DP release or capacity proof.",
+  "assembly": "Existing Cox tests and shared regressions from proof-r1; new catalog test from proof-r3 (51 assertions). Two earlier new-test runs failed due to incomplete scope fixture and noncanonical workload JSON; retained logs. The prior-code control rejects Cox at local ownership normalization. No production fix was needed after the initial patch."
+}

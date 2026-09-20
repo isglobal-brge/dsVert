@@ -1,0 +1,26 @@
+{
+  "observed_utc": "2026-09-20T14:51:46.136983+00:00",
+  "source_commits": {
+    "dsVert": "391742c0fda3b99215fdd578d7c325e5d3a1e9fb",
+    "dsVertClient": "0a86516b0332ffe0089c088a30f9d05763444a2e"
+  },
+  "promoted_count": 4,
+  "promoted_source_pair": "f3795a2/e748f05",
+  "proof": "R_PROOF.json",
+  "manifest": "MANIFEST_VALIDATION.json",
+  "lmm": "LMM_HARVEST.json",
+  "simple_paired": "SIMPLE_PAIRED_HEALTH.json",
+  "reviewer_fleet": "REVIEWER_FLEET_OBSERVATION.json",
+  "production_server_changed": true,
+  "production_client_changed": false,
+  "native_runtime_changed": false,
+  "native_sampler_changed": false,
+  "gee_files_edited": false,
+  "pending": [
+    "Cox client catalog, server workload artifact admission, complete signed sharing/persistence, owner-first bind handoff, compilation/certificate dispatch and actual DP lifecycle",
+    "LMM authenticated relay batching with fresh output/recovery equality and measured capacity",
+    "Heavy promotion gates",
+    "Confirmatory simple client paired completion",
+    "Pod16 native worker readiness root cause"
+  ]
+}

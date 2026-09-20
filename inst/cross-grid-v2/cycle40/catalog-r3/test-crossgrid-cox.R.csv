@@ -1,0 +1,2 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-crossgrid-cox.R","crossgrid-cox","Cox catalog preserves time/event ownership and its signed contract",51,0,FALSE,FALSE,0,5.414,0.269,7.09,51

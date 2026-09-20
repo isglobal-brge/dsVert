@@ -145,13 +145,13 @@ func groupedLMMBuildSourceGraph(s groupedLMMSourceSpec, role exactGCRole,
 			return crossGridStageClone(input), nil
 		})
 	}
-	route, err := groupedRouteBuildStagedGraphBatched(s.Route, role, sidecar, key)
+	route, err := groupedRouteBuildStagedGraph(s.Route, role, sidecar, key)
 	if err != nil || len(route.Plans) == 0 {
 		return nil, errCrossGridStage
 	}
 	graph.Graph.Stages = append(graph.Graph.Stages, route.Plans...)
 	graph.Compute = append(graph.Compute, route.Compute...)
-	lift, convert, err := crossGridStageBuildConversionBatch(route.Plans[len(route.Plans)-1], s.LMM.RoutedStage, true, role, crossGridStageConversionRelayBatch)
+	lift, convert, err := crossGridStageBuildConversion(route.Plans[len(route.Plans)-1], s.LMM.RoutedStage, true, role)
 	if err != nil {
 		return nil, err
 	}

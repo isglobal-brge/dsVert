@@ -1,37 +1,3 @@
-# Cycle42: batch authenticated normalization and conversion exchanges
-
-LMM and both GLMM source graphs now use up to 128 rows per complete-case
-normalization stage, bounded by the existing 512-Kibit typed-input limit, and
-256 coordinates per Ring128-to-Ring192 conversion chunk. GLMM q0 outcome
-normalization uses 256 rows and reuses its immutable public program per shape.
-The default router/conversion/outcome builders retain 16/32/32 batching for
-other callers, including GEE. No GEE-owned source or certificate is changed.
-
-At n2000/p3 this reduces normalization stages from 125 to 16 and conversion
-chunks from 313 to 40; each conversion chunk retains its dual-ring mask,
-masked opening and private carry/sign protocols. GLMM outcome exchanges fall
-from 63 to 8. Each batch still draws fresh masks/OT coins and authenticates
-its source, session and attempt. Exact integer expressions, rounding, caps,
-epsilon/delta, complete-case gaps and sticky validity are unchanged. Public
-stage bounds bind the new schedule, so graph/receipt identities change;
-old stores and frozen releases must not be reused or rewritten.
-
-Fresh native baseline and patched snapshots pass complete LMM/binomial-GLMM/
-Poisson-GLMM source-to-loss oracle checks and recovery. New regressions exercise
-two full batches plus tails, bilateral fresh-attempt and unilateral persisted
-recovery, cold replay, and byte-equal reconstructed routing/outcome outputs
-against the legacy schedule. Focused R lifecycle/admission/Gaussian fallback
-checks pass (12 tests, 204 assertions). All four Go1.25.7 runtimes are rebuilt.
-Evidence: ../integrator-evidence/cycle42-20260920/.
-
-This is batching and native equality evidence, not a new n2000 serialized-RPC
-capacity result. A fresh signed n4/K2 recovery smoke is running separately.
-The fleet manifest must be repinned to this committed runtime for the capacity
-rerun; the 256GB/21,600-second ceiling is unchanged. Four simples remain
-promoted at their original pair; no heavy promotion is asserted here.
-
----
-
 # Cycle20: reuse immutable public normalization and lift programs
 
 The private routing graph caches normalization programs by their complete public

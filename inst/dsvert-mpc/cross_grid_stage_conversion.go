@@ -14,14 +14,13 @@ import (
 )
 
 const crossGridStageConversionBatch = 32
-const crossGridStageConversionRelayBatch = 256
 
 type crossGridStageConversionPrograms struct {
 	mask, correction *primitiveVProgram
 }
 
 func crossGridStageConversionCompile(count int, signed bool) (*crossGridStageConversionPrograms, error) {
-	if count < 1 || count > crossGridStageConversionRelayBatch {
+	if count < 1 || count > crossGridStageConversionBatch {
 		return nil, errCrossGridStage
 	}
 	mask128 := exactGCMask(128)
@@ -94,7 +93,7 @@ func crossGridStageConversionWord(raw []byte) groupedWord {
 
 func crossGridStageConversionChunk(rw io.ReadWriter, attempt crossGridStageAttempt, role exactGCRole, contract [32]byte, label string, programs *crossGridStageConversionPrograms, input crossGridStageOutput, mask128 []groupedWord) (crossGridStageOutput, error) {
 	count := len(mask128)
-	if count < 1 || count > crossGridStageConversionRelayBatch || len(input.Share) != 16*count || len(input.Validity) != count || programs == nil {
+	if count < 1 || count > crossGridStageConversionBatch || len(input.Share) != 16*count || len(input.Validity) != count || programs == nil {
 		return crossGridStageOutput{}, errCrossGridStage
 	}
 	for i, mask := range mask128 {
@@ -158,11 +157,7 @@ func crossGridStageConversionChunk(rw io.ReadWriter, attempt crossGridStageAttem
 }
 
 func crossGridStageBuildConversion(input crossGridStagePlan, id string, signed bool, role exactGCRole) (crossGridStagePlan, crossGridStageCompute, error) {
-	return crossGridStageBuildConversionBatch(input, id, signed, role, crossGridStageConversionBatch)
-}
-
-func crossGridStageBuildConversionBatch(input crossGridStagePlan, id string, signed bool, role exactGCRole, batch int) (crossGridStagePlan, crossGridStageCompute, error) {
-	if batch < 1 || batch > crossGridStageConversionRelayBatch || input.Ring != 128 || len(input.CoordOrder) == 0 || input.FPScale < 0 || input.FPScale > 128 ||
+	if input.Ring != 128 || len(input.CoordOrder) == 0 || input.FPScale < 0 || input.FPScale > 128 ||
 		input.SourceDigest == ([32]byte{}) || input.ProfileDigest == ([32]byte{}) || input.ID == "" ||
 		exactGCValidateLabel("stage", id, 128) != nil || id == input.ID || role > exactGCRoleEvaluator {
 		return crossGridStagePlan{}, nil, errCrossGridStage
@@ -185,9 +180,6 @@ func crossGridStageBuildConversionBatch(input crossGridStagePlan, id string, sig
 	for k, v := range input.PublicBounds {
 		plan.PublicBounds[k] = v
 	}
-	if batch != crossGridStageConversionBatch {
-		plan.PublicBounds["conversion_batch_coordinates"] = batch
-	}
 	compute := func(rw io.ReadWriter, attempt crossGridStageAttempt, in []crossGridStageOutput) (crossGridStageOutput, error) {
 		if len(in) != 1 || input.validateOutput(in[0]) != nil {
 			return crossGridStageOutput{}, errCrossGridStage
@@ -196,8 +188,8 @@ func crossGridStageBuildConversionBatch(input crossGridStagePlan, id string, sig
 		// openings are never cached or reused across attempts or coordinates.
 		compiled := make(map[int]*crossGridStageConversionPrograms)
 		out := crossGridStageOutput{Share: make([]byte, 0, 24*len(input.CoordOrder)), Validity: make([]byte, 0, len(input.CoordOrder))}
-		for start := 0; start < len(input.CoordOrder); start += batch {
-			count := min(batch, len(input.CoordOrder)-start)
+		for start := 0; start < len(input.CoordOrder); start += crossGridStageConversionBatch {
+			count := min(crossGridStageConversionBatch, len(input.CoordOrder)-start)
 			programs := compiled[count]
 			if programs == nil {
 				var err error

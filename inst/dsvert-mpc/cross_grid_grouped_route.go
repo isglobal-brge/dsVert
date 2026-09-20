@@ -111,22 +111,7 @@ type groupedRouteStagedGraph struct {
 // homogeneous q0 [PSI row, presentX1,...,presentXp,presentY,label,labelPresent].
 // Their Validity bytes certify arithmetic/provenance; presence is private data.
 func groupedRouteBuildStagedGraph(s groupedRouteStagedSpec, role exactGCRole, side *groupedRouteSidecar, key [32]byte) (*groupedRouteStagedGraph, error) {
-	return groupedRouteBuildStagedGraphBatch(s, role, side, key, 16)
-}
-
-// LMM/GLMM coalesce independent rows into one authenticated GC exchange.
-// Other callers retain the original schedule. The typed-input bound includes
-// garbler output masks; arithmetic and private validity are unchanged.
-func groupedRouteBuildStagedGraphBatched(s groupedRouteStagedSpec, role exactGCRole, side *groupedRouteSidecar, key [32]byte) (*groupedRouteStagedGraph, error) {
-	if s.validate() != nil {
-		return nil, errCrossGridStage
-	}
-	batch := min(128, (exactGCMaxCircuitTypeBits/128-2)/(3*s.Predictors+9))
-	return groupedRouteBuildStagedGraphBatch(s, role, side, key, batch)
-}
-
-func groupedRouteBuildStagedGraphBatch(s groupedRouteStagedSpec, role exactGCRole, side *groupedRouteSidecar, key [32]byte, batch int) (*groupedRouteStagedGraph, error) {
-	if s.validate() != nil || batch < 1 || batch > 128 || role > exactGCRoleEvaluator || (role == exactGCRoleEvaluator && side != nil) {
+	if s.validate() != nil || role > exactGCRoleEvaluator || (role == exactGCRoleEvaluator && side != nil) {
 		return nil, errCrossGridStage
 	}
 	s.NumericBound = new(big.Int).Set(s.NumericBound)
@@ -158,18 +143,15 @@ func groupedRouteBuildStagedGraphBatch(s groupedRouteStagedSpec, role exactGCRol
 		graph.Plans = append(graph.Plans, crossGridStagePlan{ID: id, Kind: kind, Ring: 128, FPScale: 50,
 			CoordOrder: coords, PublicBounds: map[string]int{"clusters": s.Clusters, "slots": s.Slots, "predictors": s.Predictors, "padded_rows": n},
 			SourceDigest: s.SourceDigest, ProfileDigest: profile, Predecessors: previous})
-		if batch != 16 {
-			graph.Plans[len(graph.Plans)-1].PublicBounds["normalization_batch_rows"] = batch
-		}
 		graph.Compute = append(graph.Compute, compute)
 	}
 	// The executor visits stages sequentially. Cache only immutable public
 	// programs within this signed graph; each run still draws fresh cryptography.
 	normalizePrograms := map[string]*primitiveVProgram{}
 	chunks := []string{}
-	for start := 0; start < rows; start += batch {
-		start, count := start, min(batch, rows-start)
-		id := fmt.Sprintf("grouped.route.normalize.%06d", start/batch)
+	for start := 0; start < rows; start += 16 {
+		start, count := start, min(16, rows-start)
+		id := fmt.Sprintf("grouped.route.normalize.%06d", start/16)
 		chunks = append(chunks, id)
 		add(id, "grouped.private-complete-case-normalize", count*cols, []string{s.NumericStage, s.MetadataStage}, func(rw io.ReadWriter, a crossGridStageAttempt, in []crossGridStageOutput) (crossGridStageOutput, error) {
 			if len(in) != 2 || groupedRouteCheckOutput(in[0], rows*(cols-1)) != nil || groupedRouteCheckOutput(in[1], rows*(cols+1)) != nil {
@@ -186,7 +168,7 @@ func groupedRouteBuildStagedGraphBatch(s groupedRouteStagedSpec, role exactGCRol
 		position := 0
 		var flags []byte
 		for k, value := range in {
-			if groupedRouteCheckOutput(value, min(batch, rows-batch*k)*cols) != nil {
+			if groupedRouteCheckOutput(value, min(16, rows-16*k)*cols) != nil {
 				return crossGridStageOutput{}, errCrossGridStage
 			}
 			copy(out.Share[position:], value.Share)

@@ -114,19 +114,7 @@ func TestCrossGridStageConversionTwoAuthorityPrivateCarry(t *testing.T) {
 }
 
 func TestCrossGridStageConversionDurableBoundary(t *testing.T) {
-	crossGridStageConversionDurableBatch(t, crossGridStageConversionBatch, 3)
-}
-
-func TestCrossGridStageConversionBatchedDurableBoundary(t *testing.T) {
-	crossGridStageConversionDurableBatch(t, crossGridStageConversionRelayBatch, 2*crossGridStageConversionRelayBatch+3)
-}
-
-func crossGridStageConversionDurableBatch(t *testing.T, batch, count int) {
-	t.Helper()
 	values := []*big.Int{big.NewInt(1), big.NewInt(-1), new(big.Int).Neg(exactGCModulus(127))}
-	for len(values) < count {
-		values = append(values, new(big.Int).Set(values[len(values)%3]))
-	}
 	inputs := crossGridStageConversionTestShares(values)
 	for _, scenario := range []string{"fresh", "bilateral-abort", "unilateral-commit"} {
 		t.Run(scenario, func(t *testing.T) {
@@ -134,13 +122,10 @@ func crossGridStageConversionDurableBatch(t *testing.T, batch, count int) {
 			graph.Stages = graph.Stages[:1]
 			source := &graph.Stages[0]
 			source.FPScale = 50
-			source.CoordOrder = make([]string, len(values))
-			for i := range values {
-				source.CoordOrder[i] = fmt.Sprintf("value:%d", i)
-			}
+			source.CoordOrder = []string{"value:0", "value:1", "value:2"}
 			var kernels [2][]crossGridStageCompute
 			for role := range kernels {
-				plan, convert, err := crossGridStageBuildConversionBatch(*source, "convert192", true, exactGCRole(role), batch)
+				plan, convert, err := crossGridStageBuildConversion(*source, "convert192", true, exactGCRole(role))
 				if err != nil {
 					t.Fatal(err)
 				}

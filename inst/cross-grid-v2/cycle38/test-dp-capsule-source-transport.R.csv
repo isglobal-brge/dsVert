@@ -1,0 +1,30 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","the capsule source store rejects linked SQLite files and sidecars",15,0,FALSE,FALSE,0,0.428000000000001,0.062,0.582000000000001,15
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","Gaussian one-draw authority requires the exact signed ticket pair",6,0,FALSE,FALSE,0,1.7,0.124,2.007,6
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","private source header commitments are domain-separated HMACs only",7,0,FALSE,FALSE,0,0.0329999999999977,0.006,0.0450000000000017,7
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","allocation gates precede source keys and raw materialization",7,0,FALSE,FALSE,0,1.019,0.128,1.31699999999999,7
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","Ring128 source splits are exact at boundaries and retain all mask bits",5,0,FALSE,FALSE,0,0.0530000000000008,0.00299999999999989,0.0570000000000022,5
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","K=2 source transport is opaque, ordered, sticky and exactly reconstructs",19,0,FALSE,FALSE,0,10.502,0.826,14.296,19
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","K=3 through K=5 include every owner without extra noise shares",39,0,FALSE,FALSE,0,28.338,3.434,47.232,39
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","paired ciphertext commits survive interruption without resplitting them",6,0,FALSE,FALSE,0,2.149,0.242,2.88000000000001,6
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","lazy chunks bind one snapshot and complete only after every index",8,0,FALSE,FALSE,0,2.587,0.258,3.24200000000002,8
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","the public source boundary redacts typed snapshot failures",1,0,FALSE,FALSE,0,0.007000000000005,0.00100000000000033,0.00899999999998613,1
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","authenticated source-stream state rejects local tampering",1,0,FALSE,FALSE,0,1.38799999999999,0.141,1.648,1
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","concurrent lazy chunk retries commit one byte-identical pair",1,0,FALSE,FALSE,0,1.35599999999999,0.165999999999999,3.22800000000001,1
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","inbound reservation covers every durable source chunk receipt",3,0,FALSE,FALSE,0,8.009,1.893,10.476,3
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","recipient tickets reserve their durable key bytes for K=2,3,5",22,0,FALSE,FALSE,0,3.53100000000001,0.467,4.136,22
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","recipient-ticket byte admission is exact, retryable and atomic",13,0,FALSE,FALSE,0,2.71100000000001,0.353,3.13499999999999,13
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","legacy recipient-key rows migrate once and reconcile on restart",6,0,FALSE,FALSE,0,1.57900000000001,0.212,1.83199999999999,6
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","authenticated capacity state cannot under-count recipient keys",2,0,FALSE,FALSE,0,0.528000000000006,0.0689999999999991,0.630000000000024,2
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","one source reservation that can never fit is terminal",6,0,FALSE,FALSE,0,0.837999999999994,0.107000000000001,0.986000000000018,6
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","S-aware inbound bytes enforce exact boundary and restart",8,0,FALSE,FALSE,0,1.18600000000001,0.158999999999999,1.35299999999998,8
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","durable source bytes reconcile after rollback and process restart",10,0,FALSE,FALSE,0,0.710999999999999,0.0860000000000003,0.806000000000012,10
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","global byte manager remains bounded across many durable stores",8,0,FALSE,FALSE,0,0.22399999999999,0.016,0.240000000000009,8
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","128 SQLite source stores reconcile and vacuum only bounded pages",132,0,FALSE,FALSE,0,2.876,1.01,4.06700000000001,132
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","concurrent recipient-ticket retries commit one byte-identical key",1,0,FALSE,FALSE,0,0.210999999999999,0.0540000000000003,0.694999999999993,1
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","signed window negotiation wraps byte-identical legacy artifacts",23,0,FALSE,FALSE,0,2.61199999999999,0.273000000000001,2.93000000000001,23
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","ticket transport contracts are bounded before service bootstrap",6,0,FALSE,FALSE,0,0.0670000000000073,0.00199999999999889,0.0699999999999932,6
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","byte-bounded source windows return exact canonical prefixes",15,0,FALSE,FALSE,0,0.242000000000004,0.00399999999999956,0.247000000000014,15
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","new servers enforce old-client and adaptive source caps",5,0,FALSE,FALSE,0,0.167000000000002,0.00300000000000011,0.168999999999983,5
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","recipient windows are ordered idempotent and byte bounded",5,0,FALSE,FALSE,0,0.135000000000005,0.00200000000000067,0.137,5
+"test-dp-capsule-source-transport.R","dp-capsule-source-transport","new recipients enforce old-client and adaptive accept caps",8,0,FALSE,FALSE,0,0.594999999999999,0.0440000000000005,0.63900000000001,8

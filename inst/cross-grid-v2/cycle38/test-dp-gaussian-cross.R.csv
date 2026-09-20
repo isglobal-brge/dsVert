@@ -1,0 +1,7 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-gaussian-cross.R","dp-gaussian-cross","cross Gaussian Ring128 reduction is segmented and contract checked",3,0,FALSE,FALSE,0,0.167,0.00900000000000001,0.335000000000001,3
+"test-dp-gaussian-cross.R","dp-gaussian-cross","cross Gaussian Ring128 reduction keeps a single segment as an array",1,0,FALSE,FALSE,0,0.667,0.051,1.712,1
+"test-dp-gaussian-cross.R","dp-gaussian-cross","cross Gaussian release assembly exactly follows v2 coordinate order",2,0,FALSE,FALSE,0,0.0469999999999988,0.003,0.0790000000000006,2
+"test-dp-gaussian-cross.R","dp-gaussian-cross","cross Gaussian exact manifests accept only the active producer stage",3,0,FALSE,FALSE,0,0.129999999999999,0.006,0.301000000000002,3
+"test-dp-gaussian-cross.R","dp-gaussian-cross","cross Gaussian binding preserves a synopsis source namespace",11,0,FALSE,FALSE,0,6.022,0.33,13.851,11
+"test-dp-gaussian-cross.R","dp-gaussian-cross","cross Gaussian finalizer persists only an authenticated result share",19,0,FALSE,FALSE,0,7.873,0.315,11.54,19

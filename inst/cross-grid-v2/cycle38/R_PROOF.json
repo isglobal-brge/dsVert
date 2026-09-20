@@ -1,0 +1,42 @@
+{
+  "observed_utc": "2026-09-20T14:15:13.743188+00:00",
+  "source_commits": {
+    "dsVert": "b258bfa076522ee5b9f7e04af9addffb01f6e066",
+    "dsVertClient": "0a86516b0332ffe0089c088a30f9d05763444a2e"
+  },
+  "tests": 111,
+  "assertions": 3798,
+  "failures": 0,
+  "errors": 0,
+  "warnings": 0,
+  "skips": 0,
+  "frozen_source_files": 2806,
+  "frozen_source_changed": [],
+  "final_source_differences": [],
+  "manifest_sha256": "47dc6fd732bd2f6663b429abafb1570ce3b3b392550bfafda70038223db4c458",
+  "base_commits": {
+    "dsVert": "a2debffce488f28742f8adcbae8ccfb05b60e006",
+    "dsVertClient": "0a86516b0332ffe0089c088a30f9d05763444a2e"
+  },
+  "baseline_reproduced": true,
+  "baseline_manifest_sha256": "13ac2613abebef945603b8403108e0fd76b01d0f3e9d76c33657c4ae2a6a6158",
+  "scope": "Cox shared source layout/contract equality and Synopsis namespace at K2/K3/K5, exported cold publication-evidence dispatch with real Cox signatures and durable terminal store. Upstream materializer/catalog, publication lookup, compilation decode and signed-schema lookup are test doubles in the new tests; no complete DP release, public catalog admission, capacity or promotion. Existing Cox private/native worker and GLM/LMM/shared source/Synopsis regressions included.",
+  "test_results": {
+    "test-crossgrid-cox.R.csv": "1ba3dac6161e642123a32453f73911386b3febb4481110630f7842990f28f508",
+    "test-crossgrid-glmm-gaussian-preflight.R.csv": "8ee115c29f60be75b458cf6070bcf1e7214abc5ef6045d14b181141c22124e62",
+    "test-crossgrid-lmm-public-evidence.R.csv": "5670f6199387d8e77b352595a709056fa4fc51aee8752b4b7d2c2568e0e4d5a5",
+    "test-crossgrid-lmm-schema-cache.R.csv": "8fba2f2d0d049534ff571a61ec0761c0853f33a723024ec4e187a0c08c5097e8",
+    "test-dp-capsule-source-transport.R.csv": "b48e2517d41934148f04649bcbe1a4ec0aa764fe6bc6f8cae4f46a2078aedf9b",
+    "test-dp-gaussian-cross.R.csv": "bcd57b7d69b0fd922ac88671fdad69b4cc3d625c65a844bdd122b3609e79104d",
+    "test-dp-glm-grid-cross-contract.R.csv": "166ba01b5df62e0af140cdfa754705a2ee1c0992a73342caa55c9ecad51d287e",
+    "test-dp-synopsis-exact-gc.R.csv": "14faaf5a961ba681b1e0e2ca8b49b5c702e6e70a272d673cd5e8918bd2fa8ac6",
+    "test-dp-synopsis-source-transport-threading.R.csv": "4b1babf7e9f5b414883098850875f0afe21a0e51694f0b87d0718106a713f235",
+    "test-dp-synopsis-source-transport-wrappers.R.csv": "c0c5ef78885e0cce8554468be9729c8f633e6061f9cfe1a7bb42686f968ecd1d"
+  },
+  "log_sha256": {
+    "cox-r1.log": "0d83f5853f5b146f8bb0546fd9583f22cccb78934a3cf80788851ba196198191",
+    "shared.log": "603fcaf15fa2d11c5bf0dc58acbede7c00714eb318e163e6afac219c8c2ed043",
+    "source-regressions.log": "bb9d58b7d347f2e6eb2d1df6711630e3c7040237bf902d807c40db4ba6c4bdb2",
+    "baseline.log": "0439946854db302b9c3937f863e50cc49d7bcdf699179b0a23f70d9e7af931c3"
+  }
+}

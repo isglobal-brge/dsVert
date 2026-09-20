@@ -1,0 +1,22 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid signed contracts authenticate both families with real Ed25519",16,0,FALSE,FALSE,0,1.809,0.198,2.752,16
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid signatures bind bounds, every owner and the compute pair",11,0,FALSE,FALSE,0,1.059,0.195,1.848,11
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid structural validators reject signed malformed public plans",46,0,FALSE,FALSE,0,3.408,0.749,7.036,46
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid private layout separates f50 inputs, integer outcome and bits",8,0,FALSE,FALSE,0,0.186,0.044,0.395,8
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid bounds reject unrepresentable capacities and unsupported dimensions",26,0,FALSE,FALSE,0,1.253,0.111,2.053,26
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid loss caps and adjacency use the existing public formulas",48,0,FALSE,FALSE,0,0.476000000000001,0.0979999999999999,0.987000000000002,48
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid profile coefficients, proof and numeric template are immutable",3,0,FALSE,FALSE,0,0.111000000000001,0.00500000000000012,0.126000000000001,3
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid signed zero encoding survives canonical round trips",4,0,FALSE,FALSE,0,1.469,0.262,2.699,4
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid beta L1 comparison is exact at the public boundary",9,0,FALSE,FALSE,0,0.353,0.0780000000000001,0.722999999999999,9
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid scalar identifiers reject JSON array representations",4,0,FALSE,FALSE,0,0.401999999999999,0.108,0.983,4
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","piecewise admission pins new arithmetic, caps and all signatures",22,0,FALSE,FALSE,0,4.354,1.042,18.297,22
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","piecewise source projection preserves frozen f50/f0 slots",32,0,FALSE,FALSE,0,1.166,0.248,4.6,32
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","grid staging uses the exact worker wire encoding and stable keys",6,0,FALSE,FALSE,0,3.937,0.387,19.23,6
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","only the signed grid catalog selects the expanded joint-GC policy",11,0,FALSE,FALSE,0,6.589,0.44,16.808,11
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid workload admission and source contracts bind the new projection",7,0,FALSE,FALSE,0,1.331,0.229,4.125,7
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","fused grid source reads require the matching bilateral digest gate",13,0,FALSE,FALSE,0,3.589,0.321,6.93600000000001,13
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid private records resume across R processes and reject tampering",7,0,FALSE,FALSE,0,1.168,0.254,15.913,7
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid bootstrap binds the public plan without a circular schema hash",3,0,FALSE,FALSE,0,0.752000000000002,0.162000000000001,1.35299999999999,3
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","session admission cannot be reused for changed public grid inputs",17,0,FALSE,FALSE,0,0.106999999999999,0.0109999999999992,0.120000000000005,17
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","durable batch reuse authenticates the stored plan and private widths",5,0,FALSE,FALSE,0,0.856999999999999,0.169,2.23399999999999,5
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","structured snapshot identity reaches a fixed point without enabling release",30,0,FALSE,FALSE,0,0.122,0.0199999999999996,0.245000000000005,30

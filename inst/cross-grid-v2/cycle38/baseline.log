@@ -1,0 +1,51 @@
+crossgrid-cox: 12.34
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Failure ('test-crossgrid-cox.R:445:5'): Cox shared source contracts preser
+Expected `layout$enabled` to be identical to TRUE.
+Differences:
+1 element mismatch
+
+── 2. Failure ('test-crossgrid-cox.R:446:5'): Cox shared source contracts preser
+Expected `layout[setdiff(names(layout), "enabled")]` to be identical to `t$layout`.
+Differences:
+Names: 6 string mismatches
+Length mismatch: comparison on first 9 components
+Component 2: Modes: numeric, character
+Component 2: target is numeric, current is character
+Component 5: Modes: character, numeric
+Component 5: target is character, current is numeric
+Component “padding_coordinates”: Mean absolute difference: 8188
+Component 7: Modes: list, numeric
+Component 7: Length mismatch: comparison on first 0 components
+...
+
+── 3. Failure ('test-crossgrid-cox.R:448:5'): Cox shared source contracts preser
+Expected `source` to be identical to `.dsvert_dp_canonical_query_value(t$transport)`.
+Differences:
+Names: 13 string mismatches
+Length mismatch: comparison on first 19 components
+Component “chunk_count”: Mean relative difference: 1
+Component “chunk_shape”: 1 string mismatch
+Component “coordinate_count”: Mean relative difference: 2103
+Component “coordinate_order_sha256”: 1 string mismatch
+Component 8: Modes: logical, list
+Component 8: Lengths: 1, 2
+Component 8: target is logical, current is list
+...
+
+── 4. Error ('test-crossgrid-cox.R:449:5'): Cox shared source contracts preserve
+Error: The canonical DP query contains invalid object fields
+Backtrace:
+    ▆
+ 1. └─dsVert:::.dsvert_dp_cox_cross_source_context(...) at test-crossgrid-cox.R:449:5
+ 2.   └─dsVert:::.dsvert_dp_glm_grid_cross_equal(...) at dsVert/R/dpCoxGridCrossLoader.R:58:3
+ 3.     ├─base::identical(...) at dsVert/R/dpGLMGridCrossContract.R:47:3
+ 4.     ├─dsVert:::.dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(value))
+ 5.     │ └─jsonlite::toJSON(...) at dsVert/R/dpPolicyDS.R:1593:3
+ 6.     │   └─base::force(x)
+ 7.     └─dsVert:::.dsvert_dp_canonical_query_value(value)
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+Error: all(frame$failed == 0) is not TRUE
+Execution halted

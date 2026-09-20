@@ -1,3 +1,33 @@
+# Cycle14 continued: fixed-rho R/native boundaries
+
+The explicit `parameters$composition="staged_fixed_rho_v1"` contract now binds
+`grouped_gee_fixed_rho_staged_v1.json`, exact native cap/scale strings and a
+separate n2000/C500/B4/p<=3/J<=4 measurement domain. Legacy fixed contracts retain
+their bytes. Bread uses the common maximum candidate cap required by the native
+spec. This is fixed-rho v3, never the requested moment-estimated alpha.
+
+`grouped-gee-fixed-rho-staged-prepare-v1` authenticates q0 outcomes/f50 features,
+private route sidecars and all likelihood/bread/meat terminal coordinates.
+Server source/store preparation, transport, durable terminal/DP handoff and
+private validity support this typed internal path. Mirrored artifact projection
+and the client internal beta-only validator reconstruct all caps/coordinates.
+Public profile admission, discovery and exported GEE release remain closed.
+
+Both-family actual R->CLI tests cover both pinned authority roles; native wire
+spool tests cover n4 two-authority oracle and fresh-transport cold replay.
+The final native build has613 verified inputs, all four runtime hashes checked,
+and seven selected Linux tests PASS (135.605s), including n4/p3/J2 sources and
+Cox interoperability. The build driver mistakenly required nine test names;
+two names do not exist. Its exit1 is retained alongside the exact seven-test
+reviewed PASS, without rerunning or relabeling the source.
+
+Evidence: workspace integrator-evidence/cycle14-20260920/continuation/,
+wiring-build-PASS.json and wiring-build/. No signed GEE n4 release, n2000
+capacity, or promotion has been established. Resolve the alpha scope before
+public admission; see continuation/RESUME.md for exact remaining gates.
+
+---
+
 # Cycle 14 packaged native checkpoint — 2026-09-20
 
 All four packaged runtimes are rebuilt from source 8e1cd96/f4c3faa on pod4;

@@ -1,3 +1,25 @@
+# Cycle14 continued: exact R/native source adapters
+
+The private `cox-loss-staged-prepare-v1` CLI now accepts canonical decimal caps,
+authenticated f100 predictor and q0 live/event records, plus the garbler's private
+risk-set permutation/ties. The evaluator receives only the owner-MAC routing
+digest. R helpers form exact f100 contributions from authenticated f50 share
+columns and public f50 coefficients, sum the ordered K-owner contributions,
+construct private time order/ties and validate the opaque worker preparation.
+K2/K3/K5 actual R->native CLI handoffs pass; native spool/oracle/cold coverage
+and four rebuilt runtimes are retained in cycle14 continuation evidence.
+
+These are source adapters, not a complete authenticated capsule producer.
+Still needed: exact producer normalization, authenticated source loading,
+private complete-case/live stage from additive row-validity shares, durable
+R lifecycle/DP handoff and client reader. XOR stage validity cannot substitute
+for row presence; no bypass is admitted. Public Cox remains closed, with no
+signed n4/n2000 release or promotion. Exact map:
+integrator-evidence/cycle14-20260920/cox-r-native/INTEGRATION_MAP.md in workspace.
+No new math/protocol blocker or ULTRA escalation is asserted.
+
+---
+
 # Cycle 14 packaged native checkpoint — 2026-09-20
 
 All four packaged runtimes are rebuilt from source 8e1cd96/f4c3faa on pod4;

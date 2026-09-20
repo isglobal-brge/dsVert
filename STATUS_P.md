@@ -10,7 +10,7 @@ See [PRIMITIVE_V.md](PRIMITIVE_V.md) for contracts, proofs, integration and cost
 1. Existing exact categorical, Gaussian cross and sealed GC routes, source
    transport, and frozen numeric contract inspected. `STATUS_V1.md` was absent;
    `DECISIONS_V1.md`, `NUMERIC_CERTIFICATE_V1.md`, the machine profile,
-   `cross_grid_contract_v1.go`, and `CROSS_OWNER_DESIGN_CODEX.md` were available.
+   `cross_grid_contract_v1.go`, and the cross-owner design specification were available.
 2. Existing Yao/checked OT/encrypted-record protocol reused for native192 outputs.
    Independent fresh masks cover loss and private validity. Generated source
    and the caller-verified signed contract are bound to the session. `2022095`.

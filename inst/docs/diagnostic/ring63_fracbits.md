@@ -1,8 +1,7 @@
 # Structural diagnostic: Ring63 fracBits=25 breakage
 
 Task #111 (redefined) root-cause investigation plan.
-Codex audit 2026-04-19 late authorized 1-2h structural diagnose BEFORE
-writing any migration patch. Goal: identify the hardcoded constant or
+Structural diagnosis precedes any migration patch. Goal: identify the hardcoded constant or
 derivation that breaks when `K2DefaultFracBits` is bumped from 20 to 25.
 
 ## Observed symptoms at fracBits=25
@@ -33,7 +32,7 @@ improve SNR. Confirmed empirically on LMM (regressed to |Δ|=3e-2).
 optimize(tol=1e-10) did not move the needle — confirming the gap is not
 in the outer σ_b² search but in the Beaver-computed Gram.
 
-## Candidate root causes (priority order per Codex)
+## Candidate root causes (priority order)
 
 ### (a) DCF spline knot derivation assuming 2^20 scale — PRIMARY
 
@@ -142,7 +141,7 @@ baseline. No dependent commits; no cascading rollback.
 
 ## Fallback (C) — iterative refinement
 
-Authorized by Codex as ADAPTIVE safety net only IF structural fix
+ADAPTIVE safety net only IF structural fix
 does not close LMM X4 rel<1e-4 after (a)+(b)+(c) are exhausted.
 Activation conditions:
   - Structural fix shipped AND validated (all tests green at

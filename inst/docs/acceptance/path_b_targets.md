@@ -1,4 +1,4 @@
-# Pre-fix tolerance targets (ex-ante, Codex audit gate)
+# Pre-fix tolerance targets (ex-ante audit gate)
 
 > **Archived historical design record.** This file predates quarantine of the
 > Cox and LMM frontdoors. The PASS/FAIL labels below describe obsolete numeric
@@ -25,7 +25,7 @@ documented O(|β|²) bound (docs/error_bounds/cox_newton_onestep.md).
 Correct number is rel=1.78e-4 and NO improvement has been achieved from
 the originally-reported 1.14e-3 max-rel baseline. Targets unchanged.
 
-## Task #111 redefined (Codex 2026-04-19 late)
+## Task #111 redefined (2026-04-19)
 
 ORIGINAL: uint64→big.Int migration in k2_truncation.go Hadamard paths.
 INVALIDATED by diagnostic — `modMulBig63` (k2_secure_exp.go:97) already
@@ -36,7 +36,7 @@ hypothesis was wrong.
 
 REDEFINED: **Diagnose and fix structural cause of Ring63 25-frac_bits
 breakage**. See docs/diagnostic/ring63_fracbits.md for the investigation
-plan. Candidate root causes (priority-ordered per Codex directive):
+plan. Candidate root causes (priority-ordered):
   (a) DCF spline knot derivation assuming 2^20 scale — PRIMARY
   (b) k2-float-to-fp rounding accumulation at 25 bits — secondary
   (c) Other hardcoded fracBits=20 constants outside Truncation — catch-all
@@ -122,7 +122,7 @@ leak beyond what `coxph$var` exposes for pooled-data fits.
 Documented as acceptable per the plan's disclosure table. Same tier as
 cluster membership in LMM (scalar aggregate of pre-agreed statistic).
 
-## Determinism gate (Codex 2026-04-19 late addendum)
+## Determinism gate (2026-04-19 addendum)
 
 BEFORE any Cox scenario's acceptance is evaluated under Path B, the
 determinism probe MUST pass with Path B enabled:
@@ -137,7 +137,7 @@ enabled (newton_refine_iters=3), across-run |Δ(fit1,fit2)|=3.3e-7 on
 weak_synth (local harness /tmp/weak_rep.R) — well below the 1e-5
 Ring63 floor. Determinism is NOT the blocker; accuracy convergence is.
 
-## Iteration-cap discipline (Codex 2026-04-19 late)
+## Iteration-cap discipline (2026-04-19)
 
 Max iters = 5 is PART OF the P3 disclosure budget. Breaking the cap
 to force convergence = breaking disclosure discipline. If Path B does
@@ -146,7 +146,7 @@ diagnostic (verify Fisher(β_k) computation correctness via trace,
 check (a) orchestration, (b) contract, (c) L2/L3 gap) BEFORE raising
 any knob.
 
-## Ring63 cross-fix propagation (Codex 2026-04-19 late)
+## Ring63 cross-fix propagation (2026-04-19)
 
 If LMM acceptance forces a Ring63 25-frac_bits fix (after optim
 tolerance is exhausted as a fix option), then:
@@ -182,7 +182,7 @@ independent-noise correction. Not yet implemented; preliminary
 design ~3-4h of work. Alternatively: accept (B_full) task #111 as
 the only path to strict <1e-4 rel on |β|>1 coefficients.
 
-## LMM iterative-refinement band-aid (Codex 2026-04-19 late decision)
+## LMM iterative-refinement band-aid (2026-04-19 decision)
 
 LMM X4 |β|>1 relative bound (target rel < 1e-4, observed 1.14e-3) is
 remedied via **iterative refinement** (residual-correction GLS) LOCAL
@@ -223,7 +223,7 @@ Hard cap: **2 refinement iterations**. Breaking the cap = breaking P3,
 same discipline as Cox Path B's 5-iter cap. If 2 iters don't close X4
 rel < 1e-4, escalate to (B_full) task #111.
 
-## Per-layer convergence requirement (Codex condition 2)
+## Per-layer convergence requirement (condition 2)
 
 For each Cox scenario after Path B:
 - L1 vs plan target: must pass per-coef rule.
@@ -232,7 +232,7 @@ For each Cox scenario after Path B:
   protocol; same formulas, same Beaver triples deterministically
   derived from session seed).
 - If L2 or L3 diverges from L1 beyond 1e-5, halt and diagnose per
-  Codex rule: (a) comms/orchestration (b) dsVertClient↔dsVert contract
+  the diagnostic rule: (a) comms/orchestration (b) dsVertClient↔dsVert contract
   (c) L2-simulation vs L3-reality gap.
 
 Data equivalence checks: n_total, n_events, per-covariate mean/sd, and

@@ -1039,6 +1039,57 @@ if (nzchar(Sys.getenv("DSVERT_COX_STAGED_TEST_BINARY"))) {
         input <- state$ss$.exact_gc_inputs[[binding$stage$source_key]]
         expect_null(.dsvert_dp_cox_cross_validate_worker_source(input, 128L, 0L, binding$stage$purpose))
         expect_identical(input$allowed_spec$output_kind, "cox-loss-staged-ring128-share-v1")
+        # Only the upstream Synopsis compilation/cache and snapshot resolver are
+        # fixtures. Remote binding uses the real signed Cox context, durable
+        # source MACs, identities, routing receipt and native worker preparation.
+        source <- list(manifest_json = .dsvert_dp_capsule_source_encode_json(t$manifest),
+          source_contract = t$transport)
+        request <- list(manifest_sha256 = .dsvert_joint_dp_hash(t$manifest),
+          claim_set_json = "fixture-claims", compilation_json = "fixture-compilation")
+        compilation <- list(artifact = list(key = "fixture"), receipts = list("fixture"))
+        claims <- list("fixture")
+        snapshot_reads <- 0L
+        local_mocked_bindings(
+          .dsvert_dp_synopsis_source_transport_context_v1 = function(hash, artifact,
+              claim_set, receipts, .policy, .secret) {
+            expect_identical(artifact, compilation$artifact)
+            expect_identical(claim_set, claims)
+            expect_identical(receipts, compilation$receipts)
+            expect_identical(.policy, state$policy)
+            expect_identical(.secret, state$secret)
+            source
+          },
+          .dsvert_dp_lmm_cross_signed_schema = function(...) f$schema_manifest,
+          .dsvert_dp_resolve_snapshot = function(policy, name, envir, secret) {
+            expect_identical(peer, "site_a")
+            snapshot_reads <<- snapshot_reads + 1L
+            state$snapshots[[name]]
+          })
+        remote <- function(candidate = source, req = request, route = receipt) {
+          .dsvert_dp_cox_cross_remote_bind(list(policy = state$policy, secret = state$secret),
+            candidate, compilation, claims, req, "cox_grid", state$ss, environment(), route)
+        }
+        expect_identical(remote(), bound)
+        expect_identical(remote(), bound)
+        expect_identical(snapshot_reads, if (peer == "site_a") 2L else 0L)
+        admitted <- .dsvert_dp_lmm_cross_binding(state$ss, "cox_grid")$admission
+        expect_identical(admitted$request, request)
+        expect_identical(admitted$contract_hash, source_hash)
+        reads <- snapshot_reads
+        changed_source <- source
+        changed_source$source_contract$source_context_hash <- strrep("e", 64)
+        expect_error(remote(candidate = changed_source))
+        changed_source <- source; changed_source$manifest_json <- "{}"
+        expect_error(remote(candidate = changed_source))
+        changed_request <- request; changed_request$manifest_sha256 <- strrep("e", 64)
+        expect_error(remote(req = changed_request))
+        changed_request <- request; changed_request$claim_set_json <- "changed-claims"
+        expect_error(remote(req = changed_request))
+        if (peer == "site_b") expect_error(remote(route = NULL))
+        expect_identical(snapshot_reads, reads)
+        changed_receipt <- receipt; changed_receipt$routing_digest <- strrep("e", 64)
+        expect_error(remote(route = changed_receipt))
+        expect_identical(.dsvert_dp_lmm_cross_binding(state$ss, "cox_grid")$admission, admitted)
       }
       expect_error(prepare("site_b"), class = "dsvert_dp_public_failure")
       expect_error(prepare("site_b", receipt, states$site_a$snapshots), class = "dsvert_dp_public_failure")

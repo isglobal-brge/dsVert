@@ -82,6 +82,49 @@
   list(bound = bound, routing_receipt = prepared$routing_receipt)
 }
 
+# Authenticated remote-binding adapter. The public catalog/client runner must
+# still admit Cox before dispatching here. Only the time owner resolves data;
+# the other authority supplies the owner's signed public routing receipt.
+.dsvert_dp_cox_cross_remote_bind <- function(context, source, compilation,
+    claims, request, analysis_id, ss, envir, routing_receipt = NULL) {
+  policy <- context$policy
+  secret <- context$secret
+  authenticated <- .dsvert_dp_synopsis_source_transport_context_v1(
+    request$manifest_sha256, compilation$artifact, claims, compilation$receipts,
+    .policy = policy, .secret = secret)
+  .dsvert_dp_glm_grid_cross_equal(source$source_contract, authenticated$source_contract)
+  .dsvert_dp_glm_grid_cross_equal(source$manifest_json, authenticated$manifest_json)
+  manifest <- .dsvert_dp_capsule_source_manifest(authenticated$manifest_json)
+  if (!identical(.dsvert_joint_dp_hash(manifest), request$manifest_sha256)) {
+    .dsvert_dp_cox_grid_cross_fail()
+  }
+  schema <- .dsvert_dp_lmm_cross_signed_schema(policy, secret,
+    request$manifest_sha256, manifest)
+  validated <- .dsvert_dp_cox_cross_source_context(policy, manifest,
+    authenticated$source_contract, schema, analysis_id)
+  if (!policy$peer_name %in% unlist(validated$spec$computation_peers, use.names = FALSE)) {
+    .dsvert_dp_cox_grid_cross_fail()
+  }
+  previous <- ss$.dp_lmm_grid_cross[[analysis_id]]
+  if (!is.null(previous$admission) && !identical(previous$admission$request, request)) {
+    .dsvert_dp_cox_grid_cross_fail()
+  }
+  owner <- identical(policy$peer_name, validated$spec$time$owner_peer)
+  if (!owner && is.null(routing_receipt)) .dsvert_dp_cox_grid_cross_fail()
+  snapshots <- if (owner) setNames(lapply(names(policy$datasets), function(name) {
+    .dsvert_dp_resolve_snapshot(policy, name, envir, secret)
+  }), names(policy$datasets)) else NULL
+  # Bind revalidates the live identities/alignment, the owner's durable source
+  # commitment, and the signed routing receipt before preparing native input.
+  result <- .dsvert_dp_cox_cross_bind(policy, secret, manifest,
+    authenticated$source_contract, schema, analysis_id, ss, snapshots, routing_receipt)
+  binding <- .dsvert_dp_lmm_cross_binding(ss, analysis_id)
+  binding$admission <- list(request = request, policy = policy, secret = secret,
+    contract_hash = binding$contract_hash, artifact_sha256 = .dsvert_joint_dp_hash(binding$artifact))
+  ss$.dp_lmm_grid_cross[[analysis_id]] <- binding
+  result
+}
+
 # DP adapters: public identity is read before START; private candidate
 # shares/validities are consumed only by the post-START source path.
 .dsvert_dp_cox_cross_artifacts <- function(manifest) {

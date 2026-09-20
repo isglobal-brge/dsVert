@@ -27,7 +27,7 @@ for path in sorted(args.oracle_records.glob("*.json")):
     assert value.get("oracle_only") is True and value.get("real_authenticated_release") is False, path
     assert (value["p"], value["grid"], value["clusters"], value["slots"], value["coordinate_count"]) == (3, 2, 500, 4, 42), path
     assert (value["instance"], value["fixture_seed"], value["numeric_grid_bits"]) == (1, 20260919, 16), path
-    assert value["working_correlation"] == dict(correlation="exchangeable", rho=.25,
+    assert value["working_correlation"] == dict(correlation="independence", rho=0,
                                                score_clip=1, composition="staged_fixed_rho_v1"), path
     assert [item["K"] for item in value["topologies"]] == [2, 3, 5], path
     digest = value["expected_oracle_sha256"]
@@ -48,7 +48,8 @@ driver = "dsVert/inst/cross-grid-v2/gee-fixed-rho/run-release.py"
 rows = []
 for family, oracle in sorted(records.items()):
     for owners, mode in ((2, "recovery"), (3, "baseline"), (5, "baseline")):
-        command = ["python3", driver, family, str(owners), "--expected-oracle-sha256",
+        command = ["python3", driver, family, str(owners), "--correlation", "independence",
+                   "--rho", "0", "--expected-oracle-sha256",
                    oracle["expected_oracle_sha256"]]
         if mode == "recovery":
             command.append("--recovery")
@@ -66,6 +67,7 @@ for family, oracle in sorted(records.items()):
             working_correlation=oracle["working_correlation"], fleet_ready=manifest is not None,
             pending=None if manifest is not None else "freeze final committed server/client/runtime pair",
             execution_pool="pod4 dedicated gee snapshot", one_real_release_per_pod=False,
+            one_real_release_per_transport=True, maximum_concurrent_gee_releases=1,
             real_authenticated_release_required=True, cold_replay_tamper_required=True,
             bilateral_and_unilateral_recovery_required=mode == "recovery",
             capacity_measurement=owners == 3 and mode == "baseline",

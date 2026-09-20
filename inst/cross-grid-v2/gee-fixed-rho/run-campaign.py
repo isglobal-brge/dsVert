@@ -89,7 +89,7 @@ try:
     families = ('binomial_gee', 'poisson_gee')
     for family in families:
         path = readiness_root / 'logs/gee-fixed-rho' / (
-            family + '-n4-k2-exchangeable-rho0.25-baseline-resources.json')
+            family + '-n4-k2-independence-rho0-baseline-resources.json')
         proof = json.loads(path.read_text())
         require(proof.get('proof_passed') is True and proof.get('exit_code') == 0 and
                 proof.get('source_manifest_sha256') == readiness_hash,
@@ -117,6 +117,8 @@ try:
             row = next(row for row in rows if
                        (row['family'], row['K'], row['mode']) == (family, owners, mode))
             command = [sys.executable, str(lane / 'run-release.py'), family, str(owners),
+                       '--correlation', row['working_correlation']['correlation'],
+                       '--rho', str(row['working_correlation']['rho']),
                        '--expected-oracle-sha256', row['expected_oracle_sha256']]
             if mode == 'recovery':
                 command.append('--recovery')
@@ -131,7 +133,7 @@ try:
             code = child.wait()
             log.close()
             label = (family + '-n2000-k' + str(owners) +
-                     '-exchangeable-rho0.25-' + mode)
+                     '-independence-rho0-' + mode)
             path = root / 'logs/gee-fixed-rho' / (label + '-resources.json')
             proof = json.loads(path.read_text()) if path.exists() else {}
             record.update(exit_code=code, finished_unix=time.time(),

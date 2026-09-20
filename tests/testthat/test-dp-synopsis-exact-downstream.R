@@ -103,6 +103,58 @@
   }
 }
 
+test_that("exact synopsis FINAL_SHARE admits capacity-bounded GEE chunks", {
+  context <- list(
+    authorization = list(artifact_key = strrep("a", 64L)),
+    execution_id = strrep("b", 64L),
+    contract = list(sha256 = strrep("c", 64L), value = list(
+      authority_roles = list(role_order = list(
+        "primary_noise_authority", "secondary_noise_authority")),
+      authority_peers = list("site_a", "site_b"),
+      geometry = list(coordinate_count = 43L, public_chunk_count = 1L))),
+    attempt = list(sha256 = strrep("d", 64L), value = list(
+      execution_geometry = list(chunk_coordinates = 36L, chunk_count = 2L))),
+    vector = list(profile = list(exact_gc = TRUE)))
+  public_chunk <- list(index = 0L, offset = 0L, count = 43L,
+    first_execution_chunk_index = 0L, segment_count = 2L)
+  value <- .dsvert_dp_synopsis_execution_final_share_context_v1(
+    context, strrep("e", 64L), public_chunk, strrep("f", 64L),
+    "site_a", "site_b")
+  expect_identical(value$execution_chunk_coordinates, "36")
+  expect_identical(value$execution_chunk_count, "2")
+  expect_identical(value$segment_count, "2")
+  for (field in c("execution_chunk_count", "segment_count")) {
+    altered <- value; altered[[field]] <- "1"
+    expect_error(.dsvert_typed_blob_synopsis_context_v1(
+      altered, "site_a"), "geometry")
+  }
+  for (size in c("0", "44", "65")) {
+    altered <- value; altered$execution_chunk_coordinates <- size
+    expect_error(.dsvert_typed_blob_synopsis_context_v1(
+      altered, "site_a"))
+  }
+  altered <- value; altered$recipient <- "site_c"
+  expect_error(.dsvert_typed_blob_synopsis_context_v1(
+    altered, "site_a"), "route")
+  expect_error(.dsvert_typed_blob_synopsis_context_v1(
+    value, "site_b"), "route")
+  # Another internally consistent segmentation must not replace the attempt's
+  # authenticated 36-coordinate plan during the encrypted share handoff.
+  altered <- value; altered$execution_chunk_coordinates <- "22"
+  expect_silent(.dsvert_typed_blob_synopsis_context_v1(altered, "site_a"))
+  payload <- list(version = .DSVERT_DP_SYNOPSIS_EXECUTION_FINAL_SHARE_PAYLOAD_VERSION,
+    context = altered, segments = list(list(), list()))
+  testthat::with_mocked_bindings(
+    expect_error(.dsvert_dp_synopsis_execution_default_peer_reader_v1(
+      new.env(), value, "site_a", public_chunk, list(list(), list())),
+      "Invalid synopsis FINAL_SHARE payload"),
+    .dsvert_typed_blob_consume = function(...) "ciphertext",
+    .key_get = function(...) raw(32L),
+    .callMpcTool = function(...) list(data = jsonlite::base64_enc(charToRaw(
+      .dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(payload))))),
+    .package = "dsVert")
+})
+
 test_that("exact synopsis FINAL_SHARE transports validity and binding", {
   built <- .synopsis_exact_downstream_setup()
   peer <- built$setup$authorities[[1L]]

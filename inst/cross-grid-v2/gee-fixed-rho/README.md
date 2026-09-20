@@ -10,8 +10,8 @@ to overwrite attempt evidence and verifies every pinned file before and after.
 The signed synthetic fixture uses n2000, p3, two beta candidates, C500/B4, ε8,
 δ=2^-100, score clip 1, the existing signed integer caps, and two compute/noise
 authorities. K is the number of authenticated source owners. The default
-working correlation is analyst-specified exchangeable rho=1/4. The optional
-flags admit independence/rho0 and exchangeable or AR1/rho in {0,1/4,1/2}; no
+working correlation is analyst-specified independence rho=0. The optional
+release flags admit exchangeable or AR1/rho in {0,1/4,1/2}; no
 estimation or new privacy budget is introduced.
 
 Smoke first (`--n 4`); compute a synthetic oracle commitment before the n2000
@@ -30,7 +30,9 @@ then verifies the same sticky release identity on replay. The release driver req
 `--expected-oracle-sha256` at n2000 and rejects a mismatching released fixture.
 Omit `--source-manifest` only to emit explicitly pending source fields during
 development. Oracle records bind their exact arithmetic/certificate source
-files; the generator rejects stale oracle dependencies. Run the independent
+files; the generator rejects stale oracle dependencies and requires fresh
+independence/rho0 records. Retained exchangeable commitments cannot be reused
+for this default cell. Run the independent
 oracle with a final fourth argument `4` to cross-check a smoke commitment.
 
 For detached execution, launch the command using `nohup`, redirect its output
@@ -39,7 +41,12 @@ to a new driver log and use `< /dev/null`. The driver's R child also uses
 reuse or modify any existing LMM snapshot or release controller.
 
 `run-campaign.py` runs one release at a time, retaining two authenticated
-authorities per release. Run the n4 smoke families serially as well. This limits
+authorities per release. Direct release launches also take the shared
+`.gee-fixed-rho-release.lock` in the snapshots' parent directory and fail closed
+if another lane release holds it. The R child inherits the lock descriptor so
+it remains held if its controller exits early. This lock covers only this GEE
+lane, with one release per DataSHIELD transport; other lanes are unaffected.
+Run the n4 smoke families serially as well. This limits
 concurrent sampler memory use; it does not change ε/δ, signed numeric caps,
 transport caps or acceptance gates. The r4 binomial sampler failure coincided
 with container memory pressure, but its cause was not recovered. Serial
@@ -59,11 +66,12 @@ bootstrap-through-first-publication R-serialized RPC bytes and elapsed time;
 raw native payload counters are also retained. The K3 baseline provides each
 family's capacity measurement without recovery retries. Every job retains the
 same capacity gate. This RPC scope excludes IPC
-framing and is not total network traffic. The 900-second lease/86,400-second
+framing and is not total network traffic. The 900-second inactivity/86,400-second total
 execution policy is unchanged from the retained proof runner and does not
 weaken the independent six-hour acceptance gate. Process wall time includes
 oracle/cold checks and is recorded separately. No unmeasured larger n/p/J or
-correlation cell is certified by a completed default-cell proof.
+correlation cell is certified by a completed default-cell proof. Report the
+measured capacity scope as p<=3/C<=500 at B4/J2 and independence/rho0.
 
 The **paired suite** means the complete server and client `testthat` suites
 against this same frozen pair, using `cycle16/run-paired.R`; focused GEE tests

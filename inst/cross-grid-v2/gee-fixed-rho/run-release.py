@@ -1,6 +1,7 @@
 """One synthetic signed fixed-rho GEE release; writes evidence, never promotion."""
 import argparse
 import datetime
+import fcntl
 import hashlib
 import json
 import math
@@ -17,8 +18,8 @@ parser.add_argument("family", choices=("binomial_gee", "poisson_gee"))
 parser.add_argument("owners", type=int, choices=(2, 3, 5))
 parser.add_argument("--n", type=int, choices=(4, 2000), default=2000)
 parser.add_argument("--recovery", action="store_true")
-parser.add_argument("--correlation", choices=("independence", "exchangeable", "ar1"), default="exchangeable")
-parser.add_argument("--rho", type=float, choices=(0, .25, .5), default=.25)
+parser.add_argument("--correlation", choices=("independence", "exchangeable", "ar1"), default="independence")
+parser.add_argument("--rho", type=float, choices=(0, .25, .5), default=0)
 parser.add_argument("--expected-oracle-sha256", help="Precommitted exact count/vector digest; required at n2000")
 args = parser.parse_args()
 if args.correlation == "independence" and args.rho != 0:
@@ -50,6 +51,14 @@ def verify_source():
 
 
 verify_source()
+# Sibling GEE snapshots share this lane-only lock. The R child inherits the
+# descriptor so an interrupted controller cannot admit an overlapping release.
+lock_path = root.parent / ".gee-fixed-rho-release.lock"
+release_lock = lock_path.open("a")
+try:
+    fcntl.flock(release_lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+except BlockingIOError:
+    raise RuntimeError("Another GEE release holds the lane transport lock: " + str(lock_path)) from None
 env = os.environ.copy()
 env.update(
     R_LIBS_USER=env.get("R_LIBS_USER", "/workspace/dsvert/gobase/R-library"),
@@ -75,6 +84,7 @@ started = time.monotonic()
 started_utc = datetime.datetime.now(datetime.timezone.utc).isoformat()
 with paths[".log"].open("x") as log:
     child = subprocess.Popen(command, cwd=root, env=env, stdin=subprocess.DEVNULL,
+                             pass_fds=(release_lock.fileno(),),
                              stdout=log, stderr=subprocess.STDOUT)
     launch = dict(command=command, pid=child.pid, started_utc=started_utc,
                   stdin=os.readlink(f"/proc/{child.pid}/fd/0"),
@@ -100,7 +110,9 @@ record = dict(measurement=label, started_utc=started_utc,
               max_child_rss_kib_linux=usage.ru_maxrss,
               user_seconds=usage.ru_utime, system_seconds=usage.ru_stime,
               process_exit_code=returncode, stdin=launch["stdin"],
-              transport_policy=dict(ttl_seconds=900, max_runtime_seconds=86400),
+              transport_policy=dict(ttl_seconds=900, max_runtime_seconds=86400,
+                                    maximum_concurrent_gee_releases=1,
+                                    lane_lock_path=str(lock_path)),
               markers={value: value in log_text for value in required},
               metric_shape_passed=False, recovery_metrics_passed=not args.recovery,
               promoted=False)

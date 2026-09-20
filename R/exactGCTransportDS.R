@@ -2395,6 +2395,7 @@
   state$failure_code <- code
   state$retryable <- code %in% c(
     "infrastructure_unavailable", "numeric_backend_unavailable")
+  .exact_gc_record_private_error(state, paste0("Exact-gc worker failure: ", code, "."))
   state$out_cache <- NULL
   if (!is.null(ss$.exact_gc_outputs)) {
     ss$.exact_gc_outputs[[state$output_key]] <- NULL
@@ -2596,7 +2597,7 @@
 }
 
 .exact_gc_expire_if_idle <- function(ss, state, now = .exact_gc_now()) {
-  if (state$status %in% c("complete", "aborted")) {
+  if (state$status %in% c("complete", "aborted", "failed")) {
     return(invisible(FALSE))
   }
   ttl <- state$ttl_seconds

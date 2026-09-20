@@ -33,7 +33,7 @@ beta <- lapply(c(0, .25), function(offset)
 beta <- beta[order(vapply(beta, function(value)
   cf(".dsvert_joint_dp_client_json")(as.list(value)), character(1L)), method = "radix")]
 grouping <- list(max_patients_per_cluster = B, cluster_capacity = C)
-parameters <- list(correlation = "exchangeable", rho = .25, score_clip = 1,
+parameters <- list(correlation = "independence", rho = 0, score_clip = 1,
   composition = "staged_fixed_rho_v1")
 numeric <- sf(".dsvert_dp_grouped_cross_numeric")(family, grouping, parameters)
 stopifnot(identical(numeric,

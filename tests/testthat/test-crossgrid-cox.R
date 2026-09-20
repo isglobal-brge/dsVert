@@ -1023,6 +1023,23 @@ if (nzchar(Sys.getenv("DSVERT_COX_STAGED_TEST_BINARY"))) {
       expect_identical(evaluator$worker$purpose, owner$worker$purpose)
       expect_identical(prepare("site_a", receipt), owner)
       expect_identical(prepare("site_b", receipt), evaluator)
+      for (peer in c("site_a", "site_b")) {
+        state <- states[[peer]]
+        bind <- function() .dsvert_dp_cox_cross_bind(state$policy, state$secret,
+          t$manifest, t$transport, f$schema_manifest, "cox_grid", state$ss,
+          if (peer == "site_a") state$snapshots else NULL, receipt)
+        bound <- bind()
+        expect_identical(bind(), bound)
+        expect_identical(bound$routing_receipt, receipt)
+        binding <- .dsvert_dp_lmm_cross_binding(state$ss, "cox_grid")
+        expect_identical(binding$stage$operation, "cox-loss-staged-v1")
+        expect_identical(binding$worker_input,
+          if (peer == "site_a") owner$worker$cox_loss else evaluator$worker$cox_loss)
+        .dsvert_dp_lmm_cross_prepare(state$policy, state$secret, state$ss, "cox_grid")
+        input <- state$ss$.exact_gc_inputs[[binding$stage$source_key]]
+        expect_null(.dsvert_dp_cox_cross_validate_worker_source(input, 128L, 0L, binding$stage$purpose))
+        expect_identical(input$allowed_spec$output_kind, "cox-loss-staged-ring128-share-v1")
+      }
       expect_error(prepare("site_b"), class = "dsvert_dp_public_failure")
       expect_error(prepare("site_b", receipt, states$site_a$snapshots), class = "dsvert_dp_public_failure")
       for (field in c("capsule_id", "semantic_key", "source_contract_sha256", "artifact_sha256",
@@ -1081,4 +1098,109 @@ test_that("Cox transport rejects mixed opaque inputs and malformed terminal reco
   expect_error(.exact_gc_validate_result(state, changed), "Non-canonical")
   changed <- result; changed$share <- jsonlite::base64_enc(raw(16))
   expect_error(.exact_gc_validate_result(state, changed))
+})
+
+
+test_that("Cox terminal persistence reuses authenticated staged rows without public admission", {
+  f <- .cox_cross_server_fixture(capacity = 4)
+  t <- .cox_transport_fixture(f)
+  policy <- f$policy; policy$peer_name <- "site_a"
+  secret <- as.raw(rep(7, 32))
+  ss <- new.env(parent = emptyenv())
+  ss$.exact_gc_peer_binding_digest <- strrep("8", 64)
+  worker <- list(operation = "cox-loss-staged-v1",
+    purpose = paste0("cox-loss-staged-v1/", strrep("b", 64)),
+    vector_len = t$artifact$coordinate_count, stage_plan_digest = strrep("c", 64),
+    cox_loss = "opaque-native-input")
+  context <- .dsvert_dp_cox_cross_source_context(policy, t$manifest,
+    t$transport, f$schema_manifest, "cox_grid")
+  database <- tempfile("cox-terminal-", fileext = ".sqlite")
+  on.exit(unlink(database), add = TRUE)
+  con <- DBI::dbConnect(RSQLite::SQLite(), database)
+  on.exit(DBI::dbDisconnect(con), add = TRUE)
+  DBI::dbExecute(con, paste("CREATE TABLE source_cross_grid_records (capsule_id TEXT, analysis_id TEXT,",
+    "batch_index INTEGER, record_json TEXT NOT NULL, row_mac TEXT NOT NULL, PRIMARY KEY(capsule_id,analysis_id,batch_index))"))
+  value <- list(share = gsub("[\r\n]", "", jsonlite::base64_enc(as.raw(seq_len(16L * worker$vector_len)))),
+    validity_share = jsonlite::base64_enc(as.raw(5)), stage_receipt = strrep("d", 64),
+    stage_plan_digest = worker$stage_plan_digest)
+  consumed <- NULL
+  local_mocked_bindings(
+    .dsvert_dp_capsule_source_with_store = function(policy, secret, code) code(con),
+    .dsvert_dp_lmm_cross_public = function(binding, policy, phase, extra = list()) c(list(phase = phase), extra),
+    .exact_gc_consume_output = function(...) { consumed <<- list(...); value })
+  bind <- function() .dsvert_dp_staged_cross_bind_worker(policy, t$manifest,
+    t$transport, "cox_grid", ss, context, worker)
+  bind()
+  binding <- .dsvert_dp_lmm_cross_binding(ss, "cox_grid")
+  expect_match(binding$stage$operation_id, "^op_[0-9a-f]{32}$")
+  expect_identical(bind(), list(phase = "bound"))
+  expect_false(.dsvert_dp_staged_grouped_artifact(t$artifact))
+  expect_length(.dsvert_dp_lmm_cross_artifacts(t$manifest), 0L)
+  expect_false(.dsvert_dp_lmm_cross_prepare(policy, secret, ss, "cox_grid")$persisted)
+  expect_error(.dsvert_dp_lmm_cross_finalize(policy, secret, ss, "cox_grid"))
+  .dsvert_dp_lmm_cross_store(policy, secret, ss, "cox_grid")
+  expect_identical(consumed[[4L]], "cox-loss-staged-ring128-share-v1")
+  expect_identical(consumed[[10L]], "dp.cox-grid-cross.staged-v1")
+  expect_true(.dsvert_dp_lmm_cross_prepare(policy, secret, ss, "cox_grid")$persisted)
+  complete <- .dsvert_dp_lmm_cross_finalize(policy, secret, ss, "cox_grid")
+  expect_identical(.dsvert_dp_lmm_cross_finalize(policy, secret, ss, "cox_grid"), complete)
+  record <- .dsvert_dp_lmm_cross_record(con, secret, t$manifest, t$artifact, t$transport,
+    stage = binding$stage)
+  expect_identical(record$share, value$share)
+  expect_identical(record$validity_share, value$validity_share)
+  public <- .dsvert_dp_glm_grid_cross_load(con, secret, t$transport$capsule_id, "cox_grid", -1L)
+  expect_false(any(c("share", "validity_share", "cox_loss") %in% names(public)))
+  validate <- function(row = public) .dsvert_dp_lmm_cross_public_record_validate(row,
+    t$manifest, t$artifact, t$transport)
+  expect_identical(validate(), public)
+  for (field in c("semantic_key", "artifact_sha256", "source_contract_sha256", "stage_receipt", "stage_plan_digest")) {
+    changed <- public; changed[[field]] <- strrep("0", 64)
+    expect_error(validate(changed))
+  }
+  changed <- public; changed$purpose <- sub("cox-loss", "grouped-cox", public$purpose)
+  expect_error(validate(changed))
+  changed <- public; changed$share <- value$share
+  expect_error(validate(changed))
+  sampler <- function() .dsvert_dp_cox_cross_sampler_binding(policy, secret,
+    t$manifest, t$transport, f$schema_manifest, "cox_grid")
+  expect_identical(sampler(), value[c("stage_receipt", "stage_plan_digest")])
+  inject <- function(offset = 0L, count = 4L, peer = "site_a") {
+    current <- policy; current$peer_name <- peer
+    .dsvert_dp_cox_cross_inject(con, secret, t$manifest, t$transport,
+      list(offset = offset, count = count), raw(16L * count), current,
+      f$schema_manifest, "cox_grid")
+  }
+  injected <- inject()
+  expect_identical(as.raw(injected)[17:64], jsonlite::base64_dec(value$share))
+  metadata <- attr(injected, "dsvert_staged_source")
+  expect_identical(metadata[c("stage_receipt", "stage_plan_digest")], sampler())
+  expect_identical(as.integer(rawToBits(jsonlite::base64_dec(metadata$validity_share)))[1:4], c(1L, 1L, 0L, 1L))
+  sliced <- inject(2L, 2L)
+  expect_identical(as.raw(sliced), jsonlite::base64_dec(value$share)[17:48])
+  expect_identical(as.integer(rawToBits(jsonlite::base64_dec(attr(sliced, "dsvert_staged_source")$validity_share)))[1:2], c(0L, 1L))
+  evaluator <- inject(peer = "site_b")
+  expect_identical(as.integer(rawToBits(jsonlite::base64_dec(attr(evaluator, "dsvert_staged_source")$validity_share)))[1:4], c(0L, 1L, 0L, 1L))
+  # A reopened database and new session reuse authenticated persisted rows.
+  DBI::dbDisconnect(con)
+  con <- DBI::dbConnect(RSQLite::SQLite(), database)
+  ss <- new.env(parent = emptyenv()); ss$.exact_gc_peer_binding_digest <- strrep("9", 64)
+  bind()
+  expect_true(.dsvert_dp_lmm_cross_prepare(policy, secret, ss, "cox_grid")$persisted)
+  expect_identical(.dsvert_dp_lmm_cross_finalize(policy, secret, ss, "cox_grid"), complete)
+  expect_identical(inject(), injected)
+  expect_identical(sampler(), value[c("stage_receipt", "stage_plan_digest")])
+  # Public pre-START binding does not read the private candidate row.
+  DBI::dbExecute(con, "UPDATE source_cross_grid_records SET row_mac = 'tampered' WHERE batch_index=0")
+  expect_identical(sampler(), value[c("stage_receipt", "stage_plan_digest")])
+  expect_error(inject())
+  worker$stage_plan_digest <- strrep("e", 64)
+  expect_error(bind())
+  worker$stage_plan_digest <- strrep("c", 64)
+  value$stage_plan_digest <- strrep("e", 64)
+  expect_error(.dsvert_dp_lmm_cross_store(policy, secret, ss, "cox_grid"))
+  DBI::dbExecute(con, "UPDATE source_cross_grid_records SET row_mac = 'tampered' WHERE batch_index=1")
+  expect_error(.dsvert_dp_lmm_cross_prepare(policy, secret, ss, "cox_grid"))
+  expect_error(.dsvert_dp_lmm_cross_finalize(policy, secret, ss, "cox_grid"))
+  DBI::dbExecute(con, "UPDATE source_cross_grid_records SET row_mac = 'tampered' WHERE batch_index=0")
+  expect_error(.dsvert_dp_lmm_cross_record(con, secret, t$manifest, t$artifact, t$transport))
 })

@@ -69,6 +69,43 @@
   list(worker = worker, routing_receipt = routing_receipt)
 }
 
+# Bind only after the existing source/alignment/owner-route checks succeed.
+# Public dispatch remains closed until the signed source catalog is integrated.
+.dsvert_dp_cox_cross_bind <- function(policy, secret, manifest, source_contract,
+    schema_manifest, analysis_id, ss, resolved_snapshots = NULL, routing_receipt = NULL) {
+  context <- .dsvert_dp_cox_cross_source_context(policy, manifest,
+    source_contract, schema_manifest, analysis_id)
+  prepared <- .dsvert_dp_cox_cross_prepare_worker(policy, secret, manifest,
+    source_contract, schema_manifest, ss, analysis_id, resolved_snapshots, routing_receipt)
+  bound <- .dsvert_dp_staged_cross_bind_worker(policy, manifest, source_contract,
+    analysis_id, ss, context, prepared$worker)
+  list(bound = bound, routing_receipt = prepared$routing_receipt)
+}
+
+# Internal DP adapters: public identity is read before START; private candidate
+# shares/validities are consumed only by the post-START source path. Registration
+# and remote dispatch must compose these adapters before admitting Cox releases.
+.dsvert_dp_cox_cross_sampler_binding <- function(policy, secret, manifest,
+    source_contract, schema_manifest, analysis_id) {
+  context <- .dsvert_dp_cox_cross_source_context(policy, manifest,
+    source_contract, schema_manifest, analysis_id)
+  record <- .dsvert_dp_capsule_source_with_store(policy, secret, function(con) {
+    public <- .dsvert_dp_glm_grid_cross_load(con, secret,
+      source_contract$capsule_id, analysis_id, -1L)
+    .dsvert_dp_lmm_cross_public_record_validate(public, manifest,
+      context$artifact, source_contract)
+  })
+  record[c("stage_receipt", "stage_plan_digest")]
+}
+
+.dsvert_dp_cox_cross_inject <- function(con, secret, manifest, source_contract,
+    chunk, share, policy, schema_manifest, analysis_id) {
+  context <- .dsvert_dp_cox_cross_source_context(policy, manifest,
+    source_contract, schema_manifest, analysis_id)
+  .dsvert_dp_staged_cross_inject_artifact(con, secret, manifest, source_contract,
+    chunk, share, policy, context$artifact, context$spec$time$owner_peer)
+}
+
 # A Cox source is an exclusive opaque native input, never a public ring share.
 .dsvert_dp_cox_cross_validate_worker_source <- function(source, ring, frac_bits, purpose) {
   input <- source$cox_loss

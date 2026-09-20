@@ -30,6 +30,12 @@
     source_contract, schema_manifest, analysis_id)
   worker <- .dsvert_dp_lmm_cross_prepare_worker(policy, secret, manifest,
     source_contract, schema_manifest, ss, analysis_id, routing_sidecar, producer)
+  .dsvert_dp_staged_cross_bind_worker(policy, manifest, source_contract,
+    analysis_id, ss, context, worker)
+}
+
+.dsvert_dp_staged_cross_bind_worker <- function(policy, manifest, source_contract,
+    analysis_id, ss, context, worker) {
   semantic_key <- .dsvert_dp_glm_grid_cross_key(manifest, context$artifact, source_contract)
   suffix <- substr(.dsvert_joint_dp_hash(list(semantic_key = semantic_key,
     operation = worker$operation)), 1L, 32L)
@@ -174,7 +180,7 @@
   source <- list(share = "", ring_bits = 128L, vector_len = as.integer(stage$vector_len),
     producer = .dsvert_dp_staged_grouped_tag(binding$artifact, "-grid-cross.staged-v1", "dp."),
     allowed_spec = .exact_gc_allowed_spec(stage$operation, stage$purpose, 0L,
-      .dsvert_dp_staged_grouped_tag(binding$artifact, "-staged-ring128-share-v1", "grouped-"), 128L), claimed_by = NULL,
+      paste0(.dsvert_dp_staged_native_kind(binding$artifact), "-staged-ring128-share-v1"), 128L), claimed_by = NULL,
     grouped_lmm = binding$worker_input)
   names(source)[names(source) == "grouped_lmm"] <-
     .dsvert_dp_staged_grouped_input_key(binding$artifact$family)
@@ -201,7 +207,7 @@
   binding <- .dsvert_dp_lmm_cross_binding(ss, analysis_id)
   stage <- binding$stage
   value <- .exact_gc_consume_output(ss, stage$output_key, stage$operation_id,
-    .dsvert_dp_staged_grouped_tag(binding$artifact, "-staged-ring128-share-v1", "grouped-"), stage$operation, stage$purpose,
+    paste0(.dsvert_dp_staged_native_kind(binding$artifact), "-staged-ring128-share-v1"), stage$operation, stage$purpose,
     128L, 0L, stage$vector_len,
     .dsvert_dp_staged_grouped_tag(binding$artifact, "-grid-cross.staged-v1", "dp."), consume = FALSE)
   if (!identical(value$stage_plan_digest, stage$stage_plan_digest)) .dsvert_dp_grouped_cross_fail()
@@ -262,7 +268,10 @@
 }
 
 .dsvert_dp_lmm_cross_public_record_validate <- function(record, manifest, artifact, contract) {
-  if (is.null(record) || !.dsvert_dp_staged_grouped_artifact(artifact)) .dsvert_dp_grouped_cross_fail()
+  cox <- identical(artifact$family, "cox") &&
+    identical(artifact$version, .DSVERT_DP_COX_GRID_CROSS_ARTIFACT_VERSION) &&
+    identical(artifact$spec_version, .DSVERT_DP_COX_GRID_CROSS_SPEC_VERSION)
+  if (is.null(record) || !(cox || .dsvert_dp_staged_grouped_artifact(artifact))) .dsvert_dp_grouped_cross_fail()
   expected <- list(version = .dsvert_dp_staged_grouped_tag(artifact, "-staged-terminal-binding-v1"), capsule_id = contract$capsule_id,
     analysis_id = artifact$analysis_id, batch = -1L,
     semantic_key = .dsvert_dp_glm_grid_cross_key(manifest, artifact, contract),
@@ -274,7 +283,7 @@
     if (identical(record[[field]], strrep("0", 64))) .dsvert_dp_grouped_cross_fail()
   }
   if (!is.character(record$purpose) || length(record$purpose) != 1L || is.na(record$purpose) ||
-      !grepl(.dsvert_dp_staged_grouped_tag(artifact, "-staged-v1/[0-9a-f]{64}$", "^grouped-"), record$purpose)) .dsvert_dp_grouped_cross_fail()
+      !grepl(paste0("^", .dsvert_dp_staged_native_kind(artifact), "-staged-v1/[0-9a-f]{64}$"), record$purpose)) .dsvert_dp_grouped_cross_fail()
   record
 }
 
@@ -330,12 +339,19 @@
     .dsvert_dp_grouped_cross_fail()
   }
   artifact <- artifacts[[1L]]
+  owner <- .dsvert_dp_glm_grid_cross_embedded_contract(artifact)$spec$grouping$owner_peer
+  .dsvert_dp_staged_cross_inject_artifact(con, secret, manifest, contract,
+    chunk, share, policy, artifact, owner)
+}
+
+.dsvert_dp_staged_cross_inject_artifact <- function(con, secret, manifest, contract,
+    chunk, share, policy, artifact, owner) {
+  if (!is.raw(share) || length(share) != chunk$count * 16L) .dsvert_dp_grouped_cross_fail()
   record <- .dsvert_dp_lmm_cross_record(con, secret, manifest, artifact, contract)
   if (is.null(record)) .dsvert_dp_grouped_cross_fail()
   layout <- .dsvert_dp_capsule_coordinate_layout(manifest)
   block <- layout$blocks[[paste("gaussian_models", artifact$analysis_id, sep = "::")]]
-  owner <- .dsvert_dp_glm_grid_cross_embedded_contract(artifact)$spec$grouping$owner_peer
-  # The admitted owner is the garbler. Non-LMM coordinates receive the public
+  # The admitted owner is the garbler. Non-candidate coordinates receive the public
   # true XOR sharing; candidate bits are copied without opening or combining.
   bits <- rep(as.raw(as.integer(identical(policy$peer_name, owner))), 8L * ceiling(chunk$count / 8))
   if (chunk$count %% 8L) bits[seq.int(chunk$count + 1L, length(bits))] <- as.raw(0)

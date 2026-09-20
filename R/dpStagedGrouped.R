@@ -1,6 +1,6 @@
 # The staged producers share a lifecycle with distinct family domains.
 .dsvert_dp_staged_grouped_kind <- function(family) {
-  switch(family, lmm = "lmm", binomial_glmm = "glmm", poisson_glmm = "glmm",
+  switch(family, lmm = "lmm", binomial_glmm = "glmm", poisson_glmm = "glmm", cox = "cox",
     binomial_gee = "gee-fixed-rho", poisson_gee = "gee-fixed-rho",
     .dsvert_dp_glm_grid_cross_fail())
 }
@@ -18,6 +18,14 @@
 }
 
 .dsvert_dp_staged_grouped_input_key <- function(family) {
+  if (identical(family, "cox")) return("cox_loss")
   kind <- .dsvert_dp_staged_grouped_kind(family)
   paste0("grouped_", if (kind == "gee-fixed-rho") "gee" else kind)
+}
+
+# Cox reuses terminal persistence, but has a distinct native operation domain.
+# This does not add Cox to public staged-artifact discovery above.
+.dsvert_dp_staged_native_kind <- function(artifact) {
+  if (identical(artifact$family, "cox")) return("cox-loss")
+  paste0("grouped-", .dsvert_dp_staged_grouped_kind(artifact$family))
 }

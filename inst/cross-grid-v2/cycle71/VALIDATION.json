@@ -1,0 +1,54 @@
+{
+  "record_provenance_and_measurements_preserved": true,
+  "rescore_idempotent": true,
+  "manifest_rows": 24,
+  "ready_rows": 16,
+  "future_lease_seconds": 604800,
+  "capacity_promotion_gate": false,
+  "probe_errors": [
+    {
+      "lane": "fleet",
+      "pod": "12",
+      "assignment": {
+        "job_id": "binomial_glmm-e8-k2-i01-baseline"
+      },
+      "observed_utc": "2026-09-20T18:28:07.938763+00:00",
+      "returncode": 255,
+      "observation": {},
+      "error": "ssh: connect to host 213.192.2.118 port 40189: Connection refused\n"
+    },
+    {
+      "lane": "fleet",
+      "pod": "14",
+      "assignment": {
+        "job_id": "lmm-e8-k2-i01-baseline"
+      },
+      "observed_utc": "2026-09-20T18:28:07.938356+00:00",
+      "returncode": 255,
+      "observation": {},
+      "error": "ssh: connect to host 213.192.2.92 port 40018: Connection refused\n"
+    },
+    {
+      "lane": "fleet",
+      "pod": "15",
+      "assignment": {
+        "job_id": "poisson_glmm-e8-k2-i01-baseline"
+      },
+      "observed_utc": "2026-09-20T18:28:07.939681+00:00",
+      "returncode": 255,
+      "observation": {},
+      "error": "ssh: connect to host 213.192.2.68 port 40052: Connection refused\n"
+    },
+    {
+      "lane": "fleet",
+      "pod": "14",
+      "assignment": {
+        "job_id": "cox-e8-k2-i01-baseline"
+      },
+      "observed_utc": "2026-09-20T18:28:08.798770+00:00",
+      "returncode": 255,
+      "observation": {},
+      "error": "ssh: connect to host 213.192.2.92 port 40018: Connection refused\n"
+    }
+  ]
+}

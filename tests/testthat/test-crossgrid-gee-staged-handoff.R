@@ -148,3 +148,72 @@ test_that("fixed-rho GEE worker preparation uses pinned identity roles and keeps
   expect_null(received[[3L]]$routing)
 })
 
+
+test_that("real GEE preparation CLI retains both families and every terminal coordinate", {
+  directories <- character()
+  on.exit(unlink(directories, recursive = TRUE), add = TRUE)
+  binary <- Sys.getenv("DSVERT_GEE_TEST_BINARY", "")
+  if (nzchar(binary)) {
+    skip_if_not(file.exists(binary), "candidate GEE runtime is unavailable")
+    local_mocked_bindings(.findMpcBinary = function() binary)
+  }
+  for (family in c("binomial_gee", "poisson_gee")) {
+    f <- .lmm_handoff_fixture(family = family, staged_gee = TRUE)
+    spec <- f$contract$spec
+    variables <- c(unlist(spec$predictor_order), spec$outcome$reference, spec$grouping$reference)
+    word_bytes <- function(values) {
+      result <- raw(16L * length(values))
+      result[seq.int(1L, length(result), by = 16L)] <- as.raw(values)
+      result
+    }
+    values <- setNames(rep(list(raw(16L * 8L)), length(variables)), variables)
+    validities <- setNames(rep(list(word_bytes(rep(1L, 8L))), length(variables)), variables)
+    sidecar <- .dsvert_dp_lmm_cross_route_sidecar(f$policy, f$secret, f$manifest,
+      f$transport, f$schema, "grouped", f$producer)
+    routing <- .dsvert_dp_lmm_cross_route_handoff(sidecar, f$policy, f$secret,
+      f$manifest, f$transport, f$schema, "grouped", f$producer)
+    values[[spec$grouping$reference]] <- word_bytes(unlist(routing$labels))
+    validities[[spec$grouping$reference]] <- word_bytes(as.integer(unlist(routing$present)))
+    ids <- vapply(f$policy$peer_pinset, .dsvert_relay_peer_id, character(1L))
+    peers <- names(sort(ids, method = "radix"))
+    results <- list()
+    for (role in c("garbler", "evaluator")) {
+      self <- peers[[if (role == "garbler") 1L else 2L]]
+      other <- setdiff(peers, self)
+      f$policy$peer_name <- self
+      f$ss$.exact_gc_self_name <- self
+      f$ss$peer_transport_pks <- setNames(list("private-test-transport"), other)
+      f$ss$.exact_gc_peer_identity_pks <- setNames(as.list(f$policy$peer_pinset[other]), other)
+      handoff <- .dsvert_dp_lmm_cross_source_handoff(f$contract, f$policy, f$schema,
+        f$source_hash, values, validities, f$ss, f$transport$capsule_id)
+      directory <- tempfile("gee-real-wire-")
+      dir.create(directory, mode = "0700")
+      directories <- c(directories, directory)
+      request <- list(handoff = handoff, role = role, session = "synthetic-gee-r-wire",
+        authorities = as.list(unname(ids[peers])), semantic_key = strrep("5", 64),
+        store_directory = normalizePath(directory), store_key = jsonlite::base64_enc(f$secret),
+        routing = if (role == "garbler") routing else NULL)
+      result <- .callMpcTool("grouped-gee-fixed-rho-staged-prepare-v1", request,
+        simplify_output = FALSE)
+      expect_setequal(names(result), c("worker_input", "purpose", "vector_len", "stage_plan_digest"))
+      expect_equal(result$vector_len, f$artifact$coordinate_count)
+      expect_equal(result$vector_len, length(spec$beta_grid) *
+        (1 + (length(spec$predictor_order) + 1) * (length(spec$predictor_order) + 2)))
+      expect_match(result$purpose, "^grouped-gee-fixed-rho-staged-v1/[0-9a-f]{64}$")
+      native <- rawToChar(jsonlite::base64_dec(result$worker_input))
+      expect_match(native, paste0('"Family":"', sub("_gee$", "", family), '"'), fixed = TRUE)
+      expect_match(native, '"CorrelationContract":"signed-fixed-rho-v3-predecessor"', fixed = TRUE)
+      for (block in c("numeric", "outcome", "metadata")) {
+        expect_match(native, paste0('"Share":"', handoff[[block]]$Share, '"'), fixed = TRUE)
+      }
+      expect_identical(.callMpcTool("grouped-gee-fixed-rho-staged-prepare-v1", request,
+        simplify_output = FALSE), result)
+      changed <- request
+      changed$handoff$plan$correlation_contract <- "moment-estimated-alpha"
+      expect_error(.callMpcTool("grouped-gee-fixed-rho-staged-prepare-v1", changed))
+      results[[role]] <- result
+    }
+    expect_identical(results$garbler$purpose, results$evaluator$purpose)
+    expect_identical(results$garbler$stage_plan_digest, results$evaluator$stage_plan_digest)
+  }
+})

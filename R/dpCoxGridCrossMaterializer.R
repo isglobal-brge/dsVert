@@ -127,10 +127,79 @@
   order <- names(context$layout$blocks)
   blocks <- blocks[order[order %in% names(blocks)]]
   list(context = context, blocks = blocks, times = times, time_valid = time_valid,
+    unit_counts = lapply(admissions, `[[`, "unit_count"),
     private_alignment_consensus_hash = alignment[[1L]],
     snapshot_binding_sha256 = .dsvert_joint_dp_hash(list(
       protocol = "dsvert-biomedical-capsule-local-snapshots-v1",
       capsule_id = source_contract$capsule_id, peer_name = policy$peer_name,
       datasets = lapply(snapshots, function(snapshot) list(public = snapshot$dataset$public,
         protected_fingerprint = snapshot$dataset$fingerprint)))))
+}
+
+# Internal producer using the existing capsule commitment/share-transport ABI.
+# The caller persists the owner-only route alongside source state; neither
+# object is an analyst result and public Cox registration remains closed.
+.dsvert_dp_cox_cross_source_producer <- function(policy, secret, manifest,
+    source_contract, schema_manifest, analysis_id, resolved_snapshots) {
+  input <- .dsvert_dp_cox_cross_materialize_inputs(policy, manifest,
+    source_contract, schema_manifest, analysis_id, resolved_snapshots)
+  layout <- input$context$layout
+  values <- numeric(layout$transport_coordinate_count)
+  for (key in names(input$blocks)) {
+    block <- layout$blocks[[key]]
+    values[seq.int(block$start, length.out = block$length)] <- input$blocks[[key]]
+  }
+  # The admitted count is the existing owner-local capsule count. All Cox
+  # statistic coordinates remain zero until authenticated terminal injection.
+  release <- .dsvert_dp_capsule_coordinate_layout(manifest)
+  for (block in release$blocks) {
+    if (identical(block$family, "admitted_count") &&
+        identical(block$owner_peer, policy$peer_name)) {
+      if (!block$dataset %in% names(input$unit_counts)) .dsvert_dp_cox_grid_cross_fail()
+      values[block$start] <- input$unit_counts[[block$dataset]]
+    }
+  }
+  values <- .dsvert_dp_integer_vector(values, "private Cox source coordinates")
+  binding <- list(version = .DSVERT_DP_CAPSULE_LOCAL_MATERIAL_VERSION,
+    purpose = .DSVERT_DP_CAPSULE_LOCAL_MATERIAL_PURPOSE,
+    capsule_id = source_contract$capsule_id, peer_name = policy$peer_name,
+    logical_snapshot = manifest$logical_snapshot,
+    source_context_hash = source_contract$source_context_hash,
+    coordinate_count = layout$transport_coordinate_count,
+    coordinate_order_sha256 = layout$transport_coordinate_order_sha256,
+    snapshot_binding_sha256 = input$snapshot_binding_sha256)
+  commitment <- .dsvert_dp_capsule_value_commitment(values, binding)
+  authenticatable <- .dsvert_joint_dp_hash(list(
+    authentication_domain = "dsVert/biomedical-capsule/local-secret-share-input/v1|",
+    binding = binding, value_commitment_sha256 = commitment))
+  range <- function(start, count) {
+    start <- .dsvert_dp_capsule_source_index(start, "Cox source range start", 1,
+      layout$transport_coordinate_count)
+    count <- .dsvert_dp_capsule_source_index(count, "Cox source range length", 1,
+      layout$transport_coordinate_count - start + 1L)
+    c(start, count)
+  }
+  producer <- structure(c(binding, list(
+    producer_version = .DSVERT_DP_GAUSSIAN_CROSS_SOURCE_PRODUCER_VERSION,
+    state = "internal_incremental_secret_share_input_never_release",
+    value_commitment_sha256 = commitment, authenticatable_sha256 = authenticatable,
+    private_alignment_consensus_hash = input$private_alignment_consensus_hash,
+    read_range = function(start, count) {
+      checked <- range(start, count)
+      values[seq.int(checked[1L], length.out = checked[2L])]
+    },
+    generation_chunks = function(start, count, chunk_coordinates) {
+      checked <- range(start, count)
+      chunk_coordinates <- .dsvert_dp_capsule_source_index(chunk_coordinates,
+        "Cox source chunk length", 1, 2^31 - 1)
+      seq.int(floor((checked[1L] - 1) / chunk_coordinates),
+        floor((sum(checked) - 2) / chunk_coordinates))
+    }, reset = function() invisible(NULL))),
+    class = c("dsvert_capsule_source_producer", "list"))
+  .dsvert_dp_capsule_source_producer_private(secret, producer,
+    input$context$source_hash, require_commitment = TRUE)
+  route <- if (identical(policy$peer_name, input$context$spec$time$owner_peer))
+    .dsvert_dp_cox_cross_route_sidecar(policy, secret, manifest, source_contract,
+      schema_manifest, analysis_id, producer, input$times, input$time_valid) else NULL
+  list(producer = producer, private_route = route)
 }

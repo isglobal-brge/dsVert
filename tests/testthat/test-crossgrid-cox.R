@@ -759,3 +759,48 @@ test_that("Cox input loader verifies actual store MACs and all-owner completion"
   expect_error(load(current_transport = changed_transport))
   expect_identical(load(), expected)
 })
+
+test_that("Cox producer commits authenticated inputs with the capsule transport ABI", {
+  for (owners in c(2L, 3L, 5L)) {
+    f <- .cox_cross_server_fixture(capacity = 5, owners = owners)
+    t <- .cox_transport_fixture(f)
+    data <- data.frame(patient = c("b", "a", "d", "c"), time = c(5, 2, Inf, 5),
+      event = c(0, 1, 1, 0), x = c(.5, 0, Inf, 1), z = c(1, .25, NA, 0))
+    for (peer in paste0("site_", letters[seq_len(owners)])) {
+      if (peer %in% paste0("site_", letters[3:5])) data[[paste0("x_", peer)]] <- data$z
+      resolved <- .cox_resolved_fixture(f, data, peer)
+      secret <- as.raw(seq_len(32))
+      result <- .dsvert_dp_cox_cross_source_producer(resolved$policy, secret,
+        t$manifest, t$transport, f$schema_manifest, "cox_grid", resolved$snapshots)
+      producer <- result$producer
+      private <- .dsvert_dp_capsule_source_producer_private(secret, producer,
+        .dsvert_joint_dp_hash(t$transport), require_commitment = TRUE)
+      values <- private$read_range(1, producer$coordinate_count)
+      binding <- producer[c("version", "purpose", "capsule_id", "peer_name",
+        "logical_snapshot", "source_context_hash", "coordinate_count",
+        "coordinate_order_sha256", "snapshot_binding_sha256")]
+      expect_identical(producer$value_commitment_sha256,
+        .dsvert_dp_capsule_value_commitment(values, binding))
+      expect_equal(values[1], if (peer == "site_a") 4 else 0)
+      expect_true(all(values[2:(t$layout$private_start - 1L)] == 0))
+      for (key in names(t$layout$blocks)) {
+        block <- t$layout$blocks[[key]]
+        if (!identical(block$owner_peer, peer))
+          expect_true(all(private$read_range(block$start, block$length) == 0))
+      }
+      expect_identical(private$generation_chunks(8192, 2, 8192), 0:1)
+      expect_error(private$read_range(0, 1))
+      expect_error(private$read_range(producer$coordinate_count, 2))
+      private$reset()
+      expect_identical(private$read_range(1, producer$coordinate_count), values)
+      if (peer == "site_a") {
+        input <- .dsvert_dp_cox_cross_materialize_inputs(resolved$policy,
+          t$manifest, t$transport, f$schema_manifest, "cox_grid", resolved$snapshots)
+        expect_identical(.dsvert_dp_cox_cross_route_handoff(result$private_route,
+          resolved$policy, secret, t$manifest, t$transport, f$schema_manifest,
+          "cox_grid", producer, input$times, input$time_valid),
+          .dsvert_dp_cox_cross_private_routing(input$times, input$time_valid, 8))
+      } else expect_null(result$private_route)
+    }
+  }
+})

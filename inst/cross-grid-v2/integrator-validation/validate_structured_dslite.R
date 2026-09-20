@@ -672,7 +672,8 @@ run <- function() {
   if (!staged || oracle_only) {
     source(file.path(server_dir, "inst/cross-grid-v2/prepare_oracle_noise.R"))
     planned <- tryCatch(grid_oracle_noise(peers, conns,
-      cf(".dsvert_dp_synopsis_bootstrap_build_v1")(conns)), error = function(error) {
+      cf(".dsvert_dp_synopsis_bootstrap_build_v1")(conns),
+      synthetic_staged = staged && oracle_only), error = function(error) {
         for (peer in peers) print(peer$worker$run(function()
           get0(".grid_synthetic_failure", .GlobalEnv)))
         stop(error)

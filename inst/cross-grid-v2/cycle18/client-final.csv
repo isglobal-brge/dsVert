@@ -1,0 +1,48 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","new cross grid contracts accept only complete authenticated public plans",20,0,FALSE,FALSE,0,0.715,0.043,0.759,20
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","unsigned and changed bounds and incomplete owner signatures fail closed",14,0,FALSE,FALSE,0,0.324,0.041,0.366,14
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","beta column association and public source roles are immutable",22,0,FALSE,FALSE,0,0.743,0.069,0.812,22
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","profile and artifact versions are closed and transcript safe",24,0,FALSE,FALSE,0,0.79,0.072,0.862,24
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","individual new validators reject malformed objects with one public error",8,0,FALSE,FALSE,0,0.0979999999999999,0.006,0.104,8
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","signed schema structure cannot add ownership or snapshot ambiguity",32,0,FALSE,FALSE,0,0.218,0.04,0.258,32
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","every numeric proof field is mandatory and public profile contents are pinned",58,0,FALSE,FALSE,0,1.142,0.025,1.167,58
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross grid dimensions coefficients and exact integer caps fail closed",48,0,FALSE,FALSE,0,1.023,0.119,1.142,48
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid profile coefficients, proof and numeric template are immutable",3,0,FALSE,FALSE,0,0.0430000000000001,0.001,0.0440000000000005,3
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","signed categorical schema labels share the server canonical representations",6,0,FALSE,FALSE,0,0.209,0.036,0.245,6
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","real signatures cannot authorize unsupported categorical label encodings",8,0,FALSE,FALSE,0,0.222,0.047,0.269,8
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid signed zero encoding survives canonical round trips",4,0,FALSE,FALSE,0,0.515,0.0369999999999999,0.552,4
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid beta L1 comparison is exact at the public boundary",9,0,FALSE,FALSE,0,0.13,0.015,0.146,9
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid scalar identifiers reject JSON array representations",4,0,FALSE,FALSE,0,0.117,0.015,0.132,4
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","piecewise admission pins new arithmetic, caps and all signatures",22,0,FALSE,FALSE,0,1.133,0.089,1.224,22
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","materialized cross grids select only from authenticated signed candidates",23,0,FALSE,FALSE,0,1.671,0.0820000000000001,1.753,23
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","grid Claim coverage includes owners without public moment blocks",2,0,FALSE,FALSE,0,0.00400000000000134,0,0.00399999999999956,2
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","both certified profiles admit the full signed ten-predictor envelope",12,0,FALSE,FALSE,0,1.924,0.0519999999999999,1.975,12
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","batch reuse needs two authentic matching durable receipts",11,0,FALSE,FALSE,0,0.109999999999999,0.002,0.110999999999999,11
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","structured snapshot identity reaches a fixed point without enabling release",30,0,FALSE,FALSE,0,0.0449999999999999,0.005,0.0510000000000002,30
+"test-dp-grouped-lmm-ml-contract.R","dp-grouped-lmm-ml-contract","LMM ML contracts sign covariance-major candidates and patient caps",20,0,FALSE,FALSE,0,0.895,0.058,0.955,20
+"test-dp-grouped-lmm-ml-contract.R","dp-grouped-lmm-ml-contract","LMM ML rejects ambiguous covariance order and uncertified objectives",5,0,FALSE,FALSE,0,0.208,0.021,0.228999999999999,5
+"test-dp-lmm-cross-public-release.R","dp-lmm-cross-public-release","LMM ML discovery and private source projection preserve signed padded owners",115,0,FALSE,FALSE,0,1.299,0.0709999999999998,1.373,115
+"test-dp-lmm-cross-public-release.R","dp-lmm-cross-public-release","every LMM candidate enters the release lattice without a second shift",12,0,FALSE,FALSE,0,0.720999999999998,0.038,0.759,12
+"test-dp-lmm-cross-public-release.R","dp-lmm-cross-public-release","LMM public artifacts rebuild ML bounds certificate and variance-major ordering",11,0,FALSE,FALSE,0,0.804,0.0170000000000001,0.820999999999998,11
+"test-dp-lmm-cross-public-release.R","dp-lmm-cross-public-release","cold LMM public evidence requires both real signatures and source semantic binding",32,0,FALSE,FALSE,0,0.513,0.0109999999999999,0.524000000000001,32
+"test-dp-lmm-cross-public-release.R","dp-lmm-cross-public-release","signed LMM preflight admits all 256 candidates plus the count",7,0,FALSE,FALSE,0,5.609,0.0430000000000001,5.658,7
+"test-dp-lmm-signed-admission.R","dp-lmm-signed-admission","client production admission reconstructs authenticated LMM ML",29,0,FALSE,FALSE,0,2.36,0.209,2.575,29
+"test-dp-lmm-signed-admission.R","dp-lmm-signed-admission","client n2000 signed bounds are exact and preserve small contracts",21,0,FALSE,FALSE,0,1.456,0.135,1.593,21
+"test-dp-synopsis-public-vector-adapter.R","dp-synopsis-public-vector-adapter","one-coordinate Synopsis accepts signed exact-GC START state",9,0,FALSE,FALSE,0,0.340000000000003,0.00299999999999989,0.344000000000001,9
+"test-dp-synopsis-public-vector-adapter.R","dp-synopsis-public-vector-adapter","synopsis public vector has a closed trusted-input ABI",3,0,FALSE,FALSE,0,0.00399999999999778,0.00100000000000011,0.004999999999999,3
+"test-dp-synopsis-public-vector-adapter.R","dp-synopsis-public-vector-adapter","synopsis evidence uses an application bound above portable DSI",7,0,FALSE,FALSE,0,2.054,0.087,2.143,7
+"test-dp-synopsis-public-vector-adapter.R","dp-synopsis-public-vector-adapter","synopsis RELEASE and bilateral REPLAY become one exact public vector",8,0,FALSE,FALSE,0,0.878,0.0089999999999999,0.887,8
+"test-dp-synopsis-public-vector-adapter.R","dp-synopsis-public-vector-adapter","unrelated signed parent metadata preserves manifest artifact and release for K=2/3/5",15,0,FALSE,FALSE,0,1.211,0.028,1.24,15
+"test-dp-synopsis-public-vector-adapter.R","dp-synopsis-public-vector-adapter","synopsis public vector keeps K witnesses out of the release pair",9,0,FALSE,FALSE,0,0.555,0.0150000000000001,0.570999999999998,9
+"test-dp-synopsis-public-vector-adapter.R","dp-synopsis-public-vector-adapter","synopsis public vector fails closed on consensus and wire tampering",11,0,FALSE,FALSE,0,0.952999999999999,0.01,0.966000000000001,11
+"test-dp-synopsis-public-vector-adapter.R","dp-synopsis-public-vector-adapter","synopsis integer bounds and exact client domain are enforced",4,0,FALSE,FALSE,0,0.724000000000004,0.0169999999999999,0.741,4
+"test-dp-synopsis-public-vector-adapter.R","dp-synopsis-public-vector-adapter","synopsis lattice recycles scalar categorical bounds",2,0,FALSE,FALSE,0,0.0949999999999989,0.00700000000000012,0.102000000000004,2
+"test-dp-synopsis-public-vector-adapter.R","dp-synopsis-public-vector-adapter","synopsis profile reconstruction keeps manifest calibration",1,0,FALSE,FALSE,0,0.181999999999995,0.004,0.186,1
+"test-dp-synopsis-public-vector-adapter.R","dp-synopsis-public-vector-adapter","synopsis accepts canonical server release field ordering",1,0,FALSE,FALSE,0,0.193000000000005,0.0069999999999999,0.201,1
+"test-dp-synopsis-public-vector-adapter.R","dp-synopsis-public-vector-adapter","client rejects zero delta certificates from finite Laplace v3",5,0,FALSE,FALSE,0,0.183999999999997,0.00800000000000001,0.192,5
+"test-joint-dp-vector-exact-gc-adapter.R","joint-dp-vector-exact-gc-adapter","grid noise traverses certified execution chunks without changing legacy geometry",9,0,FALSE,FALSE,0,0.00600000000000023,0.00099999999999989,0.0069999999999979,9
+"test-joint-dp-vector-exact-gc-adapter.R","joint-dp-vector-exact-gc-adapter","client validates the deterministic manifest-bound operation",2,0,FALSE,FALSE,0,0.0350000000000037,0,0.0360000000000014,2
+"test-joint-dp-vector-exact-gc-adapter.R","joint-dp-vector-exact-gc-adapter","generic exact-GC validation accepts only vector share metadata",2,0,FALSE,FALSE,0,0.0600000000000023,0.00100000000000011,0.0619999999999976,2
+"test-joint-dp-vector-exact-gc-adapter.R","joint-dp-vector-exact-gc-adapter","one-draw pump uses two peers and returns no protected payload",7,0,FALSE,FALSE,0,0.019999999999996,0.00099999999999989,0.0210000000000008,7
+"test-joint-dp-vector-exact-gc-adapter.R","joint-dp-vector-exact-gc-adapter","timeout retry preserves operation and never selects fallback",5,0,FALSE,FALSE,0,0.0150000000000006,0.00100000000000011,0.0150000000000006,5
+"test-joint-dp-vector-exact-gc-adapter.R","joint-dp-vector-exact-gc-adapter","unsafe start wrappers are rejected before transport",1,0,FALSE,FALSE,0,0.0129999999999981,0.00099999999999989,0.0129999999999981,1

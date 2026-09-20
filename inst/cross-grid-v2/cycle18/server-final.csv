@@ -1,0 +1,57 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-crossgrid-lmm-ml-contract.R","crossgrid-lmm-ml-contract","LMM ML contracts sign covariance-major candidates and patient caps",25,0,FALSE,FALSE,0,1.547,0.129,2.024,25
+"test-crossgrid-lmm-ml-contract.R","crossgrid-lmm-ml-contract","LMM ML rejects ambiguous covariance order and uncertified objectives",5,0,FALSE,FALSE,0,0.23,0.032,0.338,5
+"test-crossgrid-lmm-public-evidence.R","crossgrid-lmm-public-evidence","cold LMM evidence reads only authenticated public terminal identities",13,0,FALSE,FALSE,0,0.948,0.094,1.304,13
+"test-crossgrid-lmm-public-evidence.R","crossgrid-lmm-public-evidence","published LMM evidence verifies compilation without source claims or a session",5,0,FALSE,FALSE,0,0.244,0.037,0.401,5
+"test-crossgrid-lmm-sampler-admission.R","crossgrid-lmm-sampler-admission","staged LMM rejects samplers that cannot retain private validity before START",7,0,FALSE,FALSE,0,0.124000000000001,0.001,0.124,7
+"test-crossgrid-lmm-sampler-admission.R","crossgrid-lmm-sampler-admission","staged LMM cannot bypass the Synopsis gate through the legacy vector lifecycle",3,0,FALSE,FALSE,0,0.244,0.032,0.388,3
+"test-crossgrid-lmm-sampler-admission.R","crossgrid-lmm-sampler-admission","LMM sampler policy reserves the count alongside its 256 candidates",17,0,FALSE,FALSE,0,0.0119999999999996,0.002,0.0140000000000002,17
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid signed contracts authenticate both families with real Ed25519",16,0,FALSE,FALSE,0,0.609,0.108,1.136,16
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid signatures bind bounds, every owner and the compute pair",11,0,FALSE,FALSE,0,0.723,0.116,1.189,11
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid structural validators reject signed malformed public plans",46,0,FALSE,FALSE,0,1.744,0.347,3.399,46
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid private layout separates f50 inputs, integer outcome and bits",8,0,FALSE,FALSE,0,0.0890000000000004,0.023,0.196999999999999,8
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid bounds reject unrepresentable capacities and unsupported dimensions",26,0,FALSE,FALSE,0,0.522,0.0389999999999999,0.646000000000001,26
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid loss caps and adjacency use the existing public formulas",48,0,FALSE,FALSE,0,0.208,0.04,0.424,48
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid profile coefficients, proof and numeric template are immutable",3,0,FALSE,FALSE,0,0.0399999999999991,0.00100000000000011,0.0410000000000004,3
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid signed zero encoding survives canonical round trips",4,0,FALSE,FALSE,0,0.539000000000001,0.093,0.987,4
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid beta L1 comparison is exact at the public boundary",9,0,FALSE,FALSE,0,0.141,0.026,0.25,9
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid scalar identifiers reject JSON array representations",4,0,FALSE,FALSE,0,0.158999999999999,0.034,0.336,4
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","piecewise admission pins new arithmetic, caps and all signatures",22,0,FALSE,FALSE,0,1.476,0.275,2.688,22
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","piecewise source projection preserves frozen f50/f0 slots",32,0,FALSE,FALSE,0,0.339,0.06,0.632999999999999,32
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","grid staging uses the exact worker wire encoding and stable keys",6,0,FALSE,FALSE,0,1.154,0.0779999999999998,1.473,6
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","only the signed grid catalog selects the expanded joint-GC policy",11,0,FALSE,FALSE,0,2.189,0.0930000000000002,2.538,11
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid workload admission and source contracts bind the new projection",7,0,FALSE,FALSE,0,0.523000000000001,0.0819999999999999,0.843,7
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","fused grid source reads require the matching bilateral digest gate",13,0,FALSE,FALSE,0,1.355,0.097,1.696,13
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid private records resume across R processes and reject tampering",7,0,FALSE,FALSE,0,0.503999999999998,0.129,6.438,7
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid bootstrap binds the public plan without a circular schema hash",3,0,FALSE,FALSE,0,0.391999999999999,0.0800000000000001,0.684000000000005,3
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","session admission cannot be reused for changed public grid inputs",16,0,FALSE,FALSE,0,0.0410000000000004,0.00399999999999956,0.0459999999999994,16
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","durable batch reuse authenticates the stored plan and private widths",5,0,FALSE,FALSE,0,0.393999999999998,0.0700000000000003,0.674,5
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","structured snapshot identity reaches a fixed point without enabling release",30,0,FALSE,FALSE,0,0.0410000000000004,0.00499999999999989,0.046999999999997,30
+"test-dp-synopsis-execution-safety.R","dp-synopsis-execution-safety","Ring128 headroom covers the complete released support",4,0,FALSE,FALSE,0,2.614,0.157,2.803,4
+"test-dp-synopsis-execution-safety.R","dp-synopsis-execution-safety","Ring128 accepts its exact boundary and counts both draws",4,0,FALSE,FALSE,0,0.0069999999999979,0,0.00799999999999557,4
+"test-dp-synopsis-execution-safety.R","dp-synopsis-execution-safety","execution ranges do not inherit transport chunk geometry",5,0,FALSE,FALSE,0,1.429,0.109,1.549,5
+"test-dp-synopsis-execution-safety.R","dp-synopsis-execution-safety","the execution claim store authenticates rows, schema and rollback",5,0,FALSE,FALSE,0,0.788,0.0559999999999996,0.844999999999999,5
+"test-dp-synopsis-execution.R","dp-synopsis-execution","the dedicated synopsis execution API is explicit and minimal",7,0,FALSE,FALSE,0,0.00400000000000134,0,0.00399999999999778,7
+"test-dp-synopsis-execution.R","dp-synopsis-execution","execution context authenticates one manifest record per request",2,0,FALSE,FALSE,0,1.441,0.118,1.584,2
+"test-dp-synopsis-execution.R","dp-synopsis-execution","PREPARE is authority-only for K=2/3/5 and signs a closed receipt",27,0,FALSE,FALSE,0,8.204,0.65,8.876,27
+"test-dp-synopsis-execution.R","dp-synopsis-execution","PREPARE reads installed auth but no evidence, source, store or RNG",5,0,FALSE,FALSE,0,1.734,0.144,1.88,5
+"test-dp-synopsis-execution.R","dp-synopsis-execution","sticky contract survives sessions and operational replanning",8,0,FALSE,FALSE,0,3.947,0.276,4.226,8
+"test-dp-synopsis-execution.R","dp-synopsis-execution","the two signed PREPARE records form one closed authority set",5,0,FALSE,FALSE,0,3.34,0.249,3.591,5
+"test-dp-synopsis-execution.R","dp-synopsis-execution","the dedicated START claim is first-win and attempt-bound",8,0,FALSE,FALSE,0,1.469,0.106,1.577,8
+"test-joint-dp-vector-exact-gc-adapter.R","joint-dp-vector-exact-gc-adapter","staged candidate validity stays private and bound to the sampler plan",13,0,FALSE,FALSE,0,0.104999999999997,0.00100000000000033,0.106000000000002,13
+"test-joint-dp-vector-exact-gc-adapter.R","joint-dp-vector-exact-gc-adapter","one-draw selection is manifest-bound and cannot switch on retry",7,0,FALSE,FALSE,0,0.0390000000000015,0.00199999999999978,0.0390000000000015,7
+"test-joint-dp-vector-exact-gc-adapter.R","joint-dp-vector-exact-gc-adapter","public cost policy selects convolution before private access",6,0,FALSE,FALSE,0,0.00900000000000034,0.00100000000000033,0.0110000000000028,6
+"test-joint-dp-vector-exact-gc-adapter.R","joint-dp-vector-exact-gc-adapter","worker compilation is data-free and tamper-evident",5,0,FALSE,FALSE,0,0.00999999999999801,0.000999999999999446,0.00999999999999801,5
+"test-joint-dp-vector-exact-gc-adapter.R","joint-dp-vector-exact-gc-adapter","real Go vector policies retain array shape in worker config",20,0,FALSE,FALSE,0,0.0300000000000011,0.00400000000000045,0.0520000000000067,20
+"test-joint-dp-vector-exact-gc-adapter.R","joint-dp-vector-exact-gc-adapter","vector worker wire arrays reject malformed policy values",4,0,FALSE,FALSE,0,0.0120000000000005,0.000999999999999446,0.0229999999999961,4
+"test-joint-dp-vector-exact-gc-adapter.R","joint-dp-vector-exact-gc-adapter","garbler and evaluator commitments follow pins, not DSI order",5,0,FALSE,FALSE,0,0.029999999999994,0.00200000000000067,0.0320000000000036,5
+"test-joint-dp-vector-exact-gc-adapter.R","joint-dp-vector-exact-gc-adapter","operation binding is deterministic across retry and reconnect",4,0,FALSE,FALSE,0,0.00900000000000034,0,0.00999999999999801,4
+"test-joint-dp-vector-exact-gc-adapter.R","joint-dp-vector-exact-gc-adapter","server start stages secrets internally and returns metadata only",7,0,FALSE,FALSE,0,0.00800000000000267,0.000999999999999446,0.00800000000000267,7
+"test-joint-dp-vector-exact-gc-adapter.R","joint-dp-vector-exact-gc-adapter","server start leaves retryable exact state to the initializer",5,0,FALSE,FALSE,0,0.00600000000000023,0.00100000000000033,0.00600000000000023,5
+"test-joint-dp-vector-exact-gc-adapter.R","joint-dp-vector-exact-gc-adapter","durable consume never returns an output or validity share",6,0,FALSE,FALSE,0,0.0069999999999979,0.00100000000000033,0.0069999999999979,6
+"test-joint-dp-vector-exact-gc-adapter.R","joint-dp-vector-exact-gc-adapter","one-draw finalization checks validity and never reveals pre-clamp",6,0,FALSE,FALSE,0,0.0410000000000039,0.000999999999999446,0.0419999999999945,6
+"test-lmm-signed-admission.R","lmm-signed-admission","production admission rebuilds only the signed LMM ML profile",29,0,FALSE,FALSE,0,2.332,0.417,4.319,29
+"test-lmm-signed-admission.R","lmm-signed-admission","LMM discovery and workload admission retain private grouping",16,0,FALSE,FALSE,0,0.425000000000004,0.0500000000000007,0.629999999999995,16
+"test-lmm-signed-admission.R","lmm-signed-admission","n2000 admission binds only the exact LMM C500 B4 p3 J4 domain",24,0,FALSE,FALSE,0,1.568,0.276999999999999,2.86800000000001,24
+"test-lmm-signed-admission.R","lmm-signed-admission","single-candidate LMM workload projection survives manifest JSON decoding",5,0,FALSE,FALSE,0,0.193000000000005,0.0300000000000002,0.332999999999998,5
+"test-lmm-signed-admission.R","lmm-signed-admission","LMM source-only peers emit zero public losses without reading outcomes",5,0,FALSE,FALSE,0,0.493000000000002,0.0510000000000002,0.763999999999996,5

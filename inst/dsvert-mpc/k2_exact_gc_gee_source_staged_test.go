@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"math/big"
 	"net"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -127,6 +129,11 @@ func groupedGEESourceGraphRunTest(t *testing.T, family string) {
 	// This is the complete internal source/router/conversion/arithmetic path;
 	// it is intentionally not labelled a DSLite release or promotion proof.
 	s, sources, sidecar, routed := groupedGEESourceFixture(t, family)
+	groupedGEESourceGraphRunFixture(t, s, sources, sidecar, routed, []string{"fresh", "conversion-abort", "routing-unilateral", "source-invalid", "outcome-invalid", "outcome-high-alias"})
+}
+
+func groupedGEESourceGraphRunFixture(t *testing.T, s groupedGEESourceSpec, sources [2]*groupedGEESourceRecord, sidecar *groupedRouteSidecar, routed [][]*big.Int, scenarios []string) {
+	t.Helper()
 	graphs := [2]*groupedGEESourceGraph{}
 	for role := range graphs {
 		local := sidecar
@@ -142,7 +149,7 @@ func groupedGEESourceGraphRunTest(t *testing.T, family string) {
 	if crossGridStageHash("test", graphs[0].Graph) != crossGridStageHash("test", graphs[1].Graph) {
 		t.Fatal("private routing state changed public graph")
 	}
-	for _, scenario := range []string{"fresh", "conversion-abort", "routing-unilateral", "source-invalid", "outcome-invalid", "outcome-high-alias"} {
+	for _, scenario := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
 			localGraphs := graphs
 			if scenario == "source-invalid" || scenario == "outcome-invalid" || scenario == "outcome-high-alias" {
@@ -250,6 +257,15 @@ func groupedGEESourceGraphRunTest(t *testing.T, family string) {
 			}
 			last := len(out[0].out) - 1
 			expected := groupedGEESourceOracle(t, s, routed)
+			abi := localGraphs[0].Graph.Stages[last]
+			if abi.Ring != 128 || abi.FPScale != s.Numeric.GridBits || len(abi.CoordOrder) != len(expected) {
+				t.Fatal("wrong full terminal ABI")
+			}
+			for role := range out {
+				if len(out[role].out[last].Share) != 16*len(expected) || len(out[role].out[last].Validity) != len(expected) {
+					t.Fatal("truncated full terminal workload")
+				}
+			}
 			for coordinate, value := range expected {
 				a, b := out[0].out[last], out[1].out[last]
 				got := getUint128LE(a.Share[16*coordinate : 16*(coordinate+1)]).Add(getUint128LE(b.Share[16*coordinate : 16*(coordinate+1)])).ToBig()
@@ -262,6 +278,99 @@ func groupedGEESourceGraphRunTest(t *testing.T, family string) {
 					t.Fatalf("coordinate %d got=%s want=%d valid=%d", coordinate, got, value, a.Validity[coordinate]^b.Validity[coordinate])
 				}
 			}
+		})
+	}
+}
+
+// The source fixture has genuinely distinct p3 feature columns and candidate
+// coefficients. Missing original slot zero is retained across private routing.
+func groupedGEESourceP3Fixture(t *testing.T, family string) (groupedGEESourceSpec, [2]*groupedGEESourceRecord, *groupedRouteSidecar, [][]*big.Int) {
+	t.Helper()
+	s, _, oldSide, _ := groupedGEESourceFixture(t, family)
+	s.Numeric.Predictors, s.Route.Predictors = 3, 3
+	f := new(big.Int).Lsh(big.NewInt(1), 50)
+	scaled := func(n, den int64) *big.Int {
+		return new(big.Int).Quo(new(big.Int).Mul(f, big.NewInt(n)), big.NewInt(den))
+	}
+	s.Beta = [][]*big.Int{{scaled(1, 8), scaled(1, 4), scaled(-3, 8), scaled(1, 2)}, {scaled(-1, 4), scaled(3, 4), scaled(1, 8), scaled(-1, 2)}}
+	features := [][]*big.Int{{scaled(1, 8), scaled(3, 4), scaled(5, 16)}, {scaled(3, 8), scaled(1, 16), scaled(7, 8)}, {scaled(5, 8), scaled(7, 16), scaled(1, 4)}, {scaled(7, 8), scaled(5, 16), scaled(1, 16)}}
+	outcomes := []int64{0, 1, 0, 1}
+	if family == "poisson" {
+		outcomes[1], outcomes[3] = 4, 3
+	}
+	var numeric, outcome, metadata []*big.Int
+	for row, label := range oldSide.Labels {
+		numeric = append(numeric, features[row]...)
+		outcome = append(outcome, big.NewInt(outcomes[row]))
+		yp := int64(1)
+		if row == 0 {
+			yp = 0
+		}
+		metadata = append(metadata, big.NewInt(1), big.NewInt(1), big.NewInt(1), big.NewInt(yp), big.NewInt(int64(label)), big.NewInt(1))
+	}
+	split := func(values []*big.Int) [2]crossGridStageOutput {
+		var out [2]crossGridStageOutput
+		for _, value := range values {
+			mask := make([]byte, 16)
+			if _, err := io.ReadFull(rand.Reader, mask); err != nil {
+				t.Fatal(err)
+			}
+			out[0].Share = append(out[0].Share, mask...)
+			out[1].Share = append(out[1].Share, crossGridStageTestBytes(new(big.Int).Sub(value, crossGridStageTestInteger(mask)))...)
+			out[0].Validity = append(out[0].Validity, mask[0]&1)
+			out[1].Validity = append(out[1].Validity, (mask[0]&1)^1)
+		}
+		return out
+	}
+	x, y, m := split(numeric), split(outcome), split(metadata)
+	var sources [2]*groupedGEESourceRecord
+	for role := range sources {
+		var err error
+		sources[role], err = groupedGEESealSource(s, exactGCRole(role), x[role], y[role], m[role], crossGridStageTestKey(exactGCRole(role)))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	side, err := groupedRouteSeal(s.Route, oldSide.Labels, oldSide.Present, crossGridStageTestKey(0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	routed := make([][]*big.Int, 4)
+	for slot, row := range []int{1, 3, 0, 2} {
+		routed[slot] = make([]*big.Int, 5)
+		for c := range routed[slot] {
+			routed[slot][c] = new(big.Int)
+		}
+		if row == 0 {
+			continue
+		}
+		routed[slot][0].Set(f)
+		for c := 0; c < 3; c++ {
+			routed[slot][c+1].Set(features[row][c])
+		}
+		routed[slot][4].Mul(f, big.NewInt(outcomes[row]))
+	}
+	return s, sources, side, routed
+}
+
+func TestGroupedGEESourceP3TwoAuthority(t *testing.T) {
+	for _, family := range []string{"binomial", "poisson"} {
+		t.Run(family, func(t *testing.T) {
+			s, sources, side, routed := groupedGEESourceP3Fixture(t, family)
+			expected := groupedGEESourceOracle(t, s, routed)
+			if s.Route.Clusters*s.Route.Slots != 4 || len(s.Beta) != 2 || len(expected) != 42 || reflect.DeepEqual(expected[:21], expected[21:]) {
+				t.Fatal("fixture must exercise n4/p3/J2 full distinct candidate workloads")
+			}
+			swapped := make([][]*big.Int, len(routed))
+			for i, row := range routed {
+				swapped[i] = append([]*big.Int(nil), row...)
+				swapped[i][1], swapped[i][2] = swapped[i][2], swapped[i][1]
+			}
+			if reflect.DeepEqual(expected, groupedGEESourceOracle(t, s, swapped)) {
+				t.Fatal("feature-order swap is invisible to oracle")
+			}
+			groupedGEESourceGraphRunFixture(t, s, sources, side, routed, []string{"fresh"})
+			t.Logf("n=4 predictors=3 candidates=2 terminal_ring=128 terminal_coordinates=%d oracle_equal=true cold_replay=true", len(expected))
 		})
 	}
 }

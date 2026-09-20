@@ -1,0 +1,34 @@
+{
+  "observed_utc": "2026-09-20T15:57:32.775821+00:00",
+  "suites": [
+    {
+      "file": "test-dp-cox-cross-public-evidence.R.csv",
+      "tests": 2,
+      "assertions": 183
+    },
+    {
+      "file": "test-dp-cox-owner-bind.R.csv",
+      "tests": 1,
+      "assertions": 75
+    },
+    {
+      "file": "test-dp-cox-staged-orchestration.R.csv",
+      "tests": 2,
+      "assertions": 195
+    },
+    {
+      "file": "test-dp-lmm-cross-public-release.R.csv",
+      "tests": 5,
+      "assertions": 177
+    }
+  ],
+  "tests": 10,
+  "assertions": 630,
+  "nonpasses": 0,
+  "scope": "Local focused client R tests with real Ed25519 signatures and exact server/client layout equality. Transport, alignment and native invocation are test doubles; persisted-state combinations prove orchestration decisions, not a native crash/recovery experiment. No real Cox DP release or capacity claim.",
+  "tested_files_sha256": {
+    "dsVertClient/R/dp_lmm_grid_cross_release.R": "905a428f7b4c5831e581d78044cbdb51b7fe04eae39c0d48a2e01d166f95eff1",
+    "dsVertClient/R/dp_cox_grid_cross_release.R": "6512ab1bde73ab486d96feac169d9bff96828fe587f4ed90e63956dd1add82f7",
+    "dsVertClient/tests/testthat/test-dp-cox-staged-orchestration.R": "893735300d508dab7dc483947d3af37f8f31b53552acdebde18f32f40ba9e917"
+  }
+}

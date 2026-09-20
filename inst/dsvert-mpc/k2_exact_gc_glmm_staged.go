@@ -1,6 +1,6 @@
 package main
 
-// Binomial GH5 composition. All edges are homogeneous, authenticated durable
+// Binomial and factorial-excluded Poisson GH5 composition. All edges are homogeneous, authenticated durable
 // stages; no accumulator crosses a stage boundary outside a committed output.
 import (
 	"crypto/sha256"
@@ -12,6 +12,8 @@ import (
 )
 
 type groupedGLMMStagedSpec struct {
+	Family                                string `json:",omitempty"`
+	MaxOutcome                            int    `json:",omitempty"`
 	Clusters, Slots, Predictors, GridBits int
 	Beta                                  [][]*big.Int
 	Caps                                  []int64
@@ -24,7 +26,23 @@ type groupedGLMMStagedGraph struct {
 	Compute []crossGridStageCompute
 }
 
+func (s groupedGLMMStagedSpec) family() string {
+	if s.Family == "" {
+		return "binomial"
+	}
+	return s.Family
+}
+func (s groupedGLMMStagedSpec) maxOutcome() int {
+	if s.Family == "" {
+		return 1
+	}
+	return s.MaxOutcome
+}
 func (s groupedGLMMStagedSpec) validate() error {
+	if !((s.Family == "" && s.MaxOutcome == 0) || (s.Family == "poisson" && s.MaxOutcome >= 1 && s.MaxOutcome <= 4)) {
+		return primitiveVError()
+	}
+
 	if s.Clusters < 1 || s.Clusters > 500 || s.Slots < 1 || s.Slots > 16 || s.Clusters*s.Slots > 2000 || s.Predictors < 1 || s.Predictors > 3 || s.GridBits < 8 || s.GridBits > 18 || len(s.Beta) < 1 || len(s.Beta) > 4 || len(s.VarianceGrid) < 1 || len(s.VarianceGrid) > 2 || len(s.Caps) != len(s.Beta)*len(s.VarianceGrid) || len(s.Caps) > 4 || s.SourceDigest == ([32]byte{}) || s.ProfileDigest == ([32]byte{}) || s.RoutedStage == "" {
 		return primitiveVError()
 	}
@@ -66,7 +84,10 @@ func (s groupedGLMMStagedSpec) validate() error {
 
 // Full-width checks precede every narrowing, including the logsum boundary.
 func groupedGLMMGuardCompile(count int, liveOutcome bool) (*primitiveVProgram, error) {
-	if count < 1 || count > 32 {
+	return groupedGLMMOutcomeGuardCompile(count, liveOutcome, 1)
+}
+func groupedGLMMOutcomeGuardCompile(count int, liveOutcome bool, maxOutcome int) (*primitiveVProgram, error) {
+	if count < 1 || count > 32 || maxOutcome < 1 || maxOutcome > 4 {
 		return nil, primitiveVError()
 	}
 	inputs, outputs := count, count
@@ -77,7 +98,15 @@ func groupedGLMMGuardCompile(count int, liveOutcome bool) (*primitiveVProgram, e
 	fmt.Fprintf(&b, "package main\nfunc main(g [%d]int192,e [%d]int192) [%d]int192 {\nvar out [%d]int192\nvalid:=true\n", inputs+outputs+1, inputs, outputs+1, outputs+1)
 	for i := 0; i < count; i++ {
 		if liveOutcome {
-			fmt.Fprintf(&b, "l%d:=g[%d]+e[%d]\ny%d:=g[%d]+e[%d]\nok%d:=(l%d==0 || l%d==1125899906842624) && (y%d==0 || y%d==1125899906842624) && y%d<=l%d\nvalid=valid && ok%d\na%d:=int192(0)\nb%d:=int192(0)\nif ok%d && l%d!=0 {a%d=1}\nif ok%d && y%d!=0 {b%d=1}\n", i, 2*i, 2*i, i, 2*i+1, 2*i+1, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i)
+			if maxOutcome == 1 {
+				fmt.Fprintf(&b, "l%d:=g[%d]+e[%d]\ny%d:=g[%d]+e[%d]\nok%d:=(l%d==0 || l%d==1125899906842624) && (y%d==0 || y%d==1125899906842624) && y%d<=l%d\nvalid=valid && ok%d\na%d:=int192(0)\nb%d:=int192(0)\nif ok%d && l%d!=0 {a%d=1}\nif ok%d && y%d!=0 {b%d=1}\n", i, 2*i, 2*i, i, 2*i+1, 2*i+1, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i, i)
+			} else {
+				fmt.Fprintf(&b, "l%d:=g[%d]+e[%d]\ny%d:=g[%d]+e[%d]\nyok%d:=y%d==0\n", i, 2*i, 2*i, i, 2*i+1, 2*i+1, i, i)
+				for y := 1; y <= maxOutcome; y++ {
+					fmt.Fprintf(&b, "yok%d=yok%d || y%d==%d\n", i, i, i, int64(y)<<50)
+				}
+				fmt.Fprintf(&b, "ok%d:=(l%d==0 || l%d==1125899906842624) && yok%d && (l%d!=0 || y%d==0)\nvalid=valid && ok%d\na%d:=int192(0)\nb%d:=int192(0)\nif ok%d && l%d!=0 {a%d=1}\nif ok%d {b%d=y%d>>50}\n", i, i, i, i, i, i, i, i, i, i, i, i, i, i, i)
+			}
 		} else {
 			fmt.Fprintf(&b, "a%d:=g[%d]+e[%d]\nok%d:=a%d>=65536 && a%d<=327680\nvalid=valid && ok%d\nif !ok%d {a%d=65536}\n", i, i, i, i, i, i, i, i, i)
 		}
@@ -145,7 +174,7 @@ func groupedGLMMBuildStagedGraph(s groupedGLMMStagedSpec, role exactGCRole) (*gr
 				input[2*i+1] = r[(start+i)*cols+cols-1]
 			}
 			if program == nil || program.InputWordsE != 2*n {
-				program, e = groupedGLMMGuardCompile(n, true)
+				program, e = groupedGLMMOutcomeGuardCompile(n, true, s.maxOutcome())
 				if e != nil {
 					return crossGridStageOutput{}, e
 				}
@@ -231,10 +260,14 @@ func groupedGLMMBuildStagedGraph(s groupedGLMMStagedSpec, role exactGCRole) (*gr
 	for varianceIndex, variance := range s.VarianceGrid {
 		for betaIndex := range s.Beta {
 			candidate := varianceIndex*len(s.Beta) + betaIndex
-			numeric := groupedGLMMSpec{Family: "binomial", Rows: s.Slots, OutputBits: s.GridBits, VarianceQ16: variance}
+			numeric := groupedGLMMSpec{Family: s.family(), Rows: s.Slots, OutputBits: s.GridBits, VarianceQ16: variance}
 			prefix := fmt.Sprintf("glmm.candidate.%03d", candidate)
 			etaID, yetaID := fmt.Sprintf("glmm.beta.%03d.eta", betaIndex), fmt.Sprintf("glmm.beta.%03d.yeta", betaIndex)
-			add(prefix+".profile", "glmm.gh5-softplus", 16, rows*5, 192, []string{etaID}, func(i int) string { return fmt.Sprintf("row:%d:node:%d", i/5, i%5) }, func(rw io.ReadWriter, a crossGridStageAttempt, in []crossGridStageOutput) (crossGridStageOutput, error) {
+			scalar := "softplus"
+			if s.family() == "poisson" {
+				scalar = "exp"
+			}
+			add(prefix+".profile", "glmm.gh5-"+scalar, 16, rows*5, 192, []string{etaID}, func(i int) string { return fmt.Sprintf("row:%d:node:%d", i/5, i%5) }, func(rw io.ReadWriter, a crossGridStageAttempt, in []crossGridStageOutput) (crossGridStageOutput, error) {
 				if len(in) != 1 {
 					return crossGridStageOutput{}, primitiveVError()
 				}
@@ -260,12 +293,12 @@ func groupedGLMMBuildStagedGraph(s groupedGLMMStagedSpec, role exactGCRole) (*gr
 					// Predictor range is full-width certified and the public node is <2^17;
 					// hence every reconstructed q16 argument is a signed int32 here.
 					if program == nil || program.InputWordsE != n {
-						program, e = groupedWideScalarCompile("softplus", n)
+						program, e = groupedWideScalarCompile(scalar, n)
 						if e != nil {
 							return crossGridStageOutput{}, e
 						}
 					}
-					v, e := groupedGLMMStagedPrimitive(rw, a, role, fmt.Sprintf("softplus/%d", start), profile, program, args)
+					v, e := groupedGLMMStagedPrimitive(rw, a, role, fmt.Sprintf(scalar+"/%d", start), profile, program, args)
 					if e != nil {
 						return crossGridStageOutput{}, e
 					}

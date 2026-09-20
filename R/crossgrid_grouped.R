@@ -19,7 +19,7 @@
   if (identical(family, "lmm") && "objective" %in% names(value)) {
     return(.dsvert_dp_grouped_cross_ml_parameters(value))
   }
-  if (identical(family, "binomial_glmm") && "variance_grid" %in% names(value)) {
+  if (family %in% c("binomial_glmm", "poisson_glmm") && "variance_grid" %in% names(value)) {
     .dsvert_dp_glm_grid_cross_fields(value, c("variance_grid", "quadrature"))
     if (!is.list(value$variance_grid) || !is.null(names(value$variance_grid)) ||
         !length(value$variance_grid) || length(value$variance_grid) > 2L ||
@@ -87,7 +87,7 @@
     }
     2
   }
-  bounds <- if (identical(family, "binomial_glmm") && !is.null(parameters$variance_grid)) {
+  bounds <- if (family %in% c("binomial_glmm", "poisson_glmm") && !is.null(parameters$variance_grid)) {
     unlist(lapply(parameters$variance_grid, function(tau) {
       .dsvert_dp_grouped_cross_sensitivity(beta_grid, family, max_outcome,
         grid_bits, grouping, list(random_intercept_variance = tau,
@@ -215,9 +215,10 @@
     out$coordinate_error_bounds <- errors
     out$factorial_q16 <- as.list(c(0, 0, 45426, 117425, 208277))
   }
-  if (identical(family, "binomial_glmm") && !is.null(parameters$variance_grid)) {
-    certificate <- "76490f13d69f7968b5fa435f1ac7b5da844b8f7476ad582669b4e41a95960377"
-    paths <- system.file("certificates", c("grouped_binomial_glmm_gh5_v1.json",
+  if (family %in% c("binomial_glmm", "poisson_glmm") && !is.null(parameters$variance_grid)) {
+    poisson <- identical(family, "poisson_glmm")
+    certificate <- if (poisson) "1fe5a19c74969134731d5d3210b9646e52783192570256806e0ac7a1e4ae9c94" else "76490f13d69f7968b5fa435f1ac7b5da844b8f7476ad582669b4e41a95960377"
+    paths <- system.file("certificates", c(if (poisson) "grouped_poisson_glmm_gh5_v1.json" else "grouped_binomial_glmm_gh5_v1.json",
       "grouped_pwlinear_q16_v1.json"), package = "dsVert")
     hashes <- c(certificate, out$profile_sha256)
     if (length(paths) != 2L || any(!nzchar(paths)) ||
@@ -227,12 +228,12 @@
     }
     # Retained groupedGLMMBounds plus worst final g>=8 quantization. The
     # signed error=1 strictly encloses this finite-GH5 arithmetic bound.
-    error <- B*(34/65536 + 1e-12) + 1/131072 +
+    error <- B*(if (poisson) .0055 + 17/65536 + .5/65536 + 1e-12 else 34/65536 + 1e-12) + 1/131072 +
       4*(.00013 + 1/8000000) + 33/65536 + 1/512
     if (error >= out$per_cluster_error_bound) .dsvert_dp_grouped_cross_fail()
     out$certificate_sha256 <- certificate
-    out$version <- "grouped-binomial-glmm-variance-grid-numeric-v1"
-    out$objective <- "finite_gh5_binomial_negative_log_likelihood_v1"
+    out$version <- paste0("grouped-", sub("_glmm$", "", family), "-glmm-variance-grid-numeric-v1")
+    out$objective <- if (poisson) "gh5_negative_log_kernel_without_factorial_v1" else "finite_gh5_binomial_negative_log_likelihood_v1"
     out$candidate_traversal <- "variance_then_beta_v1"
     out$composition_error_bound <- error * (1 + 256*.Machine$double.eps)
   }
@@ -282,7 +283,7 @@
     .dsvert_dp_grouped_cross_fail()
   }
   C <- .dsvert_dp_glm_grid_cross_integer(raw$grouping$cluster_capacity,
-    1, if (family %in% c("lmm", "binomial_glmm")) 500 else 64)
+    1, if (family %in% c("lmm", "binomial_glmm", "poisson_glmm")) 500 else 64)
   B <- .dsvert_dp_glm_grid_cross_integer(raw$grouping$max_patients_per_cluster,
                                        1, if (grepl("_gee$", family)) 8 else 16)
   if (base$observation_capacity > B*C ||
@@ -301,12 +302,12 @@
     if (C != 500 || B != 4 || base$observation_capacity != 2000 ||
         length(base$predictors) > 3L ||
         !(identical(family, "lmm") && identical(parameters$objective, "ml") ||
-          identical(family, "binomial_glmm") && !is.null(parameters$variance_grid)) ||
+          family %in% c("binomial_glmm", "poisson_glmm") && !is.null(parameters$variance_grid)) ||
         length(parameters$variance_grid) * length(base$beta_grid) > 4L) {
       .dsvert_dp_grouped_cross_fail()
     }
     grouping$capacity_profile <- if (identical(family, "lmm"))
-      "lmm-ml-n2000-c500-b4-p3-j4-v1" else "binomial-glmm-gh5-n2000-c500-b4-p3-j4-v1"
+      "lmm-ml-n2000-c500-b4-p3-j4-v1" else paste0(sub("_glmm$", "", family), "-glmm-gh5-n2000-c500-b4-p3-j4-v1")
   }
   radius <- vapply(base$beta_grid, function(beta) sum(abs(unlist(beta))), numeric(1L))
   if ((grepl("_glmm$", family) && (any(radius > 1) || base$max_outcome > 4)) ||
@@ -343,7 +344,7 @@
         beta = base$beta_grid[[candidate$beta_index]]))
     })
   }
-  if (identical(family, "binomial_glmm") && !is.null(parameters$variance_grid)) {
+  if (family %in% c("binomial_glmm", "poisson_glmm") && !is.null(parameters$variance_grid)) {
     if (length(base$predictors) > 3L ||
         length(parameters$variance_grid) * length(base$beta_grid) > 4L) {
       .dsvert_dp_grouped_cross_fail()
@@ -363,7 +364,7 @@
       })
     }), recursive = FALSE)
     base$candidate_order <- lapply(base$candidate_grid, function(candidate) {
-      .dsvert_joint_dp_hash(list(objective = "finite_gh5_binomial_negative_log_likelihood_v1",
+      .dsvert_joint_dp_hash(list(objective = if (family == "poisson_glmm") "gh5_negative_log_kernel_without_factorial_v1" else "finite_gh5_binomial_negative_log_likelihood_v1",
         random_intercept_variance = parameters$variance_grid[[candidate$variance_index]],
         quadrature = parameters$quadrature, beta = base$beta_grid[[candidate$beta_index]]))
     })

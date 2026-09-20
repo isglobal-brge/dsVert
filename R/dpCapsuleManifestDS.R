@@ -884,7 +884,7 @@
   for (analysis_id in names(specs$gaussian)) {
     raw <- specs$gaussian[[analysis_id]]
     if (raw$version %in% c(unname(.DSVERT_DP_GLM_GRID_CROSS_SPEC_VERSIONS),
-                          "lmm_grid_cross_v1", "binomial_glmm_grid_cross_v1")) next
+                          "lmm_grid_cross_v1", "binomial_glmm_grid_cross_v1", "poisson_glmm_grid_cross_v1")) next
     if (!identical(raw$version, "random_intercept_v1")) {
       raw$predictors <- unname(as.character(unlist(
         raw$predictors, use.names = FALSE)))

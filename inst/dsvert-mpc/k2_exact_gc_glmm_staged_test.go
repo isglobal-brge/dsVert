@@ -42,17 +42,18 @@ func groupedGLMMStagedOracle(s groupedGLMMStagedSpec, rows [][]*big.Int, candida
 			}
 			q64 := primitiveVRoundDivReference(dot, new(big.Int).Lsh(big.NewInt(1), 36))
 			eta := primitiveVRoundDivReference(q64, new(big.Int).Lsh(big.NewInt(1), 48)).Int64()
-			y := int64(0)
-			if row[len(row)-1].Sign() != 0 {
-				y = 1
-			}
+			y := new(big.Int).Rsh(new(big.Int).Set(row[len(row)-1]), 50).Int64()
 			for q := range score {
 				argument := eta
 				if variance != 0 {
 					argument += groupedGLMMNodes[q]
 				}
-				profile, _ := groupedProfileEval("softplus", argument)
-				score[q] -= profile - y*argument
+				scalar, shift := "softplus", int64(0)
+				if s.family() == "poisson" {
+					scalar, shift = "exp", 2*65536
+				}
+				profile, _ := groupedProfileEval(scalar, argument)
+				score[q] -= profile - y*argument + shift
 			}
 		}
 		if count == 0 {

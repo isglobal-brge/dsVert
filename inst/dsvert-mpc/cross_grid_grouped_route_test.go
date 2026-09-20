@@ -110,7 +110,7 @@ func TestGroupedRouteSidecarAndPublicTopology(t *testing.T) {
 }
 
 func TestGroupedRouteTwoAuthorityDurable(t *testing.T) {
-	for _, scenario := range []string{"fresh-cold", "private-padding", "bilateral-recovery", "unilateral-recovery", "source-invalid", "nonbinary-presence", "source-label-mismatch", "private-capacity-overflow", "numeric-bound", "nonnegative-domain"} {
+	for _, scenario := range []string{"fresh-cold", "private-padding", "bilateral-recovery", "unilateral-recovery", "source-invalid", "nonbinary-presence", "source-label-mismatch", "private-capacity-overflow", "numeric-bound", "nonnegative-domain", "outcome-bound", "outcome-overflow", "feature-bound-under-poisson"} {
 		t.Run(scenario, func(t *testing.T) { groupedRouteRunTest(t, scenario) })
 	}
 }
@@ -124,6 +124,17 @@ func groupedRouteRunTest(t *testing.T, scenario string) {
 	numeric := []*big.Int{}
 	for _, eighths := range []int64{4, 2, 2, 6, -4, 4, 1, -2} {
 		numeric = append(numeric, new(big.Int).Lsh(big.NewInt(eighths), 47))
+	}
+	if scenario == "outcome-bound" || scenario == "outcome-overflow" || scenario == "feature-bound-under-poisson" {
+		s.NumericBound = new(big.Int).Lsh(big.NewInt(1), 50)
+		s.OutcomeBound = new(big.Int).Lsh(big.NewInt(4), 50)
+		numeric[1] = new(big.Int).Set(s.OutcomeBound)
+		if scenario == "outcome-overflow" {
+			numeric[1].Add(numeric[1], big.NewInt(1))
+		}
+		if scenario == "feature-bound-under-poisson" {
+			numeric[0] = new(big.Int).Add(s.NumericBound, big.NewInt(1))
+		}
 	}
 	labels, present := []int{1, 0, 1, 0}, []bool{true, true, true, true}
 	if scenario == "private-padding" {
@@ -321,7 +332,7 @@ func groupedRouteRunTest(t *testing.T, scenario string) {
 		}
 	}
 	a, b := got[0].out[len(plan.Stages)-1], got[1].out[len(plan.Stages)-1]
-	valid := scenario == "fresh-cold" || scenario == "private-padding" || scenario == "bilateral-recovery" || scenario == "unilateral-recovery"
+	valid := scenario == "outcome-bound" || scenario == "fresh-cold" || scenario == "private-padding" || scenario == "bilateral-recovery" || scenario == "unilateral-recovery"
 	for i := range a.Validity {
 		want := byte(0)
 		if valid {

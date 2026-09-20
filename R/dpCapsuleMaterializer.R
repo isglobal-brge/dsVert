@@ -1856,7 +1856,7 @@
     cross_artifacts, function(artifact) {
       artifact$version %in% c(
         "bounded-normalized-gaussian-cross-sufficient-statistics-v1",
-        "bounded-lmm-cross-grid-v1", "bounded-binomial-glmm-cross-grid-v1",
+        "bounded-lmm-cross-grid-v1", "bounded-binomial-glmm-cross-grid-v1", "bounded-poisson-glmm-cross-grid-v1",
         unname(.DSVERT_DP_GLM_GRID_CROSS_ARTIFACT_VERSIONS))
     }, logical(1L))]
   owns_cross_input <- any(vapply(cross_artifacts, function(artifact) {
@@ -1960,7 +1960,7 @@
     artifact <- block$descriptor
     if (artifact$version %in% c(
           "bounded-normalized-gaussian-cross-sufficient-statistics-v1",
-          "bounded-lmm-cross-grid-v1", "bounded-binomial-glmm-cross-grid-v1",
+          "bounded-lmm-cross-grid-v1", "bounded-binomial-glmm-cross-grid-v1", "bounded-poisson-glmm-cross-grid-v1",
           unname(.DSVERT_DP_GLM_GRID_CROSS_ARTIFACT_VERSIONS))) {
       # Cross-owner coordinates are injected only after the fixed exact-GC
       # transcript.  Every ordinary source contributes the all-zero public

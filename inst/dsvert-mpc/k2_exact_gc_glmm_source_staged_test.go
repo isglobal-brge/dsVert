@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-func groupedGLMMSourceFixture(t *testing.T) (groupedGLMMSourceSpec, [2]*groupedGLMMSourceRecord, *groupedRouteSidecar, [][]*big.Int) {
+func groupedGLMMSourceFixture(t *testing.T, family ...string) (groupedGLMMSourceSpec, [2]*groupedGLMMSourceRecord, *groupedRouteSidecar, [][]*big.Int) {
 	t.Helper()
 	glmm := groupedGLMMStagedTestSpec()
 	glmm.RoutedStage = "glmm.source.ring192"
@@ -26,12 +26,21 @@ func groupedGLMMSourceFixture(t *testing.T) (groupedGLMMSourceSpec, [2]*groupedG
 			NumericStage: "glmm.source.normalized", MetadataStage: "glmm.source.metadata",
 			SourceDigest: glmm.SourceDigest, ProfileDigest: glmm.ProfileDigest,
 			NumericBound: new(big.Int).Lsh(big.NewInt(1), 50)}}
+	poisson := len(family) == 1 && family[0] == "poisson"
+	if poisson {
+		s.GLMM.Family, s.GLMM.MaxOutcome = "poisson", 4
+		s.Route.OutcomeBound = new(big.Int).Lsh(big.NewInt(4), 50)
+	}
 	f := new(big.Int).Lsh(big.NewInt(1), 50)
 	value := func(divisor int64) *big.Int { return new(big.Int).Quo(new(big.Int).Set(f), big.NewInt(divisor)) }
 	// Labels are deliberately out of cluster order. Row zero is missing y,
 	// and must retain cluster one's original slot zero after complete-casing.
 	numbers := []*big.Int{value(3), value(7), value(5), value(9)}
 	outcomes := []*big.Int{big.NewInt(0), big.NewInt(1), big.NewInt(0), big.NewInt(1)}
+	if poisson {
+		outcomes[1].SetInt64(4)
+		outcomes[3].SetInt64(3)
+	}
 	metadata := []*big.Int{}
 	labels := []int{1, 0, 1, 0}
 	for row, label := range labels {
@@ -71,6 +80,10 @@ func groupedGLMMSourceFixture(t *testing.T) (groupedGLMMSourceSpec, [2]*groupedG
 	routed := [][]*big.Int{{new(big.Int).Set(f), value(7), new(big.Int).Set(f)},
 		{new(big.Int).Set(f), value(9), new(big.Int).Set(f)}, {new(big.Int), new(big.Int), new(big.Int)},
 		{new(big.Int).Set(f), value(5), new(big.Int)}}
+	if poisson {
+		routed[0][2].Mul(f, big.NewInt(4))
+		routed[1][2].Mul(f, big.NewInt(3))
+	}
 	return s, sources, sidecar, routed
 }
 
@@ -135,10 +148,14 @@ func TestGroupedGLMMSourceGraphAuthentication(t *testing.T) {
 	}
 }
 
-func TestGroupedGLMMSourceGraphTwoAuthority(t *testing.T) {
+func TestGroupedGLMMSourceGraphTwoAuthority(t *testing.T) { groupedGLMMSourceGraphRunTest(t, "") }
+func TestGroupedGLMMPoissonSourceGraphTwoAuthority(t *testing.T) {
+	groupedGLMMSourceGraphRunTest(t, "poisson")
+}
+func groupedGLMMSourceGraphRunTest(t *testing.T, family string) {
 	// This is the complete internal source/router/conversion/arithmetic path;
 	// it is intentionally not labelled a DSLite release or promotion proof.
-	s, sources, sidecar, routed := groupedGLMMSourceFixture(t)
+	s, sources, sidecar, routed := groupedGLMMSourceFixture(t, family)
 	graphs := [2]*groupedGLMMSourceGraph{}
 	for role := range graphs {
 		local := sidecar

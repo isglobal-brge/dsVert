@@ -16,6 +16,8 @@ type groupedGLMMSourceWirePlan struct {
 	SchemaSHA256                string `json:"schema_sha256"`
 	Clusters, Slots, Predictors int
 	Numeric                     struct {
+		Family          string `json:"family,omitempty"`
+		MaxOutcome      string `json:"max_outcome,omitempty"`
 		Slots, GridBits int
 		OutputCap       string
 	}
@@ -72,6 +74,14 @@ func groupedGLMMPrepareWire(input groupedGLMMPrepareWireInput) (*groupedGLMMWork
 			NumericBound: new(big.Int).Lsh(big.NewInt(1), 50), Nonnegative: true},
 		GLMM: groupedGLMMStagedSpec{Clusters: w.Clusters, Slots: w.Slots, Predictors: w.Predictors, GridBits: w.Numeric.GridBits,
 			SourceDigest: digests[1], ProfileDigest: profile, RoutedStage: "glmm.source.ring192"}}
+	if w.Numeric.Family != "" || w.Numeric.MaxOutcome != "" {
+		maxOutcome, err := groupedLMMWireInteger(w.Numeric.MaxOutcome)
+		if err != nil || !maxOutcome.IsInt64() || w.Numeric.Family != "poisson" || maxOutcome.Int64() < 1 || maxOutcome.Int64() > 4 {
+			return nil, errCrossGridStage
+		}
+		spec.GLMM.Family, spec.GLMM.MaxOutcome = w.Numeric.Family, int(maxOutcome.Int64())
+		spec.Route.OutcomeBound = new(big.Int).Lsh(maxOutcome, 50)
+	}
 	outputCap, err := groupedLMMWireInteger(w.Numeric.OutputCap)
 	if err != nil || !outputCap.IsInt64() || outputCap.Sign() < 1 {
 		return nil, errCrossGridStage

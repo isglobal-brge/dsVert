@@ -1322,7 +1322,7 @@
   }
   version <- .dsvert_dp_capsule_id(raw$version, "Gaussian version")
   if (raw$version %in% c(unname(.DSVERT_DP_GLM_GRID_CROSS_SPEC_VERSIONS),
-                        "lmm_grid_cross_v1", "binomial_glmm_grid_cross_v1")) {
+                        "lmm_grid_cross_v1", "binomial_glmm_grid_cross_v1", "poisson_glmm_grid_cross_v1")) {
     .dsvert_dp_glm_grid_cross_fields(raw, c("version", "dataset", "contract"))
     contract <- .dsvert_dp_glm_grid_cross_raw_contract(raw)
     if (!is.list(contract) || !identical(contract$spec$version, raw$version) ||
@@ -1330,7 +1330,7 @@
         !identical(contract$spec$dataset, raw$dataset)) {
       .dsvert_dp_glm_grid_cross_fail()
     }
-    return(list(kind = if (raw$version %in% c("lmm_grid_cross_v1", "binomial_glmm_grid_cross_v1"))
+    return(list(kind = if (raw$version %in% c("lmm_grid_cross_v1", "binomial_glmm_grid_cross_v1", "poisson_glmm_grid_cross_v1"))
       "lmm_grid_cross" else "glm_grid_cross", version = raw$version,
       dataset = raw$dataset, outcome = contract$spec$outcome$reference,
       predictors = unlist(contract$spec$predictor_order, use.names = FALSE),

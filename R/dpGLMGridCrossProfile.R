@@ -77,10 +77,10 @@
 
 .dsvert_dp_glm_grid_profile_admit <- function(contract, policy, schema) {
   version <- tryCatch(contract$spec$version, error = function(error) NULL)
-  if (identical(version, "binomial_glmm_grid_cross_v1")) {
+  if (version %in% c("binomial_glmm_grid_cross_v1", "poisson_glmm_grid_cross_v1")) {
     value <- .dsvert_dp_grouped_cross_contract_validate(contract, policy, schema)
     if (!identical(value$spec$numeric_contract$version,
-                   "grouped-binomial-glmm-variance-grid-numeric-v1")) {
+                   paste0("grouped-", sub("_glmm$", "", value$spec$family), "-glmm-variance-grid-numeric-v1"))) {
       .dsvert_dp_glm_grid_cross_fail()
     }
     return(value)

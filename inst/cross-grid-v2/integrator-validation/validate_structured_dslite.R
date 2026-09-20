@@ -9,7 +9,7 @@ n <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_N", "4"))
 family <- Sys.getenv("DSVERT_GRID_VALIDATION_FAMILY")
 cox <- identical(family, "cox")
 gee <- grepl("_gee$", family)
-staged <- family %in% c("lmm", "binomial_glmm")
+staged <- family %in% c("lmm", "binomial_glmm", "poisson_glmm")
 staged_kind <- if (family == "lmm") "lmm" else "glmm"
 staged_marker <- paste0("DSLITE_", toupper(staged_kind))
 epsilon <- as.numeric(Sys.getenv("DSVERT_GRID_VALIDATION_EPSILON", "4"))
@@ -129,7 +129,7 @@ trace(".dsvert_dp_lmm_cross_public_evidence_set", where = asNamespace("dsVertCli
   }))
 trace(".dsvert_dp_gaussian_synopsis_certificate_validate", where = asNamespace("dsVertClient"),
   print = FALSE, tracer = quote(if (certificate$descriptor$version %in%
-      c("bounded-lmm-cross-grid-v1", "bounded-binomial-glmm-cross-grid-v1")) {
+      c("bounded-lmm-cross-grid-v1", "bounded-binomial-glmm-cross-grid-v1", "bounded-poisson-glmm-cross-grid-v1")) {
     path <- file.path(state, "synthetic-public-certificate.rds")
     saveRDS(list(object = object, certificate = certificate), path)
     Sys.chmod(path, "0600")
@@ -392,7 +392,7 @@ run <- function() {
       raw_spec$parameters <- if (family == "lmm")
         list(objective = "ml", variance_grid = list(
           list(residual_variance = .5, random_intercept_variance = .25),
-          list(residual_variance = 1, random_intercept_variance = .25))) else if (family == "binomial_glmm")
+          list(residual_variance = 1, random_intercept_variance = .25))) else if (family %in% c("binomial_glmm", "poisson_glmm"))
         list(variance_grid = list(0, .25), quadrature = "gh5_fixed_v1") else if (gee)
         list(correlation = "exchangeable", rho = .25, score_clip = 1) else
         list(random_intercept_variance = .25, quadrature = "gh5_fixed_v1")
@@ -525,7 +525,7 @@ run <- function() {
       tracer = quote(assign(".grid_lifecycle_fixture", list(policy = policy,
         secret = secret, manifest_json = manifest_json,
         source_contract = source_contract), .GlobalEnv)))
-    if (Sys.getenv("DSVERT_GRID_VALIDATION_FAMILY") %in% c("lmm", "binomial_glmm")) {
+    if (Sys.getenv("DSVERT_GRID_VALIDATION_FAMILY") %in% c("lmm", "binomial_glmm", "poisson_glmm")) {
       source(file.path(server_dir, "inst/cross-grid-v2/validate_cold_lifecycle.R"))
       assign(".grid_interrupt_mode", "none", .GlobalEnv)
       assign(".grid_interrupted", FALSE, .GlobalEnv)

@@ -10,14 +10,21 @@ import (
 	"testing"
 )
 
-func TestGroupedGLMMExactSourceWire(t *testing.T) {
-	spec, sources, sidecar, _ := groupedGLMMSourceFixture(t)
+func TestGroupedGLMMExactSourceWire(t *testing.T) { groupedGLMMExactSourceWireTest(t, "") }
+func TestGroupedGLMMPoissonExactSourceWire(t *testing.T) {
+	groupedGLMMExactSourceWireTest(t, "poisson")
+}
+func groupedGLMMExactSourceWireTest(t *testing.T, family string) {
+	spec, sources, sidecar, _ := groupedGLMMSourceFixture(t, family)
 	plan := groupedGLMMSourceWirePlan{Version: "dsvert-glmm-staged-source-handoff-v1",
 		SpecSHA256: strings.Repeat("1", 64), SourceContractSHA256: strings.Repeat("2", 64),
 		ProfileSHA256: strings.Repeat("3", 64), SchemaSHA256: strings.Repeat("4", 64),
 		Clusters: spec.Route.Clusters, Slots: spec.Route.Slots, Predictors: spec.Route.Predictors}
 	plan.Numeric.Slots, plan.Numeric.GridBits = plan.Slots, spec.GLMM.GridBits
 	plan.Numeric.OutputCap = "2000"
+	if family == "poisson" {
+		plan.Numeric.Family, plan.Numeric.MaxOutcome = "poisson", "4"
+	}
 	plan.VarianceGrid = []string{"0", "16384"}
 	for _, row := range spec.GLMM.Beta {
 		beta := []string{}
@@ -45,6 +52,9 @@ func TestGroupedGLMMExactSourceWire(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if worker.Spec.GLMM.family() != spec.GLMM.family() || worker.Spec.GLMM.maxOutcome() != spec.GLMM.maxOutcome() {
+		t.Fatal("wire lost family/outcome contract")
+	}
 	raw, err := json.Marshal(worker)
 	if err != nil {
 		t.Fatal(err)
@@ -59,6 +69,14 @@ func TestGroupedGLMMExactSourceWire(t *testing.T) {
 		changed.Handoff.Plan.Numeric.OutputCap = bad
 		if _, err := groupedGLMMPrepareWire(changed); err == nil {
 			t.Fatalf("accepted noncanonical integer %q", bad)
+		}
+	}
+	for _, bad := range []string{"", "0", "5", "4.0", "+4", "04"} {
+		changed := input
+		changed.Handoff.Plan.Numeric.Family = "poisson"
+		changed.Handoff.Plan.Numeric.MaxOutcome = bad
+		if _, err := groupedGLMMPrepareWire(changed); err == nil {
+			t.Fatalf("accepted bad maximum %q", bad)
 		}
 	}
 	changed := input

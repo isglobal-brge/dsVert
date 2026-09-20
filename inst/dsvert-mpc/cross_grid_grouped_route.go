@@ -19,6 +19,7 @@ import (
 )
 
 type groupedRouteStagedSpec struct {
+	OutcomeBound                *big.Int `json:",omitempty"` // optional bound for the final numeric column only
 	Clusters, Slots, Predictors int
 	NumericStage, MetadataStage string
 	SourceDigest, ProfileDigest [32]byte
@@ -31,7 +32,7 @@ func (s groupedRouteStagedSpec) validate() error {
 		s.Clusters > 16384/s.Slots || s.Predictors < 1 || s.Predictors > 16 ||
 		s.NumericStage == "" || s.MetadataStage == "" || s.NumericStage == s.MetadataStage ||
 		s.SourceDigest == ([32]byte{}) || s.ProfileDigest == ([32]byte{}) ||
-		s.NumericBound == nil || s.NumericBound.Sign() < 1 || s.NumericBound.BitLen() > 126 {
+		s.NumericBound == nil || s.NumericBound.Sign() < 1 || s.NumericBound.BitLen() > 126 || (s.OutcomeBound != nil && (s.OutcomeBound.Sign() < 1 || s.OutcomeBound.BitLen() > 126)) {
 		return errCrossGridStage
 	}
 	return nil
@@ -114,6 +115,9 @@ func groupedRouteBuildStagedGraph(s groupedRouteStagedSpec, role exactGCRole, si
 		return nil, errCrossGridStage
 	}
 	s.NumericBound = new(big.Int).Set(s.NumericBound)
+	if s.OutcomeBound != nil {
+		s.OutcomeBound = new(big.Int).Set(s.OutcomeBound)
+	}
 	profile := crossGridStageHash("grouped-route-spec", s)
 	if role == exactGCRoleGarbler {
 		if side == nil || key == ([32]byte{}) || side.Version != "grouped-private-route-v1" || side.SpecDigest != profile ||
@@ -279,7 +283,11 @@ func groupedRouteNormalize(rw io.ReadWriter, a crossGridStageAttempt, role exact
 		fmt.Fprintf(&source, "ok=ok && (g[%d]^e[%d])==%d\nlive%d:=true\n", base+stride-1, base+stride-1, (uint64(1)<<uint(numeric+metadata))-1, r)
 		for c := 0; c < numeric; c++ {
 			v, p := base+c, base+numeric+c
-			fmt.Fprintf(&source, "v%d_%d:=int128(g[%d]+e[%d])\np%d_%d:=g[%d]+e[%d]\nok=ok && (p%d_%d==0 || p%d_%d==1)\nif p%d_%d==1 {ok=ok && v%d_%d>=-int128(%s) && v%d_%d<=int128(%s)}\nlive%d=live%d && p%d_%d==1\n", r, c, v, v, r, c, p, p, r, c, r, c, r, c, r, c, s.NumericBound, r, c, s.NumericBound, r, r, r, c)
+			bound := s.NumericBound
+			if c == numeric-1 && s.OutcomeBound != nil {
+				bound = s.OutcomeBound
+			}
+			fmt.Fprintf(&source, "v%d_%d:=int128(g[%d]+e[%d])\np%d_%d:=g[%d]+e[%d]\nok=ok && (p%d_%d==0 || p%d_%d==1)\nif p%d_%d==1 {ok=ok && v%d_%d>=-int128(%s) && v%d_%d<=int128(%s)}\nlive%d=live%d && p%d_%d==1\n", r, c, v, v, r, c, p, p, r, c, r, c, r, c, r, c, bound, r, c, bound, r, r, r, c)
 			if s.Nonnegative {
 				fmt.Fprintf(&source, "if p%d_%d==1 {ok=ok && v%d_%d>=0}\n", r, c, r, c)
 			}

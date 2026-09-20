@@ -47,6 +47,13 @@ func groupedGLMMSourcePlans(s groupedGLMMSourceSpec) ([]crossGridStagePlan, erro
 		s.GLMM.SourceDigest != r.SourceDigest || s.GLMM.ProfileDigest != r.ProfileDigest {
 		return nil, errCrossGridStage
 	}
+	if s.GLMM.family() == "poisson" {
+		if r.OutcomeBound == nil || r.OutcomeBound.Cmp(new(big.Int).Lsh(big.NewInt(int64(s.GLMM.MaxOutcome)), 50)) != 0 {
+			return nil, errCrossGridStage
+		}
+	} else if r.OutcomeBound != nil {
+		return nil, errCrossGridStage
+	}
 	rows := r.Clusters * r.Slots
 	plans := make([]crossGridStagePlan, 3)
 	for i := range plans {
@@ -58,6 +65,9 @@ func groupedGLMMSourcePlans(s groupedGLMMSourceSpec) ([]crossGridStagePlan, erro
 		}
 		if i == 1 {
 			columns, id, scale, kind = 1, "glmm.source.outcome", 0, "glmm.authenticated-binary-outcome"
+			if s.GLMM.family() == "poisson" {
+				kind = "glmm.authenticated-count-outcome"
+			}
 		}
 		coordinates := make([]string, rows*columns)
 		for row := 0; row < rows; row++ {
@@ -165,6 +175,10 @@ func groupedGLMMSourceNormalization(s groupedGLMMSourceSpec, role exactGCRole) (
 		coordinates[i] = fmt.Sprintf("source-row:%d:column:%d", i/(p+1), i%(p+1))
 	}
 	plan := crossGridStagePlan{ID: s.Route.NumericStage, Kind: "glmm.binary-q0-to-homogeneous-f50", Ring: 128, FPScale: 50, CoordOrder: coordinates, PublicBounds: map[string]int{"clusters": s.Route.Clusters, "slots": s.Route.Slots, "predictors": p}, SourceDigest: s.Route.SourceDigest, ProfileDigest: s.Route.ProfileDigest, Predecessors: []string{"glmm.source.numeric", "glmm.source.outcome"}}
+	if s.GLMM.family() == "poisson" {
+		plan.Kind = "glmm.count-q0-to-homogeneous-f50"
+		plan.PublicBounds["max_outcome"] = s.GLMM.MaxOutcome
+	}
 	compute := func(rw io.ReadWriter, a crossGridStageAttempt, in []crossGridStageOutput) (crossGridStageOutput, error) {
 		if len(in) != 2 || groupedRouteCheckOutput(in[0], rows*p) != nil || groupedRouteCheckOutput(in[1], rows) != nil {
 			return crossGridStageOutput{}, errCrossGridStage
@@ -179,7 +193,11 @@ func groupedGLMMSourceNormalization(s groupedGLMMSourceSpec, role exactGCRole) (
 			for i := 0; i < n; i++ {
 				k := start + i
 				words[i] = getUint128LE(in[1].Share[16*k : 16*(k+1)]).ToBig()
-				fmt.Fprintf(&b, "y%d:=g[%d]+e[%d]\nok%d:=y%d==0 || y%d==1\nvalid=valid && ok%d\nif !ok%d {y%d=0}\nout[%d]=(y%d<<50)-g[%d]\n", i, i, i, i, i, i, i, i, i, i, i, n+i)
+				if s.GLMM.family() == "binomial" {
+					fmt.Fprintf(&b, "y%d:=g[%d]+e[%d]\nok%d:=y%d==0 || y%d==1\nvalid=valid && ok%d\nif !ok%d {y%d=0}\nout[%d]=(y%d<<50)-g[%d]\n", i, i, i, i, i, i, i, i, i, i, i, n+i)
+				} else {
+					fmt.Fprintf(&b, "y%d:=g[%d]+e[%d]\nok%d:=y%d<=%d\nvalid=valid && ok%d\nif !ok%d {y%d=0}\nout[%d]=(y%d<<50)-g[%d]\n", i, i, i, i, i, s.GLMM.MaxOutcome, i, i, i, i, i, n+i)
+				}
 			}
 			fmt.Fprintf(&b, "v:=uint128(0)\nif valid {v=1}\nout[%d]=v-g[%d]\nreturn out\n}\n", n, 2*n)
 			program, e := primitiveVCompile(b.String(), 128, 2*n+1, n, n+1)

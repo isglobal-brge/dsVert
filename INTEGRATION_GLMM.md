@@ -1,3 +1,35 @@
+# Cycle 14 Poisson source wiring — 2026-09-20
+
+Poisson now reuses the durable GLMM variance-grid path with authenticated
+family and maximum-outcome fields. Exact full-width q0 and f50 guards retain
+counts 0 through the signed maximum (1..4), including missing-row rejection.
+The router applies the larger bound only to the outcome column; features
+remain in [0,1]. The corrected private-carry Ring128→192 conversion is unchanged.
+
+Node stages use the retained range-reduced exp producer. GH5 selection omits
+factorials and retains the private candidate-independent +2/live-row shift.
+The mirrored composition descriptor is grouped_poisson_glmm_gh5_v1.json,
+SHA256 1fe5a19c74969134731d5d3210b9646e52783192570256806e0ac7a1e4ae9c94.
+The p3/J4 and n2000/C500/B4 measurement domain, variance-major candidate order,
+source/contract hashes, private terminal validity and sticky DP lifecycle are
+bound end to end. Fixed contracts and omitted-default binomial native/source
+serialization retain their prior bytes.
+
+Local focused native/source/router/wire tests and mirrored R contract/reader
+tests pass. The release integer oracle agrees with the retained full-likelihood
+oracle translated before quantization/clipping at g8/g16/g18. Three existing
+server reference-dependent tests require the tagged oracle on pod4. Rebuilt
+runtime, signed n4 smoke, n2000 capacity/recovery and full paired proofs remain
+pending at this source checkpoint. No Poisson promotion is claimed.
+
+Cycle14 prioritizes code wiring over waiting for original release drivers.
+The original LMM/binomial frozen snapshots remain unchanged and unpromoted;
+their measurements retain their original source/runtime identities. Exact
+logs, subsequent build/smoke/queue identities and pending gates are in the
+workspace integrator-evidence/cycle14-20260920 directory and STATUS_INTEGRATOR.md.
+
+---
+
 # Cycle 12 continuation harvest — 2026-09-20
 
 Documentation-only checkpoint; production source/runtime pair remains

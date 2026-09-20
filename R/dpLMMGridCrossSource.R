@@ -7,15 +7,15 @@
   contract <- .dsvert_dp_grouped_cross_contract_validate(
     contract, policy, schema_manifest)
   spec <- contract$spec
-  if (!spec$family %in% c("lmm", "binomial_glmm") ||
+  if (!spec$family %in% c("lmm", "binomial_glmm", "poisson_glmm") ||
       !is.character(source_contract_sha256) ||
       length(source_contract_sha256) != 1L || is.na(source_contract_sha256) ||
       !grepl("^[0-9a-f]{64}$", source_contract_sha256) ||
       identical(source_contract_sha256, strrep("0", 64))) {
     .dsvert_dp_grouped_cross_fail()
   }
-  if (identical(spec$family, "binomial_glmm") &&
-      !identical(spec$numeric_contract$version, "grouped-binomial-glmm-variance-grid-numeric-v1")) {
+  if (spec$family %in% c("binomial_glmm", "poisson_glmm") &&
+      !identical(spec$numeric_contract$version, paste0("grouped-", sub("_glmm$", "", spec$family), "-glmm-variance-grid-numeric-v1"))) {
     .dsvert_dp_grouped_cross_fail()
   }
   contract
@@ -24,8 +24,8 @@
 .dsvert_dp_lmm_cross_source_plan <- function(contract, source_contract_sha256) {
   spec <- contract$spec
   caps <- unlist(spec$sensitivity$per_cluster_caps, use.names = FALSE)
-  if (identical(spec$family, "binomial_glmm")) {
-    return(list(version = "dsvert-glmm-staged-source-handoff-v1",
+  if (spec$family %in% c("binomial_glmm", "poisson_glmm")) {
+    plan <- list(version = "dsvert-glmm-staged-source-handoff-v1",
       spec_sha256 = .dsvert_joint_dp_hash(spec),
       source_contract_sha256 = source_contract_sha256,
       profile_sha256 = spec$numeric_contract$certificate_sha256,
@@ -37,7 +37,12 @@
         GridBits = spec$numeric_grid_bits, OutputCap = sprintf("%.0f", max(caps))),
       Beta = spec$beta_encoded, Caps = as.list(sprintf("%.0f", caps)),
       VarianceGrid = lapply(spec$parameters$variance_grid, function(variance)
-        sprintf("%.0f", variance * 2^16))))
+        sprintf("%.0f", variance * 2^16)))
+    if (identical(spec$family, "poisson_glmm")) {
+      plan$Numeric$family <- "poisson"
+      plan$Numeric$max_outcome <- sprintf("%.0f", spec$max_outcome)
+    }
+    return(plan)
   }
   residual <- max(vapply(spec$sensitivity$candidate_bounds, function(bound) {
     max(abs(bound$eta_upper), abs(1 - bound$eta_lower))
@@ -139,7 +144,7 @@
     # Only the already-public successful alignment admission is reshared.
     list(Share = encode(bytes), Validity = encode(rep(validity, rows * length(blocks))))
   }
-  if (identical(spec$family, "binomial_glmm")) {
+  if (spec$family %in% c("binomial_glmm", "poisson_glmm")) {
     return(list(plan = .dsvert_dp_lmm_cross_source_plan(contract, source_contract_sha256),
       numeric = pack(values[unlist(spec$predictor_order, use.names = FALSE)]),
       outcome = pack(values[spec$outcome$reference]),

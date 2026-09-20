@@ -38,7 +38,7 @@
 
 .lmm_handoff_fixture <- function(owners = 2L, family = "lmm") {
   f <- .grouped_contract_fixture(family, owners = owners)
-  if (identical(family, "binomial_glmm")) {
+  if (family %in% c("binomial_glmm", "poisson_glmm")) {
     f$raw$beta_grid <- f$raw$beta_grid[1:2]
     f$raw$parameters <- list(variance_grid = list(0, .25), quadrature = "gh5_fixed_v1")
     spec <- .dsvert_dp_grouped_cross_spec(f$raw, f$policy, f$authenticated)

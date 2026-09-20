@@ -124,7 +124,8 @@
   artifact$parameters <- spec$parameters
   artifact$candidate_loss_bounds <- lapply(spec$sensitivity$candidate_bounds,
                                            `[[`, "per_cluster_caps")
-  if (spec$family %in% c("lmm", "binomial_glmm", "poisson_glmm")) {
+  if (spec$family %in% c("lmm", "binomial_glmm", "poisson_glmm") ||
+      identical(spec$parameters$composition, "staged_fixed_rho_v1")) {
     artifact$source_coordinate_scaling <- "all_coordinates_already_on_common_numeric_lattice_v1"
     # Capsule manifests use homogeneous vectors, including scalar leaves.
     # Preserve the original signed contract string while projecting its arrays.

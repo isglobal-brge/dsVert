@@ -1,0 +1,18 @@
+{
+  "snapshot": "/workspace/dsvert/executor-cycle42-lmm-paired-r1",
+  "pid": 4028047,
+  "stat": "4028047 (python3) R 4026661 4028047 4028047 0 -1 4194560 51 0 0 0 0 0 0 0 20 0 1 0 752119904 10989568 193 18446744073709551615 4321280 7095309 140722451005040 0 0 0 0 0 0 0 0 0 17 51 0 0 0 0 0 9612768 10920768 743993344 140722451009041 140722451009100 140722451009100 140722451009511 0\n",
+  "stdin": "/dev/null",
+  "command": [
+    "python3",
+    "-u",
+    "dsVert/inst/cross-grid-v2/cycle18/run-paired.py"
+  ],
+  "repositories": {
+    "dsVert": "7ff811c1d93489313992b3b076ebae2908db06c1",
+    "dsVertClient": "55f4793778d4d1613320dfc96e8c7fea576d6a82"
+  },
+  "manifest_sha256": "d1b710469ffa47379ff62a43a554654fa84531d585f256d4ddc4bf6ffbb7c196",
+  "source_files": 3025,
+  "promoted": false
+}

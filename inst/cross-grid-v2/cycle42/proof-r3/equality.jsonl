@@ -1,0 +1,10 @@
+{"Time":"2026-09-20T17:15:30.250792+02:00","Action":"start","Package":"github.com/isglobal-brge/dsVert/dsvert-mpc"}
+{"Time":"2026-09-20T17:15:31.133254+02:00","Action":"run","Package":"github.com/isglobal-brge/dsVert/dsvert-mpc","Test":"TestGroupedRouteBatchEquality"}
+{"Time":"2026-09-20T17:15:31.133331+02:00","Action":"output","Package":"github.com/isglobal-brge/dsVert/dsvert-mpc","Test":"TestGroupedRouteBatchEquality","Output":"=== RUN   TestGroupedRouteBatchEquality\n"}
+{"Time":"2026-09-20T17:15:39.790805+02:00","Action":"output","Package":"github.com/isglobal-brge/dsVert/dsvert-mpc","Test":"TestGroupedRouteBatchEquality","Output":"    cross_grid_grouped_route_test.go:129: batch=16 rows=260 opened_sha256=c383ce3fe10dbd5ce769b924991c44755a3681fd4c79c75061453ffe7b8e9eb1\n"}
+{"Time":"2026-09-20T17:15:56.569631+02:00","Action":"output","Package":"github.com/isglobal-brge/dsVert/dsvert-mpc","Test":"TestGroupedRouteBatchEquality","Output":"    cross_grid_grouped_route_test.go:130: batch=128 rows=260 opened_sha256=c383ce3fe10dbd5ce769b924991c44755a3681fd4c79c75061453ffe7b8e9eb1\n"}
+{"Time":"2026-09-20T17:15:56.60614+02:00","Action":"output","Package":"github.com/isglobal-brge/dsVert/dsvert-mpc","Test":"TestGroupedRouteBatchEquality","Output":"--- PASS: TestGroupedRouteBatchEquality (25.47s)\n"}
+{"Time":"2026-09-20T17:15:56.606204+02:00","Action":"pass","Package":"github.com/isglobal-brge/dsVert/dsvert-mpc","Test":"TestGroupedRouteBatchEquality","Elapsed":25.47}
+{"Time":"2026-09-20T17:15:56.60692+02:00","Action":"output","Package":"github.com/isglobal-brge/dsVert/dsvert-mpc","Output":"PASS\n"}
+{"Time":"2026-09-20T17:15:56.670452+02:00","Action":"output","Package":"github.com/isglobal-brge/dsVert/dsvert-mpc","Output":"ok  \tgithub.com/isglobal-brge/dsVert/dsvert-mpc\t26.419s\n"}
+{"Time":"2026-09-20T17:15:56.670533+02:00","Action":"pass","Package":"github.com/isglobal-brge/dsVert/dsvert-mpc","Elapsed":26.419}

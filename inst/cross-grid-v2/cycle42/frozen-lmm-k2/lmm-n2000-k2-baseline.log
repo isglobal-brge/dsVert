@@ -1,0 +1,87 @@
+Tracing function "stop" in package "base"
+Tracing function ".dsvert_dp_glm_grid_cross_transcript_stop" in
+package "namespace:dsVertClient"
+Tracing function ".dsvert_dp_lmm_cross_public_evidence_set" in
+package "namespace:dsVertClient"
+Tracing function ".dsvert_dp_gaussian_synopsis_certificate_validate"
+in package "namespace:dsVertClient"
+DSLITE_BOOT_INITIAL_START
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":1244244} 
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":1244674} 
+DSLITE_BOOT_INITIAL_COMPLETE
+DSLITE_RPC_COMPLETE dsvertIdentityPkDS 
+DSLITE_LMM_GROUPING_OWNER_PINNED_GARBLER
+DSLITE_BOOT_PINNED_START
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":1245407} 
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":1246153} 
+DSLITE_BOOT_PINNED_COMPLETE
+DSLITE_ALIGNMENT_START
+DSLITE_RPC_COMPLETE dsvertTransportProbeDS 
+DSLITE_RPC_COMPLETE psiPaddedInitDS 
+DSLITE_RPC_COMPLETE psiPaddedBindDS 
+DSLITE_RPC_COMPLETE psiPaddedConfirmDS 
+DSLITE_RPC_COMPLETE psiPaddedPrepareDS 
+DSLITE_RPC_COMPLETE psiPaddedReferenceExportDS 
+DSLITE_RPC_COMPLETE psiPaddedTargetProcessDS 
+DSLITE_RPC_COMPLETE psiPaddedReferenceDoubleDS 
+DSLITE_RPC_COMPLETE psiPaddedTargetMatchDS 
+DSLITE_RPC_COMPLETE psiPaddedMembershipAcceptDS 
+DSLITE_RPC_COMPLETE psiPaddedANDStartDS 
+DSLITE_RPC_COMPLETE exactGCExchangeDS 
+DSLITE_RPC_COMPLETE psiPaddedANDFinalizeDS 
+DSLITE_RPC_COMPLETE psiPaddedANDAcceptDS 
+DSLITE_RPC_COMPLETE psiPaddedFinalPrepareDS 
+DSLITE_RPC_COMPLETE psiPaddedAttestationDS 
+DSLITE_ALIGNMENT_COMPLETE
+DSLITE_RPC_COMPLETE dsvertDPSynopsisBootstrapDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisBindDS 
+DSLITE_INITIAL_BOOTSTRAP_COMPLETE
+DSLITE_STRUCTURED_SPEC_COMPLETE
+DSLITE_CUSTODIAN_SIGNATURES_COMPLETE
+DSLITE_PUBLIC_ADMISSION_COMPLETE
+SYNTHETIC_DSI_FETCH_ERROR dsvertDPSynopsisPublicationDS ! in callr subprocess.
+Caused by error: 
+! [dsvert_phase_not_ready:v1] 
+SYNTHETIC_DSI_FETCH_ERROR dsvertDPSynopsisPublicationDS ! in callr subprocess.
+Caused by error: 
+! [dsvert_phase_not_ready:v1] 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisClaimDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisCompileDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisPrepareDS 
+DSLITE_RPC_COMPLETE exactGCTransportInitDS 
+DSLITE_RPC_COMPLETE exactGCBindPeersDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisSourceTicketDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisSourcePrepareDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisSourceChunkDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisSourceAcceptDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskStartDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskStoreDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskSealDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskReceiveDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisGLMGridCrossDS 
+DSLITE_RPC_COMPLETE exactGCCleanupDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisStartDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisResultDS 
+SYNTHETIC_DSI_FETCH_ERROR dsvertDPSynopsisReleaseDS ! in callr subprocess.
+Caused by error: 
+! [dsvert_phase_not_ready:v1] 
+SYNTHETIC_DSI_FETCH_ERROR dsvertDPSynopsisReleaseDS ! in callr subprocess.
+Caused by error: 
+! [dsvert_phase_not_ready:v1] 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisFinalShareDS 
+DSLITE_RPC_COMPLETE mpcTypedBlobStoreDS 
+DSLITE_RPC_COMPLETE mpcTypedBlobReceiptDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisReleaseDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisPublicationDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisPublishedReplayDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisFinalizeAckDS 
+Tracing function ".dsvert_dp_synopsis_client_replay" in package
+"namespace:dsVertClient"
+Untracing function ".dsvert_dp_synopsis_client_replay" in package
+"namespace:dsVertClient"
+DSLITE_ORACLE_BITWISE_EQUAL_STICKY_TAMPER_REJECTED lmm 
+DIRECT_R_COLD_LIFECYCLE_EQUAL_TAMPER_REJECTED
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":3985146} 
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":3985453} 
+DSLITE_LMM_COLD_EXPORTED_API_EQUAL_AUTHENTICATED
+{"family":"lmm","n":2000,"p":3,"grid":2,"candidates":4,"clusters":500,"slots":4,"owners":2,"epsilon":4,"instance":1,"elapsed":45735.732,"successful_call_elapsed":45735.606,"uninterrupted_baseline_elapsed":45735.606,"recovery":"not_exercised","native_recovery":"not_exercised","end_to_end_release_elapsed":45958.299,"end_to_end_serialized_rpc_bytes":24001151241,"end_to_end_scope":"fixture-bootstrap-PSI-signing-source-staged-LMM-and-DP-through-first-successful-release-including-retries-before-oracle-and-replay","release_serialized_rpc_bytes":23846102243,"serialized_rpc_scope":"R-v3-serialized-DSI-request-response-objects-including-retries-excluding-IPC-framing","protocol_payload":{"exact_gc_unique_payload_bytes":8836356126,"exact_gc_offered_payload_bytes":8836356126,"source_ciphertext_delivered_bytes":1829580},"protocol_payload_scope":"public-release-exactGC-and-source-transport-before-replay-no-bootstrap-PSI","oracle_only":false,"selected_candidate":2,"exact_best":2,"loss_gap":0,"artifact_key":"d1b19804f19dcb171f2121a586a73c3cb2bf9801b3fa0112879a1b1861fad59d","certificate_sha256":"6968221d944cb149f1830d94dbb05a1da3739eef0bfda82d694b9fc9776f6b4c"} 

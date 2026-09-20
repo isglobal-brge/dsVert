@@ -1,0 +1,3 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-crossgrid-poisson-glmm-staged-lifecycle.R","crossgrid-poisson-glmm-staged-lifecycle","Poisson GLMM admission preserves integer outcomes and the complete variance grid",48,0,FALSE,FALSE,0,4.843,0.81,9.921,48
+"test-crossgrid-poisson-glmm-staged-lifecycle.R","crossgrid-poisson-glmm-staged-lifecycle","Poisson GLMM durable terminal records retain private validity and reject LMM swaps",15,0,FALSE,FALSE,0,0.719999999999999,0.0750000000000002,1.203,15

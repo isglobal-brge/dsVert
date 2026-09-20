@@ -1,0 +1,205 @@
+{
+  "source_commits": {
+    "dsVert": "7ff811c1d93489313992b3b076ebae2908db06c1",
+    "dsVertClient": "55f4793778d4d1613320dfc96e8c7fea576d6a82"
+  },
+  "baseline": {
+    "log": "baseline/native.jsonl",
+    "sha256": "73c31d1f8a8237e9c32e0165ffae6fe9a2b5f81bc4a8fac8cb073a1f8bc1bdac",
+    "tests": [
+      "TestCrossGridStageConversionDurableBoundary",
+      "TestGroupedGLMMPoissonFullWidthGuards",
+      "TestGroupedGLMMPoissonContractBinding",
+      "TestGroupedGLMMPoissonStagedTwoAuthority",
+      "TestGroupedGLMMSourceGraphTwoAuthority",
+      "TestGroupedGLMMPoissonSourceGraphTwoAuthority",
+      "TestGroupedGLMMPoissonExactSourceWire",
+      "TestGroupedLMMSourceGraphTwoAuthority"
+    ],
+    "elapsed_seconds": 287.6,
+    "equality_markers": []
+  },
+  "patched": [
+    {
+      "log": "proof-r1/native.jsonl",
+      "sha256": "d364fc0b3dd2dbf15f73db67eccb3c815515f9f2947042a6a3c6dcae2d9a39d1",
+      "tests": [
+        "TestGroupedRouteTwoAuthorityDurable",
+        "TestGroupedRouteBatchedTwoAuthorityDurable",
+        "TestCrossGridStageConversionTwoAuthorityPrivateCarry",
+        "TestCrossGridStageConversionDurableBoundary",
+        "TestCrossGridStageConversionBatchedDurableBoundary",
+        "TestCrossGridStageConversionMaskedOpeningNeedsPrivateCarry",
+        "TestCrossGridStageConversionPrivateCarryIdentity",
+        "TestCrossGridStageConversionWideRemaskPreservesValue",
+        "TestGroupedGLMMPoissonFullWidthGuards",
+        "TestGroupedGLMMPoissonContractBinding",
+        "TestGroupedGLMMPoissonStagedTwoAuthority",
+        "TestGroupedGLMMSourceGraphAuthentication",
+        "TestGroupedGLMMSourceGraphTwoAuthority",
+        "TestGroupedGLMMPoissonSourceGraphTwoAuthority",
+        "TestGroupedGLMMPoissonExactSourceWire",
+        "TestGroupedLMMSourceGraphAuthentication",
+        "TestGroupedLMMSourceEncodedEndpointSlack",
+        "TestGroupedLMMSourceGraphTwoAuthority"
+      ],
+      "elapsed_seconds": 401.983,
+      "equality_markers": []
+    },
+    {
+      "log": "proof-r2/outcome.jsonl",
+      "sha256": "fb35e3900de9e20e01c36459500502f3c900d7b69dc3d95a434031e3c192a851",
+      "tests": [
+        "TestGroupedGLMMOutcomeBatchEquality"
+      ],
+      "elapsed_seconds": 14.16,
+      "equality_markers": [
+        "k2_exact_gc_glmm_source_batch_test.go:91: batch=32 opened_sha256=e66bd10f7572026538d05bc9e34ea53121276a4bf75116504615e0a7730cc162",
+        "k2_exact_gc_glmm_source_batch_test.go:91: batch=256 opened_sha256=e66bd10f7572026538d05bc9e34ea53121276a4bf75116504615e0a7730cc162",
+        "k2_exact_gc_glmm_source_batch_test.go:91: batch=32 opened_sha256=6d330100389b3f695279e48f43d88bf06932671a0dbcd3a9d1a0c71f58a4eb6c",
+        "k2_exact_gc_glmm_source_batch_test.go:91: batch=256 opened_sha256=6d330100389b3f695279e48f43d88bf06932671a0dbcd3a9d1a0c71f58a4eb6c",
+        "k2_exact_gc_glmm_source_batch_test.go:91: batch=32 opened_sha256=df3145af929767b7f409168715ff88ecbb2e212498a3a7ef2c22d1f71c1b5c3e",
+        "k2_exact_gc_glmm_source_batch_test.go:91: batch=256 opened_sha256=df3145af929767b7f409168715ff88ecbb2e212498a3a7ef2c22d1f71c1b5c3e",
+        "k2_exact_gc_glmm_source_batch_test.go:91: batch=32 opened_sha256=342fc0ac60abe50d261b44896714286c1cabe4389ba1215e68dc86f2fb50334e",
+        "k2_exact_gc_glmm_source_batch_test.go:91: batch=256 opened_sha256=342fc0ac60abe50d261b44896714286c1cabe4389ba1215e68dc86f2fb50334e"
+      ]
+    },
+    {
+      "log": "proof-r3/equality.jsonl",
+      "sha256": "60998066ab9c23e97ad60a555abd8d58bb5408784c1eecbbc9a2573f9d310633",
+      "tests": [
+        "TestGroupedRouteBatchEquality"
+      ],
+      "elapsed_seconds": 26.419,
+      "equality_markers": [
+        "cross_grid_grouped_route_test.go:129: batch=16 rows=260 opened_sha256=c383ce3fe10dbd5ce769b924991c44755a3681fd4c79c75061453ffe7b8e9eb1",
+        "cross_grid_grouped_route_test.go:130: batch=128 rows=260 opened_sha256=c383ce3fe10dbd5ce769b924991c44755a3681fd4c79c75061453ffe7b8e9eb1"
+      ]
+    },
+    {
+      "log": "proof-r3/worker.jsonl",
+      "sha256": "8abe390e7c6ca043d47c105165118f1391c7b0cec80d6eddb36f4eeabcf1750a",
+      "tests": [
+        "TestGroupedGLMMStagedSpoolWorkers",
+        "TestGroupedLMMWorkerCapacityRecoverySmoke",
+        "TestGroupedLMMStagedSpoolWorkers",
+        "TestJointDPGaussianOneDrawResourceFallbackIsExplicit"
+      ],
+      "elapsed_seconds": 102.298,
+      "equality_markers": []
+    },
+    {
+      "log": "proof-r3/ml.jsonl",
+      "sha256": "9bb76af0f42bc28cbf6d074d27a9756c1677fb153f6072742a029eaee55d85ce",
+      "tests": [
+        "TestGroupedLMMMLLogCertificate",
+        "TestGroupedLMMMLGraphContract",
+        "TestGroupedLMMMLStagedTwoAuthority",
+        "TestGroupedLMMMLExactSourceWireGraph"
+      ],
+      "elapsed_seconds": 19.453,
+      "equality_markers": []
+    }
+  ],
+  "baseline_ml": {
+    "log": "baseline/ml.jsonl",
+    "sha256": "4834b98135d659456cd75a252e8831c37ccc264bfba431493f71625b824ebef8",
+    "tests": [
+      "TestGroupedLMMMLLogCertificate",
+      "TestGroupedLMMMLGraphContract",
+      "TestGroupedLMMMLStagedTwoAuthority",
+      "TestGroupedLMMMLExactSourceWireGraph"
+    ],
+    "elapsed_seconds": 19.211,
+    "equality_markers": []
+  },
+  "patched_tests": 28,
+  "scope": "Real two-authority native source/router/conversion/loss, recovery/cold/tamper and differential reconstructed routing/outcome equality. Not serialized-RPC capacity or full package paired suites.",
+  "r": {
+    "files": [
+      {
+        "file": "test-crossgrid-glmm-gaussian-preflight.R.csv",
+        "tests": 1,
+        "assertions": 10,
+        "sha256": "a0fc919d5e838c7836af69018a890f9a45978f10fdb59bc03cc2ee1faac589d3"
+      },
+      {
+        "file": "test-crossgrid-glmm-staged-lifecycle.R.csv",
+        "tests": 2,
+        "assertions": 57,
+        "sha256": "ba57c2881e4564c915b08b4b521e731b3dc227d2e4d471e53030b9e7a5675fc5"
+      },
+      {
+        "file": "test-crossgrid-lmm-sampler-admission.R.csv",
+        "tests": 3,
+        "assertions": 27,
+        "sha256": "d5314100e8bd4c30d2d6ea85a07dc8f3388b5b11a442db5c2e93d68e71a9cb17"
+      },
+      {
+        "file": "test-crossgrid-lmm-schema-cache.R.csv",
+        "tests": 1,
+        "assertions": 10,
+        "sha256": "4a3f3e4ce228178541e2c2c84448e687a7b8545652ec9f4591f3d42449c2391c"
+      },
+      {
+        "file": "test-crossgrid-lmm-staged-lifecycle.R.csv",
+        "tests": 3,
+        "assertions": 37,
+        "sha256": "802596803ceaddedf28c2b14bb8960527c4415f3a7e4aad4bd1647d7c25aaf72"
+      },
+      {
+        "file": "test-crossgrid-poisson-glmm-staged-lifecycle.R.csv",
+        "tests": 2,
+        "assertions": 63,
+        "sha256": "c095d6d64c53a8a77e2f1a8d4a056f37f6056b0163fc2db784104d046d071bbc"
+      }
+    ],
+    "tests": 12,
+    "assertions": 204
+  },
+  "gee_owned_files_unchanged": 21,
+  "snapshots": [
+    {
+      "snapshot": "baseline",
+      "source_files": 3022,
+      "mismatches": [],
+      "manifest_sha256": "1557e9b9e4c9efe58359340d957bad2e64f26754f8f293a7ab52fa2b003edba9"
+    },
+    {
+      "snapshot": "proof-r1",
+      "source_files": 3022,
+      "mismatches": [],
+      "manifest_sha256": "e1ddcd012ce4120ae5b8345453e7d554e28daa3eb6b5d5fccff466d8abd8df47"
+    },
+    {
+      "snapshot": "proof-r2",
+      "source_files": 3023,
+      "mismatches": [],
+      "manifest_sha256": "9b504073d4fccf4faf905b59c01deae69d6caf7838f46a20fed9a52ad47720ae"
+    },
+    {
+      "snapshot": "proof-r3",
+      "source_files": 3023,
+      "mismatches": [],
+      "manifest_sha256": "abe6b2cd05bb8a2de1694c4be8a4d207853fff14a8a7ad483efe671e064e082c"
+    },
+    {
+      "snapshot": "release-r1",
+      "source_files": 3023,
+      "mismatches": [],
+      "manifest_sha256": "fb1c25c183f22b42693684085404bc0294d478ced1e2adf0f85bb3bcbb06a423"
+    }
+  ],
+  "runtime_build": {
+    "toolchain": "go1.25.7",
+    "source_snapshot": "proof-r2",
+    "build_log": "proof-r2/build.log",
+    "sha256": {
+      "darwin-amd64/dsvert-mpc": "5cde3ba6bf1bed2e809223bd4338148828a7dcc887f71c09567b30ed2731fb21",
+      "darwin-arm64/dsvert-mpc": "5a804001267683e655478962cd4b2835f0986fb7e5e65eab69ff1ce812f1018e",
+      "linux-amd64/dsvert-mpc": "24908f68b63c830f716f04ffe18ee845608b4f97cb1f3487868436082b280081",
+      "windows-amd64/dsvert-mpc.exe": "70380abafd2e6ce7b790d184b7360e22e2d119ed748da3b67f94b2ec51246188"
+    }
+  },
+  "observed_utc": "2026-09-20T15:24:26.561495+00:00"
+}

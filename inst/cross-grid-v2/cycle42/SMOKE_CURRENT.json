@@ -1,0 +1,34 @@
+{
+  "observed_utc": "2026-09-20T15:28:59.005338+00:00",
+  "launch": {
+    "pid": 49191,
+    "started_utc": "2026-09-20T15:17:22.198526+00:00",
+    "command": [
+      "Rscript",
+      "--vanilla",
+      "dsVert/inst/cross-grid-v2/integrator-validation/validate_lmm_dslite.R",
+      "/Users/david/Documents/GitHub/dsvert-crossowner/integrator-evidence/cycle42-20260920/release-r1"
+    ],
+    "scope": "n4/K2 signed recovery smoke, not n2000 capacity",
+    "snapshot": "/Users/david/Documents/GitHub/dsvert-crossowner/integrator-evidence/cycle42-20260920/release-r1",
+    "manifest_sha256": "141b02e2127d0874b4a693cea234d0588b6e3f22d21df174b2c8a44cc9d762fc"
+  },
+  "markers": {
+    "DSLITE_LMM_RECOVERY_BOUNDARY prepared OBSERVED": true,
+    "DSLITE_LMM_RECOVERY_BOUNDARY bilateral_prepare OBSERVED": true,
+    "DSLITE_LMM_RECOVERY_BOUNDARY unilateral_commit OBSERVED": true,
+    "DSLITE_LMM_RECOVERY_BOUNDARY committed OBSERVED": false,
+    "DSLITE_LMM_RECOVERY_BOUNDARY unilateral OBSERVED": false,
+    "DSLITE_LMM_NATIVE_PREPARE_REMASK_AND_UNILATERAL_COMMIT_EXACT_REPLAY_VERIFIED": false,
+    "DSLITE_ORACLE_BITWISE_EQUAL_STICKY_TAMPER_REJECTED lmm": false,
+    "DIRECT_R_COLD_LIFECYCLE_EQUAL_TAMPER_REJECTED": false,
+    "DSLITE_LMM_COLD_EXPORTED_API_EQUAL_AUTHENTICATED": false
+  },
+  "exit_code": null,
+  "log_sha256": "1c90b286c7cfdcf9a0af67f75267ac3cdcc5c3894e6bc2c548aa227ea1d9c6c1",
+  "log_bytes": 8342,
+  "source_files": 3024,
+  "source_mismatches": [],
+  "metrics": null,
+  "scope": "n4/K2 precommit frozen-source smoke. Native and R executable sources match 7ff811c/55f4793; historical base identity in source-manifest.json is not the tested runtime identity. No n2000 capacity claim."
+}

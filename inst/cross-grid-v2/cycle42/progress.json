@@ -1,0 +1,27 @@
+{
+  "observed_utc": "2026-09-20T15:31:09.544912+00:00",
+  "source_commits": {
+    "dsVert": "7ff811c1d93489313992b3b076ebae2908db06c1",
+    "dsVertClient": "55f4793778d4d1613320dfc96e8c7fea576d6a82"
+  },
+  "promoted_count": 4,
+  "promoted_source_pair": "f3795a2/e748f05",
+  "batching_implemented": true,
+  "proof": "PROOF.json",
+  "manifest": "MANIFEST_VALIDATION.json",
+  "old_lmm_k2": "CAPACITY_LMM_FROZEN_K2.json",
+  "current_smoke": "SMOKE_CURRENT.json",
+  "current_paired": "PAIRED_CURRENT.json",
+  "simple_paired": "SIMPLE_PAIRED_HEALTH.json",
+  "production_server_changed": true,
+  "production_client_changed": false,
+  "native_runtime_changed": true,
+  "gee_owned_files_edited": false,
+  "pending": [
+    "Current signed n4 recovery smoke completion",
+    "Current full paired completion and review",
+    "Fleet n2000 capacity reruns and heavy promotion gates",
+    "Cox artifact admission/source orchestration/complete DP lifecycle",
+    "Confirmatory simple client paired completion"
+  ]
+}

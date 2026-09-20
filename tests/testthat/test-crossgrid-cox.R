@@ -492,6 +492,83 @@ test_that("Cox source alignment requires the signed time owner at the actual gar
   }
 })
 
+test_that("Cox owner time sidecar binds exact times and committed source order", {
+  for (owners in c(2L, 3L, 5L)) {
+    f <- .cox_cross_server_fixture(capacity = 5, owners = owners)
+    t <- .cox_transport_fixture(f)
+    f$policy$peer_name <- "site_a"
+    secret <- as.raw(seq_len(32L))
+    times <- c(2, 5, 5, NA_real_, -0)
+    valid <- c(TRUE, TRUE, TRUE, FALSE, TRUE)
+    block <- t$layout$blocks[["cox_grid::site_a$time::validity"]]
+    payload <- numeric(t$layout$transport_coordinate_count)
+    payload[seq.int(block$start, length.out = block$length)] <- c(as.numeric(valid), 0, 0, 0)
+    producer <- structure(list(
+      version = .DSVERT_DP_CAPSULE_LOCAL_MATERIAL_VERSION,
+      purpose = .DSVERT_DP_CAPSULE_LOCAL_MATERIAL_PURPOSE,
+      capsule_id = t$transport$capsule_id, peer_name = "site_a",
+      logical_snapshot = f$contract$spec$logical_snapshot,
+      source_context_hash = t$transport$source_context_hash,
+      coordinate_count = t$layout$transport_coordinate_count,
+      coordinate_order_sha256 = t$layout$transport_coordinate_order_sha256,
+      snapshot_binding_sha256 = strrep("c", 64),
+      producer_version = .DSVERT_DP_GAUSSIAN_CROSS_SOURCE_PRODUCER_VERSION,
+      state = "internal_incremental_secret_share_input_never_release",
+      value_commitment_sha256 = strrep("d", 64), authenticatable_sha256 = strrep("e", 64),
+      private_alignment_consensus_hash = strrep("f", 64),
+      read_range = function(start, count) payload[seq.int(start, length.out = count)],
+      generation_chunks = function(...) list(), reset = function() invisible(NULL)),
+      class = c("dsvert_capsule_source_producer", "list"))
+    make <- function(current_times = times, current_valid = valid, current_producer = producer,
+                     policy = f$policy) {
+      .dsvert_dp_cox_cross_route_sidecar(policy, secret, t$manifest, t$transport,
+        f$schema_manifest, "cox_grid", current_producer, current_times, current_valid)
+    }
+    sidecar <- make()
+    read <- function(value = sidecar, current_times = times, current_producer = producer,
+                     current_secret = secret) {
+      .dsvert_dp_cox_cross_route_handoff(value, f$policy, current_secret, t$manifest,
+        t$transport, f$schema_manifest, "cox_grid", current_producer, current_times, valid)
+    }
+    expect_identical(read(), list(permutation = as.list(c(1L, 2L, 0L, 4L, 3L, 5L, 6L, 7L)),
+      ends = as.list(c(FALSE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, TRUE))))
+    cold <- jsonlite::fromJSON(.dsvert_dp_canonical_json(
+      .dsvert_dp_canonical_query_value(sidecar)), simplifyVector = FALSE)
+    expect_equal(read(cold), read())
+    # Invalid placeholders and the sign of zero cannot change private routing.
+    expect_identical(make(c(2, 5, 5, Inf, 0)), sidecar)
+    expect_false(any(c("times", "time_valid", "labels") %in% names(sidecar)))
+    # Distinct binary64 observations with the SAME ordering are still different
+    # sources; decimal JSON rounding must not erase this difference.
+    changed_times <- times; changed_times[1L] <- 2 + 2^-51
+    expect_identical(make(changed_times)$routing, sidecar$routing)
+    expect_false(identical(make(changed_times)$binding$private_time_mac,
+      sidecar$binding$private_time_mac))
+    expect_error(read(current_times = changed_times), class = "dsvert_dp_public_failure")
+    for (field in c("snapshot_binding_sha256", "value_commitment_sha256",
+                    "authenticatable_sha256", "private_alignment_consensus_hash",
+                    "coordinate_order_sha256")) {
+      changed <- producer; changed[[field]] <- strrep("0", 64)
+      expect_error(read(current_producer = changed), class = "dsvert_dp_public_failure")
+    }
+    changed <- producer; changed$private_alignment_consensus_hash <- "not_applicable"
+    expect_error(make(current_producer = changed), class = "dsvert_dp_public_failure")
+    changed <- sidecar; changed$routing$ends[[1L]] <- TRUE
+    expect_error(read(changed), class = "dsvert_dp_public_failure")
+    changed <- sidecar; changed$routing$permutation <- rev(changed$routing$permutation)
+    expect_error(read(changed), class = "dsvert_dp_public_failure")
+    expect_error(read(current_secret = raw(32)), class = "dsvert_dp_public_failure")
+    expect_error(make(c(2, 21, 5, NA, 0)), class = "dsvert_dp_public_failure")
+    expect_error(make(c(2, Inf, 5, NA, 0)), class = "dsvert_dp_public_failure")
+    expect_error(make(times[-1L]), class = "dsvert_dp_public_failure")
+    expect_error(make(current_valid = rep(TRUE, 5)), class = "dsvert_dp_public_failure")
+    policy <- f$policy; policy$peer_name <- "site_b"
+    expect_error(make(policy = policy), class = "dsvert_dp_public_failure")
+    payload[block$start] <- 0
+    expect_error(read(), class = "dsvert_dp_public_failure")
+  }
+})
+
 test_that("Cox input loader verifies actual store MACs and all-owner completion", {
   f <- .cox_cross_server_fixture(capacity = 16, owners = 5L)
   transport_fixture <- .cox_transport_fixture(f)

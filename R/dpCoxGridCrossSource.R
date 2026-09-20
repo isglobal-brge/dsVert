@@ -66,6 +66,76 @@
   list(permutation = as.list(as.integer(permutation - 1L)), ends = as.list(ends))
 }
 
+# Owner-local adapter for times from the SAME resolved snapshot/PSI slots as
+# the committed producer. The eventual producer calls this before discarding
+# those private inputs; no remote endpoint accepts caller-supplied times.
+.dsvert_dp_cox_cross_route_sidecar <- function(policy, secret, manifest,
+    source_contract, schema_manifest, analysis_id, producer, times, time_valid) {
+  context <- .dsvert_dp_cox_cross_source_context(policy, manifest,
+    source_contract, schema_manifest, analysis_id)
+  spec <- context$spec
+  owner <- spec$time$owner_peer
+  layout <- context$layout
+  peers <- unlist(spec$computation_peers, use.names = FALSE)
+  ids <- vapply(peers, function(peer)
+    .dsvert_relay_peer_id(unname(policy$peer_pinset[[peer]])), character(1L))
+  if (anyDuplicated(ids) || !identical(owner, peers[[order(ids, method = "radix")[[1L]]]]) ||
+      !identical(policy$peer_name, owner) || !identical(producer$peer_name, owner) ||
+      !identical(producer$capsule_id, source_contract$capsule_id) ||
+      !identical(producer$logical_snapshot, spec$logical_snapshot) ||
+      !identical(producer$source_context_hash, source_contract$source_context_hash) ||
+      !identical(producer$coordinate_order_sha256, layout$transport_coordinate_order_sha256) ||
+      !identical(as.numeric(producer$coordinate_count),
+                 as.numeric(layout$transport_coordinate_count))) .dsvert_dp_cox_grid_cross_fail()
+  private <- .dsvert_dp_capsule_source_producer_private(
+    secret, producer, context$source_hash, require_commitment = TRUE)
+  if (identical(private$alignment_consensus_hash, "not_applicable") ||
+      !is.numeric(times) || length(times) != spec$observation_capacity ||
+      !is.logical(time_valid) || length(time_valid) != length(times) || anyNA(time_valid) ||
+      any(!is.finite(times[time_valid])) ||
+      any(times[time_valid] < spec$time$lower | times[time_valid] > spec$time$upper)) {
+    .dsvert_dp_cox_grid_cross_fail()
+  }
+  times[!time_valid] <- 0
+  times[times == 0] <- 0 # canonical positive zero, preserving every other binary64 bit
+  block <- layout$blocks[[paste(analysis_id, spec$time$reference, "validity", sep = "::")]]
+  present <- c(as.numeric(time_valid), rep(0, spec$padded_capacity - length(times)))
+  transported <- private$read_range(block$start, block$length)
+  if (!is.numeric(transported) || !identical(as.numeric(transported), present)) {
+    .dsvert_dp_cox_grid_cross_fail()
+  }
+  binding <- list(spec_sha256 = .dsvert_joint_dp_hash(spec),
+    source_contract_sha256 = context$source_hash,
+    source_layout_sha256 = .dsvert_joint_dp_hash(layout),
+    source_snapshot_mac = private$snapshot_mac, source_value_mac = private$value_mac,
+    private_alignment_mac = .dsvert_dp_capsule_source_mac(secret,
+      "cox-route-private-alignment-v1", private$alignment_consensus_hash),
+    # JSON decimal formatting must not merge distinct observed time ties.
+    private_time_mac = .dsvert_dp_capsule_source_mac(secret, "cox-route-private-times-v1",
+      .dsvert_dp_capsule_source_raw_b64(c(writeBin(as.double(times), raw(),
+        size = 8L, endian = "little"), as.raw(time_valid)))))
+  value <- list(version = "dsvert-cox-owner-route-source-v1", binding = binding,
+    routing = .dsvert_dp_cox_cross_private_routing(times, time_valid, spec$padded_capacity))
+  value$mac <- .dsvert_dp_capsule_source_mac(secret, "cox-route-owner-source-v1",
+    .dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(value)))
+  value
+}
+
+.dsvert_dp_cox_cross_route_handoff <- function(sidecar, policy, secret, manifest,
+    source_contract, schema_manifest, analysis_id, producer, times, time_valid) {
+  .dsvert_dp_glm_grid_cross_fields(sidecar, c("version", "binding", "routing", "mac"))
+  unsigned <- sidecar[setdiff(names(sidecar), "mac")]
+  mac <- .dsvert_dp_capsule_source_mac(secret, "cox-route-owner-source-v1",
+    .dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(unsigned)))
+  if (!isTRUE(.dsvert_joint_dp_dsi_hex_equal(sidecar$mac, mac))) .dsvert_dp_cox_grid_cross_fail()
+  expected <- .dsvert_dp_cox_cross_route_sidecar(policy, secret, manifest,
+    source_contract, schema_manifest, analysis_id, producer, times, time_valid)
+  .dsvert_dp_glm_grid_cross_equal(sidecar, expected)
+  # Private constructor input only; neither this routing nor its binding is a
+  # public receipt. Re-reading the committed source rejects stale sidecars.
+  expected$routing
+}
+
 # Multiply Ring128 shares by a public signed f50 coefficient. Base-256 schoolbook
 # arithmetic keeps every intermediate below 2^24, including on random shares.
 .dsvert_dp_cox_cross_multiply_public <- function(shares, coefficient) {

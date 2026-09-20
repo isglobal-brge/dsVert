@@ -1,0 +1,26 @@
+{
+  "source_commits": {
+    "dsVert": "f96717ee548c957827dec6252ae7a96fca09fb8a",
+    "dsVertClient": "05180078e6c4b01bf2323f5957f2f1fa9750dd11"
+  },
+  "family": "binomial_glmm",
+  "owners": 3,
+  "n": 2000,
+  "p": 3,
+  "grid": 2,
+  "instance": 1,
+  "oracle_only": true,
+  "scope": "signed synthetic exact-statistic commitment only; no DP selection or real release",
+  "exact": [
+    "90895004",
+    "91301472",
+    "91009277",
+    "91316900"
+  ],
+  "expected_oracle_sha256": "6557396a5365d2c9b1740e12181d695cd10a323b4a3833d780462ef074b37f36",
+  "commitment_computation_source_commits": {
+    "dsVert": "29a99219a398c7b323e200ddc509152d22e9e7e9",
+    "dsVertClient": "55f4793778d4d1613320dfc96e8c7fea576d6a82"
+  },
+  "commitment_validation": "same exact oracle inputs at final pair; see ORACLE_DEPENDENCY_EQUIVALENCE.json; no recomputation claimed"
+}

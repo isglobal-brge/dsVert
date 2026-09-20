@@ -1,0 +1,9 @@
+{
+  "source_commits": {
+    "dsVert": "ea1b6d5ced4ba45b8e64cd5e25938bada525ecfe",
+    "dsVertClient": "0a86516b0332ffe0089c088a30f9d05763444a2e"
+  },
+  "records": 9,
+  "all_equal_previous_exact": true,
+  "scope": "Independent signed synthetic exact integers; no real releases, noise or selection reliability campaign"
+}

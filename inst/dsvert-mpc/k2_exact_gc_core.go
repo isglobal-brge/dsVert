@@ -294,6 +294,20 @@ func (s exactGCCircuitSpec) validate() error {
 			s.MulBackend != exactGCMulBackendDirect {
 			return fmt.Errorf("exact-gc: invalid categorical scaled-indicator product shape")
 		}
+	case crossGridKernelOperation:
+		// The specialised runner binds the full public batch and profile in
+		// Purpose and checks its actual input shape before source resolution.
+		if s.RingBits != 128 || s.FracBits != 0 || s.VectorLen > 8 ||
+			s.Threshold != nil || s.BoundX != nil || s.BoundY != nil || s.MulBackend != "" {
+			return errCrossGridKernel
+		}
+	case groupedLMMWorkerOperation, groupedGLMMWorkerOperation, groupedGEEWorkerOperation, coxLossWorkerOperation:
+		// Only the typed signed-source stage adapter executes this operation;
+		// the ordinary circuit compiler has no implementation for it.
+		if s.RingBits != 128 || s.FracBits != 0 || s.VectorLen > 256 ||
+			s.Threshold != nil || s.BoundX != nil || s.BoundY != nil || s.MulBackend != "" {
+			return errCrossGridStage
+		}
 	case jointDPVectorOperation:
 		// Bounds, global sensitivity, dyadic probabilities and exact delta
 		// accounting live in the specialised vector policy.  The generic
@@ -335,6 +349,13 @@ func (s exactGCCircuitSpec) validate() error {
 		if s.Threshold != nil || s.BoundX != nil || s.BoundY != nil ||
 			s.MulBackend != "" || s.FracBits < 0 || s.FracBits >= s.RingBits {
 			return fmt.Errorf("exact-gc: invalid formal GLM DP bridge session shape")
+		}
+	case exactGCPrimitiveV:
+		// Internal composed circuits bind their complete public source and
+		// signed contract digest into Purpose. No generic RPC admits them.
+		if s.Threshold != nil || s.BoundX != nil || s.BoundY != nil ||
+			s.MulBackend != "" || s.FracBits != 0 || s.VectorLen != 1 {
+			return primitiveVError()
 		}
 	case exactGCCRTToRingChecked:
 		// The CRT moduli, product and signed magnitude certificate are bound
@@ -917,8 +938,12 @@ func exactGCHybridFinalizeOutput(raw, output []*big.Int,
 
 func exactGCGarblerProtocol(conn *p2p.Conn, circ *circuit.Circuit,
 	input *big.Int, session exactGCSession) error {
+	return exactGCGarblerProtocolMode(conn, circ, input, session, false)
+}
 
-	digest := exactGCContextDigest(session)
+func exactGCGarblerProtocolMode(conn *p2p.Conn, circ *circuit.Circuit,
+	input *big.Int, session exactGCSession, compact bool) error {
+	digest := exactGCProtocolDigest(session, circ, compact)
 	if err := conn.SendData(digest[:]); err != nil {
 		return fmt.Errorf("exact-gc: send context: %w", err)
 	}
@@ -952,8 +977,10 @@ func exactGCGarblerProtocol(conn *p2p.Conn, circ *circuit.Circuit,
 	}
 	var labelData ot.LabelData
 	for _, row := range garbled.Gates {
-		if err := conn.SendUint32(len(row)); err != nil {
-			return fmt.Errorf("exact-gc: send gate row size: %w", err)
+		if !compact {
+			if err := conn.SendUint32(len(row)); err != nil {
+				return fmt.Errorf("exact-gc: send gate row size: %w", err)
+			}
 		}
 		for _, label := range row {
 			if err := conn.SendLabel(label, &labelData); err != nil {
@@ -1019,8 +1046,12 @@ func exactGCGarblerProtocol(conn *p2p.Conn, circ *circuit.Circuit,
 
 func exactGCEvaluatorProtocol(conn *p2p.Conn, circ *circuit.Circuit,
 	input *big.Int, session exactGCSession) (*big.Int, error) {
+	return exactGCEvaluatorProtocolMode(conn, circ, input, session, false)
+}
 
-	digest := exactGCContextDigest(session)
+func exactGCEvaluatorProtocolMode(conn *p2p.Conn, circ *circuit.Circuit,
+	input *big.Int, session exactGCSession, compact bool) (*big.Int, error) {
+	digest := exactGCProtocolDigest(session, circ, compact)
 	gotContext, err := conn.ReceiveData()
 	if err != nil {
 		return nil, fmt.Errorf("exact-gc: receive context: %w", err)
@@ -1052,13 +1083,17 @@ func exactGCEvaluatorProtocol(conn *p2p.Conn, circ *circuit.Circuit,
 	garbled := make([][]ot.Label, circ.NumGates)
 	var labelData ot.LabelData
 	for i, gate := range circ.Gates {
-		count, err := conn.ReceiveUint32()
-		if err != nil {
-			return nil, fmt.Errorf("exact-gc: receive gate row size: %w", err)
-		}
 		expected := exactGCGarbledRowSize(gate.Op)
-		if count != expected {
-			return nil, fmt.Errorf("exact-gc: invalid row size for gate %d", i)
+		count := expected
+		if !compact {
+			var err error
+			count, err = conn.ReceiveUint32()
+			if err != nil {
+				return nil, fmt.Errorf("exact-gc: receive gate row size: %w", err)
+			}
+			if count != expected {
+				return nil, fmt.Errorf("exact-gc: invalid row size for gate %d", i)
+			}
 		}
 		row := make([]ot.Label, count)
 		for j := range row {
@@ -1302,6 +1337,13 @@ func exactGCCompileCircuit(spec exactGCCircuitSpec) (*circuit.Circuit, error) {
 	if err := spec.validate(); err != nil {
 		return nil, err
 	}
+	if spec.Operation == crossGridKernelOperation {
+		return nil, errCrossGridKernel
+	}
+
+	if spec.Operation == exactGCPrimitiveV {
+		return nil, primitiveVError()
+	}
 	if spec.Operation == exactGCJointDPLaplace {
 		return nil, fmt.Errorf("exact-gc: joint-DP circuits require the purpose-bound specialised runner")
 	}
@@ -1390,30 +1432,33 @@ func exactGCCircuitSource(spec exactGCCircuitSpec) string {
 
 	switch spec.Operation {
 	case exactGCCompareSigned:
+		// Branch on a scalar, not an array assignment: the compiler otherwise
+		// retains whole-array branch states for every padded PSI coordinate.
 		thresholdResidue := new(big.Int).Set(spec.Threshold)
 		if thresholdResidue.Sign() < 0 {
 			thresholdResidue.Add(thresholdResidue, exactGCModulus(spec.RingBits))
 		}
-		less := fmt.Sprintf("((x[i] & %s(0x%s)) != 0) || x[i] < %s(%s)",
+		less := fmt.Sprintf("((x & %s(0x%s)) != 0) || x < %s(%s)",
 			uintType, sign, uintType, thresholdResidue.String())
 		if spec.Threshold.Sign() < 0 {
-			less = fmt.Sprintf("((x[i] & %s(0x%s)) != 0) && x[i] < %s(%s)",
+			less = fmt.Sprintf("((x & %s(0x%s)) != 0) && x < %s(%s)",
 				uintType, sign, uintType, thresholdResidue.String())
 		}
 		return fmt.Sprintf(`package main
 func main(g [%d]%s, e [%d]%s) [%d]%s {
 	var out [%d]%s
-	var x [%d]%s
+	var x, bit %s
 	for i := 0; i < %d; i++ {
-		x[i] = (g[i] + e[i]) & %s(0x%s)
-		out[i] = (%s(0) - g[%d+i]) & %s(0x%s)
-		if %s { out[i] = (%s(1) - g[%d+i]) & %s(0x%s) }
+		x = (g[i] + e[i]) & %s(0x%s)
+		bit = %s(0)
+		if %s { bit = %s(1) }
+		out[i] = (bit - g[%d+i]) & %s(0x%s)
 	}
 	return out
 }
-`, 2*n, uintType, n, uintType, n, uintType, n, uintType, n, uintType, n,
+`, 2*n, uintType, n, uintType, n, uintType, n, uintType, uintType, n,
 			uintType, mask,
-			uintType, n, uintType, mask, less, uintType, n, uintType, mask)
+			uintType, less, uintType, n, uintType, mask)
 
 	case exactGCTruncateFloor:
 		return exactGCTruncateCircuitSource(spec)

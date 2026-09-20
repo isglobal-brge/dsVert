@@ -1,0 +1,2 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-cox-owner-bind.R","dp-cox-owner-bind","Cox binds the owner first and authenticates the public routing relay",75,0,FALSE,FALSE,0,1.803,0.05,1.863,75

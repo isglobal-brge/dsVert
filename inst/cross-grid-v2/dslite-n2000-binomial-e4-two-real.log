@@ -1,0 +1,19 @@
+DSLITE_ALIGNMENT_COMPLETE
+DSLITE_CUSTODIAN_SIGNATURES_COMPLETE
+DSLITE_PUBLIC_ADMISSION_COMPLETE
+Tracing function ".dsvert_dp_synopsis_client_replay" in package
+"namespace:dsVertClient"
+Untracing function ".dsvert_dp_synopsis_client_replay" in package
+"namespace:dsVertClient"
+DSLITE_ORACLE_BITWISE_EQUAL
+DIRECT_R_COLD_LIFECYCLE_EQUAL_TAMPER_REJECTED
+{"family":"binomial","n":2000,"p":6,"grid":2,"owners":2,"epsilon":4,"instance":1,"elapsed":2932.752,"oracle_only":false,"selected_candidate":2,"exact_best":2,"loss_gap":0,"artifact_key":"cc451716dc47f226391d0ab4af6f05eb953fb97ea11c1fbf4dadd3ea419381e8","certificate_sha256":"afa2bc9ae27e678ac62cecd0c2ea7b54d977bf9d565ef64fb3be2d8532d9d37f"} 
+DSLITE_CUSTODIAN_SIGNATURES_COMPLETE
+DSLITE_PUBLIC_ADMISSION_COMPLETE
+Tracing function ".dsvert_dp_synopsis_client_replay" in package
+"namespace:dsVertClient"
+Untracing function ".dsvert_dp_synopsis_client_replay" in package
+"namespace:dsVertClient"
+DSLITE_ORACLE_BITWISE_EQUAL
+DIRECT_R_COLD_LIFECYCLE_EQUAL_TAMPER_REJECTED
+{"family":"binomial","n":2000,"p":6,"grid":2,"owners":2,"epsilon":4,"instance":2,"elapsed":2767.322,"oracle_only":false,"selected_candidate":2,"exact_best":2,"loss_gap":0,"artifact_key":"8efab711c9d027a9f248986cd47e43c61bd955140d870204683fd0beccb392d4","certificate_sha256":"edc2c460ca5a33166904705cada0c531487b17f12564135fedd9c3a3ba39d06b"} 

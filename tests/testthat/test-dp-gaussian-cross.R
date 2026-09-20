@@ -263,6 +263,7 @@ test_that("cross Gaussian binding preserves a synopsis source namespace", {
       .dsvert_dp_alignment_mask_complete_batch = function(
           session, capsule_id, source_contract_hash) {
         observed$complete <- c(capsule_id, source_contract_hash)
+        list(projection_version = "full-v1")
       },
       .dsvert_dp_alignment_mask_range = function(
           session, capsule_id, source_contract_hash, start, count) {

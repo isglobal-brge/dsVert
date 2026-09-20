@@ -1,0 +1,14 @@
+{
+  "record_provenance_and_measurements_preserved": true,
+  "rescore_idempotent": true,
+  "manifest_rows": 24,
+  "ready_rows": 16,
+  "future_lease_seconds": 604800,
+  "capacity_promotion_gate": false,
+  "new_cox_baselines": [
+    "K3",
+    "K5"
+  ],
+  "gee_results_file_absent": true,
+  "peak_rss": "Unavailable; not inferred"
+}

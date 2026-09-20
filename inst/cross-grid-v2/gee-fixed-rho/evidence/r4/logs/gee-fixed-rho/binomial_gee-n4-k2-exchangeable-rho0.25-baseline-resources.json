@@ -1,0 +1,39 @@
+{
+  "measurement": "binomial_gee-n4-k2-exchangeable-rho0.25-baseline",
+  "started_utc": "2026-09-20T08:04:27.119504+00:00",
+  "finished_utc": "2026-09-20T08:25:39.815306+00:00",
+  "source_repositories": {
+    "dsVert": {
+      "head": "902ccf46d0f9b844155ff4316ac91cac2a2ba75b",
+      "branch": "gee-fixed-rho",
+      "dirty_overlay": false
+    },
+    "dsVertClient": {
+      "head": "6d94d4c9e15b9261a31b4499837d200ea1caea17",
+      "branch": "gee-fixed-rho",
+      "dirty_overlay": false
+    }
+  },
+  "source_manifest_sha256": "1d4b78e617c85b7874d0b56c09f03977e1606a1b0b60e8869d2126e5427934df",
+  "process_wall_seconds": 1272.69586091768,
+  "max_child_rss_kib_linux": 11830076,
+  "user_seconds": 1238.738194,
+  "system_seconds": 428.267812,
+  "process_exit_code": 1,
+  "stdin": "/dev/null",
+  "transport_policy": {
+    "ttl_seconds": 900,
+    "max_runtime_seconds": 86400
+  },
+  "markers": {
+    "DSLITE_ORACLE_BITWISE_EQUAL_STICKY_TAMPER_REJECTED binomial_gee": false,
+    "DIRECT_R_COLD_LIFECYCLE_EQUAL_TAMPER_REJECTED": false,
+    "DSLITE_GEE-FIXED-RHO_COLD_EXPORTED_API_EQUAL_AUTHENTICATED": false
+  },
+  "metric_shape_passed": false,
+  "recovery_metrics_passed": true,
+  "promoted": false,
+  "source_unchanged": true,
+  "proof_passed": false,
+  "exit_code": 1
+}

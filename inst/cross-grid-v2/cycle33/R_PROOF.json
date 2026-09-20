@@ -1,0 +1,46 @@
+{
+  "observed_utc": "2026-09-20T12:23:25.609032+00:00",
+  "source_commits": {
+    "dsVert": "5978ed413aa487e80a53f029729d2f7458e3efce",
+    "dsVertClient": "33c7d936fac827eab49da35e8e0982c7ee3435c9"
+  },
+  "snapshots": {
+    "baseline": {
+      "source_files": 2621,
+      "frozen_source_changed": [],
+      "manifest_sha256": "e4f8d1aef1a36869c8473f2e105028d5a194ad00b983e0e24b3951af48cfe199",
+      "base_commits": {
+        "dsVert": "5978ed413aa487e80a53f029729d2f7458e3efce",
+        "dsVertClient": "b9d2f6aabcdeca148f13e28ae523918d6734eb7b"
+      }
+    },
+    "fixed": {
+      "source_files": 2621,
+      "frozen_source_changed": [],
+      "manifest_sha256": "934f61bddb58d8b8ffc5ae49042c3dbe4ff9be2789d067b43129f932ca386c14",
+      "base_commits": {
+        "dsVert": "5978ed413aa487e80a53f029729d2f7458e3efce",
+        "dsVertClient": "b9d2f6aabcdeca148f13e28ae523918d6734eb7b"
+      }
+    }
+  },
+  "tests": 16,
+  "assertions": 436,
+  "failures": 0,
+  "errors": 0,
+  "warnings": 0,
+  "skips": 0,
+  "gaussian_preflight_assertions": 10,
+  "baseline": "New source-owner result regression errors on valid K3 with original implementation; baseline.log retained.",
+  "source_differences": [
+    "dsVertClient/R/dp_cox_grid_cross.R",
+    "dsVertClient/man/dp_cox_grid.Rd"
+  ],
+  "source_equivalence": "Only roxygen wording and matching Rd documentation differ after the fixed snapshot. Executable R and all tests match committed source; server/native bytes identical.",
+  "scope": "Internal Cox result processing with a fixture release provider. Real signed contracts K2/K3/K5; no authenticated DP-vector reader or real Cox release claim.",
+  "log_hashes": {
+    "baseline.log": "a042cd2454bb893c1964af20e53cd72df95f5a8e010272f94d4e892fcb56c4d5",
+    "fixed.log": "4996f6d27f2282261585461c02eaeca33f8659751743b4699a1231ca3d972178",
+    "preflight.log": "395d1e4a4bd983ca534f34e738e38e1a21ea847dd67a4fde31eec7f14ed6c7a7"
+  }
+}

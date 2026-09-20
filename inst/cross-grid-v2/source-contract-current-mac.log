@@ -1,0 +1,19 @@
+dp-synopsis-source-contract: ......................12.
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Failure ('test-dp-synopsis-source-contract.R:121:3'): durable synopsis sou
+Expected `legacy$contract_hash` to be identical to `legacy_golden`.
+Differences:
+1/1 mismatches
+x[1]: "cad5136408f323b3b3efc218fdd3ece3117eb2c92312a7ef079e4d2bfa5bacfd"
+y[1]: "79b06f468913dd865d185bdeff344eeabfd483c22933fe63739b09d1d78c1104"
+
+── 2. Failure ('test-dp-synopsis-source-contract.R:122:3'): durable synopsis sou
+Expected `digest::digest(legacy$contract_json, algo = "sha256", serialize = FALSE)` to be identical to `legacy_golden`.
+Differences:
+1/1 mismatches
+x[1]: "cad5136408f323b3b3efc218fdd3ece3117eb2c92312a7ef079e4d2bfa5bacfd"
+y[1]: "79b06f468913dd865d185bdeff344eeabfd483c22933fe63739b09d1d78c1104"
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+No one gets it right on their first try

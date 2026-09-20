@@ -1,0 +1,27 @@
+{
+  "observed_utc": "2026-09-20T12:43:57.318179+00:00",
+  "source_commits": {
+    "dsVert": "af76fb50a50b3aeba6431ea17bdb52f37674cf8c",
+    "dsVertClient": "5b6458fa7264909eaa1bbdb63d8b0ccc22acc40a"
+  },
+  "promoted_count": 4,
+  "promoted_source_pair": "f3795a2/e748f05",
+  "proof": "R_PROOF.json",
+  "manifest": "MANIFEST_VALIDATION.json",
+  "simple_paired": "SIMPLE_PAIRED.json",
+  "lmm": "LMM_HARVEST.json",
+  "lmm_health": "LMM_HEALTH_SUMMARY.json",
+  "reviewer_fleet": "REVIEWER_FLEET_OBSERVATION.json",
+  "nb_resolution": "../cycle32-20260920/NB_PROOF.json",
+  "production_server_changed": false,
+  "native_runtime_changed": false,
+  "shared_sampler_changed": false,
+  "gee_files_edited": false,
+  "pending": [
+    "Cox source orchestration and authenticated compile/certificate reader dispatch",
+    "LMM relay batching and fresh output/recovery/capacity proof",
+    "heavy lifecycle/capacity gates",
+    "confirmatory simple client paired completion",
+    "pod16 native alignment-mask startup cause"
+  ]
+}

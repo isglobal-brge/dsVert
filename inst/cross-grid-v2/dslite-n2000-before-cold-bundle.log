@@ -1,0 +1,45 @@
+DSLITE_ALIGNMENT_COMPLETE
+DSLITE_CUSTODIAN_SIGNATURES_COMPLETE
+DSLITE_PUBLIC_ADMISSION_COMPLETE
+Tracing function ".dsvert_dp_synopsis_client_replay" in package
+"namespace:dsVertClient"
+Untracing function ".dsvert_dp_synopsis_client_replay" in package
+"namespace:dsVertClient"
+DSLITE_ORACLE_BITWISE_EQUAL
+Error: 
+! in callr subprocess.
+Caused by error: 
+! in callr subprocess.
+Caused by error: 
+! [dsvert_dp_public_failure:v1] Protected capsule operation failed.
+---
+Backtrace:
+ 1. base::source("inst/cross-grid-v2/validate_dslite.R")
+ 2. | base::withVisible(eval(ei, envir))
+ 3. | base::eval(ei, envir)
+ 4. | base::eval(ei, envir)
+ 5. global run()
+ 6. base::lapply(peers[owner_names[1:2]], function(peer) peer$worker$run(function(se…
+ 7. global FUN(X[[i]], ...)
+ 8. peer$worker$run(function(server_dir, contract, schema) { …
+ 9. callr:::rs_run(self, private, func, args, package)
+10. callr:::throw(res$error)
+---
+Subprocess backtrace:
+1. global grid_cold_lifecycle(server_dir, contract, schema)
+2. callr::r(function(server_dir, fixture, signed_contract, signed_schema) { …
+3. callr:::get_result(output = out, options)
+4. base::throw(callr_remote_error(remerr, output), parent = fix_msg(remerr[[3]]))
+5. | base::signalCondition(cond)
+6. global (function (e) …
+---
+Subprocess backtrace:
+1. sf(".dsvert_dp_glm_grid_profile_admit")(signed_contract, fixture$policy, …
+2. dsVert:::.dsvert_dp_glm_grid_cross_contract_validate(contract, policy, … at dpGLMGridCrossProfile.R:79:3
+3. base::tryCatch({ … at dpGLMGridCrossContract.R:435:3
+4. base::tryCatchList(expr, classes, parentenv, handlers)
+5. base::tryCatchOne(expr, names, parentenv, handlers[[1L]])
+6. value[[3L]](cond)
+7. base::stop(structure(list(message = .DSVERT_DP_PUBLIC_FAILURE_MESSAGE, … at dpTranscriptPrivacy.R:85:3
+8. global (function (e) …
+Execution halted

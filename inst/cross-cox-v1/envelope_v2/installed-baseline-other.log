@@ -1,0 +1,36 @@
+peer-relay-security-contract: ..........................................................................................................................1...........................................
+psi-source-authorization: ......2.........
+typed-blob-transport: .....3.....................................................................................................................................................................................................................................................................................................
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Failure ('test-peer-relay-security-contract.R:93:3'): the peer-relay secur
+Expected `exposed` to have the same values as `setdiff(registered, local_only)`.
+Actual: "mpcTypedBlobReadDS", "mpcTypedBlobStoreDS", "mpcTypedBlobReceiptDS", "dsvertDPFrequencySourceWindowDS", "dsvertDPFrequencyFinalizeWindowDS", "psiPaddedInitDS", "psiPaddedBindDS", "psiPaddedConfirmDS", "psiPaddedPrepareDS", ...
+Expected: "dsvertDPCountFinalShareDS", "dsvertDPFrequencySourceWindowDS", "dsvertDPFrequencyFinalizeWindowDS", "dsvertDPFrequencyReplayDS", "dsvertDPSynopsisBootstrapDS", "dsvertDPSynopsisBindDS", "dsvertDPSynopsisClaimDS", "dsvertDPSynopsisCompileDS", "dsvertDPSynopsisPrepareDS", ...
+Absent: "dsvertDPSynopsisGaussianCrossBindDS", "dsvertDPSynopsisGaussianCrossFinalizeDS", "dsvertDPSynopsisGaussianCrossEvidenceDS", "dsvertFormalGLMPublicResultDS", "dsvertFormalGLMRegisteredSourceDS", "dsvertFormalGLMRegisteredFreshSourceDS", "dsvertFormalGLMRegisteredJobControlDS", "dsvertFormalCoxFreshSourceDS", "dsvertFormalCoxWorkerControlDS", ...
+
+── 2. Failure ('test-psi-source-authorization.R:35:3'): the local PSI descriptor
+Expected `descriptor` to have names `c("id", "version", "id_col", "purpose", "snapshot_sha256")`.
+Differences:
+    actual            | expected             
+[1] "id"              | "id"              [1]
+[2] "version"         | "version"         [2]
+[3] "id_col"          | "id_col"          [3]
+[4] "privacy_unit_id" -                      
+[5] "purpose"         | "purpose"         [4]
+[6] "snapshot_sha256" | "snapshot_sha256" [5]
+
+
+── 3. Error ('test-typed-blob-transport.R:114:3'): optional formal routing does 
+Error in `FUN(X[[i]], ...)`: object '.DSVERT_FORMAL_FINALIZER_HANDOFF_CAPABILITY' not found
+Backtrace:
+    ▆
+ 1. ├─testthat::expect_identical(...) at test-typed-blob-transport.R:114:3
+ 2. │ └─testthat::quasi_label(enquo(object), label)
+ 3. │   └─rlang::eval_bare(expr, quo_get_env(quo))
+ 4. ├─base::unname(vapply(names(expected), get, character(1L), inherits = TRUE))
+ 5. └─base::vapply(names(expected), get, character(1L), inherits = TRUE)
+ 6.   └─base (local) FUN(X[[i]], ...)
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+Don't worry, you'll get it.

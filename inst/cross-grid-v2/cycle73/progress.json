@@ -1,0 +1,35 @@
+{
+  "cycle": 73,
+  "observed_utc": "2026-09-20T18:32:18.208693+00:00",
+  "promoted_count": 4,
+  "counts": {
+    "FLEET": {
+      "terminal": 10,
+      "passed": 6
+    },
+    "COX": {
+      "terminal": 3,
+      "passed": 3
+    },
+    "GEE": {
+      "terminal": 0,
+      "passed": 0
+    }
+  },
+  "fleet_nonterminal": 6,
+  "cox_dedicated_nonterminal": 1,
+  "gee_dedicated_nonterminal": 8,
+  "capacity_promotion_gate": false,
+  "frozen_runs_restarted": 0,
+  "runtime_changes": false,
+  "manifest_changed": false,
+  "probe_successes": 24,
+  "probe_failures": 4,
+  "unreachable_fleet_pods": [
+    "12",
+    "14",
+    "15"
+  ],
+  "new_terminal_results": 0,
+  "live_state_caveat": "Pods 12/14/15 remain unreachable; prior controller incident reports EXITED. Missing terminal records do not establish active computation."
+}

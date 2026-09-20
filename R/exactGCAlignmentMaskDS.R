@@ -120,6 +120,15 @@
     stop("The private alignment-mask projection is incomplete.",
          call. = FALSE)
   }
+  # Fused grid kernels independently guard every private coordinate with these
+  # same authenticated digests. One hidden coordinate suffices for the existing
+  # bilateral digest/terminal gate; no source value or digest is opened.
+  if (all(vapply(blocks, function(block) identical(block$input_family, "glm_grid"),
+                 logical(1L)))) {
+    return(list(version = "fused-grid-digest-v3",
+      source_offset = as.numeric(start - 1), total = 1,
+      contract = "all-k-private-xor-digest-equality-fused-grid-v3"))
+  }
   list(
     version = "private-suffix-v2", source_offset = as.numeric(start - 1),
     total = as.numeric(total - start + 1),
@@ -127,11 +136,13 @@
 }
 
 .dsvert_dp_alignment_mask_projections <- function(parsed) {
+  private <- .dsvert_dp_alignment_mask_private_projection(parsed)
+  if (identical(private$version, "fused-grid-digest-v3")) return(list(private))
   list(
     list(version = "full-v1", source_offset = 0,
          total = as.numeric(parsed$contract$coordinate_count),
          contract = .DSVERT_DP_ALIGNMENT_MASK_FULL_CONTRACT),
-    .dsvert_dp_alignment_mask_private_projection(parsed))
+    private)
 }
 
 .dsvert_dp_alignment_mask_projection_for_request <- function(

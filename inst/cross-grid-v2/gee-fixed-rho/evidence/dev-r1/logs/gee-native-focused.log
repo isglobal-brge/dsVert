@@ -1,0 +1,218 @@
+=== RUN   TestGroupedGEEPrivateFactorProtocol
+=== RUN   TestGroupedGEEPrivateFactorProtocol/binomial/independence/rho-q16-0
+    k2_exact_gc_gee_factor_protocol_test.go:89: factor_producer_bytes=9359151 seconds=2.427595
+=== RUN   TestGroupedGEEPrivateFactorProtocol/binomial/exchangeable/rho-q16-0
+    k2_exact_gc_gee_factor_protocol_test.go:89: factor_producer_bytes=9504692 seconds=2.657455
+=== RUN   TestGroupedGEEPrivateFactorProtocol/binomial/exchangeable/rho-q16-16384
+    k2_exact_gc_gee_factor_protocol_test.go:89: factor_producer_bytes=9631480 seconds=2.491719
+=== RUN   TestGroupedGEEPrivateFactorProtocol/binomial/exchangeable/rho-q16-32768
+    k2_exact_gc_gee_factor_protocol_test.go:89: factor_producer_bytes=9631479 seconds=2.776343
+=== RUN   TestGroupedGEEPrivateFactorProtocol/binomial/ar1/rho-q16-0
+    k2_exact_gc_gee_factor_protocol_test.go:89: factor_producer_bytes=9491874 seconds=2.637616
+=== RUN   TestGroupedGEEPrivateFactorProtocol/binomial/ar1/rho-q16-16384
+    k2_exact_gc_gee_factor_protocol_test.go:89: factor_producer_bytes=9542596 seconds=2.860838
+=== RUN   TestGroupedGEEPrivateFactorProtocol/binomial/ar1/rho-q16-32768
+    k2_exact_gc_gee_factor_protocol_test.go:89: factor_producer_bytes=9542590 seconds=2.642941
+=== RUN   TestGroupedGEEPrivateFactorProtocol/poisson/independence/rho-q16-0
+    k2_exact_gc_gee_factor_protocol_test.go:89: factor_producer_bytes=9677917 seconds=1.946007
+=== RUN   TestGroupedGEEPrivateFactorProtocol/poisson/exchangeable/rho-q16-0
+    k2_exact_gc_gee_factor_protocol_test.go:89: factor_producer_bytes=9823451 seconds=2.177773
+=== RUN   TestGroupedGEEPrivateFactorProtocol/poisson/exchangeable/rho-q16-16384
+    k2_exact_gc_gee_factor_protocol_test.go:89: factor_producer_bytes=9950256 seconds=1.921439
+=== RUN   TestGroupedGEEPrivateFactorProtocol/poisson/exchangeable/rho-q16-32768
+    k2_exact_gc_gee_factor_protocol_test.go:89: factor_producer_bytes=9950255 seconds=1.962463
+=== RUN   TestGroupedGEEPrivateFactorProtocol/poisson/ar1/rho-q16-0
+    k2_exact_gc_gee_factor_protocol_test.go:89: factor_producer_bytes=13410634 seconds=2.197613
+=== RUN   TestGroupedGEEPrivateFactorProtocol/poisson/ar1/rho-q16-16384
+    k2_exact_gc_gee_factor_protocol_test.go:89: factor_producer_bytes=13461357 seconds=2.307239
+=== RUN   TestGroupedGEEPrivateFactorProtocol/poisson/ar1/rho-q16-32768
+    k2_exact_gc_gee_factor_protocol_test.go:89: factor_producer_bytes=13461358 seconds=2.431903
+--- PASS: TestGroupedGEEPrivateFactorProtocol (35.03s)
+    --- PASS: TestGroupedGEEPrivateFactorProtocol/binomial/independence/rho-q16-0 (2.50s)
+    --- PASS: TestGroupedGEEPrivateFactorProtocol/binomial/exchangeable/rho-q16-0 (2.72s)
+    --- PASS: TestGroupedGEEPrivateFactorProtocol/binomial/exchangeable/rho-q16-16384 (2.56s)
+    --- PASS: TestGroupedGEEPrivateFactorProtocol/binomial/exchangeable/rho-q16-32768 (2.82s)
+    --- PASS: TestGroupedGEEPrivateFactorProtocol/binomial/ar1/rho-q16-0 (2.74s)
+    --- PASS: TestGroupedGEEPrivateFactorProtocol/binomial/ar1/rho-q16-16384 (2.93s)
+    --- PASS: TestGroupedGEEPrivateFactorProtocol/binomial/ar1/rho-q16-32768 (2.74s)
+    --- PASS: TestGroupedGEEPrivateFactorProtocol/poisson/independence/rho-q16-0 (2.00s)
+    --- PASS: TestGroupedGEEPrivateFactorProtocol/poisson/exchangeable/rho-q16-0 (2.29s)
+    --- PASS: TestGroupedGEEPrivateFactorProtocol/poisson/exchangeable/rho-q16-16384 (1.98s)
+    --- PASS: TestGroupedGEEPrivateFactorProtocol/poisson/exchangeable/rho-q16-32768 (2.07s)
+    --- PASS: TestGroupedGEEPrivateFactorProtocol/poisson/ar1/rho-q16-0 (2.38s)
+    --- PASS: TestGroupedGEEPrivateFactorProtocol/poisson/ar1/rho-q16-16384 (2.58s)
+    --- PASS: TestGroupedGEEPrivateFactorProtocol/poisson/ar1/rho-q16-32768 (2.70s)
+=== RUN   TestGroupedGEEExactMomentComposition
+--- PASS: TestGroupedGEEExactMomentComposition (0.26s)
+=== RUN   TestGroupedGEEMomentShapeRejection
+--- PASS: TestGroupedGEEMomentShapeRejection (0.00s)
+=== RUN   TestGroupedGEECircuitReference
+=== RUN   TestGroupedGEECircuitReference/binomial/independence
+    k2_exact_gc_gee_loss_test.go:24: gates=1532414 table_bytes=15053808
+=== RUN   TestGroupedGEECircuitReference/binomial/exchangeable
+    k2_exact_gc_gee_loss_test.go:24: gates=1538510 table_bytes=15104528
+=== RUN   TestGroupedGEECircuitReference/binomial/ar1
+    k2_exact_gc_gee_loss_test.go:24: gates=1536604 table_bytes=15090416
+=== RUN   TestGroupedGEECircuitReference/poisson/independence
+    k2_exact_gc_gee_loss_test.go:24: gates=1570706 table_bytes=15430224
+=== RUN   TestGroupedGEECircuitReference/poisson/exchangeable
+    k2_exact_gc_gee_loss_test.go:24: gates=1576802 table_bytes=15480944
+=== RUN   TestGroupedGEECircuitReference/poisson/ar1
+    k2_exact_gc_gee_loss_test.go:24: gates=1574896 table_bytes=15466832
+--- PASS: TestGroupedGEECircuitReference (10.51s)
+    --- PASS: TestGroupedGEECircuitReference/binomial/independence (2.16s)
+    --- PASS: TestGroupedGEECircuitReference/binomial/exchangeable (2.05s)
+    --- PASS: TestGroupedGEECircuitReference/binomial/ar1 (2.15s)
+    --- PASS: TestGroupedGEECircuitReference/poisson/independence (1.35s)
+    --- PASS: TestGroupedGEECircuitReference/poisson/exchangeable (1.49s)
+    --- PASS: TestGroupedGEECircuitReference/poisson/ar1 (1.31s)
+=== RUN   TestGroupedGEESourceContract
+--- PASS: TestGroupedGEESourceContract (0.00s)
+=== RUN   TestGroupedGEESourceTwoAuthority
+=== RUN   TestGroupedGEESourceTwoAuthority/binomial
+=== RUN   TestGroupedGEESourceTwoAuthority/binomial/fresh
+=== RUN   TestGroupedGEESourceTwoAuthority/binomial/conversion-abort
+=== RUN   TestGroupedGEESourceTwoAuthority/binomial/routing-unilateral
+=== RUN   TestGroupedGEESourceTwoAuthority/binomial/source-invalid
+=== RUN   TestGroupedGEESourceTwoAuthority/binomial/outcome-invalid
+=== RUN   TestGroupedGEESourceTwoAuthority/binomial/outcome-high-alias
+=== RUN   TestGroupedGEESourceTwoAuthority/poisson
+=== RUN   TestGroupedGEESourceTwoAuthority/poisson/fresh
+=== RUN   TestGroupedGEESourceTwoAuthority/poisson/conversion-abort
+=== RUN   TestGroupedGEESourceTwoAuthority/poisson/routing-unilateral
+=== RUN   TestGroupedGEESourceTwoAuthority/poisson/source-invalid
+=== RUN   TestGroupedGEESourceTwoAuthority/poisson/outcome-invalid
+=== RUN   TestGroupedGEESourceTwoAuthority/poisson/outcome-high-alias
+--- PASS: TestGroupedGEESourceTwoAuthority (190.03s)
+    --- PASS: TestGroupedGEESourceTwoAuthority/binomial (105.90s)
+        --- PASS: TestGroupedGEESourceTwoAuthority/binomial/fresh (17.17s)
+        --- PASS: TestGroupedGEESourceTwoAuthority/binomial/conversion-abort (16.99s)
+        --- PASS: TestGroupedGEESourceTwoAuthority/binomial/routing-unilateral (17.44s)
+        --- PASS: TestGroupedGEESourceTwoAuthority/binomial/source-invalid (19.69s)
+        --- PASS: TestGroupedGEESourceTwoAuthority/binomial/outcome-invalid (17.05s)
+        --- PASS: TestGroupedGEESourceTwoAuthority/binomial/outcome-high-alias (17.54s)
+    --- PASS: TestGroupedGEESourceTwoAuthority/poisson (84.14s)
+        --- PASS: TestGroupedGEESourceTwoAuthority/poisson/fresh (12.07s)
+        --- PASS: TestGroupedGEESourceTwoAuthority/poisson/conversion-abort (12.51s)
+        --- PASS: TestGroupedGEESourceTwoAuthority/poisson/routing-unilateral (14.43s)
+        --- PASS: TestGroupedGEESourceTwoAuthority/poisson/source-invalid (14.98s)
+        --- PASS: TestGroupedGEESourceTwoAuthority/poisson/outcome-invalid (15.29s)
+        --- PASS: TestGroupedGEESourceTwoAuthority/poisson/outcome-high-alias (14.85s)
+=== RUN   TestGroupedGEESourceP3TwoAuthority
+=== RUN   TestGroupedGEESourceP3TwoAuthority/binomial
+=== RUN   TestGroupedGEESourceP3TwoAuthority/binomial/fresh
+=== NAME  TestGroupedGEESourceP3TwoAuthority/binomial
+    k2_exact_gc_gee_source_staged_test.go:379: n=4 predictors=3 candidates=2 terminal_ring=128 terminal_coordinates=42 oracle_equal=true cold_replay=true
+=== RUN   TestGroupedGEESourceP3TwoAuthority/poisson
+=== RUN   TestGroupedGEESourceP3TwoAuthority/poisson/fresh
+=== NAME  TestGroupedGEESourceP3TwoAuthority/poisson
+    k2_exact_gc_gee_source_staged_test.go:379: n=4 predictors=3 candidates=2 terminal_ring=128 terminal_coordinates=42 oracle_equal=true cold_replay=true
+--- PASS: TestGroupedGEESourceP3TwoAuthority (35.75s)
+    --- PASS: TestGroupedGEESourceP3TwoAuthority/binomial (18.90s)
+        --- PASS: TestGroupedGEESourceP3TwoAuthority/binomial/fresh (18.90s)
+    --- PASS: TestGroupedGEESourceP3TwoAuthority/poisson (16.84s)
+        --- PASS: TestGroupedGEESourceP3TwoAuthority/poisson/fresh (16.83s)
+=== RUN   TestGroupedGEEExactSourceWire
+=== RUN   TestGroupedGEEExactSourceWire/binomial
+=== RUN   TestGroupedGEEExactSourceWire/poisson
+--- PASS: TestGroupedGEEExactSourceWire (0.01s)
+    --- PASS: TestGroupedGEEExactSourceWire/binomial (0.01s)
+    --- PASS: TestGroupedGEEExactSourceWire/poisson (0.01s)
+=== RUN   TestGroupedGEEExactSourceWireRejects
+=== RUN   TestGroupedGEEExactSourceWireRejects/decimal
+=== RUN   TestGroupedGEEExactSourceWireRejects/exponent
+=== RUN   TestGroupedGEEExactSourceWireRejects/plus
+=== RUN   TestGroupedGEEExactSourceWireRejects/leading-zero
+=== RUN   TestGroupedGEEExactSourceWireRejects/overflow
+=== RUN   TestGroupedGEEExactSourceWireRejects/alpha
+=== RUN   TestGroupedGEEExactSourceWireRejects/family
+=== RUN   TestGroupedGEEExactSourceWireRejects/max-outcome
+=== RUN   TestGroupedGEEExactSourceWireRejects/shape
+=== RUN   TestGroupedGEEExactSourceWireRejects/validity
+=== RUN   TestGroupedGEEExactSourceWireRejects/digest
+=== RUN   TestGroupedGEEExactSourceWireRejects/beta
+=== RUN   TestGroupedGEEExactSourceWireRejects/caps
+=== RUN   TestGroupedGEEExactSourceWireRejects/evaluator-routing
+--- PASS: TestGroupedGEEExactSourceWireRejects (0.02s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/decimal (0.00s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/exponent (0.00s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/plus (0.00s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/leading-zero (0.00s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/overflow (0.00s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/alpha (0.00s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/family (0.00s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/max-outcome (0.00s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/shape (0.00s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/validity (0.00s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/digest (0.00s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/beta (0.00s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/caps (0.00s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/evaluator-routing (0.00s)
+=== RUN   TestGroupedGEEStagedContract
+--- PASS: TestGroupedGEEStagedContract (0.00s)
+=== RUN   TestGroupedGEEStagedExactLattice
+--- PASS: TestGroupedGEEStagedExactLattice (0.01s)
+=== RUN   TestGroupedGEEStagedTwoAuthority
+=== RUN   TestGroupedGEEStagedTwoAuthority/binomial/source-invalid-false
+=== RUN   TestGroupedGEEStagedTwoAuthority/binomial/source-invalid-true
+=== RUN   TestGroupedGEEStagedTwoAuthority/poisson/source-invalid-false
+=== RUN   TestGroupedGEEStagedTwoAuthority/poisson/source-invalid-true
+--- PASS: TestGroupedGEEStagedTwoAuthority (26.19s)
+    --- PASS: TestGroupedGEEStagedTwoAuthority/binomial/source-invalid-false (7.44s)
+    --- PASS: TestGroupedGEEStagedTwoAuthority/binomial/source-invalid-true (6.84s)
+    --- PASS: TestGroupedGEEStagedTwoAuthority/poisson/source-invalid-false (5.69s)
+    --- PASS: TestGroupedGEEStagedTwoAuthority/poisson/source-invalid-true (6.23s)
+=== RUN   TestGroupedGEEStagedBranchValidity
+=== RUN   TestGroupedGEEStagedBranchValidity/bread-predecessor
+=== RUN   TestGroupedGEEStagedBranchValidity/meat
+=== RUN   TestGroupedGEEStagedBranchValidity/likelihood
+--- PASS: TestGroupedGEEStagedBranchValidity (0.04s)
+    --- PASS: TestGroupedGEEStagedBranchValidity/bread-predecessor (0.00s)
+    --- PASS: TestGroupedGEEStagedBranchValidity/meat (0.00s)
+    --- PASS: TestGroupedGEEStagedBranchValidity/likelihood (0.00s)
+=== RUN   TestGroupedGEEWhiteningPrivatePatterns
+--- PASS: TestGroupedGEEWhiteningPrivatePatterns (0.50s)
+=== RUN   TestGroupedGEEFactorInputs
+--- PASS: TestGroupedGEEFactorInputs (0.38s)
+=== RUN   TestGroupedGEEWhiteningCertificateAndLimits
+--- PASS: TestGroupedGEEWhiteningCertificateAndLimits (8.37s)
+=== RUN   TestGroupedGEEFactorialCertificate
+--- PASS: TestGroupedGEEFactorialCertificate (0.00s)
+=== RUN   TestGroupedGEEWorkerOpaqueNativeIntegers
+--- PASS: TestGroupedGEEWorkerOpaqueNativeIntegers (0.00s)
+=== RUN   TestGroupedGEEWorkerSourceBindingRejectsReplacement
+=== RUN   TestGroupedGEEWorkerSourceBindingRejectsReplacement/purpose
+=== RUN   TestGroupedGEEWorkerSourceBindingRejectsReplacement/legacy-source
+=== RUN   TestGroupedGEEWorkerSourceBindingRejectsReplacement/lmm-source
+=== RUN   TestGroupedGEEWorkerSourceBindingRejectsReplacement/glmm-source
+=== RUN   TestGroupedGEEWorkerSourceBindingRejectsReplacement/seed
+=== RUN   TestGroupedGEEWorkerSourceBindingRejectsReplacement/role
+=== RUN   TestGroupedGEEWorkerSourceBindingRejectsReplacement/spool-store
+--- PASS: TestGroupedGEEWorkerSourceBindingRejectsReplacement (0.01s)
+    --- PASS: TestGroupedGEEWorkerSourceBindingRejectsReplacement/purpose (0.00s)
+    --- PASS: TestGroupedGEEWorkerSourceBindingRejectsReplacement/legacy-source (0.00s)
+    --- PASS: TestGroupedGEEWorkerSourceBindingRejectsReplacement/lmm-source (0.00s)
+    --- PASS: TestGroupedGEEWorkerSourceBindingRejectsReplacement/glmm-source (0.00s)
+    --- PASS: TestGroupedGEEWorkerSourceBindingRejectsReplacement/seed (0.00s)
+    --- PASS: TestGroupedGEEWorkerSourceBindingRejectsReplacement/role (0.00s)
+    --- PASS: TestGroupedGEEWorkerSourceBindingRejectsReplacement/spool-store (0.00s)
+=== RUN   TestGroupedGEEStagedSpoolWorkers
+--- PASS: TestGroupedGEEStagedSpoolWorkers (31.02s)
+=== RUN   TestGroupedGEEPoissonStagedSpoolWorkers
+--- PASS: TestGroupedGEEPoissonStagedSpoolWorkers (28.35s)
+=== RUN   TestGroupedGEEWireStagedSpoolWorkers
+=== RUN   TestGroupedGEEWireStagedSpoolWorkers/binomial
+=== RUN   TestGroupedGEEWireStagedSpoolWorkers/poisson
+--- PASS: TestGroupedGEEWireStagedSpoolWorkers (59.78s)
+    --- PASS: TestGroupedGEEWireStagedSpoolWorkers/binomial (31.59s)
+    --- PASS: TestGroupedGEEWireStagedSpoolWorkers/poisson (28.19s)
+=== RUN   TestGroupedGEEWorkerCrossTypeRejection
+=== RUN   TestGroupedGEEWorkerCrossTypeRejection/grouped-lmm-staged-v1
+=== RUN   TestGroupedGEEWorkerCrossTypeRejection/grouped-glmm-staged-v1
+=== RUN   TestGroupedGEEWorkerCrossTypeRejection/truncate-floor
+--- PASS: TestGroupedGEEWorkerCrossTypeRejection (0.03s)
+    --- PASS: TestGroupedGEEWorkerCrossTypeRejection/grouped-lmm-staged-v1 (0.01s)
+    --- PASS: TestGroupedGEEWorkerCrossTypeRejection/grouped-glmm-staged-v1 (0.01s)
+    --- PASS: TestGroupedGEEWorkerCrossTypeRejection/truncate-floor (0.01s)
+PASS
+ok  	github.com/isglobal-brge/dsVert/dsvert-mpc	426.303s

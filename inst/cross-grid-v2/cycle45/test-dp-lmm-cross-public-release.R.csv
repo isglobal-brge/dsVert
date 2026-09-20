@@ -1,0 +1,6 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-lmm-cross-public-release.R","dp-lmm-cross-public-release","LMM ML discovery and private source projection preserve signed padded owners",115,0,FALSE,FALSE,0,2.207,0.0950000000000002,2.325,115
+"test-dp-lmm-cross-public-release.R","dp-lmm-cross-public-release","every LMM candidate enters the release lattice without a second shift",12,0,FALSE,FALSE,0,0.807000000000002,0.044,0.853999999999999,12
+"test-dp-lmm-cross-public-release.R","dp-lmm-cross-public-release","LMM public artifacts rebuild ML bounds certificate and variance-major ordering",11,0,FALSE,FALSE,0,0.793999999999997,0.0209999999999999,0.817,11
+"test-dp-lmm-cross-public-release.R","dp-lmm-cross-public-release","cold LMM public evidence requires both real signatures and source semantic binding",32,0,FALSE,FALSE,0,0.519000000000005,0.016,0.536999999999999,32
+"test-dp-lmm-cross-public-release.R","dp-lmm-cross-public-release","signed LMM preflight admits all 256 candidates plus the count",7,0,FALSE,FALSE,0,8.29,0.0789999999999997,8.629,7

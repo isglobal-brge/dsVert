@@ -1,0 +1,25 @@
+{
+  "cycle": 45,
+  "observed_utc": "2026-09-20T16:08:54.406936+00:00",
+  "execution_source_commits": {
+    "dsVert": "e25bb191381c0acd38de75980531aae9449eb564",
+    "dsVertClient": "bf737442adbca7ac733518da32c9cb0cd6338870"
+  },
+  "promoted": 4,
+  "promotion_source_commits": {
+    "dsVert": "f3795a2",
+    "dsVertClient": "e748f05"
+  },
+  "cox_public_ready": false,
+  "focused_tests": 37,
+  "focused_assertions": 1079,
+  "nonpasses": 0,
+  "capacity_seconds": 28800,
+  "capacity_bytes": 256000000000,
+  "heavy_running": 10,
+  "heavy_terminal": 2,
+  "heavy_pass": 1,
+  "heavy_fail": 1,
+  "next": "Cox server workload admission and client certificate/publication integration, then signed lifecycle and first fleet jobs",
+  "gee_files_changed": false
+}

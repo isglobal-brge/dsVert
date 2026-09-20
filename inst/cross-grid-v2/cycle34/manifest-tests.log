@@ -1,0 +1,7 @@
+..
+----------------------------------------------------------------------
+Ran 2 tests in 0.151s
+
+OK
+{"real_jobs": 24, "oracle_jobs": 1080, "ready_real_jobs": 2}
+{"real_jobs": 24, "oracle_jobs": 1080, "ready_real_jobs": 0}

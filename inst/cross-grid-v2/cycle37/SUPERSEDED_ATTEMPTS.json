@@ -1,0 +1,10 @@
+{
+  "observed_utc": "2026-09-20T13:34:57.408257+00:00",
+  "terminated": [
+    {
+      "pid": 94306,
+      "command": "/Library/Frameworks/R.framework/Resources/bin/exec/R --no-echo --no-restore --vanilla --file=integrator-evidence/cycle37-20260920/run-tests.R --args integrator-evidence/cycle37-20260920/remote-r2 integrator-evidence/cycle37-20260920"
+    }
+  ],
+  "reason": "Fresh cycle37 proof attempts superseded by corrected test framing and prepare-response decoding. Only these newly launched local proof R processes were stopped. Frozen release jobs untouched."
+}

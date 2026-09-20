@@ -1,0 +1,48 @@
+{
+  "source_commits": {
+    "dsVert": "bc59147a2e94d0dd835bf6cb74ebaea81afa29fe",
+    "dsVertClient": "6ba11a0f1ebc4a4400ce444fc32d81ed54aadb03"
+  },
+  "observed_utc": "2026-09-20T15:15:49.576576+00:00",
+  "family": "lmm",
+  "n": 2000,
+  "K": 2,
+  "epsilon": 4,
+  "oracle_equal": true,
+  "cold": true,
+  "tamper": true,
+  "recovery_exercised": false,
+  "process_exit_code": 0,
+  "gate_exit_code": 1,
+  "capacity": {
+    "ceiling_bytes": 256000000000,
+    "ceiling_seconds": 21600,
+    "measured_serialized_rpc_bytes": 24001151241,
+    "measured_release_seconds": 45958.299,
+    "scope": "fixture-bootstrap-PSI-signing-source-staged-LMM-and-DP-through-first-successful-release-including-retries-before-oracle-and-replay",
+    "wire_scope": "R-v3-serialized-DSI-request-response-objects-including-retries-excluding-IPC-framing",
+    "passed": false,
+    "budget_stop": false
+  },
+  "native_unique_payload_bytes": 8836356126,
+  "max_child_rss_kib_linux": 7689984,
+  "source_files_verified": 2553,
+  "source_mismatches": [],
+  "raw_evidence": "frozen-lmm-k2/",
+  "controller": {
+    "same_start": true,
+    "cwd": "/workspace/dsvert/executor-cycle16-lmm-release-r2",
+    "stdin": "/dev/null",
+    "command": "python3 -u dsVert/inst/cross-grid-v2/cycle16/run-sequence.py "
+  },
+  "sequence_exit": null,
+  "sequence_progress": {
+    "utc": "2026-09-20T01:54:22.320871+00:00",
+    "event": "release_start",
+    "promoted": false,
+    "n": 2000,
+    "owners": 2,
+    "recovery": 0
+  },
+  "scope": "Completed OLD-pair K2 release; stale outer sequence progress is not a running K2 release. No source attribution to cycle42 and no controller mutation."
+}

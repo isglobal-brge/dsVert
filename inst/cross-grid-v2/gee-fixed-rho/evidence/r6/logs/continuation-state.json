@@ -1,0 +1,129 @@
+{
+  "status": "failed_no_remaining_jobs_launched",
+  "promoted": false,
+  "started_unix": 1789895964.4167683,
+  "steps": [
+    {
+      "name": "build-focused",
+      "command": [
+        "python3",
+        "/workspace/dsvert/gee-fixed-rho-r6/dsVert/inst/cross-grid-v2/gee-fixed-rho/build-and-focus.py"
+      ],
+      "started_unix": 1789895964.416782,
+      "pid": 2728252,
+      "stdin": "/dev/null",
+      "exit_code": 0,
+      "finished_unix": 1789896515.0379915
+    },
+    {
+      "name": "transport-regressions",
+      "command": [
+        "Rscript",
+        "--vanilla",
+        "-e",
+        "pkgload::load_all(\"dsVertClient\",quiet=TRUE); r<-testthat::test_local(\"dsVert\",filter=\"^(dp-synopsis-exact-downstream|exact-gc-release-policy|exact-gc-transport)$\",reporter=\"summary\",stop_on_failure=FALSE); s<-as.data.frame(r); write.csv(s[setdiff(names(s),\"result\")],\"logs/transport-regressions.csv\",row.names=FALSE); stopifnot(nrow(s)>0,!anyNA(s[c(\"failed\",\"error\")]),!any(s$failed>0|s$error)); cat(\"GEE_TRANSPORT_REGRESSIONS_PASS\",sum(s$passed),\"assertions\",sum(s$skipped),\"skips\",sum(s$warning),\"warnings\\n\")"
+      ],
+      "started_unix": 1789896524.2322245,
+      "pid": 2771985,
+      "stdin": "/dev/null",
+      "exit_code": 0,
+      "finished_unix": 1789896758.7147226
+    },
+    {
+      "name": "binomial_gee-oracle-n4",
+      "command": [
+        "Rscript",
+        "--vanilla",
+        "/workspace/dsvert/gee-fixed-rho-r6/dsVert/inst/cross-grid-v2/gee-fixed-rho/oracle-commitment.R",
+        "/workspace/dsvert/gee-fixed-rho-r6",
+        "binomial_gee",
+        "/workspace/dsvert/gee-fixed-rho-r6/logs/oracle-commitments/binomial_gee-n4.json",
+        "4"
+      ],
+      "started_unix": 1789896768.664832,
+      "pid": 2799730,
+      "stdin": "/dev/null",
+      "exit_code": 0,
+      "finished_unix": 1789896790.1461177
+    },
+    {
+      "name": "poisson_gee-oracle-n4",
+      "command": [
+        "Rscript",
+        "--vanilla",
+        "/workspace/dsvert/gee-fixed-rho-r6/dsVert/inst/cross-grid-v2/gee-fixed-rho/oracle-commitment.R",
+        "/workspace/dsvert/gee-fixed-rho-r6",
+        "poisson_gee",
+        "/workspace/dsvert/gee-fixed-rho-r6/logs/oracle-commitments/poisson_gee-n4.json",
+        "4"
+      ],
+      "started_unix": 1789896799.7480195,
+      "pid": 2802023,
+      "stdin": "/dev/null",
+      "exit_code": 0,
+      "finished_unix": 1789896822.2143328
+    },
+    {
+      "name": "binomial_gee-oracle-n2000",
+      "command": [
+        "Rscript",
+        "--vanilla",
+        "/workspace/dsvert/gee-fixed-rho-r6/dsVert/inst/cross-grid-v2/gee-fixed-rho/oracle-commitment.R",
+        "/workspace/dsvert/gee-fixed-rho-r6",
+        "binomial_gee",
+        "/workspace/dsvert/gee-fixed-rho-r6/logs/oracle-commitments/binomial_gee-n2000.json"
+      ],
+      "started_unix": 1789896832.140454,
+      "pid": 2804449,
+      "stdin": "/dev/null",
+      "exit_code": 0,
+      "finished_unix": 1789897855.483832
+    },
+    {
+      "name": "poisson_gee-oracle-n2000",
+      "command": [
+        "Rscript",
+        "--vanilla",
+        "/workspace/dsvert/gee-fixed-rho-r6/dsVert/inst/cross-grid-v2/gee-fixed-rho/oracle-commitment.R",
+        "/workspace/dsvert/gee-fixed-rho-r6",
+        "poisson_gee",
+        "/workspace/dsvert/gee-fixed-rho-r6/logs/oracle-commitments/poisson_gee-n2000.json"
+      ],
+      "started_unix": 1789896837.2549942,
+      "pid": 2804721,
+      "stdin": "/dev/null",
+      "exit_code": 0,
+      "finished_unix": 1789897855.4839613
+    },
+    {
+      "name": "binomial_gee-n4",
+      "command": [
+        "python3",
+        "/workspace/dsvert/gee-fixed-rho-r6/dsVert/inst/cross-grid-v2/gee-fixed-rho/run-release.py",
+        "binomial_gee",
+        "2",
+        "--n",
+        "4",
+        "--expected-oracle-sha256",
+        "932f139f647c72939a197bac7283475f86d0bb51115f1347ec6aa33cc239103b"
+      ],
+      "started_unix": 1789896842.417403,
+      "pid": 2805199,
+      "stdin": "/dev/null",
+      "exit_code": 1,
+      "finished_unix": 1789897850.3720846
+    }
+  ],
+  "working_correlation": {
+    "correlation": "independence",
+    "rho": 0
+  },
+  "maximum_concurrent_releases": 1,
+  "updated_unix": 1789897855.4771595,
+  "source_manifest_sha256": "d41a66b168b424e78da3134eb14462e24cb4b5454981ec8c20f18b852500201c",
+  "repositories": {
+    "dsVert": "9b6c1a18de6b1b68a1ef6832991ece1ea680eb9a",
+    "dsVertClient": "6d94d4c9e15b9261a31b4499837d200ea1caea17"
+  },
+  "error": "binomial_gee-n4 failed; remaining gates not launched"
+}

@@ -1,0 +1,2 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-crossgrid-glmm-gaussian-preflight.R","crossgrid-glmm-gaussian-preflight","GLMM-scale Gaussian unavailability retains the certified Laplace fallback",10,0,FALSE,FALSE,0,0.313000000000002,0.0190000000000001,0.416000000000011,10

@@ -1,0 +1,89 @@
+Tracing function "stop" in package "base"
+Tracing function ".dsvert_dp_glm_grid_cross_transcript_stop" in
+package "namespace:dsVertClient"
+Tracing function ".dsvert_dp_cox_cross_public_evidence_set" in
+package "namespace:dsVertClient"
+Tracing function ".dsvert_dp_gaussian_synopsis_certificate_validate"
+in package "namespace:dsVertClient"
+DSLITE_BOOT_INITIAL_START
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":29082} 
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":29242} 
+DSLITE_BOOT_INITIAL_COMPLETE
+DSLITE_RPC_COMPLETE dsvertIdentityPkDS 
+DSLITE_COX_TIME_EVENT_OWNER_PINNED_GARBLER
+DSLITE_BOOT_PINNED_START
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":29466} 
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":29607} 
+DSLITE_BOOT_PINNED_COMPLETE
+DSLITE_ALIGNMENT_START
+DSLITE_RPC_COMPLETE dsvertTransportProbeDS 
+DSLITE_RPC_COMPLETE psiPaddedInitDS 
+DSLITE_RPC_COMPLETE psiPaddedBindDS 
+DSLITE_RPC_COMPLETE psiPaddedConfirmDS 
+DSLITE_RPC_COMPLETE psiPaddedPrepareDS 
+DSLITE_RPC_COMPLETE psiPaddedReferenceExportDS 
+DSLITE_RPC_COMPLETE psiPaddedTargetProcessDS 
+DSLITE_RPC_COMPLETE psiPaddedReferenceDoubleDS 
+DSLITE_RPC_COMPLETE psiPaddedTargetMatchDS 
+DSLITE_RPC_COMPLETE psiPaddedMembershipAcceptDS 
+DSLITE_RPC_COMPLETE psiPaddedANDStartDS 
+DSLITE_RPC_COMPLETE exactGCExchangeDS 
+DSLITE_RPC_COMPLETE psiPaddedANDFinalizeDS 
+DSLITE_RPC_COMPLETE psiPaddedANDAcceptDS 
+DSLITE_RPC_COMPLETE psiPaddedFinalPrepareDS 
+DSLITE_RPC_COMPLETE psiPaddedAttestationDS 
+DSLITE_ALIGNMENT_COMPLETE
+DSLITE_RPC_COMPLETE dsvertDPSynopsisBootstrapDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisBindDS 
+DSLITE_INITIAL_BOOTSTRAP_COMPLETE
+DSLITE_STRUCTURED_SPEC_COMPLETE
+DSLITE_CUSTODIAN_SIGNATURES_COMPLETE
+DSLITE_PUBLIC_ADMISSION_COMPLETE
+DSLITE_PUBLIC_MECHANISM_SELECTION site_a {"mechanism":"discrete-laplace","sensitivity_norm":"l1","sensitivity":972580,"uses_delta":true,"certificate":{"version":"biomedical-capsule-noise-selection-v4","selector":"formal_fixed_work_backend_minimum_simultaneous_95_radius_v2","objective":"simultaneous_95_abs","tie_break":"laplace_unless_fixed_work_gaussian_strictly_improves","coordinate_count":3,"epsilon":8,"allocated_delta":7.88860905221012e-31,"gaussian_eligible":true,"positive_delta_reserved":true,"deployed_backends":"joint-discrete-laplace-v3","gaussian_backend_available":false,"gaussian_unavailable_reason":"formal_fixed_work_gaussian_plan_unavailable","gaussian_calibration_request":{"epsilon":"7.9999999999997726e+00","delta":"7.8886090522098938e-31","l2_sensitivity_steps":"6.4474253054699546e+05","total_coordinate_count":3},"gaussian_calibration_rounding":{"declared_policy_values":"binary64_policy_values","epsilon":"inward_128_machine_epsilon_relative_guard_v1","delta":"inward_128_machine_epsilon_relative_guard_v1","l2_sensitivity":"outward_128_machine_epsilon_relative_guard_v1"},"gaussian_plan":{},"gaussian_plan_sha256":{},"laplace_simultaneous_95_abs":497760,"gaussian_simultaneous_95_abs":{},"deployment_rule":"formal_backend_or_explicit_laplace_fallback","winner":"laplace","utility_winner":"laplace","decision":"fixed_work_gaussian_unavailable_explicit_laplace_fallback","canonical_selector_invoked":true,"selector_certificate_sha256":"139a6dfb269739fa3d92b03ba37de7026d09f18cc849390dc7447fc1f1fc7b79"}} 
+DSLITE_PUBLIC_MECHANISM_SELECTION site_b {"mechanism":"discrete-laplace","sensitivity_norm":"l1","sensitivity":972580,"uses_delta":true,"certificate":{"version":"biomedical-capsule-noise-selection-v4","selector":"formal_fixed_work_backend_minimum_simultaneous_95_radius_v2","objective":"simultaneous_95_abs","tie_break":"laplace_unless_fixed_work_gaussian_strictly_improves","coordinate_count":3,"epsilon":8,"allocated_delta":7.88860905221012e-31,"gaussian_eligible":true,"positive_delta_reserved":true,"deployed_backends":"joint-discrete-laplace-v3","gaussian_backend_available":false,"gaussian_unavailable_reason":"formal_fixed_work_gaussian_plan_unavailable","gaussian_calibration_request":{"epsilon":"7.9999999999997726e+00","delta":"7.8886090522098938e-31","l2_sensitivity_steps":"6.4474253054699546e+05","total_coordinate_count":3},"gaussian_calibration_rounding":{"declared_policy_values":"binary64_policy_values","epsilon":"inward_128_machine_epsilon_relative_guard_v1","delta":"inward_128_machine_epsilon_relative_guard_v1","l2_sensitivity":"outward_128_machine_epsilon_relative_guard_v1"},"gaussian_plan":{},"gaussian_plan_sha256":{},"laplace_simultaneous_95_abs":497760,"gaussian_simultaneous_95_abs":{},"deployment_rule":"formal_backend_or_explicit_laplace_fallback","winner":"laplace","utility_winner":"laplace","decision":"fixed_work_gaussian_unavailable_explicit_laplace_fallback","canonical_selector_invoked":true,"selector_certificate_sha256":"139a6dfb269739fa3d92b03ba37de7026d09f18cc849390dc7447fc1f1fc7b79"}} 
+SYNTHETIC_DSI_FETCH_ERROR dsvertDPSynopsisPublicationDS ! in callr subprocess.
+Caused by error: 
+! [dsvert_phase_not_ready:v1] 
+SYNTHETIC_DSI_FETCH_ERROR dsvertDPSynopsisPublicationDS ! in callr subprocess.
+Caused by error: 
+! [dsvert_phase_not_ready:v1] 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisClaimDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisCompileDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisPrepareDS 
+DSLITE_RPC_COMPLETE exactGCTransportInitDS 
+DSLITE_RPC_COMPLETE exactGCBindPeersDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisSourceTicketDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisSourcePrepareDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisSourceChunkDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisSourceAcceptDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskStartDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskStoreDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskSealDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskReceiveDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisGLMGridCrossDS 
+DSLITE_RPC_COMPLETE exactGCCleanupDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisStartDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisResultDS 
+SYNTHETIC_DSI_FETCH_ERROR dsvertDPSynopsisReleaseDS ! in callr subprocess.
+Caused by error: 
+! [dsvert_phase_not_ready:v1] 
+SYNTHETIC_DSI_FETCH_ERROR dsvertDPSynopsisReleaseDS ! in callr subprocess.
+Caused by error: 
+! [dsvert_phase_not_ready:v1] 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisFinalShareDS 
+DSLITE_RPC_COMPLETE mpcTypedBlobStoreDS 
+DSLITE_RPC_COMPLETE mpcTypedBlobReceiptDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisReleaseDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisPublicationDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisPublishedReplayDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisFinalizeAckDS 
+Tracing function ".dsvert_dp_synopsis_client_replay" in package
+"namespace:dsVertClient"
+Untracing function ".dsvert_dp_synopsis_client_replay" in package
+"namespace:dsVertClient"
+DSLITE_ORACLE_BITWISE_EQUAL_STICKY_TAMPER_REJECTED cox 
+DIRECT_R_COLD_LIFECYCLE_EQUAL_TAMPER_REJECTED
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":51113} 
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":51179} 
+DSLITE_COX_COLD_EXPORTED_API_EQUAL_AUTHENTICATED
+{"family":"cox","n":4,"p":5,"grid":2,"candidates":2,"clusters":1,"slots":4,"owners":2,"epsilon":8,"instance":1,"elapsed":381.874,"successful_call_elapsed":381.746,"uninterrupted_baseline_elapsed":381.746,"recovery":"not_exercised","native_recovery":"not_exercised","end_to_end_release_elapsed":459.721,"end_to_end_serialized_rpc_bytes":57636070,"end_to_end_scope":"fixture-bootstrap-PSI-signing-source-staged-cox-and-DP-through-first-successful-release-including-retries-before-oracle-and-replay","release_serialized_rpc_bytes":48916683,"serialized_rpc_scope":"R-v3-serialized-DSI-request-response-objects-including-retries-excluding-IPC-framing","protocol_payload":{"exact_gc_unique_payload_bytes":14310191,"exact_gc_offered_payload_bytes":14310191,"source_ciphertext_delivered_bytes":540244},"protocol_payload_scope":"public-release-exactGC-and-source-transport-before-replay-no-bootstrap-PSI","expected_oracle_sha256":"36eaf6e07a22643be2f892eaa3148290d0f54808afaab9c717986a8d5c1b73d7","oracle_only":false,"selected_candidate":2,"exact_best":2,"loss_gap":0,"artifact_key":"d6a672d514811336f856ff9a99adbd84a0abf93a4500e4f927309864117c7d27","certificate_sha256":"a6817e3e3ad1c912d34e5339d82af70a640a1ad3adccdd48511b281bcdffd1d3"} 

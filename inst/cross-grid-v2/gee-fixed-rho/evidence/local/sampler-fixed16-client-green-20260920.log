@@ -1,0 +1,19 @@
+Local macOS client regression tests; public fixtures and ephemeral signing keys only.
+No native worker, protected data, DP release, remote job, or capacity claim.
+Working directory: /Users/david/Documents/GitHub/dsvert-gee/dsVertClient
+Loaded current source with pkgload::load_all('.', quiet=TRUE).
+Ran testthat::test_file(..., reporter='summary', stop_on_failure=TRUE) for each file below.
+Counts are sums from as.data.frame(testthat results); command exited 0.
+Source SHA-256 after the run:
+cb3654b2a27a46507a775dbed4ab65727024b606561ca79d4e370b5c9df21905  R/dp_synopsis_vector_runner.R
+e096248959dc5978b5b016b420f99a2b06a6f92add26183fe3d808b2ce251e68  tests/testthat/test-dp-gee-staged-transport.R
+b3aed042df490ca2d11250319dfa408f218e1081652becb45c4455af0f274653  tests/testthat/test-dp-synopsis-public-vector-adapter.R
+
+dp-gee-staged-transport: ....................................................
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+test-dp-gee-staged-transport.R: 52 passed assertions; 0 failures; 0 errors
+dp-synopsis-public-vector-adapter: ...........................................................................
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+test-dp-synopsis-public-vector-adapter.R: 75 passed assertions; 0 failures; 0 errors

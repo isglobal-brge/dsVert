@@ -686,7 +686,7 @@ func TestFormalCoxBlockwiseDPPlanRejectsSamplerChunksThatSplitUpdates(t *testing
 	}
 }
 
-func TestFormalCoxPhase1RemainsAbsentFromGenericCompilerWorkerCLIAndSurface(t *testing.T) {
+func TestFormalCoxPhase1RejectsGenericEntryPointsAndKeepsReleasedSurfaceClosed(t *testing.T) {
 	policy := formalCoxTestPolicy(t, 4)
 	session := formalCoxTestSession(t, policy)
 	if err := session.validate(); err != nil {
@@ -721,23 +721,43 @@ func TestFormalCoxPhase1RemainsAbsentFromGenericCompilerWorkerCLIAndSurface(t *t
 			formalCoxCommands = append(formalCoxCommands, line)
 		}
 	}
-	wantControlCommands := []string{
+	wantCommands := []string{
+		`case "formal-cox-public-result":`,
 		`case "formal-cox-control-source":`,
 		`case "formal-cox-control-import":`,
 		`case "formal-cox-control-delivery":`,
+		`case "formal-cox-source-produce":`,
+		`case "formal-cox-source-deliver":`,
+		`case "formal-cox-source-recipient-key":`,
+		`case "formal-cox-source-import":`,
+		`case "formal-cox-worker-provision":`,
+		`case "formal-cox-worker-host":`,
+		`case "formal-cox-worker-control":`,
 	}
 	if strings.Join(formalCoxCommands, "\n") !=
-		strings.Join(wantControlCommands, "\n") {
-		t.Fatalf("CLI formal Cox commands = %q; want private control relay only",
+		strings.Join(wantCommands, "\n") {
+		t.Fatalf("CLI formal Cox commands = %q; want the released purpose-bound lifecycle and public result commands",
 			formalCoxCommands)
 	}
 	namespace, err := os.ReadFile("../../NAMESPACE")
 	if err != nil {
 		t.Fatal(err)
 	}
-	namespaceText := string(namespace)
-	if strings.Contains(namespaceText, "formalCox") ||
-		strings.Contains(namespaceText, "formal_cox") {
-		t.Fatal("R formal Cox surface must remain absent until the full lifecycle exists")
+	var formalCoxExports []string
+	for _, line := range strings.Split(string(namespace), "\n") {
+		if strings.Contains(strings.ToLower(line), "formalcox") ||
+			strings.Contains(strings.ToLower(line), "formal_cox") {
+			formalCoxExports = append(formalCoxExports, strings.TrimSpace(line))
+		}
+	}
+	wantExports := []string{
+		"export(dsvertFormalCoxFreshSourceDS)",
+		"export(dsvertFormalCoxWorkerControlDS)",
+		"export(dsvertFormalCoxPublicResultDS)",
+		"export(dsvertFormalCoxDiscretePublicResultDS)",
+	}
+	if strings.Join(formalCoxExports, "\n") != strings.Join(wantExports, "\n") {
+		t.Fatalf("R formal Cox exports = %q; want the released lifecycle and public result endpoints",
+			formalCoxExports)
 	}
 }

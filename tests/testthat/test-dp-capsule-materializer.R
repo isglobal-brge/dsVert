@@ -1271,7 +1271,7 @@ test_that("Cox partial-likelihood grid emits bounded Breslow losses", {
 
 test_that("negative-binomial grid emits only bounded candidate losses", {
   nb2 <- list(negative_binomial = list(
-    version = "negative_binomial_grid_v1", dataset = "protected",
+    version = "negative_binomial_grid_v2", dataset = "protected",
     outcome = "x", predictors = "entry", intercept = TRUE,
     max_outcome = 10L, beta_grid = list(c(0, 0), c(0, 1)),
     theta_grid = c(0.5, 2)))
@@ -1287,7 +1287,7 @@ test_that("negative-binomial grid emits only bounded candidate losses", {
     fixture$policy, fixture$manifest, fixture$resolved)
 
   expect_identical(artifact$version,
-                   "bounded-negative-binomial-likelihood-grid-v1")
+                   "bounded-negative-binomial-likelihood-grid-v2")
   expect_identical(artifact$design_terms, c("(Intercept)", "entry"))
   expect_identical(as.numeric(artifact$coordinate_count), 4)
   expect_length(artifact$candidate_loss_bounds, 4L)
@@ -1298,9 +1298,90 @@ test_that("negative-binomial grid emits only bounded candidate losses", {
   expect_identical(artifact$cross_owner_state, "reserved_not_materialized")
 })
 
+test_that("negative-binomial grid caps use the corrected dnbinom loss", {
+  nb2 <- list(negative_binomial = list(
+    version = "negative_binomial_grid_v2", dataset = "protected",
+    outcome = "x", predictors = "entry", intercept = TRUE,
+    max_outcome = 10L, beta_grid = list(c(0, 0), c(0, 1)),
+    theta_grid = c(0.5, 2)))
+  for (adjacency in c("add_remove_patient", "replace_one_fixed_cohort")) {
+    fixture <- .materializer_test_fixture(gaussian_specs = nb2,
+                                           adjacency = adjacency)
+    artifact <- fixture$manifest$workload$families$gaussian_models$
+      artifacts$negative_binomial
+    expected <- unlist(lapply(artifact$theta_grid, function(theta) {
+      vapply(artifact$beta_grid, function(beta) {
+        max(outer(0:10, c(-1, 1) * sum(abs(beta)), function(y, eta) {
+          -stats::dnbinom(y, size = theta, mu = exp(eta), log = TRUE)
+        }))
+      }, numeric(1L))
+    }), use.names = FALSE)
+    raw <- c(1624, 2713, 2407, 4240)
+    multiplier <- if (adjacency == "add_remove_patient") 1 else 2
+    expect_equal(unlist(artifact$candidate_loss_bounds), expected,
+                 tolerance = 1e-12)
+    expect_equal(ceiling(expected * 256), raw)
+    expect_equal(unlist(artifact$statistic_maximum), 5 * raw)
+    expect_equal(artifact$source_raw_l1_sensitivity, multiplier * sum(raw))
+    expect_equal(artifact$source_raw_l2_sensitivity,
+                 multiplier * sqrt(sum(raw^2)))
+    expect_equal(artifact$natural_l1_sensitivity, multiplier * sum(raw) / 256)
+    expect_equal(artifact$natural_l2_sensitivity,
+                 multiplier * sqrt(sum(raw^2)) / 256)
+    # Interior eta, every admitted count, and either lattice precision
+    # must remain below the signed per-row caps after rounding.
+    for (j in seq_along(artifact$theta_grid)) {
+      for (k in seq_along(artifact$beta_grid)) {
+        A <- sum(abs(artifact$beta_grid[[k]]))
+        rows <- expand.grid(y = 0:10, eta = seq(-A, A, length.out = 21))
+        loss <- with(rows, -stats::dnbinom(
+          y, size = artifact$theta_grid[[j]], mu = exp(eta), log = TRUE))
+        bound <- expected[[(j - 1L) * 2L + k]]
+        expect_lte(max(loss), bound + 1e-12)
+        for (bits in c(8L, 18L)) {
+          expect_lte(max(round(loss * 2^bits)), ceiling(bound * 2^bits))
+        }
+      }
+    }
+  }
+})
+
+test_that("negative-binomial v1 and mixed semantics fail before reading rows", {
+  spec <- list(version = "negative_binomial_grid_v2", dataset = "protected",
+    outcome = "x", predictors = "entry", intercept = TRUE,
+    max_outcome = 10L, beta_grid = lapply(0:6, function(x) c(0, x)),
+    theta_grid = 2)
+  fixture <- .materializer_test_fixture(gaussian_specs = list(nb = spec))
+  identity_for <- function(workload) .dsvert_joint_dp_capsule_identity(
+    fixture$policy, fixture$logical_snapshot, fixture$manifest$capsule_schema,
+    fixture$manifest$admission, fixture$manifest$bounds, workload)$capsule_id
+  current_id <- fixture$manifest$capsule_identity$capsule_id
+  expect_identical(identity_for(fixture$manifest$workload), current_id)
+  replay <- .materializer_test_fixture(gaussian_specs = list(nb = spec))
+  expect_identical(replay$manifest$capsule_identity$capsule_id, current_id)
+  old <- spec
+  old$version <- "negative_binomial_grid_v1"
+  for (candidate in list(old, old[c("version", "dataset", "outcome",
+                                    "predictors", "intercept")])) {
+    expect_error(.dsvert_dp_capsule_gaussian_spec(
+      fixture$policy, "nb", list(nb = candidate)), "v1 is sealed and defective")
+  }
+  for (field in c("version", "spec_version", "coordinate_order",
+                   "contribution_domain", "adjacency_sensitivity_basis",
+                   "estimation_scope")) {
+    old_manifest <- fixture$manifest
+    artifact <- old_manifest$workload$families$gaussian_models$artifacts$nb
+    artifact[[field]] <- sub("v2$", "v1", artifact[[field]])
+    old_manifest$workload$families$gaussian_models$artifacts$nb <- artifact
+    expect_false(identical(identity_for(old_manifest$workload), current_id))
+    expect_error(.dsvert_dp_capsule_materialize_local(
+      fixture$policy, old_manifest, NULL), "grid semantics are invalid")
+  }
+})
+
 test_that("negative-binomial grid honours its signed sensitivity", {
   nb2 <- list(negative_binomial = list(
-    version = "negative_binomial_grid_v1", dataset = "protected",
+    version = "negative_binomial_grid_v2", dataset = "protected",
     outcome = "x", predictors = "entry", intercept = TRUE,
     max_outcome = 10L, beta_grid = list(c(0, 0), c(0, 1)),
     theta_grid = c(0.5, 2)))
@@ -2341,4 +2422,31 @@ test_that("finite binomial and Poisson grid losses are bounded and exact", {
   expect_error(.dsvert_dp_capsule_quantized_glm_grid_losses(
     design, c(0, 1, 2, 9), "poisson", beta_grid, 8L, 8L),
     "finite GLM likelihood-grid")
+})
+
+test_that("cross-grid sensitivities agree with the same-owner workload builder", {
+  for (family in c("binomial", "poisson")) {
+    for (adjacency in c("add_remove_patient", "replace_one_fixed_cohort")) {
+      spec <- list(
+        version = paste0(family, "_grid_v1"), dataset = "protected",
+        outcome = "x", predictors = c("entry", "time"), intercept = TRUE,
+        beta_grid = list(c(0, 0, 0), c(0, 1, -1), c(8, 8, 0)))
+      maximum <- if (family == "binomial") 1 else 10
+      if (family == "poisson") spec$max_outcome <- maximum
+      fixture <- .materializer_test_fixture(
+        adjacency = adjacency, binary_x = family == "binomial",
+        gaussian_specs = list(grid = spec))
+      artifact <- fixture$manifest$workload$families$gaussian_models$artifacts$grid
+      cross <- .dsvert_dp_glm_grid_cross_sensitivity(
+        artifact$beta_grid, family, maximum, artifact$numeric_grid_bits,
+        artifact$observation_capacity, adjacency)
+      expect_equal(vapply(cross$candidate_bounds, `[[`, numeric(1L), "loss_bound"),
+                   unlist(artifact$candidate_loss_bounds))
+      expect_equal(cross$maximum_coordinates, artifact$statistic_maximum)
+      expect_equal(cross$raw_l1_sensitivity, artifact$source_raw_l1_sensitivity)
+      expect_equal(cross$raw_l2_sensitivity, artifact$source_raw_l2_sensitivity)
+      expect_equal(cross$natural_l1_sensitivity, artifact$natural_l1_sensitivity)
+      expect_equal(cross$natural_l2_sensitivity, artifact$natural_l2_sensitivity)
+    }
+  }
 })

@@ -1,0 +1,11 @@
+DSLITE_ALIGNMENT_COMPLETE
+DSLITE_CUSTODIAN_SIGNATURES_COMPLETE
+DSLITE_PUBLIC_ADMISSION_COMPLETE
+Tracing function ".dsvert_dp_synopsis_client_replay" in package
+"namespace:dsVertClient"
+Untracing function ".dsvert_dp_synopsis_client_replay" in package
+"namespace:dsVertClient"
+DSLITE_ORACLE_BITWISE_EQUAL
+{"family":"binomial","n":4,"epsilon":4,"instance":1,"elapsed":342.114,"oracle_only":false,"selected_candidate":1,"exact_best":1,"loss_gap":0,"artifact_key":"1693e4fef0b4616450ad085d03550c752d67b521b7c0c1910bba72b9c0740225","certificate_sha256":"612935a64471e8d86b8eda6d59550c8795e6f3a85fad8a1adfb8290ed0fa77a0"} 
+Error: unexpected symbol in "rs before"
+Execution halted

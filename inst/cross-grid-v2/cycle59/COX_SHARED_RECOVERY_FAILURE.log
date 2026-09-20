@@ -1,0 +1,2725 @@
+Tracing function "stop" in package "base"
+Tracing function ".dsvert_dp_glm_grid_cross_transcript_stop" in
+package "namespace:dsVertClient"
+Tracing function ".dsvert_dp_cox_cross_public_evidence_set" in
+package "namespace:dsVertClient"
+Tracing function ".dsvert_dp_gaussian_synopsis_certificate_validate"
+in package "namespace:dsVertClient"
+DSLITE_BOOT_INITIAL_START
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":428548} 
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":428577} 
+DSLITE_BOOT_INITIAL_COMPLETE
+DSLITE_RPC_COMPLETE dsvertIdentityPkDS 
+DSLITE_COX_TIME_EVENT_OWNER_PINNED_GARBLER
+DSLITE_BOOT_PINNED_START
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":428667} 
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":428674} 
+DSLITE_BOOT_PINNED_COMPLETE
+DSLITE_ALIGNMENT_START
+DSLITE_RPC_COMPLETE dsvertTransportProbeDS 
+DSLITE_RPC_COMPLETE psiPaddedInitDS 
+DSLITE_RPC_COMPLETE psiPaddedBindDS 
+DSLITE_RPC_COMPLETE psiPaddedConfirmDS 
+DSLITE_RPC_COMPLETE psiPaddedPrepareDS 
+DSLITE_RPC_COMPLETE psiPaddedReferenceExportDS 
+DSLITE_RPC_COMPLETE psiPaddedTargetProcessDS 
+DSLITE_RPC_COMPLETE psiPaddedReferenceDoubleDS 
+DSLITE_RPC_COMPLETE psiPaddedTargetMatchDS 
+DSLITE_RPC_COMPLETE psiPaddedMembershipAcceptDS 
+DSLITE_RPC_COMPLETE psiPaddedANDStartDS 
+DSLITE_RPC_COMPLETE exactGCExchangeDS 
+DSLITE_RPC_COMPLETE psiPaddedANDFinalizeDS 
+DSLITE_RPC_COMPLETE psiPaddedANDAcceptDS 
+DSLITE_RPC_COMPLETE psiPaddedFinalPrepareDS 
+DSLITE_RPC_COMPLETE psiPaddedAttestationDS 
+DSLITE_ALIGNMENT_COMPLETE
+DSLITE_RPC_COMPLETE dsvertDPSynopsisBootstrapDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisBindDS 
+DSLITE_INITIAL_BOOTSTRAP_COMPLETE
+DSLITE_STRUCTURED_SPEC_COMPLETE
+DSLITE_CUSTODIAN_SIGNATURES_COMPLETE
+DSLITE_PUBLIC_ADMISSION_COMPLETE
+DSLITE_PUBLIC_MECHANISM_SELECTION site_a {"mechanism":"discrete-laplace","sensitivity_norm":"l1","sensitivity":332213946,"uses_delta":true,"certificate":{"version":"biomedical-capsule-noise-selection-v4","selector":"formal_fixed_work_backend_minimum_simultaneous_95_radius_v2","objective":"simultaneous_95_abs","tie_break":"laplace_unless_fixed_work_gaussian_strictly_improves","coordinate_count":3,"epsilon":8,"allocated_delta":7.88860905221012e-31,"gaussian_eligible":true,"positive_delta_reserved":true,"deployed_backends":"joint-discrete-laplace-v3","gaussian_backend_available":false,"gaussian_unavailable_reason":"formal_fixed_work_gaussian_plan_unavailable","gaussian_calibration_request":{"epsilon":"7.9999999999997726e+00","delta":"7.8886090522098938e-31","l2_sensitivity_steps":"2.3486511655005422e+08","total_coordinate_count":3},"gaussian_calibration_rounding":{"declared_policy_values":"binary64_policy_values","epsilon":"inward_128_machine_epsilon_relative_guard_v1","delta":"inward_128_machine_epsilon_relative_guard_v1","l2_sensitivity":"outward_128_machine_epsilon_relative_guard_v1"},"gaussian_plan":{},"gaussian_plan_sha256":{},"laplace_simultaneous_95_abs":170024795,"gaussian_simultaneous_95_abs":{},"deployment_rule":"formal_backend_or_explicit_laplace_fallback","winner":"laplace","utility_winner":"laplace","decision":"fixed_work_gaussian_unavailable_explicit_laplace_fallback","canonical_selector_invoked":true,"selector_certificate_sha256":"b51ff4fa407a4f607197ac26cf1b38df803be13cc7ea81dbb5d79a8b0e01cbd1"}} 
+DSLITE_PUBLIC_MECHANISM_SELECTION site_b {"mechanism":"discrete-laplace","sensitivity_norm":"l1","sensitivity":332213946,"uses_delta":true,"certificate":{"version":"biomedical-capsule-noise-selection-v4","selector":"formal_fixed_work_backend_minimum_simultaneous_95_radius_v2","objective":"simultaneous_95_abs","tie_break":"laplace_unless_fixed_work_gaussian_strictly_improves","coordinate_count":3,"epsilon":8,"allocated_delta":7.88860905221012e-31,"gaussian_eligible":true,"positive_delta_reserved":true,"deployed_backends":"joint-discrete-laplace-v3","gaussian_backend_available":false,"gaussian_unavailable_reason":"formal_fixed_work_gaussian_plan_unavailable","gaussian_calibration_request":{"epsilon":"7.9999999999997726e+00","delta":"7.8886090522098938e-31","l2_sensitivity_steps":"2.3486511655005422e+08","total_coordinate_count":3},"gaussian_calibration_rounding":{"declared_policy_values":"binary64_policy_values","epsilon":"inward_128_machine_epsilon_relative_guard_v1","delta":"inward_128_machine_epsilon_relative_guard_v1","l2_sensitivity":"outward_128_machine_epsilon_relative_guard_v1"},"gaussian_plan":{},"gaussian_plan_sha256":{},"laplace_simultaneous_95_abs":170024795,"gaussian_simultaneous_95_abs":{},"deployment_rule":"formal_backend_or_explicit_laplace_fallback","winner":"laplace","utility_winner":"laplace","decision":"fixed_work_gaussian_unavailable_explicit_laplace_fallback","canonical_selector_invoked":true,"selector_certificate_sha256":"b51ff4fa407a4f607197ac26cf1b38df803be13cc7ea81dbb5d79a8b0e01cbd1"}} 
+Tracing function ".dsvert_fanout_cycle" in package
+"namespace:dsVertClient"
+DSLITE_COX_RECOVERY_BEGIN prepared 
+SYNTHETIC_DSI_FETCH_ERROR dsvertDPSynopsisPublicationDS ! in callr subprocess.
+Caused by error: 
+! [dsvert_phase_not_ready:v1] 
+SYNTHETIC_DSI_FETCH_ERROR dsvertDPSynopsisPublicationDS ! in callr subprocess.
+Caused by error: 
+! [dsvert_phase_not_ready:v1] 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisClaimDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisCompileDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisPrepareDS 
+DSLITE_RPC_COMPLETE exactGCTransportInitDS 
+DSLITE_RPC_COMPLETE exactGCBindPeersDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisSourceTicketDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisSourcePrepareDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisSourceChunkDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisSourceAcceptDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskStartDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskStoreDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskSealDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskReceiveDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisGLMGridCrossDS 
+SYNTHETIC_DSI_FETCH_ERROR dsvertDPSynopsisGLMGridCrossDS ! in callr subprocess.
+Caused by error: 
+! [dsvert_dp_public_failure:v1] Protected capsule operation failed. 
+SYNTHETIC_DSI_FETCH_ERROR dsvertDPSynopsisGLMGridCrossDS ! in callr subprocess.
+Caused by error: 
+! [dsvert_dp_public_failure:v1] Protected capsule operation failed. 
+DSLITE_RPC_COMPLETE exactGCCleanupDS 
+DSLITE_COX_RECOVERY_BOUNDARY prepared OBSERVED
+DSLITE_COX_RECOVERY_BEGIN bilateral_prepare 
+SYNTHETIC_DSI_FETCH_ERROR dsvertDPSynopsisPublicationDS ! in callr subprocess.
+Caused by error: 
+! [dsvert_phase_not_ready:v1] 
+SYNTHETIC_DSI_FETCH_ERROR dsvertDPSynopsisPublicationDS ! in callr subprocess.
+Caused by error: 
+! [dsvert_phase_not_ready:v1] 
+DSLITE_COX_NATIVE_RECOVERY_STATE bilateral_prepare ABORTED ABORTED 
+DSLITE_COX_NATIVE_RECOVERY_STATE bilateral_prepare ABORTED RUNNING 
+DSLITE_COX_NATIVE_RECOVERY_STATE bilateral_prepare RUNNING RUNNING 
+DSLITE_COX_NATIVE_RECOVERY_STATE bilateral_prepare RUNNING PREPARE 
+DSLITE_COX_NATIVE_RECOVERY_STATE bilateral_prepare PREPARE PREPARE 
+DSLITE_RPC_COMPLETE exactGCAbortDS 
+DSLITE_COX_RECOVERY_BOUNDARY bilateral_prepare OBSERVED
+DSLITE_COX_RECOVERY_BEGIN unilateral_commit 
+SYNTHETIC_DSI_FETCH_ERROR dsvertDPSynopsisPublicationDS ! in callr subprocess.
+Caused by error: 
+! [dsvert_phase_not_ready:v1] 
+SYNTHETIC_DSI_FETCH_ERROR dsvertDPSynopsisPublicationDS ! in callr subprocess.
+Caused by error: 
+! [dsvert_phase_not_ready:v1] 
+SYNTHETIC_DSI_FETCH_ERROR dsvertDPSynopsisAlignmentMaskStartDS ! in callr subprocess.
+Caused by error: 
+! [dsvert_dp_public_failure:v1] Protected capsule operation failed. 
+SYNTHETIC_DSI_FETCH_ERROR dsvertDPSynopsisAlignmentMaskStartDS ! in callr subprocess.
+Caused by error: 
+! [dsvert_dp_public_failure:v1] Protected capsule operation failed. 
+DSLITE_COX_UNEXPECTED_RECOVERY_RESULT unilateral_commit [dsvert_dp_public_failure:v1] Protected capsule operation failed. 
+$peer
+[1] "site_b"
+
+$function_name
+[1] "exactGCCleanupDS"
+
+[[1]]
+[[1]]$peer
+[1] "site_a"
+
+[[1]]$function_name
+[1] "dsvertDPSynopsisPublicationDS"
+
+[[1]]$message
+[1] "! in callr subprocess.\nCaused by error: \n! [dsvert_phase_not_ready:v1]"
+
+
+[[2]]
+[[2]]$peer
+[1] "site_b"
+
+[[2]]$function_name
+[1] "dsvertDPSynopsisPublicationDS"
+
+[[2]]$message
+[1] "! in callr subprocess.\nCaused by error: \n! [dsvert_phase_not_ready:v1]"
+
+
+[[3]]
+[[3]]$peer
+[1] "site_a"
+
+[[3]]$function_name
+[1] "dsvertDPSynopsisGLMGridCrossDS"
+
+[[3]]$message
+[1] "! in callr subprocess.\nCaused by error: \n! [dsvert_dp_public_failure:v1] Protected capsule operation failed."
+
+
+[[4]]
+[[4]]$peer
+[1] "site_b"
+
+[[4]]$function_name
+[1] "dsvertDPSynopsisGLMGridCrossDS"
+
+[[4]]$message
+[1] "! in callr subprocess.\nCaused by error: \n! [dsvert_dp_public_failure:v1] Protected capsule operation failed."
+
+
+[[5]]
+[[5]]$peer
+[1] "site_a"
+
+[[5]]$function_name
+[1] "dsvertDPSynopsisPublicationDS"
+
+[[5]]$message
+[1] "! in callr subprocess.\nCaused by error: \n! [dsvert_phase_not_ready:v1]"
+
+
+[[6]]
+[[6]]$peer
+[1] "site_b"
+
+[[6]]$function_name
+[1] "dsvertDPSynopsisPublicationDS"
+
+[[6]]$message
+[1] "! in callr subprocess.\nCaused by error: \n! [dsvert_phase_not_ready:v1]"
+
+
+[[7]]
+[[7]]$peer
+[1] "site_a"
+
+[[7]]$function_name
+[1] "dsvertDPSynopsisPublicationDS"
+
+[[7]]$message
+[1] "! in callr subprocess.\nCaused by error: \n! [dsvert_phase_not_ready:v1]"
+
+
+[[8]]
+[[8]]$peer
+[1] "site_b"
+
+[[8]]$function_name
+[1] "dsvertDPSynopsisPublicationDS"
+
+[[8]]$message
+[1] "! in callr subprocess.\nCaused by error: \n! [dsvert_phase_not_ready:v1]"
+
+
+[[9]]
+[[9]]$peer
+[1] "site_a"
+
+[[9]]$function_name
+[1] "dsvertDPSynopsisAlignmentMaskStartDS"
+
+[[9]]$message
+[1] "! in callr subprocess.\nCaused by error: \n! [dsvert_dp_public_failure:v1] Protected capsule operation failed."
+
+
+[[10]]
+[[10]]$peer
+[1] "site_b"
+
+[[10]]$function_name
+[1] "dsvertDPSynopsisAlignmentMaskStartDS"
+
+[[10]]$message
+[1] "! in callr subprocess.\nCaused by error: \n! [dsvert_dp_public_failure:v1] Protected capsule operation failed."
+
+
+$client_failure_history
+$client_failure_history[[1]]
+$client_failure_history[[1]]$message
+[1] "DataSHIELD transport failed during 'staged LMM prepare'; partial or invalid site results were rejected."
+
+$client_failure_history[[1]]$functions
+ [1] "source"                         "withVisible"                   
+ [3] "eval"                           "eval"                          
+ [5] "run"                            "tryCatch"                      
+ [7] "tryCatchList"                   "tryCatchOne"                   
+ [9] "doTryCatch"                     "invoke"                        
+[11] "<call>"                         "tryCatch"                      
+[13] "tryCatchList"                   "tryCatchOne"                   
+[15] "doTryCatch"                     ".dsvert_dp_cox_grid_cross_impl"
+[17] "tryCatch"                       "tryCatchList"                  
+[19] "tryCatchOne"                    "<call>"                        
+[21] ".doTrace"                       "eval.parent"                   
+[23] "eval"                           "eval"                          
+
+
+$client_failure_history[[2]]
+$client_failure_history[[2]]$message
+[1] "[dsvert_dp_public_failure:v1] Protected capsule operation failed."
+
+$client_failure_history[[2]]$functions
+ [1] "source"       "withVisible"  "eval"         "eval"         "run"         
+ [6] "tryCatch"     "tryCatchList" "tryCatchOne"  "doTryCatch"   "invoke"      
+[11] "<call>"       "tryCatch"     "tryCatchList" "tryCatchOne"  "<call>"      
+[16] ".doTrace"     "eval.parent"  "eval"         "eval"        
+
+
+$client_failure_history[[3]]
+$client_failure_history[[3]]$message
+[1] "Synthetic interruption at authenticated native staged boundary"
+
+$client_failure_history[[3]]$functions
+ [1] "source"                         "withVisible"                   
+ [3] "eval"                           "eval"                          
+ [5] "run"                            "tryCatch"                      
+ [7] "tryCatchList"                   "tryCatchOne"                   
+ [9] "doTryCatch"                     "invoke"                        
+[11] "<call>"                         "tryCatch"                      
+[13] "tryCatchList"                   "tryCatchOne"                   
+[15] "doTryCatch"                     ".dsvert_dp_cox_grid_cross_impl"
+[17] "tryCatch"                       "tryCatchList"                  
+[19] "tryCatchOne"                    "<call>"                        
+[21] ".doTrace"                       "eval.parent"                   
+[23] "eval"                           "eval"                          
+
+
+$client_failure_history[[4]]
+$client_failure_history[[4]]$message
+[1] "[dsvert_dp_public_failure:v1] Protected capsule operation failed."
+
+$client_failure_history[[4]]$functions
+ [1] "source"       "withVisible"  "eval"         "eval"         "run"         
+ [6] "tryCatch"     "tryCatchList" "tryCatchOne"  "doTryCatch"   "invoke"      
+[11] "<call>"       "tryCatch"     "tryCatchList" "tryCatchOne"  "<call>"      
+[16] ".doTrace"     "eval.parent"  "eval"         "eval"        
+
+
+$client_failure_history[[5]]
+$client_failure_history[[5]]$message
+[1] "DataSHIELD transport failed during 'private alignment-mask start'; partial or invalid site results were rejected."
+
+$client_failure_history[[5]]$functions
+ [1] "source"                         "withVisible"                   
+ [3] "eval"                           "eval"                          
+ [5] "run"                            "tryCatch"                      
+ [7] "tryCatchList"                   "tryCatchOne"                   
+ [9] "doTryCatch"                     "invoke"                        
+[11] "<call>"                         "tryCatch"                      
+[13] "tryCatchList"                   "tryCatchOne"                   
+[15] "doTryCatch"                     ".dsvert_dp_cox_grid_cross_impl"
+[17] "tryCatch"                       "tryCatchList"                  
+[19] "tryCatchOne"                    "<call>"                        
+[21] ".doTrace"                       "eval.parent"                   
+[23] "eval"                           "eval"                          
+
+
+$client_failure_history[[6]]
+$client_failure_history[[6]]$message
+[1] "[dsvert_dp_public_failure:v1] Protected capsule operation failed."
+
+$client_failure_history[[6]]$functions
+ [1] "source"       "withVisible"  "eval"         "eval"         "run"         
+ [6] "tryCatch"     "tryCatchList" "tryCatchOne"  "doTryCatch"   "invoke"      
+[11] "<call>"       "tryCatch"     "tryCatchList" "tryCatchOne"  "<call>"      
+[16] ".doTrace"     "eval.parent"  "eval"         "eval"        
+
+
+
+$client_stop_history
+$client_stop_history[[1]]
+ [1] "source"       "withVisible"  "eval"         "eval"         "run"         
+ [6] "tryCatch"     "tryCatchList" "tryCatchOne"  "doTryCatch"   "invoke"      
+[11] "<call>"       "tryCatch"     "tryCatchList" "tryCatchOne"  "<call>"      
+[16] "stop"         ".doTrace"     "eval.parent"  "eval"         "eval"        
+
+$client_stop_history[[2]]
+ [1] "source"                                   
+ [2] "withVisible"                              
+ [3] "eval"                                     
+ [4] "eval"                                     
+ [5] "run"                                      
+ [6] "tryCatch"                                 
+ [7] "tryCatchList"                             
+ [8] "tryCatchOne"                              
+ [9] "doTryCatch"                               
+[10] "invoke"                                   
+[11] "<call>"                                   
+[12] "tryCatch"                                 
+[13] "tryCatchList"                             
+[14] "tryCatchOne"                              
+[15] "doTryCatch"                               
+[16] ".dsvert_dp_cox_grid_cross_impl"           
+[17] "tryCatch"                                 
+[18] "tryCatchList"                             
+[19] "tryCatchOne"                              
+[20] "doTryCatch"                               
+[21] ".release"                                 
+[22] ".dsvert_dp_synopsis_vector_run"           
+[23] ".dsvert_dp_synopsis_publication_resume_v1"
+[24] ".dsvert_vector_try_phase"                 
+[25] "tryCatch"                                 
+[26] "tryCatchList"                             
+[27] "tryCatchOne"                              
+[28] "doTryCatch"                               
+[29] "force"                                    
+[30] ".dsvert_fanout_by_site"                   
+[31] ".dsvert_aggregate_strict"                 
+[32] ".dsvert_retry_idempotent"                 
+[33] "attempt"                                  
+[34] "tryCatch"                                 
+[35] "tryCatchList"                             
+[36] "tryCatchOne"                              
+[37] "doTryCatch"                               
+[38] "tryCatchList"                             
+[39] "tryCatchOne"                              
+[40] "doTryCatch"                               
+[41] ".dsvert_transport_aggregate"              
+[42] ".dsvert_dsi_direct_aggregate"             
+[43] "tryCatch"                                 
+[44] "tryCatchList"                             
+[45] "tryCatchOne"                              
+[46] "doTryCatch"                               
+[47] "tryCatchList"                             
+[48] "tryCatchOne"                              
+[49] "doTryCatch"                               
+[50] "<call>"                                   
+[51] "<call>"                                   
+[52] "tryCatch"                                 
+[53] "tryCatchList"                             
+[54] "tryCatchOne"                              
+[55] "doTryCatch"                               
+[56] "structured_fetch"                         
+[57] "stop"                                     
+[58] ".doTrace"                                 
+[59] "eval.parent"                              
+[60] "eval"                                     
+[61] "eval"                                     
+
+$client_stop_history[[3]]
+ [1] "source"                                   
+ [2] "withVisible"                              
+ [3] "eval"                                     
+ [4] "eval"                                     
+ [5] "run"                                      
+ [6] "tryCatch"                                 
+ [7] "tryCatchList"                             
+ [8] "tryCatchOne"                              
+ [9] "doTryCatch"                               
+[10] "invoke"                                   
+[11] "<call>"                                   
+[12] "tryCatch"                                 
+[13] "tryCatchList"                             
+[14] "tryCatchOne"                              
+[15] "doTryCatch"                               
+[16] ".dsvert_dp_cox_grid_cross_impl"           
+[17] "tryCatch"                                 
+[18] "tryCatchList"                             
+[19] "tryCatchOne"                              
+[20] "doTryCatch"                               
+[21] ".release"                                 
+[22] ".dsvert_dp_synopsis_vector_run"           
+[23] ".dsvert_dp_synopsis_publication_resume_v1"
+[24] ".dsvert_vector_try_phase"                 
+[25] "tryCatch"                                 
+[26] "tryCatchList"                             
+[27] "tryCatchOne"                              
+[28] "doTryCatch"                               
+[29] "force"                                    
+[30] ".dsvert_fanout_by_site"                   
+[31] ".dsvert_aggregate_strict"                 
+[32] ".dsvert_retry_idempotent"                 
+[33] "attempt"                                  
+[34] "tryCatch"                                 
+[35] "tryCatchList"                             
+[36] "tryCatchOne"                              
+[37] "doTryCatch"                               
+[38] "tryCatchList"                             
+[39] "tryCatchOne"                              
+[40] "doTryCatch"                               
+[41] ".dsvert_transport_aggregate"              
+[42] ".dsvert_dsi_direct_aggregate"             
+[43] "tryCatch"                                 
+[44] "tryCatchList"                             
+[45] "tryCatchOne"                              
+[46] "doTryCatch"                               
+[47] "tryCatchList"                             
+[48] "tryCatchOne"                              
+[49] "doTryCatch"                               
+[50] "<call>"                                   
+[51] "<call>"                                   
+[52] "tryCatch"                                 
+[53] "tryCatchList"                             
+[54] "tryCatchOne"                              
+[55] "<call>"                                   
+[56] "stop"                                     
+[57] ".doTrace"                                 
+[58] "eval.parent"                              
+[59] "eval"                                     
+[60] "eval"                                     
+
+$client_stop_history[[4]]
+ [1] "source"                                   
+ [2] "withVisible"                              
+ [3] "eval"                                     
+ [4] "eval"                                     
+ [5] "run"                                      
+ [6] "tryCatch"                                 
+ [7] "tryCatchList"                             
+ [8] "tryCatchOne"                              
+ [9] "doTryCatch"                               
+[10] "invoke"                                   
+[11] "<call>"                                   
+[12] "tryCatch"                                 
+[13] "tryCatchList"                             
+[14] "tryCatchOne"                              
+[15] "doTryCatch"                               
+[16] ".dsvert_dp_cox_grid_cross_impl"           
+[17] "tryCatch"                                 
+[18] "tryCatchList"                             
+[19] "tryCatchOne"                              
+[20] "doTryCatch"                               
+[21] ".release"                                 
+[22] ".dsvert_dp_synopsis_vector_run"           
+[23] ".dsvert_dp_synopsis_publication_resume_v1"
+[24] ".dsvert_vector_try_phase"                 
+[25] "tryCatch"                                 
+[26] "tryCatchList"                             
+[27] "tryCatchOne"                              
+[28] "doTryCatch"                               
+[29] "force"                                    
+[30] ".dsvert_fanout_by_site"                   
+[31] ".dsvert_aggregate_strict"                 
+[32] ".dsvert_retry_idempotent"                 
+[33] "attempt"                                  
+[34] "tryCatch"                                 
+[35] "tryCatchList"                             
+[36] "tryCatchOne"                              
+[37] "doTryCatch"                               
+[38] "tryCatchList"                             
+[39] "tryCatchOne"                              
+[40] "doTryCatch"                               
+[41] ".dsvert_transport_aggregate"              
+[42] ".dsvert_dsi_direct_aggregate"             
+[43] "tryCatch"                                 
+[44] "tryCatchList"                             
+[45] "tryCatchOne"                              
+[46] "doTryCatch"                               
+[47] "tryCatchList"                             
+[48] "tryCatchOne"                              
+[49] "doTryCatch"                               
+[50] "<call>"                                   
+[51] "<call>"                                   
+[52] "tryCatch"                                 
+[53] "tryCatchList"                             
+[54] "tryCatchOne"                              
+[55] "doTryCatch"                               
+[56] "structured_fetch"                         
+[57] "stop"                                     
+[58] ".doTrace"                                 
+[59] "eval.parent"                              
+[60] "eval"                                     
+[61] "eval"                                     
+
+$client_stop_history[[5]]
+ [1] "source"                                   
+ [2] "withVisible"                              
+ [3] "eval"                                     
+ [4] "eval"                                     
+ [5] "run"                                      
+ [6] "tryCatch"                                 
+ [7] "tryCatchList"                             
+ [8] "tryCatchOne"                              
+ [9] "doTryCatch"                               
+[10] "invoke"                                   
+[11] "<call>"                                   
+[12] "tryCatch"                                 
+[13] "tryCatchList"                             
+[14] "tryCatchOne"                              
+[15] "doTryCatch"                               
+[16] ".dsvert_dp_cox_grid_cross_impl"           
+[17] "tryCatch"                                 
+[18] "tryCatchList"                             
+[19] "tryCatchOne"                              
+[20] "doTryCatch"                               
+[21] ".release"                                 
+[22] ".dsvert_dp_synopsis_vector_run"           
+[23] ".dsvert_dp_synopsis_publication_resume_v1"
+[24] ".dsvert_vector_try_phase"                 
+[25] "tryCatch"                                 
+[26] "tryCatchList"                             
+[27] "tryCatchOne"                              
+[28] "doTryCatch"                               
+[29] "force"                                    
+[30] ".dsvert_fanout_by_site"                   
+[31] ".dsvert_aggregate_strict"                 
+[32] ".dsvert_retry_idempotent"                 
+[33] "attempt"                                  
+[34] "tryCatch"                                 
+[35] "tryCatchList"                             
+[36] "tryCatchOne"                              
+[37] "doTryCatch"                               
+[38] "tryCatchList"                             
+[39] "tryCatchOne"                              
+[40] "doTryCatch"                               
+[41] ".dsvert_transport_aggregate"              
+[42] ".dsvert_dsi_direct_aggregate"             
+[43] "tryCatch"                                 
+[44] "tryCatchList"                             
+[45] "tryCatchOne"                              
+[46] "doTryCatch"                               
+[47] "tryCatchList"                             
+[48] "tryCatchOne"                              
+[49] "doTryCatch"                               
+[50] "<call>"                                   
+[51] "<call>"                                   
+[52] "tryCatch"                                 
+[53] "tryCatchList"                             
+[54] "tryCatchOne"                              
+[55] "<call>"                                   
+[56] "stop"                                     
+[57] ".doTrace"                                 
+[58] "eval.parent"                              
+[59] "eval"                                     
+[60] "eval"                                     
+
+$client_stop_history[[6]]
+ [1] "source"                                   
+ [2] "withVisible"                              
+ [3] "eval"                                     
+ [4] "eval"                                     
+ [5] "run"                                      
+ [6] "tryCatch"                                 
+ [7] "tryCatchList"                             
+ [8] "tryCatchOne"                              
+ [9] "doTryCatch"                               
+[10] "invoke"                                   
+[11] "<call>"                                   
+[12] "tryCatch"                                 
+[13] "tryCatchList"                             
+[14] "tryCatchOne"                              
+[15] "doTryCatch"                               
+[16] ".dsvert_dp_cox_grid_cross_impl"           
+[17] "tryCatch"                                 
+[18] "tryCatchList"                             
+[19] "tryCatchOne"                              
+[20] "doTryCatch"                               
+[21] ".release"                                 
+[22] ".dsvert_dp_synopsis_vector_run"           
+[23] ".dsvert_dp_synopsis_publication_resume_v1"
+[24] ".dsvert_vector_try_phase"                 
+[25] "tryCatch"                                 
+[26] "tryCatchList"                             
+[27] "tryCatchOne"                              
+[28] "doTryCatch"                               
+[29] "force"                                    
+[30] ".dsvert_fanout_by_site"                   
+[31] ".dsvert_aggregate_strict"                 
+[32] "stop"                                     
+[33] ".doTrace"                                 
+[34] "eval.parent"                              
+[35] "eval"                                     
+[36] "eval"                                     
+
+$client_stop_history[[7]]
+ [1] "source"                         "withVisible"                   
+ [3] "eval"                           "eval"                          
+ [5] "run"                            "tryCatch"                      
+ [7] "tryCatchList"                   "tryCatchOne"                   
+ [9] "doTryCatch"                     "invoke"                        
+[11] "<call>"                         "tryCatch"                      
+[13] "tryCatchList"                   "tryCatchOne"                   
+[15] "doTryCatch"                     ".dsvert_dp_cox_grid_cross_impl"
+[17] "tryCatch"                       "tryCatchList"                  
+[19] "tryCatchOne"                    "<call>"                        
+[21] "stop"                           ".doTrace"                      
+[23] "eval.parent"                    "eval"                          
+[25] "eval"                          
+
+$client_stop_history[[8]]
+ [1] "source"       "withVisible"  "eval"         "eval"         "run"         
+ [6] "tryCatch"     "tryCatchList" "tryCatchOne"  "doTryCatch"   "invoke"      
+[11] "<call>"       "tryCatch"     "tryCatchList" "tryCatchOne"  "<call>"      
+[16] "stop"         ".doTrace"     "eval.parent"  "eval"         "eval"        
+
+$client_stop_history[[9]]
+ [1] "source"                                   
+ [2] "withVisible"                              
+ [3] "eval"                                     
+ [4] "eval"                                     
+ [5] "run"                                      
+ [6] "tryCatch"                                 
+ [7] "tryCatchList"                             
+ [8] "tryCatchOne"                              
+ [9] "doTryCatch"                               
+[10] "invoke"                                   
+[11] "<call>"                                   
+[12] "tryCatch"                                 
+[13] "tryCatchList"                             
+[14] "tryCatchOne"                              
+[15] "doTryCatch"                               
+[16] ".dsvert_dp_cox_grid_cross_impl"           
+[17] "tryCatch"                                 
+[18] "tryCatchList"                             
+[19] "tryCatchOne"                              
+[20] "doTryCatch"                               
+[21] ".release"                                 
+[22] ".dsvert_dp_synopsis_vector_run"           
+[23] ".dsvert_dp_synopsis_publication_resume_v1"
+[24] ".dsvert_vector_try_phase"                 
+[25] "tryCatch"                                 
+[26] "tryCatchList"                             
+[27] "tryCatchOne"                              
+[28] "doTryCatch"                               
+[29] "force"                                    
+[30] ".dsvert_fanout_by_site"                   
+[31] ".dsvert_aggregate_strict"                 
+[32] ".dsvert_retry_idempotent"                 
+[33] "attempt"                                  
+[34] "tryCatch"                                 
+[35] "tryCatchList"                             
+[36] "tryCatchOne"                              
+[37] "doTryCatch"                               
+[38] "tryCatchList"                             
+[39] "tryCatchOne"                              
+[40] "doTryCatch"                               
+[41] ".dsvert_transport_aggregate"              
+[42] ".dsvert_dsi_direct_aggregate"             
+[43] "tryCatch"                                 
+[44] "tryCatchList"                             
+[45] "tryCatchOne"                              
+[46] "doTryCatch"                               
+[47] "tryCatchList"                             
+[48] "tryCatchOne"                              
+[49] "doTryCatch"                               
+[50] "<call>"                                   
+[51] "<call>"                                   
+[52] "tryCatch"                                 
+[53] "tryCatchList"                             
+[54] "tryCatchOne"                              
+[55] "doTryCatch"                               
+[56] "structured_fetch"                         
+[57] "stop"                                     
+[58] ".doTrace"                                 
+[59] "eval.parent"                              
+[60] "eval"                                     
+[61] "eval"                                     
+
+$client_stop_history[[10]]
+ [1] "source"                                   
+ [2] "withVisible"                              
+ [3] "eval"                                     
+ [4] "eval"                                     
+ [5] "run"                                      
+ [6] "tryCatch"                                 
+ [7] "tryCatchList"                             
+ [8] "tryCatchOne"                              
+ [9] "doTryCatch"                               
+[10] "invoke"                                   
+[11] "<call>"                                   
+[12] "tryCatch"                                 
+[13] "tryCatchList"                             
+[14] "tryCatchOne"                              
+[15] "doTryCatch"                               
+[16] ".dsvert_dp_cox_grid_cross_impl"           
+[17] "tryCatch"                                 
+[18] "tryCatchList"                             
+[19] "tryCatchOne"                              
+[20] "doTryCatch"                               
+[21] ".release"                                 
+[22] ".dsvert_dp_synopsis_vector_run"           
+[23] ".dsvert_dp_synopsis_publication_resume_v1"
+[24] ".dsvert_vector_try_phase"                 
+[25] "tryCatch"                                 
+[26] "tryCatchList"                             
+[27] "tryCatchOne"                              
+[28] "doTryCatch"                               
+[29] "force"                                    
+[30] ".dsvert_fanout_by_site"                   
+[31] ".dsvert_aggregate_strict"                 
+[32] ".dsvert_retry_idempotent"                 
+[33] "attempt"                                  
+[34] "tryCatch"                                 
+[35] "tryCatchList"                             
+[36] "tryCatchOne"                              
+[37] "doTryCatch"                               
+[38] "tryCatchList"                             
+[39] "tryCatchOne"                              
+[40] "doTryCatch"                               
+[41] ".dsvert_transport_aggregate"              
+[42] ".dsvert_dsi_direct_aggregate"             
+[43] "tryCatch"                                 
+[44] "tryCatchList"                             
+[45] "tryCatchOne"                              
+[46] "doTryCatch"                               
+[47] "tryCatchList"                             
+[48] "tryCatchOne"                              
+[49] "doTryCatch"                               
+[50] "<call>"                                   
+[51] "<call>"                                   
+[52] "tryCatch"                                 
+[53] "tryCatchList"                             
+[54] "tryCatchOne"                              
+[55] "<call>"                                   
+[56] "stop"                                     
+[57] ".doTrace"                                 
+[58] "eval.parent"                              
+[59] "eval"                                     
+[60] "eval"                                     
+
+$client_stop_history[[11]]
+ [1] "source"                                   
+ [2] "withVisible"                              
+ [3] "eval"                                     
+ [4] "eval"                                     
+ [5] "run"                                      
+ [6] "tryCatch"                                 
+ [7] "tryCatchList"                             
+ [8] "tryCatchOne"                              
+ [9] "doTryCatch"                               
+[10] "invoke"                                   
+[11] "<call>"                                   
+[12] "tryCatch"                                 
+[13] "tryCatchList"                             
+[14] "tryCatchOne"                              
+[15] "doTryCatch"                               
+[16] ".dsvert_dp_cox_grid_cross_impl"           
+[17] "tryCatch"                                 
+[18] "tryCatchList"                             
+[19] "tryCatchOne"                              
+[20] "doTryCatch"                               
+[21] ".release"                                 
+[22] ".dsvert_dp_synopsis_vector_run"           
+[23] ".dsvert_dp_synopsis_publication_resume_v1"
+[24] ".dsvert_vector_try_phase"                 
+[25] "tryCatch"                                 
+[26] "tryCatchList"                             
+[27] "tryCatchOne"                              
+[28] "doTryCatch"                               
+[29] "force"                                    
+[30] ".dsvert_fanout_by_site"                   
+[31] ".dsvert_aggregate_strict"                 
+[32] ".dsvert_retry_idempotent"                 
+[33] "attempt"                                  
+[34] "tryCatch"                                 
+[35] "tryCatchList"                             
+[36] "tryCatchOne"                              
+[37] "doTryCatch"                               
+[38] "tryCatchList"                             
+[39] "tryCatchOne"                              
+[40] "doTryCatch"                               
+[41] ".dsvert_transport_aggregate"              
+[42] ".dsvert_dsi_direct_aggregate"             
+[43] "tryCatch"                                 
+[44] "tryCatchList"                             
+[45] "tryCatchOne"                              
+[46] "doTryCatch"                               
+[47] "tryCatchList"                             
+[48] "tryCatchOne"                              
+[49] "doTryCatch"                               
+[50] "<call>"                                   
+[51] "<call>"                                   
+[52] "tryCatch"                                 
+[53] "tryCatchList"                             
+[54] "tryCatchOne"                              
+[55] "doTryCatch"                               
+[56] "structured_fetch"                         
+[57] "stop"                                     
+[58] ".doTrace"                                 
+[59] "eval.parent"                              
+[60] "eval"                                     
+[61] "eval"                                     
+
+$client_stop_history[[12]]
+ [1] "source"                                   
+ [2] "withVisible"                              
+ [3] "eval"                                     
+ [4] "eval"                                     
+ [5] "run"                                      
+ [6] "tryCatch"                                 
+ [7] "tryCatchList"                             
+ [8] "tryCatchOne"                              
+ [9] "doTryCatch"                               
+[10] "invoke"                                   
+[11] "<call>"                                   
+[12] "tryCatch"                                 
+[13] "tryCatchList"                             
+[14] "tryCatchOne"                              
+[15] "doTryCatch"                               
+[16] ".dsvert_dp_cox_grid_cross_impl"           
+[17] "tryCatch"                                 
+[18] "tryCatchList"                             
+[19] "tryCatchOne"                              
+[20] "doTryCatch"                               
+[21] ".release"                                 
+[22] ".dsvert_dp_synopsis_vector_run"           
+[23] ".dsvert_dp_synopsis_publication_resume_v1"
+[24] ".dsvert_vector_try_phase"                 
+[25] "tryCatch"                                 
+[26] "tryCatchList"                             
+[27] "tryCatchOne"                              
+[28] "doTryCatch"                               
+[29] "force"                                    
+[30] ".dsvert_fanout_by_site"                   
+[31] ".dsvert_aggregate_strict"                 
+[32] ".dsvert_retry_idempotent"                 
+[33] "attempt"                                  
+[34] "tryCatch"                                 
+[35] "tryCatchList"                             
+[36] "tryCatchOne"                              
+[37] "doTryCatch"                               
+[38] "tryCatchList"                             
+[39] "tryCatchOne"                              
+[40] "doTryCatch"                               
+[41] ".dsvert_transport_aggregate"              
+[42] ".dsvert_dsi_direct_aggregate"             
+[43] "tryCatch"                                 
+[44] "tryCatchList"                             
+[45] "tryCatchOne"                              
+[46] "doTryCatch"                               
+[47] "tryCatchList"                             
+[48] "tryCatchOne"                              
+[49] "doTryCatch"                               
+[50] "<call>"                                   
+[51] "<call>"                                   
+[52] "tryCatch"                                 
+[53] "tryCatchList"                             
+[54] "tryCatchOne"                              
+[55] "<call>"                                   
+[56] "stop"                                     
+[57] ".doTrace"                                 
+[58] "eval.parent"                              
+[59] "eval"                                     
+[60] "eval"                                     
+
+$client_stop_history[[13]]
+ [1] "source"                                   
+ [2] "withVisible"                              
+ [3] "eval"                                     
+ [4] "eval"                                     
+ [5] "run"                                      
+ [6] "tryCatch"                                 
+ [7] "tryCatchList"                             
+ [8] "tryCatchOne"                              
+ [9] "doTryCatch"                               
+[10] "invoke"                                   
+[11] "<call>"                                   
+[12] "tryCatch"                                 
+[13] "tryCatchList"                             
+[14] "tryCatchOne"                              
+[15] "doTryCatch"                               
+[16] ".dsvert_dp_cox_grid_cross_impl"           
+[17] "tryCatch"                                 
+[18] "tryCatchList"                             
+[19] "tryCatchOne"                              
+[20] "doTryCatch"                               
+[21] ".release"                                 
+[22] ".dsvert_dp_synopsis_vector_run"           
+[23] ".dsvert_dp_synopsis_publication_resume_v1"
+[24] ".dsvert_vector_try_phase"                 
+[25] "tryCatch"                                 
+[26] "tryCatchList"                             
+[27] "tryCatchOne"                              
+[28] "doTryCatch"                               
+[29] "force"                                    
+[30] ".dsvert_fanout_by_site"                   
+[31] ".dsvert_aggregate_strict"                 
+[32] "stop"                                     
+[33] ".doTrace"                                 
+[34] "eval.parent"                              
+[35] "eval"                                     
+[36] "eval"                                     
+
+$client_stop_history[[14]]
+ [1] "source"                               
+ [2] "withVisible"                          
+ [3] "eval"                                 
+ [4] "eval"                                 
+ [5] "run"                                  
+ [6] "tryCatch"                             
+ [7] "tryCatchList"                         
+ [8] "tryCatchOne"                          
+ [9] "doTryCatch"                           
+[10] "invoke"                               
+[11] "<call>"                               
+[12] "tryCatch"                             
+[13] "tryCatchList"                         
+[14] "tryCatchOne"                          
+[15] "doTryCatch"                           
+[16] ".dsvert_dp_cox_grid_cross_impl"       
+[17] "tryCatch"                             
+[18] "tryCatchList"                         
+[19] "tryCatchOne"                          
+[20] "doTryCatch"                           
+[21] ".release"                             
+[22] ".dsvert_dp_synopsis_vector_run"       
+[23] ".dsvert_dp_cross_orchestrate"         
+[24] ".dsvert_dp_glm_grid_cross_orchestrate"
+[25] ".dsvert_dp_cox_cross_orchestrate"     
+[26] ".dsvert_dp_staged_cross_orchestrate"  
+[27] ".dsvert_dp_alignment_mask_run"        
+[28] ".dsvert_fanout_by_site"               
+[29] ".dsvert_aggregate_strict"             
+[30] ".dsvert_retry_idempotent"             
+[31] "attempt"                              
+[32] "tryCatch"                             
+[33] "tryCatchList"                         
+[34] "tryCatchOne"                          
+[35] "doTryCatch"                           
+[36] "tryCatchList"                         
+[37] "tryCatchOne"                          
+[38] "doTryCatch"                           
+[39] ".dsvert_transport_aggregate"          
+[40] ".dsvert_dsi_direct_aggregate"         
+[41] "tryCatch"                             
+[42] "tryCatchList"                         
+[43] "tryCatchOne"                          
+[44] "doTryCatch"                           
+[45] "tryCatchList"                         
+[46] "tryCatchOne"                          
+[47] "doTryCatch"                           
+[48] "<call>"                               
+[49] "<call>"                               
+[50] "tryCatch"                             
+[51] "tryCatchList"                         
+[52] "tryCatchOne"                          
+[53] "doTryCatch"                           
+[54] "structured_fetch"                     
+[55] "stop"                                 
+[56] ".doTrace"                             
+[57] "eval.parent"                          
+[58] "eval"                                 
+[59] "eval"                                 
+
+$client_stop_history[[15]]
+ [1] "source"                               
+ [2] "withVisible"                          
+ [3] "eval"                                 
+ [4] "eval"                                 
+ [5] "run"                                  
+ [6] "tryCatch"                             
+ [7] "tryCatchList"                         
+ [8] "tryCatchOne"                          
+ [9] "doTryCatch"                           
+[10] "invoke"                               
+[11] "<call>"                               
+[12] "tryCatch"                             
+[13] "tryCatchList"                         
+[14] "tryCatchOne"                          
+[15] "doTryCatch"                           
+[16] ".dsvert_dp_cox_grid_cross_impl"       
+[17] "tryCatch"                             
+[18] "tryCatchList"                         
+[19] "tryCatchOne"                          
+[20] "doTryCatch"                           
+[21] ".release"                             
+[22] ".dsvert_dp_synopsis_vector_run"       
+[23] ".dsvert_dp_cross_orchestrate"         
+[24] ".dsvert_dp_glm_grid_cross_orchestrate"
+[25] ".dsvert_dp_cox_cross_orchestrate"     
+[26] ".dsvert_dp_staged_cross_orchestrate"  
+[27] ".dsvert_dp_alignment_mask_run"        
+[28] ".dsvert_fanout_by_site"               
+[29] ".dsvert_aggregate_strict"             
+[30] ".dsvert_retry_idempotent"             
+[31] "attempt"                              
+[32] "tryCatch"                             
+[33] "tryCatchList"                         
+[34] "tryCatchOne"                          
+[35] "doTryCatch"                           
+[36] "tryCatchList"                         
+[37] "tryCatchOne"                          
+[38] "doTryCatch"                           
+[39] ".dsvert_transport_aggregate"          
+[40] ".dsvert_dsi_direct_aggregate"         
+[41] "tryCatch"                             
+[42] "tryCatchList"                         
+[43] "tryCatchOne"                          
+[44] "doTryCatch"                           
+[45] "tryCatchList"                         
+[46] "tryCatchOne"                          
+[47] "doTryCatch"                           
+[48] "<call>"                               
+[49] "<call>"                               
+[50] "tryCatch"                             
+[51] "tryCatchList"                         
+[52] "tryCatchOne"                          
+[53] "<call>"                               
+[54] "stop"                                 
+[55] ".doTrace"                             
+[56] "eval.parent"                          
+[57] "eval"                                 
+[58] "eval"                                 
+
+$client_stop_history[[16]]
+ [1] "source"                               
+ [2] "withVisible"                          
+ [3] "eval"                                 
+ [4] "eval"                                 
+ [5] "run"                                  
+ [6] "tryCatch"                             
+ [7] "tryCatchList"                         
+ [8] "tryCatchOne"                          
+ [9] "doTryCatch"                           
+[10] "invoke"                               
+[11] "<call>"                               
+[12] "tryCatch"                             
+[13] "tryCatchList"                         
+[14] "tryCatchOne"                          
+[15] "doTryCatch"                           
+[16] ".dsvert_dp_cox_grid_cross_impl"       
+[17] "tryCatch"                             
+[18] "tryCatchList"                         
+[19] "tryCatchOne"                          
+[20] "doTryCatch"                           
+[21] ".release"                             
+[22] ".dsvert_dp_synopsis_vector_run"       
+[23] ".dsvert_dp_cross_orchestrate"         
+[24] ".dsvert_dp_glm_grid_cross_orchestrate"
+[25] ".dsvert_dp_cox_cross_orchestrate"     
+[26] ".dsvert_dp_staged_cross_orchestrate"  
+[27] ".dsvert_dp_alignment_mask_run"        
+[28] ".dsvert_fanout_by_site"               
+[29] ".dsvert_aggregate_strict"             
+[30] ".dsvert_retry_idempotent"             
+[31] "attempt"                              
+[32] "tryCatch"                             
+[33] "tryCatchList"                         
+[34] "tryCatchOne"                          
+[35] "doTryCatch"                           
+[36] "tryCatchList"                         
+[37] "tryCatchOne"                          
+[38] "doTryCatch"                           
+[39] ".dsvert_transport_aggregate"          
+[40] ".dsvert_dsi_direct_aggregate"         
+[41] "tryCatch"                             
+[42] "tryCatchList"                         
+[43] "tryCatchOne"                          
+[44] "doTryCatch"                           
+[45] "tryCatchList"                         
+[46] "tryCatchOne"                          
+[47] "doTryCatch"                           
+[48] "<call>"                               
+[49] "<call>"                               
+[50] "tryCatch"                             
+[51] "tryCatchList"                         
+[52] "tryCatchOne"                          
+[53] "doTryCatch"                           
+[54] "structured_fetch"                     
+[55] "stop"                                 
+[56] ".doTrace"                             
+[57] "eval.parent"                          
+[58] "eval"                                 
+[59] "eval"                                 
+
+$client_stop_history[[17]]
+ [1] "source"                               
+ [2] "withVisible"                          
+ [3] "eval"                                 
+ [4] "eval"                                 
+ [5] "run"                                  
+ [6] "tryCatch"                             
+ [7] "tryCatchList"                         
+ [8] "tryCatchOne"                          
+ [9] "doTryCatch"                           
+[10] "invoke"                               
+[11] "<call>"                               
+[12] "tryCatch"                             
+[13] "tryCatchList"                         
+[14] "tryCatchOne"                          
+[15] "doTryCatch"                           
+[16] ".dsvert_dp_cox_grid_cross_impl"       
+[17] "tryCatch"                             
+[18] "tryCatchList"                         
+[19] "tryCatchOne"                          
+[20] "doTryCatch"                           
+[21] ".release"                             
+[22] ".dsvert_dp_synopsis_vector_run"       
+[23] ".dsvert_dp_cross_orchestrate"         
+[24] ".dsvert_dp_glm_grid_cross_orchestrate"
+[25] ".dsvert_dp_cox_cross_orchestrate"     
+[26] ".dsvert_dp_staged_cross_orchestrate"  
+[27] ".dsvert_dp_alignment_mask_run"        
+[28] ".dsvert_fanout_by_site"               
+[29] ".dsvert_aggregate_strict"             
+[30] ".dsvert_retry_idempotent"             
+[31] "attempt"                              
+[32] "tryCatch"                             
+[33] "tryCatchList"                         
+[34] "tryCatchOne"                          
+[35] "doTryCatch"                           
+[36] "tryCatchList"                         
+[37] "tryCatchOne"                          
+[38] "doTryCatch"                           
+[39] ".dsvert_transport_aggregate"          
+[40] ".dsvert_dsi_direct_aggregate"         
+[41] "tryCatch"                             
+[42] "tryCatchList"                         
+[43] "tryCatchOne"                          
+[44] "doTryCatch"                           
+[45] "tryCatchList"                         
+[46] "tryCatchOne"                          
+[47] "doTryCatch"                           
+[48] "<call>"                               
+[49] "<call>"                               
+[50] "tryCatch"                             
+[51] "tryCatchList"                         
+[52] "tryCatchOne"                          
+[53] "<call>"                               
+[54] "stop"                                 
+[55] ".doTrace"                             
+[56] "eval.parent"                          
+[57] "eval"                                 
+[58] "eval"                                 
+
+$client_stop_history[[18]]
+ [1] "source"                               
+ [2] "withVisible"                          
+ [3] "eval"                                 
+ [4] "eval"                                 
+ [5] "run"                                  
+ [6] "tryCatch"                             
+ [7] "tryCatchList"                         
+ [8] "tryCatchOne"                          
+ [9] "doTryCatch"                           
+[10] "invoke"                               
+[11] "<call>"                               
+[12] "tryCatch"                             
+[13] "tryCatchList"                         
+[14] "tryCatchOne"                          
+[15] "doTryCatch"                           
+[16] ".dsvert_dp_cox_grid_cross_impl"       
+[17] "tryCatch"                             
+[18] "tryCatchList"                         
+[19] "tryCatchOne"                          
+[20] "doTryCatch"                           
+[21] ".release"                             
+[22] ".dsvert_dp_synopsis_vector_run"       
+[23] ".dsvert_dp_cross_orchestrate"         
+[24] ".dsvert_dp_glm_grid_cross_orchestrate"
+[25] ".dsvert_dp_cox_cross_orchestrate"     
+[26] ".dsvert_dp_staged_cross_orchestrate"  
+[27] ".dsvert_dp_alignment_mask_run"        
+[28] ".dsvert_fanout_by_site"               
+[29] ".dsvert_aggregate_strict"             
+[30] "stop"                                 
+[31] ".doTrace"                             
+[32] "eval.parent"                          
+[33] "eval"                                 
+[34] "eval"                                 
+
+$client_stop_history[[19]]
+ [1] "source"                         "withVisible"                   
+ [3] "eval"                           "eval"                          
+ [5] "run"                            "tryCatch"                      
+ [7] "tryCatchList"                   "tryCatchOne"                   
+ [9] "doTryCatch"                     "invoke"                        
+[11] "<call>"                         "tryCatch"                      
+[13] "tryCatchList"                   "tryCatchOne"                   
+[15] "doTryCatch"                     ".dsvert_dp_cox_grid_cross_impl"
+[17] "tryCatch"                       "tryCatchList"                  
+[19] "tryCatchOne"                    "<call>"                        
+[21] "stop"                           ".doTrace"                      
+[23] "eval.parent"                    "eval"                          
+[25] "eval"                          
+
+$client_stop_history[[20]]
+ [1] "source"       "withVisible"  "eval"         "eval"         "run"         
+ [6] "tryCatch"     "tryCatchList" "tryCatchOne"  "doTryCatch"   "invoke"      
+[11] "<call>"       "tryCatch"     "tryCatchList" "tryCatchOne"  "<call>"      
+[16] "stop"         ".doTrace"     "eval.parent"  "eval"         "eval"        
+
+
+$failure
+$failure$message
+[1] "Exact-gc worker failed to become ready."
+
+$failure$call
+[1] ""
+
+$failure$functions
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] ".doTrace"                            
+[25] "eval.parent"                         
+[26] "eval"                                
+[27] "eval"                                
+
+
+$history
+$history[[1]]
+$history[[1]]$message
+[1] "[dsvert_phase_not_ready:v1]"
+
+$history[[1]]$call
+[1] ""
+
+$history[[1]]$functions
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] ".doTrace"                            
+[25] "eval.parent"                         
+[26] "eval"                                
+[27] "eval"                                
+
+
+$history[[2]]
+$history[[2]]$message
+[1] "Synthetic interruption after staged prepared receipt"
+
+$history[[2]]$call
+[1] ""
+
+$history[[2]]$functions
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] ".doTrace"                            
+[25] "eval.parent"                         
+[26] "eval"                                
+[27] "eval"                                
+
+
+$history[[3]]
+$history[[3]]$message
+[1] "[dsvert_phase_not_ready:v1]"
+
+$history[[3]]$call
+[1] ""
+
+$history[[3]]$functions
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] ".doTrace"                            
+[25] "eval.parent"                         
+[26] "eval"                                
+[27] "eval"                                
+
+
+$history[[4]]
+$history[[4]]$message
+[1] "[dsvert_phase_not_ready:v1]"
+
+$history[[4]]$call
+[1] ""
+
+$history[[4]]$functions
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] ".doTrace"                            
+[25] "eval.parent"                         
+[26] "eval"                                
+[27] "eval"                                
+
+
+$history[[5]]
+$history[[5]]$message
+[1] "Exact-gc worker failed to become ready."
+
+$history[[5]]$call
+[1] ""
+
+$history[[5]]$functions
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] ".doTrace"                            
+[25] "eval.parent"                         
+[26] "eval"                                
+[27] "eval"                                
+
+
+
+$stop_history
+$stop_history[[1]]
+ [1] "<call>"                                
+ [2] "tryCatchList"                          
+ [3] "tryCatchOne"                           
+ [4] "doTryCatch"                            
+ [5] "tryCatchList"                          
+ [6] "tryCatchOne"                           
+ [7] "doTryCatch"                            
+ [8] "<call>"                                
+ [9] "<call>"                                
+[10] "<call>"                                
+[11] "<call>"                                
+[12] "<call>"                                
+[13] "<call>"                                
+[14] "tryCatch"                              
+[15] "tryCatchList"                          
+[16] "eval"                                  
+[17] "eval"                                  
+[18] "<call>"                                
+[19] ".dsvert_dp_synopsis_remote_public_v1"  
+[20] "tryCatch"                              
+[21] "tryCatchList"                          
+[22] "tryCatchOne"                           
+[23] "doTryCatch"                            
+[24] "force"                                 
+[25] ".dsvert_dp_synopsis_remote_encode_v1"  
+[26] ".dsvert_dp_synopsis_bind_v1"           
+[27] ".dsvert_dp_synopsis_manifest_build_v1" 
+[28] ".dsvert_dp_capsule_workload_manifest"  
+[29] ".dsvert_dp_capsule_mechanism_selection"
+[30] "tryCatch"                              
+[31] "tryCatchList"                          
+[32] "tryCatchOne"                           
+[33] "doTryCatch"                            
+[34] "gaussian_planner"                      
+[35] ".callMpcTool"                          
+[36] "tryCatch"                              
+[37] "tryCatchList"                          
+[38] "tryCatchOne"                           
+[39] "doTryCatch"                            
+[40] "original"                              
+[41] "stop"                                  
+[42] ".doTrace"                              
+[43] "eval.parent"                           
+[44] "eval"                                  
+[45] "eval"                                  
+
+$stop_history[[2]]
+ [1] "<call>"                                
+ [2] "tryCatchList"                          
+ [3] "tryCatchOne"                           
+ [4] "doTryCatch"                            
+ [5] "tryCatchList"                          
+ [6] "tryCatchOne"                           
+ [7] "doTryCatch"                            
+ [8] "<call>"                                
+ [9] "<call>"                                
+[10] "<call>"                                
+[11] "<call>"                                
+[12] "<call>"                                
+[13] "<call>"                                
+[14] "tryCatch"                              
+[15] "tryCatchList"                          
+[16] "eval"                                  
+[17] "eval"                                  
+[18] "<call>"                                
+[19] ".dsvert_dp_synopsis_remote_public_v1"  
+[20] "tryCatch"                              
+[21] "tryCatchList"                          
+[22] "tryCatchOne"                           
+[23] "doTryCatch"                            
+[24] "force"                                 
+[25] ".dsvert_dp_synopsis_remote_encode_v1"  
+[26] ".dsvert_dp_synopsis_bind_v1"           
+[27] ".dsvert_dp_synopsis_manifest_build_v1" 
+[28] ".dsvert_dp_capsule_workload_manifest"  
+[29] ".dsvert_dp_capsule_mechanism_selection"
+[30] "tryCatch"                              
+[31] "tryCatchList"                          
+[32] "tryCatchOne"                           
+[33] "doTryCatch"                            
+[34] "gaussian_planner"                      
+[35] ".callMpcTool"                          
+[36] "tryCatch"                              
+[37] "tryCatchList"                          
+[38] "tryCatchOne"                           
+[39] "<call>"                                
+[40] "stop"                                  
+[41] ".doTrace"                              
+[42] "eval.parent"                           
+[43] "eval"                                  
+[44] "eval"                                  
+
+$stop_history[[3]]
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "doTryCatch"                          
+[24] "force"                               
+[25] ".dsvert_dp_synopsis_remote_encode_v1"
+[26] ".dsvert_dp_synopsis_publication_v1"  
+[27] "stop"                                
+[28] ".doTrace"                            
+[29] "eval.parent"                         
+[30] "eval"                                
+[31] "eval"                                
+
+$stop_history[[4]]
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] "stop"                                
+[25] ".doTrace"                            
+[26] "eval.parent"                         
+[27] "eval"                                
+[28] "eval"                                
+
+$stop_history[[5]]
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] "stop"                                
+[25] ".doTrace"                            
+[26] "eval.parent"                         
+[27] "eval"                                
+[28] "eval"                                
+
+$stop_history[[6]]
+ [1] "<call>"                                              
+ [2] "tryCatchList"                                        
+ [3] "tryCatchOne"                                         
+ [4] "doTryCatch"                                          
+ [5] "tryCatchList"                                        
+ [6] "tryCatchOne"                                         
+ [7] "doTryCatch"                                          
+ [8] "<call>"                                              
+ [9] "<call>"                                              
+[10] "<call>"                                              
+[11] "<call>"                                              
+[12] "<call>"                                              
+[13] "<call>"                                              
+[14] "tryCatch"                                            
+[15] "tryCatchList"                                        
+[16] "eval"                                                
+[17] "eval"                                                
+[18] "<call>"                                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"                
+[20] "tryCatch"                                            
+[21] "tryCatchList"                                        
+[22] "tryCatchOne"                                         
+[23] "doTryCatch"                                          
+[24] "force"                                               
+[25] ".dsvert_dp_synopsis_remote_encode_v1"                
+[26] ".dsvert_dp_synopsis_publication_v1"                  
+[27] ".dsvert_dp_synopsis_execution_with_store_readonly_v1"
+[28] ".dsvert_dp_synopsis_store_readonly_with_v1"          
+[29] "stop"                                                
+[30] ".doTrace"                                            
+[31] "eval.parent"                                         
+[32] "eval"                                                
+[33] "eval"                                                
+
+$stop_history[[7]]
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] "stop"                                
+[25] ".doTrace"                            
+[26] "eval.parent"                         
+[27] "eval"                                
+[28] "eval"                                
+
+$stop_history[[8]]
+ [1] "<call>"                                              
+ [2] "tryCatchList"                                        
+ [3] "tryCatchOne"                                         
+ [4] "doTryCatch"                                          
+ [5] "tryCatchList"                                        
+ [6] "tryCatchOne"                                         
+ [7] "doTryCatch"                                          
+ [8] "<call>"                                              
+ [9] "<call>"                                              
+[10] "<call>"                                              
+[11] "<call>"                                              
+[12] "<call>"                                              
+[13] "<call>"                                              
+[14] "tryCatch"                                            
+[15] "tryCatchList"                                        
+[16] "eval"                                                
+[17] "eval"                                                
+[18] "<call>"                                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"                
+[20] "tryCatch"                                            
+[21] "tryCatchList"                                        
+[22] "tryCatchOne"                                         
+[23] "doTryCatch"                                          
+[24] "force"                                               
+[25] ".dsvert_dp_synopsis_remote_encode_v1"                
+[26] ".dsvert_dp_synopsis_publication_v1"                  
+[27] ".dsvert_dp_synopsis_execution_with_store_readonly_v1"
+[28] ".dsvert_dp_synopsis_store_readonly_with_v1"          
+[29] "stop"                                                
+[30] ".doTrace"                                            
+[31] "eval.parent"                                         
+[32] "eval"                                                
+[33] "eval"                                                
+
+$stop_history[[9]]
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] "stop"                                
+[25] ".doTrace"                            
+[26] "eval.parent"                         
+[27] "eval"                                
+[28] "eval"                                
+
+$stop_history[[10]]
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "doTryCatch"                          
+[24] "force"                               
+[25] ".dsvert_dp_alignment_mask_start_impl"
+[26] ".exact_gc_init_impl"                 
+[27] "stop"                                
+[28] ".doTrace"                            
+[29] "eval.parent"                         
+[30] "eval"                                
+[31] "eval"                                
+
+$stop_history[[11]]
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] "stop"                                
+[25] ".doTrace"                            
+[26] "eval.parent"                         
+[27] "eval"                                
+[28] "eval"                                
+
+
+$worker_error
+$worker_error$operation
+NULL
+
+$worker_error$message
+[1] "Exact-gc worker failed before readiness."
+
+$worker_error$worker_log
+character(0)
+
+
+$mechanism_selection
+$mechanism_selection$mechanism
+[1] "discrete-laplace"
+
+$mechanism_selection$sensitivity_norm
+[1] "l1"
+
+$mechanism_selection$sensitivity
+[1] 332213946
+
+$mechanism_selection$uses_delta
+[1] TRUE
+
+$mechanism_selection$certificate
+$mechanism_selection$certificate$version
+[1] "biomedical-capsule-noise-selection-v4"
+
+$mechanism_selection$certificate$selector
+[1] "formal_fixed_work_backend_minimum_simultaneous_95_radius_v2"
+
+$mechanism_selection$certificate$objective
+[1] "simultaneous_95_abs"
+
+$mechanism_selection$certificate$tie_break
+[1] "laplace_unless_fixed_work_gaussian_strictly_improves"
+
+$mechanism_selection$certificate$coordinate_count
+[1] 3
+
+$mechanism_selection$certificate$epsilon
+[1] 8
+
+$mechanism_selection$certificate$allocated_delta
+[1] 7.888609e-31
+
+$mechanism_selection$certificate$gaussian_eligible
+[1] TRUE
+
+$mechanism_selection$certificate$positive_delta_reserved
+[1] TRUE
+
+$mechanism_selection$certificate$deployed_backends
+[1] "joint-discrete-laplace-v3"
+
+$mechanism_selection$certificate$gaussian_backend_available
+[1] FALSE
+
+$mechanism_selection$certificate$gaussian_unavailable_reason
+[1] "formal_fixed_work_gaussian_plan_unavailable"
+
+$mechanism_selection$certificate$gaussian_calibration_request
+$mechanism_selection$certificate$gaussian_calibration_request$epsilon
+[1] "7.9999999999997726e+00"
+
+$mechanism_selection$certificate$gaussian_calibration_request$delta
+[1] "7.8886090522098938e-31"
+
+$mechanism_selection$certificate$gaussian_calibration_request$l2_sensitivity_steps
+[1] "2.3486511655005422e+08"
+
+$mechanism_selection$certificate$gaussian_calibration_request$total_coordinate_count
+[1] 3
+
+
+$mechanism_selection$certificate$gaussian_calibration_rounding
+$mechanism_selection$certificate$gaussian_calibration_rounding$declared_policy_values
+[1] "binary64_policy_values"
+
+$mechanism_selection$certificate$gaussian_calibration_rounding$epsilon
+[1] "inward_128_machine_epsilon_relative_guard_v1"
+
+$mechanism_selection$certificate$gaussian_calibration_rounding$delta
+[1] "inward_128_machine_epsilon_relative_guard_v1"
+
+$mechanism_selection$certificate$gaussian_calibration_rounding$l2_sensitivity
+[1] "outward_128_machine_epsilon_relative_guard_v1"
+
+
+$mechanism_selection$certificate$gaussian_plan
+NULL
+
+$mechanism_selection$certificate$gaussian_plan_sha256
+NULL
+
+$mechanism_selection$certificate$laplace_simultaneous_95_abs
+[1] 170024795
+
+$mechanism_selection$certificate$gaussian_simultaneous_95_abs
+NULL
+
+$mechanism_selection$certificate$deployment_rule
+[1] "formal_backend_or_explicit_laplace_fallback"
+
+$mechanism_selection$certificate$winner
+[1] "laplace"
+
+$mechanism_selection$certificate$utility_winner
+[1] "laplace"
+
+$mechanism_selection$certificate$decision
+[1] "fixed_work_gaussian_unavailable_explicit_laplace_fallback"
+
+$mechanism_selection$certificate$canonical_selector_invoked
+[1] TRUE
+
+$mechanism_selection$certificate$selector_certificate_sha256
+[1] "b51ff4fa407a4f607197ac26cf1b38df803be13cc7ea81dbb5d79a8b0e01cbd1"
+
+
+
+$native_errors
+$native_errors[[1]]
+$native_errors[[1]]$command
+[1] "joint-dp-vector-gaussian-plan-v2"
+
+$native_errors[[1]]$status
+[1] 0
+
+$native_errors[[1]]$stderr
+[1] ""
+
+
+$native_errors[[2]]
+$native_errors[[2]]$command
+[1] "joint-dp-vector-gaussian-plan-v2"
+
+$native_errors[[2]]$message
+[1] "dsvert-mpc error: joint-DP fixed-work discrete-Gaussian plan unavailable: fixed-work Gaussian table is outside the certified support"
+
+
+
+$grouped_failure
+NULL
+
+$mismatch
+NULL
+
+$failure
+$failure$message
+[1] "Exact-gc worker failed to become ready."
+
+$failure$call
+[1] ""
+
+$failure$functions
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] ".doTrace"                            
+[25] "eval.parent"                         
+[26] "eval"                                
+[27] "eval"                                
+
+
+$history
+$history[[1]]
+$history[[1]]$message
+[1] "[dsvert_phase_not_ready:v1]"
+
+$history[[1]]$call
+[1] ""
+
+$history[[1]]$functions
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] ".doTrace"                            
+[25] "eval.parent"                         
+[26] "eval"                                
+[27] "eval"                                
+
+
+$history[[2]]
+$history[[2]]$message
+[1] "Synthetic interruption after staged prepared receipt"
+
+$history[[2]]$call
+[1] ""
+
+$history[[2]]$functions
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] ".doTrace"                            
+[25] "eval.parent"                         
+[26] "eval"                                
+[27] "eval"                                
+
+
+$history[[3]]
+$history[[3]]$message
+[1] "[dsvert_phase_not_ready:v1]"
+
+$history[[3]]$call
+[1] ""
+
+$history[[3]]$functions
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] ".doTrace"                            
+[25] "eval.parent"                         
+[26] "eval"                                
+[27] "eval"                                
+
+
+$history[[4]]
+$history[[4]]$message
+[1] "[dsvert_phase_not_ready:v1]"
+
+$history[[4]]$call
+[1] ""
+
+$history[[4]]$functions
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] ".doTrace"                            
+[25] "eval.parent"                         
+[26] "eval"                                
+[27] "eval"                                
+
+
+$history[[5]]
+$history[[5]]$message
+[1] "Exact-gc worker failed to become ready."
+
+$history[[5]]$call
+[1] ""
+
+$history[[5]]$functions
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] ".doTrace"                            
+[25] "eval.parent"                         
+[26] "eval"                                
+[27] "eval"                                
+
+
+
+$stop_history
+$stop_history[[1]]
+ [1] "<call>"                                
+ [2] "tryCatchList"                          
+ [3] "tryCatchOne"                           
+ [4] "doTryCatch"                            
+ [5] "tryCatchList"                          
+ [6] "tryCatchOne"                           
+ [7] "doTryCatch"                            
+ [8] "<call>"                                
+ [9] "<call>"                                
+[10] "<call>"                                
+[11] "<call>"                                
+[12] "<call>"                                
+[13] "<call>"                                
+[14] "tryCatch"                              
+[15] "tryCatchList"                          
+[16] "eval"                                  
+[17] "eval"                                  
+[18] "<call>"                                
+[19] ".dsvert_dp_synopsis_remote_public_v1"  
+[20] "tryCatch"                              
+[21] "tryCatchList"                          
+[22] "tryCatchOne"                           
+[23] "doTryCatch"                            
+[24] "force"                                 
+[25] ".dsvert_dp_synopsis_remote_encode_v1"  
+[26] ".dsvert_dp_synopsis_bind_v1"           
+[27] ".dsvert_dp_synopsis_manifest_build_v1" 
+[28] ".dsvert_dp_capsule_workload_manifest"  
+[29] ".dsvert_dp_capsule_mechanism_selection"
+[30] "tryCatch"                              
+[31] "tryCatchList"                          
+[32] "tryCatchOne"                           
+[33] "doTryCatch"                            
+[34] "gaussian_planner"                      
+[35] ".callMpcTool"                          
+[36] "tryCatch"                              
+[37] "tryCatchList"                          
+[38] "tryCatchOne"                           
+[39] "doTryCatch"                            
+[40] "original"                              
+[41] "stop"                                  
+[42] ".doTrace"                              
+[43] "eval.parent"                           
+[44] "eval"                                  
+[45] "eval"                                  
+
+$stop_history[[2]]
+ [1] "<call>"                                
+ [2] "tryCatchList"                          
+ [3] "tryCatchOne"                           
+ [4] "doTryCatch"                            
+ [5] "tryCatchList"                          
+ [6] "tryCatchOne"                           
+ [7] "doTryCatch"                            
+ [8] "<call>"                                
+ [9] "<call>"                                
+[10] "<call>"                                
+[11] "<call>"                                
+[12] "<call>"                                
+[13] "<call>"                                
+[14] "tryCatch"                              
+[15] "tryCatchList"                          
+[16] "eval"                                  
+[17] "eval"                                  
+[18] "<call>"                                
+[19] ".dsvert_dp_synopsis_remote_public_v1"  
+[20] "tryCatch"                              
+[21] "tryCatchList"                          
+[22] "tryCatchOne"                           
+[23] "doTryCatch"                            
+[24] "force"                                 
+[25] ".dsvert_dp_synopsis_remote_encode_v1"  
+[26] ".dsvert_dp_synopsis_bind_v1"           
+[27] ".dsvert_dp_synopsis_manifest_build_v1" 
+[28] ".dsvert_dp_capsule_workload_manifest"  
+[29] ".dsvert_dp_capsule_mechanism_selection"
+[30] "tryCatch"                              
+[31] "tryCatchList"                          
+[32] "tryCatchOne"                           
+[33] "doTryCatch"                            
+[34] "gaussian_planner"                      
+[35] ".callMpcTool"                          
+[36] "tryCatch"                              
+[37] "tryCatchList"                          
+[38] "tryCatchOne"                           
+[39] "<call>"                                
+[40] "stop"                                  
+[41] ".doTrace"                              
+[42] "eval.parent"                           
+[43] "eval"                                  
+[44] "eval"                                  
+
+$stop_history[[3]]
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "doTryCatch"                          
+[24] "force"                               
+[25] ".dsvert_dp_synopsis_remote_encode_v1"
+[26] ".dsvert_dp_synopsis_publication_v1"  
+[27] "stop"                                
+[28] ".doTrace"                            
+[29] "eval.parent"                         
+[30] "eval"                                
+[31] "eval"                                
+
+$stop_history[[4]]
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] "stop"                                
+[25] ".doTrace"                            
+[26] "eval.parent"                         
+[27] "eval"                                
+[28] "eval"                                
+
+$stop_history[[5]]
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] "stop"                                
+[25] ".doTrace"                            
+[26] "eval.parent"                         
+[27] "eval"                                
+[28] "eval"                                
+
+$stop_history[[6]]
+ [1] "<call>"                                              
+ [2] "tryCatchList"                                        
+ [3] "tryCatchOne"                                         
+ [4] "doTryCatch"                                          
+ [5] "tryCatchList"                                        
+ [6] "tryCatchOne"                                         
+ [7] "doTryCatch"                                          
+ [8] "<call>"                                              
+ [9] "<call>"                                              
+[10] "<call>"                                              
+[11] "<call>"                                              
+[12] "<call>"                                              
+[13] "<call>"                                              
+[14] "tryCatch"                                            
+[15] "tryCatchList"                                        
+[16] "eval"                                                
+[17] "eval"                                                
+[18] "<call>"                                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"                
+[20] "tryCatch"                                            
+[21] "tryCatchList"                                        
+[22] "tryCatchOne"                                         
+[23] "doTryCatch"                                          
+[24] "force"                                               
+[25] ".dsvert_dp_synopsis_remote_encode_v1"                
+[26] ".dsvert_dp_synopsis_publication_v1"                  
+[27] ".dsvert_dp_synopsis_execution_with_store_readonly_v1"
+[28] ".dsvert_dp_synopsis_store_readonly_with_v1"          
+[29] "stop"                                                
+[30] ".doTrace"                                            
+[31] "eval.parent"                                         
+[32] "eval"                                                
+[33] "eval"                                                
+
+$stop_history[[7]]
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] "stop"                                
+[25] ".doTrace"                            
+[26] "eval.parent"                         
+[27] "eval"                                
+[28] "eval"                                
+
+$stop_history[[8]]
+ [1] "<call>"                                              
+ [2] "tryCatchList"                                        
+ [3] "tryCatchOne"                                         
+ [4] "doTryCatch"                                          
+ [5] "tryCatchList"                                        
+ [6] "tryCatchOne"                                         
+ [7] "doTryCatch"                                          
+ [8] "<call>"                                              
+ [9] "<call>"                                              
+[10] "<call>"                                              
+[11] "<call>"                                              
+[12] "<call>"                                              
+[13] "<call>"                                              
+[14] "tryCatch"                                            
+[15] "tryCatchList"                                        
+[16] "eval"                                                
+[17] "eval"                                                
+[18] "<call>"                                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"                
+[20] "tryCatch"                                            
+[21] "tryCatchList"                                        
+[22] "tryCatchOne"                                         
+[23] "doTryCatch"                                          
+[24] "force"                                               
+[25] ".dsvert_dp_synopsis_remote_encode_v1"                
+[26] ".dsvert_dp_synopsis_publication_v1"                  
+[27] ".dsvert_dp_synopsis_execution_with_store_readonly_v1"
+[28] ".dsvert_dp_synopsis_store_readonly_with_v1"          
+[29] "stop"                                                
+[30] ".doTrace"                                            
+[31] "eval.parent"                                         
+[32] "eval"                                                
+[33] "eval"                                                
+
+$stop_history[[9]]
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] "stop"                                
+[25] ".doTrace"                            
+[26] "eval.parent"                         
+[27] "eval"                                
+[28] "eval"                                
+
+$stop_history[[10]]
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "doTryCatch"                          
+[24] "force"                               
+[25] ".dsvert_dp_alignment_mask_start_impl"
+[26] ".exact_gc_init_impl"                 
+[27] "stop"                                
+[28] ".doTrace"                            
+[29] "eval.parent"                         
+[30] "eval"                                
+[31] "eval"                                
+
+$stop_history[[11]]
+ [1] "<call>"                              
+ [2] "tryCatchList"                        
+ [3] "tryCatchOne"                         
+ [4] "doTryCatch"                          
+ [5] "tryCatchList"                        
+ [6] "tryCatchOne"                         
+ [7] "doTryCatch"                          
+ [8] "<call>"                              
+ [9] "<call>"                              
+[10] "<call>"                              
+[11] "<call>"                              
+[12] "<call>"                              
+[13] "<call>"                              
+[14] "tryCatch"                            
+[15] "tryCatchList"                        
+[16] "eval"                                
+[17] "eval"                                
+[18] "<call>"                              
+[19] ".dsvert_dp_synopsis_remote_public_v1"
+[20] "tryCatch"                            
+[21] "tryCatchList"                        
+[22] "tryCatchOne"                         
+[23] "<call>"                              
+[24] "stop"                                
+[25] ".doTrace"                            
+[26] "eval.parent"                         
+[27] "eval"                                
+[28] "eval"                                
+
+
+$worker_error
+$worker_error$operation
+NULL
+
+$worker_error$message
+[1] "Exact-gc worker failed before readiness."
+
+$worker_error$worker_log
+character(0)
+
+
+$mechanism_selection
+$mechanism_selection$mechanism
+[1] "discrete-laplace"
+
+$mechanism_selection$sensitivity_norm
+[1] "l1"
+
+$mechanism_selection$sensitivity
+[1] 332213946
+
+$mechanism_selection$uses_delta
+[1] TRUE
+
+$mechanism_selection$certificate
+$mechanism_selection$certificate$version
+[1] "biomedical-capsule-noise-selection-v4"
+
+$mechanism_selection$certificate$selector
+[1] "formal_fixed_work_backend_minimum_simultaneous_95_radius_v2"
+
+$mechanism_selection$certificate$objective
+[1] "simultaneous_95_abs"
+
+$mechanism_selection$certificate$tie_break
+[1] "laplace_unless_fixed_work_gaussian_strictly_improves"
+
+$mechanism_selection$certificate$coordinate_count
+[1] 3
+
+$mechanism_selection$certificate$epsilon
+[1] 8
+
+$mechanism_selection$certificate$allocated_delta
+[1] 7.888609e-31
+
+$mechanism_selection$certificate$gaussian_eligible
+[1] TRUE
+
+$mechanism_selection$certificate$positive_delta_reserved
+[1] TRUE
+
+$mechanism_selection$certificate$deployed_backends
+[1] "joint-discrete-laplace-v3"
+
+$mechanism_selection$certificate$gaussian_backend_available
+[1] FALSE
+
+$mechanism_selection$certificate$gaussian_unavailable_reason
+[1] "formal_fixed_work_gaussian_plan_unavailable"
+
+$mechanism_selection$certificate$gaussian_calibration_request
+$mechanism_selection$certificate$gaussian_calibration_request$epsilon
+[1] "7.9999999999997726e+00"
+
+$mechanism_selection$certificate$gaussian_calibration_request$delta
+[1] "7.8886090522098938e-31"
+
+$mechanism_selection$certificate$gaussian_calibration_request$l2_sensitivity_steps
+[1] "2.3486511655005422e+08"
+
+$mechanism_selection$certificate$gaussian_calibration_request$total_coordinate_count
+[1] 3
+
+
+$mechanism_selection$certificate$gaussian_calibration_rounding
+$mechanism_selection$certificate$gaussian_calibration_rounding$declared_policy_values
+[1] "binary64_policy_values"
+
+$mechanism_selection$certificate$gaussian_calibration_rounding$epsilon
+[1] "inward_128_machine_epsilon_relative_guard_v1"
+
+$mechanism_selection$certificate$gaussian_calibration_rounding$delta
+[1] "inward_128_machine_epsilon_relative_guard_v1"
+
+$mechanism_selection$certificate$gaussian_calibration_rounding$l2_sensitivity
+[1] "outward_128_machine_epsilon_relative_guard_v1"
+
+
+$mechanism_selection$certificate$gaussian_plan
+NULL
+
+$mechanism_selection$certificate$gaussian_plan_sha256
+NULL
+
+$mechanism_selection$certificate$laplace_simultaneous_95_abs
+[1] 170024795
+
+$mechanism_selection$certificate$gaussian_simultaneous_95_abs
+NULL
+
+$mechanism_selection$certificate$deployment_rule
+[1] "formal_backend_or_explicit_laplace_fallback"
+
+$mechanism_selection$certificate$winner
+[1] "laplace"
+
+$mechanism_selection$certificate$utility_winner
+[1] "laplace"
+
+$mechanism_selection$certificate$decision
+[1] "fixed_work_gaussian_unavailable_explicit_laplace_fallback"
+
+$mechanism_selection$certificate$canonical_selector_invoked
+[1] TRUE
+
+$mechanism_selection$certificate$selector_certificate_sha256
+[1] "b51ff4fa407a4f607197ac26cf1b38df803be13cc7ea81dbb5d79a8b0e01cbd1"
+
+
+
+$native_errors
+$native_errors[[1]]
+$native_errors[[1]]$command
+[1] "joint-dp-vector-gaussian-plan-v2"
+
+$native_errors[[1]]$status
+[1] 0
+
+$native_errors[[1]]$stderr
+[1] ""
+
+
+$native_errors[[2]]
+$native_errors[[2]]$command
+[1] "joint-dp-vector-gaussian-plan-v2"
+
+$native_errors[[2]]$message
+[1] "dsvert-mpc error: joint-DP fixed-work discrete-Gaussian plan unavailable: fixed-work Gaussian table is outside the certified support"
+
+
+
+$grouped_failure
+NULL
+
+$mismatch
+NULL
+
+Error in run() : native_fired is not TRUE
+Calls: source -> withVisible -> eval -> eval -> run -> stopifnot
+Untracing function ".dsvert_fanout_cycle" in package
+"namespace:dsVertClient"
+Execution halted

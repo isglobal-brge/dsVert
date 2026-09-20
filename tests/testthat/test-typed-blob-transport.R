@@ -112,7 +112,8 @@ test_that("optional formal routing does not block Synopsis tickets", {
     .DSVERT_FORMAL_GLM_CONTROL_CAPABILITY =
       "blob.formal-glm-one-draw-control.v1")
   expect_identical(unname(vapply(names(expected), get,
-                                  character(1L), inherits = TRUE)),
+                                  character(1L), envir = asNamespace("dsVert"),
+                                  inherits = FALSE)),
                    unname(expected))
   expect_false(exists(".DSVERT_FORMAL_COX_CONTROL_CAPABILITY",
                       inherits = TRUE))

@@ -303,6 +303,16 @@ func main() {
 		handleExactGCDeriveMaster()
 	case "exact-gc-capability":
 		handleExactGCCapability()
+	case "cross-grid-batch-plan-v2":
+		handleCrossGridBatchPlan()
+	case "cox-loss-staged-prepare-v1":
+		handleCoxLossPrepareWire()
+	case "grouped-gee-fixed-rho-staged-prepare-v1":
+		handleGroupedGEEPrepareWire()
+	case "grouped-glmm-staged-prepare-v1":
+		handleGroupedGLMMPrepareWire()
+	case "grouped-lmm-staged-prepare-v1":
+		handleGroupedLMMPrepareWire()
 	case "exact-gc-plan-mul":
 		handleExactGCMulPlan()
 	case "joint-dp-laplace-plan-v2":

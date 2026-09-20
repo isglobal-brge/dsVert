@@ -743,7 +743,9 @@
     segment_count == last - first + 1 &&
     last < execution_count && numeric[["ring_bits"]] == 128 &&
     numeric[["frac_bits"]] == 0 &&
-    (!exact || execution_size == min(64, total))
+    # The authenticated attempt may use a smaller capacity-bound exact chunk.
+    # Its context and segment descriptors are matched again by the final reader.
+    (!exact || execution_size <= min(64, total))
   roles <- .dsvert_typed_blob_context_fields(
     context$roles,
     c("primary_noise_authority", "secondary_noise_authority"))

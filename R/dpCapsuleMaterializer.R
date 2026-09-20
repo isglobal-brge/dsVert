@@ -1144,6 +1144,19 @@
   unname(statistics)
 }
 
+#' Quantized NB2 grid losses under sealed v2 semantics
+#'
+#' Evaluates the complete negative log likelihood, including
+#' `y * log(theta + exp(eta))`, using stable softplus expressions. The
+#' defective v1 semantics must not be used for new releases.
+#' @param design List of bounded design columns, including any intercept.
+#' @param outcome Bounded nonnegative integer counts.
+#' @param beta_grid Signed list of coefficient vectors.
+#' @param theta_grid Signed positive dispersion candidates.
+#' @param grid_bits Number of fractional bits in the loss lattice.
+#' @param max_outcome Signed maximum admitted count.
+#' @return Numeric vector of summed, rounded row losses in theta-then-beta order.
+#' @keywords internal
 .dsvert_dp_capsule_quantized_negative_binomial_grid_losses <- function(
     design, outcome, beta_grid, theta_grid, grid_bits, max_outcome) {
   if (!is.list(design) || !length(design) || !is.numeric(outcome) ||
@@ -1187,7 +1200,8 @@
     eta <- as.numeric(design_matrix %*% candidate$beta)
     value <- lgamma(candidate$theta) + lgamma(outcome + 1) -
       lgamma(outcome + candidate$theta) +
-      candidate$theta * log1pexp(eta - log(candidate$theta)) - outcome * eta
+      candidate$theta * log1pexp(eta - log(candidate$theta)) +
+      outcome * log1pexp(log(candidate$theta) - eta)
     sum(as.numeric(round(pmax(0, value) * scale)))
   }, numeric(1L))
   if (anyNA(statistics) || any(!is.finite(statistics)) ||
@@ -1519,6 +1533,30 @@
   }
   logical_snapshot <- .dsvert_joint_dp_logical_snapshot(
     manifest$logical_snapshot)
+  for (artifact in manifest$workload$families$gaussian_models$artifacts) {
+    if (grepl("^bounded-negative-binomial-likelihood-grid-", artifact$version) ||
+        identical(artifact$spec_version, "negative_binomial_grid_v1") ||
+        identical(artifact$spec_version, "negative_binomial_grid_v2")) {
+      expected <- list(
+        version = "bounded-negative-binomial-likelihood-grid-v2",
+        spec_version = "negative_binomial_grid_v2",
+        coordinate_order =
+          "theta_grid_then_beta_grid_negative_binomial_log_likelihood_v2",
+        contribution_domain = paste(
+          "one_bounded_patient_negative_binomial_log_likelihood",
+          "contribution_for_every_signed_candidate_v2", sep = "_"),
+        adjacency_sensitivity_basis = paste(
+          "one_patient_changes_one_candidate_loss_by_at_most_its_signed",
+          "negative_binomial_loss_bound_v2", sep = "_"),
+        estimation_scope = paste(
+          "bounded_negative_binomial_fixed_covariates_finite_signed",
+          "beta_theta_grid_v2", sep = "_"))
+      if (!identical(artifact[names(expected)], expected)) {
+        stop("The signed negative-binomial grid semantics are invalid; v2 is required.",
+             call. = FALSE)
+      }
+    }
+  }
   identity <- if (.dsvert_dp_synopsis_policy_is_v1(policy)) {
     .dsvert_dp_synopsis_capsule_identity_validate_v1(
       policy, logical_snapshot, manifest$capsule_identity)
@@ -1816,9 +1854,11 @@
   cross_artifacts <- manifest$workload$families$gaussian_models$artifacts
   cross_artifacts <- cross_artifacts[vapply(
     cross_artifacts, function(artifact) {
-      identical(
-        artifact$version,
-        "bounded-normalized-gaussian-cross-sufficient-statistics-v1")
+      artifact$version %in% c(
+        "bounded-normalized-gaussian-cross-sufficient-statistics-v1",
+        "bounded-lmm-cross-grid-v1", "bounded-binomial-glmm-cross-grid-v1", "bounded-poisson-glmm-cross-grid-v1",
+        "bounded-binomial-gee-cross-grid-v1", "bounded-poisson-gee-cross-grid-v1",
+        unname(.DSVERT_DP_GLM_GRID_CROSS_ARTIFACT_VERSIONS))
     }, logical(1L))]
   owns_cross_input <- any(vapply(cross_artifacts, function(artifact) {
     local_peer %in% unlist(artifact$participating_peers, use.names = FALSE)
@@ -1919,9 +1959,11 @@
   for (name in names(gaussian_blocks)) {
     block <- gaussian_blocks[[name]]
     artifact <- block$descriptor
-    if (identical(
-          artifact$version,
-          "bounded-normalized-gaussian-cross-sufficient-statistics-v1")) {
+    if (artifact$version %in% c(
+          "bounded-normalized-gaussian-cross-sufficient-statistics-v1",
+          "bounded-lmm-cross-grid-v1", "bounded-binomial-glmm-cross-grid-v1", "bounded-poisson-glmm-cross-grid-v1",
+          "bounded-binomial-gee-cross-grid-v1", "bounded-poisson-gee-cross-grid-v1",
+          unname(.DSVERT_DP_GLM_GRID_CROSS_ARTIFACT_VERSIONS))) {
       # Cross-owner coordinates are injected only after the fixed exact-GC
       # transcript.  Every ordinary source contributes the all-zero public
       # block here, so no exact moment can enter the sampler by accident.
@@ -2186,7 +2228,7 @@
     }
     if (identical(
           artifact$version,
-          "bounded-negative-binomial-likelihood-grid-v1")) {
+          "bounded-negative-binomial-likelihood-grid-v2")) {
       outcome <- bounded_for(block$dataset, artifact$outcome$column)
       predictors <- lapply(artifact$predictor_order, function(variable) {
         bounded_for(block$dataset, artifact$predictors[[variable]]$column)

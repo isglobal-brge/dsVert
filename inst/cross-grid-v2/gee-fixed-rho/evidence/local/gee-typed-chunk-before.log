@@ -1,0 +1,14 @@
+dp-synopsis-exact-downstream: 1.......................................................................................................................
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Error ('test-dp-synopsis-exact-downstream.R:120:3'): exact synopsis FINAL_
+Error: Invalid typed-blob synopsis geometry or route.
+Backtrace:
+    ▆
+ 1. └─dsVert:::.dsvert_dp_synopsis_execution_final_share_context_v1(...) at test-dp-synopsis-exact-downstream.R:120:3
+ 2.   └─dsVert:::.dsvert_typed_blob_synopsis_context_v1(value, sender) at dsVert/R/dpSynopsisExecutionDS.R:2860:3
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+Error:
+! Test failures.
+Execution halted

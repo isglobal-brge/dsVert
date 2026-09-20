@@ -1,0 +1,14 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-capsule-method-inventory.R","capsule-method-inventory","capsule migration inventory covers the complete public surface",9,0,FALSE,FALSE,0,0.37,0.016,0.393,9
+"test-capsule-method-inventory.R","capsule-method-inventory","inventory separates current, migration, artifact and inference state",16,0,FALSE,FALSE,0,0.305,0.014,0.414,16
+"test-capsule-method-inventory.R","capsule-method-inventory","sticky Synopsis artifacts never deny a canonical replay",20,0,FALSE,FALSE,0,0.107,0.00800000000000001,0.166,20
+"test-capsule-method-inventory.R","capsule-method-inventory","aliases and wrappers retain honest routing semantics",38,0,FALSE,FALSE,0,0.129,0.004,0.134,38
+"test-capsule-method-inventory.R","capsule-method-inventory","remote-call evidence is classified and scoped",709,0,FALSE,FALSE,0,1.262,0.256,1.564,709
+"test-capsule-method-inventory.R","capsule-method-inventory","retired legacy DP endpoints are absent from public route evidence",2,0,FALSE,FALSE,0,0.0939999999999994,0.001,0.0960000000000001,2
+"test-capsule-method-inventory.R","capsule-method-inventory","verified legacy disclosure evidence cannot regress to omission",19,0,FALSE,FALSE,0,0.123,0.005,0.135999999999999,19
+"test-capsule-method-inventory.R","capsule-method-inventory","planned artifacts describe the actual biomedical contracts",15,0,FALSE,FALSE,0,0.135,0.01,0.149,15
+"test-capsule-method-inventory.R","capsule-method-inventory","estimands and inference requirements match implemented semantics",22,0,FALSE,FALSE,0,0.138000000000001,0.00700000000000001,0.15,22
+"test-capsule-method-inventory.R","capsule-method-inventory","implemented Synopsis producers and postprocessors are explicit",43,0,FALSE,FALSE,0,0.187,0.023,0.216,43
+"test-capsule-method-inventory.R","capsule-method-inventory","MI is a scoped Synopsis postprocessor, not the retired mutating route",4,0,FALSE,FALSE,0,0.0979999999999999,0.004,0.103,4
+"test-capsule-method-inventory.R","capsule-method-inventory","mixed variants and Frequency compatibility names have explicit scopes",18,0,FALSE,FALSE,0,0.291,0.014,0.311,18
+"test-capsule-method-inventory.R","capsule-method-inventory","NB2 slope and categorical MI compatibility routes retain explicit scopes",4,0,FALSE,FALSE,0,0.164,0.006,0.179,4

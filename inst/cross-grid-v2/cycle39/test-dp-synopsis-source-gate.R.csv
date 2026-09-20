@@ -1,0 +1,6 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-synopsis-source-gate.R","dp-synopsis-source-gate","synopsis source context and gate have a closed internal ABI",4,0,FALSE,FALSE,0,0.00999999999999801,0.00299999999999989,0.0130000000000017,4
+"test-dp-synopsis-source-gate.R","dp-synopsis-source-gate","data-free context validates cache and exact K before source work",4,0,FALSE,FALSE,0,6.058,0.639,9.301,4
+"test-dp-synopsis-source-gate.R","dp-synopsis-source-gate","all peers validate context but only sources receive callbacks",50,0,FALSE,FALSE,0,51.82,5.355,95.128,50
+"test-dp-synopsis-source-gate.R","dp-synopsis-source-gate","gate validates unsigned evidence from the same fresh producer",13,0,FALSE,FALSE,0,3.80099999999999,0.339,6.72900000000001,13
+"test-dp-synopsis-source-gate.R","dp-synopsis-source-gate","A to B source mismatch fails before durable state or RNG",5,0,FALSE,FALSE,0,5.2,0.428,10.116,5

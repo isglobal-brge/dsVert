@@ -1,0 +1,192 @@
+{
+  "gate_bytes": 256000000000,
+  "gate_seconds": 21600,
+  "promotion_authorized": false,
+  "families": {
+    "nb": {
+      "authenticated_release_capacity": null,
+      "measured_kernel_capacity": {
+        "n": 10000,
+        "p": 10,
+        "grid": 50,
+        "max_outcome": 16,
+        "theta": 128,
+        "all_candidates_same_theta": true,
+        "total_bytes": 144065348553,
+        "total_seconds": 1787.345722888,
+        "headroom_bytes": 111934651447,
+        "scope": "kernel plus joint noise; excludes authenticated source/PSI lifecycle",
+        "evidence": "resume-20260919/nb-full128.json",
+        "original_exit_code": 1,
+        "original_gate_pass": false,
+        "reassessed_gate_pass": true
+      },
+      "status": "full-size measured kernel capacity admitted under revision 2; authenticated release proof pending",
+      "prior_measurement": {
+        "n": 7616,
+        "p": 10,
+        "grid": 50,
+        "max_outcome": 16,
+        "theta": 128,
+        "all_candidates_same_theta": true,
+        "total_bytes": 109995463097,
+        "total_seconds": 2566.022530175,
+        "headroom_bytes": 4536903,
+        "scope": "kernel plus joint noise; excludes authenticated source/PSI lifecycle",
+        "evidence": "cycle4-20260919/nb-capacity-n7616.json"
+      },
+      "admitted_capacity": {
+        "n": 10000,
+        "p": 10,
+        "grid": 50,
+        "scope": "measured kernel plus joint noise; max_outcome16 and all theta128"
+      },
+      "gate_review": "measured point passes revision 2"
+    },
+    "lasso": {
+      "authenticated_release_capacity": null,
+      "measured_kernel_capacity": null,
+      "status": "inherits retained binomial/Poisson base envelopes; public penalty adds no MPC traffic",
+      "retained_evidence": "lasso-public-cost.json",
+      "base_measurements": {
+        "binomial": {
+          "n": 10000,
+          "p": 10,
+          "grid": 50,
+          "total_bytes": 86515842839,
+          "total_seconds": 2795.701345507,
+          "scope": "kernel plus joint noise; excludes authenticated source/PSI lifecycle",
+          "evidence": "../dsVert/inst/cross-grid-v2/pod-full-n10000.log",
+          "reassessed_gate_pass": true
+        },
+        "poisson": {
+          "n": 10000,
+          "p": 10,
+          "grid": 50,
+          "total_bytes": 106763755314,
+          "total_seconds": 2695.031890837,
+          "scope": "kernel plus joint noise; excludes authenticated source/PSI lifecycle",
+          "evidence": "../dsVert/inst/cross-grid-v2/pod-full-n10000.log",
+          "reassessed_gate_pass": true
+        }
+      },
+      "admitted_capacity": {
+        "n": 10000,
+        "p": 10,
+        "grid": 50,
+        "scope": "inherited measured binomial/Poisson base; public penalty adds zero MPC traffic"
+      },
+      "gate_review": "both retained base measurements pass revision 2; no remeasurement"
+    },
+    "multinomial": {
+      "authenticated_release_capacity": null,
+      "measured_kernel_capacity": null,
+      "status": "unmeasured",
+      "gate_review": "unmeasured; no extrapolated capacity admitted"
+    },
+    "ordinal": {
+      "authenticated_release_capacity": null,
+      "measured_kernel_capacity": null,
+      "status": "unmeasured",
+      "gate_review": "unmeasured; no extrapolated capacity admitted"
+    },
+    "lmm": {
+      "authenticated_release_capacity": null,
+      "measured_kernel_capacity": null,
+      "status": "internal fixed-covariance n2000/C500 worker measured; ML/source/DP release capacity unmeasured",
+      "gate_review": "completed internal component passes revision 2; no extrapolated or production capacity admitted",
+      "measured_internal_worker": {
+        "n": 2000,
+        "clusters": 500,
+        "slots": 4,
+        "p": 3,
+        "grid": 2,
+        "durable_stages": 244,
+        "objective": "retained fixed-covariance quadratic; not ML variance grid",
+        "total_bytes": 6222758629,
+        "computation_seconds": 715.079,
+        "process_seconds": 727.469,
+        "maximum_rss_kib": 649776,
+        "oracle_equal": true,
+        "cold_replay": true,
+        "source_and_stage_tamper_rejected": true,
+        "bilateral_recovery": true,
+        "unilateral_recovery": true,
+        "budget_stop": false,
+        "exit_code": 0,
+        "traffic_gate_pass": true,
+        "time_gate_pass": true,
+        "scope": "typed worker with authenticated synthetic source, routing, conversion and full fixed-covariance LMM; excludes actual owner materialization, new ML variance grid, and DP",
+        "production_admission_changed": false,
+        "signed_cluster_guard": 64,
+        "evidence": "cycle7-20260919/LMM_WORKER_CAPACITY.md",
+        "measurement": "cycle7-20260919/lmm-capacity/measurement.json"
+      }
+    },
+    "binomial_glmm": {
+      "authenticated_release_capacity": null,
+      "measured_kernel_capacity": null,
+      "status": "unmeasured",
+      "gate_review": "unmeasured; no extrapolated capacity admitted"
+    },
+    "poisson_glmm": {
+      "authenticated_release_capacity": null,
+      "measured_kernel_capacity": null,
+      "status": "unmeasured",
+      "gate_review": "unmeasured; no extrapolated capacity admitted"
+    },
+    "binomial_gee": {
+      "authenticated_release_capacity": null,
+      "measured_kernel_capacity": null,
+      "status": "unmeasured",
+      "gate_review": "unmeasured; no extrapolated capacity admitted"
+    },
+    "poisson_gee": {
+      "authenticated_release_capacity": null,
+      "measured_kernel_capacity": null,
+      "status": "unmeasured",
+      "gate_review": "unmeasured; no extrapolated capacity admitted"
+    },
+    "cox": {
+      "authenticated_release_capacity": null,
+      "measured_kernel_capacity": {
+        "n": 4000,
+        "grid": 50,
+        "total_bytes": 52962304383,
+        "total_seconds": 5663.674,
+        "scope": "retained family kernel only; excludes authenticated source/PSI/DP lifecycle",
+        "evidence": "../dsVert/MEASURED_ENVELOPE_COX.md"
+      },
+      "status": "retained measured n4000/grid50 passes revision 2; n10000 runs were censored by old 60GB cutoff and cannot establish a larger capacity",
+      "gate_review": "measured point passes revision 2",
+      "admitted_capacity": {
+        "n": 4000,
+        "grid": 50,
+        "scope": "retained family kernel only; excludes authenticated source/PSI/DP lifecycle"
+      }
+    }
+  },
+  "gate_revision": "GATE_REVISION_2_2026-09-19.md",
+  "retained_base_families": {
+    "binomial": {
+      "n": 10000,
+      "p": 10,
+      "grid": 50,
+      "total_bytes": 86515842839,
+      "total_seconds": 2795.701345507,
+      "scope": "kernel plus joint noise; excludes authenticated source/PSI lifecycle",
+      "evidence": "../dsVert/inst/cross-grid-v2/pod-full-n10000.log",
+      "reassessed_gate_pass": true
+    },
+    "poisson": {
+      "n": 10000,
+      "p": 10,
+      "grid": 50,
+      "total_bytes": 106763755314,
+      "total_seconds": 2695.031890837,
+      "scope": "kernel plus joint noise; excludes authenticated source/PSI lifecycle",
+      "evidence": "../dsVert/inst/cross-grid-v2/pod-full-n10000.log",
+      "reassessed_gate_pass": true
+    }
+  }
+}

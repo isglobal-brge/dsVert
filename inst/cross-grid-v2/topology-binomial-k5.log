@@ -1,0 +1,10 @@
+DSLITE_ALIGNMENT_COMPLETE
+DSLITE_CUSTODIAN_SIGNATURES_COMPLETE
+DSLITE_PUBLIC_ADMISSION_COMPLETE
+Tracing function ".dsvert_dp_synopsis_client_replay" in package
+"namespace:dsVertClient"
+Untracing function ".dsvert_dp_synopsis_client_replay" in package
+"namespace:dsVertClient"
+DSLITE_ORACLE_BITWISE_EQUAL
+DIRECT_R_COLD_LIFECYCLE_EQUAL_TAMPER_REJECTED
+{"family":"binomial","n":2000,"p":6,"grid":2,"owners":5,"epsilon":4,"instance":1,"elapsed":3226.806,"oracle_only":false,"selected_candidate":2,"exact_best":2,"loss_gap":0,"artifact_key":"d699fc4aeec4375f0499f17673ed1658f871caddd24e4dedc11ad0207f130dc8","certificate_sha256":"f87451b3f173409a4bf8419ace859b22e6d60fd03d1bb4a0e0c6058777a8464b"} 

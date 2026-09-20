@@ -21,7 +21,7 @@
 .synopsis_execution_require <- function() {
   missing <- .synopsis_execution_required[!vapply(
     .synopsis_execution_required, exists, logical(1L),
-    mode = "function", inherits = TRUE)]
+    mode = "function", envir = asNamespace("dsVert"), inherits = FALSE)]
   if (length(missing)) skip(paste("RED: missing", paste(missing, collapse = ", ")))
 }
 
@@ -59,7 +59,7 @@
 test_that("the dedicated synopsis execution API is explicit and minimal", {
   present <- vapply(
     .synopsis_execution_required, exists, logical(1L),
-    mode = "function", inherits = TRUE)
+    mode = "function", envir = asNamespace("dsVert"), inherits = FALSE)
   expect_true(all(present), info = paste(
     "missing", paste(.synopsis_execution_required[!present], collapse = ", ")))
   if (!all(present)) skip("RED: dedicated synopsis execution API is absent")

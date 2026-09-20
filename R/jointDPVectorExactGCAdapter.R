@@ -58,17 +58,23 @@
 }
 
 .dsvert_joint_dp_vector_public_backend_choice <- function(
-    total_coordinate_count) {
+    total_coordinate_count, cost_policy_version =
+      .DSVERT_JOINT_DP_VECTOR_EXACT_GC_COST_POLICY_VERSION) {
+  maximum <- switch(cost_policy_version,
+    "dsvert-joint-dp-vector-exact-gc-cost-policy-v1" = 1L,
+    "dsvert-cross-grid-exact-gc-cost-policy-v2" = 51L,
+    "dsvert-lmm-grid-exact-gc-cost-policy-v1" = 257L,
+    stop("Invalid exact-GC cost policy.", call. = FALSE))
   total <- .dsvert_joint_dp_vector_exact_gc_integer(
     total_coordinate_count, "total coordinate count", 1L, 1000000L)
-  promoted <- total <=
-    .DSVERT_JOINT_DP_VECTOR_EXACT_GC_MAX_PROMOTED_COORDINATES
+  if (maximum > 1L && total > maximum) {
+    stop("Cross-grid exact-GC release exceeds the certified envelope.", call. = FALSE)
+  }
+  promoted <- total <= maximum
   list(
-    policy_version =
-      .DSVERT_JOINT_DP_VECTOR_EXACT_GC_COST_POLICY_VERSION,
+    policy_version = cost_policy_version,
     total_coordinate_count = total,
-    maximum_promoted_coordinates =
-      .DSVERT_JOINT_DP_VECTOR_EXACT_GC_MAX_PROMOTED_COORDINATES,
+    maximum_promoted_coordinates = maximum,
     promoted = promoted,
     backend = if (promoted) {
       .DSVERT_JOINT_DP_VECTOR_EXACT_GC_BACKEND
@@ -110,7 +116,7 @@
       plan$total_coordinate_count)
   }
   expected_choice <- .dsvert_joint_dp_vector_public_backend_choice(
-    plan$total_coordinate_count)
+    plan$total_coordinate_count, choice$policy_version)
   if (!is.list(choice) ||
       !identical(choice, expected_choice)) {
     stop("The exact-GC cost-policy decision is invalid.", call. = FALSE)
@@ -178,7 +184,7 @@
     assessment$maximum_chunk_coordinates,
     "exact-GC chunk capacity", 1L, 128L)
   choice <- .dsvert_joint_dp_vector_public_backend_choice(
-    assessment$total_coordinate_count)
+    assessment$total_coordinate_count, assessment$cost_policy_version)
   if (!identical(assessment$cost_policy_version, choice$policy_version) ||
       !identical(as.numeric(assessment$maximum_promoted_coordinates),
                  as.numeric(choice$maximum_promoted_coordinates)) ||
@@ -232,7 +238,7 @@
          call. = FALSE)
   }
   choice <- .dsvert_joint_dp_vector_public_backend_choice(
-    selection$total_coordinate_count)
+    selection$total_coordinate_count, selection$cost_policy_version)
   exact <- identical(selection$backend,
                      .DSVERT_JOINT_DP_VECTOR_EXACT_GC_BACKEND)
   coherent <- identical(selection$backend, choice$backend) &&
@@ -263,13 +269,20 @@
     "raw_upper_bounds", "transcript_hash",
     "garbler_commitment_context", "evaluator_commitment_context",
     "garbler_seed_commitment", "evaluator_seed_commitment")
+  if (!is.null(input$source_stage_plan_digest)) {
+    .dsvert_joint_dp_vector_exact_gc_hex(input$source_stage_plan_digest, "source stage plan")
+    if (identical(input$source_stage_plan_digest, strrep("0", 64))) {
+      stop("Invalid source stage plan.", call. = FALSE)
+    }
+    required <- c(required, "source_stage_plan_digest")
+  }
   recursive_names <- function(value) {
     if (!is.list(value)) return(character())
     c(names(value), unlist(lapply(value, recursive_names), use.names = FALSE))
   }
   if (!is.list(input) || !setequal(names(input), required) ||
       length(intersect(recursive_names(input),
-                       c("source_share", "private_seed")))) {
+                       c("source_share", "source_validity", "private_seed")))) {
     stop("The exact-GC compiler accepts public metadata only.",
          call. = FALSE)
   }
@@ -339,6 +352,8 @@
                  total) ||
       !identical(output$worker_policy$transcript_hash,
                  input$transcript_hash) ||
+      !identical(output$worker_policy$source_stage_plan_digest,
+                 input$source_stage_plan_digest) ||
       !identical(output$plan$version,
                  "dsvert-joint-dp-vector-laplace-plan-v3") ||
       !identical(output$plan$sampler,
@@ -511,6 +526,22 @@
   count <- .dsvert_joint_dp_vector_exact_gc_integer(
     worker_contract$worker_policy$coordinate_count,
     "exact-GC coordinate count", 1L, 128L)
+  staged <- attr(source_share, "dsvert_staged_source", exact = TRUE)
+  expected_plan <- worker_contract$worker_policy$source_stage_plan_digest
+  if (!is.null(expected_plan)) {
+    if (!is.list(staged) || !setequal(names(staged),
+        c("validity_share", "stage_receipt", "stage_plan_digest")) ||
+        !identical(staged$stage_plan_digest, expected_plan)) {
+      stop("The exact-GC source lacks its staged validity binding.", call. = FALSE)
+    }
+    .exact_gc_validate_packed_bits(staged$validity_share, count, "staged DP source validity")
+    .dsvert_joint_dp_vector_exact_gc_hex(staged$stage_receipt, "staged DP source receipt")
+    if (identical(staged$stage_receipt, strrep("0", 64))) {
+      stop("Invalid staged DP source receipt.", call. = FALSE)
+    }
+  } else if (!is.null(staged)) {
+    stop("The exact-GC sampler did not bind the staged source validity.", call. = FALSE)
+  }
   source_b64 <- if (is.raw(source_share)) {
     if (length(source_share) != count * 16L) {
       stop("The private Ring128 vector share has the wrong shape.",
@@ -530,6 +561,27 @@
       ss, binding$source_key, source_b64, 128L, count,
       binding$source_producer, binding$operation, binding$purpose, 0L,
       binding$output_kind)
+  }
+  if (!is.null(staged)) {
+    source <- ss$.exact_gc_inputs[[binding$source_key]]
+    if (is.null(source) && !identical(previous$status, "complete")) {
+      stop("Missing staged DP input.", call. = FALSE)
+    }
+    if (!is.null(source) && !identical(source$share, source_b64)) {
+      stop("The staged DP source changed on retry.", call. = FALSE)
+    }
+    if (!is.null(source$source_validity) &&
+        (!identical(source$source_validity, staged$validity_share) ||
+         !identical(source$source_stage_plan_digest, staged$stage_plan_digest) ||
+         !identical(source$source_stage_receipt, staged$stage_receipt))) {
+      stop("The staged DP source changed on retry.", call. = FALSE)
+    }
+    if (!is.null(source)) {
+      source$source_validity <- staged$validity_share
+      source$source_stage_plan_digest <- staged$stage_plan_digest
+      source$source_stage_receipt <- staged$stage_receipt
+      ss$.exact_gc_inputs[[binding$source_key]] <- source
+    }
   }
   init_args <- list(
     ss = ss, session_id = session_id,

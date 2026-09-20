@@ -1,0 +1,12 @@
+goos: linux
+goarch: amd64
+pkg: github.com/isglobal-brge/dsVert/dsvert-mpc
+cpu: Intel(R) Xeon(R) Gold 6342 CPU @ 2.80GHz
+BenchmarkCrossGridBinomialV2BatchProtocol/A4/batch32/compact-8         	       3	 667319881 ns/op	      2806 AND/eval	  20853746 ns/eval	     94036 wire-B/eval
+BenchmarkCrossGridBinomialV2BatchProtocol/A16/batch32/compact-8        	       3	1069420853 ns/op	      3078 AND/eval	  33419402 ns/eval	    102747 wire-B/eval
+BenchmarkCrossGridExpReducedV2Protocol/batch1/compactfalse-8           	       3	 240054877 ns/op	      3540 AND/eval	 240054877 ns/eval	    185129 wire-B/eval
+BenchmarkCrossGridExpReducedV2Protocol/batch1/compacttrue-8            	       3	 269289930 ns/op	      3540 AND/eval	 269289930 ns/eval	    136173 wire-B/eval
+BenchmarkCrossGridExpReducedV2Protocol/batch32/compactfalse-8          	       3	1036979836 ns/op	      3541 AND/eval	  32405620 ns/eval	    166490 wire-B/eval
+BenchmarkCrossGridExpReducedV2Protocol/batch32/compacttrue-8           	       3	 902529084 ns/op	      3541 AND/eval	  28204034 ns/eval	    117570 wire-B/eval
+PASS
+ok  	github.com/isglobal-brge/dsVert/dsvert-mpc	147.705s

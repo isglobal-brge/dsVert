@@ -1,0 +1,25 @@
+{
+  "observed_utc": "2026-09-20T13:26:02.439725+00:00",
+  "source_commits": {
+    "dsVert": "c0cf297922b5566e1d6a73964e71ed57464113dd",
+    "dsVertClient": "5b6458fa7264909eaa1bbdb63d8b0ccc22acc40a"
+  },
+  "promoted_count": 4,
+  "promoted_source_pair": "f3795a2/e748f05",
+  "proof": "R_PROOF.json",
+  "manifest": "MANIFEST_VALIDATION.json",
+  "lmm": "LMM_HARVEST.json",
+  "simple_paired": "SIMPLE_PAIRED.json",
+  "reviewer_fleet": "REVIEWER_FLEET_OBSERVATION.json",
+  "production_server_changed": true,
+  "native_runtime_changed": false,
+  "native_sampler_changed": false,
+  "gee_files_edited": false,
+  "pending": [
+    "Cox public source catalog/claim/transport registration, exported routing-receipt handoff and client compilation/certificate dispatch",
+    "LMM authenticated relay batching with fresh output/recovery equality and capacity measurement",
+    "Heavy complete lifecycle/promotion gates",
+    "Confirmatory simple client paired completion",
+    "Pod16 native worker readiness cause"
+  ]
+}

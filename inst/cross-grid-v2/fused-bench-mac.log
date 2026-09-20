@@ -1,0 +1,12 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/isglobal-brge/dsVert/dsvert-mpc
+cpu: Apple M2
+BenchmarkCrossGridFusedBatch/binomial-8         	       1	1478935959 ns/op	      4205 AND/eval	        35.73 compile-s	   5777094 ns/eval	    165643 wire-B/eval
+--- BENCH: BenchmarkCrossGridFusedBatch/binomial-8
+    k2_exact_gc_glm_grid_protocol_test.go:172: batch_AND=1076415 total_wire_bytes=42404496 iterations=1 cap=263340
+BenchmarkCrossGridFusedBatch/poisson-8          	       1	2308600250 ns/op	      5466 AND/eval	        72.12 compile-s	   9017970 ns/eval	    206037 wire-B/eval
+--- BENCH: BenchmarkCrossGridFusedBatch/poisson-8
+    k2_exact_gc_glm_grid_protocol_test.go:172: batch_AND=1399391 total_wire_bytes=52745381 iterations=1 cap=3578149
+PASS
+ok  	github.com/isglobal-brge/dsVert/dsvert-mpc	112.738s

@@ -1,0 +1,14 @@
+c2f8be4472370a2390bef872c27e4103c92e006e629a0705253c9c14bb7d763c  base-commits.json
+4a0397e52f762b832405923126179c9f56b0c1fd2dc931cb60c5c0afba58ae24  frozen-source-manifest.json
+87e92c4b82ea766e1e092a00ffb7f7093788a657915757625d3d47caf41031a8  logs/binomial_gee-smoke-driver.log
+4619d68af00c8ed41a708cdf71cd5c024df934411084768de72b2da532faad5a  logs/binomial_gee-smoke-launch.json
+740ece1b47ff8d21d85a97eae21ffadc22a4396c53c9aff6046869e61b3d2c11  logs/poisson_gee-smoke-driver.log
+f239b9d46bc90264b2a934a367314f661e538b099cf3245f7d58e9d48ff1e1cc  logs/poisson_gee-smoke-launch.json
+64c27fff4cd49920e2f16cbed68960cb0692408094a0238cab639ab426f2b28a  logs/gee-fixed-rho/binomial_gee-n4-k2-exchangeable-rho0.25-baseline-launch.json
+b74d23e316b1f99ff69fd2e6be073a01dd426021ebe69cdc004c5711735b89c1  logs/gee-fixed-rho/binomial_gee-n4-k2-exchangeable-rho0.25-baseline-resources.json
+4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865  logs/gee-fixed-rho/binomial_gee-n4-k2-exchangeable-rho0.25-baseline.exit
+4269acfd86bef1daaa023494ff7014cfc169340d68c40c5fe5947351ef98abfa  logs/gee-fixed-rho/binomial_gee-n4-k2-exchangeable-rho0.25-baseline.log
+3406b0c37dbeaf8126a8ef6eaf8ab77cbcaa9e5e3b60e7761e37e76ae1a5319e  logs/gee-fixed-rho/poisson_gee-n4-k2-exchangeable-rho0.25-baseline-launch.json
+f89f6abb21c3fbc56078ff7b21c27f6b1a64b9c84d6185b8580493f996f97f6f  logs/gee-fixed-rho/poisson_gee-n4-k2-exchangeable-rho0.25-baseline-resources.json
+4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865  logs/gee-fixed-rho/poisson_gee-n4-k2-exchangeable-rho0.25-baseline.exit
+cff9e84223e86ef601d2b855483d220e6430b5ab30244d32e43bebc67f5fedbd  logs/gee-fixed-rho/poisson_gee-n4-k2-exchangeable-rho0.25-baseline.log

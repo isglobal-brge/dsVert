@@ -1,0 +1,44 @@
+{
+  "recorded_utc": "2026-09-20T10:39:52Z",
+  "scope": "Read-only allowlisted integer geometry/chunk indices and publication count; no record_json, shares, seeds, payloads, keys or row MACs read; partial execution evidence only",
+  "authorities": [
+    {
+      "peer": "site_a",
+      "execution_geometry_counts": [
+        [
+          3,
+          1
+        ]
+      ],
+      "durable_local_chunk_indices": [],
+      "started_chunk_indices": [
+        [
+          0
+        ],
+        [
+          1
+        ]
+      ],
+      "published_release_count": 0
+    },
+    {
+      "peer": "site_b",
+      "execution_geometry_counts": [
+        [
+          3,
+          1
+        ]
+      ],
+      "durable_local_chunk_indices": [],
+      "started_chunk_indices": [
+        [
+          0
+        ],
+        [
+          1
+        ]
+      ],
+      "published_release_count": 0
+    }
+  ]
+}

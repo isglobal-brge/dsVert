@@ -1,0 +1,203 @@
+FAILURE: 'test-crossgrid-cox.R:560:7' -------------
+`run(changed)` threw an error with unexpected class.
+Expected class: dsvert_dp_public_failure
+Actual class:   simpleError/error/condition
+Message:        The resolved biomedical capsule alignment binding changed.
+Backtrace:
+     ▆
+  1. ├─testthat::expect_error(run(changed), class = "dsvert_dp_public_failure") at test-crossgrid-cox.R:560:7
+  2. │ └─testthat:::quasi_capture(...)
+  3. │   ├─testthat (local) .capture(...)
+  4. │   │ └─base::withCallingHandlers(...)
+  5. │   └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+  6. └─dsVert (local) run(changed)
+  7.   └─dsVert:::.dsvert_dp_cox_cross_materialize_inputs(...) at test-crossgrid-cox.R:532:14
+  8.     └─dsVert:::.dsvert_dp_capsule_resolved_snapshots(policy, resolved_snapshots) at dsVert/R/dpCoxGridCrossMaterializer.R:71:3
+  9.       └─base::tryCatch(...) at dsVert/R/dpCapsuleMaterializer.R:1649:7
+ 10.         └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 11.           └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 12.             └─value[[3L]](cond)
+
+FAILURE: 'test-crossgrid-cox.R:560:7' -------------
+`run(changed)` threw an error with unexpected class.
+Expected class: dsvert_dp_public_failure
+Actual class:   simpleError/error/condition
+Message:        The resolved biomedical capsule alignment binding changed.
+Backtrace:
+     ▆
+  1. ├─testthat::expect_error(run(changed), class = "dsvert_dp_public_failure") at test-crossgrid-cox.R:560:7
+  2. │ └─testthat:::quasi_capture(...)
+  3. │   ├─testthat (local) .capture(...)
+  4. │   │ └─base::withCallingHandlers(...)
+  5. │   └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+  6. └─dsVert (local) run(changed)
+  7.   └─dsVert:::.dsvert_dp_cox_cross_materialize_inputs(...) at test-crossgrid-cox.R:532:14
+  8.     └─dsVert:::.dsvert_dp_capsule_resolved_snapshots(policy, resolved_snapshots) at dsVert/R/dpCoxGridCrossMaterializer.R:71:3
+  9.       └─base::tryCatch(...) at dsVert/R/dpCapsuleMaterializer.R:1649:7
+ 10.         └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 11.           └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 12.             └─value[[3L]](cond)
+
+FAILURE: 'test-crossgrid-cox.R:560:7' -------------
+`run(changed)` threw an error with unexpected class.
+Expected class: dsvert_dp_public_failure
+Actual class:   simpleError/error/condition
+Message:        The resolved biomedical capsule alignment binding changed.
+Backtrace:
+     ▆
+  1. ├─testthat::expect_error(run(changed), class = "dsvert_dp_public_failure") at test-crossgrid-cox.R:560:7
+  2. │ └─testthat:::quasi_capture(...)
+  3. │   ├─testthat (local) .capture(...)
+  4. │   │ └─base::withCallingHandlers(...)
+  5. │   └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+  6. └─dsVert (local) run(changed)
+  7.   └─dsVert:::.dsvert_dp_cox_cross_materialize_inputs(...) at test-crossgrid-cox.R:532:14
+  8.     └─dsVert:::.dsvert_dp_capsule_resolved_snapshots(policy, resolved_snapshots) at dsVert/R/dpCoxGridCrossMaterializer.R:71:3
+  9.       └─base::tryCatch(...) at dsVert/R/dpCapsuleMaterializer.R:1649:7
+ 10.         └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 11.           └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 12.             └─value[[3L]](cond)
+
+FAILURE: 'test-crossgrid-cox.R:560:7' -------------
+`run(changed)` threw an error with unexpected class.
+Expected class: dsvert_dp_public_failure
+Actual class:   simpleError/error/condition
+Message:        The resolved biomedical capsule alignment binding changed.
+Backtrace:
+     ▆
+  1. ├─testthat::expect_error(run(changed), class = "dsvert_dp_public_failure") at test-crossgrid-cox.R:560:7
+  2. │ └─testthat:::quasi_capture(...)
+  3. │   ├─testthat (local) .capture(...)
+  4. │   │ └─base::withCallingHandlers(...)
+  5. │   └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+  6. └─dsVert (local) run(changed)
+  7.   └─dsVert:::.dsvert_dp_cox_cross_materialize_inputs(...) at test-crossgrid-cox.R:532:14
+  8.     └─dsVert:::.dsvert_dp_capsule_resolved_snapshots(policy, resolved_snapshots) at dsVert/R/dpCoxGridCrossMaterializer.R:71:3
+  9.       └─base::tryCatch(...) at dsVert/R/dpCapsuleMaterializer.R:1649:7
+ 10.         └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 11.           └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 12.             └─value[[3L]](cond)
+
+FAILURE: 'test-crossgrid-cox.R:560:7' -------------
+`run(changed)` threw an error with unexpected class.
+Expected class: dsvert_dp_public_failure
+Actual class:   simpleError/error/condition
+Message:        The resolved biomedical capsule alignment binding changed.
+Backtrace:
+     ▆
+  1. ├─testthat::expect_error(run(changed), class = "dsvert_dp_public_failure") at test-crossgrid-cox.R:560:7
+  2. │ └─testthat:::quasi_capture(...)
+  3. │   ├─testthat (local) .capture(...)
+  4. │   │ └─base::withCallingHandlers(...)
+  5. │   └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+  6. └─dsVert (local) run(changed)
+  7.   └─dsVert:::.dsvert_dp_cox_cross_materialize_inputs(...) at test-crossgrid-cox.R:532:14
+  8.     └─dsVert:::.dsvert_dp_capsule_resolved_snapshots(policy, resolved_snapshots) at dsVert/R/dpCoxGridCrossMaterializer.R:71:3
+  9.       └─base::tryCatch(...) at dsVert/R/dpCapsuleMaterializer.R:1649:7
+ 10.         └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 11.           └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 12.             └─value[[3L]](cond)
+
+FAILURE: 'test-crossgrid-cox.R:560:7' -------------
+`run(changed)` threw an error with unexpected class.
+Expected class: dsvert_dp_public_failure
+Actual class:   simpleError/error/condition
+Message:        The resolved biomedical capsule alignment binding changed.
+Backtrace:
+     ▆
+  1. ├─testthat::expect_error(run(changed), class = "dsvert_dp_public_failure") at test-crossgrid-cox.R:560:7
+  2. │ └─testthat:::quasi_capture(...)
+  3. │   ├─testthat (local) .capture(...)
+  4. │   │ └─base::withCallingHandlers(...)
+  5. │   └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+  6. └─dsVert (local) run(changed)
+  7.   └─dsVert:::.dsvert_dp_cox_cross_materialize_inputs(...) at test-crossgrid-cox.R:532:14
+  8.     └─dsVert:::.dsvert_dp_capsule_resolved_snapshots(policy, resolved_snapshots) at dsVert/R/dpCoxGridCrossMaterializer.R:71:3
+  9.       └─base::tryCatch(...) at dsVert/R/dpCapsuleMaterializer.R:1649:7
+ 10.         └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 11.           └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 12.             └─value[[3L]](cond)
+
+FAILURE: 'test-crossgrid-cox.R:560:7' -------------
+`run(changed)` threw an error with unexpected class.
+Expected class: dsvert_dp_public_failure
+Actual class:   simpleError/error/condition
+Message:        The resolved biomedical capsule alignment binding changed.
+Backtrace:
+     ▆
+  1. ├─testthat::expect_error(run(changed), class = "dsvert_dp_public_failure") at test-crossgrid-cox.R:560:7
+  2. │ └─testthat:::quasi_capture(...)
+  3. │   ├─testthat (local) .capture(...)
+  4. │   │ └─base::withCallingHandlers(...)
+  5. │   └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+  6. └─dsVert (local) run(changed)
+  7.   └─dsVert:::.dsvert_dp_cox_cross_materialize_inputs(...) at test-crossgrid-cox.R:532:14
+  8.     └─dsVert:::.dsvert_dp_capsule_resolved_snapshots(policy, resolved_snapshots) at dsVert/R/dpCoxGridCrossMaterializer.R:71:3
+  9.       └─base::tryCatch(...) at dsVert/R/dpCapsuleMaterializer.R:1649:7
+ 10.         └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 11.           └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 12.             └─value[[3L]](cond)
+
+FAILURE: 'test-crossgrid-cox.R:560:7' -------------
+`run(changed)` threw an error with unexpected class.
+Expected class: dsvert_dp_public_failure
+Actual class:   simpleError/error/condition
+Message:        The resolved biomedical capsule alignment binding changed.
+Backtrace:
+     ▆
+  1. ├─testthat::expect_error(run(changed), class = "dsvert_dp_public_failure") at test-crossgrid-cox.R:560:7
+  2. │ └─testthat:::quasi_capture(...)
+  3. │   ├─testthat (local) .capture(...)
+  4. │   │ └─base::withCallingHandlers(...)
+  5. │   └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+  6. └─dsVert (local) run(changed)
+  7.   └─dsVert:::.dsvert_dp_cox_cross_materialize_inputs(...) at test-crossgrid-cox.R:532:14
+  8.     └─dsVert:::.dsvert_dp_capsule_resolved_snapshots(policy, resolved_snapshots) at dsVert/R/dpCoxGridCrossMaterializer.R:71:3
+  9.       └─base::tryCatch(...) at dsVert/R/dpCapsuleMaterializer.R:1649:7
+ 10.         └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 11.           └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 12.             └─value[[3L]](cond)
+
+FAILURE: 'test-crossgrid-cox.R:560:7' -------------
+`run(changed)` threw an error with unexpected class.
+Expected class: dsvert_dp_public_failure
+Actual class:   simpleError/error/condition
+Message:        The resolved biomedical capsule alignment binding changed.
+Backtrace:
+     ▆
+  1. ├─testthat::expect_error(run(changed), class = "dsvert_dp_public_failure") at test-crossgrid-cox.R:560:7
+  2. │ └─testthat:::quasi_capture(...)
+  3. │   ├─testthat (local) .capture(...)
+  4. │   │ └─base::withCallingHandlers(...)
+  5. │   └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+  6. └─dsVert (local) run(changed)
+  7.   └─dsVert:::.dsvert_dp_cox_cross_materialize_inputs(...) at test-crossgrid-cox.R:532:14
+  8.     └─dsVert:::.dsvert_dp_capsule_resolved_snapshots(policy, resolved_snapshots) at dsVert/R/dpCoxGridCrossMaterializer.R:71:3
+  9.       └─base::tryCatch(...) at dsVert/R/dpCapsuleMaterializer.R:1649:7
+ 10.         └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 11.           └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 12.             └─value[[3L]](cond)
+
+FAILURE: 'test-crossgrid-cox.R:560:7' -------------
+`run(changed)` threw an error with unexpected class.
+Expected class: dsvert_dp_public_failure
+Actual class:   simpleError/error/condition
+Message:        The resolved biomedical capsule alignment binding changed.
+Backtrace:
+     ▆
+  1. ├─testthat::expect_error(run(changed), class = "dsvert_dp_public_failure") at test-crossgrid-cox.R:560:7
+  2. │ └─testthat:::quasi_capture(...)
+  3. │   ├─testthat (local) .capture(...)
+  4. │   │ └─base::withCallingHandlers(...)
+  5. │   └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+  6. └─dsVert (local) run(changed)
+  7.   └─dsVert:::.dsvert_dp_cox_cross_materialize_inputs(...) at test-crossgrid-cox.R:532:14
+  8.     └─dsVert:::.dsvert_dp_capsule_resolved_snapshots(policy, resolved_snapshots) at dsVert/R/dpCoxGridCrossMaterializer.R:71:3
+  9.       └─base::tryCatch(...) at dsVert/R/dpCapsuleMaterializer.R:1649:7
+ 10.         └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 11.           └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 12.             └─value[[3L]](cond)
+
+
+Maximum number of failures exceeded; quitting.
+ℹ Increase this number with (e.g.) `testthat::set_max_fails(Inf)` 

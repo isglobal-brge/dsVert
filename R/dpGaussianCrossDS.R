@@ -73,7 +73,19 @@
   }
   artifacts <- .dsvert_dp_gaussian_cross_artifacts(manifest)
   categorical_artifacts <- .dsvert_dp_categorical_cross_artifacts(manifest)
-  if (!length(artifacts) && !length(categorical_artifacts)) {
+  grid_artifacts <- .dsvert_dp_glm_grid_cross_artifacts(manifest)
+  cox_artifacts <- Filter(function(artifact)
+    identical(artifact$version, .DSVERT_DP_COX_GRID_CROSS_ARTIFACT_VERSION),
+    manifest$workload$families$gaussian_models$artifacts)
+  if (length(cox_artifacts)) {
+    # Cox has event/time presence and exact f50 inputs, not a GLM outcome or
+    # grouped source. Its sole-artifact projection also rejects mixed layouts.
+    shape <- .dsvert_dp_cox_cross_transport_layout(manifest, cox_artifacts[[1L]])
+    .dsvert_dp_glm_grid_cross_equal(release_layout,
+      .dsvert_dp_capsule_coordinate_layout(manifest))
+    return(c(shape, list(enabled = TRUE)))
+  }
+  if (!length(artifacts) && !length(categorical_artifacts) && !length(grid_artifacts)) {
     return(list(
       version = .DSVERT_DP_GAUSSIAN_CROSS_LAYOUT_VERSION,
       enabled = FALSE,
@@ -206,6 +218,16 @@
         cursor <- end + 1
       }
     }
+  }
+  for (analysis_id in names(grid_artifacts)) {
+    artifact <- grid_artifacts[[analysis_id]]
+    projection <- .dsvert_dp_glm_grid_cross_source_blocks(artifact, cursor)
+    blocks <- c(blocks, projection$blocks)
+    cursor <- projection$cursor
+    source_peers <- c(source_peers, unlist(artifact$participating_peers,
+                                         use.names = FALSE))
+    computation_peers <- c(computation_peers, unlist(artifact$computation_peers,
+                                                   use.names = FALSE))
   }
   source_peers <- sort(unique(source_peers), method = "radix")
   computation_peers <- sort(unique(computation_peers), method = "radix")
@@ -424,10 +446,13 @@
     state$admission
   }
   bounded_for <- function(block) {
-    categorical <- identical(block$input_family, "categorical")
+    categorical <- identical(block$input_family, "categorical") ||
+      (isTRUE(block$input_family %in% c("glm_grid", "grouped_grid")) && !is.null(block$levels))
     key <- paste(
       if (categorical) "categorical" else "numeric",
       block$dataset, block$variable, sep = "::")
+    if (categorical) key <- paste(key,
+      .dsvert_joint_dp_hash(as.list(block$levels)), sep = "::")
     if (!identical(state$bounded_key %||% "", key)) {
       admission <- admission_for(block$dataset)
       state$bounded_key <- key
@@ -455,7 +480,13 @@
     input <- bounded_for(block)
     scale <- 2^as.integer(context$manifest$bounds$numeric_grid_bits)
     categorical <- identical(block$input_family, "categorical")
-    values <- if (categorical && identical(block$kind, "validity")) {
+    grid <- isTRUE(block$input_family %in% c("glm_grid", "grouped_grid"))
+    if (grid) scale <- block$maximum
+    values <- if (identical(block$input_family, "grouped_grid")) {
+      .dsvert_dp_grouped_cross_source_values(input, block)
+    } else if (grid) {
+      .dsvert_dp_glm_grid_cross_source_values(input, block)
+    } else if (categorical && identical(block$kind, "validity")) {
       as.numeric(!is.na(input$cell)) * scale
     } else if (categorical) {
       as.numeric(!is.na(input$cell) &
@@ -805,8 +836,18 @@
   variables <- unname(as.character(artifact$input_variable_order))
   values <- validities <- vector("list", length(variables))
   names(values) <- names(validities) <- variables
-  .dsvert_dp_alignment_mask_complete_batch(
+  alignment <- .dsvert_dp_alignment_mask_complete_batch(
     ss, contract$capsule_id, parsed$contract_hash)
+  fused_grid <- identical(alignment$projection_version, "fused-grid-digest-v3")
+  if (fused_grid) {
+    # Only the certified typed grid producer can consume authenticated source
+    # shares after the digest-only gate. Legacy producers still use masked data.
+    expected <- .dsvert_dp_glm_grid_cross_artifacts(manifest)[[analysis_id]]
+    if (!is.list(expected)) .dsvert_dp_glm_grid_cross_fail()
+    .dsvert_dp_glm_grid_cross_equal(artifact, expected)
+    .dsvert_dp_alignment_mask_projection_for_batch(
+      list(manifest = manifest, contract = contract), alignment)
+  }
   for (variable in variables) {
     for (kind in c("value", "validity")) {
       key <- paste(analysis_id, variable, kind, sep = "::")
@@ -815,9 +856,15 @@
         stop("The cross-owner Gaussian private input shape changed.",
              call. = FALSE)
       }
-      raw <- .dsvert_dp_alignment_mask_range(
-        ss, contract$capsule_id, parsed$contract_hash,
-        block$start, block$length)
+      raw <- if (fused_grid) {
+        .dsvert_dp_capsule_source_aggregate_range_internal(
+          policy, manifest_json, block$start, block$length,
+          secret = secret, source_contract = source_contract)
+      } else {
+        .dsvert_dp_alignment_mask_range(
+          ss, contract$capsule_id, parsed$contract_hash,
+          block$start, block$length)
+      }
       encoded <- .dsvert_dp_gaussian_cross_standard_b64(
         raw, "cross-owner Gaussian masked aggregate share")
       .exact_gc_validate_residue_records(

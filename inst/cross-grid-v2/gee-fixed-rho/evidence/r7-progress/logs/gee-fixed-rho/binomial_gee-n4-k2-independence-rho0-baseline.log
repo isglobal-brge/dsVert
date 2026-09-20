@@ -1,0 +1,63 @@
+Tracing function "stop" in package "base"
+Tracing function ".dsvert_dp_glm_grid_cross_transcript_stop" in
+package "namespace:dsVertClient"
+Tracing function ".dsvert_dp_lmm_cross_public_evidence_set" in
+package "namespace:dsVertClient"
+Tracing function ".dsvert_dp_gaussian_synopsis_certificate_validate"
+in package "namespace:dsVertClient"
+DSLITE_BOOT_INITIAL_START
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":2995640} 
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":2996063} 
+DSLITE_BOOT_INITIAL_COMPLETE
+DSLITE_RPC_COMPLETE dsvertIdentityPkDS 
+DSLITE_GEE-FIXED-RHO_GROUPING_OWNER_PINNED_GARBLER
+DSLITE_BOOT_PINNED_START
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":2996882} 
+DSLITE_ISOLATED_PEER_LEASE {"ttl_seconds":900,"max_runtime_seconds":86400,"pid":2997377} 
+DSLITE_BOOT_PINNED_COMPLETE
+DSLITE_ALIGNMENT_START
+DSLITE_RPC_COMPLETE dsvertTransportProbeDS 
+DSLITE_RPC_COMPLETE psiPaddedInitDS 
+DSLITE_RPC_COMPLETE psiPaddedBindDS 
+DSLITE_RPC_COMPLETE psiPaddedConfirmDS 
+DSLITE_RPC_COMPLETE psiPaddedPrepareDS 
+DSLITE_RPC_COMPLETE psiPaddedReferenceExportDS 
+DSLITE_RPC_COMPLETE psiPaddedTargetProcessDS 
+DSLITE_RPC_COMPLETE psiPaddedReferenceDoubleDS 
+DSLITE_RPC_COMPLETE psiPaddedTargetMatchDS 
+DSLITE_RPC_COMPLETE psiPaddedMembershipAcceptDS 
+DSLITE_RPC_COMPLETE psiPaddedANDStartDS 
+DSLITE_RPC_COMPLETE exactGCExchangeDS 
+DSLITE_RPC_COMPLETE psiPaddedANDFinalizeDS 
+DSLITE_RPC_COMPLETE psiPaddedANDAcceptDS 
+DSLITE_RPC_COMPLETE psiPaddedFinalPrepareDS 
+DSLITE_RPC_COMPLETE psiPaddedAttestationDS 
+DSLITE_ALIGNMENT_COMPLETE
+DSLITE_RPC_COMPLETE dsvertDPSynopsisBootstrapDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisBindDS 
+DSLITE_INITIAL_BOOTSTRAP_COMPLETE
+DSLITE_STRUCTURED_SPEC_COMPLETE
+DSLITE_CUSTODIAN_SIGNATURES_COMPLETE
+DSLITE_PUBLIC_ADMISSION_COMPLETE
+SYNTHETIC_DSI_FETCH_ERROR dsvertDPSynopsisPublicationDS ! in callr subprocess.
+Caused by error: 
+! [dsvert_phase_not_ready:v1] 
+SYNTHETIC_DSI_FETCH_ERROR dsvertDPSynopsisPublicationDS ! in callr subprocess.
+Caused by error: 
+! [dsvert_phase_not_ready:v1] 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisClaimDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisCompileDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisPrepareDS 
+DSLITE_RPC_COMPLETE exactGCTransportInitDS 
+DSLITE_RPC_COMPLETE exactGCBindPeersDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisSourceTicketDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisSourcePrepareDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisSourceChunkDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisSourceAcceptDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskStartDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskStoreDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskSealDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskReceiveDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisGLMGridCrossDS 
+DSLITE_RPC_COMPLETE exactGCCleanupDS 
+DSLITE_RPC_COMPLETE dsvertDPSynopsisStartDS 

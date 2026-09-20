@@ -23,6 +23,7 @@ const (
 )
 
 type jointDPVectorWorkerContractInput struct {
+	SourceStagePlanDigest      string   `json:"source_stage_plan_digest,omitempty"`
 	Version                    string   `json:"version"`
 	RingBits                   int      `json:"ring_bits"`
 	FracBits                   int      `json:"frac_bits"`
@@ -143,7 +144,8 @@ func jointDPVectorSpecFromPolicy(policy jointDPVectorWorkerPolicy,
 		return zero, err
 	}
 	spec := jointDPVectorSpec{
-		RingBits: 128, FracBits: 0,
+		SourceStagePlanDigest: policy.SourceStagePlanDigest,
+		RingBits:              128, FracBits: 0,
 		OutputLatticeBits:    policy.OutputLatticeBits,
 		TotalCoordinateCount: policy.TotalCoordinateCount,
 		ChunkStart:           policy.ChunkStart, CoordinateCount: policy.CoordinateCount,
@@ -251,7 +253,8 @@ func jointDPCompileVectorWorkerContract(
 		return zero, fmt.Errorf("unsupported purpose-bound vector chunk")
 	}
 	policy := jointDPVectorWorkerPolicy{
-		Version: jointDPVectorTemplateVersion, Sampler: jointDPVectorSamplerVersion,
+		SourceStagePlanDigest: input.SourceStagePlanDigest,
+		Version:               jointDPVectorTemplateVersion, Sampler: jointDPVectorSamplerVersion,
 		TotalCoordinateCount: input.TotalCoordinateCount,
 		ChunkStart:           input.ChunkStart, CoordinateCount: input.CoordinateCount,
 		OutputLatticeBits: input.OutputLatticeBits,
@@ -354,7 +357,8 @@ func jointDPVectorSpecFromPolicyWithoutDigest(policy jointDPVectorWorkerPolicy,
 		return jointDPVectorSpec{}, err
 	}
 	spec := jointDPVectorSpec{
-		RingBits: 128, FracBits: 0,
+		SourceStagePlanDigest: policy.SourceStagePlanDigest,
+		RingBits:              128, FracBits: 0,
 		OutputLatticeBits:    policy.OutputLatticeBits,
 		TotalCoordinateCount: policy.TotalCoordinateCount,
 		ChunkStart:           policy.ChunkStart, CoordinateCount: policy.CoordinateCount,

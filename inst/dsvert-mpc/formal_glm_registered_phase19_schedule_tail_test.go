@@ -322,6 +322,9 @@ func TestFormalGLMRegisteredPhase19ScheduleTailK2(
 	executions, seals, pairs :=
 		formalGLMRegisteredPhase19ScheduleTailTestAccumulatorV1(
 			t, fixture, proposal.Binding)
+	if seals[0].seal.share^seals[1].seal.share != 1 {
+		t.Fatal("zero-coordinate accumulator fixture lost execution validity")
+	}
 	for index := range executions {
 		t.Cleanup(func() { _ = executions[index].Close() })
 	}
@@ -505,14 +508,40 @@ func TestFormalGLMRegisteredPhase19ScheduleTailK2(
 		}
 		defer exactGCZeroBigInts(shares[index])
 	}
+	// AccumulatorTestBuild injects zero coordinates, including every row
+	// weight. Its zero gradient leaves beta at zero; the DP bridge translates
+	// beta by the coefficient box, not by the full translated range width.
+	legacyPlan := formalGLMRegisteredExecutionLegacyPlanMustForTest(t, source.plan)
+	input := make([]*big.Int, legacyPlan.TotalCapacity*(legacyPlan.Kernel.CoefficientCount+3))
+	for index := range input {
+		input[index] = new(big.Int)
+	}
+	beta, err := referenceFormalGLMPhase15(legacyPlan, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for coordinate, value := range beta {
+		if value.Sign() != 0 {
+			t.Fatalf("zero-weight reference beta[%d] = %s, want 0", coordinate, value)
+		}
+	}
+	want, err := referenceFormalGLMPhase15DPBridge(
+		legacyPlan, results[0].raw.DPBridge, beta)
+	if err != nil {
+		t.Fatal(err)
+	}
 	modulus := new(big.Int).Lsh(big.NewInt(1), 128)
 	for coordinate, encodedUpper := range results[0].raw.DPBridge.ShiftedUpperBounds {
 		got := new(big.Int).Add(shares[0][coordinate], shares[1][coordinate])
 		got.Mod(got, modulus)
-		want, ok := new(big.Int).SetString(encodedUpper, 10)
-		if !ok || got.Cmp(want) != 0 {
-			t.Fatalf("coordinate %d reconstructed %s, want %s",
+		upper, ok := new(big.Int).SetString(encodedUpper, 10)
+		if !ok || got.Sign() < 0 || got.Cmp(upper) > 0 {
+			t.Fatalf("coordinate %d reconstructed %s outside [0,%s]",
 				coordinate, got, encodedUpper)
+		}
+		if got.Cmp(want[coordinate]) != 0 {
+			t.Fatalf("coordinate %d reconstructed %s, want %s",
+				coordinate, got, want[coordinate])
 		}
 	}
 

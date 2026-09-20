@@ -1,0 +1,73 @@
+{
+  "observed_utc": "2026-09-20T16:24:15.329026+00:00",
+  "execution_source_commits": {
+    "dsVert": "2a718cd4866574824ad9db1178ede49be33cecb5",
+    "dsVertClient": "bf737442adbca7ac733518da32c9cb0cd6338870"
+  },
+  "suites": [
+    {
+      "file": "test-crossgrid-cox.R.csv",
+      "tests": 29,
+      "assertions": 1932,
+      "snapshot": "proof-r1"
+    },
+    {
+      "file": "test-dp-cox-admission-dispatch.R.csv",
+      "tests": 2,
+      "assertions": 61,
+      "snapshot": "proof-r3"
+    },
+    {
+      "file": "test-dp-cox-catalog-draft.R.csv",
+      "tests": 1,
+      "assertions": 15,
+      "snapshot": "proof-r3"
+    },
+    {
+      "file": "test-dp-cox-cross-public-evidence.R.csv",
+      "tests": 2,
+      "assertions": 186,
+      "snapshot": "proof-r3"
+    },
+    {
+      "file": "test-dp-cox-staged-orchestration.R.csv",
+      "tests": 2,
+      "assertions": 201,
+      "snapshot": "proof-r3"
+    },
+    {
+      "file": "test-dp-glm-grid-cross-contract.R.csv",
+      "tests": 21,
+      "assertions": 328,
+      "snapshot": "proof-r1"
+    },
+    {
+      "file": "test-dp-lmm-cross-public-release.R.csv",
+      "tests": 5,
+      "assertions": 177,
+      "snapshot": "proof-r3"
+    },
+    {
+      "file": "admission-frozen-final.log",
+      "tests": 1,
+      "assertions": 82,
+      "snapshot": "proof-r3"
+    }
+  ],
+  "tests": 63,
+  "assertions": 2982,
+  "final_nonpasses": 0,
+  "snapshots": {
+    "proof-r1": 3204,
+    "proof-r2": 3204,
+    "proof-r3": 3204
+  },
+  "source_mismatches": [],
+  "changed_file_sha256": {
+    "R/dpCapsuleWorkload.R": "b443d754a998b25a77bc0265cbaa9b5f6f5af4666ca4710ab897c7acb0a95286",
+    "R/dpGLMGridCrossProfile.R": "e03a156731aa6bedc015a85c04d60f6ead818045baccf2784aec58e74250e603",
+    "tests/testthat/test-crossgrid-cox.R": "1b74ebe4035bc3be4f3b1fc5b207f0a81863477653b11e7083322ad9f1c47394"
+  },
+  "scope": "Real signed K2/K3/K5 workload -> canonical manifest -> release lattice -> source transport contract -> authenticated Cox context; no schema/catalog/source-contract doubles. Existing broader source/executor/client tests retain their original doubles. No actual Cox DP release, native recovery or capacity claim.",
+  "superseded": "Initial fixture used epsilon8 twice and failed lifetime composition. Corrected fixture in proof-r1 rejects re-signed conflicting schema at the earlier local-bound check, producing 3 assertion-class failures. All prior tests in that snapshot pass. Proof-r3 corrects the expected error, adds 6 real source-contract/context assertions and passes all82. All executable files and other tests are identical across snapshots; raw first failures retained."
+}

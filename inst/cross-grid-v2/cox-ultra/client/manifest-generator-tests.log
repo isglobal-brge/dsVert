@@ -1,0 +1,15 @@
+test_cox_family_update_preserves_other_release_and_selection_bytes (__main__.ManifestTests.test_cox_family_update_preserves_other_release_and_selection_bytes) ... ok
+test_cox_scope_and_oracle_records_are_pair_bound (__main__.ManifestTests.test_cox_scope_and_oracle_records_are_pair_bound) ... ok
+test_hashes_are_pair_bound_and_enable_only_matching_jobs (__main__.ManifestTests.test_hashes_are_pair_bound_and_enable_only_matching_jobs) ... ok
+test_minimal_real_and_oracle_matrix (__main__.ManifestTests.test_minimal_real_and_oracle_matrix) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.296s
+
+OK
+{"real_jobs": 24, "oracle_jobs": 1080, "ready_real_jobs": 0}
+{"family": "cox", "ready_real_jobs": 4, "other_release_rows_unchanged": 20}
+{"real_jobs": 24, "oracle_jobs": 1080, "ready_real_jobs": 0}
+{"real_jobs": 24, "oracle_jobs": 1080, "ready_real_jobs": 2}
+{"real_jobs": 24, "oracle_jobs": 1080, "ready_real_jobs": 2}
+{"real_jobs": 24, "oracle_jobs": 1080, "ready_real_jobs": 0}

@@ -1,0 +1,119 @@
+{
+  "certificate": {
+    "binomial_loss_error": "0.000000032410310689137968913798233262370669664035613306617",
+    "bounds": {
+      "clenshaw_raw_product_abs_lt_pow2": 155,
+      "clenshaw_state_abs_lt_pow2": 89,
+      "dot_raw_abs_lt_pow2": 105,
+      "eta_q64_abs_lt_pow2": 69,
+      "exp_square_raw_abs_lt_pow2": 155,
+      "loss_q64_abs_lt_pow2": 90,
+      "public_beta_abs_lt_pow2": 54,
+      "released_integer_max": "9007199254740991",
+      "source_feature_abs_lt_pow2": 51
+    },
+    "coefficient_absolute_error_max": "2^-64",
+    "eta_error_bound": "0.000000000000014654971030106381626646409089166071520457046775676",
+    "exp_after_squarings_error": "0.0000000038598996380963057282934362420997916675511955246192",
+    "exp_core_evaluation_error": "0.0000000000000019733292690865544827261146565433591604232788085938",
+    "exp_core_polynomial_uniform_error": "7.2280144832366962267163520057996114095052083333333e-16",
+    "exp_ellipse_modulus_bound": "10000",
+    "exp_ellipse_rho": "4",
+    "generator_dependency": "mpmath==1.3.0",
+    "interval_decimal_precision": 90,
+    "method": "outward_interval_DCT_coefficients_and_analytic_Bernstein_ellipse_remainder",
+    "poisson_loss_error": "0.00000013410059857685366649587389510070859509807237703435",
+    "softplus_ellipse_modulus_bound": "32",
+    "softplus_ellipse_rho": "11/10",
+    "softplus_evaluation_error": "0.000000000000031995321106079166462166085693752393126487731933594",
+    "softplus_polynomial_uniform_error": "0.000000032410264038845832728250144449875886745570966361838",
+    "tightest_acceptance_target": "0.00000095367431640625"
+  },
+  "certificate_sha256": "887fdf3eb38528bde7497580ba90b13d187bee94da54d67fd2c55e813565e1d8",
+  "numeric_contract": {
+    "binomial": {
+      "arithmetic_width_bits": 192,
+      "certificate_sha256": "887fdf3eb38528bde7497580ba90b13d187bee94da54d67fd2c55e813565e1d8",
+      "certified_eta_error": "0.000000000000014655",
+      "certified_uniform_error": "0.00000003242",
+      "coefficient_encoding": "signed_decimal_integer_v1",
+      "coefficient_fraction_bits": 50,
+      "eta_domain": [
+        -17,
+        17
+      ],
+      "evaluation_order": "dot_exact_f100_to_q64;eta_div17_q64;binomial_softplus_clenshaw256_then_binary_outcome_mux;poisson_exp_quarter_clenshaw32_then_square_then_square_then_integer_outcome_product_then_private_log_factorial_lookup;validity_mux;clamp_q64;quantize_g;sums",
+      "input_fraction_bits": 50,
+      "max_coefficient_absolute": 8,
+      "max_coefficient_l1": 16,
+      "max_outcome": 1,
+      "nonlinear_fraction_bits": 64,
+      "output_grid_bits_range": [
+        8,
+        18
+      ],
+      "per_operation_bounds": {
+        "clenshaw_raw_product_abs_lt_pow2": 155,
+        "clenshaw_state_abs_lt_pow2": 89,
+        "dot_raw_abs_lt_pow2": 105,
+        "eta_q64_abs_lt_pow2": 69,
+        "exp_square_raw_abs_lt_pow2": 155,
+        "loss_q64_abs_lt_pow2": 90,
+        "public_beta_abs_lt_pow2": 54,
+        "released_integer_max": "9007199254740991",
+        "source_feature_abs_lt_pow2": 51
+      },
+      "predictor_count_range": [
+        1,
+        16
+      ],
+      "profile_identity": "cross-grid-chebyshev-q64-softplus256-exp32-v1",
+      "profile_sha256": "748900bb7f0d4d1026ba5e9b162bfb16e45e306033851dfc203c2461a6a78e4f",
+      "rounding_rule": "nearest_ties_to_even",
+      "version": "cross-grid-public-numeric-contract-v1"
+    },
+    "poisson": {
+      "arithmetic_width_bits": 192,
+      "certificate_sha256": "887fdf3eb38528bde7497580ba90b13d187bee94da54d67fd2c55e813565e1d8",
+      "certified_eta_error": "0.000000000000014655",
+      "certified_uniform_error": "0.0000001342",
+      "coefficient_encoding": "signed_decimal_integer_v1",
+      "coefficient_fraction_bits": 50,
+      "eta_domain": [
+        -17,
+        17
+      ],
+      "evaluation_order": "dot_exact_f100_to_q64;eta_div17_q64;binomial_softplus_clenshaw256_then_binary_outcome_mux;poisson_exp_quarter_clenshaw32_then_square_then_square_then_integer_outcome_product_then_private_log_factorial_lookup;validity_mux;clamp_q64;quantize_g;sums",
+      "input_fraction_bits": 50,
+      "max_coefficient_absolute": 8,
+      "max_coefficient_l1": 16,
+      "max_outcome": 1024,
+      "nonlinear_fraction_bits": 64,
+      "output_grid_bits_range": [
+        8,
+        18
+      ],
+      "per_operation_bounds": {
+        "clenshaw_raw_product_abs_lt_pow2": 155,
+        "clenshaw_state_abs_lt_pow2": 89,
+        "dot_raw_abs_lt_pow2": 105,
+        "eta_q64_abs_lt_pow2": 69,
+        "exp_square_raw_abs_lt_pow2": 155,
+        "loss_q64_abs_lt_pow2": 90,
+        "public_beta_abs_lt_pow2": 54,
+        "released_integer_max": "9007199254740991",
+        "source_feature_abs_lt_pow2": 51
+      },
+      "predictor_count_range": [
+        1,
+        16
+      ],
+      "profile_identity": "cross-grid-chebyshev-q64-softplus256-exp32-v1",
+      "profile_sha256": "748900bb7f0d4d1026ba5e9b162bfb16e45e306033851dfc203c2461a6a78e4f",
+      "rounding_rule": "nearest_ties_to_even",
+      "version": "cross-grid-public-numeric-contract-v1"
+    }
+  },
+  "profile_sha256": "748900bb7f0d4d1026ba5e9b162bfb16e45e306033851dfc203c2461a6a78e4f",
+  "version": "cross-grid-numeric-certificate-report-v1"
+}

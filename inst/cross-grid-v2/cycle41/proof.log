@@ -1,0 +1,93 @@
+dp-cox-cross-public-evidence: .......................................................................................................................................................................................
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+dp-cox-grid-cross: ........................................................................................................................................123...............456...............789...............
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Failure ('test-dp-cox-grid-cross.R:218:5'): Cox catalog fragments bind tim
+Expected `admitted$gaussian` to be identical to `input$gaussian`.
+Differences:
+Component “cox_grid”: Names: 2 string mismatches
+Component “cox_grid”: Component 1: 1 string mismatch
+Component “cox_grid”: Component 3: 1 string mismatch
+
+── 2. Failure ('test-dp-cox-grid-cross.R:219:5'): Cox catalog fragments bind tim
+Expected `.dsvert_dp_capsule_manifest_fragments(input)$gaussian` to be identical to `input$gaussian`.
+Differences:
+Component “cox_grid”: Names: 2 string mismatches
+Component “cox_grid”: Component 1: 1 string mismatch
+Component “cox_grid”: Component 3: 1 string mismatch
+
+── 3. Failure ('test-dp-cox-grid-cross.R:221:5'): Cox catalog fragments bind tim
+Expected `.dsvert_dp_cox_grid_cross_contract_validate(...)` to be identical to `f$contract`.
+Differences:
+Names: 5 string mismatches
+Component 1: Modes: list, character
+Component 1: names for target but not for current
+Component 1: Length mismatch: comparison on first 1 components
+Component 1: Component 1: 1 string mismatch
+Component 2: Names: 2 string mismatches
+Component 2: Length mismatch: comparison on first 2 components
+Component 2: Component 1: 1 string mismatch
+Component 2: Component 2: 1 string mismatch
+...
+
+── 4. Failure ('test-dp-cox-grid-cross.R:218:5'): Cox catalog fragments bind tim
+Expected `admitted$gaussian` to be identical to `input$gaussian`.
+Differences:
+Component “cox_grid”: Names: 2 string mismatches
+Component “cox_grid”: Component 1: 1 string mismatch
+Component “cox_grid”: Component 3: 1 string mismatch
+
+── 5. Failure ('test-dp-cox-grid-cross.R:219:5'): Cox catalog fragments bind tim
+Expected `.dsvert_dp_capsule_manifest_fragments(input)$gaussian` to be identical to `input$gaussian`.
+Differences:
+Component “cox_grid”: Names: 2 string mismatches
+Component “cox_grid”: Component 1: 1 string mismatch
+Component “cox_grid”: Component 3: 1 string mismatch
+
+── 6. Failure ('test-dp-cox-grid-cross.R:221:5'): Cox catalog fragments bind tim
+Expected `.dsvert_dp_cox_grid_cross_contract_validate(...)` to be identical to `f$contract`.
+Differences:
+Names: 5 string mismatches
+Component 1: Modes: list, character
+Component 1: names for target but not for current
+Component 1: Length mismatch: comparison on first 1 components
+Component 1: Component 1: 1 string mismatch
+Component 2: Names: 3 string mismatches
+Component 2: Length mismatch: comparison on first 3 components
+Component 2: Component 1: 1 string mismatch
+Component 2: Component 2: 1 string mismatch
+...
+
+── 7. Failure ('test-dp-cox-grid-cross.R:218:5'): Cox catalog fragments bind tim
+Expected `admitted$gaussian` to be identical to `input$gaussian`.
+Differences:
+Component “cox_grid”: Names: 2 string mismatches
+Component “cox_grid”: Component 1: 1 string mismatch
+Component “cox_grid”: Component 3: 1 string mismatch
+
+── 8. Failure ('test-dp-cox-grid-cross.R:219:5'): Cox catalog fragments bind tim
+Expected `.dsvert_dp_capsule_manifest_fragments(input)$gaussian` to be identical to `input$gaussian`.
+Differences:
+Component “cox_grid”: Names: 2 string mismatches
+Component “cox_grid”: Component 1: 1 string mismatch
+Component “cox_grid”: Component 3: 1 string mismatch
+
+── 9. Failure ('test-dp-cox-grid-cross.R:221:5'): Cox catalog fragments bind tim
+Expected `.dsvert_dp_cox_grid_cross_contract_validate(...)` to be identical to `f$contract`.
+Differences:
+Names: 5 string mismatches
+Component 1: Modes: list, character
+Component 1: names for target but not for current
+Component 1: Length mismatch: comparison on first 1 components
+Component 1: Component 1: 1 string mismatch
+Component 2: Names: 5 string mismatches
+Component 2: Length mismatch: comparison on first 5 components
+Component 2: Component 1: 1 string mismatch
+Component 2: Component 2: 1 string mismatch
+...
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+Error: all(frame$failed == 0) is not TRUE
+Execution halted

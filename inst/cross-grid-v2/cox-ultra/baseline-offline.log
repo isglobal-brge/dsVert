@@ -1,0 +1,26 @@
+Tracing function "datashield.aggregate" in package "namespace:DSI"
+[1] "datashield.aggregate"
+$integrity_valid
+[1] TRUE
+
+$authenticity
+[1] "caller_anchored"
+
+$unanchored_authenticity
+[1] "unanchored"
+
+$offline_peer_calls
+[1] 0
+
+$missing_cox_evidence_rejected
+[1] TRUE
+
+$certificate_sha256
+[1] "a6817e3e3ad1c912d34e5339d82af70a640a1ad3adccdd48511b281bcdffd1d3"
+
+$trusted_pinset_source
+[1] "independently retained public bootstrap policy in synthetic-public-replay-fixture.rds"
+
+$selected_candidate
+[1] 2
+

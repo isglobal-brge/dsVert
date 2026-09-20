@@ -1,0 +1,18 @@
+DSLITE_ALIGNMENT_COMPLETE
+DSLITE_CUSTODIAN_SIGNATURES_COMPLETE
+DSLITE_PUBLIC_ADMISSION_COMPLETE
+$message
+[1] "Synopsis authorization conflicts with existing session state."
+
+$call
+[1] ""
+
+$message
+[1] "Synopsis authorization conflicts with existing session state."
+
+$call
+[1] ""
+
+NULL
+Error: DataSHIELD transport failed during 'synthetic oracle PREPARE'; partial or invalid site results were rejected.
+Execution halted

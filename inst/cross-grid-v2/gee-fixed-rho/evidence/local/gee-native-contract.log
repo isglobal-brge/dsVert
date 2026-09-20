@@ -1,0 +1,52 @@
+=== RUN   TestGroupedGEESourceContract
+--- PASS: TestGroupedGEESourceContract (0.00s)
+=== RUN   TestGroupedGEEExactSourceWire
+=== RUN   TestGroupedGEEExactSourceWire/binomial
+=== RUN   TestGroupedGEEExactSourceWire/poisson
+--- PASS: TestGroupedGEEExactSourceWire (0.04s)
+    --- PASS: TestGroupedGEEExactSourceWire/binomial (0.02s)
+    --- PASS: TestGroupedGEEExactSourceWire/poisson (0.02s)
+=== RUN   TestGroupedGEEExactSourceWireRejects
+=== RUN   TestGroupedGEEExactSourceWireRejects/decimal
+=== RUN   TestGroupedGEEExactSourceWireRejects/exponent
+=== RUN   TestGroupedGEEExactSourceWireRejects/plus
+=== RUN   TestGroupedGEEExactSourceWireRejects/leading-zero
+=== RUN   TestGroupedGEEExactSourceWireRejects/overflow
+=== RUN   TestGroupedGEEExactSourceWireRejects/alpha
+=== RUN   TestGroupedGEEExactSourceWireRejects/family
+=== RUN   TestGroupedGEEExactSourceWireRejects/max-outcome
+=== RUN   TestGroupedGEEExactSourceWireRejects/shape
+=== RUN   TestGroupedGEEExactSourceWireRejects/validity
+=== RUN   TestGroupedGEEExactSourceWireRejects/digest
+=== RUN   TestGroupedGEEExactSourceWireRejects/beta
+=== RUN   TestGroupedGEEExactSourceWireRejects/caps
+=== RUN   TestGroupedGEEExactSourceWireRejects/evaluator-routing
+--- PASS: TestGroupedGEEExactSourceWireRejects (0.15s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/decimal (0.01s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/exponent (0.01s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/plus (0.01s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/leading-zero (0.02s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/overflow (0.01s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/alpha (0.01s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/family (0.02s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/max-outcome (0.01s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/shape (0.01s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/validity (0.01s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/digest (0.01s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/beta (0.00s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/caps (0.00s)
+    --- PASS: TestGroupedGEEExactSourceWireRejects/evaluator-routing (0.01s)
+=== RUN   TestGroupedGEEStagedContract
+--- PASS: TestGroupedGEEStagedContract (0.00s)
+=== RUN   TestGroupedGEEWorkerOpaqueNativeIntegers
+--- PASS: TestGroupedGEEWorkerOpaqueNativeIntegers (0.03s)
+=== RUN   TestGroupedGEEWorkerCrossTypeRejection
+=== RUN   TestGroupedGEEWorkerCrossTypeRejection/grouped-lmm-staged-v1
+=== RUN   TestGroupedGEEWorkerCrossTypeRejection/grouped-glmm-staged-v1
+=== RUN   TestGroupedGEEWorkerCrossTypeRejection/truncate-floor
+--- PASS: TestGroupedGEEWorkerCrossTypeRejection (0.31s)
+    --- PASS: TestGroupedGEEWorkerCrossTypeRejection/grouped-lmm-staged-v1 (0.04s)
+    --- PASS: TestGroupedGEEWorkerCrossTypeRejection/grouped-glmm-staged-v1 (0.11s)
+    --- PASS: TestGroupedGEEWorkerCrossTypeRejection/truncate-floor (0.10s)
+PASS
+ok  	github.com/isglobal-brge/dsVert/dsvert-mpc	0.898s

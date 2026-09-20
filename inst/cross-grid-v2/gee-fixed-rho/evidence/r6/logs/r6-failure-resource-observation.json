@@ -1,0 +1,10 @@
+{
+  "recorded_utc": "2026-09-20T09:57:15Z",
+  "memory_oom_control": "oom_kill_disable 0\nunder_oom 0\noom_kill 8\n",
+  "memory_max_usage_bytes": 50000031744,
+  "memory_limit_bytes": 49999998976,
+  "previous_oom_kill": 7,
+  "worker_failure_code": "infrastructure_unavailable",
+  "worker_exit_status": -9,
+  "note": "OOM counter increased during this attempt and worker was SIGKILLed; exact per-PID kernel OOM attribution was unavailable. No other-owner job was modified."
+}

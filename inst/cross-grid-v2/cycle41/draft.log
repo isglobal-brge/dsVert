@@ -1,0 +1,49 @@
+dp-cox-catalog-draft: 12...34...56...
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Failure ('test-dp-cox-catalog-draft.R:34:5'): Cox signed drafts preserve c
+Expected `parsed$workload_fragments$gaussian` to be identical to `fragments$gaussian`.
+Differences:
+Component “cox_grid”: Names: 2 string mismatches
+Component “cox_grid”: Component 1: 1 string mismatch
+Component “cox_grid”: Component 3: 1 string mismatch
+
+── 2. Failure ('test-dp-cox-catalog-draft.R:36:5'): Cox signed drafts preserve c
+Expected `bootstrap$workload_fragments$gaussian` to be identical to `fragments$gaussian`.
+Differences:
+Component “cox_grid”: Names: 2 string mismatches
+Component “cox_grid”: Component 1: 1 string mismatch
+Component “cox_grid”: Component 3: 1 string mismatch
+
+── 3. Failure ('test-dp-cox-catalog-draft.R:34:5'): Cox signed drafts preserve c
+Expected `parsed$workload_fragments$gaussian` to be identical to `fragments$gaussian`.
+Differences:
+Component “cox_grid”: Names: 2 string mismatches
+Component “cox_grid”: Component 1: 1 string mismatch
+Component “cox_grid”: Component 3: 1 string mismatch
+
+── 4. Failure ('test-dp-cox-catalog-draft.R:36:5'): Cox signed drafts preserve c
+Expected `bootstrap$workload_fragments$gaussian` to be identical to `fragments$gaussian`.
+Differences:
+Component “cox_grid”: Names: 2 string mismatches
+Component “cox_grid”: Component 1: 1 string mismatch
+Component “cox_grid”: Component 3: 1 string mismatch
+
+── 5. Failure ('test-dp-cox-catalog-draft.R:34:5'): Cox signed drafts preserve c
+Expected `parsed$workload_fragments$gaussian` to be identical to `fragments$gaussian`.
+Differences:
+Component “cox_grid”: Names: 2 string mismatches
+Component “cox_grid”: Component 1: 1 string mismatch
+Component “cox_grid”: Component 3: 1 string mismatch
+
+── 6. Failure ('test-dp-cox-catalog-draft.R:36:5'): Cox signed drafts preserve c
+Expected `bootstrap$workload_fragments$gaussian` to be identical to `fragments$gaussian`.
+Differences:
+Component “cox_grid”: Names: 2 string mismatches
+Component “cox_grid”: Component 1: 1 string mismatch
+Component “cox_grid”: Component 3: 1 string mismatch
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+No one gets it right on their first try
+Error: all(frame$failed == 0) is not TRUE
+Execution halted

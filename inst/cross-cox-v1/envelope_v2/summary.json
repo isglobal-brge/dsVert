@@ -1,0 +1,94 @@
+{
+  "version": "cox-measured-shared-envelope-v2",
+  "matrix_complete": true,
+  "missing": [],
+  "rows": [
+    {
+      "capacity": 2000,
+      "candidates": 16,
+      "completed": true,
+      "gate_pass": true,
+      "bytes": 8472921669,
+      "seconds": 1298.420071316,
+      "report_sha256": "2f10ee469dae64b595fa43563d8025b70e3738c9b71e06394395a30953741041"
+    },
+    {
+      "capacity": 2000,
+      "candidates": 32,
+      "completed": true,
+      "gate_pass": true,
+      "bytes": 16943647939,
+      "seconds": 2355.694894574,
+      "report_sha256": "e9a905cba15982b4671371124cc3d2eabab89011ab8f336ca6b55a18fa0002b1"
+    },
+    {
+      "capacity": 2000,
+      "candidates": 50,
+      "completed": true,
+      "gate_pass": true,
+      "bytes": 26473265394,
+      "seconds": 2940.7444618130003,
+      "report_sha256": "5e053d28aa961b6a24c756c9fc80b466f0be191f356e8ddb414b7d6701eb2b3d"
+    },
+    {
+      "capacity": 4000,
+      "candidates": 16,
+      "completed": true,
+      "gate_pass": true,
+      "bytes": 16951184064,
+      "seconds": 1846.35763937,
+      "report_sha256": "179ed40f936426d51ced7c1498f0eee1be201916ac215b25629122a6deadb8e3"
+    },
+    {
+      "capacity": 4000,
+      "candidates": 32,
+      "completed": true,
+      "gate_pass": true,
+      "bytes": 33897588865,
+      "seconds": 4061.319433995,
+      "report_sha256": "421cd57313b1f12ba97642e0096e81185eeee11664e8f3ae24e817f357677e5d"
+    },
+    {
+      "capacity": 4000,
+      "candidates": 50,
+      "completed": true,
+      "gate_pass": true,
+      "bytes": 52962304383,
+      "seconds": 5663.674362094,
+      "report_sha256": "a1fc6344a1ac284b3cd55b6fd25ddcdeec9148ee8192d84c6a0280b8a0f0fea0"
+    },
+    {
+      "capacity": 10000,
+      "candidates": 16,
+      "completed": false,
+      "gate_pass": false,
+      "bytes": 59999957516,
+      "seconds": 5279.339985755,
+      "report_sha256": "84b69b693572d3c321402e4fc0efd25524343532492b903b5b11266d09ad5622"
+    },
+    {
+      "capacity": 10000,
+      "candidates": 32,
+      "completed": false,
+      "gate_pass": false,
+      "bytes": 59999969168,
+      "seconds": 5412.020682786,
+      "report_sha256": "4287f20aa063b6c0f26c6510ba9c16fe930ba1b0c080c8e0845dd285ac0cf3ac"
+    },
+    {
+      "capacity": 10000,
+      "candidates": 50,
+      "completed": false,
+      "gate_pass": false,
+      "bytes": 59999962098,
+      "seconds": 4737.814627816,
+      "report_sha256": "ccf00abe95ad1ce18049cbe70925b1a7c61543477c683de728a4688a608066ba"
+    }
+  ],
+  "selection_rule": "maximum_n_times_grid_then_n",
+  "selected_capacity": {
+    "capacity": 4000,
+    "candidates": 50
+  },
+  "scope": "complete family kernel; source/PSI and joint-DP fusion excluded"
+}

@@ -1,0 +1,111 @@
+{
+  "recorded_utc": "2026-09-20T10:36:20Z",
+  "scope": "Partial live first sampler observation, not completed release/capacity evidence",
+  "workers": [
+    {
+      "pid": 3056954,
+      "operation_id": "op_7d677b3d792420120e2061abc802275c",
+      "markers": {
+        "ready": true,
+        "done": false,
+        "error": false,
+        "failure.json": false,
+        "abort": false
+      },
+      "worker_heartbeat_age_seconds": 0.01716160774230957,
+      "outbound.head": 163654001,
+      "outbound.ack": 115015752,
+      "inbound.ack": 72
+    },
+    {
+      "pid": 3057008,
+      "operation_id": "op_7d677b3d792420120e2061abc802275c",
+      "markers": {
+        "ready": true,
+        "done": false,
+        "error": false,
+        "failure.json": false,
+        "abort": false
+      },
+      "worker_heartbeat_age_seconds": 4.361426591873169,
+      "outbound.head": 72,
+      "outbound.ack": 72,
+      "inbound.ack": 115507272
+    }
+  ],
+  "latest_resources": {
+    "unix": 1789900571.3370261,
+    "controller_pid": 2957748,
+    "processes": [
+      {
+        "pid": 2957748,
+        "ppid": 1,
+        "name": "python3",
+        "rss_kib": 36300,
+        "hwm_kib": 75024,
+        "user_ticks": 432,
+        "system_ticks": 340
+      },
+      {
+        "pid": 2995126,
+        "ppid": 2957748,
+        "name": "python3",
+        "rss_kib": 33540,
+        "hwm_kib": 74544,
+        "user_ticks": 54,
+        "system_ticks": 38
+      },
+      {
+        "pid": 2995287,
+        "ppid": 2995126,
+        "name": "R",
+        "rss_kib": 372104,
+        "hwm_kib": 372104,
+        "user_ticks": 14671,
+        "system_ticks": 954
+      },
+      {
+        "pid": 2996882,
+        "ppid": 2995287,
+        "name": "R",
+        "rss_kib": 438316,
+        "hwm_kib": 438316,
+        "user_ticks": 38896,
+        "system_ticks": 3109
+      },
+      {
+        "pid": 2997377,
+        "ppid": 2995287,
+        "name": "R",
+        "rss_kib": 444420,
+        "hwm_kib": 444420,
+        "user_ticks": 47626,
+        "system_ticks": 2509
+      },
+      {
+        "pid": 3056954,
+        "ppid": 2996882,
+        "name": "dsvert-mpc",
+        "rss_kib": 1892844,
+        "hwm_kib": 5589256,
+        "user_ticks": 2591,
+        "system_ticks": 1779
+      },
+      {
+        "pid": 3057008,
+        "ppid": 2997377,
+        "name": "dsvert-mpc",
+        "rss_kib": 825628,
+        "hwm_kib": 4975872,
+        "user_ticks": 2149,
+        "system_ticks": 1553
+      }
+    ],
+    "memory.usage_in_bytes": "12380852224",
+    "memory.limit_in_bytes": "49999998976",
+    "memory.max_usage_in_bytes": "50000031744",
+    "memory.oom_control": "oom_kill_disable 0\nunder_oom 0\noom_kill 8"
+  },
+  "sampled_peak_container_bytes": 19643416576,
+  "controller_state": "running_binomial_gee-n4"
+}

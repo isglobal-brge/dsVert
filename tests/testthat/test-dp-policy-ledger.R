@@ -1138,6 +1138,7 @@ test_that("numeric contributions clip every row before patient collapse", {
 
 
 test_that("DP noise roots are provisioned and domain separated", {
+  identity_root <- withr::local_tempdir(pattern = "dp-noise-identity-")
   ledger <- file.path(
     tempdir(), paste0("dp-noise-root-", Sys.getpid(), ".sqlite"))
   secret_key <- as.raw(201:232)
@@ -1145,7 +1146,10 @@ test_that("DP noise roots are provisioned and domain separated", {
     key = secret_key, key_id = "domain-separated-key")
   .dp_test_policy(
     ledger, dsvert.dp.noise_key_provider = provider,
-    dsvert.dp.noise_key_epoch = 1)
+    dsvert.dp.noise_key_epoch = 1,
+    dsvert.identity_seed_path = file.path(identity_root, "identity.seed"))
+  # Noise derivation also persists recovery for the active identity.
+  .dsvert_init_identity_seed(.allow_test_path = TRUE)
   policy <- .dsvert_dp_policy()
   context <- list(
     dataset = list(id = "dataset", version = "v1"),

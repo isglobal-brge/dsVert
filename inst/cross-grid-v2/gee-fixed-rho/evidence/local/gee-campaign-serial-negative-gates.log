@@ -1,0 +1,35 @@
+{
+  "test_kind": "local negative-gate fixtures; no proof evidence",
+  "cases": [
+    {
+      "case": "missing_manifest",
+      "result": "PASS",
+      "release_jobs_started": 0
+    },
+    {
+      "case": "native_source_mismatch",
+      "result": "PASS",
+      "release_jobs_started": 0
+    },
+    {
+      "case": "native_failure",
+      "result": "PASS",
+      "release_jobs_started": 0
+    },
+    {
+      "case": "focused_r_failure",
+      "result": "PASS",
+      "release_jobs_started": 0
+    },
+    {
+      "case": "smoke_failure",
+      "result": "PASS",
+      "release_jobs_started": 0
+    },
+    {
+      "case": "smoke_wrong_source",
+      "result": "PASS",
+      "release_jobs_started": 0
+    }
+  ]
+}

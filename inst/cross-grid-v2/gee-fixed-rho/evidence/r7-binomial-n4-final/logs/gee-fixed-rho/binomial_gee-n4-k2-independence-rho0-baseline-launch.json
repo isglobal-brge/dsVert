@@ -1,0 +1,16 @@
+{
+  "command": [
+    "Rscript",
+    "--vanilla",
+    "/workspace/dsvert/gee-fixed-rho-r7/dsVert/inst/cross-grid-v2/integrator-validation/validate_binomial_gee_dslite.R",
+    "/workspace/dsvert/gee-fixed-rho-r7"
+  ],
+  "pid": 2995287,
+  "started_utc": "2026-09-20T10:17:20.394914+00:00",
+  "stdin": "/dev/null",
+  "source_repositories": {
+    "dsVert": "74a408fcb42b30916460c54975449f43fcde49a8",
+    "dsVertClient": "20adcc8cd237abba5aee6f58d941d7b2eebab77e"
+  },
+  "source_manifest_sha256": "a57e599d16f284612554484ad041f1a43f03a5149eaa040435131e8d13a9294d"
+}

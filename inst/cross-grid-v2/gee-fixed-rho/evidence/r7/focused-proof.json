@@ -1,0 +1,51 @@
+{
+  "scope": "Focused source/runtime validation only; not DP release or n2000 capacity",
+  "source_repositories": {
+    "dsVert": "74a408fcb42b30916460c54975449f43fcde49a8",
+    "dsVertClient": "20adcc8cd237abba5aee6f58d941d7b2eebab77e"
+  },
+  "source_manifest_sha256": "a57e599d16f284612554484ad041f1a43f03a5149eaa040435131e8d13a9294d",
+  "native": {
+    "snapshot": "/workspace/dsvert/gee-fixed-rho-r6",
+    "manifest_sha256": "d41a66b168b424e78da3134eb14462e24cb4b5454981ec8c20f18b852500201c",
+    "matching_source_files": 614,
+    "native_test_log_sha256": "bed1e242d84b00803eebf94d25beae26a1e967a35e3fae744c6684575785a961",
+    "native_test_exit_code": 0,
+    "runtime_sha256": "a59e004567027fc0c09c620cf9ab8dcae0000efb4477f14672997fd800b150c6",
+    "oracle_sha256": "3b6fa438856c989f97270c351e1dc0b9eec7fdfaf001ec8d892c090cf2f7d3f1",
+    "prior_oracle_sha256": "1deee926d09fb3caf0022a41821533040cce9c6b29ccb9bd9afde557ebc4a900",
+    "oracle_rebuilt_from_identical_native_inputs": true,
+    "passes": 25,
+    "execution": "verified reuse from r6"
+  },
+  "focused_r": {
+    "dsVert": {
+      "passed": 629,
+      "failed": 0,
+      "error": 0,
+      "skipped": 0,
+      "warning": 0,
+      "cases": 12
+    },
+    "dsVertClient": {
+      "passed": 324,
+      "failed": 0,
+      "error": 0,
+      "skipped": 0,
+      "warning": 0,
+      "cases": 9
+    }
+  },
+  "transport_regressions": {
+    "passed": 1740,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0,
+    "warning": 0,
+    "cases": 37
+  },
+  "runtime_sha256": "a59e004567027fc0c09c620cf9ab8dcae0000efb4477f14672997fd800b150c6",
+  "oracle_sha256": "3b6fa438856c989f97270c351e1dc0b9eec7fdfaf001ec8d892c090cf2f7d3f1",
+  "real_authenticated_release": false,
+  "promoted": false
+}

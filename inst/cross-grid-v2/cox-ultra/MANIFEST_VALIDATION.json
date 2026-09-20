@@ -1,0 +1,60 @@
+{
+  "source_commits": {
+    "dsVert": "c97cd193c06dbae695792b4a03644c05fa733f8f",
+    "dsVertClient": "28be3cd6fea312d8f1c2442c810b453ad81080ce"
+  },
+  "release_rows": 24,
+  "cox_ready_rows": 4,
+  "job_ids": [
+    "cox-e8-k2-i01-baseline",
+    "cox-e8-k3-i01-baseline",
+    "cox-e8-k5-i01-baseline",
+    "cox-e8-k2-i01-recovery"
+  ],
+  "other_release_rows_preserved_byte_for_byte": 20,
+  "release_manifest_sha256": "39337a1ffd1911cc0a5cee4375739ecbf22ea9036af92956c42a820265dca3f2",
+  "prior_release_manifest_sha256": "9f3780b3a195ee7ef56607a2f2dd3b9682c1644157e272aec4aa0f4f083adc82",
+  "status_sha256": "c4e8c5177ee4a5b012944eed61d2cb109bc6b29916873cdb8e845da4d28261a2",
+  "selection_manifest_current_sha256": "9599e1f3cc3de063173bf56116053a3631c438aa832b9447718e3c6bc524db42",
+  "expected_oracle_sha256": "ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d",
+  "fixture": {
+    "n": 400,
+    "p": 5,
+    "grid": 2,
+    "epsilon": 8
+  },
+  "runtime_enabled": true,
+  "runtime_evidence": "server and client authenticated Cox artifacts; focused contract/admission tests and two actual signed releases",
+  "small_signed_proofs": [
+    {
+      "path": "integrator-evidence/cox-ultra/proof-r3/logs",
+      "exit_code": 0,
+      "metrics_sha256": "7ffebb25d73d61077398626b7a9cecb0592eb2fc61325261b5042a076a4ad947",
+      "log_sha256": "8cc42e69816e45c3b1bb5859d6131e608a915877f2687da940c442f1d0392981",
+      "end_to_end_release_elapsed": 459.721,
+      "end_to_end_serialized_rpc_bytes": 57636070,
+      "certificate_sha256": "a6817e3e3ad1c912d34e5339d82af70a640a1ad3adccdd48511b281bcdffd1d3"
+    },
+    {
+      "path": "integrator-evidence/cox-ultra/proof-r4-recovery/logs",
+      "exit_code": 0,
+      "metrics_sha256": "c5b2b84213d7e2e47d6bf424935af3035c89af3d21620bbd17bf4c8d7bc58556",
+      "log_sha256": "6d7feb018d98cddf9663bc900282916998fd9c163a50d2abe5616d125f61566a",
+      "end_to_end_release_elapsed": 859.279,
+      "end_to_end_serialized_rpc_bytes": 115504697,
+      "certificate_sha256": "a17a2f7fe0995bbfd503b27d46a9d24598911a18f75c52ba0dd538a09b453439"
+    }
+  ],
+  "recovery_boundaries": [
+    "prepared",
+    "bilateral_prepare",
+    "unilateral_commit",
+    "committed",
+    "unilateral"
+  ],
+  "proof_source_binding": "SOURCE_PROOF_EQUIVALENCE.json",
+  "oracle_source_binding": "ORACLE_SOURCE_EQUIVALENCE.json",
+  "heavy_fleet_jobs_launched": 0,
+  "capacity_proven": false,
+  "promoted": false
+}

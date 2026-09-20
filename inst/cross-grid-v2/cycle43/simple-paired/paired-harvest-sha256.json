@@ -1,0 +1,22 @@
+{
+  "frozen-source-manifest.json": "cc6df9b338c7363597d08332f0fda561b4b3a670157eb858ecdf10087ebf6bc3",
+  "logs/dsVert-paired.csv": "c89a068f528a60d68ef6f743670662ac5137fef8ac5debcdfcb4cc0f48104073",
+  "logs/dsVert-paired.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+  "logs/dsVert-paired.launch.json": "165cab35b8e74efbe0999ddb8feb89f4e023bb5701e3bb0e8feff9fa8d4ce17b",
+  "logs/dsVert-paired.log": "977cc7f138677e1c94095595f1c6c667c671fc4a34ab5557b370b9ee63d62825",
+  "logs/dsVert-paired.rds": "6d50d2d9d967e5124139e5380b6dd37475eb74f5d85f3ebd453cecbba240a2f8",
+  "logs/dsVert-paired.resources.json": "0b5682e18682263cabffd9cb929dd30a31f2218dc429709354df35b6db33f5e2",
+  "logs/dsVertClient-paired.csv": "ab602f933b8e684ffa02aea89abd9e78f1bdbc58a934924acdca0fee61d85570",
+  "logs/dsVertClient-paired.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+  "logs/dsVertClient-paired.launch.json": "8a13619d8b975daae696f14c80e259bb0eec4089a5e8cd58f9a102647bbc4f85",
+  "logs/dsVertClient-paired.log": "f079d53ada303a15db2cb8fcafdb7011301acfb9578d5b739ee748392f5e7ba2",
+  "logs/dsVertClient-paired.rds": "ac345963517079c9dd84e4b9d0d057f1b58275e619ade6fda5fd0f1f76775e44",
+  "logs/dsVertClient-paired.resources.json": "40475d62613371f1668c09777ba4c613bfe4b299a698c36ec1a3703e4095e84d",
+  "logs/paired-analysis.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+  "logs/paired-analysis.json": "fe439ec58e43ad908c89330112ce39adf120dcedd4129b47be784db5276a8450",
+  "logs/paired-analysis.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "logs/paired-analysis.stdout": "53771e6900f1389fd13f500a736d911c71db50d95874abcbc70860dc4bf4d53a",
+  "logs/paired-driver.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+  "logs/paired-harvest-verification.json": "dfe62e6a0b8f7d4fb153ea7ed239a5d262134cdd9240bb3b695a6c5e916962f7",
+  "logs/paired-results.json": "69e57f8eb146a9ae6e11c949c44b229458c0fbc7f5133e847212c30f01ac1a2b"
+}

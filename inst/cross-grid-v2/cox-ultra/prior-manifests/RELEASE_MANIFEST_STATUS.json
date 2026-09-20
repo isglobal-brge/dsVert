@@ -1,0 +1,32 @@
+{
+  "source_commits": {
+    "dsVert": "ad276b565d85fce3d01204365cce25b5380c99d3",
+    "dsVertClient": "bf737442adbca7ac733518da32c9cb0cd6338870"
+  },
+  "real_job_count": 24,
+  "oracle_job_count": 1080,
+  "fleet_ready": false,
+  "per_family_real_jobs": 4,
+  "epsilon": 8,
+  "lease_seconds": 86400,
+  "idle_seconds": 900,
+  "existing_frozen_runs": "Harvest without restarting; do not launch duplicate active jobs.",
+  "capacity_scope": "Once per family; measured serialized aggregate RPC bytes and complete release time.",
+  "paired_suite_cli": "Rscript --vanilla -e 'testthat::test_local(\"dsVert\", stop_on_failure=TRUE); testthat::test_local(\"dsVertClient\", stop_on_failure=TRUE)' </dev/null",
+  "paired_suite_review": "Retain structured results and review warnings/skips as well as failures.",
+  "prepare_cli": "bash dsVert/inst/cross-grid-v2/integrator-validation/prepare-release-workspace.sh ad276b565d85fce3d01204365cce25b5380c99d3 bf737442adbca7ac733518da32c9cb0cd6338870",
+  "pending_families": {
+    "binomial_gee": "estimated-alpha contract and signed lifecycle",
+    "poisson_gee": "estimated-alpha contract and signed lifecycle",
+    "cox": "authenticated source composition and signed lifecycle"
+  },
+  "proof_scope": "Job definitions are not release evidence. Full selection matrix is ORACLE-ONLY.",
+  "existing_wave_instruction": "Do not rerun LMM/GLMM heavy wave; harvest and rescore original-pair records under release-capacity.json. Current-pair ready entries describe available paths, not authorization for duplicate releases.",
+  "oracle_commitment_provenance": "cycle46-20260920/ORACLE_DEPENDENCY_EQUIVALENCE.json",
+  "capacity_policy": {
+    "revision": "2026-09-20-david-8h",
+    "capacity_bytes": 256000000000,
+    "capacity_seconds": 28800,
+    "scope": "complete release elapsed and serialized aggregate RPC bytes including retries; native payload reported separately"
+  }
+}

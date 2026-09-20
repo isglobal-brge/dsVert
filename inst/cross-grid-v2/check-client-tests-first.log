@@ -1,0 +1,117 @@
+
+R version 4.6.1 (2026-06-24) -- "Happy Hop"
+Copyright (C) 2026 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> # This file is part of the standard setup for testthat.
+> # It is recommended that you do not modify it.
+> 
+> library(testthat)
+> library(dsVertClient)
+> 
+> test_check("dsVertClient")
+
+  [verify] dsVert installed
+  [verify] dsVertClient installed
+  [verify] dsVert installed
+  [verify] dsVertClient installed
+  [verify] dependency filelock installed
+Saving _problems/test-server-surface-compatibility-171.R
+Saving _problems/test-server-surface-compatibility-198.R
+Saving _problems/test-server-surface-compatibility-206.R
+Saving _problems/test-typed-producer-retry-149.R
+[ FAIL 4 | WARN 0 | SKIP 45 | PASS 25476 ]
+
+══ Skipped tests (45) ══════════════════════════════════════════════════════════
+• DSLite mock missing dsVert PSI methods — covered by live-Opal probes (1):
+  'test-dslite-glm.R:19:1'
+• pkgdown reference output is absent from the package tarball (1):
+  'test-documentation-release-claims.R:331:5'
+• repository-level scripts are not part of the installed package (1):
+  'test-opal-method-reconciliation.R:351:5'
+• repository-only historical vignettes are absent (1):
+  'test-documentation-release-claims.R:666:5'
+• repository-only website sources are absent from the package tarball (1):
+  'test-documentation-release-claims.R:371:5'
+• requires a readable sibling dsVert worktree; set DSVERT_SERVER_SOURCE for an
+  explicit server source (36): 'test-dp-count-synopsis-rock-e2e.R:22:3',
+  'test-dp-synopsis-describe-rock-e2e.R:842:3',
+  'test-dp-synopsis-describe-rock-e2e.R:1007:3',
+  'test-dp-synopsis-describe-rock-e2e.R:1199:3',
+  'test-dp-synopsis-describe-rock-e2e.R:1287:3',
+  'test-dp-synopsis-describe-rock-e2e.R:1341:3',
+  'test-dp-synopsis-describe-rock-e2e.R:1392:3',
+  'test-dp-synopsis-describe-rock-e2e.R:1519:3',
+  'test-dp-synopsis-describe-rock-e2e.R:1620:3',
+  'test-dp-synopsis-describe-rock-e2e.R:1689:3',
+  'test-dp-synopsis-describe-rock-e2e.R:1799:3',
+  'test-dp-synopsis-describe-rock-e2e.R:1954:3',
+  'test-dp-synopsis-describe-rock-e2e.R:2065:3',
+  'test-dp-synopsis-describe-rock-e2e.R:2143:3',
+  'test-dp-synopsis-describe-rock-e2e.R:2208:3',
+  'test-dp-synopsis-describe-rock-e2e.R:2574:3',
+  'test-dp-synopsis-describe-rock-e2e.R:2678:3',
+  'test-dp-synopsis-describe-rock-e2e.R:2790:3',
+  'test-dp-synopsis-describe-rock-e2e.R:2893:3',
+  'test-dp-synopsis-describe-rock-e2e.R:2993:3',
+  'test-dp-synopsis-describe-rock-e2e.R:3087:3',
+  'test-dp-synopsis-describe-rock-e2e.R:3183:3',
+  'test-dp-synopsis-describe-rock-e2e.R:3295:3',
+  'test-dp-synopsis-describe-rock-e2e.R:3356:3',
+  'test-dp-synopsis-describe-rock-e2e.R:3435:3',
+  'test-dp-synopsis-describe-rock-e2e.R:3521:3',
+  'test-dp-synopsis-describe-rock-e2e.R:3640:3',
+  'test-dp-synopsis-describe-rock-e2e.R:3736:3',
+  'test-dp-synopsis-describe-rock-e2e.R:3837:3',
+  'test-dp-synopsis-describe-rock-e2e.R:3959:3',
+  'test-dp-synopsis-describe-rock-e2e.R:4020:3',
+  'test-dp-synopsis-describe-rock-e2e.R:4090:3',
+  'test-dp-synopsis-describe-rock-e2e.R:4152:3',
+  'test-dp-synopsis-describe-rock-e2e.R:4240:3',
+  'test-dp-synopsis-describe-rock-e2e.R:4319:3',
+  'test-dp-synopsis-describe-rock-e2e.R:4532:3'
+• set DSVERT_TEST_SYNOPSIS_E2E_FAMILY=gaussian_lasso_focal (1):
+  'test-dp-synopsis-describe-rock-e2e.R:4440:3'
+• source-tree harness is not present after install (2):
+  'test-formal-dp-e2e-harness.R:41:3', 'test-formal-dp-e2e-harness.R:75:3'
+• the companion dsVert source tree is unavailable for this cross-package audit
+  (1): 'test-exact-gc-promoted-cross-guard.R:17:3'
+
+══ Failed tests ════════════════════════════════════════════════════════════════
+── Failure ('test-server-surface-compatibility.R:168:3'): client DSI expressions are registered or locally quarantined ──
+Expected `constructions$as_name` to have the same values as `unlist(inventory$client_ast_resolution$as_call_as_name, use.names = FALSE)`.
+Actual: "dsvertDPAlignmentMaskReceiveDS", "dsvertDPAlignmentMaskSealDS", "dsvertDPAlignmentMaskStartDS", "dsvertDPAlignmentMaskStoreDS", "dsvertDPSynopsisAlignmentMaskReceiveDS", "dsvertDPSynopsisAlignmentMaskSealDS", "dsvertDPSynopsisAlignmentMaskStartDS", "dsvertDPSynopsisAlignmentMaskStoreDS", "dsvertDPSynopsisGLMGridCrossDS", ...
+Expected: "dsvertDPAlignmentMaskReceiveDS", "dsvertDPAlignmentMaskSealDS", "dsvertDPAlignmentMaskStartDS", "dsvertDPAlignmentMaskStoreDS", "dsvertDPSynopsisAlignmentMaskReceiveDS", "dsvertDPSynopsisAlignmentMaskSealDS", "dsvertDPSynopsisAlignmentMaskStartDS", "dsvertDPSynopsisAlignmentMaskStoreDS", "exactGCExchangeDS", ...
+Needs: "dsvertDPSynopsisGLMGridCrossDS", "dsvertDPSynopsisPrepareDS"
+── Failure ('test-server-surface-compatibility.R:196:3'): client DSI expressions are registered or locally quarantined ──
+Expected `length(constructions$as_name)` to be identical to `as.integer(inventory$counts$as_call_as_name_endpoints)`.
+Differences:
+1/1 mismatches
+[1] 15 - 13 == 2
+── Failure ('test-server-surface-compatibility.R:206:3'): client DSI expressions are registered or locally quarantined ──
+Expected `classified` to have the same values as `registered_ds`.
+Actual: "dsvertColNamesDS", "dsvertIdentityPkDS", "dsvertDPCountCompileDS", "dsvertDPCountAuthorizeDS", "dsvertDPCountStartDS", "dsvertDPCountFinalShareDS", "dsvertDPCountReleaseDS", "dsvertDPFrequencyClaimDS", "dsvertDPFrequencyCompileDS", ...
+Expected: "dsvertColNamesDS", "dsvertDPAlignmentMaskReceiveDS", "dsvertDPAlignmentMaskSealDS", "dsvertDPAlignmentMaskStartDS", "dsvertDPAlignmentMaskStoreDS", "dsvertDPCapsuleManifestBuildDS", "dsvertDPCapsuleManifestDraftDS", "dsvertDPCapsuleManifestSignDS", "dsvertDPCapsuleSourceAcceptDS", ...
+Absent: "dsvertDPSynopsisGLMGridCrossDS"
+── Failure ('test-typed-producer-retry.R:148:3'): only the audited producer allowlist receives automatic replay ──
+Expected `length(audited)` to be identical to `length(.DSVERT_IDEMPOTENT_TYPED_PRODUCERS)`.
+Differences:
+1/1 mismatches
+[1] 83 - 84 == -1
+
+[ FAIL 4 | WARN 0 | SKIP 45 | PASS 25476 ]
+Error:
+! Test failures.
+Execution halted

@@ -1,0 +1,20 @@
+dp-synopsis-exact-gc: ..........................................................................................................................................................
+dp-synopsis-execution-safety: ........1.....
+dp-synopsis-execution: ..............................................................
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Error ('test-dp-synopsis-execution-safety.R:101:5'): execution ranges do n
+Error: The biomedical capsule coordinate contract is invalid.
+Backtrace:
+    ▆
+ 1. ├─testthat::with_mocked_bindings(...) at test-dp-synopsis-execution-safety.R:90:3
+ 2. └─dsVert:::.dsvert_dp_capsule_source_aggregate_release_range_internal(...) at test-dp-synopsis-execution-safety.R:91:5
+ 3.   └─dsVert:::.dsvert_dp_capsule_source_with_store(...) at dsVert/R/dpCapsuleSourceTransportDS.R:3135:3
+ 4.     └─dsVert (local) code("connection") at test-dp-synopsis-execution-safety.R:101:5
+ 5.       └─dsVert:::.dsvert_dp_glm_grid_cross_inject(...) at dsVert/R/dpCapsuleSourceTransportDS.R:3147:7
+ 6.         └─dsVert:::.dsvert_dp_capsule_coordinate_layout(manifest) at dsVert/R/dpGLMGridCrossLifecycle.R:246:3
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+Error:
+! Test failures.
+Execution halted

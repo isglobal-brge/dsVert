@@ -76,7 +76,8 @@
 .dsvert_dp_capsule_source_cross_contract <- function(contract) {
   is.list(contract) && contract$version %in% c(
     .DSVERT_DP_CAPSULE_SOURCE_CROSS_CONTRACT_VERSION,
-    .DSVERT_DP_CAPSULE_SOURCE_CATEGORICAL_CROSS_CONTRACT_VERSION)
+    .DSVERT_DP_CAPSULE_SOURCE_CATEGORICAL_CROSS_CONTRACT_VERSION,
+    .DSVERT_DP_GLM_GRID_CROSS_SOURCE_VERSION)
 }
 
 .dsvert_dp_capsule_source_scalar <- function(value, what, pattern = NULL,
@@ -168,6 +169,10 @@
   cross_layout <- .dsvert_dp_gaussian_cross_layout(manifest, layout)
   categorical_cross <- length(
     .dsvert_dp_categorical_cross_artifacts(manifest)) > 0L
+  grid_cross <- length(.dsvert_dp_glm_grid_cross_artifacts(manifest)) > 0L ||
+    any(vapply(manifest$workload$families$gaussian_models$artifacts,
+      function(artifact) identical(artifact$version,
+        .DSVERT_DP_COX_GRID_CROSS_ARTIFACT_VERSION), logical(1L)))
   ordinary_source_peers <- vapply(
     layout$blocks, `[[`, character(1L), "owner_peer")
   cross_source_peers <- if (isTRUE(cross_layout$enabled)) {
@@ -204,14 +209,18 @@
     coordinate_count /
       .DSVERT_DP_CAPSULE_SOURCE_CHUNK_COORDINATES)
   contract <- list(
-    version = if (isTRUE(categorical_cross)) {
+    version = if (grid_cross) {
+      .DSVERT_DP_GLM_GRID_CROSS_SOURCE_VERSION
+    } else if (isTRUE(categorical_cross)) {
       .DSVERT_DP_CAPSULE_SOURCE_CATEGORICAL_CROSS_CONTRACT_VERSION
     } else if (isTRUE(cross_layout$enabled)) {
       .DSVERT_DP_CAPSULE_SOURCE_CROSS_CONTRACT_VERSION
     } else {
       .DSVERT_DP_CAPSULE_SOURCE_CONTRACT_VERSION
     },
-    purpose = if (isTRUE(categorical_cross)) {
+    purpose = if (grid_cross) {
+      .DSVERT_DP_GLM_GRID_CROSS_SOURCE_PURPOSE
+    } else if (isTRUE(categorical_cross)) {
       .DSVERT_DP_CAPSULE_SOURCE_CATEGORICAL_CROSS_PURPOSE
     } else if (isTRUE(cross_layout$enabled)) {
       .DSVERT_DP_CAPSULE_SOURCE_CROSS_PURPOSE
@@ -323,8 +332,12 @@
     contract$version %in% c(
       .DSVERT_DP_CAPSULE_SOURCE_CONTRACT_VERSION,
       .DSVERT_DP_CAPSULE_SOURCE_CROSS_CONTRACT_VERSION,
-      .DSVERT_DP_CAPSULE_SOURCE_CATEGORICAL_CROSS_CONTRACT_VERSION) &&
+      .DSVERT_DP_CAPSULE_SOURCE_CATEGORICAL_CROSS_CONTRACT_VERSION,
+      .DSVERT_DP_GLM_GRID_CROSS_SOURCE_VERSION) &&
     identical(contract$purpose, if (identical(
+        contract$version, .DSVERT_DP_GLM_GRID_CROSS_SOURCE_VERSION)) {
+      .DSVERT_DP_GLM_GRID_CROSS_SOURCE_PURPOSE
+    } else if (identical(
         contract$version,
         .DSVERT_DP_CAPSULE_SOURCE_CATEGORICAL_CROSS_CONTRACT_VERSION)) {
       .DSVERT_DP_CAPSULE_SOURCE_CATEGORICAL_CROSS_PURPOSE
@@ -895,6 +908,11 @@
       "record_json TEXT NOT NULL, row_mac TEXT NOT NULL,",
       "PRIMARY KEY(capsule_id, chunk_index))"),
     paste(
+      "CREATE TABLE IF NOT EXISTS source_cross_grid_records (",
+      "capsule_id TEXT NOT NULL, analysis_id TEXT NOT NULL, batch_index INTEGER NOT NULL,",
+      "record_json TEXT NOT NULL, row_mac TEXT NOT NULL,",
+      "PRIMARY KEY(capsule_id, analysis_id, batch_index))"),
+    paste(
       "CREATE TABLE IF NOT EXISTS source_cross_gaussian_results (",
       "capsule_id TEXT NOT NULL, analysis_id TEXT NOT NULL,",
       "record_json TEXT NOT NULL, row_mac TEXT NOT NULL,",
@@ -925,7 +943,7 @@
   # requests cannot repopulate private source state after final publication.
   guarded_tables <- c(
     "source_recipient_keys", "source_outbound", "source_incoming_state",
-    "source_aggregate_chunks", "source_cross_gaussian_results",
+    "source_aggregate_chunks", "source_cross_grid_records", "source_cross_gaussian_results",
     "source_cross_gaussian_evidence", "source_cross_categorical_results")
   for (table in guarded_tables) {
     trigger <- paste0("source_no_reopen_", table)
@@ -3129,11 +3147,17 @@
       connection, contract, contract$capsule_id,
       chunk$offset + 1L, chunk$count, secret)
     if (.dsvert_dp_capsule_source_cross_contract(contract)) {
+      share <- .dsvert_dp_glm_grid_cross_inject(
+        connection, secret, parsed$manifest, contract, chunk, share)
       share <- .dsvert_dp_gaussian_cross_inject_release_share_internal(
         connection, secret, parsed$manifest, contract, chunk, share)
       share <- .dsvert_dp_categorical_cross_inject_release_share_internal(
         connection, secret, parsed$manifest, contract, chunk, share,
         policy = policy)
+      share <- .dsvert_dp_lmm_cross_inject(
+        connection, secret, parsed$manifest, contract, chunk, share, policy)
+      share <- .dsvert_dp_cox_cross_inject(
+        connection, secret, parsed$manifest, contract, chunk, share, policy)
     }
     if (length(share) != chunk$count * 16L) {
       stop("The biomedical capsule source aggregate has the wrong byte shape.",

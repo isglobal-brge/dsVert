@@ -1,0 +1,162 @@
+=== RUN   TestCrossGridPWV2TwoAuthorityProtocol
+=== RUN   TestCrossGridPWV2TwoAuthorityProtocol/cross-grid-pwq-binomial-a4-k64-q16-eta16-v2
+    cross_grid_profile_protocol_v2_test.go:89: protocol_bytes=144146 wall_ms=31.756
+    cross_grid_profile_protocol_v2_test.go:89: protocol_bytes=144171 wall_ms=25.577
+    cross_grid_profile_protocol_v2_test.go:89: protocol_bytes=144146 wall_ms=26.085
+    cross_grid_profile_protocol_v2_test.go:89: protocol_bytes=144145 wall_ms=24.698
+=== RUN   TestCrossGridPWV2TwoAuthorityProtocol/cross-grid-pwq-binomial-a16-k64-q16-eta16-v2
+    cross_grid_profile_protocol_v2_test.go:89: protocol_bytes=155601 wall_ms=24.738
+    cross_grid_profile_protocol_v2_test.go:89: protocol_bytes=155602 wall_ms=27.383
+    cross_grid_profile_protocol_v2_test.go:89: protocol_bytes=155600 wall_ms=28.055
+    cross_grid_profile_protocol_v2_test.go:89: protocol_bytes=155601 wall_ms=27.625
+=== RUN   TestCrossGridPWV2TwoAuthorityProtocol/cross-grid-pwq-poisson-a4-k64-q16-eta16-v2
+    cross_grid_profile_protocol_v2_test.go:89: protocol_bytes=169490 wall_ms=25.890
+    cross_grid_profile_protocol_v2_test.go:89: protocol_bytes=169490 wall_ms=26.154
+    cross_grid_profile_protocol_v2_test.go:89: protocol_bytes=169490 wall_ms=25.619
+    cross_grid_profile_protocol_v2_test.go:89: protocol_bytes=169490 wall_ms=27.011
+=== RUN   TestCrossGridPWV2TwoAuthorityProtocol/cross-grid-pwq-poisson-a16-k64-q6-eta16-v2
+    cross_grid_profile_protocol_v2_test.go:89: protocol_bytes=198033 wall_ms=27.011
+    cross_grid_profile_protocol_v2_test.go:89: protocol_bytes=198034 wall_ms=26.595
+    cross_grid_profile_protocol_v2_test.go:89: protocol_bytes=198032 wall_ms=30.681
+    cross_grid_profile_protocol_v2_test.go:89: protocol_bytes=198033 wall_ms=35.833
+--- PASS: TestCrossGridPWV2TwoAuthorityProtocol (0.74s)
+    --- PASS: TestCrossGridPWV2TwoAuthorityProtocol/cross-grid-pwq-binomial-a4-k64-q16-eta16-v2 (0.21s)
+    --- PASS: TestCrossGridPWV2TwoAuthorityProtocol/cross-grid-pwq-binomial-a16-k64-q16-eta16-v2 (0.17s)
+    --- PASS: TestCrossGridPWV2TwoAuthorityProtocol/cross-grid-pwq-poisson-a4-k64-q16-eta16-v2 (0.17s)
+    --- PASS: TestCrossGridPWV2TwoAuthorityProtocol/cross-grid-pwq-poisson-a16-k64-q6-eta16-v2 (0.18s)
+=== RUN   TestCrossGridPWV2OptimizerExhaustive
+--- PASS: TestCrossGridPWV2OptimizerExhaustive (0.17s)
+=== RUN   TestCrossGridPWV2CertificateDense
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a1-k16-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=3.28081399e-05 certified_loss_error=4.72834081e-05
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a1-k32-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=2.62486892e-05 certified_loss_error=4.59647473e-05
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a1-k64-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=2.90520995e-05 certified_loss_error=4.57999147e-05
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a2-k16-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=4.10695782e-05 certified_loss_error=5.78326944e-05
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a2-k32-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=3.03147811e-05 certified_loss_error=4.72834081e-05
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a2-k64-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=3.39231306e-05 certified_loss_error=4.59647473e-05
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a4-k16-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=0.000110063522 certified_loss_error=0.000142226984
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a4-k32-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=4.07936471e-05 certified_loss_error=5.78326944e-05
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a4-k64-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=3.15387507e-05 certified_loss_error=4.72834081e-05
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a8-k16-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=0.000760976718 certified_loss_error=0.000817381305
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a8-k32-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=0.000110063522 certified_loss_error=0.000142226984
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a8-k64-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=4.07936471e-05 certified_loss_error=5.78326944e-05
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a16-k16-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=0.00569028252 certified_loss_error=0.00621861587
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a16-k32-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=0.000760175849 certified_loss_error=0.000817381305
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a16-k64-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=0.000110063522 certified_loss_error=0.000142226984
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a1-k16-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=5.51069945e-05 certified_loss_error=0.00792158795
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a1-k32-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=3.04043327e-05 certified_loss_error=0.00788433682
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a1-k64-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=4.38013452e-05 certified_loss_error=0.00787968043
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a2-k16-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=0.000836296966 certified_loss_error=0.00884044761
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a2-k32-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=0.000156289322 certified_loss_error=0.00803037506
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a2-k64-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=6.54716633e-05 certified_loss_error=0.00792911599
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a4-k16-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=0.0440749573 certified_loss_error=0.0630009672
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a4-k32-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=0.00618802973 certified_loss_error=0.0151155947
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a4-k64-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=0.00108859259 certified_loss_error=0.00912992315
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a8-k16-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=15.8004567 certified_loss_error=23.9341692
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a8-k32-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=2.40627392 certified_loss_error=3.01854718
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a8-k64-q16-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=0.337824621 certified_loss_error=0.404094431
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a16-k16-q6-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=256669.122 certified_loss_error=570112.106
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a16-k32-q6-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=47099.854 certified_loss_error=71323.3823
+=== RUN   TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a16-k64-q6-eta16-v2
+    cross_grid_profile_v2_test.go:163: dense_max=7172.99361 certified_loss_error=8974.79183
+--- PASS: TestCrossGridPWV2CertificateDense (0.27s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a1-k16-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a1-k32-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a1-k64-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a2-k16-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a2-k32-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a2-k64-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a4-k16-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a4-k32-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a4-k64-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a8-k16-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a8-k32-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a8-k64-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a16-k16-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a16-k32-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-binomial-a16-k64-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a1-k16-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a1-k32-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a1-k64-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a2-k16-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a2-k32-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a2-k64-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a4-k16-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a4-k32-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a4-k64-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a8-k16-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a8-k32-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a8-k64-q16-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a16-k16-q6-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a16-k32-q6-eta16-v2 (0.01s)
+    --- PASS: TestCrossGridPWV2CertificateDense/cross-grid-pwq-poisson-a16-k64-q6-eta16-v2 (0.01s)
+=== RUN   TestCrossGridPWV2CircuitOracleAndCost
+=== RUN   TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-binomial-a4-k16-q16-eta16-v2
+    cross_grid_profile_v2_test.go:181: gates=8540 non_xor=2828 garbled_table_bytes=90496 input_bits=96
+=== RUN   TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-binomial-a4-k32-q16-eta16-v2
+    cross_grid_profile_v2_test.go:181: gates=8262 non_xor=2745 garbled_table_bytes=87840 input_bits=96
+=== RUN   TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-binomial-a4-k64-q16-eta16-v2
+    cross_grid_profile_v2_test.go:181: gates=8386 non_xor=2773 garbled_table_bytes=88736 input_bits=96
+=== RUN   TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-binomial-a16-k16-q16-eta16-v2
+    cross_grid_profile_v2_test.go:181: gates=9330 non_xor=3048 garbled_table_bytes=97536 input_bits=96
+=== RUN   TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-binomial-a16-k32-q16-eta16-v2
+    cross_grid_profile_v2_test.go:181: gates=9320 non_xor=3129 garbled_table_bytes=100128 input_bits=96
+=== RUN   TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-binomial-a16-k64-q16-eta16-v2
+    cross_grid_profile_v2_test.go:181: gates=9065 non_xor=3045 garbled_table_bytes=97440 input_bits=96
+=== RUN   TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-poisson-a4-k16-q16-eta16-v2
+    cross_grid_profile_v2_test.go:181: gates=10287 non_xor=3437 garbled_table_bytes=109984 input_bits=96
+=== RUN   TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-poisson-a4-k32-q16-eta16-v2
+    cross_grid_profile_v2_test.go:181: gates=10140 non_xor=3376 garbled_table_bytes=108032 input_bits=96
+=== RUN   TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-poisson-a4-k64-q16-eta16-v2
+    cross_grid_profile_v2_test.go:181: gates=10129 non_xor=3346 garbled_table_bytes=107072 input_bits=96
+=== RUN   TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-poisson-a16-k16-q6-eta16-v2
+    cross_grid_profile_v2_test.go:181: gates=11664 non_xor=3845 garbled_table_bytes=123040 input_bits=96
+=== RUN   TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-poisson-a16-k32-q6-eta16-v2
+    cross_grid_profile_v2_test.go:181: gates=11769 non_xor=3959 garbled_table_bytes=126688 input_bits=96
+=== RUN   TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-poisson-a16-k64-q6-eta16-v2
+    cross_grid_profile_v2_test.go:181: gates=11881 non_xor=4019 garbled_table_bytes=128608 input_bits=96
+--- PASS: TestCrossGridPWV2CircuitOracleAndCost (0.42s)
+    --- PASS: TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-binomial-a4-k16-q16-eta16-v2 (0.02s)
+    --- PASS: TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-binomial-a4-k32-q16-eta16-v2 (0.02s)
+    --- PASS: TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-binomial-a4-k64-q16-eta16-v2 (0.06s)
+    --- PASS: TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-binomial-a16-k16-q16-eta16-v2 (0.02s)
+    --- PASS: TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-binomial-a16-k32-q16-eta16-v2 (0.03s)
+    --- PASS: TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-binomial-a16-k64-q16-eta16-v2 (0.06s)
+    --- PASS: TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-poisson-a4-k16-q16-eta16-v2 (0.02s)
+    --- PASS: TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-poisson-a4-k32-q16-eta16-v2 (0.03s)
+    --- PASS: TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-poisson-a4-k64-q16-eta16-v2 (0.06s)
+    --- PASS: TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-poisson-a16-k16-q6-eta16-v2 (0.02s)
+    --- PASS: TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-poisson-a16-k32-q6-eta16-v2 (0.03s)
+    --- PASS: TestCrossGridPWV2CircuitOracleAndCost/cross-grid-pwq-poisson-a16-k64-q6-eta16-v2 (0.06s)
+=== RUN   TestCrossGridPWV2PublicVectorsAndHighPrecision
+--- PASS: TestCrossGridPWV2PublicVectorsAndHighPrecision (0.15s)
+PASS
+ok  	github.com/isglobal-brge/dsVert/dsvert-mpc	2.288s

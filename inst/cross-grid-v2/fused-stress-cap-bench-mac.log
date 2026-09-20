@@ -1,0 +1,8 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/isglobal-brge/dsVert/dsvert-mpc
+cpu: Apple M2
+BenchmarkCrossGridFusedBatch/binomial-8         	       1	 947497042 ns/op	      4205 AND/eval	        45.24 compile-s	   3701160 ns/eval	    165643 wire-B/eval
+BenchmarkCrossGridFusedBatch/poisson-8          	       1	1755381625 ns/op	      5467 AND/eval	        69.95 compile-s	   6856959 ns/eval	    206069 wire-B/eval
+PASS
+ok  	github.com/isglobal-brge/dsVert/dsvert-mpc	118.972s

@@ -1,0 +1,11 @@
+PUBLIC_COMPILER_SCHEMA_ONLY step1 K=2 exit=1
+Error: A pinned custodian signature on the formal Cox schema is invalid.
+Execution halted
+
+PUBLIC_COMPILER_SCHEMA_ONLY step1 K=3 exit=1
+Error: A pinned custodian signature on the formal Cox schema is invalid.
+Execution halted
+
+PUBLIC_COMPILER_SCHEMA_ONLY step1 K=5 exit=1
+Error: A pinned custodian signature on the formal Cox schema is invalid.
+Execution halted

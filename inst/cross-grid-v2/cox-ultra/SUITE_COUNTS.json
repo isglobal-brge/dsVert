@@ -1,0 +1,67 @@
+{
+  "server_cox_schema_glm": {
+    "test_cases": 56,
+    "passed_assertions": 3328,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "warnings": 0,
+    "evidence": [
+      "integrator-evidence/cox-ultra-runtime/test-dp-cox-synopsis-schema.R.csv",
+      "integrator-evidence/cox-ultra-runtime/test-crossgrid-cox.R.csv",
+      "integrator-evidence/cox-ultra-runtime/test-dp-glm-grid-cross-contract.R.csv"
+    ]
+  },
+  "client_cox": {
+    "test_cases": 24,
+    "passed_assertions": 1002,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "warnings": 0,
+    "evidence": [
+      "integrator-evidence/cox-ultra/client/client-cox-tests.csv"
+    ]
+  },
+  "client_transport": {
+    "test_cases": 32,
+    "passed_assertions": 273,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "warnings": 0,
+    "evidence": [
+      "integrator-evidence/cox-ultra/client/cox-transport-tests.csv"
+    ]
+  },
+  "client_registry": {
+    "test_cases": 18,
+    "passed_assertions": 1105,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "warnings": 0,
+    "evidence": [
+      "integrator-evidence/cox-ultra/client-registry/test-method-status.R.csv",
+      "integrator-evidence/cox-ultra/client-registry/test-dp-grouped-grid-cross-registry.R.csv",
+      "integrator-evidence/cox-ultra/client-registry/test-capsule-method-inventory.R.csv"
+    ]
+  },
+  "lmm_publication_regression": {
+    "passed_assertions": 177,
+    "failed": 0,
+    "evidence": "integrator-evidence/cox-ultra/publication-tests.md"
+  },
+  "go_cox": {
+    "top_level_tests": 12,
+    "tests_and_subtests": 43,
+    "failed": 0,
+    "skipped": 0,
+    "evidence": "integrator-evidence/cox-ultra/go-cox-focused.jsonl"
+  },
+  "manifest_generator": {
+    "test_cases": 4,
+    "failed": 0,
+    "evidence": "integrator-evidence/cox-ultra/client/manifest-generator-tests.log"
+  }
+}

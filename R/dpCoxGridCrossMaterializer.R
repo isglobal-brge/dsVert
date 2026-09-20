@@ -1,0 +1,263 @@
+# Internal Cox projection for authenticated source/lifecycle wiring.
+# Public workload discovery stays closed until the complete staged path is proved.
+.dsvert_dp_cox_cross_workload_artifact <- function(contract) {
+  spec <- contract$spec
+  artifact <- contract$artifact
+  artifact$transcript$producer <- artifact$transcript$operation
+  artifact$transcript$operation <- NULL
+  c(artifact, list(dataset = spec$dataset, family = spec$family,
+    time = spec$time[c("column", "dataset", "owner_peer", "lower", "upper")],
+    event = spec$event[c("column", "dataset", "owner_peer", "lower", "upper")],
+    predictors = lapply(spec$predictors, function(x)
+      x[c("column", "dataset", "owner_peer", "lower", "upper")]),
+    predictor_order = unlist(spec$predictor_order, use.names = FALSE),
+    input_variable_order = unlist(spec$input_variable_order, use.names = FALSE),
+    design_terms = unlist(spec$design_terms, use.names = FALSE),
+    beta_grid = spec$beta_grid, intercept = FALSE,
+    observation_capacity = spec$observation_capacity, padded_capacity = spec$padded_capacity,
+    ties = spec$ties, time_semantics = spec$time_semantics,
+    predictor_normalization = spec$predictor_normalization,
+    complete_case = spec$complete_case,
+    statistic_maximum = spec$sensitivity$maximum_coordinates,
+    source_raw_l1_sensitivity = spec$sensitivity$raw_l1_sensitivity,
+    source_raw_l2_sensitivity = spec$sensitivity$raw_l2_sensitivity,
+    natural_l1_sensitivity = spec$sensitivity$natural_l1_sensitivity,
+    natural_l2_sensitivity = spec$sensitivity$natural_l2_sensitivity,
+    numeric_certificate = spec$numeric_contract, adjacency = spec$adjacency,
+    signed_contract = .dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(contract))))
+}
+
+# Decode the observed binary64 itself, not its printed decimal approximation.
+# Reuse the existing exact rational operations and ties-to-even quantizer.
+.dsvert_dp_cox_cross_binary64 <- function(value) {
+  if (!is.numeric(value) || length(value) != 1L || !is.finite(value)) {
+    .dsvert_dp_cox_grid_cross_fail()
+  }
+  bytes <- as.numeric(writeBin(as.double(value), raw(), size = 8L, endian = "little"))
+  exponent <- (bytes[8L] %% 128) * 16 + floor(bytes[7L] / 16)
+  mantissa <- sum(bytes[1:6] * 256^(0:5)) + (bytes[7L] %% 16) * 2^48
+  if (exponent != 0) mantissa <- mantissa + 2^52
+  shift <- if (exponent == 0) -1074 else exponent - 1075
+  numerator <- .dsvert_formal_glm_phase18_bn(sprintf("%.0f", mantissa))
+  denominator <- .dsvert_formal_glm_phase18_bn(1)
+  two <- .dsvert_formal_glm_phase18_bn(2)
+  if (shift >= 0) numerator <- numerator * two^shift else denominator <- two^(-shift)
+  .dsvert_formal_glm_phase18_rat_new(if (bytes[8L] >= 128) -1L else 1L,
+    numerator, denominator)
+}
+
+.dsvert_dp_cox_cross_normalize <- function(values, lower, upper) {
+  lo <- .dsvert_dp_cox_cross_binary64(lower)
+  hi <- .dsvert_dp_cox_cross_binary64(upper)
+  if (.dsvert_formal_glm_phase18_rat_cmp(lo, hi) >= 0L ||
+      !is.numeric(values) || any(!is.finite(values))) .dsvert_dp_cox_grid_cross_fail()
+  width <- .dsvert_formal_glm_phase18_rat_sub(hi, lo)
+  vapply(pmin(upper, pmax(lower, values)), function(value) {
+    unit <- .dsvert_formal_glm_phase18_rat_div(
+      .dsvert_formal_glm_phase18_rat_sub(.dsvert_dp_cox_cross_binary64(value), lo), width)
+    as.numeric(.dsvert_formal_glm_phase18_rat_scaled_integer(
+      .dsvert_formal_glm_phase18_rat_round(unit, 50L), 50L))
+  }, numeric(1L), USE.NAMES = FALSE)
+}
+
+# Internal authenticated snapshot adapter. Outputs are private producer inputs,
+# never public receipts. The existing source transport still owns commitments,
+# sharing and persistence; no Cox endpoint is enabled by this adapter.
+.dsvert_dp_cox_cross_materialize_inputs <- function(policy, manifest,
+    source_contract, schema_manifest, analysis_id, resolved_snapshots) {
+  context <- .dsvert_dp_cox_cross_source_context(policy, manifest,
+    source_contract, schema_manifest, analysis_id)
+  spec <- context$spec
+  snapshots <- .dsvert_dp_capsule_resolved_snapshots(policy, resolved_snapshots)
+  if (!policy$peer_name %in% unlist(spec$participating_peers, use.names = FALSE) ||
+      !identical(as.numeric(policy$unit_capacity), as.numeric(spec$observation_capacity))) {
+    .dsvert_dp_cox_grid_cross_fail()
+  }
+  descriptors <- c(spec$predictors, setNames(list(spec$event, spec$time),
+    c(spec$event$reference, spec$time$reference)))
+  local <- descriptors[vapply(descriptors, function(x)
+    identical(x$owner_peer, policy$peer_name), logical(1L))]
+  admissions <- list()
+  alignment <- character()
+  for (dataset in unique(vapply(local, `[[`, character(1L), "dataset"))) {
+    descriptor <- policy$datasets[[dataset]]
+    signed <- schema_manifest$datasets[[dataset]]
+    if (is.null(descriptor$alignment_manifest_hash) ||
+        is.null(descriptor$alignment_manifest_version) || is.null(snapshots[[dataset]]) ||
+        !identical(descriptor$id, signed$dataset_id) ||
+        !identical(descriptor$version, signed$dataset_version) ||
+        !identical(policy$patient_column, signed$patient_keys[[policy$peer_name]])) {
+      .dsvert_dp_cox_grid_cross_fail()
+    }
+    data <- snapshots[[dataset]]$data
+    alignment <- c(alignment, .dsvert_dp_validate_descriptor_alignment(
+      data, descriptor, policy$patient_column, expected_pinset = policy$peer_pinset)$hash)
+    admission <- .dsvert_dp_admit_units(data, policy)
+    if (any(admission$record_count > 1L)) .dsvert_dp_cox_grid_cross_fail()
+    admissions[[dataset]] <- admission
+  }
+  if (length(unique(alignment)) != 1L) .dsvert_dp_cox_grid_cross_fail()
+  blocks <- list()
+  times <- time_valid <- NULL
+  for (reference in names(local)) {
+    descriptor <- local[[reference]]
+    data <- snapshots[[descriptor$dataset]]$data
+    admission <- admissions[[descriptor$dataset]]
+    raw <- data[[descriptor$column]]
+    if (!is.numeric(raw) || length(raw) != nrow(data)) .dsvert_dp_cox_grid_cross_fail()
+    valid <- is.finite(raw)
+    event <- identical(reference, spec$event$reference)
+    time <- identical(reference, spec$time$reference)
+    if (event) valid <- valid & raw %in% c(0, 1)
+    value <- numeric(spec$padded_capacity)
+    present <- rep(FALSE, spec$padded_capacity)
+    slots <- admission$group[valid]
+    present[slots] <- TRUE
+    bounded <- pmin(descriptor$upper, pmax(descriptor$lower, raw[valid]))
+    value[slots] <- if (event || time) bounded else
+      .dsvert_dp_cox_cross_normalize(bounded, descriptor$lower, descriptor$upper)
+    key <- paste(analysis_id, reference, sep = "::")
+    blocks[[paste0(key, "::validity")]] <- as.numeric(present)
+    if (time) {
+      value[value == 0] <- 0
+      times <- value[seq_len(spec$observation_capacity)]
+      time_valid <- present[seq_len(spec$observation_capacity)]
+    } else blocks[[paste0(key, "::value")]] <- value
+  }
+  order <- names(context$layout$blocks)
+  blocks <- blocks[order[order %in% names(blocks)]]
+  list(context = context, blocks = blocks, times = times, time_valid = time_valid,
+    unit_counts = lapply(admissions, `[[`, "unit_count"),
+    private_alignment_consensus_hash = alignment[[1L]],
+    snapshot_binding_sha256 = .dsvert_joint_dp_hash(list(
+      protocol = "dsvert-biomedical-capsule-local-snapshots-v1",
+      capsule_id = .dsvert_dp_capsule_source_manifest_capsule_id(source_contract),
+      peer_name = policy$peer_name,
+      datasets = lapply(snapshots, function(snapshot) list(public = snapshot$dataset$public,
+        protected_fingerprint = snapshot$dataset$fingerprint)))))
+}
+
+# Internal producer using the existing capsule commitment/share-transport ABI.
+# The caller persists the owner-only route alongside source state; neither
+# object is an analyst result and public Cox registration remains closed.
+.dsvert_dp_cox_cross_source_producer <- function(policy, secret, manifest,
+    source_contract, schema_manifest, analysis_id, resolved_snapshots) {
+  input <- .dsvert_dp_cox_cross_materialize_inputs(policy, manifest,
+    source_contract, schema_manifest, analysis_id, resolved_snapshots)
+  layout <- input$context$layout
+  values <- numeric(layout$transport_coordinate_count)
+  for (key in names(input$blocks)) {
+    block <- layout$blocks[[key]]
+    values[seq.int(block$start, length.out = block$length)] <- input$blocks[[key]]
+  }
+  # The admitted count is the existing owner-local capsule count. All Cox
+  # statistic coordinates remain zero until authenticated terminal injection.
+  release <- .dsvert_dp_capsule_coordinate_layout(manifest)
+  for (block in release$blocks) {
+    if (identical(block$family, "admitted_count") &&
+        identical(block$owner_peer, policy$peer_name)) {
+      if (!block$dataset %in% names(input$unit_counts)) .dsvert_dp_cox_grid_cross_fail()
+      values[block$start] <- input$unit_counts[[block$dataset]]
+    }
+  }
+  values <- .dsvert_dp_integer_vector(values, "private Cox source coordinates")
+  binding <- list(version = .DSVERT_DP_CAPSULE_LOCAL_MATERIAL_VERSION,
+    purpose = .DSVERT_DP_CAPSULE_LOCAL_MATERIAL_PURPOSE,
+    capsule_id = .dsvert_dp_capsule_source_manifest_capsule_id(source_contract),
+    peer_name = policy$peer_name,
+    logical_snapshot = manifest$logical_snapshot,
+    source_context_hash = source_contract$source_context_hash,
+    coordinate_count = layout$transport_coordinate_count,
+    coordinate_order_sha256 = layout$transport_coordinate_order_sha256,
+    snapshot_binding_sha256 = input$snapshot_binding_sha256)
+  commitment <- .dsvert_dp_capsule_value_commitment(values, binding)
+  authenticatable <- .dsvert_joint_dp_hash(list(
+    authentication_domain = "dsVert/biomedical-capsule/local-secret-share-input/v1|",
+    binding = binding, value_commitment_sha256 = commitment))
+  range <- function(start, count) {
+    start <- .dsvert_dp_capsule_source_index(start, "Cox source range start", 1,
+      layout$transport_coordinate_count)
+    count <- .dsvert_dp_capsule_source_index(count, "Cox source range length", 1,
+      layout$transport_coordinate_count - start + 1L)
+    c(start, count)
+  }
+  producer <- structure(c(binding, list(
+    producer_version = .DSVERT_DP_GAUSSIAN_CROSS_SOURCE_PRODUCER_VERSION,
+    state = "internal_incremental_secret_share_input_never_release",
+    value_commitment_sha256 = commitment, authenticatable_sha256 = authenticatable,
+    private_alignment_consensus_hash = input$private_alignment_consensus_hash,
+    read_range = function(start, count) {
+      checked <- range(start, count)
+      values[seq.int(checked[1L], length.out = checked[2L])]
+    },
+    generation_chunks = function(start, count, chunk_coordinates) {
+      checked <- range(start, count)
+      chunk_coordinates <- .dsvert_dp_capsule_source_index(chunk_coordinates,
+        "Cox source chunk length", 1, 2^31 - 1)
+      seq.int(floor((checked[1L] - 1) / chunk_coordinates),
+        floor((sum(checked) - 2) / chunk_coordinates))
+    }, reset = function() invisible(NULL))),
+    class = c("dsvert_capsule_source_producer", "list"))
+  .dsvert_dp_capsule_source_producer_private(secret, producer,
+    input$context$source_hash, require_commitment = TRUE)
+  route <- if (identical(policy$peer_name, input$context$spec$time$owner_peer))
+    .dsvert_dp_cox_cross_route_sidecar(policy, secret, manifest, source_contract,
+      schema_manifest, analysis_id, producer, input$times, input$time_valid) else NULL
+  list(producer = producer, private_route = route)
+}
+
+# Rehydrate the owner-local routing only after matching the durable source
+# commitment, as in the existing staged LMM bind. Recompute from authenticated
+# snapshots on every bind, including cold replay; never trust a stale sidecar.
+.dsvert_dp_cox_cross_committed_source <- function(policy, secret, manifest,
+    source_contract, schema_manifest, analysis_id, resolved_snapshots) {
+  result <- .dsvert_dp_cox_cross_source_producer(policy, secret, manifest,
+    source_contract, schema_manifest, analysis_id, resolved_snapshots)
+  source_hash <- .dsvert_joint_dp_hash(source_contract)
+  private <- .dsvert_dp_capsule_source_producer_private(secret, result$producer,
+    source_hash, require_commitment = TRUE)
+  accepted <- FALSE
+  on.exit(if (!accepted) private$reset(), add = TRUE)
+  transfer_id <- .dsvert_dp_capsule_source_transfer_id(source_contract, policy$peer_name)
+  .dsvert_dp_capsule_source_with_store(policy, secret, function(con) {
+    .dsvert_dp_capsule_source_require_not_compacted(con, source_contract$capsule_id, secret)
+    outbound <- .dsvert_dp_capsule_source_outbound_load(con, transfer_id, secret)
+    if (is.null(outbound) || !outbound$status %in% c("ready", "complete") ||
+        !identical(outbound$transfer_id, transfer_id) ||
+        !identical(outbound$capsule_id, source_contract$capsule_id) ||
+        !identical(outbound$source_name, policy$peer_name) ||
+        !identical(outbound$contract_hash, source_hash) ||
+        !.dsvert_joint_dp_dsi_hex_equal(outbound$private_snapshot_mac, private$snapshot_mac) ||
+        !.dsvert_joint_dp_dsi_hex_equal(outbound$private_value_mac, private$value_mac) ||
+        !identical(outbound$private_alignment_consensus_hash, private$alignment_consensus_hash)) {
+      .dsvert_dp_capsule_source_snapshot_changed()
+    }
+  })
+  accepted <- TRUE
+  result
+}
+
+# Claim and durable sharing must read the same exact coordinates. Cox retains
+# its binary64-rational producer; the artifact namespace only changes storage.
+.dsvert_dp_synopsis_source_producer_v1 <- function(policy, manifest,
+    resolved_snapshots, compute_commitment, include_release,
+    source_contract = NULL, secret = NULL) {
+  artifacts <- .dsvert_dp_cox_cross_artifacts(manifest)
+  if (!length(artifacts)) {
+    return(.dsvert_dp_gaussian_cross_source_producer(policy, manifest,
+      resolved_snapshots, compute_commitment = compute_commitment,
+      include_release = include_release))
+  }
+  if (length(artifacts) != 1L ||
+      !identical(artifacts[[1L]]$version, .DSVERT_DP_COX_GRID_CROSS_ARTIFACT_VERSION)) {
+    .dsvert_dp_cox_grid_cross_fail()
+  }
+  if (is.null(secret)) secret <- .dsvert_dp_secret()
+  if (is.null(source_contract)) {
+    source_contract <- .dsvert_dp_capsule_source_contract(policy, manifest)
+  }
+  schema <- .dsvert_dp_lmm_cross_signed_schema(policy, secret,
+    .dsvert_joint_dp_hash(manifest), manifest)
+  .dsvert_dp_cox_cross_source_producer(policy, secret, manifest,
+    source_contract, schema, artifacts[[1L]]$analysis_id, resolved_snapshots)$producer
+}

@@ -1,0 +1,21 @@
+dp-cox-cross-public-evidence: ...........................................................................................................................
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+dp-cox-grid-cross: ............................................1..............................................................................
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Error ('test-dp-cox-grid-cross.R:92:12'): Cox result validates all source 
+<dsvert_dp_public_failure/error/condition>
+Error: [dsvert_dp_public_failure:v1] Protected capsule operation failed.
+Backtrace:
+    ▆
+ 1. └─dsVertClient (local) run(sources) at test-dp-cox-grid-cross.R:94:5
+ 2.   └─dsVertClient:::.dsvert_dp_cox_grid_cross_impl(...) at test-dp-cox-grid-cross.R:92:12
+ 3.     └─base::tryCatch(...) at dsVertClient/R/dp_cox_grid_cross.R:423:3
+ 4.       └─base (local) tryCatchList(expr, classes, parentenv, handlers)
+ 5.         └─base (local) tryCatchOne(expr, names, parentenv, handlers[[1L]])
+ 6.           └─value[[3L]](cond)
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+Error: all(!frame$error) is not TRUE
+Execution halted

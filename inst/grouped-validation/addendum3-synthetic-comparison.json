@@ -1,0 +1,137 @@
+[
+  {
+    "family": "lmm",
+    "epsilon": 1,
+    "selected": 1,
+    "exact_best": 3,
+    "reference_regret": 2.78312021347128,
+    "profile_error": 8.86879270911578e-06,
+    "coefficient_distance": 0.442491071266468
+  },
+  {
+    "family": "lmm",
+    "epsilon": 4,
+    "selected": 3,
+    "exact_best": 3,
+    "reference_regret": 0,
+    "profile_error": 8.86879270911578e-06,
+    "coefficient_distance": 0.154151302684748
+  },
+  {
+    "family": "lmm",
+    "epsilon": 8,
+    "selected": 3,
+    "exact_best": 3,
+    "reference_regret": 0,
+    "profile_error": 8.86879270911578e-06,
+    "coefficient_distance": 0.154151302684748
+  },
+  {
+    "family": "binomial_glmm",
+    "epsilon": 1,
+    "selected": 2,
+    "exact_best": 3,
+    "reference_regret": 1.97631254466818,
+    "profile_error": 0.00706851396358488,
+    "coefficient_distance": 2.01273794483853
+  },
+  {
+    "family": "binomial_glmm",
+    "epsilon": 4,
+    "selected": 1,
+    "exact_best": 3,
+    "reference_regret": 1.92676419078712,
+    "profile_error": 0.00706851396358488,
+    "coefficient_distance": 1.70068615588108
+  },
+  {
+    "family": "binomial_glmm",
+    "epsilon": 8,
+    "selected": 1,
+    "exact_best": 3,
+    "reference_regret": 1.92676419078712,
+    "profile_error": 0.00706851396358488,
+    "coefficient_distance": 1.70068615588108
+  },
+  {
+    "family": "poisson_glmm",
+    "epsilon": 1,
+    "selected": 2,
+    "exact_best": 1,
+    "reference_regret": 0.239687167908762,
+    "profile_error": 0.00167710143461619,
+    "coefficient_distance": 0.59963977143071
+  },
+  {
+    "family": "poisson_glmm",
+    "epsilon": 4,
+    "selected": 2,
+    "exact_best": 1,
+    "reference_regret": 0.239687167908762,
+    "profile_error": 0.00167710143461619,
+    "coefficient_distance": 0.59963977143071
+  },
+  {
+    "family": "poisson_glmm",
+    "epsilon": 8,
+    "selected": 2,
+    "exact_best": 1,
+    "reference_regret": 0.239687167908762,
+    "profile_error": 0.00167710143461619,
+    "coefficient_distance": 0.59963977143071
+  },
+  {
+    "family": "binomial_gee",
+    "epsilon": 1,
+    "selected": 2,
+    "exact_best": 3,
+    "reference_regret": 1.30476362376511,
+    "profile_error": 0.0069152507199135,
+    "coefficient_distance": 3.22672520458941
+  },
+  {
+    "family": "binomial_gee",
+    "epsilon": 4,
+    "selected": 2,
+    "exact_best": 3,
+    "reference_regret": 1.30476362376511,
+    "profile_error": 0.0069152507199135,
+    "coefficient_distance": 3.22672520458941
+  },
+  {
+    "family": "binomial_gee",
+    "epsilon": 8,
+    "selected": 2,
+    "exact_best": 3,
+    "reference_regret": 1.30476362376511,
+    "profile_error": 0.0069152507199135,
+    "coefficient_distance": 3.22672520458941
+  },
+  {
+    "family": "poisson_gee",
+    "epsilon": 1,
+    "selected": 1,
+    "exact_best": 3,
+    "reference_regret": 2.16623039222377,
+    "profile_error": 0.000638633818297762,
+    "coefficient_distance": 0.474513936102771
+  },
+  {
+    "family": "poisson_gee",
+    "epsilon": 4,
+    "selected": 1,
+    "exact_best": 3,
+    "reference_regret": 2.16623039222377,
+    "profile_error": 0.000638633818297762,
+    "coefficient_distance": 0.474513936102771
+  },
+  {
+    "family": "poisson_gee",
+    "epsilon": 8,
+    "selected": 1,
+    "exact_best": 3,
+    "reference_regret": 2.16623039222377,
+    "profile_error": 0.000638633818297762,
+    "coefficient_distance": 0.474513936102771
+  }
+]

@@ -1,3 +1,30 @@
+# dsVert 1.3.0
+
+* Provide cross-owner finite signed-grid DP release paths for Gaussian linear
+  (`gaussian`), logistic (`binomial`) and Poisson GLMs, and the ten extension
+  families: `nb`, `lasso`, `multinomial`, `ordinal`, `lmm`, `binomial_glmm`,
+  `poisson_glmm`, `binomial_gee`, `poisson_gee` and `cox`. The GEE fixed-rho
+  lane uses signed analyst-specified working correlation; Cox retains its
+  admitted Breslow scope.
+
+* Combine two-authority joint DP noise with a deterministic discrete-Laplace
+  fallback when the certified discrete-Gaussian support does not admit the
+  public plan. Signed bounds, integer arithmetic and privacy parameters bind
+  the complete release workload.
+
+* Preserve sticky byte-identical replay and restart/resume replay identity
+  through authenticated durable release state and family-bound transport.
+
+* Include oracle-bitwise validation against the independent Go oracle, with
+  cold replay, interruption/recovery and tamper checks for the signed release
+  paths.
+
+
+* Correct the same-owner NB2 grid loss and re-derive its signed row caps and
+  sensitivity. The new spec/artifact semantics are v2; defective v1 is sealed
+  and rejected. Custodians must sign a new v2 workload, with a new sticky
+  identity and privacy accounting. See `inst/docs/negative_binomial_grid_v2.md`.
+
 # dsVert 1.2.0
 
 ### Security hardening

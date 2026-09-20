@@ -1,0 +1,2 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-crossgrid-cox.R","crossgrid-cox","Cox worker preparation authenticates the owner route and cold source before native handoff",906,0,FALSE,FALSE,0,164.285,27.492,588.322,906

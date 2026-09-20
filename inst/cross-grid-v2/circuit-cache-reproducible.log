@@ -1,0 +1,4 @@
+darwin-amd64/dsvert-mpc: OK
+darwin-arm64/dsvert-mpc: OK
+linux-amd64/dsvert-mpc: OK
+windows-amd64/dsvert-mpc.exe: OK

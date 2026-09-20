@@ -202,7 +202,7 @@
           "bounded-poisson-likelihood-grid-v1",
           "bounded-binomial-lasso-grid-v1",
           "bounded-poisson-lasso-grid-v1",
-          "bounded-negative-binomial-likelihood-grid-v1",
+          "bounded-negative-binomial-likelihood-grid-v2",
           "bounded-multinomial-likelihood-grid-v1",
           "bounded-ordinal-likelihood-grid-v1")
       }, logical(1L)))) return(TRUE)
@@ -212,7 +212,8 @@
 .dsvert_dp_synopsis_remote_reject_cross_v1 <- function(manifest) {
   if (.dsvert_dp_synopsis_effective_cross_v1(manifest) &&
       !.dsvert_dp_synopsis_supported_categorical_cross_v1(manifest) &&
-      !.dsvert_dp_synopsis_supported_gaussian_cross_v1(manifest)) {
+      !.dsvert_dp_synopsis_supported_gaussian_cross_v1(manifest) &&
+      !.dsvert_dp_synopsis_supported_glm_grid_cross_v1(manifest)) {
     stop("Cross-owner synopsis catalogs are not supported by this surface.",
          call. = FALSE)
   }
@@ -530,7 +531,8 @@ dsvertDPSynopsisSourceAcceptDS <- function(manifest_sha256, envelope_json) {
     .policy = context$policy, .secret = context$secret)
   manifest <- .dsvert_dp_capsule_source_manifest(source$manifest_json)
   if (!.dsvert_dp_synopsis_supported_categorical_cross_v1(manifest) &&
-      !.dsvert_dp_synopsis_supported_gaussian_cross_v1(manifest)) {
+      !.dsvert_dp_synopsis_supported_gaussian_cross_v1(manifest) &&
+      !.dsvert_dp_synopsis_supported_glm_grid_cross_v1(manifest)) {
     stop("The Synopsis manifest is not one projected cross-owner artifact.",
          call. = FALSE)
   }

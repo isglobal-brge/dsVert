@@ -1,0 +1,345 @@
+{
+  "scope": "Local macOS public synthetic exactGCExchangeDS profile with actual native Ed25519 derive/sign/verify, frame route/canonical Base64/hash validation, file lock, spool read/publish/ack and HMAC heartbeat validation. No DataSHIELD dispatch, no live exact worker, no protected data, no DP release, no remote activity.",
+  "fixture_exclusions": [
+    "Worker process is a public liveness stub with a fixture HMAC heartbeat",
+    "Identity test binding selects public deterministic fixture seeds; persistent deployment identity bootstrap is excluded",
+    "Sender delivery envelopes and outbound spool segments are prepared outside timing; timed recipient validates one inbound frame and signs one outgoing frame",
+    "Each inbound public fixture segment is consumed outside timing; outbound ACK compaction is in timed exchange"
+  ],
+  "frame_bytes_each_direction": 491520,
+  "trials": 10,
+  "warmup_trials_excluded": 2,
+  "platform": "darwin-arm64",
+  "warmed_mean_seconds": {
+    "elapsed": 0.17775,
+    "user": 0.1305,
+    "system": 0.010875,
+    "child_user": 0.01825,
+    "child_system": 0.01175
+  },
+  "sampled_cpu_seconds": 0.47,
+  "top_self": [
+    {
+      "function_name": "\"gsub\"",
+      "seconds": 0.1,
+      "sample_percent": 21.2765957446808
+    },
+    {
+      "function_name": "\"grepl\"",
+      "seconds": 0.081,
+      "sample_percent": 17.2340425531915
+    },
+    {
+      "function_name": "\"file.info\"",
+      "seconds": 0.066,
+      "sample_percent": 14.0425531914894
+    },
+    {
+      "function_name": "\"file.exists\"",
+      "seconds": 0.034,
+      "sample_percent": 7.23404255319149
+    },
+    {
+      "function_name": "\"digest::digest\"",
+      "seconds": 0.029,
+      "sample_percent": 6.17021276595745
+    },
+    {
+      "function_name": "\"Sys.info\"",
+      "seconds": 0.021,
+      "sample_percent": 4.46808510638298
+    },
+    {
+      "function_name": "\"file\"",
+      "seconds": 0.017,
+      "sample_percent": 3.61702127659574
+    },
+    {
+      "function_name": "\"Sys.readlink\"",
+      "seconds": 0.016,
+      "sample_percent": 3.40425531914894
+    },
+    {
+      "function_name": "\"file.rename\"",
+      "seconds": 0.012,
+      "sample_percent": 2.5531914893617
+    },
+    {
+      "function_name": "\"normalizePath\"",
+      "seconds": 0.011,
+      "sample_percent": 2.34042553191489
+    },
+    {
+      "function_name": "\"close.connection\"",
+      "seconds": 0.008,
+      "sample_percent": 1.70212765957447
+    },
+    {
+      "function_name": "\"dir.exists\"",
+      "seconds": 0.008,
+      "sample_percent": 1.70212765957447
+    },
+    {
+      "function_name": "\"FUN\"",
+      "seconds": 0.008,
+      "sample_percent": 1.70212765957447
+    },
+    {
+      "function_name": "\"Sys.chmod\"",
+      "seconds": 0.008,
+      "sample_percent": 1.70212765957447
+    },
+    {
+      "function_name": "\"jsonlite::base64_enc\"",
+      "seconds": 0.007,
+      "sample_percent": 1.48936170212766
+    }
+  ],
+  "top_inclusive": [
+    {
+      "function_name": "\"exactGCExchangeDS\"",
+      "seconds": 0.47,
+      "sample_percent": 100
+    },
+    {
+      "function_name": "\"main\"",
+      "seconds": 0.47,
+      "sample_percent": 100
+    },
+    {
+      "function_name": "\".exact_gc_exchange_impl\"",
+      "seconds": 0.468,
+      "sample_percent": 99.5744680851064
+    },
+    {
+      "function_name": "\"doTryCatch\"",
+      "seconds": 0.468,
+      "sample_percent": 99.5744680851064
+    },
+    {
+      "function_name": "\"tryCatch\"",
+      "seconds": 0.468,
+      "sample_percent": 99.5744680851064
+    },
+    {
+      "function_name": "\"tryCatchList\"",
+      "seconds": 0.468,
+      "sample_percent": 99.5744680851064
+    },
+    {
+      "function_name": "\"tryCatchOne\"",
+      "seconds": 0.468,
+      "sample_percent": 99.5744680851064
+    },
+    {
+      "function_name": "\".exact_gc_with_lock\"",
+      "seconds": 0.426,
+      "sample_percent": 90.6382978723404
+    },
+    {
+      "function_name": "\"force\"",
+      "seconds": 0.421,
+      "sample_percent": 89.5744680851064
+    },
+    {
+      "function_name": "\".exact_gc_validate_envelope\"",
+      "seconds": 0.16,
+      "sample_percent": 34.0425531914894
+    },
+    {
+      "function_name": "\"gsub\"",
+      "seconds": 0.153,
+      "sample_percent": 32.5531914893617
+    },
+    {
+      "function_name": "\".callMpcTool\"",
+      "seconds": 0.149,
+      "sample_percent": 31.7021276595745
+    },
+    {
+      "function_name": "\".exact_gc_make_envelope\"",
+      "seconds": 0.144,
+      "sample_percent": 30.6382978723404
+    },
+    {
+      "function_name": "\"base64_to_base64url\"",
+      "seconds": 0.142,
+      "sample_percent": 30.2127659574468
+    },
+    {
+      "function_name": "\"is.factor\"",
+      "seconds": 0.118,
+      "sample_percent": 25.1063829787234
+    },
+    {
+      "function_name": "\".exact_gc_b64url_decode\"",
+      "seconds": 0.107,
+      "sample_percent": 22.7659574468085
+    },
+    {
+      "function_name": "\".exact_gc_b64url_encode\"",
+      "seconds": 0.095,
+      "sample_percent": 20.2127659574468
+    },
+    {
+      "function_name": "\"grepl\"",
+      "seconds": 0.081,
+      "sample_percent": 17.2340425531915
+    },
+    {
+      "function_name": "\"file.info\"",
+      "seconds": 0.066,
+      "sample_percent": 14.0425531914894
+    },
+    {
+      "function_name": "\".get_identity_keypair\"",
+      "seconds": 0.053,
+      "sample_percent": 11.2765957446808
+    },
+    {
+      "function_name": "\"isTRUE\"",
+      "seconds": 0.051,
+      "sample_percent": 10.8510638297872
+    },
+    {
+      "function_name": "\".dsvert_relay_verify_message\"",
+      "seconds": 0.05,
+      "sample_percent": 10.6382978723404
+    },
+    {
+      "function_name": "\".verify_peer_identity\"",
+      "seconds": 0.05,
+      "sample_percent": 10.6382978723404
+    },
+    {
+      "function_name": "\".secure_unlink\"",
+      "seconds": 0.048,
+      "sample_percent": 10.2127659574468
+    },
+    {
+      "function_name": "\".dsvert_relay_sign_message\"",
+      "seconds": 0.046,
+      "sample_percent": 9.78723404255319
+    }
+  ],
+  "timings": [
+    {
+      "iteration": 0,
+      "elapsed": 0.313,
+      "user": 0.263,
+      "system": 0.012,
+      "child_user": 0.02,
+      "child_system": 0.013
+    },
+    {
+      "iteration": 1,
+      "elapsed": 0.409,
+      "user": 0.359,
+      "system": 0.014,
+      "child_user": 0.019,
+      "child_system": 0.012
+    },
+    {
+      "iteration": 2,
+      "elapsed": 0.186999999999999,
+      "user": 0.14,
+      "system": 0.011,
+      "child_user": 0.019,
+      "child_system": 0.012
+    },
+    {
+      "iteration": 3,
+      "elapsed": 0.175000000000001,
+      "user": 0.128,
+      "system": 0.011,
+      "child_user": 0.018,
+      "child_system": 0.011
+    },
+    {
+      "iteration": 4,
+      "elapsed": 0.178,
+      "user": 0.131,
+      "system": 0.011,
+      "child_user": 0.018,
+      "child_system": 0.011
+    },
+    {
+      "iteration": 5,
+      "elapsed": 0.171,
+      "user": 0.125,
+      "system": 0.011,
+      "child_user": 0.017,
+      "child_system": 0.011
+    },
+    {
+      "iteration": 6,
+      "elapsed": 0.181,
+      "user": 0.133,
+      "system": 0.011,
+      "child_user": 0.019,
+      "child_system": 0.012
+    },
+    {
+      "iteration": 7,
+      "elapsed": 0.174,
+      "user": 0.127,
+      "system": 0.01,
+      "child_user": 0.018,
+      "child_system": 0.012
+    },
+    {
+      "iteration": 8,
+      "elapsed": 0.173,
+      "user": 0.125999999999999,
+      "system": 0.01,
+      "child_user": 0.018,
+      "child_system": 0.012
+    },
+    {
+      "iteration": 9,
+      "elapsed": 0.183,
+      "user": 0.133999999999999,
+      "system": 0.012,
+      "child_user": 0.019,
+      "child_system": 0.013
+    }
+  ],
+  "source_sha256": {
+    "dsVert/R/exactGCTransportDS.R": "e3f6a20fde15a1690eb293db4d8e1993f35f5eef2929e1f2b45f25b4d0f77c11",
+    "dsVert/R/mpcUtils.R": "b73438d15708550468c23cc1afea22b4bc04543a2baeed50e2e0b3752f98924b",
+    "dsVert/R/dsiRelay.R": "cf04a73730ebc53f8f601b5b488de01ee3d94ee1e085bba37b35c7e41daa8664"
+  },
+  "limitations": "Rprof sample proportions are local indicative CPU attribution and inclusive costs overlap. These timings do not establish pod4 transport capacity or identify its full 1.44-second historical relay cost.",
+  "native_binary": {
+    "path": "/Users/david/Documents/GitHub/dsvert-gee/dsVert/inst/bin/darwin-arm64/dsvert-mpc",
+    "sha256": "720e804286030cb58ecdcd8c17de370f8f484758a3c9621b4741e863173b2142",
+    "integrity_manifest": "dsVert/inst/bin/SHA256SUMS",
+    "integrity_manifest_entry": "darwin-arm64/dsvert-mpc",
+    "provenance": "Path printed by the actual completed probe; SHA-256 verified at evidence finalization against the unchanged packaged checksum manifest. Packaged binary and checksum manifest are unmodified in git."
+  },
+  "invocation": {
+    "working_directory": "/Users/david/Documents/GitHub/dsvert-gee/dsVert",
+    "command": "Rscript /tmp/gee-public-exchange-profile-20260920/probe.R > /tmp/gee-public-exchange-profile-20260920/probe.log 2>&1",
+    "rscript_executable": "/usr/local/bin/Rscript",
+    "exit_code": 0,
+    "note": "This records the prior successful invocation; evidence finalization did not rerun the profile."
+  },
+  "retained_public_artifacts": [
+    {
+      "path": "inst/cross-grid-v2/gee-fixed-rho/evidence/local/public-authenticated-exchange-profile-20260920/probe.R",
+      "sha256": "a4a53c4acebc0fee8d900507171bdebcfbc8182937f2ee289e68a12546ae491e",
+      "retention": "Byte-identical copy of the actual successful probe script or directly redirected stdout/stderr; no transcript reconstruction."
+    },
+    {
+      "path": "inst/cross-grid-v2/gee-fixed-rho/evidence/local/public-authenticated-exchange-profile-20260920/probe.log",
+      "sha256": "aca83e2be1e94d19e4fa94087d83ff9658d75b671fa609bdb4ac33579a8dd5ce",
+      "retention": "Byte-identical copy of the actual successful probe script or directly redirected stdout/stderr; no transcript reconstruction."
+    }
+  ],
+  "public_fixture_audit": {
+    "result": "Script and log inspected in full before retention. They contain only public synthetic fixture definitions, timing/function-stack summaries, local paths and source hashes. No production identity seed, private key bytes, protected payload, DP result, or live release attempt data is present.",
+    "identity_seeds": "Explicit synthetic byte sequences 1:32 and 33:64 under the test-only identity binding; never deployment identities.",
+    "payload": "Public byte sequence 0:255 repeated 1920 times.",
+    "remaining_tmp_artifacts": "Raw Rprof samples, derived profiling CSV files, the summarizer and synthetic spool remain in /tmp/gee-public-exchange-profile-20260920. They are intermediate public fixture artifacts; only the requested script, actual command log and summary are retained in the repository."
+  }
+}

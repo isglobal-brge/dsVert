@@ -1,0 +1,9 @@
+=== RUN   TestCrossGridFullMeasurement
+=== RUN   TestCrossGridFullMeasurement/binomial
+    cross_grid_full_benchmark_test.go:146: compiled family=binomial rows=32 candidates=8 elapsed=76.750
+    cross_grid_full_benchmark_test.go:146: compiled family=binomial rows=8 candidates=8 elapsed=89.197
+    cross_grid_full_benchmark_test.go:210: KERNEL_MEASUREMENT family=binomial n=1000 p=10 grid=16 batches=64 and=67276320 wire_bytes=2650399228 seconds=53.497
+    cross_grid_full_benchmark_test.go:214: FULL_MEASUREMENT {"authenticated_server_release":false,"batches":64,"compile_seconds":89.202988339,"family":"binomial","grid":16,"integer_and_dp_oracle_equal":true,"joint_noise_seconds":42.128833182,"joint_noise_wire_bytes":175312308,"kernel_and":67276320,"kernel_and_per_eval":4204.77,"kernel_seconds":53.496523059,"kernel_wire_bytes":2650399228,"n":1000,"p":10,"peer_pairs":4,"total_seconds":184.828365863,"total_wire_bytes":2825711536}
+--- PASS: TestCrossGridFullMeasurement (184.83s)
+    --- PASS: TestCrossGridFullMeasurement/binomial (184.83s)
+PASS

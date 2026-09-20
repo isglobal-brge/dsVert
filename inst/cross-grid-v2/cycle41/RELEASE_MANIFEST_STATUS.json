@@ -1,0 +1,24 @@
+{
+  "source_commits": {
+    "dsVert": "6dbbf529ba162ee4d369b435b5e7dad3e08a6b2c",
+    "dsVertClient": "55f4793778d4d1613320dfc96e8c7fea576d6a82"
+  },
+  "real_job_count": 24,
+  "oracle_job_count": 1080,
+  "fleet_ready": false,
+  "per_family_real_jobs": 4,
+  "epsilon": 8,
+  "lease_seconds": 86400,
+  "idle_seconds": 900,
+  "existing_frozen_runs": "Harvest without restarting; do not launch duplicate active jobs.",
+  "capacity_scope": "Once per family; measured serialized aggregate RPC bytes and complete release time.",
+  "paired_suite_cli": "Rscript --vanilla -e 'testthat::test_local(\"dsVert\", stop_on_failure=TRUE); testthat::test_local(\"dsVertClient\", stop_on_failure=TRUE)' </dev/null",
+  "paired_suite_review": "Retain structured results and review warnings/skips as well as failures.",
+  "prepare_cli": "bash dsVert/inst/cross-grid-v2/integrator-validation/prepare-release-workspace.sh 6dbbf529ba162ee4d369b435b5e7dad3e08a6b2c 55f4793778d4d1613320dfc96e8c7fea576d6a82",
+  "pending_families": {
+    "binomial_gee": "estimated-alpha contract and signed lifecycle",
+    "poisson_gee": "estimated-alpha contract and signed lifecycle",
+    "cox": "authenticated source composition and signed lifecycle"
+  },
+  "proof_scope": "Job definitions are not release evidence. Full selection matrix is ORACLE-ONLY."
+}

@@ -639,7 +639,7 @@ func jointDPVectorTestRunDurableWorkers(t *testing.T,
 	compiled jointDPVectorWorkerContractOutput,
 	garblerSeed, evaluatorSeed [32]byte,
 	garblerShares, evaluatorShares []*big.Int,
-	tag string) (exactGCWorkerResult, exactGCWorkerResult, string, string) {
+	tag string, sourceValidity ...[2][]bool) (exactGCWorkerResult, exactGCWorkerResult, string, string) {
 	t.Helper()
 	gDir := exactGCTestSpool(t, "vector-worker-g-"+tag)
 	eDir := exactGCTestSpool(t, "vector-worker-e-"+tag)
@@ -668,6 +668,10 @@ func jointDPVectorTestRunDurableWorkers(t *testing.T,
 	eConfig.Role, eConfig.SpoolDir = "evaluator", eDir
 	eConfig.PrivateSeed = base64.StdEncoding.EncodeToString(evaluatorSeed[:])
 	eConfig.SourceShare = exactGCTestEncodeSource(t, evaluatorShares, encodingSpec)
+	if len(sourceValidity) == 1 {
+		gConfig.SourceValidity = packBoolsB64(sourceValidity[0][0])
+		eConfig.SourceValidity = packBoolsB64(sourceValidity[0][1])
+	}
 	gPath := exactGCTestWriteConfig(t, gDir, gConfig)
 	ePath := exactGCTestWriteConfig(t, eDir, eConfig)
 	errors := make(chan error, 2)

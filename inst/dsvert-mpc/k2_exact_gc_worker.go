@@ -31,26 +31,33 @@ const (
 )
 
 type exactGCWorkerConfig struct {
-	Version     string `json:"version"`
-	Role        string `json:"role"`
-	SessionID   string `json:"session_id"`
-	MasterKey   string `json:"master_key"`
-	GarblerID   string `json:"garbler_id"`
-	EvaluatorID string `json:"evaluator_id"`
-	Purpose     string `json:"purpose"`
-	Operation   string `json:"operation"`
-	RingBits    int    `json:"ring_bits"`
-	FracBits    int    `json:"frac_bits"`
-	Threshold   string `json:"threshold,omitempty"`
-	MulBackend  string `json:"mul_backend,omitempty"`
-	BoundX      string `json:"bound_x,omitempty"`
-	BoundY      string `json:"bound_y,omitempty"`
-	VectorLen   int    `json:"vector_len"`
-	SourceShare string `json:"source_share"`
+	GroupedGEE     *groupedGEEWorkerInput  `json:"grouped_gee,omitempty"`
+	CoxLoss        *coxLossWorkerInput     `json:"cox_loss,omitempty"`
+	GroupedLMM     *groupedLMMWorkerInput  `json:"grouped_lmm,omitempty"`
+	GroupedGLMM    *groupedGLMMWorkerInput `json:"grouped_glmm,omitempty"`
+	CrossGrid      *crossGridKernelPlan    `json:"cross_grid,omitempty"`
+	Version        string                  `json:"version"`
+	Role           string                  `json:"role"`
+	SessionID      string                  `json:"session_id"`
+	MasterKey      string                  `json:"master_key"`
+	GarblerID      string                  `json:"garbler_id"`
+	EvaluatorID    string                  `json:"evaluator_id"`
+	Purpose        string                  `json:"purpose"`
+	Operation      string                  `json:"operation"`
+	RingBits       int                     `json:"ring_bits"`
+	FracBits       int                     `json:"frac_bits"`
+	Threshold      string                  `json:"threshold,omitempty"`
+	MulBackend     string                  `json:"mul_backend,omitempty"`
+	BoundX         string                  `json:"bound_x,omitempty"`
+	BoundY         string                  `json:"bound_y,omitempty"`
+	VectorLen      int                     `json:"vector_len"`
+	SourceValidity string                  `json:"source_validity,omitempty"`
+	SourceShare    string                  `json:"source_share"`
 	// JointDP and PrivateSeed remain in the same mode-0600,
 	// unlink-before-ready file as the ephemeral master key and input share.
 	// PrivateSeed is also accepted for a garbler-side Count clamp, where it
 	// deterministically re-creates only the post-clamp additive output mask.
+	CrossGridCache         *crossGridCircuitCache              `json:"cross_grid_cache,omitempty"`
 	JointDP                *jointDPGCWorkerPolicy              `json:"joint_dp,omitempty"`
 	JointDPVector          *jointDPVectorWorkerPolicy          `json:"joint_dp_vector,omitempty"`
 	JointDPGaussianOneDraw *jointDPGaussianOneDrawWorkerPolicy `json:"joint_dp_gaussian_one_draw,omitempty"`
@@ -62,13 +69,15 @@ type exactGCWorkerConfig struct {
 }
 
 type exactGCWorkerResult struct {
-	Version       string `json:"version"`
-	Kind          string `json:"kind"`
-	RingBits      int    `json:"ring_bits"`
-	VectorLen     int    `json:"vector_len"`
-	Share         string `json:"share"`
-	ValidityShare string `json:"validity_share,omitempty"`
-	ContextHash   string `json:"context_hash"`
+	Version         string `json:"version"`
+	Kind            string `json:"kind"`
+	RingBits        int    `json:"ring_bits"`
+	VectorLen       int    `json:"vector_len"`
+	Share           string `json:"share"`
+	ValidityShare   string `json:"validity_share,omitempty"`
+	ContextHash     string `json:"context_hash"`
+	StageReceipt    string `json:"stage_receipt,omitempty"`
+	StagePlanDigest string `json:"stage_plan_digest,omitempty"`
 }
 
 type exactGCDeriveMasterInput struct {
@@ -166,8 +175,13 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 	defer func() {
 		config.MasterKey = ""
 		config.SourceShare = ""
+		config.SourceValidity = ""
 		config.PrivateSeed = ""
 		config.HeartbeatKey = ""
+		config.GroupedLMM = nil
+		config.GroupedGLMM = nil
+		config.GroupedGEE = nil
+		config.CoxLoss = nil
 		if returnErr != nil && canReportFailure {
 			if markerErr := exactGCCommitWorkerFailure(
 				config.SpoolDir, config, failureSession, returnErr); markerErr != nil {
@@ -206,9 +220,77 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 	if err != nil {
 		return err
 	}
+	if session.Spec.Operation != jointDPVectorOperation && config.SourceValidity != "" {
+		return fmt.Errorf("unexpected private source validity")
+	}
 	failureSession = &session
 	defer clear(session.MasterKey[:])
-	shares, err := exactGCDecodeWorkerShares(config.SourceShare, session.Spec)
+	var stagedCox *coxLossWorkerPrepared
+	if session.Spec.Operation == coxLossWorkerOperation {
+		stagedCox, err = coxLossWorkerPrepare(config, session)
+		if err != nil {
+			return err
+		}
+		defer clear(stagedCox.key[:])
+		config.CoxLoss = nil
+	} else if config.CoxLoss != nil {
+		return errCrossGridStage
+	}
+	var stagedGEE *groupedGEEWorkerPrepared
+	if session.Spec.Operation == groupedGEEWorkerOperation {
+		stagedGEE, err = groupedGEEWorkerPrepare(config, session)
+		if err != nil {
+			return err
+		}
+		defer clear(stagedGEE.key[:])
+		config.GroupedGEE = nil
+	} else if config.GroupedGEE != nil {
+		return errCrossGridStage
+	}
+	var stagedGLMM *groupedGLMMWorkerPrepared
+	if session.Spec.Operation == groupedGLMMWorkerOperation {
+		stagedGLMM, err = groupedGLMMWorkerPrepare(config, session)
+		if err != nil {
+			return err
+		}
+		defer clear(stagedGLMM.key[:])
+		config.GroupedGLMM = nil
+	} else if config.GroupedGLMM != nil {
+		return errCrossGridStage
+	}
+	var stagedLMM *groupedLMMWorkerPrepared
+	if session.Spec.Operation == groupedLMMWorkerOperation {
+		stagedLMM, err = groupedLMMWorkerPrepare(config, session)
+		if err != nil {
+			return err
+		}
+		defer clear(stagedLMM.key[:])
+		config.GroupedLMM = nil
+	} else if config.GroupedLMM != nil {
+		return errCrossGridStage
+	}
+	var grid *crossGridKernelPrepared
+	shareSpec := session.Spec
+	if session.Spec.Operation == crossGridKernelOperation {
+		if config.CrossGrid == nil || config.JointDP != nil || config.JointDPVector != nil || config.JointDPGaussianOneDraw != nil || !config.CrossGrid.matchesPurpose(session.Purpose) || len(config.CrossGrid.Beta) != session.Spec.VectorLen {
+			return errCrossGridKernel
+		}
+		grid, err = crossGridKernelPrepareCached(*config.CrossGrid, config.CrossGridCache)
+		if config.CrossGridCache != nil {
+			config.CrossGridCache.Key = ""
+		}
+		if err != nil {
+			return errCrossGridKernel
+		}
+		// Encoding only: the typed producer derives every predictor slot.
+		shareSpec = exactGCCircuitSpec{Operation: exactGCTruncateFloor, RingBits: 128, FracBits: 1, VectorLen: grid.plan.sourceCount()}
+	} else if config.CrossGrid != nil || config.CrossGridCache != nil {
+		return errCrossGridKernel
+	}
+	var shares []*big.Int
+	if stagedLMM == nil && stagedGLMM == nil && stagedGEE == nil && stagedCox == nil {
+		shares, err = exactGCDecodeWorkerShares(config.SourceShare, shareSpec)
+	}
 	config.MasterKey = ""
 	config.SourceShare = ""
 	if err != nil {
@@ -217,9 +299,11 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 	defer exactGCZeroBigInts(shares)
 	var jointSpec *jointDPGCLaplaceSpec
 	var jointVectorSpec *jointDPVectorSpec
+	var sourceValidity []bool
 	var jointGaussianOneDrawSpec *jointDPGaussianOneDrawSpec
 	var privateSeed [32]byte
 	deterministicClampMask := false
+	var gridMaskSeed *[32]byte
 	if session.Spec.Operation == exactGCJointDPLaplace {
 		parsed, seed, parseErr := jointDPGCWorkerInputs(config, session)
 		config.PrivateSeed = ""
@@ -235,6 +319,12 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 		if parseErr != nil {
 			return parseErr
 		}
+		sourceValidity, parseErr = parsed.decodeSourceValidity(config.SourceValidity)
+		config.SourceValidity = ""
+		if parseErr != nil {
+			return parseErr
+		}
+		defer clear(sourceValidity)
 		jointVectorSpec = &parsed
 		privateSeed = seed
 		defer clear(privateSeed[:])
@@ -262,6 +352,19 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 		clear(seed)
 		deterministicClampMask = true
 		defer clear(privateSeed[:])
+	} else if grid != nil && config.PrivateSeed != "" {
+		if config.Role != "garbler" {
+			return errCrossGridKernel
+		}
+		seed, parseErr := exactGCStrictBase64(config.PrivateSeed, 32)
+		config.PrivateSeed = ""
+		if parseErr != nil {
+			return errCrossGridKernel
+		}
+		copy(privateSeed[:], seed)
+		clear(seed)
+		defer clear(privateSeed[:])
+		gridMaskSeed = &privateSeed
 	} else if config.JointDP != nil || config.JointDPVector != nil ||
 		config.JointDPGaussianOneDraw != nil ||
 		config.PrivateSeed != "" {
@@ -283,17 +386,36 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 	}()
 
 	var outputShares []*big.Int
+	var stagedResult *exactGCWorkerResult
 	defer func() { exactGCZeroBigInts(outputShares) }()
 	if err := exactGCPrivateMarker(config.SpoolDir, "ready", []byte("1")); err != nil {
 		return err
 	}
-	if config.Role == "garbler" {
-		if jointGaussianOneDrawSpec != nil {
+	if stagedCox != nil {
+		var result exactGCWorkerResult
+		result, err = stagedCox.run(spool, session)
+		stagedResult = &result
+	} else if stagedGEE != nil {
+		var result exactGCWorkerResult
+		result, err = stagedGEE.run(spool, session)
+		stagedResult = &result
+	} else if stagedGLMM != nil {
+		var result exactGCWorkerResult
+		result, err = stagedGLMM.run(spool, session)
+		stagedResult = &result
+	} else if stagedLMM != nil {
+		var result exactGCWorkerResult
+		result, err = stagedLMM.run(spool, session)
+		stagedResult = &result
+	} else if config.Role == "garbler" {
+		if grid != nil {
+			outputShares, err = grid.runWithSeed(spool, session, shares, exactGCRoleGarbler, gridMaskSeed)
+		} else if jointGaussianOneDrawSpec != nil {
 			outputShares, err = jointDPGaussianOneDrawRunGarbler(
 				spool, session, *jointGaussianOneDrawSpec, shares, privateSeed)
 		} else if jointVectorSpec != nil {
 			outputShares, err = jointDPVectorRunGarbler(
-				spool, session, *jointVectorSpec, shares, privateSeed)
+				spool, session, *jointVectorSpec, shares, privateSeed, sourceValidity)
 		} else if jointSpec != nil {
 			outputShares, err = jointDPGCRunGarbler(
 				spool, session, *jointSpec, shares, privateSeed)
@@ -304,12 +426,14 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 			outputShares, err = exactGCRunGarbler(spool, session, shares)
 		}
 	} else if config.Role == "evaluator" {
-		if jointGaussianOneDrawSpec != nil {
+		if grid != nil {
+			outputShares, err = grid.run(spool, session, shares, exactGCRoleEvaluator)
+		} else if jointGaussianOneDrawSpec != nil {
 			outputShares, err = jointDPGaussianOneDrawRunEvaluator(
 				spool, session, *jointGaussianOneDrawSpec, shares, privateSeed)
 		} else if jointVectorSpec != nil {
 			outputShares, err = jointDPVectorRunEvaluator(
-				spool, session, *jointVectorSpec, shares, privateSeed)
+				spool, session, *jointVectorSpec, shares, privateSeed, sourceValidity)
 		} else if jointSpec != nil {
 			outputShares, err = jointDPGCRunEvaluator(
 				spool, session, *jointSpec, shares, privateSeed)
@@ -326,9 +450,14 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 		return exactGCFailure(exactGCFailureInfrastructureUnavailable, err)
 	}
 	spoolClosed = true
-	result, err := exactGCEncodeWorkerResult(outputShares, session)
-	if err != nil {
-		return err
+	var result exactGCWorkerResult
+	if stagedResult != nil {
+		result = *stagedResult
+	} else {
+		result, err = exactGCEncodeWorkerResult(outputShares, session)
+		if err != nil {
+			return err
+		}
 	}
 	encoded, err := json.Marshal(result)
 	if err != nil {
@@ -518,11 +647,15 @@ func exactGCEncodeWorkerResult(shares []*big.Int,
 		return result, nil
 	}
 	if session.Spec.Operation == exactGCMulTruncateChecked ||
-		session.Spec.Operation == exactGCCategoricalProductRing128 {
+		session.Spec.Operation == exactGCCategoricalProductRing128 ||
+		session.Spec.Operation == crossGridKernelOperation {
 		if len(shares) != session.Spec.VectorLen+1 {
 			return exactGCWorkerResult{}, fmt.Errorf("invalid checked multiplication result shape")
 		}
 		result.Kind = "checked-ring-share"
+		if session.Spec.Operation == crossGridKernelOperation {
+			result.Kind = "cross-grid-ring128-share-v2"
+		}
 		encoded, err := exactGCEncodeWorkerCanonicalShares(
 			shares[:session.Spec.VectorLen], session.Spec)
 		if err != nil {

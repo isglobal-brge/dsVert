@@ -1,0 +1,18 @@
+{
+  "budget_stop": true,
+  "candidates": 32,
+  "capacity": 10000,
+  "compile_seconds": 68.046871089,
+  "completed": false,
+  "evaluator_bytes": 2320301616,
+  "garbler_bytes": 57679667552,
+  "oracle_equal": false,
+  "padded_rows": 16384,
+  "production_fusion": false,
+  "profile": "cox-pwlinear64-exp-q16-q20-log-q20-v1",
+  "seconds": 5412.020682786,
+  "time_budget_seconds": 7200,
+  "total_bytes": 59999969168,
+  "traffic_budget_bytes": 60000000000,
+  "traffic_budget_reached": true
+}

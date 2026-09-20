@@ -1,0 +1,11 @@
+{
+  "observed_utc": "2026-09-20T14:41:22.080974+00:00",
+  "source": "/Users/david/Documents/GitHub/dsvert-fleet-heavy",
+  "sha256": {
+    "SUMMARY.md": "4393188b0dd85efa479041d438d44dd3e3fbe1e99dc96827f6c9211cc68eb425",
+    "RESULTS.jsonl": "8a6da83b89851fc0285bd3a663b9cd34bd304f5c7fd1512b06147a996febe46a",
+    "artifacts/manifest-provenance-check.json": "d8e3bb22fff95fd05b17d1ad9a253a4ef2a7376be65992f8ccac8f59a4c36e2d",
+    "logs/lmm-e8-k5-i01-baseline/remote-logs/lmm-e8-k5-i01-baseline.log": "475e8f7e2a7ec95a71cdcaff62af8b182d971a1f9b112358c59b1feada7d05c4"
+  },
+  "scope": "Read-only retained reviewer results; old 502b005/4c6c562 pair only. LMM K5 oracle/cold/tamper PASS; capacity FAIL 22774.592s >21600s; no recovery exercised. Not current-runtime evidence."
+}

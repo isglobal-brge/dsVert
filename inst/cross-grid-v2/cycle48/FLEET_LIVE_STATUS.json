@@ -1,0 +1,306 @@
+{
+  "binomial_glmm-e8-k2-i01-baseline": {
+    "job.json": {
+      "job_id": "binomial_glmm-e8-k2-i01-baseline",
+      "status": null,
+      "started_epoch": null
+    },
+    "RUNNING.json": {
+      "job_id": "binomial_glmm-e8-k2-i01-baseline",
+      "status": null,
+      "started_epoch": 1789892100.3900704
+    },
+    "tail": [
+      "DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskReceiveDS ",
+      "DSLITE_RPC_COMPLETE dsvertDPSynopsisGLMGridCrossDS "
+    ],
+    "R_processes": 3,
+    "pod": 12,
+    "remote_root": "/workspace/dsvert-heavy"
+  },
+  "lmm-e8-k2-i01-baseline": {
+    "job.json": {
+      "job_id": "lmm-e8-k2-i01-baseline",
+      "status": null,
+      "started_epoch": null
+    },
+    "RESULT.json": {
+      "job_id": "lmm-e8-k2-i01-baseline",
+      "status": "FAIL",
+      "started_epoch": 1789892093.398478
+    },
+    "tail": [
+      "DSLITE_LMM_COLD_EXPORTED_API_EQUAL_AUTHENTICATED",
+      "{\"family\":\"lmm\",\"n\":2000,\"p\":3,\"grid\":2,\"candidates\":4,\"clusters\":500,\"slots\":4,\"owners\":2,\"epsilon\":8,\"instance\":1,\"elapsed\":31542.868,\"successful_call_elapsed\":31542.724,\"uninterrupted_baseline_elapsed\":31542.724,\"recovery\":\"not_exercised\",\"native_recovery\":\"not_exercised\",\"end_to_end_release_elapsed\":31727.797,\"end_to_end_serialized_rpc_bytes\":24009522847,\"end_to_end_scope\":\"fixture-bootstrap-PSI-signing-source-staged-LMM-and-DP-through-first-successful-release-including-retries-before-oracle-and-replay\",\"release_serialized_rpc_bytes\":23854381598,\"serialized_rpc_scope\":\"R-v3-serialized-DSI-request-response-objects-including-retries-excluding-IPC-framing\",\"protocol_payload\":{\"exact_gc_unique_payload_bytes\":8836357651,\"exact_gc_offered_payload_bytes\":8836357651,\"source_ciphertext_delivered_bytes\":1829580},\"protocol_payload_scope\":\"public-release-exactGC-and-source-transport-before-replay-no-bootstrap-PSI\",\"expected_oracle_sha256\":\"17c093ad58042d7e1d23e3f5fb402552dc2fb7c9f928586f1044767e5c9f8fe5\",\"oracle_only\":false,\"selected_candidate\":2,\"exact_best\":2,\"loss_gap\":0,\"artifact_key\":\"cf5532d609885974cb0193436c61039468a35da4eefde57d85372e8434f1dbea\",\"certificate_sha256\":\"cb83f3183f2daf5415bd9015f88ffbc84252834bb8a36bad247f5e967a70ab3e\"} "
+    ],
+    "R_processes": 3,
+    "pod": 14,
+    "remote_root": "/workspace/dsvert-heavy"
+  },
+  "poisson_glmm-e8-k2-i01-baseline": {
+    "job.json": {
+      "job_id": "poisson_glmm-e8-k2-i01-baseline",
+      "status": null,
+      "started_epoch": null
+    },
+    "RUNNING.json": {
+      "job_id": "poisson_glmm-e8-k2-i01-baseline",
+      "status": null,
+      "started_epoch": 1789892098.8664372
+    },
+    "tail": [
+      "DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskReceiveDS ",
+      "DSLITE_RPC_COMPLETE dsvertDPSynopsisGLMGridCrossDS "
+    ],
+    "R_processes": 3,
+    "pod": 15,
+    "remote_root": "/workspace/dsvert-heavy"
+  },
+  "binomial_glmm-e8-k2-i01-recovery": {
+    "job.json": {
+      "job_id": "binomial_glmm-e8-k2-i01-recovery",
+      "status": null,
+      "started_epoch": null
+    },
+    "RESULT.json": {
+      "job_id": "binomial_glmm-e8-k2-i01-recovery",
+      "status": "FAIL",
+      "started_epoch": 1789892301.2086468
+    },
+    "tail": [
+      "\"namespace:dsVertClient\"",
+      "Execution halted"
+    ],
+    "R_processes": 3,
+    "pod": 16,
+    "remote_root": "/workspace/dsvert-heavy"
+  },
+  "lmm-e8-k2-i01-recovery": {
+    "job.json": {
+      "job_id": "lmm-e8-k2-i01-recovery",
+      "status": null,
+      "started_epoch": null
+    },
+    "RUNNING.json": {
+      "job_id": "lmm-e8-k2-i01-recovery",
+      "status": null,
+      "started_epoch": 1789892222.9017432
+    },
+    "tail": [
+      "Caused by error: ",
+      "! [dsvert_phase_not_ready:v1] "
+    ],
+    "R_processes": 3,
+    "pod": 17,
+    "remote_root": "/workspace/dsvert-heavy"
+  },
+  "poisson_glmm-e8-k2-i01-recovery": {
+    "job.json": {
+      "job_id": "poisson_glmm-e8-k2-i01-recovery",
+      "status": null,
+      "started_epoch": null
+    },
+    "RUNNING.json": {
+      "job_id": "poisson_glmm-e8-k2-i01-recovery",
+      "status": null,
+      "started_epoch": 1789892218.456131
+    },
+    "tail": [
+      "Caused by error: ",
+      "! [dsvert_phase_not_ready:v1] "
+    ],
+    "R_processes": 3,
+    "pod": 18,
+    "remote_root": "/workspace/dsvert-heavy"
+  },
+  "binomial_glmm-e8-k3-i01-baseline": {
+    "job.json": {
+      "job_id": "binomial_glmm-e8-k3-i01-baseline",
+      "status": null,
+      "started_epoch": null
+    },
+    "RUNNING.json": {
+      "job_id": "binomial_glmm-e8-k3-i01-baseline",
+      "status": null,
+      "started_epoch": 1789892285.0547988
+    },
+    "tail": [
+      "DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskReceiveDS ",
+      "DSLITE_RPC_COMPLETE dsvertDPSynopsisGLMGridCrossDS "
+    ],
+    "R_processes": 4,
+    "pod": 19,
+    "remote_root": "/workspace/dsvert-heavy"
+  },
+  "binomial_glmm-e8-k5-i01-baseline": {
+    "job.json": {
+      "job_id": "binomial_glmm-e8-k5-i01-baseline",
+      "status": null,
+      "started_epoch": null
+    },
+    "RUNNING.json": {
+      "job_id": "binomial_glmm-e8-k5-i01-baseline",
+      "status": null,
+      "started_epoch": 1789892522.6128657
+    },
+    "tail": [
+      "DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskReceiveDS ",
+      "DSLITE_RPC_COMPLETE dsvertDPSynopsisGLMGridCrossDS "
+    ],
+    "R_processes": 6,
+    "pod": 20,
+    "remote_root": "/workspace/dsvert-heavy"
+  },
+  "lmm-e8-k3-i01-baseline": {
+    "job.json": {
+      "job_id": "lmm-e8-k3-i01-baseline",
+      "status": null,
+      "started_epoch": null
+    },
+    "RESULT.json": {
+      "job_id": "lmm-e8-k3-i01-baseline",
+      "status": "FAIL",
+      "started_epoch": 1789892277.0737433
+    },
+    "tail": [
+      "DSLITE_LMM_COLD_EXPORTED_API_EQUAL_AUTHENTICATED",
+      "{\"family\":\"lmm\",\"n\":2000,\"p\":3,\"grid\":2,\"candidates\":4,\"clusters\":500,\"slots\":4,\"owners\":3,\"epsilon\":8,\"instance\":1,\"elapsed\":29702.66,\"successful_call_elapsed\":29702.483,\"uninterrupted_baseline_elapsed\":29702.483,\"recovery\":\"not_exercised\",\"native_recovery\":\"not_exercised\",\"end_to_end_release_elapsed\":29890.088,\"end_to_end_serialized_rpc_bytes\":24030965558,\"end_to_end_scope\":\"fixture-bootstrap-PSI-signing-source-staged-LMM-and-DP-through-first-successful-release-including-retries-before-oracle-and-replay\",\"release_serialized_rpc_bytes\":23872836536,\"serialized_rpc_scope\":\"R-v3-serialized-DSI-request-response-objects-including-retries-excluding-IPC-framing\",\"protocol_payload\":{\"exact_gc_unique_payload_bytes\":8836926020,\"exact_gc_offered_payload_bytes\":8836926020,\"source_ciphertext_delivered_bytes\":2744370},\"protocol_payload_scope\":\"public-release-exactGC-and-source-transport-before-replay-no-bootstrap-PSI\",\"expected_oracle_sha256\":\"17c093ad58042d7e1d23e3f5fb402552dc2fb7c9f928586f1044767e5c9f8fe5\",\"oracle_only\":false,\"selected_candidate\":2,\"exact_best\":2,\"loss_gap\":0,\"artifact_key\":\"a6cf3aa82a3fb38692b4561927b1dcf14c81a2d5fc9e7edb864f58607c6cd9f4\",\"certificate_sha256\":\"ce0aebf39d8ca8f1fc61675fc3b14118f4ee03716a8c32979314706ae1c088e5\"} "
+    ],
+    "R_processes": 4,
+    "pod": 21,
+    "remote_root": "/workspace/dsvert-heavy"
+  },
+  "lmm-e8-k5-i01-baseline": {
+    "job.json": {
+      "job_id": "lmm-e8-k5-i01-baseline",
+      "status": null,
+      "started_epoch": null
+    },
+    "RESULT.json": {
+      "job_id": "lmm-e8-k5-i01-baseline",
+      "status": "FAIL",
+      "started_epoch": 1789892077.678483
+    },
+    "tail": [
+      "DSLITE_LMM_COLD_EXPORTED_API_EQUAL_AUTHENTICATED",
+      "{\"family\":\"lmm\",\"n\":2000,\"p\":3,\"grid\":2,\"candidates\":4,\"clusters\":500,\"slots\":4,\"owners\":5,\"epsilon\":8,\"instance\":1,\"elapsed\":22607.515,\"successful_call_elapsed\":22607.341,\"uninterrupted_baseline_elapsed\":22607.341,\"recovery\":\"not_exercised\",\"native_recovery\":\"not_exercised\",\"end_to_end_release_elapsed\":22774.592,\"end_to_end_serialized_rpc_bytes\":24036925468,\"end_to_end_scope\":\"fixture-bootstrap-PSI-signing-source-staged-LMM-and-DP-through-first-successful-release-including-retries-before-oracle-and-replay\",\"release_serialized_rpc_bytes\":23872623948,\"serialized_rpc_scope\":\"R-v3-serialized-DSI-request-response-objects-including-retries-excluding-IPC-framing\",\"protocol_payload\":{\"exact_gc_unique_payload_bytes\":8838064187,\"exact_gc_offered_payload_bytes\":8838064187,\"source_ciphertext_delivered_bytes\":4573950},\"protocol_payload_scope\":\"public-release-exactGC-and-source-transport-before-replay-no-bootstrap-PSI\",\"expected_oracle_sha256\":\"17c093ad58042d7e1d23e3f5fb402552dc2fb7c9f928586f1044767e5c9f8fe5\",\"oracle_only\":false,\"selected_candidate\":2,\"exact_best\":2,\"loss_gap\":0,\"artifact_key\":\"b55f98aa3ca1151ed7529d58232d0a1898899491db5956ad323470a0d29cf34f\",\"certificate_sha256\":\"5e0c91b5058882451e902c9aebee0ebbe62978ed54ea33acf1e96f6993b25b0b\"} "
+    ],
+    "R_processes": 6,
+    "pod": 22,
+    "remote_root": "/workspace/dsvert-heavy"
+  },
+  "poisson_glmm-e8-k3-i01-baseline": {
+    "job.json": {
+      "job_id": "poisson_glmm-e8-k3-i01-baseline",
+      "status": null,
+      "started_epoch": null
+    },
+    "RUNNING.json": {
+      "job_id": "poisson_glmm-e8-k3-i01-baseline",
+      "status": null,
+      "started_epoch": 1789892518.220823
+    },
+    "tail": [
+      "DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskReceiveDS ",
+      "DSLITE_RPC_COMPLETE dsvertDPSynopsisGLMGridCrossDS "
+    ],
+    "R_processes": 4,
+    "pod": 23,
+    "remote_root": "/workspace/dsvert-heavy"
+  },
+  "poisson_glmm-e8-k5-i01-baseline": {
+    "job.json": {
+      "job_id": "poisson_glmm-e8-k5-i01-baseline",
+      "status": null,
+      "started_epoch": null
+    },
+    "RUNNING.json": {
+      "job_id": "poisson_glmm-e8-k5-i01-baseline",
+      "status": null,
+      "started_epoch": 1789892345.6820772
+    },
+    "tail": [
+      "DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskReceiveDS ",
+      "DSLITE_RPC_COMPLETE dsvertDPSynopsisGLMGridCrossDS "
+    ],
+    "R_processes": 6,
+    "pod": 24,
+    "remote_root": "/workspace/dsvert-heavy"
+  },
+  "cox-e8-k2-i01-baseline": {
+    "job.json": {
+      "job_id": "cox-e8-k2-i01-baseline",
+      "status": null,
+      "started_epoch": null
+    },
+    "RUNNING.json": {
+      "job_id": "cox-e8-k2-i01-baseline",
+      "status": null,
+      "started_epoch": 1789925453.5368795
+    },
+    "tail": [
+      "DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskStartDS ",
+      "DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskStoreDS "
+    ],
+    "R_processes": 3,
+    "pod": 14,
+    "remote_root": "/workspace/dsvert-heavy-cox"
+  },
+  "cox-e8-k3-i01-baseline": {
+    "job.json": {
+      "job_id": "cox-e8-k3-i01-baseline",
+      "status": null,
+      "started_epoch": null
+    },
+    "RUNNING.json": {
+      "job_id": "cox-e8-k3-i01-baseline",
+      "status": null,
+      "started_epoch": 1789925439.1159887
+    },
+    "tail": [
+      "DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskStartDS ",
+      "DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskStoreDS "
+    ],
+    "R_processes": 4,
+    "pod": 21,
+    "remote_root": "/workspace/dsvert-heavy-cox"
+  },
+  "cox-e8-k5-i01-baseline": {
+    "job.json": {
+      "job_id": "cox-e8-k5-i01-baseline",
+      "status": null,
+      "started_epoch": null
+    },
+    "RUNNING.json": {
+      "job_id": "cox-e8-k5-i01-baseline",
+      "status": null,
+      "started_epoch": 1789925434.9478743
+    },
+    "tail": [
+      "DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskStartDS ",
+      "DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskStoreDS "
+    ],
+    "R_processes": 6,
+    "pod": 22,
+    "remote_root": "/workspace/dsvert-heavy-cox"
+  },
+  "cox-e8-k2-i01-recovery": {
+    "job.json": {
+      "job_id": "cox-e8-k2-i01-recovery",
+      "status": null,
+      "started_epoch": null
+    },
+    "RUNNING.json": {
+      "job_id": "cox-e8-k2-i01-recovery",
+      "status": null,
+      "started_epoch": 1789925433.0058029
+    },
+    "tail": [
+      "DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskStartDS ",
+      "DSLITE_RPC_COMPLETE dsvertDPSynopsisAlignmentMaskStoreDS "
+    ],
+    "R_processes": 3,
+    "pod": 16,
+    "remote_root": "/workspace/dsvert-heavy-cox"
+  }
+}

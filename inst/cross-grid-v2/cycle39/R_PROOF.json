@@ -1,0 +1,28 @@
+{
+  "observed_utc": "2026-09-20T14:35:24.191331+00:00",
+  "source_commits": {
+    "dsVert": "ea1b6d5ced4ba45b8e64cd5e25938bada525ecfe",
+    "dsVertClient": "0a86516b0332ffe0089c088a30f9d05763444a2e"
+  },
+  "tests": 64,
+  "assertions": 3340,
+  "failures": 0,
+  "errors": 0,
+  "warnings": 0,
+  "skips": 0,
+  "frozen_source_files": 2850,
+  "frozen_source_changed": [],
+  "final_source_differences": [],
+  "manifest_sha256": "7e98ba84b154101bf0803c303cac0a629b599ae0caf32270304761de62ed0d55",
+  "scope": "Exact Cox producer selection for Claim and source sharing, all source owners at K2/K3/K5; equal bytes and value commitments across base and Synopsis namespace; altered contracts/version and schema lookup failures reject. Catalog admission, schema cache lookup, and transport context use test doubles in the new test. Existing real signed Cox validation, native worker, durable source/reader and shared Synopsis regressions included. Additional fixture-catalog K2 Ed25519 Claims verify and match the real sharing commitment validator; altered bytes and signatures reject. No complete admitted Cox sharing/persistence transaction, DP release, capacity or promotion.",
+  "test_results": {
+    "test-crossgrid-cox.R.csv": "33c8c8d5e5435eb1a6ecff79c903a8bab2f8a04fa1901a8667c11cd73355e5cf",
+    "test-crossgrid-glmm-gaussian-preflight.R.csv": "c3f58d0e71f764925700a5223c329aae606b9e594e614d81c9b0f4fd8f5c641f",
+    "test-dp-synopsis-analysis.R.csv": "369503433430a31e30dddb6334d3ba811d009281cbc2be692ef0c702e3abf89b",
+    "test-dp-synopsis-exact-gc.R.csv": "1f2b0b2bac1b8257719b8e51dc55059fb330571e1b6c0a6c1cf89bc49ec469b2",
+    "test-dp-synopsis-source-gate.R.csv": "524275cee2b2c4ed4eddea484b853df8bc2d209f68575c566a9d515cc8a18de4",
+    "test-dp-synopsis-source-transport-threading.R.csv": "2b58c2a92276de88c983f1938c8b10a57eb27167504c67564f13b3e4679acbe3",
+    "test-dp-synopsis-source-transport-wrappers.R.csv": "1439b41c0b5ed41f991631c37031e39cd608dca1054418bfad57143a7ec5d268",
+    "test-signed-claim.R.csv": "ded68063ccf39765a85dacb2c8c07097d687d81d859b2538f44ba7d45de3023c"
+  }
+}

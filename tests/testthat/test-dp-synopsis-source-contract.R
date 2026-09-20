@@ -116,8 +116,9 @@ test_that("durable synopsis source contracts isolate artifact namespaces", {
   tampered_claim_set$sha256 <- strrep("f", 64L)
   expect_error(build(claim_set = tampered_claim_set))
 
+  # The released catalog binds strict_missing_categorical, even when empty.
   legacy_golden <-
-    "79b06f468913dd865d185bdeff344eeabfd483c22933fe63739b09d1d78c1104"
+    "cad5136408f323b3b3efc218fdd3ece3117eb2c92312a7ef079e4d2bfa5bacfd"
   expect_identical(legacy$contract_hash, legacy_golden)
   expect_identical(digest::digest(
     legacy$contract_json, algo = "sha256", serialize = FALSE),

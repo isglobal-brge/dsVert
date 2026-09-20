@@ -1,0 +1,11 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-capsule-manifest-bootstrap.R","dp-capsule-manifest-bootstrap","K=2 through K=5 derive one byte-identical server-authoritative manifest",68,0,FALSE,FALSE,0,18.255,2.276,22.478,68
+"test-dp-capsule-manifest-bootstrap.R","dp-capsule-manifest-bootstrap","K>=3 catalog consensus rejects one divergent peer before source access",5,0,FALSE,FALSE,0,5.444,0.749,6.798,5
+"test-dp-capsule-manifest-bootstrap.R","dp-capsule-manifest-bootstrap","draft and signing phases never access protected data or expose protected hashes",2,0,FALSE,FALSE,0,0.978999999999999,0.149,1.22,2
+"test-dp-capsule-manifest-bootstrap.R","dp-capsule-manifest-bootstrap","Gaussian workload fragments are custodian-owned and signed",6,0,FALSE,FALSE,0,0.173000000000002,0.0390000000000006,0.212999999999994,6
+"test-dp-capsule-manifest-bootstrap.R","dp-capsule-manifest-bootstrap","Gaussian AR1 working-GLS workload fragments bind cluster and order",4,0,FALSE,FALSE,0,0.273000000000003,0.0449999999999999,0.317999999999998,4
+"test-dp-capsule-manifest-bootstrap.R","dp-capsule-manifest-bootstrap","Gaussian AR1 robust sandwich workload binds its clipping contract",3,0,FALSE,FALSE,0,0.195999999999998,0.0419999999999998,0.239999999999995,3
+"test-dp-capsule-manifest-bootstrap.R","dp-capsule-manifest-bootstrap","ambiguous multi-dataset policy rejects unless custodian mapping is exact",4,0,FALSE,FALSE,0,0.0980000000000061,0.00999999999999979,0.108000000000004,4
+"test-dp-capsule-manifest-bootstrap.R","dp-capsule-manifest-bootstrap","schema tampering, invented snapshots and incomplete signatures fail typed",5,0,FALSE,FALSE,0,1.961,0.311,2.40899999999999,5
+"test-dp-capsule-manifest-bootstrap.R","dp-capsule-manifest-bootstrap","durable memoization replays exact bytes and gates arbitrary manifests",5,0,FALSE,FALSE,0,2.643,0.297000000000001,3.096,5
+"test-dp-capsule-manifest-bootstrap.R","dp-capsule-manifest-bootstrap","authenticated v4 cache rows remain readable for historical replay",2,0,FALSE,FALSE,0,0.012999999999991,0.000999999999999446,0.0150000000000006,2

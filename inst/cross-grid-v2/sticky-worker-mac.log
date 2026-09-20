@@ -1,0 +1,14 @@
+=== RUN   TestCrossGridDurableWorkers
+=== RUN   TestCrossGridDurableWorkers/binomial
+=== RUN   TestCrossGridDurableWorkers/poisson
+--- PASS: TestCrossGridDurableWorkers (1.35s)
+    --- PASS: TestCrossGridDurableWorkers/binomial (0.59s)
+    --- PASS: TestCrossGridDurableWorkers/poisson (0.76s)
+=== RUN   TestCrossGridStickyOutputMasks
+--- PASS: TestCrossGridStickyOutputMasks (0.23s)
+=== RUN   TestCrossGridKernelPurposeAndAdmissionGate
+--- PASS: TestCrossGridKernelPurposeAndAdmissionGate (0.17s)
+=== RUN   TestExactGCWorkerConfigIsOneLinkAndRemovedBeforeUse
+--- PASS: TestExactGCWorkerConfigIsOneLinkAndRemovedBeforeUse (0.00s)
+PASS
+ok  	github.com/isglobal-brge/dsVert/dsvert-mpc	2.568s

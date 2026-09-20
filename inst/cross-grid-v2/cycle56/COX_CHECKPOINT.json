@@ -1,0 +1,440 @@
+{
+  "status": "four_releases_running",
+  "pods": [
+    {
+      "id": "en9i4ubqlcf8cl",
+      "name": "pod-cox-1",
+      "vcpuCount": 32,
+      "gpuCount": 0,
+      "cpuFlavorId": "cpu3c",
+      "costPerHr": 0.96,
+      "imageName": "ubuntu:22.04",
+      "containerDiskInGb": 50,
+      "volumeInGb": 0,
+      "memoryInGb": 64,
+      "wrapper": "/Users/david/Documents/GitHub/dsvert-fleet-heavy/cox-pods/wrappers/pod-cox-1",
+      "copy_wrapper": "/Users/david/Documents/GitHub/dsvert-fleet-heavy/cox-pods/wrappers/pod-cox-1cp",
+      "assignment": {
+        "family": "cox",
+        "epsilon": 8,
+        "K": 2,
+        "mode": "baseline"
+      },
+      "status": "release_running",
+      "dp_state_parent": "/var/lib/dsvert-cox-state",
+      "endpoint": {
+        "ip": "213.173.111.110",
+        "isIpPublic": true,
+        "privatePort": 22,
+        "publicPort": 43022
+      },
+      "smoke_passed": true,
+      "job": {
+        "family": "cox",
+        "n": 400,
+        "p": 5,
+        "grid": 2,
+        "source_commits": {
+          "dsVert": "c97cd193c06dbae695792b4a03644c05fa733f8f",
+          "dsVertClient": "28be3cd6fea312d8f1c2442c810b453ad81080ce"
+        },
+        "harness_sha256": "a9e17fdc264b07e15803940dcb2fac1dca503c79246a56e1029907e4d7a5cca8",
+        "workdir": "fresh isolated prepared workspace containing the committed pair",
+        "promoted": false,
+        "job_id": "cox-e8-k2-i01-baseline",
+        "epsilon": 8,
+        "K": 2,
+        "instance": 1,
+        "mode": "baseline",
+        "cli": "env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=400 DSVERT_GRID_VALIDATION_P=5 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=2 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=0 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-release-jobs/cox-e8-k2-i01-baseline DSVERT_GRID_VALIDATION_METRICS_PATH=logs/cox-e8-k2-i01-baseline.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_cox_dslite.R . </dev/null",
+        "expected_oracle_sha256": "ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d",
+        "oracle_hash_scope": "UTF-8 count then exact integer coordinates, LF terminated; excludes sticky noise",
+        "fleet_ready": true,
+        "pending": null,
+        "execution_pool": "dsvert-fleet",
+        "one_real_release_per_pod": true,
+        "real_authenticated_release_required": true,
+        "cold_replay_tamper_required": true,
+        "bilateral_and_unilateral_recovery_required": false,
+        "capacity_measurement": true,
+        "capacity_bytes": 256000000000,
+        "capacity_seconds": 86400
+      },
+      "release_launch": {
+        "pid": 27381,
+        "stdin": "/dev/null"
+      }
+    },
+    {
+      "id": "95fzjg2zr6n0s1",
+      "name": "pod-cox-2",
+      "vcpuCount": 32,
+      "gpuCount": 0,
+      "cpuFlavorId": "cpu3c",
+      "costPerHr": 0.96,
+      "imageName": "ubuntu:22.04",
+      "containerDiskInGb": 50,
+      "volumeInGb": 0,
+      "memoryInGb": 64,
+      "wrapper": "/Users/david/Documents/GitHub/dsvert-fleet-heavy/cox-pods/wrappers/pod-cox-2",
+      "copy_wrapper": "/Users/david/Documents/GitHub/dsvert-fleet-heavy/cox-pods/wrappers/pod-cox-2cp",
+      "assignment": {
+        "family": "cox",
+        "epsilon": 8,
+        "K": 3,
+        "mode": "baseline"
+      },
+      "status": "release_passed",
+      "dp_state_parent": "/var/lib/dsvert-cox-state",
+      "endpoint": {
+        "ip": "213.173.105.69",
+        "isIpPublic": true,
+        "privatePort": 22,
+        "publicPort": 17627
+      },
+      "smoke_passed": true,
+      "job": {
+        "family": "cox",
+        "n": 400,
+        "p": 5,
+        "grid": 2,
+        "source_commits": {
+          "dsVert": "c97cd193c06dbae695792b4a03644c05fa733f8f",
+          "dsVertClient": "28be3cd6fea312d8f1c2442c810b453ad81080ce"
+        },
+        "harness_sha256": "a9e17fdc264b07e15803940dcb2fac1dca503c79246a56e1029907e4d7a5cca8",
+        "workdir": "fresh isolated prepared workspace containing the committed pair",
+        "promoted": false,
+        "job_id": "cox-e8-k3-i01-baseline",
+        "epsilon": 8,
+        "K": 3,
+        "instance": 1,
+        "mode": "baseline",
+        "cli": "env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=400 DSVERT_GRID_VALIDATION_P=5 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=3 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=0 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-release-jobs/cox-e8-k3-i01-baseline DSVERT_GRID_VALIDATION_METRICS_PATH=logs/cox-e8-k3-i01-baseline.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_cox_dslite.R . </dev/null",
+        "expected_oracle_sha256": "ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d",
+        "oracle_hash_scope": "UTF-8 count then exact integer coordinates, LF terminated; excludes sticky noise",
+        "fleet_ready": true,
+        "pending": null,
+        "execution_pool": "dsvert-fleet",
+        "one_real_release_per_pod": true,
+        "real_authenticated_release_required": true,
+        "cold_replay_tamper_required": true,
+        "bilateral_and_unilateral_recovery_required": false,
+        "capacity_measurement": false,
+        "capacity_bytes": 256000000000,
+        "capacity_seconds": 86400
+      },
+      "release_launch": {
+        "pid": 27223,
+        "stdin": "/dev/null"
+      },
+      "result": {
+        "job_id": "cox-e8-k3-i01-baseline",
+        "family": "cox",
+        "epsilon": 8,
+        "K": 3,
+        "instance": 1,
+        "mode": "baseline",
+        "source_commits": {
+          "dsVert": "c97cd193c06dbae695792b4a03644c05fa733f8f",
+          "dsVertClient": "28be3cd6fea312d8f1c2442c810b453ad81080ce"
+        },
+        "expected_oracle_sha256": "ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d",
+        "pod": "pod-cox-2",
+        "state_parent": "/var/lib/dsvert-cox-state/cox-e8-k3-i01-baseline",
+        "started_epoch": 1789925383.181967,
+        "manifest_cli": "env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=400 DSVERT_GRID_VALIDATION_P=5 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=3 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=0 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-release-jobs/cox-e8-k3-i01-baseline DSVERT_GRID_VALIDATION_METRICS_PATH=logs/cox-e8-k3-i01-baseline.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_cox_dslite.R . </dev/null",
+        "executed_cli": "env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=400 DSVERT_GRID_VALIDATION_P=5 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=3 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=0 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-cox-state/cox-e8-k3-i01-baseline DSVERT_GRID_VALIDATION_METRICS_PATH=logs/cox-e8-k3-i01-baseline.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_cox_dslite.R . </dev/null",
+        "oracle_equal": true,
+        "cold": true,
+        "recovery": null,
+        "tamper": true,
+        "bytes": {
+          "serialized_rpc": 1929295234,
+          "native": {
+            "exact_gc_unique_payload_bytes": 697212907,
+            "exact_gc_offered_payload_bytes": 697212907,
+            "source_ciphertext_delivered_bytes": 1444362
+          }
+        },
+        "seconds": 1376.989,
+        "elapsed": 1376.989,
+        "capacity_policy": {
+          "capacity_bytes": 256000000000,
+          "capacity_seconds": 86400
+        },
+        "wall_seconds": 1484.260234594345,
+        "returncode": 0,
+        "capacity_pass": true,
+        "metrics": {
+          "family": "cox",
+          "n": 400,
+          "p": 5,
+          "grid": 2,
+          "candidates": 2,
+          "clusters": 100,
+          "slots": 4,
+          "owners": 3,
+          "epsilon": 8,
+          "instance": 1,
+          "elapsed": 1309.648,
+          "successful_call_elapsed": 1309.481,
+          "uninterrupted_baseline_elapsed": 1309.481,
+          "recovery": "not_exercised",
+          "native_recovery": "not_exercised",
+          "end_to_end_release_elapsed": 1376.989,
+          "end_to_end_serialized_rpc_bytes": 1929295234,
+          "end_to_end_scope": "fixture-bootstrap-PSI-signing-source-staged-cox-and-DP-through-first-successful-release-including-retries-before-oracle-and-replay",
+          "release_serialized_rpc_bytes": 1885401806,
+          "serialized_rpc_scope": "R-v3-serialized-DSI-request-response-objects-including-retries-excluding-IPC-framing",
+          "protocol_payload": {
+            "exact_gc_unique_payload_bytes": 697212907,
+            "exact_gc_offered_payload_bytes": 697212907,
+            "source_ciphertext_delivered_bytes": 1444362
+          },
+          "protocol_payload_scope": "public-release-exactGC-and-source-transport-before-replay-no-bootstrap-PSI",
+          "expected_oracle_sha256": "ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d",
+          "oracle_only": false,
+          "selected_candidate": 1,
+          "exact_best": 1,
+          "loss_gap": 0,
+          "artifact_key": "036282fc41124ad778a353d279f8cdd1a02b72e08a17e202aee31e056c38eb5a",
+          "certificate_sha256": "c9050359b7b61cd27d332eb00ee0e9402731085a3f41dcd320e47f7922a041f7"
+        },
+        "source_manifest_sha256": "7ce3aa566a0b760df3382ce353889ce7020611e51662361227f34eab53771701",
+        "stdin": "/dev/null",
+        "status": "PASS",
+        "finished_epoch": 1789926867.442783,
+        "log": "logs/cox-e8-k3-i01-baseline.log"
+      }
+    },
+    {
+      "id": "l08yjrf70ieskl",
+      "name": "pod-cox-3",
+      "vcpuCount": 32,
+      "gpuCount": 0,
+      "cpuFlavorId": "cpu3c",
+      "costPerHr": 0.96,
+      "imageName": "ubuntu:22.04",
+      "containerDiskInGb": 50,
+      "volumeInGb": 0,
+      "memoryInGb": 64,
+      "wrapper": "/Users/david/Documents/GitHub/dsvert-fleet-heavy/cox-pods/wrappers/pod-cox-3",
+      "copy_wrapper": "/Users/david/Documents/GitHub/dsvert-fleet-heavy/cox-pods/wrappers/pod-cox-3cp",
+      "assignment": {
+        "family": "cox",
+        "epsilon": 8,
+        "K": 5,
+        "mode": "baseline"
+      },
+      "status": "release_passed",
+      "dp_state_parent": "/var/lib/dsvert-cox-state",
+      "endpoint": {
+        "ip": "213.173.105.97",
+        "isIpPublic": true,
+        "privatePort": 22,
+        "publicPort": 45599
+      },
+      "smoke_passed": true,
+      "job": {
+        "family": "cox",
+        "n": 400,
+        "p": 5,
+        "grid": 2,
+        "source_commits": {
+          "dsVert": "c97cd193c06dbae695792b4a03644c05fa733f8f",
+          "dsVertClient": "28be3cd6fea312d8f1c2442c810b453ad81080ce"
+        },
+        "harness_sha256": "a9e17fdc264b07e15803940dcb2fac1dca503c79246a56e1029907e4d7a5cca8",
+        "workdir": "fresh isolated prepared workspace containing the committed pair",
+        "promoted": false,
+        "job_id": "cox-e8-k5-i01-baseline",
+        "epsilon": 8,
+        "K": 5,
+        "instance": 1,
+        "mode": "baseline",
+        "cli": "env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=400 DSVERT_GRID_VALIDATION_P=5 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=5 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=0 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-release-jobs/cox-e8-k5-i01-baseline DSVERT_GRID_VALIDATION_METRICS_PATH=logs/cox-e8-k5-i01-baseline.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_cox_dslite.R . </dev/null",
+        "expected_oracle_sha256": "ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d",
+        "oracle_hash_scope": "UTF-8 count then exact integer coordinates, LF terminated; excludes sticky noise",
+        "fleet_ready": true,
+        "pending": null,
+        "execution_pool": "dsvert-fleet",
+        "one_real_release_per_pod": true,
+        "real_authenticated_release_required": true,
+        "cold_replay_tamper_required": true,
+        "bilateral_and_unilateral_recovery_required": false,
+        "capacity_measurement": false,
+        "capacity_bytes": 256000000000,
+        "capacity_seconds": 86400
+      },
+      "release_launch": {
+        "pid": 27214,
+        "stdin": "/dev/null"
+      },
+      "result": {
+        "job_id": "cox-e8-k5-i01-baseline",
+        "family": "cox",
+        "epsilon": 8,
+        "K": 5,
+        "instance": 1,
+        "mode": "baseline",
+        "source_commits": {
+          "dsVert": "c97cd193c06dbae695792b4a03644c05fa733f8f",
+          "dsVertClient": "28be3cd6fea312d8f1c2442c810b453ad81080ce"
+        },
+        "expected_oracle_sha256": "ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d",
+        "pod": "pod-cox-3",
+        "state_parent": "/var/lib/dsvert-cox-state/cox-e8-k5-i01-baseline",
+        "started_epoch": 1789925384.0566392,
+        "manifest_cli": "env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=400 DSVERT_GRID_VALIDATION_P=5 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=5 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=0 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-release-jobs/cox-e8-k5-i01-baseline DSVERT_GRID_VALIDATION_METRICS_PATH=logs/cox-e8-k5-i01-baseline.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_cox_dslite.R . </dev/null",
+        "executed_cli": "env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=400 DSVERT_GRID_VALIDATION_P=5 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=5 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=0 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-cox-state/cox-e8-k5-i01-baseline DSVERT_GRID_VALIDATION_METRICS_PATH=logs/cox-e8-k5-i01-baseline.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_cox_dslite.R . </dev/null",
+        "oracle_equal": true,
+        "cold": true,
+        "recovery": null,
+        "tamper": true,
+        "bytes": {
+          "serialized_rpc": 1939365306,
+          "native": {
+            "exact_gc_unique_payload_bytes": 697592019,
+            "exact_gc_offered_payload_bytes": 697592019,
+            "source_ciphertext_delivered_bytes": 2407270
+          }
+        },
+        "seconds": 1330.511,
+        "elapsed": 1330.511,
+        "capacity_policy": {
+          "capacity_bytes": 256000000000,
+          "capacity_seconds": 86400
+        },
+        "wall_seconds": 1435.4893732070923,
+        "returncode": 0,
+        "capacity_pass": true,
+        "metrics": {
+          "family": "cox",
+          "n": 400,
+          "p": 5,
+          "grid": 2,
+          "candidates": 2,
+          "clusters": 100,
+          "slots": 4,
+          "owners": 5,
+          "epsilon": 8,
+          "instance": 1,
+          "elapsed": 1253.089,
+          "successful_call_elapsed": 1252.95,
+          "uninterrupted_baseline_elapsed": 1252.95,
+          "recovery": "not_exercised",
+          "native_recovery": "not_exercised",
+          "end_to_end_release_elapsed": 1330.511,
+          "end_to_end_serialized_rpc_bytes": 1939365306,
+          "end_to_end_scope": "fixture-bootstrap-PSI-signing-source-staged-cox-and-DP-through-first-successful-release-including-retries-before-oracle-and-replay",
+          "release_serialized_rpc_bytes": 1890891493,
+          "serialized_rpc_scope": "R-v3-serialized-DSI-request-response-objects-including-retries-excluding-IPC-framing",
+          "protocol_payload": {
+            "exact_gc_unique_payload_bytes": 697592019,
+            "exact_gc_offered_payload_bytes": 697592019,
+            "source_ciphertext_delivered_bytes": 2407270
+          },
+          "protocol_payload_scope": "public-release-exactGC-and-source-transport-before-replay-no-bootstrap-PSI",
+          "expected_oracle_sha256": "ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d",
+          "oracle_only": false,
+          "selected_candidate": 1,
+          "exact_best": 1,
+          "loss_gap": 0,
+          "artifact_key": "15d30cd12e5f76d28e0de1e10d77b21c6745222d95534b4d01abced786f97f3f",
+          "certificate_sha256": "6328d985f6fc125b2eb2d027086591110bc644500df383ea7467b8881e30c962"
+        },
+        "source_manifest_sha256": "7ce3aa566a0b760df3382ce353889ce7020611e51662361227f34eab53771701",
+        "stdin": "/dev/null",
+        "status": "PASS",
+        "finished_epoch": 1789926819.5464997,
+        "log": "logs/cox-e8-k5-i01-baseline.log"
+      }
+    },
+    {
+      "id": "i5fwdtjh7tctm8",
+      "name": "pod-cox-4",
+      "vcpuCount": 32,
+      "gpuCount": 0,
+      "cpuFlavorId": "cpu3c",
+      "costPerHr": 0.96,
+      "imageName": "ubuntu:22.04",
+      "containerDiskInGb": 50,
+      "volumeInGb": 0,
+      "memoryInGb": 64,
+      "wrapper": "/Users/david/Documents/GitHub/dsvert-fleet-heavy/cox-pods/wrappers/pod-cox-4",
+      "copy_wrapper": "/Users/david/Documents/GitHub/dsvert-fleet-heavy/cox-pods/wrappers/pod-cox-4cp",
+      "assignment": {
+        "family": "cox",
+        "epsilon": 8,
+        "K": 2,
+        "mode": "recovery"
+      },
+      "status": "release_running",
+      "dp_state_parent": "/var/lib/dsvert-cox-state",
+      "endpoint": {
+        "ip": "38.80.152.147",
+        "isIpPublic": true,
+        "privatePort": 22,
+        "publicPort": 42335
+      },
+      "smoke_passed": true,
+      "job": {
+        "family": "cox",
+        "n": 400,
+        "p": 5,
+        "grid": 2,
+        "source_commits": {
+          "dsVert": "c97cd193c06dbae695792b4a03644c05fa733f8f",
+          "dsVertClient": "28be3cd6fea312d8f1c2442c810b453ad81080ce"
+        },
+        "harness_sha256": "a9e17fdc264b07e15803940dcb2fac1dca503c79246a56e1029907e4d7a5cca8",
+        "workdir": "fresh isolated prepared workspace containing the committed pair",
+        "promoted": false,
+        "job_id": "cox-e8-k2-i01-recovery",
+        "epsilon": 8,
+        "K": 2,
+        "instance": 1,
+        "mode": "recovery",
+        "cli": "env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=400 DSVERT_GRID_VALIDATION_P=5 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=2 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=1 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-release-jobs/cox-e8-k2-i01-recovery DSVERT_GRID_VALIDATION_METRICS_PATH=logs/cox-e8-k2-i01-recovery.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_cox_dslite.R . </dev/null",
+        "expected_oracle_sha256": "ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d",
+        "oracle_hash_scope": "UTF-8 count then exact integer coordinates, LF terminated; excludes sticky noise",
+        "fleet_ready": true,
+        "pending": null,
+        "execution_pool": "dsvert-fleet",
+        "one_real_release_per_pod": true,
+        "real_authenticated_release_required": true,
+        "cold_replay_tamper_required": true,
+        "bilateral_and_unilateral_recovery_required": true,
+        "capacity_measurement": false,
+        "capacity_bytes": 256000000000,
+        "capacity_seconds": 86400
+      },
+      "release_launch": {
+        "pid": 27386,
+        "stdin": "/dev/null"
+      }
+    }
+  ],
+  "controller_pid": 17530,
+  "stdin": "/dev/null",
+  "updated_unix": 1789926909.50657,
+  "smoke_source": {
+    "repositories": {
+      "dsVert": "ad276b565d85fce3d01204365cce25b5380c99d3",
+      "dsVertClient": "1f81bfee402631e2ad39d404c19458e2857999df"
+    },
+    "manifest_sha256": "0a49d19dc29ffa2a576befd67800d812d8604670195197e018ba85189b6e446e",
+    "runtime_sha256": "76bd5a3cfa59811a6d17d3a80f71045f556ce9dbbe58234ddb8bcfad70753f9b"
+  },
+  "last_manifest_poll_unix": 1789925120.962965,
+  "release_source": {
+    "repositories": {
+      "dsVert": "c97cd193c06dbae695792b4a03644c05fa733f8f",
+      "dsVertClient": "28be3cd6fea312d8f1c2442c810b453ad81080ce"
+    },
+    "manifest_sha256": "7ce3aa566a0b760df3382ce353889ce7020611e51662361227f34eab53771701",
+    "runtime_sha256": "76bd5a3cfa59811a6d17d3a80f71045f556ce9dbbe58234ddb8bcfad70753f9b"
+  },
+  "jobs_pinned": true
+}

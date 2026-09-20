@@ -1,0 +1,3 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-cox-cross-public-evidence.R","dp-cox-cross-public-evidence","Cox public evidence authenticates cold two-authority source and release bindings",185,0,FALSE,FALSE,0,20.924,1.53,22.48,185
+"test-dp-cox-cross-public-evidence.R","dp-cox-cross-public-evidence","Cox public evidence retains the private-v2 400-row scope",1,0,FALSE,FALSE,0,0.286000000000001,0.0150000000000001,0.303000000000004,1

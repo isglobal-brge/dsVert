@@ -1,0 +1,12 @@
+goos: linux
+goarch: amd64
+pkg: github.com/isglobal-brge/dsVert/dsvert-mpc
+cpu: Intel(R) Xeon(R) Gold 6342 CPU @ 2.80GHz
+BenchmarkCrossGridFusedBatch/binomial-8         	       1	7319170999 ns/op	      4205 AND/eval	       177.5 compile-s	  28590512 ns/eval	    165643 wire-B/eval
+--- BENCH: BenchmarkCrossGridFusedBatch/binomial-8
+    k2_exact_gc_glm_grid_protocol_test.go:171: batch_AND=1076415 total_wire_bytes=42404496 iterations=1 cap=263340
+BenchmarkCrossGridFusedBatch/poisson-8          	       1	7605694722 ns/op	      5466 AND/eval	       222.3 compile-s	  29709745 ns/eval	    206037 wire-B/eval
+--- BENCH: BenchmarkCrossGridFusedBatch/poisson-8
+    k2_exact_gc_glm_grid_protocol_test.go:171: batch_AND=1399391 total_wire_bytes=52745381 iterations=1 cap=3578149
+PASS
+ok  	github.com/isglobal-brge/dsVert/dsvert-mpc	416.828s

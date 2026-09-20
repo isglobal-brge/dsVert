@@ -9,7 +9,8 @@ dsvertPSISourceDescriptor(
   id_col,
   id,
   version,
-  purpose = "patient-record-alignment-v1"
+  purpose = "patient-record-alignment-v1",
+  privacy_unit_id = id_col
 )
 }
 \arguments{
@@ -24,6 +25,10 @@ provisioning environment.}
 
 \item{purpose}{Public purpose identifier. All vertical peers must use the
 same value for one alignment.}
+
+\item{privacy_unit_id}{Public semantic identifier for the privacy unit. Use
+the same value at every vertical peer even when local \code{id_col} aliases
+differ. It defaults to \code{id_col} for existing deployments.}
 }
 \value{
 A descriptor suitable for one entry of the server-owned

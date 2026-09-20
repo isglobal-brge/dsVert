@@ -1,0 +1,338 @@
+--- FAIL: TestFormalCoxBlockwiseSourceDeliveryCommandK2K3K5 (1.69s)
+    --- FAIL: TestFormalCoxBlockwiseSourceDeliveryCommandK2K3K5/K2 (0.52s)
+        formal_cox_blockwise_source_delivery_command_test.go:39: R source bridge fixture K=2: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+    --- FAIL: TestFormalCoxBlockwiseSourceDeliveryCommandK2K3K5/K3 (0.54s)
+        formal_cox_blockwise_source_delivery_command_test.go:39: R source bridge fixture K=3: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+    --- FAIL: TestFormalCoxBlockwiseSourceDeliveryCommandK2K3K5/K5 (0.64s)
+        formal_cox_blockwise_source_delivery_command_test.go:39: R source bridge fixture K=5: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+--- FAIL: TestFormalCoxBlockwiseSourceDeliveryCommandRejectsTamperAndOpenInput (0.00s)
+    formal_cox_blockwise_source_delivery_command_test.go:114: R source bridge fixture K=2: exit status 1
+        Error: A pinned custodian signature on the formal Cox schema is invalid.
+        Execution halted
+        
+--- FAIL: TestFormalCoxBlockwiseSourceImportCommandK2K3K5 (0.00s)
+    --- FAIL: TestFormalCoxBlockwiseSourceImportCommandK2K3K5/K2 (0.00s)
+        formal_cox_blockwise_source_import_command_test.go:72: R source bridge fixture K=2: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+    --- FAIL: TestFormalCoxBlockwiseSourceImportCommandK2K3K5/K3 (0.00s)
+        formal_cox_blockwise_source_import_command_test.go:72: R source bridge fixture K=3: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+    --- FAIL: TestFormalCoxBlockwiseSourceImportCommandK2K3K5/K5 (0.00s)
+        formal_cox_blockwise_source_import_command_test.go:72: R source bridge fixture K=5: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+--- FAIL: TestFormalCoxBlockwiseSourceCommandsStageAllBlocksK2K3K5 (0.00s)
+    --- FAIL: TestFormalCoxBlockwiseSourceCommandsStageAllBlocksK2K3K5/K2 (0.00s)
+        formal_cox_blockwise_source_import_command_test.go:132: R source bridge fixture K=2: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+    --- FAIL: TestFormalCoxBlockwiseSourceCommandsStageAllBlocksK2K3K5/K3 (0.00s)
+        formal_cox_blockwise_source_import_command_test.go:132: R source bridge fixture K=3: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+    --- FAIL: TestFormalCoxBlockwiseSourceCommandsStageAllBlocksK2K3K5/K5 (0.00s)
+        formal_cox_blockwise_source_import_command_test.go:132: R source bridge fixture K=5: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+--- FAIL: TestFormalCoxBlockwiseSourceImportCommandRejectsTamperAndOpenInput (0.00s)
+    formal_cox_blockwise_source_import_command_test.go:273: R source bridge fixture K=2: exit status 1
+        Error: A pinned custodian signature on the formal Cox schema is invalid.
+        Execution halted
+        
+--- FAIL: TestFormalCoxBlockwiseSourceProducerCommandK2K3K5 (0.00s)
+    --- FAIL: TestFormalCoxBlockwiseSourceProducerCommandK2K3K5/K2 (0.00s)
+        formal_cox_blockwise_source_producer_command_test.go:95: R source bridge fixture K=2: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+    --- FAIL: TestFormalCoxBlockwiseSourceProducerCommandK2K3K5/K3 (0.00s)
+        formal_cox_blockwise_source_producer_command_test.go:95: R source bridge fixture K=3: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+    --- FAIL: TestFormalCoxBlockwiseSourceProducerCommandK2K3K5/K5 (0.00s)
+        formal_cox_blockwise_source_producer_command_test.go:95: R source bridge fixture K=5: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+--- FAIL: TestFormalCoxBlockwiseSourceProducerCommandRejectsOpenAndTamperedInput (0.00s)
+    formal_cox_blockwise_source_producer_command_test.go:158: R source bridge fixture K=2: exit status 1
+        Error: A pinned custodian signature on the formal Cox schema is invalid.
+        Execution halted
+        
+--- FAIL: TestFormalCoxBlockwiseSourceProducerCommandAllowsOuterJSONFormatting (0.00s)
+    formal_cox_blockwise_source_producer_command_test.go:226: R source bridge fixture K=2: exit status 1
+        Error: A pinned custodian signature on the formal Cox schema is invalid.
+        Execution halted
+        
+--- FAIL: TestFormalCoxBlockwiseSourceProducerCommandResponseDoesNotExposeInput (0.00s)
+    formal_cox_blockwise_source_producer_command_test.go:249: R source bridge fixture K=2: exit status 1
+        Error: A pinned custodian signature on the formal Cox schema is invalid.
+        Execution halted
+        
+--- FAIL: TestFormalCoxBlockwiseSourceRecipientKeyCommandK2K3K5 (0.00s)
+    --- FAIL: TestFormalCoxBlockwiseSourceRecipientKeyCommandK2K3K5/K2 (0.00s)
+        formal_cox_blockwise_source_recipient_key_command_test.go:35: R source bridge fixture K=2: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+    --- FAIL: TestFormalCoxBlockwiseSourceRecipientKeyCommandK2K3K5/K3 (0.00s)
+        formal_cox_blockwise_source_recipient_key_command_test.go:35: R source bridge fixture K=3: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+    --- FAIL: TestFormalCoxBlockwiseSourceRecipientKeyCommandK2K3K5/K5 (0.00s)
+        formal_cox_blockwise_source_recipient_key_command_test.go:35: R source bridge fixture K=5: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+--- FAIL: TestFormalCoxBlockwiseSourceRecipientKeyCommandRejectsTamperAndUnsafeKey (0.00s)
+    formal_cox_blockwise_source_recipient_key_command_test.go:77: R source bridge fixture K=2: exit status 1
+        Error: A pinned custodian signature on the formal Cox schema is invalid.
+        Execution halted
+        
+{"state":"replayed"}
+--- FAIL: TestFormalGLMPublicEndpointResolveK2ClosedSelector (0.01s)
+    formal_glm_public_endpoint_test.go:1945: Resolve accepted non-binomial selector tamper
+--- FAIL: TestFormalGLMRegisteredPhase19LoaderHotLoopUsesValidationContextV3 (0.00s)
+    formal_glm_registered_phase19_loader_test.go:735: loader KxB loop accepts deep validation input "store.contract"
+--- FAIL: TestFormalGLMRegisteredPhase19ScheduleTailK2 (5.67s)
+    formal_glm_registered_phase19_schedule_tail_test.go:514: coordinate 0 reconstructed 512, want 1024
+--- FAIL: TestFormalGLMRegisteredPhase20JobControlHostRunsK2K3K5FromPendingIngress (210.72s)
+    --- FAIL: TestFormalGLMRegisteredPhase20JobControlHostRunsK2K3K5FromPendingIngress/binomial (117.16s)
+        --- FAIL: TestFormalGLMRegisteredPhase20JobControlHostRunsK2K3K5FromPendingIngress/binomial/K3 (25.63s)
+            formal_glm_registered_phase20_job_control_host_compute_test.go:827: host 1 Phase21 Stage relay: formal-glm registered Phase21 stage relay: inbound chunk out of order
+    --- FAIL: TestFormalGLMRegisteredPhase20JobControlHostRunsK2K3K5FromPendingIngress/poisson (93.56s)
+        --- FAIL: TestFormalGLMRegisteredPhase20JobControlHostRunsK2K3K5FromPendingIngress/poisson/K2 (31.88s)
+            formal_glm_registered_phase20_job_control_host_compute_test.go:827: host 0 Phase21 Stage relay: formal-glm registered Phase21 stage relay: inbound chunk out of order
+        --- FAIL: TestFormalGLMRegisteredPhase20JobControlHostRunsK2K3K5FromPendingIngress/poisson/K3 (29.21s)
+            formal_glm_registered_phase20_job_control_host_compute_test.go:827: host 0 Phase21 Stage relay: formal-glm registered Phase21 stage relay: inbound chunk out of order
+        --- FAIL: TestFormalGLMRegisteredPhase20JobControlHostRunsK2K3K5FromPendingIngress/poisson/K5 (32.47s)
+            formal_glm_registered_phase20_job_control_host_compute_test.go:827: host 0 Phase21 Stage relay: formal-glm registered Phase21 stage relay: inbound chunk out of order
+--- FAIL: TestFormalCoxBlockwisePolicyAdmitsThreeCovariatesOnlyWithinItsEnvelope (1.67s)
+    --- FAIL: TestFormalCoxBlockwisePolicyAdmitsThreeCovariatesOnlyWithinItsEnvelope/K2 (0.53s)
+        k2_formal_cox_blockwise_test.go:66: generate canonical R Cox schema for K=2: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+    --- FAIL: TestFormalCoxBlockwisePolicyAdmitsThreeCovariatesOnlyWithinItsEnvelope/K3 (0.57s)
+        k2_formal_cox_blockwise_test.go:66: generate canonical R Cox schema for K=3: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+    --- FAIL: TestFormalCoxBlockwisePolicyAdmitsThreeCovariatesOnlyWithinItsEnvelope/K5 (0.57s)
+        k2_formal_cox_blockwise_test.go:66: generate canonical R Cox schema for K=5: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+--- FAIL: TestFormalCoxBlockwiseThreeCovariateCircuitsMatchIndependentOracleK2K3K5 (1.67s)
+    --- FAIL: TestFormalCoxBlockwiseThreeCovariateCircuitsMatchIndependentOracleK2K3K5/K2 (0.54s)
+        k2_formal_cox_blockwise_test.go:1129: generate canonical R Cox schema for K=2: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+    --- FAIL: TestFormalCoxBlockwiseThreeCovariateCircuitsMatchIndependentOracleK2K3K5/K3 (0.56s)
+        k2_formal_cox_blockwise_test.go:1129: generate canonical R Cox schema for K=3: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+    --- FAIL: TestFormalCoxBlockwiseThreeCovariateCircuitsMatchIndependentOracleK2K3K5/K5 (0.57s)
+        k2_formal_cox_blockwise_test.go:1129: generate canonical R Cox schema for K=5: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+--- FAIL: TestFormalCoxBlockwiseWorkerBootstrapK2K3K5 (0.00s)
+    --- FAIL: TestFormalCoxBlockwiseWorkerBootstrapK2K3K5/K2 (0.00s)
+        k2_formal_cox_blockwise_worker_bootstrap_test.go:87: R source bridge fixture K=2: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+    --- FAIL: TestFormalCoxBlockwiseWorkerBootstrapK2K3K5/K3 (0.00s)
+        k2_formal_cox_blockwise_worker_bootstrap_test.go:87: R source bridge fixture K=3: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+    --- FAIL: TestFormalCoxBlockwiseWorkerBootstrapK2K3K5/K5 (0.00s)
+        k2_formal_cox_blockwise_worker_bootstrap_test.go:87: R source bridge fixture K=5: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+--- FAIL: TestFormalCoxBlockwiseWorkerHostAttachesLiveK2K3K5 (0.00s)
+    --- FAIL: TestFormalCoxBlockwiseWorkerHostAttachesLiveK2K3K5/K2 (0.00s)
+        k2_formal_cox_blockwise_worker_host_test.go:174: R source bridge fixture K=2: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+    --- FAIL: TestFormalCoxBlockwiseWorkerHostAttachesLiveK2K3K5/K3 (0.00s)
+        k2_formal_cox_blockwise_worker_host_test.go:174: R source bridge fixture K=3: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+    --- FAIL: TestFormalCoxBlockwiseWorkerHostAttachesLiveK2K3K5/K5 (0.00s)
+        k2_formal_cox_blockwise_worker_host_test.go:174: R source bridge fixture K=5: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+--- FAIL: TestFormalCoxBlockwiseWorkerProvisionK2K3K5 (0.00s)
+    --- FAIL: TestFormalCoxBlockwiseWorkerProvisionK2K3K5/K2 (0.00s)
+        k2_formal_cox_blockwise_worker_provision_test.go:25: R source bridge fixture K=2: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+    --- FAIL: TestFormalCoxBlockwiseWorkerProvisionK2K3K5/K3 (0.00s)
+        k2_formal_cox_blockwise_worker_provision_test.go:25: R source bridge fixture K=3: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+    --- FAIL: TestFormalCoxBlockwiseWorkerProvisionK2K3K5/K5 (0.00s)
+        k2_formal_cox_blockwise_worker_provision_test.go:25: R source bridge fixture K=5: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+--- FAIL: TestFormalCoxBlockwiseWorkerRecoveryCommitsSealedK2K3K5 (0.00s)
+    --- FAIL: TestFormalCoxBlockwiseWorkerRecoveryCommitsSealedK2K3K5/K2 (0.00s)
+        k2_formal_cox_blockwise_worker_recovery_test.go:85: R source bridge fixture K=2: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+    --- FAIL: TestFormalCoxBlockwiseWorkerRecoveryCommitsSealedK2K3K5/K3 (0.00s)
+        k2_formal_cox_blockwise_worker_recovery_test.go:85: R source bridge fixture K=3: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+    --- FAIL: TestFormalCoxBlockwiseWorkerRecoveryCommitsSealedK2K3K5/K5 (0.00s)
+        k2_formal_cox_blockwise_worker_recovery_test.go:85: R source bridge fixture K=5: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+--- FAIL: TestFormalCoxPhase1RemainsAbsentFromGenericCompilerWorkerCLIAndSurface (0.01s)
+    k2_formal_cox_phase1_test.go:731: CLI formal Cox commands = ["case \"formal-cox-public-result\":" "case \"formal-cox-control-source\":" "case \"formal-cox-control-import\":" "case \"formal-cox-control-delivery\":" "case \"formal-cox-source-produce\":" "case \"formal-cox-source-deliver\":" "case \"formal-cox-source-recipient-key\":" "case \"formal-cox-source-import\":" "case \"formal-cox-worker-provision\":" "case \"formal-cox-worker-host\":" "case \"formal-cox-worker-control\":"]; want private control relay only
+--- FAIL: TestFormalCoxRSourceBridgeFixtureCacheReturnsIndependentCopies (0.55s)
+    k2_formal_cox_r_source_bridge_test.go:194: exit status 1
+        Error: A pinned custodian signature on the formal Cox schema is invalid.
+        Execution halted
+        
+--- FAIL: TestFormalCoxRSourceBlocksFeedEncryptedProducerK2K3K5 (0.00s)
+    --- FAIL: TestFormalCoxRSourceBlocksFeedEncryptedProducerK2K3K5/K2 (0.00s)
+        k2_formal_cox_r_source_bridge_test.go:502: R source bridge fixture K=2: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+    --- FAIL: TestFormalCoxRSourceBlocksFeedEncryptedProducerK2K3K5/K3 (0.00s)
+        k2_formal_cox_r_source_bridge_test.go:502: R source bridge fixture K=3: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+    --- FAIL: TestFormalCoxRSourceBlocksFeedEncryptedProducerK2K3K5/K5 (0.00s)
+        k2_formal_cox_r_source_bridge_test.go:502: R source bridge fixture K=5: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+            
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+{data}:6:2: warning: unreachable code
+--- FAIL: TestFormalCoxSchemaCompilerAdmitsThreeCovariateBlockwiseSchemaK2K3K5 (1.63s)
+    --- FAIL: TestFormalCoxSchemaCompilerAdmitsThreeCovariateBlockwiseSchemaK2K3K5/K2 (0.55s)
+        k2_formal_cox_schema_compiler_test.go:99: generate canonical R Cox schema for K=2: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+    --- FAIL: TestFormalCoxSchemaCompilerAdmitsThreeCovariateBlockwiseSchemaK2K3K5/K3 (0.52s)
+        k2_formal_cox_schema_compiler_test.go:99: generate canonical R Cox schema for K=3: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+    --- FAIL: TestFormalCoxSchemaCompilerAdmitsThreeCovariateBlockwiseSchemaK2K3K5/K5 (0.55s)
+        k2_formal_cox_schema_compiler_test.go:99: generate canonical R Cox schema for K=5: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+--- FAIL: TestFormalCoxSchemaCompilerAcceptsCanonicalRSealsK2ThroughK5 (2.08s)
+    --- FAIL: TestFormalCoxSchemaCompilerAcceptsCanonicalRSealsK2ThroughK5/K2 (0.54s)
+        k2_formal_cox_schema_compiler_test.go:217: generate canonical R Cox schema for K=2: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+    --- FAIL: TestFormalCoxSchemaCompilerAcceptsCanonicalRSealsK2ThroughK5/K3 (0.53s)
+        k2_formal_cox_schema_compiler_test.go:217: generate canonical R Cox schema for K=3: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+    --- FAIL: TestFormalCoxSchemaCompilerAcceptsCanonicalRSealsK2ThroughK5/K4 (0.46s)
+        k2_formal_cox_schema_compiler_test.go:217: generate canonical R Cox schema for K=4: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+    --- FAIL: TestFormalCoxSchemaCompilerAcceptsCanonicalRSealsK2ThroughK5/K5 (0.54s)
+        k2_formal_cox_schema_compiler_test.go:217: generate canonical R Cox schema for K=5: exit status 1
+            Error: A pinned custodian signature on the formal Cox schema is invalid.
+            Execution halted
+--- FAIL: TestFormalCoxSchemaCompilerAdmitsBlockwiseCapacityBeyondLegacyCircuit (0.49s)
+    k2_formal_cox_schema_compiler_test.go:290: generate canonical R Cox schema for K=2: exit status 1
+        Error: A pinned custodian signature on the formal Cox schema is invalid.
+        Execution halted
+--- FAIL: TestFormalCoxSchemaCompilerAdmitsSignedBlockwiseIterationRange (0.54s)
+    k2_formal_cox_schema_compiler_test.go:314: generate canonical R Cox schema for K=2: exit status 1
+        Error: A pinned custodian signature on the formal Cox schema is invalid.
+        Execution halted
+--- FAIL: TestFormalCoxSchemaCompilerRejectsUnknownDuplicateTamperAndNonUnanimity (0.59s)
+    k2_formal_cox_schema_compiler_test.go:333: generate canonical R Cox schema for K=3: exit status 1
+        Error: A pinned custodian signature on the formal Cox schema is invalid.
+        Execution halted
+--- FAIL: TestFormalCoxSchemaCompilerRejectsUnanimouslyResignedValuesOutsideRContract (0.52s)
+    k2_formal_cox_schema_compiler_test.go:376: generate canonical R Cox schema for K=3: exit status 1
+        Error: A pinned custodian signature on the formal Cox schema is invalid.
+        Execution halted
+--- FAIL: TestFormalCoxSchemaCompilerDerivesSensitivityOnlyInGo (0.50s)
+    k2_formal_cox_schema_compiler_test.go:420: generate canonical R Cox schema for K=2: exit status 1
+        Error: A pinned custodian signature on the formal Cox schema is invalid.
+        Execution halted
+FAIL
+FAIL	github.com/isglobal-brge/dsVert/dsvert-mpc	8595.384s
+FAIL

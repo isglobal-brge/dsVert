@@ -1,0 +1,13 @@
+args <- commandArgs(TRUE)
+root <- normalizePath(args[[1]])
+out <- normalizePath(args[[2]])
+pkgload::load_all(file.path(root, "dsVert"), quiet = TRUE)
+env <- new.env(parent = asNamespace("dsVert"))
+for (path in list.files(file.path(root, "dsVert/tests/testthat"), pattern = "^helper.*\\.R$", full.names = TRUE)) sys.source(path, env)
+env$test_that <- function(...) invisible(NULL)
+for (name in c("test-crossgrid-cox.R", "test-dp-synopsis-analysis.R")) sys.source(file.path(root, "dsVert/tests/testthat", name), env)
+env$test_that <- testthat::test_that
+result <- testthat::test_file(file.path(out, "test-signed-claim.R"), env = env, reporter = "summary")
+frame <- as.data.frame(result)
+write.csv(frame[setdiff(names(frame), "result")], file.path(out, "test-signed-claim.R.csv"), row.names = FALSE)
+stopifnot(all(frame$failed == 0), all(!frame$error), all(frame$warning == 0), all(frame$skipped == 0))

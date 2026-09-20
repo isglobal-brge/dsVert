@@ -1,0 +1,226 @@
+[
+  {
+    "lane": "fleet",
+    "pod": "12",
+    "assignment": {
+      "job_id": "binomial_glmm-e8-k2-i01-baseline"
+    },
+    "observed_utc": "2026-09-20T18:13:39.146132+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": null
+    },
+    "error": null
+  },
+  {
+    "lane": "fleet",
+    "pod": "14",
+    "assignment": {
+      "job_id": "lmm-e8-k2-i01-baseline"
+    },
+    "observed_utc": "2026-09-20T18:13:39.056300+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": "{\n  \"job_id\": \"lmm-e8-k2-i01-baseline\",\n  \"family\": \"lmm\",\n  \"epsilon\": 8,\n  \"K\": 2,\n  \"instance\": 1,\n  \"mode\": \"baseline\",\n  \"source_commits\": {\n    \"dsVert\": \"502b0058cd4b804b0e7adbba0e4c71485c755989\",\n    \"dsVertClient\": \"4c6c5622fbdc2ae97de315f18c18901d452f3c09\"\n  },\n  \"expected_oracle_sha256\": \"17c093ad58042d7e1d23e3f5fb402552dc2fb7c9f928586f1044767e5c9f8fe5\",\n  \"pod\": \"pod14\",\n  \"state_parent\": \"/var/lib/dsvert-heavy-state/lmm-e8-k2-i01-baseline\",\n  \"started_epoch\": 1789892093.398478,\n  \"manifest_cli\": \"env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=2000 DSVERT_GRID_VALIDATION_P=3 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=2 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=0 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-release-jobs/lmm-e8-k2-i01-baseline DSVERT_GRID_VALIDATION_METRICS_PATH=logs/lmm-e8-k2-i01-baseline.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=17c093ad58042d7e1d23e3f5fb402552dc2fb7c9f928586f1044767e5c9f8fe5 Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_lmm_dslite.R . </dev/null\",\n  \"executed_cli\": \"env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=2000 DSVERT_GRID_VALIDATION_P=3 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=2 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=0 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-heavy-state/lmm-e8-k2-i01-baseline DSVERT_GRID_VALIDATION_METRICS_PATH=logs/lmm-e8-k2-i01-baseline.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=17c093ad58042d7e1d23e3f5fb402552dc2fb7c9f928586f1044767e5c9f8fe5 Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_lmm_dslite.R . </dev/null\",\n  \"oracle_equal\": true,\n  \"cold\": true,\n  \"recovery\": null,\n  \"tamper\": true,\n  \"bytes\": {\n    \"serialized_rpc\": 24009522847,\n    \"native\": {\n      \"exact_gc_unique_payload_bytes\": 8836357651,\n      \"exact_gc_offered_payload_bytes\": 8836357651,\n      \"source_ciphertext_delivered_bytes\": 1829580\n    }\n  },\n  \"seconds\": 31727.797,\n  \"wall_seconds\": 32123.833688735962,\n  \"returncode\": 0,\n  \"capacity_pass\": false,\n  \"metrics\": {\n    \"family\": \"lmm\",\n    \"n\": 2000,\n    \"p\": 3,\n    \"grid\": 2,\n    \"candidates\": 4,\n    \"clusters\": 500,\n    \"slots\": 4,\n    \"owners\": 2,\n    \"epsilon\": 8,\n    \"instance\": 1,\n    \"elapsed\": 31542.868,\n    \"successful_call_elapsed\": 31542.724,\n    \"uninterrupted_baseline_elapsed\": 31542.724,\n    \"recovery\": \"not_exercised\",\n    \"native_recovery\": \"not_exercised\",\n    \"end_to_end_release_elapsed\": 31727.797,\n    \"end_to_end_serialized_rpc_bytes\": 24009522847,\n    \"end_to_end_scope\": \"fixture-bootstrap-PSI-signing-source-staged-LMM-and-DP-through-first-successful-release-including-retries-before-oracle-and-replay\",\n    \"release_serialized_rpc_bytes\": 23854381598,\n    \"serialized_rpc_scope\": \"R-v3-serialized-DSI-request-response-objects-including-retries-excluding-IPC-framing\",\n    \"protocol_payload\": {\n      \"exact_gc_unique_payload_bytes\": 8836357651,\n      \"exact_gc_offered_payload_bytes\": 8836357651,\n      \"source_ciphertext_delivered_bytes\": 1829580\n    },\n    \"protocol_payload_scope\": \"public-release-exactGC-and-source-transport-before-replay-no-bootstrap-PSI\",\n    \"expected_oracle_sha256\": \"17c093ad58042d7e1d23e3f5fb402552dc2fb7c9f928586f1044767e5c9f8fe5\",\n    \"oracle_only\": false,\n    \"selected_candidate\": 2,\n    \"exact_best\": 2,\n    \"loss_gap\": 0,\n    \"artifact_key\": \"cf5532d609885974cb0193436c61039468a35da4eefde57d85372e8434f1dbea\",\n    \"certificate_sha256\": \"cb83f3183f2daf5415bd9015f88ffbc84252834bb8a36bad247f5e967a70ab3e\"\n  },\n  \"status\": \"FAIL\",\n  \"finished_epoch\": 1789924217.2384443,\n  \"log\": \"logs/lmm-e8-k2-i01-baseline.log\"\n}\n"
+    },
+    "error": null
+  },
+  {
+    "lane": "fleet",
+    "pod": "15",
+    "assignment": {
+      "job_id": "poisson_glmm-e8-k2-i01-baseline"
+    },
+    "observed_utc": "2026-09-20T18:13:39.060818+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": null
+    },
+    "error": null
+  },
+  {
+    "lane": "fleet",
+    "pod": "16",
+    "assignment": {
+      "job_id": "binomial_glmm-e8-k2-i01-recovery"
+    },
+    "observed_utc": "2026-09-20T18:13:39.273851+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": "{\n  \"job_id\": \"binomial_glmm-e8-k2-i01-recovery\",\n  \"family\": \"binomial_glmm\",\n  \"epsilon\": 8,\n  \"K\": 2,\n  \"instance\": 1,\n  \"mode\": \"recovery\",\n  \"source_commits\": {\n    \"dsVert\": \"502b0058cd4b804b0e7adbba0e4c71485c755989\",\n    \"dsVertClient\": \"4c6c5622fbdc2ae97de315f18c18901d452f3c09\"\n  },\n  \"expected_oracle_sha256\": \"6557396a5365d2c9b1740e12181d695cd10a323b4a3833d780462ef074b37f36\",\n  \"pod\": \"pod16\",\n  \"state_parent\": \"/var/lib/dsvert-heavy-state/binomial_glmm-e8-k2-i01-recovery\",\n  \"started_epoch\": 1789892301.2086468,\n  \"manifest_cli\": \"env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=2000 DSVERT_GRID_VALIDATION_P=3 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=2 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=1 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-release-jobs/binomial_glmm-e8-k2-i01-recovery DSVERT_GRID_VALIDATION_METRICS_PATH=logs/binomial_glmm-e8-k2-i01-recovery.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=6557396a5365d2c9b1740e12181d695cd10a323b4a3833d780462ef074b37f36 Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_binomial_glmm_dslite.R . </dev/null\",\n  \"executed_cli\": \"env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=2000 DSVERT_GRID_VALIDATION_P=3 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=2 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=1 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-heavy-state/binomial_glmm-e8-k2-i01-recovery DSVERT_GRID_VALIDATION_METRICS_PATH=logs/binomial_glmm-e8-k2-i01-recovery.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=6557396a5365d2c9b1740e12181d695cd10a323b4a3833d780462ef074b37f36 Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_binomial_glmm_dslite.R . </dev/null\",\n  \"oracle_equal\": false,\n  \"cold\": false,\n  \"recovery\": false,\n  \"tamper\": false,\n  \"bytes\": {\n    \"serialized_rpc\": null,\n    \"native\": null\n  },\n  \"seconds\": null,\n  \"wall_seconds\": 795.7028586864471,\n  \"returncode\": 1,\n  \"capacity_pass\": false,\n  \"metrics\": {},\n  \"status\": \"FAIL\",\n  \"finished_epoch\": 1789893096.9118276,\n  \"log\": \"logs/binomial_glmm-e8-k2-i01-recovery.log\"\n}\n"
+    },
+    "error": null
+  },
+  {
+    "lane": "fleet",
+    "pod": "17",
+    "assignment": {
+      "job_id": "lmm-e8-k2-i01-recovery"
+    },
+    "observed_utc": "2026-09-20T18:13:40.017812+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": null
+    },
+    "error": null
+  },
+  {
+    "lane": "fleet",
+    "pod": "18",
+    "assignment": {
+      "job_id": "poisson_glmm-e8-k2-i01-recovery"
+    },
+    "observed_utc": "2026-09-20T18:13:40.105045+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": null
+    },
+    "error": null
+  },
+  {
+    "lane": "fleet",
+    "pod": "19",
+    "assignment": {
+      "job_id": "binomial_glmm-e8-k3-i01-baseline"
+    },
+    "observed_utc": "2026-09-20T18:13:40.084192+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": null
+    },
+    "error": null
+  },
+  {
+    "lane": "fleet",
+    "pod": "20",
+    "assignment": {
+      "job_id": "binomial_glmm-e8-k5-i01-baseline"
+    },
+    "observed_utc": "2026-09-20T18:13:40.208945+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": null
+    },
+    "error": null
+  },
+  {
+    "lane": "fleet",
+    "pod": "21",
+    "assignment": {
+      "job_id": "lmm-e8-k3-i01-baseline"
+    },
+    "observed_utc": "2026-09-20T18:13:40.250667+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": "{\n  \"job_id\": \"lmm-e8-k3-i01-baseline\",\n  \"family\": \"lmm\",\n  \"epsilon\": 8,\n  \"K\": 3,\n  \"instance\": 1,\n  \"mode\": \"baseline\",\n  \"source_commits\": {\n    \"dsVert\": \"502b0058cd4b804b0e7adbba0e4c71485c755989\",\n    \"dsVertClient\": \"4c6c5622fbdc2ae97de315f18c18901d452f3c09\"\n  },\n  \"expected_oracle_sha256\": \"17c093ad58042d7e1d23e3f5fb402552dc2fb7c9f928586f1044767e5c9f8fe5\",\n  \"pod\": \"pod21\",\n  \"state_parent\": \"/var/lib/dsvert-heavy-state/lmm-e8-k3-i01-baseline\",\n  \"started_epoch\": 1789892277.0737433,\n  \"manifest_cli\": \"env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=2000 DSVERT_GRID_VALIDATION_P=3 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=3 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=0 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-release-jobs/lmm-e8-k3-i01-baseline DSVERT_GRID_VALIDATION_METRICS_PATH=logs/lmm-e8-k3-i01-baseline.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=17c093ad58042d7e1d23e3f5fb402552dc2fb7c9f928586f1044767e5c9f8fe5 Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_lmm_dslite.R . </dev/null\",\n  \"executed_cli\": \"env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=2000 DSVERT_GRID_VALIDATION_P=3 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=3 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=0 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-heavy-state/lmm-e8-k3-i01-baseline DSVERT_GRID_VALIDATION_METRICS_PATH=logs/lmm-e8-k3-i01-baseline.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=17c093ad58042d7e1d23e3f5fb402552dc2fb7c9f928586f1044767e5c9f8fe5 Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_lmm_dslite.R . </dev/null\",\n  \"oracle_equal\": true,\n  \"cold\": true,\n  \"recovery\": null,\n  \"tamper\": true,\n  \"bytes\": {\n    \"serialized_rpc\": 24030965558,\n    \"native\": {\n      \"exact_gc_unique_payload_bytes\": 8836926020,\n      \"exact_gc_offered_payload_bytes\": 8836926020,\n      \"source_ciphertext_delivered_bytes\": 2744370\n    }\n  },\n  \"seconds\": 29890.088,\n  \"wall_seconds\": 30262.035816907883,\n  \"returncode\": 0,\n  \"capacity_pass\": false,\n  \"metrics\": {\n    \"family\": \"lmm\",\n    \"n\": 2000,\n    \"p\": 3,\n    \"grid\": 2,\n    \"candidates\": 4,\n    \"clusters\": 500,\n    \"slots\": 4,\n    \"owners\": 3,\n    \"epsilon\": 8,\n    \"instance\": 1,\n    \"elapsed\": 29702.66,\n    \"successful_call_elapsed\": 29702.483,\n    \"uninterrupted_baseline_elapsed\": 29702.483,\n    \"recovery\": \"not_exercised\",\n    \"native_recovery\": \"not_exercised\",\n    \"end_to_end_release_elapsed\": 29890.088,\n    \"end_to_end_serialized_rpc_bytes\": 24030965558,\n    \"end_to_end_scope\": \"fixture-bootstrap-PSI-signing-source-staged-LMM-and-DP-through-first-successful-release-including-retries-before-oracle-and-replay\",\n    \"release_serialized_rpc_bytes\": 23872836536,\n    \"serialized_rpc_scope\": \"R-v3-serialized-DSI-request-response-objects-including-retries-excluding-IPC-framing\",\n    \"protocol_payload\": {\n      \"exact_gc_unique_payload_bytes\": 8836926020,\n      \"exact_gc_offered_payload_bytes\": 8836926020,\n      \"source_ciphertext_delivered_bytes\": 2744370\n    },\n    \"protocol_payload_scope\": \"public-release-exactGC-and-source-transport-before-replay-no-bootstrap-PSI\",\n    \"expected_oracle_sha256\": \"17c093ad58042d7e1d23e3f5fb402552dc2fb7c9f928586f1044767e5c9f8fe5\",\n    \"oracle_only\": false,\n    \"selected_candidate\": 2,\n    \"exact_best\": 2,\n    \"loss_gap\": 0,\n    \"artifact_key\": \"a6cf3aa82a3fb38692b4561927b1dcf14c81a2d5fc9e7edb864f58607c6cd9f4\",\n    \"certificate_sha256\": \"ce0aebf39d8ca8f1fc61675fc3b14118f4ee03716a8c32979314706ae1c088e5\"\n  },\n  \"status\": \"FAIL\",\n  \"finished_epoch\": 1789922539.1098151,\n  \"log\": \"logs/lmm-e8-k3-i01-baseline.log\"\n}\n"
+    },
+    "error": null
+  },
+  {
+    "lane": "fleet",
+    "pod": "22",
+    "assignment": {
+      "job_id": "lmm-e8-k5-i01-baseline"
+    },
+    "observed_utc": "2026-09-20T18:13:40.143369+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": "{\n  \"job_id\": \"lmm-e8-k5-i01-baseline\",\n  \"family\": \"lmm\",\n  \"epsilon\": 8,\n  \"K\": 5,\n  \"instance\": 1,\n  \"mode\": \"baseline\",\n  \"source_commits\": {\n    \"dsVert\": \"502b0058cd4b804b0e7adbba0e4c71485c755989\",\n    \"dsVertClient\": \"4c6c5622fbdc2ae97de315f18c18901d452f3c09\"\n  },\n  \"expected_oracle_sha256\": \"17c093ad58042d7e1d23e3f5fb402552dc2fb7c9f928586f1044767e5c9f8fe5\",\n  \"pod\": \"pod22\",\n  \"state_parent\": \"/var/lib/dsvert-heavy-state/lmm-e8-k5-i01-baseline\",\n  \"started_epoch\": 1789892077.678483,\n  \"manifest_cli\": \"env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=2000 DSVERT_GRID_VALIDATION_P=3 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=5 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=0 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-release-jobs/lmm-e8-k5-i01-baseline DSVERT_GRID_VALIDATION_METRICS_PATH=logs/lmm-e8-k5-i01-baseline.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=17c093ad58042d7e1d23e3f5fb402552dc2fb7c9f928586f1044767e5c9f8fe5 Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_lmm_dslite.R . </dev/null\",\n  \"executed_cli\": \"env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=2000 DSVERT_GRID_VALIDATION_P=3 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=5 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=0 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-heavy-state/lmm-e8-k5-i01-baseline DSVERT_GRID_VALIDATION_METRICS_PATH=logs/lmm-e8-k5-i01-baseline.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=17c093ad58042d7e1d23e3f5fb402552dc2fb7c9f928586f1044767e5c9f8fe5 Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_lmm_dslite.R . </dev/null\",\n  \"oracle_equal\": true,\n  \"cold\": true,\n  \"recovery\": null,\n  \"tamper\": true,\n  \"bytes\": {\n    \"serialized_rpc\": 24036925468,\n    \"native\": {\n      \"exact_gc_unique_payload_bytes\": 8838064187,\n      \"exact_gc_offered_payload_bytes\": 8838064187,\n      \"source_ciphertext_delivered_bytes\": 4573950\n    }\n  },\n  \"seconds\": 22774.592,\n  \"wall_seconds\": 23070.632280111313,\n  \"returncode\": 0,\n  \"capacity_pass\": false,\n  \"metrics\": {\n    \"family\": \"lmm\",\n    \"n\": 2000,\n    \"p\": 3,\n    \"grid\": 2,\n    \"candidates\": 4,\n    \"clusters\": 500,\n    \"slots\": 4,\n    \"owners\": 5,\n    \"epsilon\": 8,\n    \"instance\": 1,\n    \"elapsed\": 22607.515,\n    \"successful_call_elapsed\": 22607.341,\n    \"uninterrupted_baseline_elapsed\": 22607.341,\n    \"recovery\": \"not_exercised\",\n    \"native_recovery\": \"not_exercised\",\n    \"end_to_end_release_elapsed\": 22774.592,\n    \"end_to_end_serialized_rpc_bytes\": 24036925468,\n    \"end_to_end_scope\": \"fixture-bootstrap-PSI-signing-source-staged-LMM-and-DP-through-first-successful-release-including-retries-before-oracle-and-replay\",\n    \"release_serialized_rpc_bytes\": 23872623948,\n    \"serialized_rpc_scope\": \"R-v3-serialized-DSI-request-response-objects-including-retries-excluding-IPC-framing\",\n    \"protocol_payload\": {\n      \"exact_gc_unique_payload_bytes\": 8838064187,\n      \"exact_gc_offered_payload_bytes\": 8838064187,\n      \"source_ciphertext_delivered_bytes\": 4573950\n    },\n    \"protocol_payload_scope\": \"public-release-exactGC-and-source-transport-before-replay-no-bootstrap-PSI\",\n    \"expected_oracle_sha256\": \"17c093ad58042d7e1d23e3f5fb402552dc2fb7c9f928586f1044767e5c9f8fe5\",\n    \"oracle_only\": false,\n    \"selected_candidate\": 2,\n    \"exact_best\": 2,\n    \"loss_gap\": 0,\n    \"artifact_key\": \"b55f98aa3ca1151ed7529d58232d0a1898899491db5956ad323470a0d29cf34f\",\n    \"certificate_sha256\": \"5e0c91b5058882451e902c9aebee0ebbe62978ed54ea33acf1e96f6993b25b0b\"\n  },\n  \"status\": \"FAIL\",\n  \"finished_epoch\": 1789915148.3111854,\n  \"log\": \"logs/lmm-e8-k5-i01-baseline.log\"\n}\n"
+    },
+    "error": null
+  },
+  {
+    "lane": "fleet",
+    "pod": "23",
+    "assignment": {
+      "job_id": "poisson_glmm-e8-k3-i01-baseline"
+    },
+    "observed_utc": "2026-09-20T18:13:45.960779+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": null
+    },
+    "error": null
+  },
+  {
+    "lane": "fleet",
+    "pod": "24",
+    "assignment": {
+      "job_id": "poisson_glmm-e8-k5-i01-baseline"
+    },
+    "observed_utc": "2026-09-20T18:13:40.136901+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": null
+    },
+    "error": null
+  },
+  {
+    "lane": "fleet",
+    "pod": "14",
+    "assignment": {
+      "job_id": "cox-e8-k2-i01-baseline"
+    },
+    "observed_utc": "2026-09-20T18:13:39.983566+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": "{\n  \"job_id\": \"cox-e8-k2-i01-baseline\",\n  \"family\": \"cox\",\n  \"epsilon\": 8,\n  \"K\": 2,\n  \"instance\": 1,\n  \"mode\": \"baseline\",\n  \"source_commits\": {\n    \"dsVert\": \"c97cd193c06dbae695792b4a03644c05fa733f8f\",\n    \"dsVertClient\": \"28be3cd6fea312d8f1c2442c810b453ad81080ce\"\n  },\n  \"expected_oracle_sha256\": \"ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d\",\n  \"pod\": \"pod14\",\n  \"state_parent\": \"/var/lib/dsvert-heavy-state/cox-e8-k2-i01-baseline\",\n  \"started_epoch\": 1789925453.5368795,\n  \"manifest_cli\": \"env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=400 DSVERT_GRID_VALIDATION_P=5 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=2 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=0 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-release-jobs/cox-e8-k2-i01-baseline DSVERT_GRID_VALIDATION_METRICS_PATH=logs/cox-e8-k2-i01-baseline.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_cox_dslite.R . </dev/null\",\n  \"executed_cli\": \"env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=400 DSVERT_GRID_VALIDATION_P=5 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=2 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=0 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-heavy-state/cox-e8-k2-i01-baseline DSVERT_GRID_VALIDATION_METRICS_PATH=logs/cox-e8-k2-i01-baseline.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_cox_dslite.R . </dev/null\",\n  \"oracle_equal\": true,\n  \"cold\": true,\n  \"recovery\": null,\n  \"tamper\": true,\n  \"bytes\": {\n    \"serialized_rpc\": 1924635142,\n    \"native\": {\n      \"exact_gc_unique_payload_bytes\": 697023108,\n      \"exact_gc_offered_payload_bytes\": 697023108,\n      \"source_ciphertext_delivered_bytes\": 962908\n    }\n  },\n  \"seconds\": 2386.481,\n  \"wall_seconds\": 2542.1454586982727,\n  \"returncode\": 0,\n  \"capacity_pass\": true,\n  \"metrics\": {\n    \"family\": \"cox\",\n    \"n\": 400,\n    \"p\": 5,\n    \"grid\": 2,\n    \"candidates\": 2,\n    \"clusters\": 100,\n    \"slots\": 4,\n    \"owners\": 2,\n    \"epsilon\": 8,\n    \"instance\": 1,\n    \"elapsed\": 2284.794,\n    \"successful_call_elapsed\": 2284.496,\n    \"uninterrupted_baseline_elapsed\": 2284.496,\n    \"recovery\": \"not_exercised\",\n    \"native_recovery\": \"not_exercised\",\n    \"end_to_end_release_elapsed\": 2386.481,\n    \"end_to_end_serialized_rpc_bytes\": 1924635142,\n    \"end_to_end_scope\": \"fixture-bootstrap-PSI-signing-source-staged-cox-and-DP-through-first-successful-release-including-retries-before-oracle-and-replay\",\n    \"release_serialized_rpc_bytes\": 1882967376,\n    \"serialized_rpc_scope\": \"R-v3-serialized-DSI-request-response-objects-including-retries-excluding-IPC-framing\",\n    \"protocol_payload\": {\n      \"exact_gc_unique_payload_bytes\": 697023108,\n      \"exact_gc_offered_payload_bytes\": 697023108,\n      \"source_ciphertext_delivered_bytes\": 962908\n    },\n    \"protocol_payload_scope\": \"public-release-exactGC-and-source-transport-before-replay-no-bootstrap-PSI\",\n    \"expected_oracle_sha256\": \"ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d\",\n    \"oracle_only\": false,\n    \"selected_candidate\": 2,\n    \"exact_best\": 1,\n    \"loss_gap\": 0.008880615234375,\n    \"artifact_key\": \"6579e5f81678a2f8709dc4875a5c41090c6d19c555161aa3625970ccf3297330\",\n    \"certificate_sha256\": \"b12275fe1b4db141fbaceec695ae0a17c9f63df7ee9645aa24bf06be0af79575\"\n  },\n  \"status\": \"PASS\",\n  \"finished_epoch\": 1789927995.6873214,\n  \"log\": \"logs/cox-e8-k2-i01-baseline.log\"\n}\n"
+    },
+    "error": null
+  },
+  {
+    "lane": "fleet",
+    "pod": "21",
+    "assignment": {
+      "job_id": "cox-e8-k3-i01-baseline"
+    },
+    "observed_utc": "2026-09-20T18:13:40.389099+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": "{\n  \"job_id\": \"cox-e8-k3-i01-baseline\",\n  \"family\": \"cox\",\n  \"epsilon\": 8,\n  \"K\": 3,\n  \"instance\": 1,\n  \"mode\": \"baseline\",\n  \"source_commits\": {\n    \"dsVert\": \"c97cd193c06dbae695792b4a03644c05fa733f8f\",\n    \"dsVertClient\": \"28be3cd6fea312d8f1c2442c810b453ad81080ce\"\n  },\n  \"expected_oracle_sha256\": \"ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d\",\n  \"pod\": \"pod21\",\n  \"state_parent\": \"/var/lib/dsvert-heavy-state/cox-e8-k3-i01-baseline\",\n  \"started_epoch\": 1789925439.1159887,\n  \"manifest_cli\": \"env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=400 DSVERT_GRID_VALIDATION_P=5 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=3 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=0 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-release-jobs/cox-e8-k3-i01-baseline DSVERT_GRID_VALIDATION_METRICS_PATH=logs/cox-e8-k3-i01-baseline.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_cox_dslite.R . </dev/null\",\n  \"executed_cli\": \"env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=400 DSVERT_GRID_VALIDATION_P=5 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=3 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=0 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-heavy-state/cox-e8-k3-i01-baseline DSVERT_GRID_VALIDATION_METRICS_PATH=logs/cox-e8-k3-i01-baseline.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_cox_dslite.R . </dev/null\",\n  \"oracle_equal\": true,\n  \"cold\": true,\n  \"recovery\": null,\n  \"tamper\": true,\n  \"bytes\": {\n    \"serialized_rpc\": 1929795789,\n    \"native\": {\n      \"exact_gc_unique_payload_bytes\": 697212799,\n      \"exact_gc_offered_payload_bytes\": 697212799,\n      \"source_ciphertext_delivered_bytes\": 1444362\n    }\n  },\n  \"seconds\": 2143.125,\n  \"wall_seconds\": 2290.8057911396027,\n  \"returncode\": 0,\n  \"capacity_pass\": true,\n  \"metrics\": {\n    \"family\": \"cox\",\n    \"n\": 400,\n    \"p\": 5,\n    \"grid\": 2,\n    \"candidates\": 2,\n    \"clusters\": 100,\n    \"slots\": 4,\n    \"owners\": 3,\n    \"epsilon\": 8,\n    \"instance\": 1,\n    \"elapsed\": 2048.853,\n    \"successful_call_elapsed\": 2048.676,\n    \"uninterrupted_baseline_elapsed\": 2048.676,\n    \"recovery\": \"not_exercised\",\n    \"native_recovery\": \"not_exercised\",\n    \"end_to_end_release_elapsed\": 2143.125,\n    \"end_to_end_serialized_rpc_bytes\": 1929795789,\n    \"end_to_end_scope\": \"fixture-bootstrap-PSI-signing-source-staged-cox-and-DP-through-first-successful-release-including-retries-before-oracle-and-replay\",\n    \"release_serialized_rpc_bytes\": 1885898259,\n    \"serialized_rpc_scope\": \"R-v3-serialized-DSI-request-response-objects-including-retries-excluding-IPC-framing\",\n    \"protocol_payload\": {\n      \"exact_gc_unique_payload_bytes\": 697212799,\n      \"exact_gc_offered_payload_bytes\": 697212799,\n      \"source_ciphertext_delivered_bytes\": 1444362\n    },\n    \"protocol_payload_scope\": \"public-release-exactGC-and-source-transport-before-replay-no-bootstrap-PSI\",\n    \"expected_oracle_sha256\": \"ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d\",\n    \"oracle_only\": false,\n    \"selected_candidate\": 1,\n    \"exact_best\": 1,\n    \"loss_gap\": 0,\n    \"artifact_key\": \"b2fda7e10ce3e0fef8147f927b4e61e1e2b74c2add6a4cb1c1a06b9557804a91\",\n    \"certificate_sha256\": \"68fa3eee66dd2153b0a5d1af239e5be9e845e5cb1750e9bbebcdd67f92889b00\"\n  },\n  \"status\": \"PASS\",\n  \"finished_epoch\": 1789927729.9220173,\n  \"log\": \"logs/cox-e8-k3-i01-baseline.log\"\n}\n"
+    },
+    "error": null
+  },
+  {
+    "lane": "fleet",
+    "pod": "22",
+    "assignment": {
+      "job_id": "cox-e8-k5-i01-baseline"
+    },
+    "observed_utc": "2026-09-20T18:13:40.210929+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": "{\n  \"job_id\": \"cox-e8-k5-i01-baseline\",\n  \"family\": \"cox\",\n  \"epsilon\": 8,\n  \"K\": 5,\n  \"instance\": 1,\n  \"mode\": \"baseline\",\n  \"source_commits\": {\n    \"dsVert\": \"c97cd193c06dbae695792b4a03644c05fa733f8f\",\n    \"dsVertClient\": \"28be3cd6fea312d8f1c2442c810b453ad81080ce\"\n  },\n  \"expected_oracle_sha256\": \"ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d\",\n  \"pod\": \"pod22\",\n  \"state_parent\": \"/var/lib/dsvert-heavy-state/cox-e8-k5-i01-baseline\",\n  \"started_epoch\": 1789925434.9478743,\n  \"manifest_cli\": \"env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=400 DSVERT_GRID_VALIDATION_P=5 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=5 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=0 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-release-jobs/cox-e8-k5-i01-baseline DSVERT_GRID_VALIDATION_METRICS_PATH=logs/cox-e8-k5-i01-baseline.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_cox_dslite.R . </dev/null\",\n  \"executed_cli\": \"env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=400 DSVERT_GRID_VALIDATION_P=5 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=5 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=0 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-heavy-state/cox-e8-k5-i01-baseline DSVERT_GRID_VALIDATION_METRICS_PATH=logs/cox-e8-k5-i01-baseline.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_cox_dslite.R . </dev/null\",\n  \"oracle_equal\": true,\n  \"cold\": true,\n  \"recovery\": null,\n  \"tamper\": true,\n  \"bytes\": {\n    \"serialized_rpc\": 1939353181,\n    \"native\": {\n      \"exact_gc_unique_payload_bytes\": 697592097,\n      \"exact_gc_offered_payload_bytes\": 697592097,\n      \"source_ciphertext_delivered_bytes\": 2407270\n    }\n  },\n  \"seconds\": 1741.763,\n  \"wall_seconds\": 1870.4382183551788,\n  \"returncode\": 0,\n  \"capacity_pass\": true,\n  \"metrics\": {\n    \"family\": \"cox\",\n    \"n\": 400,\n    \"p\": 5,\n    \"grid\": 2,\n    \"candidates\": 2,\n    \"clusters\": 100,\n    \"slots\": 4,\n    \"owners\": 5,\n    \"epsilon\": 8,\n    \"instance\": 1,\n    \"elapsed\": 1648.736,\n    \"successful_call_elapsed\": 1648.577,\n    \"uninterrupted_baseline_elapsed\": 1648.577,\n    \"recovery\": \"not_exercised\",\n    \"native_recovery\": \"not_exercised\",\n    \"end_to_end_release_elapsed\": 1741.763,\n    \"end_to_end_serialized_rpc_bytes\": 1939353181,\n    \"end_to_end_scope\": \"fixture-bootstrap-PSI-signing-source-staged-cox-and-DP-through-first-successful-release-including-retries-before-oracle-and-replay\",\n    \"release_serialized_rpc_bytes\": 1890877318,\n    \"serialized_rpc_scope\": \"R-v3-serialized-DSI-request-response-objects-including-retries-excluding-IPC-framing\",\n    \"protocol_payload\": {\n      \"exact_gc_unique_payload_bytes\": 697592097,\n      \"exact_gc_offered_payload_bytes\": 697592097,\n      \"source_ciphertext_delivered_bytes\": 2407270\n    },\n    \"protocol_payload_scope\": \"public-release-exactGC-and-source-transport-before-replay-no-bootstrap-PSI\",\n    \"expected_oracle_sha256\": \"ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d\",\n    \"oracle_only\": false,\n    \"selected_candidate\": 2,\n    \"exact_best\": 1,\n    \"loss_gap\": 0.008880615234375,\n    \"artifact_key\": \"9026f412d510d9d8df2e5abc024b9373ee9a4767c6964481fb7e84f9c31ff52a\",\n    \"certificate_sha256\": \"d65c8b4dfd80a9b882bfdf13dd38bdd8c9f253da6f8a43ce95922aed4cb480c0\"\n  },\n  \"status\": \"PASS\",\n  \"finished_epoch\": 1789927305.3865848,\n  \"log\": \"logs/cox-e8-k5-i01-baseline.log\"\n}\n"
+    },
+    "error": null
+  },
+  {
+    "lane": "fleet",
+    "pod": "16",
+    "assignment": {
+      "job_id": "cox-e8-k2-i01-recovery"
+    },
+    "observed_utc": "2026-09-20T18:13:40.210782+00:00",
+    "returncode": 0,
+    "observation": {
+      "release.exit": null,
+      "RESULT.json": "{\n  \"job_id\": \"cox-e8-k2-i01-recovery\",\n  \"family\": \"cox\",\n  \"epsilon\": 8,\n  \"K\": 2,\n  \"instance\": 1,\n  \"mode\": \"recovery\",\n  \"source_commits\": {\n    \"dsVert\": \"c97cd193c06dbae695792b4a03644c05fa733f8f\",\n    \"dsVertClient\": \"28be3cd6fea312d8f1c2442c810b453ad81080ce\"\n  },\n  \"expected_oracle_sha256\": \"ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d\",\n  \"pod\": \"pod16\",\n  \"state_parent\": \"/var/lib/dsvert-heavy-state/cox-e8-k2-i01-recovery\",\n  \"started_epoch\": 1789925433.0058029,\n  \"manifest_cli\": \"env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=400 DSVERT_GRID_VALIDATION_P=5 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=2 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=1 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-release-jobs/cox-e8-k2-i01-recovery DSVERT_GRID_VALIDATION_METRICS_PATH=logs/cox-e8-k2-i01-recovery.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_cox_dslite.R . </dev/null\",\n  \"executed_cli\": \"env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=400 DSVERT_GRID_VALIDATION_P=5 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=2 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=1 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-heavy-state/cox-e8-k2-i01-recovery DSVERT_GRID_VALIDATION_METRICS_PATH=logs/cox-e8-k2-i01-recovery.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_cox_dslite.R . </dev/null\",\n  \"oracle_equal\": false,\n  \"cold\": false,\n  \"recovery\": false,\n  \"tamper\": false,\n  \"bytes\": {\n    \"serialized_rpc\": null,\n    \"native\": null\n  },\n  \"seconds\": null,\n  \"wall_seconds\": 1991.661015033722,\n  \"returncode\": 1,\n  \"capacity_pass\": false,\n  \"metrics\": {},\n  \"status\": \"FAIL\",\n  \"finished_epoch\": 1789927424.6671484,\n  \"log\": \"logs/cox-e8-k2-i01-recovery.log\"\n}\n"
+    },
+    "error": null
+  }
+]

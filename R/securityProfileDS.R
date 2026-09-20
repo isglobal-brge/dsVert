@@ -114,6 +114,7 @@
   "dsvertDPSynopsisCategoricalCrossBindDS",
   "dsvertDPSynopsisCategoricalCrossFinalizeDS",
   "dsvertDPSynopsisGaussianCrossBindDS",
+  "dsvertDPSynopsisGLMGridCrossDS",
   "dsvertDPSynopsisGaussianCrossFinalizeDS",
   "dsvertDPSynopsisGaussianCrossEvidenceDS",
   "dsvertDPSynopsisAlignmentMaskStartDS",

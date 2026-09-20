@@ -1,0 +1,76 @@
+{
+  "envelope": {
+    "bytes": 256000000000,
+    "seconds": 28800
+  },
+  "samples": {
+    "nb": {
+      "source_commits": {
+        "dsVert": "f3795a2afc4fbb03eb7137ee3fbccefc75748c76",
+        "dsVertClient": "e748f0590168a671160f1c96dd49b3b9fa395ab2"
+      },
+      "serialized_rpc_bytes": 3563865032,
+      "release_seconds": 4513.6,
+      "scope": "maximum across retained nine fleet cells; byte and time maxima may come from different cells",
+      "capacity_pass": true,
+      "evidence": "cycle32-20260920/SIMPLE_RECONCILIATION.json"
+    },
+    "lasso": {
+      "source_commits": {
+        "dsVert": "f3795a2afc4fbb03eb7137ee3fbccefc75748c76",
+        "dsVertClient": "e748f0590168a671160f1c96dd49b3b9fa395ab2"
+      },
+      "serialized_rpc_bytes": 2847066650,
+      "release_seconds": 3862.188,
+      "scope": "maximum across retained nine fleet cells; byte and time maxima may come from different cells",
+      "capacity_pass": true,
+      "evidence": "cycle32-20260920/SIMPLE_RECONCILIATION.json"
+    },
+    "multinomial": {
+      "source_commits": {
+        "dsVert": "f3795a2afc4fbb03eb7137ee3fbccefc75748c76",
+        "dsVertClient": "e748f0590168a671160f1c96dd49b3b9fa395ab2"
+      },
+      "serialized_rpc_bytes": 6879476337,
+      "release_seconds": 7021.332,
+      "scope": "maximum across retained nine fleet cells; byte and time maxima may come from different cells",
+      "capacity_pass": true,
+      "evidence": "cycle32-20260920/SIMPLE_RECONCILIATION.json"
+    },
+    "ordinal": {
+      "source_commits": {
+        "dsVert": "f3795a2afc4fbb03eb7137ee3fbccefc75748c76",
+        "dsVertClient": "e748f0590168a671160f1c96dd49b3b9fa395ab2"
+      },
+      "serialized_rpc_bytes": 4196242255,
+      "release_seconds": 4946.68,
+      "scope": "maximum across retained nine fleet cells; byte and time maxima may come from different cells",
+      "capacity_pass": true,
+      "evidence": "cycle32-20260920/SIMPLE_RECONCILIATION.json"
+    },
+    "lmm": {
+      "source_commits": {
+        "dsVert": "502b0058cd4b804b0e7adbba0e4c71485c755989",
+        "dsVertClient": "4c6c5622fbdc2ae97de315f18c18901d452f3c09"
+      },
+      "serialized_rpc_bytes": 24036925468,
+      "release_seconds": 22774.592,
+      "native_payload": {
+        "exact_gc_unique_payload_bytes": 8838064187,
+        "exact_gc_offered_payload_bytes": 8838064187,
+        "source_ciphertext_delivered_bytes": 4573950
+      },
+      "scope": "epsilon8 K5 baseline only; family recovery and K2/K3 pending",
+      "capacity_pass": true,
+      "evidence": "cycle43-20260920/FLEET_RESCORED.jsonl"
+    }
+  },
+  "unmeasured_families": [
+    "binomial_glmm",
+    "poisson_glmm",
+    "binomial_gee",
+    "poisson_gee",
+    "cox"
+  ],
+  "note": "No extrapolation, no runtime/source reattribution. Historical kernel measurements remain separate."
+}

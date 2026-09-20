@@ -1,0 +1,9 @@
+{
+  "cox_unchanged_tests_snapshot": "remote-r3",
+  "cox_updated_test_snapshot": "remote-r4",
+  "updated_test": "Cox worker preparation authenticates the owner route and cold source before native handoff",
+  "superseded_failures": 9,
+  "reason": "Only evaluator list field ordering changed by canonical JSON; final comparison covers complete canonical content, including signatures.",
+  "shared_server_snapshot": "remote-r4",
+  "client_and_existing_endpoint_snapshot": "remote-r2"
+}

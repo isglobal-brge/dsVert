@@ -1,0 +1,29 @@
+{
+  "status": "PASS",
+  "scope": "focused tests only; no real n2000 release or measured capacity",
+  "source_commits": {
+    "dsVert": "a3964d39c26909d8f805f64cbfe2ad3a81b138b5",
+    "dsVertClient": "6d94d4c9e15b9261a31b4499837d200ea1caea17"
+  },
+  "source_manifest_sha256": "f6f7e9543975ffd0de441fce2c4259088f7446040fdfc1f9216cea7795cae6d0",
+  "native_source_inputs_matched": 614,
+  "native_top_level_passes": 25,
+  "focused_R": {
+    "dsVert": 629,
+    "dsVertClient": 288,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "warnings": 0,
+    "snapshot": "/workspace/dsvert/gee-fixed-rho-r5",
+    "elapsed_seconds": 113.30942916870117
+  },
+  "artifacts": {
+    "evidence/dev-r3/logs/gee-native-focused.log": "4be87a0c3137699068bc36973a45ba64e72ded6548a6ba019c503d38e03c3554",
+    "evidence/dev-r3/logs/gee-native-focused.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "evidence/dev-r3/frozen-source-manifest.json": "cc108c3eb3881957c98534c4d65e73a6c6b09990018cde584db58bb95cdd0305",
+    "evidence/r5/logs/gee-r-focused.log": "be0b1110033bdbbd7df95a3f436e66e4b3553474003bbc6498ae0715dd8957e5",
+    "evidence/r5/logs/gee-r-focused.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "evidence/r5/frozen-source-manifest.json": "f6f7e9543975ffd0de441fce2c4259088f7446040fdfc1f9216cea7795cae6d0"
+  }
+}

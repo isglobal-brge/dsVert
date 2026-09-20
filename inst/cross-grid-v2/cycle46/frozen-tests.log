@@ -1,0 +1,55 @@
+crossgrid-cox: ..................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................1........................2..........................3.
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Failure ('test-crossgrid-cox.R:1816:5'): Cox workload admission authentica
+`admit(schema = f$sign_schema(changed))` threw an error with unexpected class.
+Expected class: dsvert_dp_public_failure
+Actual class:   simpleError/error/condition
+Message:        A local numeric bound conflicts with the signed schema.
+Backtrace:
+    ▆
+ 1. ├─testthat::expect_error(...) at test-crossgrid-cox.R:1816:5
+ 2. │ └─testthat:::quasi_capture(...)
+ 3. │   ├─testthat (local) .capture(...)
+ 4. │   │ └─base::withCallingHandlers(...)
+ 5. │   └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+ 6. └─dsVert (local) admit(schema = f$sign_schema(changed))
+ 7.   └─dsVert:::.dsvert_dp_capsule_workload_manifest(...) at test-crossgrid-cox.R:1771:7
+ 8.     └─dsVert:::.dsvert_dp_capsule_validate_local_schema(policy, schema) at dsVert/R/dpCapsuleWorkload.R:2988:5
+
+── 2. Failure ('test-crossgrid-cox.R:1816:5'): Cox workload admission authentica
+`admit(schema = f$sign_schema(changed))` threw an error with unexpected class.
+Expected class: dsvert_dp_public_failure
+Actual class:   simpleError/error/condition
+Message:        A local numeric bound conflicts with the signed schema.
+Backtrace:
+    ▆
+ 1. ├─testthat::expect_error(...) at test-crossgrid-cox.R:1816:5
+ 2. │ └─testthat:::quasi_capture(...)
+ 3. │   ├─testthat (local) .capture(...)
+ 4. │   │ └─base::withCallingHandlers(...)
+ 5. │   └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+ 6. └─dsVert (local) admit(schema = f$sign_schema(changed))
+ 7.   └─dsVert:::.dsvert_dp_capsule_workload_manifest(...) at test-crossgrid-cox.R:1771:7
+ 8.     └─dsVert:::.dsvert_dp_capsule_validate_local_schema(policy, schema) at dsVert/R/dpCapsuleWorkload.R:2988:5
+
+── 3. Failure ('test-crossgrid-cox.R:1816:5'): Cox workload admission authentica
+`admit(schema = f$sign_schema(changed))` threw an error with unexpected class.
+Expected class: dsvert_dp_public_failure
+Actual class:   simpleError/error/condition
+Message:        A local numeric bound conflicts with the signed schema.
+Backtrace:
+    ▆
+ 1. ├─testthat::expect_error(...) at test-crossgrid-cox.R:1816:5
+ 2. │ └─testthat:::quasi_capture(...)
+ 3. │   ├─testthat (local) .capture(...)
+ 4. │   │ └─base::withCallingHandlers(...)
+ 5. │   └─rlang::eval_bare(quo_get_expr(.quo), quo_get_env(.quo))
+ 6. └─dsVert (local) admit(schema = f$sign_schema(changed))
+ 7.   └─dsVert:::.dsvert_dp_capsule_workload_manifest(...) at test-crossgrid-cox.R:1771:7
+ 8.     └─dsVert:::.dsvert_dp_capsule_validate_local_schema(policy, schema) at dsVert/R/dpCapsuleWorkload.R:2988:5
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+dp-glm-grid-cross-contract: ........................................................................................................................................................................................................................................................................................................................................
+
+══ DONE ════════════════════════════════════════════════════════════════════════

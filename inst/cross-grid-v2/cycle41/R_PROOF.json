@@ -1,0 +1,48 @@
+{
+  "observed_utc": "2026-09-20T14:59:09.643619+00:00",
+  "source_commits": {
+    "dsVert": "6dbbf529ba162ee4d369b435b5e7dad3e08a6b2c",
+    "dsVertClient": "55f4793778d4d1613320dfc96e8c7fea576d6a82"
+  },
+  "tests": 45,
+  "assertions": 1081,
+  "failures": 0,
+  "errors": 0,
+  "warnings": 0,
+  "skips": 0,
+  "coverage": [
+    "test-dp-cox-cross-public-evidence.R.csv",
+    "final/test-dp-cox-grid-cross.R.csv",
+    "final/test-dp-cox-catalog-draft.R.csv",
+    "regression/test-dp-capsule-manifest-client.R.csv",
+    "regression/test-crossgrid-glmm-gaussian-preflight.R.csv",
+    "regression/test-dp-lmm-cross-public-release.R.csv",
+    "regression/test-dp-glm-grid-cross-contract.R.csv",
+    "regression/test-dp-lmm-signed-admission.R.csv"
+  ],
+  "snapshots": {
+    "proof-r1": {
+      "files": 2956,
+      "unchanged": true,
+      "manifest_sha256": "ea16c1c40d5fa49fa6afbfc95bcdf40e97697c8f119c1682d0be74a1cd4bc1bb"
+    },
+    "proof-r2": {
+      "files": 2957,
+      "unchanged": true,
+      "manifest_sha256": "32e7eb18f1860f03054e6b6a0eaf659d86c78c46f89f989bdcd1f87df7882779"
+    },
+    "proof-r3": {
+      "files": 2957,
+      "unchanged": true,
+      "manifest_sha256": "5038a3a327fdcd827b2927637075a61355569be85635595bbb967066400ac383"
+    },
+    "baseline": {
+      "files": 2957,
+      "unchanged": true,
+      "manifest_sha256": "5d8c15417bb183d61b352e84bdc1da60fca5c4bcabb62b0234c671d36e1b42e4"
+    }
+  },
+  "scope": "Cox K2/K3/K5 real signed draft parsing, preflight tamper/owner rejection, existing Cox contract/reader, catalog and GLM/LMM regressions; no complete Cox source sharing or DP release",
+  "retained_failures": "proof-r1/r2 assertions compared uncanonicalized list order; final.log broader mock lookup needed explicit testthat package. Production code unchanged across all fixed snapshots. Baseline prior code rejects the valid signed Cox draft.",
+  "shared_dp": "Optional Gaussian certified-support gap remains live; certified Laplace fallback regression passes. Shared sampler unchanged and owned here; GEE lane must not fork a fix."
+}

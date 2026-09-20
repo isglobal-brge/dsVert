@@ -1,0 +1,18 @@
+dp-gee-staged-artifact: ..................................................................................................................................
+dp-gee-staged-contract: ..............................................................................................................................................
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+                                                                           test
+1                  staged GEE reconstruction checks the entire beta-only vector
+2 fixed-rho GEE public admission and preflight preserve separated owner sources
+3       fixed-rho staged GEE binds native cap scales and keeps legacy contracts
+4                GEE n2000 descriptor is an explicit bounded measurement domain
+5          fixed-rho sensitivity counts affected clusters, not cluster capacity
+6  analyst fixed-rho parameters admit exactly the retained working correlations
+  failed error passed skipped
+1      0 FALSE     28   FALSE
+2      0 FALSE    102   FALSE
+3      0 FALSE     50   FALSE
+4      0 FALSE      6   FALSE
+5      0 FALSE     14   FALSE
+6      0 FALSE     72   FALSE

@@ -1,0 +1,15 @@
+=== RUN   TestCrossGridFullMeasurement
+=== RUN   TestCrossGridFullMeasurement/binomial
+    cross_grid_full_benchmark_test.go:146: compiled family=binomial rows=32 candidates=8 elapsed=36.918
+    cross_grid_full_benchmark_test.go:146: compiled family=binomial rows=8 candidates=8 elapsed=39.832
+    cross_grid_full_benchmark_test.go:210: KERNEL_MEASUREMENT family=binomial n=1000 p=10 grid=16 batches=64 and=67276320 wire_bytes=2650399229 seconds=22.369
+    cross_grid_full_benchmark_test.go:214: FULL_MEASUREMENT {"authenticated_server_release":false,"batches":64,"compile_seconds":39.832678125,"family":"binomial","grid":16,"integer_and_dp_oracle_equal":true,"joint_noise_seconds":12.703875708,"joint_noise_wire_bytes":175312308,"kernel_and":67276320,"kernel_and_per_eval":4204.77,"kernel_seconds":22.369050709,"kernel_wire_bytes":2650399229,"n":1000,"p":10,"peer_pairs":3,"total_seconds":74.905609417,"total_wire_bytes":2825711537}
+=== RUN   TestCrossGridFullMeasurement/poisson
+    cross_grid_full_benchmark_test.go:146: compiled family=poisson rows=32 candidates=8 elapsed=35.295
+    cross_grid_full_benchmark_test.go:146: compiled family=poisson rows=8 candidates=8 elapsed=41.770
+    cross_grid_full_benchmark_test.go:210: KERNEL_MEASUREMENT family=poisson n=1000 p=10 grid=16 batches=64 and=87463472 wire_bytes=3296741401 seconds=31.847
+    cross_grid_full_benchmark_test.go:214: FULL_MEASUREMENT {"authenticated_server_release":false,"batches":64,"compile_seconds":41.771379792,"family":"poisson","grid":16,"integer_and_dp_oracle_equal":true,"joint_noise_seconds":21.813206208,"joint_noise_wire_bytes":201016661,"kernel_and":87463472,"kernel_and_per_eval":5466.467,"kernel_seconds":31.846831958,"kernel_wire_bytes":3296741401,"n":1000,"p":10,"peer_pairs":3,"total_seconds":95.431430167,"total_wire_bytes":3497758062}
+--- PASS: TestCrossGridFullMeasurement (170.34s)
+    --- PASS: TestCrossGridFullMeasurement/binomial (74.91s)
+    --- PASS: TestCrossGridFullMeasurement/poisson (95.43s)
+PASS

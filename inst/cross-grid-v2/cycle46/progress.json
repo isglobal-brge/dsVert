@@ -1,0 +1,26 @@
+{
+  "cycle": 46,
+  "observed_utc": "2026-09-20T16:24:15.329026+00:00",
+  "execution_source_commits": {
+    "dsVert": "2a718cd4866574824ad9db1178ede49be33cecb5",
+    "dsVertClient": "bf737442adbca7ac733518da32c9cb0cd6338870"
+  },
+  "promoted": 4,
+  "promotion_source_commits": {
+    "dsVert": "f3795a2",
+    "dsVertClient": "e748f05"
+  },
+  "cox_workload_admission": true,
+  "cox_public_ready": false,
+  "tests": 63,
+  "assertions": 2982,
+  "final_nonpasses": 0,
+  "capacity_seconds": 28800,
+  "capacity_bytes": 256000000000,
+  "heavy_running": 10,
+  "heavy_terminal": 2,
+  "heavy_pass": 1,
+  "heavy_fail": 1,
+  "next": "Cox publication/certificate/public reader and coordinated runtime admission, then signed lifecycle and first fleet jobs",
+  "gee_files_changed": false
+}

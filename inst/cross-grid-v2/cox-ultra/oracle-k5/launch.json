@@ -1,0 +1,34 @@
+{
+  "pid": 34601,
+  "started_utc": "2026-09-20T17:06:50.749698+00:00",
+  "snapshot": "/Users/david/Documents/GitHub/dsvert-crossowner/integrator-evidence/cox-ultra/oracle-k5",
+  "command": [
+    "Rscript",
+    "--vanilla",
+    "dsVert/inst/cross-grid-v2/integrator-validation/validate_cox_dslite.R",
+    "/Users/david/Documents/GitHub/dsvert-crossowner/integrator-evidence/cox-ultra/oracle-k5"
+  ],
+  "env": {
+    "DSVERT_RELEASE_TTL_SECONDS": "900",
+    "DSVERT_RELEASE_MAX_RUNTIME_SECONDS": "86400",
+    "DSVERT_GRID_VALIDATION_N": "400",
+    "DSVERT_GRID_VALIDATION_P": "5",
+    "DSVERT_GRID_VALIDATION_GRID": "2",
+    "DSVERT_GRID_VALIDATION_EPSILON": "8",
+    "DSVERT_GRID_VALIDATION_OWNERS": "5",
+    "DSVERT_GRID_VALIDATION_REAL_COUNT": "0",
+    "DSVERT_GRID_VALIDATION_ORACLE_ONLY": "1",
+    "DSVERT_GRID_VALIDATION_COLD": "1",
+    "DSVERT_GRID_VALIDATION_INTERRUPT": "0",
+    "DSVERT_GRID_VALIDATION_KEEP_STATE": "1",
+    "DSVERT_GRID_VALIDATION_PROGRESS": "1",
+    "DSVERT_GRID_VALIDATION_METRICS_PATH": "/Users/david/Documents/GitHub/dsvert-crossowner/integrator-evidence/cox-ultra/oracle-k5/logs/metrics.json"
+  },
+  "source_commits": {
+    "dsVert": "ad276b565d85fce3d01204365cce25b5380c99d3",
+    "dsVertClient": "37f19caca4a75347bf94f08fad53aa06659556aa"
+  },
+  "manifest_sha256": "1a906efe8a17cd2d3f35435e88dc85fc22394574a7c52a3932c792cefe38a0fa",
+  "oracle_binary_sha256": "af980051f9366b649828f791e4f1987edc899fdb920254e867199665f05c5258",
+  "scope": "source-only oracle commitment"
+}

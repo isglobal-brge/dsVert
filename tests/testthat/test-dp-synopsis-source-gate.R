@@ -58,14 +58,14 @@
   all(vapply(c(
     ".dsvert_dp_synopsis_source_transport_context_v1",
     ".dsvert_dp_synopsis_source_transport_gate_v1"), exists, logical(1L),
-    mode = "function", inherits = TRUE))
+    mode = "function", envir = asNamespace("dsVert"), inherits = FALSE))
 }
 test_that("synopsis source context and gate have a closed internal ABI", {
   symbols <- c(
     ".dsvert_dp_synopsis_source_transport_context_v1",
     ".dsvert_dp_synopsis_source_transport_gate_v1")
   available <- vapply(
-    symbols, exists, logical(1L), mode = "function", inherits = TRUE)
+    symbols, exists, logical(1L), mode = "function", envir = asNamespace("dsVert"), inherits = FALSE)
   expect_true(available[[1L]], info = paste("missing", symbols[[1L]]))
   expect_true(available[[2L]], info = paste("missing", symbols[[2L]]))
   if (all(available)) {

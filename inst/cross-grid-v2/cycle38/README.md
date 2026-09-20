@@ -1,0 +1,1 @@
+Cycle38 evidence. Run scripts from integrator-evidence/cycle38-20260920, not this archive. Execution/manifest pins precede this documentation-only checkpoint. Full snapshots remain in the original workspace.

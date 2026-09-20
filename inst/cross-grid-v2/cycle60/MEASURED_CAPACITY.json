@@ -1,0 +1,183 @@
+[
+  {
+    "job_id": "lmm-e8-k2-i01-baseline",
+    "source_commits": {
+      "dsVert": "502b0058cd4b804b0e7adbba0e4c71485c755989",
+      "dsVertClient": "4c6c5622fbdc2ae97de315f18c18901d452f3c09"
+    },
+    "status": "PASS",
+    "seconds": 31727.797,
+    "bytes": {
+      "serialized_rpc": 24009522847,
+      "native": {
+        "exact_gc_unique_payload_bytes": 8836357651,
+        "exact_gc_offered_payload_bytes": 8836357651,
+        "source_ciphertext_delivered_bytes": 1829580
+      }
+    },
+    "wall_seconds": 32123.833688735962,
+    "peak_rss_bytes": null,
+    "capacity_pass": false,
+    "recovery": null
+  },
+  {
+    "job_id": "binomial_glmm-e8-k2-i01-recovery",
+    "source_commits": {
+      "dsVert": "502b0058cd4b804b0e7adbba0e4c71485c755989",
+      "dsVertClient": "4c6c5622fbdc2ae97de315f18c18901d452f3c09"
+    },
+    "status": "FAIL",
+    "seconds": null,
+    "bytes": {
+      "serialized_rpc": null,
+      "native": null
+    },
+    "wall_seconds": 795.7028586864471,
+    "peak_rss_bytes": null,
+    "capacity_pass": false,
+    "recovery": false
+  },
+  {
+    "job_id": "lmm-e8-k3-i01-baseline",
+    "source_commits": {
+      "dsVert": "502b0058cd4b804b0e7adbba0e4c71485c755989",
+      "dsVertClient": "4c6c5622fbdc2ae97de315f18c18901d452f3c09"
+    },
+    "status": "PASS",
+    "seconds": 29890.088,
+    "bytes": {
+      "serialized_rpc": 24030965558,
+      "native": {
+        "exact_gc_unique_payload_bytes": 8836926020,
+        "exact_gc_offered_payload_bytes": 8836926020,
+        "source_ciphertext_delivered_bytes": 2744370
+      }
+    },
+    "wall_seconds": 30262.035816907883,
+    "peak_rss_bytes": null,
+    "capacity_pass": false,
+    "recovery": null
+  },
+  {
+    "job_id": "lmm-e8-k5-i01-baseline",
+    "source_commits": {
+      "dsVert": "502b0058cd4b804b0e7adbba0e4c71485c755989",
+      "dsVertClient": "4c6c5622fbdc2ae97de315f18c18901d452f3c09"
+    },
+    "status": "PASS",
+    "seconds": 22774.592,
+    "bytes": {
+      "serialized_rpc": 24036925468,
+      "native": {
+        "exact_gc_unique_payload_bytes": 8838064187,
+        "exact_gc_offered_payload_bytes": 8838064187,
+        "source_ciphertext_delivered_bytes": 4573950
+      }
+    },
+    "wall_seconds": 23070.632280111313,
+    "peak_rss_bytes": null,
+    "capacity_pass": true,
+    "recovery": null
+  },
+  {
+    "job_id": "cox-e8-k5-i01-baseline",
+    "source_commits": {
+      "dsVert": "c97cd193c06dbae695792b4a03644c05fa733f8f",
+      "dsVertClient": "28be3cd6fea312d8f1c2442c810b453ad81080ce"
+    },
+    "status": "PASS",
+    "seconds": 1741.763,
+    "bytes": {
+      "serialized_rpc": 1939353181,
+      "native": {
+        "exact_gc_unique_payload_bytes": 697592097,
+        "exact_gc_offered_payload_bytes": 697592097,
+        "source_ciphertext_delivered_bytes": 2407270
+      }
+    },
+    "wall_seconds": 1870.4382183551788,
+    "peak_rss_bytes": null,
+    "capacity_pass": true,
+    "recovery": null
+  },
+  {
+    "job_id": "cox-e8-k2-i01-recovery",
+    "source_commits": {
+      "dsVert": "c97cd193c06dbae695792b4a03644c05fa733f8f",
+      "dsVertClient": "28be3cd6fea312d8f1c2442c810b453ad81080ce"
+    },
+    "status": "FAIL",
+    "seconds": null,
+    "bytes": {
+      "serialized_rpc": null,
+      "native": null
+    },
+    "wall_seconds": 1991.661015033722,
+    "peak_rss_bytes": null,
+    "capacity_pass": false,
+    "recovery": false
+  },
+  {
+    "job_id": "cox-e8-k2-i01-baseline",
+    "source_commits": {
+      "dsVert": "c97cd193c06dbae695792b4a03644c05fa733f8f",
+      "dsVertClient": "28be3cd6fea312d8f1c2442c810b453ad81080ce"
+    },
+    "status": "PASS",
+    "seconds": 1805.642,
+    "bytes": {
+      "serialized_rpc": 1924671838,
+      "native": {
+        "exact_gc_unique_payload_bytes": 697023026,
+        "exact_gc_offered_payload_bytes": 697023026,
+        "source_ciphertext_delivered_bytes": 962908
+      }
+    },
+    "wall_seconds": 1925.3425424098969,
+    "peak_rss_bytes": null,
+    "capacity_pass": true,
+    "recovery": null
+  },
+  {
+    "job_id": "cox-e8-k3-i01-baseline",
+    "source_commits": {
+      "dsVert": "c97cd193c06dbae695792b4a03644c05fa733f8f",
+      "dsVertClient": "28be3cd6fea312d8f1c2442c810b453ad81080ce"
+    },
+    "status": "PASS",
+    "seconds": 1376.989,
+    "bytes": {
+      "serialized_rpc": 1929295234,
+      "native": {
+        "exact_gc_unique_payload_bytes": 697212907,
+        "exact_gc_offered_payload_bytes": 697212907,
+        "source_ciphertext_delivered_bytes": 1444362
+      }
+    },
+    "wall_seconds": 1484.260234594345,
+    "peak_rss_bytes": null,
+    "capacity_pass": true,
+    "recovery": null
+  },
+  {
+    "job_id": "cox-e8-k5-i01-baseline",
+    "source_commits": {
+      "dsVert": "c97cd193c06dbae695792b4a03644c05fa733f8f",
+      "dsVertClient": "28be3cd6fea312d8f1c2442c810b453ad81080ce"
+    },
+    "status": "PASS",
+    "seconds": 1330.511,
+    "bytes": {
+      "serialized_rpc": 1939365306,
+      "native": {
+        "exact_gc_unique_payload_bytes": 697592019,
+        "exact_gc_offered_payload_bytes": 697592019,
+        "source_ciphertext_delivered_bytes": 2407270
+      }
+    },
+    "wall_seconds": 1435.4893732070923,
+    "peak_rss_bytes": null,
+    "capacity_pass": true,
+    "recovery": null
+  }
+]

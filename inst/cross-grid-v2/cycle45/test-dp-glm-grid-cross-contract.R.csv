@@ -1,0 +1,21 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","new cross grid contracts accept only complete authenticated public plans",20,0,FALSE,FALSE,0,0.893,0.065,0.958,20
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","unsigned and changed bounds and incomplete owner signatures fail closed",14,0,FALSE,FALSE,0,0.448,0.052,0.5,14
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","beta column association and public source roles are immutable",22,0,FALSE,FALSE,0,0.972,0.083,1.056,22
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","profile and artifact versions are closed and transcript safe",24,0,FALSE,FALSE,0,0.994,0.081,1.075,24
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","individual new validators reject malformed objects with one public error",8,0,FALSE,FALSE,0,0.124000000000001,0.00699999999999995,0.131,8
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","signed schema structure cannot add ownership or snapshot ambiguity",32,0,FALSE,FALSE,0,0.265,0.043,0.308,32
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","every numeric proof field is mandatory and public profile contents are pinned",58,0,FALSE,FALSE,0,1.434,0.037,1.468,58
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross grid dimensions coefficients and exact integer caps fail closed",48,0,FALSE,FALSE,0,1.234,0.143,1.375,48
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid profile coefficients, proof and numeric template are immutable",3,0,FALSE,FALSE,0,0.0549999999999997,0.001,0.0549999999999997,3
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","signed categorical schema labels share the server canonical representations",6,0,FALSE,FALSE,0,0.244,0.02,0.262,6
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","real signatures cannot authorize unsupported categorical label encodings",8,0,FALSE,FALSE,0,0.271000000000001,0.025,0.295,8
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid signed zero encoding survives canonical round trips",4,0,FALSE,FALSE,0,0.630999999999999,0.024,0.655000000000001,4
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid beta L1 comparison is exact at the public boundary",9,0,FALSE,FALSE,0,0.140000000000001,0.013,0.152999999999999,9
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","cross-grid scalar identifiers reject JSON array representations",4,0,FALSE,FALSE,0,0.135,0.012,0.145999999999999,4
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","piecewise admission pins new arithmetic, caps and all signatures",22,0,FALSE,FALSE,0,1.372,0.114,1.485,22
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","materialized cross grids select only from authenticated signed candidates",23,0,FALSE,FALSE,0,2.001,0.105,2.103,23
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","grid Claim coverage includes owners without public moment blocks",2,0,FALSE,FALSE,0,0.004999999999999,0,0.00399999999999956,2
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","both certified profiles admit the full signed ten-predictor envelope",12,0,FALSE,FALSE,0,2.262,0.051,2.311,12
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","batch reuse needs two authentic matching durable receipts",11,0,FALSE,FALSE,0,0.124000000000001,0.003,0.125999999999999,11
+"test-dp-glm-grid-cross-contract.R","dp-glm-grid-cross-contract","structured snapshot identity reaches a fixed point without enabling release",30,0,FALSE,FALSE,0,0.0579999999999998,0.006,0.0640000000000001,30

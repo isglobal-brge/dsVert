@@ -1,0 +1,10 @@
+=== RUN   TestCrossGridAuthenticatedCircuitCache
+=== RUN   TestCrossGridAuthenticatedCircuitCache/binomial
+    cross_grid_circuit_cache_test.go:51: cold_seconds=0.252797 hot_seconds=0.005361 bytes=746858
+=== RUN   TestCrossGridAuthenticatedCircuitCache/poisson
+    cross_grid_circuit_cache_test.go:51: cold_seconds=0.389843 hot_seconds=0.006523 bytes=1027632
+--- PASS: TestCrossGridAuthenticatedCircuitCache (0.76s)
+    --- PASS: TestCrossGridAuthenticatedCircuitCache/binomial (0.31s)
+    --- PASS: TestCrossGridAuthenticatedCircuitCache/poisson (0.45s)
+PASS
+ok  	github.com/isglobal-brge/dsVert/dsvert-mpc	1.102s

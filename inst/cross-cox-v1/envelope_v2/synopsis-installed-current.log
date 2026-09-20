@@ -1,0 +1,23 @@
+dp-synopsis-artifact: ....................................................1..
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Error ('test-dp-synopsis-artifact.R:409:3'): a manifest-certified Gaussian
+Error in `.dsvert_test_source_roots()`: could not find function ".dsvert_test_source_roots"
+Backtrace:
+     ▆
+  1. └─dsVert:::.dsvert_dp_synopsis_artifact_v1(...) at test-dp-synopsis-artifact.R:409:3
+  2.   └─dsVert:::.dsvert_dp_synopsis_physical_plan_v1(...)
+  3.     └─dsVert:::.dsvert_joint_dp_vector_call_planner(...)
+  4.       └─dsVert (local) planner(input)
+  5.         └─dsVert (local) .vector_capsule_run("joint-dp-vector-gaussian-plan-v2", value)
+  6.           ├─base::system2(...)
+  7.           │ ├─base::paste(c(env, shQuote(command), args), collapse = " ")
+  8.           │ └─base::shQuote(command)
+  9.           │   └─base::grepl("'", string)
+ 10.           │     └─base::is.factor(x)
+ 11.           └─dsVert (local) .vector_capsule_binary()
+ 12.             └─base::file.path(.dsvert_test_source_roots(), "inst", "dsvert-mpc")
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+Error: No method asJSON S3 class: condition
+Execution halted

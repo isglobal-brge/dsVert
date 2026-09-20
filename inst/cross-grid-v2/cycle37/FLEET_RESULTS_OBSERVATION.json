@@ -1,0 +1,44 @@
+{
+  "observed_utc": "2026-09-20T13:39:26.783923+00:00",
+  "source": "/Users/david/Documents/GitHub/dsvert-fleet-heavy/RESULTS.jsonl",
+  "sha256": "78392e09581f5d1a2f4aa7bf4d9613764aad61c3cf7384ac003dab4750abd0a6",
+  "results": [
+    {
+      "job_id": "binomial_glmm-e8-k2-i01-recovery",
+      "family": "binomial_glmm",
+      "epsilon": 8,
+      "K": 2,
+      "instance": 1,
+      "mode": "recovery",
+      "source_commits": {
+        "dsVert": "502b0058cd4b804b0e7adbba0e4c71485c755989",
+        "dsVertClient": "4c6c5622fbdc2ae97de315f18c18901d452f3c09"
+      },
+      "expected_oracle_sha256": "6557396a5365d2c9b1740e12181d695cd10a323b4a3833d780462ef074b37f36",
+      "pod": "pod16",
+      "state_parent": "/var/lib/dsvert-heavy-state/binomial_glmm-e8-k2-i01-recovery",
+      "started_epoch": 1789892301.2086468,
+      "manifest_cli": "env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=2000 DSVERT_GRID_VALIDATION_P=3 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=2 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=1 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-release-jobs/binomial_glmm-e8-k2-i01-recovery DSVERT_GRID_VALIDATION_METRICS_PATH=logs/binomial_glmm-e8-k2-i01-recovery.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=6557396a5365d2c9b1740e12181d695cd10a323b4a3833d780462ef074b37f36 Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_binomial_glmm_dslite.R . </dev/null",
+      "executed_cli": "env GOMAXPROCS=2 GOMEMLIMIT=16GiB OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 NOT_CRAN=true DSVERT_RELEASE_TTL_SECONDS=900 DSVERT_RELEASE_MAX_RUNTIME_SECONDS=86400 DSVERT_GRID_VALIDATION_N=2000 DSVERT_GRID_VALIDATION_P=3 DSVERT_GRID_VALIDATION_GRID=2 DSVERT_GRID_VALIDATION_EPSILON=8 DSVERT_GRID_VALIDATION_OWNERS=2 DSVERT_GRID_VALIDATION_INSTANCE=1 DSVERT_GRID_VALIDATION_INSTANCE_COUNT=1 DSVERT_GRID_VALIDATION_REAL_COUNT=1 DSVERT_GRID_VALIDATION_ORACLE_ONLY=0 DSVERT_GRID_VALIDATION_COLD=1 DSVERT_GRID_VALIDATION_REPLAY_ONLY=0 DSVERT_GRID_VALIDATION_INTERRUPT=1 DSVERT_GRID_VALIDATION_KEEP_STATE=1 DSVERT_GRID_VALIDATION_PROGRESS=1 DSVERT_GRID_VALIDATION_STATE_PARENT=/var/lib/dsvert-heavy-state/binomial_glmm-e8-k2-i01-recovery DSVERT_GRID_VALIDATION_METRICS_PATH=logs/binomial_glmm-e8-k2-i01-recovery.json DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256=6557396a5365d2c9b1740e12181d695cd10a323b4a3833d780462ef074b37f36 Rscript --vanilla dsVert/inst/cross-grid-v2/integrator-validation/validate_binomial_glmm_dslite.R . </dev/null",
+      "oracle_equal": false,
+      "cold": false,
+      "recovery": false,
+      "tamper": false,
+      "bytes": {
+        "serialized_rpc": null,
+        "native": null
+      },
+      "seconds": null,
+      "wall_seconds": 795.7028586864471,
+      "returncode": 1,
+      "capacity_pass": false,
+      "metrics": {},
+      "status": "FAIL",
+      "finished_epoch": 1789893096.9118276,
+      "log": "logs/binomial_glmm-e8-k2-i01-recovery.log",
+      "local_log": "/Users/david/Documents/GitHub/dsvert-fleet-heavy/logs/binomial_glmm-e8-k2-i01-recovery/remote-logs/binomial_glmm-e8-k2-i01-recovery.log",
+      "oracle_check_reached": false,
+      "failure_reason": "Discrete-Gaussian plan unavailable: fixed-work Gaussian table is outside certified support."
+    }
+  ]
+}

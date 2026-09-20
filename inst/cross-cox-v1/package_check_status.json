@@ -1,0 +1,55 @@
+{
+  "status": "interrupted_after_confirmed_production_blocker",
+  "full_suites_passed": false,
+  "go_full": {
+    "completed_top_level": 18,
+    "completed_subtests": 25,
+    "observed_failures": [],
+    "last_started": "TestFormalCoxBlockwiseLiveControlStagesFreshFinalizerK2K3K5/K2",
+    "command": "GOMAXPROCS=8 go test -count=1 -json -timeout=0 ."
+  },
+  "r_checks": {
+    "dsVert": {
+      "command": "R CMD check --no-manual --no-build-vignettes dsVert_1.2.0.tar.gz",
+      "tests_started": true,
+      "tests_completed": false,
+      "static_diagnostics": [
+        "* checking installed package size ... INFO",
+        "* checking R code for possible problems ... NOTE",
+        "* checking for missing documentation entries ... WARNING",
+        "* checking for code/documentation mismatches ... WARNING"
+      ]
+    },
+    "dsVertClient": {
+      "command": "R CMD check --no-manual --no-build-vignettes dsVertClient_1.2.1.tar.gz",
+      "tests_started": true,
+      "tests_completed": false,
+      "static_diagnostics": [
+        "* checking package dependencies ... INFO",
+        "* checking installed package size ... INFO",
+        "* checking code files for non-ASCII characters ... WARNING",
+        "* checking for code/documentation mismatches ... WARNING",
+        "* checking Rd \\usage sections ... WARNING"
+      ],
+      "cox_export_failure": "Initial public export failed the exact inventory test. Export removed; final entry remains internal via registration. Entire inventory suite and Cox contract/parity suite pass locally after repair; full package check was not rerun to completion."
+    }
+  },
+  "log_sha256": {
+    "interruption.json": "a9618de1a3bfdb34ee56a1899dfbde7897d07f46456cdb019fe33efb3dffe1d3",
+    "client-check.log": "5f08db674cdb2405ef98a5c875ccb8ca7b830d68b4785885b98e830f7672fbea",
+    "client-tests.Rout": "5f316ffb40bf8e7345858c59ad0a8775f580786c52d791757061e69454ce0c28",
+    "go-full.jsonl": "35d34ea97fa9fe3b1381b0d901d8e50ea10df220e6593275d6258c54b0833d59",
+    "server-tests.Rout": "e136714b0ee48ae91ae2244c6b140c9908cb3670d26cede1a1ec8ae76325256a",
+    "server-check.log": "3319bfc22a78e50a97dbaa97c4ad08f82996e594093886a9e26abd0fc787a3cf"
+  },
+  "source_provenance": {
+    "dsVert": {
+      "base": "38146c0",
+      "modified_preexisting_files": []
+    },
+    "dsVertClient": {
+      "base": "cb26ecd",
+      "modified_preexisting_files": []
+    }
+  }
+}

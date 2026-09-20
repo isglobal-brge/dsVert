@@ -1,0 +1,15 @@
+{
+  "status": "waiting_gates",
+  "started_unix": 1789902478.472624,
+  "promoted": false,
+  "source_manifest_sha256": "a57e599d16f284612554484ad041f1a43f03a5149eaa040435131e8d13a9294d",
+  "assignments": {
+    "11": "binomial_gee",
+    "16": "poisson_gee"
+  },
+  "gates": {
+    "binomial_gee-smoke": "9508644e066ba1aba50e83ef8f20e37b26e332a16d512a91477ce6becf448f42"
+  },
+  "launches": {},
+  "updated_unix": 1789902862.539386
+}

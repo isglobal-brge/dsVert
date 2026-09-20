@@ -1,0 +1,8 @@
+{
+  "record_provenance_and_measurements_preserved": true,
+  "rescore_idempotent": true,
+  "manifest_rows": 24,
+  "ready_rows": 16,
+  "future_lease_seconds": 604800,
+  "capacity_promotion_gate": false
+}

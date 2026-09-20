@@ -1,0 +1,8 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-gee-staged-artifact.R","dp-gee-staged-artifact","staged GEE reconstruction checks the entire beta-only vector",28,0,FALSE,FALSE,0,4.092,0.231,4.639,28
+"test-dp-gee-staged-artifact.R","dp-gee-staged-artifact","fixed-rho GEE public admission and preflight preserve separated owner sources",102,0,FALSE,FALSE,0,10.684,0.583,12.325,102
+"test-dp-gee-staged-contract.R","dp-gee-staged-contract","fixed-rho staged GEE binds native cap scales and keeps legacy contracts",50,0,FALSE,FALSE,0,3.157,0.417,4.107,50
+"test-dp-gee-staged-contract.R","dp-gee-staged-contract","GEE n2000 descriptor is an explicit bounded measurement domain",6,0,FALSE,FALSE,0,0.367000000000004,0.0970000000000004,0.565000000000012,6
+"test-dp-gee-staged-contract.R","dp-gee-staged-contract","fixed-rho sensitivity counts affected clusters, not cluster capacity",14,0,FALSE,FALSE,0,0.597000000000008,0.136,0.896999999999991,14
+"test-dp-gee-staged-contract.R","dp-gee-staged-contract","analyst fixed-rho parameters admit exactly the retained working correlations",72,0,FALSE,FALSE,0,0.269999999999996,0.00300000000000011,0.314000000000007,72
+"test-dp-gee-staged-transport.R","dp-gee-staged-transport","fixed-rho GEE reaches the exact transport only with its Ring128 family binding",16,0,FALSE,FALSE,0,0.409999999999997,0.00300000000000011,0.421000000000006,16

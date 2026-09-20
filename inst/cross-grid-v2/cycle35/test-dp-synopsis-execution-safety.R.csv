@@ -1,0 +1,5 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-synopsis-execution-safety.R","dp-synopsis-execution-safety","Ring128 headroom covers the complete released support",4,0,FALSE,FALSE,0,5.14600000000002,0.218,5.38599999999997,4
+"test-dp-synopsis-execution-safety.R","dp-synopsis-execution-safety","Ring128 accepts its exact boundary and counts both draws",4,0,FALSE,FALSE,0,0.00899999999998613,0,0.00900000000001455,4
+"test-dp-synopsis-execution-safety.R","dp-synopsis-execution-safety","execution ranges do not inherit transport chunk geometry",5,0,FALSE,FALSE,0,1.87,0.177,2.053,5
+"test-dp-synopsis-execution-safety.R","dp-synopsis-execution-safety","the execution claim store authenticates rows, schema and rollback",5,0,FALSE,FALSE,0,1.03399999999999,0.0760000000000005,1.10899999999998,5

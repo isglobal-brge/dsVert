@@ -18,7 +18,7 @@ import (
 	"testing"
 )
 
-const formalCoxRSourceBridgeFixtureScript = `
+const formalCoxRSourceBridgeFixtureScript = formalCoxRFixtureEncodingScript + `
 source("../../R/mpcUtils.R")
 source("../../R/dsiRelay.R")
 source("../../R/dpPolicyDS.R")
@@ -51,9 +51,8 @@ unsigned <- .dsvert_formal_cox_schema_compile(
   delta_numerator = 1L, delta_denominator = 1000L,
   frac_bits = 8L)
 message <- .dsvert_formal_cox_schema_message(unsigned)
-signatures <- lapply(keys, function(key) base64_to_base64url(gsub(
-  "[\\r\\n[:space:]]", "",
-  jsonlite::base64_enc(openssl::ed25519_sign(message, key)))))
+signatures <- lapply(keys, function(key)
+  formal_cox_fixture_base64(openssl::ed25519_sign(message, key)))
 schema <- .dsvert_formal_cox_schema_seal(unsigned, signatures)
 valid <- c(TRUE, TRUE, TRUE, FALSE, TRUE)
 source_rows <- function(peer) {

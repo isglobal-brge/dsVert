@@ -1,0 +1,6 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-synopsis-source-transport-wrappers.R","dp-synopsis-source-transport-wrappers","synopsis source wrappers expose only the closed internal ABI",7,0,FALSE,FALSE,0,0.00799999999998136,0.00200000000000244,0.0099999999999909,7
+"test-dp-synopsis-source-transport-wrappers.R","dp-synopsis-source-transport-wrappers","ticket derives its namespace from context before durable work",21,0,FALSE,FALSE,0,3.351,0.310000000000002,3.66200000000003,21
+"test-dp-synopsis-source-transport-wrappers.R","dp-synopsis-source-transport-wrappers","prepare installs only gate-owned producer callbacks",26,0,FALSE,FALSE,0,2.16199999999998,0.285999999999994,2.44999999999993,26
+"test-dp-synopsis-source-transport-wrappers.R","dp-synopsis-source-transport-wrappers","chunk rejects a foreign transfer id before opening its store",28,0,FALSE,FALSE,0,1.87399999999997,0.233000000000004,2.10700000000008,28
+"test-dp-synopsis-source-transport-wrappers.R","dp-synopsis-source-transport-wrappers","wrappers resolve one policy and secret for authority and core",11,0,FALSE,FALSE,0,2.45800000000003,0.292000000000002,2.75099999999998,11

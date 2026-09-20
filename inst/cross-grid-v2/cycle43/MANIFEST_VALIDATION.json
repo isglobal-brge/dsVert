@@ -1,0 +1,20 @@
+{
+  "source_commits": {
+    "dsVert": "f96717ee548c957827dec6252ae7a96fca09fb8a",
+    "dsVertClient": "05180078e6c4b01bf2323f5957f2f1fa9750dd11"
+  },
+  "real_jobs": 24,
+  "ready_jobs": 12,
+  "oracle_jobs": 1080,
+  "capacity_seconds": 28800,
+  "oracle_computed_at": {
+    "dsVert": "29a99219a398c7b323e200ddc509152d22e9e7e9",
+    "dsVertClient": "55f4793778d4d1613320dfc96e8c7fea576d6a82"
+  },
+  "oracle_equivalence": "ORACLE_DEPENDENCY_EQUIVALENCE.json",
+  "sha256": {
+    "RELEASE_MANIFEST.jsonl": "9085eee90791bb761507d377f5e30af055c14e3a1feb9c32fed9542d512429d9",
+    "SELECTION_MANIFEST.jsonl": "f246386e7401cb8a3dbd5c36d595eb05dd0ff089e9117d00307d8c2070061c3e",
+    "RELEASE_MANIFEST_STATUS.json": "76932b9be5102e9dbfae50b755051ce37554a4cfbe0c4a64c252eec5b987c6be"
+  }
+}

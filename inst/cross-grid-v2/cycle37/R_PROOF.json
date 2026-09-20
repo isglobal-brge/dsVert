@@ -1,0 +1,50 @@
+{
+  "observed_utc": "2026-09-20T13:53:31.083686+00:00",
+  "source_commits": {
+    "dsVert": "a75d5e8b3c20e89486867471d64ef9b7948b3c4d",
+    "dsVertClient": "0a86516b0332ffe0089c088a30f9d05763444a2e"
+  },
+  "tests": 84,
+  "assertions": 3704,
+  "failures": 0,
+  "errors": 0,
+  "warnings": 0,
+  "skips": 0,
+  "frozen_source_files": 2749,
+  "frozen_source_changed": [],
+  "final_source_differences": [],
+  "manifest_sha256": "c76edaf8ef471adf5b9ff9b1bfff050d4830b739329d47ea12712456b4802dc7",
+  "base_commits": {
+    "dsVert": "5b5592e1a1a3076047b5f266077ea7de4ec99e6f",
+    "dsVertClient": "0a86516b0332ffe0089c088a30f9d05763444a2e"
+  },
+  "scope": "Exported stage endpoint Cox bind routing-receipt handoff and shared prepare, with upstream Synopsis context/cache and snapshot resolver test doubles; real signed Cox source/route checks, durable source store and native worker preparation for K2/K3/K5. Client framing, shared GLM/LMM/GLMM/Synopsis regressions and current-native Gaussian fallback. No public catalog or client runner admission, complete DP release, capacity or promotion.",
+  "test_results": {
+    "test-crossgrid-cox.R.csv": "18bab2690d53fb49b0a6edc15e9a609449c36e7dbbeaa77404537ba8eb414f0b",
+    "test-crossgrid-glmm-gaussian-preflight.R.csv": "c3dd42214fe29fdf09fced3f48defe8376fbf89ffa26b06ea20bbfae3bedef16",
+    "test-crossgrid-glmm-staged-lifecycle.R.csv": "36236a210b47e26c9e42a15255d15df3d7c332e27a68e2c967486343170070ef",
+    "test-crossgrid-lmm-public-evidence.R.csv": "af4fb631ef1c8e683e27b58aef71c58efea567b944f131a62c2adc3ef72f1633",
+    "test-crossgrid-lmm-sampler-admission.R.csv": "0117c8e8e9ada5d8fb27cf9ffcb2e9a84aea9868c3e2905b54f1d7601e655823",
+    "test-crossgrid-lmm-schema-cache.R.csv": "71c3e1f5cbef26bc91372cb4e426bc62a72554bd9890e85389c27978e2b685f7",
+    "test-crossgrid-lmm-staged-lifecycle.R.csv": "3c1d14734db63f03107415696801f6a496d7b105fc4dd7c8835f7aadaeb6cb61",
+    "test-crossgrid-poisson-glmm-staged-lifecycle.R.csv": "fcc21027d015cae2be0b8b71663135aa8da0a03c654b432a13cb0ca560c3f22e",
+    "test-dp-glm-grid-cross-contract.R.csv": "b5e76b4fe87c82e8abea2c9768229d5e5cd446616bd5d01d0ee14d1b679223b4",
+    "test-dp-synopsis-exact-gc.R.csv": "49d9bcfb54aa9a36bdc7303848b9aef4d1fde6a5e2799d0fbc8bc9c343abcbed",
+    "test-dp-synopsis-execution-safety.R.csv": "1330e05b9a340777b6731061562ca44309ade9f7775b14d738a58025086f188a",
+    "client-test-dsi-text-frame.R.csv": "75884a9ef04d61a44634f67480cc9c3d01541f0843d0714bf8f41468a680e857"
+  },
+  "log_sha256": {
+    "remote-r3.log": "753a2374de7c65a29113c3971f67c031ce980ff208f6d66d83e5b1a7dbd07cd3",
+    "cox-endpoint-final.log": "80a5a7da1d6f8ceaf74c70e0f0ea9ec60d94e400dc2a121db7ef403d2a7e9342",
+    "shared-final.log": "6540718cca395b7f7a8cc0e8f5b2f2217a62aebf57503f1545c993d77eb9d9c0",
+    "endpoint-regressions.log": "7d043005fcfe042887f74d79ceb20c77a9619a5bdac4734c992e7fc2dd95acc3",
+    "client-r2.log": "e2e9cbbcaa3e262c8c084f1aa78895f7e3957c7b9cc821d401793505e1ff6af0"
+  },
+  "result_assembly": "RESULT_ASSEMBLY.json",
+  "snapshot_scope": {
+    "remote-r4": "Updated Cox endpoint test plus eight shared server files; all final source bytes match.",
+    "remote-r3": "Remaining Cox tests; final difference only canonical comparison assertions in the updated endpoint test, excluded from this snapshot result.",
+    "remote-r2": "Client framing and two existing endpoint regression files; all source bytes unchanged, final difference only Cox test response decoding/comparison, which these tests do not source."
+  },
+  "superseded_attempts": "SUPERSEDED_ATTEMPTS.json"
+}

@@ -183,7 +183,7 @@
         }, logical(1L)))) {
       stop("Invalid durable synopsis policy snapshot.", call. = FALSE)
     }
-    fields <- unlist(fields, use.names = FALSE)
+    fields <- as.character(unlist(fields, use.names = FALSE))
     if (anyDuplicated(fields) ||
         !identical(fields, sort(fields, method = "radix"))) {
       stop("Invalid durable synopsis policy snapshot.", call. = FALSE)
@@ -1476,6 +1476,12 @@
             spec$dataset, spec[[field]], owner, "survival column")
         }
       } else if (identical(family, "gaussian")) {
+        if (spec$version %in% c(unname(.DSVERT_DP_GLM_GRID_CROSS_SPEC_VERSIONS),
+                              "lmm_grid_cross_v1", "binomial_glmm_grid_cross_v1", "poisson_glmm_grid_cross_v1",
+                              "cox_grid_cross_v1", "binomial_gee_grid_cross_v1", "poisson_gee_grid_cross_v1")) {
+          # References inside a custodian-signed contract are immutable.
+          next
+        }
         spec$outcome <- resolve_reference(
           spec$dataset, spec$outcome, owner, "Gaussian outcome")
         if (identical(spec$version, "v2")) {
@@ -1499,7 +1505,7 @@
           }, character(1L)))
         } else if (spec$version %in% c("binomial_grid_v1",
                                        "poisson_grid_v1",
-                                       "negative_binomial_grid_v1",
+                                       "negative_binomial_grid_v2",
                                        "multinomial_grid_v1",
                                        "ordinal_grid_v1")) {
           spec$predictors <- unname(vapply(spec$predictors, function(reference) {
@@ -1835,6 +1841,9 @@
     "local_authority_sha256", "schema_sha256",
     "workload_contract_sha256", "manifest_sha256", "manifest_json",
     "policy_snapshot")
+  if (is.list(record) && "signed_schema" %in% names(record)) {
+    fields <- c(fields, "signed_schema")
+  }
   snapshot <- tryCatch(
     .dsvert_dp_synopsis_policy_snapshot_validate_v1(
       record$policy_snapshot), error = function(error) NULL)
@@ -2676,6 +2685,13 @@
         manifest_json, algo = "sha256", serialize = FALSE),
       manifest_json = manifest_json,
       policy_snapshot = .dsvert_dp_synopsis_policy_snapshot_v1(policy)))
+    if (length(.dsvert_dp_lmm_cross_artifacts(manifest)) ||
+        length(.dsvert_dp_cox_cross_artifacts(manifest))) {
+      # Retain authenticated public schema bytes for staged bind/cold evidence;
+      # the manifest and its sticky semantic identity remain unchanged.
+      record$signed_schema <- signed$value
+      record <- .dsvert_dp_canonical_query_value(record)
+    }
     record <- .dsvert_dp_synopsis_manifest_cache_put_v1(
       policy, secret, record)
   }

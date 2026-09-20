@@ -1,0 +1,311 @@
+{
+  "observed_utc": "2026-09-20T13:05:29.790217+00:00",
+  "source_commits": {
+    "dsVert": "fcbe55763c51e9c4a85bfb81ff149586a2502c0f",
+    "dsVertClient": "4c6c5622fbdc2ae97de315f18c18901d452f3c09"
+  },
+  "completed": 63,
+  "expected": 540,
+  "complete": false,
+  "groups": [
+    {
+      "family": "binomial_glmm",
+      "epsilon": 1,
+      "K": 2,
+      "completed": 2,
+      "expected": 20,
+      "exact_best_matches": 1,
+      "exact_best_fraction": 0.5,
+      "mean_loss_gap": 1.17400360107422,
+      "maximum_loss_gap": 2.34800720214844
+    },
+    {
+      "family": "binomial_glmm",
+      "epsilon": 1,
+      "K": 3,
+      "completed": 2,
+      "expected": 20,
+      "exact_best_matches": 0,
+      "exact_best_fraction": 0.0,
+      "mean_loss_gap": 3.184844970703125,
+      "maximum_loss_gap": 4.62602233886719
+    },
+    {
+      "family": "binomial_glmm",
+      "epsilon": 1,
+      "K": 5,
+      "completed": 2,
+      "expected": 20,
+      "exact_best_matches": 0,
+      "exact_best_fraction": 0.0,
+      "mean_loss_gap": 5.5318222045898455,
+      "maximum_loss_gap": 6.4376220703125
+    },
+    {
+      "family": "binomial_glmm",
+      "epsilon": 4,
+      "K": 2,
+      "completed": 2,
+      "expected": 20,
+      "exact_best_matches": 0,
+      "exact_best_fraction": 0.0,
+      "mean_loss_gap": 2.04583740234375,
+      "maximum_loss_gap": 2.34800720214844
+    },
+    {
+      "family": "binomial_glmm",
+      "epsilon": 4,
+      "K": 3,
+      "completed": 2,
+      "expected": 20,
+      "exact_best_matches": 0,
+      "exact_best_fraction": 0.0,
+      "mean_loss_gap": 5.5318222045898455,
+      "maximum_loss_gap": 6.4376220703125
+    },
+    {
+      "family": "binomial_glmm",
+      "epsilon": 4,
+      "K": 5,
+      "completed": 2,
+      "expected": 20,
+      "exact_best_matches": 0,
+      "exact_best_fraction": 0.0,
+      "mean_loss_gap": 5.5318222045898455,
+      "maximum_loss_gap": 6.4376220703125
+    },
+    {
+      "family": "binomial_glmm",
+      "epsilon": 8,
+      "K": 2,
+      "completed": 3,
+      "expected": 20,
+      "exact_best_matches": 3,
+      "exact_best_fraction": 1.0,
+      "mean_loss_gap": 0.0,
+      "maximum_loss_gap": 0
+    },
+    {
+      "family": "binomial_glmm",
+      "epsilon": 8,
+      "K": 3,
+      "completed": 3,
+      "expected": 20,
+      "exact_best_matches": 3,
+      "exact_best_fraction": 1.0,
+      "mean_loss_gap": 0.0,
+      "maximum_loss_gap": 0
+    },
+    {
+      "family": "binomial_glmm",
+      "epsilon": 8,
+      "K": 5,
+      "completed": 3,
+      "expected": 20,
+      "exact_best_matches": 1,
+      "exact_best_fraction": 0.3333333333333333,
+      "mean_loss_gap": 1.3638916015625,
+      "maximum_loss_gap": 2.34800720214844
+    },
+    {
+      "family": "lmm",
+      "epsilon": 1,
+      "K": 2,
+      "completed": 2,
+      "expected": 20,
+      "exact_best_matches": 1,
+      "exact_best_fraction": 0.5,
+      "mean_loss_gap": 65.5379180908205,
+      "maximum_loss_gap": 131.075836181641
+    },
+    {
+      "family": "lmm",
+      "epsilon": 1,
+      "K": 3,
+      "completed": 2,
+      "expected": 20,
+      "exact_best_matches": 2,
+      "exact_best_fraction": 1.0,
+      "mean_loss_gap": 0.0,
+      "maximum_loss_gap": 0
+    },
+    {
+      "family": "lmm",
+      "epsilon": 1,
+      "K": 5,
+      "completed": 2,
+      "expected": 20,
+      "exact_best_matches": 1,
+      "exact_best_fraction": 0.5,
+      "mean_loss_gap": 65.5379180908205,
+      "maximum_loss_gap": 131.075836181641
+    },
+    {
+      "family": "lmm",
+      "epsilon": 4,
+      "K": 2,
+      "completed": 2,
+      "expected": 20,
+      "exact_best_matches": 1,
+      "exact_best_fraction": 0.5,
+      "mean_loss_gap": 64.4221267700195,
+      "maximum_loss_gap": 128.844253540039
+    },
+    {
+      "family": "lmm",
+      "epsilon": 4,
+      "K": 3,
+      "completed": 2,
+      "expected": 20,
+      "exact_best_matches": 2,
+      "exact_best_fraction": 1.0,
+      "mean_loss_gap": 0.0,
+      "maximum_loss_gap": 0
+    },
+    {
+      "family": "lmm",
+      "epsilon": 4,
+      "K": 5,
+      "completed": 2,
+      "expected": 20,
+      "exact_best_matches": 2,
+      "exact_best_fraction": 1.0,
+      "mean_loss_gap": 0.0,
+      "maximum_loss_gap": 0
+    },
+    {
+      "family": "lmm",
+      "epsilon": 8,
+      "K": 2,
+      "completed": 3,
+      "expected": 20,
+      "exact_best_matches": 3,
+      "exact_best_fraction": 1.0,
+      "mean_loss_gap": 0.0,
+      "maximum_loss_gap": 0
+    },
+    {
+      "family": "lmm",
+      "epsilon": 8,
+      "K": 3,
+      "completed": 3,
+      "expected": 20,
+      "exact_best_matches": 3,
+      "exact_best_fraction": 1.0,
+      "mean_loss_gap": 0.0,
+      "maximum_loss_gap": 0
+    },
+    {
+      "family": "lmm",
+      "epsilon": 8,
+      "K": 5,
+      "completed": 3,
+      "expected": 20,
+      "exact_best_matches": 3,
+      "exact_best_fraction": 1.0,
+      "mean_loss_gap": 0.0,
+      "maximum_loss_gap": 0
+    },
+    {
+      "family": "poisson_glmm",
+      "epsilon": 1,
+      "K": 2,
+      "completed": 2,
+      "expected": 20,
+      "exact_best_matches": 1,
+      "exact_best_fraction": 0.5,
+      "mean_loss_gap": 33.59387969970705,
+      "maximum_loss_gap": 67.1877593994141
+    },
+    {
+      "family": "poisson_glmm",
+      "epsilon": 1,
+      "K": 3,
+      "completed": 2,
+      "expected": 20,
+      "exact_best_matches": 1,
+      "exact_best_fraction": 0.5,
+      "mean_loss_gap": 10.61511993408205,
+      "maximum_loss_gap": 21.2302398681641
+    },
+    {
+      "family": "poisson_glmm",
+      "epsilon": 1,
+      "K": 5,
+      "completed": 2,
+      "expected": 20,
+      "exact_best_matches": 0,
+      "exact_best_fraction": 0.0,
+      "mean_loss_gap": 62.0915985107422,
+      "maximum_loss_gap": 67.1877593994141
+    },
+    {
+      "family": "poisson_glmm",
+      "epsilon": 4,
+      "K": 2,
+      "completed": 2,
+      "expected": 20,
+      "exact_best_matches": 0,
+      "exact_best_fraction": 0.0,
+      "mean_loss_gap": 21.03081512451175,
+      "maximum_loss_gap": 21.2302398681641
+    },
+    {
+      "family": "poisson_glmm",
+      "epsilon": 4,
+      "K": 3,
+      "completed": 2,
+      "expected": 20,
+      "exact_best_matches": 2,
+      "exact_best_fraction": 1.0,
+      "mean_loss_gap": 0.0,
+      "maximum_loss_gap": 0
+    },
+    {
+      "family": "poisson_glmm",
+      "epsilon": 4,
+      "K": 5,
+      "completed": 2,
+      "expected": 20,
+      "exact_best_matches": 2,
+      "exact_best_fraction": 1.0,
+      "mean_loss_gap": 0.0,
+      "maximum_loss_gap": 0
+    },
+    {
+      "family": "poisson_glmm",
+      "epsilon": 8,
+      "K": 2,
+      "completed": 3,
+      "expected": 20,
+      "exact_best_matches": 3,
+      "exact_best_fraction": 1.0,
+      "mean_loss_gap": 0.0,
+      "maximum_loss_gap": 0
+    },
+    {
+      "family": "poisson_glmm",
+      "epsilon": 8,
+      "K": 3,
+      "completed": 3,
+      "expected": 20,
+      "exact_best_matches": 3,
+      "exact_best_fraction": 1.0,
+      "mean_loss_gap": 0.0,
+      "maximum_loss_gap": 0
+    },
+    {
+      "family": "poisson_glmm",
+      "epsilon": 8,
+      "K": 5,
+      "completed": 3,
+      "expected": 20,
+      "exact_best_matches": 2,
+      "exact_best_fraction": 0.6666666666666666,
+      "mean_loss_gap": 4.874725341796867,
+      "maximum_loss_gap": 14.6241760253906
+    }
+  ],
+  "source_files_changed": [],
+  "scope": "Signed synthetic oracle-only DP-best versus exact-best; no real release/capacity proof"
+}

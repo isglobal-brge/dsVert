@@ -1,0 +1,35 @@
+{
+  "source_commits": {
+    "dsVert": "c97cd193c06dbae695792b4a03644c05fa733f8f",
+    "dsVertClient": "28be3cd6fea312d8f1c2442c810b453ad81080ce"
+  },
+  "family": "cox",
+  "n": 400,
+  "p": 5,
+  "grid": 2,
+  "candidates": 2,
+  "clusters": 100,
+  "slots": 4,
+  "owners": 5,
+  "epsilon": 8,
+  "instance": 1,
+  "oracle_only": true,
+  "real_authenticated_release": false,
+  "expected_oracle_sha256": "ba5d77ddffabca8ce5b9be5f516aee3662b90b6e44a2ef0bfb886da6c8bb950d",
+  "oracle_hash_scope": "UTF-8 count then exact integer coordinates, LF terminated",
+  "selected_candidate": 1,
+  "exact_best": 1,
+  "loss_gap": 0,
+  "original_source_commits": {
+    "dsVert": "ad276b565d85fce3d01204365cce25b5380c99d3",
+    "dsVertClient": "37f19caca4a75347bf94f08fad53aa06659556aa"
+  },
+  "source_attribution": {
+    "method": "retained_oracle_source_equivalence",
+    "original_metrics": "integrator-evidence/cox-ultra/oracle-k5/logs/metrics.json",
+    "original_sha256": "f4e2ab76cd96ce33a833b5ecac8368e02531ac3966df24b4537faab54b928231",
+    "audit": "integrator-evidence/cox-ultra/ORACLE_SOURCE_EQUIVALENCE.json",
+    "audit_sha256": "804340b45f944d1b254d7e878a11cf4833c7381b1d843477015abcea931da6dc",
+    "recomputed": false
+  }
+}

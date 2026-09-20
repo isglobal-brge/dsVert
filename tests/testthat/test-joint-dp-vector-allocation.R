@@ -27,6 +27,12 @@
 }
 
 .vector_allocator_k3_fixture <- function() {
+  identity_root <- withr::local_tempdir(
+    pattern = "vector-identity-", .local_envir = parent.frame())
+  withr::local_options(list(
+    dsvert.identity_seed_path = file.path(identity_root, "identity.seed")),
+    .local_envir = parent.frame())
+  .dsvert_init_identity_seed(.allow_test_path = TRUE)
   fixture <- .vector_allocator_helpers$.vector_capsule_helpers$
     .capsule_source_test_fixture(3L)
   for (peer in fixture$peers) {

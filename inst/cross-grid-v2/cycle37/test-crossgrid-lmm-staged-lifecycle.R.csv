@@ -1,0 +1,4 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-crossgrid-lmm-staged-lifecycle.R","crossgrid-lmm-staged-lifecycle","staged LMM bind constructs a stable canonical operation identity",4,0,FALSE,FALSE,0,0.42,0.056,0.658000000000001,4
+"test-crossgrid-lmm-staged-lifecycle.R","crossgrid-lmm-staged-lifecycle","staged LMM result retains private candidate validity and committed identities",10,0,FALSE,FALSE,0,0.105,0.001,0.107999999999999,10
+"test-crossgrid-lmm-staged-lifecycle.R","crossgrid-lmm-staged-lifecycle","staged LMM lifecycle persists replayable candidate validity into DP source",23,0,FALSE,FALSE,0,0.790000000000001,0.065,1.068,23

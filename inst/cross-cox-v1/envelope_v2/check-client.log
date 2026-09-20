@@ -1,0 +1,126 @@
+* using log directory ‘/workspace/dsvert/cox/checks-v2/dsVertClient.Rcheck’
+* using R version 4.6.1 (2026-06-24)
+* using platform: x86_64-pc-linux-gnu
+* R was compiled by
+    cc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0
+    GNU Fortran (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0
+* running under: Ubuntu 22.04.5 LTS
+* using session charset: UTF-8
+* current time: 2026-09-18 14:21:31 UTC
+* using options ‘--no-manual --no-build-vignettes’
+* checking for file ‘dsVertClient/DESCRIPTION’ ... OK
+* checking extension type ... Package
+* this is package ‘dsVertClient’ version ‘1.2.1’
+* package encoding: UTF-8
+* checking package namespace information ... OK
+* checking package dependencies ... INFO
+Packages suggested but not available for checking:
+  'DSMolgenisArmadillo', 'DSOpal', 'opalr', 'pkgdown'
+* checking if this is a source package ... OK
+* checking if there is a namespace ... OK
+* checking for .dll and .exe files ... OK
+* checking for hidden files and directories ... OK
+* checking for portable file names ... OK
+* checking for sufficient/correct file permissions ... OK
+* checking whether package ‘dsVertClient’ can be installed ... OK
+* checking installed package size ... INFO
+  installed size is 22.5Mb
+  sub-directories of 1Mb or more:
+    cross-grid-v1   1.0Mb
+    docs            6.1Mb
+    help            1.3Mb
+    R               5.8Mb
+    scripts         1.1Mb
+    validation      3.2Mb
+* checking package directory ... OK
+* checking DESCRIPTION meta-information ... OK
+* checking top-level files ... OK
+* checking for left-over files ... OK
+* checking index information ... OK
+* checking package subdirectories ... OK
+* checking code files for non-ASCII characters ... WARNING
+Found the following file with non-ASCII characters:
+  R/ds.vertMI.R
+Portable packages must use only ASCII characters in their R code and
+NAMESPACE directives, except perhaps in comments.
+Use \uxxxx escapes for other characters.
+Function ‘tools::showNonASCIIfile’ can help in finding non-ASCII
+characters in files.
+* checking R files for syntax errors ... OK
+* checking whether the package can be loaded ... OK
+* checking whether the package can be loaded with stated dependencies ... OK
+* checking whether the package can be unloaded cleanly ... OK
+* checking whether the namespace can be loaded with stated dependencies ... OK
+* checking whether the namespace can be unloaded cleanly ... OK
+* checking loading without being on the library search path ... OK
+* checking dependencies in R code ... OK
+* checking S3 generic/method consistency ... OK
+* checking replacement functions ... OK
+* checking foreign function calls ... OK
+* checking R code for possible problems ... OK
+* checking Rd files ... OK
+* checking Rd metadata ... OK
+* checking Rd cross-references ... OK
+* checking for missing documentation entries ... OK
+* checking for code/documentation mismatches ... WARNING
+Codoc mismatches from Rd file 'dot-dsvert_exact_gc_run.Rd':
+.dsvert_exact_gc_run
+  Code: function(datasources, server_names = names(datasources),
+                 servers = seq_along(datasources), session_id,
+                 operation_id, source_key, output_key, operation, ring,
+                 frac_bits = 0L, vector_len, purpose, transport_ready =
+                 FALSE, timeout_seconds =
+                 getOption("dsvert.exact_gc.timeout_seconds", 900),
+                 initialized = NULL, mul_contract = NULL,
+                 alignment_source_count = NULL, analysis_contract =
+                 NULL, .aggregate = DSI::datashield.aggregate)
+  Docs: function(datasources, server_names = names(datasources),
+                 servers = seq_along(datasources), session_id,
+                 operation_id, source_key, output_key, operation, ring,
+                 frac_bits = 0L, vector_len, purpose, transport_ready =
+                 FALSE, timeout_seconds =
+                 getOption("dsvert.exact_gc.timeout_seconds", 900),
+                 initialized = NULL, mul_contract = NULL,
+                 alignment_source_count = NULL, .aggregate =
+                 DSI::datashield.aggregate)
+  Argument names in code not in docs:
+    analysis_contract
+  Mismatches in argument names:
+    Position: 18 Code: analysis_contract Docs: .aggregate
+
+Codoc mismatches from Rd file 'dot-dsvert_negotiate_dsi_chunk_size.Rd':
+.dsvert_negotiate_dsi_chunk_size
+  Code: function(conns, .aggregate = DSI::datashield.aggregate,
+                 .candidates = .DSVERT_DSI_PROBE_CANDIDATES,
+                 .response_candidates = if (identical(.candidates,
+                 .DSVERT_DSI_PROBE_CANDIDATES)) {
+                 .DSVERT_DSI_RESPONSE_PROBE_CANDIDATES} else {
+                 .candidates})
+  Docs: function(conns, .aggregate = DSI::datashield.aggregate,
+                 .candidates = .DSVERT_DSI_PROBE_CANDIDATES)
+  Argument names in code not in docs:
+    .response_candidates
+
+* checking Rd \usage sections ... WARNING
+Duplicated \argument entries in Rd file 'ds.vertOrdinal.Rd':
+  ‘analysis_id’
+
+Functions with \usage entries need to have the appropriate \alias
+entries, and all their arguments documented.
+The \usage entries must correspond to syntactically valid R code.
+See chapter ‘Writing R documentation files’ in the ‘Writing R
+Extensions’ manual.
+* checking Rd contents ... OK
+* checking for unstated dependencies in examples ... OK
+* checking examples ... OK
+* checking for unstated dependencies in ‘tests’ ... OK
+* checking tests ...
+  Running ‘testthat.R’
+ OK
+* DONE
+
+Status: 3 WARNINGs
+See
+  ‘/workspace/dsvert/cox/checks-v2/dsVertClient.Rcheck/00check.log’
+for details.
+

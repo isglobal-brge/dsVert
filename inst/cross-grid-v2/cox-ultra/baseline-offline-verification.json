@@ -1,0 +1,10 @@
+{
+  "integrity_valid": true,
+  "authenticity": "caller_anchored",
+  "unanchored_authenticity": "unanchored",
+  "offline_peer_calls": 0,
+  "missing_cox_evidence_rejected": true,
+  "certificate_sha256": "a6817e3e3ad1c912d34e5339d82af70a640a1ad3adccdd48511b281bcdffd1d3",
+  "trusted_pinset_source": "independently retained public bootstrap policy in synthetic-public-replay-fixture.rds",
+  "selected_candidate": 2
+}

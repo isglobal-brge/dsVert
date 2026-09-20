@@ -798,7 +798,7 @@ test_that("signed release bytes exclude session and operation identity", {
 
 test_that("Count execution has no retired privacy-state call graph", {
   source <- paste(readLines(
-    testthat::test_path("..", "..", "R", "dpCountExecutionDS.R"),
+    .dsvert_test_package_file("R", "dpCountExecutionDS.R", source_only = TRUE),
     warn = FALSE), collapse = "\n")
   forbidden <- c(
     "DBI::", "RSQLite", "SQLite", "noise_root", "dp_policy",

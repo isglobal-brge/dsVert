@@ -1,0 +1,4 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-crossgrid-lmm-sampler-admission.R","crossgrid-lmm-sampler-admission","staged LMM rejects samplers that cannot retain private validity before START",7,0,FALSE,FALSE,0,0.234,0.001,0.234999999999999,7
+"test-crossgrid-lmm-sampler-admission.R","crossgrid-lmm-sampler-admission","staged LMM cannot bypass the Synopsis gate through the legacy vector lifecycle",3,0,FALSE,FALSE,0,0.549999999999999,0.0569999999999999,0.798,3
+"test-crossgrid-lmm-sampler-admission.R","crossgrid-lmm-sampler-admission","LMM sampler policy reserves the count alongside its 256 candidates",17,0,FALSE,FALSE,0,0.0239999999999991,0.003,0.0280000000000005,17

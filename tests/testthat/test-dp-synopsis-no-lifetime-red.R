@@ -357,7 +357,7 @@ test_that(paste(
       alignment_manifest_version = 1L))
     policy$categorical_levels <- list(
       disease = c("no", "yes"), exposure = c("no", "yes"))
-    policy$numeric_bounds <- list()
+    policy$numeric_bounds <- stats::setNames(list(), character())
     policy$capsule_workload_scope <- list(
       mode = "catalog_v1", numeric_moments = character(),
       categorical_marginals = character(),
@@ -1010,6 +1010,7 @@ test_that("Synopsis artifact indexes declare sticky per-artifact privacy", {
 
 test_that("warm replay loads its authenticated policy snapshot, not config", {
   policy <- .synopsis_no_lifetime_policies(3L)[[2L]]
+  policy$numeric_bounds <- stats::setNames(list(), character())
   secret <- as.raw(rep(43L, 32L))
   path <- paste0(policy$synopsis_state_path, ".manifest-v1.sqlite")
   withr::defer(unlink(c(
@@ -1060,6 +1061,7 @@ test_that("warm replay loads its authenticated policy snapshot, not config", {
     .package = "dsVert"), manifest_json)
   expect_length(intersect(names(restored), c(
     "lifetime_max_distinct_capsules", "ledger_path", "noise_root")), 0L)
+  expect_identical(restored$numeric_bounds, policy$numeric_bounds)
 
   connection <- DBI::dbConnect(RSQLite::SQLite(), path)
   DBI::dbExecute(connection, paste(

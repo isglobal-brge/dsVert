@@ -1,0 +1,61 @@
+=== RUN   TestCrossGridFullMeasurement
+=== RUN   TestCrossGridFullMeasurement/binomial
+    cross_grid_full_benchmark_test.go:146: compiled family=binomial rows=32 candidates=8 elapsed=41.192
+    cross_grid_full_benchmark_test.go:146: compiled family=binomial rows=32 candidates=2 elapsed=46.988
+    cross_grid_full_benchmark_test.go:146: compiled family=binomial rows=16 candidates=8 elapsed=62.444
+    cross_grid_full_benchmark_test.go:146: compiled family=binomial rows=16 candidates=2 elapsed=65.258
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=100/2191 seconds=32.210
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=200/2191 seconds=62.399
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=300/2191 seconds=101.097
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=400/2191 seconds=142.980
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=500/2191 seconds=183.990
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=600/2191 seconds=233.768
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=700/2191 seconds=271.538
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=800/2191 seconds=309.590
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=900/2191 seconds=350.239
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=1000/2191 seconds=428.254
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=1100/2191 seconds=538.961
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=1200/2191 seconds=624.141
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=1300/2191 seconds=725.550
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=1400/2191 seconds=821.975
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=1500/2191 seconds=915.369
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=1600/2191 seconds=979.614
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=1700/2191 seconds=1063.194
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=1800/2191 seconds=1141.093
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=1900/2191 seconds=1193.721
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=2000/2191 seconds=1236.032
+    cross_grid_full_benchmark_test.go:197: progress family=binomial n=10000 completed=2100/2191 seconds=1273.888
+    cross_grid_full_benchmark_test.go:210: KERNEL_MEASUREMENT family=binomial n=10000 p=5 grid=50 batches=2191 and=1966065601 wire_bytes=74084304138 seconds=1308.031
+    cross_grid_full_benchmark_test.go:214: FULL_MEASUREMENT {"authenticated_server_release":false,"batches":2191,"compile_seconds":65.258213417,"family":"binomial","grid":50,"integer_and_dp_oracle_equal":true,"joint_noise_seconds":303.209054416,"joint_noise_wire_bytes":978138708,"kernel_and":1966065601,"kernel_and_per_eval":3932.131202,"kernel_seconds":1308.03107275,"kernel_wire_bytes":74084304138,"n":10000,"p":5,"peer_pairs":3,"total_seconds":1676.498444458,"total_wire_bytes":75062442846}
+=== RUN   TestCrossGridFullMeasurement/poisson
+    cross_grid_full_benchmark_test.go:146: compiled family=poisson rows=32 candidates=8 elapsed=49.837
+    cross_grid_full_benchmark_test.go:146: compiled family=poisson rows=32 candidates=2 elapsed=56.250
+    cross_grid_full_benchmark_test.go:146: compiled family=poisson rows=16 candidates=8 elapsed=68.705
+    cross_grid_full_benchmark_test.go:146: compiled family=poisson rows=16 candidates=2 elapsed=71.280
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=100/2191 seconds=44.214
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=200/2191 seconds=90.995
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=300/2191 seconds=136.847
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=400/2191 seconds=182.194
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=500/2191 seconds=228.455
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=600/2191 seconds=271.880
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=700/2191 seconds=309.168
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=800/2191 seconds=344.390
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=900/2191 seconds=385.897
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=1000/2191 seconds=423.119
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=1100/2191 seconds=458.758
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=1200/2191 seconds=493.095
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=1300/2191 seconds=527.940
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=1400/2191 seconds=562.038
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=1500/2191 seconds=598.576
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=1600/2191 seconds=638.054
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=1700/2191 seconds=676.625
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=1800/2191 seconds=715.148
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=1900/2191 seconds=751.434
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=2000/2191 seconds=789.715
+    cross_grid_full_benchmark_test.go:197: progress family=poisson n=10000 completed=2100/2191 seconds=825.855
+    cross_grid_full_benchmark_test.go:210: KERNEL_MEASUREMENT family=poisson n=10000 p=5 grid=50 batches=2191 and=2597011201 wire_bytes=94285610999 seconds=857.425
+    cross_grid_full_benchmark_test.go:214: FULL_MEASUREMENT {"authenticated_server_release":false,"batches":2191,"compile_seconds":71.280292833,"family":"poisson","grid":50,"integer_and_dp_oracle_equal":true,"joint_noise_seconds":227.123635417,"joint_noise_wire_bytes":1024744377,"kernel_and":2597011201,"kernel_and_per_eval":5194.022402,"kernel_seconds":857.424716459,"kernel_wire_bytes":94285610999,"n":10000,"p":5,"peer_pairs":3,"total_seconds":1155.828720958,"total_wire_bytes":95310355376}
+--- PASS: TestCrossGridFullMeasurement (2832.33s)
+    --- PASS: TestCrossGridFullMeasurement/binomial (1676.50s)
+    --- PASS: TestCrossGridFullMeasurement/poisson (1155.83s)
+PASS

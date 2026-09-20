@@ -1,0 +1,24 @@
+targeted-transport-9785331422c9: .......................................................................................................................................................1.................
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Error ('targeted-transport-9785331422c9.R:504:9'): dynamic exact truncatio
+Error: The biomedical capsule coordinate contract is invalid.
+Backtrace:
+     ▆
+  1. └─run_alignment_terminal(...) at targeted-transport-9785331422c9.R:580:9
+  2.   ├─base::do.call(...) at targeted-transport-9785331422c9.R:555:9
+  3.   └─`<fn>`(...)
+  4.     ├─testthat::with_mocked_bindings(...) at targeted-transport-9785331422c9.R:504:9
+  5.     ├─base::do.call(fun, c(list(...), list(.policy = policy_for(peer_name))))
+  6.     └─dsVert (local) `<fn>`(...)
+  7.       └─dsVert:::.dsvert_dp_alignment_mask_loaded_batch(...) at dsVert/R/exactGCAlignmentMaskDS.R:623:3
+  8.         └─dsVert:::.dsvert_dp_alignment_mask_projection_for_batch(...) at dsVert/R/exactGCAlignmentMaskDS.R:305:3
+  9.           ├─base::Filter(...) at dsVert/R/exactGCAlignmentMaskDS.R:169:3
+ 10.           │ ├─base::unlist(lapply(x, f))
+ 11.           │ └─base::lapply(x, f)
+ 12.           └─dsVert:::.dsvert_dp_alignment_mask_projections(parsed)
+ 13.             └─dsVert:::.dsvert_dp_alignment_mask_private_projection(parsed) at dsVert/R/exactGCAlignmentMaskDS.R:139:3
+ 14.               └─dsVert:::.dsvert_dp_gaussian_cross_layout(parsed$manifest) at dsVert/R/exactGCAlignmentMaskDS.R:90:3
+ 15.                 └─dsVert:::.dsvert_dp_capsule_coordinate_layout(manifest) at dsVert/R/dpGaussianCrossDS.R:72:5
+
+══ DONE ════════════════════════════════════════════════════════════════════════

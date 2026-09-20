@@ -1,0 +1,12 @@
+{
+  "paired_snapshot": "/workspace/dsvert/gee-fixed-rho-r4",
+  "paired_manifest_sha256": "1d4b78e617c85b7874d0b56c09f03977e1606a1b0b60e8869d2126e5427934df",
+  "current_manifest_sha256": "f6f7e9543975ffd0de441fce2c4259088f7446040fdfc1f9216cea7795cae6d0",
+  "matching_source_files": 1313,
+  "changed_files": [
+    "dsVert/inst/cross-grid-v2/integrator-validation/validate_structured_dslite.R"
+  ],
+  "reason": "Only standalone GEE main/recovery failure diagnostics changed; package code, tests, native sources and runtimes unchanged",
+  "paired_pass": false,
+  "note": "A final paired exit zero is required by the continuation before signed smokes or the campaign"
+}

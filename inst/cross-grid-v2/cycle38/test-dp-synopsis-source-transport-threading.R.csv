@@ -1,0 +1,8 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-synopsis-source-transport-threading.R","dp-synopsis-source-transport-threading","source-contract threading extends only the internal ABI",10,0,FALSE,FALSE,0,0.0099999999999909,0.00200000000000067,0.0120000000000005,10
+"test-dp-synopsis-source-transport-threading.R","dp-synopsis-source-transport-threading","contextual normalization rejects detached synopsis contracts",12,0,FALSE,FALSE,0,0.593999999999994,0.0549999999999997,0.649000000000001,12
+"test-dp-synopsis-source-transport-threading.R","dp-synopsis-source-transport-threading","recipient tickets persist the synopsis artifact namespace",5,0,FALSE,FALSE,0,0.489000000000004,0.0739999999999998,0.588999999999999,5
+"test-dp-synopsis-source-transport-threading.R","dp-synopsis-source-transport-threading","synopsis prepare validates the same fresh producer on replay",30,0,FALSE,FALSE,0,1.14400000000001,0.133000000000001,1.29900000000001,30
+"test-dp-synopsis-source-transport-threading.R","dp-synopsis-source-transport-threading","a durable synopsis chunk without its binding fails before resolve",10,0,FALSE,FALSE,0,0.711999999999989,0.0969999999999995,0.83499999999998,10
+"test-dp-synopsis-source-transport-threading.R","dp-synopsis-source-transport-threading","a synopsis chunk reconstructs its durable contract",11,0,FALSE,FALSE,0,0.789000000000001,0.0969999999999995,0.933999999999997,11
+"test-dp-synopsis-source-transport-threading.R","dp-synopsis-source-transport-threading","a durable synopsis chunk replay revalidates its binding",11,0,FALSE,FALSE,0,0.919000000000011,0.120000000000001,1.09100000000001,11

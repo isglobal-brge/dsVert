@@ -1,0 +1,43 @@
+{
+  "source_commits": {
+    "dsVert": "502b0058cd4b804b0e7adbba0e4c71485c755989",
+    "dsVertClient": "4c6c5622fbdc2ae97de315f18c18901d452f3c09"
+  },
+  "family": "lmm",
+  "job_id": "lmm-e8-k5-i01-baseline",
+  "shape": {
+    "n": 2000,
+    "p": 3,
+    "grid": 2,
+    "candidates": 4,
+    "clusters": 500,
+    "slots": 4,
+    "owners": 5,
+    "epsilon": 8
+  },
+  "gate": {
+    "serialized_rpc_bytes": 256000000000,
+    "release_seconds": 21600
+  },
+  "measurement": {
+    "serialized_rpc_bytes": 24036925468,
+    "release_seconds": 22774.592,
+    "serialized_rpc_scope": "R-v3-serialized-DSI-request-response-objects-including-retries-excluding-IPC-framing",
+    "release_scope": "fixture-bootstrap-PSI-signing-source-staged-LMM-and-DP-through-first-successful-release-including-retries-before-oracle-and-replay",
+    "native_payload": {
+      "exact_gc_unique_payload_bytes": 8838064187,
+      "exact_gc_offered_payload_bytes": 8838064187,
+      "source_ciphertext_delivered_bytes": 4573950
+    },
+    "native_scope": "public-release-exactGC-and-source-transport-before-replay-no-bootstrap-PSI"
+  },
+  "capacity_pass": false,
+  "oracle_equal": true,
+  "cold": true,
+  "tamper": true,
+  "recovery": "not_exercised",
+  "promoted": false,
+  "current_source_measurement": false,
+  "interpretation": "One complete old-source K5 release is over the time ceiling by 1174.592 seconds (5.44%). Bytes fit. This is neither a measured maximum admitted envelope nor evidence of the current runtime performance.",
+  "evidence": "fleet-observed/RESULTS.jsonl"
+}

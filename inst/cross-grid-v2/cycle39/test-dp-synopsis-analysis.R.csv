@@ -1,0 +1,6 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-dp-synopsis-analysis.R","dp-synopsis-analysis","source-vector Claim binds only the effective local release",39,0,FALSE,FALSE,0,16.805,0.912,18.644,39
+"test-dp-synopsis-analysis.R","dp-synopsis-analysis","source-vector evidence borrows its producer without owning it",6,0,FALSE,FALSE,0,1.147,0.0879999999999999,1.335,6
+"test-dp-synopsis-analysis.R","dp-synopsis-analysis","catalog projection namespaces signed catalog analysis IDs",5,0,FALSE,FALSE,0,0.268999999999998,0.0250000000000001,0.377000000000002,5
+"test-dp-synopsis-analysis.R","dp-synopsis-analysis","source-vector HMAC selects semantic blocks, not transport shape",10,0,FALSE,FALSE,0,0.803000000000001,0.087,0.956999999999997,10
+"test-dp-synopsis-analysis.R","dp-synopsis-analysis","local synopsis Claim authorizes the manifest before source access",12,0,FALSE,FALSE,0,1.289,0.085,1.487,12

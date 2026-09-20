@@ -133,6 +133,19 @@
       physical$full_plan$maximum_chunk_coordinates,
       "synopsis exact-GC chunk capacity", 1L, 128L))
     required <- min(.DSVERT_DP_SYNOPSIS_EXACT_CHUNK_COORDINATES, dimension)
+    if (.dsvert_dp_glm_grid_cross_noise_policy(manifest) %in% c(
+        "dsvert-cross-grid-exact-gc-cost-policy-v2",
+        "dsvert-lmm-grid-exact-gc-cost-policy-v1")) required <- min(required, capacity)
+    artifacts <- semantic$catalog_projection$catalog$families$gaussian_models$artifacts
+    if (any(vapply(artifacts, function(artifact) {
+      .dsvert_dp_staged_grouped_artifact(artifact) &&
+        artifact$family %in% c("binomial_gee", "poisson_gee")
+    }, logical(1L)))) {
+      # Reduce fixed-rho GEE sampler memory with deterministic 16-coordinate
+      # chunks, mirrored by the client. The full-vector privacy plan stays
+      # intact; PREPARE binds this geometry into the execution attempt.
+      required <- min(required, 16L)
+    }
     if (capacity < required) {
       stop("The synopsis exact-GC plan cannot serve canonical chunks.",
            call. = FALSE)
@@ -1452,13 +1465,15 @@
     context, prepares)
   physical <- context$authorization$artifact$physical_plan
   dimension <- context$contract$value$geometry$coordinate_count
-  choice <- .dsvert_joint_dp_vector_public_backend_choice(dimension)
+  cost_policy <- .dsvert_dp_glm_grid_cross_noise_policy(
+    .dsvert_dp_capsule_source_manifest(context$manifest_json))
+  choice <- .dsvert_joint_dp_vector_public_backend_choice(dimension, cost_policy)
   assessment <- .dsvert_joint_dp_vector_exact_gc_plan_assessment(
     context$authorization$manifest_sha256, context$vector$plan, choice)
   selection <- .dsvert_joint_dp_vector_exact_gc_selection(
     context$authorization$manifest_sha256, assessment)
   expected_selection <- .dsvert_dp_synopsis_backend_selection_v1(
-    context$vector$profile, dimension)
+    context$vector$profile, dimension, cost_policy)
   selection_agrees <- identical(selection$backend,
                                 expected_selection$backend) &&
     identical(selection$cost_policy_version,
@@ -1480,7 +1495,7 @@
   }
   positions <- seq.int(chunk$offset + 1L, chunk$offset + chunk$count)
   release <- context$vector$release_contract
-  worker <- .dsvert_joint_dp_vector_exact_gc_compile(list(
+  worker_input <- list(
     version = context$vector$profile$input_version,
     ring_bits = 128L, frac_bits = 0L,
     total_coordinate_count = release$coordinate_count,
@@ -1495,8 +1510,13 @@
     garbler_commitment_context = roles$garbler_commitment_context,
     evaluator_commitment_context = roles$evaluator_commitment_context,
     garbler_seed_commitment = roles$garbler_seed_commitment,
-    evaluator_seed_commitment = roles$evaluator_seed_commitment),
-  .compiler = .exact_compiler)
+    evaluator_seed_commitment = roles$evaluator_seed_commitment)
+  staged <- .dsvert_dp_lmm_cross_sampler_binding(.policy, .secret,
+    .dsvert_dp_capsule_source_manifest(context$manifest_json), context$source_contract)
+  if (is.null(staged)) staged <- .dsvert_dp_cox_cross_sampler_binding(.policy, .secret,
+    .dsvert_dp_capsule_source_manifest(context$manifest_json), context$source_contract)
+  if (!is.null(staged)) worker_input$source_stage_plan_digest <- staged$stage_plan_digest
+  worker <- .dsvert_joint_dp_vector_exact_gc_compile(worker_input, .compiler = .exact_compiler)
   if (is.list(worker) && is.list(worker$plan)) {
     worker$plan <- .dsvert_dp_analysis_canonical_value_v1(worker$plan)
   }
@@ -1707,6 +1727,13 @@
   }
   context <- .dsvert_dp_synopsis_execution_context_v1(
     ss, session_id, .policy, .secret, .identity, .cache_get)
+  if (!isTRUE(context$vector$profile$exact_gc) &&
+      (length(.dsvert_dp_lmm_cross_artifacts(
+        .dsvert_dp_capsule_source_manifest(context$manifest_json))) ||
+       length(.dsvert_dp_cox_cross_artifacts(
+        .dsvert_dp_capsule_source_manifest(context$manifest_json))))) {
+    stop("Staged source requires the Synopsis exact-GC validity gate.", call. = FALSE)
+  }
   chunk <- .dsvert_dp_synopsis_execution_chunk_v1(context, chunk_index)
   prepares <- .dsvert_dp_synopsis_execution_prepare_set_v1(
     first_prepare, second_prepare, context, .policy, .verifier)

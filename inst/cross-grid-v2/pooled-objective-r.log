@@ -1,0 +1,2 @@
+PASS binomial n=2000 p=6 split=3/3 candidates=17 max_total_loss_error= 0.004917793197 certified_total_tolerance= 0.1098256 glm_logLik_agreement=TRUE
+PASS poisson n=2000 p=6 split=3/3 candidates=17 max_total_loss_error= 0.0005407130684 certified_total_tolerance= 0.07870564 glm_logLik_agreement=TRUE

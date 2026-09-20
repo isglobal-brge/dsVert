@@ -1,0 +1,9 @@
+crossgrid-gee-public-admission: ............................................................................................................
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+                                                                                     test
+1           GEE public admission binds fixed correlation and rejects legacy and LMM swaps
+2 ordinary local GEE materialization leaves its release block zero for every source owner
+  failed error passed skipped
+1      0 FALSE     78   FALSE
+2      0 FALSE     30   FALSE

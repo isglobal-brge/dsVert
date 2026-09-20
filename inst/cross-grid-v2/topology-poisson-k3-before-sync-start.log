@@ -1,0 +1,19 @@
+DSLITE_ALIGNMENT_COMPLETE
+DSLITE_CUSTODIAN_SIGNATURES_COMPLETE
+DSLITE_PUBLIC_ADMISSION_COMPLETE
+$message
+[1] "Exact-gc worker failed to become ready."
+
+$call
+[1] ""
+
+$message
+[1] "Exact-gc worker failed to become ready."
+
+$call
+[1] ""
+
+NULL
+Error: DataSHIELD transport failed during 'cross-grid start'; partial or invalid site results were rejected.
+Timing stopped at: 40.52 0.97 1172
+Execution halted

@@ -1,0 +1,11 @@
+{
+  "toolchain": "go1.25.7",
+  "source_snapshot": "proof-r2",
+  "build_log": "proof-r2/build.log",
+  "sha256": {
+    "darwin-amd64/dsvert-mpc": "5cde3ba6bf1bed2e809223bd4338148828a7dcc887f71c09567b30ed2731fb21",
+    "darwin-arm64/dsvert-mpc": "5a804001267683e655478962cd4b2835f0986fb7e5e65eab69ff1ce812f1018e",
+    "linux-amd64/dsvert-mpc": "24908f68b63c830f716f04ffe18ee845608b4f97cb1f3487868436082b280081",
+    "windows-amd64/dsvert-mpc.exe": "70380abafd2e6ce7b790d184b7360e22e2d119ed748da3b67f94b2ec51246188"
+  }
+}

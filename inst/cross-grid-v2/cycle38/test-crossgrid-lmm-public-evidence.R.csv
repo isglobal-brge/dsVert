@@ -1,0 +1,3 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-crossgrid-lmm-public-evidence.R","crossgrid-lmm-public-evidence","cold LMM evidence reads only authenticated public terminal identities",13,0,FALSE,FALSE,0,1.752,0.144,2.28999999999999,13
+"test-crossgrid-lmm-public-evidence.R","crossgrid-lmm-public-evidence","published LMM evidence verifies compilation without source claims or a session",5,0,FALSE,FALSE,0,0.373999999999995,0.0459999999999994,0.588999999999999,5

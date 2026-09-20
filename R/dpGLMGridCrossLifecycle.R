@@ -319,13 +319,24 @@
 #' @param session_id Existing two-peer exact-computation session.
 #' @param action One of bind, prepare, start, store, finalize or evidence.
 #' @param batch Public row/candidate batch index; zero outside batch stages.
-#' @return A signed public lifecycle receipt encoded as JSON.
+#' @param routing_receipt_json Signed Cox owner routing receipt for bind only;
+#'   empty on the owner's first bind and for all other families/actions.
+#' @return Authenticated public lifecycle receipts only.
 #' @export
 dsvertDPSynopsisGLMGridCrossDS <- function(manifest_sha256, claim_set_json,
-    compilation_json, analysis_id, session_id, action, batch = 0) {
+    compilation_json, analysis_id, session_id, action, batch = 0, routing_receipt_json = "") {
   .dsvert_dp_synopsis_remote_public_v1({
     if (!is.character(action) || length(action) != 1L || is.na(action) ||
         !action %in% c("bind", "prepare", "start", "store", "finalize", "evidence")) {
+      .dsvert_dp_glm_grid_cross_fail()
+    }
+    if (!is.character(routing_receipt_json) || length(routing_receipt_json) != 1L ||
+        is.na(routing_receipt_json)) .dsvert_dp_glm_grid_cross_fail()
+    if (nzchar(routing_receipt_json)) {
+      routing_receipt_json <- .dsvert_dsi_text_decode(routing_receipt_json,
+        "Cox routing receipt", .DSVERT_DP_SYNOPSIS_REMOTE_RECEIPT_MAX_BYTES)
+    }
+    if (!identical(action, "bind") && nzchar(routing_receipt_json)) {
       .dsvert_dp_glm_grid_cross_fail()
     }
     session_id <- .dsvert_relay_validate_session_id(session_id)
@@ -357,7 +368,21 @@ dsvertDPSynopsisGLMGridCrossDS <- function(manifest_sha256, claim_set_json,
         compilation$artifact, claims, compilation$receipts,
         .policy = context$policy, .secret = context$secret)
       manifest <- .dsvert_dp_capsule_source_manifest(source$manifest_json)
-      if (!.dsvert_dp_synopsis_supported_glm_grid_cross_v1(manifest)) {
+      artifact <- manifest$workload$families$gaussian_models$artifacts[[analysis_id]]
+      cox <- identical(artifact$version, .DSVERT_DP_COX_GRID_CROSS_ARTIFACT_VERSION)
+      if (cox) {
+        if (!identical(as.numeric(batch), 0)) .dsvert_dp_cox_grid_cross_fail()
+        routing_receipt <- if (nzchar(routing_receipt_json)) {
+          .dsvert_dp_synopsis_remote_json_v1(routing_receipt_json, "Cox routing receipt",
+            .DSVERT_DP_SYNOPSIS_REMOTE_RECEIPT_MAX_BYTES)
+        } else NULL
+        # The Cox adapter authenticates the exact single-artifact projection,
+        # signed schema and source contract; no generic/grouped source fallback.
+        return(.dsvert_dp_cox_cross_remote_bind(context, source, compilation,
+          claims, request, analysis_id, .S(session_id), parent.frame(), routing_receipt))
+      }
+      if (nzchar(routing_receipt_json) ||
+          !.dsvert_dp_synopsis_supported_glm_grid_cross_v1(manifest)) {
         .dsvert_dp_glm_grid_cross_fail()
       }
       ss <- .S(session_id)

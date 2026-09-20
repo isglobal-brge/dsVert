@@ -11,7 +11,8 @@ dsvertDPSynopsisGLMGridCrossDS(
   analysis_id,
   session_id,
   action,
-  batch = 0
+  batch = 0,
+  routing_receipt_json = ""
 )
 }
 \arguments{
@@ -22,8 +23,10 @@ dsvertDPSynopsisGLMGridCrossDS(
 \item{session_id}{Existing two-peer exact-computation session.}
 \item{action}{One of bind, prepare, start, store, finalize or evidence.}
 \item{batch}{Public row/candidate batch index; zero outside batch stages.}
+\item{routing_receipt_json}{Signed Cox owner routing receipt for bind only;
+empty on the owner's first bind and for all other families/actions.}
 }
-\value{A signed public lifecycle receipt encoded as JSON.}
+\value{Authenticated public lifecycle receipts only.}
 \description{
 Internal DataSHIELD wiring for certified binomial and Poisson candidate
 losses. Requires the signed Synopsis compilation and both pinned computation

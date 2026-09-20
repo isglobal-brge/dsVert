@@ -690,9 +690,11 @@ test_that("session admission cannot be reused for changed public grid inputs", {
   bound$action <- "bind"
   bound$batch <- 0
   expect_identical(invoke(bound), "bound")
+  changed <- bound; changed$routing_receipt_json <- .dsvert_dsi_text_encode("{}")
+  expect_error(invoke(changed), class = "dsvert_dp_public_failure")
   expect_identical(invoke(), "prepared")
   expect_identical(invoke(), "prepared")
-  expect_identical(admissions, 1L)
+  expect_identical(admissions, 2L)
   expect_identical(stages, 2L)
   for (field in c("manifest_sha256", "claim_set_json", "compilation_json")) {
     changed <- args
@@ -711,7 +713,7 @@ test_that("session admission cannot be reused for changed public grid inputs", {
   ss$.exact_gc_peer_binding_digest <- "changed-pair"
   expect_error(invoke(), class = "dsvert_dp_public_failure")
   expect_identical(stages, 2L)
-  expect_identical(admissions, 1L)
+  expect_identical(admissions, 2L)
 })
 
 

@@ -1090,6 +1090,44 @@ if (nzchar(Sys.getenv("DSVERT_COX_STAGED_TEST_BINARY"))) {
         changed_receipt <- receipt; changed_receipt$routing_digest <- strrep("e", 64)
         expect_error(remote(route = changed_receipt))
         expect_identical(.dsvert_dp_lmm_cross_binding(state$ss, "cox_grid")$admission, admitted)
+        local_mocked_bindings(
+          .S = function(...) state$ss,
+          .dsvert_dp_synopsis_remote_manifest_v1 = function(...) {
+            list(policy = state$policy, secret = state$secret, manifest = t$manifest)
+          },
+          .dsvert_dp_synopsis_remote_compilation_v1 = function(...) compilation,
+          .dsvert_dp_synopsis_remote_decode_v1 = function(value, what, ...) {
+            expect_identical(what, "source Claim set")
+            claims
+          })
+        encode <- function(value) .dsvert_dsi_text_encode(
+          .dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(value)))
+        invoke <- function(route = if (peer == "site_a") "" else encode(receipt),
+            action = "bind", batch = 0, req = request) {
+          do.call(dsvertDPSynopsisGLMGridCrossDS, c(req, list(analysis_id = "cox_grid",
+            session_id = "12345678-1234-4234-9234-123456789abc", action = action,
+            batch = batch, routing_receipt_json = route)))
+        }
+        # Canonical JSON reorders receipt fields on the evaluator's wire path.
+        # Compare every public byte after canonicalization, including signatures.
+        expect_identical(encode(invoke()), encode(bound))
+        expect_identical(encode(invoke()), encode(bound))
+        expect_identical(encode(invoke(encode(receipt))), encode(bound))
+        expect_identical(jsonlite::fromJSON(invoke("", "prepare"))$phase, "prepared")
+        reads <- snapshot_reads
+        if (peer == "site_b") expect_error(invoke(""), class = "dsvert_dp_public_failure")
+        for (route in list(NA_character_, character(), "{}", paste0(encode(receipt), " "),
+            encode(changed_receipt))) {
+          expect_error(invoke(route), class = "dsvert_dp_public_failure")
+        }
+        expect_error(invoke(batch = 1), class = "dsvert_dp_public_failure")
+        expect_error(invoke(encode(receipt), "prepare"), class = "dsvert_dp_public_failure")
+        expect_error(invoke(encode(receipt), "evidence"), class = "dsvert_dp_public_failure")
+        expect_error(invoke(req = changed_request), class = "dsvert_dp_public_failure")
+        # A bad signed route can cause owner regeneration before rejection, but
+        # the evaluator must never resolve the owner's snapshot.
+        if (peer == "site_b") expect_identical(snapshot_reads, reads)
+        expect_identical(.dsvert_dp_lmm_cross_binding(state$ss, "cox_grid")$admission, admitted)
       }
       expect_error(prepare("site_b"), class = "dsvert_dp_public_failure")
       expect_error(prepare("site_b", receipt, states$site_a$snapshots), class = "dsvert_dp_public_failure")

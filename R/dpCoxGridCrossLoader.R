@@ -75,7 +75,11 @@
   ids <- vapply(peers, function(peer)
     .dsvert_relay_peer_id(unname(policy$peer_pinset[[peer]])), character(1L))
   names(ids) <- peers
+  # Only the actual garbler can supply the native private risk-set routing.
+  # Provision its identity at the time owner before signing the contract.
   if (anyDuplicated(ids) ||
+      !identical(spec$time$owner_peer,
+                 peers[[order(ids, method = "radix")[[1L]]]]) ||
       !identical(.dsvert_relay_peer_id(.key_get("identity_pk", ss)),
                  unname(ids[[parties$self_name]])) ||
       !identical(.dsvert_relay_peer_id(ss$.exact_gc_peer_identity_pks[[parties$peer_name]]),

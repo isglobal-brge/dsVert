@@ -1,8 +1,15 @@
-.cox_cross_server_fixture <- function(capacity = 16, beta_grid = NULL, owners = 2L) {
+.cox_cross_server_fixture <- function(capacity = 16, beta_grid = NULL, owners = 2L,
+                                      time_owner_garbler = TRUE) {
   peers <- paste0("site_", letters[seq_len(owners)])
   keys <- stats::setNames(lapply(peers, function(peer) openssl::ed25519_keygen()), peers)
   b64 <- function(value) sub("=+$", "", chartr("+/", "-_",
     gsub("[\r\n]", "", jsonlite::base64_enc(value))))
+  # Provision the routing owner before pinning identities or signing anything.
+  ids <- vapply(keys[1:2], function(key)
+    .dsvert_relay_peer_id(b64(tail(as.raw(as.list(key)$pubkey), 32L))), character(1L))
+  selected <- order(ids, method = "radix")
+  if (!time_owner_garbler) selected <- rev(selected)
+  keys[1:2] <- unname(keys[selected])
   pins <- vapply(keys, function(key) b64(tail(as.raw(as.list(key)$pubkey), 32L)),
                  character(1L))
   policy <- list(peer_pinset = pins,
@@ -448,6 +455,40 @@ test_that("Cox workload and source context authenticate K-owner transport withou
     expect_error(context(manifest = changed), class = "dsvert_dp_public_failure")
     changed <- t$transport; changed$source_peers <- changed$source_peers[-owners]
     expect_error(context(transport = changed))
+  }
+})
+
+test_that("Cox source alignment requires the signed time owner at the actual garbler", {
+  for (time_owner_garbler in c(TRUE, FALSE)) {
+    f <- .cox_cross_server_fixture(time_owner_garbler = time_owner_garbler)
+    for (peer in c("site_a", "site_b")) {
+      other <- setdiff(c("site_a", "site_b"), peer)
+      f$policy$peer_name <- peer
+      ss <- new.env(parent = emptyenv())
+      ss$.exact_gc_transport_initialized <- TRUE
+      ss$.exact_gc_self_name <- peer
+      ss$.exact_gc_peer_binding_digest <- strrep("8", 64)
+      ss$peer_transport_pks <- setNames(list("private-test-transport"), other)
+      ss$.exact_gc_peer_identity_pks <- as.list(f$policy$peer_pinset[other])
+      .key_put("identity_pk", unname(f$policy$peer_pinset[[peer]]), ss)
+      batches <- .dsvert_dp_alignment_mask_batches(ss)
+      batch <- new.env(parent = emptyenv())
+      batch$status <- "complete"
+      batch$capsule_id <- "cox-route-fixture"
+      batch$contract_hash <- strrep("2", 64)
+      batch$peer_binding_digest <- ss$.exact_gc_peer_binding_digest
+      batch$terminal_peer_blob_digest <- strrep("9", 64)
+      batch$first_validity_share <- jsonlite::base64_enc(as.raw(1))
+      batches$fixture <- batch
+      # Both cases have authentic signed contracts and matching live keys.
+      # Only the pre-signing identity-to-owner assignment differs.
+      expect_no_error(.dsvert_dp_cox_grid_cross_contract_validate(
+        f$contract, f$policy, f$schema_manifest))
+      align <- function() .dsvert_dp_cox_cross_source_alignment(
+        f$contract$spec, f$policy, ss, batch$capsule_id, batch$contract_hash)
+      if (time_owner_garbler) expect_identical(align(), batch) else
+        expect_error(align(), class = "dsvert_dp_public_failure")
+    }
   }
 })
 

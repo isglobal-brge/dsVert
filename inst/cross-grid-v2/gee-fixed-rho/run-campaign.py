@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Gate and run eight fixed-rho GEE proofs, at most two at once; never promote."""
+"""Gate and run six fixed-rho GEE proofs serially; never promote."""
 import argparse
 import hashlib
 import json
@@ -21,7 +21,7 @@ root = Path.cwd().resolve()
 output = root / 'logs/gee-campaign'
 output.mkdir(parents=True, exist_ok=False)
 state = dict(status='checking_gates', promoted=False, root=str(root),
-             maximum_concurrent_jobs=2, started_unix=time.time(), gates={}, jobs=[])
+             maximum_concurrent_jobs=1, started_unix=time.time(), gates={}, jobs=[])
 
 
 def save(event):
@@ -106,14 +106,13 @@ try:
                                  stdout=log, stderr=subprocess.STDOUT)
     require(checked.returncode == 0, 'Oracle commitment gate failed; see oracle-gate.log')
     rows = [json.loads(line) for line in plan.read_text().splitlines()]
-    require(len(rows) == 8 and all(row['fleet_ready'] for row in rows), 'Incomplete release plan')
+    require(len(rows) == 6 and all(row['fleet_ready'] for row in rows), 'Incomplete release plan')
     state['gates']['oracle_commitments'] = dict(path=str(plan), sha256=digest(plan))
     state['status'] = 'running'
     save(dict(event='all_gates_passed', gates=state['gates']))
 
-    # Both K2 baselines finish successfully before any larger-topology work.
-    for owners, mode in ((2, 'baseline'), (3, 'baseline'), (5, 'baseline'), (2, 'recovery')):
-        active = []
+    # Each K2 recovery proves one sticky publication before larger topologies.
+    for owners, mode in ((2, 'recovery'), (3, 'baseline'), (5, 'baseline')):
         for family in families:
             row = next(row for row in rows if
                        (row['family'], row['K'], row['mode']) == (family, owners, mode))
@@ -128,28 +127,20 @@ try:
                           command=command, pid=child.pid, started_unix=time.time(),
                           exit_code=None, proof_passed=False, log=str(log.name))
             state['jobs'].append(record)
-            active.append((child, log, record))
             save(dict(event='job_started', **record))
-        while active:
-            for child, log, record in list(active):
-                code = child.poll()
-                if code is None:
-                    continue
-                log.close()
-                label = (record['family'] + '-n2000-k' + str(owners) +
-                         '-exchangeable-rho0.25-' + mode)
-                path = root / 'logs/gee-fixed-rho' / (label + '-resources.json')
-                proof = json.loads(path.read_text()) if path.exists() else {}
-                record.update(exit_code=code, finished_unix=time.time(),
-                              resources=str(path), resources_sha256=digest(path) if path.exists() else None,
-                              proof_passed=code == 0 and proof.get('proof_passed') is True and
-                              proof.get('source_manifest_sha256') == manifest_hash)
-                active.remove((child, log, record))
-                save(dict(event='job_finished', **record))
-            if active:
-                time.sleep(1)
-        require(all(job['proof_passed'] for job in state['jobs']),
-                'Release proof failed; remaining jobs were not started')
+            code = child.wait()
+            log.close()
+            label = (family + '-n2000-k' + str(owners) +
+                     '-exchangeable-rho0.25-' + mode)
+            path = root / 'logs/gee-fixed-rho' / (label + '-resources.json')
+            proof = json.loads(path.read_text()) if path.exists() else {}
+            record.update(exit_code=code, finished_unix=time.time(),
+                          resources=str(path), resources_sha256=digest(path) if path.exists() else None,
+                          proof_passed=code == 0 and proof.get('proof_passed') is True and
+                          proof.get('source_manifest_sha256') == manifest_hash)
+            save(dict(event='job_finished', **record))
+            require(record['proof_passed'],
+                    'Release proof failed; remaining jobs were not started')
     state['status'] = 'completed_proofs_pending_review'
     state['finished_unix'] = time.time()
     save(dict(event=state['status'], promoted=False))

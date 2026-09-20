@@ -15,10 +15,19 @@ Both repositories use branch `gee-fixed-rho` under
 | dsVert | `2146bf158abb68951dab0e4f96f4bcbca311ee91` |
 | dsVertClient | `4c6c5622fbdc2ae97de315f18c18901d452f3c09` |
 
-These are the bases, not commits containing the current GEE changes. Final
-implementation commits and the frozen build/source manifests remain to be
-recorded in [PROMOTION_GEE_FIXED_RHO.md](PROMOTION_GEE_FIXED_RHO.md). Build and
-proof use this lane's own `/workspace/dsvert/gee-*` snapshots on pod4. The
+The implementation is committed separately from those bases:
+
+| Repository | Implementation commit |
+|---|---|
+| dsVert | `902ccf46d0f9b844155ff4316ac91cac2a2ba75b` |
+| dsVertClient | `6d94d4c9e15b9261a31b4499837d200ea1caea17` |
+
+The current proof snapshot is `/workspace/dsvert/gee-fixed-rho-r4`, with frozen
+manifest SHA256 `1d4b78e617c85b7874d0b56c09f03977e1606a1b0b60e8869d2126e5427934df`.
+It reuses the r3 rebuilt runtime and tagged oracle after matching all 614 native
+source inputs, including `go.mod` and `go.sum`. Exact build hashes are recorded
+in [PROMOTION_GEE_FIXED_RHO.md](PROMOTION_GEE_FIXED_RHO.md). Build and proof use
+this lane's own `/workspace/dsvert/gee-*` snapshots on pod4. The
 integrator worktrees and frozen LMM jobs are not this lane's execution targets.
 
 ## Accepted scope and unchanged contract
@@ -64,7 +73,7 @@ flags remain false; release promotion requires separate evidence.
 | Gate | Binomial GEE | Poisson GEE |
 |---|---|---|
 | Local R contract/admission sanity | PASS, shared 254 server +272 client assertions | Same focused run |
-| Frozen pod build and focused native/R/integer-oracle tests | PENDING | PENDING |
+| Frozen pod build and focused native/R/integer-oracle tests | PASS native/build dev-r3 and R recheck r4 | Same combined runs |
 | Real n2000 epsilon8 K2 release and bitwise oracle equality | PENDING | PENDING |
 | Real n2000 epsilon8 K3 release and bitwise oracle equality | PENDING | PENDING |
 | Real n2000 epsilon8 K5 release and bitwise oracle equality | PENDING | PENDING |
@@ -82,6 +91,27 @@ These checks do not substitute for pod or real release evidence. The pod driver
 records process status, exact frozen source hashes, marker checks, measured RPC
 bytes and first-publication elapsed time; incomplete jobs cannot pass.
 
+The frozen dev-r3 pod run passed all 25 top-level native GEE tests in 348.931
+seconds package time (380.908 seconds controller time), plus 629 server and 272
+client focused R assertions with zero failures, errors, skips or warnings. Its
+runtime and tagged integer-oracle builds both exited zero. Raw public records
+are retained under
+[`evidence/dev-r3`](inst/cross-grid-v2/gee-fixed-rho/evidence/dev-r3), including
+the exact dirty-overlay source manifest and per-file `SHA256SUMS`. The dev-r3
+focused proof covers the optimized public-program reuse and source-validity
+conjunction; it does not establish n2000 release capacity.
+
+The committed r4 snapshot's focused R recheck passed 629 server plus 288 client
+assertions, including the added GEE transport regression, with zero failures,
+errors, skips or warnings. Its controller exited zero after 143.239673 seconds.
+The initial launcher failed with a Python syntax error before executing R;
+both that failed controller record and the successful relaunch evidence are
+retained under [`evidence/r4`](inst/cross-grid-v2/gee-fixed-rho/evidence/r4).
+The r4 binomial n4 smoke subsequently failed during DP exact exchange after
+its GEE producer completed. Poisson n4 and the paired suite remain active at
+this checkpoint; their final results are pending. Neither active nor failed
+jobs fill a release gate.
+
 ## r1 smoke failure and r2 source-materialization correction
 
 Both n4 epsilon8/p3/J2/exchangeable-rho1/4 r1 smokes reached signed public
@@ -95,8 +125,8 @@ recognition and zero-release-block branches in `R/dpCapsuleMaterializer.R`.
 The GEE regression fixture exercises both authorities and all three additional
 K5 source owners, asserting that ordinary materialization contributes zero to
 every GEE release coordinate without reading any outcome or covariate column.
-The real r2 smoke/release proofs remain pending; r1 is failed evidence and
-cannot supply a promotion or capacity cell.
+The r2 n4 smokes subsequently failed in client operation admission as recorded
+below. Neither failed revision supplies a promotion or capacity cell.
 
 The Gaussian planner's `fixed-work Gaussian table is outside the certified
 support` diagnostic was an unsuccessful optional planner probe. The retained
@@ -123,6 +153,56 @@ The complete existing exact-transport test file also passes. Retained before/
 after logs are in `inst/cross-grid-v2/gee-fixed-rho/evidence/local/` as
 `gee-client-transport-before.log` and `gee-client-transport-after.log`.
 Real release evidence remains pending for the next frozen source snapshot.
+
+The two r2 n4 smokes both exited 1 before release, with all oracle/replay markers
+false and `proof_passed:false`. Their raw public driver logs, launch records,
+resource summaries, exits and source identity are retained under
+[`evidence/dev-r2`](inst/cross-grid-v2/gee-fixed-rho/evidence/dev-r2), with
+per-file `SHA256SUMS`. These evidence copies exclude private state, source
+stores, seed files, RDS objects and executables.
+
+## r4 sampler failure and pending serial campaign
+
+Pod4 SSH at `194.68.245.69:22043` began timing out/resetting connections around
+08:23 UTC and was restored at 08:28 UTC. No restart, endpoint edit or intervention
+in another owner's job was attempted. The old eight-job waiter, PID `2478097`,
+was confirmed cancelled at **08:28:26 UTC before any n2000 launch**.
+
+Both n4 native GEE producers completed before the sampler failures were
+investigated. The r4 binomial n4 smoke exited 1 during `exactGCExchangeDS` after
+`dsvertDPSynopsisStartDS`, in the first 36-coordinate discrete-Laplace sampler
+chunk. Its controller wall time was 1272.70 seconds, R elapsed time 1161 seconds,
+and peak child RSS 11,830,076 KiB. No result or release was recorded. The abort
+removed the private worker logs, and the old main failure handler omitted its
+captured worker error, so the underlying cause was lost.
+
+The container memory limit was approximately 50 GB and its recorded maximum
+reached that limit. The cumulative counters were `oom_kill=7` and `failcnt=66`,
+but available records did not timestamp those events. **OOM is unproven for this
+failure.** Poisson n4 and the paired suite remain active with final evidence
+pending; no real release or measured capacity result is inferred.
+
+The local GEE diagnostic patch now includes the captured operation/error
+message and available worker exit status in main/recovery failure reports.
+The campaign schedules one release at a time, with two authorities per release,
+as a resource mitigation. All privacy, numeric, transport and acceptance caps
+remain unchanged. No 8 MiB transport-chunk change was made: the retained client
+DSI expression cap is 786,431 bytes.
+
+Both independent n2000 integer commitments are complete and source-verified:
+binomial `6226c79ddfccb4068a41e91056f13a5bf1c24753e9a0581c716d0d108f6e6feb`,
+Poisson `b245f22eaced4faa21b2c2e05ac13f4d3ff5f05616f5b72a4744a91879ec2821`.
+These are plaintext synthetic oracle commitments, not authenticated DP releases.
+The local six-row [release manifest](inst/cross-grid-v2/gee-fixed-rho/RELEASE_MANIFEST_GEE.jsonl)
+plans one publication per family/topology: K2 includes recovery, K3 supplies the
+ordinary capacity measurement, and K5 supplies the remaining topology proof.
+Its new source freeze is pending and every row has `fleet_ready:false` and
+`promoted:false`.
+
+[CHECKPOINT_GEE.json](inst/cross-grid-v2/gee-fixed-rho/CHECKPOINT_GEE.json)
+records exact own-job PIDs, snapshot paths, evidence bindings and continuation
+steps. The serial six-job controller is local and has not launched; no r5
+snapshot has been created.
 
 ## Estimated correlation boundary
 

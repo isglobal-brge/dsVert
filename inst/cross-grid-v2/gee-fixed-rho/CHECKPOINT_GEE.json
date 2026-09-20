@@ -1,0 +1,92 @@
+{
+  "status": "INCOMPLETE_NOT_PROMOTED",
+  "recorded_utc": "2026-09-20T08:44:56.570745+00:00",
+  "implementation_commits": {
+    "dsVert": "902ccf46d0f9b844155ff4316ac91cac2a2ba75b",
+    "dsVertClient": "6d94d4c9e15b9261a31b4499837d200ea1caea17"
+  },
+  "last_proof_snapshot": "/workspace/dsvert/gee-fixed-rho-r4",
+  "last_proof_manifest_sha256": "1d4b78e617c85b7874d0b56c09f03977e1606a1b0b60e8869d2126e5427934df",
+  "focused": {
+    "native_passes": 25,
+    "server_assertions": 629,
+    "client_assertions": 288,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "warnings": 0
+  },
+  "planned_n2000_jobs": 6,
+  "planned_topologies": {
+    "K2": "one release including recovery, sticky replay and tamper rejection",
+    "K3": "one baseline release and measured capacity cell",
+    "K5": "one baseline release"
+  },
+  "remote_state": "SSH restored at 08:28 UTC after banner timeouts / connection resets beginning about 08:23 UTC; no pod restart or other-owner job intervention attempted",
+  "last_confirmed_smoke_state": "Both GEE producers completed; r4 binomial n4 FAILED exit 1 during first DP exact-exchange sampler chunk, with no result/release; Poisson n4 remains active with final evidence pending",
+  "last_confirmed_paired_state": "Paired suite active; final server/client results pending",
+  "own_controllers": {
+    "binomial_n4": 2390941,
+    "poisson_n4": 2390942,
+    "paired": 2390940,
+    "original_eight_job_waiter": 2478097
+  },
+  "original_waiter": {
+    "log": "/workspace/dsvert/gee-fixed-rho-r4/logs/campaign-waiter.log",
+    "campaign_state": "/workspace/dsvert/gee-fixed-rho-r4/logs/gee-campaign/campaign.json",
+    "last_observed": "cancelled before any n2000 launch",
+    "cancellation_confirmed": true,
+    "note": "Old eight-job waiter was cancelled after SSH recovered; it did not launch a campaign.",
+    "cancelled_utc": "2026-09-20T08:28:26+00:00",
+    "n2000_launches_before_cancellation": 0
+  },
+  "new_six_job_schedule": {
+    "source": "inst/cross-grid-v2/gee-fixed-rho/run-campaign.py",
+    "manifest": "inst/cross-grid-v2/gee-fixed-rho/RELEASE_MANIFEST_GEE.jsonl",
+    "fleet_ready": false,
+    "new_snapshot": "NOT CREATED; r5 source freeze remains pending",
+    "readiness_evidence_root": null,
+    "native_evidence_root": "/workspace/dsvert/gee-fixed-rho-dev-r3",
+    "oracle_records": "/workspace/dsvert/gee-oracle-20260920-r2",
+    "maximum_concurrent_jobs": 1,
+    "launched": false,
+    "readiness_evidence_requirement": "Fresh-source focused R pass and both successful serial n4 smokes; failed r4 binomial proof cannot satisfy readiness"
+  },
+  "next_steps": [
+    "Retain r4 binomial failed public evidence and source binding; record underlying worker cause as unknown.",
+    "Collect final Poisson n4 and paired results without mutating their frozen r4 source or private jobs; preserve failures/skips/warnings.",
+    "Commit the diagnostic and serial-scheduling changes, then create an isolated new snapshot; no r5 snapshot exists yet.",
+    "Reuse native evidence only after matching every Go source input; obtain fresh focused R and successful serial n4 smoke gates for the updated harness.",
+    "Launch the local six-job serial plan only after readiness and precommitted oracle/source gates pass; no n2000 campaign has launched.",
+    "Collect actual n2000 oracle/recovery/tamper and capacity results; promotion remains false until every required gate passes."
+  ],
+  "binomial_n4_failure": {
+    "exit_code": 1,
+    "proof_passed": false,
+    "phase": "first joint-dp-vector-laplace-v3 sampler chunk after GEE producer completion and dsvertDPSynopsisStartDS",
+    "sampler_chunk_coordinates": 36,
+    "sampler_coordinate_offset": 0,
+    "result_recorded": false,
+    "release_recorded": false,
+    "controller_wall_seconds": 1272.69586091768,
+    "r_elapsed_seconds": 1161,
+    "max_child_rss_kib_linux": 11830076,
+    "underlying_worker_error": "UNKNOWN: abort removed private logs; old main failure handler omitted the captured worker error"
+  },
+  "resource_observation": {
+    "container_memory_limit_bytes": 49999998976,
+    "container_memory_max_usage_bytes": 50000031744,
+    "cumulative_oom_kill": 7,
+    "cumulative_memory_failcnt": 66,
+    "event_timestamps_available": false,
+    "binomial_oom_causation": "UNPROVEN",
+    "kernel_log_access": "dmesg denied; journal has no available files"
+  },
+  "local_followup": {
+    "gee_failure_diagnostics": "Main/recovery failure handlers preserve captured operation/error message and available worker exit status before peer shutdown",
+    "resource_mitigation": "One actual release at a time, two authorities per release; mitigation does not prove OOM causation",
+    "epsilon_delta_numeric_transport_acceptance_caps_changed": false,
+    "transport_8_mib_override_applied": false,
+    "retained_client_dsi_expression_cap_bytes": 786431
+  }
+}

@@ -1,0 +1,70 @@
+[
+  {
+    "label": "binomial_gee-n4",
+    "command": [
+      "Rscript",
+      "--vanilla",
+      "/workspace/dsvert/gee-oracle-20260920-r2/oracle-commitment.R",
+      "/workspace/dsvert/gee-fixed-rho-dev-r2",
+      "binomial_gee",
+      "/workspace/dsvert/gee-oracle-20260920-r2/binomial_gee-n4.json",
+      "4"
+    ],
+    "pid": 2356156,
+    "started_utc": "2026-09-20T07:52:42.609200+00:00",
+    "stdin": "/dev/null",
+    "returncode": 0,
+    "elapsed_seconds": 21.11674124095589
+  },
+  {
+    "label": "poisson_gee-n4",
+    "command": [
+      "Rscript",
+      "--vanilla",
+      "/workspace/dsvert/gee-oracle-20260920-r2/oracle-commitment.R",
+      "/workspace/dsvert/gee-fixed-rho-dev-r2",
+      "poisson_gee",
+      "/workspace/dsvert/gee-oracle-20260920-r2/poisson_gee-n4.json",
+      "4"
+    ],
+    "pid": 2357454,
+    "started_utc": "2026-09-20T07:53:03.731596+00:00",
+    "stdin": "/dev/null",
+    "returncode": 0,
+    "elapsed_seconds": 22.24006083421409
+  },
+  {
+    "label": "binomial_gee-n2000",
+    "command": [
+      "Rscript",
+      "--vanilla",
+      "/workspace/dsvert/gee-oracle-20260920-r2/oracle-commitment.R",
+      "/workspace/dsvert/gee-fixed-rho-dev-r2",
+      "binomial_gee",
+      "/workspace/dsvert/gee-oracle-20260920-r2/binomial_gee-n2000.json",
+      "2000"
+    ],
+    "pid": 2358401,
+    "started_utc": "2026-09-20T07:53:25.978908+00:00",
+    "stdin": "/dev/null",
+    "returncode": 0,
+    "elapsed_seconds": 493.8762090569362
+  },
+  {
+    "label": "poisson_gee-n2000",
+    "command": [
+      "Rscript",
+      "--vanilla",
+      "/workspace/dsvert/gee-oracle-20260920-r2/oracle-commitment.R",
+      "/workspace/dsvert/gee-fixed-rho-dev-r2",
+      "poisson_gee",
+      "/workspace/dsvert/gee-oracle-20260920-r2/poisson_gee-n2000.json",
+      "2000"
+    ],
+    "pid": 2380870,
+    "started_utc": "2026-09-20T08:01:39.856015+00:00",
+    "stdin": "/dev/null",
+    "returncode": 0,
+    "elapsed_seconds": 351.77221198473126
+  }
+]

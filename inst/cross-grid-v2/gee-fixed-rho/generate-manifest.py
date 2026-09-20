@@ -1,4 +1,4 @@
-"""Emit eight planned GEE release rows from precommitted synthetic oracles."""
+"""Emit six planned GEE release rows from precommitted synthetic oracles."""
 import argparse
 import hashlib
 import json
@@ -47,7 +47,7 @@ assert set(records) == {"binomial_gee", "poisson_gee"}, "Need both n2000 oracle 
 driver = "dsVert/inst/cross-grid-v2/gee-fixed-rho/run-release.py"
 rows = []
 for family, oracle in sorted(records.items()):
-    for owners, mode in ((2, "baseline"), (3, "baseline"), (5, "baseline"), (2, "recovery")):
+    for owners, mode in ((2, "recovery"), (3, "baseline"), (5, "baseline")):
         command = ["python3", driver, family, str(owners), "--expected-oracle-sha256",
                    oracle["expected_oracle_sha256"]]
         if mode == "recovery":
@@ -68,7 +68,7 @@ for family, oracle in sorted(records.items()):
             execution_pool="pod4 dedicated gee snapshot", one_real_release_per_pod=False,
             real_authenticated_release_required=True, cold_replay_tamper_required=True,
             bilateral_and_unilateral_recovery_required=mode == "recovery",
-            capacity_measurement=owners == 2 and mode == "baseline",
+            capacity_measurement=owners == 3 and mode == "baseline",
             capacity_bytes=256000000000, capacity_seconds=21600))
 args.output.parent.mkdir(parents=True, exist_ok=True)
 args.output.write_text("".join(json.dumps(row, separators=(",", ":")) + "\n" for row in rows))

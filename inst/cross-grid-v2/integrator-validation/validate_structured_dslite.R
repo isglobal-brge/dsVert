@@ -357,13 +357,17 @@ run <- function() {
   peers <<- boot(pins)
   cat("DSLITE_BOOT_PINNED_COMPLETE\n")
   conns <- we_connections(peers)
-  for (peer in peers) peer$worker$run(function(n) {
+  for (peer in peers) peer$worker$run(function(n, gee) {
     options(dsvert.psi.max_input_ids = as.integer(2^ceiling(log2(max(64, n)))))
     trace(".exact_gc_record_private_error", where = asNamespace("dsVert"), print = FALSE,
-      tracer = quote(assign(".grid_early_worker_error", list(operation = state$operation,
-        message = message), .GlobalEnv)))
+      tracer = substitute({
+        captured <- list(operation = state$operation, message = message)
+        if (GEE) captured$worker_exit_status <- tryCatch(
+          state$process$get_exit_status(), error = function(error) NA_integer_)
+        assign(".grid_early_worker_error", captured, .GlobalEnv)
+      }, list(GEE = gee)))
     TRUE
-  }, args = list(n))
+  }, args = list(n, gee))
   cat("DSLITE_ALIGNMENT_START\n")
   tryCatch(ds.psiAlign("D", "patient_id", "DA", datasources = conns, verbose = FALSE),
     error = function(error) {
@@ -735,6 +739,8 @@ run <- function() {
           native_errors = get0(".grid_native_error_history", .GlobalEnv),
           grouped_failure = get0(".grid_grouped_failure", .GlobalEnv),
           mismatch = get0(".grid_public_mismatch", .GlobalEnv))))
+        if (gee) for (peer in peers) print(peer$worker$run(function() list(
+          gee_worker_error = get0(".grid_early_worker_error", .GlobalEnv))))
       }
       stopifnot(inherits(interrupted, "error"), identical(unname(flags), expected_flags), native_fired)
       persisted <- vapply(peers[owner_names[1:2]], function(peer) peer$worker$run(function() {
@@ -774,6 +780,8 @@ run <- function() {
         stop_history = get0(".grid_stop_history", .GlobalEnv),
         native_errors = get0(".grid_native_error_history", .GlobalEnv),
         grouped_failure = get0(".grid_grouped_failure", .GlobalEnv))))
+      if (gee) for (peer in peers) print(peer$worker$run(function() list(
+        gee_worker_error = get0(".grid_early_worker_error", .GlobalEnv))))
       stop(error)
     }))[["elapsed"]]
   if (replay_only) {

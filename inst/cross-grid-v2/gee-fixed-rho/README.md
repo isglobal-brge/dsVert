@@ -23,8 +23,10 @@ Rscript --vanilla dsVert/inst/cross-grid-v2/gee-fixed-rho/oracle-commitment.R "$
 python3 dsVert/inst/cross-grid-v2/gee-fixed-rho/generate-manifest.py --root "$PWD" --oracle-records logs --source-manifest frozen-source-manifest.json --output logs/RELEASE_MANIFEST_GEE.jsonl
 ```
 
-The resulting manifest contains the executable K2/K3/K5 baseline and K2 recovery
-command for each family, eight jobs total. The release driver requires
+The resulting manifest contains K2 recovery and K3/K5 baseline commands for each
+family, six jobs total: one actual n2000 publication per family and topology.
+K2 recovery exercises interruption before its first successful publication,
+then verifies the same sticky release identity on replay. The release driver requires
 `--expected-oracle-sha256` at n2000 and rejects a mismatching released fixture.
 Omit `--source-manifest` only to emit explicitly pending source fields during
 development. Oracle records bind their exact arithmetic/certificate source
@@ -36,10 +38,17 @@ to a new driver log and use `< /dev/null`. The driver's R child also uses
 `subprocess.DEVNULL`; its observed `/proc/PID/fd/0` target is recorded. Do not
 reuse or modify any existing LMM snapshot or release controller.
 
+`run-campaign.py` runs one release at a time, retaining two authenticated
+authorities per release. Run the n4 smoke families serially as well. This limits
+concurrent sampler memory use; it does not change ε/δ, signed numeric caps,
+transport caps or acceptance gates. The r4 binomial sampler failure coincided
+with container memory pressure, but its cause was not recovered. Serial
+scheduling is a resource mitigation, not evidence that OOM caused that failure.
+
 All jobs require an actual exported-API DP release, exact integer-oracle
 equality, identical sticky replay, rejected signed-contract tampering,
 authenticated cold lifecycle rejection tests and cold exported-API equality.
-The separate recovery job additionally proves prepared-receipt interruption,
+Each K2 recovery job additionally proves prepared-receipt interruption,
 bilateral native PREPARE remasking with a fresh nonce/mask domain, unilateral
 native COMMIT exact replay, terminal COMMIT before R persistence and unilateral
 R persistence recovery. These checks preserve the existing signed release
@@ -47,7 +56,9 @@ identity. The native probe is custodian-local and returns pass/fail evidence.
 
 Each job measures the existing 256 decimal GB/21,600-second gate once using
 bootstrap-through-first-publication R-serialized RPC bytes and elapsed time;
-raw native payload counters are also retained. This RPC scope excludes IPC
+raw native payload counters are also retained. The K3 baseline provides each
+family's capacity measurement without recovery retries. Every job retains the
+same capacity gate. This RPC scope excludes IPC
 framing and is not total network traffic. The 900-second lease/86,400-second
 execution policy is unchanged from the retained proof runner and does not
 weaken the independent six-hour acceptance gate. Process wall time includes

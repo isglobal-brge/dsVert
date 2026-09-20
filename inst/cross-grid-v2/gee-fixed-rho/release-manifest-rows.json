@@ -12,13 +12,16 @@
       "dsVert": "2146bf158abb68951dab0e4f96f4bcbca311ee91",
       "dsVertClient": "4c6c5622fbdc2ae97de315f18c18901d452f3c09"
     },
-    "source_commits": null,
-    "harness_sha256": null,
-    "source_manifest_sha256": null,
-    "workdir": "fresh isolated prepared /workspace/dsvert/gee-* pod4 snapshot",
+    "source_commits": {
+      "dsVert": "902ccf46d0f9b844155ff4316ac91cac2a2ba75b",
+      "dsVertClient": "6d94d4c9e15b9261a31b4499837d200ea1caea17"
+    },
+    "harness_sha256": "ae277c438f4b4a0381524f4e09b248236752f6ce7e17e5a42da7698325ec9ccb",
+    "source_manifest_sha256": "1d4b78e617c85b7874d0b56c09f03977e1606a1b0b60e8869d2126e5427934df",
+    "workdir": "/workspace/dsvert/gee-fixed-rho-r4",
     "promoted": false,
     "fleet_ready": false,
-    "pending": "frozen focused, real K2/K3/K5, recovery, tamper, paired and capacity proof",
+    "pending": "serial six-job source freeze; successful signed smokes; real topology/recovery/tamper/paired/capacity proof",
     "real_authenticated_release_required": true,
     "cold_replay_tamper_required": true,
     "bilateral_and_unilateral_recovery_required": true,
@@ -53,30 +56,30 @@
     "estimated_alpha": false,
     "required_evidence": {
       "focused": {
-        "status": "PENDING",
-        "artifact": null,
-        "sha256": null
+        "status": "PASS",
+        "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/focused-proof.json",
+        "sha256": "15b749c49ad32c3d1397783d721fa5caa758fd5131426d4a1b2aa75cb69e1147"
       },
       "K2": {
         "status": "PENDING",
         "artifact": null,
         "sha256": null,
         "K": 2,
-        "expected_oracle_sha256": null
+        "expected_oracle_sha256": "6226c79ddfccb4068a41e91056f13a5bf1c24753e9a0581c716d0d108f6e6feb"
       },
       "K3": {
         "status": "PENDING",
         "artifact": null,
         "sha256": null,
         "K": 3,
-        "expected_oracle_sha256": null
+        "expected_oracle_sha256": "6226c79ddfccb4068a41e91056f13a5bf1c24753e9a0581c716d0d108f6e6feb"
       },
       "K5": {
         "status": "PENDING",
         "artifact": null,
         "sha256": null,
         "K": 5,
-        "expected_oracle_sha256": null
+        "expected_oracle_sha256": "6226c79ddfccb4068a41e91056f13a5bf1c24753e9a0581c716d0d108f6e6feb"
       },
       "recovery": {
         "status": "PENDING",
@@ -101,6 +104,12 @@
         "measured_serialized_rpc_bytes": null,
         "measured_release_seconds": null
       }
+    },
+    "oracle_commitment": {
+      "artifact": "inst/cross-grid-v2/gee-fixed-rho/oracle-commitments/binomial_gee-n2000.json",
+      "sha256": "293414f31e23aba4f4551569228f1680cac70e4b344b111ef94c2b0f9a6d48ac",
+      "expected_oracle_sha256": "6226c79ddfccb4068a41e91056f13a5bf1c24753e9a0581c716d0d108f6e6feb",
+      "real_authenticated_release": false
     }
   },
   {
@@ -116,13 +125,16 @@
       "dsVert": "2146bf158abb68951dab0e4f96f4bcbca311ee91",
       "dsVertClient": "4c6c5622fbdc2ae97de315f18c18901d452f3c09"
     },
-    "source_commits": null,
-    "harness_sha256": null,
-    "source_manifest_sha256": null,
-    "workdir": "fresh isolated prepared /workspace/dsvert/gee-* pod4 snapshot",
+    "source_commits": {
+      "dsVert": "902ccf46d0f9b844155ff4316ac91cac2a2ba75b",
+      "dsVertClient": "6d94d4c9e15b9261a31b4499837d200ea1caea17"
+    },
+    "harness_sha256": "ae277c438f4b4a0381524f4e09b248236752f6ce7e17e5a42da7698325ec9ccb",
+    "source_manifest_sha256": "1d4b78e617c85b7874d0b56c09f03977e1606a1b0b60e8869d2126e5427934df",
+    "workdir": "/workspace/dsvert/gee-fixed-rho-r4",
     "promoted": false,
     "fleet_ready": false,
-    "pending": "frozen focused, real K2/K3/K5, recovery, tamper, paired and capacity proof",
+    "pending": "serial six-job source freeze; successful signed smokes; real topology/recovery/tamper/paired/capacity proof",
     "real_authenticated_release_required": true,
     "cold_replay_tamper_required": true,
     "bilateral_and_unilateral_recovery_required": true,
@@ -157,30 +169,30 @@
     "estimated_alpha": false,
     "required_evidence": {
       "focused": {
-        "status": "PENDING",
-        "artifact": null,
-        "sha256": null
+        "status": "PASS",
+        "artifact": "inst/cross-grid-v2/gee-fixed-rho/evidence/focused-proof.json",
+        "sha256": "15b749c49ad32c3d1397783d721fa5caa758fd5131426d4a1b2aa75cb69e1147"
       },
       "K2": {
         "status": "PENDING",
         "artifact": null,
         "sha256": null,
         "K": 2,
-        "expected_oracle_sha256": null
+        "expected_oracle_sha256": "b245f22eaced4faa21b2c2e05ac13f4d3ff5f05616f5b72a4744a91879ec2821"
       },
       "K3": {
         "status": "PENDING",
         "artifact": null,
         "sha256": null,
         "K": 3,
-        "expected_oracle_sha256": null
+        "expected_oracle_sha256": "b245f22eaced4faa21b2c2e05ac13f4d3ff5f05616f5b72a4744a91879ec2821"
       },
       "K5": {
         "status": "PENDING",
         "artifact": null,
         "sha256": null,
         "K": 5,
-        "expected_oracle_sha256": null
+        "expected_oracle_sha256": "b245f22eaced4faa21b2c2e05ac13f4d3ff5f05616f5b72a4744a91879ec2821"
       },
       "recovery": {
         "status": "PENDING",
@@ -205,6 +217,12 @@
         "measured_serialized_rpc_bytes": null,
         "measured_release_seconds": null
       }
+    },
+    "oracle_commitment": {
+      "artifact": "inst/cross-grid-v2/gee-fixed-rho/oracle-commitments/poisson_gee-n2000.json",
+      "sha256": "3afa265fe906f19b2ced8ec87872ee40c435c866b1b2fb62b71f7a11adf00318",
+      "expected_oracle_sha256": "b245f22eaced4faa21b2c2e05ac13f4d3ff5f05616f5b72a4744a91879ec2821",
+      "real_authenticated_release": false
     }
   }
 ]

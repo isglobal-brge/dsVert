@@ -1,0 +1,41 @@
+{
+  "at": "2026-09-20T18:19:51.184691+00:00",
+  "pods": {
+    "12": {
+      "data": {
+        "pod": {
+          "id": "fxds6gamg3ycj5",
+          "desiredStatus": "EXITED",
+          "vcpuCount": 32,
+          "gpuCount": 1,
+          "costPerHr": 0.5,
+          "runtime": null
+        }
+      }
+    },
+    "14": {
+      "data": {
+        "pod": {
+          "id": "g0g1hi3k9dtjzd",
+          "desiredStatus": "EXITED",
+          "vcpuCount": 32,
+          "gpuCount": 1,
+          "costPerHr": 0.5,
+          "runtime": null
+        }
+      }
+    },
+    "15": {
+      "data": {
+        "pod": {
+          "id": "tl62htru9g5gwh",
+          "desiredStatus": "EXITED",
+          "vcpuCount": 32,
+          "gpuCount": 1,
+          "costPerHr": 0.5,
+          "runtime": null
+        }
+      }
+    }
+  }
+}

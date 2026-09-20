@@ -19,8 +19,8 @@ def rescore(record, policy):
                  and all(record.get(key) is True for key in ('oracle_equal', 'cold', 'tamper'))
                  and (record.get('mode') == 'baseline' or
                       (record.get('mode') == 'recovery' and record.get('recovery') is True)))
-    result['original_scoring'] = {key: record.get(key) for key in
-                                  ('status', 'capacity_pass', 'failure_reason')}
+    result['original_scoring'] = record.get('original_scoring', {
+        key: record.get(key) for key in ('status', 'capacity_pass', 'failure_reason')})
     result['capacity_policy'] = policy
     result['capacity_pass'] = capacity
     result['status'] = 'PASS' if capacity and lifecycle else 'FAIL'

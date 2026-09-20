@@ -1,0 +1,48 @@
+{
+  "observed_utc": "2026-09-20T12:37:46.784739+00:00",
+  "source_commits": {
+    "dsVert": "af76fb50a50b3aeba6431ea17bdb52f37674cf8c",
+    "dsVertClient": "5b6458fa7264909eaa1bbdb63d8b0ccc22acc40a"
+  },
+  "snapshots": {
+    "reader-r1": {
+      "source_files": 2646,
+      "frozen_source_changed": [],
+      "manifest_sha256": "4d72848555659fec8429681de91eb0859b00cc3c23d599c1d393f6213b17a3db",
+      "base_commits": {
+        "dsVert": "af76fb50a50b3aeba6431ea17bdb52f37674cf8c",
+        "dsVertClient": "33c7d936fac827eab49da35e8e0982c7ee3435c9"
+      }
+    },
+    "reader-r2": {
+      "source_files": 2646,
+      "frozen_source_changed": [],
+      "manifest_sha256": "aa82aa0cabdae9262375648e09d256ad0983837b70a77452f4bd86357903ae0d",
+      "base_commits": {
+        "dsVert": "af76fb50a50b3aeba6431ea17bdb52f37674cf8c",
+        "dsVertClient": "33c7d936fac827eab49da35e8e0982c7ee3435c9"
+      }
+    }
+  },
+  "tests": 16,
+  "assertions": 496,
+  "failures": 0,
+  "errors": 0,
+  "warnings": 0,
+  "skips": 0,
+  "gaussian_preflight_assertions": 10,
+  "source_differences": [
+    "dsVertClient/STATUS_COX.md"
+  ],
+  "source_equivalence": "All executable R/tests and native runtime bytes equal final committed source. Only client STATUS_COX.md changed after final snapshot.",
+  "scope": "Internal Cox cold vector reader, assuming previously authenticated bundle/compilation. Real Ed25519 RELEASE/publication signatures and hashed bilateral REPLAY K2/K3/K5. Synthetic compilation/DP-vector fixtures, not real DP releases, native recovery or capacity proof; public compilation/orchestration/dispatch remain closed.",
+  "log_hashes": {
+    "reader-r1.log": "3443a769e79a45d3ca1187c5b7d43ab065a9fb9ad00d605073d1f567d4ad6870",
+    "reader-r2.log": "c7f66e4edadf7a5345b50083de6e0559c1d5e7c0757e142522c9fdc12cc37912",
+    "preflight.log": "395d1e4a4bd983ca534f34e738e38e1a21ea847dd67a4fde31eec7f14ed6c7a7"
+  },
+  "tested_source_hashes": {
+    "dsVertClient/R/dp_cox_grid_cross_release.R": "c19dc42b400fb65f9a79e22f5e47a8803bf31e18b0d96c1250a54a601ebef467",
+    "dsVertClient/tests/testthat/test-dp-cox-cross-public-evidence.R": "ae223c3acff4e6aa88529488260323d7ef11ab3bf5dde9ca75d680e0e29c5068"
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "first": "2026-09-20T12:39:11.613356+00:00",
+  "last": "2026-09-20T12:39:56.117831+00:00",
+  "elapsed_seconds": 44.504475,
+  "processes": [
+    {
+      "pid": 1182464,
+      "command": "python3 -u dsVert/inst/cross-grid-v2/cycle16/run-sequence.py ",
+      "cpu_ticks_delta": 0,
+      "initial_wait": "do_signal_stop",
+      "final_wait": "do_signal_stop"
+    },
+    {
+      "pid": 1243643,
+      "command": "/usr/bin/python3 dsVert/inst/cross-grid-v2/cycle16/run-release.py 2000 2 0 ",
+      "cpu_ticks_delta": 0,
+      "initial_wait": "do_wait",
+      "final_wait": "do_wait"
+    },
+    {
+      "pid": 1244034,
+      "command": "/usr/lib/R/bin/exec/R --no-echo --no-restore --vanilla --file=integrator-validation/validate_lmm_dslite.R --args /workspace/dsvert/executor-cycle16-lmm-release-r2 ",
+      "cpu_ticks_delta": 810,
+      "initial_wait": "0",
+      "final_wait": "0"
+    },
+    {
+      "pid": 1245407,
+      "command": "/usr/lib/R/bin/exec/R --no-readline --slave --no-save --no-restore ",
+      "cpu_ticks_delta": 1210,
+      "initial_wait": "unix_stream_data_wait",
+      "final_wait": "unix_stream_data_wait"
+    },
+    {
+      "pid": 1246153,
+      "command": "/usr/lib/R/bin/exec/R --no-readline --slave --no-save --no-restore ",
+      "cpu_ticks_delta": 2078,
+      "initial_wait": "unix_stream_data_wait",
+      "final_wait": "unix_stream_data_wait"
+    },
+    {
+      "pid": 1407275,
+      "command": "/workspace/dsvert/executor-cycle16-lmm-release-r2/dsVert/inst/bin/linux-amd64/dsvert-mpc exact-gc-worker /var/lib/executor-cycle16-lmm-release-r2/lmm-n2000-k2-baseline/cross-grid-dslite-12fb827eb2208b/site_b/transient-sessions-v1/dsvert_fe241eb9-ba9b-4417-bb30-4c4669f821e5__dslite_ddb696152afd40a3/exact_gc/op_67e21f109eb6a95564a4ca840ae0503a/worker-config.json ",
+      "cpu_ticks_delta": 457,
+      "initial_wait": "ep_poll",
+      "final_wait": "futex_wait_queue"
+    },
+    {
+      "pid": 1407307,
+      "command": "/workspace/dsvert/executor-cycle16-lmm-release-r2/dsVert/inst/bin/linux-amd64/dsvert-mpc exact-gc-worker /var/lib/executor-cycle16-lmm-release-r2/lmm-n2000-k2-baseline/cross-grid-dslite-12fb827eb2208b/site_a/transient-sessions-v1/dsvert_fe241eb9-ba9b-4417-bb30-4c4669f821e5__dslite_5b3c6324ba151d31/exact_gc/op_67e21f109eb6a95564a4ca840ae0503a/worker-config.json ",
+      "cpu_ticks_delta": 434,
+      "initial_wait": "futex_wait_queue",
+      "final_wait": "futex_wait_queue"
+    }
+  ],
+  "interpretation": "All observations are read-only. CPU tick increments establish live activity; a sampled FUSE wait does not establish a stall or its cause. Native workers were missed by the initial cwd filter; descendant traversal includes both. No completed capacity or speedup claim. The queue controller remains intentionally stopped; it was not resumed."
+}

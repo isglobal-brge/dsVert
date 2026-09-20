@@ -1685,3 +1685,59 @@ test_that("Synopsis Cox Claim and sharing use identical exact source coordinates
       resolved$snapshots, FALSE, TRUE), "schema authentication")
   }
 })
+
+test_that("Cox catalog preserves time/event ownership and its signed contract", {
+  for (owners in c(2L, 3L, 5L)) {
+    f <- .cox_cross_server_fixture(capacity = 5, owners = owners)
+    raw <- list(version = "cox_grid_cross_v1", dataset = "aligned",
+      contract = .dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(f$contract)))
+    policy <- f$policy
+    policy$peer_name <- "site_a"
+    policy$capsule_workload_specs <- list(describe = list(), survival = list(),
+      gaussian = list(cox_grid = raw), vertical_cross = list())
+    mapping <- list(datasets = list(aligned = c("time", "event", "x")))
+    local <- .dsvert_dp_capsule_manifest_local_specs(policy, mapping)
+    expect_identical(local$gaussian$cox_grid, .dsvert_dp_canonical_query_value(raw))
+    spec <- .dsvert_dp_capsule_gaussian_spec(policy, "cox_grid", list(cox_grid = raw))
+    expect_identical(spec$kind, "cox_grid_cross")
+    expect_null(spec$outcome)
+    expect_identical(c(spec$time, spec$event), c("site_a$time", "site_a$event"))
+    expect_identical(.dsvert_dp_cox_grid_cross_contract_validate(spec$contract,
+      policy, f$schema_manifest), .dsvert_dp_canonical_query_value(f$contract))
+    columns <- .dsvert_dp_capsule_qualified_columns(f$schema$unsigned)
+    scope <- function(cols) .dsvert_dp_capsule_workload_scope(
+      list(mode = "catalog_v1", numeric_moments = character(),
+        categorical_marginals = character(), categorical_pairs = list(),
+        correlations = list(), strict_missing_categorical = character()),
+      cols, policy, list(), list(), list(cox_grid = raw), list())
+    expect_length(scope(columns)$numeric_moments, 0L)
+    expect_length(scope(columns)$categorical_marginals, 0L)
+    for (column in c("time", "event", "z")) {
+      bad <- columns
+      index <- which(vapply(bad, function(x) identical(x$column, column), logical(1L)))
+      bad[[index]]$dataset <- "other"
+      expect_error(scope(bad), class = "dsvert_dp_public_failure")
+    }
+    for (column in c("time", "event")) {
+      bad <- mapping; bad$datasets$aligned <- setdiff(bad$datasets$aligned, column)
+      expect_error(.dsvert_dp_capsule_manifest_local_specs(policy, bad),
+        class = "dsvert_dp_public_failure")
+    }
+    other <- policy; other$peer_name <- "site_b"
+    expect_error(.dsvert_dp_capsule_manifest_local_specs(other, mapping),
+      class = "dsvert_dp_public_failure")
+    for (field in c("version", "analysis_id", "dataset")) {
+      bad <- f$contract; bad$spec[[field]] <- "different"
+      altered <- raw; altered$contract <- bad
+      expect_error(.dsvert_dp_capsule_gaussian_spec(policy, "cox_grid",
+        list(cox_grid = altered)), class = "dsvert_dp_public_failure")
+    }
+    workload <- list(version = .DSVERT_DP_CAPSULE_WORKLOAD_CONTRACT_VERSION,
+      describe = list(), survival = list(), vertical_cross = list(),
+      gaussian = list(cox_grid = list(owner_peer = "site_a", spec = raw)))
+    decoded <- .dsvert_dp_capsule_manifest_workload_contract(
+      .dsvert_dp_canonical_json(.dsvert_dp_canonical_query_value(workload)),
+      policy, .local_exact = FALSE)
+    expect_identical(decoded$specs$gaussian$cox_grid, .dsvert_dp_canonical_query_value(raw))
+  }
+})

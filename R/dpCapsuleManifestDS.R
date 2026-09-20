@@ -409,6 +409,19 @@
     spec <- tryCatch(.dsvert_dp_capsule_gaussian_spec(
       policy, analysis_id, gaussian, require_public_bounds = FALSE),
       error = function(error) NULL)
+    if (!is.null(spec) && identical(spec$kind, "cox_grid_cross")) {
+      descriptors <- spec$contract$spec[c("time", "event")]
+      if (!spec$dataset %in% names(mapping$datasets) ||
+          !all(vapply(descriptors, function(value) {
+            is.list(value) && identical(value$owner_peer, policy$peer_name) &&
+              identical(value$dataset, spec$dataset) &&
+              value$column %in% mapping$datasets[[spec$dataset]]
+          }, logical(1L)))) .dsvert_dp_cox_grid_cross_fail()
+      normalized_gaussian[[analysis_id]] <- list(version = spec$version,
+        dataset = spec$dataset, contract = .dsvert_dp_canonical_json(
+          .dsvert_dp_canonical_query_value(spec$contract)))
+      next
+    }
     if (!is.null(spec) && spec$kind %in% c("glm_grid_cross", "lmm_grid_cross")) {
       contract <- spec$contract
       if (!identical(contract$spec$outcome$owner_peer, policy$peer_name) ||
@@ -884,7 +897,8 @@
   for (analysis_id in names(specs$gaussian)) {
     raw <- specs$gaussian[[analysis_id]]
     if (raw$version %in% c(unname(.DSVERT_DP_GLM_GRID_CROSS_SPEC_VERSIONS),
-                          "lmm_grid_cross_v1", "binomial_glmm_grid_cross_v1", "poisson_glmm_grid_cross_v1")) next
+                          "lmm_grid_cross_v1", "binomial_glmm_grid_cross_v1", "poisson_glmm_grid_cross_v1",
+                          "cox_grid_cross_v1")) next
     if (!identical(raw$version, "random_intercept_v1")) {
       raw$predictors <- unname(as.character(unlist(
         raw$predictors, use.names = FALSE)))

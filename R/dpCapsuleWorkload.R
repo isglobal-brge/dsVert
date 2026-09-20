@@ -1336,6 +1336,20 @@
       predictors = unlist(contract$spec$predictor_order, use.names = FALSE),
       contract = contract))
   }
+  if (identical(version, "cox_grid_cross_v1")) {
+    .dsvert_dp_glm_grid_cross_fields(raw, c("version", "dataset", "contract"))
+    contract <- .dsvert_dp_glm_grid_cross_raw_contract(raw)
+    if (!is.list(contract) || !identical(contract$spec$version, raw$version) ||
+        !identical(contract$spec$analysis_id, analysis_id) ||
+        !identical(contract$spec$dataset, raw$dataset)) {
+      .dsvert_dp_cox_grid_cross_fail()
+    }
+    return(list(kind = "cox_grid_cross", version = raw$version,
+      dataset = raw$dataset, time = contract$spec$time$reference,
+      event = contract$spec$event$reference,
+      predictors = unlist(contract$spec$predictor_order, use.names = FALSE),
+      contract = contract))
+  }
   dataset <- .dsvert_dp_capsule_id(raw$dataset, "Gaussian dataset")
   if (identical(version, "negative_binomial_grid_v1")) {
     stop("The negative-binomial grid v1 is sealed and defective; use v2.",
@@ -2839,7 +2853,10 @@
     spec <- .dsvert_dp_capsule_gaussian_spec(
       global_policy, analysis_id, gaussian_specs)
     variables <- c(spec$outcome, spec$predictors)
-    if (spec$kind %in% c("glm_grid_cross", "lmm_grid_cross")) {
+    if (spec$kind %in% c("glm_grid_cross", "lmm_grid_cross", "cox_grid_cross")) {
+      if (identical(spec$kind, "cox_grid_cross")) {
+        variables <- c(spec$time, spec$event, spec$predictors)
+      }
       if (identical(spec$kind, "lmm_grid_cross")) {
         variables <- c(variables, spec$contract$spec$grouping$reference)
       }
@@ -3419,6 +3436,7 @@
   for (analysis_id in names(gaussian_specs)) {
     spec <- .dsvert_dp_capsule_gaussian_spec(
       global_policy, analysis_id, gaussian_specs)
+    if (identical(spec$kind, "cox_grid_cross")) .dsvert_dp_cox_grid_cross_fail()
     if (spec$kind %in% c("glm_grid_cross", "lmm_grid_cross")) {
       contract <- .dsvert_dp_glm_grid_profile_admit(
         spec$contract, global_policy, schema_manifest)

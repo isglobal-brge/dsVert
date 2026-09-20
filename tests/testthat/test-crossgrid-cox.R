@@ -928,3 +928,118 @@ test_that("Cox cold source binding verifies durable owner commitments in synopsi
     }
   }
 })
+
+if (nzchar(Sys.getenv("DSVERT_COX_STAGED_TEST_BINARY"))) {
+  test_that("Cox worker preparation authenticates the owner route and cold source before native handoff", {
+    withr::local_options(dsvert.mpc_binary = normalizePath(Sys.getenv("DSVERT_COX_STAGED_TEST_BINARY")))
+    sign <- .dsvert_dp_capsule_source_sign
+    # Use real fixture Ed25519 keys; only process-global key acquisition is replaced.
+    local_mocked_bindings(.dsvert_dp_capsule_source_sign = function(unsigned, policy, domain) {
+      sign(unsigned, policy, domain, signer = function(message, peer, pin)
+        f$b64(openssl::ed25519_sign(message, f$keys[[peer]])))
+    })
+    root <- tempfile("cox-worker-preparation-"); dir.create(root, mode = "0700")
+    on.exit(unlink(root, recursive = TRUE), add = TRUE)
+    for (owners in c(2L, 3L, 5L)) {
+      f <- .cox_cross_server_fixture(capacity = 4, owners = owners)
+      t <- .cox_transport_fixture(f)
+      source_hash <- .dsvert_joint_dp_hash(t$transport)
+      data <- data.frame(patient = letters[1:4], time = c(2, 5, 5, 1),
+        event = c(1, 0, 1, 1), x = c(0, .5, 1, .25), z = c(1, 0, .5, .25))
+      states <- list()
+      for (peer in c("site_a", "site_b")) {
+        other <- setdiff(c("site_a", "site_b"), peer)
+        resolved <- .cox_resolved_fixture(f, data, peer)
+        policy <- resolved$policy
+        directory <- file.path(root, paste0(owners, "-", peer)); dir.create(directory, mode = "0700")
+        policy$ledger_path <- file.path(directory, "ledger")
+        policy$ledger_private <- TRUE
+        secret <- as.raw(rep(if (peer == "site_a") 7 else 8, 32))
+        ss <- new.env(parent = emptyenv())
+        ss$.exact_gc_transport_initialized <- TRUE
+        ss$.exact_gc_self_name <- peer
+        ss$.exact_gc_peer_binding_digest <- strrep("8", 64)
+        ss$peer_transport_pks <- setNames(list("private-test-transport"), other)
+        ss$.exact_gc_peer_identity_pks <- as.list(policy$peer_pinset[other])
+        .key_put("identity_pk", unname(policy$peer_pinset[[peer]]), ss)
+        batch <- new.env(parent = emptyenv())
+        batch$status <- "complete"; batch$capsule_id <- t$transport$capsule_id
+        batch$contract_hash <- source_hash
+        batch$peer_binding_digest <- ss$.exact_gc_peer_binding_digest
+        batch$terminal_peer_blob_digest <- strrep("9", 64)
+        batch$first_validity_share <- jsonlite::base64_enc(as.raw(1))
+        batch$projection_version <- "private-suffix-v2"
+        batch$source_offset <- t$layout$private_start - 1
+        batch$total <- t$layout$transport_coordinate_count - t$layout$private_start + 1
+        batch$alignment_contract <- .DSVERT_DP_ALIGNMENT_MASK_PRIVATE_CONTRACT
+        batches <- .dsvert_dp_alignment_mask_batches(ss); batches$fixture <- batch
+        .dsvert_dp_capsule_source_with_store(policy, secret, function(con) {
+          incoming <- list(version = .DSVERT_DP_CAPSULE_SOURCE_STORE_VERSION,
+            capsule_id = t$transport$capsule_id, contract_hash = source_hash,
+            recipient_name = peer, next_source_index = owners + 1L, next_chunk_index = 0,
+            complete = TRUE, private_alignment_consensus_shares = setNames(
+              rep(list(.dsvert_relay_b64url_encode(raw(32))), owners),
+              unlist(t$artifact$participating_peers)))
+          .dsvert_dp_capsule_source_record_insert(con, "source_incoming_state", "capsule_id",
+            list(t$transport$capsule_id), incoming, secret)
+          # Authenticated additive input fixtures; this tests preparation, not release arithmetic.
+          for (index in seq_len(t$transport$chunk_count) - 1L) {
+            shape <- .dsvert_dp_capsule_source_chunk_geometry(t$transport, index)
+            record <- list(version = .DSVERT_DP_CAPSULE_SOURCE_STORE_VERSION,
+              capsule_id = t$transport$capsule_id, contract_hash = source_hash,
+              recipient_name = peer, chunk_index = index, coordinates_in_chunk = shape$count,
+              source_count = owners, aggregate_b64 = .dsvert_dp_capsule_source_raw_b64(raw(shape$count * 16)))
+            .dsvert_dp_capsule_source_record_insert(con, "source_aggregate_chunks",
+              c("capsule_id", "chunk_index"), list(t$transport$capsule_id, index), record, secret)
+          }
+          if (peer == "site_a") {
+            producer <- .dsvert_dp_cox_cross_source_producer(policy, secret, t$manifest,
+              t$transport, f$schema_manifest, "cox_grid", resolved$snapshots)$producer
+            private <- .dsvert_dp_capsule_source_producer_private(secret, producer, source_hash)
+            transfer <- .dsvert_dp_capsule_source_transfer_id(t$transport, peer)
+            outbound <- list(version = .DSVERT_DP_CAPSULE_SOURCE_STORE_VERSION,
+              transfer_id = transfer, capsule_id = t$transport$capsule_id,
+              source_name = peer, contract_hash = source_hash, status = "complete",
+              private_snapshot_mac = private$snapshot_mac, private_value_mac = private$value_mac,
+              private_alignment_consensus_hash = private$alignment_consensus_hash)
+            .dsvert_dp_capsule_source_record_insert(con, "source_outbound",
+              c("transfer_id", "capsule_id", "status"),
+              list(transfer, t$transport$capsule_id, "complete"), outbound, secret)
+          }
+        })
+        states[[peer]] <- list(policy = policy, secret = secret, ss = ss, snapshots = resolved$snapshots)
+      }
+      prepare <- function(peer, receipt = NULL, snapshots = if (peer == "site_a") states[[peer]]$snapshots else NULL) {
+        state <- states[[peer]]
+        .dsvert_dp_cox_cross_prepare_worker(state$policy, state$secret, t$manifest,
+          t$transport, f$schema_manifest, state$ss, "cox_grid", snapshots, receipt)
+      }
+      owner <- prepare("site_a")
+      receipt <- owner$routing_receipt
+      expect_false(receipt$private_result_exposed)
+      expect_false(any(c("cox_loss", "routing", "times", "permutation", "store_key") %in% names(receipt)))
+      evaluator <- prepare("site_b", receipt)
+      expect_identical(evaluator$worker$stage_plan_digest, owner$worker$stage_plan_digest)
+      expect_identical(evaluator$worker$purpose, owner$worker$purpose)
+      expect_identical(prepare("site_a", receipt), owner)
+      expect_identical(prepare("site_b", receipt), evaluator)
+      expect_error(prepare("site_b"), class = "dsvert_dp_public_failure")
+      expect_error(prepare("site_b", receipt, states$site_a$snapshots), class = "dsvert_dp_public_failure")
+      for (field in c("capsule_id", "semantic_key", "source_contract_sha256", "artifact_sha256",
+          "profile_sha256", "certificate_sha256", "peer_identity_pk", "routing_digest", "stage_plan_digest")) {
+        changed <- receipt; changed[[field]] <- strrep("0", 64)
+        expect_error(prepare("site_b", changed), class = "dsvert_dp_public_failure")
+      }
+      changed <- receipt; changed$routing_digest <- strrep("a", 64)
+      changed <- sign(changed[setdiff(names(changed), "signature")], states$site_a$policy,
+        "cross-grid-result", signer = function(message, peer, pin) f$b64(openssl::ed25519_sign(message, f$keys[[peer]])))
+      expect_error(prepare("site_b", changed), class = "dsvert_dp_public_failure")
+      expect_error(prepare("site_a", changed))
+      changed <- states$site_a$snapshots
+      changed$aligned$dataset$fingerprint <- strrep("0", 64)
+      expect_error(prepare("site_a", receipt, changed), "snapshot changed")
+      for (state in states) .dsvert_resource_external_unregister(
+        .dsvert_dp_capsule_source_resource_owner(state$policy))
+    }
+  })
+}

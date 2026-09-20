@@ -341,3 +341,22 @@ This compiler is NOT yet invoked by the authenticated durable producer. That
 producer must bind source/cap/receipts, use fresh output masks, conjoin every
 validity and inject the completed vector once before joint DP. The existing
 kernel measurement does not include this bridge or prove a complete release.
+
+## Cycle 23 authenticated worker preparation
+
+The private v2 source path now connects signed owner materialization, durable
+source revalidation and the authenticated aggregate loader to the actual staged
+native preparation command. The time owner must be the pinned-identity garbler.
+It rematerializes its authenticated snapshot and matches the persisted outbound
+commitment on every preparation, including cold replay. Observed times and
+routing stay local. The evaluator accepts only the time owner's Ed25519-signed
+routing commitment, bound to the artifact, source contract, semantic key,
+profile, certificate and native stage plan. Both authorities must derive the
+same stage plan. The existing source signature and private-store ABI are reused.
+
+The native v2 graph already includes private complete-case composition and the
+private Ring64-to-Ring128 bridge. The public source registration, R staged
+execution/DP injection and authenticated release reader are still incomplete.
+This preparation boundary does not admit a public Cox release. Its conservative
+N<=400 v2 guard remains unchanged; the historical N<=4000 kernel measurement
+above is not full-lifecycle capacity evidence for this path.

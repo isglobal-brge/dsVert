@@ -1,0 +1,6 @@
+{
+  "revision": "2026-09-20-david-8h",
+  "capacity_bytes": 256000000000,
+  "capacity_seconds": 28800,
+  "scope": "complete release elapsed and serialized aggregate RPC bytes including retries; native payload reported separately"
+}

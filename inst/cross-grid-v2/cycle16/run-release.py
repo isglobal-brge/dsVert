@@ -8,6 +8,7 @@ import subprocess
 import sys
 import time
 
+CAPACITY = json.loads((Path(__file__).resolve().parents[1] / 'integrator-validation/release-capacity.json').read_text())
 root = Path.cwd().resolve()
 family = os.environ.get('DSVERT_RELEASE_FAMILY', 'lmm')
 assert family in ('lmm', 'binomial_glmm', 'poisson_glmm')
@@ -66,11 +67,11 @@ if metrics_path.exists():
         metrics.get('n') == n and metrics.get('p') == 3 and metrics.get('grid') == 2 and metrics.get('candidates') == 4 and
         metrics.get('owners') == owners and metrics.get('slots') == 4 and
         metrics.get('clusters') == math.ceil(n / 4) and metrics.get('oracle_only') is False)
-    record['capacity_gate'] = {'ceiling_bytes': 256000000000, 'ceiling_seconds': 21600,
+    record['capacity_gate'] = {'ceiling_bytes': CAPACITY['capacity_bytes'], 'ceiling_seconds': CAPACITY['capacity_seconds'],
         'measured_serialized_rpc_bytes': values[0], 'measured_release_seconds': values[1],
         'scope': metrics.get('end_to_end_scope'), 'wire_scope': metrics.get('serialized_rpc_scope'),
         'passed': all(type(v) in (int, float) and math.isfinite(v) and 0 <= v <= limit
-            for v, limit in zip(values, [256000000000, 21600])), 'budget_stop': False}
+            for v, limit in zip(values, [CAPACITY['capacity_bytes'], CAPACITY['capacity_seconds']])), 'budget_stop': False}
     if interrupts:
         record['recovery_metrics_passed'] = metrics.get('recovery') == 'exercised' and metrics.get('native_recovery') == 'prepare_remask_and_unilateral_commit_exact_replay'
 record['proof_passed'] = result.returncode == 0 and all(record['markers'].values()) and record.get('capacity_gate', {}).get('passed', False) and record['recovery_metrics_passed'] and record['metric_shape_passed']

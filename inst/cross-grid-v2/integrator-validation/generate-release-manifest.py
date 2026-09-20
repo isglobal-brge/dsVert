@@ -9,6 +9,7 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[4]
 HARNESS_DIR = 'dsVert/inst/cross-grid-v2/integrator-validation'
+CAPACITY = json.loads(Path(__file__).with_name('release-capacity.json').read_text())
 FAMILIES = ('lmm', 'binomial_glmm', 'poisson_glmm', 'binomial_gee', 'poisson_gee', 'cox')
 PENDING = {'binomial_gee': 'estimated-alpha contract and signed lifecycle',
            'poisson_gee': 'estimated-alpha contract and signed lifecycle',
@@ -85,7 +86,7 @@ def main():
                 real_authenticated_release_required=True, cold_replay_tamper_required=True,
                 bilateral_and_unilateral_recovery_required=mode == 'recovery',
                 capacity_measurement=owners == 2 and mode == 'baseline',
-                capacity_bytes=256_000_000_000, capacity_seconds=21600))
+                capacity_bytes=CAPACITY['capacity_bytes'], capacity_seconds=CAPACITY['capacity_seconds']))
     args.output.mkdir(parents=True, exist_ok=True)
     for filename, rows in [('RELEASE_MANIFEST.jsonl', real), ('SELECTION_MANIFEST.jsonl', selection)]:
         (args.output / filename).write_text(''.join(json.dumps(r, separators=(',', ':')) + '\n' for r in rows))

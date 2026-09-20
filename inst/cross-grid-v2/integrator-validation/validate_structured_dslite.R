@@ -33,7 +33,7 @@ server_dir <- file.path(root, "dsVert")
 client_dir <- file.path(root, "dsVertClient")
 source(file.path(client_dir, "inst/validation/v1.2.0/worked_example_custodian.R"))
 # Custodian-side release policy, applied to every fresh/cold isolated peer.
-# This changes execution leases only; the release driver's 256GB/6h capacity
+# This changes execution leases only; the release driver's 256GB/8h capacity
 # gate remains independent. Unset variables preserve the server defaults.
 structured_transport_policy <- list()
 for (setting in c("ttl_seconds", "max_runtime_seconds")) {

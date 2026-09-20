@@ -89,13 +89,44 @@
     source_contract, schema_manifest, analysis_id) {
   context <- .dsvert_dp_cox_cross_source_context(policy, manifest,
     source_contract, schema_manifest, analysis_id)
+  record <- .dsvert_dp_cox_cross_public_record(policy, secret, manifest, context)
+  record[c("stage_receipt", "stage_plan_digest")]
+}
+
+.dsvert_dp_cox_cross_public_record <- function(policy, secret, manifest, context) {
   record <- .dsvert_dp_capsule_source_with_store(policy, secret, function(con) {
     public <- .dsvert_dp_glm_grid_cross_load(con, secret,
-      source_contract$capsule_id, analysis_id, -1L)
+      context$source_contract$capsule_id, context$spec$analysis_id, -1L)
     .dsvert_dp_lmm_cross_public_record_validate(public, manifest,
-      context$artifact, source_contract)
+      context$artifact, context$source_contract)
   })
-  record[c("stage_receipt", "stage_plan_digest")]
+  record
+}
+
+# Internal publication adapter. The durable publication reader authenticates
+# the existing DP release; this adds its Cox terminal provenance without
+# reading private candidate rows or admitting a new release.
+.dsvert_dp_cox_cross_evidence <- function(policy, secret, manifest, source_contract,
+    schema_manifest, analysis_id, manifest_sha256, artifact_key) {
+  context <- .dsvert_dp_cox_cross_source_context(policy, manifest,
+    source_contract, schema_manifest, analysis_id)
+  if (!policy$peer_name %in% unlist(context$spec$computation_peers, use.names = FALSE)) {
+    .dsvert_dp_cox_grid_cross_fail()
+  }
+  record <- .dsvert_dp_cox_cross_public_record(policy, secret, manifest, context)
+  publication <- .dsvert_dp_synopsis_publication_v1(manifest_sha256, policy, secret)
+  released <- publication$release_receipt
+  if (!identical(publication$artifact_key, artifact_key) ||
+      !identical(released$artifact_key, artifact_key) ||
+      !identical(released$source_contract_sha256, context$source_hash)) {
+    .dsvert_dp_cox_grid_cross_fail()
+  }
+  binding <- list(contract = context$source_contract, analysis_id = analysis_id,
+    semantic_key = record$semantic_key, artifact = context$artifact,
+    contract_hash = context$source_hash, stage = list(stage_plan_digest = record$stage_plan_digest))
+  .dsvert_dp_lmm_cross_public(binding, policy, "published", c(list(
+    coordinate_count = context$artifact$coordinate_count, stage_receipt = record$stage_receipt),
+    released[c("artifact_key", "execution_id", "final_vector_root", "result_set_sha256")]))
 }
 
 .dsvert_dp_cox_cross_inject <- function(con, secret, manifest, source_contract,

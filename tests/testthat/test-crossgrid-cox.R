@@ -1204,3 +1204,81 @@ test_that("Cox terminal persistence reuses authenticated staged rows without pub
   DBI::dbExecute(con, "UPDATE source_cross_grid_records SET row_mac = 'tampered' WHERE batch_index=0")
   expect_error(.dsvert_dp_lmm_cross_record(con, secret, t$manifest, t$artifact, t$transport))
 })
+
+test_that("Cox publication evidence binds signed authorities to durable public provenance", {
+  f <- .cox_cross_server_fixture(capacity = 4, owners = 3L)
+  t <- .cox_transport_fixture(f)
+  secret <- as.raw(rep(7, 32))
+  policy <- f$policy; policy$peer_name <- "site_a"
+  context <- .dsvert_dp_cox_cross_source_context(policy, t$manifest,
+    t$transport, f$schema_manifest, "cox_grid")
+  database <- tempfile("cox-publication-", fileext = ".sqlite")
+  on.exit(unlink(database), add = TRUE)
+  con <- DBI::dbConnect(RSQLite::SQLite(), database)
+  on.exit(DBI::dbDisconnect(con), add = TRUE)
+  DBI::dbExecute(con, paste("CREATE TABLE source_cross_grid_records (capsule_id TEXT, analysis_id TEXT,",
+    "batch_index INTEGER, record_json TEXT NOT NULL, row_mac TEXT NOT NULL, PRIMARY KEY(capsule_id,analysis_id,batch_index))"))
+  row <- list(version = "cox-staged-terminal-binding-v1", capsule_id = t$transport$capsule_id,
+    analysis_id = "cox_grid", batch = -1L,
+    semantic_key = .dsvert_dp_glm_grid_cross_key(t$manifest, t$artifact, t$transport),
+    artifact_sha256 = .dsvert_joint_dp_hash(t$artifact), source_contract_sha256 = context$source_hash,
+    purpose = paste0("cox-loss-staged-v1/", strrep("a", 64)),
+    stage_receipt = strrep("b", 64), stage_plan_digest = strrep("c", 64))
+  save <- function(value = row) .dsvert_dp_glm_grid_cross_save(con, secret, value, -1L)
+  save()
+  artifact_key <- strrep("d", 64); manifest_hash <- strrep("e", 64)
+  publication <- list(artifact_key = artifact_key, release_receipt = list(
+    artifact_key = artifact_key, source_contract_sha256 = context$source_hash,
+    execution_id = strrep("1", 64), final_vector_root = strrep("2", 64),
+    result_set_sha256 = strrep("3", 64)))
+  sign <- .dsvert_dp_capsule_source_sign
+  local_mocked_bindings(
+    .dsvert_dp_capsule_source_with_store = function(policy, secret, code) code(con),
+    .dsvert_dp_capsule_source_sign = function(unsigned, policy, domain) sign(unsigned, policy, domain,
+      signer = function(message, peer, pin) f$b64(openssl::ed25519_sign(message, f$keys[[peer]]))),
+    .dsvert_dp_synopsis_publication_v1 = function(hash, supplied_policy, supplied_secret) {
+      expect_identical(hash, manifest_hash)
+      expect_identical(supplied_policy, policy)
+      expect_identical(supplied_secret, secret)
+      publication
+    })
+  evidence <- function() .dsvert_dp_cox_cross_evidence(policy, secret, t$manifest,
+    t$transport, f$schema_manifest, "cox_grid", manifest_hash, artifact_key)
+  decode <- function(value) jsonlite::fromJSON(value, simplifyVector = FALSE)
+  first <- evidence()
+  a <- decode(first)
+  expect_true(.dsvert_dp_capsule_source_verify(a, policy, "cross-grid-result", "site_a"))
+  expect_identical(a$version, "dsvert-cox-staged-receipt-v1")
+  expect_identical(a$phase, "published")
+  expect_identical(a$stage_receipt, row$stage_receipt)
+  expect_identical(a$stage_plan_digest, row$stage_plan_digest)
+  expect_false(a$private_result_exposed)
+  expect_false(any(c("share", "validity_share", "cox_loss") %in% names(a)))
+  policy$peer_name <- "site_b"
+  b <- decode(evidence())
+  expect_true(.dsvert_dp_capsule_source_verify(b, policy, "cross-grid-result", "site_b"))
+  common <- setdiff(names(a), c("peer_name", "peer_identity_pk", "signature"))
+  expect_identical(a[common], b[common])
+  changed <- b; changed$stage_receipt <- strrep("f", 64)
+  expect_false(.dsvert_dp_capsule_source_verify(changed, policy, "cross-grid-result", "site_b"))
+  policy$peer_name <- "site_c"
+  expect_error(evidence(), class = "dsvert_dp_public_failure")
+  policy$peer_name <- "site_a"
+  # Cold reads require no live session and no private candidate rows.
+  DBI::dbDisconnect(con); con <- DBI::dbConnect(RSQLite::SQLite(), database)
+  expect_identical(evidence(), first)
+  original <- publication
+  publication$artifact_key <- strrep("f", 64)
+  expect_error(evidence(), class = "dsvert_dp_public_failure")
+  publication <- original
+  for (field in c("artifact_key", "source_contract_sha256")) {
+    publication$release_receipt[[field]] <- strrep("f", 64)
+    expect_error(evidence(), class = "dsvert_dp_public_failure")
+    publication <- original
+  }
+  DBI::dbExecute(con, "UPDATE source_cross_grid_records SET row_mac = 'tampered'")
+  expect_error(evidence())
+  DBI::dbExecute(con, "DELETE FROM source_cross_grid_records")
+  expect_error(evidence(), class = "dsvert_dp_public_failure")
+  expect_false(.dsvert_dp_staged_grouped_artifact(t$artifact))
+})

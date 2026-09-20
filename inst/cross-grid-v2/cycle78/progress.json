@@ -1,0 +1,26 @@
+{
+  "cycle": 78,
+  "observed_utc": "2026-09-20T18:43:23.891777+00:00",
+  "promoted_count": 4,
+  "counts": {
+    "FLEET": {
+      "terminal": 10,
+      "passed": 6
+    },
+    "COX": {
+      "terminal": 3,
+      "passed": 3
+    },
+    "GEE": {
+      "terminal": 0,
+      "passed": 0
+    }
+  },
+  "new_terminal_results": 0,
+  "capacity_promotion_gate": false,
+  "frozen_runs_restarted": 0,
+  "runtime_changes": false,
+  "manifest_changed": false,
+  "harvest_scope": "Local authoritative controller records; no new SSH probes. Controller timestamps retained; nonterminal is not proof of active computation.",
+  "gee_results_file_present": false
+}

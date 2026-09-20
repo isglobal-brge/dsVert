@@ -81,7 +81,7 @@ type groupedGLMMWorkerPrepared struct {
 func groupedGLMMWorkerPrepare(config exactGCWorkerConfig, session exactGCSession) (*groupedGLMMWorkerPrepared, error) {
 	in := config.GroupedGLMM
 	if in == nil || session.Spec.Operation != groupedGLMMWorkerOperation || session.validate() != nil ||
-		config.SourceShare != "" || config.SourceValidity != "" || config.GroupedLMM != nil || config.CrossGrid != nil || config.CrossGridCache != nil ||
+		config.SourceShare != "" || config.SourceValidity != "" || config.GroupedLMM != nil || config.GroupedGEE != nil || config.CrossGrid != nil || config.CrossGridCache != nil ||
 		config.JointDP != nil || config.JointDPVector != nil || config.JointDPGaussianOneDraw != nil || config.PrivateSeed != "" ||
 		session.Purpose != groupedGLMMWorkerPurpose(in.Spec) || session.Spec.VectorLen != len(in.Spec.GLMM.Caps) ||
 		session.GarblerID != in.Spec.Authorities[0] || session.EvaluatorID != in.Spec.Authorities[1] ||

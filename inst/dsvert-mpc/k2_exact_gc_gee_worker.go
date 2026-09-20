@@ -1,6 +1,6 @@
 package main
 
-// Typed server-local bridge. The signed LMM adapter constructs every stage;
+// Internal signed-fixed-rho-v3 predecessor only. The typed source adapter constructs every stage;
 // no analyst-supplied stage graph or circuit is accepted.
 import (
 	"bytes"
@@ -16,19 +16,19 @@ import (
 	"strings"
 )
 
-const groupedLMMWorkerOperation exactGCOperation = "grouped-lmm-staged-v1"
+const groupedGEEWorkerOperation exactGCOperation = "grouped-gee-fixed-rho-staged-v1"
 
-type groupedLMMWorkerInput struct {
-	Spec           groupedLMMSourceSpec    `json:"spec"`
-	Source         *groupedLMMSourceRecord `json:"source"`
+type groupedGEEWorkerInput struct {
+	Spec           groupedGEESourceSpec    `json:"spec"`
+	Source         *groupedGEESourceRecord `json:"source"`
 	Routing        *groupedRouteSidecar    `json:"routing,omitempty"`
 	StoreDirectory string                  `json:"store_directory"`
 	StoreKey       string                  `json:"store_key"`
 }
 
 // R carries one opaque string, preserving every native f50/f64 integer bit.
-func (in *groupedLMMWorkerInput) MarshalJSON() ([]byte, error) {
-	type native groupedLMMWorkerInput
+func (in *groupedGEEWorkerInput) MarshalJSON() ([]byte, error) {
+	type native groupedGEEWorkerInput
 	raw, err := json.Marshal((*native)(in))
 	if err != nil {
 		return nil, err
@@ -37,7 +37,7 @@ func (in *groupedLMMWorkerInput) MarshalJSON() ([]byte, error) {
 	return json.Marshal(base64.StdEncoding.EncodeToString(raw))
 }
 
-func (in *groupedLMMWorkerInput) UnmarshalJSON(raw []byte) error {
+func (in *groupedGEEWorkerInput) UnmarshalJSON(raw []byte) error {
 	var encoded string
 	if json.Unmarshal(raw, &encoded) != nil {
 		return errCrossGridStage
@@ -47,7 +47,7 @@ func (in *groupedLMMWorkerInput) UnmarshalJSON(raw []byte) error {
 		return errCrossGridStage
 	}
 	defer clear(decoded)
-	type native groupedLMMWorkerInput
+	type native groupedGEEWorkerInput
 	var value native
 	decoder := json.NewDecoder(bytes.NewReader(decoded))
 	decoder.DisallowUnknownFields()
@@ -62,28 +62,28 @@ func (in *groupedLMMWorkerInput) UnmarshalJSON(raw []byte) error {
 	if !bytes.Equal(decoded, canonical) {
 		return errCrossGridStage
 	}
-	*in = groupedLMMWorkerInput(value)
+	*in = groupedGEEWorkerInput(value)
 	return nil
 }
 
-func groupedLMMWorkerPurpose(spec groupedLMMSourceSpec) string {
-	digest := crossGridStageHash("lmm-worker-public-source-spec-v1", spec)
-	return fmt.Sprintf("%s/%x", groupedLMMWorkerOperation, digest)
+func groupedGEEWorkerPurpose(spec groupedGEESourceSpec) string {
+	digest := crossGridStageHash("gee-worker-public-source-spec-v1", spec)
+	return fmt.Sprintf("%s/%x", groupedGEEWorkerOperation, digest)
 }
 
-type groupedLMMWorkerPrepared struct {
-	graph        *groupedLMMSourceGraph
+type groupedGEEWorkerPrepared struct {
+	graph        *groupedGEESourceGraph
 	directory    string
 	key, binding [32]byte
 	role         exactGCRole
 }
 
-func groupedLMMWorkerPrepare(config exactGCWorkerConfig, session exactGCSession) (*groupedLMMWorkerPrepared, error) {
-	in := config.GroupedLMM
-	if in == nil || session.Spec.Operation != groupedLMMWorkerOperation || session.validate() != nil ||
-		config.SourceShare != "" || config.SourceValidity != "" || config.GroupedGLMM != nil || config.GroupedGEE != nil || config.CrossGrid != nil || config.CrossGridCache != nil ||
+func groupedGEEWorkerPrepare(config exactGCWorkerConfig, session exactGCSession) (*groupedGEEWorkerPrepared, error) {
+	in := config.GroupedGEE
+	if in == nil || session.Spec.Operation != groupedGEEWorkerOperation || session.validate() != nil ||
+		config.SourceShare != "" || config.SourceValidity != "" || config.GroupedLMM != nil || config.GroupedGLMM != nil || config.CrossGrid != nil || config.CrossGridCache != nil ||
 		config.JointDP != nil || config.JointDPVector != nil || config.JointDPGaussianOneDraw != nil || config.PrivateSeed != "" ||
-		session.Purpose != groupedLMMWorkerPurpose(in.Spec) || session.Spec.VectorLen != len(in.Spec.LMM.Caps) ||
+		session.Purpose != groupedGEEWorkerPurpose(in.Spec) || session.Spec.VectorLen != len(in.Spec.Caps)*(1+(in.Spec.Numeric.Predictors+1)*(in.Spec.Numeric.Predictors+2)) ||
 		session.GarblerID != in.Spec.Authorities[0] || session.EvaluatorID != in.Spec.Authorities[1] ||
 		!filepath.IsAbs(in.StoreDirectory) || filepath.Clean(in.StoreDirectory) != in.StoreDirectory {
 		return nil, errCrossGridStage
@@ -107,14 +107,14 @@ func groupedLMMWorkerPrepare(config exactGCWorkerConfig, session exactGCSession)
 	copy(key[:], rawKey)
 	clear(rawKey)
 	defer clear(key[:])
-	graph, err := groupedLMMBuildSourceGraph(in.Spec, role, in.Source, in.Routing, key)
+	graph, err := groupedGEEBuildSourceGraph(in.Spec, role, in.Source, in.Routing, key)
 	if err != nil {
 		return nil, err
 	}
 	// Never public: authenticates exact local source bytes across cold replay.
 	raw, err := json.Marshal(struct {
 		Plan    [32]byte
-		Source  *groupedLMMSourceRecord
+		Source  *groupedGEESourceRecord
 		Routing *groupedRouteSidecar
 	}{crossGridStageHash("public-plan", graph.Graph), in.Source, in.Routing})
 	if err != nil {
@@ -122,15 +122,15 @@ func groupedLMMWorkerPrepare(config exactGCWorkerConfig, session exactGCSession)
 	}
 	defer clear(raw)
 	m := hmac.New(sha256.New, key[:])
-	m.Write([]byte("dsvert/grouped-lmm-worker-private-source-binding/v1\x00"))
+	m.Write([]byte("dsvert/grouped-gee-worker-private-source-binding/v1\x00"))
 	m.Write(raw)
-	prepared := &groupedLMMWorkerPrepared{graph: graph, directory: in.StoreDirectory, key: key, role: role}
+	prepared := &groupedGEEWorkerPrepared{graph: graph, directory: in.StoreDirectory, key: key, role: role}
 	copy(prepared.binding[:], m.Sum(nil))
 	return prepared, nil
 }
 
-func (p *groupedLMMWorkerPrepared) bindSource(store *crossGridStageStore) error {
-	const name = "lmm-source.binding"
+func (p *groupedGEEWorkerPrepared) bindSource(store *crossGridStageStore) error {
+	const name = "gee-source.binding"
 	info, err := store.root.Lstat(name)
 	if err == nil {
 		if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || !exactGCPrivateOwnedRegular(info) || info.Size() != 32 {
@@ -164,7 +164,7 @@ func (p *groupedLMMWorkerPrepared) bindSource(store *crossGridStageStore) error 
 	if err != nil {
 		return err
 	}
-	temporary := ".lmm-source-" + hex.EncodeToString(token[:])
+	temporary := ".gee-source-" + hex.EncodeToString(token[:])
 	file, err := store.root.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		return err
@@ -191,7 +191,7 @@ func (p *groupedLMMWorkerPrepared) bindSource(store *crossGridStageStore) error 
 	return directory.Sync()
 }
 
-func (p *groupedLMMWorkerPrepared) run(rw io.ReadWriter, session exactGCSession) (exactGCWorkerResult, error) {
+func (p *groupedGEEWorkerPrepared) run(rw io.ReadWriter, session exactGCSession) (exactGCWorkerResult, error) {
 	store, err := crossGridStageOpenStore(p.directory, p.key, p.graph.Graph, p.role)
 	if err != nil {
 		return exactGCWorkerResult{}, err
@@ -230,7 +230,7 @@ func (p *groupedLMMWorkerPrepared) run(rw io.ReadWriter, session exactGCSession)
 		flags[i] = bit == 1
 	}
 	context := exactGCContextDigest(session)
-	return exactGCWorkerResult{Version: exactGCWorkerResultVersion, Kind: "grouped-lmm-staged-ring128-share-v1",
+	return exactGCWorkerResult{Version: exactGCWorkerResultVersion, Kind: "grouped-gee-fixed-rho-staged-ring128-share-v1",
 		RingBits: 128, VectorLen: session.Spec.VectorLen, Share: base64.StdEncoding.EncodeToString(output.Share),
 		ValidityShare: packBoolsB64(flags), ContextHash: hex.EncodeToString(context[:]),
 		StageReceipt: hex.EncodeToString(terminal.StageReceipt[:]), StagePlanDigest: hex.EncodeToString(store.plan[:])}, nil

@@ -31,6 +31,7 @@ const (
 )
 
 type exactGCWorkerConfig struct {
+	GroupedGEE     *groupedGEEWorkerInput  `json:"grouped_gee,omitempty"`
 	GroupedLMM     *groupedLMMWorkerInput  `json:"grouped_lmm,omitempty"`
 	GroupedGLMM    *groupedGLMMWorkerInput `json:"grouped_glmm,omitempty"`
 	CrossGrid      *crossGridKernelPlan    `json:"cross_grid,omitempty"`
@@ -178,6 +179,7 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 		config.HeartbeatKey = ""
 		config.GroupedLMM = nil
 		config.GroupedGLMM = nil
+		config.GroupedGEE = nil
 		if returnErr != nil && canReportFailure {
 			if markerErr := exactGCCommitWorkerFailure(
 				config.SpoolDir, config, failureSession, returnErr); markerErr != nil {
@@ -221,6 +223,17 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 	}
 	failureSession = &session
 	defer clear(session.MasterKey[:])
+	var stagedGEE *groupedGEEWorkerPrepared
+	if session.Spec.Operation == groupedGEEWorkerOperation {
+		stagedGEE, err = groupedGEEWorkerPrepare(config, session)
+		if err != nil {
+			return err
+		}
+		defer clear(stagedGEE.key[:])
+		config.GroupedGEE = nil
+	} else if config.GroupedGEE != nil {
+		return errCrossGridStage
+	}
 	var stagedGLMM *groupedGLMMWorkerPrepared
 	if session.Spec.Operation == groupedGLMMWorkerOperation {
 		stagedGLMM, err = groupedGLMMWorkerPrepare(config, session)
@@ -262,7 +275,7 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 		return errCrossGridKernel
 	}
 	var shares []*big.Int
-	if stagedLMM == nil && stagedGLMM == nil {
+	if stagedLMM == nil && stagedGLMM == nil && stagedGEE == nil {
 		shares, err = exactGCDecodeWorkerShares(config.SourceShare, shareSpec)
 	}
 	config.MasterKey = ""
@@ -365,7 +378,11 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 	if err := exactGCPrivateMarker(config.SpoolDir, "ready", []byte("1")); err != nil {
 		return err
 	}
-	if stagedGLMM != nil {
+	if stagedGEE != nil {
+		var result exactGCWorkerResult
+		result, err = stagedGEE.run(spool, session)
+		stagedResult = &result
+	} else if stagedGLMM != nil {
 		var result exactGCWorkerResult
 		result, err = stagedGLMM.run(spool, session)
 		stagedResult = &result

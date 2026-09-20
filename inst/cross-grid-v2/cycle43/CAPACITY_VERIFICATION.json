@@ -1,0 +1,8 @@
+{
+  "boundaries_and_missing_nonfinite_checks": "check-capacity.py PASS",
+  "lifecycle_source_and_metrics_preserved": true,
+  "original_records_sha256": "8a6da83b89851fc0285bd3a663b9cd34bd304f5c7fd1512b06147a996febe46a",
+  "rescored_pass_count": 1,
+  "rescored_fail_count": 1,
+  "no_releases_executed": true
+}

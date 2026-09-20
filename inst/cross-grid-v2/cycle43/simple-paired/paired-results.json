@@ -1,0 +1,22 @@
+[
+  {
+    "package": "dsVert",
+    "started_utc": "2026-09-20T07:56:59.726587+00:00",
+    "pid": 712119,
+    "stdin": "/dev/null",
+    "returncode": 0,
+    "shell_exit_status": 0,
+    "elapsed_seconds": 3099.280017497018,
+    "finished_utc": "2026-09-20T08:48:39.006606+00:00"
+  },
+  {
+    "package": "dsVertClient",
+    "started_utc": "2026-09-20T08:48:41.941704+00:00",
+    "pid": 773252,
+    "stdin": "/dev/null",
+    "returncode": 0,
+    "shell_exit_status": 0,
+    "elapsed_seconds": 24622.866033171304,
+    "finished_utc": "2026-09-20T15:39:04.807739+00:00"
+  }
+]

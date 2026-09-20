@@ -1,0 +1,62 @@
+{
+  "dsVert": {
+    "tests": 1164,
+    "totals": {
+      "expectations": 21062,
+      "failed": 0,
+      "skipped": 0,
+      "error": 0,
+      "warning": 0,
+      "passed": 21062
+    },
+    "nonpass": []
+  },
+  "dsVertClient": {
+    "tests": 1150,
+    "totals": {
+      "expectations": 33913,
+      "failed": 0,
+      "skipped": 5,
+      "error": 0,
+      "warning": 0,
+      "passed": 33908
+    },
+    "nonpass": [
+      {
+        "file": "test-documentation-release-claims.R",
+        "context": "documentation-release-claims",
+        "test": "repository validation vignettes are explicitly archival",
+        "classes": ["expectation_skip", "expectation", "condition"],
+        "message": "Reason: repository-only historical vignettes are absent"
+      },
+      {
+        "file": "test-dp-synopsis-describe-rock-e2e.R",
+        "context": "dp-synopsis-describe-rock-e2e",
+        "test": "focused Gaussian LASSO pseudo-IC is plausible and replayable at K=2/3/5",
+        "classes": ["expectation_skip", "expectation", "condition"],
+        "message": "Reason: set DSVERT_TEST_SYNOPSIS_E2E_FAMILY=gaussian_lasso_focal"
+      },
+      {
+        "file": "test-fama-reference-harness.R",
+        "context": "fama-reference-harness",
+        "test": "two-custodian synthetic reference compares signed grid selections",
+        "classes": ["expectation_skip", "expectation", "condition"],
+        "message": "Reason: run source harness explicitly; this is not production release evidence"
+      },
+      {
+        "file": "test-installed-script-resolution.R",
+        "context": "installed-script-resolution",
+        "test": "installed scripts resolve the installed dsVertClient namespace",
+        "classes": ["expectation_skip", "expectation", "condition"],
+        "message": "Reason: subprocess preflight requires an installed package tree"
+      },
+      {
+        "file": "test-opal-method-reconciliation.R",
+        "context": "opal-method-reconciliation",
+        "test": "repository-level legacy entry points are fail-closed stubs",
+        "classes": ["expectation_skip", "expectation", "condition"],
+        "message": "Reason: repository-level scripts are not part of the installed package"
+      }
+    ]
+  }
+}

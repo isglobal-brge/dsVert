@@ -1,0 +1,102 @@
+{
+  "source_pair": "f3795a2/e748f05",
+  "client": {
+    "tests": 1150,
+    "totals": {
+      "expectations": 33913,
+      "failed": 0,
+      "skipped": 5,
+      "error": 0,
+      "warning": 0,
+      "passed": 33908
+    },
+    "nonpass": [
+      {
+        "file": "test-documentation-release-claims.R",
+        "context": "documentation-release-claims",
+        "test": "repository validation vignettes are explicitly archival",
+        "classes": [
+          "expectation_skip",
+          "expectation",
+          "condition"
+        ],
+        "message": "Reason: repository-only historical vignettes are absent"
+      },
+      {
+        "file": "test-dp-synopsis-describe-rock-e2e.R",
+        "context": "dp-synopsis-describe-rock-e2e",
+        "test": "focused Gaussian LASSO pseudo-IC is plausible and replayable at K=2/3/5",
+        "classes": [
+          "expectation_skip",
+          "expectation",
+          "condition"
+        ],
+        "message": "Reason: set DSVERT_TEST_SYNOPSIS_E2E_FAMILY=gaussian_lasso_focal"
+      },
+      {
+        "file": "test-fama-reference-harness.R",
+        "context": "fama-reference-harness",
+        "test": "two-custodian synthetic reference compares signed grid selections",
+        "classes": [
+          "expectation_skip",
+          "expectation",
+          "condition"
+        ],
+        "message": "Reason: run source harness explicitly; this is not production release evidence"
+      },
+      {
+        "file": "test-installed-script-resolution.R",
+        "context": "installed-script-resolution",
+        "test": "installed scripts resolve the installed dsVertClient namespace",
+        "classes": [
+          "expectation_skip",
+          "expectation",
+          "condition"
+        ],
+        "message": "Reason: subprocess preflight requires an installed package tree"
+      },
+      {
+        "file": "test-opal-method-reconciliation.R",
+        "context": "opal-method-reconciliation",
+        "test": "repository-level legacy entry points are fail-closed stubs",
+        "classes": [
+          "expectation_skip",
+          "expectation",
+          "condition"
+        ],
+        "message": "Reason: repository-level scripts are not part of the installed package"
+      }
+    ]
+  },
+  "server": {
+    "tests": 1164,
+    "totals": {
+      "expectations": 21062,
+      "failed": 0,
+      "skipped": 0,
+      "error": 0,
+      "warning": 0,
+      "passed": 21062
+    },
+    "nonpass": []
+  },
+  "source_verification": {
+    "source_changed": [],
+    "source_files_checked": 2504,
+    "analysis_script_sha256": "179225ea4fb1920eea4216bc11b0c94f971f9cb49ef54f1e6f67e072ddcd4933",
+    "partial_observation": false,
+    "observed_utc": "2026-09-20T15:40:02.881661+00:00"
+  },
+  "raw_sha256": {
+    "paired-analysis.json": "fe439ec58e43ad908c89330112ce39adf120dcedd4129b47be784db5276a8450",
+    "paired-results.json": "69e57f8eb146a9ae6e11c949c44b229458c0fbc7f5133e847212c30f01ac1a2b",
+    "paired-harvest-verification.json": "dfe62e6a0b8f7d4fb153ea7ed239a5d262134cdd9240bb3b695a6c5e916962f7",
+    "paired-harvest-sha256.json": "0a31cecb099005f58a540eccd1fadd3512e6435f7cdeb77fdd20c7b67818cfce",
+    "dsVertClient-paired.log": "f079d53ada303a15db2cb8fcafdb7011301acfb9578d5b739ee748392f5e7ba2",
+    "dsVertClient-paired.csv": "ab602f933b8e684ffa02aea89abd9e78f1bdbc58a934924acdca0fee61d85570",
+    "dsVertClient-paired.resources.json": "40475d62613371f1668c09777ba4c613bfe4b299a698c36ec1a3703e4095e84d",
+    "dsVertClient-paired.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+  },
+  "additional_module_skip": "test-dslite-glm.R:19: DSLite mock missing dsVert PSI methods; not represented in test-level RDS rows",
+  "review": "No family-specific client defect reported. Five skips retain explicitly untested source-only/installed-tree/reference/optional Gaussian LASSO scopes. Confirmatory evidence, not a zero-skip claim or replacement of generic v1.2.0 validation."
+}

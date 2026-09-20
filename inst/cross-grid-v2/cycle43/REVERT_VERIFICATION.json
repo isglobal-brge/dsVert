@@ -1,0 +1,34 @@
+{
+  "source_commits": {
+    "dsVert": "f96717ee548c957827dec6252ae7a96fca09fb8a",
+    "dsVertClient": "05180078e6c4b01bf2323f5957f2f1fa9750dd11"
+  },
+  "native_source_and_runtimes_identical_to": "99886d2",
+  "batching_preserved_branch": "post-tag/lmm-glmm-relay-batching",
+  "batching_commit": "7ff811c1d93489313992b3b076ebae2908db06c1",
+  "gee_files_unchanged_from_cycle42": [
+    "R/crossgrid_grouped.R",
+    "inst/certificates/grouped_gee_fixed_rho_staged_v1.json",
+    "inst/dsvert-mpc/k2_exact_gc_gee_certificate.go",
+    "inst/dsvert-mpc/k2_exact_gc_gee_factor_protocol.go",
+    "inst/dsvert-mpc/k2_exact_gc_gee_factor_protocol_test.go",
+    "inst/dsvert-mpc/k2_exact_gc_gee_factors.go",
+    "inst/dsvert-mpc/k2_exact_gc_gee_loss.go",
+    "inst/dsvert-mpc/k2_exact_gc_gee_loss_moments.go",
+    "inst/dsvert-mpc/k2_exact_gc_gee_loss_moments_test.go",
+    "inst/dsvert-mpc/k2_exact_gc_gee_loss_registration.go",
+    "inst/dsvert-mpc/k2_exact_gc_gee_loss_test.go",
+    "inst/dsvert-mpc/k2_exact_gc_gee_source_staged.go",
+    "inst/dsvert-mpc/k2_exact_gc_gee_source_staged_test.go",
+    "inst/dsvert-mpc/k2_exact_gc_gee_source_wire.go",
+    "inst/dsvert-mpc/k2_exact_gc_gee_source_wire_test.go",
+    "inst/dsvert-mpc/k2_exact_gc_gee_staged.go",
+    "inst/dsvert-mpc/k2_exact_gc_gee_staged_test.go",
+    "inst/dsvert-mpc/k2_exact_gc_gee_whitening.go",
+    "inst/dsvert-mpc/k2_exact_gc_gee_whitening_oracle_test.go",
+    "inst/dsvert-mpc/k2_exact_gc_gee_whitening_test.go",
+    "inst/dsvert-mpc/k2_exact_gc_gee_worker.go",
+    "inst/dsvert-mpc/k2_exact_gc_gee_worker_test.go"
+  ],
+  "linux_runtime_sha256": "d5eabb8a7061b1edf5d35b4a8df7b4fb3513a0f1801bea2346de4b2af8d27cd3"
+}

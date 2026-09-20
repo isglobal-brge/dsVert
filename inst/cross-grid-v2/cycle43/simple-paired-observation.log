@@ -1,0 +1,12 @@
+{
+  "observed_utc": "2026-09-20T15:46:53.780468+00:00",
+  "launch": {
+    "package": "dsVertClient",
+    "started_utc": "2026-09-20T08:48:41.941704+00:00",
+    "pid": 773252,
+    "stdin": "/dev/null"
+  },
+  "log_size": 39038,
+  "log_mtime_utc": "2026-09-20T15:39:03+00:00",
+  "completed": true
+}

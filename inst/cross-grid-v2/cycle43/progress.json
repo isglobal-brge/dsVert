@@ -1,0 +1,28 @@
+{
+  "observed_utc": "2026-09-20T15:50:07.143383+00:00",
+  "source_commits": {
+    "dsVert": "f96717ee548c957827dec6252ae7a96fca09fb8a",
+    "dsVertClient": "05180078e6c4b01bf2323f5957f2f1fa9750dd11"
+  },
+  "promoted_count": 4,
+  "capacity_bytes": 256000000000,
+  "capacity_seconds": 28800,
+  "fleet_collected": 2,
+  "fleet_rescored_pass": 1,
+  "fleet_rescored_fail": 1,
+  "fleet_observed_running": 10,
+  "batching_on_release_line": false,
+  "batching_branch": "post-tag/lmm-glmm-relay-batching",
+  "cox_public_ready": false,
+  "cox_first_release_launched": false,
+  "simple_confirmatory_client_complete": true,
+  "gee_owned_files_edited": false,
+  "real_releases_launched": 0,
+  "proof": "PROOF.json",
+  "manifest": "MANIFEST_VALIDATION.json",
+  "pending": [
+    "Cox artifact/client runner/certificate dispatch and full lifecycle",
+    "Remaining old-pair heavy jobs and family recovery/topology gates",
+    "Paired suite completion and review"
+  ]
+}

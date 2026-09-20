@@ -1,0 +1,68 @@
+{
+  "observed_utc": "2026-09-20T15:41:03.671691+00:00",
+  "launch": {
+    "pid": 49191,
+    "started_utc": "2026-09-20T15:17:22.198526+00:00",
+    "command": [
+      "Rscript",
+      "--vanilla",
+      "dsVert/inst/cross-grid-v2/integrator-validation/validate_lmm_dslite.R",
+      "/Users/david/Documents/GitHub/dsvert-crossowner/integrator-evidence/cycle42-20260920/release-r1"
+    ],
+    "scope": "n4/K2 signed recovery smoke, not n2000 capacity",
+    "snapshot": "/Users/david/Documents/GitHub/dsvert-crossowner/integrator-evidence/cycle42-20260920/release-r1",
+    "manifest_sha256": "141b02e2127d0874b4a693cea234d0588b6e3f22d21df174b2c8a44cc9d762fc"
+  },
+  "markers": {
+    "DSLITE_LMM_RECOVERY_BOUNDARY prepared OBSERVED": true,
+    "DSLITE_LMM_RECOVERY_BOUNDARY bilateral_prepare OBSERVED": true,
+    "DSLITE_LMM_RECOVERY_BOUNDARY unilateral_commit OBSERVED": true,
+    "DSLITE_LMM_RECOVERY_BOUNDARY committed OBSERVED": true,
+    "DSLITE_LMM_RECOVERY_BOUNDARY unilateral OBSERVED": true,
+    "DSLITE_LMM_NATIVE_PREPARE_REMASK_AND_UNILATERAL_COMMIT_EXACT_REPLAY_VERIFIED": true,
+    "DSLITE_ORACLE_BITWISE_EQUAL_STICKY_TAMPER_REJECTED lmm": true,
+    "DIRECT_R_COLD_LIFECYCLE_EQUAL_TAMPER_REJECTED": true,
+    "DSLITE_LMM_COLD_EXPORTED_API_EQUAL_AUTHENTICATED": true
+  },
+  "exit_code": 0,
+  "log_sha256": "151fc220c0bc619489bfa77762d25ff68c7238068ab62f92718745fcee6cae49",
+  "log_bytes": 12094,
+  "source_files": 3024,
+  "source_mismatches": [],
+  "metrics": {
+    "family": "lmm",
+    "n": 4,
+    "p": 3,
+    "grid": 2,
+    "candidates": 4,
+    "clusters": 1,
+    "slots": 4,
+    "owners": 2,
+    "epsilon": 8,
+    "instance": 1,
+    "elapsed": 1065.716,
+    "successful_call_elapsed": 206.995,
+    "uninterrupted_baseline_elapsed": null,
+    "recovery": "exercised",
+    "native_recovery": "prepare_remask_and_unilateral_commit_exact_replay",
+    "end_to_end_release_elapsed": 1118.348,
+    "end_to_end_serialized_rpc_bytes": 189863303,
+    "end_to_end_scope": "fixture-bootstrap-PSI-signing-source-staged-LMM-and-DP-through-first-successful-release-including-retries-before-oracle-and-replay",
+    "release_serialized_rpc_bytes": 181093710,
+    "serialized_rpc_scope": "R-v3-serialized-DSI-request-response-objects-including-retries-excluding-IPC-framing",
+    "protocol_payload": {
+      "exact_gc_unique_payload_bytes": 50817290,
+      "exact_gc_offered_payload_bytes": 50817290,
+      "source_ciphertext_delivered_bytes": 3236856
+    },
+    "protocol_payload_scope": "public-release-exactGC-and-source-transport-before-replay-no-bootstrap-PSI",
+    "expected_oracle_sha256": "603dba6aa0a9f8691e8fb5b2ddb04376f07543dcd83aab4f93c6fe8bdfc4f5b4",
+    "oracle_only": false,
+    "selected_candidate": 2,
+    "exact_best": 2,
+    "loss_gap": 0,
+    "artifact_key": "7d36b5533fabc2946fa5e47f4b83c8a8910d169b763d43ce1a9f6766aa1252a4",
+    "certificate_sha256": "9c8bb6e15cd76abfb6d4e500b448d7a33a1fbf38ab49b510353f19737f102c40"
+  },
+  "scope": "n4/K2 precommit frozen-source smoke. Native and R executable sources match 7ff811c/55f4793; historical base identity in source-manifest.json is not the tested runtime identity. No n2000 capacity claim."
+}

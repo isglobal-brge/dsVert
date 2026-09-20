@@ -28,5 +28,5 @@ if [ ! -e integrator-validation ]; then
   ln -s dsVert/inst/cross-grid-v2/integrator-validation integrator-validation
 fi
 test "$(readlink -f integrator-validation)" = "$(readlink -f dsVert/inst/cross-grid-v2/integrator-validation)"
-(cd dsVert/inst/dsvert-mpc && go test -c -o ../cross-grid-v2/build/cross-grid-oracle.test .)
+(cd dsVert/inst/dsvert-mpc && go test -c -tags=grouped_reference_test,dsvert_cox_plaintext_test -o ../cross-grid-v2/build/cross-grid-oracle.test .)
 echo "RELEASE_WORKSPACE_PREPARED (readiness and promotion require separate evidence)"

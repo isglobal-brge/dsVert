@@ -24,7 +24,8 @@ owner_count <- as.integer(Sys.getenv("DSVERT_GRID_VALIDATION_OWNERS", "2"))
 stopifnot(n > 0, family %in% c("lmm", "binomial_glmm", "poisson_glmm",
   "binomial_gee", "poisson_gee", "cox"), epsilon %in% c(1, 4, 8),
   owner_count %in% c(2L, 3L, 5L), predictors >= 1L, predictors <= 16L,
-  grid_size >= 2L, grid_size <= 50L, !oracle_only, instance_count == 1L, real_count >= 1L,
+  grid_size >= 2L, grid_size <= 50L, instance_count == 1L,
+  oracle_only || real_count >= 1L,
   identical(Sys.getenv("DSVERT_GRID_VALIDATION_COLD"), "1"),
   Sys.getenv("DSVERT_GRID_VALIDATION_INTERRUPT") %in%
     if (staged) c("0", "1") else "1")
@@ -668,7 +669,7 @@ run <- function() {
     TRUE
   })
   real_release <- instance < first_instance + real_count
-  if (!staged) {
+  if (!staged || oracle_only) {
     source(file.path(server_dir, "inst/cross-grid-v2/prepare_oracle_noise.R"))
     planned <- tryCatch(grid_oracle_noise(peers, conns,
       cf(".dsvert_dp_synopsis_bootstrap_build_v1")(conns)), error = function(error) {
@@ -817,6 +818,12 @@ run <- function() {
   spec <- contract$spec
   source(file.path(root, "integrator-validation/structured_integer_oracle.R"))
   exact <- structured_integer_oracle(server_dir, client_dir, spec, x, y, cluster, time, event)
+  # Commitment to deterministic exact integers, independent of random authority
+  # keys and sticky DP seeds. Same bytes in oracle-only and real-release modes.
+  exact_text <- paste0(paste(c(as.character(n), exact), collapse = "\n"), "\n")
+  exact_hash <- digest::digest(charToRaw(exact_text), algo = "sha256", serialize = FALSE)
+  expected_hash <- Sys.getenv("DSVERT_GRID_VALIDATION_EXPECTED_ORACLE_SHA256")
+  if (nzchar(expected_hash)) stopifnot(identical(exact_hash, expected_hash))
   input <- file.path(state, "synthetic-oracle-input.json")
   output <- file.path(state, "synthetic-oracle-output.json")
   fixture <- list(Exact = as.list(c(as.character(n), exact)), Draws = draws, Output = output)
@@ -827,6 +834,32 @@ run <- function() {
   if (oracle_run$status != 0) cat(oracle_run$stdout, oracle_run$stderr)
   stopifnot(oracle_run$status==0)
   oracle <- jsonlite::fromJSON(output)
+  candidate_count <- if (staged) length(spec$candidate_grid) else length(spec$beta_grid)
+  width <- length(exact) / candidate_count
+  loss_indices <- seq.int(1L, length(exact), by = width)
+  released_losses <- as.numeric(oracle$Released[-1])[loss_indices]
+  exact_losses <- as.numeric(exact)[loss_indices]
+  if (oracle_only) {
+    source_commits <- if (file.exists(file.path(root, "frozen-source-manifest.json"))) {
+      jsonlite::fromJSON(file.path(root, "frozen-source-manifest.json"))$repositories
+    } else setNames(lapply(c(server_dir, client_dir), function(repo)
+      processx::run("git", c("-C", repo, "rev-parse", "HEAD"))$stdout |>
+        trimws()), c("dsVert", "dsVertClient"))
+    summary <- list(source_commits = source_commits,
+      family = family, n = n, p = predictors, grid = grid_size,
+      candidates = candidate_count, clusters = cluster_count, slots = cluster_size,
+      owners = owner_count, epsilon = epsilon, instance = instance,
+      oracle_only = TRUE, real_authenticated_release = FALSE,
+      expected_oracle_sha256 = exact_hash,
+      oracle_hash_scope = "UTF-8 count then exact integer coordinates, LF terminated",
+      selected_candidate = which.min(released_losses), exact_best = which.min(exact_losses),
+      loss_gap = (exact_losses[which.min(released_losses)] - min(exact_losses)) / 2^16)
+    summary_json <- jsonlite::toJSON(summary, auto_unbox = TRUE, digits = NA)
+    metrics_path <- Sys.getenv("DSVERT_GRID_VALIDATION_METRICS_PATH")
+    if (nzchar(metrics_path)) writeLines(summary_json, metrics_path)
+    cat("STRUCTURED_SELECTION_ORACLE_ONLY", summary_json, "\n")
+    return(invisible(summary))
+  }
   if (real_release) {
   # Compare authenticated integers before converting the DP block to doubles.
   trace(".dsvert_dp_synopsis_client_replay", where = asNamespace("dsVertClient"),
@@ -843,11 +876,6 @@ run <- function() {
     Sys.chmod(file.path(state, "public-release-mismatch.rds"), "0600")
   }
   stopifnot(identical(unname(observed), unname(oracle$Released)))
-  candidate_count <- if (staged) length(spec$candidate_grid) else length(spec$beta_grid)
-  width <- length(exact) / candidate_count
-  loss_indices <- seq.int(1L, length(exact), by = width)
-  released_losses <- as.numeric(oracle$Released[-1])[loss_indices]
-  exact_losses <- as.numeric(exact)[loss_indices]
   stopifnot(fit$selected_candidate == which.min(released_losses))
   replay <- invoke()
   stopifnot(identical(replay$coefficients, fit$coefficients),
@@ -912,6 +940,7 @@ run <- function() {
     serialized_rpc_scope = "R-v3-serialized-DSI-request-response-objects-including-retries-excluding-IPC-framing",
     protocol_payload = protocol_payload,
     protocol_payload_scope = "public-release-exactGC-and-source-transport-before-replay-no-bootstrap-PSI",
+    expected_oracle_sha256 = exact_hash,
     oracle_only = !real_release,
     selected_candidate = which.min(released_losses), exact_best = which.min(exact_losses),
     loss_gap = (exact_losses[which.min(released_losses)] - min(exact_losses)) / 2^16,

@@ -1,0 +1,20 @@
+{
+  "current_nb_matches_promoted_fleet": {
+    "inst/dsvert-mpc/k2_exact_gc_nb_loss.go": true,
+    "inst/dsvert-mpc/k2_exact_gc_nb_composition_test.go": true,
+    "inst/dsvert-mpc/k2_exact_gc_nb_grid_test.go": true,
+    "inst/dsvert-mpc/k2_exact_gc_nb_width_test.go": true
+  },
+  "prior_math_proof": "../cycle32-20260920/NB_PROOF.json",
+  "promoted_families": [
+    "nb",
+    "lasso",
+    "multinomial",
+    "ordinal"
+  ],
+  "promotion_manifest_sha256": "fa9393028291ea2c475f2d96b9902911a9de3c2fdedfa263b89246fa81e44a01",
+  "fresh_nb_releases": 0,
+  "simple_client_paired_observation": "SIMPLE_PAIRED.json; pending, confirmatory",
+  "gaussian_regression": "preflight-tests.csv: 10 assertions pass against current native binary",
+  "native_and_server_source_changed": false
+}

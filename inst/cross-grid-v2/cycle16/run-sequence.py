@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-import time
 import traceback
 
 root = Path.cwd().resolve()
@@ -38,17 +37,12 @@ try:
     emit('waiting_for_shared_release_lock')
     fcntl.flock(lock, fcntl.LOCK_EX)
     emit('shared_release_lock_acquired')
-    # Older immutable drivers predate the shared lock. Drain them before any
-    # new release, including n4; never stop, patch or restart those snapshots.
-    predecessors = [
-        Path('/workspace/dsvert/executor-cycle10-lmm/logs/sequence.exit'),
-        Path('/workspace/dsvert/executor-cycle11-glmm-release-r1/logs/glmm-sequence.exit'),
-        Path('/workspace/dsvert/executor-cycle12-paired-r1/logs/paired-driver.exit'),
-    ]
-    while pending := [str(p) for p in predecessors if not p.is_file()]:
-        emit('draining_legacy_drivers', pending=pending)
-        time.sleep(45)
-    emit('legacy_drivers_terminal', exits={str(p): p.read_text().strip() for p in predecessors})
+    # Legacy immutable jobs have independent callr/DSLite processes and state
+    # roots. The user permits isolated transports; no legacy process is stopped.
+    # This lock serializes new LMM/Poisson sequences, while the harness creates
+    # fresh peer processes and a unique state directory for every release.
+    emit('isolated_transport_policy', legacy_jobs='separate peer processes; unchanged',
+         new_sequences='serialized with queued Poisson', native_gomaxprocs=2)
     for n, owners, recovery in [(4, 2, 0), (2000, 2, 0), (2000, 3, 0),
                                (2000, 5, 0), (2000, 2, 1)]:
         verify()

@@ -147,8 +147,39 @@ func TestGroupedGEEPoissonStagedSpoolWorkers(t *testing.T) {
 	groupedGEEStagedSpoolWorkers(t, "poisson")
 }
 
-func groupedGEEStagedSpoolWorkers(t *testing.T, family string) {
+func TestGroupedGEEWireStagedSpoolWorkers(t *testing.T) {
+	for _, family := range []string{"binomial", "poisson"} {
+		t.Run(family, func(t *testing.T) { groupedGEEStagedSpoolWorkers(t, family, true) })
+	}
+}
+
+func groupedGEEStagedSpoolWorkers(t *testing.T, family string, throughWire ...bool) {
 	s, sources, side, rows := groupedGEESourceFixture(t, family)
+	if len(throughWire) > 0 && throughWire[0] {
+		for role := range sources {
+			input := groupedGEEWireFixture(t, family, exactGCRole(role))
+			encode := func(out crossGridStageOutput) groupedGEESourceWireOutput {
+				return groupedGEESourceWireOutput{base64.StdEncoding.EncodeToString(out.Share), base64.StdEncoding.EncodeToString(out.Validity)}
+			}
+			input.Handoff.Numeric, input.Handoff.Outcome, input.Handoff.Metadata = encode(sources[role].Numeric), encode(sources[role].Outcome), encode(sources[role].Metadata)
+			worker, err := groupedGEEPrepareWire(input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			raw, err := json.Marshal(worker)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var restored groupedGEEWorkerInput
+			if json.Unmarshal(raw, &restored) != nil {
+				t.Fatal("wire worker decode")
+			}
+			s, sources[role] = restored.Spec, restored.Source
+			if role == 0 {
+				side = restored.Routing
+			}
+		}
+	}
 	want := groupedGEESourceOracle(t, s, rows)
 	directories := [2]string{filepath.Join(t.TempDir(), "durable"), filepath.Join(t.TempDir(), "durable")}
 	var prior [2]exactGCWorkerResult

@@ -133,8 +133,9 @@
       physical$full_plan$maximum_chunk_coordinates,
       "synopsis exact-GC chunk capacity", 1L, 128L))
     required <- min(.DSVERT_DP_SYNOPSIS_EXACT_CHUNK_COORDINATES, dimension)
-    if (identical(.dsvert_dp_glm_grid_cross_noise_policy(manifest),
-        "dsvert-cross-grid-exact-gc-cost-policy-v2")) required <- min(required, capacity)
+    if (.dsvert_dp_glm_grid_cross_noise_policy(manifest) %in% c(
+        "dsvert-cross-grid-exact-gc-cost-policy-v2",
+        "dsvert-lmm-grid-exact-gc-cost-policy-v1")) required <- min(required, capacity)
     if (capacity < required) {
       stop("The synopsis exact-GC plan cannot serve canonical chunks.",
            call. = FALSE)

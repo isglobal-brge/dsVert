@@ -63,10 +63,11 @@
   maximum <- switch(cost_policy_version,
     "dsvert-joint-dp-vector-exact-gc-cost-policy-v1" = 1L,
     "dsvert-cross-grid-exact-gc-cost-policy-v2" = 51L,
+    "dsvert-lmm-grid-exact-gc-cost-policy-v1" = 257L,
     stop("Invalid exact-GC cost policy.", call. = FALSE))
   total <- .dsvert_joint_dp_vector_exact_gc_integer(
     total_coordinate_count, "total coordinate count", 1L, 1000000L)
-  if (maximum == 51L && total > maximum) {
+  if (maximum > 1L && total > maximum) {
     stop("Cross-grid exact-GC release exceeds the certified envelope.", call. = FALSE)
   }
   promoted <- total <= maximum

@@ -52,3 +52,27 @@ test_that("staged LMM cannot bypass the Synopsis gate through the legacy vector 
   contract$manifest$workload$families$gaussian_models$artifacts <- list()
   expect_error(start(), "prepare guard sentinel", fixed = TRUE)
 })
+
+test_that("LMM sampler policy reserves the count alongside its 256 candidates", {
+  manifest <- list(workload = list(coordinate_count = 257,
+    capsule_mechanism = list(mechanism = "discrete-laplace"),
+    families = list(gaussian_models = list(artifacts = list(grouped =
+      list(version = "bounded-lmm-cross-grid-v1"))))))
+  small <- manifest; small$workload$coordinate_count <- 5
+  expect_identical(.dsvert_dp_glm_grid_cross_noise_policy(small),
+    "dsvert-cross-grid-exact-gc-cost-policy-v2")
+  policy <- .dsvert_dp_glm_grid_cross_noise_policy(manifest)
+  expect_identical(policy, "dsvert-lmm-grid-exact-gc-cost-policy-v1")
+  for (count in c(51L, 52L, 256L, 257L)) {
+    selected <- .dsvert_joint_dp_vector_public_backend_choice(count, policy)
+    expect_true(selected$promoted)
+    expect_identical(selected$maximum_promoted_coordinates, 257L)
+    expect_identical(selected$backend, .DSVERT_JOINT_DP_VECTOR_EXACT_GC_BACKEND)
+  }
+  expect_error(.dsvert_joint_dp_vector_public_backend_choice(258, policy), "certified envelope")
+  manifest$workload$families$gaussian_models$artifacts$grouped$version <-
+    "bounded-binomial-glmm-cross-grid-v1"
+  policy <- .dsvert_dp_glm_grid_cross_noise_policy(manifest)
+  expect_identical(policy, "dsvert-cross-grid-exact-gc-cost-policy-v2")
+  expect_error(.dsvert_joint_dp_vector_public_backend_choice(52, policy), "certified envelope")
+})

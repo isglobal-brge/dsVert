@@ -225,9 +225,17 @@
 
 # Scoped to signed new-family catalogs; sealed family choices retain policy v1.
 .dsvert_dp_glm_grid_cross_noise_policy <- function(manifest) {
-  if (length(.dsvert_dp_glm_grid_cross_artifacts(manifest))) {
+  artifacts <- .dsvert_dp_glm_grid_cross_artifacts(manifest)
+  if (length(artifacts)) {
     if (!identical(manifest$workload$capsule_mechanism$mechanism, "discrete-laplace")) {
       .dsvert_dp_glm_grid_cross_fail()
+    }
+    # Preserve published small-grid policy identities; larger LMM grids
+    # need one admitted-count coordinate plus up to 256 signed candidates.
+    if (length(artifacts) == 1L &&
+        identical(artifacts[[1L]]$version, "bounded-lmm-cross-grid-v1") &&
+        isTRUE(manifest$workload$coordinate_count > 51L)) {
+      return("dsvert-lmm-grid-exact-gc-cost-policy-v1")
     }
     "dsvert-cross-grid-exact-gc-cost-policy-v2"
   } else .DSVERT_JOINT_DP_VECTOR_EXACT_GC_COST_POLICY_VERSION

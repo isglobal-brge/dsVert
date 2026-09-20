@@ -1,0 +1,16 @@
+{
+  "pid": 73020,
+  "stdin": "/dev/null",
+  "launched_utc": "2026-09-20T18:30:07.495539+00:00",
+  "pod": "pod-cox-1",
+  "root": "/workspace/dsvert-glmm-recovery",
+  "status": "RUNNING",
+  "source_commits": {
+    "dsVert": "ad276b565d85fce3d01204365cce25b5380c99d3",
+    "dsVertClient": "bf737442adbca7ac733518da32c9cb0cd6338870"
+  },
+  "updated_utc": "2026-09-20T18:32:31.016974+00:00",
+  "gaussian_support_error_recurred": false,
+  "gaussian_error_lines": 0,
+  "local_log": "/Users/david/Documents/GitHub/dsvert-fleet-heavy/cox-pods/logs/binomial_glmm-e8-k2-i01-recovery-isolated.log"
+}

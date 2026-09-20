@@ -37,6 +37,11 @@
   } else if (grepl("_glmm$", family)) {
     c("random_intercept_variance", "quadrature")
   } else c("correlation", "rho", "score_clip")
+  staged_gee <- grepl("_gee$", family) && "composition" %in% names(value)
+  if (staged_gee) {
+    if (!identical(value$composition, "staged_fixed_rho_v1")) .dsvert_dp_grouped_cross_fail()
+    fields <- c(fields, "composition")
+  }
   .dsvert_dp_glm_grid_cross_fields(value, fields)
   if (family == "lmm") {
     sigma <- .dsvert_dp_grouped_cross_scalar(value$residual_variance, .25, 16)
@@ -64,7 +69,9 @@
   }
   clip <- .dsvert_dp_grouped_cross_scalar(value$score_clip, .25, 4)
   if (clip * 4 != floor(clip * 4)) .dsvert_dp_grouped_cross_fail()
-  list(correlation = value$correlation, rho = rho, score_clip = clip)
+  out <- list(correlation = value$correlation, rho = rho, score_clip = clip)
+  if (staged_gee) out$composition <- "staged_fixed_rho_v1"
+  out
 }
 
 # These are enforced range caps, independently of the approximation accuracy.
@@ -142,6 +149,18 @@
          coordinate_labels = as.list(labels), per_cluster_caps = as.list(caps),
          coordinate_shifts = as.list(shifts))
   })
+  if (grepl("_gee$", family) && identical(parameters$composition, "staged_fixed_rho_v1")) {
+    # The source graph has one Numeric.BreadCap shared by every beta.
+    correlated <- parameters$correlation != "independence"
+    bread_base <- max(vapply(bounds, function(b) b$per_cluster_caps[[2L]], numeric(1L))) /
+      if (correlated) 2 else 1
+    bounds <- lapply(bounds, function(b) {
+      index <- startsWith(unlist(b$coordinate_labels), "bread:")
+      b$per_cluster_caps[index] <- rep(list(bread_base * if (correlated) 2 else 1), sum(index))
+      b$coordinate_shifts[index] <- rep(list(if (correlated) bread_base else 0), sum(index))
+      b
+    })
+  }
   caps <- unlist(lapply(bounds, `[[`, "per_cluster_caps"), use.names = FALSE)
   l1 <- multiplier * sum(caps)
   l2 <- multiplier * sqrt(sum(caps^2)) * (1 + 32 * .Machine$double.eps)
@@ -214,6 +233,23 @@
   if (gee) {
     out$coordinate_error_bounds <- errors
     out$factorial_q16 <- as.list(c(0, 0, 45426, 117425, 208277))
+    if (identical(parameters$composition, "staged_fixed_rho_v1")) {
+      certificate <- "fea095616d5b12346790ba11a1b3a86e6ad76ee6b0d2aac35670a1a495dc1f20"
+      paths <- system.file("certificates", c("grouped_gee_fixed_rho_staged_v1.json",
+        "grouped_pwlinear_q16_v1.json"), package = "dsVert")
+      if (length(paths) != 2L || any(!nzchar(paths)) ||
+          !identical(unname(vapply(paths, function(path) digest::digest(
+            file = path, algo = "sha256"), character(1L))), c(certificate, out$profile_sha256))) {
+        .dsvert_dp_grouped_cross_fail()
+      }
+      out$version <- "grouped-gee-fixed-rho-staged-numeric-v1"
+      out$certificate_sha256 <- certificate
+      out$correlation_contract <- "signed-fixed-rho-v3-predecessor"
+      out$candidate_traversal <- "beta_grid_v1"
+      out$bread_cap_contract <- "common_maximum_beta_bread_base_cap_qg_v1"
+      out$factor_transport <- "q32_likelihood_left_shift_32_to_common_q64_v1"
+      out$terminal_validity <- "private_conjunction_all_sources_all_stages_all_coordinates_v1"
+    }
   }
   if (family %in% c("binomial_glmm", "poisson_glmm") && !is.null(parameters$variance_grid)) {
     poisson <- identical(family, "poisson_glmm")
@@ -283,7 +319,8 @@
     .dsvert_dp_grouped_cross_fail()
   }
   C <- .dsvert_dp_glm_grid_cross_integer(raw$grouping$cluster_capacity,
-    1, if (family %in% c("lmm", "binomial_glmm", "poisson_glmm")) 500 else 64)
+    1, if (family %in% c("lmm", "binomial_glmm", "poisson_glmm") ||
+      identical(raw$parameters$composition, "staged_fixed_rho_v1")) 500 else 64)
   B <- .dsvert_dp_glm_grid_cross_integer(raw$grouping$max_patients_per_cluster,
                                        1, if (grepl("_gee$", family)) 8 else 16)
   if (base$observation_capacity > B*C ||
@@ -302,18 +339,28 @@
     if (C != 500 || B != 4 || base$observation_capacity != 2000 ||
         length(base$predictors) > 3L ||
         !(identical(family, "lmm") && identical(parameters$objective, "ml") ||
-          family %in% c("binomial_glmm", "poisson_glmm") && !is.null(parameters$variance_grid)) ||
+          family %in% c("binomial_glmm", "poisson_glmm") && !is.null(parameters$variance_grid) ||
+          grepl("_gee$", family) && identical(parameters$composition, "staged_fixed_rho_v1")) ||
         length(parameters$variance_grid) * length(base$beta_grid) > 4L) {
       .dsvert_dp_grouped_cross_fail()
     }
     grouping$capacity_profile <- if (identical(family, "lmm"))
-      "lmm-ml-n2000-c500-b4-p3-j4-v1" else paste0(sub("_glmm$", "", family), "-glmm-gh5-n2000-c500-b4-p3-j4-v1")
+      "lmm-ml-n2000-c500-b4-p3-j4-v1" else if (grepl("_gee$", family))
+        paste0(sub("_gee$", "", family), "-gee-fixed-rho-n2000-c500-b4-p3-j4-v1") else paste0(sub("_glmm$", "", family), "-glmm-gh5-n2000-c500-b4-p3-j4-v1")
   }
   radius <- vapply(base$beta_grid, function(beta) sum(abs(unlist(beta))), numeric(1L))
   if ((grepl("_glmm$", family) && (any(radius > 1) || base$max_outcome > 4)) ||
       (grepl("_gee$", family) && (any(radius > 4) || base$max_outcome > 4 ||
        length(base$predictors) > 3L || length(base$beta_grid) > 32L))) {
     .dsvert_dp_grouped_cross_fail()
+  }
+  if (grepl("_gee$", family) && identical(parameters$composition, "staged_fixed_rho_v1")) {
+    if (length(base$beta_grid) > 4L) .dsvert_dp_grouped_cross_fail()
+    for (encoded in base$beta_encoded) {
+      beta <- as.numeric(unlist(encoded, use.names = FALSE))
+      if (beta[1L] + sum(pmin(beta[-1L], 0)) < -4*2^50 ||
+          beta[1L] + sum(pmax(beta[-1L], 0)) > 4*2^50) .dsvert_dp_grouped_cross_fail()
+    }
   }
   base$version <- raw$version
   base$family <- family
@@ -377,7 +424,30 @@
   base$sensitivity <- .dsvert_dp_grouped_cross_sensitivity(
     base$beta_grid, family, base$max_outcome, base$numeric_grid_bits,
     grouping, parameters, base$adjacency, base$numeric_contract)
+  if (identical(parameters$composition, "staged_fixed_rho_v1")) {
+    base$staged_numeric <- .dsvert_dp_grouped_gee_staged_numeric(base)
+  }
   base
+}
+
+# Exact native decimal bindings; RowLossCap is ignored by the v3 producer.
+.dsvert_dp_grouped_gee_staged_numeric <- function(spec) {
+  decimal <- function(x) sprintf("%.0f", x)
+  bounds <- spec$sensitivity$candidate_bounds
+  bread <- bounds[[1L]]$per_cluster_caps[[2L]] /
+    if (spec$parameters$correlation == "independence") 1 else 2
+  caps <- vapply(bounds, function(b) b$per_cluster_caps[[1L]], numeric(1L))
+  if (bread < 1 || bread > 2^30 || any(caps < 1 | caps > 2^40)) {
+    .dsvert_dp_grouped_cross_fail()
+  }
+  list(Family = sub("_gee$", "", spec$family),
+    Slots = spec$grouping$max_patients_per_cluster,
+    Predictors = length(spec$predictors), GridBits = spec$numeric_grid_bits,
+    Correlation = spec$parameters$correlation,
+    RhoQ16 = decimal(spec$parameters$rho*2^16),
+    ScoreClipQ16 = decimal(spec$parameters$score_clip*2^16),
+    RowLossCap = "1", BreadCap = decimal(bread), MaxOutcome = decimal(spec$max_outcome),
+    Caps = as.list(decimal(caps)))
 }
 
 .dsvert_dp_grouped_cross_spec_validate <- function(value, policy, schema) {
@@ -433,7 +503,7 @@
 }
 
 .dsvert_dp_grouped_cross_artifact <- function(spec) {
-  list(version = paste0("bounded-", gsub("_", "-", spec$family), "-cross-grid-v1"),
+  out <- list(version = paste0("bounded-", gsub("_", "-", spec$family), "-cross-grid-v1"),
        spec_version = spec$version, spec_sha256 = .dsvert_joint_dp_hash(spec),
        analysis_id = spec$analysis_id, owner_peer = spec$owner_peer,
        participating_peers = spec$participating_peers,
@@ -453,6 +523,11 @@
        result_evidence_required = TRUE,
        implementation_state = "cross_owner_exact_gc_materialized",
        cross_owner_state = "exact_gc_to_joint_dp_vector_v1")
+  if (identical(spec$parameters$composition, "staged_fixed_rho_v1")) {
+    out$composition <- "staged_fixed_rho_v1"
+    out$correlation_contract <- "signed-fixed-rho-v3-predecessor"
+  }
+  out
 }
 
 .dsvert_dp_grouped_cross_source_contract <- function(spec, artifact) {

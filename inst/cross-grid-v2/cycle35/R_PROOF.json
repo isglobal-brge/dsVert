@@ -1,0 +1,64 @@
+{
+  "observed_utc": "2026-09-20T13:00:58.266856+00:00",
+  "source_commits": {
+    "dsVert": "8214373e62b7923d99ff8366b6f7b705285c3626",
+    "dsVertClient": "5b6458fa7264909eaa1bbdb63d8b0ccc22acc40a"
+  },
+  "snapshots": {
+    "hooks-r1": {
+      "source_files": 2674,
+      "frozen_source_changed": [],
+      "manifest_sha256": "e4b5066afdbeab04114e73dfe018309faaeb628e62e28b8e8fed61f951c90ecb",
+      "base_commits": {
+        "dsVert": "3e5a5993b7924977c163a72c07d68aee98515af2",
+        "dsVertClient": "5b6458fa7264909eaa1bbdb63d8b0ccc22acc40a"
+      }
+    },
+    "hooks-r2": {
+      "source_files": 2674,
+      "frozen_source_changed": [],
+      "manifest_sha256": "cf2172c0547bf0600fbc803a31074c3e25f56829ac08285304f56ab70d7e00c6",
+      "base_commits": {
+        "dsVert": "3e5a5993b7924977c163a72c07d68aee98515af2",
+        "dsVertClient": "5b6458fa7264909eaa1bbdb63d8b0ccc22acc40a"
+      }
+    },
+    "hooks-r3": {
+      "source_files": 2674,
+      "frozen_source_changed": [],
+      "manifest_sha256": "1fd43ff18afc412e7e0d6fa781472f1d6306c2957f37f180af0a1b30b405791f",
+      "base_commits": {
+        "dsVert": "3e5a5993b7924977c163a72c07d68aee98515af2",
+        "dsVertClient": "5b6458fa7264909eaa1bbdb63d8b0ccc22acc40a"
+      }
+    }
+  },
+  "tests": 54,
+  "assertions": 2154,
+  "failures": 0,
+  "errors": 0,
+  "warnings": 0,
+  "skips": 0,
+  "source_differences": [],
+  "source_equivalence": "All final snapshot tracked source bytes equal committed source, including R/tests/native runtimes.",
+  "scope": "Cox shared pre-START public binding and post-START durable injection, authenticated cold schema cache, validity guards, existing native Cox/transport and LMM/GLMM/shared Synopsis regressions. Synthetic release/compilation fixtures; no complete authenticated Cox DP release, recovery, capacity or promotion. Public admission/orchestration/certificate dispatch remain closed.",
+  "native_sampler_changed": false,
+  "iteration_note": "r1/r2 exact-GC test double omitted the required returned stage digest and was correctly rejected. r3 repairs only that test double, retains a negative assertion, and reruns exact-GC plus native Gaussian preflight. All production bytes equal r2 and r3.",
+  "log_hashes": {
+    "hooks-r1.log": "df69f7d1afcaf0cc12d17603d7e896f9ad5b87b50fd8eaea4fb6d1ecfe68cde6",
+    "hooks-r2.log": "dc647986f9b4760426763269aa225924818623a16fbf617041280a303365a960",
+    "hooks-r3.log": "4f2949a30e2a117a41b934eb210743418fe9b6fc05610f4312ba80ff6bcce0e8",
+    "cache-selected.log": "e501243d1cdbd870181552f517b55c8df662aa913a89904b675f25ddd58475a0"
+  },
+  "test_results": {
+    "test-crossgrid-cox.R.csv": "db20475afd02db6fa56ecdab0a34a4da4bae85d54d4fccd5be7b6fc6b408cfd0",
+    "test-crossgrid-glmm-gaussian-preflight.R.csv": "64f34bf1d793e3063c435608215e507c1f93bea0d13b9eff6bb8f3e675c19e42",
+    "test-crossgrid-glmm-staged-lifecycle.R.csv": "944337febcd25e92ca4451f09633031d96d50e3ebf1df1e2e63ee32c26533b25",
+    "test-crossgrid-lmm-sampler-admission.R.csv": "043e28359ade84d1fd639fe1dd38721720f04fbe97b048fef095399f2e0a506c",
+    "test-crossgrid-lmm-schema-cache.R.csv": "f1c57988782b684444736bd1d9e30a9013eb993f9883133e0b6a54c7b82e26a8",
+    "test-crossgrid-lmm-staged-lifecycle.R.csv": "1a439c453aa8fa17c89aabe235c574226aa9e7eb0dca1634619e1b3a00a5d6bf",
+    "test-crossgrid-poisson-glmm-staged-lifecycle.R.csv": "69d71535b9f5daa1b3113ae21d5e7ac62726b69e81d7d16c3fac50c5da6276ff",
+    "test-dp-synopsis-exact-gc.R.csv": "14a8a27405c7b93d0c07b54972c1c34488ec22058573b0f1e6240f69eead98dc",
+    "test-dp-synopsis-execution-safety.R.csv": "52f7b527834d463fa66a1948a40100961cd1c14ea52ee8f43edf7c9791ec14b3"
+  }
+}

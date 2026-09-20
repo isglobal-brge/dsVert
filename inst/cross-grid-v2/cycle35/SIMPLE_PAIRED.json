@@ -1,0 +1,24 @@
+{
+  "capture": "integrator-evidence/cycle21-20260920/simple-paired/harvest-partial-20260920T124913Z/logs",
+  "verification": {
+    "source_changed": [],
+    "source_files_checked": 2504,
+    "analysis_script_sha256": "179225ea4fb1920eea4216bc11b0c94f971f9cb49ef54f1e6f67e072ddcd4933",
+    "partial_observation": true,
+    "observed_utc": "2026-09-20T12:49:23.371494+00:00"
+  },
+  "analysis": {
+    "dsVert": {
+      "tests": 1164,
+      "totals": {
+        "expectations": 21062,
+        "failed": 0,
+        "skipped": 0,
+        "error": 0,
+        "warning": 0,
+        "passed": 21062
+      },
+      "nonpass": []
+    }
+  }
+}

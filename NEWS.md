@@ -1,3 +1,13 @@
+# Development
+
+* Add an exact ideal-bit discrete-Laplace sampler core, arbitrary-precision
+  replay-stream epochs, fixed known-answer vectors and targeted sampler tests.
+  Production activation remains pending the cap/no-wrap contract decision;
+  existing production plans retain their positive implementation delta.
+* Add a local synthetic oracle that exercises the active production vector
+  sampler, and complete recomputation records for future grid evaluations.
+  Existing v1.3.0 validation records remain unchanged.
+
 # dsVert 1.3.0
 
 * Provide cross-owner finite signed-grid DP release paths for Gaussian linear

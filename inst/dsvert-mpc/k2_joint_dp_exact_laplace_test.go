@@ -1,0 +1,196 @@
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
+	"io"
+	"math"
+	"math/big"
+	"testing"
+)
+
+func jointDPExactTestStream() *jointDPExactStream {
+	return &jointDPExactStream{
+		seed:       sha256.Sum256([]byte("exact-laplace-test-seed")),
+		transcript: sha256.Sum256([]byte("exact-laplace-test-transcript")),
+		contract:   sha256.Sum256([]byte("exact-laplace-test-contract")),
+	}
+}
+
+func TestJointDPExactBitsOrderAndUniformRejection(t *testing.T) {
+	b := &jointDPExactBits{reader: bytes.NewReader([]byte{0xe6})}
+	// 11 is rejected for uniform(3); the following 10 is accepted as 2.
+	x, err := b.uniform(big.NewInt(3))
+	if err != nil || x.Int64() != 2 {
+		t.Fatalf("uniform rejection: %v %v", x, err)
+	}
+	for _, want := range []uint{0, 1, 1, 0} {
+		got, err := b.bit()
+		if err != nil || got != want {
+			t.Fatalf("bit=%d want=%d err=%v", got, want, err)
+		}
+	}
+	if _, err := b.bit(); err != io.EOF {
+		t.Fatalf("reader exhaustion: %v", err)
+	}
+	if x, err := b.uniform(big.NewInt(1)); err != nil || x.Sign() != 0 {
+		t.Fatal("uniform(1) consumed bits")
+	}
+}
+
+func TestJointDPExactBernoulliExponentialPrefixMass(t *testing.T) {
+	// Exhaust all 16-bit ideal tapes. Completed true paths are a rigorous
+	// lower bound; counting unresolved paths as true is an upper bound.
+	// This tests the actual rejection code, including all possible prefixes.
+	for _, x := range []*big.Rat{big.NewRat(1, 1), big.NewRat(1, 2), big.NewRat(2, 3)} {
+		accepted, unresolved := 0, 0
+		for prefix := 0; prefix < 1<<16; prefix++ {
+			var tape [2]byte
+			binary.BigEndian.PutUint16(tape[:], uint16(prefix))
+			b := &jointDPExactBits{reader: bytes.NewReader(tape[:])}
+			value, err := b.bernoulliExpUnit(x)
+			if err == io.EOF {
+				unresolved++
+			} else if err != nil {
+				t.Fatal(err)
+			} else if value {
+				accepted++
+			}
+		}
+		alpha, _ := x.Float64()
+		want := math.Exp(-alpha)
+		lower, upper := float64(accepted)/(1<<16), float64(accepted+unresolved)/(1<<16)
+		if lower > want || upper < want || upper-lower > 0.125 {
+			t.Fatalf("exp(-%s)=%g outside [%g,%g] or unresolved mass too large", x, want, lower, upper)
+		}
+	}
+}
+
+func TestJointDPExactLaplaceAnalyticPMF(t *testing.T) {
+	const count = 40000
+	for _, rate := range []*big.Rat{big.NewRat(1, 2), big.NewRat(2, 3), big.NewRat(3, 2)} {
+		b := &jointDPExactBits{reader: jointDPExactTestStream()}
+		frequencies := make(map[int64]int)
+		for i := 0; i < count; i++ {
+			value, err := b.laplace(rate)
+			if err != nil {
+				t.Fatal(err)
+			}
+			frequencies[value.Int64()]++
+		}
+		alpha, _ := rate.Float64()
+		q := math.Exp(-alpha)
+		for k := int64(-8); k <= 8; k++ {
+			p := (1 - q) / (1 + q) * math.Pow(q, math.Abs(float64(k)))
+			error := math.Abs(float64(frequencies[k])/count - p)
+			if error > 6*math.Sqrt(p*(1-p)/count)+1.0/count {
+				t.Fatalf("alpha=%s pmf(%d): observed %g expected %g", rate, k, float64(frequencies[k])/count, p)
+			}
+		}
+	}
+}
+
+func TestJointDPExactLaplaceBeyondFixedSupport(t *testing.T) {
+	for _, width := range []uint{80, 160} {
+		b := &jointDPExactBits{reader: jointDPExactTestStream()}
+		alpha := new(big.Rat).SetFrac(big.NewInt(1), new(big.Int).Lsh(big.NewInt(1), width))
+		value, err := b.laplace(alpha)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if value.BitLen() <= int(width)-8 {
+			t.Fatalf("unexpectedly small arbitrary-precision draw: %s", value)
+		}
+	}
+}
+
+func TestJointDPExactStreamReplayAndEpochExtension(t *testing.T) {
+	a, b := jointDPExactTestStream(), jointDPExactTestStream()
+	want := make([]byte, 2*jointDPExactStreamEpochBytes+17)
+	if _, err := io.ReadFull(a, want); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]byte, len(want))
+	for offset := 0; offset < len(got); {
+		n := min(137, len(got)-offset)
+		if _, err := io.ReadFull(b, got[offset:offset+n]); err != nil {
+			t.Fatal(err)
+		}
+		offset += n
+	}
+	if !bytes.Equal(got, want) {
+		t.Fatal("stream depends on read geometry")
+	}
+	// Generated with this implementation on 2026-09-23 using the three fixed
+	// SHA256 inputs in jointDPExactTestStream; covers two epoch transitions.
+	digest := sha256.Sum256(want)
+	if hex.EncodeToString(digest[:]) != "6dda3a02f0389d0bb18ce27e6ddb2ac54d2a75c1aa2e1669f8f161c781c30d79" {
+		t.Fatal("known-answer stream changed")
+	}
+	if bytes.Equal(want[:64], want[jointDPExactStreamEpochBytes:jointDPExactStreamEpochBytes+64]) {
+		t.Fatal("epoch repeated")
+	}
+	if a.epoch.Cmp(big.NewInt(2)) != 0 {
+		t.Fatal("epoch rollover did not occur")
+	}
+	// Carry past a fixed machine counter, without trying to consume that tape.
+	a.epoch.SetUint64(^uint64(0))
+	a.used = jointDPExactStreamEpochBytes
+	if _, err := a.Read(make([]byte, 1)); err != nil {
+		t.Fatal(err)
+	}
+	if a.epoch.BitLen() != 65 {
+		t.Fatal("epoch overflowed uint64")
+	}
+}
+
+func TestJointDPExactLaplaceDeterminismAndReaderErrors(t *testing.T) {
+	a, b := &jointDPExactBits{reader: jointDPExactTestStream()}, &jointDPExactBits{reader: jointDPExactTestStream()}
+	// Generated by this implementation, alpha=7/256, on 2026-09-23.
+	known := []int64{62, -43, -33, -7, -40, 37, 55, -33, -18, 41, -34, 9, 43, 33, 38, -4, -11, -40, -4, 56}
+	for _, want := range known {
+		left, err := a.laplace(big.NewRat(7, 256))
+		if err != nil {
+			t.Fatal(err)
+		}
+		right, err := b.laplace(big.NewRat(7, 256))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if left.Cmp(right) != 0 {
+			t.Fatal("replay changed")
+		}
+		if !left.IsInt64() || left.Int64() != want {
+			t.Fatalf("known-answer draw changed: %s != %d", left, want)
+		}
+	}
+	empty := &jointDPExactBits{reader: bytes.NewReader(nil)}
+	if _, err := empty.laplace(big.NewRat(1, 2)); err != io.EOF {
+		t.Fatalf("reader failure was swallowed: %v", err)
+	}
+	if _, err := empty.laplace(new(big.Rat)); err == nil {
+		t.Fatal("zero rate accepted")
+	}
+}
+
+func TestJointDPExactRepresentabilityDecimalBound(t *testing.T) {
+	// alpha >= 2^-100, W=128, d<=1,000,000: 2*d*exp(-alpha*2^127)
+	// is bounded by a positive decimal much smaller than 2^-256.
+	exponent := new(big.Rat).SetInt(new(big.Int).Lsh(big.NewInt(1), 27))
+	if got := jointDPExactExponentialBound(exponent, 2000000); got != "1e-44739235" {
+		t.Fatalf("representability upper bound: %s", got)
+	}
+	for _, test := range []struct {
+		exponent     int64
+		multiplicity int
+		want         string
+	}{
+		{0, 2, "1"}, {2, 2, "1"}, {3, 1, "1e-1"}, {6, 2, "1e-1"}, {240, 100, "1e-78"},
+	} {
+		if got := jointDPExactExponentialBound(big.NewRat(test.exponent, 1), test.multiplicity); got != test.want {
+			t.Fatalf("bound %v: %s", test, got)
+		}
+	}
+}

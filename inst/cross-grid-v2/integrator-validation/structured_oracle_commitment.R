@@ -73,5 +73,11 @@ heads <- if (file.exists(file.path(root, "frozen-source-manifest.json")))
 record <- list(source_commits = heads, family = family, owners = owners, n = n,
   p = predictors, grid = 2L, instance = instance, oracle_only = TRUE,
   scope = "signed synthetic exact-statistic commitment only; no DP selection or real release",
+  record_version = "dsvert-public-synthetic-exact-commitment-v2",
+  data_classification = "public-synthetic-test-fixture",
+  signed_contract = contract, signed_schema = schema, public_policy = f$policy,
+  exact_coordinates = as.list(c(as.character(n), exact)),
+  exact_candidate_criterion_integers = as.list(exact),
+  integer_encoding = "canonical-base10-strings",
   exact = as.list(exact), expected_oracle_sha256 = digest::digest(bytes, algo = "sha256", serialize = FALSE))
-writeLines(jsonlite::toJSON(record, auto_unbox = TRUE, digits = NA), output)
+writeLines(jsonlite::toJSON(record, auto_unbox = TRUE, digits = 17), output)

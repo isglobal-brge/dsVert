@@ -325,6 +325,8 @@ func main() {
 		handleJointDPVectorWorkerContract()
 	case "joint-dp-vector-convolution-plan-v3":
 		handleJointDPVectorConvolutionPlan()
+	case "joint-dp-vector-convolution-oracle-v1":
+		handleJointDPVectorSamplerOracle()
 	case "joint-dp-vector-convolution-share-v3":
 		handleJointDPVectorConvolutionShareV3()
 	case "joint-dp-vector-convolution-finalize-v3":

@@ -45,6 +45,8 @@ if (cox) {
     "TestStructuredGridNoiseOracle" %in% strsplit(registered$stdout, "\n", fixed = TRUE)[[1L]])
 }
 source(file.path(client_dir, "inst/validation/v1.2.0/worked_example_custodian.R"))
+source(file.path(server_dir, "inst/cross-grid-v2/integrator-validation/synthetic_replay_record.R"))
+we_boot_peer <- grid_synthetic_replay_boot(we_boot_peer)
 # Custodian-side release policy, applied to every fresh/cold isolated peer.
 # This changes execution leases only; the release driver's 256GB/8h capacity
 # gate remains independent. Unset variables preserve the server defaults.
@@ -408,6 +410,7 @@ run <- function() {
     TRUE
   })
   for (instance in seq.int(instance, length.out = instance_count)) {
+  grid_synthetic_native_reset(peers)
   bootstrap <- tryCatch(cf(".dsvert_dp_synopsis_bootstrap_build_v1")(conns),
     error = function(error) {
       for (peer in peers) print(peer$worker$run(function()
@@ -857,9 +860,12 @@ run <- function() {
   if (staged) {
     captures <- actual_captures
     planned <- list(artifact_key = fit$provenance_certificate$artifact_key)
-  } else stopifnot(identical(capture_identity(actual_captures), capture_identity(captures)))
+  } else if (!length(grid_synthetic_native_calls(peers, planned)))
+    stopifnot(identical(capture_identity(actual_captures), capture_identity(captures)))
   }
-  stopifnot(length(captures) >= 2L)
+  native_calls <- grid_synthetic_native_calls(peers, planned)
+  if (length(native_calls)) captures <- list()
+  stopifnot(length(captures) >= 2L || length(native_calls) >= 2L)
   purposes <- unique(vapply(captures, `[[`, character(1), "purpose"))
   draws <- lapply(purposes, function(purpose) {
     pair <- captures[vapply(captures, function(z) identical(z$purpose,purpose),logical(1))]
@@ -881,8 +887,9 @@ run <- function() {
   if (nzchar(expected_hash)) stopifnot(identical(exact_hash, expected_hash))
   input <- file.path(state, "synthetic-oracle-input.json")
   output <- file.path(state, "synthetic-oracle-output.json")
-  fixture <- list(Exact = as.list(c(as.character(n), exact)), Draws = draws, Output = output)
-  writeLines(jsonlite::toJSON(fixture,auto_unbox=TRUE,digits=NA,null="null"),input)
+  fixture <- list(Exact = as.list(c(as.character(n), exact)), Draws = draws,
+    NativeCalls = native_calls, Output = output)
+  writeLines(jsonlite::toJSON(fixture,auto_unbox=TRUE,digits=17,null="null"),input)
   oracle_run <- processx::run(file.path(server_dir,"inst/cross-grid-v2/build/cross-grid-oracle.test"),
     "-test.run=^TestStructuredGridNoiseOracle$",env=c(DSVERT_STRUCTURED_ORACLE_FIXTURE=input),
     error_on_status = FALSE)
@@ -894,13 +901,18 @@ run <- function() {
   loss_indices <- seq.int(1L, length(exact), by = width)
   released_losses <- as.numeric(oracle$Released[-1])[loss_indices]
   exact_losses <- as.numeric(exact)[loss_indices]
+  replay_record <- grid_synthetic_replay_record(workload, contract, schema, policy,
+    c(as.character(n), unname(exact)), unname(oracle$Released), loss_indices + 1L,
+    draws, jsonlite::fromJSON(output, simplifyVector = FALSE)$NativeCalls,
+    if (real_release) fit$provenance_certificate else NULL,
+    source_commits = grid_synthetic_source_commits(server_dir, client_dir))
   if (oracle_only) {
     source_commits <- if (file.exists(file.path(root, "frozen-source-manifest.json"))) {
       jsonlite::fromJSON(file.path(root, "frozen-source-manifest.json"))$repositories
     } else setNames(lapply(c(server_dir, client_dir), function(repo)
       processx::run("git", c("-C", repo, "rev-parse", "HEAD"))$stdout |>
         trimws()), c("dsVert", "dsVertClient"))
-    summary <- list(source_commits = source_commits,
+    summary <- list(source_commits = source_commits, recomputation = replay_record,
       family = family, n = n, p = predictors, grid = grid_size,
       candidates = candidate_count, clusters = cluster_count, slots = cluster_size,
       owners = owner_count, epsilon = epsilon, instance = instance,
@@ -909,7 +921,7 @@ run <- function() {
       oracle_hash_scope = "UTF-8 count then exact integer coordinates, LF terminated",
       selected_candidate = which.min(released_losses), exact_best = which.min(exact_losses),
       loss_gap = (exact_losses[which.min(released_losses)] - min(exact_losses)) / 2^16)
-    summary_json <- jsonlite::toJSON(summary, auto_unbox = TRUE, digits = NA)
+    summary_json <- jsonlite::toJSON(summary, auto_unbox = TRUE, digits = 17)
     metrics_path <- Sys.getenv("DSVERT_GRID_VALIDATION_METRICS_PATH")
     if (nzchar(metrics_path)) writeLines(summary_json, metrics_path)
     cat("STRUCTURED_SELECTION_ORACLE_ONLY", summary_json, "\n")
@@ -983,7 +995,7 @@ run <- function() {
   }
   }
 
-  summary <- list(family = family, n = n, p = predictors, grid = grid_size,
+  summary <- list(family = family, recomputation = replay_record, n = n, p = predictors, grid = grid_size,
     candidates = candidate_count, clusters = cluster_count, slots = cluster_size, owners = owner_count,
     working_correlation = if (gee) list(mode = "fixed_analyst_specified",
       correlation = spec$parameters$correlation, rho = spec$parameters$rho,
@@ -1008,7 +1020,7 @@ run <- function() {
     loss_gap = (exact_losses[which.min(released_losses)] - min(exact_losses)) / 2^16,
     artifact_key = planned$artifact_key,
     certificate_sha256 = if (real_release) fit$certificate_sha256 else NULL)
-  summary_json <- jsonlite::toJSON(summary, auto_unbox = TRUE, null = "null", digits = NA)
+  summary_json <- jsonlite::toJSON(summary, auto_unbox = TRUE, null = "null", digits = 17)
   metrics_path <- Sys.getenv("DSVERT_GRID_VALIDATION_METRICS_PATH")
   if (nzchar(metrics_path)) writeLines(summary_json, metrics_path)
   cat(summary_json, "\n")

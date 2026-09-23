@@ -44,6 +44,34 @@ grid_oracle_noise <- function(peers, conns, bootstrap, synthetic_staged = FALSE)
       draws <- lapply(seq_len(context$attempt$value$execution_geometry$chunk_count) - 1L,
         function(index) {
           chunk <- sf(".dsvert_dp_synopsis_execution_chunk_v1")(context, index)
+          if (!isTRUE(context$vector$profile$exact_gc)) {
+            # A public synthetic oracle needs the complete local stream context,
+            # including the chunk geometry and seed commitment. It supplies its
+            # own source shares later, from the independently computed integers.
+            own <- checked[[captured$policy$peer_name]]
+            release <- context$vector$release_contract
+            positions <- seq.int(chunk$offset + 1L, chunk$offset + chunk$count)
+            input <- c(list(version = context$vector$profile$input_version,
+              ring_bits = 128L, frac_bits = 0L,
+              total_coordinate_count = release$coordinate_count,
+              chunk_start = chunk$offset, coordinate_count = chunk$count,
+              output_lattice_bits = release$output_lattice_bits,
+              epsilon = release$epsilon, allocated_delta = release$allocated_delta),
+              if (isTRUE(context$vector$profile$gaussian))
+                list(l2_sensitivity_steps = release$sensitivity_steps) else
+                list(sensitivity_steps = release$sensitivity_steps),
+              list(scale_shifts = as.list(context$vector$lattice$scale_shifts[positions]),
+                raw_upper_bounds = as.list(context$vector$lattice$raw_upper_bounds[positions]),
+                release_contract_hash = context$contract$sha256,
+                transcript_hash = context$contract$sha256,
+                peer_name = captured$policy$peer_name,
+                commitment_context = own$commitment_context,
+                seed_commitment = own$seed_commitment, private_seed = seed))
+            return(list(native_call = list(command = context$vector$profile$share_command,
+              input = input, synthetic_source = TRUE,
+              finalizer_command = context$vector$profile$finalizer_command,
+              finalizer_input_version = context$vector$profile$finalizer_input_version)))
+          }
           if (synthetic_staged) {
             # Oracle-only synthetic selection: compile the signed noise plan,
             # without asserting a source-stage receipt or starting an executor.
@@ -81,6 +109,9 @@ grid_oracle_noise <- function(peers, conns, bootstrap, synthetic_staged = FALSE)
       list(artifact_key = context$authorization$artifact_key, draws = draws)
     }, args = list(session, prepares, synthetic_staged)))
   stopifnot(identical(authorities[[1]]$artifact_key, authorities[[2]]$artifact_key))
+  draws <- unlist(lapply(authorities, `[[`, "draws"), recursive = FALSE)
+  native <- vapply(draws, function(draw) !is.null(draw$native_call), logical(1L))
+  stopifnot(all(native) || !any(native))
   list(artifact_key = authorities[[1]]$artifact_key,
-    captures = unlist(lapply(authorities, `[[`, "draws"), recursive = FALSE))
+    captures = draws[!native], native_calls = lapply(draws[native], `[[`, "native_call"))
 }

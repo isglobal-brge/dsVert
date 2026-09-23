@@ -20,6 +20,8 @@ stopifnot(n > 0, identical(family, "nb"), epsilon %in% c(1, 4, 8),
 server_dir <- file.path(root, "dsVert")
 client_dir <- file.path(root, "dsVertClient")
 source(file.path(client_dir, "inst/validation/v1.2.0/worked_example_custodian.R"))
+source(file.path(server_dir, "inst/cross-grid-v2/integrator-validation/synthetic_replay_record.R"))
+we_boot_peer <- grid_synthetic_replay_boot(we_boot_peer)
 pkgload::load_all(client_dir, quiet = TRUE)
 cf <- function(name) get(name, asNamespace("dsVertClient"), inherits = FALSE)
 state_parent <- Sys.getenv("DSVERT_GRID_VALIDATION_STATE_PARENT",
@@ -108,6 +110,7 @@ run <- function() {
     TRUE
   })
   for (instance in seq.int(instance, length.out = instance_count)) {
+  grid_synthetic_native_reset(peers)
   bootstrap <- tryCatch(cf(".dsvert_dp_synopsis_bootstrap_build_v1")(conns),
     error = function(error) {
       for (peer in peers) print(peer$worker$run(function()
@@ -291,9 +294,12 @@ run <- function() {
     sort(unique(vapply(records, function(record) cf(".dsvert_joint_dp_client_json")(
       cf(".dsvert_joint_dp_client_canonical")(record[fields])), character(1))), method = "radix")
   }
-  stopifnot(identical(capture_identity(actual_captures), capture_identity(captures)))
+  if (!length(grid_synthetic_native_calls(peers, planned)))
+    stopifnot(identical(capture_identity(actual_captures), capture_identity(captures)))
   }
-  stopifnot(length(captures) >= 2L)
+  native_calls <- grid_synthetic_native_calls(peers, planned)
+  if (length(native_calls)) captures <- list()
+  stopifnot(length(captures) >= 2L || length(native_calls) >= 2L)
   purposes <- unique(vapply(captures, `[[`, character(1), "purpose"))
   draws <- lapply(purposes, function(purpose) {
     pair <- captures[vapply(captures, function(z) identical(z$purpose,purpose),logical(1))]
@@ -312,8 +318,8 @@ run <- function() {
   output <- file.path(state,"synthetic-oracle-output.json")
   values <- cbind(round(x*2^50),y)
   fixture <- list(Plan=plan,Rows=lapply(seq_len(n),function(i)as.list(sprintf("%.0f",values[i,]))),
-    Draws=draws,Output=output)
-  writeLines(jsonlite::toJSON(fixture,auto_unbox=TRUE,digits=NA,null="null"),input)
+    Draws=draws,NativeCalls=native_calls,Output=output)
+  writeLines(jsonlite::toJSON(fixture,auto_unbox=TRUE,digits=17,null="null"),input)
   oracle_run <- processx::run(file.path(server_dir,"inst/cross-grid-v2/build/cross-grid-oracle.test"),
     "-test.run=^TestCrossGridLayeredOracle$",env=c(DSVERT_CROSS_ORACLE_FIXTURE=input),
     error_on_status = FALSE)
@@ -354,7 +360,14 @@ run <- function() {
   }
   }
 
-  cat(jsonlite::toJSON(list(family = family, n = n, p = predictors, grid = grid_size, owners = owner_count,
+  replay_record <- grid_synthetic_replay_record(workload, contract, schema, policy,
+    c(as.character(n), unname(oracle$Exact)), unname(oracle$Released),
+    seq_along(oracle$Exact) + 1L, draws,
+    jsonlite::fromJSON(output, simplifyVector = FALSE)$NativeCalls,
+    if (real_release) fit$provenance_certificate else NULL,
+    source_commits = grid_synthetic_source_commits(server_dir, client_dir))
+  summary <- list(family = family, n = n, p = predictors, grid = grid_size, owners = owner_count,
+    recomputation = replay_record,
     epsilon = epsilon, instance = instance,
     elapsed = elapsed, oracle_only = !real_release,
     selected_candidate = which.min(as.numeric(oracle$Released[-1])),
@@ -362,7 +375,11 @@ run <- function() {
     loss_gap = (as.numeric(oracle$Exact[which.min(as.numeric(oracle$Released[-1]))]) -
       min(as.numeric(oracle$Exact))) / 2^16,
     artifact_key = planned$artifact_key,
-    certificate_sha256 = if (real_release) fit$certificate_sha256 else NULL), auto_unbox = TRUE), "\n")
+    certificate_sha256 = if (real_release) fit$certificate_sha256 else NULL)
+  summary_json <- jsonlite::toJSON(summary, auto_unbox = TRUE, digits = 17, null = "null")
+  metrics_path <- Sys.getenv("DSVERT_GRID_VALIDATION_METRICS_PATH")
+  if (nzchar(metrics_path)) writeLines(summary_json, metrics_path)
+  cat(summary_json, "\n")
   }
 }
 run()

@@ -67,10 +67,11 @@ func TestCrossGridLayeredOracle(t *testing.T) {
 		t.Skip("synthetic layered fixture opt-in")
 	}
 	var f struct {
-		Plan   crossGridKernelPlan
-		Rows   [][]string
-		Draws  []crossGridOracleDraw
-		Output string
+		Plan        crossGridKernelPlan
+		Rows        [][]string
+		Draws       []crossGridOracleDraw
+		NativeCalls []crossGridNativeCall
+		Output      string
 	}
 	data, err := os.ReadFile(path)
 	if err != nil || json.Unmarshal(data, &f) != nil {
@@ -122,13 +123,24 @@ func TestCrossGridLayeredOracle(t *testing.T) {
 		}
 	}
 	raw := append([]*big.Int{big.NewInt(int64(len(f.Rows)))}, total...)
-	released := crossGridOracleRelease(t, raw, f.Draws)
+	var released []string
+	if len(f.NativeCalls) > 0 {
+		if len(f.Draws) != 0 {
+			t.Fatal("mixed synthetic sampler backends")
+		}
+		released, f.NativeCalls = crossGridNativeRelease(t, raw, f.NativeCalls)
+	} else {
+		released = crossGridOracleRelease(t, raw, f.Draws)
+	}
 
 	exact := make([]string, len(total))
 	for i := range total {
 		exact[i] = total[i].String()
 	}
-	out, err := json.Marshal(struct{ Exact, Released []string }{exact, released})
+	out, err := json.Marshal(struct {
+		Exact, Released []string
+		NativeCalls     []crossGridNativeCall `json:",omitempty"`
+	}{exact, released, f.NativeCalls})
 	if err != nil || os.WriteFile(f.Output, out, 0600) != nil {
 		t.Fatal("cannot write synthetic oracle result")
 	}

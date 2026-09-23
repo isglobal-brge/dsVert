@@ -1,8 +1,74 @@
-# Exact discrete-Laplace fallback: feasibility and stopped design
+# Exact discrete-Laplace fallback: design and contract decisions
 
 Date: 2026-09-23. Baseline: dsVert and dsVertClient v1.3.0.
 
-## Decision
+## V2 implementation decision record
+
+The author's `DSVERT_RAISE_V2_2026-09-23` instruction accepts exactness under
+ideal independent uniform bits and computational randomness from the deployed
+HKDF/ChaCha20 stream, with no stored random tape. The intended metadata is
+`guarantee: "pure-dp-under-ideal-bits"` and
+`randomness: "keyed-stream-computational"`. It also accepts the corrected
+representability formula below and authorizes short targeted tests.
+
+The sampler implementation uses exact rational CKS Bernoulli-exponential
+trials and two independent arbitrary-precision geometric variables per peer
+coordinate. Their difference is discrete Laplace. For rate `alpha=n/d`, draw
+`U` in `[0,d)` with mass proportional to `exp(-U/d)`, draw geometric `V` with
+ratio `exp(-1)`, and return `floor((d*V+U)/n)` for each geometric variable.
+Every integer and rational comparison is exact; no floating-point probability
+threshold, retry limit, finite support, or fallback approximation is used.
+
+Replay consumes bytes most-significant-bit first, without alignment between
+draws. Uniform integer rejection uses `bit_length(bound-1)` bits; bound one
+consumes none. Every 65536 bytes, HKDF-SHA256 derives a new ChaCha20 key and
+nonce using the seed, transcript salt, contract digest and canonical decimal
+arbitrary-precision epoch. This changes the private-stream domain to
+`dsVert/joint-dp/vector-convolution-private-stream/v4/` and avoids a fixed
+ChaCha block-counter limit. It does not turn a finite seed into ideal bits.
+The algorithm is variable time inside the trusted local noise-peer boundary.
+
+**Remaining contract decision (asked during implementation):** V2 requests
+capping each peer to the entire signed 128-bit interval while proving that
+both capped draws plus the statistic fit Ring128. This is impossible even
+when the statistic is zero: two draws of `-2^127` sum to `-2^128`. A cap also
+changes the noise distribution; a positive statistical error cannot acquire
+a pure-DP theorem merely by moving its bound outside the delta field. The
+pure-DP-compatible option is unbounded exact noise reduced modulo Ring128,
+with a certified nonzero wrap probability as utility metadata. The literal
+capped option must fail closed for all full-width Ring128 plans. Production
+contracts are not changed until the author resolves this choice.
+
+This is not merely an arithmetic inconvenience. Write `B=2^127`, let
+`q=exp(-1/4)` (`epsilon=1/4`, sensitivity one), and condition on the known
+peer's capped contribution `B-1`. For neighboring statistics `x=1,2`, release
+`clamp_[0,3](signed128(x+B-1+clip(Z,-B,B-1)))`. The event "release equals 1"
+requires hidden noise `-B+1` and `-B`, respectively. Its probabilities are
+`(1-q)*q^(B-1)/(1+q)` and `q^B/(1+q)`. Their ratio is
+`q/(1-q)=3.520811664`, greater than `exp(1/4)=1.284025417`. Thus clipping
+violates the conditional pure-DP guarantee even when modulo wrapping is
+allowed. Smaller noise widths can restore arithmetic headroom but do not
+restore that guarantee. A single noise draw followed by a restricted output
+clamp can sometimes preserve its release law; that observation does not
+justify the two-peer cap requested here.
+
+The standalone exact sampler and its unit tests are implemented, but are not
+selected by any production plan. Its positive decimal bound helper uses
+`m*exp(-x) <= 10^(ceil(log10(m))-floor(x/3))`, from `exp(3)>10`, without
+floating-point underflow. A proposed admission range is `0<epsilon<=10000`,
+positive integer sensitivity `S`, `epsilon/S>=2^-100`, and `1<=d<=1000000`.
+At `W=128`, the union representability bound is then at most
+`1e-44739235 < 2^-256`. This range is not yet an admitted production policy.
+
+Independent validation work is usable with the current v3 production sampler:
+the local `joint-dp-vector-convolution-oracle-v1` command calls that sampler,
+the statistical battery records its actual plan and positive implementation
+delta, and future synthetic grid records retain complete replay inputs.
+These paths must not advertise the dormant exact sampler as deployed.
+
+The sections below retain the original feasibility analysis from `5a73ce2`.
+
+## Original decision (superseded in part by V2)
 
 Do not implement or advertise the requested unconditional exact sampler under
 the existing fixed-seed replay contract. A counter-mode extension can make the

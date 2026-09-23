@@ -1,11 +1,21 @@
-# Development
+# dsVert 1.4.0
 
-* Add an exact ideal-bit discrete-Laplace sampler core, arbitrary-precision
-  replay-stream epochs, fixed known-answer vectors and targeted sampler tests.
-  Production activation remains pending the cap/no-wrap contract decision;
-  existing production plans retain their positive implementation delta.
-* Add a local synthetic oracle that exercises the active production vector
-  sampler, and complete recomputation records for future grid evaluations.
+* Activate the exact discrete-Laplace fallback for both independent noise
+  peers. Arbitrary-precision draws are reduced modulo Ring128 before the
+  existing signed decoding and fixed public clamp. The v4 plan, sampler,
+  backend and stream domains distinguish new releases from v3 artifacts.
+* Accept zero mechanism delta for this fallback with
+  `guarantee = "pure-dp-under-ideal-bits"` and
+  `randomness = "keyed-stream-computational"`. Enforce the public admitted
+  epsilon, sensitivity, dimension and ring ranges before sampling. Gaussian
+  and legacy finite samplers retain their declared positive delta.
+* Replace the exact fallback's deterministic no-wrap assertion with certified
+  positive utility bounds. Individual-draw representability and full noisy-sum
+  wrap bounds remain distinct from mechanism delta.
+* Add production-route, modular-reduction, certificate, admission and replay
+  tests alongside exact-core known-answer vectors. The statistical battery
+  exercises the production sampler and retains an explicit ideal mode.
+* Add complete recomputation records for future synthetic grid evaluations.
   Existing v1.3.0 validation records remain unchanged.
 
 # dsVert 1.3.0

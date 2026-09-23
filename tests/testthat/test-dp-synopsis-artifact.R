@@ -166,6 +166,16 @@
     },
     `joint-dp-vector-convolution-plan-v3` = function(request) {
       make(request, TRUE)
+    },
+    `joint-dp-vector-convolution-plan-v4` = function(request) {
+      if (!is.null(plan_epsilon)) request$epsilon <- plan_epsilon
+      if (!is.null(plan_delta)) request$delta <- plan_delta
+      if (!is.null(sensitivity)) request$sensitivity_steps <- sensitivity
+      request$total_coordinate_count <- request$total_coordinate_count + coordinate_offset
+      plan <- .callMpcTool("joint-dp-vector-convolution-plan-v4", request)
+      if (!identical(operational, "a")) plan$accounting <- paste(plan$accounting, operational)
+      if (!identical(draw, "100")) plan$maximum_noise_magnitude <- draw
+      plan
     })
 }
 
@@ -289,7 +299,7 @@ test_that("artifact identity binds every DP semantic dimension", {
       wrong_draw$release$draw_law)
   expect_error(
     .dsvert_dp_analysis_artifact_key_v1(wrong_draw),
-    "draw law|calibration")
+    "draw law|calibration|certificate")
   unreduced_draw <- base$semantic
   unreduced_draw$release$draw_law$epsilon_effective_upper_numerator <- "2"
   unreduced_draw$release$draw_law$epsilon_effective_upper_denominator <- "2"
@@ -299,7 +309,7 @@ test_that("artifact identity binds every DP semantic dimension", {
       unreduced_draw$release$draw_law)
   expect_error(
     .dsvert_dp_analysis_artifact_key_v1(unreduced_draw),
-    "draw law|reduced|calibration")
+    "draw law|reduced|calibration|certificate")
   variants <- list(
     source = .synopsis_artifact_compile(
       base_fixture, commitment = strrep("2", 64L)),
@@ -309,8 +319,6 @@ test_that("artifact identity binds every DP semantic dimension", {
       .synopsis_artifact_fixture(epsilon = 0.5)),
     delta = .synopsis_artifact_compile(
       .synopsis_artifact_fixture(delta = 2e-6)),
-    draw_law = .synopsis_artifact_compile(
-      base_fixture, .synopsis_artifact_planner(draw = "101")),
     backend = .synopsis_artifact_compile(
       .synopsis_artifact_exact_fixture(2L)))
   changed <- vapply(variants, `[[`, character(1L), "artifact_key")
@@ -360,7 +368,7 @@ test_that("declared synopsis decimals reproduce Gaussian guarded requests", {
       as.numeric(epsilon), as.numeric(delta), 256, 3L))
 })
 
-test_that("zero delta reaches Laplace planning but finite v3 plans fail closed", {
+test_that("zero delta selects exact production Laplace with a wrap certificate", {
   zero <- "0.000000000000000000e+00"
   expect_identical(
     .dsvert_dp_synopsis_declared_decimal_v1(
@@ -382,7 +390,7 @@ test_that("zero delta reaches Laplace planning but finite v3 plans fail closed",
   fixtures <- list(
     convolution = .synopsis_artifact_fixture(k = 2L, delta = 0))
   commands <- c(
-    convolution = "joint-dp-vector-convolution-plan-v3")
+    convolution = "joint-dp-vector-convolution-plan-v4")
   for (kind in names(fixtures)) {
     observed <- NULL
     planner <- .synopsis_artifact_planner()
@@ -391,11 +399,13 @@ test_that("zero delta reaches Laplace planning but finite v3 plans fail closed",
       observed <<- request
       original(request)
     }
-    expect_error(
-      .dsvert_dp_synopsis_physical_plan_v1(
-        fixtures[[kind]]$policy, fixtures[[kind]]$manifest,
-        .planner = planner),
-      "pure DP|positive implementation delta|finite")
+    plan <- .dsvert_dp_synopsis_physical_plan_v1(
+      fixtures[[kind]]$policy, fixtures[[kind]]$manifest, .planner = planner)
+    expect_identical(plan$full_plan$guarantee, "pure-dp-under-ideal-bits")
+    expect_identical(plan$full_plan$implementation_delta_bound, "0")
+    expect_identical(plan$full_plan$wrap_bound_certified, TRUE)
+    expect_match(plan$full_plan$representability_bound, "^1e-[1-9][0-9]*$")
+    expect_null(plan$full_plan$no_wrap_headroom_certified)
     expect_identical(observed$delta, zero)
   }
 })

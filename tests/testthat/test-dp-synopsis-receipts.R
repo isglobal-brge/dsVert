@@ -221,7 +221,7 @@ test_that("artifact validation rederives policy semantics and full plan", {
   wrong_backend <- if (identical(
       backend$physical_plan$profile$backend,
       .DSVERT_JOINT_DP_VECTOR_EXACT_BACKEND)) {
-    .DSVERT_JOINT_DP_VECTOR_BACKEND
+    .DSVERT_JOINT_DP_VECTOR_PURE_BACKEND
   } else .DSVERT_JOINT_DP_VECTOR_EXACT_BACKEND
   wrong_profile <- .dsvert_joint_dp_vector_profile(
     mechanism, wrong_backend)

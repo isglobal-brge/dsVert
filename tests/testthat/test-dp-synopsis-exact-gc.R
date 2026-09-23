@@ -400,8 +400,8 @@ test_that("productive exact-GC worker preserves its signed plan shape", {
     `joint-dp-vector-laplace-plan-v3` = function(input) {
       .callMpcTool("joint-dp-vector-laplace-plan-v3", input)
     },
-    `joint-dp-vector-convolution-plan-v3` = function(input) {
-      .callMpcTool("joint-dp-vector-convolution-plan-v3", input)
+    `joint-dp-vector-convolution-plan-v4` = function(input) {
+      .callMpcTool("joint-dp-vector-convolution-plan-v4", input)
     })
   fixture <- .synopsis_exact_fixture(2L, planner)
   .synopsis_exact_cleanup(fixture)

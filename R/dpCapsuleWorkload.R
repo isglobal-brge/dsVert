@@ -600,9 +600,9 @@
     gaussian_eligible = uses_delta,
     positive_delta_reserved = uses_delta,
     deployed_backends = if (gaussian_backend_available) {
-      c("joint-discrete-laplace-v3",
+      c("joint-discrete-laplace-v3", "exact-unbounded-discrete-laplace-modular-v4",
         "dyadic-discrete-gaussian-tv-bounded-v2")
-    } else "joint-discrete-laplace-v3",
+    } else c("joint-discrete-laplace-v3", "exact-unbounded-discrete-laplace-modular-v4"),
     gaussian_backend_available = gaussian_backend_available,
     gaussian_unavailable_reason = gaussian_unavailable,
     gaussian_calibration_request = gaussian_request,

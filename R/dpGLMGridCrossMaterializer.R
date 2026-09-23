@@ -227,6 +227,14 @@
 
 # Scoped to signed new-family catalogs; sealed family choices retain policy v1.
 .dsvert_dp_glm_grid_cross_noise_policy <- function(manifest) {
+  if (identical(as.numeric(manifest$workload$mechanism_selection$allocated_delta), 0)) {
+    if (length(.dsvert_dp_lmm_cross_artifacts(manifest)) ||
+        length(.dsvert_dp_cox_cross_artifacts(manifest))) {
+      stop("Staged source requires positive delta for its exact-GC validity gate.",
+           call. = FALSE)
+    }
+    return("dsvert-joint-dp-vector-pure-laplace-policy-v1")
+  }
   artifacts <- .dsvert_dp_glm_grid_cross_artifacts(manifest)
   if (length(artifacts)) {
     if (!identical(manifest$workload$capsule_mechanism$mechanism, "discrete-laplace")) {

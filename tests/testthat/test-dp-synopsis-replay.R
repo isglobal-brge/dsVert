@@ -19,7 +19,7 @@
   start <- result$.synopsis_result_helpers
   fixture <- start$.synopsis_start_convolution_fixture(
     k, planner = function(input) .callMpcTool(
-      "joint-dp-vector-convolution-plan-v3", input))
+      "joint-dp-vector-convolution-plan-v4", input))
   start$.synopsis_start_cleanup(fixture, envir = envir)
   setup <- start$.synopsis_start_setup(fixture)
   results <- lapply(setup$authorities, function(peer) {

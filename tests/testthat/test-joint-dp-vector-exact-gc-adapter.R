@@ -174,7 +174,7 @@ test_that("public cost policy selects convolution before private access", {
     fixture$manifest, plan)
   selection <- .dsvert_joint_dp_vector_exact_gc_selection(
     fixture$manifest, assessment)
-  expect_identical(selection$backend, .DSVERT_JOINT_DP_VECTOR_BACKEND)
+  expect_identical(selection$backend, .DSVERT_JOINT_DP_VECTOR_PURE_BACKEND)
   expect_false(selection$one_draw)
   expect_false(assessment$private_material_accessed)
   expect_false(assessment$runtime_failure_consulted)

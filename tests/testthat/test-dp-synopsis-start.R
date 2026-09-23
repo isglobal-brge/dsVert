@@ -286,7 +286,7 @@ test_that("START retries one attempt deterministically then replays durable", {
 test_that("productive convolution plan and sampler agree without rewriting", {
   .synopsis_start_require()
   planner <- function(input) .callMpcTool(
-    "joint-dp-vector-convolution-plan-v3", input)
+    "joint-dp-vector-convolution-plan-v4", input)
   fixture <- .synopsis_start_convolution_fixture(2L, planner)
   .synopsis_start_cleanup(fixture)
   setup <- .synopsis_start_setup(fixture)

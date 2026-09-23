@@ -238,9 +238,9 @@ test_that("Frequency Claim rejects oversized crypto fields before decoding", {
     available = TRUE,
     capability_id = "joint_dp_frequency_backend_selection_v1",
     protocol_version = "dsvert-joint-dp-frequency-backend-selection-v1",
-    commands = "joint-dp-frequency-backend-select-v1",
-    operations =
-      "public-data-free-certified-frequency-backend-selection-v1")))
+    commands = c("joint-dp-frequency-backend-select-v1", "joint-dp-frequency-backend-select-v2"),
+    operations = c("public-data-free-certified-frequency-backend-selection-v1",
+      "public-data-free-certified-frequency-backend-selection-v2"))))
 
 .frequency_compile_fixture <- function(
     k = 3L, local_id_columns = NULL, privacy_unit_id = NULL) {
@@ -423,7 +423,7 @@ test_that("Frequency local compiler gates and selects before source access", {
     "missing_or_out_of_domain_rows_are_ignored")
   expect_identical(
     local$config$backend_selection$summary$selected_primitive,
-    "independent_full_global_draw_convolution_ring128_v3")
+    "independent_full_global_draw_convolution_ring128_v4")
 
   source_called <- FALSE
   expect_error(.dsvert_dp_frequency_local_compile_v1(
@@ -718,7 +718,7 @@ test_that("Frequency receipt consensus rejects partial and mixed evidence", {
 
   tampered_config <- compiled$config
   tampered_config$coordinate_upper_bound <- 63
-  expect_error(compile(config = tampered_config), "configuration|receipt")
+  expect_error(compile(config = tampered_config), "configuration|receipt|certificate")
 
   wrong_pin <- compiled$receipts
   wrong_pin[[1L]]$peer_identity_pk <- .frequency_analysis_pk(99L)

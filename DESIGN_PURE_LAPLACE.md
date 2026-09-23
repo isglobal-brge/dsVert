@@ -1,8 +1,52 @@
 # Exact discrete-Laplace fallback: design and contract decisions
 
-Date: 2026-09-23. Baseline: dsVert and dsVertClient v1.3.0.
+Date: 2026-09-23. Current release: dsVert and dsVertClient v1.4.0.
 
-## V2 implementation decision record
+## V3 scope decision and implemented contract
+
+The author accepted `DSVERT_RAISE_V3_2026-09-23`: both peers use unbounded,
+arbitrary-precision exact discrete-Laplace draws and commit their residues
+modulo `2^128`. The sum uses the existing signed Ring128 decoding and fixed
+public clamp. These are post-processing of the ideal exact mechanism; neither
+peer's noise is capped, rejected for its magnitude, or resampled on wrap.
+
+The production fallback emits
+`guarantee: "pure-dp-under-ideal-bits"` and
+`randomness: "keyed-stream-computational"`. Under ideal independent bits its
+mechanism and sampler implementation delta are zero. Deployed keyed replay
+additionally requires the stream pseudorandomness assumption. The Gaussian
+route and legacy finite v3 samplers retain their own positive delta. This does
+not change the meaning of an existing v3 artifact.
+
+Planning enforces `0 < epsilon <= 10000`, positive integer lattice sensitivity
+`S`, `epsilon/S >= 2^-100`, `1 <= d <= 1000000`, and `W = 128`. The exact
+fallback has new plan/input/share/finalizer identifiers ending in `v4`, sampler
+`hkdf-sha256-chacha20-independent-full-draw-exact-geometric-v4`, backend
+`independent_full_global_draw_convolution_ring128_v4`, and stream domain
+`dsVert/joint-dp/vector-convolution-private-stream/v4/`.
+
+The v4 certificate replaces deterministic `no_wrap_headroom_certified` with
+`wrap_bound_certified = true`; `wrap_bound_event` is explicitly
+`at_least_one_peer_draw_outside_signed_Ring128`. Its `wrap_bound` and separate
+`representability_bound` carry the same positive outward decimal upper bound
+on `min(1, 2*d*q^B)`, where `q = exp(-epsilon/S)` and `B = 2^127`.
+These fields concern individual draws, not the full noisy sum. For a public
+upper bound `M` on each nonnegative scaled statistic, share/finalizer metadata
+also carries `sum_wrap_threshold = floor((B-M)/2)` and `sum_wrap_bound`, an
+outward bound on `min(1, 2*d*q^sum_wrap_threshold)`. If every draw lies in
+`[-T,T-1]` for that threshold `T`, the complete statistic-plus-noise sum fits
+signed Ring128. Threshold zero has bound one. Both events concern utility,
+remain distinct from privacy delta, and are evaluated under the ideal-bit
+law. Signed decoding is
+`canonical_Ring128_twos_complement_after_modular_addition`.
+
+See [the current mechanism and replay specification](inst/docs/joint_dp_exact_laplace_ideal_bits.md)
+and [disclosure control](DISCLOSURE_CONTROL.md). The earlier decision records
+below are historical: their pending-production and stopped-design statements
+are superseded by this V3 section, while their counterexample and mathematical
+analysis remain applicable.
+
+## Historical V2 implementation decision record
 
 The author's `DSVERT_RAISE_V2_2026-09-23` instruction accepts exactness under
 ideal independent uniform bits and computational randomness from the deployed

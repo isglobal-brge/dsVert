@@ -173,6 +173,11 @@
             final_input = paste0("dsvert-joint-dp-vector-dyadic-discrete-gaussian-", "tv-bounded-finalizer-input-v2"), final = paste0("dsvert-joint-dp-vector-dyadic-discrete-gaussian-",
                 "tv-bounded-finalizer-v2"), share_command = "joint-dp-vector-gaussian-share-v2", final_command = "joint-dp-vector-gaussian-finalize-v2",
             mechanism = "dyadic_discrete_gaussian_truncated_tv_bounded"))
+    if (!gaussian && identical(worker$selected_primitive, "independent_full_global_draw_convolution_ring128_v4"))
+        return(list(gaussian = FALSE, exact = TRUE, input = "dsvert-joint-dp-vector-independent-full-draw-convolution-input-v4", share = "dsvert-joint-dp-vector-independent-full-draw-convolution-share-v4",
+            final_input = "dsvert-joint-dp-vector-independent-full-draw-finalizer-input-v4", final = "dsvert-joint-dp-vector-independent-full-draw-finalizer-v4",
+            share_command = "joint-dp-vector-convolution-share-v4", final_command = "joint-dp-vector-convolution-finalize-v4",
+            mechanism = "discrete_laplace_convolution"))
     if (!gaussian && identical(worker$selected_primitive, "independent_full_global_draw_convolution_ring128_v3"))
         return(list(gaussian = FALSE, input = "dsvert-joint-dp-vector-independent-full-draw-convolution-input-v3", share = "dsvert-joint-dp-vector-independent-full-draw-convolution-share-v3",
             final_input = "dsvert-joint-dp-vector-independent-full-draw-finalizer-input-v3", final = "dsvert-joint-dp-vector-independent-full-draw-finalizer-v3",
@@ -244,12 +249,21 @@
         epsilon_divided_by_peer_count = FALSE, source_values_returned = FALSE, noise_values_returned = FALSE, private_seed_returned = FALSE,
         preclamp_values_returned = FALSE, no_wrap_headroom_certified = TRUE, source_bound_precondition = paste0("authenticated_semi_honest_capsule_materializer_",
             "and_source_transport"), plan = expected$plan)
+    if (isTRUE(profile$exact)) {
+        fields <- c(setdiff(fields, "no_wrap_headroom_certified"),
+            .DSVERT_JOINT_DP_PURE_CERTIFICATE_FIELDS, "sum_wrap_bound", "sum_wrap_threshold")
+        exact$no_wrap_headroom_certified <- NULL
+        certificate <- .dsvert_joint_dp_pure_output_certificate(expected$plan,
+            input$raw_upper_bounds, input$scale_shifts)
+        exact <- c(exact, certificate)
+    }
     numeric_fields <- c("ring_bits", "frac_bits", "total_coordinate_count", "chunk_start", "coordinate_count")
     valid <- .dsvert_dp_frequency_execution_closed_v1(value, fields) && all(vapply(names(exact), function(field) identical(value[[field]],
         exact[[field]]), logical(1L))) && all(vapply(numeric_fields, function(field) identical(as.numeric(value[[field]]),
         as.numeric(input[[field]])), logical(1L))) && identical(as.numeric(value$nominal_variance_multiplier), 2) && is.character(value$sampler_contract_hash) &&
         grepl("^[0-9a-f]{64}$", value$sampler_contract_hash) && all(vapply(c("maximum_noise_magnitude_per_peer", "maximum_noise_magnitude_two_peers"),
-        function(field) is.character(value[[field]]) && length(value[[field]]) == 1L && grepl("^(0|[1-9][0-9]*)$", value[[field]]),
+        function(field) if (isTRUE(profile$exact)) identical(value[[field]], "unbounded") else
+            is.character(value[[field]]) && length(value[[field]]) == 1L && grepl("^(0|[1-9][0-9]*)$", value[[field]]),
         logical(1L)))
     if (profile$gaussian)
         valid <- valid && identical(value$mechanism, profile$mechanism) && identical(value$tail_projection_applied, FALSE) &&
@@ -277,6 +291,18 @@
     if (profile$gaussian)
         fields <- c(fields, "mechanism")
     expected <- .dsvert_dp_frequency_execution_expected_v1(authorization)
+    exact <- isTRUE(profile$exact)
+    certificate_valid <- identical(value$no_wrap_headroom_certified, TRUE)
+    decode <- "canonical_Ring128_twos_complement_after_proven_no_wrap"
+    if (exact) {
+        fields <- c(setdiff(fields, "no_wrap_headroom_certified"),
+            .DSVERT_JOINT_DP_PURE_CERTIFICATE_FIELDS, "sum_wrap_bound", "sum_wrap_threshold")
+        certificate <- .dsvert_joint_dp_pure_output_certificate(expected$plan,
+            input$raw_upper_bounds, input$scale_shifts)
+        certificate_valid <- all(vapply(names(certificate), function(field)
+            identical(value[[field]], certificate[[field]]), logical(1L)))
+        decode <- "canonical_Ring128_twos_complement_after_modular_addition"
+    }
     values <- tryCatch(unlist(value$clamped_scaled_values, use.names = FALSE), error = function(error) NULL)
     numeric <- suppressWarnings(as.numeric(values))
     valid <- .dsvert_dp_frequency_execution_closed_v1(value, fields) && identical(value$version, profile$final) && identical(value$backend,
@@ -284,8 +310,8 @@
         input$release_contract_hash) && identical(value$transcript_hash, input$transcript_hash) && all(vapply(c("ring_bits",
         "frac_bits", "total_coordinate_count", "chunk_start", "coordinate_count", "output_lattice_bits"), function(field) identical(as.numeric(value[[field]]),
         as.numeric(input[[field]])), logical(1L))) && identical(value$preclamp_values_returned, FALSE) && identical(value$signed_decode,
-        "canonical_Ring128_twos_complement_after_proven_no_wrap") && identical(value$clamping, "single_fixed_public_per_coordinate_interval_postprocessing") &&
-        identical(value$no_wrap_headroom_certified, TRUE) && is.character(values) && length(values) == input$coordinate_count &&
+        decode) && identical(value$clamping, "single_fixed_public_per_coordinate_interval_postprocessing") &&
+        certificate_valid && is.character(values) && length(values) == input$coordinate_count &&
         all(grepl("^(0|[1-9][0-9]*)$", values)) && all(is.finite(numeric)) && all(numeric >= 0) && all(numeric <= as.numeric(authorization$worker_static$raw_bound$upper))
     if (profile$gaussian)
         valid <- valid && identical(value$mechanism, profile$mechanism)

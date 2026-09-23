@@ -21,6 +21,6 @@ test_that("GLMM-scale Gaussian unavailability retains the certified Laplace fall
   expect_identical(selection$certificate$decision,
     "fixed_work_gaussian_unavailable_explicit_laplace_fallback")
   expect_identical(selection$certificate$deployed_backends,
-    "joint-discrete-laplace-v3")
+    c("joint-discrete-laplace-v3", "exact-unbounded-discrete-laplace-modular-v4"))
   expect_identical(select(), selection)
 })

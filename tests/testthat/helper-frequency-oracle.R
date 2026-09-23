@@ -130,6 +130,34 @@
     release_delta_aggregation = "max_per_peer_not_sum",
     capability_available = TRUE)
   gaussian_plan[names(gaussian_values)] <- gaussian_values
+  exact <- identical(request$version, "dsvert-joint-dp-frequency-backend-selection-request-v2")
+  if (exact) {
+    epsilon <- .dsvert_dp_analysis_frequency_decimal_fraction_v1(request$convolution_request$epsilon)
+    convolution_plan$version <- "dsvert-joint-dp-vector-independent-full-draw-convolution-plan-v4"
+    convolution_plan$sampler <- "hkdf-sha256-chacha20-independent-full-draw-exact-geometric-v4"
+    convolution_plan$maximum_noise_magnitude <- "unbounded"
+    convolution_plan$stop_bits <- 0L
+    convolution_plan$stop_numerator <- "0"
+    convolution_plan$uniform_bits <- 0L
+    convolution_plan$binary_geometric_bits <- 0L
+    convolution_plan$bernoulli_thresholds <- list()
+    convolution_plan$private_stream_bytes_per_coordinate <- 0L
+    convolution_plan$epsilon_effective_upper_numerator <- as.character(epsilon$numerator)
+    convolution_plan$epsilon_effective_upper_denominator <- as.character(epsilon$denominator)
+    for (prefix in c("one_geometric_tv", "tail_upper", "rounding_upper", "implementation_delta",
+        "per_peer_implementation_delta", "two_peer_ideal_transfer_delta")) {
+      convolution_plan[[paste0(prefix, "_numerator")]] <- "0"
+      convolution_plan[[paste0(prefix, "_denominator")]] <- "1"
+    }
+    for (field in c("implementation_delta_bound", "per_peer_implementation_delta_bound",
+        "two_peer_ideal_transfer_delta_bound")) convolution_plan[[field]] <- "0"
+    convolution_plan <- c(convolution_plan, .dsvert_joint_dp_pure_certificate(request$convolution_request))
+    radii$convolution <- .dsvert_dp_analysis_frequency_exact_radius_v4(
+      request$convolution_request, as.numeric(request$coordinate_upper_bound))
+    radii$gaussian <- as.character(as.numeric(radii$convolution) +
+      switch(outcome, convolution = 1, gaussian = -1, tie = 0))
+    gaussian_plan$simultaneous_95_abs <- radii$gaussian
+  }
   plan_hash <- function(plan) .dsvert_dp_analysis_frequency_hash_v1(
     "dsVert/frequency/full-plan/v1|", plan)
   certificates <- list(
@@ -152,8 +180,15 @@
       release_tv_upper_denominator = "1000000",
       simultaneous_95_abs = radii$gaussian,
       absolute_support = "180"))
+  if (exact) {
+    certificates$convolution$primitive <- "independent_full_global_draw_convolution_ring128_v4"
+    certificates$convolution$method <- "exact_two_draw_exponential_union_modular_clamp_v1"
+    certificates$convolution$release_tv_upper_numerator <- "0"
+    certificates$convolution$release_tv_upper_denominator <- "1"
+    certificates$convolution$absolute_support <- request$coordinate_upper_bound
+  }
   primitive <- certificates[[winner]]$primitive
-  list(
+  result <- list(
     version = "dsvert-joint-dp-frequency-backend-selection-v1",
     request = request,
     convolution_plan = convolution_plan,
@@ -175,4 +210,11 @@
       runtime_failure_consulted = FALSE,
       automatic_fallback = FALSE,
       utility_optimality_claimed = FALSE))
+  if (exact) {
+    result$version <- "dsvert-joint-dp-frequency-backend-selection-v2"
+    result$selection_certificate <- .dsvert_dp_analysis_frequency_selection_certificate_v3(
+      primitive, certificates[[winner]]$plan_sha256, radii[[winner]])
+  }
+  result
+
 }

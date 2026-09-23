@@ -16,6 +16,7 @@ import (
 
 type jointDPVectorSamplerOracleInput struct {
 	Version             string `json:"version"`
+	SamplerVersion      string `json:"sampler_version,omitempty"`
 	Epsilon             string `json:"epsilon"`
 	AllocatedDelta      string `json:"allocated_delta,omitempty"`
 	SensitivitySteps    string `json:"sensitivity_steps"`
@@ -60,9 +61,23 @@ func jointDPVectorSamplerOracle(input jointDPVectorSamplerOracleInput) (jointDPV
 		return zero, fmt.Errorf("invalid synthetic sampler oracle shape")
 	}
 	if input.AllocatedDelta == "" {
-		input.AllocatedDelta = "7.888609052210118e-31"
+		if input.SamplerVersion == jointDPVectorConvolutionSamplerVersion {
+			input.AllocatedDelta = "7.888609052210118e-31"
+		} else {
+			input.AllocatedDelta = "0"
+		}
 	}
-	plan, err := jointDPPlanVectorConvolutionLaplace(jointDPVectorPlanInput{
+	planner := jointDPPlanVectorConvolutionLaplaceV4
+	inputVersion, backend := jointDPVectorConvolutionInputVersionV4, jointDPVectorConvolutionBackendV4
+	switch input.SamplerVersion {
+	case "", jointDPVectorConvolutionSamplerVersionV4:
+	case jointDPVectorConvolutionSamplerVersion:
+		planner = jointDPPlanVectorConvolutionLaplace
+		inputVersion, backend = jointDPVectorConvolutionInputVersion, jointDPVectorConvolutionBackend
+	default:
+		return zero, fmt.Errorf("unsupported synthetic sampler version")
+	}
+	plan, err := planner(jointDPVectorPlanInput{
 		Epsilon: input.Epsilon, Delta: input.AllocatedDelta,
 		SensitivitySteps: input.SensitivitySteps, TotalCoordinateCount: input.CoordinateCount,
 	})
@@ -92,7 +107,7 @@ func jointDPVectorSamplerOracle(input jointDPVectorSamplerOracleInput) (jointDPV
 	}
 	result := jointDPVectorSamplerOracleOutput{
 		Version: "dsvert-dp-statistical-noise-oracle-output-v1",
-		Sampler: plan.Sampler, PlanVersion: plan.Version, Backend: jointDPVectorConvolutionBackend,
+		Sampler: plan.Sampler, PlanVersion: plan.Version, Backend: backend,
 		Guarantee: guarantee, Randomness: "keyed-stream-computational",
 		SeedScope:           "public-synthetic-test-fixture",
 		ImplementationDelta: plan.ImplementationDeltaBound, Plan: plan,
@@ -116,7 +131,7 @@ func jointDPVectorSamplerOracle(input jointDPVectorSamplerOracleInput) (jointDPV
 				upper[i] = "1"
 			}
 			shareInput := jointDPVectorConvolutionShareInput{
-				Version: jointDPVectorConvolutionInputVersion, RingBits: 128, FracBits: 0,
+				Version: inputVersion, RingBits: 128, FracBits: 0,
 				TotalCoordinateCount: input.CoordinateCount, ChunkStart: 0, CoordinateCount: input.CoordinateCount,
 				OutputLatticeBits: 8, Epsilon: input.Epsilon, AllocatedDelta: input.AllocatedDelta,
 				SensitivitySteps: input.SensitivitySteps, ScaleShifts: make([]int, input.CoordinateCount), RawUpperBounds: upper,
@@ -128,13 +143,25 @@ func jointDPVectorSamplerOracle(input jointDPVectorSamplerOracleInput) (jointDPV
 			if err != nil {
 				return zero, err
 			}
-			noise, err := jointDPVectorConvolutionNoise(seeds[peer], spec)
-			if err != nil {
-				return zero, err
-			}
-			values := make([]string, len(noise))
-			for i, value := range noise {
-				values[i] = fmt.Sprint(value)
+			values := make([]string, input.CoordinateCount)
+			if inputVersion == jointDPVectorConvolutionInputVersionV4 {
+				noise, noiseErr := jointDPVectorConvolutionExactNoise(seeds[peer], spec)
+				if noiseErr != nil {
+					return zero, noiseErr
+				}
+				for i, value := range noise {
+					values[i] = value.String()
+				}
+				exactGCZeroBigInts(noise)
+			} else {
+				noise, noiseErr := jointDPVectorConvolutionNoise(seeds[peer], spec)
+				if noiseErr != nil {
+					return zero, noiseErr
+				}
+				for i, value := range noise {
+					values[i] = fmt.Sprint(value)
+				}
+				clear(noise)
 			}
 			if peer == 0 {
 				draw.Garbler, draw.GarblerInput, draw.GarblerSamplerContractHash = values, shareInput, hex.EncodeToString(spec.contractDigest[:])

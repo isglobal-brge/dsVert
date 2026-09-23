@@ -12,7 +12,7 @@ func TestRuntimeCapabilitiesContract(t *testing.T) {
 	if manifest.SchemaVersion != 1 ||
 		manifest.ProtocolVersion != "dsvert-mpc-runtime-v1" ||
 		manifest.APIVersion != "1.2.0" ||
-		manifest.RuntimeVersion != "1.2.0" ||
+		manifest.RuntimeVersion != "1.4.0" ||
 		manifest.RuntimeVersion != runtimeVersion {
 		t.Fatalf("unexpected runtime manifest header: %+v", manifest)
 	}
@@ -79,6 +79,9 @@ func TestRuntimeCapabilitiesContract(t *testing.T) {
 			[]string{"joint-dp-vector-convolution-plan-v3",
 				"joint-dp-vector-convolution-share-v3",
 				"joint-dp-vector-convolution-finalize-v3",
+				"joint-dp-vector-convolution-plan-v4",
+				"joint-dp-vector-convolution-share-v4",
+				"joint-dp-vector-convolution-finalize-v4",
 				"joint-dp-vector-gaussian-plan-v2",
 				"joint-dp-vector-gaussian-share-v2",
 				"joint-dp-vector-gaussian-finalize-v2"}) ||
@@ -86,6 +89,8 @@ func TestRuntimeCapabilitiesContract(t *testing.T) {
 			[]string{
 				"sticky-independent-complete-vector-discrete-laplace-ring128-v3",
 				"sticky-independent-complete-vector-dyadic-discrete-gaussian-tv-bounded-ring128-v2",
+				"sticky-independent-exact-unbounded-discrete-laplace-modular-ring128-v4",
+				"signed-decode-fixed-public-clamp-certified-wrap-v4",
 				"signed-decode-fixed-public-clamp-no-wrap-v3"}) {
 		t.Fatalf("invalid joint-DP vector capability: %+v",
 			manifest.Capabilities.JointDPVector)
@@ -97,11 +102,12 @@ func TestRuntimeCapabilitiesContract(t *testing.T) {
 			"dsvert-joint-dp-frequency-backend-selection-v1" ||
 		!reflect.DeepEqual(
 			manifest.Capabilities.JointDPFrequencyBackendSelection.Commands,
-			[]string{"joint-dp-frequency-backend-select-v1"}) ||
+			[]string{"joint-dp-frequency-backend-select-v1", "joint-dp-frequency-backend-select-v2"}) ||
 		!reflect.DeepEqual(
 			manifest.Capabilities.JointDPFrequencyBackendSelection.Operations,
 			[]string{
-				"public-data-free-certified-frequency-backend-selection-v1"}) {
+				"public-data-free-certified-frequency-backend-selection-v1",
+				"public-data-free-certified-frequency-backend-selection-v2"}) {
 		t.Fatalf("invalid joint-DP Frequency selector capability: %+v",
 			manifest.Capabilities.JointDPFrequencyBackendSelection)
 	}

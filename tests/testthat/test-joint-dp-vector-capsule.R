@@ -156,22 +156,22 @@
     `joint-dp-vector-laplace-plan-v3` = function(value) {
       .vector_capsule_run("joint-dp-vector-laplace-plan-v3", value)
     },
-    `joint-dp-vector-convolution-plan-v3` = function(value) {
-      .vector_capsule_run("joint-dp-vector-convolution-plan-v3", value)
+    `joint-dp-vector-convolution-plan-v4` = function(value) {
+      .vector_capsule_run("joint-dp-vector-convolution-plan-v4", value)
     })
   fixture$sampler <- if (isTRUE(gaussian)) {
     function(value) .vector_capsule_run(
       "joint-dp-vector-gaussian-share-v2", value)
   } else {
     function(value) .vector_capsule_run(
-      "joint-dp-vector-convolution-share-v3", value)
+      "joint-dp-vector-convolution-share-v4", value)
   }
   fixture$finalizer <- if (isTRUE(gaussian)) {
     function(value) .vector_capsule_run(
       "joint-dp-vector-gaussian-finalize-v2", value)
   } else {
     function(value) .vector_capsule_run(
-      "joint-dp-vector-convolution-finalize-v3", value)
+      "joint-dp-vector-convolution-finalize-v4", value)
   }
   fixture$signer <- .vector_capsule_helpers$.capsule_source_test_signer
   fixture$verifier <- function(message, pin, signature, ...) {

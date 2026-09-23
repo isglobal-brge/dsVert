@@ -1,7 +1,8 @@
 # Independent-full-draw joint-DP fallback
 
-Status: integrated and tested as the scalable backend of the registered
-biomedical-vector release. It deliberately has no standalone noise or payload
+Status: the dsVert 1.4.0 scalable Laplace fallback uses the exact v4 sampler;
+the Gaussian route retains its positive-delta mechanism. The backend is
+integrated into the registered signed release lifecycle. It deliberately has no standalone noise or payload
 endpoint: capability is available only through the server-authoritative vector
 manifest, allocation, source, sampling, finalization and replay lifecycle. The
 older generic helper remains unregistered compatibility code and is not a
@@ -28,9 +29,10 @@ creates a different capsule and is a separately accounted release.
 Exactly two custodian-designated, identity-pinned peers hold uniformly masked
 additive statistic shares in Ring2^k. Each peer derives a sticky seed from its
 independent persistent noise root and the committed query/allocation/mechanism
-transcript, runs the existing adapted Google-DP/ChaCha20 sampler with the
-complete global epsilon and the globally allocated delta (never epsilon/K),
-and adds its raw signed noise to its share modulo 2^k. A joint finalizer sums
+transcript and samples with the complete global epsilon (never epsilon/K).
+For the exact Laplace v4 fallback, each peer independently draws an unbounded
+arbitrary-precision integer vector and adds its residues to its share modulo
+`2^128`. The Gaussian route keeps its own certified positive-delta sampler. A joint finalizer sums
 exactly those two shares,
 signed-decodes once, applies exactly one public source-bound saturation, and
 reveals only the saturated release.
@@ -42,7 +44,12 @@ and each other. If one peer's seed remains hidden, its complete mechanism is
 one fixed saturation are post-processing, so the single convolution release
 keeps that same epsilon rather than doubling it. The certificate requires
 `delta_total <= capsule_delta` and separately reports `delta_impl_sampler`,
-`delta_mechanism`, and their sum `delta_total`.
+`delta_mechanism`, and their sum `delta_total`. The exact v4 Laplace plan has
+zero mechanism and implementation delta under ideal independent bits and
+emits `guarantee = "pure-dp-under-ideal-bits"` and
+`randomness = "keyed-stream-computational"`. Its replayable HKDF/ChaCha20 stream
+needs the computational pseudorandomness assumption; this is not an
+unconditional statistical claim about the finite seed space.
 
 This is not malicious-secure. A deviating peer could add a data-dependent
 value, bias the result or create another channel. The one-hidden-seed argument
@@ -50,10 +57,10 @@ does not cover that behavior. Timing claims also remain output-DP only;
 sampler, cache, admission, transport, failure and availability timing are
 outside the current guarantee.
 
-The one-draw exact-GC route has lower variance, but the current public cost
-policy promotes it only for a scalar Laplace vector. Wider Laplace vectors use
-this convolution backend. That choice is made and signed before source shares
-or seeds are read; a timeout or worker failure cannot switch the backend.
+The retained finite one-draw exact-GC route and its positive-delta certificate
+remain separate from this v4 fallback. The backend choice is made and signed
+before source shares or seeds are read; a timeout or worker failure cannot
+switch the backend. Zero-delta acceptance is scoped to the exact v4 fallback.
 
 ## Uniform-mask contract
 
@@ -81,37 +88,36 @@ assert that a later random split occurred.
 
 Component noise is never clipped locally. In particular,
 `clip(S + clip(N))` is not substituted for `clip(S + N)`, because shifted
-finite support can break a pure-DP boundary ratio. Both raw samplers return
-signed int64 draws. For every coordinate the backend proves that
+finite support can break a pure-DP boundary ratio. The v4 exact fallback
+uses arbitrary-precision draws, modular Ring128 addition, one fixed signed
+decoding and one public clamp. Ring127 is rejected by its Ring128 contract.
+Planning requires `0 < epsilon <= 10000`, positive integer lattice sensitivity
+`S`, `epsilon/S >= 2^-100`, and `1 <= d <= 1000000`.
 
-`[statistic_lower + 2*INT64_MIN,
-  statistic_upper + 2*INT64_MAX]`
-
-lies in the signed side of the declared ring. Ring arithmetic then carries the
-complete raw domain with checked multiprecision addition and no wrap. Ring127
-is rejected because it fails the 128-bit mask-entropy policy.
-
-The pre-saturation value must never be delivered. The joint finalizer performs
-one signed reconstruction and the committed saturation. Output bounds must lie
-inside `[-(2^53-1), 2^53-1]` for exact JSON/R transport. Count should use the
-direct `[0, unit_capacity]` saturation; it is DP-safe post-processing and avoids
+The pre-saturation value must never be delivered. Output bounds must lie
+inside `[-(2^53-1), 2^53-1]` for exact JSON/R transport. Count uses its fixed
+`[0, unit_capacity]` saturation; it is DP-safe post-processing and avoids
 negative or impossible released counts.
 
-The granular-Laplace ideal has unbounded support, whereas the inherited raw
-sampler is represented in `int64`. Consequently this fallback does **not**
-claim pure DP. With sampler rate `lambda`, `M=INT64_MAX`, `K=2` peers and `d`
-coordinates, the implementation uses the conservative coupling bound
+The exact fallback does not certify deterministic absence of wrap. Write
+`q=exp(-epsilon/S)` and `B=2^127`. The positive outward decimal
+`representability_bound` and `wrap_bound` bound `min(1,2*d*q^B)` for the event
+`at_least_one_peer_draw_outside_signed_Ring128`; `wrap_bound_certified = true`
+certifies that explicit event. Share/finalizer metadata separately bounds
+full-sum wrapping with `sum_wrap_threshold = floor((B-M)/2)` and
+`sum_wrap_bound >= min(1,2*d*q^sum_wrap_threshold)`, where `M` is the largest
+public upper bound on the nonnegative scaled statistic. Threshold zero has
+bound one. These are ideal-bit utility bounds distinct from mechanism delta.
+The finalizer declares
+`canonical_Ring128_twos_complement_after_modular_addition`, never
+`after_proven_no_wrap`, for v4. Every unbounded integer has a ring residue;
+there is no release failure or redraw on wrap.
 
-`TV <= 2 * K * d * exp(-lambda * M)`
-
-where the leading two covers the zero/sign rejection loop. It then charges
-
-`delta_impl_sampler <= (1 + exp(epsilon)) * TV`.
-
-The calculation uses outward-rounded floating-point operands/results and a
-non-zero reported floor of `2^-100`. For Laplace, `delta_mechanism=0`; the
-full implementation bound must fit the fixed capsule parameters before seed syntax
-is accepted or any draw occurs. A zero-delta proposal is unavailable.
+Retained v3 finite Laplace artifacts keep their original finite-support
+implementation delta and deterministic headroom checks. They cannot be read
+as exact v4 artifacts. Gaussian finite-noise headroom is likewise unchanged.
+See [the exact sampler specification](joint_dp_exact_laplace_ideal_bits.md)
+for identifiers, proof, replay bit order and certified-bound construction.
 
 For Gaussian, the signed biomedical manifest contains the exact fixed-work
 dyadic-CDF plan, including the mechanism and implementation-error allowance.
@@ -131,8 +137,9 @@ component and also dividing simultaneous failure across coordinates.
 
 For a Laplace vector, every coordinate uses the complete epsilon and the same
 producer-proved global L1 sensitivity. This is one vector mechanism, not `d`
-sequential scalar releases. Its finite-support implementation delta is still
-union-bounded across both peers and all coordinates. For a Gaussian vector,
+sequential scalar releases. Its v4 exact implementation delta is zero under
+ideal bits; positive representability and sum-wrap utility bounds cover both
+peers and all coordinates. For a Gaussian vector,
 each peer uses the complete epsilon/delta and one global L2 sensitivity; the
 signed fixed-work dyadic plan accounts for its mechanism and implementation
 error before any seed is handled.
@@ -155,19 +162,14 @@ vector, signs its Merkle root and replays final public DP chunks byte-for-byte.
 
 ## Verification
 
-Go tests cover strict schemas, Ring127 and weak-entropy rejection, complete raw
-headroom, exact reconstruction of `S+raw(N_A)+raw(N_B)`, Count-specific final
-clamping, sticky Laplace/Gaussian replay, independent streams, likelihood
-ratios at both clipping atoms, variance/RMSE multipliers, the mask-translation
-bijection, all Ring128 split endpoints, reconstruction and entropy failures.
+Targeted Go and R tests cover production selection, zero-delta exact-fallback
+admission, out-of-range refusal, certificate fields, modular reduction and
+signed decoding, fixed clamping, and byte-identical replay. Exact-core tests
+also pin stream/noise vectors and exercise arbitrary-precision draws and epoch
+rollover. Legacy v3 and Gaussian tests retain positive-delta and finite-noise
+headroom checks. The statistical battery calls the production sampler and has
+a separate explicit ideal-reference flag.
 
-R tests cover source/mask/clipping bindings, durable allocation and seed
-commitments, fixed capsule epsilon propagation, fail-closed metadata, Count
-bounds, capsule retry reuse without reallocation, the server-local split
-contract, encrypted peer transfer, final-only reconstruction, Merkle replay,
-restart and compaction. Both suites also prove that zero or underfunded delta
-fails before seed handling, that finite support cannot be advertised as
-universally pure DP, and that the reported non-zero tail bound dominates the
-two-peer vector union bound. External multi-host Opal/Armadillo validation is a
-deployment test obligation; the package capability is no longer disabled or
-provisional.
+External multi-host validation and the full grid and K=2/3/5 evaluation
+batteries remain release validation obligations; targeted checks do not replace
+those evaluations.

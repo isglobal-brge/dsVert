@@ -51,6 +51,7 @@ const (
 
 type jointDPVectorConvolutionPlanOutput struct {
 	jointDPVectorPlanOutput
+	jointDPExactCertificate
 	IndependentNoisePeerCount              int    `json:"independent_noise_peer_count"`
 	CompleteEpsilonPerPeer                 bool   `json:"complete_epsilon_per_peer"`
 	EpsilonDividedByPeerCount              bool   `json:"epsilon_divided_by_peer_count"`
@@ -137,6 +138,7 @@ type jointDPVectorConvolutionShareInput struct {
 }
 
 type jointDPVectorConvolutionShareOutput struct {
+	jointDPExactCertificate
 	Version                       string                             `json:"version"`
 	Backend                       string                             `json:"backend"`
 	Sampler                       string                             `json:"sampler"`
@@ -159,7 +161,7 @@ type jointDPVectorConvolutionShareOutput struct {
 	NoiseValuesReturned           bool                               `json:"noise_values_returned"`
 	PrivateSeedReturned           bool                               `json:"private_seed_returned"`
 	PreclampValuesReturned        bool                               `json:"preclamp_values_returned"`
-	NoWrapHeadroomCertified       bool                               `json:"no_wrap_headroom_certified"`
+	NoWrapHeadroomCertified       bool                               `json:"no_wrap_headroom_certified,omitempty"`
 	SourceBoundPrecondition       string                             `json:"source_bound_precondition"`
 	NominalVarianceMultiplier     int                                `json:"nominal_variance_multiplier"`
 	Plan                          jointDPVectorConvolutionPlanOutput `json:"plan"`
@@ -260,7 +262,11 @@ func jointDPVectorConvolutionContractDigest(
 	// require a coordinated, versioned domain change rather than a silent v3
 	// compatibility break.
 	h := sha256.New()
-	h.Write([]byte(jointDPVectorConvolutionOutputVersion))
+	version := jointDPVectorConvolutionOutputVersion
+	if input.Version == jointDPVectorConvolutionInputVersionV4 {
+		version = jointDPVectorConvolutionOutputVersionV4
+	}
+	h.Write([]byte(version))
 	write := func(value string) {
 		var length [4]byte
 		binary.BigEndian.PutUint32(length[:], uint32(len(value)))
@@ -281,6 +287,12 @@ func jointDPVectorConvolutionContractDigest(
 	} {
 		write(value)
 	}
+	if input.Version == jointDPVectorConvolutionInputVersionV4 {
+		// Bind the complete v4 certificate and admission contract, including
+		// the utility event, separately from the zero mechanism delta.
+		encoded, _ := json.Marshal(plan)
+		write(string(encoded))
+	}
 	for _, threshold := range plan.BernoulliThresholds {
 		write(threshold)
 	}
@@ -299,7 +311,7 @@ func jointDPVectorConvolutionParseSpec(
 	input jointDPVectorConvolutionShareInput,
 ) (jointDPVectorConvolutionSpec, error) {
 	var zero jointDPVectorConvolutionSpec
-	if input.Version != jointDPVectorConvolutionInputVersion ||
+	if (input.Version != jointDPVectorConvolutionInputVersion && input.Version != jointDPVectorConvolutionInputVersionV4) ||
 		input.RingBits != 128 || input.FracBits != 0 ||
 		input.TotalCoordinateCount < 1 ||
 		input.TotalCoordinateCount > jointDPVectorMaxTotal ||
@@ -313,7 +325,11 @@ func jointDPVectorConvolutionParseSpec(
 		!jointDPConvolutionPeer.MatchString(input.PeerName) {
 		return zero, fmt.Errorf("invalid purpose-bound convolution shape")
 	}
-	plan, err := jointDPPlanVectorConvolutionLaplace(jointDPVectorPlanInput{
+	planner := jointDPPlanVectorConvolutionLaplace
+	if input.Version == jointDPVectorConvolutionInputVersionV4 {
+		planner = jointDPPlanVectorConvolutionLaplaceV4
+	}
+	plan, err := planner(jointDPVectorPlanInput{
 		Epsilon: input.Epsilon, Delta: input.AllocatedDelta,
 		SensitivitySteps:     input.SensitivitySteps,
 		TotalCoordinateCount: input.TotalCoordinateCount,
@@ -359,9 +375,13 @@ func jointDPVectorConvolutionParseSpec(
 		}
 	}
 	upperBounds := make([]*big.Int, input.CoordinateCount)
-	maxNoise, ok := new(big.Int).SetString(plan.MaximumNoiseMagnitude, 10)
-	if !ok || maxNoise.Sign() < 0 {
-		return zero, fmt.Errorf("invalid maximum noise certificate")
+	maxNoise := new(big.Int)
+	if input.Version != jointDPVectorConvolutionInputVersionV4 {
+		var ok bool
+		maxNoise, ok = new(big.Int).SetString(plan.MaximumNoiseMagnitude, 10)
+		if !ok || maxNoise.Sign() < 0 {
+			return zero, fmt.Errorf("invalid maximum noise certificate")
+		}
 	}
 	twoNoise := new(big.Int).Lsh(new(big.Int).Set(maxNoise), 1)
 	maxSigned := exactGCMaxSigned(128)
@@ -380,9 +400,11 @@ func jointDPVectorConvolutionParseSpec(
 			new(big.Int).Set(upperBounds[index]), uint(shift))
 		if scaledUpper.Sign() < 0 ||
 			new(big.Int).Add(scaledUpper, twoNoise).Cmp(maxSigned) > 0 {
+			if input.Version == jointDPVectorConvolutionInputVersionV4 {
+				return zero, fmt.Errorf("scaled source bound exceeds signed Ring128 at coordinate %d", index)
+			}
 			return zero, fmt.Errorf(
-				"Ring128 lacks certified two-draw no-wrap headroom at coordinate %d",
-				index)
+				"Ring128 lacks certified two-draw no-wrap headroom at coordinate %d", index)
 		}
 	}
 	return jointDPVectorConvolutionSpec{
@@ -532,6 +554,9 @@ func jointDPVectorConvolutionSampleShare(
 		return zero, err
 	}
 	defer clear(shareBytes)
+	if input.Version == jointDPVectorConvolutionInputVersionV4 {
+		return jointDPVectorConvolutionSampleExactShare(seed, spec, shareBytes)
+	}
 	noise, err := jointDPVectorConvolutionNoise(seed, spec)
 	if err != nil {
 		return zero, err
@@ -585,6 +610,7 @@ type jointDPVectorConvolutionFinalizerInput struct {
 }
 
 type jointDPVectorConvolutionFinalizerOutput struct {
+	jointDPExactCertificate
 	Version                 string                             `json:"version"`
 	Backend                 string                             `json:"backend"`
 	Sampler                 string                             `json:"sampler"`
@@ -600,7 +626,7 @@ type jointDPVectorConvolutionFinalizerOutput struct {
 	PreclampValuesReturned  bool                               `json:"preclamp_values_returned"`
 	SignedDecode            string                             `json:"signed_decode"`
 	Clamping                string                             `json:"clamping"`
-	NoWrapHeadroomCertified bool                               `json:"no_wrap_headroom_certified"`
+	NoWrapHeadroomCertified bool                               `json:"no_wrap_headroom_certified,omitempty"`
 	Plan                    jointDPVectorConvolutionPlanOutput `json:"plan"`
 }
 
@@ -630,7 +656,9 @@ func jointDPVectorConvolutionFinalize(
 		CommitmentContext: hex.EncodeToString(context[:]),
 		SeedCommitment:    hex.EncodeToString(commitment[:]),
 	}
-	if input.Version != jointDPVectorConvolutionFinalizerInputVersion {
+	if input.Version == jointDPVectorConvolutionFinalizerInputVersionV4 {
+		shareInput.Version = jointDPVectorConvolutionInputVersionV4
+	} else if input.Version != jointDPVectorConvolutionFinalizerInputVersion {
 		return zero, fmt.Errorf("invalid convolution finalizer version")
 	}
 	spec, err := jointDPVectorConvolutionParseSpec(shareInput)
@@ -672,7 +700,7 @@ func jointDPVectorConvolutionFinalize(
 		values[index] = opened.String()
 		opened.SetInt64(0)
 	}
-	return jointDPVectorConvolutionFinalizerOutput{
+	output := jointDPVectorConvolutionFinalizerOutput{
 		Version:             jointDPVectorConvolutionFinalizerOutputVersion,
 		Backend:             jointDPVectorConvolutionBackend,
 		Sampler:             jointDPVectorConvolutionSamplerVersion,
@@ -686,13 +714,25 @@ func jointDPVectorConvolutionFinalize(
 		SignedDecode:            "canonical_Ring128_twos_complement_after_proven_no_wrap",
 		Clamping:                "single_fixed_public_per_coordinate_interval_postprocessing",
 		NoWrapHeadroomCertified: true, Plan: spec.plan,
-	}, nil
+	}
+	if input.Version == jointDPVectorConvolutionFinalizerInputVersionV4 {
+		output.Version = jointDPVectorConvolutionFinalizerOutputVersionV4
+		output.Backend = jointDPVectorConvolutionBackendV4
+		output.Sampler = jointDPVectorConvolutionSamplerVersionV4
+		output.SignedDecode = jointDPVectorConvolutionSignedDecodeV4
+		output.NoWrapHeadroomCertified = false
+		output.jointDPExactCertificate = jointDPVectorConvolutionSumWrapCertificate(spec)
+	}
+	return output, nil
 }
 
-func handleJointDPVectorConvolutionShareV3() {
+func handleJointDPVectorConvolutionShareVersion(version string) {
 	input, err := jointDPVectorConvolutionDecode[jointDPVectorConvolutionShareInput](os.Stdin)
 	if err != nil {
 		mpcFatalError(err.Error())
+	}
+	if input.Version != version {
+		mpcFatalError("convolution input version does not match command")
 	}
 	result, err := jointDPVectorConvolutionSampleShare(input)
 	input.PrivateSeed = ""
@@ -703,10 +743,13 @@ func handleJointDPVectorConvolutionShareV3() {
 	mpcWriteOutput(result)
 }
 
-func handleJointDPVectorConvolutionFinalizeV3() {
+func handleJointDPVectorConvolutionFinalizeVersion(version string) {
 	input, err := jointDPVectorConvolutionDecode[jointDPVectorConvolutionFinalizerInput](os.Stdin)
 	if err != nil {
 		mpcFatalError(err.Error())
+	}
+	if input.Version != version {
+		mpcFatalError("convolution finalizer version does not match command")
 	}
 	result, err := jointDPVectorConvolutionFinalize(input)
 	input.LeftNoisedShare = ""

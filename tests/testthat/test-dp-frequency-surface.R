@@ -78,6 +78,18 @@ test_that("Frequency settings require one explicit server-held source owner", {
   expect_identical(context$settings$coordinate_upper_bound, 64)
   expect_identical(names(context$peer_pins), c("site_a", "site_b"))
 
+  withr::local_options(list(dsvert.dp.frequency.delta = 0,
+                            dsvert.dp.frequency.implementation_delta = NULL))
+  zero <- testthat::with_mocked_bindings(
+    .dsvert_dp_frequency_surface_context_v1(),
+    .dsvert_require_configured_local_peer_name = function() "site_a",
+    .get_identity_keypair = function() list(
+      identity_pk = local_pk_standard, identity_sk = local_pk_standard),
+    .get_trusted_peers = function() list(site_b = owner$identity_pk),
+    .package = "dsVert")
+  expect_identical(zero$settings$privacy$delta, 0)
+  expect_identical(zero$settings$calibration$implementation_delta, 0)
+
   withr::local_options(list(dsvert.dp.frequency.source_owner = NULL))
   expect_error(testthat::with_mocked_bindings(
     .dsvert_dp_frequency_surface_context_v1(),

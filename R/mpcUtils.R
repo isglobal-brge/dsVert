@@ -1,4 +1,4 @@
-.DSVERT_MPC_RUNTIME_VERSION <- "1.2.0"
+.DSVERT_MPC_RUNTIME_VERSION <- "1.4.0"
 .DSVERT_MPC_API_VERSION <- "1.2.0"
 .DSVERT_MPC_RUNTIME_PROTOCOL <- "dsvert-mpc-runtime-v1"
 .DSVERT_MPC_RUNTIME_SCHEMA <- 1L
@@ -109,19 +109,25 @@
         c("joint-dp-vector-convolution-plan-v3",
           "joint-dp-vector-convolution-share-v3",
           "joint-dp-vector-convolution-finalize-v3",
+          "joint-dp-vector-convolution-plan-v4",
+          "joint-dp-vector-convolution-share-v4",
+          "joint-dp-vector-convolution-finalize-v4",
           "joint-dp-vector-gaussian-plan-v2",
           "joint-dp-vector-gaussian-share-v2",
           "joint-dp-vector-gaussian-finalize-v2"),
         c("sticky-independent-complete-vector-discrete-laplace-ring128-v3",
           paste0("sticky-independent-complete-vector-dyadic-discrete-",
                  "gaussian-tv-bounded-ring128-v2"),
+          "sticky-independent-exact-unbounded-discrete-laplace-modular-ring128-v4",
+          "signed-decode-fixed-public-clamp-certified-wrap-v4",
           "signed-decode-fixed-public-clamp-no-wrap-v3")) ||
       !.dsvert_mpc_validate_feature(
         capabilities$joint_dp_frequency_backend_selection,
         "joint_dp_frequency_backend_selection_v1",
         "dsvert-joint-dp-frequency-backend-selection-v1",
-        "joint-dp-frequency-backend-select-v1",
-        "public-data-free-certified-frequency-backend-selection-v1")) {
+        c("joint-dp-frequency-backend-select-v1", "joint-dp-frequency-backend-select-v2"),
+        c("public-data-free-certified-frequency-backend-selection-v1",
+          "public-data-free-certified-frequency-backend-selection-v2"))) {
     .dsvert_mpc_runtime_error("required capability contract is absent")
   }
   value

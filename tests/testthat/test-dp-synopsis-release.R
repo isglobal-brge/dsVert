@@ -98,7 +98,7 @@
   result <- .synopsis_release_helpers$.synopsis_result_helpers
   start <- result$.synopsis_result_helpers
   planner <- if (isTRUE(gaussian)) NULL else function(input) {
-    .callMpcTool("joint-dp-vector-convolution-plan-v3", input)
+    .callMpcTool("joint-dp-vector-convolution-plan-v4", input)
   }
   fixture <- start$.synopsis_start_convolution_fixture(
     k, planner = planner, gaussian = gaussian)
@@ -118,7 +118,7 @@
   result <- .synopsis_release_helpers$.synopsis_result_helpers
   start <- result$.synopsis_result_helpers
   planner <- function(input) .callMpcTool(
-    "joint-dp-vector-convolution-plan-v3", input)
+    "joint-dp-vector-convolution-plan-v4", input)
   fixture <- start$.synopsis_start_convolution_fixture(planner = planner)
   start$.synopsis_start_cleanup(fixture, envir = parent.frame())
   setup <- start$.synopsis_start_setup(fixture)

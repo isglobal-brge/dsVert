@@ -1,0 +1,240 @@
+{
+  "input": {
+    "version": "dsvert-dp-statistical-noise-oracle-input-v1",
+    "epsilon": "1",
+    "allocated_delta": "0",
+    "sensitivity_steps": "256",
+    "coordinate_count": 3,
+    "replicates": 2,
+    "garbler_seed": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "evaluator_seed": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "release_contract_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "transcript_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "output": {
+    "version": "dsvert-dp-statistical-noise-oracle-output-v1",
+    "sampler": "hkdf-sha256-chacha20-independent-full-draw-exact-geometric-v4",
+    "plan_version": "dsvert-joint-dp-vector-independent-full-draw-convolution-plan-v4",
+    "backend": "independent_full_global_draw_convolution_ring128_v4",
+    "guarantee": "pure-dp-under-ideal-bits",
+    "randomness": "keyed-stream-computational",
+    "seed_scope": "public-synthetic-test-fixture",
+    "implementation_delta": "0",
+    "plan": {
+      "version": "dsvert-joint-dp-vector-independent-full-draw-convolution-plan-v4",
+      "sampler": "hkdf-sha256-chacha20-independent-full-draw-exact-geometric-v4",
+      "stop_bits": 0,
+      "stop_numerator": "0",
+      "uniform_bits": 0,
+      "binary_geometric_bits": 0,
+      "bernoulli_thresholds": [],
+      "sensitivity_steps": "256",
+      "total_coordinate_count": 3,
+      "epsilon_effective_upper_numerator": "1",
+      "epsilon_effective_upper_denominator": "1",
+      "one_geometric_tv_numerator": "0",
+      "one_geometric_tv_denominator": "1",
+      "tail_upper_numerator": "0",
+      "tail_upper_denominator": "1",
+      "rounding_upper_numerator": "0",
+      "rounding_upper_denominator": "1",
+      "implementation_delta_numerator": "0",
+      "implementation_delta_denominator": "1",
+      "implementation_delta_bound": "0",
+      "maximum_noise_magnitude": "unbounded",
+      "maximum_chunk_coordinates": 3,
+      "private_stream_bytes_per_coordinate": 0,
+      "accounting": "global iid discrete Laplace: each peer samples one unbounded exact full-epsilon global-L1-sensitivity discrete-Laplace vector; ideal-bit mechanism delta is zero; Ring128 modular reduction, fixed signed decoding and clamping are post-processing; representability and sum-wrap bounds are utility events distinct from mechanism delta",
+      "capability_available": true,
+      "guarantee": "pure-dp-under-ideal-bits",
+      "randomness": "keyed-stream-computational",
+      "noise_support": "unbounded_integer",
+      "noise_commitment": "modulo_2^128",
+      "representability_bound": "1e-221537999297485978817301176713390761",
+      "wrap_bound_certified": true,
+      "wrap_bound": "1e-221537999297485978817301176713390761",
+      "wrap_bound_event": "at_least_one_peer_draw_outside_signed_Ring128",
+      "admitted_ranges": {
+        "epsilon_minimum_exclusive": "0",
+        "epsilon_maximum": "10000",
+        "sensitivity_steps": "positive_integer",
+        "epsilon_over_sensitivity_minimum": "2^-100",
+        "total_coordinate_count_minimum": 1,
+        "total_coordinate_count_maximum": 1000000,
+        "ring_bits": 128
+      },
+      "independent_noise_peer_count": 2,
+      "complete_epsilon_per_peer": true,
+      "epsilon_divided_by_peer_count": false,
+      "geometric_variables_per_peer_per_coordinate": 2,
+      "geometric_variables_total_per_coordinate": 4,
+      "per_peer_implementation_delta_numerator": "0",
+      "per_peer_implementation_delta_denominator": "1",
+      "per_peer_implementation_delta_bound": "0",
+      "release_implementation_delta_aggregation": "max_per_peer_not_sum",
+      "two_peer_ideal_transfer_delta_numerator": "0",
+      "two_peer_ideal_transfer_delta_denominator": "1",
+      "two_peer_ideal_transfer_delta_bound": "0",
+      "threat_model": "pinned_semi_honest_noncolluding_noise_peers; analyst_may_collude_with_at_most_one_noise_peer",
+      "privacy_argument": "conditioned on either peer's source share, seed, draw, and transcript, the other peer contributes one hidden complete-epsilon global-sensitivity exact discrete-Laplace vector mechanism; translation, the second independent draw, modular reduction, signed decoding, and fixed clamping are post-processing"
+    },
+    "draws": [
+      {
+        "garbler": [
+          "209",
+          "-108",
+          "-798"
+        ],
+        "evaluator": [
+          "-335",
+          "426",
+          "61"
+        ],
+        "sum": [
+          "-126",
+          "318",
+          "-737"
+        ],
+        "transcript_hash": "6e545140aef77f664a9af8fdc989c7feb9ef591db154d9c835715e0716006da9",
+        "garbler_input": {
+          "version": "dsvert-joint-dp-vector-independent-full-draw-convolution-input-v4",
+          "ring_bits": 128,
+          "frac_bits": 0,
+          "total_coordinate_count": 3,
+          "chunk_start": 0,
+          "coordinate_count": 3,
+          "output_lattice_bits": 8,
+          "epsilon": "1",
+          "allocated_delta": "0",
+          "sensitivity_steps": "256",
+          "scale_shifts": [
+            0,
+            0,
+            0
+          ],
+          "raw_upper_bounds": [
+            "1",
+            "1",
+            "1"
+          ],
+          "release_contract_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "transcript_hash": "6e545140aef77f664a9af8fdc989c7feb9ef591db154d9c835715e0716006da9",
+          "peer_name": "oracle-garbler",
+          "commitment_context": "4b0d35bdce99625304bf4cbbb919779ba579dc831128446571d3acc8b0279b03",
+          "seed_commitment": "02a049d41e4b7ebb0ba056c951dc94445c1cce4f5aa8acca7caa8eb4e3d726ed",
+          "private_seed": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_share": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        },
+        "evaluator_input": {
+          "version": "dsvert-joint-dp-vector-independent-full-draw-convolution-input-v4",
+          "ring_bits": 128,
+          "frac_bits": 0,
+          "total_coordinate_count": 3,
+          "chunk_start": 0,
+          "coordinate_count": 3,
+          "output_lattice_bits": 8,
+          "epsilon": "1",
+          "allocated_delta": "0",
+          "sensitivity_steps": "256",
+          "scale_shifts": [
+            0,
+            0,
+            0
+          ],
+          "raw_upper_bounds": [
+            "1",
+            "1",
+            "1"
+          ],
+          "release_contract_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "transcript_hash": "6e545140aef77f664a9af8fdc989c7feb9ef591db154d9c835715e0716006da9",
+          "peer_name": "oracle-evaluator",
+          "commitment_context": "52d704a850626da94e6d941525ed7c1aa005bbc6eb5c0b6c02a7c259fb95c44f",
+          "seed_commitment": "15cfa698779e3b81a4eee437a4c5cdfd34da6015fe2422d416c3996b10f3f469",
+          "private_seed": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_share": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        },
+        "garbler_sampler_contract_hash": "71a0a8c729aefc5dce883f27b86457cdf088f38134ddb45075247949e6cbddb4",
+        "evaluator_sampler_contract_hash": "7742e83e2ad0a240676a562a3e0fe27c0e4c4fa95347d85e8a7b64dae87e3d42"
+      },
+      {
+        "garbler": [
+          "61",
+          "17",
+          "87"
+        ],
+        "evaluator": [
+          "-32",
+          "-33",
+          "13"
+        ],
+        "sum": [
+          "29",
+          "-16",
+          "100"
+        ],
+        "transcript_hash": "97aa93dacb8b829a5555dcfaaed5862d8c8ad3186da2221e8771944a054744d3",
+        "garbler_input": {
+          "version": "dsvert-joint-dp-vector-independent-full-draw-convolution-input-v4",
+          "ring_bits": 128,
+          "frac_bits": 0,
+          "total_coordinate_count": 3,
+          "chunk_start": 0,
+          "coordinate_count": 3,
+          "output_lattice_bits": 8,
+          "epsilon": "1",
+          "allocated_delta": "0",
+          "sensitivity_steps": "256",
+          "scale_shifts": [
+            0,
+            0,
+            0
+          ],
+          "raw_upper_bounds": [
+            "1",
+            "1",
+            "1"
+          ],
+          "release_contract_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "transcript_hash": "97aa93dacb8b829a5555dcfaaed5862d8c8ad3186da2221e8771944a054744d3",
+          "peer_name": "oracle-garbler",
+          "commitment_context": "049c7fdfbac61168cf4f4740079041e2c39e0d026efc859c94aa4fc897af241d",
+          "seed_commitment": "ce3ac4c812e55a883e72000efbde0e8bbe099437f0ecce7e7d1540dba28dc50a",
+          "private_seed": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_share": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        },
+        "evaluator_input": {
+          "version": "dsvert-joint-dp-vector-independent-full-draw-convolution-input-v4",
+          "ring_bits": 128,
+          "frac_bits": 0,
+          "total_coordinate_count": 3,
+          "chunk_start": 0,
+          "coordinate_count": 3,
+          "output_lattice_bits": 8,
+          "epsilon": "1",
+          "allocated_delta": "0",
+          "sensitivity_steps": "256",
+          "scale_shifts": [
+            0,
+            0,
+            0
+          ],
+          "raw_upper_bounds": [
+            "1",
+            "1",
+            "1"
+          ],
+          "release_contract_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "transcript_hash": "97aa93dacb8b829a5555dcfaaed5862d8c8ad3186da2221e8771944a054744d3",
+          "peer_name": "oracle-evaluator",
+          "commitment_context": "d70f8a049f10ca2dce4ee9838bbcd03fa8a66f87cb76ef04dcddfb70bba16a38",
+          "seed_commitment": "ffd6d8d56cbe28028d169826aa61909ee67f4c3dd5310a25760eaaf446abe12c",
+          "private_seed": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "source_share": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        },
+        "garbler_sampler_contract_hash": "64180ba1989b09865d7ce1b346ed1abe3549e1360ceaa2f3fcb8afc180234fb9",
+        "evaluator_sampler_contract_hash": "0dd3c541a2529763c414188f94019e44685565961849befb37f039b740d91bdb"
+      }
+    ]
+  }
+}

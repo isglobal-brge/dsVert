@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"math/big"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -28,7 +30,7 @@ func TestJointDPVectorSamplerOracleCallsProductionAndReplays(t *testing.T) {
 	if !reflect.DeepEqual(first, again) {
 		t.Fatal("synthetic oracle replay changed")
 	}
-	if first.PlanVersion != jointDPVectorConvolutionPlanVersion || first.Sampler != jointDPVectorConvolutionSamplerVersion || first.Backend != jointDPVectorConvolutionBackend ||
+	if first.PlanVersion != jointDPVectorConvolutionPlanVersionV4 || first.Sampler != jointDPVectorConvolutionSamplerVersionV4 || first.Backend != jointDPVectorConvolutionBackendV4 ||
 		first.SeedScope != "public-synthetic-test-fixture" || first.ImplementationDelta != first.Plan.ImplementationDeltaBound {
 		t.Fatal("oracle mislabeled production plan")
 	}
@@ -90,5 +92,39 @@ func TestJointDPVectorSamplerOracleRejectsMalformedFixtures(t *testing.T) {
 		if _, err := jointDPVectorSamplerOracle(input); err == nil {
 			t.Fatal("invalid fixture accepted")
 		}
+	}
+}
+
+func TestJointDPVectorSamplerOracleKnownAnswerV4(t *testing.T) {
+	data, err := os.ReadFile("testdata/joint-dp-vector-convolution-v4.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Input  jointDPVectorSamplerOracleInput  `json:"input"`
+		Output jointDPVectorSamplerOracleOutput `json:"output"`
+	}
+	if err := json.Unmarshal(data, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	got, err := jointDPVectorSamplerOracle(fixture.Input)
+	if err != nil || !reflect.DeepEqual(got, fixture.Output) {
+		t.Fatal("v4 production known-answer changed", err)
+	}
+}
+
+func TestJointDPVectorSamplerOracleLegacyV3Selection(t *testing.T) {
+	input := jointDPVectorSamplerOracleFixture()
+	input.SamplerVersion = jointDPVectorConvolutionSamplerVersion
+	result, err := jointDPVectorSamplerOracle(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Sampler != jointDPVectorConvolutionSamplerVersion || result.Guarantee != "approximate-dp-under-ideal-bits" || result.ImplementationDelta == "0" {
+		t.Fatal("legacy oracle lost v3 semantics")
+	}
+	input.SamplerVersion = "unknown"
+	if _, err := jointDPVectorSamplerOracle(input); err == nil {
+		t.Fatal("unknown oracle version accepted")
 	}
 }

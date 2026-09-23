@@ -32,6 +32,12 @@
   "two_peer_ideal_transfer_delta_numerator",
   "two_peer_ideal_transfer_delta_denominator")
 
+.DSVERT_DP_SYNOPSIS_PURE_DRAW_FIELDS <- c(
+  .DSVERT_DP_SYNOPSIS_CONVOLUTION_DRAW_FIELDS,
+  "guarantee", "randomness", "noise_support", "noise_commitment",
+  "representability_bound", "wrap_bound_certified", "wrap_bound",
+  "wrap_bound_event", "admitted_ranges")
+
 .DSVERT_DP_SYNOPSIS_GAUSSIAN_DRAW_FIELDS <- c(
   "version", "mechanism", "sampler", "reference",
   "total_coordinate_count", "request_binding_sha256",
@@ -111,6 +117,19 @@
       (openssl::bignum(2) ^ as.integer(shifts[[index]]))
     if (scaled > maximum) maximum <- scaled
   }
+  if (identical(profile$backend, .DSVERT_JOINT_DP_VECTOR_PURE_BACKEND)) {
+    limit <- (openssl::bignum(2)^127) - 1
+    certificate <- .dsvert_joint_dp_pure_sum_certificate(plan, maximum)
+    unsigned <- c(list(
+      version = "dsvert-stateless-catalog-synopsis-ring128-certificate-v2",
+      ring_bits = 128L, fractional_bits = 0L,
+      maximum_scaled_source_coordinate = as.character(maximum),
+      maximum_release_noise_magnitude = "unbounded",
+      positive_limit = as.character(limit), wrap_bound_certified = TRUE,
+      representability_bound = plan$representability_bound), certificate)
+    return(c(unsigned, list(sha256 = .dsvert_dp_synopsis_artifact_hash_v1(
+      .DSVERT_DP_SYNOPSIS_RING_CERTIFICATE_DOMAIN, unsigned))))
+  }
   support <- .dsvert_dp_synopsis_execution_support_v1(plan, profile)
   limit <- (openssl::bignum(2) ^ 127L) - openssl::bignum(1)
   if (support > limit || maximum + support > limit) {
@@ -129,7 +148,9 @@
 }
 
 .dsvert_dp_synopsis_draw_fields_v1 <- function(profile) {
-  if (isTRUE(profile$gaussian)) {
+  if (identical(profile$backend, .DSVERT_JOINT_DP_VECTOR_PURE_BACKEND)) {
+    .DSVERT_DP_SYNOPSIS_PURE_DRAW_FIELDS
+  } else if (isTRUE(profile$gaussian)) {
     .DSVERT_DP_SYNOPSIS_GAUSSIAN_DRAW_FIELDS
   } else if (isTRUE(profile$exact_gc)) {
     .DSVERT_DP_SYNOPSIS_LAPLACE_DRAW_FIELDS
@@ -148,7 +169,8 @@
   draw_law <- plan[fields]
   if ("bernoulli_thresholds" %in% fields) {
     thresholds <- unlist(draw_law$bernoulli_thresholds, use.names = FALSE)
-    if (!is.character(thresholds)) {
+    if (!is.character(thresholds) && !(is.null(thresholds) &&
+        identical(profile$backend, .DSVERT_JOINT_DP_VECTOR_PURE_BACKEND))) {
       stop("The synopsis physical plan has invalid Bernoulli thresholds.",
            call. = FALSE)
     }
@@ -383,6 +405,10 @@
   if (!is.list(draw_law) || is.null(names(draw_law)) ||
       !setequal(names(draw_law), fields)) {
     stop("Invalid synopsis draw law.", call. = FALSE)
+  }
+  if (identical(profile$backend, .DSVERT_JOINT_DP_VECTOR_PURE_BACKEND)) {
+    .dsvert_joint_dp_pure_plan_validate(draw_law, request)
+    return(.dsvert_dp_analysis_canonical_value_v1(draw_law))
   }
   if (isTRUE(profile$gaussian)) {
     integer_fields <- grep(
@@ -642,7 +668,8 @@
   if (!request_decimals_valid) {
     stop("Invalid synopsis planner request.", call. = FALSE)
   }
-  if (!isTRUE(expected_raw$gaussian) && identical(
+  if (!isTRUE(expected_raw$gaussian) &&
+      !identical(expected_raw$backend, .DSVERT_JOINT_DP_VECTOR_PURE_BACKEND) && identical(
       request$delta, .dsvert_dp_synopsis_declared_decimal_v1(
         0, "planner delta", 1, open_maximum = TRUE,
         allow_zero = TRUE))) {
@@ -906,16 +933,23 @@
   mechanism <- validated$manifest$workload$capsule_mechanism$mechanism
   dimension <- as.integer(validated$layout$coordinate_count)
   gaussian <- identical(mechanism, .DSVERT_JOINT_DP_GAUSSIAN_MECHANISM)
+  cost_policy <- .dsvert_dp_glm_grid_cross_noise_policy(manifest)
+  recorded_policy <- identity$backend_selection$policy_version
+  if (!gaussian && identical(cost_policy,
+        "dsvert-joint-dp-vector-exact-gc-cost-policy-v2") &&
+      identical(recorded_policy, "dsvert-joint-dp-vector-exact-gc-cost-policy-v1")) {
+    # Historical v3 plans keep their original, hash-bound selection policy.
+    cost_policy <- recorded_policy
+  }
   backend <- if (gaussian) NULL else
-    .dsvert_joint_dp_vector_public_backend_choice(dimension,
-      .dsvert_dp_glm_grid_cross_noise_policy(manifest))$backend
+    .dsvert_joint_dp_vector_public_backend_choice(dimension, cost_policy)$backend
   profile <- .dsvert_joint_dp_vector_profile(mechanism, backend)
   expected_profile <- .dsvert_dp_synopsis_profile_v1(
     mechanism, profile$backend)
   expected_lattice <- .dsvert_dp_synopsis_lattice_v1(
     projection, validated, lattice)
   expected_selection <- .dsvert_dp_synopsis_backend_selection_v1(
-    profile, dimension, .dsvert_dp_glm_grid_cross_noise_policy(manifest))
+    profile, dimension, cost_policy)
   if (!identical(identity$profile, expected_profile) ||
       !identical(identity$lattice, expected_lattice) ||
       !identical(identity$backend_selection, expected_selection)) {

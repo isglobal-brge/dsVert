@@ -42,6 +42,12 @@
   "hkdf-sha256-chacha20-independent-full-draw-binary-geometric-tv-v3"
 .DSVERT_JOINT_DP_VECTOR_BACKEND <-
   "independent_full_global_draw_convolution_ring128_v3"
+.DSVERT_JOINT_DP_VECTOR_PURE_PLAN_VERSION <-
+  "dsvert-joint-dp-vector-independent-full-draw-convolution-plan-v4"
+.DSVERT_JOINT_DP_VECTOR_PURE_SAMPLER <-
+  "hkdf-sha256-chacha20-independent-full-draw-exact-geometric-v4"
+.DSVERT_JOINT_DP_VECTOR_PURE_BACKEND <-
+  "independent_full_global_draw_convolution_ring128_v4"
 .DSVERT_JOINT_DP_VECTOR_EXACT_BACKEND <-
   "exact_gc_one_joint_discrete_laplace_draw_ring128_v3"
 .DSVERT_JOINT_DP_VECTOR_EXACT_SAMPLER <-
@@ -137,6 +143,23 @@
       postprocessing = paste0(
         "fixed-public-coordinate-clamp-inside-exact-GC-before-",
         "selective-sharing-v1"))
+  } else if (identical(backend, .DSVERT_JOINT_DP_VECTOR_PURE_BACKEND)) {
+    list(
+      gaussian = FALSE, exact_gc = FALSE, selection_bound = TRUE,
+      plan_version = .DSVERT_JOINT_DP_VECTOR_PURE_PLAN_VERSION,
+      sampler = .DSVERT_JOINT_DP_VECTOR_PURE_SAMPLER,
+      backend = .DSVERT_JOINT_DP_VECTOR_PURE_BACKEND,
+      release_mechanism = "two-independent-complete-vector-discrete-laplace-draws-v4",
+      input_version = "dsvert-joint-dp-vector-independent-full-draw-convolution-input-v4",
+      share_version = "dsvert-joint-dp-vector-independent-full-draw-convolution-share-v4",
+      finalizer_input_version = "dsvert-joint-dp-vector-independent-full-draw-finalizer-input-v4",
+      finalizer_version = "dsvert-joint-dp-vector-independent-full-draw-finalizer-v4",
+      commitment_purpose = "convolution",
+      plan_command = "joint-dp-vector-convolution-plan-v4",
+      share_command = "joint-dp-vector-convolution-share-v4",
+      finalizer_command = "joint-dp-vector-convolution-finalize-v4",
+      delta_aggregation = "max_per_peer_not_sum",
+      postprocessing = "signed-Ring128-decode-then-fixed-public-coordinate-clamp-v1")
   } else if (identical(backend, .DSVERT_JOINT_DP_VECTOR_BACKEND)) {
     list(
       gaussian = FALSE, exact_gc = FALSE, selection_bound = TRUE,
@@ -491,6 +514,31 @@
            call. = FALSE)
     }
     return(invisible(validated))
+  }
+  if (identical(contract$profile$backend, .DSVERT_JOINT_DP_VECTOR_PURE_BACKEND)) {
+    if (is.null(request)) request <- list(
+      epsilon = contract$epsilon, delta = contract$allocated_delta,
+      sensitivity_steps = contract$sensitivity_steps,
+      total_coordinate_count = contract$coordinate_count)
+    .dsvert_joint_dp_pure_plan_validate(plan, request)
+    fields <- c(.DSVERT_DP_SYNOPSIS_PURE_DRAW_FIELDS,
+      "implementation_delta_bound", "maximum_chunk_coordinates",
+      "private_stream_bytes_per_coordinate", "accounting", "capability_available",
+      "per_peer_implementation_delta_bound", "two_peer_ideal_transfer_delta_bound",
+      "threat_model", "privacy_argument")
+    if (!setequal(names(plan), fields) ||
+        !identical(as.numeric(plan$maximum_chunk_coordinates),
+          as.numeric(min(8192L, request$total_coordinate_count))) ||
+        !identical(as.numeric(plan$private_stream_bytes_per_coordinate), 0) ||
+        !identical(plan$implementation_delta_bound, "0") ||
+        !identical(plan$per_peer_implementation_delta_bound, "0") ||
+        !identical(plan$two_peer_ideal_transfer_delta_bound, "0") ||
+        !identical(plan$capability_available, TRUE) ||
+        !is.character(plan$accounting) || length(plan$accounting) != 1L ||
+        !startsWith(plan$accounting, "global iid discrete Laplace")) {
+      stop("The exact Laplace planner returned an invalid certificate.", call. = FALSE)
+    }
+    return(invisible(.dsvert_dp_canonical_query_value(plan)))
   }
   if (isTRUE(contract$profile$exact_gc)) {
     required <- c(
@@ -877,8 +925,7 @@
     policy$global_total_epsilon, "vector epsilon", 0, 8,
     open_minimum = TRUE)
   declared_delta <- .dsvert_joint_dp_decimal(
-    policy$global_total_delta, "vector delta", 0, 1,
-    open_minimum = TRUE)
+    policy$global_total_delta, "vector delta", 0, 1)
   mechanism <- validated$manifest$workload$capsule_mechanism$mechanism
   profile <- .dsvert_joint_dp_vector_profile(mechanism)
   manifest_sha256 <- digest::digest(
@@ -904,22 +951,18 @@
     plan <- .dsvert_joint_dp_vector_call_planner(
       planner, profile$plan_command, plan_input)
   } else {
-    exact_profile <- .dsvert_joint_dp_vector_profile(
-      mechanism, .DSVERT_JOINT_DP_VECTOR_EXACT_BACKEND)
-    exact_plan <- .dsvert_joint_dp_vector_call_planner(
-      planner, exact_profile$plan_command, plan_input)
     choice <- .dsvert_joint_dp_vector_public_backend_choice(
-      validated$layout$coordinate_count)
+      validated$layout$coordinate_count,
+      if (as.numeric(delta) == 0) {
+        .dsvert_dp_glm_grid_cross_noise_policy(manifest)
+      } else .DSVERT_JOINT_DP_VECTOR_EXACT_GC_COST_POLICY_VERSION)
+    profile <- .dsvert_joint_dp_vector_profile(mechanism, choice$backend)
+    plan <- .dsvert_joint_dp_vector_call_planner(
+      planner, profile$plan_command, plan_input)
     assessment <- .dsvert_joint_dp_vector_exact_gc_plan_assessment(
-      manifest_sha256, exact_plan, choice)
+      manifest_sha256, plan, choice)
     backend_selection <- .dsvert_joint_dp_vector_exact_gc_selection(
       manifest_sha256, assessment)
-    profile <- .dsvert_joint_dp_vector_profile(
-      mechanism, backend_selection$backend)
-    plan <- if (isTRUE(profile$exact_gc)) exact_plan else {
-      .dsvert_joint_dp_vector_call_planner(
-        planner, profile$plan_command, plan_input)
-    }
   }
   plan_hash <- .dsvert_joint_dp_hash(plan)
   chunk_coordinates <- if (isTRUE(profile$exact_gc)) {
@@ -2547,6 +2590,9 @@
     "noise_values_returned", "private_seed_returned",
     "preclamp_values_returned", "no_wrap_headroom_certified",
     "source_bound_precondition", "nominal_variance_multiplier", "plan")
+  pure <- identical(contract$profile$backend, .DSVERT_JOINT_DP_VECTOR_PURE_BACKEND)
+  if (pure) required <- c(setdiff(required, "no_wrap_headroom_certified"),
+    .DSVERT_JOINT_DP_PURE_CERTIFICATE_FIELDS, "sum_wrap_bound", "sum_wrap_threshold")
   if (contract$profile$gaussian) {
     required <- c(required, "mechanism", "tail_projection_applied",
                   "tail_truncation_applied", "fixed_work_shape_verified")
@@ -2581,7 +2627,15 @@
     identical(output$noise_values_returned, FALSE) &&
     identical(output$private_seed_returned, FALSE) &&
     identical(output$preclamp_values_returned, FALSE) &&
-    identical(output$no_wrap_headroom_certified, TRUE) &&
+    (if (pure) {
+      positions <- seq.int(chunk$offset + 1L, chunk$offset + chunk$count)
+      expected <- .dsvert_joint_dp_pure_output_certificate(contract$plan,
+        contract$lattice$raw_upper_bounds[positions], contract$lattice$scale_shifts[positions])
+      identical(output$maximum_noise_magnitude_per_peer, "unbounded") &&
+        identical(output$maximum_noise_magnitude_two_peers, "unbounded") &&
+        identical(.dsvert_dp_canonical_query_value(output[names(expected)]),
+                   .dsvert_dp_canonical_query_value(expected))
+    } else identical(output$no_wrap_headroom_certified, TRUE)) &&
     identical(output$source_bound_precondition,
               "authenticated_semi_honest_capsule_materializer_and_source_transport") &&
     identical(as.numeric(output$nominal_variance_multiplier), 2) &&
@@ -3024,9 +3078,13 @@
     first_prepare_json, second_prepare_json)
   .dsvert_joint_dp_vector_instance_claim_preflight(
     .policy, .secret, release_instance_json)
-  contract <- .dsvert_joint_dp_vector_contract(
-    .policy, manifest_json, release_instance_json,
-    .planner, secret = .secret)
+  existing <- .dsvert_joint_dp_vector_existing_release(
+    .policy, .secret, manifest_json, release_instance_json)
+  contract <- if (!is.null(existing)) existing$contract else {
+    .dsvert_joint_dp_vector_contract(
+      .policy, manifest_json, release_instance_json,
+      .planner, secret = .secret)
+  }
   if (!.policy$peer_name %in% contract$designated) {
     stop("Only a designated pinned noise peer may commit a vector result.",
          call. = FALSE)
@@ -3503,9 +3561,14 @@
     "output_lattice_bits", "clamped_scaled_values",
     "preclamp_values_returned", "signed_decode", "clamping",
     "no_wrap_headroom_certified", "plan")
+  pure <- identical(contract$profile$backend, .DSVERT_JOINT_DP_VECTOR_PURE_BACKEND)
+  if (pure) required <- c(setdiff(required, "no_wrap_headroom_certified"),
+    .DSVERT_JOINT_DP_PURE_CERTIFICATE_FIELDS, "sum_wrap_bound", "sum_wrap_threshold")
   if (contract$profile$gaussian) required <- c(required, "mechanism")
   values <- unlist(output$clamped_scaled_values, use.names = FALSE)
-  valid <- is.list(output) && setequal(names(output), required) &&
+  valid <- is.list(output) && !is.null(names(output)) &&
+    !anyNA(names(output)) && !anyDuplicated(names(output)) &&
+    setequal(names(output), required) &&
     identical(output$version, contract$profile$finalizer_version) &&
     identical(output$backend, contract$release_contract$backend) &&
     identical(output$sampler, contract$release_contract$sampler) &&
@@ -3526,10 +3589,15 @@
     !anyNA(values) && all(grepl("^(0|[1-9][0-9]*)$", values)) &&
     identical(output$preclamp_values_returned, FALSE) &&
     identical(output$signed_decode,
-              "canonical_Ring128_twos_complement_after_proven_no_wrap") &&
+              if (pure) "canonical_Ring128_twos_complement_after_modular_addition" else
+                "canonical_Ring128_twos_complement_after_proven_no_wrap") &&
     identical(output$clamping,
               "single_fixed_public_per_coordinate_interval_postprocessing") &&
-    identical(output$no_wrap_headroom_certified, TRUE) &&
+    (if (pure) {
+      expected <- .dsvert_joint_dp_pure_output_certificate(contract$plan, upper_bounds, scale_shifts)
+      identical(.dsvert_dp_canonical_query_value(output[names(expected)]),
+                 .dsvert_dp_canonical_query_value(expected))
+    } else identical(output$no_wrap_headroom_certified, TRUE)) &&
     identical(.dsvert_dp_canonical_query_value(output$plan),
               .dsvert_dp_canonical_query_value(contract$plan))
   if (isTRUE(valid)) {
@@ -4451,24 +4519,48 @@
     first_release_json, second_release_json)
   ack_instance <- .dsvert_joint_dp_vector_decode_json(
     release_instance_json, "acknowledgement release instance")
-  if (is.list(ack_instance$peer_noise_roots) &&
-      .policy$peer_name %in% names(ack_instance$peer_noise_roots)) {
+  local_designated <- is.list(ack_instance$peer_noise_roots) &&
+    .policy$peer_name %in% names(ack_instance$peer_noise_roots)
+  if (local_designated) {
     .dsvert_joint_dp_vector_instance_claim_preflight(
       .policy, .secret, release_instance_json)
   }
-  contract <- .dsvert_joint_dp_vector_contract(
-    .policy, manifest_json, release_instance_json,
-    .planner, secret = .secret)
+  # Published releases retain their original sampler and cost-policy binding.
+  # Rebuilding a v3 contract under the current v4 policy would break ACK replay.
+  existing <- if (local_designated) {
+    .dsvert_joint_dp_vector_existing_release(
+      .policy, .secret, manifest_json, release_instance_json)
+  } else {
+    .dsvert_dp_capsule_manifest_require_built(
+      .policy, manifest_json, secret = .secret)
+    NULL
+  }
+  current <- if (!is.null(existing)) existing$record else {
+    .dsvert_joint_dp_vector_with_store(
+      .policy, .secret, function(connection) {
+        .dsvert_joint_dp_vector_capsule_load(
+          connection, .dsvert_joint_dp_hash(ack_instance), .secret)
+      })
+  }
+  contract <- if (!is.null(existing)) existing$contract else if (
+      !is.null(current$ack_receipt_json)) {
+    # A source-only peer retains an ACK without a local release receipt.
+    if (!identical(current$manifest_sha256,
+        digest::digest(manifest_json, algo = "sha256", serialize = FALSE))) {
+      stop("The durable vector acknowledgement belongs to another manifest.",
+           call. = FALSE)
+    }
+    .dsvert_joint_dp_vector_contract_from_record(current)
+  } else {
+    .dsvert_joint_dp_vector_contract(
+      .policy, manifest_json, release_instance_json,
+      .planner, secret = .secret)
+  }
   releases <- .dsvert_joint_dp_vector_release_set(
     first_release_json, second_release_json, .policy, contract, .verifier)
   root <- releases[[1L]]$final_vector_root
   capsule_id <- contract$release_contract$capsule_id
   release_instance_id <- contract$release_contract$release_instance_id
-  current <- .dsvert_joint_dp_vector_with_store(
-    .policy, .secret, function(connection) {
-      .dsvert_joint_dp_vector_capsule_load(
-        connection, release_instance_id, .secret)
-    })
   if (!is.null(current$ack_receipt_json)) return(current$ack_receipt_json)
   if (is.null(.source_compactor)) {
     .source_compactor <-

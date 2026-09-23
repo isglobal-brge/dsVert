@@ -323,16 +323,24 @@ func main() {
 		handleJointDPVectorPlan()
 	case "joint-dp-vector-worker-contract-v3":
 		handleJointDPVectorWorkerContract()
+	case "joint-dp-vector-convolution-plan-v4":
+		handleJointDPVectorConvolutionPlanV4()
 	case "joint-dp-vector-convolution-plan-v3":
 		handleJointDPVectorConvolutionPlan()
 	case "joint-dp-vector-convolution-oracle-v1":
 		handleJointDPVectorSamplerOracle()
 	case "joint-dp-vector-convolution-share-v3":
-		handleJointDPVectorConvolutionShareV3()
+		handleJointDPVectorConvolutionShareVersion(jointDPVectorConvolutionInputVersion)
+	case "joint-dp-vector-convolution-share-v4":
+		handleJointDPVectorConvolutionShareVersion(jointDPVectorConvolutionInputVersionV4)
 	case "joint-dp-vector-convolution-finalize-v3":
-		handleJointDPVectorConvolutionFinalizeV3()
+		handleJointDPVectorConvolutionFinalizeVersion(jointDPVectorConvolutionFinalizerInputVersion)
+	case "joint-dp-vector-convolution-finalize-v4":
+		handleJointDPVectorConvolutionFinalizeVersion(jointDPVectorConvolutionFinalizerInputVersionV4)
 	case "joint-dp-vector-gaussian-plan-v2":
 		handleJointDPVectorGaussianPlan()
+	case "joint-dp-frequency-backend-select-v2":
+		handleJointDPFrequencyBackendSelectionV2()
 	case "joint-dp-frequency-backend-select-v1":
 		handleJointDPFrequencyBackendSelection()
 	case "joint-dp-vector-gaussian-share-v2":

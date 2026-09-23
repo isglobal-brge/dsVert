@@ -32,14 +32,28 @@ func crossGridNativeRun(t *testing.T, call crossGridNativeCall) map[string]any {
 	var output any
 	version := jointDPVectorConvolutionInputVersion[strings.LastIndex(jointDPVectorConvolutionInputVersion, "-")+1:]
 	switch {
-	case call.Command == "joint-dp-vector-convolution-share-"+version:
+	case call.Command == "joint-dp-vector-convolution-share-"+version || call.Command == "joint-dp-vector-convolution-share-v4":
 		var input jointDPVectorConvolutionShareInput
 		if input, err = jointDPVectorConvolutionDecode[jointDPVectorConvolutionShareInput](bytes.NewReader(data)); err == nil {
+			expected := jointDPVectorConvolutionInputVersion
+			if strings.HasSuffix(call.Command, "-v4") {
+				expected = jointDPVectorConvolutionInputVersionV4
+			}
+			if input.Version != expected {
+				t.Fatal("synthetic sampler input version differs from command")
+			}
 			output, err = jointDPVectorConvolutionSampleShare(input)
 		}
-	case call.Command == "joint-dp-vector-convolution-finalize-"+version:
+	case call.Command == "joint-dp-vector-convolution-finalize-"+version || call.Command == "joint-dp-vector-convolution-finalize-v4":
 		var input jointDPVectorConvolutionFinalizerInput
 		if input, err = jointDPVectorConvolutionDecode[jointDPVectorConvolutionFinalizerInput](bytes.NewReader(data)); err == nil {
+			expected := jointDPVectorConvolutionFinalizerInputVersion
+			if strings.HasSuffix(call.Command, "-v4") {
+				expected = jointDPVectorConvolutionFinalizerInputVersionV4
+			}
+			if input.Version != expected {
+				t.Fatal("synthetic finalizer input version differs from command")
+			}
 			output, err = jointDPVectorConvolutionFinalize(input)
 		}
 	case call.Command == "joint-dp-vector-gaussian-share-v2":
@@ -194,12 +208,21 @@ func crossGridNativeRelease(t *testing.T, raw []*big.Int, calls []crossGridNativ
 }
 
 func TestJointDPVectorSyntheticNativeReplay(t *testing.T) {
+	for _, version := range []string{"v3", "v4"} {
+		t.Run(version, func(t *testing.T) { jointDPVectorSyntheticNativeReplayVersion(t, version) })
+	}
+}
+
+func jointDPVectorSyntheticNativeReplayVersion(t *testing.T, version string) {
 	raw := []*big.Int{big.NewInt(4), big.NewInt(12345), big.NewInt(54321)}
 	var calls []crossGridNativeCall
 	for _, peer := range []string{"site_a", "site_b"} {
 		seed := sha256.Sum256([]byte("public-synthetic-replay/" + peer))
 		input := jointDPVectorConvolutionTestInput(t, peer, seed, raw,
 			[]int64{10, 100000, 100000}, []int{0, 1, 2})
+		if version == "v4" {
+			input.Version, input.AllocatedDelta = jointDPVectorConvolutionInputVersionV4, "0"
+		}
 		data, err := json.Marshal(input)
 		if err != nil {
 			t.Fatal(err)
@@ -209,12 +232,15 @@ func TestJointDPVectorSyntheticNativeReplay(t *testing.T) {
 			t.Fatal(err)
 		}
 		delete(value, "source_share")
-		version := input.Version[strings.LastIndex(input.Version, "-")+1:]
+		finalizerInputVersion := jointDPVectorConvolutionFinalizerInputVersion
+		if version == "v4" {
+			finalizerInputVersion = jointDPVectorConvolutionFinalizerInputVersionV4
+		}
 		calls = append(calls, crossGridNativeCall{
 			Command: "joint-dp-vector-convolution-share-" + version,
 			Input:   value, SyntheticSource: true,
 			FinalizerCommand:      "joint-dp-vector-convolution-finalize-" + version,
-			FinalizerInputVersion: jointDPVectorConvolutionFinalizerInputVersion})
+			FinalizerInputVersion: finalizerInputVersion})
 	}
 	released, retained := crossGridNativeRelease(t, raw, calls)
 	if len(retained) != 3 || retained[0].Input["source_share"] == nil ||

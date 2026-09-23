@@ -1,5 +1,12 @@
 # dsVert DP sampler timing audit
 
+Historical audit of the finite v3 sampler, retained for its original scope.
+The dsVert 1.4.0 exact Laplace fallback uses variable-time arbitrary-precision
+sampling; its output-DP theorem does not cover timing or availability. See
+[joint_dp_exact_laplace_ideal_bits.md](joint_dp_exact_laplace_ideal_bits.md) for
+the current v4 contract. Gaussian and retained v3 statements below keep their
+original meanings.
+
 Status: output-DP plus a fixed logical worker transcript for the productive
 dyadic Gaussian backends; sampler/egress wall-clock timing is not a promoted
 privacy capability. Audit date: 2026-08-01, updated 2026-08-02.

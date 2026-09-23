@@ -1447,7 +1447,7 @@ test_that("K=2 real durable publication replays and finalizes after restart", {
   result <- release$.synopsis_release_helpers$.synopsis_result_helpers
   start <- result$.synopsis_result_helpers
   planner <- function(input) .callMpcTool(
-    "joint-dp-vector-convolution-plan-v3", input)
+    "joint-dp-vector-convolution-plan-v4", input)
 
   fixture <- start$.synopsis_start_convolution_fixture(2L, planner)
   start$.synopsis_start_cleanup(fixture)

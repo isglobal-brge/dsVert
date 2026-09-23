@@ -11,7 +11,7 @@
 .DSVERT_JOINT_DP_VECTOR_EXACT_GC_ASSESSMENT_VERSION <-
   "dsvert-joint-dp-vector-exact-gc-assessment-v2"
 .DSVERT_JOINT_DP_VECTOR_EXACT_GC_COST_POLICY_VERSION <-
-  "dsvert-joint-dp-vector-exact-gc-cost-policy-v1"
+  "dsvert-joint-dp-vector-exact-gc-cost-policy-v2"
 .DSVERT_JOINT_DP_VECTOR_EXACT_GC_MAX_PROMOTED_COORDINATES <- 1L
 .DSVERT_JOINT_DP_VECTOR_EXACT_GC_BINDING_VERSION <-
   "dsvert-joint-dp-vector-exact-gc-binding-v1"
@@ -62,6 +62,8 @@
       .DSVERT_JOINT_DP_VECTOR_EXACT_GC_COST_POLICY_VERSION) {
   maximum <- switch(cost_policy_version,
     "dsvert-joint-dp-vector-exact-gc-cost-policy-v1" = 1L,
+    "dsvert-joint-dp-vector-exact-gc-cost-policy-v2" = 1L,
+    "dsvert-joint-dp-vector-pure-laplace-policy-v1" = 0L,
     "dsvert-cross-grid-exact-gc-cost-policy-v2" = 51L,
     "dsvert-lmm-grid-exact-gc-cost-policy-v1" = 257L,
     stop("Invalid exact-GC cost policy.", call. = FALSE))
@@ -78,10 +80,16 @@
     promoted = promoted,
     backend = if (promoted) {
       .DSVERT_JOINT_DP_VECTOR_EXACT_GC_BACKEND
-    } else {
+    } else if (identical(cost_policy_version,
+                         "dsvert-joint-dp-vector-exact-gc-cost-policy-v1")) {
       .DSVERT_JOINT_DP_VECTOR_BACKEND
+    } else {
+      .DSVERT_JOINT_DP_VECTOR_PURE_BACKEND
     },
-    selection_reason = if (promoted) {
+    selection_reason = if (identical(cost_policy_version,
+        "dsvert-joint-dp-vector-pure-laplace-policy-v1")) {
+      "zero_delta_requires_exact_unbounded_laplace"
+    } else if (promoted) {
       "within_public_exact_gc_cost_ceiling"
     } else {
       "above_public_exact_gc_cost_ceiling"
@@ -92,13 +100,13 @@
     manifest_sha256, plan, choice = NULL) {
   manifest_sha256 <- .dsvert_joint_dp_vector_exact_gc_hex(
     manifest_sha256, "biomedical manifest hash")
+  pure <- identical(plan$version, .DSVERT_JOINT_DP_VECTOR_PURE_PLAN_VERSION)
   required <- c(
     "version", "sampler", "total_coordinate_count",
     "maximum_chunk_coordinates", "accounting", "capability_available")
   if (!is.list(plan) || !all(required %in% names(plan)) ||
-      !identical(plan$version, "dsvert-joint-dp-vector-laplace-plan-v3") ||
-      !identical(
-        plan$sampler,
+      !(pure || identical(plan$version, "dsvert-joint-dp-vector-laplace-plan-v3")) ||
+      !identical(plan$sampler, if (pure) .DSVERT_JOINT_DP_VECTOR_PURE_SAMPLER else
         "hkdf-sha256-chacha20-xor-binary-geometric-tv-v3") ||
       !identical(plan$capability_available, TRUE) ||
       !is.character(plan$accounting) || length(plan$accounting) != 1L ||
@@ -110,7 +118,8 @@
          call. = FALSE)
   }
   maximum <- .dsvert_joint_dp_vector_exact_gc_integer(
-    plan$maximum_chunk_coordinates, "exact-GC chunk capacity", 1L, 128L)
+    plan$maximum_chunk_coordinates, "vector chunk capacity", 1L,
+    if (pure) 8192L else 128L)
   if (is.null(choice)) {
     choice <- .dsvert_joint_dp_vector_public_backend_choice(
       plan$total_coordinate_count)
@@ -180,11 +189,11 @@
   if (!isTRUE(assessment$representable)) {
     stop("The exact-GC plan is not representable.", call. = FALSE)
   }
-  maximum <- .dsvert_joint_dp_vector_exact_gc_integer(
-    assessment$maximum_chunk_coordinates,
-    "exact-GC chunk capacity", 1L, 128L)
   choice <- .dsvert_joint_dp_vector_public_backend_choice(
     assessment$total_coordinate_count, assessment$cost_policy_version)
+  maximum <- .dsvert_joint_dp_vector_exact_gc_integer(
+    assessment$maximum_chunk_coordinates, "vector chunk capacity", 1L,
+    if (identical(choice$backend, .DSVERT_JOINT_DP_VECTOR_PURE_BACKEND)) 8192L else 128L)
   if (!identical(assessment$cost_policy_version, choice$policy_version) ||
       !identical(as.numeric(assessment$maximum_promoted_coordinates),
                  as.numeric(choice$maximum_promoted_coordinates)) ||
@@ -249,7 +258,8 @@
     identical(selection$selection_reason, choice$selection_reason) &&
     .dsvert_joint_dp_vector_exact_gc_integer(
       selection$exact_gc_maximum_chunk_coordinates,
-      "exact-GC chunk capacity", 1L, 128L) >= 1L
+      "vector chunk capacity", 1L,
+      if (identical(choice$backend, .DSVERT_JOINT_DP_VECTOR_PURE_BACKEND)) 8192L else 128L) >= 1L
   if (!isTRUE(coherent)) {
     stop("The vector backend selection conflicts with this operation.",
          call. = FALSE)

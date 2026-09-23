@@ -121,7 +121,8 @@
       delta = .dsvert_dp_frequency_surface_option_v1("delta", 1e-6)),
     calibration = list(
       implementation_delta = .dsvert_dp_frequency_surface_option_v1(
-        "implementation_delta", 1e-9))))
+        "implementation_delta", if (isTRUE(
+          .dsvert_dp_frequency_surface_option_v1("delta", 1e-6) == 0)) 0 else 1e-9))))
   if (!settings$source_owner$peer_name %in% names(pins) ||
       !identical(settings$source_owner$identity_pk,
                  unname(pins[[settings$source_owner$peer_name]]))) {

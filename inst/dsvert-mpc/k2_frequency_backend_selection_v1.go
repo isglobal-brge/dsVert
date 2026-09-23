@@ -65,13 +65,14 @@ type jointDPFrequencySelectionCertificate struct {
 	UtilityOptimalityClaimed   bool   `json:"utility_optimality_claimed"`
 }
 type jointDPFrequencyBackendSelectionOutput struct {
-	Version                string                                `json:"version"`
-	Request                jointDPFrequencyBackendSelectionInput `json:"request"`
-	ConvolutionPlan        jointDPVectorConvolutionPlanOutput    `json:"convolution_plan"`
-	GaussianPlan           jointDPGaussianPlanOutput             `json:"gaussian_plan"`
-	ConvolutionCertificate jointDPFrequencyAccuracyCertificate   `json:"convolution_certificate"`
-	GaussianCertificate    jointDPFrequencyAccuracyCertificate   `json:"gaussian_certificate"`
-	SelectionCertificate   jointDPFrequencySelectionCertificate  `json:"selection_certificate"`
+	GaussianUnavailableReason string                                `json:"gaussian_unavailable_reason,omitempty"`
+	Version                   string                                `json:"version"`
+	Request                   jointDPFrequencyBackendSelectionInput `json:"request"`
+	ConvolutionPlan           jointDPVectorConvolutionPlanOutput    `json:"convolution_plan"`
+	GaussianPlan              *jointDPGaussianPlanOutput            `json:"gaussian_plan"`
+	ConvolutionCertificate    jointDPFrequencyAccuracyCertificate   `json:"convolution_certificate"`
+	GaussianCertificate       *jointDPFrequencyAccuracyCertificate  `json:"gaussian_certificate"`
+	SelectionCertificate      jointDPFrequencySelectionCertificate  `json:"selection_certificate"`
 }
 
 func decodeJointDPFrequencyBackendSelection(
@@ -448,9 +449,9 @@ func selectJointDPFrequencyBackend(
 	}
 	return jointDPFrequencyBackendSelectionOutput{
 		Version: jointDPFrequencyBackendSelectionVersion, Request: input,
-		ConvolutionPlan: convolution, GaussianPlan: gaussian,
+		ConvolutionPlan: convolution, GaussianPlan: &gaussian,
 		ConvolutionCertificate: convolutionCertificate,
-		GaussianCertificate:    gaussianCertificate,
+		GaussianCertificate:    &gaussianCertificate,
 		SelectionCertificate: jointDPFrequencySelectionCertificate{
 			Version:           jointDPFrequencySelectionCertificateVersion,
 			Policy:            jointDPFrequencySelectionPolicy,

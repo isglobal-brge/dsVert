@@ -54,10 +54,10 @@
   epsilon <- .dsvert_dp_frequency_number_v1(
     privacy$epsilon, "epsilon", .Machine$double.xmin, 8)
   delta <- .dsvert_dp_frequency_number_v1(
-    privacy$delta, "delta", .Machine$double.xmin, 1 - .Machine$double.eps)
+    privacy$delta, "delta", 0, 1 - .Machine$double.eps)
   implementation <- .dsvert_dp_frequency_number_v1(
     calibration$implementation_delta, "implementation delta",
-    .Machine$double.xmin, delta)
+    0, delta)
   list(
     domain = settings$domain, cohort_id = settings$cohort_id,
     source_owner = owner,
@@ -76,6 +76,8 @@
 
 .dsvert_dp_frequency_plan_summary_v1 <- function(config) {
   selection <- config$backend_selection
+  if (identical(selection$summary$version, "dsvert-frequency-backend-selection-v3"))
+    return(.dsvert_dp_analysis_frequency_plan_summary_v2(config))
   required <- c("summary", "selected_request", "selected_plan",
                 "selected_accuracy_certificate", "selection_certificate")
   if (!is.list(selection) || is.null(names(selection)) ||
@@ -266,9 +268,10 @@
       !identical(capability$protocol_version,
         "dsvert-joint-dp-frequency-backend-selection-v1") ||
       !identical(unname(unlist(capability$commands, use.names = FALSE)),
-        "joint-dp-frequency-backend-select-v1") ||
+        c("joint-dp-frequency-backend-select-v1", "joint-dp-frequency-backend-select-v2")) ||
       !identical(unname(unlist(capability$operations, use.names = FALSE)),
-        "public-data-free-certified-frequency-backend-selection-v1")) {
+        c("public-data-free-certified-frequency-backend-selection-v1",
+          "public-data-free-certified-frequency-backend-selection-v2"))) {
     stop("The Frequency runtime capability is unavailable.", call. = FALSE)
   }
   .dsvert_dp_frequency_hash_v1(.DSVERT_DP_FREQUENCY_RUNTIME_DOMAIN, manifest)
@@ -480,7 +483,7 @@
          call. = FALSE)
   }
   backend_build <- .dsvert_dp_frequency_runtime_v1(.capability)
-  backend_selection <- .dsvert_dp_analysis_frequency_backend_selection_v2(
+  backend_selection <- .dsvert_dp_analysis_frequency_backend_selection_v3(
     settings$privacy, settings$calibration,
     claim$factor_entry$dimension, settings$coordinate_upper_bound,
     .selector = .selector)
@@ -649,7 +652,7 @@
       epsilon = config$privacy$epsilon, delta = config$privacy$delta),
     numeric = list(
       version = "dsvert-numeric-semantics-v1", value_bits = 128,
-      fractional_bits = 0, rounding = "toward_zero", overflow = "reject",
+      fractional_bits = 0, rounding = "toward_zero", overflow = if (isTRUE(profile$exact)) "modular_noise_then_fixed_clamp" else "reject",
       output_encoding = "twos_complement_integer_v1"),
     public_shape = list(counts = config$factor_domain$dimension))
   execution <- list(

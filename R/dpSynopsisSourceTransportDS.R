@@ -145,6 +145,11 @@
     if (!identical(contract, source_contract)) return(FALSE)
     actual <- .dsvert_dp_synopsis_source_vector_unsigned_from_producer_v1(
       policy, manifest, producer, expected$source_identity_pk)
+    if (.dsvert_dp_synopsis_provenance_enabled_v2(policy)) {
+      .dsvert_dp_synopsis_private_producer_pin_v2(actual, create = FALSE)
+      actual$source_vector_commitment <-
+        .dsvert_dp_synopsis_public_source_commitment_v2(actual)
+    }
     identical(actual[public_fields], expected[public_fields]) &&
       .dsvert_joint_dp_dsi_hex_equal(
         actual$source_vector_commitment,

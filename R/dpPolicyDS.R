@@ -577,6 +577,26 @@
 .dsvert_dp_resolve_snapshot <- function(policy, data_name, envir, secret) {
   .validate_data_name(data_name)
 
+  if (.dsvert_dp_synopsis_provenance_enabled_v2(policy)) {
+    # The authenticated authorization owns the original frame and descriptor.
+    # Never inspect today's binding to decide whether this publication exists:
+    # an imported intersection can change in only one neighbouring world.
+    local <- policy$authorization_local[[data_name]]
+    if (is.null(local)) .dsvert_dp_provenance_migration()
+    public <- .dsvert_dp_dataset_authorization_public(
+      policy$datasets[[data_name]], policy$patient_column)
+    record <- .dsvert_dp_provenance_lookup(
+      public, epoch = local$authorization_epoch)
+    if (is.null(record)) .dsvert_dp_provenance_failure()
+    if (!identical(.dsvert_dp_canonical_query_value(record$descriptor),
+                   .dsvert_dp_canonical_query_value(policy$datasets[[data_name]]))) {
+      .dsvert_dp_provenance_failure()
+    }
+    data <- .dsvert_dp_freeze_snapshot_frame(record$data)
+    return(list(data = data, dataset = .dsvert_dp_dataset_binding(
+      policy, data_name, data, secret), memoized_snapshot = TRUE))
+  }
+
   # Test-only policies deliberately omit the production snapshot contract.
   # Keep their historical direct resolution so unit fixtures are not frozen.
   if (!isTRUE(policy$require_snapshot_digest)) {

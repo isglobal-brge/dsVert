@@ -181,6 +181,15 @@
 
 .dsvert_dp_datasets <- function(value, require_snapshot_digest = TRUE,
                                 require_alignment_manifest = TRUE) {
+  .dsvert_enforce_release_mode()
+  .dsvert_dp_validate_datasets(value, require_snapshot_digest,
+                               require_alignment_manifest)
+}
+
+# Normalize descriptors without authorizing a remote operation. Administrative
+# publication uses this same validation outside an analyst DS call frame.
+.dsvert_dp_validate_datasets <- function(value, require_snapshot_digest = TRUE,
+                                        require_alignment_manifest = TRUE) {
   if (!is.list(value) || !length(value) || is.null(names(value)) ||
       any(!nzchar(names(value))) || anyDuplicated(names(value))) {
     stop("dsvert.dp.datasets must be a non-empty, uniquely named list",
@@ -190,7 +199,7 @@
   identities <- character(length(value))
   for (i in seq_along(value)) {
     data_name <- names(value)[[i]]
-    .validate_data_name(data_name)
+    .validate_data_name_syntax(data_name)
     descriptor <- value[[i]]
     allowed_names <- c(
       "id", "snapshot_sha256", "version",

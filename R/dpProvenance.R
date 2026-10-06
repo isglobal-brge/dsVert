@@ -333,7 +333,7 @@ dsvertAuthorizeSource <- function(data, descriptor, event_id,
   }
   normalized_descriptor <- function() {
     if (identical(kind, "dataset")) {
-      return(.dsvert_dp_datasets(list(source = descriptor))[[1L]])
+      return(.dsvert_dp_validate_datasets(list(source = descriptor))[[1L]])
     }
     value <- descriptor
     value$snapshot_sha256 <- tolower(.psi_padded_scalar(

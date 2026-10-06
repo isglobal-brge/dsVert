@@ -187,6 +187,10 @@ test_that("1.4.0 padded descriptors retain private admission and explicit migrat
     old$descriptor$alignment_manifest_hash)
   expect_error(.psi_padded_validate_persistent_attestation(old$data),
     "attestation is unavailable")
+  expect_error(testthat::with_mocked_bindings(
+    .psi_padded_validate_persistent_attestation(old$data),
+    .psi_validate_alignment_manifest=function(...)stop("private identifiers read"),
+    .package="dsVert"),"attestation is unavailable")
   changed <- old$data
   changed$value[[1L]] <- changed$value[[1L]]+1L
   expect_error(.dsvert_dp_validate_descriptor_alignment(

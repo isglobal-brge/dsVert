@@ -2220,11 +2220,6 @@ psiPaddedMembershipAcceptDS <- function(
       is.na(metadata_only)) {
     stop("Invalid padded PSI attestation validation mode.", call. = FALSE)
   }
-  if (isTRUE(metadata_only)) {
-    .psi_padded_alignment_metadata_v1(data)
-  } else {
-    .psi_validate_alignment_manifest(data)
-  }
   manifest <- attr(data, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE)
   record <- attr(data, .PSI_PADDED_ATTESTATION_ATTRIBUTE, exact = TRUE)
   required <- c("public", "binding")
@@ -2279,6 +2274,13 @@ psiPaddedMembershipAcceptDS <- function(
                      what = "compute peer",
                      pattern = "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$"))
   }, error = function(e) fail())
+  # Protocol versions and epoch coverage are public. Reject their mismatch
+  # before reading protected identifiers or validating complete row values.
+  if (isTRUE(metadata_only)) {
+    .psi_padded_alignment_metadata_v1(data)
+  } else {
+    .psi_validate_alignment_manifest(data)
+  }
   if (!public$reference_peer %in% public$compute_peers ||
       public$peer_count < length(public$compute_peers) ||
       !identical(

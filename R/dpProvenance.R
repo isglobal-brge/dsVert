@@ -235,6 +235,10 @@ dsvertProvenanceCapabilitiesDS <- function() {
     frozen <- data
     if (!is.data.frame(frozen)) stop("Authorization requires a data frame.",
                                     call. = FALSE)
+    # The first caller retains this same record after the durable write. Copy
+    # columns as well as the frame so by-reference updates to a live source
+    # cannot change its captured authorization (including data.table inputs).
+    frozen <- unserialize(serialize(frozen, NULL, version = 3L))
     epoch <- paste0(format(openssl::rand_bytes(32L)), collapse = "")
     record <- list(epoch = epoch, source_key = key,
       source_contract_id = .dsvert_dp_provenance_public_hash(public),

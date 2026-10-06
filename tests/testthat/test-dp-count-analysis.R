@@ -1,3 +1,11 @@
+.count_analysis_isolate_state <- function(env=parent.frame()) {
+  path <- tempfile("count-analysis-state-")
+  dir.create(path, mode="0700")
+  withr::local_options(list(dsvert.state_dir=path,
+    dsvert.identity_seed=jsonlite::base64_enc(as.raw(rep(191L,32L)))),
+    .local_envir=env)
+}
+
 .count_analysis_identity_pk <- function(index) {
   .dsvert_relay_b64url_encode(as.raw(rep(as.integer(index), 32L)))
 }
@@ -53,7 +61,8 @@
 }
 
 .count_analysis_psi_contract <- function(
-    config, run_index = 1L, capacity_bucket = 64L) {
+    config, run_index = 1L, capacity_bucket = 64L,
+    authorization_epochs = .psi_padded_test_epoch_vector(config$peer_pins)) {
   source <- list(
     alignment_purpose = config$alignment_purpose,
     dataset_id = config$dataset_id,
@@ -69,6 +78,8 @@
     contract_hash = run_hash("contract"),
     attestation_id = paste0("attest_", run_hash("attestation")),
     policy_id = paste0("policy_", run_hash("policy"))), source, list(
+    derivation_policy_id = strrep("d",64L),
+    authorization_epochs = authorization_epochs,
     pinset_id = .psi_padded_pinset_id(as.list(config$peer_pins)),
     capacity = as.integer(capacity_bucket),
     relay_frame_bytes = 65536L,
@@ -81,21 +92,34 @@
 .count_analysis_aligned <- function(
     ids, config, token_index = 1L, run_index = 1L,
     private_offset = 0L, capacity_bucket = 64L,
-    local_id_column = config$privacy_unit_column) {
+    local_id_column = config$privacy_unit_column,
+    authorization_epochs = .psi_padded_test_epoch_vector(config$peer_pins)) {
   data <- data.frame(
     privacy_unit_id = ids,
     private_value = private_offset + seq_along(ids),
     stringsAsFactors = FALSE)
   names(data)[[1L]] <- local_id_column
-  .psi_padded_attach_attestation(
-    .psi_attach_alignment_manifest(
-      data, local_id_column,
-      .count_analysis_token(token_index)),
-    .count_analysis_psi_contract(
-      config, run_index, capacity_bucket = capacity_bucket))
+  aligned <- .psi_attach_alignment_manifest(
+    data, local_id_column, .count_analysis_token(token_index))
+  contract <- .count_analysis_psi_contract(
+    config, run_index, capacity_bucket = capacity_bucket,
+    authorization_epochs = authorization_epochs)
+  aligned <- .psi_padded_attach_attestation(aligned, contract)
+  # Simulate trusted finalization at each node under that node's custody key.
+  for (index in seq_along(config$peer_pins)) {
+    identity_seed <- as.raw(rep(index + 20L, 32L))
+    identity_pk <- unname(config$peer_pins[[index]])
+    aligned <- testthat::with_mocked_bindings(
+      .psi_padded_attach_attestation(aligned, contract),
+      .get_identity_seed = function() jsonlite::base64_enc(identity_seed),
+      .get_identity_keypair = function() list(identity_pk=identity_pk),
+      .package="dsVert")
+  }
+  aligned
 }
 
 test_that("Count uses a local id alias under one semantic privacy unit", {
+  .count_analysis_isolate_state()
   config <- .count_analysis_config(3L, id_column = "person:v1")
   data <- .count_analysis_aligned(
     c("p1", "p2"), config, local_id_column = "subject_id")
@@ -130,10 +154,12 @@ test_that("Count uses a local id alias under one semantic privacy unit", {
 .count_analysis_receipts <- function(
     config, ids = c("p1", "p2", "p3"), token_index = 1L,
     run_index = 1L, private_offset = 0L,
-    capacity_bucket = 64L, planner = .count_analysis_plan) {
+    capacity_bucket = 64L, planner = .count_analysis_plan,
+    authorization_epochs = .psi_padded_test_epoch_vector(config$peer_pins)) {
   data <- .count_analysis_aligned(
     ids, config, token_index = token_index, run_index = run_index,
-    private_offset = private_offset, capacity_bucket = capacity_bucket)
+    private_offset = private_offset, capacity_bucket = capacity_bucket,
+    authorization_epochs = authorization_epochs)
   receipts <- lapply(seq_along(config$peer_pins), function(index) {
     peer <- names(config$peer_pins)[[index]]
     identity_seed <- as.raw(rep(index + 20L, 32L))
@@ -230,10 +256,10 @@ test_that("Count uses a local id alias under one semantic privacy unit", {
     identity_pk = unname(config$peer_pins[[peer_name]]),
     identity_sk = paste0("test-secret-", peer_name))
   testthat::with_mocked_bindings(
-    dsvertDPCountCompileDS(data_name),
+    dsvertDPCountCompileDS(data_name, privacy_protocol=.DSVERT_PROVENANCE_PROTOCOL),
     .get_identity_keypair = function() identity,
     .get_identity_seed = function() jsonlite::base64_enc(
-      as.raw(rep(peer_index + 40L, 32L))),
+      as.raw(rep(peer_index + 20L, 32L))),
     .dsvert_mpc_require_capabilities = function(capabilities) {
       expect_identical(capabilities, "exact_gc")
       .count_compile_runtime_manifest()
@@ -272,14 +298,15 @@ test_that("Count uses a local id alias under one semantic privacy unit", {
     identity_pk = unname(config$peer_pins[[peer_name]]),
     identity_sk = paste0("test-secret-", peer_name))
   testthat::with_mocked_bindings(
-    dsvertDPCountCompileDS(data_name),
+    dsvertDPCountCompileDS(data_name, privacy_protocol=.DSVERT_PROVENANCE_PROTOCOL),
     .get_identity_keypair = function() identity,
     .dsvert_relay_sign_message = function(message, identity_sk) {
       expect_identical(identity_sk, identity$identity_sk)
       if (!is.null(signer_state)) signer_state$calls <- signer_state$calls + 1L
       .count_analysis_signature(message, identity_sk)
     },
-    .get_identity_seed = function() stop("identity seed must not be read"),
+    .get_identity_seed = function() jsonlite::base64_enc(as.raw(rep(
+      match(peer_name, names(config$peer_pins)) + 20L, 32L))),
     .dsvert_mpc_require_capabilities = function(...) {
       stop("MPC capabilities must not be read")
     },
@@ -298,6 +325,7 @@ test_that("Count uses a local id alias under one semantic privacy unit", {
 }
 
 test_that("Count config is closed and stateless", {
+  .count_analysis_isolate_state()
   config <- .count_analysis_config(3L)
   validated <- .dsvert_dp_count_config_validate_v1(config)
   expect_identical(names(validated), sort(names(config), method = "radix"))
@@ -336,6 +364,7 @@ test_that("Count config is closed and stateless", {
 })
 
 test_that("Count drafts use validated PSI membership, not run randomness", {
+  .count_analysis_isolate_state()
   config <- .count_analysis_config(3L)
   members <- c(
     "patient-member-alpha-unique", "patient-member-beta-unique",
@@ -345,8 +374,7 @@ test_that("Count drafts use validated PSI membership, not run randomness", {
   restart <- .count_analysis_receipts(
     config, ids = members, token_index = 1L, run_index = 1L)
   rerun <- .count_analysis_receipts(
-    config, ids = members, token_index = 2L, run_index = 2L,
-    private_offset = 100L)
+    config, ids = members, token_index = 2L, run_index = 2L)
   first_contract <- .dsvert_dp_count_compile_v1(
     first, config, .verifier = .count_analysis_verifier)
   restart_contract <- .dsvert_dp_count_compile_v1(
@@ -397,22 +425,22 @@ test_that("Count drafts use validated PSI membership, not run randomness", {
     wider_contract$semantic$analysis$effective_arguments$count_bounds,
     list(lower = 0, upper = 11))
 
-  changed <- .count_analysis_receipts(
+  expect_error(.count_analysis_receipts(
     config, ids = c(members[1:2], "patient-member-delta-unique"),
-    token_index = 3L, run_index = 3L)
-  changed_contract <- .dsvert_dp_count_compile_v1(
-    changed, config, .verifier = .count_analysis_verifier)
-  expect_false(identical(first_contract$artifact_key,
-                         changed_contract$artifact_key))
+    token_index = 3L, run_index = 3L), "private integrity check")
+  expect_error(.count_analysis_receipts(
+    config, ids = members, private_offset = 100L), "private integrity check")
 
   leaked <- .dsvert_dp_canonical_json(first)
   expect_false(any(vapply(
     members, grepl, logical(1L), x = leaked, fixed = TRUE)))
 
+  .count_analysis_isolate_state()
   bounded <- .count_analysis_config(3L, count_upper_bound = 2L)
   expect_error(
     .count_analysis_receipts(bounded, ids = c("p1", "p2", "p3")),
     "upper bound")
+  .count_analysis_isolate_state()
   capacity_limited <- .count_analysis_config(
     3L, count_upper_bound = 100L)
   expect_error(.count_analysis_receipts(
@@ -430,7 +458,42 @@ test_that("Count drafts use validated PSI membership, not run randomness", {
     .package = "dsVert"), "PSI-aligned|attestation")
 })
 
+test_that("a non-authority publication changes every Count commitment and noise stream", {
+  .count_analysis_isolate_state()
+  config <- .count_analysis_config(3L)
+  first <- .count_analysis_receipts(config)
+  contract <- .dsvert_dp_count_compile_v1(first, config,
+    .verifier=.count_analysis_verifier)
+  epochs <- .psi_padded_test_epoch_vector(config$peer_pins)
+  observer <- setdiff(unname(config$peer_pins),
+    unlist(contract$semantic$noise_authorities))
+  position <- match(observer,vapply(epochs, `[[`,character(1L),"peer_identity"))
+  epochs[[position]]$authorization_epoch <- strrep("a",64L)
+  # A fresh event over exactly the same bytes still changes both authorities.
+  second <- .count_analysis_receipts(config, authorization_epochs=epochs)
+  changed <- .dsvert_dp_count_compile_v1(second,config,
+    .verifier=.count_analysis_verifier)
+  expect_false(identical(contract$artifact_key,changed$artifact_key))
+  expect_true(all(vapply(seq_along(first),function(index)
+    !identical(first[[index]]$snapshot_commitment,
+               second[[index]]$snapshot_commitment),logical(1L))))
+  for (authority in unlist(contract$semantic$noise_authorities)) {
+    testthat::with_mocked_bindings({
+      expect_false(identical(
+        .dsvert_dp_sticky_subseed_v1(contract,"final_noise"),
+        .dsvert_dp_sticky_subseed_v1(changed,"final_noise")))
+    }, .get_identity_keypair=function()list(identity_pk=authority),
+       .get_identity_seed=function()jsonlite::base64_enc(as.raw(rep(201L,32L))),
+       .package="dsVert")
+  }
+  mixed <- first
+  mixed[[1L]] <- second[[1L]]
+  expect_error(.dsvert_dp_count_compile_v1(mixed,config,
+    .verifier=.count_analysis_verifier),"authorization epochs")
+})
+
 test_that("Count receipts require exact signatures, K and PSI consensus", {
+  .count_analysis_isolate_state()
   config <- .count_analysis_config(3L)
   receipts <- .count_analysis_receipts(config)
   expect_silent(lapply(receipts, .dsvert_dp_count_receipt_verify_v1,
@@ -440,7 +503,11 @@ test_that("Count receipts require exact signatures, K and PSI consensus", {
   tampered <- receipts
   tampered[[1L]]$snapshot_commitment <- strrep("f", 64L)
   expect_error(.dsvert_dp_count_compile_v1(
-    tampered, config, .verifier = .count_analysis_verifier), "signature")
+    tampered, config, .verifier = .count_analysis_verifier), "provenance commitment")
+  bad_signature <- receipts
+  bad_signature[[1L]]$signature <- .dsvert_relay_b64url_encode(as.raw(rep(0L,64L)))
+  expect_error(.dsvert_dp_count_compile_v1(
+    bad_signature,config,.verifier=.count_analysis_verifier),"signature")
 
   expect_error(.dsvert_dp_count_compile_v1(
     receipts[-1L], config, .verifier = .count_analysis_verifier),
@@ -468,6 +535,7 @@ test_that("Count receipts require exact signatures, K and PSI consensus", {
 })
 
 test_that("Count planner receives implementation delta and proves exact bounds", {
+  .count_analysis_isolate_state()
   config <- .count_analysis_config(2L)
   calls <- list()
   planner <- function(epsilon, delta, sensitivity_steps, coordinate_count,
@@ -503,7 +571,7 @@ test_that("Count planner receives implementation delta and proves exact bounds",
     plan$implementation_delta_bound <- "2/1000000000"
     plan
   }
-  data <- .count_analysis_aligned(c("p1", "p2"), config)
+  data <- .count_analysis_aligned(c("p1", "p2", "p3"), config)
   expect_error(testthat::with_mocked_bindings(
     .dsvert_dp_count_local_draft_v1(
       data, config, "site_1", .planner = excessive),
@@ -515,6 +583,7 @@ test_that("Count planner receives implementation delta and proves exact bounds",
 })
 
 test_that("Count contracts have one vertical count for K=2,3,5", {
+  .count_analysis_isolate_state()
   for (k in c(2L, 3L, 5L)) {
     config <- .count_analysis_config(k)
     receipts <- .count_analysis_receipts(config)
@@ -542,6 +611,7 @@ test_that("Count contracts have one vertical count for K=2,3,5", {
 })
 
 test_that("Count authorization is server-held, canonical and K-generic", {
+  .count_analysis_isolate_state()
   session_id <- "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
   for (k in c(2L, 3L, 5L)) {
     config <- .count_analysis_config(k)
@@ -620,6 +690,7 @@ test_that("Count authorization is server-held, canonical and K-generic", {
 })
 
 test_that("Count authorization fails closed without partial session state", {
+  .count_analysis_isolate_state()
   session_id <- "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
   config <- .count_analysis_config(3L)
   receipts <- .count_analysis_receipts(config)
@@ -738,7 +809,8 @@ test_that("Count authorization fails closed without partial session state", {
 })
 
 test_that("server-authoritative Count compile envelopes agree for K=2,3,5", {
-  expect_identical(names(formals(dsvertDPCountCompileDS)), "data_name")
+  .count_analysis_isolate_state()
+  expect_identical(names(formals(dsvertDPCountCompileDS)), c("data_name", "privacy_protocol"))
 
   for (k in c(2L, 3L, 5L)) {
     config <- .count_analysis_config(k, count_upper_bound = 17L)
@@ -757,7 +829,7 @@ test_that("server-authoritative Count compile envelopes agree for K=2,3,5", {
 
     expect_true(all(vapply(envelopes, function(value) {
       identical(names(value), c("mode", "payload", "version")) &&
-        identical(value$version, "dsvert-dp-count-compile-envelope-v1") &&
+        identical(value$version, .DSVERT_DP_COUNT_COMPILE_ENVELOPE_VERSION) &&
         identical(value$mode, "add_remove_dp") &&
         identical(names(value$payload), c("config", "receipt"))
     }, logical(1L))))
@@ -792,6 +864,7 @@ test_that("server-authoritative Count compile envelopes agree for K=2,3,5", {
 })
 
 test_that("fixed-cohort Count Compile is exact, signed and K-generic", {
+  .count_analysis_isolate_state()
   for (k in c(2L, 3L, 5L)) {
     config <- .count_analysis_config(k, count_upper_bound = 3L)
     data <- .count_analysis_aligned(c("p1", "p2", "p3"), config)
@@ -809,7 +882,7 @@ test_that("fixed-cohort Count Compile is exact, signed and K-generic", {
 
     expect_true(all(vapply(envelopes, function(value) {
       identical(names(value), c("mode", "payload", "version")) &&
-        identical(value$version, "dsvert-dp-count-compile-envelope-v1") &&
+        identical(value$version, .DSVERT_DP_COUNT_COMPILE_ENVELOPE_VERSION) &&
         identical(value$mode, "fixed_cohort_public") &&
         identical(names(value$payload), c("declaration", "receipt"))
     }, logical(1L))))
@@ -867,6 +940,7 @@ test_that("fixed-cohort Count Compile is exact, signed and K-generic", {
 })
 
 test_that("fixed-cohort Compile rejects invalid contracts without DP state", {
+  .count_analysis_isolate_state()
   config <- .count_analysis_config(3L, count_upper_bound = 3L)
   data <- .count_analysis_aligned(c("p1", "p2", "p3"), config)
   peer <- names(config$peer_pins)[[1L]]
@@ -916,6 +990,7 @@ test_that("fixed-cohort Compile rejects invalid contracts without DP state", {
 })
 
 test_that("Count Compile rejects invalid direct mode before source access", {
+  .count_analysis_isolate_state()
   makeActiveBinding("D", function(value) {
     stop("protected source must not be accessed", call. = FALSE)
   }, environment())
@@ -927,21 +1002,22 @@ test_that("Count Compile rejects invalid direct mode before source access", {
     .package = "dsVert")
 
   withr::local_options(list(dsvert.dp.adjacency = "unsupported"))
-  expect_error(dsvertDPCountCompileDS("D"), "adjacency")
+  expect_error(dsvertDPCountCompileDS("D", privacy_protocol=.DSVERT_PROVENANCE_PROTOCOL), "adjacency")
 
   withr::local_options(list(
     dsvert.dp.adjacency = "replace_one_fixed_cohort",
     dsvert.dp.unit_capacity = 3L,
     dsvert.dp.fixed_cohort_size = 2L))
-  expect_error(dsvertDPCountCompileDS("D"), "fixed cohort size must equal")
+  expect_error(dsvertDPCountCompileDS("D", privacy_protocol=.DSVERT_PROVENANCE_PROTOCOL), "fixed cohort size must equal")
 
   withr::local_options(list(
     dsvert.dp.adjacency = "add_remove_patient",
     dsvert.dp.fixed_cohort_size = 3L))
-  expect_error(dsvertDPCountCompileDS("D"), "must be absent")
+  expect_error(dsvertDPCountCompileDS("D", privacy_protocol=.DSVERT_PROVENANCE_PROTOCOL), "must be absent")
 })
 
 test_that("Count server config uses only direct per-analysis options", {
+  .count_analysis_isolate_state()
   config <- .count_analysis_config(3L)
   attestation <- .psi_padded_validate_persistent_attestation(
     .count_analysis_aligned(c("p1", "p2"), config))
@@ -1021,6 +1097,7 @@ test_that("Count server config uses only direct per-analysis options", {
 })
 
 test_that("Count source authorization matches attested semantics exactly", {
+  .count_analysis_isolate_state()
   config <- .count_analysis_config(3L)
   data <- .count_analysis_aligned(c("p1", "p2"), config)
   attestation <- .psi_padded_validate_persistent_attestation(data)
@@ -1065,6 +1142,7 @@ test_that("Count source authorization matches attested semantics exactly", {
 })
 
 test_that("Count server authorization separates local id aliases from privacy semantics", {
+  .count_analysis_isolate_state()
   config <- .count_analysis_config(3L, id_column = "person:v1")
   data <- .count_analysis_aligned(
     c("p1", "p2"), config, local_id_column = "subject_id")
@@ -1088,6 +1166,7 @@ test_that("Count server authorization separates local id aliases from privacy se
 })
 
 test_that("Count compile endpoint has no policy, database or registry path", {
+  .count_analysis_isolate_state()
   source <- paste(
     deparse(body(.dsvert_dp_count_server_config_v1)),
     deparse(body(dsvertDPCountCompileDS)), collapse = "\n")

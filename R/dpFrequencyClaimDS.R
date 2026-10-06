@@ -1,7 +1,7 @@
 # Server Claim compiler for one fixed-domain categorical Frequency analysis.
 
-.DSVERT_DP_FREQUENCY_CLAIM_VERSION <- "dsvert-dp-frequency-factor-claim-v2"
-.DSVERT_DP_FREQUENCY_CLAIM_DOMAIN <- "dsVert/dp-frequency/factor-claim/v2|"
+.DSVERT_DP_FREQUENCY_CLAIM_VERSION <- "dsvert-dp-frequency-factor-claim-v3"
+.DSVERT_DP_FREQUENCY_CLAIM_DOMAIN <- "dsVert/dp-frequency/factor-claim/v3|"
 .DSVERT_DP_FREQUENCY_PSI_RUN_DOMAIN <- "dsVert/dp-frequency/psi-run/v2|"
 .dsvert_dp_frequency_hash_v1 <- function(domain, value) {
   .dsvert_dp_analysis_frequency_hash_v1(domain, value)
@@ -120,10 +120,11 @@
     "attestation_version", "alignment_attested", "alignment_protocol",
     "attestation_id", "contract_hash", "policy_id", "alignment_purpose",
     "dataset_id", "dataset_version", "id_column", "source_binding_id",
+    "derivation_policy_id", "authorization_epochs",
     "pinset_id", "capacity_bucket", "relay_frame_bytes",
     "inline_max_bytes", "peer_count", "reference_peer", "compute_peers")
   if (!is.list(attestation) || !identical(names(attestation), fields) ||
-      !identical(attestation$attestation_version, 3L) ||
+      !identical(attestation$attestation_version, 4L) ||
       !identical(attestation$alignment_protocol,
                  .DSVERT_PSI_PADDED_PROTOCOL)) {
     stop("Invalid Frequency padded PSI attestation.", call. = FALSE)
@@ -135,6 +136,8 @@
     version = "dsvert-dp-frequency-semantic-alignment-v2",
     alignment_protocol = attestation$alignment_protocol), source, list(
     pinset_id = attestation$pinset_id,
+    derivation_policy_id = attestation$derivation_policy_id,
+    authorization_epochs = attestation$authorization_epochs,
     peer_count = as.integer(attestation$peer_count),
     reference_peer = attestation$reference_peer,
     compute_peers = as.list(unname(attestation$compute_peers))))
@@ -154,6 +157,7 @@
     "attestation_id", "contract_hash", "source_binding_id", "alignment_hash",
     "alignment_purpose", "dataset_id", "dataset_version",
     "privacy_unit_column", "pinset_id", "capacity_bucket", "factor_entry",
+    "derivation_policy_id", "authorization_epochs",
     "factor_entry_sha256", "signature")
   if (!is.list(claim) || is.null(names(claim)) || anyNA(names(claim)) ||
       anyDuplicated(names(claim)) || !setequal(names(claim), required) ||
@@ -205,6 +209,9 @@
       "Invalid signed Frequency Claim.", call. = FALSE))
   signature <- .dsvert_dp_frequency_signature_v1(claim$signature)
   normalized <- claim
+  normalized$authorization_epochs <- .psi_padded_validate_authorization_epochs(
+    claim$authorization_epochs, unname(peer_pins))
+  .dsvert_dp_frequency_hex_v1(claim$derivation_policy_id, "derivation policy")
   normalized$source_peer_name <- peer
   normalized$source_identity_pk <- identity_pk
   normalized$capacity_bucket <- capacity
@@ -276,6 +283,8 @@
     privacy_unit_column = attestation$id_column,
     pinset_id = attestation$pinset_id,
     capacity_bucket = attestation$capacity_bucket,
+    derivation_policy_id = attestation$derivation_policy_id,
+    authorization_epochs = attestation$authorization_epochs,
     factor_entry = entry,
     factor_entry_sha256 = .psi_padded_factor_entry_hash_v1(entry))
   signature <- .signer(

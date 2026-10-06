@@ -3,7 +3,7 @@
 # This is the purpose-bound implementation behind the sole public PSI route.
 # Its registered surface is intentionally limited to the fixed protocol phases.
 
-.DSVERT_PSI_PADDED_PROTOCOL <- "dsvert-pinned-padded-psi-v5"
+.DSVERT_PSI_PADDED_PROTOCOL <- "dsvert-pinned-padded-psi-v6"
 .DSVERT_PSI_PADDED_MIN_CAPACITY <- 64L
 .DSVERT_PSI_PADDED_MAX_CAPACITY <- 1048576L
 .DSVERT_PSI_PADDED_SELECTION_MAGIC <- charToRaw("DVPSEL05")
@@ -58,14 +58,14 @@
 
 .psi_padded_authorize_source <- function(data_name, id_col, data) {
   data_name <- .psi_padded_data_name(data_name)
-  if (!is.data.frame(data) || !is.character(id_col) ||
-      length(id_col) != 1L || is.na(id_col) || !nzchar(id_col) ||
-      !id_col %in% names(data)) {
+  if (!is.character(id_col) || length(id_col) != 1L ||
+      is.na(id_col) || !nzchar(id_col)) {
     stop("Invalid padded PSI identifier column.", call. = FALSE)
   }
   sources <- getOption(
     "dsvert.psi.authorized_sources",
     getOption("default.dsvert.psi.authorized_sources"))
+  automatic_registration <- TRUE
   if (is.null(sources)) {
     datasets <- getOption(
       "dsvert.dp.datasets", getOption("default.dsvert.dp.datasets"))
@@ -77,6 +77,11 @@
         all(c("id", "version", "snapshot_sha256") %in% names(candidate)) &&
         is.character(patient_column) && length(patient_column) == 1L &&
         !is.na(patient_column)) {
+      # An already-aligned dataset descriptor cannot prove the original raw
+      # source. Classify this before touching private data, including when
+      # the caller routes the import through the historical fallback path.
+      automatic_registration <- is.null(candidate$alignment_manifest_hash) &&
+        is.null(candidate$alignment_manifest_version)
       sources <- stats::setNames(list(list(
         id = candidate$id,
         version = candidate$version,
@@ -121,26 +126,39 @@
   } else {
     configured_id_col
   }
-  configured_snapshot <- tolower(.psi_padded_scalar(
-    descriptor$snapshot_sha256, "authorized snapshot digest",
-    "^[0-9a-fA-F]{64}$"))
-  actual_snapshot <- .dsvert_dp_snapshot_digest(data)
-  if (!identical(actual_snapshot, configured_snapshot)) {
-    stop("The requested padded PSI object does not match its custodian-approved snapshot.",
-         call. = FALSE)
-  }
-  public <- list(
-    alignment_purpose = label(descriptor$purpose, "alignment purpose"),
-    dataset_id = label(descriptor$id, "dataset id"),
-    dataset_version = label(descriptor$version, "dataset version"),
-    # v5 binds this wire field to a semantic privacy unit, never to the local
-    # column alias. The physical id_col stays private and snapshot-authorized.
-    id_column = privacy_unit_id)
-  public$source_binding_id <- paste0("source_", digest::digest(
-    .psi_padded_canonical_json(public), algo = "sha256", serialize = FALSE))
+  authorization_public <- .psi_padded_authorization_public(descriptor)
+  record <- .dsvert_dp_provenance_source(
+    public = authorization_public, descriptor = descriptor,
+    data = {
+      # Only first registration inspects today's frame. A registered raw
+      # source is served from its captured authorization even when the live
+      # object has been removed, replaced or had its schema changed.
+      # Imported alignments do not acquire raw-source provenance merely by
+      # being placed in the explicit PSI policy. Their migration decision is
+      # independent of the imported identifiers and digest.
+      if (!is.null(attr(data, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE)) ||
+          !is.null(attr(data, .PSI_PADDED_ATTESTATION_ATTRIBUTE, exact = TRUE))) {
+        .dsvert_dp_provenance_migration()
+      }
+      if (!is.data.frame(data) || !id_col %in% names(data)) {
+        stop("Invalid padded PSI identifier column.", call. = FALSE)
+      }
+      configured_snapshot <- tolower(.psi_padded_scalar(
+        descriptor$snapshot_sha256, "authorized snapshot digest",
+        "^[0-9a-fA-F]{64}$"))
+      if (!identical(.dsvert_dp_snapshot_digest(data), configured_snapshot)) {
+        stop("The requested padded PSI object does not match its custodian-approved snapshot.",
+             call. = FALSE)
+      }
+      data
+    }, automatic = automatic_registration)
   list(
-    public = .psi_padded_validate_source_public(public),
-    snapshot_sha256 = actual_snapshot)
+    public = authorization_public$source,
+    snapshot_sha256 = .dsvert_dp_snapshot_digest(record$data),
+    authorization_epoch = record$epoch,
+    source_contract_id = record$source_contract_id,
+    derivation_policy_id = authorization_public$derivation_policy_id,
+    data = record$data)
 }
 
 .psi_padded_validate_source_public <- function(value) {
@@ -729,6 +747,7 @@
 .psi_padded_sign_offer <- function(
     peer_name, identity, transport_pk, capacity, session_id, operation_id,
     policy_id, source_authorization, pinset_id, snapshot_id, attestation_nonce,
+    authorization_epoch, source_contract_id, derivation_policy_id,
     relay_frame_bytes = .dsvert_relay_frame_bytes(),
     inline_max_bytes = .psi_padded_inline_max_bytes()) {
   peer_name <- .psi_padded_scalar(
@@ -752,6 +771,9 @@
       policy_id, "policy id", "^policy_[0-9a-f]{64}$")),
     source_authorization,
     list(
+    authorization_epoch = authorization_epoch,
+    source_contract_id = source_contract_id,
+    derivation_policy_id = derivation_policy_id,
     pinset_id = .psi_padded_scalar(
       pinset_id, "pinset id", "^pinset_[0-9a-f]{64}$"),
     relay_frame_bytes = .psi_padded_integer(
@@ -781,7 +803,8 @@
     "protocol", "session_id", "operation_id", "peer_name", "peer_id",
     "identity_pk", "transport_pk", "capacity", "policy_id",
     "alignment_purpose", "dataset_id", "dataset_version", "id_column",
-    "source_binding_id", "pinset_id",
+    "source_binding_id", "authorization_epoch", "source_contract_id",
+    "derivation_policy_id", "pinset_id",
     "relay_frame_bytes", "inline_max_bytes", "snapshot_id",
     "attestation_nonce")
   if (!identical(names(unsigned), required) ||
@@ -797,6 +820,10 @@
     .psi_padded_validate_capacity(unsigned$capacity)
     .psi_padded_scalar(unsigned$policy_id, "policy id",
                        "^policy_[0-9a-f]{64}$")
+    for (field in c("authorization_epoch", "source_contract_id",
+                    "derivation_policy_id")) {
+      .psi_padded_scalar(unsigned[[field]], field, "^[0-9a-f]{64}$")
+    }
     .psi_padded_validate_source_public(unsigned[c(
       "alignment_purpose", "dataset_id", "dataset_version", "id_column",
       "source_binding_id")])
@@ -819,6 +846,44 @@
   unsigned
 }
 
+.psi_padded_authorization_epochs <- function(verified) {
+  entries <- lapply(verified, function(value) list(
+    peer_identity = .dsvert_relay_normalize_identity_pk(value$identity_pk),
+    authorization_epoch = value$authorization_epoch,
+    source_contract_id = value$source_contract_id))
+  entries <- unname(entries[order(vapply(entries, `[[`, character(1L),
+                                         "peer_identity"), method = "radix")])
+  .psi_padded_validate_authorization_epochs(entries)
+}
+
+.psi_padded_validate_authorization_epochs <- function(value, expected = NULL) {
+  fail <- function() stop("Invalid padded PSI authorization epoch vector.",
+                          call. = FALSE)
+  if (!is.list(value) || !is.null(names(value)) || length(value) < 2L ||
+      length(value) > 1000000L) fail()
+  peers <- vapply(value, function(entry) {
+    if (!is.list(entry) || length(entry) != 3L ||
+        anyDuplicated(names(entry)) || !setequal(names(entry), c(
+        "peer_identity", "authorization_epoch", "source_contract_id"))) fail()
+    identity <- tryCatch(.dsvert_relay_normalize_identity_pk(
+      entry$peer_identity), error = function(e) fail())
+    if (!identical(identity, entry$peer_identity)) fail()
+    for (field in c("authorization_epoch", "source_contract_id")) {
+      tryCatch(.psi_padded_scalar(entry[[field]], field, "^[0-9a-f]{64}$"),
+               error = function(e) fail())
+    }
+    identity
+  }, character(1L))
+  if (anyDuplicated(peers) ||
+      !identical(peers, sort(peers, method = "radix"))) fail()
+  if (!is.null(expected)) {
+    expected <- sort(vapply(expected, .dsvert_relay_normalize_identity_pk,
+                            character(1L)), method = "radix")
+    if (!identical(unname(peers), unname(expected))) fail()
+  }
+  value
+}
+
 .psi_padded_contract_from_offers <- function(offers, pinset) {
   pinset_id <- .psi_padded_pinset_id(pinset)
   if (!is.list(offers) || is.null(names(offers)) ||
@@ -836,6 +901,7 @@
     "alignment_purpose", "dataset_id", "dataset_version", "id_column",
     "source_binding_id")
   if (!same("session_id") || !same("operation_id") || !same("policy_id") ||
+      !same("derivation_policy_id") ||
       !all(vapply(source_fields, same, logical(1L))) ||
       !same("pinset_id") || anyDuplicated(vapply(
         verified, `[[`, character(1L), "peer_id")) ||
@@ -854,6 +920,8 @@
     policy_id = verified[[1L]]$policy_id),
     verified[[1L]][source_fields],
     list(
+    derivation_policy_id = verified[[1L]]$derivation_policy_id,
+    authorization_epochs = .psi_padded_authorization_epochs(verified),
     pinset_id = pinset_id,
     capacity = as.integer(max(vapply(verified, `[[`, numeric(1L), "capacity"))),
     relay_frame_bytes = as.integer(min(vapply(
@@ -924,7 +992,8 @@
     "protocol", "session_id", "operation_id", "peer_id", "identity_pk",
     "transport_pk", "transport_signature", "capacity_offer", "policy_id",
     "alignment_purpose", "dataset_id", "dataset_version", "id_column",
-    "source_binding_id",
+    "source_binding_id", "authorization_epoch", "source_contract_id",
+    "derivation_policy_id",
     "relay_frame_bytes_offer", "inline_max_bytes_offer", "snapshot_id",
     "attestation_nonce")
   if (!is.list(unsigned) || !identical(names(unsigned), required) ||
@@ -947,7 +1016,8 @@
     "protocol", "session_id", "operation_id", "peer_id", "identity_pk",
     "transport_pk", "transport_signature", "capacity_offer", "policy_id",
     "alignment_purpose", "dataset_id", "dataset_version", "id_column",
-    "source_binding_id",
+    "source_binding_id", "authorization_epoch", "source_contract_id",
+    "derivation_policy_id",
     "relay_frame_bytes_offer", "inline_max_bytes_offer", "snapshot_id",
     "attestation_nonce")
   if (!identical(names(unsigned), required) ||
@@ -963,6 +1033,10 @@
     .psi_padded_validate_capacity(unsigned$capacity_offer)
     .psi_padded_scalar(unsigned$policy_id, "policy id",
                        "^policy_[0-9a-f]{64}$")
+    for (field in c("authorization_epoch", "source_contract_id",
+                    "derivation_policy_id")) {
+      .psi_padded_scalar(unsigned[[field]], field, "^[0-9a-f]{64}$")
+    }
     .psi_padded_validate_source_public(unsigned[c(
       "alignment_purpose", "dataset_id", "dataset_version", "id_column",
       "source_binding_id")])
@@ -1050,7 +1124,7 @@
     "alignment_purpose", "dataset_id", "dataset_version", "id_column",
     "source_binding_id")
   if (!fields_equal("session_id") || !fields_equal("operation_id") ||
-      !fields_equal("policy_id") ||
+      !fields_equal("policy_id") || !fields_equal("derivation_policy_id") ||
       !all(vapply(source_fields, fields_equal, logical(1L)))) {
     stop("Padded PSI bootstraps disagree on their server-owned policy.",
          call. = FALSE)
@@ -1066,6 +1140,8 @@
     policy_id = verified[[1L]]$policy_id),
     verified[[1L]][source_fields],
     list(
+    derivation_policy_id = verified[[1L]]$derivation_policy_id,
+    authorization_epochs = .psi_padded_authorization_epochs(verified),
     pinset_id = pinset_id,
     capacity = as.integer(max(vapply(
       verified, `[[`, numeric(1L), "capacity_offer"))),
@@ -1155,18 +1231,19 @@
 .psi_padded_init_impl <- function(
     ss, data, data_name, id_col, session_id, operation_id,
     random_bytes = .dsvert_secure_random_bytes) {
-  if (!is.environment(ss) || !is.data.frame(data)) {
+  if (!is.environment(ss)) {
     stop("Invalid padded PSI source.", call. = FALSE)
   }
   session_id <- .dsvert_relay_validate_session_id(session_id)
   operation_id <- .dsvert_relay_validate_operation_id(operation_id)
   .psi_padded_data_name(data_name)
   if (!is.character(id_col) || length(id_col) != 1L || is.na(id_col) ||
-      !nzchar(id_col) || !id_col %in% names(data)) {
+      !nzchar(id_col)) {
     stop("Invalid padded PSI identifier column.", call. = FALSE)
   }
   authorization <- .psi_padded_authorize_source(data_name, id_col, data)
   snapshot_digest <- authorization$snapshot_sha256
+  data <- authorization$data
   .psi_padded_state_restore(ss, session_id)
   previous <- ss$.psi_padded_state
   if (!is.null(previous)) {
@@ -1175,7 +1252,8 @@
       identical(previous$data_name, data_name) &&
       identical(previous$id_col, id_col) &&
       identical(previous$snapshot_digest, snapshot_digest) &&
-      identical(previous$source_authorization, authorization$public)
+      identical(previous$source_authorization, authorization$public) &&
+      identical(previous$authorization_epoch, authorization$authorization_epoch)
     if (!isTRUE(same)) {
       stop("Conflicting padded PSI initialization retry.", call. = FALSE)
     }
@@ -1210,6 +1288,9 @@
     policy_id = policy$policy_id),
     authorization$public,
     list(
+    authorization_epoch = authorization$authorization_epoch,
+    source_contract_id = authorization$source_contract_id,
+    derivation_policy_id = authorization$derivation_policy_id,
     relay_frame_bytes_offer = as.integer(.dsvert_relay_frame_bytes()),
     inline_max_bytes_offer = as.integer(.psi_padded_inline_max_bytes()),
     snapshot_id = snapshot_id,
@@ -1221,6 +1302,8 @@
     data_name = data_name, id_col = id_col,
     snapshot_digest = snapshot_digest, snapshot_id = snapshot_id,
     source_authorization = authorization$public,
+    authorization_epoch = authorization$authorization_epoch,
+    authorized_data = data,
     policy = policy, selected_rows = selected$rows,
     selected_ids = selected$ids, capacity_offer = capacity,
     self_peer_id = peer_id, identity_pk = identity$identity_pk,
@@ -1300,6 +1383,7 @@
   if (!state$phase %in% c("confirmed", "prepared")) {
     stop("Padded PSI preparation is out of phase.", call. = FALSE)
   }
+  data <- state$authorized_data
   .psi_padded_assert_source(state, data)
   if (identical(state$phase, "prepared")) {
     return(list(
@@ -1340,12 +1424,16 @@
 # DataSHIELD parser-dependent nested-list behaviour.
 #' @export
 #' @noRd
-psiPaddedInitDS <- function(data_name, id_col, session_id, operation_id) {
+psiPaddedInitDS <- function(data_name, id_col, session_id, operation_id,
+                            privacy_protocol = NULL) {
+  .dsvert_dp_provenance_require_protocol(privacy_protocol)
   .psi_padded_data_name(data_name)
-  data <- get(data_name, envir = parent.frame(), inherits = TRUE)
+  source_environment <- parent.frame()
   tryCatch(
     .psi_padded_init_impl(
-      .S(session_id), data, data_name, id_col, session_id, operation_id),
+      .S(session_id),
+      get(data_name, envir = source_environment, inherits = TRUE),
+      data_name, id_col, session_id, operation_id),
     error = function(e) stop("Padded PSI initialization failed.",
                              call. = FALSE))
 }
@@ -1379,9 +1467,8 @@ psiPaddedConfirmDS <- function(receipts_b64url, session_id) {
 #' @noRd
 psiPaddedPrepareDS <- function(data_name, session_id) {
   .psi_padded_data_name(data_name)
-  data <- get(data_name, envir = parent.frame(), inherits = TRUE)
   tryCatch(
-      .psi_padded_prepare_impl(.S(session_id), data),
+      .psi_padded_prepare_impl(.S(session_id), NULL),
     error = function(e) stop("Padded PSI preparation failed.",
                              call. = FALSE))
 }
@@ -1911,6 +1998,7 @@ psiPaddedMembershipAcceptDS <- function(
 .psi_padded_filter_impl <- function(ss, data, envelope = NULL) {
   state <- .psi_padded_and_state(ss)
   contract <- state$contract
+  data <- state$authorized_data
   .psi_padded_assert_source(state, data)
   if (identical(state$self_peer, contract$reference_peer)) {
     if (!is.null(envelope) || is.null(state$final_plan) ||
@@ -1952,6 +2040,17 @@ psiPaddedMembershipAcceptDS <- function(
   }
   result <- .psi_padded_attach_factor_registry_v1(
     result, state$self_peer, identity)
+  binding <- .dsvert_dp_padded_alignment_binding(result)
+  provenance <- list(
+    epoch_vector = contract$authorization_epochs,
+    derivation_policy_id = contract$derivation_policy_id)
+  event_id <- paste0("padded-", digest::digest(
+    .psi_padded_canonical_json(provenance), algo = "sha256", serialize = FALSE))
+  .dsvert_dp_provenance_source(
+    .dsvert_dp_dataset_authorization_public(
+      binding$descriptor, binding$local_id_column),
+    binding$descriptor, result, event_id = event_id,
+    provenance = provenance)
   state$completed_manifest <- attr(
     result, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE)
   state$phase <- "complete"
@@ -1970,8 +2069,12 @@ psiPaddedMembershipAcceptDS <- function(
       is.null(contract$reference_peer) || is.null(contract$compute_peers)) {
     stop("Invalid padded PSI attestation contract.", call. = FALSE)
   }
+  .psi_padded_validate_authorization_epochs(contract$authorization_epochs)
+  if (length(contract$authorization_epochs) != length(contract$peer_names)) {
+    stop("Invalid padded PSI attestation authorization coverage.", call. = FALSE)
+  }
   list(
-    attestation_version = 3L,
+    attestation_version = 4L,
     alignment_attested = TRUE,
     alignment_protocol = .DSVERT_PSI_PADDED_PROTOCOL,
     attestation_id = contract$attestation_id,
@@ -1982,6 +2085,8 @@ psiPaddedMembershipAcceptDS <- function(
     dataset_version = contract$dataset_version,
     id_column = contract$id_column,
     source_binding_id = contract$source_binding_id,
+    derivation_policy_id = contract$derivation_policy_id,
+    authorization_epochs = contract$authorization_epochs,
     pinset_id = contract$pinset_id,
     capacity_bucket = contract$capacity,
     relay_frame_bytes = contract$relay_frame_bytes,
@@ -1996,15 +2101,61 @@ psiPaddedMembershipAcceptDS <- function(
   digest::hmac(
     token,
     paste0(
-      "dsvert-pinned-padded-psi-attestation-v3|",
+      "dsvert-pinned-padded-psi-attestation-v4|",
       .psi_padded_canonical_json(public)),
     algo = "sha256", serialize = FALSE)
+}
+
+.psi_padded_aligned_seal_context <- function(public) {
+  list(version = "dsvert-complete-aligned-source-seal-v1",
+       source_binding_id = public$source_binding_id,
+       derivation_policy_id = public$derivation_policy_id,
+       authorization_epochs = public$authorization_epochs)
+}
+
+.psi_padded_aligned_seal_frame <- function(data, id_col) {
+  columns <- .dsvert_dp_snapshot_columns(data)
+  ids <- .dsvert_canonical_label_values(
+    columns[[id_col]], "padded PSI identifiers", allow_na = FALSE,
+    allow_blank = FALSE)
+  if (anyDuplicated(ids)) {
+    stop("The padded PSI aligned source has duplicate privacy units.",
+         call. = FALSE)
+  }
+  ordering <- order(ids, method = "radix")
+  columns <- lapply(columns, function(column) {
+    value <- column[ordering]
+    # Unordered factor encodings with permuted level dictionaries represent
+    # the same values. Ordered factors retain their meaningful level order.
+    if (is.factor(value) && !is.ordered(value)) {
+      value <- factor(as.character(value),
+                      levels = sort(levels(value), method = "radix"))
+    }
+    value
+  })
+  structure(columns, row.names = base::.set_row_names(length(ids)),
+            class = "data.frame")
+}
+
+.psi_padded_aligned_seal <- function(data, public, create = FALSE) {
+  manifest <- attr(data, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE)
+  context <- .psi_padded_aligned_seal_context(public)
+  context$local_peer_identity <- .dsvert_relay_normalize_identity_pk(
+    .get_identity_keypair()$identity_pk)
+  context$local_id_column <- manifest$id_col
+  key <- digest::digest(.psi_padded_canonical_json(context),
+                        algo = "sha256", serialize = FALSE)
+  canonical <- .psi_padded_aligned_seal_frame(data, manifest$id_col)
+  .dsvert_dp_provenance_pin(key, canonical, metadata = context, create = create)
+  invisible(TRUE)
 }
 
 .psi_padded_attach_attestation <- function(data, contract) {
   manifest <- attr(data, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE)
   .psi_validate_alignment_manifest(data)
   public <- .psi_padded_public_attestation(contract)
+  .psi_padded_validate_authorization_epochs(public$authorization_epochs)
+  .psi_padded_aligned_seal(data, public, create = TRUE)
   attr(data, .PSI_PADDED_ATTESTATION_ATTRIBUTE) <- list(
     public = public,
     binding = .psi_padded_attestation_binding(public, manifest$token))
@@ -2069,11 +2220,6 @@ psiPaddedMembershipAcceptDS <- function(
       is.na(metadata_only)) {
     stop("Invalid padded PSI attestation validation mode.", call. = FALSE)
   }
-  if (isTRUE(metadata_only)) {
-    .psi_padded_alignment_metadata_v1(data)
-  } else {
-    .psi_validate_alignment_manifest(data)
-  }
   manifest <- attr(data, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE)
   record <- attr(data, .PSI_PADDED_ATTESTATION_ATTRIBUTE, exact = TRUE)
   required <- c("public", "binding")
@@ -2087,14 +2233,14 @@ psiPaddedMembershipAcceptDS <- function(
     "attestation_version", "alignment_attested", "alignment_protocol",
     "attestation_id", "contract_hash", "policy_id", "alignment_purpose",
     "dataset_id", "dataset_version", "id_column", "source_binding_id",
-    "pinset_id",
+    "derivation_policy_id", "authorization_epochs", "pinset_id",
     "capacity_bucket", "relay_frame_bytes", "inline_max_bytes",
     "peer_count", "reference_peer", "compute_peers")
   fail <- function() {
     stop("Padded PSI alignment attestation is unavailable.", call. = FALSE)
   }
   if (!identical(names(public), public_required) ||
-      !identical(public$attestation_version, 3L) ||
+      !identical(public$attestation_version, 4L) ||
       !identical(public$alignment_attested, TRUE) ||
       !identical(public$alignment_protocol, .DSVERT_PSI_PADDED_PROTOCOL) ||
       !is.character(public$compute_peers) ||
@@ -2110,6 +2256,10 @@ psiPaddedMembershipAcceptDS <- function(
     .psi_padded_validate_source_public(public[c(
       "alignment_purpose", "dataset_id", "dataset_version", "id_column",
       "source_binding_id")])
+    .psi_padded_scalar(public$derivation_policy_id, "derivation policy id",
+                       "^[0-9a-f]{64}$")
+    .psi_padded_validate_authorization_epochs(public$authorization_epochs)
+    if (length(public$authorization_epochs) != public$peer_count) fail()
     .psi_padded_scalar(public$pinset_id, "pinset id",
                        "^pinset_[0-9a-f]{64}$")
     .psi_padded_validate_capacity(public$capacity_bucket)
@@ -2124,11 +2274,19 @@ psiPaddedMembershipAcceptDS <- function(
                      what = "compute peer",
                      pattern = "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$"))
   }, error = function(e) fail())
+  # Protocol versions and epoch coverage are public. Reject their mismatch
+  # before reading protected identifiers or validating complete row values.
+  if (isTRUE(metadata_only)) {
+    .psi_padded_alignment_metadata_v1(data)
+  } else {
+    .psi_validate_alignment_manifest(data)
+  }
   if (!public$reference_peer %in% public$compute_peers ||
       public$peer_count < length(public$compute_peers) ||
       !identical(
         record$binding,
         .psi_padded_attestation_binding(public, manifest$token))) fail()
+  if (!isTRUE(metadata_only)) .psi_padded_aligned_seal(data, public)
   public
 }
 
@@ -2340,7 +2498,7 @@ psiPaddedMembershipAcceptDS <- function(
     data, peer_name, identity,
     .signer = .dsvert_relay_sign_message,
     .public_domains = .psi_padded_configured_factor_domains_v1()) {
-  public <- .psi_padded_validate_persistent_attestation(data)
+  public <- .psi_padded_validate_persistent_attestation_metadata_v1(data)
   alignment <- attr(data, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE)
   peer_name <- .psi_padded_scalar(
     peer_name, "factor registry peer",
@@ -2357,6 +2515,9 @@ psiPaddedMembershipAcceptDS <- function(
   }
   entries <- .psi_padded_factor_entries_v1(
     data, public_domains = .public_domains, exclude = alignment$id_col)
+  # Bound schema/level input before scanning row values, then authenticate the
+  # complete admitted frame before signing any registry.
+  .psi_padded_validate_persistent_attestation(data)
   public_levels_policy <- if (length(.public_domains)) {
     "custodian_named_public_factor_domains_v1"
   } else {
@@ -2604,7 +2765,6 @@ psiPaddedFinalPrepareDS <- function(session_id, force_relay = FALSE) {
 psiPaddedFilterDS <- function(data_name, envelope = "",
                               relay_descriptor_b64url = "", session_id) {
   .psi_padded_data_name(data_name)
-  data <- get(data_name, envir = parent.frame(), inherits = TRUE)
   tryCatch({
     ss <- .S(session_id)
     state <- .psi_padded_and_state(ss)
@@ -2621,7 +2781,7 @@ psiPaddedFilterDS <- function(data_name, envelope = "",
         .psi_padded_decode_relay_descriptor(relay_descriptor_b64url),
         .psi_padded_final_context(state, state$self_peer))
     }
-    .psi_padded_filter_impl(ss, data, incoming)
+    .psi_padded_filter_impl(ss, NULL, incoming)
   }, error = function(e) stop("Padded PSI finalization failed.",
                               call. = FALSE))
 }

@@ -396,6 +396,12 @@
 #' @keywords internal
 .validate_data_name <- function(data_name) {
   .dsvert_enforce_release_mode()
+  .validate_data_name_syntax(data_name)
+}
+
+# Pure syntax validation for custodian-owned descriptors. Data/session lookup
+# must continue through .validate_data_name and its remote endpoint guard.
+.validate_data_name_syntax <- function(data_name) {
   if (!is.character(data_name) || length(data_name) != 1) {
     stop("data_name must be a single character string", call. = FALSE)
   }

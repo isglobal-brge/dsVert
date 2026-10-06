@@ -8,18 +8,18 @@
 # added before any sticky subseed can be derived.
 
 .DSVERT_DP_SYNOPSIS_CATALOG_VERSION <-
-  "dsvert-stateless-catalog-synopsis-catalog-v1"
+  "dsvert-stateless-catalog-synopsis-catalog-v2"
 .DSVERT_DP_SYNOPSIS_PROJECTION_VERSION <-
-  "dsvert-stateless-catalog-synopsis-projection-v1"
+  "dsvert-stateless-catalog-synopsis-projection-v2"
 .DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_CLAIM_VERSION <-
-  "dsvert-stateless-catalog-synopsis-source-vector-claim-v1"
+  "dsvert-stateless-catalog-synopsis-source-vector-claim-v2"
 .DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_PROFILE <-
   "dsvert-stateless-catalog-synopsis-source-vector-profile-v1"
 .DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_HASH_BLOCK <- 65536L
 .DSVERT_DP_SYNOPSIS_CATALOG_DOMAIN <-
-  "dsVert/stateless-catalog-synopsis/catalog/v1|"
+  "dsVert/stateless-catalog-synopsis/catalog/v2|"
 .DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_CLAIM_DOMAIN <-
-  "dsVert/stateless-catalog-synopsis/source-vector-claim/v1|"
+  "dsVert/stateless-catalog-synopsis/source-vector-claim/v2|"
 .DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_HMAC_DOMAIN <-
   "dsVert/stateless-catalog-synopsis/source-vector-hmac/v1|"
 .DSVERT_DP_SYNOPSIS_SOURCE_VECTOR_BLOCK_DOMAIN <-
@@ -114,6 +114,12 @@
     "admission", "bounds", "families", "vertical_crosses",
     "primitive_scope", "release_lattice", "sensitivity",
     "coordinate_count", "coordinate_order_sha256", "clipping_sha256")
+  if (is.list(value$catalog) &&
+      "authorization_dependencies" %in% names(value$catalog)) {
+    fields <- c(fields, "authorization_dependencies")
+    .dsvert_dp_synopsis_closure_validate_v2(
+      value$catalog$authorization_dependencies)
+  }
   catalog <- tryCatch(
     .dsvert_dp_canonical_query_value(value$catalog),
     error = function(error) NULL)
@@ -175,6 +181,10 @@
     coordinate_count = manifest$workload$coordinate_count,
     coordinate_order_sha256 = validated$layout$sha256,
     clipping_sha256 = manifest$workload$capsule_mechanism$clipping_hash)
+  if (.dsvert_dp_synopsis_provenance_enabled_v2(policy)) {
+    catalog$authorization_dependencies <-
+      .dsvert_dp_synopsis_manifest_dependencies_v2(policy, manifest)
+  }
   # `analysis_id` inside the signed custodian catalog is a semantic entry ID,
   # not an analyst request field.  Namespace it only in this projection so
   # the global operational-field rejection remains strict.
@@ -236,6 +246,12 @@
     catalog_sha256 = catalog_sha256,
     source_vector_commitment = commitment,
     signature = signature)
+  if (!is.null(projection$catalog$authorization_dependencies) &&
+      !identical(commitment,
+        .dsvert_dp_synopsis_public_source_commitment_v2(normalized))) {
+    stop("The Synopsis source commitment is not provenance-only.",
+         call. = FALSE)
+  }
   if (!isTRUE(tryCatch(
       .verifier(
         .dsvert_dp_synopsis_source_vector_claim_message_v1(normalized),
@@ -449,6 +465,13 @@
   on.exit(producer$reset(), add = TRUE)
   unsigned <- .dsvert_dp_synopsis_source_vector_unsigned_from_producer_v1(
     policy, manifest, producer, identity_pk)
+  if (.dsvert_dp_synopsis_provenance_enabled_v2(policy)) {
+    # Retain the old complete release/cross-block commitment privately. It is
+    # mandatory at source transport, but its equality never enters the Claim.
+    .dsvert_dp_synopsis_private_producer_pin_v2(unsigned, create = TRUE)
+    unsigned$source_vector_commitment <-
+      .dsvert_dp_synopsis_public_source_commitment_v2(unsigned)
+  }
   signature <- .signer(
     .dsvert_dp_synopsis_source_vector_claim_message_v1(unsigned),
     identity$identity_sk)

@@ -1,3 +1,20 @@
+# dsVert 1.4.1
+
+* Address isglobal-brge/dsVert#25 for Count, Frequency and Synopsis with durable
+  authenticated authorization epochs, complete signed PSI dependency vectors,
+  provenance-only artifact commitments, and private full-value integrity seals.
+* Each explicit authorization, including unchanged bytes, allocates a fresh
+  epoch; retries reuse it. Registered sources remain frozen across in-place
+  changes and restarts. Samplers, backend choice and calibration are unchanged.
+* **Migration:** legacy generic aligned imports must be authorized once with
+  `dsVert::dsvertAuthorizeSource(aligned, getOption("dsvert.dp.datasets")$aligned,
+  event_id="migration-1.4.1", kind="dataset", patient_column="id")` in the
+  custodian session. Before migration all such imports fail closed independently
+  of intersection changes. See PROVENANCE_EPOCHS.md for fallback PSI inputs.
+* Require dsVertClient 1.4.1 and reject incompatible protocol capabilities before
+  private source materialization. Analyst arguments remain unchanged. Retain
+  the documented PSI, publication-schedule, storage and integrity-failure limits.
+
 # dsVert 1.4.0
 
 * Activate the exact discrete-Laplace fallback for both independent noise

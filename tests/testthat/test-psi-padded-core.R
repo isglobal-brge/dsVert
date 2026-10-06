@@ -156,6 +156,10 @@ test_that("padded PSI contracts reject permutation, omission and substitution", 
     .psi_padded_sign_offer(
       peer, identities[[peer]], transports[[peer]]$public_key,
       capacity = 64L, session_id = session_id, operation_id = operation_id,
+      authorization_epoch = digest::digest(paste0("test/", peer),
+        algo = "sha256", serialize = FALSE),
+      source_contract_id = strrep("e", 64L),
+      derivation_policy_id = strrep("f", 64L),
       policy_id = paste0("policy_", paste(rep("2", 64L), collapse = "")),
       source_authorization = .psi_padded_test_source_public(),
       pinset_id = pinset_id,
@@ -170,6 +174,26 @@ test_that("padded PSI contracts reject permutation, omission and substitution", 
   expect_identical(contract$capacity, 64L)
   expect_length(contract$compute_peers, 2L)
   expect_identical(sort(contract$peer_names), sort(names(identities)))
+  expect_length(contract$authorization_epochs, 3L)
+  expect_identical(
+    .psi_padded_contract_from_offers(rev(offers), pinset)$authorization_epochs,
+    contract$authorization_epochs)
+
+  # Every participant contributes to E, including the peer with no compute
+  # role. A newly signed publication changes the complete provenance domain.
+  observer <- setdiff(contract$peer_names, contract$compute_peers)
+  rotated <- offers
+  rotated[[observer]]$unsigned$authorization_epoch <- strrep("a", 64L)
+  expect_error(.psi_padded_contract_from_offers(rotated, pinset),
+               "offer authentication")
+  rotated[[observer]]$signature <- base64_to_base64url(.sign_transport_pk(
+    .psi_text_to_b64(.psi_padded_canonical_json(rotated[[observer]]$unsigned)),
+    identities[[observer]]$identity_sk))
+  rotated_contract <- .psi_padded_contract_from_offers(rotated, pinset)
+  expect_false(identical(rotated_contract$authorization_epochs,
+                         contract$authorization_epochs))
+  expect_false(identical(rotated_contract$contract_hash,
+                         contract$contract_hash))
 
   expect_error(.psi_padded_contract_from_offers(offers[-1L], pinset),
                "complete pinned peer set")

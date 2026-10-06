@@ -7,17 +7,17 @@
 .DSVERT_DP_SYNOPSIS_POLICY_CONTRACT <-
   "stateless_catalog_synopsis_per_artifact_v1"
 .DSVERT_DP_SYNOPSIS_BOOTSTRAP_VERSION <-
-  "dsvert-stateless-catalog-synopsis-bootstrap-v1"
+  "dsvert-stateless-catalog-synopsis-bootstrap-v2"
 .DSVERT_DP_SYNOPSIS_BOOTSTRAP_DOMAIN <-
-  "dsVert/stateless-catalog-synopsis/bootstrap/v1|"
+  "dsVert/stateless-catalog-synopsis/bootstrap/v2|"
 .DSVERT_DP_SYNOPSIS_BIND_REQUEST_VERSION <-
-  "dsvert-stateless-catalog-synopsis-bind-request-v1"
+  "dsvert-stateless-catalog-synopsis-bind-request-v2"
 .DSVERT_DP_SYNOPSIS_BIND_SIGNATURE_VERSION <-
   "dsvert-stateless-catalog-synopsis-bind-signature-v1"
 .DSVERT_DP_SYNOPSIS_BOUND_MANIFEST_VERSION <-
   "dsvert-stateless-catalog-synopsis-bound-manifest-v1"
 .DSVERT_DP_SYNOPSIS_BIND_DOMAIN <-
-  "dsVert/stateless-catalog-synopsis/bind/v1|"
+  "dsVert/stateless-catalog-synopsis/bind/v2|"
 .DSVERT_DP_SYNOPSIS_MANIFEST_CACHE_VERSION <-
   "dsvert-stateless-catalog-synopsis-manifest-cache-v1"
 .DSVERT_DP_SYNOPSIS_POLICY_SNAPSHOT_VERSION <-
@@ -90,7 +90,7 @@
   policy$schema_version <- 1L
   policy$policy_contract <- .DSVERT_DP_SYNOPSIS_POLICY_CONTRACT
   policy$synopsis_state_path <- .dsvert_dp_synopsis_state_path_v1()
-  policy
+  .dsvert_dp_synopsis_registered_policy_v2(policy)
 }
 
 .dsvert_dp_synopsis_policy_snapshot_node_v1 <- function(value) {
@@ -198,15 +198,23 @@
   forbidden <- c(
     "lifetime_max_distinct_capsules", "ledger_path", "ledger_private",
     "noise_root", "anchor_provider", "rollback_protection")
+  fields <- c(.DSVERT_DP_SYNOPSIS_POLICY_FIELDS_V1,
+    if (.dsvert_dp_synopsis_provenance_enabled_v2(policy)) {
+      c("authorization_local", "authorization_dependencies")
+    } else character())
   if (!.dsvert_dp_synopsis_policy_is_v1(policy) ||
       is.null(names(policy)) || anyNA(names(policy)) ||
       anyDuplicated(names(policy)) ||
-      !setequal(names(policy), .DSVERT_DP_SYNOPSIS_POLICY_FIELDS_V1) ||
+      !setequal(names(policy), fields) ||
       length(intersect(names(policy), forbidden)) ||
       !identical(policy$state_private, TRUE)) {
     stop("Invalid durable synopsis policy snapshot.", call. = FALSE)
   }
   .dsvert_dp_synopsis_policy_context_v1(policy)
+  if (.dsvert_dp_synopsis_provenance_enabled_v2(policy)) {
+    .dsvert_dp_synopsis_local_dependencies_v2(policy)
+    .dsvert_dp_synopsis_closure_validate_v2(policy$authorization_dependencies)
+  }
   state_path <- .dsvert_dp_scalar_string(
     policy$synopsis_state_path, "durable synopsis state path")
   if (!is.null(expected_state_path) && !identical(
@@ -396,6 +404,16 @@
     workload = .dsvert_joint_dp_capsule_component(
       workload, "synopsis workload contract"),
     privacy_epoch_scope = "per_canonical_artifact_sticky_v1"))
+  if (.dsvert_dp_synopsis_provenance_enabled_v2(policy)) {
+    closure <- .dsvert_dp_synopsis_effective_dependencies_v2(
+      policy, workload, admission)
+    if (!length(closure$dependencies)) {
+      stop("Synopsis authorization dependencies have not been bound.",
+           call. = FALSE)
+    }
+    contract$authorization_dependencies <- closure
+    contract <- .dsvert_dp_canonical_query_value(contract)
+  }
   list(capsule_id = .dsvert_joint_dp_hash(contract), contract = contract)
 }
 
@@ -459,7 +477,9 @@
     peer_identity_pk = unname(context$pins[[context$peer_name]]),
     policy = context$common,
     draft = .dsvert_dp_capsule_manifest_draft_unsigned(.policy),
-    data_access = FALSE, patient_derived_metadata = FALSE,
+    authorization_dependencies =
+      .dsvert_dp_synopsis_local_dependencies_v2(.policy),
+    data_access = TRUE, patient_derived_metadata = FALSE,
     request_limit = FALSE, rate_limit = FALSE,
     catalog_limit = FALSE)
   signature <- .signer(
@@ -492,7 +512,8 @@
     value, policy, .verifier = .dsvert_relay_verify_message) {
   fields <- c(
     "version", "phase", "peer_name", "peer_identity_pk", "policy",
-    "draft", "data_access", "patient_derived_metadata", "request_limit",
+    "draft", "authorization_dependencies", "data_access",
+    "patient_derived_metadata", "request_limit",
     "rate_limit", "catalog_limit", "signature")
   context <- .dsvert_dp_synopsis_policy_context_v1(policy)
   if (!is.list(value) || is.null(names(value)) || anyNA(names(value)) ||
@@ -502,7 +523,7 @@
       !identical(
         .dsvert_dp_canonical_json(value$policy),
         .dsvert_dp_canonical_json(context$common)) ||
-      !identical(value$data_access, FALSE) ||
+      !identical(value$data_access, TRUE) ||
       !identical(value$patient_derived_metadata, FALSE) ||
       !identical(value$request_limit, FALSE) ||
       !identical(value$rate_limit, FALSE) ||
@@ -529,7 +550,9 @@
       peer_identity_pk = unname(context$pins[[context$peer_name]]),
       policy = context$common,
       draft = .dsvert_dp_capsule_manifest_draft_unsigned(policy),
-      data_access = FALSE, patient_derived_metadata = FALSE,
+      authorization_dependencies =
+        .dsvert_dp_synopsis_local_dependencies_v2(policy),
+      data_access = TRUE, patient_derived_metadata = FALSE,
       request_limit = FALSE, rate_limit = FALSE,
       catalog_limit = FALSE)
     if (!identical(
@@ -1607,6 +1630,8 @@
     common = context$common,
     local_draft = .dsvert_dp_capsule_manifest_draft_unsigned(policy),
     private_datasets = policy$datasets,
+    authorization_local = policy$authorization_local,
+    authorization_dependencies = policy$authorization_dependencies,
     peer_name = policy$peer_name)))
   .dsvert_dp_synopsis_manifest_mac_v1(
     secret, "local-authority", private)
@@ -2650,6 +2675,12 @@
     public_authority$local_projection_sha256 <- selector$sha256
     cache_authority$local_projection_sha256 <- selector$sha256
   }
+  if (.dsvert_dp_synopsis_provenance_enabled_v2(policy)) {
+    closure <- .dsvert_dp_synopsis_closure_validate_v2(
+      policy$authorization_dependencies)
+    public_authority$authorization_dependencies <- closure
+    cache_authority$authorization_dependencies <- closure
+  }
   public_capsule_key <- .dsvert_joint_dp_hash(public_authority)
   cache_key <- .dsvert_joint_dp_hash(cache_authority)
   record <- .dsvert_dp_synopsis_manifest_cache_get_v1(
@@ -2675,14 +2706,36 @@
       stop("The synopsis manifest exceeds its protocol byte bound.",
            call. = FALSE)
     }
+    manifest_sha256 <- digest::digest(
+      manifest_json, algo = "sha256", serialize = FALSE)
+    if (.dsvert_dp_synopsis_provenance_enabled_v2(policy)) {
+      retained <- .dsvert_dp_synopsis_manifest_cache_get_v1(
+        policy, secret, manifest_sha256 = manifest_sha256)
+      if (!is.null(retained)) {
+        # A publication of a provably unused dataset can change the private
+        # registry without changing this effective manifest. Keep its original
+        # authenticated policy and complete frozen frames. Comparing today's
+        # unused descriptor here would recreate the import equality oracle.
+        if (!identical(retained$manifest_json, manifest_json) ||
+            !identical(retained$schema_sha256, signed$validated$sha256) ||
+            !identical(retained$workload_contract_sha256,
+                       signed$workload$sha256)) {
+          stop("The retained Synopsis manifest has conflicting public authority.",
+               call. = FALSE)
+        }
+        manifest <- .dsvert_dp_capsule_source_manifest(retained$manifest_json)
+        return(list(record = retained, manifest = manifest,
+          artifact_index = .dsvert_dp_capsule_artifact_commitment_index(
+            manifest, policy, manifest_sha256)))
+      }
+    }
     record <- .dsvert_dp_canonical_query_value(list(
       version = .DSVERT_DP_SYNOPSIS_MANIFEST_CACHE_VERSION,
       cache_key = cache_key, public_capsule_key = public_capsule_key,
       local_authority_sha256 = local_authority,
       schema_sha256 = signed$validated$sha256,
       workload_contract_sha256 = signed$workload$sha256,
-      manifest_sha256 = digest::digest(
-        manifest_json, algo = "sha256", serialize = FALSE),
+      manifest_sha256 = manifest_sha256,
       manifest_json = manifest_json,
       policy_snapshot = .dsvert_dp_synopsis_policy_snapshot_v1(policy)))
     if (length(.dsvert_dp_lmm_cross_artifacts(manifest)) ||
@@ -2714,9 +2767,6 @@
     bootstrap_set_json, .policy = NULL, .secret = NULL,
     .identity = NULL, .signer = .dsvert_relay_sign_message,
     .verifier = .dsvert_relay_verify_message) {
-  if (is.null(.policy)) .policy <- .dsvert_dp_synopsis_policy_v1()
-  if (is.null(.secret)) .secret <- .dsvert_dp_secret()
-  if (is.null(.identity)) .identity <- .get_identity_keypair()
   request <- .dsvert_dp_synopsis_decode_canonical_v1(
     bootstrap_set_json, "bootstrap set")
   base_fields <- c("version", "phase", "bootstraps", "schema_signatures")
@@ -2730,8 +2780,16 @@
       !request$phase %in% c("schema_signature", "manifest_build")) {
     stop("Invalid synopsis Bind request.", call. = FALSE)
   }
+  # Public wire incompatibility must be rejected before first-load capture.
+  if (is.null(.policy)) .policy <- .dsvert_dp_synopsis_policy_v1()
+  if (is.null(.secret)) .secret <- .dsvert_dp_secret()
+  if (is.null(.identity)) .identity <- .get_identity_keypair()
   bootstraps <- .dsvert_dp_synopsis_bootstrap_set_v1(
     request$bootstraps, .policy, .verifier)
+  if (.dsvert_dp_synopsis_provenance_enabled_v2(.policy)) {
+    .policy$authorization_dependencies <-
+      .dsvert_dp_synopsis_closure_v2(bootstraps, .policy)
+  }
   authorization_schema <- .dsvert_dp_synopsis_manifest_schema_v1(
     bootstraps, .policy)
   local_projection <- if ("local_projection" %in% names(request)) {
@@ -2835,7 +2893,8 @@
   .dsvert_dp_canonical_query_value(unsigned)
 }
 
-dsvertDPSynopsisBootstrapDS <- function() {
+dsvertDPSynopsisBootstrapDS <- function(privacy_protocol = NULL) {
+  .dsvert_dp_provenance_require_protocol(privacy_protocol)
   .dsvert_dp_synopsis_remote_public_v1({
     .dsvert_dp_synopsis_remote_encode_v1(
       .dsvert_dp_synopsis_bootstrap_v1(), "bootstrap")

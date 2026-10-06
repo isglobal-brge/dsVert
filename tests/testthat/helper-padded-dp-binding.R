@@ -22,6 +22,8 @@
     policy_id = paste0("policy_", digest::digest(
       .psi_padded_canonical_json(source),
       algo = "sha256", serialize = FALSE))), source, list(
+    derivation_policy_id = strrep("d", 64L),
+    authorization_epochs = .psi_padded_test_epoch_vector(pinset),
     pinset_id = .psi_padded_pinset_id(as.list(pinset)),
     capacity = 64L,
     relay_frame_bytes = 65536L,

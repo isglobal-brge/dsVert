@@ -1,7 +1,25 @@
 # dsVert - DataSHIELD Server Package for Vertically Partitioned Data
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.4.0-blue.svg)](NEWS.md)
+[![Version](https://img.shields.io/badge/version-1.4.1-blue.svg)](NEWS.md)
+
+## Upgrading to 1.4.1
+
+Count, Frequency and Synopsis now use custodian authorization epochs and frozen
+source publications (isglobal-brge/dsVert#25). Install dsVertClient 1.4.1 across
+the federation. **Legacy aligned imports require one explicit migration:**
+
+```r
+dsVert::dsvertAuthorizeSource(aligned,
+  getOption("dsvert.dp.datasets")$aligned,
+  event_id="migration-1.4.1", kind="dataset", patient_column="id")
+```
+
+Run this in the custodian session for each import, using its current approved
+descriptor and actual patient column. Raw PSI sources register automatically
+once after approved-digest validation. Thereafter in-place edits keep serving
+the captured publication until explicit reauthorization, even across restarts.
+See [custodian workflow, state recovery and limits](PROVENANCE_EPOCHS.md).
 
 ## Overview
 

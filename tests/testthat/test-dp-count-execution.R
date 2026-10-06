@@ -134,8 +134,13 @@ test_that("Count source encoding counts aligned membership once", {
       peer_identity_pk = unname(config$peer_pins[[peer]]),
       config_sha256 = .dsvert_dp_count_config_hash_v1(config),
       psi_run_sha256 = strrep("b", 64L),
-      snapshot_commitment = digest::digest(
-        paste0("snapshot|", peer), algo = "sha256", serialize = FALSE),
+      derivation_policy_id = strrep("d",64L),
+      authorization_epochs = .psi_padded_test_epoch_vector(config$peer_pins),
+      snapshot_commitment = .dsvert_dp_provenance_commitment(list(
+        derivation_policy_id = strrep("d",64L),
+        authorization_epochs = .psi_padded_test_epoch_vector(config$peer_pins)),
+        config, peer,
+        list(family="count", statistic="aligned_privacy_unit_count")),
       sampler_plan = plan))
     .dsvert_dp_count_sign_receipt_v1(
       draft, .signer = .count_execution_signer)
@@ -282,26 +287,28 @@ test_that("public Count authorization is signed, sticky and K-generic", {
   fixture <- .count_execution_fixture(3L)
   first <- fixture$values$garbler$public
   authorization <- fixture$values$garbler$authorization
+  # Protocol 1.4.1 commitments include the complete signed epoch vector.
+  # Sampler/backend constants and mechanism certificates are unchanged.
   expect_identical(first$contract_sha256,
-                   "4af7de71c59cd58b886c56a9aa919811fe89a9c3f4682de859233e2abf8cd11e")
+                   "7ea82dcd54673981c3481ab765d39dfc480bbcfc5776d57d4a45d7cbfac6b651")
   expect_identical(first$analysis_binding_sha256,
-                   "e57c641b4593198a54f922f667d24f5e109c00c98eaf795a9713fedb8473aa89")
+                   "a08f66daa1c6fe1e17016186f755680830be256a5b07dfe665976cab9c89f561")
   expect_identical(first$worker_static_sha256,
-                   "13c6cc9546265dbd8820efc2a5b2ea2def16b7ae5f2647b3b56023eb2ff38401")
+                   "7f3e8eff68ca5d84502ecf4e5cd100330ee7ce5ff4596191da84c38e68d7b9a4")
   expect_identical(
     vapply(fixture$values, function(value) {
       value$public$authorization_sha256
     }, character(1L)),
     c(
-      evaluator = "955aa8d267758db1632f05ff3447a9e250a056b8017201cd1aec98362bd883cf",
-      garbler = "a8d5bf5cd4b4e8d4ba8688ac6fdddfb74d0dca38ae42e7bb1b820b078956ff6d"))
+      evaluator = "017fcc9bb6e7e1cf4845706cd33fccbdac0676a907ee9d360c5f700b9b5e0c7e",
+      garbler = "21660a7172b1bed6be72950d613f9ffcabb717ec4eeaebee728778c1a6c8881f"))
   expect_identical(
     vapply(fixture$values, function(value) {
       value$public$seed_commitment
     }, character(1L)),
     c(
-      evaluator = "2027a9ba66a7ab4aace463041c7220149ab263d4eb0103c7d08b75b4bf98a772",
-      garbler = "d20cd194b4ee082aa38ab23941af35afc9b587a7b4176dc9507f7421792d8c4c"))
+      evaluator = "ee00a8a3471e3ff0b54db383721a75a8c98adc133677df369f246287c6d07b7e",
+      garbler = "b04ae1de53ad901dadd858f1302b8cbeba731b62e19ac85bd8efdac7393d6d84"))
   index <- match(
     authorization$local_authority$peer_name,
     names(fixture$config$peer_pins))
@@ -790,7 +797,7 @@ test_that("signed release bytes exclude session and operation identity", {
   expect_identical(releases[[1L]], releases[[2L]])
   expect_identical(
     releases[[1L]]$release_sha256,
-    "0baf127ec5a3ebdb1c790b30741e8985c568b90e735f4588e636d1e62dbb8e3f")
+    "2c4dc3402e03f2f2a355b854aec49826d0ac1d4a0ecb38ecc5d3ca4605ed18ad")
   encoded <- .dsvert_dp_canonical_json(releases[[1L]])
   expect_false(grepl(first_fixture$session_id, encoded, fixed = TRUE))
   expect_false(grepl(first$execution$operation_id, encoded, fixed = TRUE))

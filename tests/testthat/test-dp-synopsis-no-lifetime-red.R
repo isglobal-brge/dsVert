@@ -1,5 +1,5 @@
 .synopsis_no_lifetime_public_abi <- list(
-  dsvertDPSynopsisBootstrapDS = NULL,
+  dsvertDPSynopsisBootstrapDS = "privacy_protocol",
   dsvertDPSynopsisBindDS = "bootstrap_set_json",
   dsvertDPSynopsisPublicationDS = "manifest_sha256",
   dsvertDPSynopsisPublishedReplayDS = c(

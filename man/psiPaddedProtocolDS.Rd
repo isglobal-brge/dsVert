@@ -17,7 +17,7 @@
 \alias{psiPaddedRelayExchangeDS}
 \title{Purpose-bound fixed-capacity pinned PSI server protocol}
 \usage{
-psiPaddedInitDS(data_name, id_col, session_id, operation_id)
+psiPaddedInitDS(data_name, id_col, session_id, operation_id, privacy_protocol = NULL)
 
 psiPaddedBindDS(offers_b64url, connection_names_b64url, session_id)
 
@@ -57,6 +57,7 @@ psiPaddedRelayExchangeDS(request_json, session_id,
   outbound_operation_id = "", terminal_receipt_b64url = "")
 }
 \arguments{
+\item{privacy_protocol}{Internal client capability identifier. dsVertClient 1.4.1 supplies the exact provenance protocol before private materialization.}
 \item{data_name}{Validated server-side source or aligned-object symbol.}
 \item{id_col}{Identifier-column name.}
 \item{session_id}{Canonical protocol session identifier. An empty value is

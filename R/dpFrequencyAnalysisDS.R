@@ -1,9 +1,9 @@
 # K-wide compiler for one fixed-domain categorical Frequency analysis.
 
 .DSVERT_DP_FREQUENCY_CONFIG_VERSION <- "dsvert-dp-frequency-config-v2"
-.DSVERT_DP_FREQUENCY_RECEIPT_VERSION <- "dsvert-dp-frequency-receipt-v1"
+.DSVERT_DP_FREQUENCY_RECEIPT_VERSION <- "dsvert-dp-frequency-receipt-v2"
 .DSVERT_DP_FREQUENCY_CONFIG_DOMAIN <- "dsVert/dp-frequency/config/v2|"
-.DSVERT_DP_FREQUENCY_RECEIPT_DOMAIN <- "dsVert/dp-frequency/receipt/v1|"
+.DSVERT_DP_FREQUENCY_RECEIPT_DOMAIN <- "dsVert/dp-frequency/receipt/v2|"
 .DSVERT_DP_FREQUENCY_CLAIM_HASH_DOMAIN <- "dsVert/dp-frequency/source-claim/v1|"
 .DSVERT_DP_FREQUENCY_RUNTIME_DOMAIN <- "dsVert/dp-frequency/runtime-protocol/v1|"
 .DSVERT_DP_FREQUENCY_MEMBERSHIP_DOMAIN <- "dsVert/dp-frequency/membership/v1|"
@@ -342,6 +342,8 @@
   capacity <- tryCatch(.psi_padded_validate_capacity(
     attestation$capacity_bucket), error = function(error) NA_integer_)
   if (!identical(actual, expected) ||
+      !identical(attestation$authorization_epochs, claim$authorization_epochs) ||
+      !identical(attestation$derivation_policy_id, claim$derivation_policy_id) ||
       !identical(psi$psi_run_sha256, claim$psi_run_sha256) ||
       nrow(data) > config$coordinate_upper_bound || is.na(capacity) ||
       nrow(data) > capacity) {
@@ -394,39 +396,33 @@
         privacy_unit = identifiers[[row]],
         coordinate = as.integer(coordinate[[row]]))))
   }
-  content_domain <- if (source) .DSVERT_DP_FREQUENCY_VECTOR_DOMAIN else
-    .DSVERT_DP_FREQUENCY_MEMBERSHIP_DOMAIN
-  snapshot_sha256 <- .dsvert_dp_frequency_hash_v1(content_domain, payload)
-  membership_sha256 <- .dsvert_dp_frequency_hash_v1(
-    .DSVERT_DP_FREQUENCY_MEMBERSHIP_DOMAIN,
-    list(version = "dsvert-dp-frequency-membership-v1", members = members))
-  alignment_sha256 <- .dsvert_dp_frequency_hash_v1(
-    .DSVERT_DP_FREQUENCY_ALIGNMENT_DOMAIN, list(
-      version = "dsvert-dp-frequency-semantic-alignment-v1",
-      alignment_purpose = config$alignment_purpose,
-      membership_sha256 = membership_sha256,
-      source_binding_id = config$source_binding_id))
-  list(psi_run_sha256 = psi$psi_run_sha256, snapshot_commitment =
-    .dsvert_dp_analysis_snapshot_commitment_v1(list(
-      domain = config$domain, cohort_id = config$cohort_id,
-      owner_identity_pk = unname(config$peer_pins[[peer_name]]),
-      dataset_id = config$dataset_id,
-      dataset_version = config$dataset_version,
-      snapshot_sha256 = snapshot_sha256,
-      alignment_version = "dsvert-dp-frequency-semantic-alignment-v1",
-      alignment_sha256 = alignment_sha256)))
+  commitment <- .dsvert_dp_provenance_commitment(attestation, config, peer_name,
+    list(family = "frequency", factor_domain = config$factor_domain,
+         source_owner = config$source_owner,
+         missingness_policy = config$missingness_policy,
+         repeated_record_policy = config$repeated_record_policy))
+  # The complete PSI seal is established at trusted finalization. Retain a
+  # separate private coordinates pin, never a content-derived public identity.
+  .dsvert_dp_provenance_private_pin("frequency-coordinates-v1", commitment,
+    .dsvert_dp_frequency_hash_v1(.DSVERT_DP_FREQUENCY_VECTOR_DOMAIN, payload),
+    create = TRUE)
+  list(psi_run_sha256 = psi$psi_run_sha256, snapshot_commitment = commitment)
 }
 
 .dsvert_dp_frequency_unsigned_receipt_validate_v1 <- function(receipt) {
   fields <- c(
     "version", "peer_name", "peer_identity_pk", "config_sha256",
-    "source_claim_sha256", "psi_run_sha256", "snapshot_commitment")
+    "source_claim_sha256", "psi_run_sha256", "snapshot_commitment",
+    "derivation_policy_id", "authorization_epochs")
   if (!is.list(receipt) || is.null(names(receipt)) || anyNA(names(receipt)) ||
       anyDuplicated(names(receipt)) || !setequal(names(receipt), fields) ||
       !identical(receipt$version, .DSVERT_DP_FREQUENCY_RECEIPT_VERSION)) {
     stop("Invalid signed Frequency receipt fields.", call. = FALSE)
   }
   receipt$peer_name <- .dsvert_dp_frequency_peer_name_v1(receipt$peer_name)
+  receipt$authorization_epochs <- .psi_padded_validate_authorization_epochs(
+    receipt$authorization_epochs)
+  .dsvert_dp_frequency_hex_v1(receipt$derivation_policy_id, "derivation policy")
   receipt$peer_identity_pk <- tryCatch(
     .dsvert_dp_frequency_identity_pk_v1(
       receipt$peer_identity_pk, "receipt identity"),
@@ -513,6 +509,8 @@
     source_claim_sha256 = .dsvert_dp_frequency_claim_hash_v1(
       claim, pins, .registry_verifier),
     psi_run_sha256 = snapshot$psi_run_sha256,
+    derivation_policy_id = claim$derivation_policy_id,
+    authorization_epochs = claim$authorization_epochs,
     snapshot_commitment = snapshot$snapshot_commitment)
   list(config = config, receipt = .dsvert_dp_frequency_sign_receipt_v1(
     draft, identity, .signer))
@@ -523,7 +521,7 @@
   fields <- c(
     "version", "peer_name", "peer_identity_pk", "config_sha256",
     "source_claim_sha256", "psi_run_sha256", "snapshot_commitment",
-    "signature")
+    "signature", "derivation_policy_id", "authorization_epochs")
   if (!is.list(receipt) || is.null(names(receipt)) || anyNA(names(receipt)) ||
       anyDuplicated(names(receipt)) || !setequal(names(receipt), fields)) {
     stop("Invalid signed Frequency receipt fields.", call. = FALSE)
@@ -539,6 +537,9 @@
   }
   source_claim <- .dsvert_dp_frequency_claim_validate_v1(
     source_claim, config$peer_pins, .verifier = .verifier)
+  .psi_padded_validate_authorization_epochs(
+    unsigned$authorization_epochs, unname(config$peer_pins))
+  .dsvert_dp_provenance_agree(list(unsigned, source_claim))
   if (!identical(unsigned$source_claim_sha256,
       .dsvert_dp_frequency_hash_v1(
         .DSVERT_DP_FREQUENCY_CLAIM_HASH_DOMAIN, source_claim)) ||
@@ -549,6 +550,15 @@
       !identical(unsigned$peer_identity_pk,
                  unname(config$peer_pins[[unsigned$peer_name]]))) {
     stop("The Frequency receipt identity is not pinned.", call. = FALSE)
+  }
+  expected_snapshot <- .dsvert_dp_provenance_commitment(
+    unsigned, config, unsigned$peer_name,
+    list(family = "frequency", factor_domain = config$factor_domain,
+         source_owner = config$source_owner,
+         missingness_policy = config$missingness_policy,
+         repeated_record_policy = config$repeated_record_policy))
+  if (!identical(unsigned$snapshot_commitment, expected_snapshot)) {
+    stop("Frequency receipt has an invalid provenance commitment.", call. = FALSE)
   }
   message <- .dsvert_dp_frequency_receipt_message_v1(unsigned)
   valid <- if (identical(.verifier, .dsvert_relay_verify_message)) {
@@ -579,6 +589,7 @@
   }
   names(verified) <- peers
   verified <- verified[names(config$peer_pins)]
+  .dsvert_dp_provenance_agree(verified)
   common <- function(field) length(unique(vapply(
     verified, `[[`, character(1L), field))) == 1L
   if (!common("config_sha256")) {

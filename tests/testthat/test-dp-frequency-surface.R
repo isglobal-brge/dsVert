@@ -19,7 +19,7 @@ test_that("Frequency public ABI is exact and purpose-bound", {
     envir = namespace, mode = "function", inherits = FALSE)))
   expect_identical(names(formals(get(
     "dsvertDPFrequencyClaimDS", namespace))),
-    c("data_name", "variable_name"))
+    c("data_name", "variable_name", "privacy_protocol"))
   expect_identical(names(formals(get(
     "dsvertDPFrequencyCompileDS", namespace))),
     c("data_name", "source_claim_json"))
@@ -130,7 +130,8 @@ test_that("Frequency surface delegates one closed server lifecycle", {
   D <- data.frame(category = factor("a"))
 
   result <- testthat::with_mocked_bindings({
-    claim_result <- endpoint("dsvertDPFrequencyClaimDS")("D", "category")
+    claim_result <- endpoint("dsvertDPFrequencyClaimDS")("D", "category",
+      privacy_protocol = .DSVERT_PROVENANCE_PROTOCOL)
     compile_result <- endpoint("dsvertDPFrequencyCompileDS")(
       "D", .frequency_surface_json(claim))
     authorize_result <- endpoint("dsvertDPFrequencyAuthorizeDS")(

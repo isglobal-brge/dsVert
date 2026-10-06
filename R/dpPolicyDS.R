@@ -181,6 +181,15 @@
 
 .dsvert_dp_datasets <- function(value, require_snapshot_digest = TRUE,
                                 require_alignment_manifest = TRUE) {
+  .dsvert_enforce_release_mode()
+  .dsvert_dp_validate_datasets(value, require_snapshot_digest,
+                               require_alignment_manifest)
+}
+
+# Normalize descriptors without authorizing a remote operation. Administrative
+# publication uses this same validation outside an analyst DS call frame.
+.dsvert_dp_validate_datasets <- function(value, require_snapshot_digest = TRUE,
+                                        require_alignment_manifest = TRUE) {
   if (!is.list(value) || !length(value) || is.null(names(value)) ||
       any(!nzchar(names(value))) || anyDuplicated(names(value))) {
     stop("dsvert.dp.datasets must be a non-empty, uniquely named list",
@@ -190,7 +199,7 @@
   identities <- character(length(value))
   for (i in seq_along(value)) {
     data_name <- names(value)[[i]]
-    .validate_data_name(data_name)
+    .validate_data_name_syntax(data_name)
     descriptor <- value[[i]]
     allowed_names <- c(
       "id", "snapshot_sha256", "version",
@@ -473,11 +482,17 @@
     data, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE)
   padded_attestation <- attr(
     data, .PSI_PADDED_ATTESTATION_ATTRIBUTE, exact = TRUE)
+  validate_padded <- if (is.list(padded_attestation) &&
+      identical(padded_attestation$public$attestation_version, 3L)) {
+    .dsvert_dp_legacy_padded_attestation_v4
+  } else {
+    .psi_padded_validate_persistent_attestation
+  }
   if (!is.null(padded_attestation)) {
     # Authenticate both frame attributes before copying them.  The generic
     # manifest alone remains available only for explicit legacy descriptors;
     # automatic padded-PSI bindings require the v2 persistent attestation.
-    .psi_padded_validate_persistent_attestation(data)
+    validate_padded(data)
   }
   columns <- .dsvert_dp_snapshot_columns(data)
   result <- structure(
@@ -491,7 +506,7 @@
     # Revalidate against the frozen identifier order.  This prevents a custom
     # data-frame implementation from presenting one object during validation
     # and another during the protected snapshot copy.
-    .psi_padded_validate_persistent_attestation(result)
+    validate_padded(result)
   }
   result
 }
@@ -570,6 +585,26 @@
 
 .dsvert_dp_resolve_snapshot <- function(policy, data_name, envir, secret) {
   .validate_data_name(data_name)
+
+  if (.dsvert_dp_synopsis_provenance_enabled_v2(policy)) {
+    # The authenticated authorization owns the original frame and descriptor.
+    # Never inspect today's binding to decide whether this publication exists:
+    # an imported intersection can change in only one neighbouring world.
+    local <- policy$authorization_local[[data_name]]
+    if (is.null(local)) .dsvert_dp_provenance_migration()
+    public <- .dsvert_dp_dataset_authorization_public(
+      policy$datasets[[data_name]], policy$patient_column)
+    record <- .dsvert_dp_provenance_lookup(
+      public, epoch = local$authorization_epoch)
+    if (is.null(record)) .dsvert_dp_provenance_failure()
+    if (!identical(.dsvert_dp_canonical_query_value(record$descriptor),
+                   .dsvert_dp_canonical_query_value(policy$datasets[[data_name]]))) {
+      .dsvert_dp_provenance_failure()
+    }
+    data <- .dsvert_dp_freeze_snapshot_frame(record$data)
+    return(list(data = data, dataset = .dsvert_dp_dataset_binding(
+      policy, data_name, data, secret), memoized_snapshot = TRUE))
+  }
 
   # Test-only policies deliberately omit the production snapshot contract.
   # Keep their historical direct resolution so unit fixtures are not frozen.

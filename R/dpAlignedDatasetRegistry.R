@@ -3,13 +3,13 @@
 # entry: the aligned symbol must already have an exact custodian-owned
 # dsvert.dp.datasets template and a live authenticated padded-PSI attestation.
 
-.DSVERT_DP_PADDED_ALIGNMENT_BINDING_VERSION <- 4L
+.DSVERT_DP_PADDED_ALIGNMENT_BINDING_VERSION <- 5L
 .DSVERT_DP_PADDED_ALIGNMENT_BINDING_PROTOCOL <-
-  "dsvert-padded-psi-dp-alignment-binding-v2"
+  "dsvert-padded-psi-dp-alignment-binding-v3"
 .DSVERT_DP_ALIGNED_REGISTRY_PROTOCOL <-
-  "dsvert-private-aligned-dataset-registry-v2"
+  "dsvert-private-aligned-dataset-registry-v3"
 .DSVERT_DP_ALIGNED_REGISTRY_HMAC_DOMAIN <-
-  "dsVert/private-aligned-dataset-registry/hmac-sha256/v2|"
+  "dsVert/private-aligned-dataset-registry/hmac-sha256/v3|"
 .DSVERT_DP_ALIGNED_REGISTRY_MAX_BYTES <- 256L * 1024L
 
 .dsvert_dp_padded_alignment_binding <- function(
@@ -25,6 +25,8 @@
     dataset_version = attestation$dataset_version,
     id_column = attestation$id_column,
     source_binding_id = attestation$source_binding_id,
+    derivation_policy_id = attestation$derivation_policy_id,
+    authorization_epochs = attestation$authorization_epochs,
     pinset_id = attestation$pinset_id,
     peer_count = as.integer(attestation$peer_count),
     reference_peer = attestation$reference_peer,
@@ -66,14 +68,138 @@
       hash = stable_hash, id_col = alignment$id_col))
 }
 
+# The 1.4.0 private descriptor gate remains available to legacy capsules,
+# formal analyses, and explicit custodian import migration. This frozen gate
+# deliberately cannot authenticate a new Count/Frequency epoch attestation or
+# automatically register a source: only the old descriptor's full digest can
+# authorize its use, and migration subsequently captures the whole frame.
+.dsvert_dp_legacy_padded_attestation_v4 <- function(data) {
+  .psi_validate_alignment_manifest(data)
+  manifest <- attr(data, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE)
+  record <- attr(data, .PSI_PADDED_ATTESTATION_ATTRIBUTE, exact = TRUE)
+  required <- c("public", "binding")
+  if (!is.list(record) || !identical(names(record), required) ||
+      !is.list(record$public) || !is.character(record$binding) ||
+      length(record$binding) != 1L || is.na(record$binding)) {
+    stop("Padded PSI alignment attestation is unavailable.", call. = FALSE)
+  }
+  public <- record$public
+  public_required <- c(
+    "attestation_version", "alignment_attested", "alignment_protocol",
+    "attestation_id", "contract_hash", "policy_id", "alignment_purpose",
+    "dataset_id", "dataset_version", "id_column", "source_binding_id",
+    "pinset_id",
+    "capacity_bucket", "relay_frame_bytes", "inline_max_bytes",
+    "peer_count", "reference_peer", "compute_peers")
+  fail <- function() {
+    stop("Padded PSI alignment attestation is unavailable.", call. = FALSE)
+  }
+  if (!identical(names(public), public_required) ||
+      !identical(public$attestation_version, 3L) ||
+      !identical(public$alignment_attested, TRUE) ||
+      !identical(public$alignment_protocol, "dsvert-pinned-padded-psi-v5") ||
+      !is.character(public$compute_peers) ||
+      length(public$compute_peers) != 2L || anyNA(public$compute_peers) ||
+      anyDuplicated(public$compute_peers)) fail()
+  tryCatch({
+    .psi_padded_scalar(public$attestation_id, "attestation id",
+                       "^attest_[0-9a-f]{64}$")
+    .psi_padded_scalar(public$contract_hash, "contract hash",
+                       "^[0-9a-f]{64}$")
+    .psi_padded_scalar(public$policy_id, "policy id",
+                       "^policy_[0-9a-f]{64}$")
+    .psi_padded_validate_source_public(public[c(
+      "alignment_purpose", "dataset_id", "dataset_version", "id_column",
+      "source_binding_id")])
+    .psi_padded_scalar(public$pinset_id, "pinset id",
+                       "^pinset_[0-9a-f]{64}$")
+    .psi_padded_validate_capacity(public$capacity_bucket)
+    .psi_padded_integer(public$relay_frame_bytes, "relay frame size",
+                        16L * 1024L, 64L * 1024L^2)
+    .psi_padded_integer(public$inline_max_bytes, "inline byte limit",
+                        16L * 1024L, 64L * 1024L^2)
+    .psi_padded_integer(public$peer_count, "peer count", 2L, 1000000L)
+    .psi_padded_scalar(public$reference_peer, "reference peer",
+                       "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+    invisible(lapply(public$compute_peers, .psi_padded_scalar,
+                     what = "compute peer",
+                     pattern = "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$"))
+  }, error = function(e) fail())
+  if (!public$reference_peer %in% public$compute_peers ||
+      public$peer_count < length(public$compute_peers) ||
+      !identical(
+        record$binding,
+        digest::hmac(manifest$token, paste0(
+          "dsvert-pinned-padded-psi-attestation-v3|",
+          .psi_padded_canonical_json(public)),
+          algo="sha256", serialize=FALSE))) fail()
+  public
+}
+
+.dsvert_dp_legacy_padded_alignment_binding_v4 <- function(
+    data, snapshot_sha256 = NULL) {
+  alignment <- .psi_validate_alignment_manifest(data)
+  attestation <- .dsvert_dp_legacy_padded_attestation_v4(data)
+  local_id_column <- alignment$id_col
+  semantic <- list(
+    version = "dsvert-padded-psi-dp-alignment-binding-v2",
+    alignment_protocol = attestation$alignment_protocol,
+    alignment_purpose = attestation$alignment_purpose,
+    dataset_id = attestation$dataset_id,
+    dataset_version = attestation$dataset_version,
+    id_column = attestation$id_column,
+    source_binding_id = attestation$source_binding_id,
+    pinset_id = attestation$pinset_id,
+    peer_count = as.integer(attestation$peer_count),
+    reference_peer = attestation$reference_peer,
+    compute_peers = as.list(unname(attestation$compute_peers)))
+  if (is.null(snapshot_sha256)) {
+    snapshot_sha256 <- .dsvert_dp_snapshot_digest(data)
+  } else if (!is.character(snapshot_sha256) ||
+             length(snapshot_sha256) != 1L || is.na(snapshot_sha256) ||
+             !grepl("^[0-9a-f]{64}$", snapshot_sha256)) {
+    stop("The precomputed protected snapshot digest is invalid",
+         call. = FALSE)
+  }
+  stable_hash <- digest::digest(
+    .psi_padded_canonical_json(list(
+      protocol = "dsvert-padded-psi-dp-alignment-binding-v2",
+      semantic = semantic)),
+    algo = "sha256", serialize = FALSE)
+  private_binding <- digest::digest(
+    .psi_padded_canonical_json(list(
+      protocol = "dsvert-private-aligned-dataset-registry-v2",
+      snapshot_sha256 = snapshot_sha256,
+      local_id_column = local_id_column,
+      alignment_sha256 = stable_hash,
+      semantic = semantic)),
+    algo = "sha256", serialize = FALSE)
+  list(
+    descriptor = list(
+      id = attestation$dataset_id,
+      version = attestation$dataset_version,
+      snapshot_sha256 = snapshot_sha256,
+      alignment_manifest_hash = stable_hash,
+      alignment_manifest_version =
+        4L),
+    semantic = semantic,
+    registry_binding_sha256 = private_binding,
+    local_id_column = local_id_column,
+    alignment = list(
+      version = 4L,
+      hash = stable_hash, id_col = alignment$id_col))
+}
+
 .dsvert_dp_validate_descriptor_alignment <- function(
     data, descriptor, patient_column = NULL, expected_pinset = NULL,
     snapshot_sha256 = NULL) {
   version <- descriptor$alignment_manifest_version
-  if (identical(
-      as.integer(version), .DSVERT_DP_PADDED_ALIGNMENT_BINDING_VERSION)) {
-    binding <- .dsvert_dp_padded_alignment_binding(
-      data, snapshot_sha256 = snapshot_sha256)
+  legacy <- identical(as.integer(version), 4L)
+  if (legacy || identical(as.integer(version),
+                          .DSVERT_DP_PADDED_ALIGNMENT_BINDING_VERSION)) {
+    binding <- if (legacy) .dsvert_dp_legacy_padded_alignment_binding_v4(
+      data, snapshot_sha256 = snapshot_sha256) else
+      .dsvert_dp_padded_alignment_binding(data, snapshot_sha256 = snapshot_sha256)
     if (!identical(binding$descriptor$id, descriptor$id) ||
         !identical(binding$descriptor$version, descriptor$version) ||
         !identical(binding$descriptor$snapshot_sha256,
@@ -93,7 +219,12 @@
           as.integer(binding$semantic$peer_count), length(expected_pinset)) &&
         binding$semantic$reference_peer %in% names(expected_pinset) &&
         all(compute_peers %in% names(expected_pinset)) &&
-        binding$semantic$reference_peer %in% compute_peers
+        binding$semantic$reference_peer %in% compute_peers &&
+        (legacy || isTRUE(tryCatch({
+          .psi_padded_validate_authorization_epochs(
+            binding$semantic$authorization_epochs, unname(expected_pinset))
+          TRUE
+        }, error = function(error) FALSE)))
       if (!isTRUE(pinset_valid)) {
         stop("The protected object's padded PSI binding uses a different pinned peer set",
              call. = FALSE)
@@ -197,7 +328,7 @@
   file.path(path, paste0("dataset_", key, ".json"))
 }
 
-.dsvert_dp_alignment_registry_hmac <- function(payload_json) {
+.dsvert_dp_alignment_registry_hmac <- function(payload_json, legacy = FALSE) {
   if (!is.character(payload_json) || length(payload_json) != 1L ||
       is.na(payload_json) || !nzchar(payload_json)) {
     stop("Invalid private aligned-dataset registry payload", call. = FALSE)
@@ -214,7 +345,8 @@
   digest::hmac(
     key = seed,
     object = charToRaw(paste0(
-      .DSVERT_DP_ALIGNED_REGISTRY_HMAC_DOMAIN, payload_json)),
+      if (legacy) "dsVert/private-aligned-dataset-registry/hmac-sha256/v2|" else
+        .DSVERT_DP_ALIGNED_REGISTRY_HMAC_DOMAIN, payload_json)),
     algo = "sha256", serialize = FALSE, raw = FALSE)
 }
 
@@ -232,13 +364,20 @@
 }
 
 .dsvert_dp_alignment_registry_payload_validate <- function(value) {
+  legacy <- is.list(value) && identical(value$protocol,
+    "dsvert-private-aligned-dataset-registry-v2")
+  registry_protocol <- if (legacy) "dsvert-private-aligned-dataset-registry-v2" else
+    .DSVERT_DP_ALIGNED_REGISTRY_PROTOCOL
+  binding_protocol <- if (legacy) "dsvert-padded-psi-dp-alignment-binding-v2" else
+    .DSVERT_DP_PADDED_ALIGNMENT_BINDING_PROTOCOL
+  binding_version <- if (legacy) 4L else .DSVERT_DP_PADDED_ALIGNMENT_BINDING_VERSION
   fields <- c(
     "protocol", "data_name", "local_id_column", "descriptor", "semantic",
     "binding_sha256")
   fail <- function() stop(
     "The private aligned-dataset registry record is invalid", call. = FALSE)
   if (!is.list(value) || !identical(names(value), fields) ||
-      !identical(value$protocol, .DSVERT_DP_ALIGNED_REGISTRY_PROTOCOL) ||
+      !identical(value$protocol, registry_protocol) ||
       !is.character(value$data_name) || length(value$data_name) != 1L ||
       is.na(value$data_name) ||
       !grepl("^[A-Za-z.][A-Za-z0-9._]{0,127}$", value$data_name) ||
@@ -256,7 +395,7 @@
     "alignment_manifest_version")
   if (!identical(names(value$descriptor), descriptor_fields) ||
       !identical(as.integer(value$descriptor$alignment_manifest_version),
-                 .DSVERT_DP_PADDED_ALIGNMENT_BINDING_VERSION) ||
+                 binding_version) ||
       !all(vapply(value$descriptor[c(
         "snapshot_sha256", "alignment_manifest_hash")], function(item) {
           is.character(item) && length(item) == 1L && !is.na(item) &&
@@ -264,13 +403,15 @@
         }, logical(1L)))) fail()
   semantic_fields <- c(
     "version", "alignment_protocol", "alignment_purpose", "dataset_id",
-    "dataset_version", "id_column", "source_binding_id", "pinset_id",
+    "dataset_version", "id_column", "source_binding_id",
+    if (!legacy) c("derivation_policy_id", "authorization_epochs"), "pinset_id",
     "peer_count", "reference_peer", "compute_peers")
   if (!identical(names(value$semantic), semantic_fields) ||
       !identical(value$semantic$version,
-                 .DSVERT_DP_PADDED_ALIGNMENT_BINDING_PROTOCOL) ||
+                 binding_protocol) ||
       !identical(value$semantic$alignment_protocol,
-                 .DSVERT_PSI_PADDED_PROTOCOL) ||
+                 if (legacy) "dsvert-pinned-padded-psi-v5" else
+                   .DSVERT_PSI_PADDED_PROTOCOL) ||
       !identical(value$descriptor$id, value$semantic$dataset_id) ||
       !identical(value$descriptor$version, value$semantic$dataset_version) ||
       !is.list(value$semantic$compute_peers) ||
@@ -280,6 +421,13 @@
     "source_binding_id")]
   tryCatch({
     .psi_padded_validate_source_public(source)
+    if (!legacy) {
+      .psi_padded_scalar(value$semantic$derivation_policy_id, "derivation policy id",
+                         "^[0-9a-f]{64}$")
+      .psi_padded_validate_authorization_epochs(value$semantic$authorization_epochs)
+      if (length(value$semantic$authorization_epochs) !=
+          value$semantic$peer_count) fail()
+    }
     .psi_padded_scalar(value$semantic$pinset_id, "pinset id",
                        "^pinset_[0-9a-f]{64}$")
     .psi_padded_integer(value$semantic$peer_count, "peer count", 2L, 1000000L)
@@ -293,12 +441,12 @@
   }, error = function(error) fail())
   expected <- digest::digest(
     .psi_padded_canonical_json(list(
-      protocol = .DSVERT_DP_PADDED_ALIGNMENT_BINDING_PROTOCOL,
+      protocol = binding_protocol,
       semantic = value$semantic)),
     algo = "sha256", serialize = FALSE)
   private_binding <- digest::digest(
     .psi_padded_canonical_json(list(
-      protocol = .DSVERT_DP_ALIGNED_REGISTRY_PROTOCOL,
+      protocol = registry_protocol,
       snapshot_sha256 = value$descriptor$snapshot_sha256,
       local_id_column = value$local_id_column,
       alignment_sha256 = expected,
@@ -307,7 +455,7 @@
   if (!identical(private_binding, value$binding_sha256) ||
       !identical(expected, value$descriptor$alignment_manifest_hash)) fail()
   value$descriptor$alignment_manifest_version <-
-    .DSVERT_DP_PADDED_ALIGNMENT_BINDING_VERSION
+    binding_version
   value$semantic$peer_count <- as.integer(value$semantic$peer_count)
   value
 }
@@ -343,19 +491,22 @@
     error = function(error) NULL)
   if (!is.list(envelope) || !identical(
       names(envelope), c("protocol", "payload_json", "hmac_sha256")) ||
-      !identical(envelope$protocol, .DSVERT_DP_ALIGNED_REGISTRY_PROTOCOL) ||
+      !(identical(envelope$protocol, .DSVERT_DP_ALIGNED_REGISTRY_PROTOCOL) ||
+        identical(envelope$protocol, "dsvert-private-aligned-dataset-registry-v2")) ||
       !is.character(envelope$payload_json) ||
       length(envelope$payload_json) != 1L || is.na(envelope$payload_json) ||
       !.dsvert_dp_alignment_registry_same_hex(
         envelope$hmac_sha256,
-        .dsvert_dp_alignment_registry_hmac(envelope$payload_json))) {
+        .dsvert_dp_alignment_registry_hmac(envelope$payload_json,
+          legacy = identical(envelope$protocol,
+            "dsvert-private-aligned-dataset-registry-v2")))) {
     stop("The private aligned-dataset registry authentication failed",
          call. = FALSE)
   }
   payload <- tryCatch(
     jsonlite::fromJSON(envelope$payload_json, simplifyVector = FALSE),
     error = function(error) NULL)
-  if (is.null(payload) || !identical(
+  if (is.null(payload) || !identical(payload$protocol,envelope$protocol) || !identical(
       .psi_padded_canonical_json(payload), envelope$payload_json)) {
     stop("The private aligned-dataset registry payload is not canonical",
          call. = FALSE)
@@ -442,12 +593,15 @@
         })
     }
     if (!is.null(existing)) {
-      if (!identical(existing, payload)) {
-        stop("The same custodian dataset id/version already has a different authenticated aligned snapshot",
-             call. = FALSE)
+      if (identical(existing$semantic, payload$semantic)) {
+        if (!identical(existing, payload)) {
+          stop("The same authorized padded PSI derivation already has a different authenticated aligned snapshot",
+               call. = FALSE)
+        }
+        return(invisible(path))
       }
-      invisible(path)
-    } else {
+    }
+    {
       payload_json <- .psi_padded_canonical_json(payload)
       envelope <- .psi_padded_canonical_json(list(
         protocol = .DSVERT_DP_ALIGNED_REGISTRY_PROTOCOL,

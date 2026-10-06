@@ -11,7 +11,7 @@
 \alias{dsvertDPFrequencyCleanupDS}
 \title{Execute one stateless sticky Frequency lifecycle}
 \usage{
-dsvertDPFrequencyClaimDS(data_name, variable_name)
+dsvertDPFrequencyClaimDS(data_name, variable_name, privacy_protocol = NULL)
 
 dsvertDPFrequencyCompileDS(data_name, source_claim_json)
 
@@ -43,6 +43,7 @@ dsvertDPFrequencyReplayDS(session_id, operation_id, window_index)
 dsvertDPFrequencyCleanupDS(session_id)
 }
 \arguments{
+\item{privacy_protocol}{Internal client capability identifier. dsVertClient 1.4.1 supplies the exact provenance protocol before private materialization.}
 \item{data_name}{Name of an already padded-PSI aligned data frame.}
 
 \item{variable_name}{Public factor-registry variable name.}

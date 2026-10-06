@@ -1,3 +1,10 @@
+> 1.4.1 authorization contract: Count, Frequency and Synopsis bind complete
+> provenance epochs and retain frozen source publications. Legacy aligned
+> imports need the one-time `dsvertAuthorizeSource()` migration. See
+> [PROVENANCE_EPOCHS.md](PROVENANCE_EPOCHS.md) for exact commands, state recovery,
+> stable versus operational receipts, and the conditional guarantee. Mechanism
+> calibration and selection rules in this document are unchanged.
+
 # Layer 3 — DP selection
 
 PASS. The complete n2000/p6 (3/3 owners), delta=2^-100 matrix contains

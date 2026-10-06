@@ -91,7 +91,7 @@ test_that("the peer-relay security matrix covers the complete active surface", {
     "dsvertFormalGLMRegisteredJobControlDS",
     "dsvertFormalCoxFreshSourceDS", "dsvertFormalCoxWorkerControlDS"))
   local_only <- c(
-    "dsvertSecurityProfileDS", "dsvertTransportProbeDS",
+    "dsvertProvenanceCapabilitiesDS",    "dsvertSecurityProfileDS", "dsvertTransportProbeDS",
     "dsvertIdentityPkDS", "dsvertNumericPolicyDS", "dsvertColNamesDS",
     "dsvertDPCountCompileDS",
     "dsvertDPCountAuthorizeDS", "dsvertDPCountStartDS",

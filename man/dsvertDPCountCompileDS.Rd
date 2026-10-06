@@ -4,9 +4,10 @@
 \alias{dsvertDPCountCompileDS}
 \title{Compile a local signed Count analysis receipt}
 \usage{
-dsvertDPCountCompileDS(data_name)
+dsvertDPCountCompileDS(data_name, privacy_protocol = NULL)
 }
 \arguments{
+\item{privacy_protocol}{Internal client capability identifier. dsVertClient 1.4.1 supplies the exact provenance protocol before private materialization.}
 \item{data_name}{Name of an already padded-PSI aligned data frame in the
 server evaluation environment.}
 }

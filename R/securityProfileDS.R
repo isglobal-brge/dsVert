@@ -82,6 +82,7 @@
   "dsvertTransportProbeDS",
   "dsvertIdentityPkDS",
   "dsvertNumericPolicyDS",
+  "dsvertProvenanceCapabilitiesDS",
   "dsvertColNamesDS",
   "dsvertDPCountCompileDS",
   "dsvertDPCountAuthorizeDS",

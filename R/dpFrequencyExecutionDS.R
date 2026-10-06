@@ -427,11 +427,10 @@
         valid <- !is.na(codes) & is.finite(codes) & codes == trunc(codes) & codes >= 1 & codes <= length(level_coordinate)
         coordinates[valid] <- level_coordinate[codes[valid]]
     }
-    labels <- rep(NA_character_, length(coordinates))
-    labels[coordinates > 0L] <- levels[coordinates[coordinates > 0L]]
-    normalized <- data
-    normalized[[index]] <- factor(labels, levels = levels)
-    snapshot <- .dsvert_dp_frequency_snapshot_v1(normalized, config, authorization$local_authority$peer_name, claim, .registry_verifier = .verifier)
+    # Admission seals the original authorized frame. Histogram coordinates
+    # already totalize missing/out-of-domain values; a normalized reconstruction
+    # would fail the complete-value seal for a valid original factor.
+    snapshot <- .dsvert_dp_frequency_snapshot_v1(data, config, authorization$local_authority$peer_name, claim, .registry_verifier = .verifier)
     expected <- authorization$contract$semantic$owner_snapshots[[authorization$local_authority$identity_pk]]
     if (!is.list(snapshot) || !identical(snapshot$psi_run_sha256, authorization$psi_run_sha256) || !is.list(expected) ||
         !identical(snapshot$snapshot_commitment, expected$snapshot_commitment))

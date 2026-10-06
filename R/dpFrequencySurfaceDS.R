@@ -146,6 +146,7 @@
 #'   \code{dsvert.dp.frequency.*} server options. They are never accepted from
 #'   the analyst call.
 #'
+#' @param privacy_protocol Internal dsVertClient 1.4.1 provenance capability.
 #' @param data_name Name of an already padded-PSI aligned data frame.
 #' @param variable_name Public factor-registry variable name.
 #' @param source_claim_json Signed source Claim.
@@ -162,7 +163,9 @@ NULL
 
 #' @rdname dsvertDPFrequencyLifecycleDS
 #' @export
-dsvertDPFrequencyClaimDS <- function(data_name, variable_name) {
+dsvertDPFrequencyClaimDS <- function(data_name, variable_name,
+                                    privacy_protocol = NULL) {
+  .dsvert_dp_provenance_require_protocol(privacy_protocol)
   data_name <- .psi_padded_data_name(data_name)
   context <- .dsvert_dp_frequency_surface_context_v1()
   if (!identical(context$peer_name,

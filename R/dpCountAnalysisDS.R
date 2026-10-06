@@ -6,8 +6,8 @@
 # PSI run evidence authorizes receipts but is not part of the semantic artifact.
 
 .DSVERT_DP_COUNT_CONFIG_VERSION <- "dsvert-dp-count-config-v1"
-.DSVERT_DP_COUNT_RECEIPT_VERSION <- "dsvert-dp-count-receipt-v1"
-.DSVERT_DP_COUNT_RECEIPT_DOMAIN <- "dsVert/dp-count/receipt/v1|"
+.DSVERT_DP_COUNT_RECEIPT_VERSION <- "dsvert-dp-count-receipt-v2"
+.DSVERT_DP_COUNT_RECEIPT_DOMAIN <- "dsVert/dp-count/receipt/v2|"
 .DSVERT_DP_COUNT_CONFIG_DOMAIN <- "dsVert/dp-count/config/v1|"
 .DSVERT_DP_COUNT_RUNTIME_PROTOCOL_DOMAIN <-
   "dsVert/dp-count/runtime-protocol/v1|"
@@ -556,7 +556,7 @@
 }
 
 .dsvert_dp_count_membership_commitment_v1 <- function(
-    data, config, peer_name, local_id_column) {
+    data, config, peer_name, local_id_column, attestation) {
   identifiers <- .dsvert_canonical_label_values(
     .subset2(data, local_id_column),
     "Count privacy-unit identifiers",
@@ -566,30 +566,8 @@
     stop("Count requires one aligned record per privacy unit.",
          call. = FALSE)
   }
-  membership <- list(
-    version = "dsvert-dp-count-membership-v1",
-    members = as.list(sort(identifiers, method = "radix")))
-  snapshot_sha256 <- digest::digest(
-    charToRaw(paste0(
-      .DSVERT_DP_COUNT_MEMBERSHIP_DOMAIN,
-      .dsvert_dp_canonical_json(
-        .dsvert_dp_canonical_query_value(membership)))),
-    algo = "sha256", serialize = FALSE)
-  alignment_sha256 <- .dsvert_dp_count_hash_v1(
-    .DSVERT_DP_COUNT_ALIGNMENT_DOMAIN,
-    list(
-      version = .DSVERT_DP_COUNT_ALIGNMENT_VERSION,
-      alignment_purpose = config$alignment_purpose,
-      membership_sha256 = snapshot_sha256))
-  .dsvert_dp_analysis_snapshot_commitment_v1(list(
-    domain = config$domain,
-    cohort_id = config$cohort_id,
-    owner_identity_pk = unname(config$peer_pins[[peer_name]]),
-    dataset_id = config$dataset_id,
-    dataset_version = config$dataset_version,
-    snapshot_sha256 = snapshot_sha256,
-    alignment_version = .DSVERT_DP_COUNT_ALIGNMENT_VERSION,
-    alignment_sha256 = alignment_sha256))
+  .dsvert_dp_provenance_commitment(attestation, config, peer_name,
+    list(family = "count", statistic = "aligned_privacy_unit_count"))
 }
 
 .dsvert_dp_count_local_draft_v1 <- function(
@@ -628,11 +606,12 @@
     "attestation_version", "alignment_attested", "alignment_protocol",
     "attestation_id", "contract_hash", "policy_id", "alignment_purpose",
     "dataset_id", "dataset_version", "id_column", "source_binding_id",
+    "derivation_policy_id", "authorization_epochs",
     "pinset_id", "capacity_bucket", "relay_frame_bytes",
     "inline_max_bytes", "peer_count", "reference_peer", "compute_peers")
   if (!is.list(attestation) || !identical(names(attestation),
                                           attestation_fields) ||
-      !identical(attestation$attestation_version, 3L) ||
+      !identical(attestation$attestation_version, 4L) ||
       !identical(attestation$alignment_attested, TRUE) ||
       !identical(attestation$alignment_protocol,
                  .DSVERT_PSI_PADDED_PROTOCOL) ||
@@ -659,7 +638,7 @@
          call. = FALSE)
   }
   snapshot <- .dsvert_dp_count_membership_commitment_v1(
-    data, config, peer_name, alignment$id_col)
+    data, config, peer_name, alignment$id_col, attestation)
   psi_run <- .dsvert_dp_count_hash_v1(
     .DSVERT_DP_COUNT_PSI_RUN_DOMAIN,
     list(alignment = alignment, attestation = attestation))
@@ -676,6 +655,8 @@
     peer_identity_pk = unname(config$peer_pins[[peer_name]]),
     config_sha256 = .dsvert_dp_count_config_hash_v1(config),
     psi_run_sha256 = psi_run,
+    derivation_policy_id = attestation$derivation_policy_id,
+    authorization_epochs = attestation$authorization_epochs,
     snapshot_commitment = snapshot,
     sampler_plan = certificate))
 }
@@ -684,7 +665,8 @@
     receipt, config = NULL) {
   fields <- c(
     "version", "peer_name", "peer_identity_pk", "config_sha256",
-    "psi_run_sha256", "snapshot_commitment", "sampler_plan")
+    "psi_run_sha256", "snapshot_commitment", "sampler_plan",
+    "derivation_policy_id", "authorization_epochs")
   if (!is.list(receipt) || is.null(names(receipt)) || anyNA(names(receipt)) ||
       anyDuplicated(names(receipt)) || !setequal(names(receipt), fields) ||
       !identical(receipt$version, .DSVERT_DP_COUNT_RECEIPT_VERSION)) {
@@ -695,6 +677,11 @@
     .dsvert_relay_normalize_identity_pk(receipt$peer_identity_pk),
     error = function(error) stop("Invalid Count receipt identity.",
                                  call. = FALSE))
+  receipt$authorization_epochs <- .psi_padded_validate_authorization_epochs(
+    receipt$authorization_epochs,
+    if (is.null(config)) NULL else unname(config$peer_pins))
+  .dsvert_dp_count_hash_scalar_v1(receipt$derivation_policy_id,
+                                  "derivation policy")
   for (field in c(
       "config_sha256", "psi_run_sha256", "snapshot_commitment")) {
     receipt[[field]] <- .dsvert_dp_count_hash_scalar_v1(
@@ -883,12 +870,14 @@
 #' the server signs the exact public cohort declaration only after validating
 #' the current aligned cohort against it.
 #'
+#' @param privacy_protocol Internal dsVertClient 1.4.1 provenance capability.
 #' @param data_name Name of an already padded-PSI aligned data frame in the
 #'   server evaluation environment.
 #' @return A closed compile envelope containing either an add/remove analysis
 #'   payload or a signed fixed-cohort public declaration.
 #' @export
-dsvertDPCountCompileDS <- function(data_name) {
+dsvertDPCountCompileDS <- function(data_name, privacy_protocol = NULL) {
+  .dsvert_dp_provenance_require_protocol(privacy_protocol)
   data_name <- .psi_padded_data_name(data_name)
   adjacency <- .dsvert_dp_count_adjacency_v1()
   fixed_cohort_size <- NULL
@@ -940,7 +929,8 @@ dsvertDPCountCompileDS <- function(data_name) {
     receipt, config, .verifier = .dsvert_relay_verify_message) {
   fields <- c(
     "version", "peer_name", "peer_identity_pk", "config_sha256",
-    "psi_run_sha256", "snapshot_commitment", "sampler_plan", "signature")
+    "psi_run_sha256", "snapshot_commitment", "sampler_plan", "signature",
+    "derivation_policy_id", "authorization_epochs")
   if (!is.list(receipt) || is.null(names(receipt)) || anyNA(names(receipt)) ||
       anyDuplicated(names(receipt)) || !setequal(names(receipt), fields)) {
     stop("Invalid signed Count receipt fields.", call. = FALSE)
@@ -958,6 +948,12 @@ dsvertDPCountCompileDS <- function(data_name) {
       !identical(unsigned$peer_identity_pk,
                  unname(config$peer_pins[[unsigned$peer_name]]))) {
     stop("The Count receipt identity is not pinned.", call. = FALSE)
+  }
+  expected_snapshot <- .dsvert_dp_provenance_commitment(
+    unsigned, config, unsigned$peer_name,
+    list(family = "count", statistic = "aligned_privacy_unit_count"))
+  if (!identical(unsigned$snapshot_commitment, expected_snapshot)) {
+    stop("Count receipt has an invalid provenance commitment.", call. = FALSE)
   }
   if (!is.function(.verifier)) {
     stop("Invalid Count receipt verifier.", call. = FALSE)
@@ -991,6 +987,7 @@ dsvertDPCountCompileDS <- function(data_name) {
   }
   names(verified) <- peers
   verified <- verified[names(config$peer_pins)]
+  .dsvert_dp_provenance_agree(verified)
   if (length(unique(vapply(
       verified, `[[`, character(1L), "config_sha256"))) != 1L) {
     stop("Count receipts disagree on their configuration.", call. = FALSE)

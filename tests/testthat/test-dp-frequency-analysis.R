@@ -1,3 +1,18 @@
+# Each test models a separately provisioned set of custodians.
+.frequency_test_state <- function(env = parent.frame()) {
+  path <- tempfile("frequency-provenance-"); dir.create(path, mode="0700")
+  withr::local_envvar(c(DSVERT_STATE_DIR=path), .local_envir=env)
+  withr::local_options(list(dsvert.dp.provenance_store_bytes=1024^4), .local_envir=env)
+}
+.frequency_test_as_peer <- function(pins, peer, code) {
+  index <- match(peer, names(pins))
+  pk <- unname(pins[[peer]])
+  testthat::with_mocked_bindings(force(code),
+    .get_identity_keypair=function() list(identity_pk=pk, identity_sk=pk),
+    .get_identity_seed=function() jsonlite::base64_enc(as.raw(rep(index+70L,32L))),
+    .package="dsVert")
+}
+
 .frequency_analysis_pk <- function(index) {
   .dsvert_relay_b64url_encode(as.raw(rep(as.integer(index), 32L)))
 }
@@ -40,6 +55,8 @@
     contract_hash = strrep("a", 64L),
     attestation_id = paste0("attest_", strrep("b", 64L)),
     policy_id = paste0("policy_", strrep("c", 64L))), source, list(
+    derivation_policy_id = strrep("d", 64L),
+    authorization_epochs = .psi_padded_test_epoch_vector(pins),
     pinset_id = .psi_padded_pinset_id(as.list(pins)),
     capacity = 64L,
     relay_frame_bytes = 65536L,
@@ -55,12 +72,14 @@
     private_value = c("secret-1", "secret-2", "secret-3"),
     stringsAsFactors = FALSE, check.names = FALSE)
   names(data)[[1L]] <- local_id_column
-  data <- .psi_padded_attach_attestation(
-    .psi_attach_alignment_manifest(data, local_id_column, token), contract)
-  data <- .psi_padded_attach_factor_registry_v1(
-    data, source_peer, source_identity,
-    .signer = .frequency_analysis_signer,
-    .public_domains = list(category = c("z", "\u00e1", "a")))
+  data <- .frequency_test_as_peer(pins, source_peer, {
+    data <- .psi_padded_attach_attestation(
+      .psi_attach_alignment_manifest(data, local_id_column, token), contract)
+    .psi_padded_attach_factor_registry_v1(
+      data, source_peer, source_identity,
+      .signer = .frequency_analysis_signer,
+      .public_domains = list(category = c("z", "\u00e1", "a")))
+  })
   list(
     data = data, pins = pins, source_peer = source_peer,
     source_identity = source_identity, contract = contract)
@@ -79,6 +98,7 @@
 }
 
 test_that("Frequency Claim exposes one pinned public factor entry only", {
+  .frequency_test_state()
   fixture <- .frequency_claim_fixture()
   claim <- .frequency_claim(fixture)
   validated <- .dsvert_dp_frequency_claim_validate_v1(
@@ -90,7 +110,8 @@ test_that("Frequency Claim exposes one pinned public factor entry only", {
     "attestation_id", "contract_hash", "source_binding_id", "alignment_hash",
     "alignment_purpose", "dataset_id", "dataset_version",
     "privacy_unit_column", "pinset_id", "capacity_bucket", "factor_entry",
-    "factor_entry_sha256", "signature"))
+    "factor_entry_sha256", "signature", "authorization_epochs",
+    "derivation_policy_id"))
   expect_identical(claim$source_peer_name, fixture$source_peer)
   expect_identical(
     claim$source_identity_pk,
@@ -120,6 +141,7 @@ test_that("Frequency Claim exposes one pinned public factor entry only", {
 })
 
 test_that("Frequency Claim is metadata-only, canonical and fail-closed", {
+  .frequency_test_state()
   fixture <- .frequency_claim_fixture()
   original <- .frequency_claim(fixture)
 
@@ -162,6 +184,7 @@ test_that("Frequency Claim is metadata-only, canonical and fail-closed", {
 })
 
 test_that("Frequency Claim keeps its closed core behind the exact public ABI", {
+  .frequency_test_state()
   expect_identical(names(formals(.dsvert_dp_frequency_claim_v1)), c(
     "data", "variable_name", "peer_name", "identity", "peer_pins",
     ".registry_verifier", ".signer"))
@@ -170,7 +193,7 @@ test_that("Frequency Claim keeps its closed core behind the exact public ABI", {
     inherits = FALSE))
   expect_identical(
     names(formals(dsvertDPFrequencyClaimDS)),
-    c("data_name", "variable_name"))
+    c("data_name", "variable_name", "privacy_protocol"))
   description <- read.dcf(.dsvert_test_package_file("DESCRIPTION"))
   registered <- trimws(strsplit(
     description[1L, "AggregateMethods"], ",", fixed = TRUE)[[1L]])
@@ -178,6 +201,7 @@ test_that("Frequency Claim keeps its closed core behind the exact public ABI", {
 })
 
 test_that("Frequency Claim rejects oversized crypto fields before decoding", {
+  .frequency_test_state()
   fixture <- .frequency_claim_fixture()
   claim <- .frequency_claim(fixture)
   standard_pk <- gsub("[\r\n]", "", jsonlite::base64_enc(
@@ -266,10 +290,11 @@ test_that("Frequency Claim rejects oversized crypto fields before decoding", {
       witness_private = paste0("private-", peer, "-", seq_along(source_ids)),
       stringsAsFactors = FALSE, check.names = FALSE)
     names(witness)[[1L]] <- unname(local_id_columns[[peer]])
-    .psi_padded_attach_attestation(
-      .psi_attach_alignment_manifest(
-        witness, unname(local_id_columns[[peer]]), token),
-      fixture$contract)
+    .frequency_test_as_peer(fixture$pins, peer,
+      .psi_padded_attach_attestation(
+        .psi_attach_alignment_manifest(
+          witness, unname(local_id_columns[[peer]]), token),
+        fixture$contract))
   }), peers)
   fixture$local_id_columns <- local_id_columns
   fixture$data_by_peer <- data
@@ -293,9 +318,10 @@ test_that("Frequency Claim rejects oversized crypto fields before decoding", {
   identity <- list(
     identity_pk = unname(fixture$pins[[peer_name]]),
     identity_sk = unname(fixture$pins[[peer_name]]))
-  data <- .psi_padded_attach_factor_registry_v1(
-    data, peer_name, identity, .signer = .frequency_analysis_signer,
-    .public_domains = list(category = c("z", "\u00e1", "a")))
+  data <- .frequency_test_as_peer(fixture$pins, fixture$source_peer,
+    .psi_padded_attach_factor_registry_v1(
+      data, peer_name, identity, .signer = .frequency_analysis_signer,
+      .public_domains = list(category = c("z", "\u00e1", "a"))))
   .dsvert_dp_frequency_claim_v1(
     data, "category", peer_name, identity, fixture$pins,
     .registry_verifier = .frequency_analysis_verifier,
@@ -313,13 +339,15 @@ test_that("Frequency Claim rejects oversized crypto fields before decoding", {
       exact = TRUE)$id_col
     value <- .psi_attach_alignment_manifest(
       fixture$data_by_peer[[peer]], local_id_column, token)
-    value <- .psi_padded_attach_attestation(value, contract)
+    value <- .frequency_test_as_peer(fixture$pins, peer,
+      .psi_padded_attach_attestation(value, contract))
     attr(value, .PSI_PADDED_FACTOR_REGISTRY_ATTRIBUTE) <- NULL
     if (!identical(peer, fixture$source_peer)) return(value)
-    .psi_padded_attach_factor_registry_v1(
-      value, peer, fixture$source_identity,
-      .signer = .frequency_analysis_signer,
-      .public_domains = list(category = c("z", "\u00e1", "a")))
+    .frequency_test_as_peer(fixture$pins, peer,
+      .psi_padded_attach_factor_registry_v1(
+        value, peer, fixture$source_identity,
+        .signer = .frequency_analysis_signer,
+        .public_domains = list(category = c("z", "\u00e1", "a"))))
   }), names(fixture$pins))
   fixture$contract <- contract
   fixture$data_by_peer <- data
@@ -377,6 +405,7 @@ test_that("Frequency Claim rejects oversized crypto fields before decoding", {
 }
 
 test_that("Frequency uses local id aliases under one semantic privacy unit", {
+  .frequency_test_state()
   local_ids <- c(
     site_1 = "patient_id", site_2 = "subject_id", site_3 = "person_key")
   fixture <- .frequency_compile_fixture(
@@ -398,6 +427,7 @@ test_that("Frequency uses local id aliases under one semantic privacy unit", {
 }
 
 test_that("Frequency local compiler gates and selects before source access", {
+  .frequency_test_state()
   fixture <- .frequency_compile_fixture()
   events <- new.env(parent = emptyenv())
   events$value <- character()
@@ -460,6 +490,7 @@ test_that("Frequency local compiler gates and selects before source access", {
 })
 
 test_that("Frequency server-held source owner rejects a valid alternate Claim", {
+  .frequency_test_state()
   fixture <- .frequency_compile_fixture()
   alternate_peer <- setdiff(names(fixture$pins), fixture$source_peer)[[1L]]
   alternate <- .frequency_alternate_claim(fixture, alternate_peer)
@@ -480,6 +511,7 @@ test_that("Frequency server-held source owner rejects a valid alternate Claim", 
 })
 
 test_that("Frequency config and receipt bound untrusted crypto and names", {
+  .frequency_test_state()
   fixture <- .frequency_compile_fixture()
   local <- .frequency_local_compile(fixture, fixture$source_peer)
   normalizer <- .dsvert_relay_normalize_identity_pk
@@ -510,6 +542,7 @@ test_that("Frequency config and receipt bound untrusted crypto and names", {
 })
 
 test_that("Frequency compiles identical K-wide consensus for K=2,3,5", {
+  .frequency_test_state()
   for (k in c(2L, 3L, 5L)) {
     fixture <- .frequency_compile_fixture(k)
     events <- stats::setNames(lapply(seq_len(k), function(index) {
@@ -567,6 +600,7 @@ test_that("Frequency compiles identical K-wide consensus for K=2,3,5", {
 })
 
 test_that("Frequency worker is invariant across canonical DSV1", {
+  .frequency_test_state()
   for (outcome in c("convolution", "gaussian")) {
     fixture <- .frequency_compile_fixture(3L)
     local <- lapply(names(fixture$pins), function(peer) {
@@ -600,6 +634,7 @@ test_that("Frequency worker is invariant across canonical DSV1", {
 })
 
 test_that("Frequency derives sensitivity from both approved adjacencies", {
+  .frequency_test_state()
   fixture <- .frequency_compile_fixture()
   fixture$settings$privacy$adjacency <- "replace_one_fixed_cohort"
   compile_profile <- function(outcome) {
@@ -621,23 +656,20 @@ test_that("Frequency derives sensitivity from both approved adjacencies", {
 })
 
 test_that("Frequency source snapshot binds labels by canonical level", {
+  .frequency_test_state()
   fixture <- .frequency_compile_fixture()
   source <- fixture$source_peer
   original <- .frequency_local_compile(fixture, source)
 
   changed <- fixture$data_by_peer[[source]]
   changed$category[[1L]] <- "a"
-  changed_receipt <- .frequency_local_compile(fixture, source, changed)$receipt
-  expect_false(identical(
-    changed_receipt$snapshot_commitment,
-    original$receipt$snapshot_commitment))
+  expect_error(.frequency_local_compile(fixture, source, changed),
+               "private integrity check")
 
   missing <- fixture$data_by_peer[[source]]
   missing$category[[1L]] <- NA_character_
-  missing_receipt <- .frequency_local_compile(fixture, source, missing)$receipt
-  expect_false(identical(
-    missing_receipt$snapshot_commitment,
-    original$receipt$snapshot_commitment))
+  expect_error(.frequency_local_compile(fixture, source, missing),
+               "private integrity check")
 
   all_missing <- fixture$data_by_peer[[source]]
   all_missing$category <- factor(
@@ -648,11 +680,9 @@ test_that("Frequency source snapshot binds labels by canonical level", {
     c(0L, 4L, NA_integer_),
     levels = attr(invalid_codes$category, "levels", exact = TRUE),
     class = "factor")
-  expect_identical(
-    .frequency_local_compile(
-      fixture, source, invalid_codes)$receipt$snapshot_commitment,
-    .frequency_local_compile(
-      fixture, source, all_missing)$receipt$snapshot_commitment)
+  expect_error(.frequency_local_compile(fixture, source, invalid_codes))
+  expect_error(.frequency_local_compile(fixture, source, all_missing),
+               "private integrity check")
 
   permuted <- fixture$data_by_peer[[source]]
   permuted$category <- factor(
@@ -674,19 +704,21 @@ test_that("Frequency source snapshot binds labels by canonical level", {
   }
   malicious <- fixture$data_by_peer[[source]]
   class(malicious$category) <- c("dsvert_malicious_factor", "factor")
-  expect_silent(.frequency_local_compile(fixture, source, malicious))
+  expect_error(.frequency_local_compile(fixture, source, malicious),
+               "snapshot|factor|column")
 
   dummy <- fixture$data_by_peer[[source]]
   levels(dummy$category) <- c(levels(dummy$category), "dummy")
   expect_error(.frequency_local_compile(fixture, source, dummy),
-               "factor registry")
+               "private integrity check")
   character_column <- fixture$data_by_peer[[source]]
   character_column$category <- as.character(character_column$category)
   expect_error(.frequency_local_compile(fixture, source, character_column),
-               "factor registry")
+               "private integrity check")
 })
 
 test_that("Frequency receipt consensus rejects partial and mixed evidence", {
+  .frequency_test_state()
   fixture <- .frequency_compile_fixture()
   compiled <- .frequency_compiled(fixture)
   compile <- function(receipts = compiled$receipts,
@@ -776,6 +808,7 @@ test_that("Frequency receipt consensus rejects partial and mixed evidence", {
 }
 
 test_that("Frequency PSI reruns do not reroll the sticky artifact", {
+  .frequency_test_state()
   original_fixture <- .frequency_compile_fixture()
   rerun_fixture <- .frequency_psi_rerun(original_fixture)
   original <- .frequency_compiled(original_fixture)
@@ -822,6 +855,7 @@ test_that("Frequency PSI reruns do not reroll the sticky artifact", {
 })
 
 test_that("Frequency authorization is two-role, sticky and atomic", {
+  .frequency_test_state()
   for (k in c(2L, 3L, 5L)) {
     fixture <- .frequency_compile_fixture(k)
     compiled <- .frequency_compiled(fixture)
@@ -885,6 +919,7 @@ test_that("Frequency authorization is two-role, sticky and atomic", {
 })
 
 test_that("Frequency public authorization is closed, signed and K-generic", {
+  .frequency_test_state()
   common_fields <- c(
     "session_id", "artifact_key", "config_sha256", "source_claim_sha256",
     "receipt_set_sha256", "psi_run_sha256", "contract_sha256",
@@ -938,6 +973,7 @@ test_that("Frequency public authorization is closed, signed and K-generic", {
 })
 
 test_that("Frequency public authorization rejects tampering and oversize", {
+  .frequency_test_state()
   fixture <- .frequency_compile_fixture()
   compiled <- .frequency_compiled(fixture)
   peer <- fixture$source_peer
@@ -1010,6 +1046,7 @@ test_that("Frequency public authorization rejects tampering and oversize", {
 })
 
 test_that("Frequency public authorization is idempotent and fail-closed", {
+  .frequency_test_state()
   fixture <- .frequency_compile_fixture()
   compiled <- .frequency_compiled(fixture)
   peer <- fixture$source_peer
@@ -1051,6 +1088,7 @@ test_that("Frequency public authorization is idempotent and fail-closed", {
 })
 
 test_that("Frequency authorization never partially overwrites state", {
+  .frequency_test_state()
   fixture <- .frequency_compile_fixture()
   compiled <- .frequency_compiled(fixture)
   peer <- fixture$source_peer
@@ -1079,6 +1117,7 @@ test_that("Frequency authorization never partially overwrites state", {
 })
 
 test_that("Frequency sticky authorization is invariant across sessions", {
+  .frequency_test_state()
   fixture <- .frequency_compile_fixture()
   compiled <- .frequency_compiled(fixture)
   first <- .frequency_authorize(fixture, compiled, fixture$source_peer)
@@ -1107,6 +1146,7 @@ test_that("Frequency sticky authorization is invariant across sessions", {
 })
 
 test_that("Frequency authorization preserves incompatible session state", {
+  .frequency_test_state()
   fixture <- .frequency_compile_fixture()
   compiled <- .frequency_compiled(fixture)
   foreign <- new.env(parent = emptyenv())

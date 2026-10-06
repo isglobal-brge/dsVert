@@ -19,11 +19,21 @@
 }
 
 .frequency_execution_snapshot <- function(data, config, peer_name, claim, ...) {
+  # Execution now submits the original sealed frame to admission. This phase
+  # fixture models the coordinate commitment that the real compiler computes;
+  # real complete-frame seals are covered by the provenance integration tests.
+  factor <- data[[config$factor_domain$variable_name]]
+  levels <- attr(factor, "levels", exact=TRUE)
+  codes <- unclass(factor); attributes(codes) <- NULL
+  valid <- !is.na(codes) & is.finite(codes) & codes == trunc(codes) &
+    codes >= 1 & codes <= length(levels)
+  labels <- rep(NA_character_, length(codes))
+  labels[valid] <- levels[codes[valid]]
+  labels[!labels %in% unlist(config$factor_domain$levels)] <- NA_character_
   list(
     psi_run_sha256 = claim$psi_run_sha256,
     snapshot_commitment = digest::digest(list(
-      ids = as.character(data[[config$privacy_unit_column]]),
-      labels = as.character(data[[config$factor_domain$variable_name]])),
+      ids = as.character(data[[config$privacy_unit_column]]), labels = labels),
       algo = "sha256", serialize = TRUE))
 }
 

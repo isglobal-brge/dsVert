@@ -1,3 +1,9 @@
+.psi_padded_test_isolate_state <- function(env = parent.frame()) {
+  root <- tempfile("psi-e2e-state-")
+  dir.create(root, mode = "0700")
+  withr::local_options(list(dsvert.state_dir = root), .local_envir = env)
+}
+
 .psi_padded_test_seed <- function(byte) {
   gsub("[\r\n]", "", jsonlite::base64_enc(as.raw(rep(byte, 32L))))
 }
@@ -233,11 +239,13 @@
     .psi_padded_filter_impl(
       states[[target]], data[[target]], final$envelopes[[target]]))
   attestations <- lapply(names(states), function(peer) {
-    .psi_padded_attestation_impl(states[[peer]], aligned[[peer]])
+    .psi_padded_test_with_identity(seeds[[peer]], NULL,
+      .psi_padded_attestation_impl(states[[peer]], aligned[[peer]]))
   })
   names(attestations) <- names(states)
   list(
     contract = contract, states = states, data = data, seeds = seeds,
+    authorization_root = .dsvert_state_root(),
     identities = identities, aligned = aligned, attestations = attestations,
     visible_lengths = c(
       reference = nchar(reference_export$envelope, type = "bytes"),
@@ -342,11 +350,13 @@
   }
   list(
     contract = contract, states = states, data = data, seeds = seeds,
+    authorization_root = .dsvert_state_root(),
     identities = identities, memberships = memberships,
     pair_lengths = pair_lengths, final = final, aligned = aligned)
 }
 
 test_that("padded PSI bind requires a server-authoritative local name", {
+  .psi_padded_test_isolate_state()
   peers <- c("alpha", "beta")
   seeds <- c(
     alpha = .psi_padded_test_seed(181L),
@@ -377,6 +387,7 @@ test_that("padded PSI bind requires a server-authoritative local name", {
 })
 
 test_that("padded PSI production bootstraps reject a different authorized purpose", {
+  .psi_padded_test_isolate_state()
   peers <- c("alpha", "beta")
   seeds <- c(
     alpha = .psi_padded_test_seed(211L),
@@ -414,6 +425,8 @@ test_that("padded PSI production bootstraps reject a different authorized purpos
 })
 
 test_that("fixed-capacity pinned PSI completes K=2 with exact canonical order", {
+  .psi_padded_test_isolate_state()
+  withr::local_options(list(dsvert.identity_seed = getOption("dsvert.identity_seed")))
   old <- options(
     dsvert.psi.pseudonym_mode = "none",
     dsvert.psi.require_keyed_pseudonyms = FALSE,
@@ -434,9 +447,10 @@ test_that("fixed-capacity pinned PSI completes K=2 with exact canonical order", 
                    result$aligned[[reference]]$id)
   expect_identical(result$attestations[[1L]], result$attestations[[2L]])
   registries <- lapply(names(result$aligned), function(peer) {
-    .psi_padded_validate_factor_registry_v1(
-      result$aligned[[peer]], expected_peer_name = peer,
-      expected_identity_pk = result$identities[[peer]]$identity_pk)
+    .psi_padded_test_with_identity(result$seeds[[peer]], NULL,
+      .psi_padded_validate_factor_registry_v1(
+        result$aligned[[peer]], expected_peer_name = peer,
+        expected_identity_pk = result$identities[[peer]]$identity_pk))
   })
   expect_true(all(vapply(registries, function(record) {
     identical(record$entries, list()) &&
@@ -447,7 +461,7 @@ test_that("fixed-capacity pinned PSI completes K=2 with exact canonical order", 
     "attestation_version", "alignment_attested", "alignment_protocol",
     "attestation_id", "contract_hash", "policy_id", "alignment_purpose",
     "dataset_id", "dataset_version", "id_column", "source_binding_id",
-    "pinset_id", "capacity_bucket",
+    "derivation_policy_id", "authorization_epochs", "pinset_id", "capacity_bucket",
     "relay_frame_bytes", "inline_max_bytes", "peer_count",
     "reference_peer", "compute_peers"))
   expect_false(any(c(
@@ -474,17 +488,22 @@ test_that("fixed-capacity pinned PSI completes K=2 with exact canonical order", 
       "Invalid padded PSI relay descriptor")
   }
 
-  descriptors <- lapply(result$aligned, dsvertDPDatasetDescriptor,
-                        id = "test-logical-cohort", version = "v1")
+  descriptors <- setNames(lapply(names(result$aligned), function(peer) {
+    .psi_padded_test_with_identity(result$seeds[[peer]], NULL,
+      dsvertDPDatasetDescriptor(result$aligned[[peer]],
+        id = "test-logical-cohort", version = "v1"))
+  }), names(result$aligned))
   expect_length(unique(vapply(
     descriptors, `[[`, character(1L), "alignment_manifest_hash")), 1L)
   expect_length(unique(vapply(
     descriptors, `[[`, character(1L), "snapshot_sha256")), 2L)
   expect_true(all(vapply(descriptors, function(value) {
-    identical(value$alignment_manifest_version, 4L)
+    identical(value$alignment_manifest_version,
+              .DSVERT_DP_PADDED_ALIGNMENT_BINDING_VERSION)
   }, logical(1L))))
 
   for (peer in names(result$aligned)) {
+    options(dsvert.identity_seed = result$seeds[[peer]])
     aligned_peer <- result$aligned[[peer]]
     descriptor <- descriptors[[peer]]
     policy <- list(
@@ -527,6 +546,18 @@ test_that("fixed-capacity pinned PSI completes K=2 with exact canonical order", 
     dsvert.dp.datasets = list(DA = list(
       id = "test-logical-cohort", version = version)))
   on.exit(options(old), add = TRUE)
+  # Moving this fixture to a new node-state directory restores the complete
+  # authenticated authorization backup as well as the aligned frame. Derived
+  # registry recovery must never reconstruct a lost authorization store.
+  destination <- .dsvert_dp_provenance_paths()
+  origin <- withr::with_options(list(dsvert.state_dir=result$authorization_root),
+    .dsvert_dp_provenance_paths())
+  for (field in c("file", "marker")) {
+    if (!identical(destination[[field]], origin[[field]])) {
+      stopifnot(file.copy(origin[[field]], destination[[field]],
+                         overwrite=TRUE, copy.mode=TRUE))
+    }
+  }
   force(code)
 }
 
@@ -548,6 +579,7 @@ test_that("fixed-capacity pinned PSI completes K=2 with exact canonical order", 
 }
 
 test_that("the live padded-PSI attestation hook alone provisions DP state", {
+  .psi_padded_test_isolate_state()
   skip_on_cran()
   old <- options(
     dsvert.psi.pseudonym_mode = "none",
@@ -641,6 +673,7 @@ test_that("the live padded-PSI attestation hook alone provisions DP state", {
 })
 
 test_that("authenticated padded PSI provisions a durable stable DP registry", {
+  .psi_padded_test_isolate_state()
   skip_on_cran()
   old <- options(
     dsvert.psi.pseudonym_mode = "none",
@@ -717,7 +750,7 @@ test_that("authenticated padded PSI provisions a durable stable DP registry", {
     retry, "alpha", state_dir, "v1",
     expect_error(
       .dsvert_dp_alignment_registry_commit("DA", changed),
-      "different authenticated aligned snapshot"))
+      "private integrity check"))
 
   # Resolve is read-only and never repairs damage; a subsequent live PSI
   # attestation may reconstruct this derived record exactly.
@@ -763,8 +796,9 @@ test_that("authenticated padded PSI provisions a durable stable DP registry", {
     .dsvert_dp_alignment_registry_commit("DA", rotated$aligned$alpha))
   expect_false(identical(rotated_path, committed$path))
   expect_false(identical(
-    dsvertDPDatasetDescriptor(
-      rotated$aligned$alpha, "test-logical-cohort", "v1")$
+    .psi_padded_test_with_identity(rotated$seeds[["alpha"]], NULL,
+      dsvertDPDatasetDescriptor(
+        rotated$aligned$alpha, "test-logical-cohort", "v1"))$
         alignment_manifest_hash,
     committed$descriptor$alignment_manifest_hash))
 
@@ -809,6 +843,7 @@ test_that("authenticated padded PSI provisions a durable stable DP registry", {
 })
 
 test_that("zero, one and full matches have the same public transcript shape", {
+  .psi_padded_test_isolate_state()
   old <- options(
     dsvert.psi.pseudonym_mode = "none",
     dsvert.psi.require_keyed_pseudonyms = FALSE,
@@ -821,6 +856,7 @@ test_that("zero, one and full matches have the same public transcript shape", {
                c("a-01", sprintf("b-%02d", 2:64)), "c"),
     full = list(sprintf("a-%02d", 1:64), sprintf("a-%02d", 1:64), "d"))
   results <- lapply(scenarios, function(args) {
+    .psi_padded_test_isolate_state()
     do.call(.psi_padded_test_run_k2, args)
   })
   shapes <- lapply(results, `[[`, "visible_lengths")
@@ -833,6 +869,7 @@ test_that("zero, one and full matches have the same public transcript shape", {
 })
 
 test_that("fixed-capacity PSI produces the same canonical intersection for K=3, K=4 and K=5", {
+  .psi_padded_test_isolate_state()
   old <- options(
     dsvert.psi.pseudonym_mode = "none",
     dsvert.psi.require_keyed_pseudonyms = FALSE,
@@ -858,9 +895,11 @@ test_that("fixed-capacity PSI produces the same canonical intersection for K=3, 
                        info = paste("K", k, "peer", peer))
     }
     if (k == 3L) {
-      descriptors <- lapply(
-        result$aligned, dsvertDPDatasetDescriptor,
-        id = "test-logical-cohort", version = "v1")
+      descriptors <- lapply(names(result$aligned), function(peer) {
+        .psi_padded_test_with_identity(result$seeds[[peer]], NULL,
+          dsvertDPDatasetDescriptor(result$aligned[[peer]],
+            id = "test-logical-cohort", version = "v1"))
+      })
       expect_length(unique(vapply(
         descriptors, `[[`, character(1L), "alignment_manifest_hash")), 1L)
       expect_length(unique(vapply(
@@ -873,6 +912,7 @@ test_that("fixed-capacity PSI produces the same canonical intersection for K=3, 
 })
 
 test_that("K>=3 membership relay attacks fail without changing the result", {
+  .psi_padded_test_isolate_state()
   old <- options(
     dsvert.psi.pseudonym_mode = "none",
     dsvert.psi.require_keyed_pseudonyms = FALSE,
@@ -920,6 +960,7 @@ test_that("K>=3 membership relay attacks fail without changing the result", {
 })
 
 test_that("purpose-bound padded PSI AND completes through exact GC/OT", {
+  .psi_padded_test_isolate_state()
   skip_on_cran()
   binary <- .psi_padded_test_exact_binary()
   old <- options(

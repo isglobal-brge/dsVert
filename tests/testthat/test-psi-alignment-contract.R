@@ -72,6 +72,8 @@ test_that("padded attestation persists without cardinality or patient digest", {
     id_column = "patient_id",
     source_binding_id = .psi_padded_test_source_public(
       "patient_id")$source_binding_id,
+    derivation_policy_id = strrep("f", 64L),
+    authorization_epochs = .psi_padded_test_epoch_vector(count = 3L),
     pinset_id = paste0("pinset_", paste(rep("d", 64L), collapse = "")),
     capacity = 64L, relay_frame_bytes = 65536L,
     inline_max_bytes = 65536L,
@@ -91,7 +93,7 @@ test_that("padded attestation persists without cardinality or patient digest", {
     "attestation_version", "alignment_attested", "alignment_protocol",
     "attestation_id", "contract_hash", "policy_id", "alignment_purpose",
     "dataset_id", "dataset_version", "id_column", "source_binding_id",
-    "pinset_id",
+    "derivation_policy_id", "authorization_epochs", "pinset_id",
     "capacity_bucket", "relay_frame_bytes", "inline_max_bytes",
     "peer_count", "reference_peer", "compute_peers"))
   expect_false(any(c("n", "hash", "token", "order_binding", "id_col") %in%
@@ -126,6 +128,8 @@ test_that("padded attestation persists without cardinality or patient digest", {
     contract_hash = strrep("a", 64L),
     attestation_id = paste0("attest_", strrep("b", 64L)),
     policy_id = paste0("policy_", strrep("c", 64L))), source, list(
+    derivation_policy_id = strrep("a", 64L),
+    authorization_epochs = .psi_padded_test_epoch_vector(),
     pinset_id = paste0("pinset_", strrep("d", 64L)),
     capacity = 64L, relay_frame_bytes = 65536L,
     inline_max_bytes = 65536L,
@@ -227,7 +231,8 @@ test_that("factor registry is order-canonical and rejects schema mutation", {
 
   changed_value <- data
   changed_value$category[[1L]] <- "a"
-  expect_silent(.psi_factor_registry_validate(changed_value, fixture))
+  expect_error(.psi_factor_registry_validate(changed_value, fixture),
+               "factor registry")
 
   added_level <- data
   levels(added_level$category) <- c(levels(added_level$category), "dummy")

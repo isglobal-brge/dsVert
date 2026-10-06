@@ -7,7 +7,8 @@ test_that("padded PSI source authorization is custodian-owned and snapshot-bound
 
   authorization <- .psi_padded_authorize_source(
     "D", "patient_id", data)
-  expect_named(authorization, c("public", "snapshot_sha256"))
+  expect_named(authorization, c("public", "snapshot_sha256",
+    "authorization_epoch", "source_contract_id", "derivation_policy_id", "data"))
   expect_identical(
     authorization$public,
     .psi_padded_test_source_public(
@@ -23,9 +24,8 @@ test_that("padded PSI source authorization is custodian-owned and snapshot-bound
     "not custodian-authorized")
   changed <- data
   changed$value[[1L]] <- 99L
-  expect_error(
-    .psi_padded_authorize_source("D", "patient_id", changed),
-    "custodian-approved snapshot")
+  expect_identical(
+    .psi_padded_authorize_source("D", "patient_id", changed), authorization)
 })
 
 test_that("the local PSI descriptor helper is complete and never remote", {
@@ -121,6 +121,10 @@ test_that("padded PSI source binding rejects a validly signed purpose mismatch",
     .psi_padded_sign_offer(
       peer, identities[[peer]], transports[[peer]]$public_key,
       capacity = 64L, session_id = session_id, operation_id = operation_id,
+      authorization_epoch = digest::digest(paste0("test/", peer),
+        algo = "sha256", serialize = FALSE),
+      source_contract_id = strrep("e", 64L),
+      derivation_policy_id = strrep("f", 64L),
       policy_id = paste0("policy_", strrep("2", 64L)),
       source_authorization = source, pinset_id = pinset_id,
       snapshot_id = paste0("snap_", digest::digest(

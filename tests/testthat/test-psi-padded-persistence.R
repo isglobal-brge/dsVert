@@ -264,6 +264,8 @@ test_that("successful PSI attestation retains only a compact replay receipt", {
     dataset_version = source$dataset_version,
     id_column = source$id_column,
     source_binding_id = source$source_binding_id,
+    derivation_policy_id = strrep("b", 64L),
+    authorization_epochs = .psi_padded_test_epoch_vector(),
     pinset_id = paste0("pinset_", strrep("d", 64L)),
     capacity = 64L,
     relay_frame_bytes = 65536L,
@@ -309,6 +311,7 @@ test_that("successful PSI attestation retains only a compact replay receipt", {
     identity_pk = identity$identity_pk,
     contract = contract,
     phase = "complete",
+    authorized_data = data.frame(id="private-captured-source"),
     selected_rows = seq_len(6L),
     selected_ids = aligned$patient_id,
     transport_sk = transport_secret,
@@ -327,7 +330,7 @@ test_that("successful PSI attestation retains only a compact replay receipt", {
     completed_manifest = attr(aligned, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE),
     replay_cache = new.env(parent = emptyenv()))
   forbidden <- c(
-    "selected_rows", "selected_ids", "transport_sk", "transport_pk",
+    "authorized_data", "selected_rows", "selected_ids", "transport_sk", "transport_pk",
     "slot_rows", "slot_valid", "masked_points", "scalar", "pairwise",
     "membership_received", "membership_sum_share",
     "global_membership_chunks", "final_plan", "alignment_token",

@@ -473,11 +473,17 @@
     data, .PSI_ALIGNMENT_ATTRIBUTE, exact = TRUE)
   padded_attestation <- attr(
     data, .PSI_PADDED_ATTESTATION_ATTRIBUTE, exact = TRUE)
+  validate_padded <- if (is.list(padded_attestation) &&
+      identical(padded_attestation$public$attestation_version, 3L)) {
+    .dsvert_dp_legacy_padded_attestation_v4
+  } else {
+    .psi_padded_validate_persistent_attestation
+  }
   if (!is.null(padded_attestation)) {
     # Authenticate both frame attributes before copying them.  The generic
     # manifest alone remains available only for explicit legacy descriptors;
     # automatic padded-PSI bindings require the v2 persistent attestation.
-    .psi_padded_validate_persistent_attestation(data)
+    validate_padded(data)
   }
   columns <- .dsvert_dp_snapshot_columns(data)
   result <- structure(
@@ -491,7 +497,7 @@
     # Revalidate against the frozen identifier order.  This prevents a custom
     # data-frame implementation from presenting one object during validation
     # and another during the protected snapshot copy.
-    .psi_padded_validate_persistent_attestation(result)
+    validate_padded(result)
   }
   result
 }

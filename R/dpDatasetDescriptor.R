@@ -32,7 +32,13 @@ dsvertDPDatasetDescriptor <- function(data, id, version) {
   }
   id <- label(id, "dataset id")
   version <- label(version, "dataset version")
-  binding <- .dsvert_dp_padded_alignment_binding(data)
+  attestation <- attr(data, .PSI_PADDED_ATTESTATION_ATTRIBUTE, exact = TRUE)
+  binding <- if (is.list(attestation) &&
+      identical(attestation$public$attestation_version, 3L)) {
+    .dsvert_dp_legacy_padded_alignment_binding_v4(data)
+  } else {
+    .dsvert_dp_padded_alignment_binding(data)
+  }
   if (!identical(binding$descriptor$id, id) ||
       !identical(binding$descriptor$version, version)) {
     stop("id and version must match the authenticated padded-PSI contract",

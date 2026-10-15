@@ -1,6 +1,8 @@
 package main
 
 import (
+	"github.com/markkurossi/mpc/compiler"
+	"math/big"
 	"strings"
 	"testing"
 )
@@ -96,4 +98,35 @@ type dpIRLSStageNoIO struct{}
 func (dpIRLSStageNoIO) Read([]byte) (int, error) { panic("rejected public point attempted private IO") }
 func (dpIRLSStageNoIO) Write([]byte) (int, error) {
 	panic("rejected public point attempted private IO")
+}
+
+func TestDPIRLSStageSourceClamp128(t *testing.T) {
+	source := "package main\n" + dpIRLSClampUnitSource() + "func main(g uint128,e uint128) int32 { return irlsClampUnit(g+e) }\n"
+	c, _, err := compiler.New(crossGridPWCompilerParams()).Compile(source, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	minimum := new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 127))
+	maximum := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 127), big.NewInt(1))
+	values := []*big.Int{minimum, big.NewInt(-65537), big.NewInt(-65536), big.NewInt(-1), big.NewInt(0), big.NewInt(1), big.NewInt(65536), big.NewInt(65537), maximum}
+	for _, value := range values {
+		left := new(big.Int).Sub(exactGCModulus(128), big.NewInt(170001))
+		right := new(big.Int).Mod(new(big.Int).Sub(value, left), exactGCModulus(128))
+		got, err := c.Compute([]*big.Int{left, right})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := int64(0)
+		switch {
+		case value.Cmp(big.NewInt(-65536)) < 0:
+			want = -65536
+		case value.Cmp(big.NewInt(65536)) > 0:
+			want = 65536
+		default:
+			want = value.Int64()
+		}
+		if int64(int32(got[0].Uint64())) != want {
+			t.Fatalf("clamp(%s)=%s; want %d", value, got[0], want)
+		}
+	}
 }

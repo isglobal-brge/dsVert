@@ -111,6 +111,7 @@ func dpIRLSStageSource(p dpIRLSStagePlan) (string, error) {
 	n := p.Rows*(p.P+3) + 2*p.Owners
 	var b strings.Builder
 	b.WriteString("package main\n")
+	b.WriteString(dpIRLSClampUnitSource())
 	b.WriteString(groupedProfileSource())
 	for _, round := range []struct {
 		name  string
@@ -134,24 +135,30 @@ func dpIRLSStageSource(p dpIRLSStagePlan) (string, error) {
 		fmt.Fprintf(&b, "present%d:=g[%d]+e[%d]\n valid=valid && (present%d==0 || present%d==1)\n active%d:=present%d==1 && aligned\n", row, base, base, row, row, row, row)
 		for j := 0; j < p.P; j++ {
 			i := base + 1 + j
-			fmt.Fprintf(&b, "raw%d_%d:=int128(g[%d]+e[%d])\n if raw%d_%d < -65536 {raw%d_%d= -65536}\n if raw%d_%d>65536 {raw%d_%d=65536}\n x%d_%d:=int32(raw%d_%d)\n", row, j, i, i, row, j, row, j, row, j, row, j, row, j, row, j)
+			fmt.Fprintf(&b, "x%d_%d:=irlsClampUnit(g[%d]+e[%d])\n", row, j, i, i)
 		}
 		if p.Intercept {
 			fmt.Fprintf(&b, "x%d_0=65536\n", row)
 		}
 		y, o := base+p.P+1, base+p.P+2
-		fmt.Fprintf(&b, "rawY%d:=int128(g[%d]+e[%d])\n", row, y, y)
+		fmt.Fprintf(&b, "rawY%d:=g[%d]+e[%d]\n", row, y, y)
 		if p.Family == "binomial" {
 			fmt.Fprintf(&b, "binary%d:=rawY%d==0 || rawY%d==1\n valid=valid && (present%d!=1 || binary%d)\n active%d=active%d && binary%d\n if !binary%d {rawY%d=0}\n", row, row, row, row, row, row, row, row, row, row)
 		} else {
-			fmt.Fprintf(&b, "if rawY%d<0 {rawY%d=0}\n if rawY%d>8 {rawY%d=8}\n", row, row, row, row)
+			fmt.Fprintf(&b, "if (rawY%d >> 127)!=0 {rawY%d=0}\n if rawY%d>8 {rawY%d=8}\n", row, row, row, row)
 		}
-		fmt.Fprintf(&b, "y%d:=int32(rawY%d)\n rawO%d:=int128(g[%d]+e[%d])\n if rawO%d < -65536 {rawO%d= -65536}\n if rawO%d>65536 {rawO%d=65536}\n dot%d:=int64(rawO%d)*65536\n", row, row, row, o, o, row, row, row, row, row, row)
+		fmt.Fprintf(&b, "y%d:=int32(rawY%d)\n offset%d:=irlsClampUnit(g[%d]+e[%d])\n dot%d:=int64(offset%d)*65536\n", row, row, row, o, o, row, row)
 		if p.OffsetMode == "none" {
 			fmt.Fprintf(&b, "dot%d=0\n", row)
 		}
 		for j, beta := range p.Beta {
-			fmt.Fprintf(&b, "dot%d=dot%d+int64(x%d_%d)*int64(%s)\n", row, row, row, j, beta)
+			// MPCL widens a negative int32 literal to int64 without sign
+			// extension. Select public subtraction and multiply by |beta|.
+			op := "+"
+			if strings.HasPrefix(beta, "-") {
+				op, beta = "-", strings.TrimPrefix(beta, "-")
+			}
+			fmt.Fprintf(&b, "dot%d=dot%d%sint64(x%d_%d)*int64(%s)\n", row, row, op, row, j, beta)
 		}
 		fmt.Fprintf(&b, "eta%d:=int32(irlsRoundEta(dot%d))\n if eta%d < -262144 {eta%d= -262144}\n if eta%d>262144 {eta%d=262144}\n", row, row, row, row, row, row)
 		if p.Family == "binomial" {
@@ -180,4 +187,20 @@ func dpIRLSStageSource(p dpIRLSStagePlan) (string, error) {
 	}
 	fmt.Fprintf(&b, "out[%d]=g[%d]\n if valid {out[%d]=out[%d]^1}\n return out\n}\n", d, n+d, d, d)
 	return b.String(), nil
+}
+
+// MPCL compares signed words wider than 64 bits against negative literals
+// incorrectly (zero < -65536 at int128). Decode the sign and magnitude in
+// unsigned Ring128 first, then narrow only the proven bounded magnitude.
+func dpIRLSClampUnitSource() string {
+	return `func irlsClampUnit(v uint128) int32 {
+ negative := (v >> 127) != 0
+ magnitude := v
+ if negative { magnitude = uint128(0)-v }
+ if magnitude > 65536 { magnitude = 65536 }
+ value := int32(magnitude)
+ if negative { value = -value }
+ return value
+}
+`
 }

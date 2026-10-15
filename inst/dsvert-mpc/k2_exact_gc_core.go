@@ -22,6 +22,7 @@ import (
 	"math/big"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	"github.com/markkurossi/mpc/circuit"
@@ -300,6 +301,11 @@ func (s exactGCCircuitSpec) validate() error {
 		if s.RingBits != 128 || s.FracBits != 0 || s.VectorLen > 8 ||
 			s.Threshold != nil || s.BoundX != nil || s.BoundY != nil || s.MulBackend != "" {
 			return errCrossGridKernel
+		}
+	case dpIRLSStageOperation:
+		if s.RingBits != 128 || s.FracBits != 0 || s.VectorLen != 9 ||
+			s.Threshold != nil || s.BoundX != nil || s.BoundY != nil || s.MulBackend != "" {
+			return fmt.Errorf("exact-gc: invalid fused IRLS stage context")
 		}
 	case groupedLMMWorkerOperation, groupedGLMMWorkerOperation, groupedGEEWorkerOperation, coxLossWorkerOperation:
 		// Only the typed signed-source stage adapter executes this operation;
@@ -943,6 +949,17 @@ func exactGCGarblerProtocol(conn *p2p.Conn, circ *circuit.Circuit,
 
 func exactGCGarblerProtocolMode(conn *p2p.Conn, circ *circuit.Circuit,
 	input *big.Int, session exactGCSession, compact bool) error {
+	return exactGCGarblerProtocolMeasured(conn, circ, input, session, compact, nil)
+}
+
+// Optional local component durations contain no source-dependent counters or
+// circuit outputs. Callers own each role's record; no shared global observer.
+type exactGCProtocolTimings struct {
+	Garble, Transfer, OT, Evaluate time.Duration
+}
+
+func exactGCGarblerProtocolMeasured(conn *p2p.Conn, circ *circuit.Circuit,
+	input *big.Int, session exactGCSession, compact bool, timings *exactGCProtocolTimings) error {
 	digest := exactGCProtocolDigest(session, circ, compact)
 	if err := conn.SendData(digest[:]); err != nil {
 		return fmt.Errorf("exact-gc: send context: %w", err)
@@ -965,10 +982,15 @@ func exactGCGarblerProtocolMode(conn *p2p.Conn, circ *circuit.Circuit,
 	if _, err := io.ReadFull(crand.Reader, garblingHashKey[:]); err != nil {
 		return fmt.Errorf("exact-gc: generate garbling key: %w", err)
 	}
+	started := time.Now()
 	garbled, err := circ.Garble(crand.Reader, garblingHashKey[:])
 	if err != nil {
 		return fmt.Errorf("exact-gc: garble circuit: %w", err)
 	}
+	if timings != nil {
+		timings.Garble += time.Since(started)
+	}
+	started = time.Now()
 	if err := conn.SendData(garblingHashKey[:]); err != nil {
 		return fmt.Errorf("exact-gc: send garbling key: %w", err)
 	}
@@ -999,6 +1021,10 @@ func exactGCGarblerProtocolMode(conn *p2p.Conn, circ *circuit.Circuit,
 	if err := conn.Flush(); err != nil {
 		return fmt.Errorf("exact-gc: flush garbled circuit: %w", err)
 	}
+	if timings != nil {
+		timings.Transfer += time.Since(started)
+	}
+	started = time.Now()
 
 	oti := ot.NewCOT(ot.NewCO(crand.Reader), crand.Reader, true, false)
 	if err := oti.InitSender(conn); err != nil {
@@ -1018,6 +1044,9 @@ func exactGCGarblerProtocolMode(conn *p2p.Conn, circ *circuit.Circuit,
 	}
 	if err := oti.Send(garbled.Wires[offset : offset+count]); err != nil {
 		return fmt.Errorf("exact-gc: transfer evaluator inputs: %w", err)
+	}
+	if timings != nil {
+		timings.OT += time.Since(started)
 	}
 
 	decode := make([]byte, (circ.Outputs.Size()+7)/8)
@@ -1051,6 +1080,11 @@ func exactGCEvaluatorProtocol(conn *p2p.Conn, circ *circuit.Circuit,
 
 func exactGCEvaluatorProtocolMode(conn *p2p.Conn, circ *circuit.Circuit,
 	input *big.Int, session exactGCSession, compact bool) (*big.Int, error) {
+	return exactGCEvaluatorProtocolMeasured(conn, circ, input, session, compact, nil)
+}
+
+func exactGCEvaluatorProtocolMeasured(conn *p2p.Conn, circ *circuit.Circuit,
+	input *big.Int, session exactGCSession, compact bool, timings *exactGCProtocolTimings) (*big.Int, error) {
 	digest := exactGCProtocolDigest(session, circ, compact)
 	gotContext, err := conn.ReceiveData()
 	if err != nil {
@@ -1112,6 +1146,7 @@ func exactGCEvaluatorProtocolMode(conn *p2p.Conn, circ *circuit.Circuit,
 		}
 	}
 
+	started := time.Now()
 	oti := ot.NewCOT(ot.NewCO(crand.Reader), crand.Reader, true, false)
 	if err := oti.InitReceiver(conn); err != nil {
 		return nil, fmt.Errorf("exact-gc: initialize OT receiver: %w", err)
@@ -1133,8 +1168,15 @@ func exactGCEvaluatorProtocolMode(conn *p2p.Conn, circ *circuit.Circuit,
 	if err := oti.Receive(choices, wires[garblerBits:garblerBits+evaluatorBits]); err != nil {
 		return nil, fmt.Errorf("exact-gc: receive evaluator inputs: %w", err)
 	}
+	if timings != nil {
+		timings.OT += time.Since(started)
+	}
+	started = time.Now()
 	if err := circ.Eval(garblingHashKey, wires, garbled); err != nil {
 		return nil, fmt.Errorf("exact-gc: evaluate circuit: %w", err)
+	}
+	if timings != nil {
+		timings.Evaluate += time.Since(started)
 	}
 
 	decode, err := conn.ReceiveData()
@@ -1337,7 +1379,7 @@ func exactGCCompileCircuit(spec exactGCCircuitSpec) (*circuit.Circuit, error) {
 	if err := spec.validate(); err != nil {
 		return nil, err
 	}
-	if spec.Operation == crossGridKernelOperation {
+	if spec.Operation == crossGridKernelOperation || spec.Operation == dpIRLSStageOperation {
 		return nil, errCrossGridKernel
 	}
 

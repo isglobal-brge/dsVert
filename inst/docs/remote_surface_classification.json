@@ -4,7 +4,7 @@
   "authoritative_registration_source": "dsVert/DESCRIPTION: AggregateMethods and AssignMethods",
   "authoritative_client_source": "dsVertClient/R parsed as R ASTs",
   "counts": {
-    "registered_ds_endpoints": 98,
+    "registered_ds_endpoints": 103,
     "registered_argument_constructor_aliases": 0,
     "direct_literal_call_endpoints": 171,
     "as_call_as_name_endpoints": 15,
@@ -15,7 +15,7 @@
     "internal_unregistered_ds_functions": 154
   },
   "classification_semantics": {
-    "production_safe_purpose_bound": "Callable through the current default gate. A DP label is conditional on the route-specific signed policy, immutable snapshot and stated threat model. Registered Count, Frequency and Synopsis releases derive sticky noise from persistent peer identity seeds and have no lifetime ledger; retained capsule source/ticket endpoints are not statistical releases.",
+    "production_safe_purpose_bound": "Callable through the current default gate. A DP label is conditional on the route-specific signed policy, immutable snapshot and stated threat model. Registered Count, Frequency and Synopsis releases derive sticky noise from persistent peer identity seeds and have no lifetime ledger; retained capsule source/ticket endpoints are not statistical releases. DP IRLS endpoints are an experimental B3, custodian-provisioned route with mandatory split noise; this disclosure classification does not qualify inference or certify the runtime gate.",
     "test_or_guarded_migration_internals": "Retired from registration and export. These closures remain namespace-internal only for transport diagnostics or migration regression tests and have no production public route.",
     "quarantined_compatibility_internals": "Retired from registration and export. Historical client implementations remain only behind a non-configurable local frontdoor guard for source-level migration tests; they carry no DP or non-reconstruction claim.",
     "orphan_remove_candidate": "Registered but has no resolved client expression. Removal would still require a compatibility decision.",
@@ -24,6 +24,11 @@
   },
   "registered_endpoint_classes": {
     "production_safe_purpose_bound": [
+      "dpIRLSMetadataDS",
+      "dpIRLSStartDS",
+      "dpIRLSResumeDS",
+      "dpIRLSPublicationDS",
+      "dpIRLSRelayDS",
       "dsvertProvenanceCapabilitiesDS",
       "dsvertColNamesDS",
       "dsvertIdentityPkDS",

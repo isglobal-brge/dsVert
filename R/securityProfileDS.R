@@ -78,6 +78,11 @@
 }
 
 .dsvert_disclosure_safe_remote_methods <- c(
+  "dpIRLSMetadataDS",
+  "dpIRLSStartDS",
+  "dpIRLSResumeDS",
+  "dpIRLSPublicationDS",
+  "dpIRLSRelayDS",
   "dsvertSecurityProfileDS",
   "dsvertTransportProbeDS",
   "dsvertIdentityPkDS",

@@ -282,3 +282,11 @@ implementations remain executable only inside package regression tests through
 a test-only namespace replacement that is not installed. A public method is
 admitted remotely only after its migrated purpose-bound contract passes the
 removal rule above.
+
+The five `dpIRLS*DS` registrations are the experimental v3 B3 path: four
+selector-only lifecycle/read methods and one opaque authenticated relay.
+The relay cannot set source columns, beta, predecessor, epsilon or a noise-off
+mode. Its peer recipient is provisioned and pinned by the custodian. The
+publication reader returns only the completed dual-signed parent chain.
+`production_safe_purpose_bound` is a disclosure-surface classification here;
+it does not imply qualified inference or a successful B3 runtime gate.

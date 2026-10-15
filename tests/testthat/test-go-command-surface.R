@@ -64,10 +64,11 @@ test_that("packaged native runtime advertises the same DP command surface", {
     "dsvert-joint-dp-frequency-backend-selection-v1")
   expect_identical(
     unlist(frequency$commands, use.names = FALSE),
-    "joint-dp-frequency-backend-select-v1")
+    c("joint-dp-frequency-backend-select-v1", "joint-dp-frequency-backend-select-v2"))
   expect_identical(
     unlist(frequency$operations, use.names = FALSE),
-    "public-data-free-certified-frequency-backend-selection-v1")
+    c("public-data-free-certified-frequency-backend-selection-v1",
+      "public-data-free-certified-frequency-backend-selection-v2"))
   expect_false(any(grepl("joint-dp-(seed|share|sample|open)", commands)))
 })
 

@@ -82,6 +82,11 @@ dpIRLSMetadataDS <- function(analysis_id) {
   source <- .dsvert_dp_irls_source_materialize(entry$contract, entry$sealed_source)
   source_seconds <- proc.time()[[3L]] - before
   session <- plan$stage_id
+  # The signed contract's stage envelope bounds the native worker too (the
+  # worker admits 10..86400 seconds).
+  stage_seconds <- as.integer(entry$contract$operations$max_stage_seconds)
+  if (is.na(stage_seconds) || stage_seconds < 10L || stage_seconds > 86400L)
+    .dsvert_dp_irls_fail("stage envelope")
   derived <- .callMpcTool("exact-gc-derive-master", list(
     local_secret = entry$transport$secret_key, local_public = entry$transport$public_key,
     peer_public = entry$peer_transport_pk, session_id = session,
@@ -102,19 +107,21 @@ dpIRLSMetadataDS <- function(analysis_id) {
   config <- list(version="dsvert-exact-gc-worker-v4", role=if(entry$authority==entry$pair[[1L]]) "garbler" else "evaluator",
     session_id=session, master_key=derived$master_key, garbler_id=entry$pair[[1L]],evaluator_id=entry$pair[[2L]],
     purpose=descriptor$purpose,operation="dp-irls-fused-stage-v1",ring_bits=128L,frac_bits=0L,vector_len=9L,
-    source_share=source$source_share,spool_dir=spool,max_spool_bytes=64*1024^2,ttl_seconds=900L,
+    source_share=source$source_share,spool_dir=spool,max_spool_bytes=64*1024^2,ttl_seconds=stage_seconds,
     heartbeat_key=jsonlite::base64_enc(.dsvert_secure_random_bytes(32L)),
     dp_irls=c(policy,list(store_dir=file.path(entry$directory,paste0("stage-",t,"-private")),
       store_key=entry$store_key,noise_seed=entry$noise_seed)))
   config_path <- file.path(spool,"worker-config.json")
   .exact_gc_private_file(config_path,charToRaw(as.character(jsonlite::toJSON(config,auto_unbox=TRUE,null="null",digits=17))))
   worker <- new.env(parent=emptyenv());worker$spool<-spool
-  worker$spool_max_bytes<-64*1024^2;worker$chunk_bytes<-256*1024
+  # Frames follow the custodian's exact-GC chunk policy (default 480 KiB,
+  # admitted 16 KiB..8 MiB); 8 chunks must fit the 64 MiB spool.
+  worker$spool_max_bytes<-64*1024^2;worker$chunk_bytes<-min(.exact_gc_chunk_bytes(),8*1024^2)
   worker$process<-NULL;worker$config_path<-config_path
   worker$started<-proc.time()[[3L]];worker$source_seconds<-source_seconds
   worker$policy<-policy;worker$predecessor<-predecessor;worker$plan<-plan
   worker$noised<-NULL;worker$peer_noised<-NULL;worker$publication_messages<-list()
-  worker$last_ack<-0;worker$outbound_ack_offset<-0;worker$ttl_seconds<-900L
+  worker$last_ack<-0;worker$outbound_ack_offset<-0;worker$ttl_seconds<-stage_seconds
   entry$worker<-worker;entry$status<-"running";entry$received<-list()
   .dsvert_dp_irls_persist(entry)
   worker$process<-processx::process$new(Sys.getenv("DS_VERT_MPC"),c("exact-gc-worker",config_path),
@@ -233,7 +240,7 @@ dpIRLSPublicationDS <- function(analysis_id) {
 .dsvert_dp_irls_progress <- function(entry) {
   worker <- entry$worker
   if (is.null(worker) || .dsvert_dp_irls_recovering(entry) || entry$status %in% c("stage-published","complete")) return(invisible(NULL))
-  if (proc.time()[[3L]]-worker$started>900) {
+  if (proc.time()[[3L]]-worker$started>worker$ttl_seconds) {
     if (!is.null(worker$process)) worker$process$kill_tree(); .dsvert_dp_irls_fail("bounded stage runtime")
   }
   result_path <- file.path(worker$spool,"result.json")

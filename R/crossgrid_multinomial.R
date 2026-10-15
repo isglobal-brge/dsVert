@@ -416,7 +416,8 @@
 }
 .dsvert_dp_multinomial_grid_cross_register <- function() {
   list(family = "multinomial", spec_version = "multinomial_grid_cross_v1",
-    operation = "dp.multinomial-grid-cross.v1", release_enabled = FALSE,
+    operation = "dp.multinomial-grid-cross.v1", promotion_status = "promoted_v1.3.0",
+    production_route = "authenticated_synopsis_lifecycle",
     spec = .dsvert_dp_multinomial_grid_cross_spec,
     validate = .dsvert_dp_multinomial_grid_cross_contract_validate,
     artifact = .dsvert_dp_categorical_grid_cross_artifact,

@@ -1,6 +1,6 @@
 # Stable cumulative-logit identity and probability-domain restrictions are
-# signed in the categorical family contract. No production release is enabled
-# by returning this descriptor to the future fused producer.
+# signed in the categorical family contract. The authenticated Synopsis
+# lifecycle owns release; a descriptor callback is not an authorization.
 .dsvert_dp_ordinal_grid_cross_spec <- function(raw, policy, schema) {
   .dsvert_dp_categorical_grid_cross_spec(raw, policy, schema, "ordinal")
 }
@@ -14,7 +14,8 @@
 }
 .dsvert_dp_ordinal_grid_cross_register <- function() {
   list(family = "ordinal", spec_version = "ordinal_grid_cross_v1",
-    operation = "dp.ordinal-grid-cross.v1", release_enabled = FALSE,
+    operation = "dp.ordinal-grid-cross.v1", promotion_status = "promoted_v1.3.0",
+    production_route = "authenticated_synopsis_lifecycle",
     spec = .dsvert_dp_ordinal_grid_cross_spec,
     validate = .dsvert_dp_ordinal_grid_cross_contract_validate,
     artifact = .dsvert_dp_categorical_grid_cross_artifact,

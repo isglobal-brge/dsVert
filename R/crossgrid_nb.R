@@ -393,5 +393,6 @@
        build_source_contract = .dsvert_dp_nb_grid_cross_source_contract,
        validate_contract = .dsvert_dp_nb_grid_cross_contract_validate,
        sensitivity = .dsvert_dp_nb_grid_cross_sensitivity,
-       production_release_registered = FALSE)
+       promotion_status = "promoted_v1.3.0",
+       production_route = "authenticated_synopsis_lifecycle")
 }

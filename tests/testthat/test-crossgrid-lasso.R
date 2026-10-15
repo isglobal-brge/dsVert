@@ -112,11 +112,13 @@ test_that("Gaussian LASSO uses half RSS from the existing sufficient-statistic r
     fixture$policy, fixture$schema, fixture$base_contract), class = "dsvert_dp_public_failure")
 })
 
-test_that("LASSO registration leaves all production release gates closed", {
+test_that("LASSO registration describes promotion while retaining authenticated release gates", {
   registration <- .dsvert_dp_lasso_cross_register()
   expect_identical(registration$version, "lasso_grid_cross_v1")
   expect_identical(registration$families, c("binomial", "poisson", "gaussian"))
-  expect_false(registration$production_release_enabled)
+  expect_identical(registration$promotion_status, "promoted_v1.3.0")
+  expect_identical(registration$archived_promotion_family, "binomial")
+  expect_identical(registration$production_route, "authenticated_synopsis_lifecycle")
   expect_true(registration$result_evidence_required)
   expect_identical(registration$implementation_state, "cross_owner_exact_gc_materialized")
   expect_identical(registration$cross_owner_state, "exact_gc_to_joint_dp_vector_v1")

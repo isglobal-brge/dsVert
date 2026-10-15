@@ -72,7 +72,7 @@ test_that("NB2 signed contracts retain the frozen source ABI and both authoritie
   expect_true(.dsvert_dp_glm_grid_cross_equal(got$source_contract$private_layout,
                    .dsvert_dp_glm_grid_cross_layout(got$spec)))
   expect_identical(got$source_contract$recipients, as.list(c("peer_a", "peer_b")))
-  expect_false(f$registration$production_release_registered)
+  expect_identical(f$registration$promotion_status, "promoted_v1.3.0")
   decoded <- jsonlite::fromJSON(.dsvert_dp_canonical_json(got), simplifyVector = FALSE)
   expect_identical(f$registration$validate_contract(decoded, f$policy, f$schema), got)
 })

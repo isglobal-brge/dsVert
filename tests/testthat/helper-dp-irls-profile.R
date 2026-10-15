@@ -49,3 +49,21 @@
   f$payload <- function(t = "0") f$spec$numeric$translation
   f
 }
+
+.irls_smoke_fixture <- function() {
+  f <- .irls_producer_fixture("binomial", "64")
+  s <- f$spec
+  s$profile_id <- .DSVERT_DP_IRLS_SMOKE_VERSION
+  s$path$floor <- .irls_q("8", "5")
+  s$path$floor_quantum <- .irls_q("1", "4096")
+  s$numeric$certificate$common_denominator <- "20480"
+  s$numeric$certificate$k_max <- "203162"
+  s$numeric$certificate_sha256 <- .dsvert_dp_irls_hash(
+    "dsvert-v3-irls-numeric-certificate-v1", s$numeric$certificate)
+  s$operations$max_compile_bytes <- "1073741824"
+  s$operations$max_memory_bytes <- "4294967296"
+  f$spec <- .dsvert_dp_irls_contract_normalize(s)
+  f$signed <- f$sign(f$spec)
+  f$payload <- function(t = "0") f$spec$numeric$translation
+  f
+}

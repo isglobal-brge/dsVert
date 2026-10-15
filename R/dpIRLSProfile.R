@@ -1,7 +1,44 @@
 # B2 circuit admission is stricter than B1's public-chain wire validation.
 # No remote method, source read, sampler, or aggregate opening is defined here.
 .DSVERT_DP_IRLS_PRODUCER_VERSION <- "dsvert-dp-irls-producer-p3-q16-q12-v1"
+.DSVERT_DP_IRLS_SMOKE_VERSION <- "irls-smoke-k2-c64-p3-v1"
 .DSVERT_DP_IRLS_LINK_SHA256 <- "f72e66abaf2e503a809f23d4563418d2889843174109398ae48b02f0ec7edb84"
+
+# A named schedule is an admission predicate, never an alias for a numeric
+# certificate. All remaining path fields are fixed by B1's strict schema.
+.dsvert_dp_irls_smoke_check <- function(spec) {
+  same <- function(actual, expected) {
+    if (!identical(.dsvert_dp_irls_json(actual), .dsvert_dp_irls_json(expected)))
+      .dsvert_dp_irls_fail("smoke schedule")
+  }
+  q <- function(n, d = "1") list(d = d, n = n)
+  same(spec$estimand$family, "binomial"); same(spec$estimand$link, "logit")
+  same(spec$estimand$intercept, "1"); same(spec$estimand$offset$kind, "none")
+  same(spec$privacy_source$capacity, "64"); same(spec$privacy_source$row_cap, "1")
+  same(spec$privacy_source$adjacency, "add-remove-person")
+  same(spec$operations$shape, list(p = "3", coordinates = "9", capacity = "64", row_cap = "1"))
+  same(spec$operations$max_stage_seconds, "240")
+  same(spec$operations$max_path_seconds, "840")
+  p <- spec$path
+  same(p$T, "2"); same(p$start$kind, "zero")
+  same(p$start$beta, rep(list(q("0")), 3L))
+  same(p$refresh_mask, list("1", "1")); same(p$terminal_audit, "1")
+  same(p$box, list(lower = rep(list(q("-1")), 3L), upper = rep(list(q("1")), 3L)))
+  same(p$floor, q("8", "5")); same(p$floor_quantum, q("1", "4096"))
+  same(p$ridge, q("0")); same(p$damping, rep(list(q("1")), 2L))
+  same(p$trust, rep(list(q("1")), 2L))
+  same(spec$accounting$geometry, "split-block-v1")
+  same(spec$accounting$pilot_epsilon, q("0")); same(spec$accounting$auxiliary, list())
+  same(spec$accounting$epsilon_path, q("8"))
+  for (i in seq_len(3L)) {
+    budget <- if (i == 3L) "2" else "1"
+    a <- spec$accounting$stages[[i]]
+    same(a$t, as.character(i - 1L))
+    same(a$purpose, if (i == 3L) "terminal-audit" else "optimizer")
+    same(a$g, q(budget)); same(a$H, q(budget))
+  }
+  invisible(TRUE)
+}
 
 .dsvert_dp_irls_profile_certificate <- function(family, p, rows, row_cap = "1") {
   .dsvert_dp_irls_choice(family, c("binomial", "poisson"))
@@ -42,7 +79,9 @@
   }
   q <- function(n, d = "1") list(d = d, n = n)
   interval <- function(lo, hi) list(lower = q(lo), upper = q(hi))
-  same(spec$profile_id, .DSVERT_DP_IRLS_PRODUCER_VERSION)
+  if (identical(spec$profile_id, .DSVERT_DP_IRLS_SMOKE_VERSION)) {
+    .dsvert_dp_irls_smoke_check(spec)
+  } else same(spec$profile_id, .DSVERT_DP_IRLS_PRODUCER_VERSION)
   x_bounds <- rep(list(interval("-1", "1")), 3L)
   if (spec$estimand$intercept == "1") x_bounds[[1L]] <- interval("1", "1")
   same(s$x_bounds, x_bounds)

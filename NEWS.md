@@ -20,7 +20,7 @@
   signed certificate contents remain unchanged.
 
 * Targeted server verification passes 6,382 assertions in 11 files. See the
-  [client validation record](../dsVertClient/inst/validation/v1.4.2/RESULTS.md)
+  [client validation record](https://github.com/isglobal-brge/dsVertClient/blob/main/inst/validation/v1.4.2/RESULTS.md)
   for current separate-process federation outcomes and timings. No protocol
   checks are relaxed to obtain connector evidence.
 

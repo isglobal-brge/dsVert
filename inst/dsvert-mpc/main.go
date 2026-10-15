@@ -48,6 +48,8 @@ func main() {
 	cmd := os.Args[1]
 
 	switch cmd {
+	case "dp-irls-update":
+		handleDPIRLSUpdate()
 	// Transport encryption (X25519 + AES-256-GCM)
 	case "transport-keygen":
 		handleTransportKeygen()

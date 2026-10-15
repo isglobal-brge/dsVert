@@ -87,6 +87,102 @@
          lower = lower, upper = upper)
 }
 
+
+# Parse only an explicit additive grammar, without evaluating formula language.
+# B1 has no model-matrix compiler: transformations/interactions must obtain an
+# explicit later grammar/certificate instead of being silently interpreted here.
+.dsvert_dp_irls_estimand_formula <- function(e) {
+  parsed <- tryCatch(parse(text = e$formula, keep.source = TRUE),
+                     error = function(error) NULL)
+  if (is.null(parsed) || length(parsed) != 1L) .dsvert_dp_irls_fail("formula grammar")
+  tokens <- utils::getParseData(parsed)
+  if (any(tokens$token == "COMMENT") ||
+      any(tokens$text[tokens$token == "NUM_CONST"] %in% c("0", "1") == FALSE))
+    .dsvert_dp_irls_fail("formula grammar")
+  expr <- parsed[[1L]]
+  call_is <- function(x, name, size) is.call(x) && length(x) == size &&
+    is.symbol(x[[1L]]) && identical(as.character(x[[1L]]), name)
+  if (!call_is(expr, "~", 3L) || !is.symbol(expr[[2L]]))
+    .dsvert_dp_irls_fail("two-sided formula")
+  outcome <- Filter(function(z) z$role == "outcome", e$columns)[[1L]]$column_id
+  if (!identical(as.character(expr[[2L]]), outcome)) .dsvert_dp_irls_fail("formula outcome")
+  predictors <- character(); directives <- character(); offsets <- character()
+  constant <- function(x, n) is.numeric(x) && length(x) == 1L && !is.object(x) && x == n
+  walk <- function(x) {
+    if (is.symbol(x)) {
+      predictors <<- c(predictors, as.character(x)); return(invisible(NULL))
+    }
+    if (constant(x, 0) || constant(x, 1)) {
+      directives <<- c(directives, if (constant(x, 0)) "0" else "1")
+      return(invisible(NULL))
+    }
+    if (call_is(x, "(", 2L)) return(walk(x[[2L]]))
+    if (call_is(x, "+", 3L)) {walk(x[[2L]]); walk(x[[3L]]); return(invisible(NULL))}
+    if (call_is(x, "-", 2L) && constant(x[[2L]], 1)) {
+      directives <<- c(directives, "0"); return(invisible(NULL))
+    }
+    if (call_is(x, "-", 3L) && constant(x[[3L]], 1)) {
+      walk(x[[2L]]); directives <<- c(directives, "0"); return(invisible(NULL))
+    }
+    if (call_is(x, "offset", 2L)) {
+      term <- x[[2L]]
+      if (e$offset$kind == "offset" && is.symbol(term)) {
+        offsets <<- c(offsets, as.character(term)); return(invisible(NULL))
+      }
+      if (e$offset$kind == "log-exposure" && call_is(term, "log", 2L) && is.symbol(term[[2L]])) {
+        offsets <<- c(offsets, as.character(term[[2L]])); return(invisible(NULL))
+      }
+    }
+    .dsvert_dp_irls_fail("unsupported formula grammar")
+  }
+  walk(expr[[3L]])
+  if (anyDuplicated(predictors) || length(unique(directives)) > 1L)
+    .dsvert_dp_irls_fail("duplicate formula term or conflicting intercept")
+  intercept <- if (length(directives)) directives[[1L]] else "1"
+  if (!identical(intercept, e$intercept)) .dsvert_dp_irls_fail("formula intercept")
+  declared_predictors <- vapply(Filter(function(z) z$role == "predictor", e$columns),
+                                `[[`, character(1L), "column_id")
+  if (!setequal(predictors, declared_predictors)) .dsvert_dp_irls_fail("formula predictor declarations")
+  offset_columns <- Filter(function(z) z$role %in% c("offset", "exposure"), e$columns)
+  if (e$offset$kind == "none") {
+    if (length(offsets) || length(offset_columns)) .dsvert_dp_irls_fail("formula absent offset")
+  } else {
+    role <- if (e$offset$kind == "offset") "offset" else "exposure"
+    if (length(offsets) != 1L || !identical(offsets[[1L]], e$offset$column_id) ||
+        length(offset_columns) != 1L || offset_columns[[1L]]$role != role ||
+        offset_columns[[1L]]$column_id != e$offset$column_id ||
+        (e$offset$kind == "log-exposure" && e$family != "poisson"))
+      .dsvert_dp_irls_fail("formula offset declaration")
+  }
+  levels <- vapply(e$levels, `[[`, character(1L), "column_id")
+  contrasts <- vapply(e$contrasts, `[[`, character(1L), "column_id")
+  if (!setequal(levels, contrasts) || !all(levels %in% declared_predictors))
+    .dsvert_dp_irls_fail("categorical contrast declarations")
+  expanded <- if (intercept == "1") "(Intercept)" else character()
+  for (predictor in predictors) {
+    contrast <- match(predictor, contrasts)
+    if (is.na(contrast)) expanded <- c(expanded, predictor) else {
+      names <- unlist(e$contrasts[[contrast]]$coefficient_names, use.names = FALSE)
+      if (length(names) > length(e$levels[[match(predictor, levels)]]$values))
+        .dsvert_dp_irls_fail("categorical contrast dimension")
+      expanded <- c(expanded, names)
+    }
+  }
+  if (anyDuplicated(expanded) ||
+      !identical(expanded, unlist(e$coefficient_order, use.names = FALSE)))
+    .dsvert_dp_irls_fail("expanded coefficient order")
+  symbol_text <- function(x) paste(deparse(as.name(x), backtick = TRUE, width.cutoff = 500L), collapse = " ")
+  terms <- c(if (intercept == "0") "0", vapply(predictors, symbol_text, character(1L)))
+  if (length(offsets)) {
+    term <- symbol_text(offsets[[1L]])
+    if (e$offset$kind == "log-exposure") term <- paste0("log(", term, ")")
+    terms <- c(terms, paste0("offset(", term, ")"))
+  }
+  if (!length(terms)) terms <- "1"
+  e$formula <- paste(symbol_text(outcome), "~", paste(terms, collapse = " + "))
+  e
+}
+
 .dsvert_dp_irls_contract_normalize <- function(value) {
   if (!requireNamespace("gmp", quietly = TRUE))
     stop("DP IRLS requires gmp for exact arithmetic.", call. = FALSE)
@@ -146,6 +242,7 @@
     .dsvert_dp_irls_fail("intercept order")
   .dsvert_dp_irls_text(e$clamped_target)
   e$model_assumptions <- .dsvert_dp_irls_texts(e$model_assumptions, 1L)
+  e <- .dsvert_dp_irls_estimand_formula(e)
   value$estimand <- e
 
   s <- value$privacy_source

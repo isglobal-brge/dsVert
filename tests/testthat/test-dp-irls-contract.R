@@ -167,3 +167,43 @@ test_that("IRLS rejects undersized signed widths before certificate derivation",
   s$path$trust[[1L]] <- .irls_q("18446744073709551616")
   expect_error(.dsvert_dp_irls_contract_normalize(s), "certificate input bits")
 })
+
+test_that("IRLS additive formulas bind declared columns contrasts and offsets without evaluation", {
+  f <- .irls_contract_fixture(); s <- f$spec
+  s$estimand$formula <- "y~(1+x)"
+  expect_identical(.dsvert_dp_irls_contract_normalize(s), f$spec)
+  s <- f$spec; s$estimand$formula <- "x ~ y"
+  expect_error(.dsvert_dp_irls_contract_normalize(s), "formula outcome")
+  for (formula in c("y ~ z", "y ~ x + x", "y ~ 0 + x", "y ~ 1 + x - 1",
+    "y ~ log(x)", "y ~ I(x*x)", "y ~ x:x", "y ~ x*x", "y ~ .", "~ x",
+    "y ~ x; 1", "y ~ 1.0 + x", "y ~ x # hidden", "y ~ system('false')")) {
+    s <- f$spec; s$estimand$formula <- formula
+    expect_error(.dsvert_dp_irls_contract_normalize(s), "formula")
+  }
+  s <- f$spec; s$estimand$coefficient_order[[2L]] <- "unbound"
+  expect_error(.dsvert_dp_irls_contract_normalize(s), "expanded coefficient")
+  s <- f$spec; s$estimand$coefficient_order[[2L]] <- "xB"
+  s$estimand$levels <- list(list(column_id = "x", values = list("A", "B")))
+  s$estimand$contrasts <- list(list(column_id = "x", coding = "treatment-reference-A-v1", coefficient_names = list("xB")))
+  expect_identical(.dsvert_dp_irls_contract_normalize(s)$estimand$coefficient_order,
+                   list("(Intercept)", "xB"))
+  s$estimand$contrasts <- list()
+  expect_error(.dsvert_dp_irls_contract_normalize(s), "categorical contrast")
+  s <- f$spec
+  s$estimand$offset <- list(kind = "offset", column_id = "o", zero_exposure = "not-applicable")
+  s$estimand$columns[[3L]] <- list(column_id = "o", owner = "peer_a", source_id = "outcomes", role = "offset")
+  s$estimand$formula <- "y ~ offset(o) + x"
+  expect_identical(.dsvert_dp_irls_contract_normalize(s)$estimand$formula, "y ~ x + offset(o)")
+  s$estimand$formula <- "y ~ x"
+  expect_error(.dsvert_dp_irls_contract_normalize(s), "formula offset")
+  s <- f$spec
+  s$estimand$family <- "poisson"; s$estimand$link <- "log"
+  s$estimand$offset <- list(kind = "log-exposure", column_id = "exposure", zero_exposure = "masked-zero-contribution")
+  s$estimand$columns[[3L]] <- list(column_id = "exposure", owner = "peer_a", source_id = "outcomes", role = "exposure")
+  s$estimand$formula <- "y ~ x + offset(log(exposure))"
+  expect_identical(.dsvert_dp_irls_contract_normalize(s)$estimand$formula, s$estimand$formula)
+  # Directly exercise a no-intercept declaration without changing arithmetic shape.
+  e <- f$spec$estimand; e$intercept <- "0"; e$coefficient_order <- list("x")
+  e$formula <- "y ~ x - 1"
+  expect_identical(.dsvert_dp_irls_estimand_formula(e)$formula, "y ~ 0 + x")
+})

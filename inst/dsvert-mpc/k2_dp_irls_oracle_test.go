@@ -371,6 +371,20 @@ func TestDPIRLSB2SignedInterceptAndOffset(t *testing.T) {
 				})
 			}
 		}
+		t.Run(family+"/negative_fixed_intercept", func(t *testing.T) {
+			negativeBeta := []int64{-23456, 0, 0}
+			plan := dpIRLSB2TestPlan(family, 1, negativeBeta)
+			plan.Intercept, plan.OffsetMode = true, "none"
+			p, err := dpIRLSStageKernelPlan(plan)
+			if err != nil {
+				t.Fatal(err)
+			}
+			c := crossGridKernelTestCompile(t, p)
+			rows := []dpIRLSB2Row{{Present: 1, X: []int64{-65536, 12345, -32768}, Y: 1, Offset: 65537}}
+			source := dpIRLSB2Source(rows, 2)
+			rows[0].X[0], rows[0].Offset = 65536, 0
+			dpIRLSB2CheckCircuit(t, c, p, rows, source, dpIRLSB2Oracle(t, family, negativeBeta, rows, 1), true, rng)
+		})
 	}
 }
 

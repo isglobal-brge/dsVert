@@ -10,6 +10,19 @@ Use the current signed `bounded-normalized-gaussian-cross-sufficient-statistics-
 
 Retain `dsvertDPSynopsisGaussianCross{Bind,Finalize,Evidence}DS` and `dsvertDPGaussianCross{Bind,Prepare,Finalize}DS`, including signed source-layout/transcript/numeric evidence, private complete-case alignment and two designated authorities. All computation owners can contribute to the same pair at K=2/3/5. Client correlation and PCA operate only on the authenticated noised vector. No scores, masks, exact counts, raw cross-products or patient-level values leave the servers.
 
+The vertcor03 live diagnostic identified a client lifecycle omission already
+present in 1.4.1. Its fresh Gaussian computation UUID lacked Synopsis PREPARE,
+so exact-MPC binding selected the legacy DP policy and failed on the absent
+`dsvert.dp.ledger_path`. The earlier `dsvert_phase_not_ready` was a publication
+lookup miss, not the binding failure. The client now invokes the existing
+authenticated `dsvertDPSynopsisPrepareDS` on both authorities before transport
+initialization, with the same child UUID and signed manifest/claims/compilation.
+This installs existing artifact-derived authorization without starting a draw or
+changing release identity. No server guard, endpoint, sampler or runtime change
+is needed for this correction; legacy routes and all pin, signature, attestation
+and provenance checks remain intact. The evidence establishes the affected 1.4.1
+path, not a universal claim about every historical deployment.
+
 For m variables with intercept, the Gaussian block has `(m*m+3*m+4)/2` coordinates: n, upper-column-major X'X, X'y, y'y. Its nonnegative bounded contribution gives block natural L1 d/L2 sqrt(d), while the existing catalog also includes the admitted count and three numeric coordinates per variable. Actual calibration remains the complete signed catalog calibration; a minimal add/remove catalog has dimension/sensitivity `1+3*m+d`. Existing Gaussian/finite-sampler delta and exact-Laplace conditional pure-DP statements remain unchanged. Each noise authority contributes a full calibrated independent draw under the existing threat model; no epsilon division by K.
 
 Preserve clipped finite-record means per patient, normalized ties-to-even input quantization, exact protected floor-products, full signed-set complete cases, fixed capacity and bounds, overflow policy and quantization certificate. Correlation requires an intercept; auxiliary univariate marginals cannot substitute for missing complete-case sums. The server public release clamp remains unchanged; PSD projection, additional client moment clamping and PCA eigenstructure are client post-processing.
@@ -34,7 +47,7 @@ Preserve every same-owner artifact/schema/coordinate/replay identity and existin
 
 Run only named files, each command capped at 900 seconds: Gaussian-cross, capsule workload/materializer correlation tests, selected Synopsis source/execution/attestation/provenance tests, and the four-family registration tests affected by metadata. Check exact same-owner release/certificate bytes, private-source mutation replay, new authorization identity changes and two-authority tamper refusal. No full R or Go suite.
 
-The client design budgets one isolated-process DSLite smoke at at most ten fits/analyses and 15 minutes total, using tiny public synthetic data/capacity and real signing/PSI/noise paths. Ordinary one-process DSLite cannot prove independent server identities. A deadline or partial run is reported as incomplete; historical promotion and mocked unit coverage do not become fresh live-connector evidence.
+The original phase-B isolated-process DSLite smoke budget was at most ten fits/analyses and 15 minutes total; its attempts and limits remain historical evidence. For vertcor03 the maintainer explicitly authorized 45 minutes cumulative smoke wall time across debugging attempts, while retaining the 900-second cap on every command. Use bounded public synthetic data and real signatures, source authorization, the allowlist, PSI and production releases without fixture seams. Prioritize K2 and K3 Cor/PCA, K5 if time permits, live binomial and Poisson LASSO grids, exact replay and offline zero-call conversion. Ordinary one-process DSLite cannot prove independent server identities. A deadline or partial run is reported as incomplete; historical promotion and mocked unit coverage do not become fresh live-connector evidence.
 
 Environment and baseline commands/results are in `/workspace/dsflower/.tmp/vertcor/ENV.md`; source `/workspace/dsflower/.tmp/vertcor/env.sh`. Toolchains, libraries, binaries and logs are isolated below `.tmp/vertcor`; existing tests also use the default owner-private `/home/dev/.dsvert` state when they do not override it. The environment remains external to both repositories.
 
@@ -49,7 +62,8 @@ The complete public inventory documents the remaining MI and survival producer
 limitations; no universal cross-owner claim is made. Without a scientific outcome,
 freeze the radix-smallest owner-qualified variable as anchor at registration.
 
-See `dsVertClient/inst/validation/v1.4.2/RESULTS.md` for targeted counts, exact
-same-owner byte comparisons and the incomplete/live-connector distinction.
+See [the client validation record](../dsVertClient/inst/validation/v1.4.2/RESULTS.md)
+for current targeted counts, exact same-owner byte comparisons, individual
+federation outcomes and cumulative smoke wall time.
 No protocol guard is relaxed to make the smoke pass. Native runtime and exact
 provenance capability contents remain byte-identical to the 1.4.1 baseline.

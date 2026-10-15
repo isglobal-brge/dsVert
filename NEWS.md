@@ -11,10 +11,15 @@
   immutable-value-seal check and all production integrity checks.
 * Keep native runtime bytes, capability objects (including provenance version
   1.4.1), signed artifact coordinates and sticky identity domains unchanged.
+* Document the client correction for the cross-owner Gaussian Synopsis path
+  affected in 1.4.1: its dedicated computation session must authenticate through
+  the existing PREPARE endpoint before exact-MPC binding. The defect was a client
+  lifecycle omission; server pin, signature and provenance guards are unchanged.
 
-* Targeted server verification passes 6,382 assertions in 11 files. The client
-  smoke reached exact-MPC peer binding but did not complete Cor/PCA; no protocol
-  checks were relaxed to obtain connector evidence.
+* Targeted server verification passes 6,382 assertions in 11 files. See the
+  [client validation record](../dsVertClient/inst/validation/v1.4.2/RESULTS.md)
+  for current separate-process federation outcomes and timings. No protocol
+  checks are relaxed to obtain connector evidence.
 
 # dsVert 1.4.1
 

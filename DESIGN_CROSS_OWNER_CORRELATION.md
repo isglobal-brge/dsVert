@@ -23,6 +23,15 @@ is needed for this correction; legacy routes and all pin, signature, attestation
 and provenance checks remain intact. The evidence establishes the affected 1.4.1
 path, not a universal claim about every historical deployment.
 
+The subsequent live release exposed a second client omission in 1.4.1: Gaussian
+Synopsis certificate reconstruction dropped the authorization dependency closure
+before strict verification. The client now reconstructs it from the signed
+federation evidence and retains every signature, complete-epoch and manifest
+check. This also affects current same-owner certificates using the same reader.
+No server guard, certificate bytes, release coordinates or identity domain change;
+direct signed-evidence tests cover K2/K3/K5 and epoch tampering. Current end-to-end
+outcomes remain in the linked client validation record.
+
 For m variables with intercept, the Gaussian block has `(m*m+3*m+4)/2` coordinates: n, upper-column-major X'X, X'y, y'y. Its nonnegative bounded contribution gives block natural L1 d/L2 sqrt(d), while the existing catalog also includes the admitted count and three numeric coordinates per variable. Actual calibration remains the complete signed catalog calibration; a minimal add/remove catalog has dimension/sensitivity `1+3*m+d`. Existing Gaussian/finite-sampler delta and exact-Laplace conditional pure-DP statements remain unchanged. Each noise authority contributes a full calibrated independent draw under the existing threat model; no epsilon division by K.
 
 Preserve clipped finite-record means per patient, normalized ties-to-even input quantization, exact protected floor-products, full signed-set complete cases, fixed capacity and bounds, overflow policy and quantization certificate. Correlation requires an intercept; auxiliary univariate marginals cannot substitute for missing complete-case sums. The server public release clamp remains unchanged; PSD projection, additional client moment clamping and PCA eigenstructure are client post-processing.

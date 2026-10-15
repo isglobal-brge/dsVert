@@ -15,6 +15,9 @@
   affected in 1.4.1: its dedicated computation session must authenticate through
   the existing PREPARE endpoint before exact-MPC binding. The defect was a client
   lifecycle omission; server pin, signature and provenance guards are unchanged.
+  The client also restores the signed dependency closure while reconstructing
+  current Gaussian Synopsis certificates; the existing server epoch checks and
+  signed certificate contents remain unchanged.
 
 * Targeted server verification passes 6,382 assertions in 11 files. See the
   [client validation record](../dsVertClient/inst/validation/v1.4.2/RESULTS.md)

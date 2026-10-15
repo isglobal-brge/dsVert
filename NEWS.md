@@ -1,3 +1,9 @@
+# dsVert 1.5.0.9000 (development)
+
+* Add the signed dp_irls_v1 contract, exact path accounting, bounded rational
+  public updates and durable single-successor reservations for synthetic stages.
+* The protected producer, R/DSI lifecycle and inference remain later milestones.
+
 # dsVert 1.4.2
 
 * Coordinate the client cross-owner correlation/PCA release using the existing

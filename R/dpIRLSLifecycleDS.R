@@ -149,13 +149,16 @@ dpIRLSResumeDS <- function(analysis_id) {
     stage_id=entry$worker$plan$stage_id,from=entry$authority,to=entry$peer),body)
   signature <- .dsvert_relay_sign_message(charToRaw(.dsvert_dp_irls_state_json(body)),entry$identity_sk)
   plain <- charToRaw(.dsvert_dp_irls_state_json(list(body=body,signature=signature)))
-  .callMpcTool("transport-encrypt",list(data=jsonlite::base64_enc(plain),recipient_pk=entry$peer_transport_pk))$sealed
+  # base64url is inside the narrow DSI expression-parser alphabet, so the
+  # client relays frames verbatim instead of re-encoding them.
+  base64_to_base64url(.callMpcTool("transport-encrypt",
+    list(data=jsonlite::base64_enc(plain),recipient_pk=entry$peer_transport_pk))$sealed)
 }
 
 .dsvert_dp_irls_frame_open <- function(entry, frame) {
   if (!is.character(frame)||length(frame)!=1L||is.na(frame)||nchar(frame,type="bytes")>16*1024^2)
     .dsvert_dp_irls_fail("relay frame")
-  opened <- .callMpcTool("transport-decrypt",list(sealed=frame,recipient_sk=entry$transport$secret_key))
+  opened <- .callMpcTool("transport-decrypt",list(sealed=.base64url_to_base64(frame),recipient_sk=entry$transport$secret_key))
   envelope <- .dsvert_dp_irls_state_decode(rawToChar(jsonlite::base64_dec(opened$data)))
   .dsvert_dp_irls_fields(envelope,c("body","signature")); body<-envelope$body
   .dsvert_dp_irls_fields(body,c("version","root","stage_id","from","to","offset","ack","data","noised","publication","recovery"))
@@ -175,9 +178,10 @@ dpIRLSRelayDS <- function(analysis_id, frame = "") {
   entry <- .dsvert_dp_irls_entry(analysis_id); worker<-entry$worker
   if (is.null(worker)) .dsvert_dp_irls_fail("stage not started")
   if (!is.character(frame)||length(frame)!=1L||is.na(frame)) .dsvert_dp_irls_fail("relay frame")
-  # Frames cross DSI expression parsers, so the client sends them in the
-  # canonical DSI-safe text framing (an empty frame is encoded too).
-  frame <- .dsvert_dsi_text_decode(frame, "DP IRLS relay frame", 16 * 1024^2)
+  # Frames are base64url (DSI-safe); "none" stands for an empty frame because
+  # DSI expression parsers reject empty string literals.
+  if (identical(frame, "none")) frame <- "" else if (!grepl("^[A-Za-z0-9_-]+$", frame))
+    .dsvert_dp_irls_fail("relay frame")
   if (nzchar(frame)) {
     body <- .dsvert_dp_irls_frame_open(entry,frame)
     .dsvert_dp_irls_recovery_receive(entry,body$recovery)

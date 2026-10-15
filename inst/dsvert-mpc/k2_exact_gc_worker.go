@@ -31,6 +31,7 @@ const (
 )
 
 type exactGCWorkerConfig struct {
+	DPIRLS         *dpIRLSWorkerInput      `json:"dp_irls,omitempty"`
 	GroupedGEE     *groupedGEEWorkerInput  `json:"grouped_gee,omitempty"`
 	CoxLoss        *coxLossWorkerInput     `json:"cox_loss,omitempty"`
 	GroupedLMM     *groupedLMMWorkerInput  `json:"grouped_lmm,omitempty"`
@@ -69,15 +70,16 @@ type exactGCWorkerConfig struct {
 }
 
 type exactGCWorkerResult struct {
-	Version         string `json:"version"`
-	Kind            string `json:"kind"`
-	RingBits        int    `json:"ring_bits"`
-	VectorLen       int    `json:"vector_len"`
-	Share           string `json:"share"`
-	ValidityShare   string `json:"validity_share,omitempty"`
-	ContextHash     string `json:"context_hash"`
-	StageReceipt    string `json:"stage_receipt,omitempty"`
-	StagePlanDigest string `json:"stage_plan_digest,omitempty"`
+	DPIRLS          *dpIRLSWorkerOutput `json:"dp_irls,omitempty"`
+	Version         string              `json:"version"`
+	Kind            string              `json:"kind"`
+	RingBits        int                 `json:"ring_bits"`
+	VectorLen       int                 `json:"vector_len"`
+	Share           string              `json:"share"`
+	ValidityShare   string              `json:"validity_share,omitempty"`
+	ContextHash     string              `json:"context_hash"`
+	StageReceipt    string              `json:"stage_receipt,omitempty"`
+	StagePlanDigest string              `json:"stage_plan_digest,omitempty"`
 }
 
 type exactGCDeriveMasterInput struct {
@@ -225,6 +227,20 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 	}
 	failureSession = &session
 	defer clear(session.MasterKey[:])
+	var stagedIRLS *dpIRLSWorkerPrepared
+	if session.Spec.Operation == dpIRLSStageOperation {
+		stagedIRLS, err = dpIRLSWorkerPrepare(config, session)
+		if err != nil {
+			return err
+		}
+		defer clear(stagedIRLS.key[:])
+		defer clear(stagedIRLS.seed[:])
+		defer exactGCZeroBigInts(stagedIRLS.source)
+		config.DPIRLS = nil
+		config.CrossGridCache = nil
+	} else if config.DPIRLS != nil {
+		return errCrossGridStage
+	}
 	var stagedCox *coxLossWorkerPrepared
 	if session.Spec.Operation == coxLossWorkerOperation {
 		stagedCox, err = coxLossWorkerPrepare(config, session)
@@ -288,7 +304,7 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 		return errCrossGridKernel
 	}
 	var shares []*big.Int
-	if stagedLMM == nil && stagedGLMM == nil && stagedGEE == nil && stagedCox == nil {
+	if stagedIRLS == nil && stagedLMM == nil && stagedGLMM == nil && stagedGEE == nil && stagedCox == nil {
 		shares, err = exactGCDecodeWorkerShares(config.SourceShare, shareSpec)
 	}
 	config.MasterKey = ""
@@ -391,7 +407,11 @@ func handleExactGCWorker(configPath string) (returnErr error) {
 	if err := exactGCPrivateMarker(config.SpoolDir, "ready", []byte("1")); err != nil {
 		return err
 	}
-	if stagedCox != nil {
+	if stagedIRLS != nil {
+		var result exactGCWorkerResult
+		result, err = stagedIRLS.run(spool, session)
+		stagedResult = &result
+	} else if stagedCox != nil {
 		var result exactGCWorkerResult
 		result, err = stagedCox.run(spool, session)
 		stagedResult = &result

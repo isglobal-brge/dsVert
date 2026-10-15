@@ -131,7 +131,11 @@ func (p crossGridKernelPlan) validate() error {
 
 func (p crossGridKernelPlan) sourceCount() int {
 	if p.IRLS != nil {
-		return p.IRLS.Rows*(p.IRLS.P+3) + 2*p.IRLS.Owners
+		stride := p.IRLS.P + 3
+		if p.IRLS.SourceABI == dpIRLSB3SourceABI {
+			stride++
+		}
+		return p.IRLS.Rows*stride + 2*p.IRLS.Owners
 	}
 	return p.Rows*2*(p.Predictors+1) + 2*p.Owners
 }

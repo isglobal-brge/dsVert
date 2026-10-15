@@ -1,9 +1,9 @@
 package main
 
 // One authenticated public evaluation point, one fused protected score/curvature
-// evaluation. This is an internal producer: it returns aggregate shares only and
-// has no command, release endpoint, or noiseless publication mode. B1 chain
-// authentication is performed before constructing this purpose-bound plan.
+// evaluation. This internal producer returns aggregate shares only. The B3
+// private worker consumes them through mandatory split noise before publication.
+// B1 chain authentication precedes construction of this purpose-bound plan.
 import (
 	"crypto/sha256"
 	"encoding/hex"
@@ -33,6 +33,7 @@ type dpIRLSStagePlan struct {
 	Purpose           string   `json:"purpose"`
 	Root              string   `json:"root"`
 	Rows              int      `json:"rows"`
+	SourceABI         string   `json:"source_abi,omitempty"`
 	StageID           string   `json:"stage_id"`
 	StageIndex        int      `json:"stage_index"`
 	Version           string   `json:"version"`
@@ -53,7 +54,7 @@ func (p dpIRLSStagePlan) pointDigest() string {
 }
 
 func (p dpIRLSStagePlan) validate() error {
-	if p.Version != dpIRLSStageVersion || p.P != 3 || p.Rows < 1 || p.Rows > 64 || p.Owners != 2 || (p.OffsetMode != "none" && p.OffsetMode != "offset") || p.StageIndex < 0 || p.StageIndex > 10000 || (p.Purpose != "optimizer" && p.Purpose != "terminal-audit") || len(p.Beta) != p.P {
+	if (p.SourceABI != "" && p.SourceABI != dpIRLSB3SourceABI) || p.Version != dpIRLSStageVersion || p.P != 3 || p.Rows < 1 || p.Rows > 64 || p.Owners != 2 || (p.OffsetMode != "none" && p.OffsetMode != "offset") || p.StageIndex < 0 || p.StageIndex > 10000 || (p.Purpose != "optimizer" && p.Purpose != "terminal-audit") || len(p.Beta) != p.P {
 		return errCrossGridKernel
 	}
 	for _, d := range []string{p.Root, p.StageID, p.Predecessor, p.PointDigest, p.CertificateDigest} {
@@ -108,7 +109,11 @@ func dpIRLSStageSource(p dpIRLSStagePlan) (string, error) {
 		return "", err
 	}
 	d := p.P + p.P*(p.P+1)/2
-	n := p.Rows*(p.P+3) + 2*p.Owners
+	stride := p.P + 3
+	if p.SourceABI == dpIRLSB3SourceABI {
+		stride++
+	}
+	n := p.Rows*stride + 2*p.Owners
 	var b strings.Builder
 	b.WriteString("package main\n")
 	b.WriteString(dpIRLSClampUnitSource())
@@ -123,7 +128,7 @@ func dpIRLSStageSource(p dpIRLSStagePlan) (string, error) {
 		fmt.Fprintf(&b, "func %s(v int64) int64 { q:=v >> %d\n r:=uint64(v)&%d\n if r>%d || (r==%d && (q&1)!=0) {q=q+1}\n return q\n}\n", round.name, round.shift, 2*half-1, half, half)
 	}
 	fmt.Fprintf(&b, "func main(g [%d]uint128,e [%d]uint128) [%d]uint128 {\nvar out [%d]uint128\nvar sums [%d]int64\n", n+d+1, n, d+1, d+1, d)
-	alignment := p.Rows * (p.P + 3)
+	alignment := p.Rows * stride
 	fmt.Fprintf(&b, "a0:=g[%d]^e[%d]\n a1:=g[%d]^e[%d]\n valid:=(a0!=0 || a1!=0)\n", alignment, alignment, alignment+1, alignment+1)
 	for owner := 1; owner < p.Owners; owner++ {
 		i := alignment + 2*owner
@@ -131,10 +136,17 @@ func dpIRLSStageSource(p dpIRLSStagePlan) (string, error) {
 	}
 	b.WriteString("aligned:=valid\n")
 	for row := 0; row < p.Rows; row++ {
-		base := row * (p.P + 3)
+		base := row * stride
 		fmt.Fprintf(&b, "present%d:=g[%d]+e[%d]\n valid=valid && (present%d==0 || present%d==1)\n active%d:=present%d==1 && aligned\n", row, base, base, row, row, row, row)
+		if p.SourceABI == dpIRLSB3SourceABI {
+			fmt.Fprintf(&b, "other%d:=g[%d]+e[%d]\n active%d=active%d && other%d==1\n", row, base+1, base+1, row, row, row)
+			base++
+		}
 		for j := 0; j < p.P; j++ {
 			i := base + 1 + j
+			if p.SourceABI == dpIRLSB3SourceABI {
+				fmt.Fprintf(&b, "active%d=active%d && irlsInUnit(g[%d]+e[%d])\n", row, row, i, i)
+			}
 			fmt.Fprintf(&b, "x%d_%d:=irlsClampUnit(g[%d]+e[%d])\n", row, j, i, i)
 		}
 		if p.Intercept {
@@ -145,7 +157,13 @@ func dpIRLSStageSource(p dpIRLSStagePlan) (string, error) {
 		if p.Family == "binomial" {
 			fmt.Fprintf(&b, "binary%d:=rawY%d==0 || rawY%d==1\n valid=valid && (present%d!=1 || binary%d)\n active%d=active%d && binary%d\n if !binary%d {rawY%d=0}\n", row, row, row, row, row, row, row, row, row, row)
 		} else {
+			if p.SourceABI == dpIRLSB3SourceABI {
+				fmt.Fprintf(&b, "active%d=active%d && rawY%d<=8\n", row, row, row)
+			}
 			fmt.Fprintf(&b, "if (rawY%d >> 127)!=0 {rawY%d=0}\n if rawY%d>8 {rawY%d=8}\n", row, row, row, row)
+		}
+		if p.SourceABI == dpIRLSB3SourceABI {
+			fmt.Fprintf(&b, "active%d=active%d && irlsInUnit(g[%d]+e[%d])\n", row, row, o, o)
 		}
 		fmt.Fprintf(&b, "y%d:=int32(rawY%d)\n offset%d:=irlsClampUnit(g[%d]+e[%d])\n dot%d:=int64(offset%d)*65536\n", row, row, row, o, o, row, row)
 		if p.OffsetMode == "none" {
@@ -193,7 +211,13 @@ func dpIRLSStageSource(p dpIRLSStagePlan) (string, error) {
 // incorrectly (zero < -65536 at int128). Decode the sign and magnitude in
 // unsigned Ring128 first, then narrow only the proven bounded magnitude.
 func dpIRLSClampUnitSource() string {
-	return `func irlsClampUnit(v uint128) int32 {
+	return `func irlsInUnit(v uint128) bool {
+ negative := (v >> 127) != 0
+ magnitude := v
+ if negative { magnitude = uint128(0)-v }
+ return magnitude<=65536
+}
+func irlsClampUnit(v uint128) int32 {
  negative := (v >> 127) != 0
  magnitude := v
  if negative { magnitude = uint128(0)-v }

@@ -410,7 +410,22 @@
     x <- abs(gmp::as.bigz(x)); if (x == 0) 0L else nchar(as.character(x, b = 2L))
   }
   n <- spec$numeric; a <- spec$path
-  p <- length(a$box$lower); D <- gmp::as.bigz(1)
+  p <- length(a$box$lower)
+  w <- as.integer(n$certificate$input_bits)
+  m <- 0L; pp <- gmp::as.bigz(p)^p
+  while (gmp::as.bigz(2)^(2L * m) < pp) m <- m + 1L
+  L <- p * w + m + 2L
+  if (n$certificate$temporary_bits != as.character(8L * L + 16L * w + 64L))
+    .dsvert_dp_irls_fail("certificate temporary bits")
+  static <- c(a$box$lower, a$box$upper, a$damping, a$trust,
+              list(a$floor, a$floor_quantum, a$ridge, n$lattice$g, n$lattice$H, n$lattice$beta))
+  # Check signed input widths before LCM/range products. With static values
+  # bounded by w, the six-denominator admission DAG also fits the 8L+16w+64
+  # ceiling; a malformed contract cannot enlarge admission arithmetic first.
+  static_bits <- max(vapply(static, function(z) max(bits(z$n), bits(z$d)), integer(1L)),
+    vapply(c(n$translation$g, n$translation$H), function(z) bits(2 * gmp::as.bigz(z)), integer(1L)))
+  if (w < static_bits) .dsvert_dp_irls_fail("certificate input bits")
+  D <- gmp::as.bigz(1)
   ds <- lapply(list(q(n$lattice$H), q(a$floor_quantum), q(a$ridge),
     q(a$floor), q(n$lattice$g), q(a$ridge) * q(n$lattice$beta)), gmp::denominator)
   for (d in ds) D <- (D %/% gmp::gcd.bigz(D, d)) * d
@@ -429,18 +444,9 @@
   gmax <- Reduce(max, lapply(n$translation$g, function(z) gmp::as.bigq(z) * q(n$lattice$g)))
   bound <- max(hmax + k * q(a$floor_quantum) + q(a$ridge) + q(a$floor),
                gmax + q(a$ridge) * bmax)
-  static <- c(a$box$lower, a$box$upper, a$damping, a$trust,
-              list(a$floor, a$floor_quantum, a$ridge, n$lattice$g, n$lattice$H, n$lattice$beta))
-  wmin <- max(vapply(static, function(z) max(bits(z$n), bits(z$d)), integer(1L)),
-    vapply(c(n$translation$g, n$translation$H), function(z) bits(2 * gmp::as.bigz(z)), integer(1L)),
-    bits(D), bits(ceilq(D * bound)), bits(ceilq(bmax * gmp::as.bigz(n$lattice$beta$d))))
-  w <- as.integer(n$certificate$input_bits)
+  wmin <- max(static_bits, bits(D), bits(ceilq(D * bound)),
+              bits(ceilq(bmax * gmp::as.bigz(n$lattice$beta$d))))
   if (w < wmin) .dsvert_dp_irls_fail("certificate input bits")
-  m <- 0L; pp <- gmp::as.bigz(p)^p
-  while (gmp::as.bigz(2)^(2L * m) < pp) m <- m + 1L
-  L <- p * w + m + 2L
-  if (n$certificate$temporary_bits != as.character(8L * L + 16L * w + 64L))
-    .dsvert_dp_irls_fail("certificate temporary bits")
   invisible(TRUE)
 }
 
@@ -520,8 +526,8 @@
 .dsvert_dp_irls_payload_digest <- function(contract, t, payload) {
   payload <- .dsvert_dp_irls_payload_validate(contract, t, payload)
   # Array order is normative g || H, or g || signed retained-H reference.
-  .dsvert_dp_irls_hash("dsvert-v3-irls-public-payload-v1", if (!is.null(payload$H))
-    list(list(lane = "g", values = payload$g), list(lane = "H", values = payload$H)) else
+  .dsvert_dp_irls_hash("dsvert-v3-irls-public-payload-v1", if (!is.null(payload[["H"]]))
+    list(list(lane = "g", values = payload$g), list(lane = "H", values = payload[["H"]])) else
     list(list(lane = "g", values = payload$g), list(lane = "H", reference = payload$H_reference)))
 }
 .dsvert_dp_irls_accounting <- function(contract, observed = list(), observed_auxiliary = list()) {

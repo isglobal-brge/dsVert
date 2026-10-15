@@ -118,6 +118,8 @@ test_that("IRLS score-only stages require a signed retained curvature reference"
   payload <- list(g = list("16", "16"), H_reference = list(stage_id = .dsvert_dp_irls_stage_id(s, "0", .dsvert_dp_irls_start_digest(s)),
     payload_digest = .dsvert_dp_irls_payload_digest(s, "0", f$payload())))
   digest <- .dsvert_dp_irls_payload_digest(s, "1", payload)
+  expect_identical(digest, .dsvert_dp_irls_hash("dsvert-v3-irls-public-payload-v1",
+    list(list(lane = "g", values = payload$g), list(lane = "H", reference = payload$H_reference))))
   payload$H_reference$payload_digest <- .dsvert_dp_irls_root(s)
   expect_false(identical(digest, .dsvert_dp_irls_payload_digest(s, "1", payload)))
   expect_error(.dsvert_dp_irls_accounting(s, list(list(t = "1", lanes = list("H")))), "observed lane")
@@ -152,4 +154,16 @@ test_that("IRLS rejects signature/pin, source, resource and path inconsistencies
     function(s) {s$accounting$delta <- .irls_q("1", "100"); s},
     function(s) {s$privacy_source$closure$dependencies[[1L]]$dependency$provenance_kind <- "padded_psi"; s})
   for (mutate in mutations) expect_error(.dsvert_dp_irls_contract_normalize(mutate(f$spec)))
+})
+
+test_that("IRLS rejects undersized signed widths before certificate derivation", {
+  f <- .irls_contract_fixture(); s <- f$spec
+  s$numeric$certificate$input_bits <- "1"
+  s$numeric$certificate$temporary_bits <- "120"
+  s$numeric$certificate_sha256 <- .dsvert_dp_irls_hash(
+    "dsvert-v3-irls-numeric-certificate-v1", s$numeric$certificate)
+  expect_error(.dsvert_dp_irls_contract_normalize(s), "certificate input bits")
+  s <- f$spec
+  s$path$trust[[1L]] <- .irls_q("18446744073709551616")
+  expect_error(.dsvert_dp_irls_contract_normalize(s), "certificate input bits")
 })

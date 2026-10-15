@@ -1,3 +1,21 @@
+# dsVert 1.4.2
+
+* Coordinate the client cross-owner correlation/PCA release using the existing
+  signed Gaussian Synopsis; document fixed public anchor registration, full-set
+  complete cases and unchanged two-authority privacy/provenance contracts.
+* Correct descriptive promotion metadata for NB, LASSO, multinomial and ordinal
+  grids. Their authenticated release routes and fail-closed descriptor stubs
+  are unchanged; no new protocol, endpoint or sampler is introduced.
+* Repair the Gaussian alignment materializer test fixture with isolated peer
+  identities/pins and current provenance expectations. Retain the negative
+  immutable-value-seal check and all production integrity checks.
+* Keep native runtime bytes, capability objects (including provenance version
+  1.4.1), signed artifact coordinates and sticky identity domains unchanged.
+
+* Targeted server verification passes 6,382 assertions in 11 files. The client
+  smoke reached exact-MPC peer binding but did not complete Cor/PCA; no protocol
+  checks were relaxed to obtain connector evidence.
+
 # dsVert 1.4.1
 
 * Address isglobal-brge/dsVert#25 for Count, Frequency and Synopsis with durable

@@ -114,9 +114,11 @@ dpIRLSMetadataDS <- function(analysis_id) {
   config_path <- file.path(spool,"worker-config.json")
   .exact_gc_private_file(config_path,charToRaw(as.character(jsonlite::toJSON(config,auto_unbox=TRUE,null="null",digits=17))))
   worker <- new.env(parent=emptyenv());worker$spool<-spool
-  # Frames follow the custodian's exact-GC chunk policy (default 480 KiB,
-  # admitted 16 KiB..8 MiB); 8 chunks must fit the 64 MiB spool.
-  worker$spool_max_bytes<-64*1024^2;worker$chunk_bytes<-min(.exact_gc_chunk_bytes(),8*1024^2)
+  # A relay frame nests the chunk in base64 inside the sealed envelope, which
+  # is base64 again: about 1.78x the raw chunk. 384 KiB keeps each DSI
+  # expression under the 768 KiB client bound; a smaller custodian chunk
+  # policy still applies.
+  worker$spool_max_bytes<-64*1024^2;worker$chunk_bytes<-min(.exact_gc_chunk_bytes(),384*1024)
   worker$process<-NULL;worker$config_path<-config_path
   worker$started<-proc.time()[[3L]];worker$source_seconds<-source_seconds
   worker$policy<-policy;worker$predecessor<-predecessor;worker$plan<-plan

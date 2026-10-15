@@ -652,3 +652,21 @@ for the current K=2/K>=3 distributed-vs-centralized validation matrix.
 ## License
 
 MIT - see [LICENSE](LICENSE.md).
+
+## Cross-owner correlation/PCA in 1.4.2
+
+The client derives all-pair complete-case correlation and PCA from the existing
+intercept-containing cross-owner Gaussian Synopsis. Only the outcome/anchor owner
+registers the global `dsvert.dp.gaussian_specs` v2 fragment; all source owners
+sign and contribute protected inputs. Without a scientific outcome, freeze the
+smallest owner-qualified variable reference as the public anchor at registration.
+Relabelling is a new release. See the [server design note](DESIGN_CROSS_OWNER_CORRELATION.md)
+and the client `inst/docs/cross_owner_correlation_1.4.2.md` for two- and three-owner
+configurations, missingness and utility limits.
+
+The four promoted NB/LASSO/multinomial/ordinal descriptors now describe their
+actual authenticated lifecycle. The R package version is 1.4.2; native bytes,
+capabilities (provenance version 1.4.1), identities, samplers and release endpoints
+are unchanged. A compatible 1.4.1 server remains usable when its full capabilities
+validate. PCA never releases patient scores. Cross-owner survival Synopsis and
+MI's strict missingness contract are not added by this release.

@@ -150,12 +150,13 @@
 }
 
 .materializer_test_vertical_fixture <- function(
-    peer, gaussian_specs = list(), capacity = 2L, padded_v3 = FALSE) {
+    peer, gaussian_specs = list(), capacity = 2L, padded_v3 = FALSE,
+    pins = NULL) {
   stopifnot(peer %in% c("peer_a", "peer_b"))
   stopifnot(length(capacity) == 1L, !is.na(capacity),
             capacity == floor(capacity), capacity >= 2L)
   capacity <- as.integer(capacity)
-  pins <- c(
+  if (is.null(pins)) pins <- c(
     peer_a = .materializer_test_b64url(as.raw(seq_len(32L))),
     peer_b = .materializer_test_b64url(as.raw(32L + seq_len(32L))))
   pin_hash <- digest::digest(
@@ -1940,34 +1941,54 @@ test_that("cross Gaussian source inputs are fixed-capacity private tail blocks",
     class = "dsvert_non_prealigned_cohort")
 })
 
-test_that("padded v4 bindings drive one cross Gaussian alignment consensus", {
+test_that("padded v5 bindings drive one cross Gaussian alignment consensus", {
+  # A full-value seal belongs to an actual custodian identity, not the
+  # policy's peer_name label. Keep the shared PSI context but emulate the
+  # two independent hosts during both creation and subsequent validation.
+  state <- tempfile("cross-gaussian-identities-", tmpdir = dirname(tempdir()))
+  dir.create(state, mode = "0700")
+  withr::local_envvar(c(DSVERT_STATE_DIR = state))
+  withr::defer(unlink(state, recursive = TRUE))
+  seeds <- list(peer_a = jsonlite::base64_enc(as.raw(0:31)),
+                peer_b = jsonlite::base64_enc(as.raw(32:63)))
+  at_peer <- function(peer, code) {
+    withr::with_options(list(dsvert.identity_seed = seeds[[peer]]), code)
+  }
+  identities <- lapply(names(seeds), function(peer) {
+    at_peer(peer, .get_identity_keypair())
+  })
+  pins <- stats::setNames(vapply(identities, function(identity) {
+    base64_to_base64url(identity$identity_pk)
+  }, character(1L)), names(seeds))
+  expect_false(identical(pins[[1L]], pins[[2L]]))
   gaussian <- list(cross = list(
     version = "v2", dataset = "protected", outcome = "x",
     predictors = "z", intercept = TRUE))
-  peer_a <- .materializer_test_vertical_fixture(
-    "peer_a", gaussian_specs = gaussian, padded_v3 = TRUE)
-  peer_b <- .materializer_test_vertical_fixture(
-    "peer_b", gaussian_specs = gaussian, padded_v3 = TRUE)
+  peer_a <- at_peer("peer_a", .materializer_test_vertical_fixture(
+    "peer_a", gaussian_specs = gaussian, padded_v3 = TRUE, pins = pins))
+  peer_b <- at_peer("peer_b", .materializer_test_vertical_fixture(
+    "peer_b", gaussian_specs = gaussian, padded_v3 = TRUE, pins = pins))
 
   snapshot_digest <- .dsvert_dp_snapshot_digest
   digest_calls <- 0L
-  validated <- testthat::with_mocked_bindings(
+  validated <- at_peer("peer_a", testthat::with_mocked_bindings(
     .dsvert_dp_capsule_resolved_snapshots(
       peer_a$policy, peer_a$resolved),
     .dsvert_dp_snapshot_digest = function(data) {
       digest_calls <<- digest_calls + 1L
       snapshot_digest(data)
     },
-    .package = "dsVert")
+    .package = "dsVert"))
   expect_identical(validated, peer_a$resolved)
-  expect_identical(digest_calls, 1L)
+  # The current provenance epoch validates both the snapshot and value seal.
+  expect_identical(digest_calls, 2L)
 
-  context_a <- .dsvert_dp_gaussian_cross_source_context(
+  context_a <- at_peer("peer_a", .dsvert_dp_gaussian_cross_source_context(
     peer_a$policy, peer_a$manifest, peer_a$resolved,
-    include_release = FALSE)
-  context_b <- .dsvert_dp_gaussian_cross_source_context(
+    include_release = FALSE))
+  context_b <- at_peer("peer_b", .dsvert_dp_gaussian_cross_source_context(
     peer_b$policy, peer_b$manifest, peer_b$resolved,
-    include_release = FALSE)
+    include_release = FALSE))
   expect_identical(
     context_a$private_alignment_consensus_hash,
     context_b$private_alignment_consensus_hash)
@@ -1975,7 +1996,11 @@ test_that("padded v4 bindings drive one cross Gaussian alignment consensus", {
     context_a$private_alignment_consensus_hash,
     peer_a$policy$datasets$protected$alignment_manifest_hash)
   expect_identical(
-    peer_a$policy$datasets$protected$alignment_manifest_version, 4L)
+    peer_a$policy$datasets$protected$alignment_manifest_version, 5L)
+  # Same identity and epoch with different values must still fail closed.
+  expect_error(at_peer("peer_a", .materializer_test_vertical_fixture(
+    "peer_b", gaussian_specs = gaussian, padded_v3 = TRUE, pins = pins)),
+    "immutable authorized material failed its private integrity check")
 })
 
 test_that("incremental commitments cross value-block boundaries exactly", {

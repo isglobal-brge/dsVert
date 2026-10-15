@@ -312,5 +312,8 @@
     implementation_state = "cross_owner_exact_gc_materialized",
     cross_owner_state = "exact_gc_to_joint_dp_vector_v1",
     nonlinear_arithmetic_required = "certified_piecewise_polynomial_profile_v1",
-    production_release_enabled = FALSE, result_evidence_required = TRUE)
+    promotion_status = "promoted_v1.3.0",
+    archived_promotion_family = "binomial",
+    production_route = "authenticated_synopsis_lifecycle",
+    result_evidence_required = TRUE)
 }

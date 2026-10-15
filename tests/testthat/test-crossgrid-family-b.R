@@ -184,7 +184,7 @@ test_that("categorical caps reject unrepresentable capacity products", {
 test_that("registration never authorizes release without the fused producer", {
   for (registration in list(.dsvert_dp_multinomial_grid_cross_register(),
                            .dsvert_dp_ordinal_grid_cross_register())) {
-    expect_false(registration$release_enabled)
+    expect_identical(registration$promotion_status, "promoted_v1.3.0")
     expect_error(registration$release(), class = "dsvert_dp_public_failure")
     expect_true(is.function(registration$spec))
     expect_true(is.function(registration$validate))

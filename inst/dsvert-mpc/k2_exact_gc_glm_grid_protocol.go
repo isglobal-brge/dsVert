@@ -17,6 +17,11 @@ import (
 const crossGridKernelOperation exactGCOperation = "glm-grid-profile-v2"
 
 func (p crossGridKernelPlan) purpose() string {
+	if p.IRLS != nil {
+		b, _ := json.Marshal(p.IRLS)
+		hash := sha256.Sum256(append([]byte("dsvert-dp-irls-fused-stage-v1\x00"), b...))
+		return "dsvert-dp-irls-fused-stage-v1/" + hex.EncodeToString(hash[:])
+	}
 	b, _ := json.Marshal(p)
 	hash := sha256.Sum256(append([]byte("dsvert-cross-grid-fused-v2\x00"), b...))
 	return "dsvert-cross-grid-fused-v2/" + hex.EncodeToString(hash[:])
@@ -55,14 +60,21 @@ func (k *crossGridKernelPrepared) run(rw io.ReadWriter, session exactGCSession, 
 }
 
 func (p crossGridKernelPlan) matchesPurpose(value string) bool {
+	if p.IRLS != nil {
+		return value == p.purpose()
+	}
 	purpose := p.purpose()
 	producer := "dp." + p.Family + "-grid-cross.v1"
 	return value == purpose || value == fmt.Sprintf("source=%d:%s|purpose=%d:%s", len(producer), producer, len(purpose), purpose)
 }
 
 func (k *crossGridKernelPrepared) runWithSeed(rw io.ReadWriter, session exactGCSession, source []*big.Int, role exactGCRole, seed *[32]byte) ([]*big.Int, error) {
+	return k.runWithSeedMeasured(rw, session, source, role, seed, nil)
+}
+
+func (k *crossGridKernelPrepared) runWithSeedMeasured(rw io.ReadWriter, session exactGCSession, source []*big.Int, role exactGCRole, seed *[32]byte, stats *exactGCProtocolTimings) ([]*big.Int, error) {
 	if k == nil || k.circuit == nil || rw == nil || session.validate() != nil ||
-		session.Spec.Operation != crossGridKernelOperation || session.Spec.VectorLen != len(k.plan.Beta) || !k.plan.matchesPurpose(session.Purpose) || (role != exactGCRoleGarbler && role != exactGCRoleEvaluator) {
+		session.Spec.Operation != k.plan.operation() || session.Spec.VectorLen != k.plan.outputCount() || !k.plan.matchesPurpose(session.Purpose) || (role != exactGCRoleGarbler && role != exactGCRoleEvaluator) {
 		return nil, errCrossGridKernel
 	}
 	input, err := crossGridKernelPrivateInput(k.plan, source, role == exactGCRoleGarbler)
@@ -72,7 +84,7 @@ func (k *crossGridKernelPrepared) runWithSeed(rw io.ReadWriter, session exactGCS
 	defer exactGCZeroBigInts(input)
 	var masks []*big.Int
 	if role == exactGCRoleGarbler {
-		masks = make([]*big.Int, len(k.plan.Beta)+1)
+		masks = make([]*big.Int, k.plan.outputCount()+1)
 		defer exactGCZeroBigInts(masks)
 		for i := range masks {
 			if seed == nil {
@@ -88,7 +100,7 @@ func (k *crossGridKernelPrepared) runWithSeed(rw io.ReadWriter, session exactGCS
 				return nil, errCrossGridKernel
 			}
 		}
-		masks[len(k.plan.Beta)].And(masks[len(k.plan.Beta)], big.NewInt(1))
+		masks[k.plan.outputCount()].And(masks[k.plan.outputCount()], big.NewInt(1))
 		input = append(input, masks...)
 	}
 	packed := exactGCPackChunks(input, 128)
@@ -100,14 +112,14 @@ func (k *crossGridKernelPrepared) runWithSeed(rw io.ReadWriter, session exactGCS
 	conn := p2p.NewConn(secure)
 	var result *big.Int
 	if role == exactGCRoleGarbler {
-		err = exactGCGarblerProtocolMode(conn, k.circuit, packed, session, true)
+		err = exactGCGarblerProtocolMeasured(conn, k.circuit, packed, session, true, stats)
 	} else {
-		result, err = exactGCEvaluatorProtocolMode(conn, k.circuit, packed, session, true)
+		result, err = exactGCEvaluatorProtocolMeasured(conn, k.circuit, packed, session, true, stats)
 	}
 	if err = exactGCFinishConn(conn, rw, err); err != nil {
 		return nil, errCrossGridKernel
 	}
-	out := make([]*big.Int, len(k.plan.Beta)+1)
+	out := make([]*big.Int, k.plan.outputCount()+1)
 	for i := range out {
 		if role == exactGCRoleGarbler {
 			out[i] = new(big.Int).Set(masks[i])
@@ -126,7 +138,7 @@ func (k *crossGridKernelPrepared) runWithSeed(rw io.ReadWriter, session exactGCS
 func handleCrossGridBatchPlan() {
 	var p crossGridKernelPlan
 	mpcReadInput(&p)
-	if p.validate() != nil {
+	if p.IRLS != nil || p.validate() != nil {
 		outputError("cross-grid plan rejected")
 		return
 	}

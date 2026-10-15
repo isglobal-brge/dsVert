@@ -26,6 +26,7 @@ var errCrossGridKernel = errors.New("cross-grid kernel rejected")
 // (zero when absent). Source slots are row-major value,validity pairs followed
 // by the outcome pair. Alignment contains two XOR limbs per participating owner.
 type crossGridKernelPlan struct {
+	IRLS                                              *dpIRLSStagePlan `json:",omitempty"`
 	Family                                            string
 	Rows, Predictors, Owners, A, GridBits, MaxOutcome int
 	Beta                                              [][]string
@@ -51,6 +52,12 @@ func crossGridKernelProfilesLoad() (crossGridKernelProfiles, error) {
 }
 
 func (p crossGridKernelPlan) validate() error {
+	if p.IRLS != nil {
+		if p.Family != "" || p.Rows != 0 || p.Predictors != 0 || p.Owners != 0 || p.A != 0 || p.GridBits != 0 || p.MaxOutcome != 0 || len(p.Beta) != 0 || len(p.Caps) != 0 || len(p.ThetaExponents) != 0 || p.Classes != 0 || len(p.Thresholds) != 0 {
+			return errCrossGridKernel
+		}
+		return p.IRLS.validate()
+	}
 	if (p.Family != "binomial" && p.Family != "poisson" && p.Family != "nb" && p.Family != "multinomial" && p.Family != "ordinal") || p.Rows < 1 || p.Rows > 32 || p.Predictors < 1 || p.Predictors > 16 || p.Owners < 2 || p.Owners > 64 || p.GridBits < 8 || p.GridBits > 18 || p.MaxOutcome < 1 || p.MaxOutcome > 1024 || (p.Family == "binomial" && p.MaxOutcome != 1) || (p.A != 1 && p.A != 2 && p.A != 4 && p.A != 8 && p.A != 16) || len(p.Beta) < 1 || len(p.Beta) > 8 || len(p.Caps) != len(p.Beta) {
 		return errCrossGridKernel
 	}
@@ -122,7 +129,12 @@ func (p crossGridKernelPlan) validate() error {
 	return nil
 }
 
-func (p crossGridKernelPlan) sourceCount() int { return p.Rows*2*(p.Predictors+1) + 2*p.Owners }
+func (p crossGridKernelPlan) sourceCount() int {
+	if p.IRLS != nil {
+		return p.IRLS.Rows*(p.IRLS.P+3) + 2*p.IRLS.Owners
+	}
+	return p.Rows*2*(p.Predictors+1) + 2*p.Owners
+}
 
 func (p crossGridKernelPlan) predictorGroups() int {
 	if p.Family == "multinomial" {
@@ -143,6 +155,9 @@ func crossGridKernelPrivateInput(p crossGridKernelPlan, source []*big.Int, garbl
 			return nil, errCrossGridKernel
 		}
 		out = append(out, new(big.Int).Set(v))
+	}
+	if p.IRLS != nil {
+		return out, nil
 	}
 	modulus := exactGCModulus(128)
 	for r := 0; r < p.Rows; r++ {
@@ -183,6 +198,9 @@ func crossGridKernelRoundSource(name string, shift int) string {
 func crossGridKernelSource(p crossGridKernelPlan) (string, error) {
 	if p.validate() != nil {
 		return "", errCrossGridKernel
+	}
+	if p.IRLS != nil {
+		return dpIRLSStageSource(*p.IRLS)
 	}
 	if p.Family == "nb" {
 		return crossGridNBKernelSource(p)

@@ -77,3 +77,24 @@ digest. The point digest hashes `dsvert-dp-irls-public-point-v1`, one NUL byte,
 and canonical JSON with keys beta,predecessor,purpose,root,stage_id,stage_index.
 The cross-grid session binds the full plan. This internal helper is not a
 DataSHIELD method and performs no source reads or releases.
+
+`dpIRLSExecuteStage` checks that the prepared point and certificate generate
+the exact durable graph before executing it. The single stage stores the
+ordered g/H shares together with their protected validity. Retries recover
+the retained COMMIT; a different point fails before transport I/O. Protocol
+component durations are optional local observations, not public diagnostics.
+
+Independent exactness tests exposed two negative-literal compiler defects.
+The producer avoids signed Ring128 comparison against a negative literal by
+decoding the unsigned sign/magnitude before narrowing. It emits negative
+public-beta products as subtraction of products with positive constants,
+avoiding zero extension of a negative int32 literal into int64. These are
+source-generation workarounds under the existing compiler pin, with boundary
+and fractional-coefficient regressions; the underlying compiler is unchanged.
+
+B2 admits the numeric profile ID above. B3 must add admission for the named
+`irls-smoke-k2-c64-p3-v1` only after checking its complete frozen path: C=64,
+p=3, binomial/intercept, zero start, T=2, both curvature refreshes, terminal
+audit, split budgets (1,1),(1,1),(2,2), total epsilon=8, box [-1,1], floor=8/5,
+ridge=0, and damping/trust=1. Merely adding a name alias is insufficient.
+The simulator-selected showcase and larger public shapes remain unadmitted.

@@ -2,7 +2,11 @@
 
 * Add the signed dp_irls_v1 contract, exact path accounting, bounded rational
   public updates and durable single-successor reservations for synthetic stages.
-* The protected producer, R/DSI lifecycle and inference remain later milestones.
+* Add an internal fused two-party score/curvature producer for binomial and
+  Poisson public-point IRLS, with a p=3 numeric certificate, signed B1 point
+  admission, independent integer exactness checks and durable private shares.
+* R/DSI lifecycle, mandatory noisy publication and inference remain later
+  milestones; the producer exposes no public aggregate-opening endpoint.
 
 # dsVert 1.4.2
 
